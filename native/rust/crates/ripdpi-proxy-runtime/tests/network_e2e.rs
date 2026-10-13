@@ -1579,49 +1579,53 @@ mod socks5_udp_adapter {
             bufs: &mut [std::io::IoSliceMut<'_>],
             meta: &mut [quinn::udp::RecvMeta],
         ) -> Poll<std::io::Result<usize>> {
-            // Canonical AsyncUdpSocket pattern: register readiness once, attempt
-            // exactly one try_io, return Pending on WouldBlock (waker already
-            // registered by poll_recv_ready), propagate hard errors immediately.
+            // Canonical AsyncUdpSocket pattern (same shape as quinn's own tokio
+            // socket): loop until poll_recv_ready itself returns Pending.
+            // try_io clears the readiness bit on WouldBlock, which consumes the
+            // waker registration made by poll_recv_ready; returning Pending at
+            // that point would leave no waker armed and stall the endpoint
+            // (kqueue on macOS reports spurious readiness, epoll rarely does).
+            // Looping re-registers the waker via the next poll_recv_ready.
             // Use a heap-allocated scratch buffer large enough for any UDP datagram
             // (QUIC initial packets up to ~1280 bytes + 22-byte SOCKS5 header).
             let mut scratch = vec![0u8; 65535];
-            std::task::ready!(self.socket.poll_recv_ready(cx))?;
-            match self.socket.try_io(tokio::io::Interest::READABLE, || self.socket.try_recv(&mut scratch)) {
-                Ok(n) => {
-                    // Use production codec — gets RSV validation for free.
-                    match ripdpi_tunnel_core::decode_udp_frame(&scratch[..n]) {
-                        Ok((from_addr, payload)) => {
-                            let first = bufs.first_mut().ok_or_else(|| {
-                                std::io::Error::new(std::io::ErrorKind::InvalidInput, "no recv buffer")
-                            })?;
-                            debug_assert!(
-                                payload.len() <= first.len(),
-                                "received SOCKS5 payload ({} bytes) exceeds quinn recv buffer ({} bytes) — silent truncation avoided",
-                                payload.len(),
-                                first.len()
-                            );
-                            let copy_len = payload.len().min(first.len());
-                            first[..copy_len].copy_from_slice(&payload[..copy_len]);
-                            meta[0] = quinn::udp::RecvMeta {
-                                addr: from_addr,
-                                len: copy_len,
-                                stride: copy_len,
-                                ecn: None,
-                                dst_ip: None,
-                            };
-                            Poll::Ready(Ok(1))
-                        }
-                        // Malformed SOCKS5 frame: trace the error and return Pending
-                        // so quinn re-polls. The waker is already registered from
-                        // poll_recv_ready above.
-                        Err(e) => {
-                            eprintln!("Socks5UdpAdapter: decode error (dropping frame): {e}");
-                            Poll::Pending
+            loop {
+                std::task::ready!(self.socket.poll_recv_ready(cx))?;
+                match self.socket.try_io(tokio::io::Interest::READABLE, || self.socket.try_recv(&mut scratch)) {
+                    Ok(n) => {
+                        // Use production codec — gets RSV validation for free.
+                        match ripdpi_tunnel_core::decode_udp_frame(&scratch[..n]) {
+                            Ok((from_addr, payload)) => {
+                                let first = bufs.first_mut().ok_or_else(|| {
+                                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "no recv buffer")
+                                })?;
+                                debug_assert!(
+                                    payload.len() <= first.len(),
+                                    "received SOCKS5 payload ({} bytes) exceeds quinn recv buffer ({} bytes) — silent truncation avoided",
+                                    payload.len(),
+                                    first.len()
+                                );
+                                let copy_len = payload.len().min(first.len());
+                                first[..copy_len].copy_from_slice(&payload[..copy_len]);
+                                meta[0] = quinn::udp::RecvMeta {
+                                    addr: from_addr,
+                                    len: copy_len,
+                                    stride: copy_len,
+                                    ecn: None,
+                                    dst_ip: None,
+                                };
+                                return Poll::Ready(Ok(1));
+                            }
+                            // Malformed SOCKS5 frame: trace the error, drop it, and
+                            // read the next datagram (loop re-arms the waker).
+                            Err(e) => {
+                                eprintln!("Socks5UdpAdapter: decode error (dropping frame): {e}");
+                            }
                         }
                     }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(e) => return Poll::Ready(Err(e)),
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Poll::Pending,
-                Err(e) => Poll::Ready(Err(e)),
             }
         }
 
@@ -1787,15 +1791,19 @@ fn quic_handshake_and_echo_round_trip_through_socks5_udp_relay() {
 
         connection.close(0u32.into(), b"done");
 
-        // Keep ctrl_stream alive until here so the SOCKS5 TCP control connection
-        // (which signals the relay to stay open) is not closed prematurely.
-        drop(ctrl_stream);
-
         // Drain client endpoint before drop so quinn releases all UDP state.
         client_endpoint.close(0u32.into(), b"done");
         client_endpoint.wait_idle().await;
 
         server_task.await.expect("server task");
+
+        // The SOCKS5 UDP relay lives only as long as its TCP control connection
+        // (RFC 1928), so ctrl_stream must outlive every datagram of the QUIC
+        // shutdown. Dropping it earlier tears the relay down before the client
+        // CONNECTION_CLOSE reaches the server: the server then waits out its
+        // idle timeout and the dead relay port yields ECONNREFUSED on the client
+        // socket. Only now has the server observed the close.
+        drop(ctrl_stream);
     });
     // proxy.drop() joins a std::thread and must NOT run inside block_on (would
     // block the tokio executor). Dropping here, after block_on returns, is safe.
