@@ -91,3 +91,17 @@ Data-card headers and important label/value facts MUST remain readable at narrow
 
 - **WHEN** data cards are shown at 320dp width with a large localized title
 - **THEN** metadata and controls remain available without clipping the title or important values
+
+### Requirement: REQ-UI-INSTALLED-EMULATOR — Installed large-font acceptance
+
+The debug app MUST be built with real ARM64 native libraries and run on an Android emulator with 200% system font scale. Settings, the four main destinations, and all diagnostic and history sections MUST remain reachable in light and dark themes. Report headers and endpoint choices MUST retain whole-word width. Launcher previews MUST use their matching artwork backgrounds. Presentation labels and cached permission guidance MUST follow the selected app language without a process restart.
+
+#### Scenario: Both themes on device
+
+- **WHEN** the user navigates the installed app in light and dark themes at 200% font scale
+- **THEN** primary labels, symbols, controls, nested pages, and diagnostic details remain visible and reachable without one-glyph columns
+
+#### Scenario: Change language without runtime changes
+
+- **WHEN** the app language changes while permission and connection snapshots remain identical
+- **THEN** projected permission guidance updates to the current language and preserves permission actions and blocking state

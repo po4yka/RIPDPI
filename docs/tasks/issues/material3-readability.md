@@ -2,7 +2,7 @@
 id: UIX-1791793531264679
 title: Improve Material 3 readability and navigation
 kind: feature
-status: review
+status: doing
 area: ui
 priority: high
 owner: ui-integration
@@ -11,8 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: material3-readability
 created: 2026-10-12
-updated: 2026-10-12
-status_detail: App-wide readability verified with 1149 UI tests, 554 executed screenshot tests, 33 reviewed host renders, lint, and independent source review. Main integration is authorized.
+updated: 2026-10-13
+status_detail: User requested installed API 37 emulator review at 200% font in both themes. Found English DNS summary and theme labels in Russian settings; device validation is in progress.
 ---
 
 ## Goal
@@ -62,3 +62,22 @@ Fresh Russian captures at 320dp and 2x font showed remaining compressed words af
 - Golden fixtures remain owned only by golden-blesser after fresh visual acceptance.
 - Shared follow-up writer: RipDpiTopAppBar, its tests, and the two scaffold action defaults in RipDpiScaffolds. Remove the empty large-font controls row when no controls exist.
 - Golden-blesser also owns only the capture heights for handshake timeline, state machine, strategy import, and quality graph screenshot tests. Extend these canvases to inspect all stage rows, diagram legends, import actions, and graph captions; do not change their data or production behavior.
+
+## Installed emulator follow-up ownership
+
+- Runtime labels writer: app DNS summary presentation, all theme label locale arrays, and their focused tests in the isolated fix/readability-runtime-labels worktree. This writer alone owns locale resources for this pass. Core DNS summary contracts and persisted theme entries remain unchanged.
+- Integration owner: device driving on emulator-5586, DESIGN.md, audit evidence, task/OpenSpec artifacts, combined validation, and authorized main integration.
+- Read-only visual reviewer: actual emulator PNG captures; no device interaction or source changes.
+- Golden fixtures remain serialized to golden-blesser if the runtime repair changes existing fixtures; prior user approval covers affected UI readability fixtures.
+
+- Report rows writer: DiagnosticsCards.kt session, probe, and event rows plus focused Compose layout tests, in the isolated fix/readability-report-rows worktree. Keep report metadata, status semantics, callback, and automation tags unchanged. No shared tokens or locale writes.
+
+- Integration owner also owns LauncherIconManager preview background metadata, AppCustomizationScreen and IconPickerGrid preview backgrounds, and their focused tests. Use existing adaptive-icon backgrounds; launcher assets and selection aliases remain unchanged.
+
+- Report rows writer also owns ConfigScreen.kt endpoint chips and their focused layout regression test. The installed Russian proxy choice must keep whole-word width at 200% and preserve VPN/proxy selection.
+
+- Locale refresh writer: MainActivityContent locale observation, MainViewModel/MainUiStateOwner localized presentation invalidation, and focused state tests in fix/readability-locale-refresh. The installed permission guidance must update when app language changes without process restart; permission state and service behavior remain unchanged.
+
+- Locale refresh writer also owns MainPermissionUiFactories.kt only for rebuilding localized issue text while preserving permission kind, recovery, and blocking semantics.
+
+- After the report rows writer reached model capacity, the integration owner completes its remaining tests and scoped fixes in the same isolated report-rows worktree. The writer is inactive; source ownership remains serialized.

@@ -17,7 +17,7 @@ The first stage raised shared typography and settings icons. This pass addresses
 | Graphs and data headers | Controls compete with full titles. Fixed diagram geometry scales text down. | Wrap header controls; retain readable diagram nodes in a scrollable canvas. |
 | History sections | Peer navigation uses a cramped chip row; clear action lacks a sufficient target. | Use scrollable Material 3 tabs and a 48dp clear action. |
 
-The original OOM, throughput, and import Roborazzi images are retained with hashes under the local `build/reports/readability-audit/before` directory. They show layout defects without relying only on source inspection.
+The original OOM, throughput, and import Roborazzi images were inspected with hashes under the local `build/reports/readability-audit/before` directory. A separate host cleanup removed these disposable reports on 2026-10-13. The historical results below identify their source commits; current emulator evidence is stored outside the cleaned build directories.
 
 ## Design contract
 
@@ -28,3 +28,11 @@ Small inline verdict markers, chart ticks, and dense monospace metadata retain t
 ## Validation record
 
 Final source review, combined UI gates, golden verification, and fresh light, dark, and 2x font captures are recorded in `openspec/changes/material3-readability/verification.md`. Host-rendered images establish layout evidence; they do not establish device or network acceptance.
+
+## Installed emulator follow-up
+
+An API 37 ARM64 emulator at 411dp, 420dpi, and 200% system font scale exposed additional defects after the host-render pass. Diagnostic session titles and the Russian Local proxy choice could collapse to one glyph per line. Dark launcher previews used a theme input background instead of their matching adaptive-icon backgrounds. Theme labels, DNS summaries, and history status filters retained English presentation labels. Permission guidance retained the previous language after an in-app language change in the same process.
+
+The follow-up uses measured row budgets, wrapping endpoint choices, existing launcher artwork backgrounds, localized presentation labels, and a locale input for permission presentation. The change verification document tracks the device captures and installed APK identity. Seeded report data proves the diagnostic UI path; it does not prove live network results.
+
+Launcher foreground layers include an outer inset for system effects. Preview rendering uses the inner masked viewport so the artwork keeps the launcher scale. See [Android adaptive-icon layer sizing](https://developer.android.com/reference/android/graphics/drawable/AdaptiveIconDrawable).

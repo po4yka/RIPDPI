@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1791793531264679
 change: material3-readability
-commit_sha: 99abf89533a76c9fd974d771bd68d5f6e471bfd5
-local: passed
-local_evidence: Final rebased UI gate passed 1149 tests without failures or skips, app and service lint, detekt, and ktlint. Locked Cargo metadata and architecture checks passed. The earlier complete app run passed 2425 tests in isolated JVMs.
+commit_sha: d226169bbb42f4cea4fb09278706dbd3f05a7225
+local: required
+local_evidence: Historical gates below passed at their stated commits. Follow-up UI regressions, app/service lint, static analysis, and a real ARM64 APK build passed. Neutral status captions and the combined-tree gate remain pending.
 remote_ci: not_applicable
 remote_ci_evidence: Local implementation and main commits only; push is not requested.
-device: not_applicable
-device_evidence: Visual checks use fresh host-rendered images; no device run is claimed.
-artifact: passed
-artifact_evidence: All 33 fresh host renders were reviewed. All 271 changed UI fixtures were reviewed and both strict Roborazzi variants passed with their existing flavor assumptions.
+device: required
+device_evidence: The baseline APK was installed on API 37 ARM64 at 411dp and 200% font scale. Its light and dark UI exposed the follow-up defects. The corrected APK is built; pool-device installation and both-theme acceptance remain pending.
+artifact: required
+artifact_evidence: Historical renders and strict fixture gates passed as recorded below. Current before captures and ten new screenshot scenes are prepared; corrected device captures and new fixture verification remain pending.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -27,6 +27,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-UI-SHARED-ACTIONS | UIX-1791804419498505 | SharedReadabilityLayoutTest, FeedbackWordLayoutTest, BottomNavBarTest, RipDpiTopAppBarTest, and fresh light/dark/2x renders | Passed |
 | REQ-UI-ADAPTIVE-CHOICES | UIX-1791804426740078 | ReadabilityFormsLayoutTest and ReadabilityFormActionsLayoutTest with actual card gutters, RTL, and full labels; DNS/relay renders | Passed |
 | REQ-UI-DATA-LAYOUT | UIX-1791804434249424 | ReadabilityDataScreenTest with native density 420dpi, complete diagram nodes, RTL tick positions, and 15 data renders | Passed |
+| REQ-UI-INSTALLED-EMULATOR | UIX-1791877120798384 | Installed API 37 emulator, both themes, 200% font; runtime regression tests and reviewed captures | Pending |
 
 The app-wide combined review and visual checks are owned by UIX-1791804441168759. The first-stage results below are historical evidence at the stated commits. The final app-wide evidence follows them.
 
@@ -119,7 +120,7 @@ Fixture commit `99abf89533a76c9fd974d771bd68d5f6e471bfd5` has the exact tested a
 
 ## Retained local reports
 
-Reports remain in the isolated readability worktree under `build/reports/readability-audit`:
+These reports were recorded in the isolated readability worktree under `build/reports/readability-audit`. A separate host cleanup removed the disposable build directories on 2026-10-13. The following list is a historical record, not a claim that these files remain available:
 
 - `gallery.md` and `captures-final.json`: all 33 final images and source/hash metadata.
 - `final-rebased-ui-tests`: final UI XML, totals, and combined gate log.
@@ -128,4 +129,13 @@ Reports remain in the isolated readability worktree under `build/reports/readabi
 - `goldens-final`: strict variant counts, review manifest, fixture receipt, and parent hash acceptance.
 - `architecture-rebased.log`, `cargo-metadata-rebased.json`, and `design-lint-final.log`: final structural and design checks.
 
-Original expected, actual, and diff PNGs remain in the isolated golden worktree under `build/reports/readability-appwide-goldens`. The RDS HTML deck, runtime contracts, locale sets, and native sources were not edited by this UI change. Main integration is authorized. Push and remote CI are not owned by this local task.
+Original expected, actual, and diff PNGs were recorded in the isolated golden worktree under `build/reports/readability-appwide-goldens`; the same cleanup removed them. The RDS HTML deck, runtime contracts, locale sets, and native sources were not edited by that earlier UI pass. Main integration is authorized. Push and remote CI are not owned by this local task.
+
+Current emulator follow-up evidence is stored outside the repository build directories at `/Users/npochaev/.codex/visualizations/2026/10/12/01a12f2d-479e-7a20-af97-5645507716e9/emulator-20261013`. The follow-up is pending until the corrected APK, regression gates, and both-theme device captures are verified.
+
+
+## Installed follow-up source checkpoint
+
+Source checkpoint `d226169bbb42f4cea4fb09278706dbd3f05a7225` contains seven scoped fixes. The first UI run executed 1259 tests: 1258 passed and one launcher contrast assertion failed because its crop excluded the visible preview edges. The corrected viewport test passed with no failures, errors, or skips. The retry also passed app/service lint and complete static analysis. These are separate observed runs; a fresh combined-tree run remains required.
+
+A real ARM64 debug APK built without `skipNativeBuild` in 33m 21s. Its SHA-256 is `e3511cb1189726db220221fa350ef7fb1071d6193a7731f4909e3e6ccd33cee3`, with 744042069 bytes. The immutable APK and `apk-d226-receipt.json` are in the retained emulator evidence directory. This intermediate APK establishes the native build; final acceptance must use the rebased source and final captions.

@@ -10,3 +10,4 @@
 - [x] UIX-1791804426740078 Reflow form choices badges and localized facts #feature !high @item:UIX-1791793531264679
 - [x] UIX-1791804434249424 Repair data cards graphs and recovery action layouts #feature !high @item:UIX-1791793531264679
 - [x] UIX-1791804441168759 Verify app-wide readability and integrate reviewed results #feature !high @item:UIX-1791793531264679
+- [ ] UIX-1791877120798384 Repair installed emulator readability and locale regressions #bug !high @item:UIX-1791793531264679
