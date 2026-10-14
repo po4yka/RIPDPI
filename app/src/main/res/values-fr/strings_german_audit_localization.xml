@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_telegram_status_ok">Disponible</string>
+    <string name="diagnostics_telegram_status_slow">Lent</string>
+    <string name="diagnostics_telegram_status_stalled">Sans progression</string>
+    <string name="diagnostics_telegram_status_blocked">Bloqué</string>
+    <string name="diagnostics_telegram_status_partial">Partiellement disponible</string>
+    <string name="diagnostics_telegram_status_error">Erreur</string>
+    <string name="diagnostics_telegram_status_cancelled">Annulé</string>
+    <string name="diagnostics_telegram_status_deadline_exceeded">Limite de temps atteinte</string>
+    <string name="diagnostics_telegram_status_unknown">Inconnu</string>
+    <string name="diagnostics_telegram_status_unreachable">Inaccessible</string>
+    <string name="diagnostics_share_session_format">Session %1$s · %2$s · %3$s</string>
+    <string name="diagnostics_share_network_format">Réseau %1$s</string>
+    <string name="diagnostics_share_context_format">Contexte %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_permissions_format">Autorisations %1$s VPN · %2$s notifications</string>
+    <string name="diagnostics_share_live_format">En direct %1$s · %2$s</string>
+    <string name="diagnostics_share_engine_analysis_format">Analyse du moteur : %1$s</string>
+    <string name="diagnostics_share_classifier_format">Classificateur : %1$s</string>
+    <string name="diagnostics_share_strategy_completion_format">Achèvement de la stratégie : %1$s</string>
+    <string name="diagnostics_share_audit_cohort_format">Groupe d’audit : %1$s (%2$s)</string>
+    <string name="diagnostics_share_audit_domains_format">Domaines d’audit : %1$s</string>
+    <string name="diagnostics_share_audit_quic_hosts_format">Hôtes QUIC d’audit : %1$s</string>
+    <string name="diagnostics_share_audit_confidence_format">Confiance de l’audit : %1$s (%2$d/100)</string>
+    <string name="diagnostics_share_matrix_coverage_format">Couverture de la matrice : %1$d%%</string>
+    <string name="diagnostics_share_winner_coverage_format">Couverture des gagnants : %1$d%%</string>
+    <string name="diagnostics_share_packs_format">Paquets : %1$s</string>
+    <string name="diagnostics_share_telegram_format">Telegram : %1$s</string>
+    <string name="diagnostics_share_download_format">Téléchargement : %1$s en moyenne, %2$s</string>
+    <string name="diagnostics_share_upload_format">Envoi : %1$s en moyenne, %2$s</string>
+    <string name="diagnostics_share_data_centers_format">DC : %1$s/%2$s accessibles</string>
+    <string name="diagnostics_share_top_warning_format">Avertissement principal : %1$s</string>
+    <string name="diagnostics_strategy_completion_normal">Terminée</string>
+    <string name="diagnostics_strategy_completion_dns_short_circuited">Arrêtée après une manipulation DNS</string>
+    <string name="diagnostics_strategy_completion_dns_tampering_with_fallback">Manipulation DNS avec résultats de la voie de secours</string>
+    <string name="diagnostics_strategy_completion_partial_results">Résultats partiels</string>
+    <plurals name="diagnostics_share_probe_results_format">
+        <item quantity="one">%1$d résultat de test dans le dernier rapport</item>
+        <item quantity="many">%1$d résultats de tests dans le dernier rapport</item>
+        <item quantity="other">%1$d résultats de tests dans le dernier rapport</item>
+    </plurals>
+    <string name="diagnostics_share_permission_granted">Accordée</string>
+    <string name="diagnostics_share_permission_not_required">Non requise</string>
+    <string name="diagnostics_share_highlights_title">Résultats marquants</string>
+    <string name="diagnostics_share_diagnoses_title">Diagnostics</string>
+</resources>

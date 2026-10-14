@@ -3,7 +3,9 @@ package com.poyka.ripdpi.ui.components.buttons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -11,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -44,7 +45,8 @@ fun RipDpiTextAction(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val resolvedColor = if (color == Color.Unspecified) colors.mutedForeground else color
-    val sized = if (minHeight != null) modifier.heightIn(min = minHeight) else modifier
+    val actionMinHeight = RipDpiThemeTokens.components.buttons.minHeight
+    val sized = modifier.heightIn(min = maxOf(minHeight ?: actionMinHeight, actionMinHeight))
     Box(
         modifier =
             sized.ripDpiClickable(
@@ -57,10 +59,9 @@ fun RipDpiTextAction(
     ) {
         Text(
             text = text,
+            modifier = Modifier.width(IntrinsicSize.Max),
             style = textStyle ?: type.button,
             color = if (enabled) resolvedColor else colors.mutedForeground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }

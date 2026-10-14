@@ -4,9 +4,17 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object DiagnosticsDatabaseMigrations {
+    /**
+     * Pre-release schema versions (v0.0.8 and earlier) that have no migration. They hold only
+     * disposable diagnostics history, so Room may drop and recreate the database from them.
+     * Never add a version here that a migration in [ALL] starts from.
+     */
+    val DESTRUCTIVE_FROM_VERSIONS: IntArray = intArrayOf(1, 2, 3)
+
     /** All migrations, in order. Append new Migration(N, N+1) objects here when the schema version bumps. */
     val ALL: Array<Migration> =
         arrayOf(
+            migration4To5,
             migration5To6,
             migration6To7,
             migration7To8,
@@ -18,6 +26,19 @@ internal object DiagnosticsDatabaseMigrations {
             migration13To14,
         )
 }
+
+/**
+ * v4 → v5: add process memory columns to `telemetry_samples`. v0.1.0 shipped schema 4, and
+ * v0.1.1 relied on destructive fallback, so this step was missing for v0.1.0 upgrades.
+ * Both columns are nullable INTEGER without a default, as in the exported schema 5.
+ */
+private val migration4To5 =
+    object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN nativeHeapBytes INTEGER")
+            db.execSQL("ALTER TABLE telemetry_samples ADD COLUMN processRssBytes INTEGER")
+        }
+    }
 
 /**
  * v5 → v6: add `relayProtocolKind` column to `telemetry_samples`.

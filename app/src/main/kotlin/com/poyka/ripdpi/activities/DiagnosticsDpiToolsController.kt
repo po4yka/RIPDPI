@@ -307,7 +307,7 @@ internal class DiagnosticsDpiToolsController(
                     sniList = sniList,
                 ).find(detectedResults)
             }.onSuccess { results ->
-                _allowlistSniTool.value = results.values.toList().toAllowlistSniUiModel()
+                _allowlistSniTool.value = results.values.toList().toAllowlistSniUiModel(stringResolver)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 _allowlistSniTool.value =

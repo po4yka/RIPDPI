@@ -12,6 +12,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
 import com.poyka.ripdpi.permissions.PermissionItemUiState
 import com.poyka.ripdpi.permissions.PermissionKind
@@ -187,6 +189,20 @@ class SettingsPreferencesScreenTest {
             .onNode(hasScrollToNodeAction())
             .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsAdvancedSettings))
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSettings).assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "ru-rRU")
+    fun dnsSummaryInSettingsUsesTheCurrentResourceLanguage() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsConnectivitySection(
+                    uiState = SettingsUiState(dns = DnsUiState(dnsMode = DnsModePlainUdp, dnsIp = "9.9.9.9")),
+                    actions = testActions(),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Обычный DNS · 9.9.9.9").assertExists()
     }
 
     private fun testActions(

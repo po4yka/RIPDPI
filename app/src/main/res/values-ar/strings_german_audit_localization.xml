@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_telegram_status_ok">متاح</string>
+    <string name="diagnostics_telegram_status_slow">بطيء</string>
+    <string name="diagnostics_telegram_status_stalled">دون تقدم</string>
+    <string name="diagnostics_telegram_status_blocked">محظور</string>
+    <string name="diagnostics_telegram_status_partial">متاح جزئيًا</string>
+    <string name="diagnostics_telegram_status_error">خطأ</string>
+    <string name="diagnostics_telegram_status_cancelled">أُلغي</string>
+    <string name="diagnostics_telegram_status_deadline_exceeded">تم بلوغ الحد الزمني</string>
+    <string name="diagnostics_telegram_status_unknown">غير معروف</string>
+    <string name="diagnostics_telegram_status_unreachable">يتعذر الوصول إليه</string>
+    <string name="diagnostics_share_session_format">الجلسة %1$s · %2$s · %3$s</string>
+    <string name="diagnostics_share_network_format">الشبكة %1$s</string>
+    <string name="diagnostics_share_context_format">السياق %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_permissions_format">الأذونات %1$s VPN · %2$s الإشعارات</string>
+    <string name="diagnostics_share_live_format">مباشر %1$s · %2$s</string>
+    <string name="diagnostics_share_engine_analysis_format">تحليل المحرك: %1$s</string>
+    <string name="diagnostics_share_classifier_format">المصنّف: %1$s</string>
+    <string name="diagnostics_share_strategy_completion_format">اكتمال الاستراتيجية: %1$s</string>
+    <string name="diagnostics_share_audit_cohort_format">مجموعة التدقيق: %1$s (%2$s)</string>
+    <string name="diagnostics_share_audit_domains_format">نطاقات التدقيق: %1$s</string>
+    <string name="diagnostics_share_audit_quic_hosts_format">مضيفو QUIC للتدقيق: %1$s</string>
+    <string name="diagnostics_share_audit_confidence_format">ثقة التدقيق: %1$s (%2$d/100)</string>
+    <string name="diagnostics_share_matrix_coverage_format">تغطية المصفوفة: %1$d%%</string>
+    <string name="diagnostics_share_winner_coverage_format">تغطية الاستراتيجيات الفائزة: %1$d%%</string>
+    <string name="diagnostics_share_packs_format">الحزم: %1$s</string>
+    <string name="diagnostics_share_telegram_format">Telegram: %1$s</string>
+    <string name="diagnostics_share_download_format">التنزيل: المتوسط %1$s، %2$s</string>
+    <string name="diagnostics_share_upload_format">الرفع: المتوسط %1$s، %2$s</string>
+    <string name="diagnostics_share_data_centers_format">مراكز البيانات: %1$s/%2$s يمكن الوصول إليها</string>
+    <string name="diagnostics_share_top_warning_format">التحذير الرئيسي: %1$s</string>
+    <string name="diagnostics_strategy_completion_normal">مكتملة</string>
+    <string name="diagnostics_strategy_completion_dns_short_circuited">توقفت بعد التلاعب بـ DNS</string>
+    <string name="diagnostics_strategy_completion_dns_tampering_with_fallback">تلاعب بـ DNS مع نتائج المسار البديل</string>
+    <string name="diagnostics_strategy_completion_partial_results">نتائج جزئية</string>
+    <plurals name="diagnostics_share_probe_results_format">
+        <item quantity="zero">%1$d نتيجة اختبار في أحدث تقرير</item>
+        <item quantity="one">%1$d نتيجة اختبار في أحدث تقرير</item>
+        <item quantity="two">نتيجتا اختبار في أحدث تقرير (%1$d)</item>
+        <item quantity="few">%1$d نتائج اختبارات في أحدث تقرير</item>
+        <item quantity="many">%1$d نتيجة اختبار في أحدث تقرير</item>
+        <item quantity="other">%1$d نتيجة اختبار في أحدث تقرير</item>
+    </plurals>
+    <string name="diagnostics_share_permission_granted">ممنوح</string>
+    <string name="diagnostics_share_permission_not_required">غير مطلوب</string>
+    <string name="diagnostics_share_highlights_title">النتائج الرئيسية</string>
+    <string name="diagnostics_share_diagnoses_title">التشخيصات</string>
+</resources>

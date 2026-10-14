@@ -10,7 +10,6 @@ import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapResult
 import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.toPersistentList
-import java.util.Locale
 
 internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): DiagnosticsDnsIntegrityToolUiModel {
     val flagged = domains.count { result -> result.verdict != DnsIntegrityVerdict.DNS_OK }
@@ -49,7 +48,7 @@ internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): Diagn
                 .toPersistentList(),
         dohBootstrapRows =
             dohBootstrapResults
-                .map(DohBootstrapResult::toUiModel)
+                .map { it.toUiModel(stringResolver) }
                 .toPersistentList(),
     )
 }
@@ -141,11 +140,11 @@ private fun DnsIntegrityResult.buildDnsIntegrityMetrics(
     }
 }.toPersistentList()
 
-private fun DohBootstrapResult.toUiModel(): DiagnosticsDohBootstrapUiModel =
+private fun DohBootstrapResult.toUiModel(stringResolver: StringResolver): DiagnosticsDohBootstrapUiModel =
     DiagnosticsDohBootstrapUiModel(
         provider = providerName,
         hostname = dohHostname,
-        verdict = verdict.displayLabel(),
+        verdict = verdict.displayLabel(stringResolver),
         detail = bootstrapDetail(),
         tone = verdict.tone(),
     )
@@ -154,7 +153,7 @@ private fun DoqProbeResult.toUiModel(stringResolver: StringResolver): Diagnostic
     DiagnosticsDnsIntegrityDoqUiModel(
         provider = provider,
         domain = domain,
-        verdict = verdict.displayLabel(),
+        verdict = verdict.displayLabel(stringResolver),
         endpoint = endpoint,
         resolvedIps =
             resolvedIps.joinToString().ifBlank {
@@ -189,9 +188,25 @@ private fun DnsIntegrityVerdict.dnsVerdictLabel(): Int =
         DnsIntegrityVerdict.UNKNOWN -> R.string.diagnostics_dns_unknown
     }
 
-private fun DoqVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
+private fun DoqVerdict.displayLabel(strings: StringResolver): String =
+    strings.getString(
+        when (this) {
+            DoqVerdict.DOQ_OK -> R.string.diagnostics_doq_ok
+            DoqVerdict.DOQ_TIMEOUT -> R.string.diagnostics_doq_timeout
+            DoqVerdict.DOQ_BLOCKED_QUIC -> R.string.diagnostics_doq_blocked_quic
+            DoqVerdict.DOQ_DPI_REJECT -> R.string.diagnostics_doq_dpi_reject
+            DoqVerdict.DOQ_INTEGRITY_DIVERGENT -> R.string.diagnostics_doq_integrity_divergent
+        },
+    )
 
-private fun BootstrapVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
+private fun BootstrapVerdict.displayLabel(strings: StringResolver): String =
+    strings.getString(
+        when (this) {
+            BootstrapVerdict.OK -> R.string.diagnostics_bootstrap_ok
+            BootstrapVerdict.SPOOFED -> R.string.diagnostics_bootstrap_spoofed
+            BootstrapVerdict.RESOLVE_FAILED -> R.string.diagnostics_bootstrap_resolve_failed
+        },
+    )
 
 private fun DohBootstrapResult.bootstrapDetail(): String =
     buildList {

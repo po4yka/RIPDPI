@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.config
 
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -177,7 +176,7 @@ private fun String.supportsStandardRelayEndpointFields(): Boolean =
         this == RelayKindVless || this == RelayKindTrojan || this == RelayKindShadowsocks
 
 @Composable
-internal fun RowScope.RelayKindChip(
+internal fun RelayKindChip(
     selectedKind: String,
     kind: String,
     labelRes: Int,
@@ -189,13 +188,13 @@ internal fun RowScope.RelayKindChip(
         text = stringResource(labelRes),
         selected = selectedKind == kind,
         onClick = { onRelayKindChanged(kind) },
-        modifier = modifier.weight(1f),
+        modifier = modifier,
         enabled = enabled,
     )
 }
 
 @Composable
-internal fun RowScope.RelayKindChip(
+internal fun RelayKindChip(
     selectedKind: String,
     kind: String,
     label: String,
@@ -207,7 +206,7 @@ internal fun RowScope.RelayKindChip(
         text = label,
         selected = selectedKind == kind,
         onClick = { onRelayKindChanged(kind) },
-        modifier = modifier.weight(1f),
+        modifier = modifier,
         enabled = enabled,
     )
 }

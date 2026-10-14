@@ -108,7 +108,7 @@ jobs:
       - name: Provision Phase 16 emulator
         if: matrix.executionKind == 'android_packet_smoke' && contains(matrix.runsOnJson, 'ubuntu-latest')
         run: |
-          bash scripts/ci/start-android-emulator.sh \
+          bash scripts/ci/start-android-emulator.sh --fresh \
             --avd phase16 \
             --api 34 \
             --arch x86_64 \

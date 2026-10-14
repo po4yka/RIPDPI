@@ -134,6 +134,67 @@ class ClashSubscriptionParserTest {
     }
 
     @Test
+    fun `hysteria2 fingerprint is kept as the certificate pin (REL-3)`() {
+        val pin = (0 until 32).joinToString("") { "%02x".format(it * 5 + 1) }
+        val yaml =
+            """
+            proxies:
+              - name: hy2
+                type: hysteria2
+                server: 203.0.113.9
+                port: 443
+                password: test-value
+                skip-cert-verify: true
+                fingerprint: "${pin.uppercase().chunked(2).joinToString(":")}"
+            """.trimIndent()
+
+        val profile = ClashSubscriptionParser.parse(yaml, groupId).profiles.single() as ProxyProfile.Hysteria2
+
+        assertEquals(true, profile.insecure)
+        assertEquals(pin, profile.pinSha256)
+    }
+
+    @Test
+    fun `hysteria2 fingerprint without skip-cert-verify pins instead of CA validation like mihomo`() {
+        val pin = (0 until 32).joinToString("") { "%02x".format(it * 3 + 2) }
+        val yaml =
+            """
+            proxies:
+              - name: hy2
+                type: hysteria2
+                server: 203.0.113.9
+                port: 443
+                password: test-value
+                fingerprint: $pin
+            """.trimIndent()
+
+        val profile = ClashSubscriptionParser.parse(yaml, groupId).profiles.single() as ProxyProfile.Hysteria2
+
+        assertEquals(true, profile.insecure)
+        assertEquals(pin, profile.pinSha256)
+    }
+
+    @Test
+    fun `hysteria2 node with a malformed fingerprint is rejected`() {
+        val yaml =
+            """
+            proxies:
+              - name: hy2
+                type: hysteria2
+                server: 203.0.113.9
+                port: 443
+                password: test-value
+                skip-cert-verify: true
+                fingerprint: not-a-sha256
+            """.trimIndent()
+
+        val result = ClashSubscriptionParser.parse(yaml, groupId)
+
+        assertTrue(result.profiles.isEmpty())
+        assertEquals(0, result.errors.single().nodeIndex)
+    }
+
+    @Test
     fun `maps unmappable proxy types to raw config`() {
         val yaml =
             """
