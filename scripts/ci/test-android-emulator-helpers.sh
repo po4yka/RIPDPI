@@ -165,7 +165,7 @@ ADB
   assert_equals "$fake_adb" "$(resolve_adb_bin)" "Stop test must use the test ADB"
   stop_android_emulator test-owned-avd
   [[ -f "${EMULATOR_STOP_LOG}.done" ]] || { echo "Owned emulator was not stopped" >&2; exit 1; }
-  assert_equals 1 "$(rg -c 'emu kill' "$EMULATOR_STOP_LOG")" "An unrelated emulator must remain active"
+  assert_equals 1 "$(grep -c 'emu kill' "$EMULATOR_STOP_LOG")" "An unrelated emulator must remain active"
   assert_equals 3 "$(wc -l < "$EMULATOR_PROCESS_COUNT_LOG" | tr -d ' ')" "Stop must wait for shutdown and confirm no remaining process"
   if stop_android_emulator RIPDPI_Pool_1; then
     echo "A detached stop must not bypass the pool lease" >&2
