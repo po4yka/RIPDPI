@@ -2,7 +2,7 @@
 id: UIX-1791958951401122
 title: Correct audited French localization
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization maintainers
@@ -34,24 +34,30 @@ The baseline is 3458ed9c1541d9a5217e5c4618845ecefd4a97bd. Correct 138 confirmed 
 
 ## Observed early evidence
 
-The first Live regression failed for the expected reason: two French stopped labels were expected and zero were found. The run had one test failure, zero errors and zero skips. The baseline source was unchanged. The real Xray AAR passed content-bound provenance and four-ABI verification (SHA256 c5865cc277651bc7964500333566f9c540fe5c4053881aa109785c8d5b24ab35). The combined resource suite passed 40 tests; independent review found no resource or first-cycle runtime defect. Further Kotlin and hosted checks remain pending.
+The first Live regression failed for the expected reason: two French stopped labels were expected and zero were found. The run had one test failure, zero errors and zero skips. The baseline source was unchanged. The real Xray AAR passed content-bound provenance and four-ABI verification (SHA256 c5865cc277651bc7964500333566f9c540fe5c4053881aa109785c8d5b24ab35). The combined resource suite passed 40 tests; independent review found no resource or first-cycle runtime defect.
 
 ## Behavior regression evidence
 
 Each of the four runtime changes has an observed failure before the production fix and a passing rerun after it. Each failing run has one assertion failure, zero errors and zero skipped tests. The stopped Live badge/headline, generated unknown network, RTT display in Live and History, and French debug prose/decimal formatting are covered. Raw sample values remain unchanged. The debug test also retains expanded state and updates its cached timing summary across English, French and English. The separate initial debug test compile failure was repaired and is not counted as behavior evidence.
 
-Independent final review found no actionable defect in C1 through C4, the 25 Kotlin regression tests, or the resource contracts. Architecture health passed with zero new or worsened indicators (116 crates); file LoC limits passed with zero new or grown exemptions. Full Kotlin, render and hosted results remain pending.
+Independent final review found no actionable defect in C1 through C4, the 25 Kotlin regression tests, or the resource contracts. Architecture health passed with zero new or worsened indicators (116 crates); file LoC limits passed with zero new or grown exemptions.
 
 ## Full test and render evidence
 
 The unfiltered Github Full unit suite passed 2,546 tests with zero failures, errors or skipped tests. It includes all 25 new French tests. All 16 PNG captures were inspected at 420dp with normal text and 360dp with 1.5 font scale. The native font-loader collision did not recur in the standalone rerun. Three existing expectations now check localized lowercase display captions while raw fixtures remain unchanged.
 
-The initial Live overflow oracle produced four false positives. Actual line ends matched Text width (48/64px at normal scale, 72/96px at large scale), while Compose retained a 311–372px paragraph allocation. The final oracle checks every line in visible Text bounds, height overflow, omitted lines and ellipsis. Independent review and the passing full suite confirmed it. No production layout or golden fixture was changed. App Full and service lint passed; final formatting, complete static analysis and screenshot comparison remain pending.
+The initial Live overflow oracle produced four false positives. Actual line ends matched Text width (48/64px at normal scale, 72/96px at large scale), while Compose retained a 311–372px paragraph allocation. The final oracle checks every line in visible Text bounds, height overflow, omitted lines and ellipsis. Independent review and the passing full suite confirmed it. No production layout or golden fixture was changed.
 
 ## Screenshot comparison evidence
 
-The Github Full Roborazzi comparison gate passed: 297 executed tests, zero failures or errors. The pre-existing RtlVariantGalleryTest.rtlHandshakeTimeline remains ignored because its RTL goldens have not been approved. It is outside this French change and is not counted as executed evidence. No golden fixture was recorded or changed. Local Simple screenshots need an authentic embedded relay bundle, which is absent in this worktree; no CI stub was used. Hosted CI must still verify its owning gates before publication is considered complete.
+The Github Full Roborazzi comparison gate passed: 297 executed tests, zero failures or errors. The pre-existing RtlVariantGalleryTest.rtlHandshakeTimeline remains ignored because its RTL goldens have not been approved. It is outside this French change and is not counted as executed evidence. No golden fixture was recorded or changed. Local Simple screenshots need an authentic embedded relay bundle, which is absent in this worktree; no CI stub was used.
 
 ## Completed local gates
 
-After the scoped Kotlin formatter, staticAnalysis, app Github Full and Simple lint, and service lint all passed. The formatter used the pinned ktlint 1.8.0 and was restricted to 13 owned Kotlin files. Independent review found no actionable issue. Required publication and hosted CI remain pending; no device or native packet acceptance is claimed.
+After the scoped Kotlin formatter, staticAnalysis, app Github Full and Simple lint, and service lint all passed. The formatter used the pinned ktlint 1.8.0 and was restricted to 13 owned Kotlin files. Independent review found no actionable issue. The final combined gates were rerun after rebase onto the published main tree. No physical-device or native packet acceptance is claimed.
+
+## Main publication and hosted evidence
+
+Source commit abb49ce0daca560d6acd7d606d4650f50e44793a was fast-forward integrated into main and pushed to origin. All seven workflows passed on this exact source SHA. [CI run 38547366408](https://github.com/po4yka/RIPDPI/actions/runs/38547366408) and ci-required passed: all five API 27/33/35/36/37 emulator jobs, all Full and Simple release builds, Roborazzi, static analysis and coverage succeeded. The existing route conditions skipped 17 unrelated jobs; 47 jobs passed and none failed. Exact workflow links are retained in the change's verification.md.
+
+The implementation and hosted verification are complete. This task stays in review with its records intact. Local Simple screenshots, physical-device and carrier-network behavior, and native-speaker acceptance are not claimed.
