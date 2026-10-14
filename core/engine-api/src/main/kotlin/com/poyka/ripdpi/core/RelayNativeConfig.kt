@@ -228,6 +228,8 @@ data class ResolvedRipDpiRelayConfig(
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
     val hysteriaInsecure: Boolean = false,
+    /** Hysteria2 leaf-certificate SHA-256 pin, 64 lowercase hex characters; `null` = no pin. */
+    val hysteriaPinSha256: String? = null,
     @SerialName("anytlsPassword")
     val anyTlsPassword: String? = null,
     val tuicUuid: String? = null,
@@ -449,6 +451,7 @@ private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section 
         hysteriaPassword = hysteriaPassword,
         hysteriaSalamanderKey = hysteriaSalamanderKey,
         hysteriaInsecure = hysteriaInsecure,
+        hysteriaPinSha256 = hysteriaPinSha256,
     )
 
 private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
@@ -694,6 +697,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         hysteriaPassword = hysteria2.hysteriaPassword,
         hysteriaSalamanderKey = hysteria2.hysteriaSalamanderKey,
         hysteriaInsecure = hysteria2.hysteriaInsecure,
+        hysteriaPinSha256 = hysteria2.hysteriaPinSha256,
         anyTlsPassword = anyTls.anyTlsPassword,
         tuicUuid = tuic.tuicUuid,
         tuicPassword = tuic.tuicPassword,

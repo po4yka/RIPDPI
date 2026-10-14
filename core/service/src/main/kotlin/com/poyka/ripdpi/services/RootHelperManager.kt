@@ -71,6 +71,7 @@ open class RootHelperManager
         private var nfqwsExtractor: (Context) -> File = NfqwsBackendAssets::extract
         private var nfqwsDispatcher: CoroutineDispatcher = Dispatchers.IO
         private var helperProcess: Process? = null
+        private var helperOutput: RootHelperOutputDrainer? = null
         private var activeSocketPath: String? = null
         private var activeNoncePath: String? = null
         private var binaryExtractor: (Context) -> File = { context -> extractBinary(context) }
@@ -267,6 +268,8 @@ open class RootHelperManager
                             continue
                         }
                         helperProcess = process
+                        // Nothing else reads the su pipes; an unread pipe fills and blocks the helper.
+                        helperOutput = RootHelperOutputDrainer.start(process) { line -> log.d { "helper: $line" } }
 
                         if (readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
                             activeSocketPath = socket.absolutePath
@@ -304,7 +307,9 @@ open class RootHelperManager
                     if (ownedBackend != null) throw RuntimeCleanupPendingException(shutdownFailure)
                 }
             }
+            val output = helperOutput
             helperProcess = null
+            helperOutput = null
             activeSocketPath = null
             activeNoncePath = null
             backendSession.set(null)
@@ -335,6 +340,7 @@ open class RootHelperManager
                         log.w(error) { "failed to terminate detached root helper process" }
                     }
                 }
+                output?.close()
                 removeIpcFiles(socketPath, noncePath)
             }
             log.i { "root helper stopped" }

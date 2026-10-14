@@ -57,4 +57,33 @@
     <string name="history_connection_state_stopped">detenido</string>
     <string name="history_connection_state_halted">detenido</string>
     <string name="history_connection_state_reconnecting">reconectando</string>
+    <string name="diagnostics_doq_ok">DoQ correcto</string>
+    <string name="diagnostics_doq_timeout">Tiempo de espera de DoQ agotado</string>
+    <string name="diagnostics_doq_blocked_quic">QUIC bloqueado para DoQ</string>
+    <string name="diagnostics_doq_dpi_reject">DoQ rechazado por DPI</string>
+    <string name="diagnostics_doq_integrity_divergent">Respuestas de DoQ divergentes</string>
+    <string name="diagnostics_bootstrap_ok">correcto</string>
+    <string name="diagnostics_bootstrap_spoofed">suplantado</string>
+    <string name="diagnostics_bootstrap_resolve_failed">Error de resolución</string>
+    <string name="diagnostics_byoh_partial_body">Cuerpo incompleto</string>
+    <string name="diagnostics_byoh_connection_error">Error de conexión</string>
+    <string name="diagnostics_byoh_invalid_response">Respuesta no válida</string>
+    <string name="diagnostics_byoh_bytes_received">%1$s B recibidos</string>
+    <string name="diagnostics_sni_metric_asns">ASN</string>
+    <string name="diagnostics_sni_metric_tried">probados</string>
+    <string name="diagnostics_sni_row_tried">%1$s · %2$s · probados: %3$s</string>
+    <string name="diagnostics_snapshot_pre_scan">Antes del análisis</string>
+    <string name="diagnostics_snapshot_post_scan">Después del análisis</string>
+    <string name="diagnostics_snapshot_connection_sample">Muestra de conexión</string>
+    <string name="diagnostics_snapshot_failure">Fallo</string>
+    <plurals name="diagnostics_sni_complete">
+        <item quantity="one">Se encontró %1$d entrada SNI compatible en %2$d ASN.</item>
+        <item quantity="many">Se encontraron %1$d entradas SNI compatibles en %2$d ASN.</item>
+        <item quantity="other">Se encontraron %1$d entradas SNI compatibles en %2$d ASN.</item>
+    </plurals>
+    <plurals name="diagnostics_sni_row_compatible">
+        <item quantity="one">%1$s: %2$d compatible</item>
+        <item quantity="many">%1$s: %2$d compatibles</item>
+        <item quantity="other">%1$s: %2$d compatibles</item>
+    </plurals>
 </resources>

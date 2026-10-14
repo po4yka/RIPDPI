@@ -1,11 +1,10 @@
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
@@ -20,6 +19,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun VlessTransportFields(
     draft: ConfigDraft,
@@ -30,7 +30,10 @@ internal fun VlessTransportFields(
         style = RipDpiThemeTokens.type.caption,
         color = RipDpiThemeTokens.colors.mutedForeground,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
         VlessTransportChip(
             selectedTransport = draft.relayVlessTransport,
             transport = RelayVlessTransportRealityTcp,
@@ -61,6 +64,7 @@ internal fun VlessUuidField(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun XhttpFields(
     draft: ConfigDraft,
@@ -81,7 +85,10 @@ internal fun XhttpFields(
         style = RipDpiThemeTokens.type.caption,
         color = RipDpiThemeTokens.colors.mutedForeground,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
         XhttpModeChip(
             selectedMode = draft.relayXhttpMode,
             mode = RelayXhttpModeAuto,
@@ -104,7 +111,7 @@ internal fun XhttpFields(
 }
 
 @Composable
-private fun RowScope.VlessTransportChip(
+private fun VlessTransportChip(
     selectedTransport: String,
     transport: String,
     labelRes: Int,
@@ -114,12 +121,11 @@ private fun RowScope.VlessTransportChip(
         text = stringResource(labelRes),
         selected = selectedTransport == transport,
         onClick = { onRelayVlessTransportChanged(transport) },
-        modifier = Modifier.weight(1f),
     )
 }
 
 @Composable
-private fun RowScope.XhttpModeChip(
+private fun XhttpModeChip(
     selectedMode: String,
     mode: String,
     labelRes: Int,
@@ -129,7 +135,6 @@ private fun RowScope.XhttpModeChip(
         text = stringResource(labelRes),
         selected = selectedMode == mode,
         onClick = { onRelayXhttpModeChanged(mode) },
-        modifier = Modifier.weight(1f),
     )
 }
 

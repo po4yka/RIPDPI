@@ -32,13 +32,14 @@ class RipDpiButtonLabelLayoutTest {
     @get:Rule val composeRule = createComposeRule()
     private val label = "Reconnect using saved configuration"
 
-    @Test fun `default label keeps its single line presentation`() {
+    @Test fun `default label keeps every word visible`() {
         composeRule.setContent {
             RipDpiTheme { Box(Modifier.width(220.dp)) { RipDpiButton(label, {}) } }
         }
         val layout = labelLayout()
-        assertEquals(1, layout.lineCount)
-        assertTrue(layout.isLineEllipsized(0))
+        assertTrue(layout.lineCount > 1)
+        assertFalse(layout.hasVisualOverflow)
+        assertEquals(label.length, layout.getLineEnd(layout.lineCount - 1))
     }
 
     @Test fun `wrapped label remains complete with icons at maximum font and dispatches once`() {

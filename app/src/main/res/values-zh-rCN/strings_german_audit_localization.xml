@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_telegram_status_ok">可用</string>
+    <string name="diagnostics_telegram_status_slow">缓慢</string>
+    <string name="diagnostics_telegram_status_stalled">停滞</string>
+    <string name="diagnostics_telegram_status_blocked">已阻断</string>
+    <string name="diagnostics_telegram_status_partial">部分可用</string>
+    <string name="diagnostics_telegram_status_error">错误</string>
+    <string name="diagnostics_telegram_status_cancelled">已取消</string>
+    <string name="diagnostics_telegram_status_deadline_exceeded">已达到时间限制</string>
+    <string name="diagnostics_telegram_status_unknown">未知</string>
+    <string name="diagnostics_telegram_status_unreachable">无法访问</string>
+    <string name="diagnostics_share_session_format">会话 %1$s · %2$s · %3$s</string>
+    <string name="diagnostics_share_network_format">网络 %1$s</string>
+    <string name="diagnostics_share_context_format">上下文 %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_permissions_format">权限 %1$s VPN · %2$s 通知</string>
+    <string name="diagnostics_share_live_format">实时 %1$s · %2$s</string>
+    <string name="diagnostics_share_engine_analysis_format">引擎分析：%1$s</string>
+    <string name="diagnostics_share_classifier_format">分类器：%1$s</string>
+    <string name="diagnostics_share_strategy_completion_format">策略完成情况：%1$s</string>
+    <string name="diagnostics_share_audit_cohort_format">审计分组：%1$s（%2$s）</string>
+    <string name="diagnostics_share_audit_domains_format">审计域名：%1$s</string>
+    <string name="diagnostics_share_audit_quic_hosts_format">审计 QUIC 主机：%1$s</string>
+    <string name="diagnostics_share_audit_confidence_format">审计置信度：%1$s（%2$d/100）</string>
+    <string name="diagnostics_share_matrix_coverage_format">矩阵覆盖率：%1$d%%</string>
+    <string name="diagnostics_share_winner_coverage_format">成功方案覆盖率：%1$d%%</string>
+    <string name="diagnostics_share_packs_format">资源包：%1$s</string>
+    <string name="diagnostics_share_telegram_format">Telegram：%1$s</string>
+    <string name="diagnostics_share_download_format">下载：平均 %1$s，%2$s</string>
+    <string name="diagnostics_share_upload_format">上传：平均 %1$s，%2$s</string>
+    <string name="diagnostics_share_data_centers_format">DC：%1$s/%2$s 可访问</string>
+    <string name="diagnostics_share_top_warning_format">主要警告：%1$s</string>
+    <string name="diagnostics_strategy_completion_normal">已完成</string>
+    <string name="diagnostics_strategy_completion_dns_short_circuited">因 DNS 篡改而停止</string>
+    <string name="diagnostics_strategy_completion_dns_tampering_with_fallback">DNS 篡改，含备用路径结果</string>
+    <string name="diagnostics_strategy_completion_partial_results">部分结果</string>
+    <plurals name="diagnostics_share_probe_results_format">
+        <item quantity="other">最新报告中有 %1$d 项探测结果</item>
+    </plurals>
+    <string name="diagnostics_share_permission_granted">已授予</string>
+    <string name="diagnostics_share_permission_not_required">无需权限</string>
+    <string name="diagnostics_share_highlights_title">主要结果</string>
+    <string name="diagnostics_share_diagnoses_title">诊断结论</string>
+</resources>

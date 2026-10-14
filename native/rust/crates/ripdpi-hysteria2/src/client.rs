@@ -29,7 +29,7 @@ impl Drop for AbortOnDrop {
 }
 
 pub async fn connect(config: &Config) -> Result<HysteriaClient> {
-    if config.insecure {
+    if config.insecure && config.pin_sha256.is_none() {
         tracing::warn!("hysteria2 session starting with certificate verification DISABLED (insecure=true profile)");
     }
 

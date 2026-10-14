@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -38,12 +39,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -53,7 +56,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val CompactBottomNavFontScale = 1.5f
-private const val MaximumBottomNavFontScale = 1.8f
 private val AccessibilityBottomBarExtraHeight = 16.dp
 
 @Suppress("LongMethod")
@@ -75,9 +77,20 @@ fun BottomNavBar(
     val fontScale = LocalDensity.current.fontScale
     val layoutDirection = LocalLayoutDirection.current
     val useCompactLabels = fontScale >= CompactBottomNavFontScale
-    val useMaximumLabels = fontScale >= MaximumBottomNavFontScale
+    val labels = destinations.map { stringResource(it.titleRes) }
+    val labelMeasurer = rememberTextMeasurer()
+    val labelStyle = RipDpiThemeTokens.type.navLabel
+    val labelWidths =
+        labels.map {
+            labelMeasurer.measure(AnnotatedString(it), style = labelStyle, softWrap = false).size.width
+        }
+    val density = LocalDensity.current
+    val labelLineHeight = with(density) { labelStyle.lineHeight.toDp() }
     val bottomBarHeight =
-        layout.bottomBarHeight + if (useCompactLabels) AccessibilityBottomBarExtraHeight else 0.dp
+        maxOf(
+            layout.bottomBarHeight + if (useCompactLabels) AccessibilityBottomBarExtraHeight else 0.dp,
+            labelLineHeight + components.navigation.bottomNavIndicatorHeight + RipDpiThemeTokens.spacing.md,
+        )
 
     Column(
         modifier =
@@ -100,89 +113,111 @@ fun BottomNavBar(
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
                         ).fillMaxWidth()
-                        .height(bottomBarHeight)
                         .ripDpiTestTag(RipDpiTestTags.BottomNavBar)
                         .padding(horizontal = components.navigation.bottomNavHorizontalPadding),
             ) {
                 val density = LocalDensity.current
-                val slotWidth = maxWidth / destinations.size.coerceAtLeast(1)
-                val indicatorOffsetPxTarget =
-                    selectedIndex?.let { index ->
-                        with(density) {
-                            (
-                                slotWidth * index +
-                                    ((slotWidth - components.navigation.bottomNavIndicatorWidth) / 2)
-                            ).toPx()
-                        }
-                    } ?: 0f
-                val indicatorOffsetPx by animateFloatAsState(
-                    targetValue = indicatorOffsetPxTarget,
-                    animationSpec = motion.emphasizedTween(easing = FastOutSlowInEasing),
-                    label = "bottomNavIndicatorOffset",
-                )
-                val indicatorAlpha by animateFloatAsState(
-                    targetValue = if (selectedIndex != null) 1f else 0f,
-                    animationSpec = motion.stateTween(),
-                    label = "bottomNavIndicatorAlpha",
-                )
-                val indicatorScaleX by animateFloatAsState(
-                    targetValue = if (selectedIndex != null) 1f else 0.88f,
-                    animationSpec = motion.quickTween(),
-                    label = "bottomNavIndicatorScaleX",
-                )
-                val indicatorTopOffsetPx =
-                    with(density) {
-                        components.navigation.bottomNavIndicatorTopOffset.toPx()
+                // Large fonts and long locale labels need more width than four slots can give.
+                // Keep all destinations visible; do not shrink type or split a word to fit.
+                val labelMinWidth =
+                    with(density) { labelWidths.maxOrNull()?.toDp() ?: 0.dp } +
+                        RipDpiThemeTokens.spacing.xs * 2
+                val columns = bottomNavColumnsForWidth(labelMinWidth, maxWidth, destinations.size)
+                val horizontalItems =
+                    columns == 1 &&
+                        labelMinWidth + components.navigation.bottomNavIndicatorWidth <= maxWidth
+                val adaptiveItemHeight =
+                    if (horizontalItems) {
+                        maxOf(components.buttons.minHeight, labelLineHeight + RipDpiThemeTokens.spacing.sm * 2)
+                    } else {
+                        bottomBarHeight
                     }
-
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(
-                                    width = components.navigation.bottomNavIndicatorWidth,
-                                    height = components.navigation.bottomNavIndicatorHeight,
-                                ).graphicsLayer {
-                                    translationX =
-                                        indicatorOffsetPx *
-                                        if (layoutDirection == LayoutDirection.Ltr) 1f else -1f
-                                    translationY = indicatorTopOffsetPx
-                                    alpha = indicatorAlpha
-                                    scaleX = indicatorScaleX
-                                }.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator)
-                                .background(
-                                    color = indicatorSurface.container,
-                                    shape = RipDpiThemeTokens.shapes.xxl,
-                                ),
+                if (columns < destinations.size) {
+                    Column {
+                        destinations.chunked(columns).forEach { row ->
+                            Row(Modifier.fillMaxWidth().height(adaptiveItemHeight)) {
+                                row.forEach { destination ->
+                                    val label = labels[destinations.indexOf(destination)]
+                                    BottomNavItem(
+                                        destination = destination,
+                                        label = label,
+                                        selected = destination == selectedRoute,
+                                        onClick = { onNavigate(destination) },
+                                        modifier = Modifier.weight(1f),
+                                        localIndicator = true,
+                                        horizontal = horizontalItems,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    val slotWidth = maxWidth / destinations.size.coerceAtLeast(1)
+                    val indicatorOffsetPxTarget =
+                        selectedIndex?.let { index ->
+                            with(density) {
+                                (
+                                    slotWidth * index +
+                                        ((slotWidth - components.navigation.bottomNavIndicatorWidth) / 2)
+                                ).toPx()
+                            }
+                        } ?: 0f
+                    val indicatorOffsetPx by animateFloatAsState(
+                        targetValue = indicatorOffsetPxTarget,
+                        animationSpec = motion.emphasizedTween(easing = FastOutSlowInEasing),
+                        label = "bottomNavIndicatorOffset",
                     )
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                    val indicatorAlpha by animateFloatAsState(
+                        targetValue = if (selectedIndex != null) 1f else 0f,
+                        animationSpec = motion.stateTween(),
+                        label = "bottomNavIndicatorAlpha",
+                    )
+                    val indicatorScaleX by animateFloatAsState(
+                        targetValue = if (selectedIndex != null) 1f else 0.88f,
+                        animationSpec = motion.quickTween(),
+                        label = "bottomNavIndicatorScaleX",
+                    )
+                    val indicatorTopOffsetPx =
+                        with(density) {
+                            components.navigation.bottomNavIndicatorTopOffset.toPx()
+                        }
+
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(bottomBarHeight),
                     ) {
-                        destinations.forEach { destination ->
-                            val fullLabel = stringResource(destination.titleRes)
-                            BottomNavItem(
-                                destination = destination,
-                                label =
-                                    stringResource(
-                                        if (useCompactLabels) {
-                                            if (useMaximumLabels) {
-                                                destination.maximumBottomNavTitleRes()
-                                            } else {
-                                                destination.compactBottomNavTitleRes()
-                                            }
-                                        } else {
-                                            destination.titleRes
-                                        },
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(
+                                        width = components.navigation.bottomNavIndicatorWidth,
+                                        height = components.navigation.bottomNavIndicatorHeight,
+                                    ).graphicsLayer {
+                                        translationX =
+                                            indicatorOffsetPx *
+                                            if (layoutDirection == LayoutDirection.Ltr) 1f else -1f
+                                        translationY = indicatorTopOffsetPx
+                                        alpha = indicatorAlpha
+                                        scaleX = indicatorScaleX
+                                    }.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator)
+                                    .background(
+                                        color = indicatorSurface.container,
+                                        shape = RipDpiThemeTokens.shapes.xxl,
                                     ),
-                                accessibilityLabel = fullLabel,
-                                compact = useCompactLabels,
-                                selected = destination == selectedRoute,
-                                onClick = { onNavigate(destination) },
-                            )
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            destinations.forEach { destination ->
+                                BottomNavItem(
+                                    destination = destination,
+                                    label = labels[destinations.indexOf(destination)],
+                                    modifier = Modifier.weight(1f),
+                                    selected = destination == selectedRoute,
+                                    onClick = { onNavigate(destination) },
+                                )
+                            }
                         }
                     }
                 }
@@ -192,16 +227,16 @@ fun BottomNavBar(
 }
 
 @Composable
-private fun RowScope.BottomNavItem(
+private fun BottomNavItem(
     destination: Route,
     label: String,
-    accessibilityLabel: String,
-    compact: Boolean,
     selected: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    localIndicator: Boolean = false,
+    horizontal: Boolean = false,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
@@ -229,53 +264,102 @@ private fun RowScope.BottomNavItem(
         label = "bottomNavContentAlpha",
     )
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxHeight()
-                .weight(1f)
-                .border(RipDpiStroke.Thick, focusBorderColor, RipDpiThemeTokens.shapes.md)
-                .ripDpiTestTag(RipDpiTestTags.bottomNav(destination))
-                .graphicsLayer {
-                    scaleX = selectionScale
-                    scaleY = selectionScale
-                    alpha = contentAlpha
-                }.ripDpiSelectable(
-                    selected = selected,
-                    role = Role.Tab,
-                    interactionSource = interactionSource,
-                    showIndication = false,
-                    onClick = onClick,
-                ).clearAndSetSemantics {
-                    contentDescription = accessibilityLabel
-                },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(
-                        width = components.navigation.bottomNavIndicatorWidth,
-                        height = components.navigation.bottomNavIndicatorHeight,
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = requireNotNull(destination.icon),
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(RipDpiIconSizes.Default),
-            )
-        }
+    val itemModifier =
+        modifier
+            .fillMaxHeight()
+            .border(RipDpiStroke.Thick, focusBorderColor, RipDpiThemeTokens.shapes.md)
+            .ripDpiTestTag(RipDpiTestTags.bottomNav(destination))
+            .graphicsLayer {
+                scaleX = selectionScale
+                scaleY = selectionScale
+                alpha = contentAlpha
+            }.ripDpiSelectable(
+                selected = selected,
+                role = Role.Tab,
+                interactionSource = interactionSource,
+                showIndication = false,
+                onClick = onClick,
+            ).clearAndSetSemantics {
+                contentDescription = label
+            }
+
+    val iconContent: @Composable () -> Unit = {
+        BottomNavItemIcon(destination, iconTint, selected, localIndicator)
+    }
+    val labelContent: @Composable () -> Unit = {
         Text(
             text = label,
-            style = if (compact) type.caption else type.navLabel,
+            style = type.navLabel,
             color = labelColor,
             textAlign = TextAlign.Center,
             maxLines = 1,
+            softWrap = false,
             overflow = TextOverflow.Clip,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.xs),
+            modifier = Modifier.padding(horizontal = spacing.xs).width(IntrinsicSize.Max),
+        )
+    }
+    if (horizontal) {
+        Row(itemModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            iconContent()
+            labelContent()
+        }
+    } else {
+        Column(
+            itemModifier,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            iconContent()
+            labelContent()
+        }
+    }
+}
+
+private fun bottomNavColumnsForWidth(
+    labelMinWidth: Dp,
+    availableWidth: Dp,
+    destinationCount: Int,
+): Int =
+    when {
+        labelMinWidth <= availableWidth / destinationCount -> destinationCount
+        labelMinWidth <= availableWidth / 2 -> 2
+        else -> 1
+    }
+
+@Composable
+private fun BottomNavItemIcon(
+    destination: Route,
+    tint: Color,
+    selected: Boolean,
+    localIndicator: Boolean,
+) {
+    val components = RipDpiThemeTokens.components
+    Box(
+        modifier =
+            Modifier
+                .size(
+                    width = components.navigation.bottomNavIndicatorWidth,
+                    height = components.navigation.bottomNavIndicatorHeight,
+                ).then(
+                    if (localIndicator && selected) {
+                        Modifier.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator).background(
+                            RipDpiThemeTokens.surfaces
+                                .resolve(
+                                    RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator,
+                                ).container,
+                            RipDpiThemeTokens.shapes.xxl,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = requireNotNull(destination.icon),
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(RipDpiIconSizes.Default),
         )
     }
 }
@@ -295,24 +379,6 @@ internal fun bottomNavFocusBorderColor(
     isFocused: Boolean,
     outlineColor: Color,
 ): Color = if (isFocused) outlineColor else Color.Transparent
-
-private fun Route.compactBottomNavTitleRes(): Int =
-    when (this) {
-        Route.Home -> R.string.bottom_nav_home_compact
-        Route.Config -> R.string.bottom_nav_config_compact
-        Route.Settings -> R.string.bottom_nav_settings_compact
-        is Route.Diagnostics -> R.string.bottom_nav_diagnostics_compact
-        else -> titleRes
-    }
-
-private fun Route.maximumBottomNavTitleRes(): Int =
-    when (this) {
-        Route.Home -> R.string.bottom_nav_home_maximum
-        Route.Config -> R.string.bottom_nav_config_maximum
-        Route.Settings -> R.string.bottom_nav_settings_maximum
-        is Route.Diagnostics -> R.string.bottom_nav_diagnostics_maximum
-        else -> titleRes
-    }
 
 @Preview(showBackground = true)
 @Composable

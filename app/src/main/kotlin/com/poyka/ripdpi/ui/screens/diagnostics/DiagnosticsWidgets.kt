@@ -7,13 +7,18 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -39,6 +44,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -46,7 +53,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -58,10 +67,15 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
+import java.util.Locale
 import kotlin.math.roundToInt
+
+private const val LargeTextFontScale = 1.5f
+private val CompactMetricWidth = 280.dp
 
 private val SparklineChartHeight = 84.dp
 private val SparklineChipWidth = 64.dp
@@ -81,7 +95,6 @@ internal fun CollapsibleSection(
     content: @Composable () -> Unit,
 ) {
     TrackRecomposition("CollapsibleSection")
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
     var expanded by remember { mutableStateOf(defaultExpanded) }
@@ -96,56 +109,18 @@ internal fun CollapsibleSection(
     )
 
     Column(modifier = modifier) {
-        Row(
+        CollapsibleHeader(
+            title = title.uppercase(),
+            badgeCount = badgeCount,
+            rotationAngle = rotationAngle,
+            expanded = expanded,
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .stateDescription(expandedLabel, collapsedLabel, expanded)
-                    .ripDpiClickable(
-                        role = Role.Button,
-                        onClickLabel = if (expanded) collapseActionLabel else expandActionLabel,
-                        onClick = { expanded = !expanded },
-                    ).padding(vertical = spacing.sm),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title.uppercase(),
-                    style = RipDpiThemeTokens.type.sectionTitle,
-                    color = colors.mutedForeground,
-                )
-                badgeCount?.let { count ->
-                    Surface(
-                        color = colors.inputBackground,
-                        shape = RipDpiThemeTokens.shapes.full,
-                    ) {
-                        Text(
-                            text = count.toString(),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            style = RipDpiThemeTokens.type.smallLabel,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                }
-            }
-            Icon(
-                imageVector = RipDpiIcons.KeyboardArrowDown,
-                contentDescription =
-                    if (expanded) {
-                        stringResource(
-                            R.string.cd_collapse,
-                        )
-                    } else {
-                        stringResource(R.string.cd_expand)
-                    },
-                tint = colors.mutedForeground,
-                modifier = Modifier.rotate(rotationAngle),
-            )
-        }
+                Modifier.stateDescription(expandedLabel, collapsedLabel, expanded).ripDpiClickable(
+                    role = Role.Button,
+                    onClickLabel = if (expanded) collapseActionLabel else expandActionLabel,
+                    onClick = { expanded = !expanded },
+                ),
+        )
         AnimatedVisibility(
             visible = expanded,
             enter = motion.sectionEnterTransition(),
@@ -155,6 +130,80 @@ internal fun CollapsibleSection(
                 content()
             }
         }
+    }
+}
+
+/** Width of the longest segment that must stay together before a narrow-column fallback. */
+@Composable
+internal fun minimumUnbrokenTextWidth(
+    text: String,
+    style: TextStyle,
+): Dp {
+    val width =
+        rememberTextMeasurer()
+            .measure(text, style.copy(hyphens = Hyphens.None))
+            .multiParagraph.intrinsics.minIntrinsicWidth
+    return with(LocalDensity.current) { kotlin.math.ceil(width).toDp() }
+}
+
+@Composable
+private fun CollapsibleHeader(
+    title: String,
+    badgeCount: Int?,
+    rotationAngle: Float,
+    expanded: Boolean,
+    modifier: Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    val titleWidth = minimumUnbrokenTextWidth(title, type.sectionTitle)
+    val badgeWidth =
+        badgeCount?.let { minimumUnbrokenTextWidth(it.toString(), type.smallLabel) + 16.dp }
+            ?: 0.dp
+    val controls: @Composable () -> Unit = {
+        badgeCount?.let { CollapsibleCountBadge(it) }
+        Icon(
+            imageVector = RipDpiIcons.KeyboardArrowDown,
+            contentDescription = stringResource(if (expanded) R.string.cd_collapse else R.string.cd_expand),
+            tint = colors.mutedForeground,
+            modifier = Modifier.size(RipDpiIconSizes.Default).rotate(rotationAngle),
+        )
+    }
+    BoxWithConstraints(modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = spacing.sm)) {
+        val controlsWidth = badgeWidth + RipDpiIconSizes.Default + spacing.sm * (if (badgeCount == null) 1 else 2)
+        if (titleWidth > maxWidth - controlsWidth) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(title, Modifier.fillMaxWidth(), colors.mutedForeground, style = type.sectionTitle)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) { controls() }
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, Modifier.weight(1f).fillMaxWidth(), colors.mutedForeground, style = type.sectionTitle)
+                controls()
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollapsibleCountBadge(count: Int) {
+    val colors = RipDpiThemeTokens.colors
+    Surface(color = colors.inputBackground, shape = RipDpiThemeTokens.shapes.full) {
+        Text(
+            text = count.toString(),
+            modifier = Modifier.width(IntrinsicSize.Max).padding(horizontal = 8.dp, vertical = 2.dp),
+            style = RipDpiThemeTokens.type.smallLabel,
+            color = colors.mutedForeground,
+        )
     }
 }
 
@@ -213,17 +262,14 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
 internal fun OverviewStatGrid(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
     if (metrics.isEmpty()) return
     val spacing = RipDpiThemeTokens.spacing
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        metrics.chunked(OverviewStatColumns).forEach { rowMetrics ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                rowMetrics.forEach { metric ->
-                    OverviewStatTile(metric = metric, modifier = Modifier.weight(1f))
-                }
-                repeat(OverviewStatColumns - rowMetrics.size) {
-                    Spacer(modifier = Modifier.weight(1f))
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = if (maxWidth < CompactMetricWidth || fontScale >= LargeTextFontScale) 1 else OverviewStatColumns
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            metrics.chunked(columns).forEach { rowMetrics ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    rowMetrics.forEach { metric -> OverviewStatTile(metric, Modifier.weight(1f)) }
+                    repeat(columns - rowMetrics.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
         }
@@ -253,15 +299,13 @@ private fun OverviewStatTile(
                 text = metric.value,
                 style = type.screenTitle,
                 color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 text = metric.label.uppercase(),
-                style = type.smallLabel,
+                style = type.secondaryBody,
                 color = contentColor.copy(alpha = OverviewStatLabelAlpha),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
             )
             MetricMeasurementContext(metric, contentColor)
         }
@@ -376,10 +420,9 @@ private fun SparklineHeader(
     valueColor: Color,
     labelColor: Color,
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         Text(
             text = label,
@@ -823,27 +866,34 @@ private const val SparklineBytesPerKilobyte = 1_000L
 private const val SparklineBytesPerMegabyte = 1_000_000L
 private const val SparklineBytesPerGigabyte = 1_000_000_000L
 
-private fun formatSparklineValue(value: Float): String {
+@Composable
+private fun formatSparklineValue(value: Float): String =
+    formatSparklineValue(value, LocalConfiguration.current.locales[0])
+
+internal fun formatSparklineValue(
+    value: Float,
+    locale: Locale,
+): String {
     val longValue = value.toLong()
     return when {
         longValue >= SparklineBytesPerGigabyte -> {
-            String.format(java.util.Locale.US, "%.1f GB", longValue / SparklineBytesPerGigabyte.toDouble())
+            String.format(locale, "%.1f GB", longValue / SparklineBytesPerGigabyte.toDouble())
         }
 
         longValue >= SparklineBytesPerMegabyte -> {
-            String.format(java.util.Locale.US, "%.1f MB", longValue / SparklineBytesPerMegabyte.toDouble())
+            String.format(locale, "%.1f MB", longValue / SparklineBytesPerMegabyte.toDouble())
         }
 
         longValue >= SparklineBytesPerKilobyte -> {
-            String.format(java.util.Locale.US, "%.1f KB", longValue / SparklineBytesPerKilobyte.toDouble())
+            String.format(locale, "%.1f KB", longValue / SparklineBytesPerKilobyte.toDouble())
         }
 
         longValue > 0L -> {
-            "$longValue B"
+            String.format(locale, "%d B", longValue)
         }
 
         else -> {
-            "0"
+            String.format(locale, "%d", 0)
         }
     }
 }

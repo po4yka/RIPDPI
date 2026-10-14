@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -274,14 +275,14 @@ private fun ProfileVariantMetricStrip(
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
         metrics.forEachIndexed { index, metric ->
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
             ) {
                 Text(
                     text = stringResource(metric.labelRes),
-                    style = type.caption,
+                    style = type.secondaryBody,
                     color = colors.mutedForeground,
                 )
                 Text(

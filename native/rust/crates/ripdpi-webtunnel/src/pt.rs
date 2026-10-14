@@ -241,7 +241,7 @@ fn handle_socks_client(mut stream: TcpStream) -> io::Result<()> {
     let Some(bridge) = request.bridge else {
         return write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE);
     };
-    match connect_webtunnel(&bridge, false) {
+    match connect_webtunnel(&bridge) {
         Ok(mut webtunnel) => {
             write_socks_reply(&mut stream, 0x00)?;
             relay_socks_over_webtunnel(&mut stream, &mut webtunnel)

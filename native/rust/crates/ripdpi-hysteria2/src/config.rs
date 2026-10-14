@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use crate::error::{HysteriaError, Result};
 use crate::port_hopping::PortHoppingWindow;
+use crate::quic_transport::{CertificatePinSha256, parse_certificate_pin_sha256};
 
 #[derive(Clone)]
 pub struct Config {
@@ -11,6 +12,9 @@ pub struct Config {
     pub server_addr: String,
     pub server_name: String,
     pub insecure: bool,
+    /// SHA-256 pin of the server leaf certificate (`pinSHA256`). With
+    /// `insecure`, the pin replaces CA validation; without it, both apply.
+    pub pin_sha256: Option<CertificatePinSha256>,
     pub salamander_key: Option<String>,
     pub quic_bind_low_port: bool,
     pub quic_migrate_after_handshake: bool,
@@ -37,6 +41,7 @@ impl fmt::Debug for Config {
             .field("server_addr", &self.server_addr)
             .field("server_name", &self.server_name)
             .field("insecure", &self.insecure)
+            .field("pin_sha256", &self.pin_sha256.is_some())
             .field("salamander_key", &self.salamander_key.as_ref().map(|_| "<redacted>"))
             .field("quic_bind_low_port", &self.quic_bind_low_port)
             .field("quic_migrate_after_handshake", &self.quic_migrate_after_handshake)
@@ -66,6 +71,7 @@ impl Config {
             server_addr,
             server_name,
             insecure: false,
+            pin_sha256: None,
             salamander_key: None,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
@@ -88,6 +94,11 @@ impl Config {
             server_addr: format!("{host}:{port}"),
             server_name: query.get("sni").cloned().unwrap_or_else(|| host.to_string()),
             insecure: query.get("insecure").is_some_and(|value| value == "1"),
+            pin_sha256: query
+                .get("pinSHA256")
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| parse_certificate_pin_sha256(value))
+                .transpose()?,
             salamander_key: query.get("obfs-password").cloned(),
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
@@ -194,6 +205,22 @@ mod tests {
         assert_eq!(auth, config.auth);
         assert_eq!("[2001:db8::1]:443", config.server_addr);
         assert_eq!("cover.example", config.server_name);
+    }
+
+    #[test]
+    fn from_url_parses_the_pin_sha256_certificate_pin() {
+        let pin = "AB:".repeat(31) + "AB";
+        let config = Config::from_url(&format!("hysteria2://secret@example.com:443/?insecure=1&pinSHA256={pin}"))
+            .expect("parse");
+        assert!(config.insecure);
+        assert_eq!(config.pin_sha256, Some([0xab; 32]));
+    }
+
+    #[test]
+    fn from_url_rejects_a_malformed_pin_instead_of_dropping_it() {
+        let error = Config::from_url("hysteria2://secret@example.com:443/?insecure=1&pinSHA256=abcd")
+            .expect_err("malformed pin must fail");
+        assert!(matches!(error, HysteriaError::InvalidCertificatePin(_)));
     }
 
     #[test]
