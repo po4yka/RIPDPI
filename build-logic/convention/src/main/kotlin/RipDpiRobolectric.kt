@@ -5,6 +5,7 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 
 /** Host JVM access required by Robolectric 4.17; never applied to Android runtime processes. */
 internal fun Project.configureRipDpiRobolectric() {
+    configureRobolectricNativeResources()
     val toolchains = extensions.getByType(JavaToolchainService::class.java)
     tasks.withType(Test::class.java).configureEach {
         javaLauncher.set(toolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })

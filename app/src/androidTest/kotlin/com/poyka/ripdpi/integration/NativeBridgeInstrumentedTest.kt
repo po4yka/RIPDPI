@@ -43,6 +43,7 @@ class NativeBridgeInstrumentedTest {
                 }
 
             awaitPortOpen(port)
+            proxy.awaitReady(timeoutMillis = 5_000)
             val duplicate =
                 runCatching {
                     proxy.startProxy(preferences)
@@ -67,6 +68,7 @@ class NativeBridgeInstrumentedTest {
                 }
 
             awaitPortOpen(port)
+            proxy.awaitReady(timeoutMillis = 5_000)
             proxy.stopProxy()
             assertStoppedExitCode(proxyJob.await())
         }
