@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.diagnostics.BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
@@ -16,6 +18,7 @@ import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import com.poyka.ripdpi.diagnostics.toConnectionStageScale
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.toImmutableList
 import java.time.Instant
 import java.time.ZoneId
@@ -25,10 +28,16 @@ import javax.inject.Inject
 
 internal open class DiagnosticsUiFormatter
     @Inject
-    constructor() {
-        open val locale: Locale = Locale.US
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) {
+        open val locale: Locale
+            get() =
+                ContextCompat
+                    .getContextForLanguage(context)
+                    .resources.configuration.locales[0]
         open val timestampLocale: Locale
-            get() = Locale.getDefault()
+            get() = locale
         open val zoneId: ZoneId = ZoneId.systemDefault()
 
         open fun formatTimestamp(timestamp: Long): String =
@@ -350,7 +359,7 @@ internal fun DiagnosticsUiCoreSupport.toneForProbeResult(
         .toUiTone()
 
 internal fun DiagnosticsUiCoreSupport.toneForEventLevel(level: String): DiagnosticsTone =
-    when (level.lowercase(formatter.locale)) {
+    when (level.lowercase(Locale.ROOT)) {
         "info" -> DiagnosticsTone.Info
         "warn", "warning" -> DiagnosticsTone.Warning
         "error", "failed" -> DiagnosticsTone.Negative
@@ -358,7 +367,7 @@ internal fun DiagnosticsUiCoreSupport.toneForEventLevel(level: String): Diagnost
     }
 
 internal fun DiagnosticsUiCoreSupport.toneForSessionStatus(status: String): DiagnosticsTone =
-    when (status.lowercase(formatter.locale)) {
+    when (status.lowercase(Locale.ROOT)) {
         "completed", "finished" -> DiagnosticsTone.Positive
         "running", "started" -> DiagnosticsTone.Warning
         "failed" -> DiagnosticsTone.Negative

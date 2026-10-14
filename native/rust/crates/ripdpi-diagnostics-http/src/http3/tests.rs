@@ -148,7 +148,10 @@ fn verified_get_data_fin_and_empty_204_are_complete() {
 fn stalled_headers_and_body_preserve_the_last_observation() {
     for reply in [Reply::HeaderStall, Reply::BodyStall] {
         let server = Server::start(reply, b"h3");
-        let result = run(&server, &Http3ProbeConfig { timeout_ms: 250, ..server.config() });
+        // The server never finishes the stalled stage, so this bound only decides
+        // when the probe gives up. It must exceed handshake + headers + first body
+        // chunk under heavy CPU load so the last observation is always captured.
+        let result = run(&server, &Http3ProbeConfig { timeout_ms: 3000, ..server.config() });
         assert_eq!(result.status, "TIMEOUT", "{result:?}");
         assert!(!result.body_complete);
         assert_eq!(result.http3_validated, matches!(reply, Reply::BodyStall));

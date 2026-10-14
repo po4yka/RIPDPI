@@ -197,6 +197,7 @@ private fun relayCredentials(
                 hysteriaPassword = profile.password,
                 hysteriaSalamanderKey = profile.obfsPassword,
                 hysteriaInsecure = profile.insecure ?: false,
+                hysteriaPinSha256 = profile.pinSha256,
             )
         }
 

@@ -116,7 +116,7 @@ internal class DiagnosticsByohCompatibilityController(
             is ByohProgress.Compatible -> {
                 val result = ByohProbeResult(event.domain, compatible = true, bytesReceived = event.bytesReceived)
                 results += result
-                rows += result.toUiModel()
+                rows += result.toByohUiModel(stringResolver)
                 updateRunningRows(rows, results)
             }
 
@@ -129,7 +129,7 @@ internal class DiagnosticsByohCompatibilityController(
                         reason = event.reason,
                     )
                 results += result
-                rows += result.toUiModel()
+                rows += result.toByohUiModel(stringResolver)
                 updateRunningRows(rows, results)
             }
 
@@ -196,19 +196,24 @@ internal class DiagnosticsByohCompatibilityController(
                 DiagnosticsTone.Neutral,
             ),
         ).toPersistentList()
-
-    private fun ByohProbeResult.toUiModel(): DiagnosticsByohDomainUiModel =
-        DiagnosticsByohDomainUiModel(
-            domain = domain,
-            verdict =
-                if (compatible) {
-                    stringResolver.getString(R.string.diagnostics_byoh_verdict_compatible)
-                } else {
-                    (reason ?: ByohIncompatibleReason.InvalidResponse).label()
-                },
-            bytesReceived = bytesReceived.toString(),
-            tone = if (compatible) DiagnosticsTone.Positive else DiagnosticsTone.Warning,
-        )
-
-    private fun ByohIncompatibleReason.label(): String = name.lowercase().replace('_', ' ')
 }
+
+internal fun ByohProbeResult.toByohUiModel(strings: StringResolver): DiagnosticsByohDomainUiModel =
+    DiagnosticsByohDomainUiModel(
+        domain = domain,
+        verdict =
+            if (compatible) {
+                strings.getString(R.string.diagnostics_byoh_verdict_compatible)
+            } else {
+                strings.getString(
+                    when (reason ?: ByohIncompatibleReason.InvalidResponse) {
+                        ByohIncompatibleReason.PartialBody -> R.string.diagnostics_byoh_partial_body
+                        ByohIncompatibleReason.Timeout -> R.string.diagnostics_value_timeout
+                        ByohIncompatibleReason.ConnectionError -> R.string.diagnostics_byoh_connection_error
+                        ByohIncompatibleReason.InvalidResponse -> R.string.diagnostics_byoh_invalid_response
+                    },
+                )
+            },
+        bytesReceived = bytesReceived.toString(),
+        tone = if (compatible) DiagnosticsTone.Positive else DiagnosticsTone.Warning,
+    )

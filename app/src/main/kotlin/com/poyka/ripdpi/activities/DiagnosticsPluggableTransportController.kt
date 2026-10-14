@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpich.MeekReachabilityProbe
 import com.poyka.ripdpi.diagnostics.dpich.Obfs4ReachabilityProbe
 import com.poyka.ripdpi.diagnostics.dpich.PluggableTransportReachabilityProbe
+import com.poyka.ripdpi.diagnostics.dpich.PluggableTransportResult
 import com.poyka.ripdpi.diagnostics.dpich.loadMeekFrontUrls
 import com.poyka.ripdpi.diagnostics.dpich.loadObfs4BridgeEndpoints
 import com.poyka.ripdpi.platform.StringResolver
@@ -21,10 +22,17 @@ import kotlinx.coroutines.withContext
 internal class DiagnosticsPluggableTransportController(
     private val scope: CoroutineScope,
     appSettingsRepository: AppSettingsRepository,
-    private val assetLoader: DpiAssetLoader,
+    assetLoader: DpiAssetLoader,
     private val stringResolver: StringResolver,
+    private val runProbe: suspend () -> PluggableTransportResult = { loadPluggableTransportProbe(assetLoader).run() },
 ) {
-    private val _tool = MutableStateFlow(DiagnosticsPluggableTransportToolUiModel())
+    private val _tool =
+        MutableStateFlow(
+            DiagnosticsPluggableTransportToolUiModel(
+                summary = stringResolver.getString(R.string.diagnostics_pt_idle),
+                summaryResId = R.string.diagnostics_pt_idle,
+            ),
+        )
     val tool: StateFlow<DiagnosticsPluggableTransportToolUiModel> = _tool.asStateFlow()
 
     init {
@@ -51,8 +59,24 @@ internal class DiagnosticsPluggableTransportController(
                         summary =
                             if (settings.detectionCheckPrivacyModeEnabled) {
                                 stringResolver.getString(R.string.diagnostics_pt_privacy_disabled)
+                            } else if (current.state == DiagnosticsPluggableTransportState.Disabled) {
+                                stringResolver.getString(R.string.diagnostics_pt_idle)
                             } else {
                                 current.summary
+                            },
+                        summaryResId =
+                            when {
+                                settings.detectionCheckPrivacyModeEnabled -> {
+                                    R.string.diagnostics_pt_privacy_disabled
+                                }
+
+                                current.state == DiagnosticsPluggableTransportState.Disabled -> {
+                                    R.string.diagnostics_pt_idle
+                                }
+
+                                else -> {
+                                    current.summaryResId
+                                }
                             },
                     )
             }
@@ -69,6 +93,7 @@ internal class DiagnosticsPluggableTransportController(
                 current.copy(
                     state = DiagnosticsPluggableTransportState.Disabled,
                     summary = stringResolver.getString(R.string.diagnostics_pt_privacy_disabled),
+                    summaryResId = R.string.diagnostics_pt_privacy_disabled,
                     errorMessage = null,
                 )
             return
@@ -77,11 +102,12 @@ internal class DiagnosticsPluggableTransportController(
             DiagnosticsPluggableTransportToolUiModel(
                 state = DiagnosticsPluggableTransportState.Running,
                 summary = stringResolver.getString(R.string.diagnostics_pt_running),
+                summaryResId = R.string.diagnostics_pt_running,
                 privacyModeEnabled = false,
             )
         scope.launch {
             runCatching {
-                loadProbe().run()
+                runProbe()
             }.onSuccess { result ->
                 _tool.value = result.toUiModel(privacyModeEnabled = false, stringResolver = stringResolver)
             }.onFailure { error ->
@@ -90,17 +116,18 @@ internal class DiagnosticsPluggableTransportController(
                     DiagnosticsPluggableTransportToolUiModel(
                         state = DiagnosticsPluggableTransportState.Failed,
                         summary = stringResolver.getString(R.string.diagnostics_pt_failed),
+                        summaryResId = R.string.diagnostics_pt_failed,
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
             }
         }
     }
-
-    private suspend fun loadProbe(): PluggableTransportReachabilityProbe =
-        withContext(Dispatchers.IO) {
-            PluggableTransportReachabilityProbe(
-                obfs4Probe = Obfs4ReachabilityProbe(bridges = assetLoader.loadObfs4BridgeEndpoints()),
-                meekProbe = MeekReachabilityProbe(fronts = assetLoader.loadMeekFrontUrls()),
-            )
-        }
 }
+
+private suspend fun loadPluggableTransportProbe(assetLoader: DpiAssetLoader): PluggableTransportReachabilityProbe =
+    withContext(Dispatchers.IO) {
+        PluggableTransportReachabilityProbe(
+            obfs4Probe = Obfs4ReachabilityProbe(bridges = assetLoader.loadObfs4BridgeEndpoints()),
+            meekProbe = MeekReachabilityProbe(fronts = assetLoader.loadMeekFrontUrls()),
+        )
+    }

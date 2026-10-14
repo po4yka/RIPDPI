@@ -142,6 +142,12 @@ data class RelayCredentialRecord(
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
     val hysteriaInsecure: Boolean = false,
+    /**
+     * Hysteria2 certificate pin (SHA-256 of the leaf certificate DER, 64
+     * lowercase hex characters). It is kept next to [hysteriaInsecure] so that
+     * one record always carries both values. Not a secret.
+     */
+    val hysteriaPinSha256: String? = null,
     val tuicUuid: String? = null,
     val tuicPassword: String? = null,
     val anyTlsPassword: String? = null,

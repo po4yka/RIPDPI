@@ -57,7 +57,8 @@ fn capture_client_hello(server_name: &str) -> Vec<u8> {
         "Bridge webtunnel 192.0.2.3:1 url=https://{server_name}/secret utls=hellochrome_auto"
     ))
     .expect("parse capture bridge line");
-    let connector = build_tls_connector(&config, false).expect("build WebTunnel TLS connector");
+    // The production (verifying) connector: the parity target covers the ClientHello it really sends.
+    let connector = build_tls_connector(&config).expect("build WebTunnel TLS connector");
     let stream = TcpStream::connect(addr).expect("connect loopback socket");
     stream.set_read_timeout(Some(Duration::from_secs(5))).expect("set client read timeout");
     stream.set_write_timeout(Some(Duration::from_secs(5))).expect("set client write timeout");

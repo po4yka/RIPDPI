@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_option_theme_system">Системная</string>
+    <string name="settings_option_theme_light">Светлая</string>
+    <string name="settings_option_theme_dark">Тёмная</string>
+    <string name="settings_option_route_selected_hosts">Маршрутизировать выбранные хосты</string>
+    <string name="settings_option_automatic">Автоматически</string>
+    <string name="settings_option_random">Случайный</string>
+    <string name="settings_option_quic_imitation">Имитация QUIC</string>
+    <string name="settings_option_tls_imitation">Имитация TLS</string>
+    <string name="settings_option_dns_imitation">Имитация DNS</string>
+    <string name="settings_option_route_by_sni">Маршрутизировать по SNI</string>
+    <string name="settings_option_route_and_cache">Маршрутизировать и кэшировать</string>
+    <string name="settings_option_chrome_stable">Chrome, стабильная версия</string>
+    <string name="settings_option_chrome_desktop_stable">Chrome для ПК, стабильная версия</string>
+    <string name="settings_option_firefox_stable">Firefox, стабильная версия</string>
+    <string name="settings_option_firefox_ech_stable">Firefox, стабильная версия (ECH)</string>
+    <string name="settings_option_safari_stable">Safari, стабильная версия</string>
+    <string name="settings_option_edge_stable">Edge, стабильная версия</string>
+    <string name="settings_option_popcount_shaping">Формирование по popcount</string>
+    <string name="settings_option_shannon_shaping">Формирование по Шеннону</string>
+    <string name="settings_option_combined_shaping">Комбинированное формирование</string>
+    <string name="ripdpi_fake_seq_mode_sequential">Последовательный</string>
+    <string name="settings_option_zero">Нулевой</string>
+    <string name="settings_option_iana_bigsize">IANA, большой пакет данных</string>
+    <string name="host_pack_youtube_description">Воспроизведение видео, встраиваемые плееры и конечные точки CDN из публичных списков geosite.</string>
+    <string name="host_pack_telegram_description">Мессенджер, CDN и ссылки для обмена из публичных источников geosite.</string>
+    <string name="host_pack_discord_description">Домены приложения, медиа, приглашений и вложений из публичных списков geosite.</string>
+    <string name="ripdpi_fake_seq_mode_duplicate">Дублирование</string>
+</resources>

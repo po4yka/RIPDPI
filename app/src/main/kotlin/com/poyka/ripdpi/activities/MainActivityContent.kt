@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -125,6 +126,11 @@ private fun ReadyMainActivityContent(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val localeTags = LocalConfiguration.current.locales.toLanguageTags()
+
+    LaunchedEffect(viewModel, localeTags) {
+        viewModel.onLocaleChanged(localeTags)
+    }
 
     MainActivityEffects(
         viewModel = viewModel,

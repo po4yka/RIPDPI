@@ -60,7 +60,7 @@ internal data class RunningCloudflarePublish(
 internal open class CloudflarePublishProcessSupervisor
     @Inject
     constructor(
-        private val binaryExtractor: CloudflarePublishBinaryExtractor,
+        private val binaryLocator: CloudflarePublishBinaryLocator,
         private val versionProbe: CloudflarePublishVersionProbe,
         private val launchPlanBuilder: CloudflaredLaunchPlanBuilder,
         private val outputReader: CloudflarePublishProcessOutputReader,
@@ -75,7 +75,7 @@ internal open class CloudflarePublishProcessSupervisor
             readySignal: CompletableDeferred<String>,
             onError: (String, String) -> Unit,
         ): ManagedCloudflareProcess {
-            val binary = binaryExtractor.extract(CloudflareOriginBinaryName, config.cloudflareTunnelMode)
+            val binary = binaryLocator.locate(CloudflareOriginBinaryName, config.cloudflareTunnelMode)
             val version = versionProbe.probe(binary, listOf("--version"))
             val startupConfig =
                 encodeCloudflareOriginStartupConfig(
@@ -131,7 +131,7 @@ internal open class CloudflarePublishProcessSupervisor
             lastErrorSink: (String, String) -> Unit,
             onRegisteredTunnelConnection: () -> Unit,
         ): ManagedCloudflareProcess {
-            val binary = binaryExtractor.extract(CloudflaredBinaryName, config.cloudflareTunnelMode)
+            val binary = binaryLocator.locate(CloudflaredBinaryName, config.cloudflareTunnelMode)
             val version = versionProbe.probe(binary, listOf("--version"))
             val launchPlan =
                 launchPlanBuilder.build(

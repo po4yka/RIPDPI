@@ -1,38 +1,52 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
+
+private const val LargeTextFontScale = 1.5f
+private const val WideMetricColumns = 3
+private val CompactMetricWidth = 280.dp
+private val ThreeColumnMetricWidth = 600.dp
 
 private const val MaxGraphSamples = 60
 private const val AxisTickCount = 4
@@ -76,22 +90,17 @@ private fun ThroughputHeader(state: ThroughputGraphState) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Text(
-            text = state.title,
-            style = type.bodyEmphasis,
-            color = colors.foreground,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Text(text = state.title, style = type.bodyEmphasis, color = colors.foreground)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
             state.rangeLabels.forEachIndexed { index, label ->
-                ThroughputRangeChip(
-                    label = label,
-                    selected = index == state.selectedRangeIndex,
-                )
+                ThroughputRangeChip(label, index == state.selectedRangeIndex)
             }
         }
     }
@@ -100,60 +109,28 @@ private fun ThroughputHeader(state: ThroughputGraphState) {
 @Composable
 private fun ThroughputRangeChip(
     label: String,
-    selected: Boolean,
+    isSelected: Boolean,
 ) {
-    val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    val shapes = RipDpiThemeTokens.components.shapes
-    val chipBg = if (selected) colors.foreground else Color.Transparent
-    val chipFg = if (selected) colors.background else colors.mutedForeground
-    val borderColor = if (selected) colors.foreground else colors.border
     val spacing = RipDpiThemeTokens.spacing
-    Canvas(
-        modifier =
-            Modifier
-                .clip(
-                    androidx.compose.foundation.shape
-                        .RoundedCornerShape(shapes.pillCornerRadius),
-                ).size(width = spacing.section + spacing.xs, height = spacing.xxl),
+    Surface(
+        modifier = Modifier.semantics(mergeDescendants = true) { selected = isSelected },
+        shape = RipDpiThemeTokens.shapes.full,
+        color = if (isSelected) colors.foreground else Color.Transparent,
+        contentColor = if (isSelected) colors.background else colors.mutedForeground,
+        border = BorderStroke(RipDpiStroke.Thin, if (isSelected) colors.foreground else colors.border),
     ) {
-        drawRoundRect(
-            color = chipBg,
-            cornerRadius =
-                androidx.compose.ui.geometry
-                    .CornerRadius(shapes.pillCornerRadius.toPx()),
-        )
-        drawRoundRect(
-            color = borderColor,
-            cornerRadius =
-                androidx.compose.ui.geometry
-                    .CornerRadius(shapes.pillCornerRadius.toPx()),
-            style = Stroke(width = RipDpiStroke.Thin.toPx()),
-        )
-    }
-    // Overlay the label — compose text on top is simpler than drawText in Canvas
-    androidx.compose.foundation.layout.Box(
-        modifier =
-            Modifier
-                .clip(
-                    androidx.compose.foundation.shape
-                        .RoundedCornerShape(shapes.pillCornerRadius),
-                ).size(width = spacing.section + spacing.xs, height = spacing.xxl)
-                .then(
-                    if (selected) {
-                        Modifier
-                    } else {
-                        Modifier
-                    },
-                ).padding(horizontal = spacing.sm, vertical = spacing.xs),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            style = type.monoSmall,
-            color = chipFg,
-            textAlign = TextAlign.Center,
-        )
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = spacing.md, vertical = spacing.sm),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(IntrinsicSize.Max),
+            )
+        }
     }
 }
 
@@ -268,25 +245,28 @@ private fun DrawScope.drawThroughputCanvas(
 @Composable
 private fun ThroughputSummaryGrid(state: ThroughputGraphState) {
     val spacing = RipDpiThemeTokens.spacing
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        ThroughputStatCell(
-            label = stringResource(R.string.vpn_throughput_graph_stat_down_label),
-            value = state.downNowLabel,
-            modifier = Modifier.weight(1f),
+    val fontScale = LocalDensity.current.fontScale
+    val stats =
+        listOf(
+            stringResource(R.string.vpn_throughput_graph_stat_down_label) to state.downNowLabel,
+            stringResource(R.string.vpn_throughput_graph_stat_up_label) to state.upNowLabel,
+            stringResource(R.string.vpn_throughput_graph_stat_session_label) to state.sessionTotalLabel,
         )
-        ThroughputStatCell(
-            label = stringResource(R.string.vpn_throughput_graph_stat_up_label),
-            value = state.upNowLabel,
-            modifier = Modifier.weight(1f),
-        )
-        ThroughputStatCell(
-            label = stringResource(R.string.vpn_throughput_graph_stat_session_label),
-            value = state.sessionTotalLabel,
-            modifier = Modifier.weight(1f),
-        )
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns =
+            when {
+                maxWidth < CompactMetricWidth || fontScale >= LargeTextFontScale -> 1
+                maxWidth < ThreeColumnMetricWidth -> 2
+                else -> WideMetricColumns
+            }
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            stats.chunked(columns).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    row.forEach { (label, value) -> ThroughputStatCell(label, value, Modifier.weight(1f)) }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
     }
 }
 
@@ -299,48 +279,35 @@ private fun ThroughputStatCell(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    val shapes = RipDpiThemeTokens.components.shapes
-    Canvas(
-        modifier =
-            modifier
-                .height(spacing.section + spacing.sm),
-    ) {
-        drawRoundRect(
-            color = colors.inputBackground,
-            cornerRadius =
-                androidx.compose.ui.geometry
-                    .CornerRadius(shapes.mediumCornerRadius.toPx()),
-            size = Size(size.width, size.height),
-        )
-    }
-    Column(
-        modifier =
-            modifier
-                .clip(
-                    androidx.compose.foundation.shape
-                        .RoundedCornerShape(shapes.mediumCornerRadius),
-                ).then(Modifier.padding(horizontal = spacing.sm, vertical = spacing.xs)),
-    ) {
-        Text(
-            text = label.uppercase(),
-            style = type.monoSmall,
-            color = colors.mutedForeground,
-        )
-        Spacer(modifier = Modifier.height(spacing.xs))
-        Text(
-            text = value,
-            style = type.monoValue,
-            color = colors.foreground,
-        )
+    Surface(modifier = modifier, shape = RipDpiThemeTokens.shapes.md, color = colors.inputBackground) {
+        Column(
+            modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Text(
+                text = label.uppercase(),
+                style = type.secondaryBody,
+                color = colors.mutedForeground,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = value,
+                style = type.monoValue,
+                color = colors.foreground,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
 @Composable
 private fun ThroughputLegend(state: ThroughputGraphState) {
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    Row(horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
         ThroughputLegendItem(
             swatchColor = colors.foreground,
             label = stringResource(R.string.vpn_throughput_graph_legend_down),
@@ -370,8 +337,18 @@ private fun ThroughputLegendItem(
         Canvas(modifier = Modifier.size(width = spacing.md, height = RipDpiStroke.Thick)) {
             drawRect(color = swatchColor)
         }
-        Text(text = label, style = type.monoSmall, color = colors.mutedForeground)
-        Text(text = value, style = type.monoSmall, color = colors.foreground)
+        Text(
+            text = label,
+            style = type.monoSmall,
+            color = colors.mutedForeground,
+            modifier = Modifier.width(IntrinsicSize.Max),
+        )
+        Text(
+            text = value,
+            style = type.monoSmall,
+            color = colors.foreground,
+            modifier = Modifier.width(IntrinsicSize.Max),
+        )
     }
 }
 
