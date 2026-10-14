@@ -27,7 +27,10 @@ The DNS settings screen MUST show the editor for the selected encrypted DNS prot
 
 The DNS settings screen MUST prevent saving an invalid, stale, or incomplete ODoH endpoint. DoQ Save MUST be available in Proxy mode and blocked in VPN mode or while VPN is running. VPN startup MUST reject an effective DoQ resolver before tunnel setup while VPN DNS uses SOCKS5. Config restart paths MUST preserve a running service when saved DoQ cannot start VPN.
 
-An accepted VPN start and a DoQ Save MUST NOT overlap, including the interval before the service publishes a non-Halted status. Completion of one accepted start MUST NOT release another in-flight start reservation.
+#### Scenario: Concurrent VPN start and resolver save
+
+- **WHEN** a VPN start or DoQ Save is requested, or an accepted VPN start completes
+- **THEN** An accepted VPN start and a DoQ Save MUST NOT overlap, including the interval before the service publishes a non-Halted status. Completion of one accepted start MUST NOT release another in-flight start reservation.
 
 #### Scenario: Missing ODoH target config
 

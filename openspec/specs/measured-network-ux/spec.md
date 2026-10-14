@@ -174,7 +174,12 @@ The implementation MUST use existing RDS tokens, support all ten locales, readab
 
 ### Requirement: Measured selection cannot gain fresh authority during recovery
 
-A measured selection SHALL validate its captured scope and reserve the original explicit activation before preparing its persistence journal. Journal replay SHALL preserve that exact reservation and SHALL NOT mint, bind or dispatch activation or record recent use after the transient measurement lease is lost. A new explicit user action SHALL be required for activation after reconstruction. The linearized reservation SHALL perform only synchronous state checks and persistence; profile DAO and native work SHALL remain outside it.
+A measured selection SHALL validate its captured scope and reserve the original explicit activation before preparing its persistence journal.
+
+#### Scenario: Retain the original reservation during journal replay
+
+- **WHEN** a measured selection reserves activation, prepares or replays its journal, or resumes after reconstruction
+- **THEN** Journal replay SHALL preserve that exact reservation and SHALL NOT mint, bind or dispatch activation or record recent use after the transient measurement lease is lost. A new explicit user action SHALL be required for activation after reconstruction. The linearized reservation SHALL perform only synchronous state checks and persistence; profile DAO and native work SHALL remain outside it.
 
 #### Scenario: Process stops between measurement reservation and journal preparation
 - **WHEN** the measured selection has reserved its explicit activation but its journal has not been prepared
@@ -190,7 +195,12 @@ A measured selection SHALL validate its captured scope and reserve the original 
 
 ### Requirement: Measured activation preserves its original physical network fence
 
-Measured activation SHALL use one process-owned physical INTERNET + NOT_VPN observer and one immutable transient token with a nonzero registration generation and monotonic event epoch. It SHALL require complete current callback state and a usable, unblocked, nonsuspended physical path. Android validation/captive flags SHALL remain diagnostic fingerprint evidence and SHALL NOT independently prevent explicit local/LAN checks. Measurement completion, reservation, bind/claim and positive ACK SHALL compare the original token; no fresh baseline SHALL replace it.
+Measured activation SHALL use one process-owned physical INTERNET + NOT_VPN observer and one immutable transient token with a nonzero registration generation and monotonic event epoch.
+
+#### Scenario: Validate callback state with the original physical fence
+
+- **WHEN** a measurement or measured activation checks its physical path
+- **THEN** It SHALL require complete current callback state and a usable, unblocked, nonsuspended physical path. Android validation/captive flags SHALL remain diagnostic fingerprint evidence and SHALL NOT independently prevent explicit local/LAN checks. Measurement completion, reservation, bind/claim and positive ACK SHALL compare the original token; no fresh baseline SHALL replace it.
 
 #### Scenario: The measured command establishes its own VPN
 - **WHEN** the exact measured command creates a VPN default network or initializes its underlay binder while physical network A is unchanged
@@ -210,7 +220,12 @@ Measured activation SHALL use one process-owned physical INTERNET + NOT_VPN obse
 
 ### Requirement: Measured activation uses the exact checked policy and consumed configuration
 
-Native and selector measurement SHALL return a private identity of its exact native start configuration. Only owned SOCKS endpoint/socket-protection differences SHALL be normalized. TLS, QUIC, experiment, profile/secret-derived and transient helper launch inputs SHALL remain significant. Binding SHALL capture full immutable post-selection requested inputs outside authority/store locks; service resolution SHALL consume those captured inputs. Claim SHALL compare the captured requested identity and positive ACK SHALL compare actual native consumption with the measurement proof before confirmation or recent use.
+Native and selector measurement SHALL return a private identity of its exact native start configuration.
+
+#### Scenario: Compare the captured configuration with actual native consumption
+
+- **WHEN** native or selector measurement or a measured activation checks its configuration
+- **THEN** Only owned SOCKS endpoint/socket-protection differences SHALL be normalized. TLS, QUIC, experiment, profile/secret-derived and transient helper launch inputs SHALL remain significant. Binding SHALL capture full immutable post-selection requested inputs outside authority/store locks; service resolution SHALL consume those captured inputs. Claim SHALL compare the captured requested identity and positive ACK SHALL compare actual native consumption with the measurement proof before confirmation or recent use.
 
 #### Scenario: Policy changes after binding
 - **WHEN** TLS, QUIC, relevant experiment flags or DNS policy differ in the captured service attempt after registry binding
@@ -232,7 +247,10 @@ Native and selector measurement SHALL return a private identity of its exact nat
 
 The runtime MUST normalize direct resolver candidates and underlay generation away when no usable DIRECT rule can select direct DNS. It MUST retain the split policy, encrypted bootstrap pins and proxy DNS behavior. Effective DIRECT rules MUST retain their underlay guards and refresh on changed consumed inputs. A retained descriptor or VPN capability MUST NOT be described as proof of installed routes or absence of a platform replacement gap.
 
-Malformed or oversized unused underlay input MUST NOT affect policy coverage or effective signature. Validation of consumed DIRECT underlay and encrypted bootstrap inputs MUST remain intact.
+#### Scenario: Ignore malformed unused direct DNS inputs
+
+- **WHEN** the runtime validates or refreshes direct resolver underlay and encrypted bootstrap inputs
+- **THEN** Malformed or oversized unused underlay input MUST NOT affect policy coverage or effective signature. Validation of consumed DIRECT underlay and encrypted bootstrap inputs MUST remain intact.
 
 #### Scenario: Underlay epoch changes without effective DIRECT rules
 - **WHEN** an empty, tunneled, blocked or constrained non-direct-DNS policy receives different underlay candidates or generation
