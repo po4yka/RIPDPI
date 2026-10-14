@@ -264,8 +264,8 @@ class NaiveProxyManagerPreflightTest {
         var lastFailureClass: String? = null
             private set
 
-        override fun extractBinary(binaryName: String): NaiveProxyBinaryRef =
-            NaiveProxyBinaryRef("/extracted/$binaryName").also { lastExtractedBinary = it }
+        override fun resolveBinary(binaryName: String): NaiveProxyBinaryRef =
+            NaiveProxyBinaryRef("/native-lib/lib$binaryName.so").also { lastExtractedBinary = it }
 
         override suspend fun start(
             binary: NaiveProxyBinaryRef,

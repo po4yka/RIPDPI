@@ -48,6 +48,7 @@ internal class VpnForegroundNotificationController(
         val elapsedMs = System.currentTimeMillis() - startedAt
         val content =
             NotificationContentBuilder.buildContentText(
+                context = service,
                 txBytes = tunnelStats.txBytes,
                 rxBytes = tunnelStats.rxBytes,
                 elapsedMs = elapsedMs,

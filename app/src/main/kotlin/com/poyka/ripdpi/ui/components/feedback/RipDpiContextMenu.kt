@@ -132,7 +132,7 @@ private fun RipDpiContextMenuItem(
             imageVector = action.icon,
             contentDescription = null,
             tint = contentColor,
-            modifier = Modifier.size(RipDpiIconSizes.Small),
+            modifier = Modifier.size(RipDpiIconSizes.Default),
         )
         Text(
             modifier = Modifier.weight(1f),

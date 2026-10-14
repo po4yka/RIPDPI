@@ -138,7 +138,10 @@ pub(crate) fn rebind_endpoint(
 /// insecure-verifier wiring -- Hysteria2 now *consumes* the composable QUIC
 /// transport's config factory instead of maintaining its own copy.
 pub(crate) fn build_tls_config(config: &Config) -> Result<rustls::ClientConfig> {
-    QuicTransportConfig::new(config.server_name.clone()).with_insecure(config.insecure).build_rustls_client_config()
+    QuicTransportConfig::new(config.server_name.clone())
+        .with_insecure(config.insecure)
+        .with_pin_sha256(config.pin_sha256)
+        .build_rustls_client_config()
 }
 
 fn generate_padding() -> String {

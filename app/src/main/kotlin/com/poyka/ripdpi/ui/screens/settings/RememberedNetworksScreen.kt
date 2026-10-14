@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -220,7 +222,7 @@ private fun RememberedNetworksHeader(
 }
 
 @Composable
-private fun RememberedNetworkCard(
+internal fun RememberedNetworkCard(
     entry: RememberedNetworkUiModel,
     onDelete: () -> Unit,
 ) {
@@ -248,12 +250,11 @@ private fun RememberedNetworkCard(
 private fun RememberedNetworkCardHeader(entry: RememberedNetworkUiModel) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         Column(
-            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
         ) {
             Text(
@@ -288,6 +289,7 @@ private fun RememberedNetworkMetaFlow(entry: RememberedNetworkUiModel) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RememberedNetworkCardFooter(
     entry: RememberedNetworkUiModel,
@@ -295,9 +297,10 @@ private fun RememberedNetworkCardFooter(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         Text(
             text =
@@ -306,11 +309,13 @@ private fun RememberedNetworkCardFooter(
                     entry.successCount,
                     entry.failureCount,
                 ),
+            modifier = Modifier.width(IntrinsicSize.Max),
             style = type.caption,
             color = colors.mutedForeground,
         )
         Text(
             text = stringResource(R.string.remembered_networks_updated, entry.updatedLabel),
+            modifier = Modifier.width(IntrinsicSize.Max),
             style = type.caption,
             color = colors.mutedForeground,
         )

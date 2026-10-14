@@ -109,9 +109,24 @@ pub(crate) fn derive_auth_key(
 /// tag) to be written back to `raw_hello[39..71]` before the body is
 /// fed to the TLS transcript hash. The wire output matches xray-core's
 /// `aead.Seal(SessionId[:0], Random[20:], SessionId[:16], Raw)`.
+#[cfg(test)]
 pub(crate) fn seal_session_id(
     priv_key: &[u8; 32],
     server_pub: &[u8; 32],
+    client_random: &[u8; 32],
+    short_id: &[u8],
+    raw_hello: &[u8],
+    now_secs: u32,
+) -> io::Result<[u8; 32]> {
+    let auth_key = derive_auth_key(priv_key, server_pub, client_random)?;
+    seal_session_id_with_auth_key(&auth_key, client_random, short_id, raw_hello, now_secs)
+}
+
+/// Seal the Reality session_id with an AuthKey that the caller already
+/// derived through [`derive_auth_key`]. The live hook uses this form so the
+/// same AuthKey can authenticate the server certificate after the handshake.
+pub(crate) fn seal_session_id_with_auth_key(
+    auth_key: &[u8; 32],
     client_random: &[u8; 32],
     short_id: &[u8],
     raw_hello: &[u8],
@@ -125,7 +140,6 @@ pub(crate) fn seal_session_id(
         )));
     }
 
-    let auth_key = derive_auth_key(priv_key, server_pub, client_random)?;
     let plaintext = build_session_id_plaintext(short_id, now_secs);
 
     let mut aad_buf = raw_hello.to_vec();
