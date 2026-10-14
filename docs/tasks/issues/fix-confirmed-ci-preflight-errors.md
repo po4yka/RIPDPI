@@ -43,7 +43,7 @@ The source correction is `534028ba5fc63d7f2864bc0ab7ff9e5fa943e4c4`.
 - Locked cargo-deny reproduces RUSTSEC-2024-0449 before the replacement. After it, advisories, bans, licenses and sources all pass with unchanged policy.
 - Scoped all-target clippy and the full workspace all-target pre-commit clippy pass with warnings denied. Workspace formatting and locked metadata pass.
 - Both configuration crates pass compile-only checks for aarch64, armv7, i686 and x86_64 Android targets. These checks do not establish device or runtime acceptance.
-- The 27 CI routing and preflight tests pass. Architecture and native contracts have zero new violations. File limits pass across 4,166 files without exemptions or baseline growth. Task contracts pass for 130 tasks and 370 steps.
+- The 27 CI routing and preflight tests pass. Architecture and native contracts have zero new violations. File limits pass across 4,166 files without exemptions or baseline growth. Task contracts pass for 130 tasks and 371 steps.
 - Independent review of both patches is clean. No locale, schema, toolchain, fixture, baseline or advisory-waiver change is included.
 
 ## Dependency rationale
@@ -58,4 +58,10 @@ The targeted Cargo update also reselects three existing flexible edges: generato
 
 ## Hosted acceptance
 
-Publication and terminal hosted CI evidence remain in the final execution step. No green hosted run is claimed before it completes.
+On `5ef0cd567fb731817acecee6e54c32c7b6f19b83`, the [Android helper job](https://github.com/po4yka/RIPDPI/actions/runs/38511271351/job/115680096804) and [cargo-deny job](https://github.com/po4yka/RIPDPI/actions/runs/38511271351/job/115680278848) both passed. The CI preflight barrier then passed and started the full matrix.
+
+The matrix exposed a stale raw-slice registration in [rust-lint](https://github.com/po4yka/RIPDPI/actions/runs/38511271351/job/115680582484). The existing REALITY callback slice moved from line 351 to 383 after earlier AuthKey additions. Independent review compared the source with the last registration refresh, `6b58fb7b490c40b57c99a7d95124e907232354e5`, and confirmed unchanged slice conversion, null and length checks, and SAFETY contract.
+
+The registration now points to the current line. Its stale prose references use the callback name and actual minimum length. No entry, pattern, owner or review date was added or changed. The scanner reproduces failure before this metadata correction and passes afterward with three hits and three registrations. The exact `scripts/ci/run-rust-lint.sh` passes under toolchain 1.98.1, including all scanner self-tests, production guards, workspace clippy and all-feature rustdoc. Existing rustdoc warnings remain allowed by the unchanged script.
+
+Terminal hosted CI evidence remains in the final execution step. No green full run is claimed before it completes.
