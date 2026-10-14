@@ -1,11 +1,11 @@
 ---
 task_id: UIX-1791978914456411
 change: fix-audited-ptbr-localization
-commit_sha: null
-local: required
-local_evidence: Full and Simple unit tests, app and service lint, staticAnalysis, resource contracts, Portuguese renders, Roborazzi, architecture health and locked Cargo metadata pass. Combined gates and both Roborazzi variants also pass after rebase. Rustls policy, workspace tests, lint and Android native gates pass. Workspace doctests also pass. Recovery hosted CI remains pending.
-remote_ci: required
-remote_ci_evidence: Main source 5ad5679910eab9569ee5f47245a4eb25fc8c937d was pushed. Six auxiliary workflows pass; CI 38579791823 fails on four new rustls advisories. Recovery validation and new exact-SHA hosted CI remain required.
+commit_sha: 711e7be37003bc40d9c61b5a8dfb6720b4a6ae66
+local: passed
+local_evidence: Full and Simple unit tests, app and service lint, staticAnalysis, resource contracts, Portuguese renders, Roborazzi, architecture health and locked Cargo metadata pass. Combined gates and both Roborazzi variants also pass after rebase. Rustls policy, workspace tests, lint and Android native gates pass. Workspace doctests also pass. Recovery combined-tree gates pass again after synchronization with origin/main in 5m 30s. Hosted CI 38587899403 passes on the exact recovery source SHA.
+remote_ci: passed
+remote_ci_evidence: Recovery source 711e7be37003bc40d9c61b5a8dfb6720b4a6ae66 is on main and origin/main. CI 38587899403 completes successfully with 47 successful jobs, 17 existing route skips and ci-required success. All six auxiliary workflows pass.
 device: not_applicable
 device_evidence: This change uses JVM behavior and render checks. No physical-device or carrier-network acceptance is claimed.
 artifact: not_applicable
@@ -51,7 +51,9 @@ Legacy entries with fingerprint `unknown` and a real ISP name equal to `Unknown`
 
 ## Publication
 
-Hosted source CI and final main state belong to `UIX-1791979418293451`. Source 5ad5679910eab9569ee5f47245a4eb25fc8c937d is on main and origin/main. Hosted CI 38579791823 failed at cargo-deny on RUSTSEC-2026-0346 through RUSTSEC-2026-0349. CodeQL, Secret Scan, harness-checks, translation export, locale parity and fleet-fixtures pass. The existing rustls dependency is updated from 0.23.45 to 0.23.46 in a separate recovery worktree. Local gates do not replace successful hosted CI.
+Hosted source CI and final main state belong to `UIX-1791979418293451`. Localization source 5ad5679910eab9569ee5f47245a4eb25fc8c937d was integrated and pushed. Hosted CI 38579791823 failed at cargo-deny on RUSTSEC-2026-0346 through RUSTSEC-2026-0349. CodeQL, Secret Scan, harness-checks, translation export, locale parity and fleet-fixtures pass. Recovery source 711e7be37003bc40d9c61b5a8dfb6720b4a6ae66 updates the existing rustls dependency from 0.23.45 to 0.23.46 in a separate worktree and is now on main and origin/main. [CI run 38587899403](https://github.com/po4yka/RIPDPI/actions/runs/38587899403) completes successfully on that exact SHA, with 47 successful jobs, 17 existing route skips, zero failed or cancelled jobs and ci-required success. All six auxiliary workflows for this SHA pass.
+
+Hosted CI passes all four native packaging lanes, Android debug and release builds for Play, GitHub and F-Droid, instrumentation APK verification, and instrumented matrix jobs on API 27, 33, 35, 36 and 37. It also passes Rust workspace, network E2E, turmoil, fingerprint, packet smoke, fuzz, Miri, Loom, coverage, native size, JNI snapshot, static analysis and Roborazzi gates. The existing default route skips do not prove coverage of their optional privileged, nightly, soak, load, benchmark or journey checks. No physical-device, carrier-network, signed release or deployment acceptance is claimed.
 
 ## Security recovery
 

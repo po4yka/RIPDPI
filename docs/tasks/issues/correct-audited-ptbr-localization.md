@@ -2,7 +2,7 @@
 id: UIX-1791978914456411
 title: Correct audited Brazilian Portuguese localization
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: fix-audited-ptbr-localization
 created: 2026-10-14
 updated: 2026-10-14
+status_detail: All six execution steps and exact-source hosted CI pass.
 ---
 
 ## Goal
