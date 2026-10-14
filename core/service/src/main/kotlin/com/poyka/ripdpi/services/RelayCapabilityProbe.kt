@@ -328,7 +328,7 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
                 negotiateNoAuthentication(input, output)
                 val udpRelay = openUdpAssociation(control.inetAddress, input, output)
                 associationOpened = true
-                DatagramSocket().use { udp ->
+                openUdpProbeSocket(control.localAddress, udpRelay.address).use { udp ->
                     udp.soTimeout = timeoutMillis
                     probeSingleDnsDatagram(udp, udpRelay, dnsTarget, timeoutMillis)
                 }

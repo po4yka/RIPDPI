@@ -202,7 +202,7 @@ class MainViewModel
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = null,
             )
-        val uiState: StateFlow<MainUiState> =
+        private val uiStateOwner =
             MainUiStateOwner(
                 scope = viewModelScope,
                 settingsState = settingsState,
@@ -213,7 +213,9 @@ class MainViewModel
                 permissionState = permissionState,
                 stringResolver = stringResolver,
                 buildApproachSummary = connectionActions::buildApproachSummary,
-            ).uiState
+            )
+        val uiState: StateFlow<MainUiState> = uiStateOwner.uiState
+        internal val onLocaleChanged: (String) -> Unit = uiStateOwner::onLocaleChanged
 
         fun initialize() {
             if (startupState.value.readiness != AppStartupReadinessState.Ready || initialized) {

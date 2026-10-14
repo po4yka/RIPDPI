@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -104,7 +105,8 @@ class HistoryUiStateFactoryTest {
     fun `history localizes terminated and partial completion semantics`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val strings = AndroidStringResolver(context)
-        val localizedCore = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings)
+        val localizedCore =
+            DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()), strings)
         val localizedFactory =
             HistoryUiStateFactory(
                 coreSupport = localizedCore,

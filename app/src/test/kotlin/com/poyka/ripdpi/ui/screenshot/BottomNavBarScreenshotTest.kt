@@ -20,7 +20,7 @@ class BottomNavBarScreenshotTest {
         captureScreenBothThemes(
             name = "maximumAccessibilityFont",
             widthDp = 411,
-            heightDp = 120,
+            heightDp = 360,
             fontScale = 2f,
             testClassFqn = javaClass.name,
         ) {
@@ -79,7 +79,7 @@ private fun captureMaximumFontBottomBar(
     captureScreenBothThemes(
         name = "maximumAccessibilityFont",
         widthDp = 411,
-        heightDp = 120,
+        heightDp = 360,
         fontScale = 2f,
         testClassFqn = testClassFqn,
     ) {

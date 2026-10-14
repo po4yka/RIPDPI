@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -117,17 +118,19 @@ private fun QualityGraphHeader(
 ) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         Text(
             text = title,
             style = type.bodyEmphasis,
             color = colors.foreground,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+        FlowRow(
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
             Text(
                 text = nowLabel,
                 style = type.monoSmall,
@@ -259,7 +262,10 @@ private fun QualityLegend(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    Row(horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
         QualityLegendItem(
             swatchColor = colors.info,
             label = stringResource(R.string.vpn_quality_graph_legend_now),

@@ -1,7 +1,8 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WsTunnelWorkerSettingsUi(
     workerUrl: String,
@@ -48,9 +50,10 @@ internal fun WsTunnelWorkerSettingsUi(
                 stringResource(R.string.ws_tunnel_worker_transport_not_configured)
             },
     )
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         RipDpiButton(
             text =
@@ -63,7 +66,6 @@ internal fun WsTunnelWorkerSettingsUi(
                 ),
             onClick = { editorVisible = true },
             enabled = enabled,
-            modifier = Modifier.weight(1f),
             variant = RipDpiButtonVariant.Outline,
         )
         if (configured) {
@@ -71,7 +73,6 @@ internal fun WsTunnelWorkerSettingsUi(
                 text = stringResource(R.string.ws_tunnel_worker_transport_clear),
                 onClick = onClear,
                 enabled = enabled,
-                modifier = Modifier.weight(1f),
                 variant = RipDpiButtonVariant.Outline,
             )
         }

@@ -24,6 +24,7 @@ pub struct WebTunnelObservedRequest {
 pub struct WebTunnelFixture {
     addr: SocketAddr,
     secret_path: String,
+    root_certificate_pem: String,
     observed_requests: Arc<Mutex<Vec<WebTunnelObservedRequest>>>,
     running: Arc<AtomicBool>,
     handle: Option<JoinHandle<io::Result<()>>>,
@@ -34,7 +35,8 @@ impl WebTunnelFixture {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
         listener.set_nonblocking(true)?;
         let addr = listener.local_addr()?;
-        let acceptor = Arc::new(tls_acceptor()?);
+        let (acceptor, root_certificate_pem) = tls_acceptor()?;
+        let acceptor = Arc::new(acceptor);
         let observed_requests = Arc::new(Mutex::new(Vec::new()));
         let running = Arc::new(AtomicBool::new(true));
         let handle = {
@@ -44,11 +46,24 @@ impl WebTunnelFixture {
             thread::spawn(move || accept_loop(listener, acceptor, secret_path, observed_requests, running))
         };
 
-        Ok(Self { addr, secret_path: secret_path.to_owned(), observed_requests, running, handle: Some(handle) })
+        Ok(Self {
+            addr,
+            secret_path: secret_path.to_owned(),
+            root_certificate_pem,
+            observed_requests,
+            running,
+            handle: Some(handle),
+        })
     }
 
     pub fn addr(&self) -> SocketAddr {
         self.addr
+    }
+
+    /// PEM of the fixture's self-signed certificate (names `localhost` and
+    /// `127.0.0.1`). Clients that verify TLS add it as a trust root.
+    pub fn root_certificate_pem(&self) -> &str {
+        &self.root_certificate_pem
     }
 
     pub fn url(&self) -> String {
@@ -70,7 +85,7 @@ impl Drop for WebTunnelFixture {
     }
 }
 
-fn tls_acceptor() -> io::Result<SslAcceptor> {
+fn tls_acceptor() -> io::Result<(SslAcceptor, String)> {
     let certificate =
         generate_simple_self_signed(vec!["localhost".to_owned(), "127.0.0.1".to_owned()]).map_err(util::other_io)?;
     let cert = X509::from_der(certificate.cert.der().as_ref()).map_err(util::other_io)?;
@@ -79,7 +94,7 @@ fn tls_acceptor() -> io::Result<SslAcceptor> {
     let mut acceptor = SslAcceptor::mozilla_intermediate(SslMethod::tls()).map_err(util::other_io)?;
     acceptor.set_certificate(&cert).map_err(util::other_io)?;
     acceptor.set_private_key(&key).map_err(util::other_io)?;
-    Ok(acceptor.build())
+    Ok((acceptor.build(), certificate.cert.pem()))
 }
 
 fn accept_loop(

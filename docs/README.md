@@ -4,6 +4,9 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 
 ## Find docs by task
 
+For local emulator selection, leases, temporary-device cleanup, and legacy AVD
+removal, read [Local Android emulator pool](contributor/android-emulator-pool.md).
+
 Choose the row matching the change or failure you are investigating. Read the entry point and its prerequisites, then follow the next pointer for the affected part of the task. The topic catalog below remains available for broader reading.
 
 | Task | Start here | Follow when needed |

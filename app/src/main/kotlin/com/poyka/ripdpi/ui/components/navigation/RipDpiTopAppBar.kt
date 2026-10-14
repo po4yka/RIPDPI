@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -15,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -34,71 +34,81 @@ fun RipDpiTopAppBar(
     onNavigationClick: (() -> Unit)? = null,
     navigationContentDescription: String? = null,
     navigationEnabled: Boolean = true,
-    actions: @Composable RowScope.() -> Unit = {},
+    actions: (@Composable RowScope.() -> Unit)? = null,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     val containerMaxWidth = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding
+    val separateTitle = LocalDensity.current.fontScale >= TopAppBarStackFontScale
+    val hasControls = (navigationIcon != null && onNavigationClick != null) || actions != null
 
     Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = layout.horizontalPadding),
+        modifier = modifier.fillMaxWidth().padding(horizontal = layout.horizontalPadding),
         contentAlignment = Alignment.Center,
     ) {
-        val stackActions = LocalDensity.current.fontScale >= TopAppBarStackFontScale
-        Column(
-            modifier =
-                Modifier
-                    .widthIn(max = containerMaxWidth)
-                    .fillMaxWidth(),
-        ) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = layout.appBarMinHeight),
-                horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (navigationIcon != null && onNavigationClick != null) {
-                    RipDpiIconButton(
-                        icon = navigationIcon,
-                        contentDescription = navigationContentDescription ?: stringResource(R.string.navigation_back),
-                        onClick = onNavigationClick,
-                        style = RipDpiIconButtonStyle.Ghost,
-                        enabled = navigationEnabled,
+        Column(Modifier.widthIn(max = containerMaxWidth).fillMaxWidth()) {
+            if (!separateTitle || hasControls) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = layout.appBarMinHeight),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TopAppBarNavigation(
+                        navigationIcon,
+                        onNavigationClick,
+                        navigationContentDescription,
+                        navigationEnabled,
                     )
-                }
-                Text(
-                    text = title,
-                    modifier = Modifier.weight(1f),
-                    style = type.appBarTitle,
-                    color = colors.foreground,
-                    maxLines = if (stackActions) 2 else 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (!stackActions) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                        verticalAlignment = Alignment.CenterVertically,
-                        content = actions,
-                    )
+                    if (separateTitle) {
+                        Spacer(Modifier.weight(1f))
+                    } else {
+                        TopAppBarTitle(title, Modifier.weight(1f))
+                    }
+                    if (actions != null) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically,
+                            content = actions,
+                        )
+                    }
                 }
             }
-            if (stackActions) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
-                    content = actions,
-                )
+            if (separateTitle) {
+                TopAppBarTitle(title, Modifier.fillMaxWidth().padding(bottom = spacing.sm))
             }
         }
     }
+}
+
+@Composable
+private fun TopAppBarNavigation(
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    onClick: (() -> Unit)?,
+    contentDescription: String?,
+    enabled: Boolean,
+) {
+    if (icon != null && onClick != null) {
+        RipDpiIconButton(
+            icon = icon,
+            contentDescription = contentDescription ?: stringResource(R.string.navigation_back),
+            onClick = onClick,
+            style = RipDpiIconButtonStyle.Ghost,
+            enabled = enabled,
+        )
+    }
+}
+
+@Composable
+private fun TopAppBarTitle(
+    title: String,
+    modifier: Modifier,
+) {
+    Text(
+        text = title,
+        modifier = modifier,
+        style = RipDpiThemeTokens.type.appBarTitle,
+        color = RipDpiThemeTokens.colors.foreground,
+    )
 }
 
 @Preview(showBackground = true)

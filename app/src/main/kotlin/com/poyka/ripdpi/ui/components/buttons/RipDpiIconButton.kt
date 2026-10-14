@@ -89,7 +89,7 @@ fun RipDpiIconButton(
     val iconSize =
         when (density) {
             RipDpiControlDensity.Default -> RipDpiIconSizes.Default
-            RipDpiControlDensity.Compact -> RipDpiIconSizes.Small
+            RipDpiControlDensity.Compact -> RipDpiIconSizes.Default
         }
     val animatedBackground by animateColorAsState(
         targetValue = state.container,

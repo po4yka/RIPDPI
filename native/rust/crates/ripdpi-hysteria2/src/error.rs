@@ -32,6 +32,8 @@ pub enum HysteriaError {
     TcpConnect(String),
     #[error("invalid UDP datagram: {0}")]
     InvalidDatagram(String),
+    #[error("invalid certificate pin: {0}")]
+    InvalidCertificatePin(String),
 }
 
 pub type Result<T> = std::result::Result<T, HysteriaError>;

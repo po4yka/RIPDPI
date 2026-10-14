@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
-use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;
+use crate::runtime::relay::failure_retry::first_outbound::payload::{FirstOutboundRead, prepare_first_payload};
 use crate::runtime::relay::failure_retry::first_outbound::response::{
     FirstResponseContext, FirstResponseDecision, handle_first_response,
 };
@@ -32,6 +32,26 @@ pub(crate) struct PreparedRelay {
     pub(crate) client_closed: bool,
 }
 
+impl PreparedRelay {
+    fn without_first_payload(
+        upstream: TcpStream,
+        route: RuntimeConnectionRoute,
+        session: FirstOutboundSession,
+        client_closed: bool,
+    ) -> Self {
+        Self {
+            upstream,
+            route,
+            session_state: session.into_relay_session(),
+            success_recorded: false,
+            success_host: None,
+            success_payload: None,
+            success_strategy_family: None,
+            client_closed,
+        }
+    }
+}
+
 pub(super) struct FirstOutboundCoordinator<'a> {
     state: &'a RuntimeState,
     target: SocketAddr,
@@ -52,18 +72,32 @@ impl<'a> FirstOutboundCoordinator<'a> {
     }
 
     fn run(self, client: &mut TcpStream, mut upstream: TcpStream) -> io::Result<PreparedRelay> {
-        let first_payload = prepare_first_payload(client, self.state, self.seed_request)?;
-        let Some(first_payload) = first_payload else {
-            return Ok(PreparedRelay {
-                upstream,
-                route: self.route,
-                session_state: FirstOutboundSession::new().into_relay_session(),
-                success_recorded: false,
-                success_host: None,
-                success_payload: None,
-                success_strategy_family: None,
-                client_closed: true,
-            });
+        let first_payload = match prepare_first_payload(client, &upstream, self.state, self.seed_request)? {
+            FirstOutboundRead::Payload(first_payload) => first_payload,
+            FirstOutboundRead::ClientClosed => {
+                return Ok(PreparedRelay::without_first_payload(
+                    upstream,
+                    self.route,
+                    FirstOutboundSession::new(),
+                    true,
+                ));
+            }
+            FirstOutboundRead::ServerFirst => {
+                // Server-speaks-first protocols (SMTP, IMAP, FTP, SSH, ...)
+                // wait for the upstream greeting before they send anything.
+                // Skip the first-write exchange (first-response inspection and
+                // route retry) and relay both directions. The greeting is
+                // still unread in `upstream`. Client payloads then use the
+                // steady-state relay desync path, with the same Lua flow that
+                // a first write would open.
+                tracing::debug!(
+                    group_index = self.route.group_index,
+                    "upstream spoke first; relaying without the first-write exchange"
+                );
+                let mut session = FirstOutboundSession::new();
+                session.lua_flow = self.state.new_lua_flow();
+                return Ok(PreparedRelay::without_first_payload(upstream, self.route, session, false));
+            }
         };
 
         let mut route = self.route;
