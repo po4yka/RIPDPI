@@ -21,6 +21,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -63,7 +65,9 @@ internal fun rememberSettingsOptions(
     valueArrayRes: Int,
 ): ImmutableList<RipDpiDropdownOption<String>> {
     val labels = stringArrayResource(labelArrayRes)
-    val values = stringArrayResource(valueArrayRes)
+    val resources = LocalContext.current.resources
+    val configuration = LocalConfiguration.current
+    val values = remember(resources, configuration, valueArrayRes) { settingsOptionValues(resources, valueArrayRes) }
 
     return remember(labels, values) {
         labels

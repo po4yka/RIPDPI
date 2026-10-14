@@ -3,34 +3,207 @@ package com.poyka.ripdpi.ui.components.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiSpacing
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.ripDpiLayoutForWidth
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35])
+@Config(sdk = [35], qualifiers = "ru-rRU-w420dp-h1200dp")
 class RipDpiTopAppBarTest {
     @get:Rule
     val composeRule = createComposeRule()
 
     @Test
-    fun maximumFontPlacesActionsBelowLongTitle() {
+    fun largeRussianTitleRemainsCompleteAtNarrowWidth() {
+        val label = "Восстановление после нехватки памяти"
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(320.dp)) {
+                        RipDpiTopAppBar(label, navigationIcon = RipDpiIcons.Back, onNavigationClick = {})
+                    }
+                }
+            }
+        }
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNodeWithText(label, useUnmergedTree = true)
+            .assertIsDisplayed()
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertTrue(layouts.isNotEmpty())
+        layouts.forEach { layout ->
+            assertFalse("The complete title must remain visible", layout.hasVisualOverflow)
+            (0 until layout.lineCount).forEach { line -> assertFalse(layout.isLineEllipsized(line)) }
+        }
+    }
+
+    @Test
+    fun largeTitleWithoutControlsDoesNotReserveAnEmptyToolbarRow() {
+        val label = RuntimeEnvironment.getApplication().getString(R.string.settings)
+        val width = mutableStateOf(320)
+        val direction = mutableStateOf(LayoutDirection.Ltr)
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, 2f),
+                LocalLayoutDirection provides direction.value,
+            ) {
+                RipDpiTheme {
+                    Box(Modifier.requiredWidth(width.value.dp)) {
+                        RipDpiTopAppBar(label, Modifier.testTag("bar"))
+                    }
+                }
+            }
+        }
+        listOf(320, 420).forEach { viewport ->
+            LayoutDirection.entries.forEach { layoutDirection ->
+                composeRule.runOnIdle {
+                    width.value = viewport
+                    direction.value = layoutDirection
+                }
+                val bar = composeRule.onNodeWithTag("bar").fetchSemanticsNode().boundsInRoot
+                val title =
+                    composeRule
+                        .onNodeWithText(label)
+                        .assertIsDisplayed()
+                        .fetchSemanticsNode()
+                        .boundsInRoot
+                assertEquals("No empty controls row above the title", bar.top, title.top, 1f)
+                assertEquals(
+                    "The title uses the full content width",
+                    viewport - ripDpiLayoutForWidth(viewport).horizontalPadding.value * 2,
+                    title.width,
+                    1f,
+                )
+                assertEquals(
+                    "Only the existing title bottom padding remains",
+                    RipDpiSpacing().sm.value,
+                    bar.bottom - title.bottom,
+                    1f,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun realSettingsScaffoldDoesNotForwardAnEmptyActionSlot() {
+        val label = RuntimeEnvironment.getApplication().getString(R.string.settings)
+        val direction = mutableStateOf(LayoutDirection.Ltr)
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, 2f),
+                LocalLayoutDirection provides direction.value,
+            ) {
+                RipDpiTheme {
+                    Box(Modifier.requiredWidth(320.dp)) {
+                        RipDpiSettingsScaffold(label, Modifier.testTag("settings-scaffold")) {}
+                    }
+                }
+            }
+        }
+        LayoutDirection.entries.forEach { layoutDirection ->
+            composeRule.runOnIdle { direction.value = layoutDirection }
+            val scaffold = composeRule.onNodeWithTag("settings-scaffold").fetchSemanticsNode().boundsInRoot
+            val title =
+                composeRule
+                    .onNodeWithText(label)
+                    .assertIsDisplayed()
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+            assertEquals("The real Settings title starts without an empty toolbar row", scaffold.top, title.top, 1f)
+        }
+    }
+
+    @Test
+    fun explicitNavigationAndRowScopeActionStayReachableAtNormalAndLargeFont() {
+        val label = RuntimeEnvironment.getApplication().getString(R.string.settings)
+        val scale = mutableStateOf(1f)
+        val direction = mutableStateOf(LayoutDirection.Ltr)
+        val enabled = mutableStateOf(true)
+        var backClicks = 0
+        var actionClicks = 0
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, scale.value),
+                LocalLayoutDirection provides direction.value,
+            ) {
+                RipDpiTheme {
+                    Box(Modifier.requiredWidth(320.dp)) {
+                        RipDpiTopAppBar(
+                            label,
+                            navigationIcon = RipDpiIcons.Back,
+                            onNavigationClick = { backClicks++ },
+                            navigationContentDescription = "Back",
+                            navigationEnabled = enabled.value,
+                            actions = {
+                                RipDpiIconButton(
+                                    RipDpiIcons.Config,
+                                    "Options",
+                                    { actionClicks++ },
+                                    modifier = Modifier.align(Alignment.CenterVertically),
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        listOf(1f, 2f).forEach { fontScale ->
+            LayoutDirection.entries.forEach { layoutDirection ->
+                composeRule.runOnIdle {
+                    scale.value = fontScale
+                    direction.value = layoutDirection
+                }
+                listOf("Back", "Options").forEach { description ->
+                    val bounds = composeRule.onNodeWithContentDescription(description).fetchSemanticsNode().boundsInRoot
+                    assertTrue("Controls keep a minimum 48dp touch target", bounds.width >= 48f && bounds.height >= 48f)
+                }
+                composeRule.onNodeWithContentDescription("Back").assertIsDisplayed().performClick()
+                composeRule.onNodeWithContentDescription("Options").assertIsDisplayed().performClick()
+            }
+        }
+        assertEquals(4, backClicks)
+        assertEquals(4, actionClicks)
+        composeRule.runOnIdle { enabled.value = false }
+        composeRule.onNodeWithContentDescription("Back").assertIsNotEnabled().performClick()
+        assertEquals(4, backClicks)
+    }
+
+    @Test
+    fun maximumFontPlacesControlsAboveCompleteTitle() {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
                 RipDpiTheme {
@@ -66,7 +239,7 @@ class RipDpiTopAppBarTest {
                 composeRule.onNodeWithContentDescription(label).assertIsDisplayed().fetchSemanticsNode()
             }
 
-        assertTrue(actions.all { action -> title.boundsInRoot.bottom <= action.boundsInRoot.top })
+        assertTrue(actions.all { action -> action.boundsInRoot.bottom <= title.boundsInRoot.top })
         assertTrue(actions.all { action -> action.boundsInRoot.right <= 411f })
     }
 }

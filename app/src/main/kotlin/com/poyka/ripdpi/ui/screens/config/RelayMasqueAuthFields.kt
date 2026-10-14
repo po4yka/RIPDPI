@@ -1,11 +1,10 @@
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
@@ -18,6 +17,7 @@ import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun MasqueAuthModeRow(
     draft: ConfigDraft,
@@ -25,7 +25,10 @@ internal fun MasqueAuthModeRow(
     actions: RelayMasqueActions,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
         MasqueAuthModeChip(
             draft.relayMasqueAuthMode,
             RelayMasqueAuthModeBearer,
@@ -83,7 +86,7 @@ internal fun MasquePrivacyPassStatus(uiState: ConfigUiState) {
 }
 
 @Composable
-private fun RowScope.MasqueAuthModeChip(
+private fun MasqueAuthModeChip(
     selectedMode: String,
     mode: String,
     labelRes: Int,
@@ -93,6 +96,5 @@ private fun RowScope.MasqueAuthModeChip(
         text = stringResource(labelRes),
         selected = selectedMode == mode,
         onClick = { onRelayMasqueAuthModeChanged(mode) },
-        modifier = Modifier.weight(1f),
     )
 }

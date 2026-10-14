@@ -776,10 +776,19 @@ mod tests {
                 meta: &mut [quinn::udp::RecvMeta],
             ) -> Poll<std::io::Result<usize>> {
                 let mut scratch = vec![0u8; 65535];
-                std::task::ready!(self.socket.poll_recv_ready(cx))?;
-                match self.socket.try_io(tokio::io::Interest::READABLE, || self.socket.try_recv(&mut scratch)) {
-                    Ok(n) => match decode_udp_frame(&scratch[..n]) {
-                        Ok((from_addr, payload)) => {
+                // Loop until poll_recv_ready itself returns Pending. try_io clears
+                // the readiness bit on WouldBlock, and poll_recv_ready registers
+                // no waker when it returns Ready, so returning Pending after a
+                // WouldBlock or a dropped frame would leave no waker armed and
+                // stall the endpoint (kqueue reports spurious readiness often).
+                loop {
+                    std::task::ready!(self.socket.poll_recv_ready(cx))?;
+                    match self.socket.try_io(tokio::io::Interest::READABLE, || self.socket.try_recv(&mut scratch)) {
+                        Ok(n) => {
+                            // A malformed SOCKS5 frame is dropped; read the next datagram.
+                            let Ok((from_addr, payload)) = decode_udp_frame(&scratch[..n]) else {
+                                continue;
+                            };
                             let first = bufs.first_mut().ok_or_else(|| {
                                 std::io::Error::new(std::io::ErrorKind::InvalidInput, "no recv buffer")
                             })?;
@@ -792,12 +801,11 @@ mod tests {
                                 ecn: None,
                                 dst_ip: None,
                             };
-                            Poll::Ready(Ok(1))
+                            return Poll::Ready(Ok(1));
                         }
-                        Err(_) => Poll::Pending,
-                    },
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Poll::Pending,
-                    Err(e) => Poll::Ready(Err(e)),
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                        Err(e) => return Poll::Ready(Err(e)),
+                    }
                 }
             }
 
@@ -1037,7 +1045,6 @@ mod tests {
     // cancel-safe: not applicable — #[tokio::test] drives to completion.
     #[cfg(all(not(target_os = "android"), target_os = "macos"))]
     #[tokio::test(flavor = "multi_thread")]
-    #[ignore = "covered by ripdpi-proxy-runtime network_e2e; this hand-rolled relay stub is timing-sensitive"]
     async fn quic_handshake_and_echo_round_trip_through_udp_session_relay() {
         const ALPN: &[u8] = b"tunnel-quic-e2e";
 

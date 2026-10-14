@@ -239,6 +239,9 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub hysteria_salamander_key: Option<String>,
     #[serde(default)]
     pub hysteria_insecure: bool,
+    /// Hysteria2 leaf-certificate SHA-256 pin (hex); Kotlin key `hysteriaPinSha256`.
+    #[serde(default)]
+    pub hysteria_pin_sha256: Option<String>,
     #[serde(default)]
     pub tuic_uuid: Option<String>,
     #[serde(default)]
@@ -374,6 +377,25 @@ mod tests {
 
             assert!(err.to_string().contains(&format!("schemaVersion {version}")));
         }
+    }
+
+    #[test]
+    fn kotlin_hysteria_pin_reaches_the_hysteria2_backend_config() {
+        let pin = "ab".repeat(32);
+        let mut object = relay_config_json_object();
+        object.insert("hysteriaInsecure".to_string(), json!(true));
+        object.insert("hysteriaPinSha256".to_string(), json!(pin));
+
+        let config: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(Value::Object(object)).expect("payload with hysteria pin");
+
+        let RelayBackendConfig::Hysteria2(hysteria) = &config.backend else {
+            panic!("expected Hysteria2 config");
+        };
+        assert!(hysteria.insecure);
+        assert_eq!(Some(pin.as_str()), hysteria.pin_sha256.as_deref());
+        let round_trip = serde_json::to_value(&config).expect("serialize");
+        assert_eq!(json!(pin), round_trip["hysteriaPinSha256"]);
     }
 
     #[test]
@@ -537,6 +559,7 @@ mod tests {
             password: Some(secret()),
             salamander_key: Some(secret()),
             insecure: false,
+            pin_sha256: None,
         });
         assert_debug_redacts(&TuicRelayConfig {
             uuid: Some(secret()),

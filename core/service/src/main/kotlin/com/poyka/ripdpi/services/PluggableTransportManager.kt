@@ -132,7 +132,11 @@ open class PluggableTransportManager
                     add(
                         ResolvedTorPluggableTransportConfig(
                             protocols = listOf(RelayKindObfs4),
-                            binaryPath = subprocessManager.extractBinary(Obfs4BinaryName).absolutePath,
+                            binaryPath =
+                                subprocessManager
+                                    .resolvePluggableTransportBinary(
+                                        Obfs4BinaryName,
+                                    ).absolutePath,
                             arguments = emptyList(),
                             runOnStartup = false,
                         ),
@@ -142,7 +146,11 @@ open class PluggableTransportManager
                     add(
                         ResolvedTorPluggableTransportConfig(
                             protocols = listOf(RelayKindWebTunnel),
-                            binaryPath = subprocessManager.extractBinary(WebTunnelBinaryName).absolutePath,
+                            binaryPath =
+                                subprocessManager
+                                    .resolvePluggableTransportBinary(
+                                        WebTunnelBinaryName,
+                                    ).absolutePath,
                             arguments = emptyList(),
                             runOnStartup = false,
                         ),
@@ -155,6 +163,7 @@ open class PluggableTransportManager
                 RelayKindSnowflake -> {
                     SubprocessSocksRelayLaunchSpec(
                         binaryName = SnowflakeBinaryName,
+                        binaryPackaging = SubprocessBinaryPackaging.PluggableTransport,
                         runtimeKind = config.kind,
                         upstreamAddress = config.ptSnowflakeBrokerUrl,
                         commandArguments = emptyList(),
@@ -179,6 +188,7 @@ open class PluggableTransportManager
                     val (targetHost, targetPort) = splitUrlTarget(config.ptWebTunnelUrl)
                     SubprocessSocksRelayLaunchSpec(
                         binaryName = WebTunnelBinaryName,
+                        binaryPackaging = SubprocessBinaryPackaging.PluggableTransport,
                         runtimeKind = config.kind,
                         protectionCapability = SubprocessSocketProtectionCapability.ProtectSocketPath,
                         upstreamAddress = config.ptWebTunnelUrl,
@@ -202,6 +212,7 @@ open class PluggableTransportManager
                     val bridgeLine = parseObfs4BridgeLine(config.ptBridgeLine)
                     SubprocessSocksRelayLaunchSpec(
                         binaryName = Obfs4BinaryName,
+                        binaryPackaging = SubprocessBinaryPackaging.PluggableTransport,
                         runtimeKind = config.kind,
                         upstreamAddress = "${bridgeLine.host}:${bridgeLine.port}",
                         redactedValues = listOf(bridgeLine.cert),

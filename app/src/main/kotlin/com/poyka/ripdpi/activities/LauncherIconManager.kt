@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.R
@@ -11,8 +12,10 @@ data class LauncherIconOption(
     val key: String,
     @param:StringRes val labelRes: Int,
     @param:DrawableRes val previewRes: Int,
+    @param:ColorRes val previewBackgroundRes: Int,
     val themedAliasClassName: String,
     val plainAliasClassName: String,
+    val previewForegroundScale: Float = 1f,
 )
 
 object LauncherIconManager {
@@ -33,13 +36,17 @@ object LauncherIconManager {
                 key = CleanIconKey,
                 labelRes = R.string.customization_icon_clean,
                 previewRes = R.drawable.ic_launcher_foreground_ripdpi_clean,
+                previewBackgroundRes = R.color.ic_launcher_background_ripdpi_clean,
                 themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityCleanThemed",
                 plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityCleanPlain",
+                // Only this foreground has a 0.70 group inset in its vector asset.
+                previewForegroundScale = 1.5f,
             ),
             LauncherIconOption(
                 key = CrackedIconKey,
                 labelRes = R.string.customization_icon_cracked,
                 previewRes = R.drawable.ic_launcher_foreground_ripdpi_cracked,
+                previewBackgroundRes = R.color.ic_launcher_background_ripdpi_cracked,
                 themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityCrackedThemed",
                 plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityCrackedPlain",
             ),
@@ -47,6 +54,7 @@ object LauncherIconManager {
                 key = DisintegrateIconKey,
                 labelRes = R.string.customization_icon_disintegrate,
                 previewRes = R.drawable.ic_launcher_foreground_ripdpi_disintegrate,
+                previewBackgroundRes = R.color.ic_launcher_background_ripdpi_disintegrate,
                 themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityDisintegrateThemed",
                 plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityDisintegratePlain",
             ),
@@ -54,6 +62,7 @@ object LauncherIconManager {
                 key = GlitchIconKey,
                 labelRes = R.string.customization_icon_glitch,
                 previewRes = R.drawable.ic_launcher_foreground_ripdpi_glitch,
+                previewBackgroundRes = R.color.ic_launcher_background_ripdpi_glitch,
                 themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityGlitchThemed",
                 plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityGlitchPlain",
             ),
@@ -61,6 +70,7 @@ object LauncherIconManager {
                 key = RubbleIconKey,
                 labelRes = R.string.customization_icon_rubble,
                 previewRes = R.drawable.ic_launcher_foreground_ripdpi_rubble,
+                previewBackgroundRes = R.color.ic_launcher_background_ripdpi_rubble,
                 themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityRubbleThemed",
                 plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityRubblePlain",
             ),
@@ -68,6 +78,7 @@ object LauncherIconManager {
                 key = StitchIconKey,
                 labelRes = R.string.customization_icon_stitch,
                 previewRes = R.drawable.ic_launcher_foreground_ripdpi_stitch,
+                previewBackgroundRes = R.color.ic_launcher_background_ripdpi_stitch,
                 themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityStitchThemed",
                 plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityStitchPlain",
             ),

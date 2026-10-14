@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.uri
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import java.net.URI
 import java.net.URLEncoder
 import java.util.Base64
@@ -221,6 +222,7 @@ object ProxyUriCodec {
                     add("obfs-password=${encodeQueryValue(it)}")
                 }
                 if (profile.insecure == true) add("insecure=1")
+                profile.pinSha256?.let { add("pinSHA256=$it") }
             }
         if (params.isEmpty()) return base
         val hashIndex = base.indexOf('#')
@@ -518,6 +520,11 @@ object ProxyUriCodec {
         val rawQuery = parsed.rawQuery
         val obfsType = queryValue(rawQuery, "obfs")
         if (obfsType != null && !obfsType.equals("salamander", ignoreCase = true)) return null
+        // REL-3: pinSHA256 is the certificate pin that makes insecure=1 safe for a
+        // self-signed server. A malformed pin rejects the link: if the importer
+        // dropped it and kept insecure=1, the profile would accept any certificate.
+        val rawPin = queryValue(rawQuery, "pinSHA256", ignoreCase = true)?.takeIf { it.isNotBlank() }
+        val pinSha256 = rawPin?.let { normalizeHysteria2PinSha256(it) ?: return null }
         return ProxyProfile.Hysteria2(
             id = newId(),
             displayName = displayName(parsed.fragment, host),
@@ -533,6 +540,7 @@ object ProxyUriCodec {
             // insecure=1 skips TLS cert verification; dropping it silently forced
             // strict verification and an opaque handshake failure (P1-9).
             insecure = queryValue(rawQuery, "insecure")?.let { it == "1" || it.equals("true", ignoreCase = true) },
+            pinSha256 = pinSha256,
         )
     }
 
@@ -617,6 +625,7 @@ object ProxyUriCodec {
     private fun queryValue(
         rawQuery: String?,
         key: String,
+        ignoreCase: Boolean = false,
     ): String? =
         rawQuery
             ?.split('&')
@@ -628,7 +637,7 @@ object ProxyUriCodec {
                 } else {
                     part.substring(0, separator) to part.substring(separator + 1)
                 }
-            }?.firstOrNull { (name, _) -> name == key }
+            }?.firstOrNull { (name, _) -> name.equals(key, ignoreCase = ignoreCase) }
             ?.second
             ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
 

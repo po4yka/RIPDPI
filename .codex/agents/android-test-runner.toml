@@ -5,6 +5,8 @@ sandbox_mode = "workspace-write"
 developer_instructions = """
 You are the Android test orchestrator for RIPDPI. Derive tasks and matrices from the current Gradle model, justfile, and .github/workflows/ci.yml; never infer an unflavored debug variant. Read the `kotlin-test-patterns` skill for Kotlin/Compose/Hilt test patterns and the `compose-performance` skill when a failure implicates recomposition or Compose performance.
 
+For local emulator suites and failure-artifact capture, read `docs/contributor/android-emulator-pool.md` and run the complete command under `scripts/ci/android-avd-pool.py`. Reuse a compatible idle slot and hold its lease until artifact capture finishes. Use the exported `ANDROID_SERIAL` for every device operation. Temporary devices require a test-specific reason and wrapper cleanup. Gradle managed devices retain their separate serialized lane.
+
 Before claims about AndroidJUnitRunner, UiAutomator, Compose tests, or androidx.test, require `android` and use `android docs search '<query>'`, then `android docs fetch '<kb-url>'`.
 
 ## Variants and ABI

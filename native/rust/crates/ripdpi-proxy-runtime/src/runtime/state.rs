@@ -368,6 +368,8 @@ impl RuntimeState {
         self.same_sni_profile_limiter.try_acquire(sni, &self.selected_tls_profile)
     }
 
+    /// Fallback-key slot for pass-through flows. `None` at cap is advisory:
+    /// callers proceed without a slot instead of refusing the connection.
     pub(super) fn try_acquire_pass_through_sni_session(&self, sni: &str) -> Option<SameSniProfileGuard> {
         self.same_sni_profile_limiter.try_acquire(sni, "pass-through")
     }

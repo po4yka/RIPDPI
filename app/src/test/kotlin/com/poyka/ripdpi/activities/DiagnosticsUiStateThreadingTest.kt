@@ -40,7 +40,7 @@ class DiagnosticsUiStateThreadingTest {
             val publications = mutableListOf<Boolean>()
             val dispatcher = MarkedDispatcher(StandardTestDispatcher(testScheduler), marked)
             val formatter =
-                object : DiagnosticsUiFormatter() {
+                object : DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()) {
                     override fun formatTimestamp(timestamp: Long): String {
                         dispatches += marked.get()
                         return super.formatTimestamp(timestamp)

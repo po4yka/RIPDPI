@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <array name="themes">
-        <item name="system">System</item>
-        <item name="light">Light</item>
-        <item name="dark">Dark</item>
+        <item name="system">@string/settings_option_theme_system</item>
+        <item name="light">@string/settings_option_theme_light</item>
+        <item name="dark">@string/settings_option_theme_dark</item>
     </array>
     <array name="themes_entries">
         <item name="system">system</item>
@@ -12,9 +12,9 @@
     </array>
 
     <array name="ripdpi_hosts_modes">
-        <item name="disable">Disable</item>
-        <item name="blacklist">Blacklist</item>
-        <item name="whitelist">Whitelist</item>
+        <item name="disable">@string/home_mode_card_disable</item>
+        <item name="blacklist">@string/host_pack_target_blacklist</item>
+        <item name="whitelist">@string/host_pack_target_whitelist</item>
     </array>
     <array name="ripdpi_hosts_modes_entries">
         <item name="disable">disable</item>
@@ -23,8 +23,8 @@
     </array>
 
     <array name="warp_route_modes">
-        <item name="off">Off</item>
-        <item name="rules">Route selected hosts</item>
+        <item name="off">@string/semantic_state_off</item>
+        <item name="rules">@string/settings_option_route_selected_hosts</item>
     </array>
     <array name="warp_route_modes_entries">
         <item name="off">off</item>
@@ -32,8 +32,8 @@
     </array>
 
     <array name="warp_endpoint_selection_modes">
-        <item name="automatic">Automatic</item>
-        <item name="manual">Manual</item>
+        <item name="automatic">@string/settings_option_automatic</item>
+        <item name="manual">@string/adaptive_split_badge_manual</item>
     </array>
     <array name="warp_endpoint_selection_modes_entries">
         <item name="automatic">automatic</item>
@@ -41,12 +41,12 @@
     </array>
 
     <array name="warp_amnezia_presets">
-        <item name="off">Off</item>
-        <item name="random">Random</item>
-        <item name="quic_imitation">QUIC imitation</item>
-        <item name="tls_imitation">TLS imitation</item>
-        <item name="dns_imitation">DNS imitation</item>
-        <item name="custom">Custom</item>
+        <item name="off">@string/semantic_state_off</item>
+        <item name="random">@string/settings_option_random</item>
+        <item name="quic_imitation">@string/settings_option_quic_imitation</item>
+        <item name="tls_imitation">@string/settings_option_tls_imitation</item>
+        <item name="dns_imitation">@string/settings_option_dns_imitation</item>
+        <item name="custom">@string/adaptive_split_badge_custom</item>
     </array>
     <array name="warp_amnezia_presets_entries">
         <item name="off">off</item>
@@ -58,9 +58,9 @@
     </array>
 
     <array name="quic_initial_modes">
-        <item name="disabled">Disabled</item>
-        <item name="route">Route by SNI</item>
-        <item name="route_and_cache">Route and cache</item>
+        <item name="disabled">@string/diagnostics_tool_state_disabled</item>
+        <item name="route">@string/settings_option_route_by_sni</item>
+        <item name="route_and_cache">@string/settings_option_route_and_cache</item>
     </array>
     <array name="quic_initial_modes_entries">
         <item name="disabled">disabled</item>
@@ -69,12 +69,12 @@
     </array>
 
     <array name="tls_fingerprint_profiles">
-        <item name="chrome_stable">Chrome stable</item>
-        <item name="chrome_desktop_stable">Chrome desktop stable</item>
-        <item name="firefox_stable">Firefox stable</item>
-        <item name="firefox_ech_stable">Firefox stable (ECH)</item>
-        <item name="safari_stable">Safari stable</item>
-        <item name="edge_stable">Edge stable</item>
+        <item name="chrome_stable">@string/settings_option_chrome_stable</item>
+        <item name="chrome_desktop_stable">@string/settings_option_chrome_desktop_stable</item>
+        <item name="firefox_stable">@string/settings_option_firefox_stable</item>
+        <item name="firefox_ech_stable">@string/settings_option_firefox_ech_stable</item>
+        <item name="safari_stable">@string/settings_option_safari_stable</item>
+        <item name="edge_stable">@string/settings_option_edge_stable</item>
     </array>
     <array name="tls_fingerprint_profiles_entries">
         <item name="chrome_stable">chrome_stable</item>
@@ -86,10 +86,10 @@
     </array>
 
     <array name="entropy_modes">
-        <item name="disabled">Disabled</item>
-        <item name="popcount">Popcount shaping</item>
-        <item name="shannon">Shannon shaping</item>
-        <item name="combined">Combined shaping</item>
+        <item name="disabled">@string/diagnostics_tool_state_disabled</item>
+        <item name="popcount">@string/settings_option_popcount_shaping</item>
+        <item name="shannon">@string/settings_option_shannon_shaping</item>
+        <item name="combined">@string/settings_option_combined_shaping</item>
     </array>
     <array name="entropy_modes_entries">
         <item name="disabled">disabled</item>
@@ -99,8 +99,8 @@
     </array>
 
     <array name="fake_tls_base_modes">
-        <item name="default">Default fake ClientHello</item>
-        <item name="original">Original ClientHello</item>
+        <item name="default">@string/ripdpi_fake_tls_summary_base_default</item>
+        <item name="original">@string/diagnostics_signature_original_clienthello</item>
     </array>
     <array name="fake_tls_base_modes_entries">
         <item name="default">default</item>
@@ -108,7 +108,7 @@
     </array>
 
     <array name="http_fake_profiles">
-        <item name="compat_default">Compatibility default</item>
+        <item name="compat_default">@string/diagnostics_signature_compatibility_default</item>
         <item name="iana_get">IANA GET</item>
         <item name="cloudflare_get">Cloudflare GET</item>
     </array>
@@ -119,8 +119,8 @@
     </array>
 
     <array name="fake_tls_sni_modes">
-        <item name="fixed">Fixed</item>
-        <item name="randomized">Randomized</item>
+        <item name="fixed">@string/adaptive_fake_ttl_badge_fixed</item>
+        <item name="randomized">@string/diagnostics_signature_randomized</item>
     </array>
     <array name="fake_tls_sni_modes_entries">
         <item name="fixed">fixed</item>
@@ -128,11 +128,11 @@
     </array>
 
     <array name="ip_id_modes">
-        <item name="">Default</item>
-        <item name="seq">Sequential</item>
+        <item name="">@string/activation_window_badge_default</item>
+        <item name="seq">@string/ripdpi_fake_seq_mode_sequential</item>
         <item name="seqgroup">Seqgroup</item>
-        <item name="rnd">Random</item>
-        <item name="zero">Zero</item>
+        <item name="rnd">@string/settings_option_random</item>
+        <item name="zero">@string/settings_option_zero</item>
     </array>
     <array name="ip_id_modes_entries">
         <item name=""></item>
@@ -156,13 +156,13 @@
     </array>
 
     <array name="tls_fake_profiles">
-        <item name="compat_default">Compatibility default</item>
+        <item name="compat_default">@string/diagnostics_signature_compatibility_default</item>
         <item name="iana_firefox">IANA Firefox</item>
         <item name="google_chrome">Google Chrome</item>
         <item name="vk_chrome">VK Chrome</item>
         <item name="sberbank_chrome">Sberbank Chrome</item>
         <item name="rutracker_kyber">Rutracker Kyber</item>
-        <item name="bigsize_iana">IANA bigsize</item>
+        <item name="bigsize_iana">@string/settings_option_iana_bigsize</item>
     </array>
     <array name="tls_fake_profiles_entries">
         <item name="compat_default">compat_default</item>
@@ -175,12 +175,12 @@
     </array>
 
     <array name="udp_fake_profiles">
-        <item name="compat_default">Compatibility default</item>
-        <item name="zero_256">Zero blob 256</item>
-        <item name="zero_512">Zero blob 512</item>
-        <item name="dns_query">DNS query</item>
-        <item name="stun_binding">STUN binding</item>
-        <item name="wireguard_initiation">WireGuard initiation</item>
+        <item name="compat_default">@string/diagnostics_signature_compatibility_default</item>
+        <item name="zero_256">@string/diagnostics_signature_zero_blob_256</item>
+        <item name="zero_512">@string/diagnostics_signature_zero_blob_512</item>
+        <item name="dns_query">@string/diagnostics_signature_dns_query</item>
+        <item name="stun_binding">@string/diagnostics_signature_stun_binding</item>
+        <item name="wireguard_initiation">@string/diagnostics_signature_wireguard_initiation</item>
         <item name="dht_get_peers">DHT get_peers</item>
     </array>
     <array name="udp_fake_profiles_entries">

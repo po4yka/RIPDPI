@@ -258,6 +258,17 @@ sealed interface ProxyProfile {
          */
         val insecure: Boolean? = null,
         /**
+         * Certificate pin: SHA-256 of the server leaf certificate DER, as 64
+         * lowercase hex characters (see [normalizeHysteria2PinSha256]). Comes
+         * from the share link `pinSHA256` parameter or the Clash `fingerprint`
+         * key. `null` means no pin.
+         *
+         * With [insecure] = `true`, the pin replaces CA validation. With
+         * [insecure] unset or `false`, the native client requires both a valid
+         * CA chain and a matching pin, as upstream Hysteria2 does.
+         */
+        val pinSha256: String? = null,
+        /**
          * Port-hopping range string (e.g. `"20000-40000"`). Carried from the
          * RIPDPI extended bundle when present; wire-to-runtime mapping is
          * best-effort / follow-up.

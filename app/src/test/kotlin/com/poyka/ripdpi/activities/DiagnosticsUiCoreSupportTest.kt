@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.content.res.Configuration
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
@@ -15,9 +16,13 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.platform.StringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import java.time.ZoneId
 import java.util.Locale
 
+@RunWith(RobolectricTestRunner::class)
 class DiagnosticsUiCoreSupportTest {
     @Test
     fun `canonical connectivity counts are localized without changing counts`() {
@@ -76,7 +81,7 @@ class DiagnosticsUiCoreSupportTest {
     fun `format timestamp uses injected zone`() {
         val support =
             testDiagnosticsUiCoreSupport(
-                object : DiagnosticsUiFormatter() {
+                object : DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()) {
                     override val locale: Locale = Locale.US
                     override val timestampLocale: Locale = Locale.US
                     override val zoneId: ZoneId = ZoneId.of("America/New_York")
@@ -87,33 +92,33 @@ class DiagnosticsUiCoreSupportTest {
     }
 
     @Test
-    fun `human timestamps follow the active locale without changing numeric formatters`() {
-        val previous = Locale.getDefault()
+    fun `human timestamps and numbers follow current context locale`() {
+        val application = RuntimeEnvironment.getApplication()
         val support =
             testDiagnosticsUiCoreSupport(
-                object : DiagnosticsUiFormatter() {
+                object : DiagnosticsUiFormatter(application) {
                     override val zoneId: ZoneId = ZoneId.of("UTC")
                 },
             )
-        try {
-            Locale.setDefault(Locale.forLanguageTag("ru"))
-            assertEquals("окт. 10, 00:00", support.formatTimestamp(1_791_590_400_000L))
-            Locale.setDefault(Locale.forLanguageTag("fa"))
-            assertEquals("اکتبر 10, 00:00", support.formatTimestamp(1_791_590_400_000L))
-            Locale.setDefault(Locale.US)
-            assertEquals("Oct 10, 00:00", support.formatTimestamp(1_791_590_400_000L))
-            assertEquals("1.5 KB", support.formatBytes(1_500L))
-            assertEquals("1.5 Kbps", support.formatBps(1_500L))
-        } finally {
-            Locale.setDefault(previous)
+        val configuration = Configuration(application.resources.configuration)
+        listOf(
+            "ru" to "окт. 10, 00:00",
+            "fa" to "اکتبر 10, 00:00",
+            "en" to "Oct 10, 00:00",
+        ).forEach { (tag, expected) ->
+            configuration.setLocale(Locale.forLanguageTag(tag))
+            application.resources.updateConfiguration(configuration, application.resources.displayMetrics)
+            assertEquals(expected, support.formatTimestamp(1_791_590_400_000L))
         }
+        assertEquals("1.5 KB", support.formatBytes(1_500L))
+        assertEquals("1.5 Kbps", support.formatBps(1_500L))
     }
 
     @Test
     fun `formatters use injected locale`() {
         val support =
             testDiagnosticsUiCoreSupport(
-                object : DiagnosticsUiFormatter() {
+                object : DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()) {
                     override val locale: Locale = Locale.FRANCE
                     override val zoneId: ZoneId = ZoneId.of("UTC")
                 },
@@ -252,7 +257,7 @@ class DiagnosticsUiCoreSupportTest {
                         }
                     }
             }
-        val support = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), resolver)
+        val support = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()), resolver)
         val expectations =
             mapOf(
                 ScanTerminationReason.USER_CANCELLED to
