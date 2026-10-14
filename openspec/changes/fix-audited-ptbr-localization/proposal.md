@@ -13,6 +13,7 @@ The pt-BR audit at af004adb89dbf443be8f190a3cead0e275026b24 found 14 active copy
 - Refresh retained Diagnostics, History and subscription presentation when the app language changes, including selected details.
 - Translate known generated unknown-network summaries at the presentation boundary.
 - Preserve raw records, user names, protocol values, selection and sensitive-detail state.
+- Update the existing rustls dependency to 0.23.46 to fix four new advisories that block the hosted security gate.
 
 ## Capabilities
 
@@ -27,5 +28,5 @@ The pt-BR audit at af004adb89dbf443be8f190a3cead0e275026b24 found 14 active copy
 ## Impact
 
 - App locale resources, app presentation sources and tests, glossary and provenance.
-- Existing resource keys remain in all ten locales. No dependency, native behavior, storage, wire or service-lifecycle contract changes are planned.
+- Existing resource keys remain in all ten locales. No new dependency, repository-owned native source, storage, wire or service-lifecycle contract change is planned. The existing rustls patch version and its generated lockfile change for the hosted security gate.
 - Local, hosted CI, render and device evidence remain separate. Main integration and push are explicitly authorized by the user.

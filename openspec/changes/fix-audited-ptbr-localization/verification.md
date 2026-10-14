@@ -3,9 +3,9 @@ task_id: UIX-1791978914456411
 change: fix-audited-ptbr-localization
 commit_sha: null
 local: required
-local_evidence: Full and Simple unit tests, app and service lint, staticAnalysis, resource contracts, Portuguese renders, Roborazzi, architecture health and locked Cargo metadata pass. Combined checks after rebase remain required.
+local_evidence: Full and Simple unit tests, app and service lint, staticAnalysis, resource contracts, Portuguese renders, Roborazzi, architecture health and locked Cargo metadata pass. Combined gates and both Roborazzi variants also pass after rebase. Rustls policy, workspace tests, lint and Android native gates pass. Workspace doctests also pass. Recovery hosted CI remains pending.
 remote_ci: required
-remote_ci_evidence: Main publication and exact-SHA hosted CI remain pending.
+remote_ci_evidence: Main source 5ad5679910eab9569ee5f47245a4eb25fc8c937d was pushed. Six auxiliary workflows pass; CI 38579791823 fails on four new rustls advisories. Recovery validation and new exact-SHA hosted CI remain required.
 device: not_applicable
 device_evidence: This change uses JVM behavior and render checks. No physical-device or carrier-network acceptance is claimed.
 artifact: not_applicable
@@ -28,8 +28,8 @@ deployment_evidence: No deployment is owned by this change.
 
 ## Local gates
 
-- Unfiltered `:app:testGithubFullDebugUnitTest`: 2565 tests pass, zero failures, errors or skips.
-- Unfiltered `:app:testGithubSimpleDebugUnitTest`: 2734 tests pass, zero failures, errors or skips.
+- Unfiltered `:app:testGithubFullDebugUnitTest`: 2568 tests pass, zero failures, errors or skips.
+- Unfiltered `:app:testGithubSimpleDebugUnitTest`: 2737 tests pass, zero failures, errors or skips.
 - `:app:lintGithubFullDebug`, `:app:lintGithubSimpleDebug`, `:core:service:lintDebug` and `staticAnalysis`: the combined command passes.
 - `python3 -m unittest discover -s scripts/ci -p 'test_*localization_regressions.py'`: 50 tests pass. Translation export discovery: three tests pass. The export manifest stays unchanged with 5002 keys.
 - `scripts/ci/check-locale-parity.sh`: app, Simple and service resources match in all ten locales. Settings labels and option order match.
@@ -51,4 +51,10 @@ Legacy entries with fingerprint `unknown` and a real ISP name equal to `Unknown`
 
 ## Publication
 
-Hosted source CI and final main state belong to `UIX-1791979418293451`. Publication and exact-SHA hosted CI remain pending. Local gates do not replace hosted CI.
+Hosted source CI and final main state belong to `UIX-1791979418293451`. Source 5ad5679910eab9569ee5f47245a4eb25fc8c937d is on main and origin/main. Hosted CI 38579791823 failed at cargo-deny on RUSTSEC-2026-0346 through RUSTSEC-2026-0349. CodeQL, Secret Scan, harness-checks, translation export, locale parity and fleet-fixtures pass. The existing rustls dependency is updated from 0.23.45 to 0.23.46 in a separate recovery worktree. Local gates do not replace successful hosted CI.
+
+## Security recovery
+
+The published old and new crate archives match their registry checksums. All 25 changed files and the unchanged build script were reviewed before compilation. Features, MSRV, package sources and other package versions stay unchanged. Cargo regenerates ten edges to existing locked packages under their existing allowed ranges. No new package or advisory waiver is added.
+
+Cargo metadata and fetch with --locked pass. The exact CI cargo-deny version 0.19.8 passes advisories, bans, licenses and sources with the live advisory database and the repository policy. Advisory-waiver governance passes. Independent recovery review is clean. It confirms that all ten regenerated dependency edges use existing packages within their allowed ranges. The targeted TLS/QUIC batch passes 583 tests; six existing ignored external-peer or external-ECH tests do not prove coverage. The owning Rust workspace gate passes 5718 tests, with its 45 existing skips and two excluded binaries. Its separate ignored startup smoke passes. Native architecture scanner tests pass 18 cases. The actual :core:engine:buildRustNativeLibs task passes in 6m 21s and generates five arm64 Rust libraries. The final Full and Simple unit gates, both app lint variants, service lint and staticAnalysis also pass on the recovery tree in 1m 56s. Their current counts are 2568 and 2737; the peer main commit adds three font-ownership cases per variant to the earlier 2565 and 2734. The owning Rust lint gate passes rustfmt, all scanner tests and guards, workspace all-targets clippy with -D warnings, and all-features rustdoc. Rustdoc emits its documented existing warning tail in unchanged files. The owning Android cross-target gate passes aarch64, armv7, i686 and x86_64 with its documented Linux-only io-uring exclusion. These are compile checks, not Android runtime acceptance. Workspace doctests pass two cases, with three existing ignored cases and zero failures. The compile-only doctest does not prove a socket runtime path.

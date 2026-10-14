@@ -6,7 +6,7 @@ Task UIX-1791978914456411 corrects the audit at af004adb89dbf443be8f190a3cead0e2
 
 - Goal: accurate pt-BR copy and language changes on retained production ViewModels with stable user state.
 - Goal: locale-aware History captions on API 32 and generated Detection History captions in every selected locale.
-- Non-goal: native behavior, storage or wire changes, new dependencies, optional vocabulary changes, or golden updates.
+- Non-goal: repository-owned native source, storage or wire changes, new dependencies, optional vocabulary changes, or golden updates. The existing rustls patch update is required for the hosted security gate.
 
 ## Decisions
 
@@ -20,7 +20,7 @@ Task UIX-1791978914456411 corrects the audit at af004adb89dbf443be8f190a3cead0e2
 ## Contracts and ownership
 
 - Affected module: app, including main and Simple resources. Service resources are validated but no service behavior is changed.
-- No Rust production source, JNI, protobuf, database, network activation, dependency or public wire contract is changed.
+- No repository-owned Rust production source, JNI, protobuf, database, network activation or public wire contract is changed. The hosted security gate requires the existing rustls dependency patch update described below.
 - HistoryDetailLoader and selected-state models are internal app presentation contracts. They may return or retain raw details to permit reprojection. Their fakes and tests change in the same source commit.
 - Locale writer owns raw selection, projection invalidation and affected Routes. History writer owns HistoryConnectionDetailUiFactory and Detection History presentation. Resource writer owns all locale sets, glossary, provenance and resource tests.
 - Locale writer owns constructor changes in HistoryUiStateFactoryTest, HistoryViewModelTest, HistoryRouteTest, HistoryDetailLoaderTest and HistoryTestBuilders. History writer owns remaining factory-constructor changes. These lanes remain isolated until root integration.
@@ -39,3 +39,7 @@ Task UIX-1791978914456411 corrects the audit at af004adb89dbf443be8f190a3cead0e2
 No data migration or compatibility break is planned. Existing keys and records remain valid. Revert the scoped source commit to roll back presentation only.
 
 Before publication, run resource regressions and parity/export, the unfiltered app unit gate, app Full and Simple lint, service lint, staticAnalysis, Portuguese normal and large-font renders, Full Roborazzi comparison, task/OpenSpec contracts, architecture health, file limits and locked Cargo metadata. Rebase onto origin/main, rerun combined-tree gates as required, fast-forward main and push. Observe successful hosted CI on the published source SHA. Device, release artifact and deployment acceptance are separate from this source change.
+
+## Hosted security gate recovery
+
+A fresh advisory database blocks the published localization source because rustls 0.23.45 has four security advisories. Upgrade only the existing workspace requirement and locked rustls package to 0.23.46. Keep dependency features, toolchain, JNI and wire contracts, license policy, advisory waivers and all locale resources unchanged. Review the published crate diff and package inventory before compilation. Validate the policy, workspace tests and clippy, and Android native cross-compilation. The source recovery must pass hosted CI on its exact commit.
