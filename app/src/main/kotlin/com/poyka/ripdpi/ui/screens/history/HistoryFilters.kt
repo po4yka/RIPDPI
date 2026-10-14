@@ -1,17 +1,19 @@
 package com.poyka.ripdpi.ui.screens.history
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -50,10 +52,9 @@ internal fun FilterCard(
         searchValue.isNotBlank() || primaryFilter.selected != null || secondaryFilter.selected != null
 
     RipDpiCard(modifier = modifier) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             Text(
                 text = title,
@@ -67,6 +68,8 @@ internal fun FilterCard(
                     color = RipDpiThemeTokens.colors.info,
                     modifier =
                         Modifier
+                            .width(IntrinsicSize.Max)
+                            .heightIn(min = 48.dp)
                             .ripDpiClickable(role = Role.Button, onClick = onClearFilters)
                             .padding(horizontal = spacing.sm, vertical = spacing.xs)
                             .ripDpiTestTag(RipDpiTestTags.HistoryFilterClearAll),
@@ -110,17 +113,31 @@ private fun HistoryChips(config: HistoryFilterChipsConfig) {
     if (config.options.isEmpty()) {
         return
     }
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         config.options.forEach { option ->
             RipDpiChip(
                 text =
                     when (option) {
+                        "completed" -> {
+                            stringResource(R.string.diagnostics_scan_completion_normal)
+                        }
+
+                        "running" -> {
+                            stringResource(R.string.diagnostics_status_running)
+                        }
+
+                        "failed" -> {
+                            stringResource(R.string.diagnostics_stages_failed)
+                        }
+
+                        "cancelled" -> {
+                            stringResource(R.string.vpn_replay_history_verdict_cancelled)
+                        }
+
                         com.poyka.ripdpi.diagnostics.ScanPathMode.RAW_PATH.name -> {
                             stringResource(R.string.diagnostics_scope_direct_label)
                         }
@@ -134,6 +151,7 @@ private fun HistoryChips(config: HistoryFilterChipsConfig) {
                         }
                     },
                 selected = config.selected == option,
+                wrapLabel = true,
                 onClick = { config.onSelect(option) },
                 modifier = Modifier.ripDpiTestTag(config.tagForOption(option)),
             )

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_option_theme_system">सिस्टम</string>
+    <string name="settings_option_theme_light">हल्की</string>
+    <string name="settings_option_theme_dark">गहरी</string>
+    <string name="settings_option_route_selected_hosts">चुने गए होस्ट का ट्रैफ़िक भेजें</string>
+    <string name="settings_option_automatic">स्वचालित</string>
+    <string name="settings_option_random">यादृच्छिक</string>
+    <string name="settings_option_quic_imitation">QUIC की नकल</string>
+    <string name="settings_option_tls_imitation">TLS की नकल</string>
+    <string name="settings_option_dns_imitation">DNS की नकल</string>
+    <string name="settings_option_route_by_sni">SNI के अनुसार ट्रैफ़िक भेजें</string>
+    <string name="settings_option_route_and_cache">ट्रैफ़िक भेजें और कैश करें</string>
+    <string name="settings_option_chrome_stable">Chrome स्थिर संस्करण</string>
+    <string name="settings_option_chrome_desktop_stable">Chrome डेस्कटॉप स्थिर संस्करण</string>
+    <string name="settings_option_firefox_stable">Firefox स्थिर संस्करण</string>
+    <string name="settings_option_firefox_ech_stable">Firefox स्थिर संस्करण (ECH)</string>
+    <string name="settings_option_safari_stable">Safari स्थिर संस्करण</string>
+    <string name="settings_option_edge_stable">Edge स्थिर संस्करण</string>
+    <string name="settings_option_popcount_shaping">popcount आधारित समायोजन</string>
+    <string name="settings_option_shannon_shaping">शैनन आधारित समायोजन</string>
+    <string name="settings_option_combined_shaping">संयुक्त समायोजन</string>
+    <string name="ripdpi_fake_seq_mode_sequential">क्रमिक</string>
+    <string name="settings_option_zero">शून्य</string>
+    <string name="settings_option_iana_bigsize">IANA बड़ा पेलोड</string>
+    <string name="host_pack_youtube_description">सार्वजनिक geosite सूचियों से वीडियो चलाने, एम्बेड और CDN के एंडपॉइंट।</string>
+    <string name="host_pack_telegram_description">सार्वजनिक geosite स्रोतों से शामिल मैसेंजर, CDN और साझा करने के लिंक।</string>
+    <string name="host_pack_discord_description">सार्वजनिक geosite सूचियों से ऐप, मीडिया, आमंत्रण और अटैचमेंट के डोमेन।</string>
+    <string name="ripdpi_fake_seq_mode_duplicate">दोहराव</string>
+</resources>

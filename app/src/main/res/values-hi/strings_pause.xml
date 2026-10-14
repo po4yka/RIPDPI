@@ -12,7 +12,7 @@
     <string name="pause_stop">रोकें और फिर शुरू करना रद्द करें</string>
     <string name="pause_persistence_failed">आदेश सहेजा नहीं जा सका। कनेक्शन की स्थिति नहीं बदली है।</string>
     <string name="pause_duration_minutes">%1$s मिनट</string>
-    <string name="pause_clock_failed">घड़ी या बूट पहचान बदल गई है। बहाली की शर्तें जाँचें।</string>
+    <string name="pause_clock_failed">घड़ी या बूट पहचान बदल गई है। बहाली की समीक्षा करने के लिए अभी फिर शुरू करें चुनें।</string>
     <string name="pause_consent_required">फिर शुरू करने के लिए VPN अनुमति चाहिए।</string>
     <string name="pause_lockdown">Android VPN लॉक स्थिति यह कार्रवाई नहीं करने देती।</string>
     <string name="pause_background_restricted">Android ने पृष्ठभूमि बहाली टाल दी है। ऐप खोलें।</string>

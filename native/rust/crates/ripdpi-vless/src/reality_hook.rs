@@ -25,22 +25,25 @@
 //! The callback reads `client_random` directly out of `msg`
 //! (`[6..38]` of the ClientHello body) and the X25519 key_share
 //! private key from BoringSSL via the patched accessor. The seal
-//! itself is delegated to [`crate::reality_seal::seal_session_id`]
-//! — the boundary between the BoringSSL hook and the Reality crypto
-//! is therefore a single function call.
+//! itself is delegated to
+//! [`crate::reality_seal::seal_session_id_with_auth_key`]. The callback
+//! keeps the derived AuthKey in the state, so that
+//! [`RealityHookGuard::take_auth_key`] can authenticate the server
+//! certificate after the handshake.
 
 use std::ffi::c_int;
 use std::io;
 use std::os::raw::c_void;
 use std::panic::AssertUnwindSafe;
-use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(test)]
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use zeroize::Zeroizing;
 
-use crate::reality_seal::{SESSION_ID_LEN, SESSION_ID_OFFSET, seal_session_id};
+use crate::reality_seal::{SESSION_ID_LEN, SESSION_ID_OFFSET, derive_auth_key, seal_session_id_with_auth_key};
 
 #[repr(C)]
 pub(crate) struct SslCtxHandle {
@@ -162,6 +165,12 @@ pub(crate) struct RealityCallbackState {
     /// Inspected by [`RealityHookGuard::was_successful`] after the
     /// handshake completes so callers can surface a clean error.
     pub failed: AtomicBool,
+    /// AuthKey of the first successful seal. It is written once: the
+    /// REALITY server derives its AuthKey from the first ClientHello only,
+    /// and a HelloRetryRequest cannot ask for a new X25519 share, so a
+    /// second invocation fails on the missing key share. The server
+    /// certificate check after the handshake takes this value.
+    pub auth_key: Mutex<Option<Zeroizing<[u8; 32]>>>,
     #[cfg(test)]
     pub fixed_now_secs: Option<u32>,
     #[cfg(test)]
@@ -190,13 +199,32 @@ impl RealityHookGuard {
     /// fires once per `ssl_add_client_hello` call — usually once;
     /// twice if the server triggers HelloRetryRequest.
     pub fn was_successful(&self) -> bool {
-        if self.state_ptr.is_null() {
-            return false;
+        self.state()
+            .is_some_and(|state| state.succeeded.load(Ordering::Acquire) && !state.failed.load(Ordering::Acquire))
+    }
+
+    /// Moves the AuthKey of the sealed ClientHello out of the callback
+    /// state, so that the state keeps no copy for the rest of the
+    /// connection. Returns `None` when no callback invocation succeeded or
+    /// when the key was already taken.
+    pub fn take_auth_key(&self) -> Option<Zeroizing<[u8; 32]>> {
+        if !self.was_successful() {
+            return None;
         }
-        // SAFETY: state_ptr is owned by this guard and the callback
-        // only borrows through it.
-        let state = unsafe { &*self.state_ptr };
-        state.succeeded.load(Ordering::Acquire) && !state.failed.load(Ordering::Acquire)
+        self.state()?.auth_key.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take()
+    }
+
+    fn state(&self) -> Option<&RealityCallbackState> {
+        if self.state_ptr.is_null() {
+            return None;
+        }
+        // SAFETY: `state_ptr` is non-null (checked above) and comes from
+        // `Box::into_raw` in `install_reality_client_hello_hook_with_state`.
+        // The box stays alive until `Drop`, which cannot run while `&self`
+        // is borrowed. The callback only creates shared references to the
+        // state and mutates it through atomics and the `auth_key` Mutex, so
+        // this shared reference does not alias a `&mut`.
+        Some(unsafe { &*self.state_ptr })
     }
 }
 
@@ -227,14 +255,16 @@ impl Drop for RealityHookGuard {
 //   2. No aliasing while the guard lives: the only other reader is the
 //      C `client_hello_cb`, which dereferences the pointer (stored in
 //      the SSL `ex_data`) and mutates *only* the `AtomicBool` flags via
-//      atomic ops — no `&mut` aliasing of the Rust-owned `Box`, and the
-//      guard never hands out a `&mut` to the state.
+//      atomic ops and the `auth_key` slot through its `Mutex` — no `&mut`
+//      aliasing of the Rust-owned `Box`, and the guard never hands out a
+//      `&mut` to the state.
 //   3. Lifetime tied to the guard: the pointee outlives every callback
 //      invocation because callers contract to drop the SSL object
 //      before the guard, so the C side can never dereference freed
 //      memory after the move or after `Drop`.
-//   4. The pointee's fields (`[u8; 32]`, `Vec<u8>`, `AtomicBool`) are
-//      all `Send`, so transferring ownership to another thread is sound.
+//   4. The pointee's fields (`[u8; 32]`, `Vec<u8>`, `AtomicBool`,
+//      `Mutex<Option<Zeroizing<[u8; 32]>>>`) are all `Send`, so
+//      transferring ownership to another thread is sound.
 unsafe impl Send for RealityHookGuard {}
 
 /// Install the Reality `client_hello_cb` on the `SSL_CTX` backing
@@ -265,6 +295,7 @@ pub(crate) unsafe fn install_reality_client_hello_hook(
         short_id,
         succeeded: AtomicBool::new(false),
         failed: AtomicBool::new(false),
+        auth_key: Mutex::new(None),
         #[cfg(test)]
         fixed_now_secs: None,
         #[cfg(test)]
@@ -288,6 +319,7 @@ unsafe fn install_reality_client_hello_hook_for_test(
         short_id,
         succeeded: AtomicBool::new(false),
         failed: AtomicBool::new(false),
+        auth_key: Mutex::new(None),
         fixed_now_secs: Some(fixed_now_secs),
         trace: Some(trace),
     });
@@ -375,13 +407,17 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
     #[cfg(not(test))]
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as u32);
 
-    let Ok(sealed) = seal_session_id(&priv_key, &state.server_pubkey, &client_random, &state.short_id, msg_slice, now)
-    else {
+    let Ok(auth_key) = derive_auth_key(&priv_key, &state.server_pubkey, &client_random) else {
+        state.failed.store(true, Ordering::Release);
+        return 0;
+    };
+    let Ok(sealed) = seal_session_id_with_auth_key(&auth_key, &client_random, &state.short_id, msg_slice, now) else {
         state.failed.store(true, Ordering::Release);
         return 0;
     };
 
     msg_slice[SESSION_ID_OFFSET..SESSION_ID_OFFSET + SESSION_ID_LEN].copy_from_slice(&sealed);
+    state.auth_key.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_or_insert(auth_key);
     #[cfg(test)]
     if let (Some(trace), Some(raw_hello_before)) = (&state.trace, raw_hello_before) {
         let mut trace = trace.lock().expect("reality hook trace lock");
@@ -401,7 +437,7 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::reality_seal::{build_session_id_plaintext, derive_auth_key};
+    use crate::reality_seal::{build_session_id_plaintext, derive_auth_key, seal_session_id};
     use boring::ssl::{SslConnector, SslMethod, SslVerifyMode};
     use foreign_types_shared::ForeignType;
     use ring::aead::{AES_256_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
@@ -421,6 +457,7 @@ mod tests {
             short_id,
             succeeded: AtomicBool::new(false),
             failed: AtomicBool::new(false),
+            auth_key: Mutex::new(None),
             fixed_now_secs: None,
             trace: None,
         })
@@ -466,6 +503,21 @@ mod tests {
         // SAFETY: the guard still owns this live state.
         unsafe { (*raw).failed.store(true, Ordering::Release) };
         assert!(!guard.was_successful());
+    }
+
+    /// The AuthKey is released only after a successful seal, and only
+    /// once, so the state keeps no copy for the rest of the connection.
+    #[test]
+    fn guard_releases_auth_key_once_after_success() {
+        let state = test_state([0u8; 32], vec![]);
+        *state.auth_key.lock().expect("auth key lock") = Some(Zeroizing::new([0x5a; 32]));
+        let raw = Box::into_raw(state);
+        let guard = RealityHookGuard { state_ptr: raw };
+        assert!(guard.take_auth_key().is_none(), "no AuthKey before the callback reports success");
+        // SAFETY: the guard owns this live state for the duration of the test.
+        unsafe { (*raw).succeeded.store(true, Ordering::Release) };
+        assert_eq!(guard.take_auth_key().as_deref(), Some(&[0x5a; 32]));
+        assert!(guard.take_auth_key().is_none(), "the AuthKey is released only once");
     }
 
     /// Calling the inner callback with a null state pointer must

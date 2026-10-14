@@ -3,7 +3,7 @@ package com.poyka.ripdpi.ui.screens.config
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.selectableGroup
@@ -383,13 +383,14 @@ internal fun ConfigModeChips(
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
-        Row(
+        FlowRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .selectableGroup()
                     .ripDpiTestTag(groupTestTag),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiChip(
                 text = stringResource(modeLabelRes(Mode.VPN)),

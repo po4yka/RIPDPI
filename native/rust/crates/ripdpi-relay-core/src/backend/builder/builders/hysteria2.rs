@@ -24,6 +24,15 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     .map_err(to_io_error)?;
     client_config.salamander_key = hysteria.salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
     client_config.insecure = hysteria.insecure;
+    // Fail closed on a malformed pin: ignoring it would turn an `insecure`
+    // profile into one that accepts any certificate.
+    client_config.pin_sha256 = hysteria
+        .pin_sha256
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .map(ripdpi_hysteria2::parse_certificate_pin_sha256)
+        .transpose()
+        .map_err(to_io_error)?;
     client_config.quic_bind_low_port = config.common.quic_bind_low_port;
     client_config.quic_migrate_after_handshake = config.common.quic_migrate_after_handshake;
     client_config.socket_protection = context.socket_protection;
@@ -33,4 +42,72 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         context.pool_config,
         Some(context.quic_migration.clone()),
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{CommonRelayConfig, Hysteria2RelayConfig, ResolvedRelayFinalmaskConfig};
+    use crate::telemetry::QuicMigrationTelemetryState;
+    use ripdpi_relay_mux::RelayPoolConfig;
+
+    fn hysteria_config(pin_sha256: Option<String>) -> ResolvedRelayRuntimeConfig {
+        ResolvedRelayRuntimeConfig {
+            common: CommonRelayConfig {
+                enabled: true,
+                profile_id: "default".to_string(),
+                outbound_bind_ip: String::new(),
+                socket_protection: crate::config::SocketProtection::Inactive,
+                server: "relay.example".to_string(),
+                server_port: 443,
+                server_name: "relay.example".to_string(),
+                local_socks_host: "127.0.0.1".to_string(),
+                local_socks_port: 1080,
+                udp_enabled: true,
+                tcp_fallback_enabled: true,
+                quic_bind_low_port: false,
+                quic_migrate_after_handshake: false,
+                tls_fingerprint_profile: "chrome_stable".to_string(),
+                finalmask: ResolvedRelayFinalmaskConfig::default(),
+            },
+            backend: RelayBackendConfig::Hysteria2(Hysteria2RelayConfig {
+                password: Some("hysteria-secret".to_string()),
+                salamander_key: None,
+                insecure: true,
+                pin_sha256,
+            }),
+        }
+    }
+
+    fn build_context() -> BuildContext {
+        BuildContext {
+            outbound_bind_ip: None,
+            socket_protector: None,
+            socket_protection: ripdpi_relay_tls_transports::SocketProtectionPolicy::Inactive,
+            pool_config: RelayPoolConfig::default(),
+            quic_migration: QuicMigrationTelemetryState::default(),
+        }
+    }
+
+    #[test]
+    fn build_rejects_a_malformed_certificate_pin() {
+        let config = hysteria_config(Some("not-a-sha256".to_string()));
+        let Err(error) = build(&config, &build_context()) else {
+            panic!("a malformed pin must fail the build instead of being ignored");
+        };
+        assert!(error.to_string().contains("certificate pin"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn build_accepts_a_valid_certificate_pin() {
+        let config = hysteria_config(Some("AB:".repeat(31) + "AB"));
+        assert!(matches!(build(&config, &build_context()), Ok(RelayBackend::Hysteria2(_))));
+    }
+
+    #[test]
+    fn build_accepts_a_profile_without_a_pin() {
+        assert!(matches!(build(&hysteria_config(None), &build_context()), Ok(RelayBackend::Hysteria2(_))));
+        let blank = hysteria_config(Some("  ".to_string()));
+        assert!(matches!(build(&blank, &build_context()), Ok(RelayBackend::Hysteria2(_))));
+    }
 }

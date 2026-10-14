@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dpi_failure_tcp_reset">TCP Reset</string>
+    <string name="diagnostics_dpi_failure_silent_drop">Silent Drop</string>
+    <string name="diagnostics_dpi_failure_tls_alert">TLS Alert</string>
+    <string name="diagnostics_dpi_failure_http_blockpage">HTTP Blockpage</string>
+    <string name="diagnostics_dpi_failure_quic_breakage">QUIC Breakage</string>
+    <string name="diagnostics_dpi_failure_tls_handshake_failure">TLS Handshake Failure</string>
+    <string name="diagnostics_dpi_failure_connection_freeze">Connection Freeze</string>
+    <string name="diagnostics_dpi_failure_redirect">Redirect</string>
+    <string name="diagnostics_dpi_failure_other">Unknown DPI</string>
+    <string name="diagnostics_pt_idle">Check public PT endpoint reachability for obfs4, Snowflake, and meek.</string>
+    <string name="diagnostics_pt_verdict_ok">Reachable</string>
+    <string name="diagnostics_pt_verdict_bridge_blocked">Bridge blocked</string>
+    <string name="diagnostics_pt_verdict_broker_blocked">Broker blocked</string>
+    <string name="diagnostics_pt_verdict_front_blocked">Front blocked</string>
+    <string name="diagnostics_pt_verdict_stun_blocked">STUN blocked</string>
+    <string name="diagnostics_pt_verdict_error">Error</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s detected</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · dead %2$s · errors %3$s</string>
+</resources>

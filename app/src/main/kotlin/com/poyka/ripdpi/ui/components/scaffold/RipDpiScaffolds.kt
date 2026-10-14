@@ -71,7 +71,7 @@ fun RipDpiContentScreenScaffold(
     onNavigationClick: (() -> Unit)? = null,
     navigationContentDescription: String? = null,
     contentWidth: RipDpiScaffoldWidth = RipDpiScaffoldWidth.Content,
-    actions: @Composable RowScope.() -> Unit = {},
+    actions: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layout = RipDpiThemeTokens.layout
@@ -124,7 +124,7 @@ fun RipDpiSettingsScaffold(
     onNavigationClick: (() -> Unit)? = null,
     navigationContentDescription: String? = null,
     navigationEnabled: Boolean = true,
-    actions: @Composable RowScope.() -> Unit = {},
+    actions: (@Composable RowScope.() -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
     val layout = RipDpiThemeTokens.layout

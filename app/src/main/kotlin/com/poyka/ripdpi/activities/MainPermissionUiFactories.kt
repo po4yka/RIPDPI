@@ -42,7 +42,7 @@ internal fun buildPermissionSummary(
 
     return PermissionSummaryUiState(
         snapshot = snapshot,
-        issue = issue,
+        issue = issue?.let { localizePermissionIssue(it, snapshot, stringResolver) },
         recommendedIssue = recommendedIssue,
         backgroundGuidance =
             if (backgroundGuidanceDismissed) {
@@ -79,6 +79,25 @@ internal fun buildPermissionSummary(
                 buildVpnLockdownPermissionItem(snapshot.vpnLockdown, configuredMode, stringResolver),
                 buildBatteryPermissionItem(snapshot.batteryOptimization, stringResolver),
             ).toImmutableList(),
+    )
+}
+
+private fun localizePermissionIssue(
+    issue: PermissionIssueUiState,
+    snapshot: PermissionSnapshot,
+    stringResolver: StringResolver,
+): PermissionIssueUiState {
+    val localized =
+        createPermissionIssue(
+            kind = issue.kind,
+            status = snapshot.statusFor(issue.kind),
+            blocking = issue.blocking,
+            stringResolver = stringResolver,
+        )
+    return issue.copy(
+        title = localized.title,
+        message = localized.message,
+        actionLabel = localized.actionLabel,
     )
 }
 

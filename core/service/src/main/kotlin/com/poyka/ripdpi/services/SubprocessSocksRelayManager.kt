@@ -21,6 +21,15 @@ enum class SubprocessSocketProtectionCapability {
     Unsupported,
 }
 
+/** How the build packages a subprocess helper; see [HelperExecutableLocator]. */
+enum class SubprocessBinaryPackaging {
+    /** The helper ships as `lib<binaryName>.so`. */
+    Direct,
+
+    /** The helper is a pluggable transport; `pluggable-transports.json` names its upstream binary. */
+    PluggableTransport,
+}
+
 data class SubprocessSocksRelayLaunchSpec(
     val binaryName: String,
     val commandArguments: List<String>,
@@ -32,6 +41,7 @@ data class SubprocessSocksRelayLaunchSpec(
     val managedClientBridge: ManagedClientSocksBridgeSpec? = null,
     val redactedValues: List<String> = emptyList(),
     val protectionCapability: SubprocessSocketProtectionCapability = SubprocessSocketProtectionCapability.Unsupported,
+    val binaryPackaging: SubprocessBinaryPackaging = SubprocessBinaryPackaging.Direct,
 )
 
 internal fun resolveSubprocessProtectPath(
@@ -67,7 +77,7 @@ class SubprocessSocksRelayManager
         @param:ApplicationContext private val context: Context,
         private val protectPathProvider: ActiveProtectSocketPathProvider,
     ) {
-        private val binaryExtractor = SubprocessRelayBinaryExtractor(context)
+        private val binaryLocator by lazy { HelperExecutableLocator.forContext(context) }
         private val launchPlanner = SubprocessRelayLaunchPlanner()
         private val outputParser = SubprocessRelayOutputParser()
         private val processSupervisor = SubprocessRelayProcessSupervisor(outputParser)
@@ -88,7 +98,18 @@ class SubprocessSocksRelayManager
 
         @Volatile private var runtimeStateOverride: String? = null
 
-        fun extractBinary(binaryName: String): File = binaryExtractor.extract(binaryName)
+        /** Resolves a directly packaged helper, for example `ripdpi-naiveproxy`, in nativeLibraryDir. */
+        fun resolveHelperBinary(binaryName: String): File = binaryLocator.locateHelper(binaryName)
+
+        /** Resolves a pluggable transport to its packaged upstream binary in nativeLibraryDir. */
+        fun resolvePluggableTransportBinary(outputName: String): File =
+            binaryLocator.locatePluggableTransport(outputName)
+
+        private fun resolveBinary(spec: SubprocessSocksRelayLaunchSpec): File =
+            when (spec.binaryPackaging) {
+                SubprocessBinaryPackaging.Direct -> resolveHelperBinary(spec.binaryName)
+                SubprocessBinaryPackaging.PluggableTransport -> resolvePluggableTransportBinary(spec.binaryName)
+            }
 
         suspend fun start(
             config: ResolvedRipDpiRelayConfig,
@@ -105,7 +126,7 @@ class SubprocessSocksRelayManager
                 withContext(Dispatchers.IO) {
                     stopInternal()
                     runtimeStateOverride = "starting"
-                    val binary = preparedBinary ?: binaryExtractor.extract(spec.binaryName)
+                    val binary = preparedBinary ?: resolveBinary(spec)
                     this@SubprocessSocksRelayManager.config = config
                     this@SubprocessSocksRelayManager.launchSpec = spec
                     lastError = null

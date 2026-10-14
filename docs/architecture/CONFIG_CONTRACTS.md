@@ -157,10 +157,24 @@ a set of `AppSettings` proto fields. All are additive (Kotlin default + Rust
 
 `AppSettings` proto fields: `mixed_inbound_enabled = 403`, `proxy_allow_lan = 404`,
 `proxy_lan_auth_token = 405` (never exported), `append_http_proxy = 406`.
-`append_http_proxy` is VPN-mode-only: on Android Q+ the `VpnService.Builder`
-calls `setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", <effective port>,
-["localhost","127.0.0.1","::1"]))`. The advertised port is the *effective
-listener port* (`effectiveListenerPort`, identical to `buildListenConfig`).
+`append_http_proxy` is persisted and shown in Advanced Settings, but it
+currently has **no runtime effect**. Proxy mode never read it. VPN mode does
+not call `VpnService.Builder.setHttpProxy`, even when the setting is on
+(`resolveTunnelInterfacePolicy` always resolves `httpProxyPort = null`):
+
+- In VPN mode the local listener binds an ephemeral port (`listenPortOverride = 0`)
+  and requires a per-session token (`VpnRuntimeCompositionCoordinator`). The
+  settings port (`proxy_port`, or the 2080/1080 defaults) is not bound, so
+  advertising it sends proxied requests to any local app that binds that port.
+- `ProxyInfo` cannot carry credentials, so system-proxy clients cannot use the
+  session listener either. The listener answers them with `407`.
+- The TUN already captures the traffic of the routed apps.
+
+Do not advertise a proxy endpoint that the session does not own, and do not
+remove the ephemeral-port or session-token protection of the VPN listener to make
+this setting work. `RipDpiVpnService.buildHttpProxyInfo` and the `httpProxyPort`
+argument of `VpnTunnelSessionProvider.establish` stay available for a listener
+that the session owns and that unauthenticated loopback clients can use.
 
 ---
 

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.screens.routes
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -226,6 +228,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.identitySection(
             ) {
                 Text(
                     text = stringResource(R.string.rule_editor_enabled),
+                    modifier = Modifier.weight(1f),
                     style = RipDpiThemeTokens.type.body,
                     color = RipDpiThemeTokens.colors.foreground,
                 )
@@ -330,27 +333,28 @@ private fun androidx.compose.foundation.lazy.LazyListScope.outboundSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 private fun androidx.compose.foundation.lazy.LazyListScope.actionsSection(
     state: RuleEditorUiState,
     onBack: () -> Unit,
     onSave: () -> Unit,
 ) {
     item(key = "rule_editor_actions") {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         ) {
             RipDpiButton(
                 text = stringResource(R.string.rule_editor_cancel),
                 onClick = onBack,
-                modifier = Modifier.weight(1f),
                 variant = RipDpiButtonVariant.Outline,
                 leadingIcon = RipDpiIcons.Close,
             )
             RipDpiButton(
                 text = stringResource(R.string.rule_editor_save),
                 onClick = onSave,
-                modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.RuleEditorSave),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RuleEditorSave),
                 enabled = state.loaded && !state.saving && !state.isEmpty,
                 leadingIcon = RipDpiIcons.Check,
             )
