@@ -6,8 +6,11 @@ import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryTextRenderer
+import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ShareSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
+import com.poyka.ripdpi.diagnostics.StrategyProbeTargetSelection
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsHighlight
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
@@ -40,6 +43,8 @@ internal fun DiagnosticsUiFactorySupport.buildSharePreview(
                 latestReport,
                 warningHeadline,
             ),
+            highlightsTitle = context.getString(R.string.diagnostics_share_highlights_title),
+            diagnosesTitle = context.getString(R.string.diagnostics_share_diagnoses_title),
         )
     return ShareSummary(
         title = context.getString(R.string.diagnostics_share_title),
@@ -78,8 +83,8 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
                 title = context.getString(R.string.diagnostics_share_section_environment),
                 lines =
                     stringLines {
-                        latestSnapshot?.let { appendShareNetwork(it) }
-                        latestContext?.let { appendShareContext(it) }
+                        latestSnapshot?.let { appendShareNetwork(this, it) }
+                        latestContext?.let { appendShareContext(this, it) }
                     },
             ),
         telemetry =
@@ -87,7 +92,7 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
                 title = context.getString(R.string.diagnostics_share_section_telemetry),
                 lines =
                     stringLines {
-                        telemetry?.let { appendShareTelemetry(it) }
+                        telemetry?.let { appendShareTelemetry(this, it) }
                     },
             ),
         warnings =
@@ -95,7 +100,7 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
                 title = context.getString(R.string.diagnostics_share_section_warnings),
                 lines =
                     stringLines {
-                        warningHeadline?.let { appendShareWarning(it) }
+                        warningHeadline?.let { appendShareWarning(this, it) }
                     },
             ),
         diagnoses = latestReport?.diagnoses.orEmpty(),
@@ -146,28 +151,54 @@ private fun DiagnosticsUiFactorySupport.appendShareSession(
             ScanCompletionKind.PARTIAL_RESULTS, ScanCompletionKind.TERMINATED -> presentation.summaryLabel
         }
     builder.appendLine(
-        "Session ${session.id.take(ShareSessionIdPreviewLength)} · ${session.pathMode} · $semanticCompletion",
+        context.getString(
+            R.string.diagnostics_share_session_format,
+            session.id.take(ShareSessionIdPreviewLength),
+            session.pathMode,
+            semanticCompletion,
+        ),
     )
 }
 
-private fun StringBuilder.appendShareNetwork(snapshot: DiagnosticsNetworkSnapshotUiModel) {
-    appendLine("Network ${snapshot.subtitle}")
+private fun DiagnosticsUiFactorySupport.appendShareNetwork(
+    builder: StringBuilder,
+    snapshot: DiagnosticsNetworkSnapshotUiModel,
+) {
+    builder.appendLine(context.getString(R.string.diagnostics_share_network_format, snapshot.subtitle))
 }
 
-private fun StringBuilder.appendShareContext(contextModel: DiagnosticContextModel) {
-    appendLine(
-        "Context ${contextModel.service.activeMode.lowercase(Locale.US)} · " +
-            "${contextModel.device.manufacturer} ${contextModel.device.model} · " +
-            "Android ${contextModel.device.androidVersion}",
+private fun DiagnosticsUiFactorySupport.appendShareContext(
+    builder: StringBuilder,
+    contextModel: DiagnosticContextModel,
+) {
+    builder.appendLine(
+        context.getString(
+            R.string.diagnostics_share_context_format,
+            contextModel.service.activeMode.lowercase(Locale.US),
+            "${contextModel.device.manufacturer} ${contextModel.device.model}",
+            contextModel.device.androidVersion,
+        ),
     )
-    appendLine(
-        "Permissions ${contextModel.permissions.vpnPermissionState} VPN · " +
-            "${contextModel.permissions.notificationPermissionState} notifications",
+    builder.appendLine(
+        context.getString(
+            R.string.diagnostics_share_permissions_format,
+            sharePermissionLabel(contextModel.permissions.vpnPermissionState),
+            sharePermissionLabel(contextModel.permissions.notificationPermissionState),
+        ),
     )
 }
 
-private fun StringBuilder.appendShareTelemetry(telemetry: DiagnosticTelemetrySample) {
-    appendLine("Live ${telemetry.connectionState.lowercase(Locale.US)} · ${telemetry.networkType}")
+private fun DiagnosticsUiFactorySupport.appendShareTelemetry(
+    builder: StringBuilder,
+    telemetry: DiagnosticTelemetrySample,
+) {
+    builder.appendLine(
+        context.getString(
+            R.string.diagnostics_share_live_format,
+            shareConnectionStateLabel(telemetry.connectionState),
+            telemetry.networkType,
+        ),
+    )
 }
 
 private fun DiagnosticsUiFactorySupport.shareReportLines(report: DiagnosticsSessionProjection): List<String> =
@@ -182,41 +213,166 @@ private fun DiagnosticsUiFactorySupport.shareReportLines(report: DiagnosticsSess
                     core.terminationReasonLabel(reason),
             )
         }
-        add("${report.results.size} probe results in the latest report")
-        report.engineAnalysisVersion?.let { add("Engine analysis: $it") }
-        report.classifierVersion?.let { add("Classifier: $it") }
+        add(
+            context.getQuantityString(
+                R.plurals.diagnostics_share_probe_results_format,
+                report.results.size,
+                report.results.size,
+            ),
+        )
+        report.engineAnalysisVersion?.let {
+            add(
+                context.getString(R.string.diagnostics_share_engine_analysis_format, it),
+            )
+        }
+        report.classifierVersion?.let { add(context.getString(R.string.diagnostics_share_classifier_format, it)) }
         report.strategyProbeReport?.let { strategyProbe ->
-            add("Strategy completion: ${strategyProbe.completionKind.name}")
+            add(
+                context.getString(
+                    R.string.diagnostics_share_strategy_completion_format,
+                    strategyCompletionLabel(strategyProbe.completionKind),
+                ),
+            )
         }
         report.strategyProbeReport?.targetSelection?.let { selection ->
-            add("Audit cohort: ${selection.cohortLabel} (${selection.cohortId})")
-            add("Audit domains: ${selection.domainHosts.joinToString(" · ")}")
-            add("Audit QUIC hosts: ${selection.quicHosts.joinToString(" · ")}")
+            addAll(shareTargetSelectionLines(selection))
         }
         report.strategyProbeReport?.auditAssessment?.let { assessment ->
-            add("Audit confidence: ${assessment.confidence.level.name} (${assessment.confidence.score}/100)")
-            add("Matrix coverage: ${assessment.coverage.matrixCoveragePercent}%")
-            add("Winner coverage: ${assessment.coverage.winnerCoveragePercent}%")
+            add(
+                context.getString(
+                    R.string.diagnostics_share_audit_confidence_format,
+                    auditConfidenceLabel(assessment.confidence.level, context),
+                    assessment.confidence.score,
+                ),
+            )
+            add(
+                context.getString(
+                    R.string.diagnostics_share_matrix_coverage_format,
+                    assessment.coverage.matrixCoveragePercent,
+                ),
+            )
+            add(
+                context.getString(
+                    R.string.diagnostics_share_winner_coverage_format,
+                    assessment.coverage.winnerCoveragePercent,
+                ),
+            )
         }
         if (report.packVersions.isNotEmpty()) {
-            add("Packs: ${report.packVersions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" }}")
+            add(
+                context.getString(
+                    R.string.diagnostics_share_packs_format,
+                    report.packVersions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" },
+                ),
+            )
         }
         report.results.firstOrNull { it.probeType == "telegram_availability" }?.let { result ->
-            val details = result.details.associate { it.key to it.value }
-            add("Telegram: ${details["verdict"] ?: result.outcome}")
-            details["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
-                add("Download: ${formatBps(bps)} avg, ${formatBytes(details["downloadBytes"]?.toLongOrNull() ?: 0)}")
-            }
-            details["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
-                add("Upload: ${formatBps(bps)} avg, ${formatBytes(details["uploadBytes"]?.toLongOrNull() ?: 0)}")
-            }
-            add("DCs: ${details["dcReachable"] ?: "?"}/${details["dcTotal"] ?: "?"} reachable")
+            addAll(telegramShareLines(result))
         }
     }
 
-private fun StringBuilder.appendShareWarning(warningHeadline: DiagnosticEvent) {
-    appendLine("Top warning: ${warningHeadline.message}")
+private fun DiagnosticsUiFactorySupport.shareTargetSelectionLines(
+    selection: StrategyProbeTargetSelection,
+): List<String> =
+    listOf(
+        context.getString(
+            R.string.diagnostics_share_audit_cohort_format,
+            selection.cohortLabel,
+            selection.cohortId,
+        ),
+        context.getString(
+            R.string.diagnostics_share_audit_domains_format,
+            selection.domainHosts.joinToString(" · "),
+        ),
+        context.getString(
+            R.string.diagnostics_share_audit_quic_hosts_format,
+            selection.quicHosts.joinToString(" · "),
+        ),
+    )
+
+private fun DiagnosticsUiFactorySupport.telegramShareLines(result: ProbeResult): List<String> =
+    buildList {
+        val details = result.details.associate { it.key to it.value }
+        val verdict = details["verdict"] ?: result.outcome
+        val label = telegramStatusLabelRes(verdict)?.let { context.getString(it) } ?: verdict
+        add(context.getString(R.string.diagnostics_share_telegram_format, label))
+        details["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
+            add(
+                context.getString(
+                    R.string.diagnostics_share_download_format,
+                    formatTelegramThroughput(bps, core.formatter.locale),
+                    formatTelegramTransferBytes(details["downloadBytes"]?.toLongOrNull() ?: 0, core.formatter.locale),
+                ),
+            )
+        }
+        details["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
+            add(
+                context.getString(
+                    R.string.diagnostics_share_upload_format,
+                    formatTelegramThroughput(bps, core.formatter.locale),
+                    formatTelegramTransferBytes(details["uploadBytes"]?.toLongOrNull() ?: 0, core.formatter.locale),
+                ),
+            )
+        }
+        add(
+            context.getString(
+                R.string.diagnostics_share_data_centers_format,
+                details["dcReachable"] ?: "?",
+                details["dcTotal"] ?: "?",
+            ),
+        )
+    }
+
+private fun DiagnosticsUiFactorySupport.appendShareWarning(
+    builder: StringBuilder,
+    warningHeadline: DiagnosticEvent,
+) {
+    builder.appendLine(context.getString(R.string.diagnostics_share_top_warning_format, warningHeadline.message))
 }
+
+private fun DiagnosticsUiFactorySupport.strategyCompletionLabel(kind: StrategyProbeCompletionKind): String =
+    context.getString(
+        when (kind) {
+            StrategyProbeCompletionKind.NORMAL -> {
+                R.string.diagnostics_strategy_completion_normal
+            }
+
+            StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> {
+                R.string.diagnostics_strategy_completion_dns_short_circuited
+            }
+
+            StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> {
+                R.string.diagnostics_strategy_completion_dns_tampering_with_fallback
+            }
+
+            StrategyProbeCompletionKind.PARTIAL_RESULTS -> {
+                R.string.diagnostics_strategy_completion_partial_results
+            }
+        },
+    )
+
+private fun DiagnosticsUiFactorySupport.sharePermissionLabel(value: String): String =
+    when (value) {
+        "enabled", "granted" -> context.getString(R.string.diagnostics_share_permission_granted)
+        "disabled", "denied" -> context.getString(R.string.diagnostics_local_value_permission_denied)
+        "not_required" -> context.getString(R.string.diagnostics_share_permission_not_required)
+        "unknown", "unavailable" -> context.getString(R.string.diagnostics_field_unknown)
+        else -> value
+    }
+
+private fun DiagnosticsUiFactorySupport.shareConnectionStateLabel(value: String): String =
+    when (value.lowercase(Locale.ROOT)) {
+        "running" -> context.getString(R.string.history_connection_state_running)
+        "failed" -> context.getString(R.string.history_connection_state_failed)
+        "stopped" -> context.getString(R.string.history_connection_state_stopped)
+        "halted" -> context.getString(R.string.history_connection_state_halted)
+        "reconnecting" -> context.getString(R.string.history_connection_state_reconnecting)
+        "connected" -> context.getString(R.string.vpn_connected)
+        "connecting" -> context.getString(R.string.home_status_connecting)
+        "disconnected" -> context.getString(R.string.vpn_disconnected)
+        "unknown" -> context.getString(R.string.diagnostics_field_unknown)
+        else -> value
+    }
 
 private fun DiagnosticsUiFactorySupport.sharePathMetric(pathMode: String) =
     SummaryMetric(

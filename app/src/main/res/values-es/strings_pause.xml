@@ -12,7 +12,7 @@
     <string name="pause_stop">Detener y cancelar reanudación</string>
     <string name="pause_persistence_failed">No se pudo guardar el comando. El estado de la conexión no ha cambiado.</string>
     <string name="pause_duration_minutes">%1$s minutos</string>
-    <string name="pause_clock_failed">Cambió el reloj o la identidad de arranque. Revise la recuperación.</string>
+    <string name="pause_clock_failed">Cambió el reloj o la identidad de arranque. Elige Reanudar ahora para revisar la recuperación.</string>
     <string name="pause_consent_required">Se necesita permiso VPN para reanudar.</string>
     <string name="pause_lockdown">El bloqueo VPN de Android no permite esta acción.</string>
     <string name="pause_background_restricted">Android aplazó la recuperación en segundo plano. Abra la aplicación.</string>

@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
@@ -52,13 +53,14 @@ internal fun StrategyPackCatalogStatusCard(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val status = rememberStrategyPackCatalogStatus(strategyPackCatalog)
+    val locale = LocalConfiguration.current.locales[0]
     val lastFetchedAt =
-        remember(strategyPackCatalog.lastFetchedAtEpochMillis) {
-            strategyPackCatalog.lastFetchedAtEpochMillis?.let(::formatStrategyPackFetchedAt)
+        remember(strategyPackCatalog.lastFetchedAtEpochMillis, locale) {
+            strategyPackCatalog.lastFetchedAtEpochMillis?.let { formatStrategyPackFetchedAt(it, locale) }
         }
     val lastRefreshAttempt =
-        remember(strategyPackCatalog.lastRefreshAttemptAtEpochMillis) {
-            strategyPackCatalog.lastRefreshAttemptAtEpochMillis?.let(::formatStrategyPackFetchedAt)
+        remember(strategyPackCatalog.lastRefreshAttemptAtEpochMillis, locale) {
+            strategyPackCatalog.lastRefreshAttemptAtEpochMillis?.let { formatStrategyPackFetchedAt(it, locale) }
         }
     val downloadedBadge = stringResource(R.string.strategy_pack_badge_downloaded)
     val bundledBadge = stringResource(R.string.strategy_pack_badge_bundled)

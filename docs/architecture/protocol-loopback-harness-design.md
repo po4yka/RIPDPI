@@ -54,7 +54,7 @@ pub trait ProtocolLoopbackServer: Send {
 ## Risks
 
 - The harness must NOT ship in production builds. Consumers must link it only through `[dev-dependencies]`.
-- BoringSSL: the VLESS loopback must use a self-signed cert with REALITY auth disabled in the loopback mode (or use a stub `SslStream` shim). A real REALITY handshake against a real server-side BoringSSL is too brittle for unit-test scope.
+- BoringSSL: the client always authenticates the REALITY server, so the VLESS and xHTTP loopbacks serve a temporary Ed25519 certificate signed with the REALITY AuthKey (`local-network-fixture/src/reality_server.rs`). Tests must configure `reality_fixture_public_key()`. The loopbacks do not validate the client's sealed SessionID; that part of a real REALITY server is too brittle for unit-test scope.
 - TUIC and Hysteria 2 share Quinn; the loopback should reuse the in-process Quinn `Endpoint` rather than spinning up two binds.
 
 ## Extension rule

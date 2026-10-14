@@ -377,6 +377,7 @@ class RipDpiProxyService :
         val elapsedMs = System.currentTimeMillis() - startedAt
         val content =
             NotificationContentBuilder.buildContentText(
+                context = this,
                 txBytes = proxyTelemetry.tunnelStats.txBytes,
                 rxBytes = proxyTelemetry.tunnelStats.rxBytes,
                 elapsedMs = elapsedMs,

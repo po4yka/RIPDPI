@@ -35,7 +35,7 @@ import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.activities.ScanNetworkContextUiModel
 import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
-import com.poyka.ripdpi.activities.displayLabel
+import com.poyka.ripdpi.activities.displayLabelRes
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
@@ -256,7 +256,8 @@ private fun DnsBaselineBadge(status: DnsBaselineStatus) {
 @Composable
 private fun DpiFailureClassBadge(failureClass: DpiFailureClass) {
     RipDpiMetricPill(
-        text = stringResource(R.string.diagnostics_scan_dpi_failure_label, failureClass.displayLabel),
+        text =
+            stringResource(R.string.diagnostics_scan_dpi_failure_label, stringResource(failureClass.displayLabelRes)),
         tone = RipDpiMetricTone.Negative,
         shape = RipDpiThemeTokens.shapes.full,
         paddingValues =

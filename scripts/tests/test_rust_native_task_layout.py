@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUST_NATIVE_PLUGIN = ROOT / "build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts"
 NATIVE_BUILD_POLICY = ROOT / "build-logic/convention/src/main/kotlin/NativeBuildPolicy.kt"
 BORING_SYS_BUILD_SCRIPT = ROOT / "native/rust/vendor/boring-sys/build/main.rs"
+NATIVE_PACKAGING_PLUGIN = ROOT / "build-logic/convention/src/main/kotlin/ripdpi.android.native.gradle.kts"
 
 
 class RustNativeTaskLayoutTest(unittest.TestCase):
@@ -154,6 +155,20 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         self.assertIn('record["mode"] == "source"', task_source)
         self.assertIn("ripdpi.prebuiltPluggableTransportAssetsDir", source)
         self.assertIn("ripdpi.prebuiltPluggableTransportAssetsManifestSha256", source)
+
+    def test_app_launched_helpers_are_extracted_jni_libs_not_assets(self) -> None:
+        source = RUST_NATIVE_PLUGIN.read_text(encoding="utf-8")
+        packaging = NATIVE_PACKAGING_PLUGIN.read_text(encoding="utf-8")
+
+        # Android 10+ blocks exec() from app data, so helpers must run from nativeLibraryDir.
+        self.assertIn("jniLibs.directories.add(generatedHelperExecutableJniLibsDir", source)
+        self.assertIn("assets.directories.add(generatedPtMetadataAssetsDir", source)
+        for asset_dir in ("generatedPtAssetsDir", "generatedNaiveProxyAssetsDir", "generatedCloudflareOriginAssetsDir"):
+            self.assertNotIn(f"assets.directories.add({asset_dir}", source)
+        self.assertIn('tasks.register<HelperExecutableJniLibsTask>("stageHelperExecutableJniLibs")', source)
+        self.assertIn("dependsOn(stageHelperExecutableJniLibs)", source)
+        self.assertIn("val nativeLibrariesExtractedAtInstall = true", packaging)
+        self.assertEqual(2, packaging.count("useLegacyPackaging = nativeLibrariesExtractedAtInstall"))
 
 
 if __name__ == "__main__":

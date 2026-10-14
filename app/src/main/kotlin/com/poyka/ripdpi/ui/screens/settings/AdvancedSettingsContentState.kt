@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.FakeSeqModeDuplicate
 import com.poyka.ripdpi.data.FakeSeqModeSequential
@@ -114,10 +115,10 @@ private fun rememberFakeOrderOptions() =
     )
 
 @Composable
-private fun rememberFakeSeqModeOptions() =
+internal fun rememberFakeSeqModeOptions() =
     persistentListOf(
-        RipDpiDropdownOption(FakeSeqModeDuplicate, "Duplicate"),
-        RipDpiDropdownOption(FakeSeqModeSequential, "Sequential"),
+        RipDpiDropdownOption(FakeSeqModeDuplicate, stringResource(R.string.ripdpi_fake_seq_mode_duplicate)),
+        RipDpiDropdownOption(FakeSeqModeSequential, stringResource(R.string.ripdpi_fake_seq_mode_sequential)),
     )
 
 @Composable

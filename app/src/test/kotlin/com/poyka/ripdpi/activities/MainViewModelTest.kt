@@ -1244,6 +1244,98 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `locale signal refreshes permission presentation without a runtime change`() =
+        runTest {
+            RuntimeEnvironment.setQualifiers("en")
+            val resolver = ResourceStringResolver()
+            val provider = FakePermissionStatusProvider()
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    permissionStatusProvider = provider,
+                    serviceController = serviceController,
+                    presentationDependencies = TestPresentationDependencies(stringResolver = resolver),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+            val before = viewModel.uiState.value
+            assertEquals(
+                resolver.getString(R.string.permissions_background_activity_title),
+                before.permissionSummary.backgroundGuidance?.title,
+            )
+
+            RuntimeEnvironment.setQualifiers("ru")
+            val snapshotCalls = provider.currentSnapshotCalls
+            val serviceRefreshes = serviceController.hardKillSwitchRefreshCount
+            viewModel.onLocaleChanged("ru")
+            runCurrent()
+
+            val after = viewModel.uiState.value
+            assertEquals(
+                resolver.getString(R.string.permissions_background_activity_title),
+                after.permissionSummary.backgroundGuidance?.title,
+            )
+            assertEquals(
+                resolver.getString(R.string.settings_permissions_always_on_title),
+                after.permissionSummary.items
+                    .first { it.kind == PermissionKind.AlwaysOnVpn }
+                    .title,
+            )
+            assertEquals(before.permissionSummary.snapshot, after.permissionSummary.snapshot)
+            assertEquals(before.connectionState, after.connectionState)
+            assertEquals(snapshotCalls, provider.currentSnapshotCalls)
+            assertEquals(serviceRefreshes, serviceController.hardKillSwitchRefreshCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+            collector.cancel()
+        }
+
+    @Test
+    fun `locale signal refreshes active permission issue without changing recovery`() =
+        runTest {
+            RuntimeEnvironment.setQualifiers("en")
+            val resolver = ResourceStringResolver()
+            val provider =
+                grantedPermissionStatusProvider().apply {
+                    snapshot = snapshot.copy(notifications = PermissionStatus.RequiresSettings)
+                }
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    permissionStatusProvider = provider,
+                    serviceController = serviceController,
+                    presentationDependencies = TestPresentationDependencies(stringResolver = resolver),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+            viewModel.onRepairPermissionRequested(PermissionKind.Notifications)
+            runCurrent()
+            val before = viewModel.uiState.value
+            val issueBefore = requireNotNull(before.permissionSummary.issue)
+            val snapshotCalls = provider.currentSnapshotCalls
+            val serviceRefreshes = serviceController.hardKillSwitchRefreshCount
+            assertEquals(PermissionRecovery.OpenSettings, issueBefore.recovery)
+
+            RuntimeEnvironment.setQualifiers("ru")
+            viewModel.onLocaleChanged("ru")
+            runCurrent()
+
+            val after = viewModel.uiState.value
+            val issueAfter = requireNotNull(after.permissionSummary.issue)
+            assertEquals(resolver.getString(R.string.permissions_notifications_title), issueAfter.title)
+            assertEquals(resolver.getString(R.string.permissions_notifications_open_settings), issueAfter.message)
+            assertEquals(resolver.getString(R.string.settings_permission_action_open_settings), issueAfter.actionLabel)
+            assertEquals(issueBefore.kind, issueAfter.kind)
+            assertEquals(issueBefore.recovery, issueAfter.recovery)
+            assertEquals(issueBefore.blocking, issueAfter.blocking)
+            assertEquals(before.permissionSummary.snapshot, after.permissionSummary.snapshot)
+            assertEquals(before.connectionState, after.connectionState)
+            assertEquals(snapshotCalls, provider.currentSnapshotCalls)
+            assertEquals(serviceRefreshes, serviceController.hardKillSwitchRefreshCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+            collector.cancel()
+        }
+
+    @Test
     fun `permission summary keeps background guidance separate from doze recommendation`() {
         val summary =
             buildPermissionSummary(

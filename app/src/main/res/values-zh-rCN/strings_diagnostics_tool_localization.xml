@@ -57,4 +57,29 @@
     <string name="history_connection_state_stopped">已停止</string>
     <string name="history_connection_state_halted">已停止</string>
     <string name="history_connection_state_reconnecting">重新连接中</string>
+    <string name="diagnostics_doq_ok">DoQ 正常</string>
+    <string name="diagnostics_doq_timeout">DoQ 超时</string>
+    <string name="diagnostics_doq_blocked_quic">DoQ 的 QUIC 被阻止</string>
+    <string name="diagnostics_doq_dpi_reject">DoQ 被 DPI 拒绝</string>
+    <string name="diagnostics_doq_integrity_divergent">DoQ 响应不一致</string>
+    <string name="diagnostics_bootstrap_ok">正常</string>
+    <string name="diagnostics_bootstrap_spoofed">已伪造</string>
+    <string name="diagnostics_bootstrap_resolve_failed">解析失败</string>
+    <string name="diagnostics_byoh_partial_body">响应正文不完整</string>
+    <string name="diagnostics_byoh_connection_error">连接错误</string>
+    <string name="diagnostics_byoh_invalid_response">响应无效</string>
+    <string name="diagnostics_byoh_bytes_received">已接收 %1$s B</string>
+    <string name="diagnostics_sni_metric_asns">ASN</string>
+    <string name="diagnostics_sni_metric_tried">已尝试</string>
+    <string name="diagnostics_sni_row_tried">%1$s · %2$s · 已尝试 %3$s</string>
+    <string name="diagnostics_snapshot_pre_scan">扫描前</string>
+    <string name="diagnostics_snapshot_post_scan">扫描后</string>
+    <string name="diagnostics_snapshot_connection_sample">连接采样</string>
+    <string name="diagnostics_snapshot_failure">失败</string>
+    <plurals name="diagnostics_sni_complete">
+        <item quantity="other">在 %2$d 个 ASN 中找到 %1$d 个兼容的 SNI 条目。</item>
+    </plurals>
+    <plurals name="diagnostics_sni_row_compatible">
+        <item quantity="other">%1$s：%2$d 个兼容</item>
+    </plurals>
 </resources>

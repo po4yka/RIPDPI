@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsAllowlistSniState
@@ -65,11 +66,23 @@ internal fun Tcp16FatHeaderProbeCard(
             ) {
                 tool.rows.forEach { row ->
                     StatusIndicator(
-                        label = "${row.asn}: ${row.detected}/${row.checked} detected",
+                        label =
+                            stringResource(
+                                R.string.diagnostics_tcp16_row_detected,
+                                row.asn,
+                                row.detected,
+                                row.checked,
+                            ),
                         tone = statusTone(row.tone),
                     )
                     androidx.compose.material3.Text(
-                        text = "${row.providers} · dead ${row.dead} · errors ${row.errors}",
+                        text =
+                            stringResource(
+                                R.string.diagnostics_tcp16_row_detail,
+                                row.providers,
+                                row.dead,
+                                row.errors,
+                            ),
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
                     )
@@ -127,11 +140,23 @@ internal fun AllowlistSniFinderCard(
             ) {
                 tool.rows.forEach { row ->
                     StatusIndicator(
-                        label = "${row.asn}: ${row.compatibleSnis.size} compatible",
+                        label =
+                            pluralStringResource(
+                                R.plurals.diagnostics_sni_row_compatible,
+                                row.compatibleSnis.size,
+                                row.asn,
+                                row.compatibleSnis.size,
+                            ),
                         tone = statusTone(row.tone),
                     )
                     androidx.compose.material3.Text(
-                        text = "${row.provider} · ${row.ip} · tried ${row.triedCount}",
+                        text =
+                            stringResource(
+                                R.string.diagnostics_sni_row_tried,
+                                row.provider,
+                                row.ip,
+                                row.triedCount,
+                            ),
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
                     )

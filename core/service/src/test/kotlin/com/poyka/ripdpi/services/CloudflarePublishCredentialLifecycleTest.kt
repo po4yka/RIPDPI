@@ -63,9 +63,9 @@ class CloudflarePublishCredentialLifecycleTest {
 
         val fakeSupervisor =
             object : CloudflarePublishProcessSupervisor(
-                binaryExtractor =
-                    object : CloudflarePublishBinaryExtractor(context = context) {
-                        override fun extract(
+                binaryLocator =
+                    object : CloudflarePublishBinaryLocator(context = context) {
+                        override fun locate(
                             binaryName: String,
                             tunnelMode: String,
                         ): File = File("/dev/null")
@@ -195,7 +195,7 @@ class CloudflarePublishCredentialLifecycleTest {
             var failCloudflaredStop = true
             val supervisor =
                 object : CloudflarePublishProcessSupervisor(
-                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    binaryLocator = CloudflarePublishBinaryLocator(context = context),
                     versionProbe = CloudflarePublishVersionProbe(),
                     launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
                     outputReader = CloudflarePublishProcessOutputReader(),
@@ -277,7 +277,7 @@ class CloudflarePublishCredentialLifecycleTest {
                 }
             val supervisor =
                 object : CloudflarePublishProcessSupervisor(
-                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    binaryLocator = CloudflarePublishBinaryLocator(context = context),
                     versionProbe = CloudflarePublishVersionProbe(),
                     launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
                     outputReader = CloudflarePublishProcessOutputReader(),
@@ -329,7 +329,7 @@ class CloudflarePublishCredentialLifecycleTest {
             var stopCalls = 0
             val supervisor =
                 object : CloudflarePublishProcessSupervisor(
-                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    binaryLocator = CloudflarePublishBinaryLocator(context = context),
                     versionProbe = CloudflarePublishVersionProbe(),
                     launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
                     outputReader = CloudflarePublishProcessOutputReader(),
@@ -397,7 +397,7 @@ class CloudflarePublishCredentialLifecycleTest {
             val cloudflaredProcess = ExitProcess(exitCode = 0, exitsImmediately = false)
             val supervisor =
                 object : CloudflarePublishProcessSupervisor(
-                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    binaryLocator = CloudflarePublishBinaryLocator(context = context),
                     versionProbe = CloudflarePublishVersionProbe(),
                     launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
                     outputReader = CloudflarePublishProcessOutputReader(),

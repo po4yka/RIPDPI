@@ -1,9 +1,13 @@
 package com.poyka.ripdpi.data.diagnostics
 
 import android.content.Context
+import androidx.room.testing.MigrationTestHelper
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -12,6 +16,14 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class DiagnosticsDatabaseMigrationTest {
+    /** Creates databases from the exported schema JSONs exposed as test assets; closes them after each test. */
+    @get:Rule
+    val schemaHelper: MigrationTestHelper =
+        MigrationTestHelper(
+            InstrumentationRegistry.getInstrumentation(),
+            DiagnosticsDatabase::class.java,
+        )
+
     /**
      * Opens a fresh database through the production builder with allowDestructiveFallback = false.
      * Room creates the database at the current schema version directly (no migration path needed
@@ -43,7 +55,7 @@ class DiagnosticsDatabaseMigrationTest {
 
     /**
      * Guard test: DiagnosticsDatabaseMigrations.ALL must have one Migration object for every
-     * schema version above 5 (the first version under migration management). When a developer
+     * schema version from 4 (the first version under migration management). When a developer
      * bumps @Database(version = N), they MUST append Migration(N-1, N) to ALL before this test
      * will pass again. The correct fix is never to re-enable destructive fallback.
      */
@@ -65,7 +77,14 @@ class DiagnosticsDatabaseMigrationTest {
             context.deleteDatabase(dbName)
         }
 
-        val firstManagedVersion = 5
+        // Schema 4 shipped in v0.1.0 (the oldest public release) and must migrate in place.
+        // Only the pre-release schemas below it may take the scoped destructive path.
+        val firstManagedVersion = 4
+        assertEquals(
+            "Only pre-release schemas below the first managed version may be recreated destructively",
+            (1 until firstManagedVersion).toList(),
+            DiagnosticsDatabaseMigrations.DESTRUCTIVE_FROM_VERSIONS.sorted(),
+        )
         val requiredMigrations = (currentDbVersion - firstManagedVersion).coerceAtLeast(0)
 
         assertEquals(
@@ -91,6 +110,95 @@ class DiagnosticsDatabaseMigrationTest {
             currentDbVersion,
             expected,
         )
+    }
+
+    /**
+     * v0.1.0 shipped diagnostics schema 4. Upgrading such an install must migrate in place
+     * through the production builder (no destructive fallback) and keep existing rows.
+     */
+    @Test
+    fun `deployed version 4 database migrates to current schema and keeps telemetry rows`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-deployed-v4-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        schemaHelper.createDatabase(dbName, 4).use { legacyDb -> legacyDb.insertVersion4TelemetrySample() }
+
+        val migrated = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+        try {
+            val sql = migrated.openHelper.writableDatabase
+            assertEquals(DIAGNOSTICS_DB_VERSION, sql.version)
+            sql
+                .query(
+                    "SELECT connectionState, txBytes, nativeHeapBytes, processRssBytes, " +
+                        "relayProtocolKind, relayNativeEventsDropped " +
+                        "FROM telemetry_samples WHERE id = 'v4-telemetry'",
+                ).use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("connected", cursor.getString(0))
+                    assertEquals(4096L, cursor.getLong(1))
+                    assertTrue(cursor.isNull(2))
+                    assertTrue(cursor.isNull(3))
+                    assertTrue(cursor.isNull(4))
+                    assertEquals(0L, cursor.getLong(5))
+                }
+        } finally {
+            migrated.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    /** The v4 -> v5 step must produce exactly the exported schema 5 (checked by Room). */
+    @Test
+    fun `migration 4 to 5 matches the exported version 5 schema`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbName = "diagnostics-v4-v5-${System.nanoTime()}.db"
+        context.deleteDatabase(dbName)
+        try {
+            schemaHelper.createDatabase(dbName, 4).use { legacyDb -> legacyDb.insertVersion4TelemetrySample() }
+            val migration = DiagnosticsDatabaseMigrations.ALL.single { it.startVersion == 4 }
+            schemaHelper.runMigrationsAndValidate(dbName, 5, true, migration).use { db ->
+                db.query("SELECT txBytes FROM telemetry_samples WHERE id = 'v4-telemetry'").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(4096L, cursor.getLong(0))
+                }
+            }
+        } finally {
+            context.deleteDatabase(dbName)
+        }
+    }
+
+    /**
+     * Pre-release schemas 1..3 (v0.0.8 and earlier) hold only disposable diagnostics data.
+     * They must open on the current version through the scoped destructive path instead of
+     * throwing "A migration from N to current was required but not found".
+     */
+    @Test
+    fun `pre-release version 1 to 3 databases are recreated on the current schema`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        for (legacyVersion in 1..3) {
+            val dbName = "diagnostics-deployed-v$legacyVersion-${System.nanoTime()}.db"
+            context.deleteDatabase(dbName)
+            schemaHelper.createDatabase(dbName, legacyVersion).use { legacyDb ->
+                legacyDb.execSQL(
+                    "INSERT INTO native_session_events (id, source, level, message, createdAt) " +
+                        "VALUES ('legacy-v$legacyVersion', 'proxy', 'info', 'legacy', 1)",
+                )
+            }
+
+            val reopened = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, dbName, false)
+            try {
+                val sql = reopened.openHelper.writableDatabase
+                assertEquals(DIAGNOSTICS_DB_VERSION, sql.version)
+                sql.query("SELECT COUNT(*) FROM native_session_events").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("v$legacyVersion rows are dropped", 0, cursor.getInt(0))
+                }
+                sql.query("SELECT COUNT(*) FROM home_diagnostics_runs").close()
+            } finally {
+                reopened.close()
+                context.deleteDatabase(dbName)
+            }
+        }
     }
 
     @Test
@@ -425,6 +533,19 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
+    /** Inserts one telemetry row using only the columns that exist in schema 4. */
+    private fun SupportSQLiteDatabase.insertVersion4TelemetrySample() {
+        execSQL(
+            "INSERT INTO telemetry_samples " +
+                "(id, connectionState, networkType, proxyRttBand, resolverRttBand, proxyRouteRetryCount, " +
+                "tunnelRecoveryRetryCount, dnsFailuresTotal, resolverFallbackActive, proxyTelemetryState, " +
+                "relayTelemetryState, warpTelemetryState, tunnelTelemetryState, txPackets, txBytes, " +
+                "rxPackets, rxBytes, createdAt) VALUES " +
+                "('v4-telemetry', 'connected', 'wifi', 'unknown', 'unknown', 0, 0, 0, 0, 'idle', 'idle', " +
+                "'idle', 'idle', 8, 4096, 16, 8192, 1700000000000)",
+        )
+    }
+
     private fun android.database.sqlite.SQLiteDatabase.dropRelayTraceColumns() {
         dropRelayAttemptTraceColumns()
         dropRelayHealthColumns()
@@ -465,5 +586,10 @@ class DiagnosticsDatabaseMigrationTest {
             "cooldownScope",
             "cleanupReceipt",
         ).forEach { column -> execSQL("ALTER TABLE native_session_events DROP COLUMN $column") }
+    }
+
+    private companion object {
+        /** Current schema version; migrationRegistryCoversVersionGap ties the chain end to @Database. */
+        val DIAGNOSTICS_DB_VERSION: Int = DiagnosticsDatabaseMigrations.ALL.maxOf { it.endVersion }
     }
 }

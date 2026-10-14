@@ -23,6 +23,13 @@ pub struct WebTunnelBridgeConfig {
     /// telemetry) via `#[serde(skip)]`.
     #[serde(skip)]
     pub protect_path: Option<String>,
+    /// Extra PEM trust root for the bridge certificate, added to the bundled
+    /// Mozilla roots. It never disables verification. `parse_bridge_line`
+    /// always leaves it `None` because it is not part of the bridge-line
+    /// contract, so it is also excluded from serialization. Tests use it to
+    /// trust a loopback fixture certificate.
+    #[serde(skip)]
+    pub root_certificate_pem: Option<String>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -98,6 +105,7 @@ pub fn parse_bridge_line(raw_bridge_line: &str) -> Result<WebTunnelBridgeConfig,
         cert,
         cert_domain,
         protect_path: ripdpi_subprocess_protect::protect_path_from_env(),
+        root_certificate_pem: None,
     })
 }
 

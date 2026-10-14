@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HostPackRefreshFailureCodeUiModel
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
@@ -110,16 +111,43 @@ internal fun hostPackSourceSummary(preset: HostPackPreset): String =
         }
     }
 
-private val hostPackTimestampFormatter =
-    DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.getDefault())
-
-internal fun formatHostPackGeneratedAt(timestamp: String): String? =
+internal fun formatHostPackGeneratedAt(
+    timestamp: String,
+    locale: Locale,
+): String? =
     runCatching {
-        hostPackTimestampFormatter.format(Instant.parse(timestamp).atZone(ZoneId.systemDefault()))
+        DateTimeFormatter
+            .ofPattern("MMM d, HH:mm", locale)
+            .format(Instant.parse(timestamp).atZone(ZoneId.systemDefault()))
     }.getOrNull()
 
-internal fun formatHostPackFetchedAt(timestampMillis: Long): String =
-    hostPackTimestampFormatter.format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))
+internal fun formatHostPackFetchedAt(
+    timestampMillis: Long,
+    locale: Locale,
+): String =
+    DateTimeFormatter
+        .ofPattern("MMM d, HH:mm", locale)
+        .format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))
+
+// Match the catalog's canonical description as well as its ID so custom copy stays intact.
+internal fun hostPackDescriptionResId(preset: HostPackPreset): Int? =
+    when (preset.id to preset.description) {
+        "youtube" to "Video playback, embeds, and CDN endpoints from public geosite lists." -> {
+            R.string.host_pack_youtube_description
+        }
+
+        "telegram" to "Messenger, CDN, and share links bundled from public geosite sources." -> {
+            R.string.host_pack_telegram_description
+        }
+
+        "discord" to "App, media, invite, and attachment domains from public geosite lists." -> {
+            R.string.host_pack_discord_description
+        }
+
+        else -> {
+            null
+        }
+    }
 
 internal fun previewHostPackPresets(): List<HostPackPreset> =
     listOf(

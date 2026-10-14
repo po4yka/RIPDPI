@@ -57,4 +57,31 @@
     <string name="history_connection_state_stopped">stopped</string>
     <string name="history_connection_state_halted">halted</string>
     <string name="history_connection_state_reconnecting">reconnecting</string>
+    <string name="diagnostics_doq_ok">doq ok</string>
+    <string name="diagnostics_doq_timeout">doq timeout</string>
+    <string name="diagnostics_doq_blocked_quic">doq blocked quic</string>
+    <string name="diagnostics_doq_dpi_reject">doq dpi reject</string>
+    <string name="diagnostics_doq_integrity_divergent">doq integrity divergent</string>
+    <string name="diagnostics_bootstrap_ok">ok</string>
+    <string name="diagnostics_bootstrap_spoofed">spoofed</string>
+    <string name="diagnostics_bootstrap_resolve_failed">resolve failed</string>
+    <string name="diagnostics_byoh_partial_body">partial body</string>
+    <string name="diagnostics_byoh_connection_error">connection error</string>
+    <string name="diagnostics_byoh_invalid_response">invalid response</string>
+    <string name="diagnostics_byoh_bytes_received">%1$s B received</string>
+    <string name="diagnostics_sni_metric_asns">ASNs</string>
+    <string name="diagnostics_sni_metric_tried">tried</string>
+    <string name="diagnostics_sni_row_tried">%1$s · %2$s · tried %3$s</string>
+    <string name="diagnostics_snapshot_pre_scan">Pre scan</string>
+    <string name="diagnostics_snapshot_post_scan">Post scan</string>
+    <string name="diagnostics_snapshot_connection_sample">Connection sample</string>
+    <string name="diagnostics_snapshot_failure">Failure</string>
+    <plurals name="diagnostics_sni_complete">
+        <item quantity="one">%1$d compatible SNI entry found across %2$d ASNs.</item>
+        <item quantity="other">%1$d compatible SNI entries found across %2$d ASNs.</item>
+    </plurals>
+    <plurals name="diagnostics_sni_row_compatible">
+        <item quantity="one">%1$s: %2$d compatible</item>
+        <item quantity="other">%1$s: %2$d compatible</item>
+    </plurals>
 </resources>

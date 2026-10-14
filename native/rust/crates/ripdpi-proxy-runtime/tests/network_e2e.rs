@@ -34,7 +34,9 @@ use support::socks5::{
     udp_proxy_client, udp_proxy_roundtrip, udp_proxy_roundtrip_domain, udp_proxy_roundtrip_with_socket,
     wait_for_accepted_connections,
 };
-use support::tls::{FragmentingProfile, http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry};
+use support::tls::{
+    FragmentingProfile, http_connect, http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry,
+};
 
 #[allow(dead_code)]
 #[path = "../../ripdpi-packets/tests/rust_packet_seeds.rs"]
@@ -111,6 +113,28 @@ fn ephemeral_listener_reports_non_zero_port_through_telemetry() {
     assert_eq!(reported.ip(), std::net::IpAddr::V4(Ipv4Addr::LOCALHOST));
     assert_eq!(reported.port(), proxy.port);
     assert_ne!(reported.port(), 0);
+}
+
+#[test]
+fn socks5_server_first_greeting_reaches_client_without_client_payload() {
+    let _guard = test_guard();
+    let (server_port, server) = spawn_server_first_greeter();
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
+
+    assert_server_first_exchange(socks_connect(proxy.port, server_port));
+
+    server.join().expect("server-first greeter");
+}
+
+#[test]
+fn http_connect_server_first_greeting_reaches_client_without_client_payload() {
+    let _guard = test_guard();
+    let (server_port, server) = spawn_server_first_greeter();
+    let proxy = start_proxy(ephemeral_proxy_config(&["--http-connect", "--ip", "127.0.0.1"]), None);
+
+    assert_server_first_exchange(http_connect(proxy.port, server_port));
+
+    server.join().expect("server-first greeter");
 }
 
 #[test]
@@ -552,6 +576,47 @@ fn http_connect_reply_format_is_200_ok_with_crlf() {
 }
 
 // ── E2e-local helpers ──
+
+const SERVER_FIRST_GREETING: &[u8] = b"220 server-first.test ESMTP ready\r\n";
+const SERVER_FIRST_COMMAND: &[u8] = b"QUIT\r\n";
+const SERVER_FIRST_REPLY: &[u8] = b"221 bye\r\n";
+/// Upper bound for the greeting to cross the proxy. The pre-fix proxy held
+/// the greeting until the client spoke, so any value well below the 60 s
+/// first-payload idle timeout separates the two behaviours.
+const SERVER_FIRST_GREETING_DEADLINE: Duration = Duration::from_secs(5);
+
+/// Starts a one-shot SMTP-like server that sends its greeting immediately on
+/// accept, then answers one client command.
+fn spawn_server_first_greeter() -> (u16, std::thread::JoinHandle<()>) {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind server-first listener");
+    let port = listener.local_addr().expect("server-first listener addr").port();
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept server-first client");
+        stream.set_read_timeout(Some(Duration::from_secs(10))).expect("set server-first read timeout");
+        stream.write_all(SERVER_FIRST_GREETING).expect("write server-first greeting");
+        let mut command = vec![0u8; SERVER_FIRST_COMMAND.len()];
+        stream.read_exact(&mut command).expect("read client command");
+        assert_eq!(command, SERVER_FIRST_COMMAND);
+        stream.write_all(SERVER_FIRST_REPLY).expect("write server-first reply");
+    });
+    (port, handle)
+}
+
+fn assert_server_first_exchange(mut stream: TcpStream) {
+    stream.set_read_timeout(Some(SERVER_FIRST_GREETING_DEADLINE)).expect("set greeting read timeout");
+    let started = std::time::Instant::now();
+    let mut greeting = vec![0u8; SERVER_FIRST_GREETING.len()];
+    stream.read_exact(&mut greeting).expect("server greeting must reach the client before it sends data");
+    assert_eq!(greeting, SERVER_FIRST_GREETING);
+    assert!(
+        started.elapsed() < SERVER_FIRST_GREETING_DEADLINE,
+        "server greeting took {:?} to cross the proxy",
+        started.elapsed()
+    );
+
+    stream.write_all(SERVER_FIRST_COMMAND).expect("write client command");
+    assert_eq!(recv_exact(&mut stream, SERVER_FIRST_REPLY.len()), SERVER_FIRST_REPLY);
+}
 
 fn test_guard() -> MutexGuard<'static, ()> {
     TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(PoisonError::into_inner)
@@ -1514,49 +1579,53 @@ mod socks5_udp_adapter {
             bufs: &mut [std::io::IoSliceMut<'_>],
             meta: &mut [quinn::udp::RecvMeta],
         ) -> Poll<std::io::Result<usize>> {
-            // Canonical AsyncUdpSocket pattern: register readiness once, attempt
-            // exactly one try_io, return Pending on WouldBlock (waker already
-            // registered by poll_recv_ready), propagate hard errors immediately.
+            // Canonical AsyncUdpSocket pattern (same shape as quinn's own tokio
+            // socket): loop until poll_recv_ready itself returns Pending.
+            // try_io clears the readiness bit on WouldBlock, which consumes the
+            // waker registration made by poll_recv_ready; returning Pending at
+            // that point would leave no waker armed and stall the endpoint
+            // (kqueue on macOS reports spurious readiness, epoll rarely does).
+            // Looping re-registers the waker via the next poll_recv_ready.
             // Use a heap-allocated scratch buffer large enough for any UDP datagram
             // (QUIC initial packets up to ~1280 bytes + 22-byte SOCKS5 header).
             let mut scratch = vec![0u8; 65535];
-            std::task::ready!(self.socket.poll_recv_ready(cx))?;
-            match self.socket.try_io(tokio::io::Interest::READABLE, || self.socket.try_recv(&mut scratch)) {
-                Ok(n) => {
-                    // Use production codec — gets RSV validation for free.
-                    match ripdpi_tunnel_core::decode_udp_frame(&scratch[..n]) {
-                        Ok((from_addr, payload)) => {
-                            let first = bufs.first_mut().ok_or_else(|| {
-                                std::io::Error::new(std::io::ErrorKind::InvalidInput, "no recv buffer")
-                            })?;
-                            debug_assert!(
-                                payload.len() <= first.len(),
-                                "received SOCKS5 payload ({} bytes) exceeds quinn recv buffer ({} bytes) — silent truncation avoided",
-                                payload.len(),
-                                first.len()
-                            );
-                            let copy_len = payload.len().min(first.len());
-                            first[..copy_len].copy_from_slice(&payload[..copy_len]);
-                            meta[0] = quinn::udp::RecvMeta {
-                                addr: from_addr,
-                                len: copy_len,
-                                stride: copy_len,
-                                ecn: None,
-                                dst_ip: None,
-                            };
-                            Poll::Ready(Ok(1))
-                        }
-                        // Malformed SOCKS5 frame: trace the error and return Pending
-                        // so quinn re-polls. The waker is already registered from
-                        // poll_recv_ready above.
-                        Err(e) => {
-                            eprintln!("Socks5UdpAdapter: decode error (dropping frame): {e}");
-                            Poll::Pending
+            loop {
+                std::task::ready!(self.socket.poll_recv_ready(cx))?;
+                match self.socket.try_io(tokio::io::Interest::READABLE, || self.socket.try_recv(&mut scratch)) {
+                    Ok(n) => {
+                        // Use production codec — gets RSV validation for free.
+                        match ripdpi_tunnel_core::decode_udp_frame(&scratch[..n]) {
+                            Ok((from_addr, payload)) => {
+                                let first = bufs.first_mut().ok_or_else(|| {
+                                    std::io::Error::new(std::io::ErrorKind::InvalidInput, "no recv buffer")
+                                })?;
+                                debug_assert!(
+                                    payload.len() <= first.len(),
+                                    "received SOCKS5 payload ({} bytes) exceeds quinn recv buffer ({} bytes) — silent truncation avoided",
+                                    payload.len(),
+                                    first.len()
+                                );
+                                let copy_len = payload.len().min(first.len());
+                                first[..copy_len].copy_from_slice(&payload[..copy_len]);
+                                meta[0] = quinn::udp::RecvMeta {
+                                    addr: from_addr,
+                                    len: copy_len,
+                                    stride: copy_len,
+                                    ecn: None,
+                                    dst_ip: None,
+                                };
+                                return Poll::Ready(Ok(1));
+                            }
+                            // Malformed SOCKS5 frame: trace the error, drop it, and
+                            // read the next datagram (loop re-arms the waker).
+                            Err(e) => {
+                                eprintln!("Socks5UdpAdapter: decode error (dropping frame): {e}");
+                            }
                         }
                     }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(e) => return Poll::Ready(Err(e)),
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Poll::Pending,
-                Err(e) => Poll::Ready(Err(e)),
             }
         }
 
@@ -1722,15 +1791,19 @@ fn quic_handshake_and_echo_round_trip_through_socks5_udp_relay() {
 
         connection.close(0u32.into(), b"done");
 
-        // Keep ctrl_stream alive until here so the SOCKS5 TCP control connection
-        // (which signals the relay to stay open) is not closed prematurely.
-        drop(ctrl_stream);
-
         // Drain client endpoint before drop so quinn releases all UDP state.
         client_endpoint.close(0u32.into(), b"done");
         client_endpoint.wait_idle().await;
 
         server_task.await.expect("server task");
+
+        // The SOCKS5 UDP relay lives only as long as its TCP control connection
+        // (RFC 1928), so ctrl_stream must outlive every datagram of the QUIC
+        // shutdown. Dropping it earlier tears the relay down before the client
+        // CONNECTION_CLOSE reaches the server: the server then waits out its
+        // idle timeout and the dead relay port yields ECONNREFUSED on the client
+        // socket. Only now has the server observed the close.
+        drop(ctrl_stream);
     });
     // proxy.drop() joins a std::thread and must NOT run inside block_on (would
     // block the tokio executor). Dropping here, after block_on returns, is safe.

@@ -246,6 +246,60 @@ class VpnTunnelRuntimePolicyTest {
         }
 
     @Test
+    fun appendHttpProxyDoesNotAdvertiseTheSettingsPortForTheSessionListener() =
+        runTest {
+            // The VPN session listener binds an ephemeral port and requires the per-session
+            // token, so neither the settings port nor the session port is usable by an
+            // unauthenticated system HTTP proxy client.
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setAppendHttpProxy(true)
+                    .setMixedInboundEnabled(true)
+                    .setProxyPort(1080)
+                    .build()
+            val provider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession())
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge()),
+                    vpnTunnelSessionProvider = provider,
+                )
+
+            runtime.start(
+                activeDns = settings.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = sessionProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
+
+            assertSame(settings, provider.lastInterfaceSettings)
+            assertNull(provider.lastHttpProxyPort)
+            runtime.stop()
+        }
+
+    @Test
+    fun appendHttpProxyDoesNotChangeTheVpnInterfacePolicy() =
+        runTest {
+            val host = TestVpnServiceHost(backgroundScope)
+            val disabled =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setAppendHttpProxy(false)
+                    .build()
+            val enabled = disabled.toBuilder().setAppendHttpProxy(true).build()
+
+            val disabledPolicy = host.resolveTunnelInterfacePolicy(disabled, emptyList(), emptySet())
+            val enabledPolicy = host.resolveTunnelInterfacePolicy(enabled, emptyList(), emptySet())
+
+            assertNull(enabledPolicy.httpProxyPort)
+            assertEquals(disabledPolicy.signature, enabledPolicy.signature)
+        }
+
+    @Test
     fun uidPolicyQualificationTracksTheLiveTunnelLifecycle() =
         runTest {
             val bridge =
@@ -302,6 +356,14 @@ class VpnTunnelRuntimePolicyTest {
                 host = "127.0.0.1",
                 port = 18080,
                 username = VpnLocalProxyUsername,
+            )
+
+        val sessionProxyEndpoint =
+            LocalProxyEndpoint(
+                host = "127.0.0.1",
+                port = 41_234,
+                username = VpnLocalProxyUsername,
+                password = "session-token-fixture",
             )
 
         fun packageRule(packageName: String): PackageRoutingRule =
