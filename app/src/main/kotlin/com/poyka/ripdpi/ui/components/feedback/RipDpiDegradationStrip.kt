@@ -140,7 +140,7 @@ fun RipDpiDegradationStrip(
                             imageVector = RipDpiIcons.Warning,
                             contentDescription = null,
                             tint = accentForeground,
-                            modifier = Modifier.size(RipDpiIconSizes.Small),
+                            modifier = Modifier.size(RipDpiIconSizes.Large),
                         )
                     }
                     Text(

@@ -12,6 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import java.util.Locale
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
@@ -83,7 +84,7 @@ class HistoryConnectionDetailUiFactoryTest {
         return HistoryConnectionDetailUiFactory(
             localizedContext,
             strings,
-            DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings),
+            DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()), strings),
         )
     }
 
@@ -95,7 +96,11 @@ class HistoryConnectionDetailUiFactoryTest {
             HistoryConnectionDetailUiFactory(
                 context = context,
                 stringResolver = strings,
-                coreSupport = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings),
+                coreSupport =
+                    DiagnosticsUiCoreSupport(
+                        DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()),
+                        strings,
+                    ),
             )
         val original = historySnapshot(connectionSessionId = "connection-1")
         val legacy =
@@ -138,7 +143,11 @@ class HistoryConnectionDetailUiFactoryTest {
             HistoryConnectionDetailUiFactory(
                 context = context,
                 stringResolver = strings,
-                coreSupport = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings),
+                coreSupport =
+                    DiagnosticsUiCoreSupport(
+                        DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()),
+                        strings,
+                    ),
             )
         val original = historySnapshot(connectionSessionId = "connection-1")
         val stored =

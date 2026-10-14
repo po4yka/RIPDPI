@@ -1,7 +1,8 @@
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -16,6 +17,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CloudflareTunnelRelayFields(
     draft: ConfigDraft,
@@ -32,7 +34,10 @@ internal fun CloudflareTunnelRelayFields(
         style = RipDpiThemeTokens.type.caption,
         color = RipDpiThemeTokens.colors.mutedForeground,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
         RelayKindChip(
             selectedKind = draft.relayCloudflareTunnelMode,
             kind = RelayCloudflareTunnelModeConsumeExisting,

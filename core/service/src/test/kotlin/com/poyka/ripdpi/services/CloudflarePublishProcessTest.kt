@@ -268,9 +268,9 @@ class CloudflarePublishProcessTest {
         onStart: (ProcessBuilder) -> Unit = {},
     ): CloudflarePublishProcessSupervisor =
         object : CloudflarePublishProcessSupervisor(
-            binaryExtractor =
-                object : CloudflarePublishBinaryExtractor(context) {
-                    override fun extract(
+            binaryLocator =
+                object : CloudflarePublishBinaryLocator(context) {
+                    override fun locate(
                         binaryName: String,
                         tunnelMode: String,
                     ): File = File("/tmp/$binaryName")

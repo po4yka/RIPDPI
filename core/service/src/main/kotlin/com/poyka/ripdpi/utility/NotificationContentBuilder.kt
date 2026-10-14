@@ -13,12 +13,17 @@ internal object NotificationContentBuilder {
     private const val SecondsPerHour = 3_600L
 
     fun buildContentText(
+        context: Context,
         txBytes: Long,
         rxBytes: Long,
         elapsedMs: Long,
     ): String {
-        val up = formatBytes(txBytes)
-        val down = formatBytes(rxBytes)
+        val locale =
+            ContextCompat
+                .getContextForLanguage(context)
+                .resources.configuration.locales[0]
+        val up = formatBytes(txBytes, locale)
+        val down = formatBytes(rxBytes, locale)
         val duration = formatDuration(elapsedMs)
         return "\u2191 $up  \u2193 $down  |  $duration"
     }
@@ -40,11 +45,14 @@ internal object NotificationContentBuilder {
         }.joinToString("  \u00B7  ")
     }
 
-    private fun formatBytes(bytes: Long): String =
+    private fun formatBytes(
+        bytes: Long,
+        locale: Locale,
+    ): String =
         when {
-            bytes >= BytesPerGigabyte -> String.format(Locale.US, "%.1f GB", bytes / BytesPerGigabyte.toFloat())
-            bytes >= BytesPerMegabyte -> String.format(Locale.US, "%.1f MB", bytes / BytesPerMegabyte.toFloat())
-            bytes >= BytesPerKilobyte -> String.format(Locale.US, "%.1f KB", bytes / BytesPerKilobyte.toFloat())
+            bytes >= BytesPerGigabyte -> String.format(locale, "%.1f GB", bytes / BytesPerGigabyte.toFloat())
+            bytes >= BytesPerMegabyte -> String.format(locale, "%.1f MB", bytes / BytesPerMegabyte.toFloat())
+            bytes >= BytesPerKilobyte -> String.format(locale, "%.1f KB", bytes / BytesPerKilobyte.toFloat())
             else -> "$bytes B"
         }
 

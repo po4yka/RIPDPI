@@ -12,7 +12,7 @@
     <string name="pause_stop">Stoppen und Fortsetzung abbrechen</string>
     <string name="pause_persistence_failed">Der Befehl konnte nicht gespeichert werden. Der Verbindungsstatus bleibt unverändert.</string>
     <string name="pause_duration_minutes">%1$s Minuten</string>
-    <string name="pause_clock_failed">Uhr oder Startidentität wurde geändert. Prüfen Sie die Wiederherstellung.</string>
+    <string name="pause_clock_failed">Uhr oder Startidentität wurde geändert. Wählen Sie Jetzt fortsetzen, um die Wiederherstellung zu prüfen.</string>
     <string name="pause_consent_required">Zum Fortsetzen ist eine VPN-Berechtigung erforderlich.</string>
     <string name="pause_lockdown">Die Android-VPN-Sperre erlaubt diese Aktion nicht.</string>
     <string name="pause_background_restricted">Android hat die Hintergrundfortsetzung verschoben. Öffnen Sie die App.</string>

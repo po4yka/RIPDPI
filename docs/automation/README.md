@@ -79,8 +79,12 @@ Prerequisites:
 
 Install the app and generate the full report:
 
+For an emulator, run these commands inside the leased shell described in
+[Local Android emulator pool](../contributor/android-emulator-pool.md). For a
+physical device, set `ANDROID_SERIAL` to the explicitly selected device first.
+
 ```bash
-SERIAL="$(adb devices | awk '/device$/{print $1; exit}')"
+SERIAL="${ANDROID_SERIAL:?Select a device or enter a leased emulator shell}"
 ./gradlew :app:installGithubFullDebug -Pandroid.injected.device.serial="$SERIAL" --console=plain
 python3 -m venv build/guide-test-venv
 build/guide-test-venv/bin/python -m pip install -r scripts/guide/requirements.txt
@@ -102,7 +106,7 @@ Generated artifacts are written under `build/guide/`:
 For iteration:
 
 ```bash
-SERIAL="$(adb devices | awk '/device$/{print $1; exit}')"
+SERIAL="${ANDROID_SERIAL:?Select a device or enter a leased emulator shell}"
 build/guide-test-venv/bin/python scripts/guide/generate_guide.py --spec scripts/guide/specs/ui-ux-audit.yaml --pages home_idle,settings,scanner --device "$SERIAL" --output build/guide/ripdpi-ui-ux-audit-smoke.pdf
 build/guide-test-venv/bin/python scripts/guide/generate_guide.py --spec scripts/guide/specs/ui-ux-audit.yaml --skip-capture --output build/guide/ripdpi-ui-ux-audit.pdf
 build/guide-test-venv/bin/python scripts/guide/generate_guide.py --spec scripts/guide/specs/ui-ux-audit.yaml --no-frame --pages scanner --device "$SERIAL" --output build/guide/ripdpi-ui-ux-audit-scanner.pdf

@@ -627,3 +627,30 @@ fn fallback_mode_returns_original_error_for_bootstrap_failure() {
     assert_eq!(err.kind(), io::ErrorKind::TimedOut);
     assert_eq!(telemetry.ws_escalations.lock().expect("ws escalations lock").as_slice(), &[(target, 2, false)],);
 }
+
+#[test]
+fn pass_through_same_host_connections_beyond_default_cap_are_all_admitted() {
+    use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+    use ripdpi_session_limit::DEFAULT_EXIT_IP_SESSION_CAP;
+
+    // The kernel completes these handshakes from the listen backlog, so every
+    // upstream stays open (as idle keep-alive flows do) without an accept loop.
+    let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target listener");
+    let target = listener.local_addr().expect("listener addr");
+    let state = RuntimeState::test(RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() });
+    let flows = DEFAULT_EXIT_IP_SESSION_CAP + 4;
+
+    let held_routes = (0..flows)
+        .map(|index| {
+            routes::connect_immediate_route(target, &state, Some("LocalHost.".to_string())).unwrap_or_else(|err| {
+                panic!("pass-through flow {} of {flows} must not be refused: {}", index + 1, err.into_io_error())
+            })
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(held_routes.len(), flows);
+    // The cap stays advisory: flows past it proceed without holding a slot.
+    let slotted = held_routes.iter().filter(|route| route.same_sni_guard.is_some()).count();
+    assert_eq!(slotted, DEFAULT_EXIT_IP_SESSION_CAP);
+    drop(listener);
+}

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_telegram_status_ok">در دسترس</string>
+    <string name="diagnostics_telegram_status_slow">کند</string>
+    <string name="diagnostics_telegram_status_stalled">بدون پیشرفت</string>
+    <string name="diagnostics_telegram_status_blocked">مسدود</string>
+    <string name="diagnostics_telegram_status_partial">تا حدی در دسترس</string>
+    <string name="diagnostics_telegram_status_error">خطا</string>
+    <string name="diagnostics_telegram_status_cancelled">لغو شد</string>
+    <string name="diagnostics_telegram_status_deadline_exceeded">مهلت زمانی به پایان رسید</string>
+    <string name="diagnostics_telegram_status_unknown">نامشخص</string>
+    <string name="diagnostics_telegram_status_unreachable">غیرقابل دسترس</string>
+    <string name="diagnostics_share_session_format">نشست %1$s · %2$s · %3$s</string>
+    <string name="diagnostics_share_network_format">شبکه %1$s</string>
+    <string name="diagnostics_share_context_format">زمینه %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_permissions_format">مجوزها %1$s VPN · %2$s اعلان‌ها</string>
+    <string name="diagnostics_share_live_format">زنده %1$s · %2$s</string>
+    <string name="diagnostics_share_engine_analysis_format">تحلیل موتور: %1$s</string>
+    <string name="diagnostics_share_classifier_format">طبقه‌بندی‌کننده: %1$s</string>
+    <string name="diagnostics_share_strategy_completion_format">تکمیل راهبرد: %1$s</string>
+    <string name="diagnostics_share_audit_cohort_format">گروه ممیزی: %1$s (%2$s)</string>
+    <string name="diagnostics_share_audit_domains_format">دامنه‌های ممیزی: %1$s</string>
+    <string name="diagnostics_share_audit_quic_hosts_format">میزبان‌های QUIC ممیزی: %1$s</string>
+    <string name="diagnostics_share_audit_confidence_format">اطمینان ممیزی: %1$s (%2$d/100)</string>
+    <string name="diagnostics_share_matrix_coverage_format">پوشش ماتریس: %1$d%%</string>
+    <string name="diagnostics_share_winner_coverage_format">پوشش برندگان: %1$d%%</string>
+    <string name="diagnostics_share_packs_format">بسته‌ها: %1$s</string>
+    <string name="diagnostics_share_telegram_format">Telegram: %1$s</string>
+    <string name="diagnostics_share_download_format">دریافت: میانگین %1$s، %2$s</string>
+    <string name="diagnostics_share_upload_format">ارسال: میانگین %1$s، %2$s</string>
+    <string name="diagnostics_share_data_centers_format">DCها: %1$s/%2$s در دسترس</string>
+    <string name="diagnostics_share_top_warning_format">هشدار اصلی: %1$s</string>
+    <string name="diagnostics_strategy_completion_normal">کامل</string>
+    <string name="diagnostics_strategy_completion_dns_short_circuited">پس از دستکاری DNS متوقف شد</string>
+    <string name="diagnostics_strategy_completion_dns_tampering_with_fallback">دستکاری DNS با نتایج مسیر جایگزین</string>
+    <string name="diagnostics_strategy_completion_partial_results">نتایج جزئی</string>
+    <plurals name="diagnostics_share_probe_results_format">
+        <item quantity="one">%1$d نتیجهٔ آزمون در آخرین گزارش</item>
+        <item quantity="other">%1$d نتیجهٔ آزمون در آخرین گزارش</item>
+    </plurals>
+    <string name="diagnostics_share_permission_granted">اعطا شده</string>
+    <string name="diagnostics_share_permission_not_required">لازم نیست</string>
+    <string name="diagnostics_share_highlights_title">نتایج مهم</string>
+    <string name="diagnostics_share_diagnoses_title">تشخیص‌ها</string>
+</resources>
