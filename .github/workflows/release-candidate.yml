@@ -101,7 +101,7 @@ jobs:
 
       - name: Upload verified managed Xray runtime
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: xray-native
           path: native/xray/artifacts/
@@ -151,7 +151,7 @@ jobs:
           printf 'manifest_sha256=%s\n' "$manifest_sha256" >> "$GITHUB_OUTPUT"
 
       - name: Upload verified pluggable transport assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pluggable-transport-assets
           path: ${{ runner.temp }}/pluggable-transport-assets.tar.gz
@@ -420,7 +420,7 @@ jobs:
             --readelf "$readelf"
 
       - name: Upload immutable Android release candidate
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-release-candidate
           path: ${{ runner.temp }}/release-candidate
@@ -428,7 +428,7 @@ jobs:
           retention-days: 30
 
       - name: Upload release retrace inputs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-candidate-retrace-inputs
           path: |
@@ -438,7 +438,7 @@ jobs:
           retention-days: 90
 
       - name: Upload release native symbols
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-candidate-native-symbols
           path: |
@@ -503,7 +503,7 @@ jobs:
             > "$RUNNER_TEMP/candidate-attestation/candidate-attestation.json"
 
       - name: Upload candidate attestation receipt
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-candidate-attestation
           path: ${{ runner.temp }}/candidate-attestation/candidate-attestation.json

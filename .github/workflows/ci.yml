@@ -309,7 +309,7 @@ jobs:
 
       - name: Upload architecture health reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: architecture-health-reports
           path: |
@@ -499,7 +499,7 @@ jobs:
           EOF
 
       - name: Upload native artifacts for ${{ matrix.abi.name }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-shard-${{ matrix.abi.name }}
           path: ${{ runner.temp }}/native-shard/*
@@ -507,7 +507,7 @@ jobs:
           retention-days: 7
 
       - name: Upload native symbol sidecar for ${{ matrix.abi.name }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-symbols-${{ matrix.abi.name }}
           path: core/engine/build/generated/nativeSymbols/${{ matrix.abi.name }}/*.dbg
@@ -595,7 +595,7 @@ jobs:
           ls -la "$RUNNER_TEMP/native-shard"
 
       - name: Upload native artifacts for x86_64
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-shard-x86_64
           path: ${{ runner.temp }}/native-shard/*
@@ -603,7 +603,7 @@ jobs:
           retention-days: 7
 
       - name: Upload native symbol sidecar for x86_64
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-symbols-x86_64
           path: core/engine/build/generated/nativeSymbols/x86_64/*.dbg
@@ -632,7 +632,7 @@ jobs:
 
       - name: Upload verified managed Xray runtime
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: xray-native
           path: native/xray/artifacts/
@@ -679,7 +679,7 @@ jobs:
 
       - name: Upload linked runtime test reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: xray-linked-unit-tests
           path: |
@@ -743,7 +743,7 @@ jobs:
           printf 'manifest_sha256=%s\n' "$manifest_sha256" >> "$GITHUB_OUTPUT"
 
       - name: Upload verified pluggable transport assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pluggable-transport-assets
           path: ${{ runner.temp }}/pluggable-transport-assets.tar.gz
@@ -864,7 +864,7 @@ jobs:
 
       - name: Upload native size report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-size-report-debug-${{ matrix.shard.id }}
           path: ${{ runner.temp }}/native-size-report/*
@@ -955,7 +955,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results
           path: |
@@ -1005,7 +1005,7 @@ jobs:
 
       - name: Upload Roborazzi diffs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: roborazzi-results
           path: |
@@ -1206,7 +1206,7 @@ jobs:
 
       - name: Upload release retrace inputs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-retrace-inputs-${{ matrix.shard.id }}
           path: |
@@ -1217,7 +1217,7 @@ jobs:
 
       - name: Upload release native symbols
         if: matrix.shard.id == 'github'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-native-symbols
           path: |
@@ -1265,7 +1265,7 @@ jobs:
 
       - name: Upload native bloat attribution report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-bloat-report
           path: ${{ runner.temp }}/native-bloat-report/*
@@ -1283,7 +1283,7 @@ jobs:
 
       - name: Upload native bloat baseline (on failure)
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-bloat-baseline
           path: /tmp/native-bloat-baseline.json
@@ -1518,7 +1518,7 @@ jobs:
 
       - name: Upload Rust analysis reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-workspace-tests-reports
           path: native/rust/target/golden-diffs/
@@ -1636,7 +1636,7 @@ jobs:
 
       - name: Upload Gradle analysis reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gradle-static-analysis-reports
           path: |
@@ -1723,7 +1723,7 @@ jobs:
 
       - name: Upload outbound interoperability log
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: outbound-upstream-interop
           path: build/outbound-interop/
@@ -1761,7 +1761,7 @@ jobs:
 
       - name: Upload CLI packet smoke artifacts
         if: ${{ always() && env.ACT != 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cli-packet-smoke
           path: build/packet-smoke/cli/**
@@ -1844,7 +1844,7 @@ jobs:
 
       - name: Upload Kotlin coverage artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kotlin-coverage-artifacts
           path: |
@@ -1899,7 +1899,7 @@ jobs:
 
       - name: Upload Rust coverage artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-coverage-artifacts
           path: native/rust/target/coverage/
@@ -2001,7 +2001,7 @@ jobs:
 
       - name: Upload criterion baseline candidate
         if: github.event_name == 'workflow_dispatch' && contains(github.event.inputs.specialized_lanes, 'criterion_baseline')
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-bench-baseline-candidate
           path: ${{ runner.temp }}/rust-bench-baseline.json
@@ -2016,7 +2016,7 @@ jobs:
 
       - name: Upload criterion artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: criterion-bench-artifacts
           path: |
@@ -2087,7 +2087,7 @@ jobs:
 
       - name: Upload Phase 0 baseline artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: phase0-baseline-artifacts
           path: |
@@ -2176,7 +2176,7 @@ jobs:
 
       - name: Upload macrobenchmark artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: macrobenchmark-artifacts
           path: |
@@ -2262,7 +2262,7 @@ jobs:
             --bundle app/build/outputs/ci-instrumentation --sha "$GITHUB_SHA"
 
       - name: Upload instrumentation APK bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-instrumentation-apks
           path: app/build/outputs/ci-instrumentation/
@@ -2504,7 +2504,7 @@ jobs:
 
       - name: Upload Android instrumented-test artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-instrumented-artifacts-${{ matrix.device }}
           path: |
@@ -2583,7 +2583,7 @@ jobs:
 
       - name: Upload native soak artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-native-soak-artifacts
           path: |
@@ -2630,7 +2630,7 @@ jobs:
 
       - name: Upload native load artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-native-load-artifacts
           path: |
@@ -2664,7 +2664,7 @@ jobs:
 
       - name: Upload nightly Kotlin coverage artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nightly-kotlin-coverage-artifacts
           path: |
@@ -2709,7 +2709,7 @@ jobs:
 
       - name: Upload nightly coverage artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nightly-coverage-artifacts
           path: |
@@ -2839,7 +2839,7 @@ jobs:
       - name: Upload Android network E2E artifacts
         if: always()
         timeout-minutes: 10
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-network-e2e-artifacts
           path: |
@@ -2948,7 +2948,7 @@ jobs:
 
       - name: Upload Android journeys artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-journeys-artifacts
           path: |
@@ -3035,7 +3035,7 @@ jobs:
 
       - name: Upload Android relay smoke artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-relay-smoke-artifacts
           path: |
@@ -3164,7 +3164,7 @@ jobs:
 
       - name: Upload redacted SO_BINDTODEVICE evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: so-bindtodevice-tun-evidence
           path: ${{ runner.temp }}/so-bindtodevice-evidence/manifest.json
@@ -3231,7 +3231,7 @@ jobs:
 
       - name: Upload Linux TUN soak artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: linux-tun-soak-artifacts
           path: |
