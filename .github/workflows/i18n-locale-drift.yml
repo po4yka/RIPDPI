@@ -1,7 +1,7 @@
 # .github/workflows/i18n-locale-drift.yml
 #
-# Weekly (and on-demand) gate: diffs every locale strings.xml against the
-# source strings and fails if any locale is missing keys vs. the source.
+# Weekly and on-demand gate: check every locale XML set against source
+# strings and check that settings display labels use translated references.
 #
 # Complements i18n-export.yml (which checks the translatable-key manifest is
 # in sync with source) by checking that the locale files themselves are in
@@ -21,6 +21,8 @@ on:
       - "app/src/simple/res/values*/*.xml"
       - "core/service/src/main/res/values*/*.xml"
       - "scripts/ci/check-locale-parity.sh"
+      - "scripts/ci/check_localized_settings_options.py"
+      - "scripts/ci/test_*localization_regressions.py"
       - ".github/workflows/i18n-locale-drift.yml"
   pull_request:
     paths:
@@ -29,6 +31,8 @@ on:
       - "app/src/simple/res/values*/*.xml"
       - "core/service/src/main/res/values*/*.xml"
       - "scripts/ci/check-locale-parity.sh"
+      - "scripts/ci/check_localized_settings_options.py"
+      - "scripts/ci/test_*localization_regressions.py"
       - ".github/workflows/i18n-locale-drift.yml"
 
 permissions:
@@ -42,3 +46,5 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check locale parity
         run: scripts/ci/check-locale-parity.sh
+      - name: Check audited localization regressions
+        run: python3 -m unittest discover -s scripts/ci -p 'test_*localization_regressions.py'

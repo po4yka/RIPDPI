@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_option_theme_system">跟随系统</string>
+    <string name="settings_option_theme_light">浅色</string>
+    <string name="settings_option_theme_dark">深色</string>
+    <string name="settings_option_route_selected_hosts">路由选定主机</string>
+    <string name="settings_option_automatic">自动</string>
+    <string name="settings_option_random">随机</string>
+    <string name="settings_option_quic_imitation">模拟 QUIC</string>
+    <string name="settings_option_tls_imitation">模拟 TLS</string>
+    <string name="settings_option_dns_imitation">模拟 DNS</string>
+    <string name="settings_option_route_by_sni">按 SNI 路由</string>
+    <string name="settings_option_route_and_cache">路由并缓存</string>
+    <string name="settings_option_chrome_stable">Chrome 稳定版</string>
+    <string name="settings_option_chrome_desktop_stable">Chrome 桌面稳定版</string>
+    <string name="settings_option_firefox_stable">Firefox 稳定版</string>
+    <string name="settings_option_firefox_ech_stable">Firefox 稳定版（ECH）</string>
+    <string name="settings_option_safari_stable">Safari 稳定版</string>
+    <string name="settings_option_edge_stable">Edge 稳定版</string>
+    <string name="settings_option_popcount_shaping">popcount 整形</string>
+    <string name="settings_option_shannon_shaping">香农整形</string>
+    <string name="settings_option_combined_shaping">组合整形</string>
+    <string name="ripdpi_fake_seq_mode_sequential">顺序</string>
+    <string name="settings_option_zero">零</string>
+    <string name="settings_option_iana_bigsize">IANA 大负载</string>
+    <string name="host_pack_youtube_description">来自公开 geosite 列表的视频播放、嵌入内容及 CDN 端点。</string>
+    <string name="host_pack_telegram_description">从公开 geosite 来源收录的即时通信、CDN 和分享链接。</string>
+    <string name="host_pack_discord_description">来自公开 geosite 列表的应用、媒体、邀请和附件域名。</string>
+    <string name="ripdpi_fake_seq_mode_duplicate">重复</string>
+</resources>

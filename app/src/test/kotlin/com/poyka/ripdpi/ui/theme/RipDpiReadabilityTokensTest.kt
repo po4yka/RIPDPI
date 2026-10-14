@@ -57,4 +57,13 @@ class RipDpiReadabilityTokensTest {
         assertEquals(18.dp, RipDpiIconSizes.Compact)
         assertTrue(RipDpiIconSizes.Default > RipDpiIconSizes.Compact)
     }
+
+    @Test
+    fun `decorative badges and inline chip glyphs have separate readable sizes`() {
+        val components = DefaultRipDpiComponents
+        assertEquals(40.dp, components.feedback.decorativeBadgeSize)
+        assertEquals(18.dp, components.inputs.chipIconSize)
+        assertTrue(components.feedback.decorativeBadgeSize > RipDpiIconSizes.Large)
+        assertTrue(components.inputs.chipIconSize < RipDpiIconSizes.Default)
+    }
 }

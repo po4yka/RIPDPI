@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
@@ -207,17 +208,18 @@ internal fun HostPackCatalogStatusCard(
 
 @Composable
 private fun rememberHostPackCatalogMetadata(hostPackCatalog: HostPackCatalogUiState): HostPackCatalogMetadata {
+    val locale = LocalConfiguration.current.locales[0]
     val generatedAt =
-        remember(hostPackCatalog.snapshot.catalog.generatedAt) {
-            formatHostPackGeneratedAt(hostPackCatalog.snapshot.catalog.generatedAt)
+        remember(hostPackCatalog.snapshot.catalog.generatedAt, locale) {
+            formatHostPackGeneratedAt(hostPackCatalog.snapshot.catalog.generatedAt, locale)
         }
     val lastFetchedAt =
-        remember(hostPackCatalog.snapshot.lastFetchedAtEpochMillis) {
-            hostPackCatalog.snapshot.lastFetchedAtEpochMillis?.let(::formatHostPackFetchedAt)
+        remember(hostPackCatalog.snapshot.lastFetchedAtEpochMillis, locale) {
+            hostPackCatalog.snapshot.lastFetchedAtEpochMillis?.let { formatHostPackFetchedAt(it, locale) }
         }
     val lastRefreshAttempt =
-        remember(hostPackCatalog.lastRefreshAttemptAtEpochMillis) {
-            hostPackCatalog.lastRefreshAttemptAtEpochMillis?.let(::formatHostPackFetchedAt)
+        remember(hostPackCatalog.lastRefreshAttemptAtEpochMillis, locale) {
+            hostPackCatalog.lastRefreshAttemptAtEpochMillis?.let { formatHostPackFetchedAt(it, locale) }
         }
     return HostPackCatalogMetadata(
         generatedAt = generatedAt,
@@ -323,7 +325,7 @@ private fun HostPackPresetSelector(
 }
 
 @Composable
-private fun HostPackPresetCard(
+internal fun HostPackPresetCard(
     preset: HostPackPreset,
     enabled: Boolean,
     selected: Boolean,
@@ -331,11 +333,12 @@ private fun HostPackPresetCard(
     modifier: Modifier = Modifier,
 ) {
     val sourceSummary = hostPackSourceSummary(preset)
+    val presetDescription = hostPackDescriptionResId(preset)?.let { stringResource(it) } ?: preset.description
     val description =
         if (sourceSummary.isBlank()) {
-            preset.description
+            presetDescription
         } else {
-            stringResource(R.string.host_pack_preset_body, preset.description, sourceSummary)
+            stringResource(R.string.host_pack_preset_body, presetDescription, sourceSummary)
         }
 
     PresetCard(

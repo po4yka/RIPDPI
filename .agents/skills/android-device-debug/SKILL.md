@@ -11,6 +11,12 @@ Full test stack documentation: `docs/testing.md`. Do not duplicate it here -- re
 
 ## Device Discovery & Connection
 
+For local emulator work, first read
+[Local Android emulator pool](../../../docs/contributor/android-emulator-pool.md).
+Run the full investigation or test command under `scripts/ci/android-avd-pool.py`.
+Use its exported `ANDROID_SERIAL` throughout the lease. The discovery commands
+below do not grant ownership of an existing device.
+
 ```bash
 adb devices -l                        # list connected devices/emulators
 adb wait-for-device                   # block until a device is available
@@ -258,31 +264,21 @@ Common RIPDPI ANR cause: JNI call blocking the main thread. The proxy `jniStart`
 
 ## Emulator Management
 
-CI uses API 34, x86_64, google_apis, default profile. Match for CI parity.
+Read the required API, ABI, and image tag from the current CI or test lane.
+Use the local pool for repeated tests, screenshots, and UI inspection:
 
 ```bash
-# List existing AVDs
-emulator -list-avds
-
-# Download system image (if needed)
-sdkmanager "system-images;android-34;google_apis;x86_64"
-
-# Create CI-parity AVD
-avdmanager create avd -n ripdpi-debug \
-  -k "system-images;android-34;google_apis;x86_64" -d default
-
-# Start with GUI
-emulator -avd ripdpi-debug -gpu host
-
-# Start headless (CI style)
-emulator -avd ripdpi-debug -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-
-# Cold boot (no snapshot)
-emulator -avd ripdpi-debug -no-snapshot-load
-
-# Delete AVD
-avdmanager delete avd -n ripdpi-debug
+python3 scripts/ci/android-avd-pool.py status
+python3 scripts/ci/android-avd-pool.py run \
+  --api 37 --arch arm64-v8a --target google_apis --profile pixel_10_pro_xl \
+  -- zsh
 ```
+
+This example uses the host ARM64 image. Adjust it to the selected lane. Keep all
+device operations inside the leased shell. A busy pool is a reason to serialize
+work. Use the documented temporary mode only for a test-specific requirement;
+the wrapper owns creation, stop, and deletion. Use its cleanup dry run before
+authorized cleanup. See the pool document for complete lifecycle rules.
 
 ## Quick Reference
 

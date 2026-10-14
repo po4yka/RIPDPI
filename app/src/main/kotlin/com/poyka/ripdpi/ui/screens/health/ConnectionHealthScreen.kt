@@ -162,12 +162,11 @@ private fun ConnectionHealthRow(row: ConnectionHealthRowUiState) {
     val spacing = RipDpiThemeTokens.spacing
     val rate = row.successRatePercent
     RipDpiCard {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column {
                 Text(
                     text = row.destinationClass.label(),
                     style = RipDpiThemeTokens.type.bodyEmphasis,
@@ -175,7 +174,7 @@ private fun ConnectionHealthRow(row: ConnectionHealthRowUiState) {
                 )
                 Text(
                     text = row.activeStrategy ?: stringResource(R.string.connection_health_strategy_waiting),
-                    style = RipDpiThemeTokens.type.caption,
+                    style = RipDpiThemeTokens.type.secondaryBody,
                     color = colors.mutedForeground,
                 )
             }

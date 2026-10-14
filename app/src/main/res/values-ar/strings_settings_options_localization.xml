@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_option_theme_system">النظام</string>
+    <string name="settings_option_theme_light">فاتح</string>
+    <string name="settings_option_theme_dark">داكن</string>
+    <string name="settings_option_route_selected_hosts">توجيه المضيفين المحددين</string>
+    <string name="settings_option_automatic">تلقائي</string>
+    <string name="settings_option_random">عشوائي</string>
+    <string name="settings_option_quic_imitation">محاكاة QUIC</string>
+    <string name="settings_option_tls_imitation">محاكاة TLS</string>
+    <string name="settings_option_dns_imitation">محاكاة DNS</string>
+    <string name="settings_option_route_by_sni">التوجيه حسب SNI</string>
+    <string name="settings_option_route_and_cache">التوجيه والتخزين المؤقت</string>
+    <string name="settings_option_chrome_stable">Chrome المستقر</string>
+    <string name="settings_option_chrome_desktop_stable">Chrome المستقر لسطح المكتب</string>
+    <string name="settings_option_firefox_stable">Firefox المستقر</string>
+    <string name="settings_option_firefox_ech_stable">Firefox المستقر (ECH)</string>
+    <string name="settings_option_safari_stable">Safari المستقر</string>
+    <string name="settings_option_edge_stable">Edge المستقر</string>
+    <string name="settings_option_popcount_shaping">تشكيل popcount</string>
+    <string name="settings_option_shannon_shaping">تشكيل شانون</string>
+    <string name="settings_option_combined_shaping">تشكيل مركب</string>
+    <string name="ripdpi_fake_seq_mode_sequential">تسلسلي</string>
+    <string name="settings_option_zero">صفر</string>
+    <string name="settings_option_iana_bigsize">IANA بحمولة كبيرة</string>
+    <string name="host_pack_youtube_description">تشغيل الفيديو والمحتوى المضمن ونقاط نهاية CDN من قوائم geosite العامة.</string>
+    <string name="host_pack_telegram_description">المراسلة وCDN وروابط المشاركة المضمنة من مصادر geosite العامة.</string>
+    <string name="host_pack_discord_description">نطاقات التطبيق والوسائط والدعوات والمرفقات من قوائم geosite العامة.</string>
+    <string name="ripdpi_fake_seq_mode_duplicate">تكرار</string>
+</resources>

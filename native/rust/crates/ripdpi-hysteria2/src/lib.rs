@@ -17,9 +17,9 @@ pub use config::Config;
 pub use error::{HysteriaError, Result};
 pub use port_hopping::{HopIntervalTelemetry, PortHoppingWindow};
 pub use quic_transport::{
-    H3ClientParts, H3ConnectKind, H3Transport, QuicBiStream, QuicDatagramTransport, QuicTransport, QuicTransportConfig,
-    build_client_udp_socket, build_client_udp_socket_with_policy, build_connect_request, build_quic_endpoint,
-    maybe_rebind_endpoint,
+    CertificatePinSha256, H3ClientParts, H3ConnectKind, H3Transport, QuicBiStream, QuicDatagramTransport,
+    QuicTransport, QuicTransportConfig, build_client_udp_socket, build_client_udp_socket_with_policy,
+    build_connect_request, build_quic_endpoint, maybe_rebind_endpoint, parse_certificate_pin_sha256,
 };
 pub use tcp::DuplexStream;
 pub use udp::UdpSession;
