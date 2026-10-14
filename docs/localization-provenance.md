@@ -15,12 +15,12 @@ Structural revalidation date: **2026-07-14**. `app/src/main/res/values/strings.x
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Russian (ru) | `values-ru/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Spanish (es) | `values-es/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| German (de) | `values-de/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| German (de) | `values-de/` (all XML files) | 5010 | 0 | **pre-existing; AI-authored audited corrections** | **yes for corrections** | Native-speaker review pending for this update | — |
 | French (fr) | `values-fr/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Persian (fa) | `values-fa/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Arabic (ar) | `values-ar/` | 4063 | 0 | **machine-translated** | **yes** | Nikita Pochaev (maintainer, structural review) | 2026-05-31 |
 | Simplified Chinese (zh-CN) | `values-zh-rCN/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| Hindi (hi) | `values-hi/` (`strings.xml` + `strings2.xml`) | 4063 | 0 | **machine-translated** | **yes** | Native-speaker review pending | — |
+| Hindi (hi) | `values-hi/` (all XML files) | 4948 | 0 | **machine-translated; audited corrections** | **yes** | Native-speaker review pending | — |
 | Brazilian Portuguese (pt-BR) | `values-pt-rBR/` (`strings.xml` + topical files mirroring the source split) | 4129 | 0 | **machine-translated** | **yes** | Native-speaker review pending | — |
 
 Structural revalidation for `pt-BR` (2026-08-25): source grew since the 2026-07-14 pass; the current source set is 4,129 unique translated keys across `app` (4,112 translatable `<string>` entries plus 16 `<plurals>` in `values/strings.xml`, plus 67 keys across the actuator/home-diagnostics/initial-states/fallbacks/archive-disclosure topical files), with `core/service` contributing 4 more. The pt-BR locale was generated against this exact tree and passes `scripts/ci/check-locale-parity.sh` with 0 missing keys.
@@ -44,7 +44,32 @@ Play Store Data Safety / QA trail) can see the provenance. Native-speaker
 review of `ar` is tracked as follow-up; it does not block the locale shipping,
 which is the maintainer's explicit decision for first-wave Arabic coverage.
 
-Hindi (`hi`) is likewise machine-translated and structurally complete, split across `strings.xml` and `strings2.xml`; a native-speaker linguistic review is still pending.
+Hindi (`hi`) is machine-translated and structurally complete across its XML files; a native-speaker linguistic review is still pending.
+
+## Hindi and shared presentation corrections — 2026-10-13
+
+The audit baseline is `17172d4a1fe3bfc02faf6366efad868da2ad3dce`.
+The change corrects 63 active and seven unused Hindi resource entries.
+It also corrects 42 stale profile-editor references in English, German,
+French, Persian, Arabic, and Brazilian Portuguese. These references now
+use the current editor name.
+It translates 46 descriptive settings array labels, two settings literals,
+and 21 known diagnostic and built-in host-pack texts. The shared labels
+use 45 new keys in all ten locales. Technical option values, array order,
+raw evidence, and custom host-pack descriptions remain exact. Catalog dates
+read the selected app locale after language changes. Known PT captions
+also update when the app language changes and the probe result is retained.
+The shared option reader preserves numeric values through Android typed
+resources. The final app set has 4,948 strings and 23 plural resources;
+the source string manifest has 4,958 keys across app and service.
+Three disputed DNS
+terms remain unchanged pending technical Hindi review.
+
+The corrections and new translations were authored with an AI assistant.
+Resource contracts and behavioral tests provide local evidence; they do not
+record a new maintainer or native-speaker sign-off. Verification for
+`UIX-1791880509070975` is recorded in
+`openspec/changes/fix-audited-hindi-localization/verification.md`.
 
 ### MT-origin disclosure (Brazilian Portuguese)
 
@@ -99,6 +124,65 @@ tests pass locally and report 116 failures against the audit baseline. Existing
 Russian resource tests also pass. This entry does not record a new maintainer
 or native-speaker sign-off. Device tests and a full linguistic review of other
 locales are not claimed.
+
+## Spanish audit corrections (2026-10-13)
+
+The source baseline was `2f6803083d74880f3c47e209aa83dfe9d6953e33`.
+This pass corrected 125 active Spanish resource entries and four unused entries
+from the confirmed audit. It covers untranslated warnings and flows, privacy
+terms, recovery action names, strategy grammar, and the Quick Connect tile.
+Credential warnings, explicit export consent, packet capture retention, and
+protocol tokens retain their source meaning.
+
+The diagnostic presentation adds 19 source strings and two plural resources.
+Each has a translation in all ten locales. The source set now has 4,926 app
+entries (4,903 strings and 23 plural resources), 11 service entries (10 strings
+and one plural resource), and 15 separate Quick Connect strings. The source
+string manifest has 4,913 keys; it excludes plurals and the Quick Connect set.
+
+The corrections and new translations were authored with an AI assistant.
+The five Spanish resource tests check audited copy, safety meanings, action
+references, grammar, and resource contracts across all ten locales. They pass
+locally; the four copy checks report 123 failures against the audit baseline.
+Existing Russian and Chinese resource tests also pass. This entry does not
+record a new maintainer or native-speaker sign-off. Device tests and a full
+linguistic review of other locales are not claimed.
+
+## German audit corrections (2026-10-13)
+
+The source baseline was `ddd0024d494fb2e734223b8c6e77ec239a255bbe`.
+This pass corrects exactly 107 active German resource keys and five unused
+keys from the confirmed audit. It covers English controls and warnings,
+redaction and control-group meanings, recovery actions, metering labels,
+option references, and decoding rather than decryption. Disputed URI
+Authority/Tail terms and optional editorial preferences remain outside scope.
+
+Diagnostic presentation adds 38 source strings and one plural resource.
+Every key is translated in all ten locales. The app has 5,010 translatable
+entries (4,986 strings and 24 plurals); service has 11 entries and Quick
+Connect has 15 separate strings. The source manifest has 4,996 string keys.
+
+Known Telegram summary captions and readable share prose use resources;
+unknown values and raw evidence remain exact. Telegram native rates remain
+bytes per second on the wire. UI and share output convert those rates to
+bits per second without Long overflow. Telegram and sparkline numbers use
+the selected app locale. Core summary headings accept localized text while
+the default technical-export headings remain unchanged.
+
+The six German resource regressions reproduced 107 failures on the audit
+baseline. After correction, all 26 Russian, Chinese, Spanish, Hindi and
+German resource tests pass. Parity/export, format arguments and plural
+categories pass for all locales. Kotlin behavior and all eight German render
+checks pass. The combined tree passed 2,521 app tests, 1,652 diagnostics tests,
+static analysis, app/service lint and 297 Full screenshot tests. The owning
+OpenSpec verification artifact records the existing RTL ignore, missing real
+Simple bundle and hosted CI status. All local main commits, including the
+14 Material 3 commits, were published with explicit user authorization.
+
+Corrections and new captions were authored with an AI assistant. The prior
+2026-05-30 German maintainer review does not sign off these new translations.
+Native-speaker, device and full linguistic acceptance of the other locales
+are not claimed.
 
 ## Font & glyph coverage
 

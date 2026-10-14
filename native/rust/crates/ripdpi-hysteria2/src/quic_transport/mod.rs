@@ -34,12 +34,14 @@
 //!   exposing a CONNECT-capable surface composable under VLESS / VMess /
 //!   generic outbounds.
 
+pub mod cert_pin;
 pub mod config;
 pub mod datagram;
 pub mod endpoint;
 pub mod h3;
 pub mod stream;
 
+pub use cert_pin::{CertificatePinSha256, parse_certificate_pin_sha256};
 pub use config::{ALPN_H3, QuicTransportConfig};
 pub use datagram::QuicDatagramTransport;
 pub use endpoint::{
@@ -62,8 +64,16 @@ mod tests {
     /// scaffold an end-to-end transport test (or a VLESS-QUIC wire test)
     /// would use.
     fn spawn_quic_echo_server() -> (SocketAddr, quinn::Endpoint) {
+        let (addr, endpoint, _) = spawn_quic_server_with_leaf();
+        (addr, endpoint)
+    }
+
+    /// [`spawn_quic_echo_server`], plus the DER of the leaf certificate the
+    /// server presents (for certificate-pin tests).
+    fn spawn_quic_server_with_leaf() -> (SocketAddr, quinn::Endpoint, Vec<u8>) {
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).expect("self-signed cert");
-        let cert_der = rustls::pki_types::CertificateDer::from(cert.cert.der().to_vec());
+        let leaf_der = cert.cert.der().to_vec();
+        let cert_der = rustls::pki_types::CertificateDer::from(leaf_der.clone());
         let key_der = rustls::pki_types::PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der()).clone_key();
 
         // Pin the `ring` provider explicitly: the workspace enables both
@@ -85,7 +95,86 @@ mod tests {
         let endpoint = quinn::Endpoint::server(server_config, SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
             .expect("bind quic server");
         let addr = endpoint.local_addr().expect("server addr");
-        (addr, endpoint)
+        (addr, endpoint, leaf_der)
+    }
+
+    /// SHA-256 of `data`, computed with the `ring` provider's TLS 1.3 hash.
+    fn sha256(data: &[u8]) -> [u8; 32] {
+        let rustls::SupportedCipherSuite::Tls13(suite) = rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256
+        else {
+            panic!("TLS13_AES_128_GCM_SHA256 is a TLS 1.3 suite");
+        };
+        suite.common.hash_provider.hash(data).as_ref().try_into().expect("32-byte digest")
+    }
+
+    /// Run one QUIC handshake against a fresh self-signed server with the
+    /// config that `make_config` builds from the server leaf DER, and report
+    /// whether the handshake completed.
+    async fn handshake_with(make_config: impl FnOnce(&[u8]) -> QuicTransportConfig) -> bool {
+        let (server_addr, server_endpoint, leaf_der) = spawn_quic_server_with_leaf();
+        let server_task = tokio::spawn(async move {
+            if let Some(incoming) = server_endpoint.accept().await
+                && let Ok(connection) = incoming.await
+            {
+                connection.closed().await;
+            }
+        });
+        let config = make_config(&leaf_der);
+        let endpoint = build_quic_endpoint(&config, false).expect("endpoint");
+        let result = endpoint.connect(server_addr, &config.server_name).expect("connect start").await;
+        let connected = match result {
+            Ok(connection) => {
+                connection.close(0u32.into(), b"done");
+                true
+            }
+            Err(_) => false,
+        };
+        endpoint.close(0u32.into(), b"done");
+        server_task.abort();
+        connected
+    }
+
+    /// REL-3 regression: `insecure` + a matching leaf pin completes the
+    /// handshake against a self-signed server.
+    #[tokio::test]
+    async fn insecure_profile_with_matching_pin_connects() {
+        let connected = handshake_with(|leaf| {
+            QuicTransportConfig::new("localhost").with_insecure(true).with_pin_sha256(Some(sha256(leaf)))
+        })
+        .await;
+        assert!(connected);
+    }
+
+    /// REL-3 regression: `insecure` + a pin that does not match the presented
+    /// leaf must fail the handshake. Before the fix the pin was dropped and
+    /// any certificate was accepted.
+    #[tokio::test]
+    async fn insecure_profile_with_wrong_pin_is_rejected() {
+        let connected = handshake_with(|leaf| {
+            let mut wrong = sha256(leaf);
+            wrong[0] ^= 0xff;
+            QuicTransportConfig::new("localhost").with_insecure(true).with_pin_sha256(Some(wrong))
+        })
+        .await;
+        assert!(!connected, "a wrong pin must not be accepted");
+    }
+
+    /// `insecure` without a pin keeps the historical accept-any behavior.
+    #[tokio::test]
+    async fn insecure_profile_without_pin_still_connects() {
+        let connected = handshake_with(|_| QuicTransportConfig::new("localhost").with_insecure(true)).await;
+        assert!(connected);
+    }
+
+    /// CA mode is unchanged: a self-signed server fails webpki validation,
+    /// with or without a matching pin.
+    #[tokio::test]
+    async fn ca_validated_profile_rejects_self_signed_with_or_without_pin() {
+        assert!(!handshake_with(|_| QuicTransportConfig::new("localhost")).await);
+        assert!(
+            !handshake_with(|leaf| QuicTransportConfig::new("localhost").with_pin_sha256(Some(sha256(leaf)))).await,
+            "a pin without insecure adds to CA validation, it does not replace it"
+        );
     }
 
     /// End-to-end proof that the composable transport works: a client built

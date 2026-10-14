@@ -5,10 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,9 +33,11 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 @Suppress("LongMethod")
 internal fun DnsActiveConfigurationCard(
@@ -83,15 +88,16 @@ internal fun DnsActiveConfigurationCard(
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
             Box(
                 modifier =
                     Modifier
-                        .size(40.dp)
+                        .align(Alignment.CenterVertically)
+                        .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
                         .background(
                             if (uiState.dns.dnsMode == DnsModeEncrypted) {
                                 colors.infoContainer
@@ -111,7 +117,7 @@ internal fun DnsActiveConfigurationCard(
                         } else {
                             colors.foreground
                         },
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(RipDpiIconSizes.Large),
                 )
             }
             Column(
@@ -120,19 +126,22 @@ internal fun DnsActiveConfigurationCard(
             ) {
                 Text(
                     text = title,
+                    modifier = Modifier.width(IntrinsicSize.Max),
                     style = type.screenTitle,
                     color = colors.foreground,
                 )
                 Text(
-                    text = uiState.dns.dnsSummary,
+                    text = uiState.dns.localizedSummary(),
+                    modifier = Modifier.fillMaxWidth(),
                     style = type.body,
                     color = colors.mutedForeground,
                 )
             }
         }
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             DnsBadge(
                 text =
@@ -189,6 +198,7 @@ private fun dnsActiveRouteDescription(
         else -> stringResource(R.string.dns_active_route_plain_vpn)
     }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun DnsOptionCard(
     icon: ImageVector,
@@ -216,15 +226,16 @@ internal fun DnsOptionCard(
                     animationSpec = motion.stateTween(),
                 ).ripDpiTestTag(testTag),
     ) {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
             Box(
                 modifier =
                     Modifier
-                        .size(36.dp)
+                        .align(Alignment.CenterVertically)
+                        .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
                         .background(
                             if (selected) colors.infoContainer else colors.inputBackground,
                             RipDpiThemeTokens.shapes.full,
@@ -235,7 +246,7 @@ internal fun DnsOptionCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = if (selected) colors.infoContainerForeground else colors.mutedForeground,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(RipDpiIconSizes.Large),
                 )
             }
             Column(
@@ -244,27 +255,27 @@ internal fun DnsOptionCard(
             ) {
                 Text(
                     text = title,
+                    modifier = Modifier.width(IntrinsicSize.Max),
                     style = type.bodyEmphasis,
                     color = colors.foreground,
                 )
                 Text(
                     text = body,
+                    modifier = Modifier.fillMaxWidth(),
                     style = type.body,
                     color = colors.mutedForeground,
                 )
             }
-            if (selected) {
-                DnsBadge(
-                    text = stringResource(R.string.dns_selected_badge),
-                    highlighted = true,
-                )
-            }
         }
-        if (badges.isNotEmpty()) {
-            Row(
+        if (selected || badges.isNotEmpty()) {
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
+                if (selected) {
+                    DnsBadge(text = stringResource(R.string.dns_selected_badge), highlighted = true)
+                }
                 badges.forEach { badge ->
                     DnsBadge(text = badge)
                 }
@@ -292,6 +303,7 @@ internal fun DnsBadge(
     ) {
         Text(
             text = text,
+            modifier = Modifier.width(IntrinsicSize.Max),
             style = type.smallLabel,
             color = if (highlighted) colors.infoContainerForeground else colors.mutedForeground,
         )
@@ -310,17 +322,20 @@ internal fun DnsDetailRow(
     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Text(
             text = label,
+            modifier = Modifier.width(IntrinsicSize.Max),
             style = type.smallLabel,
             color = colors.mutedForeground,
         )
         Text(
             text = value,
+            modifier = Modifier.width(IntrinsicSize.Max),
             style = if (monospace) type.monoSmall else type.body,
             color = colors.foreground,
         )
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun DnsResolverCard(
     resolver: DnsResolverOption,
@@ -343,44 +358,38 @@ internal fun DnsResolverCard(
                     animationSpec = motion.stateTween(),
                 ).ripDpiTestTag(RipDpiTestTags.dnsResolver(resolver.providerId)),
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalAlignment = Alignment.Top,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
+            Text(
+                text = resolverTitle,
+                modifier = Modifier.width(IntrinsicSize.Max),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = resolverBody,
+                modifier = Modifier.width(IntrinsicSize.Max),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+            if (resolver.jurisdictionRu) {
                 Text(
-                    text = resolverTitle,
-                    style = type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                Text(
-                    text = resolverBody,
-                    style = type.body,
-                    color = colors.mutedForeground,
-                )
-                if (resolver.jurisdictionRu) {
-                    Text(
-                        text = stringResource(R.string.detection_dns_provider_jurisdiction_ru_warning),
-                        style = type.caption,
-                        color = colors.warning,
-                    )
-                }
-            }
-            if (selected) {
-                DnsBadge(
-                    text = stringResource(R.string.dns_selected_badge),
-                    highlighted = true,
+                    text = stringResource(R.string.detection_dns_provider_jurisdiction_ru_warning),
+                    style = type.caption,
+                    color = colors.warning,
                 )
             }
         }
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
+            if (selected) {
+                DnsBadge(text = stringResource(R.string.dns_selected_badge), highlighted = true)
+            }
             DnsBadge(text = resolver.address)
             DnsBadge(text = protocolDisplayName(resolver.protocol))
         }

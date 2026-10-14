@@ -25,7 +25,7 @@ import org.robolectric.RuntimeEnvironment
 class DiagnosticsPmtuUiTest {
     private val app = RuntimeEnvironment.getApplication()
     private val strings = AndroidStringResolver(app)
-    private val support = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings)
+    private val support = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()), strings)
 
     @Test
     fun historyRetainsLowerBoundAndCeilingSeparatelyWithoutRawPeer() {

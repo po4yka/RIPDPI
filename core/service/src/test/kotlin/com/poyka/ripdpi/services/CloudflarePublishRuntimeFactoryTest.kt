@@ -44,7 +44,7 @@ class CloudflarePublishRuntimeFactoryTest {
             configParser = CloudflarePublishConfigParser(),
             processSupervisor =
                 CloudflarePublishProcessSupervisor(
-                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    binaryLocator = CloudflarePublishBinaryLocator(context = context),
                     versionProbe = CloudflarePublishVersionProbe(),
                     launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
                     outputReader = CloudflarePublishProcessOutputReader(),

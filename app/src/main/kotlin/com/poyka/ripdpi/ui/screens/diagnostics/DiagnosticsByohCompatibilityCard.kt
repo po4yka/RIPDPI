@@ -119,7 +119,7 @@ private fun ByohCompatibilityRows(rows: List<DiagnosticsByohDomainUiModel>) {
             rows.forEach { row ->
                 StatusIndicator(label = "${row.domain}: ${row.verdict}", tone = statusTone(row.tone))
                 Text(
-                    text = "${row.bytesReceived} B received",
+                    text = stringResource(R.string.diagnostics_byoh_bytes_received, row.bytesReceived),
                     style = RipDpiThemeTokens.type.monoSmall,
                     color = colors.mutedForeground,
                 )

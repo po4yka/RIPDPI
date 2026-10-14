@@ -29,7 +29,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum StrategyConfigError {
     #[error("failed to parse strategy YAML: {0}")]
-    Parse(#[from] serde_yaml_ng::Error),
+    Parse(#[from] yaml_serde::Error),
     #[error("failed to parse strategy TOML: {0}")]
     TomlParse(#[from] toml::de::Error),
     #[error("failed to read host list {path}: {source}")]
@@ -311,7 +311,7 @@ enum HostSpec {
 }
 
 pub fn parse_yaml_str(input: &str, base_dir: impl AsRef<Path>) -> Result<LoadedStrategyConfig, StrategyConfigError> {
-    let raw: RawConfig = serde_yaml_ng::from_str(input)?;
+    let raw: RawConfig = yaml_serde::from_str(input)?;
     load_raw(raw, base_dir.as_ref())
 }
 

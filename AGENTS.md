@@ -35,6 +35,8 @@ Use `just` recipes where they mirror CI. For Rust commands, pass `--locked` when
 
 Local builds, unit tests, lint, formatting, and Cargo checks use disposable outputs and no production access. Run them, fix failures caused by your change, and rerun the affected checks without asking for approval at each step.
 
+For local emulator tests, UI inspection, screenshots, or acceptance, use the command-scoped pool lease in [Local Android emulator pool](docs/contributor/android-emulator-pool.md). Reuse a compatible idle slot; hold its lock through all device operations. Temporary AVDs need a test-specific reason and owner cleanup. Use the documented cleanup command for authorized removal of idle devices. Preserve active, foreign, and Gradle managed devices. The detached `scripts/ci/start-android-emulator.sh --fresh` launcher is restricted to isolated CI runners.
+
 Match verification to risk. For a local change, run the narrowest gate that exercises it (the module's unit tests, `cargo test -p <crate> --locked`). Widen to `staticAnalysis`, workspace-wide Rust checks, or device tests when the change crosses modules, touches a JNI/protobuf/wire/storage contract, service lifecycle, or build logic, or when the user asks for a specific gate. Run the exact gate the user requests and report its actual result; a blocked or skipped gate is reported as such, never replaced by a weaker claim.
 
 Work is done when the requested change is implemented, its relevant gate passes (or its failure is reported with output), and any finished atomic unit is committed on the job branch.

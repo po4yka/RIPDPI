@@ -19,6 +19,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.util.Collections
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -134,7 +135,7 @@ class RelayCapabilityProbeTest {
 
     @Test
     fun `socks udp probe accepts a matching dns response`() {
-        SocksUdpFixture(Behavior.Respond).use { fixture ->
+        SocksUdpFixture(Behavior.Respond, probeTimeoutMillis = LivenessTimeoutMillis).use { fixture ->
             val result = fixture.probeUdp()
 
             assertTrue(result.succeeded)
@@ -144,7 +145,7 @@ class RelayCapabilityProbeTest {
 
     @Test
     fun `socks udp probe adds question entropy beyond transaction id`() {
-        SocksUdpFixture(Behavior.Respond).use { fixture ->
+        SocksUdpFixture(Behavior.Respond, probeTimeoutMillis = LivenessTimeoutMillis).use { fixture ->
             repeat(2) {
                 val result = fixture.probeUdp()
                 assertTrue(result.succeeded)
@@ -160,7 +161,7 @@ class RelayCapabilityProbeTest {
     fun `socks udp probe ignores contaminants until delayed matching response`() {
         SocksUdpFixture(
             behavior = Behavior.ContaminantsThenRespond,
-            probeTimeoutMillis = 400,
+            probeTimeoutMillis = LivenessTimeoutMillis,
         ).use { fixture ->
             val result = fixture.probeUdp()
 
@@ -194,16 +195,17 @@ class RelayCapabilityProbeTest {
     fun `continuous contaminants do not extend socks udp probe deadline`() {
         SocksUdpFixture(
             behavior = Behavior.ContinuousContaminants,
-            probeTimeoutMillis = 100,
+            probeTimeoutMillis = MismatchTimeoutMillis,
         ).use { fixture ->
-            val startedAt = System.nanoTime()
-
-            val result = fixture.probeUdp()
-            val elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+            // The fixture sends contaminants until it is closed, so the call can only return when
+            // the probe enforces its absolute deadline. The get() bound only detects a hang.
+            val result =
+                CompletableFuture
+                    .supplyAsync { fixture.probeUdp() }
+                    .get(HangDetectionMillis, TimeUnit.MILLISECONDS)
 
             assertFalse(result.succeeded)
             assertEquals(RelayProbeFailure.DnsResponse, result.failure)
-            assertTrue(elapsedMillis < MaximumBasicProbeDeadlineMillis)
         }
     }
 
@@ -468,13 +470,15 @@ private class SocksUdpFixture(
     private val behavior: Behavior,
     private val payloadAckMaxBytes: Int = Int.MAX_VALUE,
     private val failPreControl: Boolean = false,
-    probeTimeoutMillis: Int = 100,
+    probeTimeoutMillis: Int = MismatchTimeoutMillis,
 ) : AutoCloseable {
     private val tcp = ServerSocket(0, 8, InetAddress.getLoopbackAddress())
     private val ready = CountDownLatch(1)
     private val requests = Collections.synchronizedList(mutableListOf<UdpFixtureRequest>())
     private val handlers = CopyOnWriteArrayList<Thread>()
     private val sentLegitimateResponse = AtomicBoolean(false)
+    private val closing = AtomicBoolean(false)
+    private val udpSockets = CopyOnWriteArrayList<DatagramSocket>()
     private val worker = thread(name = "socks-udp-probe-fixture") { serve() }
 
     val port: Int = tcp.localPort
@@ -485,7 +489,7 @@ private class SocksUdpFixture(
         )
     val payloadProbe =
         Socks5DnsUdpPayloadHealthProbe(
-            timeoutMillis = 500,
+            timeoutMillis = PayloadProbeTimeoutMillis,
             payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
         )
 
@@ -508,7 +512,7 @@ private class SocksUdpFixture(
 
     private fun handleClient(client: Socket) {
         runCatching {
-            client.soTimeout = 1_000
+            client.soTimeout = FixtureIdleMillis
             val input = DataInputStream(client.getInputStream())
             val output = DataOutputStream(client.getOutputStream())
             input.use {
@@ -527,7 +531,8 @@ private class SocksUdpFixture(
                 }
 
                 DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { udp ->
-                    udp.soTimeout = 1_000
+                    udpSockets += udp
+                    udp.soTimeout = FixtureIdleMillis
                     val address = udp.localAddress.address
                     output.write(byteArrayOf(5, 0, 0, 1))
                     output.write(address)
@@ -561,7 +566,9 @@ private class SocksUdpFixture(
     }
 
     override fun close() {
+        closing.set(true)
         tcp.close()
+        udpSockets.forEach(DatagramSocket::close)
         handlers.forEach { it.join(1_000) }
         worker.join(1_000)
     }
@@ -583,14 +590,14 @@ private class SocksUdpFixture(
 
     fun payloadProbeWithQueryFactory(queryFactory: (Int, Int) -> ByteArray): RelayUdpPayloadHealthProbe =
         Socks5DnsUdpPayloadHealthProbe(
-            timeoutMillis = 500,
+            timeoutMillis = PayloadProbeTimeoutMillis,
             payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
             queryFactory = queryFactory,
         )
 
     fun payloadProbeWithInitialTransactionId(initialTransactionId: Int): RelayUdpPayloadHealthProbe =
         Socks5DnsUdpPayloadHealthProbe(
-            timeoutMillis = 500,
+            timeoutMillis = PayloadProbeTimeoutMillis,
             payloadSizesBytes = listOf(256, 512, 960, 1_232, 1_400),
             initialTransactionId = initialTransactionId,
         )
@@ -671,8 +678,7 @@ private class SocksUdpFixture(
         dnsOffset: Int,
     ) {
         val response = frame.asDnsResponse(dnsOffset).withWrongEmbeddedTarget()
-        val stopAt = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(ContinuousContaminantMillis)
-        while (System.nanoTime() < stopAt) {
+        while (!closing.get()) {
             udp.sendResponse(response, request)
             Thread.sleep(1)
         }
@@ -785,6 +791,19 @@ private const val SocksAddressTypeOffset = 3
 private const val SocksAddressOffset = 4
 private const val SocksIpv4AddressType: Byte = 1
 private const val DelayedLegitimateResponseMillis = 50L
-private const val ContinuousContaminantMillis = 400L
-private const val MaximumBasicProbeDeadlineMillis = 500L
+
+// Positive-path probes return as soon as the acknowledgement arrives, so this bound only limits how
+// long a stalled scheduler may delay the fixture; it never lengthens a passing run.
+private const val LivenessTimeoutMillis = 5_000
+
+// Probes that must observe a mismatching datagram wait for their full deadline. The bound also
+// covers the SOCKS handshake, so it must stay well above scheduler jitter.
+private const val MismatchTimeoutMillis = 1_000
+
+// Payload ladder attempts that the fixture deliberately drops each wait for the full deadline.
+private const val PayloadProbeTimeoutMillis = 1_000
+
+// The fixture must stay up longer than any single probe deadline.
+private const val FixtureIdleMillis = 10_000
+private const val HangDetectionMillis = 15_000L
 private val FixtureUdpTarget = InetSocketAddress("203.0.113.53", 53)

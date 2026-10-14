@@ -208,6 +208,10 @@ object BackupAllowlist {
                 "password" to Classification.REDACTED,
                 "obfsPassword" to Classification.REDACTED,
                 "insecure" to Classification.PUBLIC,
+                // Certificate pin (hash of the public server certificate). Not a
+                // secret, and SHARE must keep it: an exported insecure profile
+                // without its pin accepts any certificate.
+                "pinSha256" to Classification.PUBLIC,
                 "portHopPorts" to Classification.PUBLIC,
                 "portHopInterval" to Classification.PUBLIC,
                 // Non-secret upstream Hysteria2 release tag (e.g. "v2.9.0"); same

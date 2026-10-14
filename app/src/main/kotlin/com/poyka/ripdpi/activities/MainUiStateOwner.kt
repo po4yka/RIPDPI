@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 @Suppress("LongParameterList")
@@ -25,6 +24,8 @@ internal class MainUiStateOwner(
     stringResolver: StringResolver,
     buildApproachSummary: (AppSettings, Mode, List<BypassApproachSummary>) -> HomeApproachSummaryUiState?,
 ) {
+    private val localeState = MutableStateFlow("")
+
     val uiState: StateFlow<MainUiState> =
         combine(
             settingsState,
@@ -78,7 +79,7 @@ internal class MainUiStateOwner(
             inputs.copy(pendingConfigurations = pending)
         }.combine(serviceDependencies.reconnectCoordinator.reconnectState) { inputs, reconnect ->
             inputs.copy(reconnectState = reconnect)
-        }.map { inputs ->
+        }.combine(localeState) { inputs, _ ->
             val settings = inputs.settings
             val (status, activeMode) = inputs.statusAndMode
             val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
@@ -97,4 +98,9 @@ internal class MainUiStateOwner(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = MainUiState(),
         )
+
+    fun onLocaleChanged(localeTags: String) {
+        // Locale changes refresh presentation even when runtime inputs are unchanged.
+        localeState.value = localeTags
+    }
 }
