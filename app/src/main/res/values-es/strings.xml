@@ -2073,7 +2073,7 @@ Origen: %2$s</string>
     <string name="ripdpi_http_parser_scope_cli">Los ajustes de línea de comandos eligen las mutaciones activas del parser HTTP.</string>
     <string name="ripdpi_http_parser_summary_label_probing">Sondeo automático</string>
     <string name="ripdpi_ip_id_mode_body">Controla los valores de identificación IPv4 para rutas falsas y de fragmento sin procesar. Seqgroup también promueve envíos TCP mixtos falsos/originales a la ruta de reemplazo sin procesar para que los IDs permanezcan exactos.</string>
-    <string name="ripdpi_protocols_hint">Desmarca todo para estrategia de bypass de todo el tráfico</string>
+    <string name="ripdpi_protocols_hint">Desmarca HTTP y HTTPS para aplicar la estrategia de evasión TCP sin un filtro de protocolo. La evasión UDP se configura por separado.</string>
     <string name="ripdpi_seqovl_available_title">Solapamiento de secuencia disponible</string>
     <string name="ripdpi_seqovl_restart_body">La sesión RIPDPI en ejecución se inició antes de este cambio de cadena, por lo que seqovl no surtirá efecto hasta que RIPDPI se reconecte o reinicie.</string>
     <string name="ripdpi_seqovl_summary_label_marker">Marcador de división</string>

@@ -2100,7 +2100,7 @@ Source: %2$s</string>
     <string name="desync_http_category" translatable="false">HTTP</string>
     <string name="desync_https_category" translatable="false">HTTPS</string>
     <string name="ripdpi_protocols_category">Protocols</string>
-    <string name="ripdpi_protocols_hint">Uncheck all to bypass strategy all traffic</string>
+    <string name="ripdpi_protocols_hint">Clear HTTP and HTTPS to apply the TCP bypass strategy without a protocol filter. UDP bypass is configured separately.</string>
     <string name="advanced_settings_visual_controls_disabled">Visual controls are unavailable while command line overrides are active.</string>
     <string name="advanced_settings_command_line_disabled">Enable command line settings to edit raw RIPDPI flags here.</string>
     <string name="advanced_settings_error_oob_data">OOB data must be empty or a single character.</string>

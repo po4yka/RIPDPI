@@ -12,7 +12,7 @@
     <string name="pause_stop">Arrêter et annuler la reprise</string>
     <string name="pause_persistence_failed">Impossible d’enregistrer la commande. L’état de la connexion reste inchangé.</string>
     <string name="pause_duration_minutes">%1$s minutes</string>
-    <string name="pause_clock_failed">L’horloge ou l’identité du démarrage a changé. Vérifiez la récupération.</string>
+    <string name="pause_clock_failed">L’horloge ou l’identité du démarrage a changé. Choisissez Reprendre maintenant pour examiner la reprise.</string>
     <string name="pause_consent_required">L’autorisation VPN est requise pour reprendre.</string>
     <string name="pause_lockdown">Le verrouillage VPN Android ne permet pas cette action.</string>
     <string name="pause_background_restricted">Android a différé la reprise en arrière-plan. Ouvrez l’application.</string>

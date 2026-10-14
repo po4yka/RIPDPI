@@ -262,7 +262,7 @@ class DiagnosticsViewModelTest {
             val state = viewModel.uiState.value
             assertEquals(DiagnosticsSection.Dashboard, state.selectedSection)
             assertEquals("Default", state.overview.activeProfile?.name)
-            assertEquals("Running", state.live.statusLabel)
+            assertEquals("running", state.live.statusLabel)
             assertTrue(state.live.metrics.any { it.label == "Latest native failure" && it.value == "dns_tampering" })
             assertTrue(
                 state.live.metrics.any {
@@ -504,7 +504,7 @@ class DiagnosticsViewModelTest {
 
             val state = viewModel.uiState.value
             assertEquals(DiagnosticsHealth.Degraded, state.live.health)
-            assertEquals("Failed", state.live.statusLabel)
+            assertEquals("failed", state.live.statusLabel)
             assertEquals("Runtime needs intervention", state.live.headline)
             collector.cancel()
         }
@@ -539,7 +539,7 @@ class DiagnosticsViewModelTest {
 
             val state = viewModel.uiState.value
             assertEquals(DiagnosticsHealth.Idle, state.live.health)
-            assertEquals("Running", state.live.statusLabel)
+            assertEquals("running", state.live.statusLabel)
             assertEquals("wifi", state.live.networkLabel)
             assertEquals("VPN", state.live.modeLabel)
             assertEquals("No live telemetry", state.live.freshnessLabel)

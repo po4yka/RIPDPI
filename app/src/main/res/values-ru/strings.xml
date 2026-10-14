@@ -1517,7 +1517,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tlsminor_value_title">Младшая версия TLS-записи</string>
     <string name="ripdpi_tlsminor_value_body">Перезаписывает байт младшей версии (0–255) в заголовке TLS-записи подлинного первого пакета.</string>
     <string name="ripdpi_protocols_category">Протоколы</string>
-    <string name="ripdpi_protocols_hint">Снимите все флажки, чтобы десинхронизировать весь трафик</string>
+    <string name="ripdpi_protocols_hint">Снимите флажки HTTP и HTTPS, чтобы применять стратегию обхода TCP без фильтра протоколов. Обход UDP настраивается отдельно.</string>
     <string name="advanced_settings_visual_controls_disabled">Визуальные элементы управления недоступны при активных переопределениях командной строки.</string>
     <string name="advanced_settings_command_line_disabled">Включите параметры командной строки, чтобы редактировать необработанные флаги RIPDPI здесь.</string>
     <string name="advanced_settings_error_oob_data">Данные OOB должны быть пустыми или состоять из одного символа.</string>

@@ -2001,7 +2001,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_ip_id_mode_title">وضع معرّف IPv4</string>
     <string name="ripdpi_ip_id_mode_body">يتحكم في قيم تعريف IPv4 لمسارات الحزم الوهمية والمجزّأة. يعزّز Seqgroup أيضاً إرسال TCP الوهمي/الأصلي المختلط على مسار الاستبدال الخام للحفاظ على دقة المعرّفات.</string>
     <string name="ripdpi_protocols_category">البروتوكولات</string>
-    <string name="ripdpi_protocols_hint">ألغِ تحديد الكل لإلغاء استراتيجية التجاوز جميع حركة المرور</string>
+    <string name="ripdpi_protocols_hint">ألغِ تحديد HTTP وHTTPS لتطبيق استراتيجية تجاوز TCP دون مرشح بروتوكول. يُضبط تجاوز UDP بشكل منفصل.</string>
     <string name="advanced_settings_visual_controls_disabled">عناصر التحكم المرئية غير متاحة أثناء تفعيل تجاوزات سطر الأوامر.</string>
     <string name="advanced_settings_command_line_disabled">فعّل إعدادات سطر الأوامر لتعديل أعلام RIPDPI الخام هنا.</string>
     <string name="advanced_settings_error_oob_data">يجب أن تكون بيانات OOB فارغة أو حرفاً واحداً.</string>

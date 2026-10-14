@@ -4,7 +4,12 @@
 
 ### Requirement: REQ-LEGACY-SNAPSHOT-REDACTION
 
-On upgrade from database version 13, existing network snapshot rows MUST receive the capture-time storage-safe projection. The migration MUST replace Wi-Fi SSID, BSSID, gateway, DHCP server, local IP, subnet mask, and network ID; cellular carrier and operator names, codes, and IDs; DNS and local addresses; and private DNS hostnames. It MUST preserve address counts and non-identifying transport and signal evidence for valid rows. An unreadable payload, a payload missing required version 13 fields, or a payload with an unknown field or invalid field type MUST be removed without deleting unrelated history.
+On upgrade from database version 13, existing network snapshot rows MUST receive the capture-time storage-safe projection. The migration MUST replace Wi-Fi SSID, BSSID, gateway, DHCP server, local IP, subnet mask, and network ID; cellular carrier and operator names, codes, and IDs; DNS and local addresses; and private DNS hostnames.
+
+#### Scenario: Preserve valid evidence and remove invalid payloads
+
+- **WHEN** the migration processes existing network snapshot payloads
+- **THEN** It MUST preserve address counts and non-identifying transport and signal evidence for valid rows. An unreadable payload, a payload missing required version 13 fields, or a payload with an unknown field or invalid field type MUST be removed without deleting unrelated history.
 
 #### Scenario: Existing network snapshot is upgraded
 

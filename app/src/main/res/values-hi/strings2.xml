@@ -211,7 +211,7 @@
     <string name="ripdpi_ip_id_mode_title">IPv4 ID मोड</string>
     <string name="ripdpi_ip_id_mode_body">raw fake और fragment पथों के लिए IPv4 पहचान मान नियंत्रित करता है। Seqgroup मिश्रित fake/मूल TCP सेंड को भी raw प्रतिस्थापन पथ पर बढ़ावा देता है ताकि ID सटीक रहें।</string>
     <string name="ripdpi_protocols_category">प्रोटोकॉल</string>
-    <string name="ripdpi_protocols_hint">सभी ट्रैफ़िक के लिए strategy बायपास करने हेतु सभी को अनचेक करें</string>
+    <string name="ripdpi_protocols_hint">प्रोटोकॉल फ़िल्टर के बिना TCP बायपास रणनीति लागू करने के लिए HTTP और HTTPS को अनचेक करें। UDP बायपास अलग से कॉन्फ़िगर किया जाता है।</string>
     <string name="advanced_settings_visual_controls_disabled">कमांड लाइन ओवरराइड सक्रिय रहने पर विज़ुअल नियंत्रण उपलब्ध नहीं हैं।</string>
     <string name="advanced_settings_command_line_disabled">यहाँ raw RIPDPI फ़्लैग संपादित करने के लिए कमांड लाइन सेटिंग्स सक्षम करें।</string>
     <string name="advanced_settings_error_oob_data">OOB डेटा खाली होना चाहिए या एकल वर्ण होना चाहिए।</string>

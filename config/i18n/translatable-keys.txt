@@ -1924,6 +1924,9 @@ app:diagnostics_pcap_card_stop
 app:diagnostics_pcap_card_title
 app:diagnostics_pcap_disclosure_body
 app:diagnostics_pcap_disclosure_title
+app:diagnostics_performance_header_format
+app:diagnostics_performance_input_format
+app:diagnostics_performance_slowest_format
 app:diagnostics_phase_adaptation
 app:diagnostics_phase_rate
 app:diagnostics_phase_reach
@@ -2168,6 +2171,9 @@ app:diagnostics_rkn_verdict_tcp_reset
 app:diagnostics_rkn_verdict_tls_dpi
 app:diagnostics_rkn_verdict_uncertain_format
 app:diagnostics_rkn_verdict_unknown
+app:diagnostics_rtt_band_500_plus_format
+app:diagnostics_rtt_band_lt50_format
+app:diagnostics_rtt_band_range_format
 app:diagnostics_save_archive_action
 app:diagnostics_save_archive_body
 app:diagnostics_save_archive_title

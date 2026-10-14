@@ -184,6 +184,44 @@ Corrections and new captions were authored with an AI assistant. The prior
 Native-speaker, device and full linguistic acceptance of the other locales
 are not claimed.
 
+## French audit corrections (2026-10-14)
+
+The source baseline is `3458ed9c1541d9a5217e5c4618845ecefd4a97bd`.
+This pass corrects exactly 138 existing French resource keys from the audit:
+134 have a discovered production call site, and four have no discovered
+production call site. The four are `home_diagnostics_detection_permission_required`,
+`home_mode_card_remote_relay_disabled_hint`, `support_settings_applied_action`,
+and `share_link_preview_privacy_message`. They remain separate from active
+UI findings. The corrections include 90 English fallback values, consent and
+retention warnings, recovery controls, temporary policy suppression, backup
+server selection, QUIC transport emphasis, throughput and French grammar.
+Disputed metering terms and the RTT heading remain unchanged.
+
+The protocol-filter hint also corrects a source error. It now explains that
+clearing HTTP and HTTPS removes the TCP protocol filter, while UDP bypass has
+separate settings. This one existing key changes in all ten locales; the nine
+non-French changes are separate from the 138 French keys. Runtime matching,
+host filters, protocol flags and exported values do not change.
+
+Shared diagnostic presentation adds six source strings for known RTT ranges
+and debug-card captions. Every key has a value in all ten locales. RTT bounds
+keep the technical `ms` unit. Debug input counts use label-first templates.
+The app has 5,016 translatable entries (4,992 strings and 24 plurals); service
+has 11 entries, and Quick Connect has 15 separate strings. The regenerated
+source manifest has 5,002 string keys.
+
+The French resource tests first reproduced all 90 English fallback failures.
+Separate RED and GREEN cycles then checked the confirmed semantic, action and
+grammar repairs and the new shared templates. All 40 resource regression tests
+for Russian, Chinese, Spanish, Hindi, German and French pass locally. Parity,
+translation export, format arguments and native language names pass across
+all ten locales. The owning OpenSpec verification artifact records Kotlin,
+render, lint, combined-tree and hosted CI evidence separately.
+
+Corrections and new captions were authored with an AI assistant. This entry
+records no new maintainer or native-speaker sign-off. Resource tests do not
+prove device acceptance or full linguistic correctness of the other locales.
+
 ## Font & glyph coverage
 
 The brand typeface (Geist Sans / Geist Mono, bundled under
