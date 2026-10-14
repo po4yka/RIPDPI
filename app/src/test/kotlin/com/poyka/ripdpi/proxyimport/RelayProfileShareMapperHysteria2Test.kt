@@ -13,6 +13,7 @@ class RelayProfileShareMapperHysteria2Test {
     fun `hysteria identity and credentials survive share mapping`() {
         val passwordFixture = "test-value"
         val obfsPasswordFixture = "obfs-test-value"
+        val pinFixture = "ef".repeat(32)
         val record =
             RelayProfileRecord(
                 kind = RelayKindHysteria2,
@@ -26,6 +27,7 @@ class RelayProfileShareMapperHysteria2Test {
                 hysteriaPassword = passwordFixture,
                 hysteriaSalamanderKey = obfsPasswordFixture,
                 hysteriaInsecure = true,
+                hysteriaPinSha256 = pinFixture,
             )
 
         val shareable = RelayProfileShareMapper.toShareable(record, credentials)!!
@@ -36,5 +38,9 @@ class RelayProfileShareMapperHysteria2Test {
         assertEquals(true, profile.insecure)
         assertTrue(shareable.shareUri.contains("sni=hy.example"))
         assertTrue(shareable.shareUri.contains("insecure=1"))
+        // REL-3: a shared insecure profile must keep its pin, or the recipient
+        // imports an accept-any-certificate profile.
+        assertEquals(pinFixture, profile.pinSha256)
+        assertTrue(shareable.shareUri.contains("pinSHA256=$pinFixture"))
     }
 }

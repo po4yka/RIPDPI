@@ -6,7 +6,7 @@ use crate::raw::SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION;
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error(transparent)]
-    Yaml(#[from] serde_yaml_ng::Error),
+    Yaml(#[from] yaml_serde::Error),
     #[error("socks5 credentials: username and password must both be present or both absent")]
     MismatchedCredentials,
     #[error("invalid {field}: {message}")]

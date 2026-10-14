@@ -47,7 +47,7 @@ impl FromStr for Config {
     type Err = ConfigError;
 
     fn from_str(yaml: &str) -> Result<Self, Self::Err> {
-        let raw = serde_yaml_ng::from_str(yaml)?;
+        let raw = yaml_serde::from_str(yaml)?;
         Self::from_raw(raw)
     }
 }

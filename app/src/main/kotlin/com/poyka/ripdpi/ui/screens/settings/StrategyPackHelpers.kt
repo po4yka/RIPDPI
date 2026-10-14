@@ -150,8 +150,10 @@ internal fun strategyPackRefreshPolicyLabelResId(policy: String): Int =
         R.string.strategy_pack_badge_policy_manual
     }
 
-private val strategyPackTimestampFormatter =
-    DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.getDefault())
-
-internal fun formatStrategyPackFetchedAt(timestampMillis: Long): String =
-    strategyPackTimestampFormatter.format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))
+internal fun formatStrategyPackFetchedAt(
+    timestampMillis: Long,
+    locale: Locale,
+): String =
+    DateTimeFormatter
+        .ofPattern("MMM d, HH:mm", locale)
+        .format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))

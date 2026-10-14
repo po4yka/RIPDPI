@@ -3,7 +3,9 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,11 +21,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
@@ -196,6 +204,24 @@ internal fun SessionRow(
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("SessionRow")
+    val backgroundProbe = session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND
+    val backgroundBadge =
+        if (backgroundProbe) {
+            stringResource(
+                R.string.diagnostics_history_background_probe_badge,
+            )
+        } else {
+            null
+        }
+    val triggerSummary =
+        if (backgroundProbe && session.triggerClassification != null) {
+            stringResource(
+                R.string.diagnostics_scan_trigger_handover_summary_format,
+                session.triggerClassification.displayTriggerClassification(),
+            )
+        } else {
+            null
+        }
     RipDpiCard(
         modifier = modifier,
         onClick = onClick,
@@ -205,58 +231,76 @@ internal fun SessionRow(
                 vertical = ProbeRowVerticalPaddingDp.dp,
             ),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                if (session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND) {
-                    RipDpiMetricPill(
-                        text = stringResource(R.string.diagnostics_history_background_probe_badge),
-                        tone = RipDpiMetricTone.Muted,
-                        shape = RipDpiThemeTokens.shapes.xxl,
-                        textStyle = RipDpiThemeTokens.type.smallLabel,
-                        paddingValues = PaddingValues(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 2.dp),
-                    )
-                }
-                Text(
-                    text = session.title,
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = RipDpiThemeTokens.colors.foreground,
+        DiagnosticRowHeader(
+            contentTexts =
+                listOfNotNull(
+                    session.title to RipDpiThemeTokens.type.bodyEmphasis,
+                    session.subtitle to RipDpiThemeTokens.type.secondaryBody,
+                    backgroundBadge?.let { it to RipDpiThemeTokens.type.smallLabel },
+                    triggerSummary?.let { it to RipDpiThemeTokens.type.secondaryBody },
+                ),
+            metadata = (session.completionLabel ?: session.status) to RipDpiThemeTokens.type.brandStatus,
+            contentDecorationWidth = if (backgroundBadge != null) RipDpiThemeTokens.spacing.sm * 2 else 0.dp,
+            metadataDecorationWidth =
+                RipDpiThemeTokens.components.indicators.statusMarkerLarge +
+                    RipDpiThemeTokens.components.indicators.statusMarkerSpacing,
+            trailing = { metadataModifier ->
+                StatusIndicator(
+                    modifier = metadataModifier,
+                    label = session.completionLabel ?: session.status,
+                    tone = statusTone(session.tone),
                 )
-                Text(
-                    text = session.subtitle,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-                if (
-                    session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND &&
-                    session.triggerClassification != null
-                ) {
-                    Text(
-                        text =
-                            stringResource(
-                                R.string.diagnostics_scan_trigger_handover_summary_format,
-                                session.triggerClassification.displayTriggerClassification(),
-                            ),
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = RipDpiThemeTokens.colors.mutedForeground,
-                    )
-                }
-            }
-            StatusIndicator(
-                label = session.completionLabel ?: session.status,
-                tone = statusTone(session.tone),
-            )
+            },
+        ) { textModifier ->
+            DiagnosticSessionText(session, backgroundBadge, triggerSummary, textModifier)
         }
         if (session.metrics.isNotEmpty()) {
             HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
         }
         MetricsRow(metrics = session.metrics)
+    }
+}
+
+@Composable
+private fun DiagnosticSessionText(
+    session: DiagnosticsSessionRowUiModel,
+    backgroundBadge: String?,
+    triggerSummary: String?,
+    modifier: Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        if (backgroundBadge != null) {
+            RipDpiMetricPill(
+                text = backgroundBadge,
+                tone = RipDpiMetricTone.Muted,
+                shape = RipDpiThemeTokens.shapes.xxl,
+                textStyle = RipDpiThemeTokens.type.smallLabel,
+                paddingValues = PaddingValues(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 2.dp),
+            )
+        }
+        Text(
+            text = session.title,
+            modifier = Modifier.fillMaxWidth(),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = session.subtitle,
+            modifier = Modifier.fillMaxWidth(),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        if (triggerSummary != null) {
+            Text(
+                text = triggerSummary,
+                modifier = Modifier.fillMaxWidth(),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
     }
 }
 
@@ -268,6 +312,15 @@ internal fun ProbeResultRow(
 ) {
     TrackRecomposition("ProbeResultRow")
     val colors = RipDpiThemeTokens.colors
+    val title = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target
+    val subtitle =
+        when {
+            probe.pmtu != null -> probe.pmtu.title
+            probe.http3 != null -> probe.http3.title
+            probe.ipFamily != null -> stringResource(R.string.diagnostics_ip_title)
+            else -> probe.probeType
+        }
+    val outcome = (probe.pmtu ?: probe.http3 ?: probe.ipFamily)?.fields?.firstOrNull()?.value ?: probe.outcome
     RipDpiCard(
         modifier = modifier,
         onClick = onClick,
@@ -277,47 +330,42 @@ internal fun ProbeResultRow(
                 vertical = RipDpiThemeTokens.spacing.sm,
             ),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        DiagnosticRowHeader(
+            contentTexts =
+                listOf(
+                    title to RipDpiThemeTokens.type.bodyEmphasis,
+                    subtitle to RipDpiThemeTokens.type.secondaryBody,
+                ),
+            metadata = outcome to RipDpiThemeTokens.type.brandStatus,
+            metadataDecorationWidth =
+                RipDpiThemeTokens.components.indicators.statusMarkerLarge +
+                    RipDpiThemeTokens.components.indicators.statusMarkerSpacing,
+            alignment = Alignment.CenterVertically,
+            trailing = { metadataModifier ->
+                StatusIndicator(
+                    modifier = metadataModifier,
+                    label = outcome,
+                    tone = statusTone(probe.tone),
+                )
+            },
+        ) { textModifier ->
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = textModifier,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
+                    text = title,
+                    modifier = Modifier.fillMaxWidth(),
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = colors.foreground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text =
-                        if (probe.pmtu != null) {
-                            probe.pmtu.title
-                        } else if (probe.http3 != null) {
-                            probe.http3.title
-                        } else if (probe.ipFamily !=
-                            null
-                        ) {
-                            stringResource(R.string.diagnostics_ip_title)
-                        } else {
-                            probe.probeType
-                        },
+                    text = subtitle,
+                    modifier = Modifier.fillMaxWidth(),
                     style = RipDpiThemeTokens.type.secondaryBody,
                     color = colors.mutedForeground,
                 )
             }
-            StatusIndicator(
-                label =
-                    (probe.pmtu ?: probe.http3 ?: probe.ipFamily)
-                        ?.fields
-                        ?.firstOrNull()
-                        ?.value ?: probe.outcome,
-                tone = statusTone(probe.tone),
-            )
         }
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
         probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
@@ -344,18 +392,32 @@ internal fun EventRow(
             androidx.compose.foundation.layout
                 .PaddingValues(RipDpiThemeTokens.layout.cardPadding),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
+        DiagnosticRowHeader(
+            contentTexts =
+                listOfNotNull(
+                    friendlySummary?.let { it to RipDpiThemeTokens.type.bodyEmphasis },
+                    event.message to RipDpiThemeTokens.type.secondaryBody,
+                    event.source to RipDpiThemeTokens.type.monoSmall,
+                    event.severity to RipDpiThemeTokens.type.monoSmall,
+                ),
+            metadata = event.createdAtLabel to RipDpiThemeTokens.type.monoSmall,
+            contentDecorationWidth = RipDpiThemeTokens.spacing.sm * 2,
+            trailing = { metadataModifier ->
+                Text(
+                    text = event.createdAtLabel,
+                    modifier = metadataModifier,
+                    style = RipDpiThemeTokens.type.monoSmall,
+                    color = colors.mutedForeground,
+                )
+            },
+        ) { textModifier ->
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = textModifier,
                 verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
             ) {
-                Row(
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
                 ) {
                     EventBadge(text = event.source, tone = event.tone)
                     EventBadge(text = event.severity, tone = event.tone)
@@ -363,23 +425,63 @@ internal fun EventRow(
                 if (friendlySummary != null) {
                     Text(
                         text = friendlySummary,
+                        modifier = Modifier.fillMaxWidth(),
                         style = RipDpiThemeTokens.type.bodyEmphasis,
                         color = colors.foreground,
                     )
                 }
                 Text(
                     text = event.message,
+                    modifier = Modifier.fillMaxWidth(),
                     style = RipDpiThemeTokens.type.secondaryBody,
                     color = colors.mutedForeground,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                text = event.createdAtLabel,
-                style = RipDpiThemeTokens.type.monoSmall,
-                color = colors.mutedForeground,
-            )
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticRowHeader(
+    contentTexts: List<Pair<String, TextStyle>>,
+    metadata: Pair<String, TextStyle>,
+    metadataDecorationWidth: Dp = 0.dp,
+    contentDecorationWidth: Dp = 0.dp,
+    alignment: Alignment.Vertical = Alignment.Top,
+    trailing: @Composable (Modifier) -> Unit,
+    content: @Composable (Modifier) -> Unit,
+) {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val spacing = RipDpiThemeTokens.spacing
+    val contentWordWidth =
+        contentTexts.maxOf { (text, style) ->
+            measurer
+                .measure(AnnotatedString(text), style = style.copy(hyphens = Hyphens.None))
+                .multiParagraph.minIntrinsicWidth
+        }
+    val metadataWidth = measurer.measure(AnnotatedString(metadata.first), style = metadata.second).size.width
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // Keep the text budget large enough for whole words before placing metadata beside it.
+        val inlineWidth =
+            with(density) { (contentWordWidth + metadataWidth).toDp() } +
+                metadataDecorationWidth + contentDecorationWidth + spacing.sm
+        if (inlineWidth > maxWidth) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                content(Modifier.fillMaxWidth())
+                trailing(Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = alignment,
+            ) {
+                content(Modifier.weight(1f))
+                trailing(Modifier)
+            }
         }
     }
 }

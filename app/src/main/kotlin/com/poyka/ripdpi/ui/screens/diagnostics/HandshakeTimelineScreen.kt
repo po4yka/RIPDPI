@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,26 +14,28 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
-
-// Label column width = section spacing × this factor (matches spec card layout).
-private const val LabelColumnSectionMultiplier = 4
+import kotlin.math.roundToInt
 
 /**
  * Per-stage Gantt-style timeline of the connection handshake.
  * Matches `docs/design/rds/preview/vpn-handshake-timeline.html` —
- * label column, bar track at fractional position/width, duration
- * column, plus a NOW overlay line and a footer with the slowest-stage
+ * stage labels and duration above a full-width bar track at fractional
+ * position/width, plus a NOW overlay line and a footer with the slowest-stage
  * callout.
  *
  * The component is presentation-only: it consumes
@@ -55,20 +59,22 @@ fun HandshakeTimelineScreen(
         Spacer(modifier = Modifier.height(spacing.sm))
         HandshakeRows(state)
         Spacer(modifier = Modifier.height(spacing.md))
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             Text(
                 text = state.footerSlowest,
                 style = type.monoSmall,
                 color = colors.mutedForeground,
+                modifier = Modifier.width(IntrinsicSize.Max),
             )
             Text(
                 text = state.footerBudget,
                 style = type.monoSmall,
                 color = colors.mutedForeground,
+                modifier = Modifier.width(IntrinsicSize.Max),
             )
         }
     }
@@ -79,26 +85,46 @@ private fun HandshakeHeader(state: HandshakeTimelineState) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom,
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Column {
-            Text(text = state.title, style = type.bodyEmphasis, color = colors.foreground)
+            Text(
+                text = state.title,
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+                modifier = Modifier.width(IntrinsicSize.Max),
+            )
             Spacer(modifier = Modifier.height(spacing.xs))
-            Text(text = state.subtitle, style = type.monoSmall, color = colors.mutedForeground)
+            Text(
+                text = state.subtitle,
+                style = type.monoSmall,
+                color = colors.mutedForeground,
+                modifier = Modifier.width(IntrinsicSize.Max),
+            )
         }
-        Column(horizontalAlignment = Alignment.End) {
+        Column {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(text = state.totalValue, style = type.monoValue, color = colors.foreground)
+                Text(
+                    text = state.totalValue,
+                    style = type.monoValue,
+                    color = colors.foreground,
+                    modifier = Modifier.width(IntrinsicSize.Max),
+                )
                 Spacer(modifier = Modifier.width(spacing.xs))
-                Text(text = state.totalUnit, style = type.monoSmall, color = colors.mutedForeground)
+                Text(
+                    text = state.totalUnit,
+                    style = type.monoSmall,
+                    color = colors.mutedForeground,
+                    modifier = Modifier.width(IntrinsicSize.Max),
+                )
             }
             Text(
                 text = state.totalLabel.uppercase(),
                 style = type.smallLabel,
                 color = colors.mutedForeground,
+                modifier = Modifier.width(IntrinsicSize.Max),
             )
         }
     }
@@ -106,29 +132,58 @@ private fun HandshakeHeader(state: HandshakeTimelineState) {
 
 @Composable
 private fun HandshakeAxisRow(tickLabels: ImmutableList<String>) {
-    val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    val labelColumnWidth = spacing.section * LabelColumnSectionMultiplier
-    val durationColumnWidth = spacing.section + spacing.lg
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Spacer(modifier = Modifier.width(labelColumnWidth))
-        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween) {
-            tickLabels.forEach { label ->
-                Text(
-                    text = label,
-                    style = type.monoSmall,
-                    color = colors.mutedForeground,
-                    textAlign = TextAlign.Center,
-                )
+    val gap = with(LocalDensity.current) { RipDpiThemeTokens.spacing.xs.roundToPx() }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Layout(
+            modifier = Modifier.fillMaxWidth(),
+            content = {
+                tickLabels.forEach { label ->
+                    Text(
+                        text = label,
+                        style = type.monoSmall,
+                        color = colors.mutedForeground,
+                        modifier = Modifier.width(IntrinsicSize.Max),
+                    )
+                }
+            },
+        ) { measurables, constraints ->
+            val width = constraints.maxWidth
+            val labels = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+            val positions =
+                labels.mapIndexed { index, label ->
+                    val point = width * index.toFloat() / labels.lastIndex.coerceAtLeast(1)
+                    (point - label.width / 2f).roundToInt().coerceIn(0, width - label.width)
+                }
+            val visible = handshakeVisibleTicks(positions, labels.map { it.width }, gap)
+            val rowHeight = labels.maxOfOrNull { it.height } ?: 0
+            val stacked =
+                visible.size == 2 &&
+                    positions[visible.first()] + labels[visible.first()].width + gap > positions[visible.last()]
+            layout(width, rowHeight * if (stacked) 2 else 1) {
+                visible.forEachIndexed { row, index ->
+                    labels[index].place(positions[index], if (stacked) row * rowHeight else 0)
+                }
             }
         }
-        Spacer(modifier = Modifier.width(durationColumnWidth))
     }
+}
+
+/** Keep the source coordinates and both endpoints when narrow text needs fewer ticks. */
+private fun handshakeVisibleTicks(
+    positions: List<Int>,
+    widths: List<Int>,
+    gap: Int,
+): List<Int> {
+    if (positions.size < 2) return positions.indices.toList()
+    val last = positions.lastIndex
+    return (1..last).firstNotNullOfOrNull { step ->
+        val indices = (0..last step step).toList().let { if (it.last() == last) it else it + last }
+        indices.takeIf {
+            it.zipWithNext().all { (left, right) -> positions[left] + widths[left] + gap <= positions[right] }
+        }
+    } ?: listOf(0, last)
 }
 
 @Composable
@@ -149,34 +204,47 @@ private fun HandshakeStageRow(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    val labelColumnWidth = spacing.section * LabelColumnSectionMultiplier
-    val durationColumnWidth = spacing.section + spacing.lg
-    val barTrackHeight = spacing.lg
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        Column(modifier = Modifier.width(labelColumnWidth)) {
-            Text(text = stage.name, style = type.monoValue, color = colors.foreground)
-            Text(text = stage.sub, style = type.monoSmall, color = colors.mutedForeground)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Column {
+                Text(
+                    text = stage.name,
+                    style = type.monoValue,
+                    color = colors.foreground,
+                    modifier = Modifier.width(IntrinsicSize.Max),
+                )
+                Text(
+                    text = stage.sub,
+                    style = type.monoSmall,
+                    color = colors.mutedForeground,
+                    modifier = Modifier.width(IntrinsicSize.Max),
+                )
+            }
+            Text(
+                text = stage.durationLabel,
+                style = type.monoValue,
+                color =
+                    when (stage.tone) {
+                        HandshakeStageTone.Warn -> colors.warning
+                        HandshakeStageTone.Bad -> colors.destructive
+                        HandshakeStageTone.Queued -> colors.mutedForeground
+                        else -> colors.foreground
+                    },
+                modifier = Modifier.width(IntrinsicSize.Max),
+            )
         }
-        Box(modifier = Modifier.weight(1f).height(barTrackHeight)) {
-            HandshakeBarTrack(stage = stage, nowPercent = nowPercent)
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Box(modifier = Modifier.fillMaxWidth().height(spacing.lg)) {
+                HandshakeBarTrack(stage = stage, nowPercent = nowPercent)
+            }
         }
-        Text(
-            text = stage.durationLabel,
-            style = type.monoValue,
-            color =
-                when (stage.tone) {
-                    HandshakeStageTone.Warn -> colors.warning
-                    HandshakeStageTone.Bad -> colors.destructive
-                    HandshakeStageTone.Queued -> colors.mutedForeground
-                    else -> colors.foreground
-                },
-            modifier = Modifier.width(durationColumnWidth),
-            textAlign = TextAlign.End,
-        )
     }
 }
 

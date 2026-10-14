@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -11,15 +12,37 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class RelayUdpProbeMatchingTest {
     @Test
+    fun `probe socket binds to the given local address instead of the wildcard`() {
+        val localAddress = InetAddress.getLoopbackAddress()
+
+        openUdpProbeSocket(localAddress).use { socket ->
+            assertEquals(localAddress, socket.localAddress)
+            assertTrue(socket.localPort > 0)
+        }
+    }
+
+    @Test
+    fun `probe socket binds the wildcard address when the relay uses another address family`() {
+        val ipv4Loopback = InetAddress.getByName("127.0.0.1")
+        val ipv6Relay = InetAddress.getByName("::1")
+
+        openUdpProbeSocket(ipv4Loopback, ipv6Relay).use { socket ->
+            assertTrue(socket.localAddress.isAnyLocalAddress)
+        }
+    }
+
+    @Test
     fun `payload probe discards delayed response from previous attempt`() {
         DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { relay ->
-            DatagramSocket().use { client ->
+            openUdpProbeSocket(InetAddress.getLoopbackAddress()).use { client ->
                 val relayAddress = relay.localSocketAddress as InetSocketAddress
                 val target = InetSocketAddress("203.0.113.53", DnsPort)
                 val serverFailure = AtomicReference<Throwable?>()
@@ -52,7 +75,7 @@ class RelayUdpProbeMatchingTest {
     fun `payload probe discards wrong relay and embedded target`() {
         DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { relay ->
             DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { unrelatedSender ->
-                DatagramSocket().use { client ->
+                openUdpProbeSocket(InetAddress.getLoopbackAddress()).use { client ->
                     val relayAddress = relay.localSocketAddress as InetSocketAddress
                     val target = InetSocketAddress("203.0.113.53", DnsPort)
                     val serverFailure = AtomicReference<Throwable?>()
@@ -92,7 +115,7 @@ class RelayUdpProbeMatchingTest {
     fun `payload probe rejects matching response from wrong relay`() {
         DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { relay ->
             DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { unrelatedSender ->
-                DatagramSocket().use { client ->
+                openUdpProbeSocket(InetAddress.getLoopbackAddress()).use { client ->
                     val serverFailure = AtomicReference<Throwable?>()
                     val worker =
                         thread(name = "relay-udp-wrong-relay-only") {
@@ -124,38 +147,46 @@ class RelayUdpProbeMatchingTest {
     @Test
     fun `payload probe rejects continuous wrong targets at absolute deadline`() {
         DatagramSocket(InetSocketAddress(InetAddress.getLoopbackAddress(), 0)).use { relay ->
-            DatagramSocket().use { client ->
+            openUdpProbeSocket(InetAddress.getLoopbackAddress()).use { client ->
                 val serverFailure = AtomicReference<Throwable?>()
+                val stopStreaming = AtomicBoolean(false)
                 val worker =
                     thread(name = "relay-udp-wrong-target-stream") {
                         try {
                             val request = relay.receiveFrame()
-                            repeat(ContinuousContaminantCount) {
+                            while (!stopStreaming.get()) {
                                 relay.sendFrame(
                                     request.bytes.withDifferentIpv4Target().asDnsResponse(),
                                     request.source,
                                 )
+                                Thread.sleep(1)
                             }
                         } catch (failure: Throwable) {
                             serverFailure.set(failure)
                         }
                     }
-                val startedAt = System.nanoTime()
 
+                // The relay sends wrong-target datagrams until the probe returns, so the call can
+                // only finish if the deadline is absolute. The get() bound only detects a hang.
                 val acknowledged =
-                    sendDnsProbePayload(
-                        client,
-                        relay.localSocketAddress as InetSocketAddress,
-                        InetSocketAddress("203.0.113.53", DnsPort),
-                        dnsQuery(FirstTransactionId),
-                        ShortTimeoutMillis,
-                    )
-                val elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+                    try {
+                        CompletableFuture
+                            .supplyAsync {
+                                sendDnsProbePayload(
+                                    client,
+                                    relay.localSocketAddress as InetSocketAddress,
+                                    InetSocketAddress("203.0.113.53", DnsPort),
+                                    dnsQuery(FirstTransactionId),
+                                    ShortTimeoutMillis,
+                                )
+                            }.get(HangDetectionMillis, TimeUnit.MILLISECONDS)
+                    } finally {
+                        stopStreaming.set(true)
+                    }
 
                 worker.join(TestThreadJoinMillis)
                 assertNull(serverFailure.get())
                 assertFalse(acknowledged)
-                assertTrue(elapsedMillis < MaximumDeadlineTestMillis)
             }
         }
     }
@@ -267,9 +298,10 @@ private const val DnsPort = 53
 private const val FirstTransactionId = 0x1234
 private const val SecondTransactionId = 0x5678
 private const val ShortTimeoutMillis = 50
-private const val TestTimeoutMillis = 500
-private const val MaximumDeadlineTestMillis = 500
-private const val ContinuousContaminantCount = 128
+
+// Positive-path probes return as soon as the acknowledgement arrives; the bound is liveness only.
+private const val TestTimeoutMillis = 5_000
+private const val HangDetectionMillis = 15_000L
 private const val TestThreadJoinMillis = 1_000L
 private const val MaxTestDatagramBytes = 4_096
 private const val TestDnsQueryBytes = 29

@@ -6,9 +6,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.text.intl.LocaleList
 
 @Composable
 fun RipDpiTheme(
@@ -35,6 +38,9 @@ fun RipDpiTheme(
         }
     }
 
+    val languageTags = LocalConfiguration.current.locales.toLanguageTags()
+    val type = remember(languageTags) { RipDpiTypeScale.withLocaleList(LocaleList(languageTags)) }
+    val typography = remember(type) { ripDpiTypography(type) }
     val colorScheme = if (isDark) ripDpiDarkColorScheme() else ripDpiLightColorScheme()
     val baseColors = if (isDark) DarkRipDpiExtendedColors else LightRipDpiExtendedColors
     val extendedColors = baseColors.adjustForContrast(contrastLevel, isDark)
@@ -64,7 +70,7 @@ fun RipDpiTheme(
     CompositionLocalProvider(
         LocalRipDpiExtendedColors provides extendedColors,
         LocalRipDpiContrastLevel provides contrastLevel,
-        LocalRipDpiTextStyles provides RipDpiTypeScale,
+        LocalRipDpiTextStyles provides type,
         LocalRipDpiSpacing provides DefaultRipDpiSpacing,
         LocalRipDpiLayout provides layout,
         LocalRipDpiComponents provides DefaultRipDpiComponents,
@@ -76,7 +82,7 @@ fun RipDpiTheme(
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = RipDpiTypography,
+            typography = typography,
             shapes = RipDpiShapes,
             content = content,
         )

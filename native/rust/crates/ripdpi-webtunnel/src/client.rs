@@ -31,10 +31,9 @@ pub enum WebTunnelClientError {
     HttpUpgrade(#[from] HttpUpgradeError),
 }
 
-pub fn connect_webtunnel(
-    config: &WebTunnelBridgeConfig,
-    verify: bool,
-) -> Result<WebTunnelStream, WebTunnelClientError> {
+/// Connect to a WebTunnel bridge: TCP, verified TLS (see
+/// [`build_tls_connector`]), then the HTTP Upgrade to the secret path.
+pub fn connect_webtunnel(config: &WebTunnelBridgeConfig) -> Result<WebTunnelStream, WebTunnelClientError> {
     let tcp = ripdpi_subprocess_protect::protected_tcp_connect_blocking(&config.addr, config.protect_path.as_deref())
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
     tcp.set_read_timeout(Some(IO_TIMEOUT))
@@ -42,7 +41,7 @@ pub fn connect_webtunnel(
     tcp.set_write_timeout(Some(IO_TIMEOUT))
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
 
-    let connector = build_tls_connector(config, verify)?;
+    let connector = build_tls_connector(config)?;
     let tls = connector
         .connect(&config.servername, tcp)
         .map_err(|error| WebTunnelClientError::TlsHandshake(error.to_string()))?;
@@ -52,18 +51,17 @@ pub fn connect_webtunnel(
 
 /// Async counterpart of [`connect_webtunnel`]: the same TLS + HTTP-Upgrade
 /// handshake driven over tokio, yielding a [`WebTunnelAsyncStream`] suitable for
-/// async datapaths. The TLS fingerprint, SNI, secret path and `verify` semantics
-/// are identical to the sync client.
+/// async datapaths. The TLS fingerprint, SNI, secret path and certificate
+/// verification are identical to the sync client.
 pub async fn connect_webtunnel_async(
     config: &WebTunnelBridgeConfig,
-    verify: bool,
 ) -> Result<WebTunnelAsyncStream, WebTunnelClientError> {
     let tcp = ripdpi_subprocess_protect::protected_tcp_connect(&config.addr, config.protect_path.as_deref())
         .await
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
     tcp.set_nodelay(true).map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
 
-    let connector = build_tls_connector(config, verify)?;
+    let connector = build_tls_connector(config)?;
     let ssl = connector.configure().map_err(|error| WebTunnelClientError::TlsHandshake(error.to_string()))?;
     let tls = tokio_boring::connect(ssl, &config.servername, tcp)
         .await

@@ -52,11 +52,27 @@ fn bind(target: SocketAddr) -> SocketResult {
 /// # Cancel safety:
 /// conditionally cancel-safe: cancelling the timer await drops the receiver. A
 /// queued/running platform callback can continue on the fixed worker. Its socket
-/// is then dropped without outbound use. The caller owns the overall deadline.
+/// is then dropped without outbound use. A full queue is retried until the
+/// deadline. The caller owns the overall deadline.
 // cancel-safe: abandoning the receiver never creates outbound activity or another thread.
 pub(crate) async fn protected_socket(target: SocketAddr, deadline: Instant) -> SocketResult {
     let (sender, receiver) = mpsc::channel();
-    worker()?.try_send(Job { target, deadline, result: sender }).map_err(|_| ("FAILED", "io_error"))?;
+    let mut job = Job { target, deadline, result: sender };
+    // A full queue is transient backpressure, not an I/O failure: wait for a slot
+    // until the probe deadline instead of reporting `io_error`.
+    loop {
+        match worker()?.try_send(job) {
+            Ok(()) => break,
+            Err(mpsc::TrySendError::Disconnected(_)) => return Err(("FAILED", "io_error")),
+            Err(mpsc::TrySendError::Full(returned)) => {
+                if Instant::now() >= deadline {
+                    return Err(("TIMEOUT", "deadline_exceeded"));
+                }
+                job = returned;
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        }
+    }
     loop {
         match receiver.try_recv() {
             Ok(result) => return result,

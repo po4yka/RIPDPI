@@ -8,13 +8,15 @@ object DiagnosticsSummaryTextRenderer {
     fun render(
         document: DiagnosticsSummaryDocument,
         preludeLines: List<String> = emptyList(),
+        highlightsTitle: String = "Highlights",
+        diagnosesTitle: String = "Diagnoses",
     ): String =
         buildString {
             preludeLines.forEach(::appendLine)
             appendSection(document.header)
             appendSection(document.reportMetadata)
-            appendHighlights(document.highlights)
-            appendDiagnoses(document)
+            appendHighlights(document.highlights, highlightsTitle)
+            appendDiagnoses(document, diagnosesTitle)
             appendSection(document.environment)
             appendSection(document.telemetry)
             appendSection(document.rawPreview)
@@ -29,21 +31,27 @@ object DiagnosticsSummaryTextRenderer {
         section.lines.forEach(::appendLine)
     }
 
-    private fun StringBuilder.appendHighlights(highlights: List<DiagnosticsHighlight>) {
+    private fun StringBuilder.appendHighlights(
+        highlights: List<DiagnosticsHighlight>,
+        title: String,
+    ) {
         if (highlights.isEmpty()) {
             return
         }
-        appendLine("Highlights:")
+        appendLine("$title:")
         highlights.forEach { highlight ->
             appendLine("${highlight.title}=${highlight.summary}")
         }
     }
 
-    private fun StringBuilder.appendDiagnoses(document: DiagnosticsSummaryDocument) {
+    private fun StringBuilder.appendDiagnoses(
+        document: DiagnosticsSummaryDocument,
+        title: String,
+    ) {
         if (document.diagnoses.isEmpty()) {
             return
         }
-        appendLine("Diagnoses:")
+        appendLine("$title:")
         document.diagnoses.forEach { diagnosis ->
             appendLine("${diagnosis.code}=${diagnosis.summary}")
         }

@@ -1288,6 +1288,8 @@ internal class TestVpnTunnelSessionProvider(
     var lastProfileInterface: VpnProfileInterface? = null
     var lastNetworkParameters: VpnTunnelNetworkParameters? = null
         private set
+    var lastHttpProxyPort: Int? = null
+        private set
 
     override suspend fun establish(
         host: VpnTunnelBuilderHost,
@@ -1303,6 +1305,7 @@ internal class TestVpnTunnelSessionProvider(
         lastIpv6 = ipv6
         lastAppRoutingPlan = appRoutingPlan
         lastInterfaceSettings = interfaceSettings
+        lastHttpProxyPort = httpProxyPort
         lastNetworkParameters = networkParameters
         lastProfileInterface = profileInterface
         events += "vpn:establish"

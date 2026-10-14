@@ -36,7 +36,9 @@ internal fun PluggableTransportProbeCard(
             color = colors.foreground,
         )
         androidx.compose.material3.Text(
-            text = tool.errorMessage ?: tool.summary,
+            text =
+                tool.errorMessage ?: tool.summaryResId?.let { stringResource(it) }
+                    ?: tool.summary.ifBlank { stringResource(R.string.diagnostics_pt_idle) },
             style = RipDpiThemeTokens.type.secondaryBody,
             color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
         )
@@ -47,11 +49,11 @@ internal fun PluggableTransportProbeCard(
             ) {
                 tool.rows.forEach { row ->
                     StatusIndicator(
-                        label = "${row.label}: ${row.verdict}",
+                        label = "${row.label}: ${row.verdictResId?.let { stringResource(it) } ?: row.verdict}",
                         tone = statusTone(row.tone),
                     )
                     androidx.compose.material3.Text(
-                        text = row.detail,
+                        text = row.detailResId?.let { stringResource(it) } ?: row.detail,
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
                     )
