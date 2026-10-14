@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -267,10 +268,10 @@ private fun HomeConfidenceRow(value: String?) {
             else -> colors.foreground
         }
     value?.let {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth().padding(vertical = RipDpiThemeTokens.spacing.sm),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
         ) {
             Text(
                 text = stringResource(R.string.home_diagnostics_confidence_label),

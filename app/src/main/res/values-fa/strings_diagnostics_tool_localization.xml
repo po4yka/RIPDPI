@@ -57,4 +57,31 @@
     <string name="history_connection_state_stopped">متوقف</string>
     <string name="history_connection_state_halted">متوقف</string>
     <string name="history_connection_state_reconnecting">در حال اتصال دوباره</string>
+    <string name="diagnostics_doq_ok">DoQ موفق</string>
+    <string name="diagnostics_doq_timeout">پایان زمان انتظار DoQ</string>
+    <string name="diagnostics_doq_blocked_quic">QUIC برای DoQ مسدود است</string>
+    <string name="diagnostics_doq_dpi_reject">DoQ توسط DPI رد شد</string>
+    <string name="diagnostics_doq_integrity_divergent">پاسخ‌های DoQ متفاوت هستند</string>
+    <string name="diagnostics_bootstrap_ok">موفق</string>
+    <string name="diagnostics_bootstrap_spoofed">جعل‌شده</string>
+    <string name="diagnostics_bootstrap_resolve_failed">حل نام ناموفق بود</string>
+    <string name="diagnostics_byoh_partial_body">بدنه ناقص</string>
+    <string name="diagnostics_byoh_connection_error">خطای اتصال</string>
+    <string name="diagnostics_byoh_invalid_response">پاسخ نامعتبر</string>
+    <string name="diagnostics_byoh_bytes_received">%1$s B دریافت شد</string>
+    <string name="diagnostics_sni_metric_asns">ASN</string>
+    <string name="diagnostics_sni_metric_tried">آزمایش‌شده</string>
+    <string name="diagnostics_sni_row_tried">%1$s · %2$s · آزمایش‌شده: %3$s</string>
+    <string name="diagnostics_snapshot_pre_scan">پیش از اسکن</string>
+    <string name="diagnostics_snapshot_post_scan">پس از اسکن</string>
+    <string name="diagnostics_snapshot_connection_sample">نمونه اتصال</string>
+    <string name="diagnostics_snapshot_failure">خطا</string>
+    <plurals name="diagnostics_sni_complete">
+        <item quantity="one">%1$d ورودی SNI سازگار در %2$d ASN یافت شد.</item>
+        <item quantity="other">%1$d ورودی SNI سازگار در %2$d ASN یافت شد.</item>
+    </plurals>
+    <plurals name="diagnostics_sni_row_compatible">
+        <item quantity="one">%1$s: %2$d سازگار</item>
+        <item quantity="other">%1$s: %2$d سازگار</item>
+    </plurals>
 </resources>

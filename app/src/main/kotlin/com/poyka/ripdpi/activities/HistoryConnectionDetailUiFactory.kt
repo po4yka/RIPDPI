@@ -194,7 +194,7 @@ internal class HistoryConnectionDetailUiFactory
         private fun toSnapshotUiModel(snapshotEntity: DiagnosticNetworkSnapshot): DiagnosticsNetworkSnapshotUiModel? {
             val snapshot = snapshotEntity.snapshot ?: return null
             return DiagnosticsNetworkSnapshotUiModel(
-                title = snapshotEntity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                title = networkSnapshotTitle(snapshotEntity.snapshotKind, stringResolver),
                 subtitle =
                     stringResolver.getString(
                         R.string.history_connection_subtitle_format,

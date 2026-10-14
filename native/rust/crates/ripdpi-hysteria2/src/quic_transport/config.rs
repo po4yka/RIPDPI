@@ -16,10 +16,12 @@
 
 use std::sync::Arc;
 
+use rustls::client::WebPkiServerVerifier;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, RootCertStore, SignatureScheme};
 
+use super::cert_pin::{CertificatePinSha256, PinnedCertificateVerifier};
 use crate::error::{HysteriaError, Result};
 
 /// ALPN token for HTTP/3, used by both Hysteria2's auth exchange and MASQUE.
@@ -47,6 +49,11 @@ pub struct QuicTransportConfig {
     /// Skip certificate validation. Required for Reality / self-signed
     /// deployments; never enable for a normal CA-validated profile.
     pub insecure: bool,
+    /// SHA-256 pin of the server leaf certificate (Hysteria2 `pinSHA256`).
+    /// With `insecure`, the pin replaces CA validation; without `insecure`,
+    /// both the CA chain and the pin must pass. Handshake signatures are
+    /// always verified when a pin is set. See [`super::cert_pin`].
+    pub pin_sha256: Option<CertificatePinSha256>,
     /// Prefer binding the QUIC UDP socket to a low, stable-looking source
     /// port range (mirrors the Hysteria2 / MASQUE `quic_bind_low_port` knob).
     pub bind_low_port: bool,
@@ -65,6 +72,7 @@ impl QuicTransportConfig {
             alpn_protocols: vec![ALPN_H3.to_vec()],
             fingerprint_profile: None,
             insecure: false,
+            pin_sha256: None,
             bind_low_port: false,
             migrate_after_handshake: false,
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
@@ -89,6 +97,12 @@ impl QuicTransportConfig {
         self
     }
 
+    /// Builder: set or clear the leaf-certificate SHA-256 pin.
+    pub fn with_pin_sha256(mut self, pin_sha256: Option<CertificatePinSha256>) -> Self {
+        self.pin_sha256 = pin_sha256;
+        self
+    }
+
     /// Builder: prefer binding the QUIC UDP socket to a low port range.
     pub fn with_bind_low_port(mut self, bind_low_port: bool) -> Self {
         self.bind_low_port = bind_low_port;
@@ -103,10 +117,12 @@ impl QuicTransportConfig {
 
     /// Build the shared `rustls::ClientConfig` for this profile.
     ///
-    /// Applies the configured ALPN list and, for non-`insecure` profiles, the
-    /// webpki root store. `insecure` profiles install the
-    /// no-op certificate verifier instead -- the same behavior Hysteria2 and
-    /// MASQUE each implemented separately before this factory existed.
+    /// Applies the configured ALPN list and selects the certificate verifier:
+    ///
+    /// * pin set: [`PinnedCertificateVerifier`], which checks the leaf pin and
+    ///   the handshake signatures, plus the webpki CA chain unless `insecure`;
+    /// * no pin, not `insecure`: the webpki root store;
+    /// * no pin, `insecure`: the no-op verifier (accepts any certificate).
     ///
     /// The `ring` crypto provider is selected *explicitly* via
     /// `builder_with_provider`: the workspace enables both the `ring` and
@@ -115,7 +131,8 @@ impl QuicTransportConfig {
     /// the same way; centralizing that choice here is part of the point of
     /// the shared factory.
     pub fn build_rustls_client_config(&self) -> Result<rustls::ClientConfig> {
-        let builder = rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let builder = rustls::ClientConfig::builder_with_provider(provider.clone())
             .with_safe_default_protocol_versions()
             .map_err(|error| {
                 HysteriaError::Io(std::io::Error::new(
@@ -123,12 +140,27 @@ impl QuicTransportConfig {
                     format!("ring provider does not support the default TLS versions: {error}"),
                 ))
             })?;
-        let builder = if self.insecure {
-            builder.dangerous().with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
-        } else {
-            let mut roots = RootCertStore::empty();
-            roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-            builder.with_root_certificates(roots)
+        let builder = match (self.pin_sha256, self.insecure) {
+            (Some(pin), insecure) => {
+                let ca_verifier = if insecure {
+                    None
+                } else {
+                    let verifier =
+                        WebPkiServerVerifier::builder_with_provider(Arc::new(webpki_root_store()), provider.clone())
+                            .build()
+                            .map_err(|error| {
+                                HysteriaError::Io(std::io::Error::new(
+                                    std::io::ErrorKind::InvalidInput,
+                                    format!("failed to build the CA certificate verifier: {error}"),
+                                ))
+                            })?;
+                    Some(verifier)
+                };
+                let verifier = PinnedCertificateVerifier::new(pin, ca_verifier, provider)?;
+                builder.dangerous().with_custom_certificate_verifier(Arc::new(verifier))
+            }
+            (None, true) => builder.dangerous().with_custom_certificate_verifier(Arc::new(NoCertificateVerification)),
+            (None, false) => builder.with_root_certificates(webpki_root_store()),
         };
         let mut tls_config = builder.with_no_client_auth();
         tls_config.alpn_protocols = self.alpn_protocols.clone();
@@ -147,6 +179,12 @@ impl QuicTransportConfig {
         })?;
         Ok(quinn::ClientConfig::new(Arc::new(quic_crypto)))
     }
+}
+
+fn webpki_root_store() -> RootCertStore {
+    let mut roots = RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    roots
 }
 
 /// No-op certificate verifier for Reality / self-signed QUIC deployments.
@@ -211,6 +249,7 @@ mod tests {
         assert_eq!(config.alpn_protocols, vec![ALPN_H3.to_vec()]);
         assert_eq!(config.fingerprint_profile, None);
         assert!(!config.insecure, "validation must be ON by default");
+        assert_eq!(config.pin_sha256, None);
         assert!(!config.bind_low_port);
         assert!(!config.migrate_after_handshake);
     }

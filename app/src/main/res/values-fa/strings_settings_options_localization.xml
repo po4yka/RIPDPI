@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_option_theme_system">سیستم</string>
+    <string name="settings_option_theme_light">روشن</string>
+    <string name="settings_option_theme_dark">تیره</string>
+    <string name="settings_option_route_selected_hosts">مسیریابی میزبان‌های انتخابی</string>
+    <string name="settings_option_automatic">خودکار</string>
+    <string name="settings_option_random">تصادفی</string>
+    <string name="settings_option_quic_imitation">تقلید QUIC</string>
+    <string name="settings_option_tls_imitation">تقلید TLS</string>
+    <string name="settings_option_dns_imitation">تقلید DNS</string>
+    <string name="settings_option_route_by_sni">مسیریابی بر اساس SNI</string>
+    <string name="settings_option_route_and_cache">مسیریابی و ذخیره در حافظهٔ نهان</string>
+    <string name="settings_option_chrome_stable">نسخهٔ پایدار Chrome</string>
+    <string name="settings_option_chrome_desktop_stable">نسخهٔ پایدار رومیزی Chrome</string>
+    <string name="settings_option_firefox_stable">نسخهٔ پایدار Firefox</string>
+    <string name="settings_option_firefox_ech_stable">نسخهٔ پایدار Firefox (ECH)</string>
+    <string name="settings_option_safari_stable">نسخهٔ پایدار Safari</string>
+    <string name="settings_option_edge_stable">نسخهٔ پایدار Edge</string>
+    <string name="settings_option_popcount_shaping">شکل‌دهی popcount</string>
+    <string name="settings_option_shannon_shaping">شکل‌دهی شانون</string>
+    <string name="settings_option_combined_shaping">شکل‌دهی ترکیبی</string>
+    <string name="ripdpi_fake_seq_mode_sequential">ترتیبی</string>
+    <string name="settings_option_zero">صفر</string>
+    <string name="settings_option_iana_bigsize">IANA با بار دادهٔ بزرگ</string>
+    <string name="host_pack_youtube_description">پخش ویدیو، محتوای جاسازی‌شده و نقطه‌های پایانی CDN از فهرست‌های عمومی geosite.</string>
+    <string name="host_pack_telegram_description">پیام‌رسان، CDN و پیوندهای اشتراک‌گذاری گردآوری‌شده از منابع عمومی geosite.</string>
+    <string name="host_pack_discord_description">دامنه‌های برنامه، رسانه، دعوت و پیوست از فهرست‌های عمومی geosite.</string>
+    <string name="ripdpi_fake_seq_mode_duplicate">تکرار</string>
+</resources>

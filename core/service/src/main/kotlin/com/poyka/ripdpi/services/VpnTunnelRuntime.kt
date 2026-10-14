@@ -10,7 +10,6 @@ import com.poyka.ripdpi.core.TunKernelIdentityNativeBindings
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.VpnRouteLifecycleState
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
@@ -22,8 +21,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicReference
 
-private const val DefaultSocksListenerPort = 1080
-private const val DefaultMixedInboundListenerPort = 2080
 private const val NativeTunnelStartTimeoutMillis = 6_000L
 
 internal data class VpnTunnelRuntimeCallbacks(
@@ -754,19 +751,6 @@ private class GenerationBoundVpnTunnelSession(
 
 private fun Throwable?.combineCleanupFailure(additionalFailure: Throwable): Throwable =
     this?.also { it.addSuppressed(additionalFailure) } ?: additionalFailure
-
-/**
- * Returns the effective local listener port using the same resolution logic as
- * `buildListenConfig` in core/engine — the single source of truth for which port the
- * native core binds to. A positive [ProxySettingsSection.proxyPort] always wins; otherwise
- * the port defaults based on whether the mixed inbound listener is enabled.
- *
- * This mirrors the logic in `NativeProxyRuntimePreferencesMapper.buildListenConfig` without
- * importing that internal helper across module boundaries.
- */
-internal fun effectiveListenerPort(proxy: ProxySettingsSection): Int =
-    proxy.proxyPort.takeIf { it > 0 }
-        ?: if (proxy.mixedInboundEnabled) DefaultMixedInboundListenerPort else DefaultSocksListenerPort
 
 private fun AppSettings.withProfileInterface(profile: VpnProfileInterface?): AppSettings =
     profile?.let { toBuilder().setIpv6Enable(it.ipv6Enabled).build() } ?: this

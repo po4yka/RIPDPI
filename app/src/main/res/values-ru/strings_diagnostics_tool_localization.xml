@@ -57,4 +57,35 @@
     <string name="history_connection_state_stopped">остановлено</string>
     <string name="history_connection_state_halted">остановлено</string>
     <string name="history_connection_state_reconnecting">переподключение</string>
+    <string name="diagnostics_doq_ok">DoQ работает</string>
+    <string name="diagnostics_doq_timeout">Время ожидания DoQ истекло</string>
+    <string name="diagnostics_doq_blocked_quic">QUIC заблокирован для DoQ</string>
+    <string name="diagnostics_doq_dpi_reject">DoQ отклонён DPI</string>
+    <string name="diagnostics_doq_integrity_divergent">Ответы DoQ расходятся</string>
+    <string name="diagnostics_bootstrap_ok">успешно</string>
+    <string name="diagnostics_bootstrap_spoofed">подменён</string>
+    <string name="diagnostics_bootstrap_resolve_failed">Не удалось разрешить имя</string>
+    <string name="diagnostics_byoh_partial_body">Неполное тело ответа</string>
+    <string name="diagnostics_byoh_connection_error">Ошибка соединения</string>
+    <string name="diagnostics_byoh_invalid_response">Некорректный ответ</string>
+    <string name="diagnostics_byoh_bytes_received">Получено %1$s B</string>
+    <string name="diagnostics_sni_metric_asns">ASN</string>
+    <string name="diagnostics_sni_metric_tried">проверено</string>
+    <string name="diagnostics_sni_row_tried">%1$s · %2$s · проверено %3$s</string>
+    <string name="diagnostics_snapshot_pre_scan">До сканирования</string>
+    <string name="diagnostics_snapshot_post_scan">После сканирования</string>
+    <string name="diagnostics_snapshot_connection_sample">Образец соединения</string>
+    <string name="diagnostics_snapshot_failure">Сбой</string>
+    <plurals name="diagnostics_sni_complete">
+        <item quantity="one">Найдена %1$d совместимая запись SNI в %2$d ASN.</item>
+        <item quantity="few">Найдены %1$d совместимые записи SNI в %2$d ASN.</item>
+        <item quantity="many">Найдено %1$d совместимых записей SNI в %2$d ASN.</item>
+        <item quantity="other">Найдено %1$d совместимых записей SNI в %2$d ASN.</item>
+    </plurals>
+    <plurals name="diagnostics_sni_row_compatible">
+        <item quantity="one">%1$s: %2$d совместимая</item>
+        <item quantity="few">%1$s: %2$d совместимые</item>
+        <item quantity="many">%1$s: %2$d совместимых</item>
+        <item quantity="other">%1$s: %2$d совместимых</item>
+    </plurals>
 </resources>

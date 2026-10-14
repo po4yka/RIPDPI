@@ -340,12 +340,68 @@ capture_android_emulator_diagnostics() {
   fi
 }
 
+android_emulator_process_busy() {
+  local processes
+  processes="$(ps -ax -o command=)" || return 1
+  awk -v name="$1" '
+    {
+      count = split($1, parts, "/")
+      executable = parts[count]
+      if (executable == "emulator" || executable ~ /^qemu-system/) {
+        for (i = 1; i <= NF; i++) {
+          if ($i == "@" name || ($i == "-avd" && $(i + 1) == name)) found = 1
+        }
+      }
+    }
+    END { print found ? 1 : 0 }
+  ' <<< "$processes"
+}
+
 stop_android_emulator() {
   local avd_name="$1"
+  local devices serial state reported_name attempt busy process_busy
 
-  if has_adb_device; then
-    adb_cmd_timeout 5 emu kill >/dev/null 2>&1 || true
+  if [[ "$avd_name" == RIPDPI_Pool_* || "$avd_name" == RIPDPI_Temp_* ]]; then
+    echo "Pool devices are stopped by their lease owner" >&2
+    return 1
   fi
-
-  pkill -f "emulator .* -avd ${avd_name}( |$)" >/dev/null 2>&1 || true
+  # An ambient ANDROID_SERIAL can name an unrelated device. Resolve the AVD
+  # name on each emulator and stop only a verified match. Fail closed if ADB
+  # cannot identify devices; a process-name fallback could stop another lease.
+  devices="$(adb_raw_timeout 5 devices)" || return 1
+  while read -r serial state _; do
+    [[ "$serial" == emulator-* ]] || continue
+    if [[ "$state" != device ]]; then
+      echo "Cannot identify $serial in state $state; preserve AVD data" >&2
+      return 1
+    fi
+    reported_name="$(adb_raw_timeout 5 -s "$serial" emu avd name)" || return 1
+    reported_name="$(printf '%s\n' "$reported_name" | tr -d '\r' | head -n 1)"
+    if [[ "$reported_name" == "$avd_name" ]]; then
+      adb_raw_timeout 5 -s "$serial" emu kill || return 1
+      # Console acknowledgement does not prove process or disk shutdown.
+      for attempt in {1..30}; do
+        devices="$(adb_raw_timeout 5 devices)" || return 1
+        busy=false
+        if awk -v serial="$serial" '$1 == serial { found = 1 } END { exit !found }' <<< "$devices"; then
+          busy=true
+        fi
+        process_busy="$(android_emulator_process_busy "$avd_name")" || return 1
+        if [[ "$process_busy" == 1 ]]; then
+          busy=true
+        fi
+        [[ "$busy" == true ]] || break
+        sleep 1
+      done
+      if [[ "$busy" == true ]]; then
+        echo "AVD $avd_name is still shutting down; preserve its data" >&2
+        return 1
+      fi
+    fi
+  done <<< "$devices"
+  process_busy="$(android_emulator_process_busy "$avd_name")" || return 1
+  if [[ "$process_busy" == 1 ]]; then
+    echo "AVD $avd_name has an unverified live process; preserve its data" >&2
+    return 1
+  fi
 }
