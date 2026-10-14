@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -457,9 +458,10 @@ internal fun LogsStreamCard(
                 vertical = spacing.md,
             ),
     ) {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
         ) {
             Text(
                 text = stringResource(R.string.logs_stream_title),

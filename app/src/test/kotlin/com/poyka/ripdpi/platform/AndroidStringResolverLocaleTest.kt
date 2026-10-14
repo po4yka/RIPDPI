@@ -14,6 +14,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.LocaleManagerCompat
 import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DiagnosticsUiFormatter
+import com.poyka.ripdpi.activities.formatTelegramThroughput
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import org.junit.After
@@ -67,6 +69,60 @@ class AndroidStringResolverLocaleTest {
 
         selectLanguage("")
         assertEquals(english, resolver.getString(R.string.language_picker_system_language))
+    }
+
+    @Test
+    fun `diagnostics numbers use selected Spanish on English system and follow language switch`() {
+        createActivity()
+        selectLanguage("es")
+        val context = englishContext(RuntimeEnvironment.getApplication())
+        val formatter = DiagnosticsUiFormatter(context)
+        assertEquals(
+            "en",
+            context.resources.configuration.locales[0]
+                .language,
+        )
+        assertEquals("1,5 KB", formatter.formatBytes(1_500L))
+        assertEquals("1,5 MB", formatter.formatBytes(1_500_000L))
+        assertEquals("1,5 GB", formatter.formatBytes(1_500_000_000L))
+        assertEquals("1,5 Kbps", formatter.formatBps(1_500L))
+        assertEquals("1,5 Mbps", formatter.formatBps(1_500_000L))
+
+        selectLanguage("en")
+
+        assertEquals("1.5 KB", formatter.formatBytes(1_500L))
+        assertEquals("1.5 Mbps", formatter.formatBps(1_500_000L))
+    }
+
+    @Test
+    fun `Telegram numbers use selected German on an English system and return to English`() {
+        createActivity()
+        val formatter = DiagnosticsUiFormatter(englishContext(RuntimeEnvironment.getApplication()))
+        selectLanguage("en")
+        assertEquals("1.5 Mbps", formatTelegramThroughput(187_500L, formatter.locale))
+        selectLanguage("de")
+        assertEquals("1,5 Mbps", formatTelegramThroughput(187_500L, formatter.locale))
+        selectLanguage("en")
+        assertEquals("1.5 Mbps", formatTelegramThroughput(187_500L, formatter.locale))
+    }
+
+    @Test
+    fun `diagnostics number unit boundaries remain stable in Spanish`() {
+        createActivity()
+        selectLanguage("es")
+        val formatter = DiagnosticsUiFormatter(englishContext(RuntimeEnvironment.getApplication()))
+        assertEquals("0 B", formatter.formatBytes(0L))
+        assertEquals("999 B", formatter.formatBytes(999L))
+        assertEquals("1,0 KB", formatter.formatBytes(1_000L))
+        assertEquals("1,0 MB", formatter.formatBytes(1_000_000L))
+        assertEquals("1,0 GB", formatter.formatBytes(1_000_000_000L))
+        assertEquals("0 Bps", formatter.formatBps(0L))
+        assertEquals("999 Bps", formatter.formatBps(999L))
+        assertEquals("1,0 Kbps", formatter.formatBps(1_000L))
+        assertEquals("1,0 Mbps", formatter.formatBps(1_000_000L))
+        assertEquals("0s", formatter.formatDurationMs(-1L))
+        assertEquals("1m 00s", formatter.formatDurationMs(60_000L))
+        assertEquals("1h 00m", formatter.formatDurationMs(3_600_000L))
     }
 
     @Test
@@ -138,6 +194,67 @@ class AndroidStringResolverLocaleTest {
                 .toString(),
         )
         assertEquals("Локальные процессы VPN запущены", staticNotification.extras.getString(Notification.EXTRA_TEXT))
+    }
+
+    @Test
+    fun `dynamic notification traffic uses selected Spanish on English service and follows language switch`() {
+        createActivity()
+        selectLanguage("es")
+        val serviceController = Robolectric.buildService(LocaleTestService::class.java).create()
+        val context = englishContext(serviceController.get())
+        // The content builder is internal to core/service, as is the paused-notification
+        // function tested below. Use the same reflection boundary for its production output.
+        val builderClass = Class.forName("com.poyka.ripdpi.utility.NotificationContentBuilder")
+        val builder = builderClass.getField("INSTANCE").get(null)
+        val buildContentText =
+            builderClass.getDeclaredMethod(
+                "buildContentText",
+                Context::class.java,
+                Long::class.javaPrimitiveType,
+                Long::class.javaPrimitiveType,
+                Long::class.javaPrimitiveType,
+            )
+        try {
+            listOf(
+                Triple("es", "↑ 1,5 MB  ↓ 1,5 GB  |  01:01:01", "Detener"),
+                Triple("en", "↑ 1.5 MB  ↓ 1.5 GB  |  01:01:01", "Stop"),
+            ).forEach { (language, expectedContent, expectedAction) ->
+                selectLanguage(language)
+                assertEquals(
+                    "en",
+                    context.resources.configuration.locales[0]
+                        .language,
+                )
+                val content =
+                    buildContentText.invoke(
+                        builder,
+                        context,
+                        1_500_000L,
+                        1_500_000_000L,
+                        3_661_000L,
+                    ) as String
+                val notification =
+                    createDynamicConnectionNotification(
+                        context = context,
+                        channelId = "locale-test",
+                        title = "RIPDPI",
+                        content = content,
+                        subText = null,
+                        service = LocaleTestService::class.java,
+                        whenTimestamp = 1L,
+                    )
+                assertEquals(expectedContent, notification.extras.getString(Notification.EXTRA_TEXT))
+                assertEquals(
+                    expectedAction,
+                    notification.actions
+                        .single()
+                        .title
+                        .toString(),
+                )
+            }
+        } finally {
+            serviceController.destroy()
+        }
     }
 
     @Test

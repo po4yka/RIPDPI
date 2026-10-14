@@ -53,9 +53,9 @@ class CloudflarePublishConcurrencyTest {
 
         val fakeSupervisor =
             object : CloudflarePublishProcessSupervisor(
-                binaryExtractor =
-                    object : CloudflarePublishBinaryExtractor(context = context) {
-                        override fun extract(
+                binaryLocator =
+                    object : CloudflarePublishBinaryLocator(context = context) {
+                        override fun locate(
                             binaryName: String,
                             tunnelMode: String,
                         ): File = File("/dev/null")

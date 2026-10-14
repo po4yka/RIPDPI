@@ -30,6 +30,27 @@ class SelectorRelayProfileMappingTest {
         assertEquals(0L, changed.credentials.updatedAtEpochMillis)
     }
 
+    @Test
+    fun `hysteria2 certificate pin reaches the relay credentials with insecure (REL-3)`() {
+        val pin = "ab".repeat(32)
+        val profile =
+            ProxyProfile.Hysteria2(
+                id = "hy2",
+                displayName = "hy2",
+                groupId = "group-a",
+                server = "hy2.example",
+                serverPort = 443,
+                password = "hy2-fixture-pw",
+                insecure = true,
+                pinSha256 = pin,
+            )
+
+        val credentials = checkNotNull(mapRelayProfile(profile)).credentials
+
+        assertEquals(true, credentials.hysteriaInsecure)
+        assertEquals(pin, credentials.hysteriaPinSha256)
+    }
+
     private fun member(label: String) =
         ProxyProfile.Trojan(
             id = "shared-member",

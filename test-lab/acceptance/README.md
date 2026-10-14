@@ -59,15 +59,20 @@ Android needs real libXray and native artifacts. Follow
 `ripdpi.skipNativeBuild=true` as acceptance evidence. The CI workflow builds the
 managed Xray runtime and source-pinned pluggable transports before APK preparation.
 
-Select a disposable, already booted ARM64 or x86_64 emulator explicitly. The
-adapter installs the APK and changes test state on that emulator. It never resets
+Select a leased ARM64 or x86_64 emulator whose app state is disposable. Use the
+[local AVD pool](../../docs/contributor/android-emulator-pool.md) and pass its
+exported `ANDROID_SERIAL` to the adapter. A disposable test state does not
+require a new AVD per run. The adapter installs the APK and changes test state
+on that emulator. It never resets
 an unrelated AVD, selects the first attached device, or claims physical coverage.
+
+Run both commands inside the same leased shell:
 
 ```bash
 python3 test-lab/acceptance/lab.py prepare --profile android \
-  --serial emulator-5584 --out-dir build/acceptance/prepare-android
+  --serial "$ANDROID_SERIAL" --out-dir build/acceptance/prepare-android
 python3 test-lab/acceptance/lab.py run --profile android \
-  --serial emulator-5584 \
+  --serial "$ANDROID_SERIAL" \
   --prepared-dir build/acceptance/prepare-android/android \
   --out-dir build/acceptance/android-run
 ```

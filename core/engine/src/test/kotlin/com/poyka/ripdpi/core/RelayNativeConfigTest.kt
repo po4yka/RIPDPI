@@ -401,6 +401,8 @@ class RelayNativeConfigTest {
         baseConfig("hysteria2").copy(
             hysteriaPassword = placeholder(4),
             hysteriaSalamanderKey = "hysteria-salamander-key",
+            hysteriaInsecure = true,
+            hysteriaPinSha256 = "ab".repeat(32),
         )
 
     private fun anyTlsConfig(): ResolvedRipDpiRelayConfig =
@@ -627,6 +629,8 @@ class RelayNativeConfigTest {
             chainExitUuid = "chain-exit-uuid",
             hysteriaPassword = placeholder(1),
             hysteriaSalamanderKey = "hysteria-salamander-key",
+            hysteriaInsecure = true,
+            hysteriaPinSha256 = "ab".repeat(32),
             anyTlsPassword = placeholder(11),
             tuicUuid = "tuic-uuid",
             tuicPassword = placeholder(2),
@@ -734,6 +738,8 @@ class RelayNativeConfigTest {
                 "chainExitUuid",
                 "hysteriaPassword",
                 "hysteriaSalamanderKey",
+                "hysteriaInsecure",
+                "hysteriaPinSha256",
                 "anytlsPassword",
                 "tuicUuid",
                 "tuicPassword",
