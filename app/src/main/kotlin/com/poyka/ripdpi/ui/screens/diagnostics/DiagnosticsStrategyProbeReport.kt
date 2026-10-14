@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,10 +18,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
@@ -171,21 +175,11 @@ private fun StrategyReportAuditAssessment(
         variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyAuditAssessment),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.diagnostics_audit_confidence_title),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            StatusIndicator(
-                label = presentation.auditConfidenceLabel.orEmpty(),
-                tone = statusTone(presentation.auditConfidenceTone ?: DiagnosticsTone.Neutral),
-            )
-        }
+        ReportStatusHeader(
+            title = stringResource(R.string.diagnostics_audit_confidence_title),
+            status = presentation.auditConfidenceLabel.orEmpty(),
+            tone = statusTone(presentation.auditConfidenceTone ?: DiagnosticsTone.Neutral),
+        )
         Text(
             text = assessment.confidence.rationale,
             style = RipDpiThemeTokens.type.secondaryBody,
@@ -492,21 +486,7 @@ private fun WinningPathCandidateCard(
                     .padding(RipDpiThemeTokens.layout.cardPadding),
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title,
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                StatusIndicator(
-                    label = candidate.outcome,
-                    tone = statusTone(candidate.tone),
-                )
-            }
+            ReportStatusHeader(title = title, status = candidate.outcome, tone = statusTone(candidate.tone))
             Text(
                 text = candidate.label,
                 style = RipDpiThemeTokens.type.bodyEmphasis,
@@ -622,46 +602,33 @@ private fun StrategyProbeCandidateRow(
                     .padding(RipDpiThemeTokens.layout.cardPadding),
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = candidate.label,
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = colors.foreground,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                StatusIndicator(
-                    label =
-                        when {
-                            candidate.recommended && candidate.skipped -> {
-                                stringResource(R.string.diagnostics_probe_status_fallback)
-                            }
+            ReportStatusHeader(
+                title = candidate.label,
+                status =
+                    when {
+                        candidate.recommended && candidate.skipped -> {
+                            stringResource(R.string.diagnostics_probe_status_fallback)
+                        }
 
-                            candidate.recommended -> {
-                                stringResource(R.string.diagnostics_probe_status_recommended)
-                            }
+                        candidate.recommended -> {
+                            stringResource(R.string.diagnostics_probe_status_recommended)
+                        }
 
-                            candidate.skipped -> {
-                                stringResource(R.string.diagnostics_probe_status_skipped)
-                            }
+                        candidate.skipped -> {
+                            stringResource(R.string.diagnostics_probe_status_skipped)
+                        }
 
-                            else -> {
-                                candidate.outcome
-                            }
-                        },
-                    tone =
-                        if (candidate.recommended && !candidate.skipped) {
-                            StatusIndicatorTone.Active
-                        } else {
-                            statusTone(candidate.tone)
-                        },
-                )
-            }
+                        else -> {
+                            candidate.outcome
+                        }
+                    },
+                tone =
+                    if (candidate.recommended && !candidate.skipped) {
+                        StatusIndicatorTone.Active
+                    } else {
+                        statusTone(candidate.tone)
+                    },
+            )
             Text(
                 text = candidate.rationale,
                 style = RipDpiThemeTokens.type.secondaryBody,
@@ -677,4 +644,61 @@ private fun StrategyProbeCandidateRow(
             }
         }
     }
+}
+
+@Composable
+private fun ReportStatusHeader(
+    title: String,
+    status: String,
+    tone: StatusIndicatorTone,
+) {
+    val type = RipDpiThemeTokens.type
+    val spacing = RipDpiThemeTokens.spacing
+    val indicators = RipDpiThemeTokens.components.indicators
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val titleWordWidth =
+        measurer
+            .measure(AnnotatedString(title), style = type.bodyEmphasis.copy(hyphens = Hyphens.None))
+            .multiParagraph.minIntrinsicWidth
+    val statusWidth = measurer.measure(AnnotatedString(status), style = type.brandStatus).size.width
+    val markerWidth =
+        when (tone) {
+            StatusIndicatorTone.Active, StatusIndicatorTone.Error -> indicators.statusMarkerSmall
+            StatusIndicatorTone.Idle -> indicators.statusMarkerMedium
+            StatusIndicatorTone.Warning -> indicators.statusMarkerLarge
+        }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val inlineWidth =
+            with(density) { (titleWordWidth + statusWidth).toDp() } +
+                markerWidth + indicators.statusMarkerSpacing + spacing.sm
+        if (inlineWidth > maxWidth) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                ReportHeaderTitle(title, Modifier.fillMaxWidth())
+                StatusIndicator(label = status, tone = tone)
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ReportHeaderTitle(title, Modifier.weight(1f))
+                StatusIndicator(label = status, tone = tone)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReportHeaderTitle(
+    title: String,
+    modifier: Modifier,
+) {
+    Text(
+        text = title,
+        modifier = modifier,
+        style = RipDpiThemeTokens.type.bodyEmphasis,
+        color = RipDpiThemeTokens.colors.foreground,
+    )
 }

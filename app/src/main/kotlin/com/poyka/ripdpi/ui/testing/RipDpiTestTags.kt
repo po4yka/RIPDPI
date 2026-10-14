@@ -442,6 +442,8 @@ internal object RipDpiTestTags {
 
     val customizationIcon: (String) -> String = { key -> "customization-icon-${sanitize(key)}" }
 
+    val customizationIconPreview: (String) -> String = { key -> "customization-icon-preview-${sanitize(key)}" }
+
     val diagnosticsSection: (DiagnosticsSection) -> String =
         { section -> "diagnostics-section-${sanitize(section.name)}" }
 

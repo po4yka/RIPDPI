@@ -5,6 +5,7 @@ import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import java.util.UUID
 
@@ -140,6 +141,17 @@ object ClashSubscriptionParser {
                 require(obfsType == null || obfsType.equals("salamander", ignoreCase = true)) {
                     "node $index hysteria2 uses unsupported obfs '$obfsType'"
                 }
+                // REL-3: `fingerprint` is the mihomo certificate pin (SHA-256 of the
+                // server certificate). Mihomo uses it instead of CA validation, so a
+                // pinned node becomes insecure + pin. A malformed pin rejects the
+                // node; dropping it would leave an accept-any-certificate profile.
+                val pinSha256 =
+                    node.string("fingerprint")?.takeIf { it.isNotBlank() }?.let { raw ->
+                        requireNotNull(normalizeHysteria2PinSha256(raw)) {
+                            "node $index hysteria2 fingerprint is not a SHA-256 certificate pin"
+                        }
+                    }
+                val skipCertVerify = node.string("skip-cert-verify")?.toBooleanStrictOrNull()
                 ProxyProfile.Hysteria2(
                     id = newId(),
                     displayName = name,
@@ -149,7 +161,8 @@ object ClashSubscriptionParser {
                     password = node.requireString("password", index),
                     serverName = node.string("sni") ?: node.string("servername"),
                     obfsPassword = node.string("obfs-password"),
-                    insecure = node.string("skip-cert-verify")?.toBooleanStrictOrNull(),
+                    insecure = if (pinSha256 != null) true else skipCertVerify,
+                    pinSha256 = pinSha256,
                 )
             }
 

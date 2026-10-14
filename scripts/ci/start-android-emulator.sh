@@ -60,9 +60,14 @@ heap="1024M"
 disk="8G"
 boot_timeout="600"
 no_wait=false
+fresh=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --fresh)
+      fresh=true
+      shift
+      ;;
     --avd)
       avd_name="$2"
       shift 2
@@ -106,8 +111,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$fresh" != true || "${CI:-}" != true ]]; then
+  echo "This detached launcher requires --fresh on an isolated CI runner (CI=true)." >&2
+  echo "For local runs: python3 scripts/ci/android-avd-pool.py run --api <level> --arch <arch> --target <target> -- <command>" >&2
+  exit 1
+fi
+
 if [[ -z "$avd_name" || -z "$api_level" || -z "$arch" || -z "$target" ]]; then
-  echo "Usage: $0 --avd <name> --api <level> --arch <arch> --target <target> [--ram 4096M] [--heap 1024M] [--disk 8G] [--boot-timeout 600] [--no-wait]" >&2
+  echo "Usage: $0 --fresh --avd <name> --api <level> --arch <arch> --target <target> [--ram 4096M] [--heap 1024M] [--disk 8G] [--boot-timeout 600] [--no-wait]" >&2
+  exit 1
+fi
+
+if [[ ! "$avd_name" =~ ^[A-Za-z0-9_.-]+$ || "$avd_name" == .* || "$avd_name" == RIPDPI_* ]]; then
+  echo "Unsafe or reserved local AVD name: $avd_name" >&2
   exit 1
 fi
 
@@ -126,9 +142,8 @@ emulator_bin="$(resolve_emulator_bin)"
 # `avdmanager create avd --package`, not the Android CLI. avdmanager keeps the
 # sdkmanager-style ID. Do not migrate this to slash notation.
 sdk_id="system-images;android-${image_version};${target};${arch}"
-android_user_home="${ANDROID_SDK_HOME:-$HOME}"
-android_dot_dir="$android_user_home/.android"
-avd_base_dir="$android_dot_dir/avd"
+android_dot_dir="${ANDROID_USER_HOME:-${ANDROID_SDK_HOME:-$HOME}/.android}"
+avd_base_dir="${ANDROID_AVD_HOME:-$android_dot_dir/avd}"
 avd_dir="$avd_base_dir/${avd_name}.avd"
 avd_ini="$avd_base_dir/${avd_name}.ini"
 config_ini="$avd_dir/config.ini"
@@ -144,7 +159,19 @@ image_dir="$sdk_root/system-images/android-${image_version}/${target}/${arch}"
 cp "$image_dir/source.properties" "$emulator_log_dir/system-image-source.properties"
 cp "$image_dir/package.xml" "$emulator_log_dir/system-image-package.xml"
 printf '%s\n' "$sdk_id" > "$emulator_log_dir/system-image-id.txt"
+if [[ -L "$avd_dir" || -L "$avd_ini" ]]; then
+  echo "Refusing to recreate an AVD through a symbolic link" >&2
+  exit 1
+fi
 stop_android_emulator "$avd_name"
+if [[ -d "$avd_dir" ]]; then
+  # Also detect open disks after the emulator disappears from ADB and ps.
+  open_files="$(lsof +D "$avd_dir" 2>&1)" && open_status=0 || open_status=$?
+  if [[ "$open_status" != 1 || -n "$open_files" ]]; then
+    echo "Cannot confirm idle AVD disk at $avd_dir; preserve it" >&2
+    exit 1
+  fi
+fi
 rm -rf "$avd_dir" "$avd_ini"
 
 printf 'no\n' | "$avdmanager_bin" create avd \

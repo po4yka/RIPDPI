@@ -1615,6 +1615,11 @@ val generatedNfqws2AssetsDir = layout.buildDirectory.dir("generated/nfqws2Assets
 val generatedNaiveProxyAssetsDir = layout.buildDirectory.dir("generated/naiveProxyAssets")
 val generatedCloudflareOriginAssetsDir = layout.buildDirectory.dir("generated/cloudflareOriginAssets")
 val generatedPtAssetsDir = layout.buildDirectory.dir("generated/pluggableTransportAssets")
+
+// App-launched helper executables (NaiveProxy, Cloudflare origin, pluggable-transport upstreams)
+// are packaged as jniLibs, not assets: Android 10+ forbids exec() from the app data directory.
+val generatedHelperExecutableJniLibsDir = layout.buildDirectory.dir("generated/helperExecutableJniLibs")
+val generatedPtMetadataAssetsDir = layout.buildDirectory.dir("generated/pluggableTransportMetadataAssets")
 // All native Cargo tasks share this local state. They build different output
 // directories, but a shard's packages have a large common Rust/C/BoringSSL
 // graph; keeping one target root per ABI lets Cargo reuse it across tasks.
@@ -1639,11 +1644,11 @@ val rustCloudflareOriginArtifactSpecs =
 
 extensions.configure<LibraryExtension> {
     sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
+    sourceSets["main"].jniLibs.directories.add(generatedHelperExecutableJniLibsDir.get().asFile.absolutePath)
+    // The root helper and nfqws2 run through `su` (root SELinux domain), so they stay assets.
     sourceSets["main"].assets.directories.add(generatedRootHelperAssetsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedNfqws2AssetsDir.get().asFile.absolutePath)
-    sourceSets["main"].assets.directories.add(generatedNaiveProxyAssetsDir.get().asFile.absolutePath)
-    sourceSets["main"].assets.directories.add(generatedCloudflareOriginAssetsDir.get().asFile.absolutePath)
-    sourceSets["main"].assets.directories.add(generatedPtAssetsDir.get().asFile.absolutePath)
+    sourceSets["main"].assets.directories.add(generatedPtMetadataAssetsDir.get().asFile.absolutePath)
 }
 
 val buildNfqws2 =
@@ -1766,7 +1771,7 @@ val buildRustRootHelper =
 val buildRustNaiveProxy =
     tasks.register<BuildRustNativeLibsTask>("buildRustNaiveProxy") {
         group = "build"
-        description = "Builds the NaiveProxy helper binary into generated assets."
+        description = "Builds the NaiveProxy helper binary for helper jniLibs staging."
 
         nativeSources.from(rustWorkspaceManifestFile)
         nativeSources.from(
@@ -1814,7 +1819,7 @@ val buildRustNaiveProxy =
 val buildRustCloudflareOrigin =
     tasks.register<BuildRustNativeLibsTask>("buildRustCloudflareOrigin") {
         group = "build"
-        description = "Builds the Cloudflare local-origin helper binary into generated assets."
+        description = "Builds the Cloudflare local-origin helper binary for helper jniLibs staging."
 
         nativeSources.from(rustWorkspaceManifestFile)
         nativeSources.from(
@@ -1901,6 +1906,22 @@ val buildPluggableTransportAssets =
             ?.let { prebuiltManifestSha256.set(it) }
     }
 
+val stageHelperExecutableJniLibs =
+    tasks.register<HelperExecutableJniLibsTask>("stageHelperExecutableJniLibs") {
+        group = "build"
+        description = "Packages app-launched helper executables as lib<name>.so jniLibs."
+
+        directHelperRoots.from(buildRustNaiveProxy.flatMap { it.outputDir })
+        directHelperRoots.from(buildRustCloudflareOrigin.flatMap { it.outputDir })
+        directHelperNames.set(
+            (rustNaiveProxyArtifactSpecs + rustCloudflareOriginArtifactSpecs).map { it.substringAfterLast('|') },
+        )
+        pluggableTransportAssetsDir.set(buildPluggableTransportAssets.flatMap { it.outputDir })
+        abis.set(rustNativeAbis)
+        jniLibsDir.set(generatedHelperExecutableJniLibsDir)
+        pluggableTransportMetadataDir.set(generatedPtMetadataAssetsDir)
+    }
+
 // Wire the Rust build into the actual JNI packaging tasks so Rust-only source
 // changes cannot be skipped when the Android variants are otherwise up to date.
 //
@@ -1916,13 +1937,12 @@ if (!skipNativeBuildWiring) {
             name.matches(Regex("^merge.+NativeLibs$"))
         ) {
             dependsOn(buildRustNativeLibs)
+            dependsOn(stageHelperExecutableJniLibs)
         }
         if (name.matches(Regex("^merge.+Assets$"))) {
             dependsOn(buildNfqws2)
             dependsOn(buildRustRootHelper)
-            dependsOn(buildRustNaiveProxy)
-            dependsOn(buildRustCloudflareOrigin)
-            dependsOn(buildPluggableTransportAssets)
+            dependsOn(stageHelperExecutableJniLibs)
         }
     }
 
@@ -1930,9 +1950,7 @@ if (!skipNativeBuildWiring) {
         dependsOn(buildNfqws2)
         dependsOn(buildRustNativeLibs)
         dependsOn(buildRustRootHelper)
-        dependsOn(buildRustNaiveProxy)
-        dependsOn(buildRustCloudflareOrigin)
-        dependsOn(buildPluggableTransportAssets)
+        dependsOn(stageHelperExecutableJniLibs)
     }
 } else {
     logger.lifecycle(

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dpi_failure_tcp_reset">TCP कनेक्शन रीसेट</string>
+    <string name="diagnostics_dpi_failure_silent_drop">बिना उत्तर पैकेट गिरना</string>
+    <string name="diagnostics_dpi_failure_tls_alert">TLS चेतावनी</string>
+    <string name="diagnostics_dpi_failure_http_blockpage">HTTP अवरोध पृष्ठ</string>
+    <string name="diagnostics_dpi_failure_quic_breakage">QUIC बाधा</string>
+    <string name="diagnostics_dpi_failure_tls_handshake_failure">TLS हैंडशेक विफल</string>
+    <string name="diagnostics_dpi_failure_connection_freeze">कनेक्शन अटका</string>
+    <string name="diagnostics_dpi_failure_redirect">दूसरे पते पर भेजना</string>
+    <string name="diagnostics_dpi_failure_other">अज्ञात DPI</string>
+    <string name="diagnostics_pt_idle">obfs4, Snowflake और meek के सार्वजनिक PT एंडपॉइंट तक पहुँच जाँचें।</string>
+    <string name="diagnostics_pt_verdict_ok">पहुँच उपलब्ध</string>
+    <string name="diagnostics_pt_verdict_bridge_blocked">ब्रिज अवरुद्ध</string>
+    <string name="diagnostics_pt_verdict_broker_blocked">ब्रोकर अवरुद्ध</string>
+    <string name="diagnostics_pt_verdict_front_blocked">फ़्रंट होस्ट अवरुद्ध</string>
+    <string name="diagnostics_pt_verdict_stun_blocked">STUN अवरुद्ध</string>
+    <string name="diagnostics_pt_verdict_error">त्रुटि</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s में पता चला</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · अनुपलब्ध %2$s · त्रुटियाँ %3$s</string>
+</resources>

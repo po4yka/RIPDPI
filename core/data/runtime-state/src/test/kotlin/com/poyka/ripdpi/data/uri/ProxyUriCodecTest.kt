@@ -197,4 +197,55 @@ class ProxyUriCodecTest {
         assertTrue(reparsed is ProxyProfile.Hysteria2)
         assertEquals(true, (reparsed as ProxyProfile.Hysteria2).insecure)
     }
+
+    @Test
+    fun `hy2 uri keeps the pinSHA256 certificate pin next to insecure (REL-3)`() {
+        val parsed =
+            ProxyUriCodec.parse("hy2://fixture-pw@h.example:443?insecure=1&pinSHA256=$colonUpperPin#n")
+                as ProxyProfile.Hysteria2
+
+        assertEquals(true, parsed.insecure)
+        assertEquals(normalizedPin, parsed.pinSha256)
+    }
+
+    @Test
+    fun `hysteria2 pin accepts plain lowercase hex and a case-insensitive key`() {
+        val parsed =
+            ProxyUriCodec.parse("hysteria2://fixture-pw@h.example:443?insecure=1&pinsha256=$normalizedPin#n")
+                as ProxyProfile.Hysteria2
+
+        assertEquals(normalizedPin, parsed.pinSha256)
+    }
+
+    @Test
+    fun `hysteria2 pin round-trips through the share uri`() {
+        val parsed =
+            ProxyUriCodec.parse("hysteria2://fixture-pw@h.example:443?insecure=1&pinSHA256=$colonUpperPin#n")
+                as ProxyProfile.Hysteria2
+
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(parsed)) as ProxyProfile.Hysteria2
+
+        assertEquals(true, reparsed.insecure)
+        assertEquals(normalizedPin, reparsed.pinSha256)
+    }
+
+    @Test
+    fun `hysteria2 uri with a malformed pin is rejected instead of importing accept-any`() {
+        val base = "hysteria2://fixture-pw@h.example:443?insecure=1&pinSHA256="
+        assertNull(ProxyUriCodec.parse("${base}abcd#n"))
+        assertNull(ProxyUriCodec.parse("$base${"zz".repeat(32)}#n"))
+    }
+
+    @Test
+    fun `hysteria2 uri without a pin leaves pinSha256 null`() {
+        val parsed = ProxyUriCodec.parse("hysteria2://fixture-pw@h.example:443?insecure=1#n") as ProxyProfile.Hysteria2
+
+        assertNull(parsed.pinSha256)
+        assertTrue(!ProxyUriCodec.encode(parsed).contains("pinSHA256"))
+    }
+
+    private companion object {
+        val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
+        val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")
+    }
 }

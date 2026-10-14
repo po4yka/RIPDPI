@@ -108,7 +108,7 @@ open class NaiveProxyManager
                     commandArguments = naiveProxyCommandArguments(config),
                     standardInput = naiveProxyCredentialsStdin(config),
                 )
-            val binary = launchDelegate.extractBinary(NaiveProxyBinaryName)
+            val binary = launchDelegate.resolveBinary(NaiveProxyBinaryName)
             when (val result = preflightProbe.run(binary)) {
                 is NaiveProxyPreflightResult.Probed -> {
                     if (!result.probe.isSchemaSupported(NaiveProxySupportedProbeSchemas)) {
@@ -159,7 +159,7 @@ internal class NaiveProxyCompatibilityException(
 ) : ServiceStartupRejectedException(FailureReason.RelayConfigRejected(message))
 
 internal interface NaiveProxyLaunchDelegate {
-    fun extractBinary(binaryName: String): NaiveProxyBinaryRef
+    fun resolveBinary(binaryName: String): NaiveProxyBinaryRef
 
     suspend fun start(
         binary: NaiveProxyBinaryRef,
@@ -186,8 +186,8 @@ internal interface NaiveProxyLaunchDelegate {
 internal class DefaultNaiveProxyLaunchDelegate(
     private val subprocessManager: SubprocessSocksRelayManager,
 ) : NaiveProxyLaunchDelegate {
-    override fun extractBinary(binaryName: String): NaiveProxyBinaryRef =
-        subprocessManager.extractBinary(binaryName).asNaiveProxyBinaryRef()
+    override fun resolveBinary(binaryName: String): NaiveProxyBinaryRef =
+        subprocessManager.resolveHelperBinary(binaryName).asNaiveProxyBinaryRef()
 
     override suspend fun start(
         binary: NaiveProxyBinaryRef,

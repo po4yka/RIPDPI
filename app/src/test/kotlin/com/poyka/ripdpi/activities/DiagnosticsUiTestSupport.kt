@@ -1,11 +1,12 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.platform.StringResolver
+import org.robolectric.RuntimeEnvironment
 
 internal fun testStringResolver(): StringResolver = TestStringResolver
 
 internal fun testDiagnosticsUiCoreSupport(
-    formatter: DiagnosticsUiFormatter = DiagnosticsUiFormatter(),
+    formatter: DiagnosticsUiFormatter = DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()),
 ): DiagnosticsUiCoreSupport = DiagnosticsUiCoreSupport(formatter, testStringResolver())
 
 private object TestStringResolver : StringResolver {

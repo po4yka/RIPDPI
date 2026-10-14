@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dpi_failure_tcp_reset">Reinicio de TCP</string>
+    <string name="diagnostics_dpi_failure_silent_drop">Descarte sin respuesta</string>
+    <string name="diagnostics_dpi_failure_tls_alert">Alerta TLS</string>
+    <string name="diagnostics_dpi_failure_http_blockpage">Página de bloqueo HTTP</string>
+    <string name="diagnostics_dpi_failure_quic_breakage">Fallo de QUIC</string>
+    <string name="diagnostics_dpi_failure_tls_handshake_failure">Fallo del intercambio TLS</string>
+    <string name="diagnostics_dpi_failure_connection_freeze">Conexión detenida</string>
+    <string name="diagnostics_dpi_failure_redirect">Redirección</string>
+    <string name="diagnostics_dpi_failure_other">DPI desconocido</string>
+    <string name="diagnostics_pt_idle">Comprueba el acceso a los puntos de conexión PT públicos de obfs4, Snowflake y meek.</string>
+    <string name="diagnostics_pt_verdict_ok">Accesible</string>
+    <string name="diagnostics_pt_verdict_bridge_blocked">Puente bloqueado</string>
+    <string name="diagnostics_pt_verdict_broker_blocked">Intermediario bloqueado</string>
+    <string name="diagnostics_pt_verdict_front_blocked">Frente bloqueado</string>
+    <string name="diagnostics_pt_verdict_stun_blocked">STUN bloqueado</string>
+    <string name="diagnostics_pt_verdict_error">Error</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s detectados</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · sin respuesta %2$s · errores %3$s</string>
+</resources>

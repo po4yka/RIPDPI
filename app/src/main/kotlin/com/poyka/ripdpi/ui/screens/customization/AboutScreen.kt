@@ -3,11 +3,13 @@ package com.poyka.ripdpi.ui.screens.customization
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -164,7 +166,7 @@ private fun AboutBuildSection() {
 }
 
 @Composable
-private fun AboutPackageRow() {
+internal fun AboutPackageRow() {
     val components = RipDpiThemeTokens.components
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -183,9 +185,9 @@ private fun AboutPackageRow() {
         Text(text = title, style = type.body, color = colors.foreground)
         Text(
             text = displayValue,
+            modifier = Modifier.width(IntrinsicSize.Max),
             style = type.monoValue,
             color = colors.mutedForeground,
-            maxLines = 2,
             softWrap = true,
         )
     }
