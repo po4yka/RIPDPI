@@ -2,7 +2,7 @@
 id: UIX-1791912007411833
 title: Correct audited German localization
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization maintainers
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-audited-german-localization
 created: 2026-10-13
-updated: 2026-10-13
+updated: 2026-10-14
+status_detail: Published all main commits with explicit authorization. Combined checks passed; hosted CI is in progress and the real Simple bundle remains absent.
 ---
 
 ## Goal

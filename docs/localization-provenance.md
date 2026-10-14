@@ -176,7 +176,8 @@ categories pass for all locales. Kotlin behavior and all eight German render
 checks pass. The combined tree passed 2,521 app tests, 1,652 diagnostics tests,
 static analysis, app/service lint and 297 Full screenshot tests. The owning
 OpenSpec verification artifact records the existing RTL ignore, missing real
-Simple bundle and pending publication permission for earlier local commits.
+Simple bundle and hosted CI status. All local main commits, including the
+14 Material 3 commits, were published with explicit user authorization.
 
 Corrections and new captions were authored with an AI assistant. The prior
 2026-05-30 German maintainer review does not sign off these new translations.

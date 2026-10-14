@@ -5,7 +5,7 @@ commit_sha: 9e5f528486528adc1f8a8129768fdf99b34838ee
 local: blocked
 local_evidence: Combined-tree checks passed 2521 app tests, 1652 diagnostics tests, 26 resource regressions, static analysis, app/service lint and 297 Full screenshot tests. One existing RTL test is ignored. Simple screenshots require a missing real relay bundle.
 remote_ci: required
-remote_ci_evidence: Publication awaits permission to include 14 existing user-owned local main commits. No hosted CI pass is claimed.
+remote_ci_evidence: Main was published at 7f6ef3c414ebb0ebe06d6979aec30b7add1dfb48 with explicit permission for all 14 Material 3 commits. Seven hosted workflows started; CI run 38508116683 is in progress. No hosted CI pass is claimed.
 device: not_applicable
 device_evidence: Resource and rendered UI checks own this presentation change; German physical-device acceptance is not claimed.
 artifact: not_applicable
@@ -23,7 +23,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-DE-RESOURCES | UIX-1791912114857745 | Exact 112-key audit scope, 26 resource regressions and German renders | Passed |
 | REQ-DE-DYNAMIC | UIX-1791912115576158 | Known/unknown captions, readable summary and EN-DE-EN behavior tests in the full app suite | Passed |
 | REQ-DE-MEASUREMENTS | UIX-1791912115576158 | Selected app locale, unit thresholds, shared UI/export formatter and Long overflow tests | Passed |
-| REQ-DE-PARITY | UIX-1791912117280968 | Ten locales, export, app/core suites, static analysis, app/service lint, Full screenshots and independent review | Passed; Simple input blocked and publication pending |
+| REQ-DE-PARITY | UIX-1791912117280968 | Ten locales, export, app/core suites, static analysis, app/service lint, Full screenshots and independent review | Passed; Simple input blocked and hosted CI in progress |
 
 ## Source and scope
 
@@ -128,9 +128,15 @@ No placeholder profile or gate bypass is used as completion evidence.
 
 ## Publication boundary
 
-At the final check, origin/main remained at the audit base while local main
-already contained the 14 user-owned readability commits. A normal main push
-would publish those commits with the German correction. Separate permission
-for those additional commits was requested. The current request already
-authorizes the German main integration and push. Publication and hosted CI
-remain pending that additional permission; the publication step stays open.
+The user explicitly authorized publication of all local main commits,
+including the 14 Material 3 commits. The push published all 23 commits at
+`7f6ef3c414ebb0ebe06d6979aec30b7add1dfb48`. A server ref check confirmed
+that SHA on origin/main. The server accepted the direct push and reported
+existing PR, required-check and CodeQL rules as bypassed. No repository
+protection setting was changed.
+
+Seven hosted workflows started for that SHA. At the publication check, all
+were in progress, including [CI run 38508116683](https://github.com/po4yka/RIPDPI/actions/runs/38508116683).
+The publication step is complete. Hosted CI remains pending, and the real
+Simple bundle remains absent. A later documentation-only commit records
+this evidence; it does not change the code checked at the source SHA above.
