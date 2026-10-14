@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dpi_failure_tcp_reset">بازنشانی TCP</string>
+    <string name="diagnostics_dpi_failure_silent_drop">حذف بدون پاسخ</string>
+    <string name="diagnostics_dpi_failure_tls_alert">هشدار TLS</string>
+    <string name="diagnostics_dpi_failure_http_blockpage">صفحهٔ مسدودسازی HTTP</string>
+    <string name="diagnostics_dpi_failure_quic_breakage">اختلال QUIC</string>
+    <string name="diagnostics_dpi_failure_tls_handshake_failure">شکست دست‌دهی TLS</string>
+    <string name="diagnostics_dpi_failure_connection_freeze">توقف اتصال</string>
+    <string name="diagnostics_dpi_failure_redirect">تغییر مسیر</string>
+    <string name="diagnostics_dpi_failure_other">DPI ناشناخته</string>
+    <string name="diagnostics_pt_idle">دسترسی به نقطه‌های پایانی عمومی PT برای obfs4، Snowflake و meek را بررسی کنید.</string>
+    <string name="diagnostics_pt_verdict_ok">در دسترس</string>
+    <string name="diagnostics_pt_verdict_bridge_blocked">پل مسدود است</string>
+    <string name="diagnostics_pt_verdict_broker_blocked">کارگزار مسدود است</string>
+    <string name="diagnostics_pt_verdict_front_blocked">میزبان جلویی مسدود است</string>
+    <string name="diagnostics_pt_verdict_stun_blocked">STUN مسدود است</string>
+    <string name="diagnostics_pt_verdict_error">خطا</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s شناسایی شد</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · دسترس‌ناپذیر %2$s · خطاها %3$s</string>
+</resources>

@@ -41,9 +41,9 @@ convention plugin
 | `libripdpi-amneziawg.so` | `ripdpi-amneziawg-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
 | `libripdpi-tunnel.so` | `ripdpi-tunnel-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
 | `ripdpi-root-helper` | `ripdpi-root-helper` | `bin` | `:core:engine:buildRustRootHelper` | APK assets (`rootHelperAssets/bin/<abi>/`) — run via `su` |
-| `ripdpi-naiveproxy` | `ripdpi-naiveproxy` | `bin` (`src/main.rs`) | NaiveProxy artifact task | APK assets — run as a subprocess helper |
-| `ripdpi-cloudflare-origin` | `ripdpi-cloudflare-origin` | `bin` | Cloudflare-origin artifact task | APK assets — run as a subprocess helper |
-| `ripdpi-webtunnel` | `ripdpi-webtunnel` | `bin` (`src/main.rs`) | Pluggable-transport asset task | APK assets — run as a Tor PT managed-client helper |
+| `ripdpi-naiveproxy` | `ripdpi-naiveproxy` | `bin` (`src/main.rs`) | NaiveProxy artifact task | jniLibs as `libripdpi-naiveproxy.so`, extracted at install and run from `nativeLibraryDir` as a subprocess helper |
+| `ripdpi-cloudflare-origin` | `ripdpi-cloudflare-origin` | `bin` | Cloudflare-origin artifact task | jniLibs as `libripdpi-cloudflare-origin.so`, extracted at install and run from `nativeLibraryDir` as a subprocess helper |
+| `ripdpi-webtunnel` | `ripdpi-webtunnel` | `bin` (`src/main.rs`) | Pluggable-transport asset task | jniLibs as `lib<upstreamBinary>.so` (name from `pluggable-transports.json`), run from `nativeLibraryDir` as a Tor PT managed-client helper |
 | `ripdpi` | `ripdpi-cli` | `bin` | `cargo build` (desktop) | **Not** in the APK — macOS/Linux dev binary |
 
 > **Native artifact map.** The Gradle plugin's artifact specs build five JNI

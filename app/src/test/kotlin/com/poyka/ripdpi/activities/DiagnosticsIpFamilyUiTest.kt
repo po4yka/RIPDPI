@@ -27,7 +27,7 @@ import org.robolectric.RuntimeEnvironment
 class DiagnosticsIpFamilyUiTest {
     private val app = RuntimeEnvironment.getApplication()
     private val strings = AndroidStringResolver(app)
-    private val support = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings)
+    private val support = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()), strings)
 
     @Test
     fun savedResultsPreserveIndependentFamilyFactsWithoutRawJson() {

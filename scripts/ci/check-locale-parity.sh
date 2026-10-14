@@ -124,5 +124,7 @@ if [[ "$FAIL" -ne 0 ]]; then
     exit 1
 fi
 
-echo "All locales are in parity with their source strings."
+python3 scripts/ci/check_localized_settings_options.py
+
+echo "All locales are in parity with their source strings and settings labels."
 exit 0

@@ -3,8 +3,12 @@ import com.android.build.api.dsl.LibraryExtension
 
 val nativeAbis = resolvedNativeAbis()
 val nativeNdkVersion = providers.gradleProperty("ripdpi.nativeNdkVersion")
-val nativeUseLegacyPackaging =
-    providers.gradleProperty("ripdpi.nativeUseLegacyPackaging").map(String::toBoolean)
+
+// Helper executables (pluggable transports, NaiveProxy, Cloudflare helpers) ship as lib<name>.so
+// and run from ApplicationInfo.nativeLibraryDir. Android 10+ forbids exec() from app data
+// directories, so the package manager must extract native libraries at install time
+// (android:extractNativeLibs="true"). Do not turn this off.
+val nativeLibrariesExtractedAtInstall = true
 
 fun ApplicationExtension.configureNativePolicy() {
     ndkVersion = nativeNdkVersion.get()
@@ -21,7 +25,7 @@ fun ApplicationExtension.configureNativePolicy() {
             excludes += "DebugProbesKt.bin"
         }
         jniLibs {
-            useLegacyPackaging = nativeUseLegacyPackaging.get()
+            useLegacyPackaging = nativeLibrariesExtractedAtInstall
             keepDebugSymbols += "**/*.so"
         }
     }
@@ -42,7 +46,7 @@ fun LibraryExtension.configureNativePolicy() {
             excludes += "DebugProbesKt.bin"
         }
         jniLibs {
-            useLegacyPackaging = nativeUseLegacyPackaging.get()
+            useLegacyPackaging = nativeLibrariesExtractedAtInstall
             keepDebugSymbols += "**/*.so"
         }
     }

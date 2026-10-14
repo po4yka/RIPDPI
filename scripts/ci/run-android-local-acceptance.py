@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Run exact Android TUN acceptance methods against owned local peers.
 
-The caller must select a disposable emulator with --serial. No existing AVD is
+The caller must select a leased test emulator with --serial, normally through
+android-avd-pool.py. Its app state must be disposable. No existing AVD is
 reset or removed. Remote fixtures belong to the VM controller and are not stopped
 by this adapter. Host fixtures are child processes with fresh output directories.
 """
@@ -548,7 +549,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument(
-        "--serial", required=True, help="explicit disposable Android emulator serial"
+        "--serial", required=True, help="explicit leased Android test emulator serial"
     )
     parser.add_argument("--prepare", action="store_true")
     parser.add_argument("--prepared-dir", type=Path)

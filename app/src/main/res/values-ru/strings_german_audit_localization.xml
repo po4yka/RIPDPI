@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_telegram_status_ok">Доступно</string>
+    <string name="diagnostics_telegram_status_slow">Медленно</string>
+    <string name="diagnostics_telegram_status_stalled">Нет прогресса</string>
+    <string name="diagnostics_telegram_status_blocked">Заблокировано</string>
+    <string name="diagnostics_telegram_status_partial">Частично доступно</string>
+    <string name="diagnostics_telegram_status_error">Ошибка</string>
+    <string name="diagnostics_telegram_status_cancelled">Отменено</string>
+    <string name="diagnostics_telegram_status_deadline_exceeded">Достигнут лимит времени</string>
+    <string name="diagnostics_telegram_status_unknown">Неизвестно</string>
+    <string name="diagnostics_telegram_status_unreachable">Недоступно</string>
+    <string name="diagnostics_share_session_format">Сеанс %1$s · %2$s · %3$s</string>
+    <string name="diagnostics_share_network_format">Сеть %1$s</string>
+    <string name="diagnostics_share_context_format">Контекст %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_permissions_format">Разрешения %1$s VPN · %2$s уведомления</string>
+    <string name="diagnostics_share_live_format">Сейчас %1$s · %2$s</string>
+    <string name="diagnostics_share_engine_analysis_format">Анализ движка: %1$s</string>
+    <string name="diagnostics_share_classifier_format">Классификатор: %1$s</string>
+    <string name="diagnostics_share_strategy_completion_format">Завершение стратегии: %1$s</string>
+    <string name="diagnostics_share_audit_cohort_format">Группа аудита: %1$s (%2$s)</string>
+    <string name="diagnostics_share_audit_domains_format">Домены аудита: %1$s</string>
+    <string name="diagnostics_share_audit_quic_hosts_format">QUIC-хосты аудита: %1$s</string>
+    <string name="diagnostics_share_audit_confidence_format">Достоверность аудита: %1$s (%2$d/100)</string>
+    <string name="diagnostics_share_matrix_coverage_format">Покрытие матрицы: %1$d%%</string>
+    <string name="diagnostics_share_winner_coverage_format">Покрытие победителями: %1$d%%</string>
+    <string name="diagnostics_share_packs_format">Наборы: %1$s</string>
+    <string name="diagnostics_share_telegram_format">Telegram: %1$s</string>
+    <string name="diagnostics_share_download_format">Загрузка: в среднем %1$s, %2$s</string>
+    <string name="diagnostics_share_upload_format">Отправка: в среднем %1$s, %2$s</string>
+    <string name="diagnostics_share_data_centers_format">DC: доступно %1$s/%2$s</string>
+    <string name="diagnostics_share_top_warning_format">Главное предупреждение: %1$s</string>
+    <string name="diagnostics_strategy_completion_normal">Завершено</string>
+    <string name="diagnostics_strategy_completion_dns_short_circuited">Остановлено после подмены DNS</string>
+    <string name="diagnostics_strategy_completion_dns_tampering_with_fallback">Подмена DNS с результатами резервного пути</string>
+    <string name="diagnostics_strategy_completion_partial_results">Частичные результаты</string>
+    <plurals name="diagnostics_share_probe_results_format">
+        <item quantity="one">В последнем отчёте %1$d результат проверки</item>
+        <item quantity="few">В последнем отчёте %1$d результата проверок</item>
+        <item quantity="many">В последнем отчёте %1$d результатов проверок</item>
+        <item quantity="other">В последнем отчёте %1$d результата проверок</item>
+    </plurals>
+    <string name="diagnostics_share_permission_granted">Предоставлено</string>
+    <string name="diagnostics_share_permission_not_required">Не требуется</string>
+    <string name="diagnostics_share_highlights_title">Основные результаты</string>
+    <string name="diagnostics_share_diagnoses_title">Диагнозы</string>
+</resources>

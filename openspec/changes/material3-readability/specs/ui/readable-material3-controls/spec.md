@@ -54,3 +54,54 @@ The change MUST preserve theme, reduced motion, locale keys, offline behavior, a
 
 - **WHEN** the combined implementation is checked locally
 - **THEN** fresh light, dark, and large-font images are inspected and unavailable device or hosted evidence is stated
+
+### Requirement: REQ-UI-SHARED-ACTIONS — Readable shared actions and feedback
+
+Shared standalone actions MUST use 24dp glyphs in normal and compact density and preserve a 48dp hit area. Decorative leading symbols in full-size feedback and cards MUST use 32dp inside a 40dp circle. Action labels MUST remain readable at 2x font scale without font reduction or unintended ellipsis. Small inline telemetry markers MAY retain compact roles.
+
+#### Scenario: Compact localized action
+
+- **WHEN** a long action is shown at 320dp width and 2x font scale
+- **THEN** its full label and action glyph remain visible and the callback remains available
+
+#### Scenario: Feedback and navigation
+
+- **WHEN** a user views feedback or bottom navigation in light, dark, or RTL mode at large font scale
+- **THEN** leading symbols, dismiss controls, and destination names are readable and selectable without clipping
+
+### Requirement: REQ-UI-ADAPTIVE-CHOICES — Adaptive choices and localized facts
+
+Choice groups MUST use content-driven dimensions rather than fixed heights or forced equal widths that clip labels. DNS titles and descriptions MUST not compete with a large localized selected badge. Localized labels, status values, and application identifiers MUST wrap in full while preserving selection, disabled states, and callbacks.
+
+#### Scenario: Narrow relay and DNS choices
+
+- **WHEN** relay or DNS choices are shown at 320dp width and 2x font scale
+- **THEN** labels and badges remain complete and the selected choice stays accessible
+
+### Requirement: REQ-UI-DATA-LAYOUT — Complete data and recovery surfaces
+
+Data-card headers and important label/value facts MUST remain readable at narrow widths and large font scale. Throughput controls and stat cells MUST render background and text as one surface. Recovery action labels MUST be complete. Import and summary grids MUST adapt where multiple columns starve meaningful text. History section navigation MUST preserve accessible selection and reachability.
+
+#### Scenario: Throughput and recovery
+
+- **WHEN** a user views throughput or recovery at default or 2x font scale
+- **THEN** window labels remain inside their selected surfaces, stat values remain inside their panels, and both recovery actions have complete labels
+
+#### Scenario: Narrow data screen
+
+- **WHEN** data cards are shown at 320dp width with a large localized title
+- **THEN** metadata and controls remain available without clipping the title or important values
+
+### Requirement: REQ-UI-INSTALLED-EMULATOR — Installed large-font acceptance
+
+The debug app MUST be built with real ARM64 native libraries and run on an Android emulator with 200% system font scale. Settings, the four main destinations, and all diagnostic and history sections MUST remain reachable in light and dark themes. Report headers and endpoint choices MUST retain whole-word width. Launcher previews MUST use their matching artwork backgrounds. Presentation labels and cached permission guidance MUST follow the selected app language without a process restart.
+
+#### Scenario: Both themes on device
+
+- **WHEN** the user navigates the installed app in light and dark themes at 200% font scale
+- **THEN** primary labels, symbols, controls, nested pages, and diagnostic details remain visible and reachable without one-glyph columns
+
+#### Scenario: Change language without runtime changes
+
+- **WHEN** the app language changes while permission and connection snapshots remain identical
+- **THEN** projected permission guidance updates to the current language and preserves permission actions and blocking state

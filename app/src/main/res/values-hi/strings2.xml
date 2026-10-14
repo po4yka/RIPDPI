@@ -106,7 +106,7 @@
     <string name="ripdpi_hosts_blacklist_setting">होस्ट ब्लैकलिस्ट</string>
     <string name="ripdpi_hosts_whitelist_setting">होस्ट व्हाइटलिस्ट</string>
     <string name="host_pack_presets_title">क्यूरेटेड होस्ट पैक</string>
-    <string name="host_pack_presets_body">कनेक्टिविटी समस्याओं वाले सामान्य ऐप्स के लिए तैयार सेवा सूची चुनें। Refresh एक नया geosite स्नैपशॉट डाउनलोड कर सकता है, जबकि Apply चुने गए पैक को नीचे ब्लैकलिस्ट या व्हाइटलिस्ट में लिखता है।</string>
+    <string name="host_pack_presets_body">कनेक्टिविटी समस्याओं वाले सामान्य ऐप्स के लिए तैयार सेवा सूची चुनें। नवीनतम सूची प्राप्त करें से नया geosite स्नैपशॉट डाउनलोड हो सकता है। पैक लागू करें से चुना गया पैक नीचे ब्लैकलिस्ट या व्हाइटलिस्ट में लिखा जाता है।</string>
     <string name="host_pack_preset_body">%1$s
 स्रोत: %2$s</string>
     <string name="host_pack_hosts_badge">%1$d होस्ट</string>
@@ -596,7 +596,7 @@
     <string name="diagnostics_scan_raw_path_format">%1$s अस्थायी रणनीति विकल्पों को जाँचता है और हाथ से लागू करने के लिए सुझाव देता है।</string>
     <string name="diagnostics_scan_raw_only_format">%1$s के लिए सीधे नेटवर्क का स्कैन आवश्यक है, क्योंकि यह अलग-थलग अस्थायी रणनीति परीक्षण चलाता है।</string>
     <string name="diagnostics_scan_in_path_service_halted">इन-पथ डायग्नोस्टिक्स चलाने से पहले RIPDPI सेवा शुरू करें।</string>
-    <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s अवरुद्ध है क्योंकि %2$s सक्षम है। इस वर्कफ़्लो को चलाने से पहले इसे Advanced Settings में बंद करें ताकि RIPDPI विज़ुअल कॉन्फ़िगरेशन के साथ पृथक अस्थायी रणनीति परीक्षण लॉन्च कर सके।</string>
+    <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s अवरुद्ध है क्योंकि %2$s सक्षम है। इस वर्कफ़्लो को चलाने से पहले इसे उन्नत सेटिंग्स में बंद करें ताकि RIPDPI विज़ुअल कॉन्फ़िगरेशन के साथ पृथक अस्थायी रणनीति परीक्षण लॉन्च कर सके।</string>
     <string name="diagnostics_scan_blocked_setting_label">अवरुद्ध सेटिंग</string>
     <string name="diagnostics_scan_open_advanced_settings">उन्नत सेटिंग्स खोलें</string>
     <string name="diagnostics_scan_vpn_permission_warning_title">VPN अनुमति अनुशंसित</string>
@@ -755,7 +755,7 @@
     <string name="detection_resistance_evolution_cooldown_ms_title">कूलडाउन अवधि (ms)</string>
     <string name="detection_resistance_evolution_cooldown_ms_body">कूलडाउन में रहते हुए विफल होने वाला कॉम्बो कितनी देर (मिलीसेकंड) तक छोड़ा जाता है। डिफ़ॉल्ट: 300 000.</string>
     <string name="detection_resistance_quic_low_port_title">QUIC को कम पोर्ट से बाँधें</string>
-    <string name="detection_resistance_quic_low_port_body">QUIC Initial चोरी सक्रिय होने पर UDP स्रोत पोर्ट को सामान्य सिस्टम सेवाओं के अधिक करीब दिखाता है।</string>
+    <string name="detection_resistance_quic_low_port_body">QUIC Initial का पता लगाने से बचने की तकनीक सक्रिय होने पर UDP स्रोत पोर्ट सामान्य सिस्टम सेवाओं जैसे दिखते हैं।</string>
     <string name="detection_resistance_quic_migrate_title">हैंडशेक के बाद QUIC UDP पथ पुनः बाँधें</string>
     <string name="detection_resistance_quic_migrate_body">केवल-VPN. वर्तमान में यह सामान्य QUIC प्रवाहों के लिए मौजूदा हैंडशेक-पश्चात UDP पुनः-बाइंड पथ का उपयोग करता है; मान्य RFC 9000 माइग्रेशन केवल स्वामित्व वाले QUIC ट्रांसपोर्ट में उपलब्ध है।</string>
     <string name="detection_resistance_quic_migrate_vpn_only">केवल VPN मोड में उपलब्ध है क्योंकि हैंडशेक-पश्चात UDP पुनः-बाइंड पथ नियंत्रित ट्रांसपोर्ट स्वामित्व पर निर्भर करता है।</string>
@@ -798,7 +798,7 @@
     <string name="detection_onboarding_body">पहचान, Android से फ़ोन और स्थान अनुमतियाँ माँग सकती है क्योंकि Wi-Fi और सेल्युलर पहचान नेटवर्क व्यवहार को अलग करने में मदद करती है। RIPDPI इनका उपयोग ट्रैकिंग के लिए नहीं करता, कच्चे पहचानकर्ता संग्रहीत नहीं किए जाते, और डायग्नोस्टिक्स निर्यात संवेदनशील पहचानकर्ताओं को छिपा देते हैं।</string>
     <string name="detection_onboarding_allow">अनुमति दें</string>
     <string name="detection_onboarding_skip">छोड़ें</string>
-    <string name="title_owned_stack_browser">RIPDPI Browser</string>
+    <string name="title_owned_stack_browser">RIPDPI ब्राउज़र</string>
     <string name="owned_stack_browser_banner_title">स्वामित्व-स्टैक पथ</string>
     <string name="owned_stack_browser_banner_android17">जब प्लेटफ़ॉर्म स्टैक ECH डेटा प्रदान करता है तो यह डिवाइस Network Security Config के माध्यम से Android 17 प्लेटफ़ॉर्म ECH प्राथमिकताओं का उपयोग कर सकता है।</string>
     <string name="owned_stack_browser_banner_platform">यहाँ Android प्लेटफ़ॉर्म HttpEngine उपलब्ध है, लेकिन Android 17 प्लेटफ़ॉर्म ECH नहीं। RIPDPI अब भी HttpEngine का अवसरवादी उपयोग कर सकता है और आवश्यकता पड़ने पर नेटिव स्वामित्व वाले TLS पर वापस आ जाता है।</string>
@@ -1381,12 +1381,12 @@
     <string name="share_link_preview_copy_action">कॉपी करें</string>
     <string name="share_link_preview_row_version">स्कीमा संस्करण — वर्तमान में %1$s</string>
     <string name="share_link_preview_row_asn">मूल ASN — %1$s</string>
-    <string name="share_link_preview_row_asn_redacted">मूल ASN — संपादित</string>
+    <string name="share_link_preview_row_asn_redacted">मूल ASN — छिपाया गया</string>
     <string name="share_link_preview_row_timestamp">टाइमस्टैम्प, %1$s के बाद से मिनटों में</string>
     <string name="share_link_preview_row_commit">रणनीति-बंडल हैश — %1$s</string>
     <string name="share_link_preview_row_items">प्रति-एंडपॉइंट {alive, dpi} टपल — %1$d</string>
     <string name="share_link_preview_privacy_title">डिवाइस पर रहता है</string>
-    <string name="share_link_preview_privacy_message">फ़्रैगमेंट कभी डिवाइस से बाहर नहीं जाता — इसे प्राप्तकर्ता द्वारा स्थानीय रूप से डिकोड किया जाता है। संपादन बंद न हो तब तक होस्टनाम हैश किए जाते हैं।</string>
+    <string name="share_link_preview_privacy_message">फ़्रैगमेंट कभी डिवाइस से बाहर नहीं जाता — प्राप्तकर्ता इसे स्थानीय रूप से डिकोड करता है। संवेदनशील जानकारी छिपाना बंद होने पर ही होस्टनाम बिना हैश के रखे जाते हैं।</string>
     <string name="share_link_preview_privacy_emphasis">कभी डिवाइस से बाहर नहीं जाता</string>
     <string name="diagnostics_pcap_captures_label">पैकेट कैप्चर</string>
     <string name="diagnostics_pcap_captures_description">रिकॉर्ड की गई PCAP फ़ाइलें ब्राउज़ और निर्यात करें</string>
@@ -1575,9 +1575,9 @@
     <string name="backup_import_category_settings">सेटिंग्स (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">अनचयनित श्रेणियाँ अपने वर्तमान मान बनाए रखती हैं।</string>
     <string name="backup_import_confirm_action">पुनर्स्थापित करें और पुनः आरंभ करें</string>
-    <string name="backup_share_redacted_action">संपादित बैकअप साझा करें</string>
-    <string name="backup_share_redacted_subject">RIPDPI संपादित बैकअप</string>
-    <string name="backup_share_reminder_title">संपादित, शून्य-ज्ञान नहीं</string>
+    <string name="backup_share_redacted_action">पासवर्ड और कुंजियाँ हटाकर बैकअप साझा करें</string>
+    <string name="backup_share_redacted_subject">RIPDPI बैकअप — संवेदनशील जानकारी हटाई गई</string>
+    <string name="backup_share_reminder_title">संवेदनशील जानकारी हटाई गई, लेकिन शून्य-ज्ञान नहीं</string>
     <string name="backup_share_reminder_body">यह बैकअप पासवर्ड और कुंजियाँ हटा देता है, लेकिन फिर भी आपके समूह, रूट और सेटिंग्स सूचीबद्ध करता है। इसे केवल किसी विश्वसनीय व्यक्ति के साथ ही साझा करें।</string>
     <string name="backup_share_reminder_confirm">फिर भी साझा करें</string>
     <string name="backup_share_reminder_cancel">रद्द करें</string>
@@ -2059,7 +2059,7 @@
     <string name="diagnostics_ipv4_whitelist_cached_complete">%1$d संभावित /24 रेंज कैश की गईं.</string>
     <string name="diagnostics_ipv4_whitelist_cached_provider">%2$s के लिए %1$d /24 रेंज कैश की गईं.</string>
     <string name="diagnostics_ipv4_whitelist_caching">कैश किया जा रहा है...</string>
-    <string name="diagnostics_ipv4_whitelist_check_cached">कैश की गई जाँचें</string>
+    <string name="diagnostics_ipv4_whitelist_check_cached">कैश किए गए सबनेट जाँचें</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">सबनेट जाँच विफल रही.</string>
     <string name="diagnostics_ipv4_whitelist_checked_complete">%1$d कैश किए गए सबनेट जाँचे गए.</string>
     <string name="diagnostics_ipv4_whitelist_checked_progress">%2$d में से %1$d कैश किए गए सबनेट जाँचे गए.</string>
@@ -2089,7 +2089,7 @@
     <string name="diagnostics_pt_label_obfs4">obfs4</string>
     <string name="diagnostics_pt_label_snowflake">snowflake</string>
     <string name="diagnostics_pt_no_detail">कोई विवरण नहीं</string>
-    <string name="diagnostics_pt_privacy_disabled">Privacy Mode सक्षम है। PT एंडपॉइंट पहुँच जाँच चलाने के लिए Privacy Mode बंद करें।</string>
+    <string name="diagnostics_pt_privacy_disabled">गोपनीयता मोड सक्षम है। PT एंडपॉइंट तक पहुँच जाँचने के लिए गोपनीयता मोड बंद करें।</string>
     <string name="diagnostics_pt_reachability_run">PT पहुँच जाँचें</string>
     <string name="diagnostics_pt_reachability_title">Pluggable transport पहुँच</string>
     <string name="diagnostics_pt_running">PT एंडपॉइंट पहुँच जाँची जा रही है...</string>
@@ -2099,19 +2099,19 @@
     <string name="diagnostics_replay_error_timeout">समय समाप्त</string>
     <string name="diagnostics_replay_error_tls_handshake_failed">TLS handshake विफल</string>
     <string name="diagnostics_replay_error_unknown">अज्ञात त्रुटि</string>
-    <string name="diagnostics_replay_probe_summary">Probe replay · %1$s · %2$s</string>
-    <string name="diagnostics_replay_step_dns_resolve">DNS resolve</string>
+    <string name="diagnostics_replay_probe_summary">दोबारा चलाई गई जाँच · %1$s · %2$s</string>
+    <string name="diagnostics_replay_step_dns_resolve">DNS से पता प्राप्त करना</string>
     <string name="diagnostics_replay_step_in_progress">प्रगति पर</string>
     <string name="diagnostics_replay_step_first_byte">पहला बाइट</string>
     <string name="diagnostics_replay_step_tcp_open">TCP खुला</string>
     <string name="diagnostics_replay_step_tls_client_hello">TLS ClientHello</string>
-    <string name="diagnostics_replay_step_tls_handshake">TLS handshake</string>
+    <string name="diagnostics_replay_step_tls_handshake">TLS हैंडशेक</string>
     <string name="diagnostics_resolver_encrypted_recommended">एन्क्रिप्टेड DNS अनुशंसित</string>
-    <string name="diagnostics_resolver_field_bootstrap">Bootstrap</string>
-    <string name="diagnostics_resolver_field_endpoint">Endpoint</string>
-    <string name="diagnostics_resolver_field_protocol">Protocol</string>
-    <string name="diagnostics_resolver_field_resolver">Resolver</string>
-    <string name="diagnostics_resolver_field_trigger">Trigger</string>
+    <string name="diagnostics_resolver_field_bootstrap">बूटस्ट्रैप</string>
+    <string name="diagnostics_resolver_field_endpoint">एंडपॉइंट</string>
+    <string name="diagnostics_resolver_field_protocol">प्रोटोकॉल</string>
+    <string name="diagnostics_resolver_field_resolver">रिज़ॉल्वर</string>
+    <string name="diagnostics_resolver_field_trigger">शुरू होने का कारण</string>
     <string name="diagnostics_resolver_keep_session">इस सत्र के लिए रखें</string>
     <string name="diagnostics_resolver_override_active">अस्थायी DNS ओवरराइड सक्रिय</string>
     <string name="diagnostics_resolver_save_setting">DNS सेटिंग के रूप में सहेजें</string>
@@ -2125,7 +2125,7 @@
     <string name="diagnostics_rkn_run">RKN निदान चलाएँ</string>
     <string name="diagnostics_rkn_running">RKN नियंत्रण और ब्लैकलिस्ट probe चलाए जा रहे हैं...</string>
     <string name="diagnostics_rkn_self_info_network_context">नेटवर्क संदर्भ</string>
-    <string name="diagnostics_rkn_self_info_privacy_suppressed">Privacy Mode चालू है; ipinfo.io/ifconfig.co संदर्भ दबा दिया गया है।</string>
+    <string name="diagnostics_rkn_self_info_privacy_suppressed">गोपनीयता मोड चालू है; ipinfo.io/ifconfig.co का संदर्भ छिपाया गया है।</string>
     <string name="diagnostics_rkn_self_info_subtitle">ifconfig.co fallback के साथ ipinfo.io का उपयोग करता है; डिफ़ॉल्ट रूप से अक्षम।</string>
     <string name="diagnostics_rkn_unknown_isp">अज्ञात ISP</string>
     <string name="diagnostics_scan_dns_baseline_clean">DNS: साफ़</string>
@@ -2162,7 +2162,7 @@
     <string name="diagnostics_tool_surveying">सर्वेक्षण किया जा रहा है...</string>
     <string name="diagnostics_tool_tcp16_run">TCP16 प्रोब चलाएँ</string>
     <string name="diagnostics_tool_tcp16_title">TCP16 फैट-हेडर</string>
-    <string name="diagnostics_tool_zstd_codec_label">Zstd codec</string>
+    <string name="diagnostics_tool_zstd_codec_label">Zstd कोडेक</string>
     <string name="diagnostics_value_complete">पूर्ण</string>
     <string name="diagnostics_value_enabled">सक्षम</string>
     <string name="diagnostics_value_na">लागू नहीं</string>
