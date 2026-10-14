@@ -17,20 +17,35 @@ internal fun DiagnosticsUiFactorySupport.buildLiveHeadline(
         surfacedEvent?.level?.equals(
             "error",
             ignoreCase = true,
-        ) == true -> context.getString(R.string.diagnostics_live_headline_error)
+        ) == true -> {
+            context.getString(R.string.diagnostics_live_headline_error)
+        }
 
-        health == DiagnosticsHealth.Degraded -> context.getString(R.string.diagnostics_live_headline_error)
+        health == DiagnosticsHealth.Degraded -> {
+            context.getString(R.string.diagnostics_live_headline_error)
+        }
 
-        telemetry == null -> context.getString(R.string.diagnostics_live_headline_standby)
+        telemetry == null -> {
+            context.getString(R.string.diagnostics_live_headline_standby)
+        }
 
-        health == DiagnosticsHealth.Attention -> context.getString(R.string.diagnostics_live_headline_attention)
+        health == DiagnosticsHealth.Attention -> {
+            context.getString(R.string.diagnostics_live_headline_attention)
+        }
 
         telemetry.connectionState.equals(
             "running",
             ignoreCase = true,
-        ) -> context.getString(R.string.diagnostics_live_headline_traffic, telemetry.networkType)
+        ) -> {
+            context.getString(
+                R.string.diagnostics_live_headline_traffic,
+                context.networkTypeLabel(telemetry.networkType),
+            )
+        }
 
-        else -> telemetry.connectionState.replaceFirstChar { it.uppercase() }
+        else -> {
+            context.connectionStateLabel(telemetry.connectionState)
+        }
     }
 }
 

@@ -41,7 +41,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveHighlights(
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_rtt),
-                    value = it.rttBand(),
+                    value = context.rttBandLabel(it.rttBand()),
                     tone = DiagnosticsTone.Info,
                 ),
             )

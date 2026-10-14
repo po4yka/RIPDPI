@@ -2064,7 +2064,7 @@ Fonte: %2$s</string>
     <string name="ripdpi_ip_id_mode_title">Modo de ID IPv4</string>
     <string name="ripdpi_ip_id_mode_body">Controla os valores de identificação IPv4 nos caminhos brutos de pacotes falsos e fragmentos. O Seqgroup também encaminha envios TCP mistos de falsos/originais para o caminho bruto de substituição, mantendo os IDs exatos.</string>
     <string name="ripdpi_protocols_category">Protocolos</string>
-    <string name="ripdpi_protocols_hint">Desmarque todos para aplicar estratégias de desvio a todo o tráfego</string>
+    <string name="ripdpi_protocols_hint">Desmarque HTTP e HTTPS para aplicar a estratégia de desvio TCP sem um filtro de protocolo. O desvio UDP é configurado separadamente.</string>
     <string name="advanced_settings_visual_controls_disabled">Os controles visuais ficam indisponíveis enquanto substituições por linha de comando estiverem ativas.</string>
     <string name="advanced_settings_command_line_disabled">Ative as configurações de linha de comando para editar flags brutas do RIPDPI aqui.</string>
     <string name="advanced_settings_error_oob_data">Os dados OOB devem estar vazios ou conter um único caractere.</string>

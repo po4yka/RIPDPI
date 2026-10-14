@@ -21,8 +21,8 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
     return DiagnosticsLiveUiModel(
         health = health,
         statusLabel =
-            currentTelemetry?.connectionState
-                ?: activeConnectionSession?.connectionState
+            (currentTelemetry?.connectionState ?: activeConnectionSession?.connectionState)
+                ?.let { context.connectionStateLabel(it) }
                 ?: context.getString(R.string.diagnostics_metric_idle),
         statusTone =
             liveStatusTone(
@@ -45,7 +45,9 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         freshnessUnavailableLabel = liveUnavailableLabel(currentTelemetry),
         headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
         body = buildLiveBody(currentTelemetry, nativeEvents),
-        networkLabel = currentTelemetry?.networkType ?: activeConnectionSession?.networkType,
+        networkLabel =
+            (currentTelemetry?.networkType ?: activeConnectionSession?.networkType)
+                ?.let { context.networkTypeLabel(it) },
         modeLabel = currentTelemetry?.activeMode ?: activeConnectionSession?.serviceMode,
         signalLabel = buildLiveSignalLabel(currentTelemetry),
         eventSummaryLabel = buildLiveEventSummaryLabel(nativeEvents),

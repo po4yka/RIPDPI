@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
@@ -688,26 +689,15 @@ internal fun DiagnosticsPerformanceCard(
     TrackRecomposition("DiagnosticsPerformanceCard")
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
+    val locale = LocalConfiguration.current.locales[0]
     var expanded by remember { mutableStateOf(false) }
     val timingBreakdown =
-        remember(performance) {
-            listOf(
-                "resolve" to performance.resolveDurationMillis,
-                "overview" to performance.overviewDurationMillis,
-                "scan" to performance.scanDurationMillis,
-                "live" to performance.liveDurationMillis,
-                "sessions" to performance.sessionsDurationMillis,
-                "approaches" to performance.approachesDurationMillis,
-                "events" to performance.eventsDurationMillis,
-                "share" to performance.shareDurationMillis,
-                "event-map" to performance.eventMappingDurationMillis,
-            ).sortedByDescending { it.second }
-        }
+        remember(performance) { performanceTimings(performance) }
     val slowestStage = timingBreakdown.firstOrNull()
     val timingSummary =
-        remember(timingBreakdown) {
+        remember(timingBreakdown, locale) {
             timingBreakdown.take(timingBreakdownDisplayCount).joinToString("  ") { (label, duration) ->
-                "$label ${formatDuration(duration)}"
+                "$label ${formatDuration(duration, locale)}"
             }
         }
 
@@ -718,8 +708,12 @@ internal fun DiagnosticsPerformanceCard(
     ) {
         androidx.compose.material3.Text(
             text =
-                "Debug #${performance.buildSequence} · ${selectedSection.name.lowercase(Locale.US)} · " +
-                    formatDuration(performance.totalDurationMillis),
+                stringResource(
+                    R.string.diagnostics_performance_header_format,
+                    performance.buildSequence,
+                    selectedSection.name.lowercase(Locale.US),
+                    formatDuration(performance.totalDurationMillis, locale),
+                ),
             style = RipDpiThemeTokens.type.monoSmall,
             color = colors.mutedForeground,
         )
@@ -728,33 +722,66 @@ internal fun DiagnosticsPerformanceCard(
             enter = motion.sectionEnterTransition(),
             exit = motion.sectionExitTransition(),
         ) {
-            androidx.compose.foundation.layout.Column(
-                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
-            ) {
-                androidx.compose.material3.HorizontalDivider(color = colors.divider)
-                slowestStage?.let { (label, duration) ->
-                    androidx.compose.material3.Text(
-                        text = "Slowest stage: $label ${formatDuration(duration)}",
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = colors.mutedForeground,
-                    )
-                }
-                androidx.compose.material3.Text(
-                    text =
-                        "Input: ${performance.telemetryCount} telemetry · " +
-                            "${performance.nativeEventCount} events · " +
-                            "${performance.sessionCount} sessions",
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-                androidx.compose.material3.Text(
-                    text = timingSummary,
-                    style = RipDpiThemeTokens.type.monoSmall,
-                    color = colors.foreground,
-                )
-            }
+            DiagnosticsPerformanceDetails(performance, slowestStage, timingSummary, locale)
         }
     }
 }
 
-private fun formatDuration(durationMillis: Double): String = String.format(Locale.US, "%.1f ms", durationMillis)
+private fun performanceTimings(performance: DiagnosticsPerformanceUiModel): List<Pair<String, Double>> =
+    listOf(
+        "resolve" to performance.resolveDurationMillis,
+        "overview" to performance.overviewDurationMillis,
+        "scan" to performance.scanDurationMillis,
+        "live" to performance.liveDurationMillis,
+        "sessions" to performance.sessionsDurationMillis,
+        "approaches" to performance.approachesDurationMillis,
+        "events" to performance.eventsDurationMillis,
+        "share" to performance.shareDurationMillis,
+        "event-map" to performance.eventMappingDurationMillis,
+    ).sortedByDescending { it.second }
+
+@Composable
+private fun DiagnosticsPerformanceDetails(
+    performance: DiagnosticsPerformanceUiModel,
+    slowestStage: Pair<String, Double>?,
+    timingSummary: String,
+    locale: Locale,
+) {
+    val colors = RipDpiThemeTokens.colors
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+        androidx.compose.material3.HorizontalDivider(color = colors.divider)
+        slowestStage?.let { (label, duration) ->
+            androidx.compose.material3.Text(
+                text =
+                    stringResource(
+                        R.string.diagnostics_performance_slowest_format,
+                        label,
+                        formatDuration(duration, locale),
+                    ),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+        androidx.compose.material3.Text(
+            text =
+                stringResource(
+                    R.string.diagnostics_performance_input_format,
+                    performance.telemetryCount,
+                    performance.nativeEventCount,
+                    performance.sessionCount,
+                ),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        androidx.compose.material3.Text(
+            text = timingSummary,
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = colors.foreground,
+        )
+    }
+}
+
+private fun formatDuration(
+    durationMillis: Double,
+    locale: Locale,
+): String = String.format(locale, "%.1f ms", durationMillis)

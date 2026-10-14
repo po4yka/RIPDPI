@@ -2620,7 +2620,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_summary_label_profile">پروفایل</string>
     <string name="ripdpi_http_unix_eol_setting">پایان خط Unix</string>
     <string name="ripdpi_max_connections_setting">حداکثر تعداد اتصالات</string>
-    <string name="ripdpi_protocols_hint">برای راهبرد عبور تمام ترافیک، همه را تیک‌بردارید</string>
+    <string name="ripdpi_protocols_hint">تیک HTTP و HTTPS را بردارید تا راهبرد عبور TCP بدون فیلتر پروتکل اعمال شود. عبور UDP جداگانه تنظیم می‌شود.</string>
     <string name="ripdpi_readme_link">RIPDPI چگونه کار می‌کند</string>
     <string name="ripdpi_tlsrec_position_setting">نشانگر رکورد TLS</string>
     <string name="routing_protection_detected_packages">بسته‌های شناسایی‌شده: %1$s</string>

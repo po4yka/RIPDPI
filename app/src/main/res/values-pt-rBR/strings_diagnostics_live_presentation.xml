@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Display known RTT bands; raw telemetry retains its wire tokens. -->
+    <string name="diagnostics_rtt_band_lt50_format">&lt; %1$d ms</string>
+    <string name="diagnostics_rtt_band_range_format">%1$d–%2$d ms</string>
+    <string name="diagnostics_rtt_band_500_plus_format">≥ %1$d ms</string>
+    <string name="diagnostics_performance_header_format">Depuração #%1$d · %2$s · %3$s</string>
+    <string name="diagnostics_performance_slowest_format">Etapa mais lenta: %1$s %2$s</string>
+    <string name="diagnostics_performance_input_format">Entrada: telemetria %1$d · eventos %2$d · sessões %3$d</string>
+</resources>

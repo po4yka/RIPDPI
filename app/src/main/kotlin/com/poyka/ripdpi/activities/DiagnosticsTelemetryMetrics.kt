@@ -91,7 +91,7 @@ internal fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
         add(
             DiagnosticsMetricUiModel(
                 context.getString(R.string.diagnostics_metric_network),
-                telemetry.networkType,
+                context.networkTypeLabel(telemetry.networkType),
             ),
         )
         add(
@@ -119,7 +119,7 @@ internal fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
         add(
             DiagnosticsMetricUiModel(
                 context.getString(R.string.diagnostics_metric_rtt_band),
-                telemetry.rttBand(),
+                context.rttBandLabel(telemetry.rttBand()),
                 DiagnosticsTone.Info,
             ),
         )
