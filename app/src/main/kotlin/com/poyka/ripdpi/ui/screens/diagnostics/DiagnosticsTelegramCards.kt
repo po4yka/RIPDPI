@@ -9,17 +9,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.activities.formatTelegramThroughput
+import com.poyka.ripdpi.activities.formatTelegramTransferBytes
+import com.poyka.ripdpi.activities.telegramStatusLabelRes
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-private const val bytesPerMegabyte = 1_000_000L
-private const val bytesPerKilobyte = 1_000L
 
 @Composable
 internal fun TelegramResultCard(
@@ -47,7 +48,7 @@ internal fun TelegramResultCard(
                 style = RipDpiThemeTokens.type.screenTitle,
                 color = colors.foreground,
             )
-            StatusIndicator(label = verdict, tone = verdictTone)
+            StatusIndicator(label = telegramStatusCaption(verdict), tone = verdictTone)
         }
 
         TelegramTransferSection(
@@ -119,9 +120,10 @@ private fun TelegramTransferSection(
     error: String?,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val avgSpeed = formatBps(avgBps?.toLongOrNull() ?: 0)
-    val peakSpeed = formatBps(peakBps?.toLongOrNull() ?: 0)
-    val totalBytes = formatTransferBytes(bytes?.toLongOrNull() ?: 0)
+    val locale = LocalConfiguration.current.locales[0]
+    val avgSpeed = formatTelegramThroughput(avgBps?.toLongOrNull() ?: 0, locale)
+    val peakSpeed = formatTelegramThroughput(peakBps?.toLongOrNull() ?: 0, locale)
+    val totalBytes = formatTelegramTransferBytes(bytes?.toLongOrNull() ?: 0, locale)
     val tone =
         when (status) {
             "ok" -> StatusIndicatorTone.Active
@@ -139,7 +141,7 @@ private fun TelegramTransferSection(
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
-        StatusIndicator(label = status, tone = tone)
+        StatusIndicator(label = telegramStatusCaption(status), tone = tone)
     }
     SettingsRow(title = stringResource(R.string.diagnostics_telegram_avg_speed), value = avgSpeed)
     SettingsRow(title = stringResource(R.string.diagnostics_telegram_peak_speed), value = peakSpeed)
@@ -149,16 +151,6 @@ private fun TelegramTransferSection(
     }
 }
 
-private fun formatBps(bps: Long): String =
-    when {
-        bps >= bytesPerMegabyte -> String.format(java.util.Locale.US, "%.1f Mbps", bps / bytesPerMegabyte.toDouble())
-        bps >= bytesPerKilobyte -> String.format(java.util.Locale.US, "%.1f Kbps", bps / bytesPerKilobyte.toDouble())
-        else -> "$bps Bps"
-    }
-
-private fun formatTransferBytes(bytes: Long): String =
-    when {
-        bytes >= bytesPerMegabyte -> String.format(java.util.Locale.US, "%.1f MB", bytes / bytesPerMegabyte.toDouble())
-        bytes >= bytesPerKilobyte -> String.format(java.util.Locale.US, "%.1f KB", bytes / bytesPerKilobyte.toDouble())
-        else -> "$bytes B"
-    }
+@Composable
+private fun telegramStatusCaption(status: String): String =
+    telegramStatusLabelRes(status)?.let { stringResource(it) } ?: status

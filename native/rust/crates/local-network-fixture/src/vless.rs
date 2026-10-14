@@ -3,9 +3,10 @@
 //! A proxying VLESS+Reality server for the chain-relay end-to-end tests
 //! (`audit-vless-chained-connect-over-relay-end-to-end-tests`). It completes a
 //! real TLS 1.3 handshake with the boring-based [`ripdpi_vless::VlessRealityClient`]
-//! (the client disables certificate verification — `SslVerifyMode::NONE` — because
-//! REALITY authenticates with the sealed SessionID, not the cover certificate, so
-//! a self-signed cover cert interoperates), reads the VLESS request header, writes
+//! and authenticates as a REALITY server: it serves a temporary Ed25519
+//! certificate signed with the REALITY AuthKey (see [`crate::reality_server`]),
+//! so clients must use [`crate::reality_fixture_public_key`]. It reads the VLESS
+//! request header, writes
 //! the VLESS response header, then proxies the decrypted byte stream to the
 //! request's stated target. It can serve as either chain hop:
 //!
@@ -18,10 +19,9 @@
 //! emits a heavily uTLS-fingerprinted ClientHello (browser extension ordering,
 //! record choreography, PQ-hybrid key shares) that a strict rustls server rejects
 //! with `DECODE_ERROR`; a boring server accepts it natively (same TLS stack as the
-//! client). REALITY auth is intentionally NOT validated — per the loopback-harness
-//! design (`docs/architecture/protocol-loopback-harness-design.md`, "Risks"), a
-//! real server-side REALITY/BoringSSL handshake is too brittle for unit scope.
-//! This is a dev/test fixture, never a production VLESS server.
+//! client). The fixture does not validate the client's sealed SessionID — per the
+//! loopback-harness design (`docs/architecture/protocol-loopback-harness-design.md`,
+//! "Risks"). This is a dev/test fixture, never a production VLESS server.
 
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -134,8 +134,8 @@ impl VlessRealityLoopback {
         self.udp_target_address.port()
     }
 
-    /// The SNI / `server_name` a hop config should carry. Cover-cert only — the
-    /// client does not verify it (REALITY auth model).
+    /// The SNI / `server_name` a hop config should carry. The client does not
+    /// validate it against a certificate chain (REALITY auth model).
     pub fn server_name(&self) -> &'static str {
         SERVER_NAME
     }
@@ -183,8 +183,10 @@ fn tls_acceptor() -> io::Result<TlsAcceptorBundle> {
         SslAcceptor::mozilla_intermediate(SslMethod::tls()).map_err(|error| io::Error::other(error.to_string()))?;
     acceptor.set_certificate(&cert).map_err(|error| io::Error::other(error.to_string()))?;
     acceptor.set_private_key(&key).map_err(|error| io::Error::other(error.to_string()))?;
-    // The fixture does not authenticate the client (REALITY's auth lives in the
-    // sealed SessionID, which this dev fixture does not validate).
+    // Each handshake gets a REALITY-authenticated certificate; the cover cert
+    // above only backs `certificate_pem`. The fixture does not authenticate the
+    // client (its sealed SessionID is not validated).
+    crate::reality_server::install_reality_server_auth(&mut acceptor)?;
     acceptor.set_verify(SslVerifyMode::NONE);
     Ok(TlsAcceptorBundle { acceptor: acceptor.build(), certificate_pem })
 }

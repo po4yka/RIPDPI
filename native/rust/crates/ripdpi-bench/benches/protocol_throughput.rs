@@ -35,7 +35,7 @@ use tokio::runtime::Runtime;
 
 use local_network_fixture::{
     Hysteria2Loopback, MasqueH2ConnectUdpFixture, TuicLoopback, VlessRealityLoopback, WebTunnelFixture,
-    XhttpRealityLoopback,
+    XhttpRealityLoopback, reality_fixture_public_key,
 };
 use ripdpi_masque::MasqueClient;
 use ripdpi_masque::config::MasqueConfig;
@@ -47,9 +47,6 @@ use ripdpi_webtunnel::client::connect_webtunnel_async;
 use ripdpi_xhttp::{XhttpRealityConfig, connect_reality};
 
 const PAYLOAD_LEN: usize = 1024 * 1024;
-/// base64 of 32 bytes — a syntactically valid REALITY public key. The loopback
-/// servers do not validate it (REALITY auth is disabled in loopback mode).
-const REALITY_PUBLIC_KEY_B64: &str = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=";
 const UUID: &str = "11111111-1111-1111-1111-111111111111";
 
 fn runtime() -> Runtime {
@@ -81,7 +78,7 @@ fn vless_reality_config(server_port: u16, server_name: &str) -> VlessRealityConf
         i32::from(server_port),
         UUID,
         server_name,
-        REALITY_PUBLIC_KEY_B64,
+        &reality_fixture_public_key(),
         "",
         "chrome_stable",
     )
@@ -239,16 +236,16 @@ fn bench_ws_tunnel(c: &mut Criterion, rt: &Runtime) {
     // connects to it over TCP. The fixture echoes application bytes on the
     // tunnel itself (no separate upstream).
     let fixture = WebTunnelFixture::start("/secret").expect("start WebTunnel fixture");
-    let bridge = parse_bridge_line(&format!(
+    let mut bridge = parse_bridge_line(&format!(
         "Bridge webtunnel 192.0.2.3:1 url={} addr={} servername=localhost utls=hellochrome_auto",
         fixture.url(),
         fixture.addr(),
     ))
     .expect("WebTunnel bridge line");
+    // The client always verifies TLS; trust the fixture's self-signed certificate.
+    bridge.root_certificate_pem = Some(fixture.root_certificate_pem().to_owned());
 
-    // verify=false: the fixture's self-signed cert is not exposed; this is a
-    // loopback test fixture, not a production path (matches the crate's own e2e).
-    let stream = rt.block_on(connect_webtunnel_async(&bridge, false)).expect("WebTunnel async connect");
+    let stream = rt.block_on(connect_webtunnel_async(&bridge)).expect("WebTunnel async connect");
     let (mut reader, mut writer) = tokio::io::split(stream);
 
     let payload = vec![0xAB_u8; PAYLOAD_LEN];

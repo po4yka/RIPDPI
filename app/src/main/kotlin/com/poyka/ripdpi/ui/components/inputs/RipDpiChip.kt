@@ -9,9 +9,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -169,8 +171,8 @@ fun RipDpiChip(
         }
         Text(
             text = text,
-            modifier = if (wrapLabel) Modifier.weight(1f) else Modifier,
-            style = if (selected) RipDpiThemeTokens.type.bodyEmphasis else RipDpiThemeTokens.type.secondaryBody,
+            modifier = (if (wrapLabel) Modifier.weight(1f, fill = false) else Modifier).width(IntrinsicSize.Max),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
             color = animatedContentColor,
         )
     }

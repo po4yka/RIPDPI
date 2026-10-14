@@ -197,10 +197,18 @@ where
 }
 
 /// Connect to a VLESS+Reality server over TCP, performing the
-/// Reality TLS handshake. Cert verification is disabled because
-/// Reality uses its own auth model on top of TLS 1.3; the
-/// authentication is the sealed session_id that the patched
-/// BoringSSL callback writes into the ClientHello.
+/// Reality TLS handshake. X.509 chain validation is off because the
+/// server presents a temporary certificate. Authentication runs in both
+/// directions: the sealed session_id that the patched BoringSSL callback
+/// writes into the ClientHello authenticates the client, and the
+/// post-handshake check in `reality_server_auth` authenticates the
+/// server (Ed25519 leaf signed with `HMAC-SHA512(AuthKey, pubkey)`).
+///
+/// # Errors
+///
+/// Returns [`io::ErrorKind::InvalidData`] when the server does not prove
+/// that it holds the REALITY private key, and other errors when the TCP or
+/// TLS handshake fails.
 ///
 /// # Cancel safety
 ///
@@ -215,7 +223,12 @@ pub async fn connect_reality_tls(
 }
 
 /// Connect Reality TLS over an arbitrary async transport. Used for
-/// chain-relay (VLESS-over-VLESS).
+/// chain-relay (VLESS-over-VLESS) and xHTTP. The server is authenticated
+/// as in [`connect_reality_tls`].
+///
+/// # Errors
+///
+/// Same as [`connect_reality_tls`].
 ///
 /// # Cancel safety
 ///
@@ -271,9 +284,10 @@ where
             .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?;
     }
 
-    // Reality uses its own auth model — disable standard cert
-    // verification; the server will present a fake cert that we
-    // intentionally do not validate.
+    // REALITY servers present a temporary certificate, not the cover
+    // site's chain, so X.509 chain validation is off here. The server is
+    // authenticated after the handshake instead: see step 5 and
+    // `reality_server_auth`.
     builder.set_verify(SslVerifyMode::NONE);
 
     let connector = builder.build();
@@ -304,10 +318,11 @@ where
 
     // 2. Install the Reality `client_hello_cb` hook on the SSL_CTX
     //    backing `ssl`. The callback fires once per
-    //    `ssl_add_client_hello` invocation (typically once; twice
-    //    if the server triggers HelloRetryRequest) and patches the
-    //    32-byte session_id slot with the AES-256-GCM seal computed
-    //    by [`reality_seal::seal_session_id`]. The guard's lifetime
+    //    `ssl_add_client_hello` invocation (once in practice: a
+    //    HelloRetryRequest cannot ask for a new X25519 share, so a
+    //    second invocation fails) and patches the 32-byte session_id
+    //    slot with the AES-256-GCM seal computed by
+    //    [`reality_seal::seal_session_id_with_auth_key`]. The guard's lifetime
     //    is tied to the returned RealityTlsStream; the box it owns is
     //    reclaimed only after the SSL object is destroyed.
     //
@@ -350,6 +365,19 @@ where
         return Err(io::Error::other("Reality client_hello_cb reported failure (no X25519 key share or seal error)"));
     }
 
+    // 5. Authenticate the server before any VLESS byte is written. Only a
+    //    server that holds the REALITY private key can derive the AuthKey
+    //    and sign its temporary certificate with it. A TLS interceptor or
+    //    the plain cover site fails here and never sees the UUID.
+    let auth_key = handshake
+        .guard
+        .take_auth_key()
+        .ok_or_else(|| io::Error::other("Reality AuthKey is unavailable after a successful client_hello_cb"))?;
+    crate::reality_server_auth::verify_reality_server_certificate(
+        tls_stream.ssl().peer_certificate().as_deref(),
+        &auth_key,
+    )?;
+
     // PQ-KEM negotiation telemetry: increments `tls.pq_kem_negotiated` iff the
     // negotiated group is the hybrid X25519MLKEM768. Privacy-safe (no authority
     // / SNI / IP in the event).
@@ -365,10 +393,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::{DropOrdered, RealityRecordStream, connect_reality_tls};
+    use crate::reality_seal::derive_auth_key;
     use base64::Engine;
-    use boring::ssl::{Ssl, SslContext, SslMethod, SslVersion};
+    use boring::ssl::{ClientHello, ExtensionType, SelectCertError, Ssl, SslContext, SslMethod, SslVersion};
+    use ring::hmac;
     use std::future::poll_fn;
-    use std::io::{Cursor, Write};
+    use std::io::{self, Cursor, Write};
     use std::net::TcpListener;
     use std::pin::Pin;
     use std::sync::{Arc, Mutex};
@@ -403,26 +433,82 @@ mod tests {
         assert_eq!(*events.lock().expect("drop probe events mutex poisoned"), ["ssl", "callback_state"]);
     }
 
-    #[tokio::test]
-    async fn reality_tls_accepts_required_ed25519_certificate_verify() {
-        const ED25519_PRIVATE_KEY_DER: &str = concat!(
-            "302e020100300506032b6570042204207c8c6497f9960d5595d7815f550569e5",
-            "f77764ac97e63e339aaa68cc1512b683"
-        );
+    const ED25519_PRIVATE_KEY_DER: &str =
+        concat!("302e020100300506032b6570042204207c8c6497f9960d5595d7815f550569e5", "f77764ac97e63e339aaa68cc1512b683");
+    const REALITY_SERVER_SECRET: [u8; 32] = [0x42; 32];
+
+    /// How the fixture server picks its certificate.
+    #[derive(Clone, Copy)]
+    enum FixtureCertificate {
+        /// An ordinary self-signed Ed25519 certificate, as a TLS interceptor or
+        /// the cover site would present.
+        PlainSelfSigned,
+        /// A temporary Ed25519 certificate signed with the REALITY AuthKey that
+        /// this X25519 private key derives, as a REALITY server presents.
+        RealityAuth([u8; 32]),
+    }
+
+    fn fixture_context(certificate: FixtureCertificate) -> SslContext {
         let key_der = hex::decode(ED25519_PRIVATE_KEY_DER).expect("decode Ed25519 fixture key");
         let signing_key = rcgen::KeyPair::try_from(key_der.as_slice()).expect("rcgen Ed25519 fixture key");
         let params = rcgen::CertificateParams::new(vec!["reality.test".to_string()]).expect("fixture cert params");
-        let certificate = params.self_signed(&signing_key).expect("self-signed Ed25519 fixture cert");
-        let cert = boring::x509::X509::from_der(certificate.der()).expect("BoringSSL fixture cert");
+        let template = params.self_signed(&signing_key).expect("self-signed Ed25519 fixture cert").der().to_vec();
         let key = boring::pkey::PKey::private_key_from_der(&key_der).expect("BoringSSL fixture key");
         let mut context = SslContext::builder(SslMethod::tls()).expect("fixture context");
         context.set_min_proto_version(Some(SslVersion::TLS1_3)).expect("TLS 1.3 minimum");
         context.set_max_proto_version(Some(SslVersion::TLS1_3)).expect("TLS 1.3 maximum");
         context.set_curves_list("X25519").expect("fixture X25519 curve");
-        context.set_certificate(&cert).expect("fixture certificate");
-        context.set_private_key(&key).expect("fixture private key");
-        let context = context.build();
+        match certificate {
+            FixtureCertificate::PlainSelfSigned => {
+                let cert = boring::x509::X509::from_der(&template).expect("BoringSSL fixture cert");
+                context.set_certificate(&cert).expect("fixture certificate");
+                context.set_private_key(&key).expect("fixture private key");
+            }
+            FixtureCertificate::RealityAuth(server_secret) => {
+                let public_key = signing_key.public_key_raw().to_vec();
+                context.set_select_certificate_callback(move |mut hello: ClientHello<'_>| {
+                    let auth_key = server_auth_key(&server_secret, &hello).ok_or(SelectCertError::ERROR)?;
+                    let mut der = template.clone();
+                    let signature_start = der.len() - 64;
+                    let signature = hmac::sign(&hmac::Key::new(hmac::HMAC_SHA512, auth_key.as_slice()), &public_key);
+                    der[signature_start..].copy_from_slice(signature.as_ref());
+                    let cert = boring::x509::X509::from_der(&der).map_err(|_| SelectCertError::ERROR)?;
+                    hello.ssl_mut().set_certificate(&cert).map_err(|_| SelectCertError::ERROR)?;
+                    hello.ssl_mut().set_private_key(&key).map_err(|_| SelectCertError::ERROR)?;
+                    Ok(())
+                });
+            }
+        }
+        context.build()
+    }
 
+    /// Server-side AuthKey: ECDH(server secret, client X25519 key share),
+    /// HKDF salt = client_random[..20]. X25519 is symmetric, so the client
+    /// derivation computes it with the roles swapped. This reuses the
+    /// client's `derive_auth_key`, so it is not an independent oracle; the
+    /// `local-network-fixture` REALITY server and the frozen Go seal vector
+    /// cover the derivation independently.
+    fn server_auth_key(server_secret: &[u8; 32], hello: &ClientHello<'_>) -> Option<zeroize::Zeroizing<[u8; 32]>> {
+        let client_random: [u8; 32] = hello.random().try_into().ok()?;
+        let extension = hello.get_extension(ExtensionType::KEY_SHARE)?;
+        let mut entries = extension.get(2..)?;
+        while entries.len() >= 4 {
+            let group = u16::from_be_bytes([entries[0], entries[1]]);
+            let length = usize::from(u16::from_be_bytes([entries[2], entries[3]]));
+            let key = entries.get(4..4 + length)?;
+            if group == 0x001d {
+                let client_share: [u8; 32] = key.try_into().ok()?;
+                return derive_auth_key(server_secret, &client_share, &client_random).ok();
+            }
+            entries = &entries[4 + length..];
+        }
+        None
+    }
+
+    /// Runs one REALITY handshake against a fixture server and reads its
+    /// two-byte reply.
+    async fn connect_to_fixture(certificate: FixtureCertificate) -> io::Result<[u8; 2]> {
+        let context = fixture_context(certificate);
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind Reality TLS fixture");
         let address = listener.local_addr().expect("Reality TLS fixture address");
         let server = thread::spawn(move || {
@@ -430,12 +516,14 @@ mod tests {
             stream.set_read_timeout(Some(Duration::from_secs(5))).expect("fixture read timeout");
             stream.set_write_timeout(Some(Duration::from_secs(5))).expect("fixture write timeout");
             let ssl = Ssl::new(&context).expect("Reality TLS fixture SSL");
-            let mut tls = ssl.accept(stream).expect("Reality TLS fixture handshake");
-            tls.write_all(b"ok").expect("write Reality TLS fixture response");
+            // A client that rejects the server closes the connection after the
+            // handshake, so the reply write may fail.
+            if let Ok(mut tls) = ssl.accept(stream) {
+                let _ = tls.write_all(b"ok");
+            }
         });
 
-        let reality_secret = StaticSecret::from([0x42; 32]);
-        let reality_public = PublicKey::from(&reality_secret);
+        let reality_public = PublicKey::from(&StaticSecret::from(REALITY_SERVER_SECRET));
         let public_key = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(reality_public.as_bytes());
         let config = VlessRealityConfig::from_strings(
             "127.0.0.1",
@@ -450,12 +538,39 @@ mod tests {
         .with_kem_groups(vec!["X25519".to_string()]);
 
         let tcp = tokio::net::TcpStream::connect(address).await.expect("connect Reality TLS fixture");
-        let mut tls =
-            connect_reality_tls(tcp, &config).await.expect("Reality TLS must accept Ed25519 CertificateVerify");
-        let mut response = [0_u8; 2];
-        tls.read_exact(&mut response).await.expect("read Reality TLS fixture response");
-        assert_eq!(response, *b"ok");
+        let result = match connect_reality_tls(tcp, &config).await {
+            Ok(mut tls) => {
+                let mut response = [0_u8; 2];
+                tls.read_exact(&mut response).await.map(|_| response)
+            }
+            Err(error) => Err(error),
+        };
         server.join().expect("Reality TLS fixture thread");
+        result
+    }
+
+    #[tokio::test]
+    async fn reality_tls_accepts_server_that_proves_the_auth_key() {
+        let response = connect_to_fixture(FixtureCertificate::RealityAuth(REALITY_SERVER_SECRET))
+            .await
+            .expect("a REALITY server with the configured key must be accepted");
+        assert_eq!(response, *b"ok");
+    }
+
+    #[tokio::test]
+    async fn reality_tls_rejects_server_with_plain_certificate() {
+        let error = connect_to_fixture(FixtureCertificate::PlainSelfSigned)
+            .await
+            .expect_err("a TLS server without the REALITY key must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{error}");
+    }
+
+    #[tokio::test]
+    async fn reality_tls_rejects_server_with_another_reality_key() {
+        let error = connect_to_fixture(FixtureCertificate::RealityAuth([0x24; 32]))
+            .await
+            .expect_err("a REALITY server with a different private key must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{error}");
     }
 
     #[tokio::test]

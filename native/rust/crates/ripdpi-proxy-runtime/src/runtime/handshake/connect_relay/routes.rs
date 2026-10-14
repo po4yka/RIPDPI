@@ -22,7 +22,7 @@ pub(super) fn connect_immediate_route(
     state: &RuntimeState,
     host_hint: Option<String>,
 ) -> Result<UpstreamRoute, ConnectRelayError> {
-    let same_sni_guard = acquire_same_sni_guard(state, host_hint.as_deref())?;
+    let same_sni_guard = acquire_same_sni_guard(state, host_hint.as_deref());
     let (upstream, route, cap_guard) =
         super::super::super::routing::connect_target(target, state, None, false, host_hint)
             .map_err(|err| ConnectRelayError::new(err, false))?;
@@ -37,7 +37,7 @@ pub(super) fn connect_delayed_route(
     payload: Vec<u8>,
 ) -> Result<UpstreamRoute, ConnectRelayError> {
     let host = state.extract_relay_payload_host(&payload).or(host_hint);
-    let same_sni_guard = acquire_same_sni_guard(state, host.as_deref())?;
+    let same_sni_guard = acquire_same_sni_guard(state, host.as_deref());
     let (upstream, route, cap_guard) =
         super::super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host)
             .map_err(|err| ConnectRelayError::with_seed_request(err, true, Some(payload.clone())))?;
@@ -50,7 +50,7 @@ pub(super) fn connect_ws_seed_route(
     host_hint: Option<String>,
     seed_request: Vec<u8>,
 ) -> Result<UpstreamRoute, ConnectRelayError> {
-    let same_sni_guard = acquire_same_sni_guard(state, host_hint.as_deref())?;
+    let same_sni_guard = acquire_same_sni_guard(state, host_hint.as_deref());
     let seed_request = (!seed_request.is_empty()).then_some(seed_request);
     let (upstream, route, cap_guard) =
         super::super::super::routing::connect_target(target, state, seed_request.as_deref(), true, host_hint)
@@ -58,15 +58,17 @@ pub(super) fn connect_ws_seed_route(
     Ok(UpstreamRoute { upstream, route, seed_request, cap_guard, same_sni_guard })
 }
 
-fn acquire_same_sni_guard(
-    state: &RuntimeState,
-    host: Option<&str>,
-) -> Result<Option<SameSniProfileGuard>, ConnectRelayError> {
-    let Some(host) = host else { return Ok(None) };
-    state.try_acquire_pass_through_sni_session(host).map(Some).ok_or_else(|| {
-        ConnectRelayError::new(
-            std::io::Error::new(std::io::ErrorKind::WouldBlock, "same-SNI/profile concurrency cap reached"),
-            false,
-        )
-    })
+/// Pass-through flows carry the client's own TLS stack, so the learned
+/// same-SNI/profile cap (which targets owned-stack fingerprints) is advisory
+/// here, like the per-exit-IP cap: at cap the flow proceeds without a slot.
+fn acquire_same_sni_guard(state: &RuntimeState, host: Option<&str>) -> Option<SameSniProfileGuard> {
+    let guard = state.try_acquire_pass_through_sni_session(host?);
+    if guard.is_none() {
+        // Privacy: never log the host (network-fingerprint-privacy rule).
+        tracing::debug!(
+            target: "ripdpi::proxy::same_sni_cap",
+            "pass-through same-SNI concurrency above cap; proceeding without a slot (advisory cap)"
+        );
+    }
+    guard
 }

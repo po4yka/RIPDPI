@@ -62,7 +62,7 @@ class RdsComponentsScreenshotTest {
 
     @Test
     fun handshakeTimeline() {
-        captureBothThemes("handshakeTimeline", widthDp = 720, heightDp = 520) {
+        captureBothThemes("handshakeTimeline", widthDp = 720, heightDp = 840) {
             HandshakeTimelineScreen(
                 state =
                     sampleHandshakeTimelineState(
@@ -111,7 +111,7 @@ class RdsComponentsScreenshotTest {
 
     @Test
     fun stateMachine() {
-        captureBothThemes("stateMachine", widthDp = 720, heightDp = 480) {
+        captureBothThemes("stateMachine", widthDp = 720, heightDp = 580) {
             StateMachineScreen(
                 state =
                     sampleStateMachineState(
@@ -159,7 +159,7 @@ class RdsComponentsScreenshotTest {
 
     @Test
     fun strategyImport() {
-        captureBothThemes("strategyImport", widthDp = 420, heightDp = 560) {
+        captureBothThemes("strategyImport", widthDp = 420, heightDp = 784) {
             StrategyImportScreen(
                 state = sampleStrategyImportState(),
                 onBack = {},
@@ -413,7 +413,7 @@ class RdsComponentsScreenshotTest {
 
     @Test
     fun qualityGraphs() {
-        captureBothThemes("qualityGraphs", widthDp = 360, heightDp = 480) {
+        captureBothThemes("qualityGraphs", widthDp = 360, heightDp = 640) {
             QualityGraphsScreen(
                 samples = sampleQualityGraphsSnapshots(),
             )

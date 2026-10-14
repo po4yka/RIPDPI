@@ -1,20 +1,32 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniResult
 import com.poyka.ripdpi.diagnostics.dpi.CompatibleSni
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.toPersistentList
 
-internal fun List<AllowlistSniResult>.toAllowlistSniUiModel(): DiagnosticsAllowlistSniToolUiModel {
+internal fun List<AllowlistSniResult>.toAllowlistSniUiModel(
+    strings: StringResolver,
+): DiagnosticsAllowlistSniToolUiModel {
     val compatibleCount = sumOf { result -> result.compatibleSnis.size }
     return DiagnosticsAllowlistSniToolUiModel(
         state = DiagnosticsAllowlistSniState.Complete,
-        summary = "$compatibleCount compatible SNI entries found across $size ASNs.",
+        summary = strings.getQuantityString(R.plurals.diagnostics_sni_complete, compatibleCount, compatibleCount, size),
         metrics =
             listOf(
-                DiagnosticsMetricUiModel("ASNs", size.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("compatible", compatibleCount.toString(), compatibleTone(compatibleCount)),
                 DiagnosticsMetricUiModel(
-                    "tried",
+                    strings.getString(R.string.diagnostics_sni_metric_asns),
+                    size.toString(),
+                    DiagnosticsTone.Info,
+                ),
+                DiagnosticsMetricUiModel(
+                    strings.getString(R.string.diagnostics_byoh_metric_compatible),
+                    compatibleCount.toString(),
+                    compatibleTone(compatibleCount),
+                ),
+                DiagnosticsMetricUiModel(
+                    strings.getString(R.string.diagnostics_sni_metric_tried),
                     sumOf { result ->
                         result.triedCount
                     }.toString(),

@@ -1,15 +1,20 @@
 package com.poyka.ripdpi.ui.screens.history
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -17,11 +22,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
-import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -34,28 +40,48 @@ internal fun HistorySectionChips(
     onSelectSection: (HistorySection) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
-
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = layout.horizontalPadding, vertical = spacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+    val colors = RipDpiThemeTokens.colors
+    val selectedIndex = HistorySection.entries.indexOf(selectedSection)
+    PrimaryScrollableTabRow(
+        selectedTabIndex = selectedIndex,
+        modifier = Modifier.fillMaxWidth().padding(bottom = spacing.sm),
+        containerColor = colors.background,
+        contentColor = colors.foreground,
+        edgePadding = spacing.sm,
+        indicator = {
+            TabRowDefaults.PrimaryIndicator(
+                modifier = Modifier.tabIndicatorOffset(selectedIndex, matchContentSize = true),
+                width = Dp.Unspecified,
+                color = colors.foreground,
+            )
+        },
+        divider = { HorizontalDivider(color = colors.divider) },
     ) {
         HistorySection.entries.forEach { section ->
-            RipDpiChip(
-                text =
-                    when (section) {
-                        HistorySection.Connections -> stringResource(R.string.history_connections_section)
-                        HistorySection.Diagnostics -> stringResource(R.string.history_diagnostics_section)
-                        HistorySection.Events -> stringResource(R.string.history_events_section)
-                    },
+            Tab(
                 selected = selectedSection == section,
                 onClick = { onSelectSection(section) },
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historySection(section)),
-            )
+                modifier = Modifier.heightIn(min = 48.dp).ripDpiTestTag(RipDpiTestTags.historySection(section)),
+                selectedContentColor = colors.foreground,
+                unselectedContentColor = colors.mutedForeground,
+            ) {
+                Text(
+                    text =
+                        when (section) {
+                            HistorySection.Connections -> stringResource(R.string.history_connections_section)
+                            HistorySection.Diagnostics -> stringResource(R.string.history_diagnostics_section)
+                            HistorySection.Events -> stringResource(R.string.history_events_section)
+                        },
+                    modifier =
+                        Modifier
+                            .width(
+                                IntrinsicSize.Max,
+                            ).padding(horizontal = spacing.lg, vertical = spacing.sm),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         }
     }
 }
@@ -198,7 +224,6 @@ internal fun DiagnosticsSection(
     }
 }
 
-@Suppress("LongMethod")
 @Composable
 internal fun EventsSection(
     uiState: HistoryUiState,
@@ -240,39 +265,7 @@ internal fun EventsSection(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
-            FilterCard(
-                modifier =
-                    Modifier.ripDpiTestTag(
-                        if (uiState.events.events.isEmpty()) {
-                            RipDpiTestTags.HistoryEventsStateEmpty
-                        } else {
-                            RipDpiTestTags.HistoryEventsStateContent
-                        },
-                    ),
-                title = stringResource(R.string.history_events_section),
-                searchValue = uiState.events.filters.search,
-                searchPlaceholder = stringResource(R.string.diagnostics_events_search_placeholder),
-                onSearch = onSearch,
-                searchTestTag = RipDpiTestTags.HistoryEventsSearch,
-                primaryFilter =
-                    HistoryFilterChipsConfig(
-                        options = uiState.events.availableSources,
-                        selected = uiState.events.filters.source,
-                        onSelect = { onToggleFilter(it, null) },
-                        tagForOption = { RipDpiTestTags.historyEventSourceFilter(it) },
-                    ),
-                secondaryFilter =
-                    HistoryFilterChipsConfig(
-                        options = uiState.events.availableSeverities,
-                        selected = uiState.events.filters.severity,
-                        onSelect = { onToggleFilter(null, it) },
-                        tagForOption = { RipDpiTestTags.historyEventSeverityFilter(it) },
-                    ),
-                onClearFilters = onClearFilters,
-                autoScroll = uiState.events.filters.autoScroll,
-                onAutoScroll = onAutoScroll,
-                autoScrollTestTag = RipDpiTestTags.HistoryEventsAutoScroll,
-            )
+            HistoryEventsFilterCard(uiState, onToggleFilter, onSearch, onClearFilters, onAutoScroll)
         }
 
         if (uiState.groupedEvents.isEmpty()) {
@@ -302,4 +295,47 @@ internal fun EventsSection(
             }
         }
     }
+}
+
+@Composable
+private fun HistoryEventsFilterCard(
+    uiState: HistoryUiState,
+    onToggleFilter: (String?, String?) -> Unit,
+    onSearch: (String) -> Unit,
+    onClearFilters: () -> Unit,
+    onAutoScroll: (Boolean) -> Unit,
+) {
+    FilterCard(
+        modifier =
+            Modifier.ripDpiTestTag(
+                if (uiState.events.events.isEmpty()) {
+                    RipDpiTestTags.HistoryEventsStateEmpty
+                } else {
+                    RipDpiTestTags.HistoryEventsStateContent
+                },
+            ),
+        title = stringResource(R.string.history_events_section),
+        searchValue = uiState.events.filters.search,
+        searchPlaceholder = stringResource(R.string.diagnostics_events_search_placeholder),
+        onSearch = onSearch,
+        searchTestTag = RipDpiTestTags.HistoryEventsSearch,
+        primaryFilter =
+            HistoryFilterChipsConfig(
+                options = uiState.events.availableSources,
+                selected = uiState.events.filters.source,
+                onSelect = { onToggleFilter(it, null) },
+                tagForOption = { RipDpiTestTags.historyEventSourceFilter(it) },
+            ),
+        secondaryFilter =
+            HistoryFilterChipsConfig(
+                options = uiState.events.availableSeverities,
+                selected = uiState.events.filters.severity,
+                onSelect = { onToggleFilter(null, it) },
+                tagForOption = { RipDpiTestTags.historyEventSeverityFilter(it) },
+            ),
+        onClearFilters = onClearFilters,
+        autoScroll = uiState.events.filters.autoScroll,
+        onAutoScroll = onAutoScroll,
+        autoScrollTestTag = RipDpiTestTags.HistoryEventsAutoScroll,
+    )
 }

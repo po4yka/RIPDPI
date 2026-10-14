@@ -6,6 +6,7 @@ Implemented scope:
 
 - WebTunnel bridge argument parsing for `url`, `version`, `addr`, `servername`, and `utls`.
 - Browser-mimicking TLS through BoringSSL via `ripdpi-tls-profiles`, golden-tested against an explicit uTLS-derived target profile.
+- Bridge certificate verification is always on, as in upstream WebTunnel. The chain must lead to a bundled Mozilla root, and the certificate name must match `servername` (default: the `url` host). Tests trust a loopback fixture through `WebTunnelBridgeConfig::root_certificate_pem`. There is no option to skip verification.
 - HTTP/1.1 Upgrade to the bridge secret path, preserving post-upgrade bytes for raw bidirectional tunneling.
 - Tor PT managed-client IPC with `VERSION`, `CMETHOD webtunnel socks5`, `CMETHODS DONE`, RFC1929 bridge-argument decoding, and stdin-close shutdown.
 - Full WebTunnel client dial path that connects the managed SOCKS5 listener to TLS, HTTP Upgrade, and post-upgrade relay.

@@ -17,6 +17,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -121,13 +124,17 @@ internal fun AppCustomizationScreen(
                         modifier =
                             Modifier
                                 .size(72.dp)
-                                .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl),
+                                .clip(RipDpiThemeTokens.shapes.xxl)
+                                .background(
+                                    colorResource(selectedOption.previewBackgroundRes),
+                                    RipDpiThemeTokens.shapes.xxl,
+                                ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Image(
                             painter = painterResource(id = selectedOption.previewRes),
                             contentDescription = stringResource(selectedOption.labelRes),
-                            modifier = Modifier.size(72.dp),
+                            modifier = Modifier.size(72.dp).scale(selectedOption.previewForegroundScale),
                         )
                     }
                     Text(

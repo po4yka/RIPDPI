@@ -5,9 +5,10 @@
 1. `ripdpi-vless::reality::connect_reality_tls_inner` builds the SSL connector.
 2. `ripdpi-vless::reality_hook::install_reality_client_hello_hook` installs the BoringSSL `client_hello_cb` on the SSL_CTX.
 3. Inside `ssl_add_client_hello` (vendored patch in `native/rust/vendor/boring-sys/`), the callback fires after the body is serialized but before `add_message` consumes it.
-4. The callback reads the X25519 key_share private key via the patched `SSL_handshake_get_x25519_private_key`, pulls client_random out of `msg[6..38]`, and calls into `ripdpi-vless::reality_seal::seal_session_id` to produce the AES-256-GCM sealed session_id.
+4. The callback reads the X25519 key_share private key via the patched `SSL_handshake_get_x25519_private_key`, pulls client_random out of `msg[6..38]`, derives the AuthKey with `ripdpi-vless::reality_seal::derive_auth_key`, and calls `seal_session_id_with_auth_key` to produce the AES-256-GCM sealed session_id.
 5. The 32 sealed bytes overwrite `msg[39..71]` before the transcript hash absorbs them.
 6. The patched handshake driver copies the serialized session ID back into `hs->session_id`, so TLS 1.3 validates the server's echoed value against the bytes that were actually sent.
+7. The callback keeps the AuthKey of the first ClientHello in its state. After the handshake, `ripdpi-vless::reality_server_auth` accepts the server only when the leaf certificate is Ed25519 and its signature field equals `HMAC-SHA512(AuthKey, ed25519_public_key)`, as xray-core `VerifyPeerCertificate` does. X.509 chain validation stays off, but a TLS interceptor or the cover site fails this check before the VLESS header (UUID and destination) is sent. The optional ML-DSA-65 (`pqv`) extension check is not implemented; RIPDPI profiles do not carry that key. Known gap: when the check fails, RIPDPI closes the connection right after the handshake, while xray-core first browses the cover site to look like a browser. An active prober can notice this difference.
 
 Live interoperability validation on 2026-07-15 found and fixed four additional requirements that the frozen seal vector could not exercise:
 
