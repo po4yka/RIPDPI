@@ -12,10 +12,12 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -71,7 +73,7 @@ fun RipDpiButton(
     trailingIcon: ImageVector? = null,
     interactionSource: MutableInteractionSource? = null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
-    wrapLabel: Boolean = false,
+    wrapLabel: Boolean = true,
 ) {
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
@@ -110,7 +112,7 @@ fun RipDpiButton(
     val contentIconSize =
         when (density) {
             RipDpiControlDensity.Default -> RipDpiIconSizes.Default
-            RipDpiControlDensity.Compact -> RipDpiIconSizes.Small
+            RipDpiControlDensity.Compact -> RipDpiIconSizes.Default
         }
     val animatedContainerColor by animateColorAsState(
         targetValue = state.container,
@@ -219,7 +221,17 @@ fun RipDpiButton(
                 maxLines = if (wrapLabel) Int.MAX_VALUE else 1,
                 overflow = if (wrapLabel) TextOverflow.Clip else TextOverflow.Ellipsis,
                 textAlign = if (wrapLabel) TextAlign.Center else null,
-                modifier = (if (wrapLabel) Modifier.weight(1f) else Modifier).alpha(contentAlpha),
+                modifier =
+                    (
+                        if (wrapLabel) {
+                            Modifier.weight(
+                                1f,
+                                fill = false,
+                            )
+                        } else {
+                            Modifier
+                        }
+                    ).width(IntrinsicSize.Max).alpha(contentAlpha),
             )
 
             if (trailingIcon != null) {

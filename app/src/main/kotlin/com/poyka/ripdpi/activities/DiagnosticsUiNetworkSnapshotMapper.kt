@@ -13,7 +13,7 @@ internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
 ): DiagnosticsNetworkSnapshotUiModel? {
     val snapshot = entity.snapshot ?: return null
     return DiagnosticsNetworkSnapshotUiModel(
-        title = entity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
+        title = networkSnapshotTitle(entity.snapshotKind, context),
         subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",
         fieldGroups = networkSnapshotGroups(snapshot, showSensitiveDetails).toImmutableList(),
     )

@@ -12,6 +12,27 @@ import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
+/**
+ * Opens the client UDP socket for a SOCKS5 UDP association, bound to [localAddress] on an
+ * ephemeral port. Callers pass the local address of the SOCKS control connection, which is the
+ * interface that already reaches the relay.
+ *
+ * `DatagramSocket()` binds the wildcard address, and the JDK serves wildcard UDP sockets through a
+ * dual-stack IPv6 socket. On macOS hosts that socket silently drops about one in a hundred IPv4
+ * loopback datagrams, which made probes miss genuine relay replies. A socket bound to a concrete
+ * address does not take that path.
+ *
+ * When the relay announces a UDP endpoint in another address family than [localAddress], a
+ * socket bound to [localAddress] cannot reach it, so the socket binds the wildcard address.
+ */
+internal fun openUdpProbeSocket(
+    localAddress: InetAddress,
+    udpRelayAddress: InetAddress = localAddress,
+): DatagramSocket {
+    val bindAddress = localAddress.takeIf { it.javaClass == udpRelayAddress.javaClass }
+    return DatagramSocket(InetSocketAddress(bindAddress, 0))
+}
+
 internal fun sendDnsProbePayload(
     udp: DatagramSocket,
     udpRelay: InetSocketAddress,

@@ -24,13 +24,17 @@ object DiagnosticsDatabaseModule {
         allowDestructiveFallback: Boolean = false,
     ): DiagnosticsDatabase {
         // Use a local variable to apply migrations without triggering SpreadOperator detekt rule
-        // on a fluent chain. ALL is empty at v5 and grows only when migrations are added.
+        // on a fluent chain. Schema 4 (v0.1.0) and later migrate in place; pre-release schemas
+        // 1..3 have no migration and are recreated because their diagnostics data is disposable.
         @Suppress("SpreadOperator")
         var builder =
             Room
                 .databaseBuilder(context, DiagnosticsDatabase::class.java, name)
                 .addMigrations(*DiagnosticsDatabaseMigrations.ALL)
-                .fallbackToDestructiveMigrationOnDowngrade(true)
+                .fallbackToDestructiveMigrationFrom(
+                    true,
+                    *DiagnosticsDatabaseMigrations.DESTRUCTIVE_FROM_VERSIONS,
+                ).fallbackToDestructiveMigrationOnDowngrade(true)
         // ORDER MATTERS: fallbackToDestructiveMigrationOnDowngrade resets requireMigration=true,
         // so the destructive-upgrade opt-in must come after it.
         if (allowDestructiveFallback) builder = builder.fallbackToDestructiveMigration(true)

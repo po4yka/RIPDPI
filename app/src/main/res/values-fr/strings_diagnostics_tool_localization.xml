@@ -57,4 +57,33 @@
     <string name="history_connection_state_stopped">arrêté</string>
     <string name="history_connection_state_halted">interrompu</string>
     <string name="history_connection_state_reconnecting">reconnexion</string>
+    <string name="diagnostics_doq_ok">DoQ réussi</string>
+    <string name="diagnostics_doq_timeout">Délai DoQ dépassé</string>
+    <string name="diagnostics_doq_blocked_quic">QUIC bloqué pour DoQ</string>
+    <string name="diagnostics_doq_dpi_reject">DoQ rejeté par DPI</string>
+    <string name="diagnostics_doq_integrity_divergent">Réponses DoQ divergentes</string>
+    <string name="diagnostics_bootstrap_ok">réussi</string>
+    <string name="diagnostics_bootstrap_spoofed">falsifié</string>
+    <string name="diagnostics_bootstrap_resolve_failed">Échec de résolution</string>
+    <string name="diagnostics_byoh_partial_body">Corps incomplet</string>
+    <string name="diagnostics_byoh_connection_error">Erreur de connexion</string>
+    <string name="diagnostics_byoh_invalid_response">Réponse non valide</string>
+    <string name="diagnostics_byoh_bytes_received">%1$s B reçus</string>
+    <string name="diagnostics_sni_metric_asns">ASN</string>
+    <string name="diagnostics_sni_metric_tried">testés</string>
+    <string name="diagnostics_sni_row_tried">%1$s · %2$s · testés : %3$s</string>
+    <string name="diagnostics_snapshot_pre_scan">Avant l’analyse</string>
+    <string name="diagnostics_snapshot_post_scan">Après l’analyse</string>
+    <string name="diagnostics_snapshot_connection_sample">Échantillon de connexion</string>
+    <string name="diagnostics_snapshot_failure">Échec</string>
+    <plurals name="diagnostics_sni_complete">
+        <item quantity="one">%1$d entrée SNI compatible trouvée dans %2$d ASN.</item>
+        <item quantity="many">%1$d entrées SNI compatibles trouvées dans %2$d ASN.</item>
+        <item quantity="other">%1$d entrées SNI compatibles trouvées dans %2$d ASN.</item>
+    </plurals>
+    <plurals name="diagnostics_sni_row_compatible">
+        <item quantity="one">%1$s : %2$d compatible</item>
+        <item quantity="many">%1$s : %2$d compatibles</item>
+        <item quantity="other">%1$s : %2$d compatibles</item>
+    </plurals>
 </resources>

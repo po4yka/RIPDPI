@@ -24,6 +24,7 @@ mod icmp;
 mod masque;
 mod masque_h3;
 mod naive;
+mod reality_server;
 mod shadowsocks;
 mod socks;
 mod socks_udp;
@@ -51,6 +52,7 @@ pub use self::types::*;
 pub use self::{
     hysteria2::*,
     masque_h3::{MasqueH3ClassicConnectFixture, MasqueH3ConnectUdpFixture, MasqueH3ObservedRequest},
+    reality_server::reality_fixture_public_key,
     tuic::*,
     vless::*,
     webtunnel::*,

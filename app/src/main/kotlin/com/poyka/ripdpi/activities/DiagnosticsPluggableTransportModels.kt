@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import kotlinx.collections.immutable.ImmutableList
@@ -19,13 +20,16 @@ data class DiagnosticsPluggableTransportRowUiModel(
     val verdict: String,
     val detail: String,
     val tone: DiagnosticsTone,
+    @param:StringRes val verdictResId: Int? = null,
+    @param:StringRes val detailResId: Int? = null,
 )
 
 @Stable
 data class DiagnosticsPluggableTransportToolUiModel(
     val state: DiagnosticsPluggableTransportState = DiagnosticsPluggableTransportState.Idle,
-    val summary: String = "Check public PT endpoint reachability for obfs4, Snowflake, and meek.",
+    val summary: String = "",
     val rows: ImmutableList<DiagnosticsPluggableTransportRowUiModel> = persistentListOf(),
     val errorMessage: String? = null,
     val privacyModeEnabled: Boolean = false,
+    @param:StringRes val summaryResId: Int? = null,
 )

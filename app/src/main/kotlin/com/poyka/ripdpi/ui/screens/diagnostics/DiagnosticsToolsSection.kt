@@ -3,7 +3,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -458,7 +458,10 @@ private fun ApproachModeCard(
             style = RipDpiThemeTokens.type.sectionTitle,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
             ApproachModeChip(
                 text = stringResource(R.string.diagnostics_approaches_profiles),
                 mode = DiagnosticsApproachMode.Profiles,

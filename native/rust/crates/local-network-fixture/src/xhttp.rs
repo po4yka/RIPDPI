@@ -6,9 +6,10 @@
 //! `ripdpi-xhttp` client (driven through the `ripdpi-relay-core` VLESS-Reality
 //! xHTTP backend) can complete a tunnel end to end on loopback:
 //!
-//! 1. boring `SslAcceptor` Reality TLS handshake (self-signed cover cert, auth
-//!    disabled — same rationale as [`crate::VlessRealityLoopback`]; a strict
-//!    rustls server rejects the uTLS REALITY ClientHello with `DECODE_ERROR`);
+//! 1. boring `SslAcceptor` Reality TLS handshake with a REALITY-authenticated
+//!    temporary certificate (see [`crate::reality_server`]; clients must use
+//!    [`crate::reality_fixture_public_key`]); a strict rustls server rejects the
+//!    uTLS REALITY ClientHello with `DECODE_ERROR`;
 //! 2. an HTTP/2 server (the xHTTP transport is H2 with prior knowledge);
 //! 3. the xray-core **stream-up** wire shape — a `GET /<path>/<sid>` whose
 //!    response body is the download channel, plus a `POST /<path>/<sid>` whose
@@ -145,6 +146,7 @@ fn build_acceptor() -> io::Result<SslAcceptor> {
         SslAcceptor::mozilla_intermediate(SslMethod::tls()).map_err(|error| io::Error::other(error.to_string()))?;
     acceptor.set_certificate(&cert).map_err(|error| io::Error::other(error.to_string()))?;
     acceptor.set_private_key(&key).map_err(|error| io::Error::other(error.to_string()))?;
+    crate::reality_server::install_reality_server_auth(&mut acceptor)?;
     acceptor.set_verify(SslVerifyMode::NONE);
     Ok(acceptor.build())
 }

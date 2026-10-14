@@ -181,11 +181,12 @@ a slot. Compilation or tests triggered by an inspection command still need the g
 
 ### Device / emulator work is single-lane
 
-`:app:ciDevicesGroupGithubFullDebugAndroidTest` managed devices and
-`scripts/ci/run-android-journeys-emulator.sh` share one AVD and one adb
-server. Run instrumented tests and journeys as a **serialised, single
-lane** (or give each agent its own AVD/serial) — parallel runs collide
-on the device. Host-side Rust/proxy tests bind ephemeral `:0` ports to avoid
+Run instrumented tests and journeys as a **serialised, single lane** on each
+device. For local emulators, use the [command-scoped AVD pool](android-emulator-pool.md).
+Each concurrent command needs a free compatible slot and an exclusive lease;
+the default pool has two slots across all worktrees. Use the exported
+`ANDROID_SERIAL` for device operations. Gradle managed-device tests retain
+their own serialized lane. Host-side Rust/proxy tests bind ephemeral `:0` ports to avoid
 network-port collisions; their compiler-backed commands still acquire the
 machine-wide build gate.
 

@@ -85,7 +85,7 @@ data class RipDpiInputMetrics(
     val chipFocusedHorizontalPaddingOffset: Dp = 4.dp,
     val chipVerticalPadding: Dp = 6.dp,
     val chipFocusedVerticalPaddingOffset: Dp = 2.dp,
-    val chipIconSize: Dp = 14.dp,
+    val chipIconSize: Dp = 18.dp,
     val chipHeight: Dp = 64.dp,
     val switchWidth: Dp = 52.dp,
     val switchHeight: Dp = 48.dp,
@@ -161,7 +161,7 @@ data class RipDpiIndicatorMetrics(
 @Immutable
 data class RipDpiFeedbackMetrics(
     val dialogIconSize: Dp = 40.dp,
-    val decorativeBadgeSize: Dp = 28.dp,
+    val decorativeBadgeSize: Dp = 40.dp,
 )
 
 @Immutable

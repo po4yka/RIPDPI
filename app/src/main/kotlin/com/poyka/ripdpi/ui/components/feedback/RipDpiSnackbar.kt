@@ -3,6 +3,8 @@ package com.poyka.ripdpi.ui.components.feedback
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,21 +24,26 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
-import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private const val SnackbarLargeFontScale = 1.5f
+private const val SnackbarMaximumActionWidthDivisor = 3
 
 enum class RipDpiSnackbarTone {
     Default,
@@ -74,44 +81,61 @@ fun RipDpiSnackbar(
         border = palette.border?.let { BorderStroke(RipDpiStroke.Thin, it) },
         shadowElevation = palette.shadowElevation,
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .defaultMinSize(minHeight = components.inputs.controlHeight)
-                    .padding(horizontal = spacing.lg, vertical = spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.lg, vertical = spacing.md),
         ) {
-            icon?.let {
-                Icon(
-                    imageVector = it,
-                    contentDescription = null,
-                    tint = palette.icon,
-                    modifier = Modifier.size(RipDpiIconSizes.Default),
-                )
+            val density = LocalDensity.current
+            val actionWidth =
+                rememberTextMeasurer()
+                    .measure(
+                        AnnotatedString(actionLabel.orEmpty()),
+                        style = type.button,
+                        softWrap = false,
+                    ).size.width
+            val actionOnNewLine =
+                density.fontScale >= SnackbarLargeFontScale ||
+                    with(density) { actionWidth.toDp() } + spacing.md * 2 > maxWidth / SnackbarMaximumActionWidthDivisor
+            val action: @Composable () -> Unit = {
+                if (actionLabel != null && onAction != null) {
+                    RipDpiTextAction(
+                        text = actionLabel,
+                        onClick = onAction,
+                        color = palette.action,
+                        textStyle = type.button,
+                        minHeight = components.buttons.minHeight,
+                        hapticFeedback = snackbarActionHapticFeedback(tone),
+                        modifier =
+                            Modifier
+                                .ripDpiTestTag(actionTestTag)
+                                .padding(horizontal = spacing.md, vertical = spacing.sm),
+                    )
+                }
             }
-
-            Text(
-                text = message,
-                modifier = Modifier.weight(1f),
-                style = type.body,
-                color = palette.content,
-            )
-
-            if (actionLabel != null && onAction != null) {
-                Text(
-                    text = actionLabel,
-                    style = type.smallLabel,
-                    color = palette.action,
-                    modifier =
-                        Modifier
-                            .ripDpiClickable(
-                                role = Role.Button,
-                                hapticFeedback = snackbarActionHapticFeedback(tone),
-                                onClick = onAction,
-                            ).ripDpiTestTag(actionTestTag),
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = components.inputs.controlHeight),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    icon?.let {
+                        Icon(
+                            imageVector = it,
+                            contentDescription = null,
+                            tint = palette.icon,
+                            modifier = Modifier.size(RipDpiIconSizes.Default),
+                        )
+                    }
+                    Text(
+                        text = message,
+                        modifier = Modifier.weight(1f),
+                        style = type.body,
+                        color = palette.content,
+                    )
+                    if (!actionOnNewLine) action()
+                }
+                if (actionOnNewLine) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) { action() }
+                }
             }
         }
     }

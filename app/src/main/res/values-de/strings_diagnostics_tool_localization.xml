@@ -57,4 +57,31 @@
     <string name="history_connection_state_stopped">gestoppt</string>
     <string name="history_connection_state_halted">angehalten</string>
     <string name="history_connection_state_reconnecting">erneute Verbindung</string>
+    <string name="diagnostics_doq_ok">DoQ erfolgreich</string>
+    <string name="diagnostics_doq_timeout">DoQ-Zeitüberschreitung</string>
+    <string name="diagnostics_doq_blocked_quic">QUIC für DoQ blockiert</string>
+    <string name="diagnostics_doq_dpi_reject">DoQ durch DPI abgelehnt</string>
+    <string name="diagnostics_doq_integrity_divergent">Abweichende DoQ-Antworten</string>
+    <string name="diagnostics_bootstrap_ok">erfolgreich</string>
+    <string name="diagnostics_bootstrap_spoofed">gefälscht</string>
+    <string name="diagnostics_bootstrap_resolve_failed">Namensauflösung fehlgeschlagen</string>
+    <string name="diagnostics_byoh_partial_body">Unvollständiger Antwortinhalt</string>
+    <string name="diagnostics_byoh_connection_error">Verbindungsfehler</string>
+    <string name="diagnostics_byoh_invalid_response">Ungültige Antwort</string>
+    <string name="diagnostics_byoh_bytes_received">%1$s B empfangen</string>
+    <string name="diagnostics_sni_metric_asns">ASNs</string>
+    <string name="diagnostics_sni_metric_tried">geprüft</string>
+    <string name="diagnostics_sni_row_tried">%1$s · %2$s · geprüft: %3$s</string>
+    <string name="diagnostics_snapshot_pre_scan">Vor dem Scan</string>
+    <string name="diagnostics_snapshot_post_scan">Nach dem Scan</string>
+    <string name="diagnostics_snapshot_connection_sample">Verbindungsprobe</string>
+    <string name="diagnostics_snapshot_failure">Fehler</string>
+    <plurals name="diagnostics_sni_complete">
+        <item quantity="one">%1$d kompatibler SNI-Eintrag in %2$d ASNs gefunden.</item>
+        <item quantity="other">%1$d kompatible SNI-Einträge in %2$d ASNs gefunden.</item>
+    </plurals>
+    <plurals name="diagnostics_sni_row_compatible">
+        <item quantity="one">%1$s: %2$d kompatibel</item>
+        <item quantity="other">%1$s: %2$d kompatibel</item>
+    </plurals>
 </resources>
