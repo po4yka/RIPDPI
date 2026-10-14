@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
@@ -11,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
@@ -993,7 +995,7 @@ internal data class SelectionState(
     val selectedProfileId: String? = null,
     val selectiveMatrixHostsInput: String = "",
     val selectedApproachMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
-    val selectedApproachDetail: DiagnosticsApproachDetailUiModel? = null,
+    val selectedApproachDetail: BypassApproachDetail? = null,
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,
     val selectedEventId: String? = null,
     val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
@@ -1010,7 +1012,7 @@ internal data class FilterState(
 )
 
 internal data class SessionDetailState(
-    val selectedSessionDetail: DiagnosticsSessionDetailUiModel? = null,
+    val selectedSessionDetail: DiagnosticSessionDetail? = null,
     val sensitiveSessionDetailsVisible: Boolean = false,
 )
 

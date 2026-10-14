@@ -62,9 +62,9 @@ class HistoryRouteTest {
             historyUiStateFactory =
                 HistoryUiStateFactory(
                     coreSupport = coreSupport,
+                    diagnosticsSessionDetailUiMapper = testHistorySessionDetailUiMapper(coreSupport),
                     connectionDetailUiFactory =
                         HistoryConnectionDetailUiFactory(
-                            context = ApplicationProvider.getApplicationContext(),
                             stringResolver =
                                 AndroidStringResolver(
                                     ApplicationProvider.getApplicationContext(),

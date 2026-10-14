@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -34,6 +36,10 @@ fun SubscriptionFailoverRoute(
     modifier: Modifier = Modifier,
     viewModel: SubscriptionFailoverViewModel = hiltViewModel(),
 ) {
+    val localeTags = LocalConfiguration.current.locales.toLanguageTags()
+    LaunchedEffect(viewModel, localeTags) {
+        viewModel.onLocaleChanged(localeTags)
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     SubscriptionFailoverScreen(
         uiState = uiState,

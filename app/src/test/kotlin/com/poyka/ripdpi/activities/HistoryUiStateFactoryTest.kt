@@ -18,9 +18,9 @@ class HistoryUiStateFactoryTest {
     private val factory =
         HistoryUiStateFactory(
             coreSupport = testDiagnosticsUiCoreSupport(),
+            diagnosticsSessionDetailUiMapper = testHistorySessionDetailUiMapper(),
             connectionDetailUiFactory =
                 HistoryConnectionDetailUiFactory(
-                    context = ApplicationProvider.getApplicationContext(),
                     stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
                     coreSupport = testDiagnosticsUiCoreSupport(),
                 ),
@@ -72,8 +72,8 @@ class HistoryUiStateFactoryTest {
                     ),
                 detailState =
                     HistoryDetailState(
-                        selectedConnectionDetail = historyConnectionDetailUi("connection-1"),
-                        selectedDiagnosticsDetail = historyDiagnosticsDetailUi("scan-1"),
+                        selectedConnectionDetail = historyConnectionDetail("connection-1"),
+                        selectedDiagnosticsDetail = historyDiagnosticsDetail("scan-1"),
                         selectedEventId = "event-2",
                     ),
             )
@@ -110,9 +110,9 @@ class HistoryUiStateFactoryTest {
         val localizedFactory =
             HistoryUiStateFactory(
                 coreSupport = localizedCore,
+                diagnosticsSessionDetailUiMapper = testHistorySessionDetailUiMapper(localizedCore, context),
                 connectionDetailUiFactory =
                     HistoryConnectionDetailUiFactory(
-                        context = context,
                         stringResolver = strings,
                         coreSupport = localizedCore,
                     ),

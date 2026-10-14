@@ -50,6 +50,7 @@ class DiagnosticsViewModel
         private val filterState = MutableStateFlow(FilterState())
         private val sessionDetailState = MutableStateFlow(SessionDetailState())
         private val scanLifecycleState = MutableStateFlow(ScanLifecycleState())
+        private val localeState = MutableStateFlow("")
         private val _effects =
             MutableSharedFlow<DiagnosticsEffect>(
                 extraBufferCapacity = 1,
@@ -129,6 +130,7 @@ class DiagnosticsViewModel
                 filterState = filterState,
                 sessionDetailState = sessionDetailState,
                 scanLifecycleState = scanLifecycleState,
+                localeState = localeState,
             )
 
         val uiState: StateFlow<DiagnosticsUiState> = uiStates.full
@@ -205,6 +207,10 @@ class DiagnosticsViewModel
             )
 
         private val shareActions = DiagnosticsShareActions(mutations)
+
+        fun onLocaleChanged(localeTags: String) {
+            localeState.value = localeTags
+        }
 
         fun initialize() {
             if (initialized) {
@@ -367,9 +373,3 @@ class DiagnosticsViewModel
 
         fun shareRemoteDeviceAcceptance() = remoteDeviceAcceptance.share(_effects::tryEmit)
     }
-
-private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =
-    listOf(
-        metrics.firstOrNull { it.label.contains("confidence", ignoreCase = true) }?.value ?: status,
-        startedAtLabel,
-    ).joinToString(" · ")

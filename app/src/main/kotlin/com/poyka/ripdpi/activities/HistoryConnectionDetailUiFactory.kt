@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
@@ -12,7 +11,6 @@ import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.platform.StringResolver
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -22,7 +20,6 @@ import javax.inject.Inject
 internal class HistoryConnectionDetailUiFactory
     @Inject
     constructor(
-        @param:ApplicationContext private val context: Context,
         private val stringResolver: StringResolver,
         private val coreSupport: DiagnosticsUiCoreSupport,
     ) {
@@ -60,7 +57,7 @@ internal class HistoryConnectionDetailUiFactory
                 summary = summary,
                 rememberedPolicyBadge =
                     session.rememberedPolicyAudit?.let {
-                        context.getString(R.string.history_connection_remembered_policy_badge)
+                        stringResolver.getString(R.string.history_connection_remembered_policy_badge)
                     },
                 metrics =
                     persistentListOf(
@@ -259,7 +256,7 @@ internal class HistoryConnectionDetailUiFactory
         private fun DiagnosticContextModel.toContextGroups(): List<DiagnosticsContextGroupUiModel> =
             listOf(
                 DiagnosticsContextGroupUiModel(
-                    title = context.getString(R.string.history_detail_section_service),
+                    title = stringResolver.getString(R.string.history_detail_section_service),
                     fields =
                         listOf(
                             field(R.string.diagnostics_field_status, service.serviceStatus),
@@ -272,7 +269,7 @@ internal class HistoryConnectionDetailUiFactory
                         ).toImmutableList(),
                 ),
                 DiagnosticsContextGroupUiModel(
-                    title = context.getString(R.string.history_detail_section_environment),
+                    title = stringResolver.getString(R.string.history_detail_section_environment),
                     fields =
                         listOf(
                             field(R.string.diagnostics_field_vpn_permission, permissions.vpnPermissionState),
@@ -291,7 +288,7 @@ internal class HistoryConnectionDetailUiFactory
                         ).toImmutableList(),
                 ),
                 DiagnosticsContextGroupUiModel(
-                    title = context.getString(R.string.history_detail_section_device),
+                    title = stringResolver.getString(R.string.history_detail_section_device),
                     fields =
                         listOf(
                             field(R.string.diagnostics_field_app, device.appVersionName),
@@ -351,7 +348,7 @@ internal class HistoryConnectionDetailUiFactory
                 }
             return fields.takeIf { it.isNotEmpty() }?.let {
                 DiagnosticsContextGroupUiModel(
-                    title = context.getString(R.string.history_detail_section_field_telemetry),
+                    title = stringResolver.getString(R.string.history_detail_section_field_telemetry),
                     fields = it.toImmutableList(),
                 )
             }
@@ -363,41 +360,41 @@ internal class HistoryConnectionDetailUiFactory
                 buildList {
                     add(
                         DiagnosticsFieldUiModel(
-                            context.getString(R.string.history_connection_remembered_policy_source),
+                            stringResolver.getString(R.string.history_connection_remembered_policy_source),
                             audit.source.displaySourceLabel(stringResolver),
                         ),
                     )
                     if (audit.appliedByExactMatch) {
                         add(
                             DiagnosticsFieldUiModel(
-                                context.getString(R.string.history_connection_remembered_policy_reason),
-                                context.getString(R.string.history_connection_remembered_policy_exact_match),
+                                stringResolver.getString(R.string.history_connection_remembered_policy_reason),
+                                stringResolver.getString(R.string.history_connection_remembered_policy_exact_match),
                             ),
                         )
                     }
                     audit.matchedFingerprintHash.shortFingerprintHash()?.let { fingerprint ->
                         add(
                             DiagnosticsFieldUiModel(
-                                context.getString(R.string.history_connection_remembered_policy_fingerprint),
+                                stringResolver.getString(R.string.history_connection_remembered_policy_fingerprint),
                                 fingerprint,
                             ),
                         )
                     }
                     add(
                         DiagnosticsFieldUiModel(
-                            context.getString(R.string.history_connection_remembered_policy_previous_successes),
+                            stringResolver.getString(R.string.history_connection_remembered_policy_previous_successes),
                             audit.previousSuccessCount.toString(),
                         ),
                     )
                     add(
                         DiagnosticsFieldUiModel(
-                            context.getString(R.string.history_connection_remembered_policy_previous_failures),
+                            stringResolver.getString(R.string.history_connection_remembered_policy_previous_failures),
                             audit.previousFailureCount.toString(),
                         ),
                     )
                     add(
                         DiagnosticsFieldUiModel(
-                            context.getString(
+                            stringResolver.getString(
                                 R.string.history_connection_remembered_policy_previous_consecutive_failures,
                             ),
                             audit.previousConsecutiveFailureCount.toString(),
@@ -405,7 +402,7 @@ internal class HistoryConnectionDetailUiFactory
                     )
                 }
             return DiagnosticsContextGroupUiModel(
-                title = context.getString(R.string.history_connection_remembered_policy_section),
+                title = stringResolver.getString(R.string.history_connection_remembered_policy_section),
                 fields = fields.toImmutableList(),
             )
         }

@@ -21,7 +21,7 @@ Structural revalidation date: **2026-07-14**. `app/src/main/res/values/strings.x
 | Arabic (ar) | `values-ar/` | 4063 | 0 | **machine-translated** | **yes** | Nikita Pochaev (maintainer, structural review) | 2026-05-31 |
 | Simplified Chinese (zh-CN) | `values-zh-rCN/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Hindi (hi) | `values-hi/` (all XML files) | 4948 | 0 | **machine-translated; audited corrections** | **yes** | Native-speaker review pending | — |
-| Brazilian Portuguese (pt-BR) | `values-pt-rBR/` (`strings.xml` + topical files mirroring the source split) | 4129 | 0 | **machine-translated** | **yes** | Native-speaker review pending | — |
+| Brazilian Portuguese (pt-BR) | `values-pt-rBR/` (all app and service XML files) | 5027 | 0 | **machine-translated; AI-authored audited corrections** | **yes** | Native-speaker review pending for this update | — |
 
 Structural revalidation for `pt-BR` (2026-08-25): source grew since the 2026-07-14 pass; the current source set is 4,129 unique translated keys across `app` (4,112 translatable `<string>` entries plus 16 `<plurals>` in `values/strings.xml`, plus 67 keys across the actuator/home-diagnostics/initial-states/fallbacks/archive-disclosure topical files), with `core/service` contributing 4 more. The pt-BR locale was generated against this exact tree and passes `scripts/ci/check-locale-parity.sh` with 0 missing keys.
 
@@ -219,6 +219,42 @@ all ten locales. The owning OpenSpec verification artifact records Kotlin,
 render, lint, combined-tree and hosted CI evidence separately.
 
 Corrections and new captions were authored with an AI assistant. This entry
+records no new maintainer or native-speaker sign-off. Resource tests do not
+prove device acceptance or full linguistic correctness of the other locales.
+
+## Brazilian Portuguese audit corrections (2026-10-14)
+
+The source baseline is `af004adb89dbf443be8f190a3cead0e275026b24`.
+This pass corrects 14 active Brazilian Portuguese resource keys from the audit.
+The corrections distinguish cache misses from DNS errors, describe the Noise
+prelude length, use the visible fake-ordering options, keep the geosite `full:`
+type, name Android DNS particular, identify initial setup checks, restore the
+Resume now action, distinguish retries from all attempts, and use the Quick
+Connect product name in the connected tile.
+
+Two related Brazilian Portuguese captions also use DNS particular for
+consistency with the three audited Android-setting captions. These two
+supporting changes are separate from the 14 confirmed findings.
+
+The Noise help also corrects an ambiguous English source. It now states that
+a prelude contains random bytes, is sent once before the real payload, and
+has a length chosen from the configured range. This existing key changes in
+all ten locales; the nine non-Portuguese changes are separate from the 14
+Brazilian Portuguese keys. The native encoder and raw configuration do not
+change. No resource keys are added or removed.
+
+The app has 5,016 translatable entries (4,992 strings and 24 plurals); service
+has 11 entries, for 5,027 entries across both modules. Quick Connect has 15
+separate strings. The source string manifest remains at 5,002 keys. The glossary
+now lists all ten locales and their nine translated resource directories.
+
+The resource regressions check the audited meanings and action references.
+Separate RED and GREEN cycles reproduce each corrected behavior. Resource
+contracts check key types, format arguments and native language names across
+all ten locales. The owning OpenSpec verification artifact records resource,
+Kotlin, render, lint and hosted CI evidence separately.
+
+Corrections and translations were authored with an AI assistant. This entry
 records no new maintainer or native-speaker sign-off. Resource tests do not
 prove device acceptance or full linguistic correctness of the other locales.
 

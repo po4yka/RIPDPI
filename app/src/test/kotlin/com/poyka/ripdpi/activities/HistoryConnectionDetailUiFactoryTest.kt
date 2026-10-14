@@ -22,7 +22,6 @@ class HistoryConnectionDetailUiFactoryTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     private val factory =
         HistoryConnectionDetailUiFactory(
-            context = ApplicationProvider.getApplicationContext(),
             stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
             coreSupport = testDiagnosticsUiCoreSupport(),
         )
@@ -82,7 +81,6 @@ class HistoryConnectionDetailUiFactoryTest {
             )
         val strings = AndroidStringResolver(localizedContext)
         return HistoryConnectionDetailUiFactory(
-            localizedContext,
             strings,
             DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()), strings),
         )
@@ -94,7 +92,6 @@ class HistoryConnectionDetailUiFactoryTest {
         val strings = AndroidStringResolver(context)
         val realFactory =
             HistoryConnectionDetailUiFactory(
-                context = context,
                 stringResolver = strings,
                 coreSupport =
                     DiagnosticsUiCoreSupport(
@@ -141,7 +138,6 @@ class HistoryConnectionDetailUiFactoryTest {
         val strings = AndroidStringResolver(context)
         val realFactory =
             HistoryConnectionDetailUiFactory(
-                context = context,
                 stringResolver = strings,
                 coreSupport =
                     DiagnosticsUiCoreSupport(

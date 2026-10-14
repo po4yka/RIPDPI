@@ -22,13 +22,13 @@ class HistoryViewModelTest {
     private val coreSupport = testDiagnosticsUiCoreSupport()
     private val connectionDetailUiFactory =
         HistoryConnectionDetailUiFactory(
-            context = ApplicationProvider.getApplicationContext(),
             stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
             coreSupport = coreSupport,
         )
     private val uiStateFactory =
         HistoryUiStateFactory(
             coreSupport = coreSupport,
+            diagnosticsSessionDetailUiMapper = testHistorySessionDetailUiMapper(coreSupport),
             connectionDetailUiFactory = connectionDetailUiFactory,
         )
 
@@ -92,8 +92,8 @@ class HistoryViewModelTest {
                 }
             val detailLoader =
                 FakeHistoryDetailLoader().apply {
-                    connectionDetails["connection-1"] = historyConnectionDetailUi("connection-1")
-                    diagnosticsDetails["scan-1"] = historyDiagnosticsDetailUi("scan-1")
+                    connectionDetails["connection-1"] = historyConnectionDetail("connection-1")
+                    diagnosticsDetails["scan-1"] = historyDiagnosticsDetail("scan-1")
                 }
             val viewModel =
                 HistoryViewModel(

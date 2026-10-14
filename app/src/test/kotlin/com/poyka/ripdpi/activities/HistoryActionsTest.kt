@@ -20,7 +20,7 @@ class HistoryActionsTest {
                     scope = this,
                     connectionFilters = filters,
                     detailState = details,
-                    loadConnectionDetail = { historyConnectionDetailUi(it) },
+                    loadConnectionDetail = { historyConnectionDetail(it) },
                 )
 
             actions.setModeFilter("VPN")
@@ -54,7 +54,7 @@ class HistoryActionsTest {
                     scope = this,
                     diagnosticsFilters = filters,
                     detailState = details,
-                    loadSessionDetail = { historyDiagnosticsDetailUi(it) },
+                    loadSessionDetail = { historyDiagnosticsDetail(it) },
                 )
 
             actions.setPathModeFilter("RAW_PATH")

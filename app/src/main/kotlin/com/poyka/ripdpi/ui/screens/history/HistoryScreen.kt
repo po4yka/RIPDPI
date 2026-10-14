@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -44,6 +45,10 @@ fun HistoryRoute(
     modifier: Modifier = Modifier,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
+    val localeTags = LocalConfiguration.current.locales.toLanguageTags()
+    LaunchedEffect(viewModel, localeTags) {
+        viewModel.onLocaleChanged(localeTags)
+    }
     LaunchedEffect(viewModel) {
         viewModel.initialize()
     }

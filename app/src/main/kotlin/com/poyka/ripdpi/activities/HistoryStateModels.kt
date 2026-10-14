@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 
 internal data class HistoryConnectionFilterState(
     val modeFilter: String? = null,
@@ -24,8 +26,8 @@ internal data class HistoryEventFilterState(
 )
 
 internal data class HistoryDetailState(
-    val selectedConnectionDetail: HistoryConnectionDetailUiModel? = null,
-    val selectedDiagnosticsDetail: DiagnosticsSessionDetailUiModel? = null,
+    val selectedConnectionDetail: DiagnosticConnectionDetail? = null,
+    val selectedDiagnosticsDetail: DiagnosticSessionDetail? = null,
     val selectedEventId: String? = null,
 )
 

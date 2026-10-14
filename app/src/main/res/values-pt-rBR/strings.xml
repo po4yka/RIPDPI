@@ -74,7 +74,7 @@
     <string name="connection_health_dns_hit_rate_format">%1$d%% de taxa de acertos do cache</string>
     <string name="connection_health_dns_queries">Consultas</string>
     <string name="connection_health_dns_cache_hits">Acertos de cache</string>
-    <string name="connection_health_dns_cache_misses">Erros de cache</string>
+    <string name="connection_health_dns_cache_misses">Ausências no cache</string>
     <string name="connection_health_dns_failures">Falhas</string>
     <string name="connection_health_home_title">Saúde da conexão</string>
     <string name="connection_health_home_subtitle">Veja o sucesso por estratégia e classe de destino.</string>
@@ -350,7 +350,7 @@
     <string name="diagnostics_recent_activity_section">Atividade recente</string>
     <string name="diagnostics_remembered_networks_section">Redes memorizadas</string>
     <string name="diagnostics_attention_section">Lista de atenção</string>
-    <string name="diagnostics_probe_retry_count_label">Tentativas</string>
+    <string name="diagnostics_probe_retry_count_label">Novas tentativas</string>
     <string name="diagnostics_results_section">Resultados mais recentes das sondagens</string>
     <string name="diagnostics_trends_section">Tendências recentes</string>
     <string name="diagnostics_context_section">Contexto</string>
@@ -717,7 +717,7 @@
     <string name="config_relay_finalmask_fragment">Fragmento</string>
     <string name="config_relay_finalmask_fragment_help">Divide cada escrita de payload no número configurado de frames TCP quando o tamanho couber no intervalo de bytes.</string>
     <string name="config_relay_finalmask_noise">Ruído</string>
-    <string name="config_relay_finalmask_noise_help">Envia um prelúdio de um byte aleatório do intervalo configurado antes do payload real.</string>
+    <string name="config_relay_finalmask_noise_help">Envia uma única vez, antes do payload real, um prelúdio de bytes aleatórios cujo tamanho é escolhido no intervalo configurado.</string>
     <string name="config_relay_xhttp_path">Caminho do xHTTP</string>
     <string name="config_relay_xhttp_host">Substituição do host xHTTP</string>
     <string name="config_relay_xhttp_mode">Modo xHTTP</string>
@@ -879,7 +879,7 @@
     <string name="remembered_networks_empty_body">Políticas validadas aparecem aqui assim que o app aprende uma estratégia funcional para uma rede.</string>
     <string name="remembered_networks_scope_label">Escopo %1$s</string>
     <string name="remembered_networks_dns_servers">%1$d servidores DNS</string>
-    <string name="remembered_networks_private_dns_label">DNS privado: %1$s</string>
+    <string name="remembered_networks_private_dns_label">DNS particular: %1$s</string>
     <string name="remembered_networks_strategy_label">Estratégia: %1$s</string>
     <string name="remembered_networks_outcomes">%1$d ok · %2$d falhas</string>
     <string name="remembered_networks_updated">Atualizado em %1$s</string>
@@ -1545,9 +1545,9 @@ fakeddisorder endhost</string>
     <string name="dns_save_in_progress">As configurações de DNS estão sendo salvas. Tente novamente.</string>
     <string name="dns_proxy_banner_body">O modo Proxy não altera o DNS do dispositivo. O DNS criptografado resolve nomes tratados pelo proxy local; o modo VPN pode interceptar o DNS do dispositivo com um resolvedor compatível.</string>
     <string name="dns_private_dns_info_title">O RIPDPI cuida do DNS por conta própria</string>
-    <string name="dns_private_dns_info_body">O RIPDPI resolve o DNS por meio do próprio interceptor dentro da VPN. A configuração Private DNS do sistema Android não muda como os nomes são resolvidos enquanto a VPN está ativa.</string>
-    <string name="dns_private_dns_warning_title">O Private DNS do sistema está ativado</string>
-    <string name="dns_private_dns_warning_body">O Private DNS do Android está configurado para esta rede. O RIPDPI ainda usa o próprio resolvedor, então a configuração do sistema mostrada em outros lugares pode não corresponder ao que a VPN realmente faz. Nenhuma ação é necessária.</string>
+    <string name="dns_private_dns_info_body">O RIPDPI resolve o DNS por meio do próprio interceptor dentro da VPN. A configuração de DNS particular do sistema Android não muda como os nomes são resolvidos enquanto a VPN está ativa.</string>
+    <string name="dns_private_dns_warning_title">O DNS particular do sistema está ativado</string>
+    <string name="dns_private_dns_warning_body">O DNS particular do Android está configurado para esta rede. O RIPDPI ainda usa o próprio resolvedor, então a configuração do sistema mostrada em outros lugares pode não corresponder ao que a VPN realmente faz. Nenhuma ação é necessária.</string>
     <string name="dns_ipv6_helper">Permite que o construtor da VPN local inclua roteamento de DNS IPv6 quando a rede selecionada oferece suporte.</string>
     <string name="protocol_ipv6_title">IPv6</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
@@ -1967,7 +1967,7 @@ Fonte: %2$s</string>
     <string name="host_pack_badge_bundled">Incluído</string>
     <string name="host_pack_badge_checksum_verified">SHA-256 verificado</string>
     <string name="host_pack_badge_offline_snapshot">Snapshot offline</string>
-    <string name="host_pack_semantics_note">Os filtros de hosts do RIPDPI fazem correspondência por sufixo. As entradas geosite convertidas para o formato completo, portanto, aplicam-se ao host exato e aos subdomínios dele.</string>
+    <string name="host_pack_semantics_note">Os filtros de hosts do RIPDPI fazem correspondência por sufixo. Por isso, as entradas geosite do tipo full: convertidas aplicam-se ao host exato e aos subdomínios dele.</string>
     <string name="host_pack_apply_dialog_title">Aplicar pacote %1$s</string>
     <string name="host_pack_apply_dialog_message">Escolha para onde esta lista de hosts curada deve ir. Apenas o campo de texto selecionado muda.</string>
     <string name="host_pack_apply_summary">%1$d hosts · %2$s</string>
@@ -2282,7 +2282,7 @@ Fonte: %2$s</string>
     <string name="diagnostics_section_device">Dispositivo</string>
 
     <string name="diagnostics_field_capabilities">Recursos</string>
-    <string name="diagnostics_field_private_dns">DNS privado</string>
+    <string name="diagnostics_field_private_dns">DNS particular</string>
     <string name="diagnostics_field_local">Local</string>
     <string name="diagnostics_field_public_ip">IP público</string>
     <string name="diagnostics_field_asn">ASN</string>
@@ -2582,7 +2582,7 @@ Fonte: %2$s</string>
     <string name="detection_resistance_summary_quic_low_port">Vincular portas de origem baixas</string>
     <string name="detection_resistance_summary_off">Desligado</string>
     <string name="detection_resistance_tls_fingerprint_title">Perfil de fingerprint TLS</string>
-    <string name="detection_resistance_tls_fingerprint_body">Aplica-se às conexões HTTPS e TLS originadas pelo próprio app, incluindo provisionamento, atualização de catálogo, verificações de integração, consultas de metadados de diagnóstico e o navegador RIPDPI integrado. É necessário Android 17 ou mais recente para o ECH de plataforma nesse caminho do navegador de pilha própria.</string>
+    <string name="detection_resistance_tls_fingerprint_body">Aplica-se às conexões HTTPS e TLS originadas pelo próprio app, incluindo provisionamento, atualização de catálogo, verificações da configuração inicial, consultas de metadados de diagnóstico e o navegador RIPDPI integrado. É necessário Android 17 ou mais recente para o ECH de plataforma nesse caminho do navegador de pilha própria.</string>
     <string name="detection_resistance_proxy_notice_title">O modo proxy limita a modelagem de TLS nativa do navegador</string>
     <string name="detection_resistance_proxy_notice_body">Perfis de fingerprint TLS e modelagem com reconhecimento de ECH ainda se aplicam ao tráfego originado pelo próprio app, mas o TLS nativo do navegador, o ECH e a propriedade do UDP ficam sob o navegador e o sistema operacional no modo proxy. Use o modo VPN quando precisar que o RIPDPI controle todo o caminho de transporte.</string>
     <string name="detection_resistance_entropy_mode_title">Modo de modelagem de entropia</string>
@@ -2743,7 +2743,7 @@ Fonte: %2$s</string>
     <string name="fake_order_card_order_body">Escolha como trechos falsos e genuínos são intercalados nesta etapa de envio.</string>
     <string name="fake_order_card_hostfake_order_locked">Uma ordenação hostfake fora do padrão exige um marcador de divisão midhost. Adicione `midhost=` na DSL da cadeia para desbloquear alterações de altorder.</string>
     <string name="fake_order_card_seqmode_title">Modo de sequência falsa</string>
-    <string name="fake_order_card_seqmode_body">Duplicate reutiliza a sequência do fluxo original. Sequential avança os próximos pacotes falsos na ordem de emissão.</string>
+    <string name="fake_order_card_seqmode_body">Duplicar reutiliza a sequência do fluxo original. Sequencial avança os próximos pacotes falsos na ordem de emissão.</string>
     <string name="tcp_flag_fake_set_title">Pacote falso: definir flags</string>
     <string name="tcp_flag_fake_clear_title">Pacote falso: limpar flags</string>
     <string name="tcp_flag_orig_set_title">Pacote original: definir flags</string>

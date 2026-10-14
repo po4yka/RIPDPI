@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import androidx.test.core.app.ApplicationProvider
-import com.poyka.ripdpi.platform.AndroidStringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -12,83 +10,45 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class HistoryDetailLoaderTest {
-    private val connectionDetailUiFactory =
-        HistoryConnectionDetailUiFactory(
-            context = ApplicationProvider.getApplicationContext(),
-            stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
-            coreSupport = testDiagnosticsUiCoreSupport(),
-        )
-
     @Test
     fun `missing connection session returns null`() =
         kotlinx.coroutines.test.runTest {
             val source = FakeDiagnosticsHistorySource()
-            val detailLoader = FakeHistoryDiagnosticsDetailLoader()
-            val mapper = FakeDiagnosticsSessionDetailUiMapper()
-            val loader =
-                DefaultHistoryDetailLoader(
-                    diagnosticsHistorySource = source,
-                    diagnosticsDetailLoader = detailLoader,
-                    connectionDetailUiFactory = connectionDetailUiFactory,
-                    diagnosticsSessionDetailUiMapper = mapper,
-                )
+            val loader = DefaultHistoryDetailLoader(source, FakeHistoryDiagnosticsDetailLoader())
 
             assertNull(loader.loadConnectionDetail("missing"))
         }
 
     @Test
-    fun `connection detail loader composes repository slices`() =
+    fun `connection detail loader preserves repository slices`() =
         kotlinx.coroutines.test.runTest {
             val source =
                 FakeDiagnosticsHistorySource().apply {
-                    connectionDetails["connection-1"] =
-                        com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail(
-                            session = historyConnectionSession(),
-                            snapshots = listOf(historySnapshot(connectionSessionId = "connection-1")),
-                            contexts = listOf(historyContext(connectionSessionId = "connection-1")),
-                            telemetry = listOf(historyTelemetry(connectionSessionId = "connection-1")),
-                            events = listOf(historyEvent(connectionSessionId = "connection-1")),
-                        )
+                    connectionDetails["connection-1"] = historyConnectionDetail()
                 }
-            val loader =
-                DefaultHistoryDetailLoader(
-                    diagnosticsHistorySource = source,
-                    diagnosticsDetailLoader = FakeHistoryDiagnosticsDetailLoader(),
-                    connectionDetailUiFactory = connectionDetailUiFactory,
-                    diagnosticsSessionDetailUiMapper = FakeDiagnosticsSessionDetailUiMapper(),
-                )
+            val loader = DefaultHistoryDetailLoader(source, FakeHistoryDiagnosticsDetailLoader())
 
             val detail = loader.loadConnectionDetail("connection-1")
 
             assertNotNull(detail)
+            assertSame(source.connectionDetails["connection-1"], detail)
             assertEquals("connection-1", detail?.session?.id)
             assertEquals(1, detail?.snapshots?.size)
             assertEquals(1, detail?.events?.size)
         }
 
     @Test
-    fun `diagnostics detail loader delegates to manager and mapper`() =
+    fun `diagnostics detail loader delegates raw manager data`() =
         kotlinx.coroutines.test.runTest {
             val detailLoader =
                 FakeHistoryDiagnosticsDetailLoader().apply {
                     nextDetail = historyDiagnosticsDetail("scan-1")
                 }
-            val mapper =
-                FakeDiagnosticsSessionDetailUiMapper().apply {
-                    nextResult = historyDiagnosticsDetailUi("scan-1")
-                }
-            val loader =
-                DefaultHistoryDetailLoader(
-                    diagnosticsHistorySource = FakeDiagnosticsHistorySource(),
-                    diagnosticsDetailLoader = detailLoader,
-                    connectionDetailUiFactory = connectionDetailUiFactory,
-                    diagnosticsSessionDetailUiMapper = mapper,
-                )
+            val loader = DefaultHistoryDetailLoader(FakeDiagnosticsHistorySource(), detailLoader)
 
             val detail = loader.loadDiagnosticsDetail("scan-1")
 
-            assertSame(detailLoader.nextDetail, mapper.lastDetail)
-            assertEquals(false, mapper.lastSensitiveDetailsFlag)
-            assertSame(mapper.nextResult, detail)
+            assertSame(detailLoader.nextDetail, detail)
+            assertEquals(1, detailLoader.sessionDetailLoads)
         }
 }

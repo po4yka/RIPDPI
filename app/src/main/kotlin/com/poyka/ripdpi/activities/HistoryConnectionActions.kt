@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -9,7 +11,7 @@ internal class HistoryConnectionActions(
     private val scope: CoroutineScope,
     private val connectionFilters: MutableStateFlow<HistoryConnectionFilterState>,
     private val detailState: MutableStateFlow<HistoryDetailState>,
-    private val loadConnectionDetail: suspend (String) -> HistoryConnectionDetailUiModel?,
+    private val loadConnectionDetail: suspend (String) -> DiagnosticConnectionDetail?,
 ) {
     fun setModeFilter(mode: String?) {
         connectionFilters.update { it.copy(modeFilter = toggleValue(it.modeFilter, mode)) }
@@ -43,7 +45,7 @@ internal class HistoryDiagnosticsActions(
     private val scope: CoroutineScope,
     private val diagnosticsFilters: MutableStateFlow<HistoryDiagnosticsFilterState>,
     private val detailState: MutableStateFlow<HistoryDetailState>,
-    private val loadSessionDetail: suspend (String) -> DiagnosticsSessionDetailUiModel?,
+    private val loadSessionDetail: suspend (String) -> DiagnosticSessionDetail?,
 ) {
     fun setPathModeFilter(pathMode: String?) {
         diagnosticsFilters.update { it.copy(pathModeFilter = toggleValue(it.pathModeFilter, pathMode)) }

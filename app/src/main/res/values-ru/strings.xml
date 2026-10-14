@@ -2188,7 +2188,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_finalmask_fragment">Фрагментация</string>
     <string name="config_relay_finalmask_fragment_help">Разбивает каждую запись полезной нагрузки на заданное число TCP-кадров, если размер входит в диапазон байтов.</string>
     <string name="config_relay_finalmask_noise">Шум</string>
-    <string name="config_relay_finalmask_noise_help">Один раз отправляет последовательность случайных байтов из заданного диапазона перед реальной полезной нагрузкой.</string>
+    <string name="config_relay_finalmask_noise_help">Перед реальной полезной нагрузкой один раз отправляет последовательность случайных байтов. Её длина выбирается из заданного диапазона.</string>
     <string name="config_relay_profile_id_helper">Используется для привязки защищённых учётных данных к сохранённому профилю реле.</string>
     <string name="config_relay_profile_id_taken">Этот ID уже принадлежит другому сохранённому профилю.</string>
     <string name="config_relay_profile_id">ID профиля</string>

@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import dagger.Binds
@@ -9,9 +11,9 @@ import dagger.hilt.android.components.ViewModelComponent
 import javax.inject.Inject
 
 internal interface HistoryDetailLoader {
-    suspend fun loadConnectionDetail(sessionId: String): HistoryConnectionDetailUiModel?
+    suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail?
 
-    suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticsSessionDetailUiModel?
+    suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticSessionDetail?
 }
 
 internal class DefaultHistoryDetailLoader
@@ -19,19 +21,12 @@ internal class DefaultHistoryDetailLoader
     constructor(
         private val diagnosticsHistorySource: DiagnosticsHistorySource,
         private val diagnosticsDetailLoader: DiagnosticsDetailLoader,
-        private val connectionDetailUiFactory: HistoryConnectionDetailUiFactory,
-        private val diagnosticsSessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
     ) : HistoryDetailLoader {
-        override suspend fun loadConnectionDetail(sessionId: String): HistoryConnectionDetailUiModel? =
-            diagnosticsHistorySource
-                .loadConnectionDetail(sessionId)
-                ?.let(connectionDetailUiFactory::toConnectionDetail)
+        override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? =
+            diagnosticsHistorySource.loadConnectionDetail(sessionId)
 
-        override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticsSessionDetailUiModel? =
-            diagnosticsSessionDetailUiMapper.toSessionDetailUiModel(
-                detail = diagnosticsDetailLoader.loadSessionDetail(sessionId),
-                showSensitiveDetails = false,
-            )
+        override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticSessionDetail =
+            diagnosticsDetailLoader.loadSessionDetail(sessionId)
     }
 
 @Module

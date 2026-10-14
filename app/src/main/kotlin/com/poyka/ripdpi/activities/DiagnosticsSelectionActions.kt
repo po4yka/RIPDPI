@@ -3,7 +3,6 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
-import com.poyka.ripdpi.ui.diagnostics.toApproachDetailUiModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -76,7 +75,7 @@ internal class DiagnosticsSelectionActions(
                         },
                     id = approachId,
                 )
-            selection.update { it.copy(selectedApproachDetail = uiStateFactory.toApproachDetailUiModel(detail)) }
+            selection.update { it.copy(selectedApproachDetail = detail) }
         }
     }
 
@@ -146,11 +145,7 @@ internal suspend fun DiagnosticsMutationRunner.loadSessionDetail(
     selection.update { it.copy(selectedStrategyProbeCandidate = null) }
     sessionDetail.value =
         SessionDetailState(
-            selectedSessionDetail =
-                uiStateFactory.toSessionDetailUiModel(
-                    detail = detail,
-                    showSensitiveDetails = showSensitiveDetails,
-                ),
+            selectedSessionDetail = detail,
             sensitiveSessionDetailsVisible = showSensitiveDetails,
         )
 }

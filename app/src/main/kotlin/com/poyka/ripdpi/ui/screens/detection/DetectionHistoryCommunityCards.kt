@@ -56,7 +56,13 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(entry.networkSummary, style = type.body, maxLines = 1)
+                    val networkSummary =
+                        if (entry.hasGeneratedUnknownNetwork()) {
+                            stringResource(R.string.remembered_networks_transport_unknown)
+                        } else {
+                            entry.networkSummary
+                        }
+                    Text(networkSummary, style = type.body, maxLines = 1)
                     Text(formatTimestamp(entry.timestamp), style = type.caption, color = colors.mutedForeground)
                 }
                 Row(
@@ -75,6 +81,11 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
         }
     }
 }
+
+// Both history producers reserve this fingerprint when network capture is unavailable.
+// Match their exact sentinels so captured network names and custom summaries stay intact.
+private fun DetectionHistoryEntry.hasGeneratedUnknownNetwork(): Boolean =
+    networkFingerprint == "unknown" && (networkSummary == "Unknown" || networkSummary == "Unknown network")
 
 @Composable
 internal fun CommunityStatsCard(stats: CommunityStats) {

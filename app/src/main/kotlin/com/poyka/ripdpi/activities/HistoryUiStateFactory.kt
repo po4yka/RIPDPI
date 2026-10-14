@@ -8,6 +8,7 @@ internal class HistoryUiStateFactory
     constructor(
         private val coreSupport: DiagnosticsUiCoreSupport,
         private val connectionDetailUiFactory: HistoryConnectionDetailUiFactory,
+        private val diagnosticsSessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
     ) {
         fun buildUiState(
             repositorySnapshot: HistoryRepositorySnapshot,
@@ -26,6 +27,14 @@ internal class HistoryUiStateFactory
             val filteredEvents = eventModels.filter { it.matches(eventFilters) }
 
             val groupedEvents = groupConsecutiveEvents(filteredEvents)
+            val selectedConnection =
+                detailState.selectedConnectionDetail?.let(
+                    connectionDetailUiFactory::toConnectionDetail,
+                )
+            val selectedDiagnostics =
+                detailState.selectedDiagnosticsDetail?.let {
+                    diagnosticsSessionDetailUiMapper.toSessionDetailUiModel(it, showSensitiveDetails = false)
+                }
 
             return HistoryUiState(
                 selectedSection = selectedSection,
@@ -70,8 +79,8 @@ internal class HistoryUiStateFactory
                         focusedEventId = detailState.selectedEventId,
                     ),
                 groupedEvents = groupedEvents.toImmutableList(),
-                selectedConnectionDetail = detailState.selectedConnectionDetail,
-                selectedDiagnosticsDetail = detailState.selectedDiagnosticsDetail,
+                selectedConnectionDetail = selectedConnection,
+                selectedDiagnosticsDetail = selectedDiagnostics,
                 selectedEvent = eventModels.firstOrNull { it.id == detailState.selectedEventId },
             )
         }

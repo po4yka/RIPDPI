@@ -2275,7 +2275,7 @@ fake_burst 3</string>
     <string name="config_relay_finalmask_fragment">分片</string>
     <string name="config_relay_finalmask_fragment_help">当大小符合所设字节范围时，将每次载荷写入拆分为指定数量的 TCP 帧。</string>
     <string name="config_relay_finalmask_noise">噪声</string>
-    <string name="config_relay_finalmask_noise_help">在真实载荷之前，一次性发送长度在配置范围内的随机字节前导。</string>
+    <string name="config_relay_finalmask_noise_help">在真实载荷之前，一次性发送随机字节前导。从配置范围内选择前导的长度。</string>
     <string name="config_relay_reality_short_id">Reality short ID</string>
     <string name="config_relay_server">中继服务器</string>
     <string name="config_relay_xhttp_path">xHTTP 路径</string>

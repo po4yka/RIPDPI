@@ -716,7 +716,7 @@
     <string name="config_relay_finalmask_fragment">Fragment</string>
     <string name="config_relay_finalmask_fragment_help">Split each payload write into the configured number of TCP frames when the size fits the byte range.</string>
     <string name="config_relay_finalmask_noise">Noise</string>
-    <string name="config_relay_finalmask_noise_help">Send one random byte prelude from the configured range before the real payload.</string>
+    <string name="config_relay_finalmask_noise_help">پیش از بار واقعی، یک پیش‌درآمد از بایت‌های تصادفی را فقط یک بار ارسال کنید. طول آن را از بازهٔ پیکربندی‌شده انتخاب کنید.</string>
     <string name="config_relay_xhttp_path">مسیر xHTTP</string>
     <string name="config_relay_xhttp_host">جایگزینی میزبان xHTTP</string>
     <string name="config_relay_xhttp_mode">حالت xHTTP</string>

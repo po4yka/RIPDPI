@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
@@ -26,9 +28,25 @@ import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+
+internal fun testHistorySessionDetailUiMapper(
+    core: DiagnosticsUiCoreSupport = testDiagnosticsUiCoreSupport(),
+    context: Context = ApplicationProvider.getApplicationContext(),
+): DiagnosticsSessionDetailUiMapper =
+    DiagnosticsSessionDetailUiFactory(DiagnosticsUiFactorySupport(AndroidStringResolver(context), core))
+
+internal fun historyConnectionDetail(sessionId: String = "connection-1"): DiagnosticConnectionDetail =
+    DiagnosticConnectionDetail(
+        session = historyConnectionSession(id = sessionId),
+        snapshots = listOf(historySnapshot(connectionSessionId = sessionId)),
+        contexts = listOf(historyContext(connectionSessionId = sessionId)),
+        telemetry = listOf(historyTelemetry(connectionSessionId = sessionId)),
+        events = listOf(historyEvent(connectionSessionId = sessionId)),
+    )
 
 internal fun historyConnectionSession(
     id: String = "connection-1",
@@ -356,6 +374,8 @@ internal class FakeDiagnosticsHistorySource : DiagnosticsHistorySource {
     val diagnosticsSessions = MutableStateFlow<List<DiagnosticScanSession>>(emptyList())
     val nativeEvents = MutableStateFlow<List<DiagnosticEvent>>(emptyList())
     val connectionDetails = mutableMapOf<String, DiagnosticConnectionDetail?>()
+    var connectionDetailLoads = 0
+        private set
 
     override fun observeConnectionSessions(limit: Int): Flow<List<DiagnosticConnectionSession>> = connectionSessions
 
@@ -363,18 +383,20 @@ internal class FakeDiagnosticsHistorySource : DiagnosticsHistorySource {
 
     override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> = nativeEvents
 
-    override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? =
-        connectionDetails[sessionId]
+    override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? {
+        connectionDetailLoads++
+        return connectionDetails[sessionId]
+    }
 }
 
 internal class FakeHistoryDetailLoader : HistoryDetailLoader {
-    val connectionDetails = mutableMapOf<String, HistoryConnectionDetailUiModel?>()
-    val diagnosticsDetails = mutableMapOf<String, DiagnosticsSessionDetailUiModel?>()
+    val connectionDetails = mutableMapOf<String, DiagnosticConnectionDetail?>()
+    val diagnosticsDetails = mutableMapOf<String, DiagnosticSessionDetail?>()
 
-    override suspend fun loadConnectionDetail(sessionId: String): HistoryConnectionDetailUiModel? =
+    override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? =
         connectionDetails[sessionId]
 
-    override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticsSessionDetailUiModel? =
+    override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticSessionDetail? =
         diagnosticsDetails[sessionId]
 }
 
@@ -404,9 +426,13 @@ internal class FakeHistoryDiagnosticsBootstrapper : DiagnosticsBootstrapper {
 
 internal class FakeHistoryDiagnosticsDetailLoader : DiagnosticsDetailLoader {
     var nextDetail: DiagnosticSessionDetail? = null
+    var sessionDetailLoads = 0
+        private set
 
-    override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
-        requireNotNull(nextDetail) { "Missing fake detail for $sessionId" }
+    override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail {
+        sessionDetailLoads++
+        return requireNotNull(nextDetail) { "Missing fake detail for $sessionId" }
+    }
 
     override suspend fun loadApproachDetail(
         kind: BypassApproachKind,

@@ -313,7 +313,8 @@ class ModeEditorScreenTest {
             "Encode each payload byte as four seeded entropy-hint bytes; the peer decodes them back to " +
                 "the original stream.",
             "Split each payload write into the configured number of TCP frames when the size fits the byte range.",
-            "Send one random byte prelude from the configured range before the real payload.",
+            "Send a prelude of random bytes once before the real payload. " +
+                "Choose its length from the configured range.",
         ).forEach { helpText ->
             composeRule.onNodeWithText(helpText).performScrollTo().assertExists()
         }

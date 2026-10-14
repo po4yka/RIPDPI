@@ -714,7 +714,7 @@
     <string name="config_relay_finalmask_fragment">Fragment</string>
     <string name="config_relay_finalmask_fragment_help">जब आकार बाइट रेंज में फ़िट हो, तो प्रत्येक पेलोड राइट को कॉन्फ़िगर की गई TCP फ़्रेम संख्या में विभाजित करें।</string>
     <string name="config_relay_finalmask_noise">Noise</string>
-    <string name="config_relay_finalmask_noise_help">असली पेलोड से पहले कॉन्फ़िगर की गई रेंज से एक रैंडम बाइट प्रस्तावना भेजें।</string>
+    <string name="config_relay_finalmask_noise_help">असली पेलोड से पहले रैंडम बाइट्स की प्रस्तावना केवल एक बार भेजें। इसकी लंबाई कॉन्फ़िगर की गई रेंज से चुनें।</string>
     <string name="config_relay_xhttp_path">xHTTP पथ</string>
     <string name="config_relay_xhttp_host">xHTTP होस्ट ओवरराइड</string>
     <string name="config_relay_xhttp_mode">xHTTP मोड</string>

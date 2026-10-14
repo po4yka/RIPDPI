@@ -32,6 +32,7 @@ internal class DiagnosticsUiStateAssembler
             filterState: StateFlow<FilterState>,
             sessionDetailState: StateFlow<SessionDetailState>,
             scanLifecycleState: StateFlow<ScanLifecycleState>,
+            localeState: StateFlow<String>,
         ): DiagnosticsUiStates {
             val projectionScope = CoroutineScope(scope.coroutineContext + dispatchers.default)
             val data =
@@ -51,14 +52,15 @@ internal class DiagnosticsUiStateAssembler
 
             var previous: DiagnosticsUiState? = null
             val full =
-                combine(data, controls) { diagnosticsData, controls ->
+                combine(data, controls, localeState) { diagnosticsData, controls, _ ->
                     uiStateFactory
                         .buildUiState(
                             buildInput(
                                 diagnosticsData = diagnosticsData,
                                 controls = controls,
                             ),
-                        ).reuseUnchangedSections(previous)
+                        ).let(::reprojectSelectedProbe)
+                        .reuseUnchangedSections(previous)
                         .also { previous = it }
                 }.stateIn(
                     scope = projectionScope,
@@ -75,6 +77,31 @@ internal class DiagnosticsUiStateAssembler
                     ),
             )
         }
+
+        private fun reprojectSelectedProbe(state: DiagnosticsUiState): DiagnosticsUiState {
+            val selected = state.selectedProbe ?: return state
+            val projected =
+                state.selectedSessionDetail
+                    ?.probeGroups
+                    ?.asSequence()
+                    ?.flatMap { it.items.asSequence() }
+                    ?.firstOrNull { it.id == selected.id }
+                    ?: state.scan.latestResults.firstOrNull { it.id == selected.id }
+                    ?: state.selectedStrategyProbeCandidate
+                        ?.resultGroups
+                        ?.asSequence()
+                        ?.flatMap { it.items.asSequence() }
+                        ?.firstOrNull { it.id == selected.id }
+            return state.copy(selectedProbe = projected ?: selected)
+        }
+
+        private fun projectSessionDetail(state: SessionDetailState): DiagnosticsSessionDetailUiModel? =
+            state.selectedSessionDetail?.let { detail ->
+                uiStateFactory.toSessionDetailUiModel(
+                    detail = detail,
+                    showSensitiveDetails = state.sensitiveSessionDetailsVisible,
+                )
+            }
 
         private fun assembleDiagnosticsDataState(
             scope: CoroutineScope,
@@ -318,9 +345,12 @@ internal class DiagnosticsUiStateAssembler
                 eventSeverity = controls.filter.eventSeverityFilter,
                 eventSearch = controls.filter.eventSearch,
                 eventAutoScroll = controls.filter.eventAutoScroll,
-                selectedSessionDetail = controls.sessionDetail.selectedSessionDetail,
+                selectedSessionDetail = projectSessionDetail(controls.sessionDetail),
                 selectedStrategyProbeCandidate = controls.selection.selectedStrategyProbeCandidate,
-                selectedApproachDetail = controls.selection.selectedApproachDetail,
+                selectedApproachDetail =
+                    controls.selection.selectedApproachDetail?.let(
+                        uiStateFactory::toApproachDetailUiModel,
+                    ),
                 sensitiveSessionDetailsVisible = controls.sessionDetail.sensitiveSessionDetailsVisible,
                 archiveActionState = controls.scanLifecycle.archiveActionState,
                 scanStartedAt = controls.scanLifecycle.scanStartedAt,
@@ -447,3 +477,9 @@ internal fun resolveCurrentConnectionState(
     }
 
 private const val UnknownCurrentNetworkType = "unknown"
+
+internal fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =
+    listOf(
+        metrics.firstOrNull { it.label.contains("confidence", ignoreCase = true) }?.value ?: status,
+        startedAtLabel,
+    ).joinToString(" · ")

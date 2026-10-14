@@ -18,9 +18,9 @@
     <string name="diagnostics_field_proxy_rtt_band">Faixa de RTT do proxy</string>
     <string name="diagnostics_field_resolver_rtt_band">Faixa de RTT do resolvedor</string>
     <string name="diagnostics_field_aggregate_rtt_band">Faixa de RTT agregada</string>
-    <string name="diagnostics_field_proxy_route_retries">Tentativas de rota do proxy</string>
-    <string name="diagnostics_field_tunnel_recovery_retries">Tentativas de recuperação do túnel</string>
-    <string name="diagnostics_field_total_retries">Tentativas totais</string>
+    <string name="diagnostics_field_proxy_route_retries">Novas tentativas de rota do proxy</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">Novas tentativas de recuperação do túnel</string>
+    <string name="diagnostics_field_total_retries">Total de novas tentativas</string>
     <string name="diagnostics_field_classifier">Classificador</string>
     <string name="diagnostics_field_packs">Pacotes</string>
     <string name="diagnostics_field_source">Origem</string>

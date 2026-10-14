@@ -135,7 +135,7 @@ class DiagnosticsSpanishPresentationTest {
         val strings = ContextStrings(context)
         val core = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(context), strings)
         val support = DiagnosticsUiFactorySupport(strings, core)
-        val factory = HistoryConnectionDetailUiFactory(context, strings, core)
+        val factory = HistoryConnectionDetailUiFactory(strings, core)
         val labels =
             mapOf(
                 "pre_scan" to "Antes del análisis",

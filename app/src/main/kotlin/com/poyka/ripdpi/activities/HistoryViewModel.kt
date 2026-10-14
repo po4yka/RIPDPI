@@ -31,6 +31,7 @@ class HistoryViewModel
         private val eventFilters = MutableStateFlow(HistoryEventFilterState())
         private val detailState = MutableStateFlow(HistoryDetailState())
         private val refreshing = MutableStateFlow(false)
+        private val localeState = MutableStateFlow("")
 
         private val connectionActions =
             HistoryConnectionActions(
@@ -76,6 +77,7 @@ class HistoryViewModel
                 eventFilters,
                 detailState,
                 refreshing,
+                localeState,
             ) { values ->
                 historyUiStateFactory
                     .buildUiState(
@@ -91,6 +93,10 @@ class HistoryViewModel
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = HistoryUiState(),
             )
+
+        fun onLocaleChanged(localeTags: String) {
+            localeState.value = localeTags
+        }
 
         fun initialize() {
             if (initialized) {

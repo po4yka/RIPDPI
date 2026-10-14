@@ -38,7 +38,7 @@ class DiagnosticsFrenchPresentationTest {
                 latestContext = null,
             )
         val history =
-            HistoryConnectionDetailUiFactory(context, support.context, support.core).toConnectionDetail(
+            HistoryConnectionDetailUiFactory(support.context, support.core).toConnectionDetail(
                 DiagnosticConnectionDetail(session, emptyList(), emptyList(), listOf(sample), emptyList()),
             )
         assertEquals(
@@ -201,7 +201,7 @@ class DiagnosticsFrenchPresentationTest {
             expected,
             model.metrics.single { it.label == context.getString(R.string.diagnostics_metric_rtt_band) }.value,
         )
-        val factory = HistoryConnectionDetailUiFactory(context, support.context, support.core)
+        val factory = HistoryConnectionDetailUiFactory(support.context, support.core)
         listOf(listOf(sample), emptyList()).forEach { samples ->
             val history =
                 factory.toConnectionDetail(

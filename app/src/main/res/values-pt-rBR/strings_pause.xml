@@ -12,7 +12,7 @@
     <string name="pause_stop">Parar e cancelar retomada</string>
     <string name="pause_persistence_failed">Não foi possível salvar o comando. O estado da conexão permanece inalterado.</string>
     <string name="pause_duration_minutes">%1$s minutos</string>
-    <string name="pause_clock_failed">O relógio ou a identidade de inicialização mudou. Confira a recuperação.</string>
+    <string name="pause_clock_failed">O relógio ou a identidade de inicialização mudou. Escolha Retomar agora para revisar a recuperação.</string>
     <string name="pause_consent_required">É necessária permissão VPN para retomar.</string>
     <string name="pause_lockdown">O bloqueio VPN do Android não permite esta ação.</string>
     <string name="pause_background_restricted">O Android adiou a retomada em segundo plano. Abra o aplicativo.</string>

@@ -85,13 +85,15 @@ class SubscriptionFailoverViewModel
         private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val profiles = MutableStateFlow<List<RelayProfileRecord>>(emptyList())
+        private val localeState = MutableStateFlow("")
 
         val uiState: StateFlow<SubscriptionFailoverUiState> =
             combine(
                 profiles,
                 serviceStateStore.telemetry,
                 proxyGroupRepository.groups(),
-            ) { relayProfiles, telemetry, groups ->
+                localeState,
+            ) { relayProfiles, telemetry, groups, _ ->
                 SubscriptionFailoverMapper.toUiState(
                     profiles = relayProfiles,
                     groups = groups,
@@ -104,6 +106,10 @@ class SubscriptionFailoverViewModel
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = SubscriptionFailoverMapper.emptyUiState(stringResolver),
             )
+
+        fun onLocaleChanged(localeTags: String) {
+            localeState.value = localeTags
+        }
 
         init {
             viewModelScope.launch {

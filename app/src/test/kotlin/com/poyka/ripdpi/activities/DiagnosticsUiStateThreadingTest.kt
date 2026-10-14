@@ -68,6 +68,7 @@ class DiagnosticsUiStateThreadingTest {
                     selectionState = MutableStateFlow(SelectionState()),
                     filterState = MutableStateFlow(FilterState()),
                     sessionDetailState = MutableStateFlow(SessionDetailState()),
+                    localeState = MutableStateFlow("en"),
                     scanLifecycleState = MutableStateFlow(ScanLifecycleState()),
                 )
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { states.screen.collect {} }
