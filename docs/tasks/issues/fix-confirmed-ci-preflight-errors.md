@@ -2,7 +2,7 @@
 id: CIC-1791950438525162
 title: Fix confirmed CI preflight errors
 kind: bug
-status: doing
+status: review
 area: ci
 priority: high
 owner: CI maintainers
@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-10-14
 updated: 2026-10-14
 spec_reason: tooling-only
+status_detail: Full hosted CI at bb360ffe completed successfully on attempt 2. Both original preflight jobs, Rust lint, all five emulator jobs, release verification and ci-required passed. A complete JVM job retry resolved a transient Maven TLS reset.
 ---
 
 ## Goal
@@ -62,6 +63,8 @@ On `5ef0cd567fb731817acecee6e54c32c7b6f19b83`, the [Android helper job](https://
 
 The matrix exposed a stale raw-slice registration in [rust-lint](https://github.com/po4yka/RIPDPI/actions/runs/38511271351/job/115680582484). The existing REALITY callback slice moved from line 351 to 383 after earlier AuthKey additions. Independent review compared the source with the last registration refresh, `6b58fb7b490c40b57c99a7d95124e907232354e5`, and confirmed unchanged slice conversion, null and length checks, and SAFETY contract.
 
-The registration now points to the current line. Its stale prose references use the callback name and actual minimum length. No entry, pattern, owner or review date was added or changed. The scanner reproduces failure before this metadata correction and passes afterward with three hits and three registrations. The exact `scripts/ci/run-rust-lint.sh` passes under toolchain 1.98.1, including all scanner self-tests, production guards, workspace clippy and all-feature rustdoc. Existing rustdoc warnings remain allowed by the unchanged script.
+The registration now points to the current line. Its stale prose references use the callback name and actual minimum length. The number of entries and their patterns, owners and review dates are unchanged. The scanner reproduces failure before this metadata correction and passes afterward with three hits and three registrations. The exact `scripts/ci/run-rust-lint.sh` passes under toolchain 1.98.1, including all scanner self-tests, production guards, workspace clippy and all-feature rustdoc. Existing rustdoc warnings remain allowed by the unchanged script.
 
-Terminal hosted CI evidence remains in the final execution step. No green full run is claimed before it completes.
+The [full CI run](https://github.com/po4yka/RIPDPI/actions/runs/38513004219) at `bb360ffe842f821bb98469524165b51c489fa4e0` completed with success on attempt 2: 47 jobs passed and 17 jobs were skipped by existing workflow conditions. No job failed or remained pending. Both original preflight jobs, Rust lint, all five emulator jobs, all three release verification jobs and `ci-required` passed. CodeQL, Secret Scan and fleet-fixtures also completed with success for this source commit.
+
+Attempt 1 had a transient Maven TLS connection reset while Robolectric fetched `android-all-instrumented:9-robolectric-4913185-2-i7`. The failure occurred before the test body. A retry ran the complete failed JVM job on the same source commit. All module tests and both Full and Simple app test suites passed. No test filter, source change or gate change was used for the retry.
