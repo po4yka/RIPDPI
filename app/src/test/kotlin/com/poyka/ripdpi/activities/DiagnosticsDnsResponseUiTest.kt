@@ -85,11 +85,11 @@ class DiagnosticsDnsResponseUiTest {
         val restored = DiagnosticsBoundaryMapper(Json).toProbeResult(stored)
         val ui =
             DiagnosticsUiCoreSupport(
-                DiagnosticsUiFormatter(),
+                DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()),
                 strings,
             ).toProbeResultUiModel(0, ScanPathMode.RAW_PATH, restored)
         val current =
-            DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings)
+            DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(RuntimeEnvironment.getApplication()), strings)
                 .toProbeResultUiModel(0, ScanPathMode.RAW_PATH, probe)
         assertEquals(current.dnsResponses, ui.dnsResponses)
         assertEquals(listOf("udpServer"), ui.details.map { it.label })

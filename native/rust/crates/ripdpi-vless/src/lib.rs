@@ -17,6 +17,7 @@ pub mod mux;
 pub mod reality;
 pub(crate) mod reality_hook;
 pub(crate) mod reality_seal;
+mod reality_server_auth;
 pub mod vision;
 pub mod wire;
 mod xudp;

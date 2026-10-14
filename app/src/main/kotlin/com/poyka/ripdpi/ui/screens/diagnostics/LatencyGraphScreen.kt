@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -72,10 +73,9 @@ fun LatencyGraphScreen(
 private fun LatencyHeader(state: LatencyGraphState) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         Text(
             text = state.title,
@@ -83,7 +83,10 @@ private fun LatencyHeader(state: LatencyGraphState) {
             color = colors.foreground,
         )
         // p50 / p95 stat pill in the header (matches spec card top-right)
-        Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+        FlowRow(
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
             Text(
                 text =
                     stringResource(
@@ -213,9 +216,10 @@ private fun LatencyLossRow(state: LatencyGraphState) {
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Label row: "Packet loss" on left, percentage on right
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             Text(
                 text = stringResource(R.string.vpn_latency_graph_loss_label),
@@ -275,7 +279,10 @@ private fun LatencyLegend(state: LatencyGraphState) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    Row(horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
         // Now
         LatencyLegendItem(
             label = stringResource(R.string.vpn_latency_graph_legend_now),

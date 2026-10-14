@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -97,13 +98,15 @@ fun PortMatrixScreen(
 
 @Composable
 private fun PortMatrixHeader(legendEntries: List<RipDpiPortVerdict>) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         Text(text = stringResource(R.string.port_matrix_title), style = RipDpiThemeTokens.type.bodyEmphasis)
-        Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+        FlowRow(
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        ) {
             legendEntries.forEach { verdict ->
                 LegendChip(verdict = verdict)
             }

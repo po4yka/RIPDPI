@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_telegram_status_ok">उपलब्ध</string>
+    <string name="diagnostics_telegram_status_slow">धीमा</string>
+    <string name="diagnostics_telegram_status_stalled">प्रगति रुकी हुई</string>
+    <string name="diagnostics_telegram_status_blocked">अवरुद्ध</string>
+    <string name="diagnostics_telegram_status_partial">आंशिक रूप से उपलब्ध</string>
+    <string name="diagnostics_telegram_status_error">त्रुटि</string>
+    <string name="diagnostics_telegram_status_cancelled">रद्द किया गया</string>
+    <string name="diagnostics_telegram_status_deadline_exceeded">समय सीमा पूरी हुई</string>
+    <string name="diagnostics_telegram_status_unknown">अज्ञात</string>
+    <string name="diagnostics_telegram_status_unreachable">पहुँच योग्य नहीं</string>
+    <string name="diagnostics_share_session_format">सत्र %1$s · %2$s · %3$s</string>
+    <string name="diagnostics_share_network_format">नेटवर्क %1$s</string>
+    <string name="diagnostics_share_context_format">संदर्भ %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_permissions_format">अनुमतियाँ %1$s VPN · %2$s सूचनाएँ</string>
+    <string name="diagnostics_share_live_format">लाइव %1$s · %2$s</string>
+    <string name="diagnostics_share_engine_analysis_format">इंजन विश्लेषण: %1$s</string>
+    <string name="diagnostics_share_classifier_format">वर्गीकारक: %1$s</string>
+    <string name="diagnostics_share_strategy_completion_format">रणनीति पूर्णता: %1$s</string>
+    <string name="diagnostics_share_audit_cohort_format">ऑडिट समूह: %1$s (%2$s)</string>
+    <string name="diagnostics_share_audit_domains_format">ऑडिट डोमेन: %1$s</string>
+    <string name="diagnostics_share_audit_quic_hosts_format">ऑडिट QUIC होस्ट: %1$s</string>
+    <string name="diagnostics_share_audit_confidence_format">ऑडिट विश्वसनीयता: %1$s (%2$d/100)</string>
+    <string name="diagnostics_share_matrix_coverage_format">मैट्रिक्स कवरेज: %1$d%%</string>
+    <string name="diagnostics_share_winner_coverage_format">सफल रणनीतियों का कवरेज: %1$d%%</string>
+    <string name="diagnostics_share_packs_format">पैक: %1$s</string>
+    <string name="diagnostics_share_telegram_format">Telegram: %1$s</string>
+    <string name="diagnostics_share_download_format">डाउनलोड: औसत %1$s, %2$s</string>
+    <string name="diagnostics_share_upload_format">अपलोड: औसत %1$s, %2$s</string>
+    <string name="diagnostics_share_data_centers_format">DC: %1$s/%2$s पहुँच योग्य</string>
+    <string name="diagnostics_share_top_warning_format">मुख्य चेतावनी: %1$s</string>
+    <string name="diagnostics_strategy_completion_normal">पूर्ण</string>
+    <string name="diagnostics_strategy_completion_dns_short_circuited">DNS छेड़छाड़ के बाद रोका गया</string>
+    <string name="diagnostics_strategy_completion_dns_tampering_with_fallback">DNS छेड़छाड़ के साथ वैकल्पिक मार्ग के परिणाम</string>
+    <string name="diagnostics_strategy_completion_partial_results">आंशिक परिणाम</string>
+    <plurals name="diagnostics_share_probe_results_format">
+        <item quantity="one">नवीनतम रिपोर्ट में %1$d जाँच परिणाम</item>
+        <item quantity="other">नवीनतम रिपोर्ट में %1$d जाँच परिणाम</item>
+    </plurals>
+    <string name="diagnostics_share_permission_granted">दी गई</string>
+    <string name="diagnostics_share_permission_not_required">आवश्यक नहीं</string>
+    <string name="diagnostics_share_highlights_title">मुख्य परिणाम</string>
+    <string name="diagnostics_share_diagnoses_title">निदान</string>
+</resources>

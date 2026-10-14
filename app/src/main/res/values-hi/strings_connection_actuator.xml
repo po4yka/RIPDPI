@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="home_connection_actuator_direct">सीधा</string>
-    <string name="home_connection_actuator_relay">Relay</string>
+    <string name="home_connection_actuator_relay">रिले</string>
     <string name="home_connection_actuator_state_open">कनेक्ट नहीं है</string>
     <string name="home_connection_actuator_state_engaging">कनेक्ट हो रहा है…</string>
     <string name="home_connection_actuator_state_locked">कनेक्ट है</string>
@@ -14,8 +14,8 @@
     <string name="home_connection_actuator_action_confirm_release">डिस्कनेक्ट की पुष्टि करें</string>
     <string name="home_connection_actuator_fault_copy">त्रुटि कॉपी करें</string>
     <string name="home_connection_stage_network">नेटवर्क</string>
-    <string name="home_connection_stage_handshake">Handshake</string>
-    <string name="home_connection_stage_tunnel">Tunnel</string>
+    <string name="home_connection_stage_handshake">हैंडशेक</string>
+    <string name="home_connection_stage_tunnel">टनल</string>
     <string name="home_connection_stage_route">रूट</string>
     <string name="home_connection_actuator_action_android_managed">Android lockdown द्वारा प्रबंधित</string>
     <string name="home_connection_stage_state_pending">लंबित</string>

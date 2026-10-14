@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_option_theme_system">System</string>
+    <string name="settings_option_theme_light">Light</string>
+    <string name="settings_option_theme_dark">Dark</string>
+    <string name="settings_option_route_selected_hosts">Route selected hosts</string>
+    <string name="settings_option_automatic">Automatic</string>
+    <string name="settings_option_random">Random</string>
+    <string name="settings_option_quic_imitation">QUIC imitation</string>
+    <string name="settings_option_tls_imitation">TLS imitation</string>
+    <string name="settings_option_dns_imitation">DNS imitation</string>
+    <string name="settings_option_route_by_sni">Route by SNI</string>
+    <string name="settings_option_route_and_cache">Route and cache</string>
+    <string name="settings_option_chrome_stable">Chrome stable</string>
+    <string name="settings_option_chrome_desktop_stable">Chrome desktop stable</string>
+    <string name="settings_option_firefox_stable">Firefox stable</string>
+    <string name="settings_option_firefox_ech_stable">Firefox stable (ECH)</string>
+    <string name="settings_option_safari_stable">Safari stable</string>
+    <string name="settings_option_edge_stable">Edge stable</string>
+    <string name="settings_option_popcount_shaping">Popcount shaping</string>
+    <string name="settings_option_shannon_shaping">Shannon shaping</string>
+    <string name="settings_option_combined_shaping">Combined shaping</string>
+    <string name="ripdpi_fake_seq_mode_sequential">Sequential</string>
+    <string name="settings_option_zero">Zero</string>
+    <string name="settings_option_iana_bigsize">IANA large payload</string>
+    <string name="host_pack_youtube_description">Video playback, embeds, and CDN endpoints from public geosite lists.</string>
+    <string name="host_pack_telegram_description">Messenger, CDN, and share links bundled from public geosite sources.</string>
+    <string name="host_pack_discord_description">App, media, invite, and attachment domains from public geosite lists.</string>
+    <string name="ripdpi_fake_seq_mode_duplicate">Duplicate</string>
+</resources>
