@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: awg-dualstack-mtu
 created: 2026-10-15
 updated: 2026-10-16
-status_detail: Implementation and scoped emulator acceptance passed at b92db30c6124e453a67ab64307b608d027f6baec; full hosted Android CI remains pending in verification.
+status_detail: Implementation, local gates, all eight scoped emulator sessions, canonical federation/evidence validation and compiled-source CI38816708930 passed; ready for review without closure.
 ---
 
 ## Goal
