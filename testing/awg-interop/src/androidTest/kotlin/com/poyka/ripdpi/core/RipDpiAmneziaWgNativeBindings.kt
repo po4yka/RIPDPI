@@ -15,4 +15,12 @@ class RipDpiAmneziaWgNativeBindings {
     external fun jniPollTelemetry(handle: Long): String?
 
     external fun jniDestroy(handle: Long)
+
+    companion object {
+        @JvmStatic
+        external fun jniRegisterVpnProtect(vpnService: Any): Long
+
+        @JvmStatic
+        external fun jniUnregisterVpnProtect(token: Long)
+    }
 }

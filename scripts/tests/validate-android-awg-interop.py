@@ -52,6 +52,10 @@ def validate(path, nonce, source_sha):
     require({(c["mtu"], c["cycle"]) for c in cycles} == {(m, c) for m in (1280, 1420) for c in (1, 2, 3)}, "incomplete MTU/cycle matrix")
     for cycle in cycles:
         require(cycle["nonce"] == nonce and cycle["abi"] == data["abi"] and cycle["api"] == data["api"], "cycle identity mismatch")
+        protection = cycle["socket_protection"]
+        require(set(protection) == {"attempted", "successful"} and
+                all(type(value) is int and value == 1 for value in protection.values()),
+                "real Android socket protection absent")
         log = artifact(base, cycle["instrumentation"]).read_text()
         observed = [json.loads(line.removeprefix("INSTRUMENTATION_STATUS: awgEvidence="))
                     for line in log.splitlines() if line.startswith("INSTRUMENTATION_STATUS: awgEvidence=")]

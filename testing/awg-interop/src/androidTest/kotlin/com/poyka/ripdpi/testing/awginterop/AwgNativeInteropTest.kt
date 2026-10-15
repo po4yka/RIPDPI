@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.testing.awginterop
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.util.Base64
@@ -10,6 +14,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.DataInputStream
@@ -32,6 +37,10 @@ class AwgNativeInteropTest {
         val cycle = requireNotNull(args.getString("awgCycle")).toInt()
         require(mtu in 1280..1420 && cycle in 1..3)
         assertEquals("arm64-v8a", Build.SUPPORTED_ABIS.first())
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertNoActiveVpn(context)
+        assertNull("The runner must obtain real Android VPN authorization", VpnService.prepare(context))
+        assertNoActiveVpn(context)
         val config =
             JSONObject()
                 .put("enabled", true)
@@ -64,13 +73,18 @@ class AwgNativeInteropTest {
                         .put("i1", "deadbeef"),
                 )
         val bindings = RipDpiAmneziaWgNativeBindings()
+        val protection = RecordingVpnService()
         val handle = bindings.jniCreate(config.toString())
         assertTrue("real JNI create must return a handle", handle != 0L)
+        var protectionToken = 0L
         val exit = AtomicInteger(-1)
-        val worker = thread(name = "awg-interop-native") { exit.set(bindings.jniStart(handle)) }
+        var worker: Thread? = null
         val measurements = JSONArray()
         try {
-            val listener = awaitListener(bindings, handle)
+            protectionToken = RipDpiAmneziaWgNativeBindings.jniRegisterVpnProtect(protection)
+            assertTrue("real JNI protection registration must return a token", protectionToken != 0L)
+            worker = thread(name = "awg-interop-native") { exit.set(bindings.jniStart(handle)) }
+            val listener = awaitListener(bindings, handle, exit)
             listOf("10.77.0.1" to 41001, "fd77::1" to 41004).forEach { (host, port) ->
                 val payload = ByteArray(4096) { (it % 251).toByte() }
                 socks(listener, 1, host, port).first.use { socket ->
@@ -143,6 +157,7 @@ class AwgNativeInteropTest {
                     .put("cycle", cycle)
                     .put("abi", Build.SUPPORTED_ABIS.first())
                     .put("api", Build.VERSION.SDK_INT)
+                    .put("socket_protection", protection.observation())
                     .put("measurements", measurements)
             InstrumentationRegistry.getInstrumentation().sendStatus(
                 2,
@@ -151,21 +166,30 @@ class AwgNativeInteropTest {
                 },
             )
         } finally {
-            bindings.jniStop(handle)
-            worker.join(5000)
-            assertFalse("native shutdown must finish", worker.isAlive)
-            bindings.jniDestroy(handle)
+            try {
+                bindings.jniStop(handle)
+                worker?.join(5000)
+                assertFalse("native shutdown must finish", worker?.isAlive == true)
+                bindings.jniDestroy(handle)
+            } finally {
+                RipDpiAmneziaWgNativeBindings.jniUnregisterVpnProtect(protectionToken)
+            }
         }
         assertEquals("native start must exit cleanly", 0, exit.get())
+        assertNoActiveVpn(context)
     }
 
     private fun awaitListener(
         bindings: RipDpiAmneziaWgNativeBindings,
         handle: Long,
+        exit: AtomicInteger,
     ): InetSocketAddress {
         val deadline = System.nanoTime() + 15_000_000_000L
         while (System.nanoTime() < deadline) {
             val telemetry = bindings.jniPollTelemetry(handle)?.let(::JSONObject)
+            check(exit.get() == -1) {
+                "native start exited before readiness: code=${exit.get()} error=${telemetry?.optString("lastError")}"
+            }
             if (telemetry?.optString("state") == "running" && !telemetry.isNull("listenerAddress")) {
                 val endpoint = telemetry.getString("listenerAddress").split(':')
                 assertEquals("127.0.0.1", endpoint[0])
@@ -174,6 +198,33 @@ class AwgNativeInteropTest {
             Thread.sleep(25)
         }
         error("authenticated AWG readiness deadline exceeded")
+    }
+
+    private fun assertNoActiveVpn(context: Context) {
+        val connectivity = context.getSystemService(ConnectivityManager::class.java)
+        assertFalse(
+            "This native-core host must not establish an Android VPN",
+            connectivity
+                .getNetworkCapabilities(connectivity.activeNetwork)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true,
+        )
+    }
+
+    /** Records the actual platform result; it never fabricates protection success. */
+    class RecordingVpnService : VpnService() {
+        private val attempted = AtomicInteger()
+        private val successful = AtomicInteger()
+
+        override fun protect(socket: Int): Boolean {
+            attempted.incrementAndGet()
+            return super.protect(socket).also { if (it) successful.incrementAndGet() }
+        }
+
+        fun observation(): JSONObject {
+            assertEquals("one real Android protection call", 1, attempted.get())
+            assertEquals("Android must accept socket protection", 1, successful.get())
+            return JSONObject().put("attempted", attempted.get()).put("successful", successful.get())
+        }
     }
 
     private fun socks(

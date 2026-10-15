@@ -13,6 +13,7 @@ Bundle import currently filters address arrays and defaults missing MTU; the nat
 - Reject out-of-range activation MTU so Android and native values cannot diverge through native clamping.
 - Keep schema version 1 and synchronize the canonical deployment schema/example/negative artifacts byte-identically.
 - The Android gate is emulator/native_core only and uses the actual production AWG JNI library. JVM fakes and host tests do not count as Android evidence. The independent peer is AWG v0.2.12 at commit 2e3f7d122ca8ef61e403fddc48a9db8fccd95dbf, built with Go 1.27.1 and loopback-only host transport.
+- The isolated host obtains Android VPN authorization and registers a real `VpnService.protect(fd)` callback before native startup. It records the actual platform result and verifies that no Android VPN is active; it never establishes a TUN or substitutes a successful protection callback. Native exit before authenticated readiness fails immediately.
 - Physical-device and Android VpnService TUN/no-leak checks are not gates for this change. Linux forwarding/no-leak evidence remains owned by the producer task.
 
 ## Contracts and ownership

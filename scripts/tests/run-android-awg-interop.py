@@ -2,6 +2,7 @@
 """Run real AWG JNI interop on a leased arm64 emulator. Invoke through build-gate."""
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import importlib.util
 import io
@@ -38,6 +39,25 @@ def validator():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@contextmanager
+def emulator_vpn_authorization(adb):
+    previous = checked(adb + ["shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"])
+    modes = re.findall(r"^\s*ACTIVATE_VPN: ([a-z]+)(?:;|$)", previous, re.MULTILINE)
+    if len(modes) == 1 and modes[0] in {"allow", "ignore", "deny", "default", "foreground"}:
+        mode = modes[0]
+    elif not modes and ("No operations." in previous or previous.startswith("Uid mode:")):
+        mode = "default"
+    else:
+        raise ValueError("cannot determine prior emulator VPN authorization")
+    try:
+        # Scoped emulator authorization; instrumentation verifies VpnService.prepare
+        # and the actual OS protect(fd) result. This host never establishes a TUN.
+        checked(adb + ["shell", "cmd", "appops", "set", PACKAGE, "ACTIVATE_VPN", "allow"])
+        yield
+    finally:
+        checked(adb + ["shell", "cmd", "appops", "set", PACKAGE, "ACTIVATE_VPN", mode])
 
 
 def build(args):
@@ -107,6 +127,11 @@ def device(args):
         raise ValueError("selected device is not an emulator")
     output = args.output_dir
     checked(adb + ["install", "-r", str(output / "test.apk")], timeout=120)
+    with emulator_vpn_authorization(adb):
+        device_cycles(args, adb, output)
+
+
+def device_cycles(args, adb, output):
     cycles = []
     for mtu in (1280, 1420):
         for cycle in (1, 2, 3):
@@ -165,6 +190,7 @@ def main():
     parser.add_argument("--nonce", required=True)
     parser.add_argument("--peer-source", type=Path)
     parser.add_argument("--api", default="32")
+    parser.add_argument("--target", default="google_apis", help="installed Android system-image tag")
     parser.add_argument("--device-phase", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if not re.fullmatch(r"[a-zA-Z0-9_-]{8,128}", args.nonce):
@@ -177,7 +203,7 @@ def main():
         else:
             build(args)
             checked([sys.executable, str(ROOT / "scripts/ci/android-avd-pool.py"), "run", "--api", args.api,
-                     "--arch", "arm64-v8a", "--target", "google_apis", "--profile", "pixel_6", "--",
+                     "--arch", "arm64-v8a", "--target", args.target, "--profile", "pixel_6", "--",
                      sys.executable, str(Path(__file__).resolve()), "--device-phase", "--output-dir", str(args.output_dir),
                      "--nonce", args.nonce, "--api", args.api], timeout=900)
     except (ValueError, OSError, subprocess.SubprocessError) as error:
