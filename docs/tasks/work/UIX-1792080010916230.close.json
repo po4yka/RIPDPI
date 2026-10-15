@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "All F01-F17 corrected in 3925a43bdb0c380e7a48e68ed18ea8c3e67e79ac. Local Full/Simple JVM 5431 pass; Python 76 pass; locale parity, lint, static analysis, Roborazzi and API37 locale/device smoke pass. All seven exact-SHA workflows green. CI https://github.com/po4yka/RIPDPI/actions/runs/38773292352; full evidence docs/audits/2026-10-15-localization-remediation.md.",
+  "execution_sha256": "84b3572ec25b8a9f2612774ad193b1a9ff7373f2f1295546eec2a390be93d85c",
+  "issue_sha256": "9533b2613b1e84e09ab23e09ba9ee71a4987173fd79454b21e2a3fb14ecaaa17",
+  "outcome": "done",
+  "prepared_at": "2026-10-15T17:47:18Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1792080010916230"
+}

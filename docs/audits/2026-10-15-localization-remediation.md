@@ -78,8 +78,7 @@ unchanged; its incorrect use in DNS is removed by F10.
   row. Device language, font, and both app overrides were restored. The pool
   command returned zero and released its lease.
 - Local logs, JUnit XML, APK hashes, UI XML, and screenshots are retained in
-  `/tmp/ripdpi-final-remediation-20261015/`. Hosted CI evidence will be recorded
-  after publication.
+  `/tmp/ripdpi-final-remediation-20261015/`. Hosted CI results are listed below.
 
 ## Review and limits
 
@@ -93,3 +92,30 @@ This work does not claim native-speaker approval of every old sentence,
 physical-device acceptance, or a real legacy Android SystemUI session. A UI
 render must be inspected before it is used as visual evidence. Golden changes
 require approval for their exact fixture paths.
+
+## Publication
+
+Source commit: `3925a43bdb0c380e7a48e68ed18ea8c3e67e79ac`.
+The job branch was rebased on `origin/main`. Combined JVM, lint, static analysis,
+Roborazzi, locale, architecture, and locked metadata gates passed again. Main
+was updated by fast-forward and pushed to origin.
+
+All seven workflows for this exact source SHA completed with success:
+
+- [CI and ci-required](https://github.com/po4yka/RIPDPI/actions/runs/38773292352)
+- [Locale parity](https://github.com/po4yka/RIPDPI/actions/runs/38773292199)
+- [Translation export](https://github.com/po4yka/RIPDPI/actions/runs/38773292484)
+- [CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/38773292355)
+- [Secret Scan](https://github.com/po4yka/RIPDPI/actions/runs/38773292307)
+- [Harness checks](https://github.com/po4yka/RIPDPI/actions/runs/38773292247)
+- [Fleet fixtures](https://github.com/po4yka/RIPDPI/actions/runs/38773292546)
+
+The main workflow has 47 successful jobs and 17 jobs skipped by its normal
+routing rules. Successful jobs include app JVM tests, static analysis,
+Roborazzi, Kotlin/Rust coverage, all ABI packaging, Xray-linked tests,
+instrumentation on API27/33/35/36/37, and debug and Full/Simple release builds
+for GitHub, F-Droid, and Play. No workflow rerun was needed.
+
+The follow-up commit records this observed evidence and closes the portfolio
+record. It changes documentation only. Its own routed CI must pass after push;
+the full source verification above remains tied to the source SHA.

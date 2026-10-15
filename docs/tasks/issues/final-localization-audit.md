@@ -2,7 +2,7 @@
 id: UIX-1792080010916230
 title: Fix final localization audit regressions
 kind: bug
-status: review
+status: done
 area: ui
 priority: high
 owner: Localization remediation
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-15
 updated: 2026-10-15
 spec_reason: regression-tested-single-module
+closed_at: "2026-10-15T17:47:18Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "All F01-F17 corrected in 3925a43bdb0c380e7a48e68ed18ea8c3e67e79ac. Local Full/Simple JVM 5431 pass; Python 76 pass; locale parity, lint, static analysis, Roborazzi and API37 locale/device smoke pass. All seven exact-SHA workflows green. CI https://github.com/po4yka/RIPDPI/actions/runs/38773292352; full evidence docs/audits/2026-10-15-localization-remediation.md."
 ---
 
 ## Goal
@@ -39,4 +42,4 @@ Correct all 17 confirmed groups in the final localization audit at 3c1df4f9. Kee
 
 - Input audit: /tmp/ripdpi-final-i18n-audit-20261015/audit.md and confirmed-findings.json.
 - Source corrections and observed validation: docs/audits/2026-10-15-localization-remediation.md.
-- Local evidence: /tmp/ripdpi-final-remediation-20261015/. Hosted CI is pending publication.
+- Local evidence: /tmp/ripdpi-final-remediation-20261015/. All seven source-SHA workflows passed; CI: https://github.com/po4yka/RIPDPI/actions/runs/38773292352.
