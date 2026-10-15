@@ -392,7 +392,9 @@ def group_has_live_members(group: int) -> bool:
         if len(fields) != 2 or not fields[0].isdigit():
             raise PoolError(f"Ambiguous process group inspection for {group}")
         if int(fields[0]) == group:
-            if not re.fullmatch(r"[A-Za-z][A-Za-z0-9+<>=]*", fields[1]):
+            # Darwin can emit '?' with exit/session modifiers. It is indeterminate,
+            # so retain the group as live until the normal bounded poll confirms exit.
+            if not re.fullmatch(r"[A-Za-z?][A-Za-z0-9+<>=]*", fields[1]):
                 raise PoolError(f"Unknown process state in group {group}")
             if not fields[1].startswith("Z"):
                 return True
