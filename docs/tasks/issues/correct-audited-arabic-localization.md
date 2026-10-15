@@ -2,7 +2,7 @@
 id: UIX-1792040423920590
 title: Correct audited Arabic localization
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: fix-audited-arabic-localization
 created: 2026-10-15
 updated: 2026-10-15
+status_detail: Published source 632f25dc; all seven hosted workflows and combined local gates passed.
 ---
 
 ## Goal
