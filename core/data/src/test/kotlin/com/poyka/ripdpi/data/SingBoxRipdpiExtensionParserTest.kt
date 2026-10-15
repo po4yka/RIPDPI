@@ -181,6 +181,8 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "arm64-unsafe",
+                    "address": ["10.66.66.2/32", "fd77::2/128"],
+                    "mtu": 1330,
                     "s3": 1,
                     "s4": 0,
                     "private_key_placeholder": true,
@@ -197,6 +199,9 @@ class SingBoxRipdpiExtensionParserTest {
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
 
         assertTrue(result.amneziaWgProfiles.isEmpty())
+        assertTrue(result.skipped.isEmpty())
+        val safe = success(SingBoxSubscriptionParser.parse(json.replace("\"s3\": 1", "\"s3\": 0"), groupId))
+        assertEquals(1, safe.amneziaWgProfiles.size)
     }
 
     // -------------------------------------------------------------------------
@@ -339,6 +344,8 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "should-be-ignored",
+                    "address": ["10.66.66.2/32", "fd77::2/128"],
+                    "mtu": 1330,
                     "peer": { "public_key": "key==", "endpoint": "1.2.3.4:51820" }
                   }
                 ],
@@ -363,6 +370,14 @@ class SingBoxRipdpiExtensionParserTest {
         // Additive metadata is absent when the block is ignored.
         assertNull(result.topology)
         assertNull(result.tokenExpiresAtEpochMillis)
+        val supported =
+            success(
+                SingBoxSubscriptionParser.parse(
+                    json.replace("\"schema_version\": 99", "\"schema_version\": 1"),
+                    groupId,
+                ),
+            )
+        assertEquals(1, supported.amneziaWgProfiles.size)
     }
 
     // -------------------------------------------------------------------------
