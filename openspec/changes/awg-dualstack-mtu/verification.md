@@ -5,7 +5,7 @@ commit_sha: null
 local: required
 local_evidence: Eight Python runner and evidence-validator tests passed; architecture health and strict task/OpenSpec gates passed. Focused Gradle invocation timed out after 3600 seconds waiting for the machine build gate without execution. A bounded follow-up and Android invocation were stopped while still queued for draft handoff; independent host-native and Android runs remain unobserved.
 remote_ci: required
-remote_ci_evidence: Hosted CI 38771665416 found one obsolete bootstrap fixture (280 tests, one failure); CI 38773904560 then passed runtime-state but found one obsolete fingerprint fixture in core data (887 tests, one failure). Both fixtures were migrated without weakening validation; revalidation remains required.
+remote_ci_evidence: Hosted CI 38771665416 found one obsolete bootstrap fixture (280 tests, one failure); CI 38773904560 then passed runtime-state but found one obsolete fingerprint fixture in core data (887 tests, one failure). Both fixtures were migrated without weakening validation; JVM and app unit-test steps subsequently passed on exact commit 0495b20e7; static analysis failed and is being diagnosed. Complete revalidation remains required.
 device: required
 device_evidence: Required scope is Android arm64 emulator native_core only, with both MTUs and three reconnect cycles each. Physical-device and Android VpnService TUN/no-leak checks are not required. Prior invocation was stopped while still queued; resumed invocation is paused for coordinated source changes, and no emulator lab has been created.
 artifact: passed
@@ -24,6 +24,7 @@ The Android acceptance gate is emulator/native_core only. It does not require a 
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
+| REQ-AWG-FEDERATION | DAT-1792081224671303 | Native export/history tests and producer task-federation against this checkout | Pending real cross-repository gate |
 | REQ-AWG-TRANSPORT | DAT-1792081224193869 | Parser/mapper/contract focused Gradle tests | Not executed; build-gate contention |
 | REQ-AWG-ACTIVATION | DAT-1792081224193869 | Runtime readiness and service resolver focused Gradle tests | Not executed; build-gate contention |
 | REQ-AWG-INTEROP | DAT-1792081224671303 | Independent peer IPv4/IPv6 TCP/UDP at 1280 and 1420 | Pending |

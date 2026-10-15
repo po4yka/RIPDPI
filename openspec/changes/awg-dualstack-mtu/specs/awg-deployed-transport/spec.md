@@ -35,3 +35,17 @@ Acceptance MUST exercise real bidirectional IPv4 and IPv6 TCP, UDP and DNS paylo
 
 - **WHEN** the Android arm64 native runtime exchanges and verifies payloads against the owned peer
 - **THEN** acceptance records measured traffic, selected MTU, reconnect count and emulator scope; unavailable prerequisites fail visibly.
+
+### Requirement: REQ-AWG-FEDERATION — Resolve the qualified consumer natively
+
+The client task CLI MUST export its validated native graph using the shared federation envelope. Unassessed risk MUST remain null, native records and receipt hashes MUST remain unchanged, and all exported references MUST be qualified. Export MUST refuse uncommitted tasking inputs. Historical resolution MUST use native committed lifecycle and receipt validation and include the terminal and deletion revisions; missing or invalid proof MUST fail.
+
+#### Scenario: Producer resolves the consumer task
+
+- **WHEN** the producer requests the qualified AWG consumer task through the client-owned export
+- **THEN** the response identifies the committed client revision, exact shared contract digest, validated status/progress and native task identity.
+
+#### Scenario: Invalid historical proof
+
+- **WHEN** a requested purged task has a tampered receipt or lacks a committed review-to-terminal transition
+- **THEN** export fails without fabricating a historical terminal node.

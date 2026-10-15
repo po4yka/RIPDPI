@@ -19,6 +19,12 @@ Bundle import currently filters address arrays and defaults missing MTU; the nat
 
 The portfolio ownership section assigns parser, activation, affected tests, contract mirrors, independent peer and instrumentation to this single writer. No production dependencies, Cargo.lock, protobuf or JNI shape changes. Source contract producer is `po4yka/ripdpi-vpn-deploy#ANS-1791618048083304`.
 
+## Cross-repository task resolution
+
+The producer consumes `./taskctl export --json` and on-demand `export --resolve-task ID --json`. This adapter validates the existing native portfolio and receipts, qualifies native relations, and reports unassessed risk as null. It does not retag issue records or rewrite terminal receipts. Export requires committed tasking, portfolio, OpenSpec and project-contract inputs, then binds the envelope to HEAD and the exact shared contract digest.
+
+Purged tasks resolve only through native closure provenance checks, including the committed review-to-terminal transition, receipt hashes and archived execution. The exported historical node comes from the receipt-bound terminal snapshot and records terminal/deletion revisions. Missing or invalid provenance fails visibly. The consumer writer owns the task CLI, its tests and the new project/contract metadata for this adapter; dependency/tool pins and native issue schema remain unchanged.
+
 ## Risks / Trade-offs
 
 Strict admission breaks malformed or old single-family deployment bundles; producers and fixtures migrate together. Standalone INI address support remains independent. Emulator NAT/native-core evidence cannot establish Android TUN/no-leak, physical-device, or live server acceptance.
