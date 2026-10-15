@@ -12,7 +12,7 @@
     <string name="pause_stop">توقف و لغو ازسرگیری</string>
     <string name="pause_persistence_failed">فرمان ذخیره نشد. وضعیت اتصال تغییری نکرده است.</string>
     <string name="pause_duration_minutes">%1$s دقیقه</string>
-    <string name="pause_clock_failed">ساعت یا شناسه راه‌اندازی تغییر کرده است. بازیابی را بررسی کنید.</string>
+    <string name="pause_clock_failed">ساعت یا شناسهٔ راه‌اندازی تغییر کرده است. برای بررسی بازیابی، «ازسرگیری اکنون» را انتخاب کنید.</string>
     <string name="pause_consent_required">برای ازسرگیری مجوز VPN لازم است.</string>
     <string name="pause_lockdown">وضعیت قفل VPN اندروید اجازه این کار را نمی‌دهد.</string>
     <string name="pause_background_restricted">اندروید بازیابی پس‌زمینه را به تعویق انداخت. برنامه را باز کنید.</string>

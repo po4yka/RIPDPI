@@ -37,13 +37,13 @@ import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
-import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
@@ -51,7 +51,6 @@ import java.util.Locale
 
 private const val PercentageMultiplier = 100
 
-private val strategyReportSummaryMapper = StrategyReportSummaryMapper()
 private val candidateDetailMapper = CandidateDetailMapper()
 private val auditAssessmentPresenter = AuditAssessmentPresenter()
 
@@ -92,20 +91,24 @@ internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
                 }.toImmutableList(),
         runtimeSummary =
             persistentListOf(
-                DiagnosticsMetricUiModel("Usage", detail.summary.usageCount.toString(), DiagnosticsTone.Info),
                 DiagnosticsMetricUiModel(
-                    "Runtime",
+                    context.getString(R.string.diagnostics_approach_metric_usage),
+                    detail.summary.usageCount.toString(),
+                    DiagnosticsTone.Info,
+                ),
+                DiagnosticsMetricUiModel(
+                    context.getString(R.string.diagnostics_approach_metric_runtime),
                     formatDurationMs(detail.summary.totalRuntimeDurationMs),
                     DiagnosticsTone.Info,
                 ),
                 DiagnosticsMetricUiModel(
-                    "Errors",
+                    context.getString(R.string.diagnostics_metric_errors),
                     detail.summary.recentRuntimeHealth.totalErrors
                         .toString(),
                     DiagnosticsTone.Warning,
                 ),
                 DiagnosticsMetricUiModel(
-                    "Route changes",
+                    context.getString(R.string.diagnostics_metric_route_changes),
                     detail.summary.recentRuntimeHealth.routeChanges
                         .toString(),
                     DiagnosticsTone.Info,
@@ -177,6 +180,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
     reportResults: List<ProbeResult>,
     serviceMode: String?,
 ): DiagnosticsStrategyProbeReportUiModel {
+    val strategyReportSummaryMapper = StrategyReportSummaryMapper(context)
     val candidateDetails =
         candidateDetailMapper.candidateDetails(
             factory = this,
@@ -184,7 +188,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
             reportResults = reportResults,
             serviceMode = serviceMode,
         )
-    val winningPath = report.buildStrategyProbeWinningPath(candidateDetails)
+    val winningPath = report.buildStrategyProbeWinningPath(candidateDetails, context)
 
     return DiagnosticsStrategyProbeReportUiModel(
         suiteId = report.suiteId,
@@ -234,6 +238,7 @@ internal fun DiagnosticsUiFactorySupport.buildStrategyProbeCandidateDetails(
 
 private fun StrategyProbeReport.buildStrategyProbeWinningPath(
     candidateDetails: Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel>,
+    stringResolver: StringResolver,
 ): DiagnosticsStrategyProbeWinningPathUiModel? {
     val recommendation = recommendation
     return if (recommendation != null &&
@@ -252,7 +257,7 @@ private fun StrategyProbeReport.buildStrategyProbeWinningPath(
                     quicWinner.toWinningCandidateUiModel(
                         hiddenCandidateCount = (quicCandidates.size - 1).coerceAtLeast(0),
                     ),
-                dnsLaneLabel = recommendation.dnsStrategyLabel,
+                dnsLaneLabel = recommendation.dnsStrategyLabel?.let(StrategyProbeValueLabels(stringResolver)::dnsLane),
             )
         } else {
             null
@@ -407,22 +412,18 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
         }
     }
 
-private fun strategyProbeSuiteLabel(suiteId: String): String =
+private fun DiagnosticsUiFactorySupport.strategyProbeSuiteLabel(suiteId: String): String =
     when (suiteId) {
-        StrategyProbeSuiteFullMatrixV1 -> "Automatic audit"
-        StrategyProbeSuiteQuickV1 -> "Automatic probing"
-        else -> suiteId.replace('_', ' ').replaceFirstChar { it.uppercase() }
+        StrategyProbeSuiteFullMatrixV1 -> context.getString(R.string.diagnostics_scan_automatic_audit)
+        StrategyProbeSuiteQuickV1 -> context.getString(R.string.diagnostics_scan_automatic_probing)
+        else -> suiteId
     }
 
 private fun strategyProbeOutcomeLabel(
     outcome: String,
     skipped: Boolean,
-): String =
-    when {
-        skipped -> "Skipped"
-        outcome.equals("not_applicable", ignoreCase = true) -> "Not applicable"
-        else -> outcome.replace('_', ' ').replaceFirstChar { it.uppercase() }
-    }
+    stringResolver: StringResolver,
+): String = StrategyProbeValueLabels(stringResolver).outcome(outcome, skipped)
 
 private fun strategyProbeCandidateTone(
     outcome: String,
@@ -438,121 +439,14 @@ private fun strategyProbeCandidateTone(
         else -> DiagnosticsTone.Negative
     }
 
-private fun strategyProbeFamilyLabel(family: String): String =
-    strategyProbeFamilyLabels[family] ?: family.replace('_', ' ').replaceFirstChar { it.uppercase() }
-
-private val strategyProbeFamilyLabels =
-    mapOf(
-        "baseline" to "Baseline",
-        "parser" to "Parser",
-        "parser_aggressive" to "Parser aggressive",
-        "split" to "Host split",
-        "ech_split" to "ECH extension split",
-        "ech_tlsrec" to "ECH TLS record split",
-        "tlsrec_split" to "TLS record split",
-        "tlsrec_seqovl" to "TLS record sequence overlap",
-        "tlsrec_fake" to "TLS record fake",
-        "fake_flags" to "TCP flag crafting",
-        "fake_approx" to "Fake approximation",
-        "hostfake" to "Hostfake",
-        "seqovl" to "Sequence overlap",
-        "activation_window" to "Activation window",
-        "adaptive_fake_ttl" to "Adaptive fake TTL",
-        "fake_payload_library" to "Fake payload library",
-        "quic_disabled" to "QUIC disabled",
-        "quic_burst" to "QUIC burst",
-    )
+private fun DiagnosticsUiFactorySupport.strategyProbeFamilyLabel(family: String): String =
+    StrategyProbeValueLabels(context).family(family)
 
 private fun parseServiceModeOrDefault(serviceMode: String?): Mode =
     when (serviceMode?.uppercase(Locale.US)) {
         "PROXY" -> Mode.Proxy
         "VPN" -> Mode.VPN
         else -> Mode.VPN
-    }
-
-private fun buildStrategyProbeCandidateMetrics(
-    summary: StrategyProbeCandidateSummary,
-    recommended: Boolean,
-): List<DiagnosticsMetricUiModel> =
-    buildList {
-        add(DiagnosticsMetricUiModel("Targets", "${summary.succeededTargets}/${summary.totalTargets}"))
-        add(DiagnosticsMetricUiModel("Weight", "${summary.weightedSuccessScore}/${summary.totalWeight}"))
-        add(
-            DiagnosticsMetricUiModel(
-                "Quality",
-                summary.qualityScore.toString(),
-                tone =
-                    when {
-                        summary.qualityScore >= summary.totalTargets.coerceAtLeast(1) * 3 -> DiagnosticsTone.Positive
-                        summary.qualityScore > 0 -> DiagnosticsTone.Warning
-                        else -> DiagnosticsTone.Neutral
-                    },
-            ),
-        )
-        summary.averageLatencyMs?.let {
-            add(DiagnosticsMetricUiModel("Latency", "$it ms", DiagnosticsTone.Info))
-        }
-        add(
-            DiagnosticsMetricUiModel(
-                "Emitter",
-                strategyEmitterTierLabel(summary.emitterTier),
-                tone =
-                    when (summary.emitterTier) {
-                        StrategyEmitterTier.NON_ROOT_PRODUCTION -> DiagnosticsTone.Info
-                        StrategyEmitterTier.ROOTED_PRODUCTION -> DiagnosticsTone.Warning
-                        StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY -> DiagnosticsTone.Neutral
-                    },
-            ),
-        )
-        add(
-            DiagnosticsMetricUiModel(
-                "Realization",
-                strategyEmitterRealizationLabel(summary),
-                tone =
-                    when {
-                        summary.emitterDowngraded -> DiagnosticsTone.Warning
-                        summary.exactEmitterRequiresRoot -> DiagnosticsTone.Info
-                        else -> DiagnosticsTone.Neutral
-                    },
-            ),
-        )
-        if (recommended) {
-            add(
-                DiagnosticsMetricUiModel(
-                    "Selected",
-                    if (summary.skipped) "Fallback" else "Winner",
-                    if (summary.skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
-                ),
-            )
-        }
-    }
-
-private fun strategyEmitterTierLabel(tier: StrategyEmitterTier): String =
-    when (tier) {
-        StrategyEmitterTier.NON_ROOT_PRODUCTION -> "Non-root production"
-        StrategyEmitterTier.ROOTED_PRODUCTION -> "Rooted production"
-        StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY -> "Lab diagnostics only"
-    }
-
-private fun strategyEmitterRealizationLabel(summary: StrategyProbeCandidateSummary): String =
-    when {
-        summary.emitterDowngraded -> "Approximate fallback"
-        summary.exactEmitterRequiresRoot -> "Rooted exact"
-        summary.emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY -> "Lab path"
-        else -> "Direct"
-    }
-
-private fun strategyEmitterNotes(summary: StrategyProbeCandidateSummary): List<String> =
-    buildList {
-        if (summary.exactEmitterRequiresRoot && !summary.emitterDowngraded) {
-            add("Exact emission on this path required rooted runtime capabilities.")
-        }
-        if (summary.emitterDowngraded) {
-            add("Exact emission was unavailable, so this candidate ran through an approximate fallback path.")
-        }
-        if (summary.emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY) {
-            add("This candidate stays in diagnostics-only coverage and is not part of production defaults.")
-        }
     }
 
 private fun DiagnosticsUiFactorySupport.deriveSignature(
@@ -585,31 +479,34 @@ private fun DiagnosticsUiFactorySupport.buildStrategyProbeResultGroups(
 ): List<DiagnosticsProbeGroupUiModel> =
     candidateResults
         .mapIndexed { index, result ->
-            toProbeResultUiModel(
-                index = index,
-                pathMode = ScanPathMode.RAW_PATH,
-                result = result,
-            )
-        }.groupBy { probe ->
-            probe.details
-                .firstOrNull { it.label == "protocol" }
-                ?.value
-                ?.uppercase(Locale.US)
-                ?.let { "$it results" }
-                ?: probe.probeType.replace('_', ' ').replaceFirstChar { it.uppercase() }
-        }.map { (title, items) ->
+            val title =
+                result
+                    .detailValue("protocol")
+                    ?.uppercase(Locale.US)
+                    ?.let { context.getString(R.string.diagnostics_strategy_protocol_results, it) }
+                    ?: when (result.probeType) {
+                        "strategy_http" -> context.getString(R.string.diagnostics_strategy_protocol_results, "HTTP")
+                        "strategy_https" -> context.getString(R.string.diagnostics_strategy_protocol_results, "HTTPS")
+                        "strategy_quic" -> context.getString(R.string.diagnostics_strategy_protocol_results, "QUIC")
+                        "strategy_probe" -> context.getString(R.string.blockcheck_section_title)
+                        else -> result.probeType
+                    }
+            title to toProbeResultUiModel(index = index, pathMode = ScanPathMode.RAW_PATH, result = result)
+        }.groupBy(keySelector = { it.first }, valueTransform = { it.second })
+        .map { (title, items) ->
             DiagnosticsProbeGroupUiModel(title = title, items = items.toImmutableList())
         }.sortedBy { it.title }
 
 internal fun StrategyProbeCandidateSummary.toCandidateUiModel(
     recommended: Boolean,
+    stringResolver: StringResolver,
 ): DiagnosticsStrategyProbeCandidateUiModel =
     DiagnosticsStrategyProbeCandidateUiModel(
         id = id,
         label = label,
-        outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped),
+        outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped, stringResolver = stringResolver),
         rationale = rationale,
-        metrics = buildStrategyProbeCandidateMetrics(this, recommended).toImmutableList(),
+        metrics = buildStrategyProbeCandidateMetrics(this, recommended, stringResolver).toImmutableList(),
         tone = strategyProbeCandidateTone(outcome = outcome, skipped = skipped, recommended = recommended),
         skipped = skipped,
         recommended = recommended,
@@ -627,7 +524,12 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
         label = candidate.label,
         familyLabel = strategyProbeFamilyLabel(candidate.family),
         suiteLabel = strategyProbeSuiteLabel(suiteId),
-        outcome = strategyProbeOutcomeLabel(outcome = candidate.outcome, skipped = candidate.skipped),
+        outcome =
+            strategyProbeOutcomeLabel(
+                outcome = candidate.outcome,
+                skipped = candidate.skipped,
+                stringResolver = context,
+            ),
         rationale = candidate.rationale,
         tone =
             strategyProbeCandidateTone(
@@ -636,8 +538,8 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
                 recommended = recommended,
             ),
         recommended = recommended,
-        notes = (candidate.notes + strategyEmitterNotes(candidate)).distinct().toImmutableList(),
-        metrics = buildStrategyProbeCandidateMetrics(candidate, recommended).toImmutableList(),
+        notes = (candidate.notes + strategyEmitterNotes(candidate, context)).distinct().toImmutableList(),
+        metrics = buildStrategyProbeCandidateMetrics(candidate, recommended, context).toImmutableList(),
         signature = deriveSignature(candidate, serviceMode)?.let(::strategySignatureFields).orEmpty().toImmutableList(),
         resultGroups =
             buildStrategyProbeResultGroups(
@@ -648,68 +550,83 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
 private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(
     recommendation: StrategyProbeRecommendation,
     completionKind: StrategyProbeCompletionKind,
-): DiagnosticsStrategyProbeRecommendationUiModel =
-    if (completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED) {
-        DiagnosticsStrategyProbeRecommendationUiModel(
-            headline = context.getString(R.string.diagnostics_probe_short_circuit_recommendation_headline),
-            rationale = recommendation.rationale,
-            fields =
-                listOf(
-                    DiagnosticsFieldUiModel("TCP fallback", recommendation.tcpCandidateLabel),
-                    recommendation.tcpCandidateFamily?.let {
-                        DiagnosticsFieldUiModel("TCP/TLS lane", strategyProbeFamilyLabel(it))
-                    },
-                    DiagnosticsFieldUiModel("QUIC fallback", recommendation.quicCandidateLabel),
-                    recommendation.quicCandidateFamily?.let {
-                        DiagnosticsFieldUiModel("QUIC lane", strategyProbeFamilyLabel(it))
-                    },
-                    recommendation.dnsStrategyLabel?.let {
-                        DiagnosticsFieldUiModel("DNS lane", it)
-                    },
-                    recommendation.tlsPathSuppressionSummary?.let {
-                        DiagnosticsFieldUiModel("Suppression", it)
-                    },
-                    DiagnosticsFieldUiModel("Why trials stopped", recommendation.rationale),
-                ).filterNotNull().toImmutableList(),
-            signature =
-                recommendation.strategySignature
-                    ?.let { signature ->
-                        strategySignatureFields(signature)
-                    }.orEmpty()
-                    .toImmutableList(),
-        )
-    } else {
-        DiagnosticsStrategyProbeRecommendationUiModel(
-            headline =
+): DiagnosticsStrategyProbeRecommendationUiModel {
+    val shortCircuited = completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+    return DiagnosticsStrategyProbeRecommendationUiModel(
+        headline =
+            if (shortCircuited) {
+                context.getString(R.string.diagnostics_probe_short_circuit_recommendation_headline)
+            } else {
                 listOfNotNull(
                     recommendation.tcpCandidateLabel,
                     recommendation.quicCandidateLabel,
-                    recommendation.dnsStrategyLabel,
-                ).joinToString(" + "),
-            rationale = recommendation.rationale,
-            fields =
-                listOf(
-                    DiagnosticsFieldUiModel("TCP recommendation", recommendation.tcpCandidateLabel),
-                    recommendation.tcpCandidateFamily?.let {
-                        DiagnosticsFieldUiModel("TCP/TLS lane", strategyProbeFamilyLabel(it))
-                    },
-                    DiagnosticsFieldUiModel("QUIC recommendation", recommendation.quicCandidateLabel),
-                    recommendation.quicCandidateFamily?.let {
-                        DiagnosticsFieldUiModel("QUIC lane", strategyProbeFamilyLabel(it))
-                    },
-                    recommendation.dnsStrategyLabel?.let {
-                        DiagnosticsFieldUiModel("DNS lane", it)
-                    },
-                    recommendation.tlsPathSuppressionSummary?.let {
-                        DiagnosticsFieldUiModel("Suppression", it)
-                    },
-                    DiagnosticsFieldUiModel("Why it won", recommendation.rationale),
-                ).filterNotNull().toImmutableList(),
-            signature =
-                recommendation.strategySignature
-                    ?.let { signature ->
-                        strategySignatureFields(signature)
-                    }.orEmpty()
-                    .toImmutableList(),
-        )
-    }
+                    recommendation.dnsStrategyLabel?.let(StrategyProbeValueLabels(context)::dnsLane),
+                ).joinToString(" + ")
+            },
+        rationale = recommendation.rationale,
+        fields = strategyProbeRecommendationFields(recommendation, shortCircuited).toImmutableList(),
+        signature =
+            recommendation.strategySignature
+                ?.let(::strategySignatureFields)
+                .orEmpty()
+                .toImmutableList(),
+    )
+}
+
+private fun DiagnosticsUiFactorySupport.strategyProbeRecommendationFields(
+    recommendation: StrategyProbeRecommendation,
+    shortCircuited: Boolean,
+): List<DiagnosticsFieldUiModel> =
+    listOfNotNull(
+        DiagnosticsFieldUiModel(
+            context.getString(
+                if (shortCircuited) {
+                    R.string.diagnostics_strategy_field_tcp_fallback
+                } else {
+                    R.string.diagnostics_strategy_field_tcp_recommendation
+                },
+            ),
+            recommendation.tcpCandidateLabel,
+        ),
+        recommendation.tcpCandidateFamily?.let {
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_signature_tcp_tls_lane),
+                strategyProbeFamilyLabel(it),
+            )
+        },
+        DiagnosticsFieldUiModel(
+            context.getString(
+                if (shortCircuited) {
+                    R.string.diagnostics_strategy_field_quic_fallback
+                } else {
+                    R.string.diagnostics_strategy_field_quic_recommendation
+                },
+            ),
+            recommendation.quicCandidateLabel,
+        ),
+        recommendation.quicCandidateFamily?.let {
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_signature_quic_lane),
+                strategyProbeFamilyLabel(it),
+            )
+        },
+        recommendation.dnsStrategyLabel?.let {
+            DiagnosticsFieldUiModel(
+                context.getString(R.string.diagnostics_audit_winning_dns_lane),
+                StrategyProbeValueLabels(context).dnsLane(it),
+            )
+        },
+        recommendation.tlsPathSuppressionSummary?.let {
+            DiagnosticsFieldUiModel(context.getString(R.string.diagnostics_strategy_field_suppression), it)
+        },
+        DiagnosticsFieldUiModel(
+            context.getString(
+                if (shortCircuited) {
+                    R.string.diagnostics_strategy_field_trials_stopped
+                } else {
+                    R.string.diagnostics_strategy_field_why_won
+                },
+            ),
+            recommendation.rationale,
+        ),
+    )

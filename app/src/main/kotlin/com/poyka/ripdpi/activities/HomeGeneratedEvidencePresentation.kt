@@ -24,7 +24,7 @@ internal fun DiagnosticsHomeCompositeOutcome.homeHeadline(strings: StringResolve
             R.string.home_diagnostics_network_scope_unavailable,
         )
     } else {
-        headline
+        strings.homeGeneratedText(headline)
     }
 
 internal fun DiagnosticsHomeCompositeOutcome.homeSummary(strings: StringResolver): String =
@@ -33,7 +33,7 @@ internal fun DiagnosticsHomeCompositeOutcome.homeSummary(strings: StringResolver
             R.string.home_diagnostics_network_scope_unavailable_body,
         )
     } else {
-        summary
+        strings.homeGeneratedText(summary)
     }
 
 internal fun StringResolver.homeNetworkNote(note: String): String =

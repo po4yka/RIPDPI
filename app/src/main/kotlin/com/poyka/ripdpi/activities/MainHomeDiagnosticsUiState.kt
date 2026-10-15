@@ -199,16 +199,7 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
     val progress = activeRunProgress
     val activeStageIndex = progress?.activeStageIndex
     val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
-    val stageLabel =
-        if (activeStage?.stageKey == "pmtu") {
-            stringResolver.getString(R.string.diagnostics_pmtu_title)
-        } else if (activeStage?.stageKey == "http3") {
-            stringResolver.getString(R.string.diagnostics_http3_title)
-        } else if (activeStage?.stageKey == "ip_family") {
-            stringResolver.getString(R.string.diagnostics_ip_title)
-        } else {
-            activeStage?.stageLabel
-        }
+    val stageLabel = activeStage?.let { stringResolver.homeStageLabel(it.stageKey, it.stageLabel) }
     val stagePrefix =
         activeStageIndex?.let {
             stringResolver.getString(
@@ -217,7 +208,7 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
                 progress.stages.size,
             )
         }
-    return listOfNotNull(stagePrefix, activeRunStageProgress ?: stageLabel)
+    return listOfNotNull(stagePrefix, activeRunStageProgress?.let(stringResolver::homeProgressText) ?: stageLabel)
         .joinToString(" · ")
         .ifBlank { stringResolver.homeAnalysisRunningLabel(quickScanActive) }
 }
@@ -359,10 +350,11 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         runId = runId,
         headline = homeHeadline(stringResolver),
         summary = homeSummary(stringResolver),
-        confidenceSummary = confidenceSummary,
-        coverageSummary = coverageSummary,
-        recommendationSummary = recommendationSummary,
-        appliedSettings = appliedSettings.toImmutableList(),
+        confidenceSummary = stringResolver.homeConfidence(confidenceSummary),
+        confidenceLevel = confidenceSummary.homeConfidenceLevel(),
+        coverageSummary = coverageSummary?.let(stringResolver::homeGeneratedText),
+        recommendationSummary = recommendationSummary?.let(stringResolver::homeRecommendationText),
+        appliedSettings = appliedSettings.map { stringResolver.homeAppliedSetting(it) }.toImmutableList(),
         capabilityEvidence = capabilityEvidence.map { it.homeUiModel(stringResolver) }.toImmutableList(),
         stageSummaries = stageSummaries.map { it.toUiState(stringResolver) }.toImmutableList(),
         completedStageCount = completedStageCount,
@@ -430,15 +422,9 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
 
 private fun DiagnosticsHomeCompositeStageSummary.toUiState(stringResolver: StringResolver) =
     HomeDiagnosticsStageUiState(
-        label =
-            when (stageKey) {
-                "pmtu" -> stringResolver.getString(R.string.diagnostics_pmtu_title)
-                "http3" -> stringResolver.getString(R.string.diagnostics_http3_title)
-                "ip_family" -> stringResolver.getString(R.string.diagnostics_ip_title)
-                else -> stageLabel
-            },
+        label = stringResolver.homeStageLabel(stageKey, stageLabel),
         headline = headline,
-        summary = summary,
+        summary = stringResolver.homeStageSummary(stageKey, stageLabel, summary),
         failed = status == DiagnosticsHomeCompositeStageStatus.FAILED,
         skipped =
             status == DiagnosticsHomeCompositeStageStatus.SKIPPED ||
@@ -484,7 +470,7 @@ private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(
 ) = HomeDiagnosticsLatestAuditUiState(
     headline = homeHeadline(stringResolver),
     summary = homeSummary(stringResolver),
-    recommendationSummary = recommendationSummary,
+    recommendationSummary = recommendationSummary?.let(stringResolver::homeRecommendationText),
     ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
     completedStageCount = completedStageCount,
     failedStageCount = failedStageCount,

@@ -1244,7 +1244,7 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `locale signal refreshes frozen home evidence without another analysis or runtime emission`() =
+    fun `locale signal refreshes frozen Home evidence in Arabic and Persian without another runtime emission`() =
         runTest {
             RuntimeEnvironment.setQualifiers("en")
             val service = StubDiagnosticsHomeCompositeRunService()
@@ -1261,6 +1261,10 @@ class MainViewModelTest {
             runCurrent()
             val outcome =
                 homeOutcome().copy(
+                    headline = "Analysis complete",
+                    summary = "Scan time limit reached",
+                    confidenceSummary = "Confidence high (87)",
+                    coverageSummary = "Matrix 76% · winners 100%",
                     networkCharacter =
                         com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary(
                             notes = listOf("Active network is a VPN", "Network reports as metered"),
@@ -1273,15 +1277,21 @@ class MainViewModelTest {
             val progress = service.runs["home-run"]!!.value
             val starts = service.startedRunIds.toList()
 
-            RuntimeEnvironment.setQualifiers("ar")
-            viewModel.onLocaleChanged("ar")
-            runCurrent()
-            val arabic = viewModel.homeDiagnosticsUiState.value
-            arabic.analysisSheet!!.networkCharacterNotes.forEach(::assertArabic)
-            assertArabic(arabic.analysisSheet.actionableHeadline)
-            assertEquals(starts, service.startedRunIds)
-            assertEquals(progress, service.runs["home-run"]!!.value)
-            assertEquals(english.analysisSheet!!.runId, arabic.analysisSheet.runId)
+            for (tag in listOf("ar", "fa")) {
+                RuntimeEnvironment.setQualifiers(tag)
+                viewModel.onLocaleChanged(tag)
+                runCurrent()
+                val localized = viewModel.homeDiagnosticsUiState.value
+                val sheet = requireNotNull(localized.analysisSheet)
+                sheet.networkCharacterNotes.forEach(::assertArabic)
+                assertArabic(sheet.actionableHeadline)
+                listOf(sheet.headline, sheet.summary, sheet.confidenceSummary, sheet.coverageSummary)
+                    .filterNotNull()
+                    .forEach(::assertArabic)
+                assertEquals(starts, service.startedRunIds)
+                assertEquals(progress, service.runs["home-run"]!!.value)
+                assertEquals(english.analysisSheet!!.runId, sheet.runId)
+            }
 
             RuntimeEnvironment.setQualifiers("en")
             viewModel.onLocaleChanged("en")

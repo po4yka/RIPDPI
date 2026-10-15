@@ -50,7 +50,7 @@
     <string name="diagnostics_rkn_verdict_http_stub">صفحه مسدودسازی HTTP</string>
     <string name="diagnostics_rkn_verdict_likely_format">احتمالاً %1$s</string>
     <string name="diagnostics_rkn_verdict_uncertain_format">%1$s؟</string>
-    <string name="diagnostics_compression_bytes_format">فشرده %1$s B · رمزگشایی‌شده %2$s B</string>
+    <string name="diagnostics_compression_bytes_format">فشرده %1$s B · پس از بازکردن فشرده‌سازی %2$s B</string>
     <string name="diagnostics_ipv4_whitelist_alive_format">دسترس‌پذیر %1$s · %2$s</string>
     <string name="history_connection_state_running">در حال اجرا</string>
     <string name="history_connection_state_failed">ناموفق</string>

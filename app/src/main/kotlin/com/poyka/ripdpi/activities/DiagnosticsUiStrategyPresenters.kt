@@ -10,11 +10,13 @@ import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeReportPresentation
 import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeFamilies
 import kotlinx.collections.immutable.toImmutableList
 
-internal class StrategyReportSummaryMapper {
+internal class StrategyReportSummaryMapper(
+    private val stringResolver: StringResolver,
+) {
     fun summaryMetrics(report: StrategyProbeReport): List<DiagnosticsMetricUiModel> =
-        buildStrategyProbeSummaryMetrics(report)
+        buildStrategyProbeSummaryMetrics(report, stringResolver)
 
-    fun families(report: StrategyProbeReport) = report.toStrategyProbeFamilies()
+    fun families(report: StrategyProbeReport) = report.toStrategyProbeFamilies(stringResolver)
 }
 
 internal class CandidateDetailMapper {

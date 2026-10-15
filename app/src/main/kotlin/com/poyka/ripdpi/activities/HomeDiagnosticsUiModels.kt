@@ -88,6 +88,12 @@ data class HomeAnalysisLabeledRow(
     val value: String,
 )
 
+enum class HomeConfidenceLevel {
+    LOW,
+    MEDIUM,
+    HIGH,
+}
+
 @Immutable
 data class HomeDiagnosticsAnalysisSheetUiState(
     val runId: String,
@@ -123,6 +129,7 @@ data class HomeDiagnosticsAnalysisSheetUiState(
     val bufferbloatSummary: String? = null,
     val dnsCharacterizationSummary: String? = null,
     val dnsCharacterizationNotes: ImmutableList<String> = persistentListOf(),
+    val confidenceLevel: HomeConfidenceLevel? = confidenceSummary.homeConfidenceLevel(),
 )
 
 @Immutable

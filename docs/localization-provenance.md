@@ -17,7 +17,7 @@ Structural revalidation date: **2026-07-14**. `app/src/main/res/values/strings.x
 | Spanish (es) | `values-es/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | German (de) | `values-de/` (all XML files) | 5010 | 0 | **pre-existing; AI-authored audited corrections** | **yes for corrections** | Native-speaker review pending for this update | — |
 | French (fr) | `values-fr/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| Persian (fa) | `values-fa/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| Persian (fa) | `values-fa/` (all app and service XML files) | 5283 | 0 | **pre-existing; AI-authored audited corrections** | **yes for corrections** | Native-speaker review pending for this update | — |
 | Arabic (ar) | `values-ar/` (all app and service XML files) | 5085 | 0 | **machine-translated; AI-authored audited corrections** | **yes** | Native-speaker review pending for this update | — |
 | Simplified Chinese (zh-CN) | `values-zh-rCN/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Hindi (hi) | `values-hi/` (all XML files) | 4948 | 0 | **machine-translated; audited corrections** | **yes** | Native-speaker review pending | — |
@@ -285,6 +285,41 @@ Corrections and translations were authored with an AI assistant. Resource
 regressions check meanings, action references and literal tokens. The owning
 verification artifact records build, render, lint and hosted CI evidence
 separately. This entry records no new maintainer or native-speaker sign-off.
+
+## Persian and shared presentation corrections — 2026-10-15
+
+The audit source is `a6b286e21ebf52d4d8901c63481b304122a7556d`.
+This pass corrects exactly 121 confirmed active Persian resource keys. It
+translates active English controls and warnings and corrects exclusion,
+restart, local storage, packet, DNS and decoding terms. It preserves the
+visible Resume now action, credential warnings, explicit export consent,
+local capture retention, and the 64 MiB capture limit. Disputed terms,
+unused resources and editorial suggestions remain outside this correction.
+
+Shared Home, Approach and Strategy presentation adds 194 strings and four
+plural resources in all ten locales. The plural resources cover failed
+stages, additional domains, hosts and detection signals. Arabic has all six
+quantity categories; Russian has one, few, many and other. Display templates
+preserve protocol names, runtime identifiers and format arguments. Raw
+producer records, stored text and export formats do not change.
+
+The app source now has 5,272 translatable entries: 5,241 strings and 31
+plurals. Service resources add 11 entries; Quick Connect has 15 separate
+strings. The regenerated source string manifest has 5,251 keys. These counts
+exclude technical resources marked `translatable="false"`.
+
+The eight Persian resource regressions check confirmed meanings, translated
+shared templates, count categories, native language names, resource types
+and format arguments. They fail against the audit source and pass after the
+correction. Locale parity and translation export checks pass locally. The
+owning verification artifact records Kotlin behavior, build, lint, render
+and hosted CI evidence separately.
+
+Corrections and translations were authored with an AI assistant. The prior
+2026-05-30 maintainer review does not sign off these new translations. This
+entry records no new maintainer or native-speaker sign-off. Resource tests
+do not prove device acceptance or full linguistic correctness of other
+locales.
 
 ## Font & glyph coverage
 

@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
+import com.poyka.ripdpi.activities.HomeConfidenceLevel
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
@@ -246,7 +247,7 @@ private fun HomeAnalysisSheetCoreContent(sheet: HomeDiagnosticsAnalysisSheetUiSt
             totalCount = sheet.stageSummaries.size,
         )
     }
-    HomeConfidenceRow(sheet.confidenceSummary)
+    HomeConfidenceRow(sheet.confidenceSummary, sheet.confidenceLevel)
     sheet.coverageSummary?.let { value ->
         SettingsRow(title = stringResource(R.string.home_diagnostics_coverage_label), value = value)
     }
@@ -257,15 +258,17 @@ private fun HomeAnalysisSheetCoreContent(sheet: HomeDiagnosticsAnalysisSheetUiSt
 }
 
 @Composable
-private fun HomeConfidenceRow(value: String?) {
+private fun HomeConfidenceRow(
+    value: String?,
+    level: HomeConfidenceLevel?,
+) {
     val colors = RipDpiThemeTokens.colors
     val confidenceColor =
-        when {
-            value == null -> colors.foreground
-            value.contains("low", ignoreCase = true) -> colors.destructive
-            value.contains("medium", ignoreCase = true) -> colors.warning
-            value.contains("high", ignoreCase = true) -> colors.success
-            else -> colors.foreground
+        when (level) {
+            HomeConfidenceLevel.LOW -> colors.destructive
+            HomeConfidenceLevel.MEDIUM -> colors.warning
+            HomeConfidenceLevel.HIGH -> colors.success
+            null -> colors.foreground
         }
     value?.let {
         FlowRow(

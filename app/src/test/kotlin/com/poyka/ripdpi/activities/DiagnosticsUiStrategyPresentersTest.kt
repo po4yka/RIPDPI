@@ -22,7 +22,7 @@ class DiagnosticsUiStrategyPresentersTest {
 
     @Test
     fun `strategy report summary mapper owns high level report metrics`() {
-        val metrics = StrategyReportSummaryMapper().summaryMetrics(strategyPresenterReport())
+        val metrics = StrategyReportSummaryMapper(stringResolver).summaryMetrics(strategyPresenterReport())
 
         assertEquals("Worked", metrics[0].label)
         assertEquals("3", metrics[0].value)

@@ -6,7 +6,10 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.platform.StringResolver
 
-internal fun buildStrategyProbeSummaryMetrics(report: StrategyProbeReport): List<DiagnosticsMetricUiModel> {
+internal fun buildStrategyProbeSummaryMetrics(
+    report: StrategyProbeReport,
+    stringResolver: StringResolver,
+): List<DiagnosticsMetricUiModel> {
     val candidates = report.tcpCandidates + report.quicCandidates
     val worked = candidates.count { it.outcome.equals("success", ignoreCase = true) }
     val partial = candidates.count { it.outcome.equals("partial", ignoreCase = true) }
@@ -20,12 +23,42 @@ internal fun buildStrategyProbeSummaryMetrics(report: StrategyProbeReport): List
     val notApplicable = candidates.count { it.outcome.equals("not_applicable", ignoreCase = true) }
     val skipped = candidates.count { it.skipped }
     return buildList {
-        add(DiagnosticsMetricUiModel("Worked", worked.toString(), DiagnosticsTone.Positive))
-        add(DiagnosticsMetricUiModel("Partial", partial.toString(), DiagnosticsTone.Warning))
-        add(DiagnosticsMetricUiModel("Failed", failed.toString(), DiagnosticsTone.Negative))
-        add(DiagnosticsMetricUiModel("N/A", notApplicable.toString(), DiagnosticsTone.Neutral))
+        add(
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_strategy_summary_worked),
+                worked.toString(),
+                DiagnosticsTone.Positive,
+            ),
+        )
+        add(
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_stages_partial),
+                partial.toString(),
+                DiagnosticsTone.Warning,
+            ),
+        )
+        add(
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_stages_failed),
+                failed.toString(),
+                DiagnosticsTone.Negative,
+            ),
+        )
+        add(
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_strategy_summary_na),
+                notApplicable.toString(),
+                DiagnosticsTone.Neutral,
+            ),
+        )
         if (skipped > 0) {
-            add(DiagnosticsMetricUiModel("Skipped", skipped.toString(), DiagnosticsTone.Neutral))
+            add(
+                DiagnosticsMetricUiModel(
+                    stringResolver.getString(R.string.diagnostics_probe_status_skipped),
+                    skipped.toString(),
+                    DiagnosticsTone.Neutral,
+                ),
+            )
         }
     }
 }
