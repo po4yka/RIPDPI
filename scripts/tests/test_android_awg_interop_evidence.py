@@ -68,7 +68,7 @@ class EvidenceValidationTest(unittest.TestCase):
             archive.writestr("lib/arm64-v8a/libripdpi-amneziawg.so", b"unit fixture, not native code")
         self.evidence["artifacts"]["test_apk"] = self.artifact("test_apk", apk.getvalue())
         for mtu in (1280, 1420):
-            for cycle in (1, 2, 3):
+            for cycle in range(4):
                 observations = []
                 for family in (4, 6):
                     for protocol in ("tcp", "udp", "udp", "dns"):
@@ -78,7 +78,7 @@ class EvidenceValidationTest(unittest.TestCase):
                         if protocol == "dns":
                             observation.update(answer_type=1 if family == 4 else 28, transaction_id=0x4321)
                         observations.append(observation)
-                value = {"nonce": self.nonce, "mtu": mtu, "cycle": cycle, "abi": "arm64-v8a", "api": 32,
+                value = {"nonce": self.nonce, "mtu": mtu, "cycle": cycle, "peer_port": 40000 + mtu, "abi": "arm64-v8a", "api": 32,
                          "socket_protection": {"attempted": 1, "successful": 1}, "measurements": observations}
                 identity = "INSTRUMENTATION_STATUS: class=" + VALIDATOR.METHOD.split("#")[0] + "\n" + "INSTRUMENTATION_STATUS: test=" + VALIDATOR.METHOD.split("#")[1] + "\n"
                 log = (identity + "INSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: awgEvidence=" + json.dumps(value) +
@@ -104,6 +104,18 @@ class EvidenceValidationTest(unittest.TestCase):
         for key, value in (("source_sha", "c" * 40), ("scope", "android_tun"), ("cycles", self.evidence["cycles"][:-1])):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 self.validate({**self.evidence, key: value})
+
+    def test_initial_plus_only_two_reconnects_is_refused(self):
+        changed = copy.deepcopy(self.evidence)
+        changed["cycles"] = [cycle for cycle in changed["cycles"] if cycle["cycle"] != 3]
+        with self.assertRaisesRegex(ValueError, "initial session plus three reconnects"):
+            self.validate(changed)
+
+    def test_replacing_peer_between_reconnects_is_refused(self):
+        changed = copy.deepcopy(self.evidence)
+        changed["cycles"][1]["peer_port"] += 1
+        with self.assertRaisesRegex(ValueError, "retain the independent peer endpoint"):
+            self.validate(changed)
 
     def test_tampered_measurements_or_artifacts_are_rejected(self):
         changed = copy.deepcopy(self.evidence)

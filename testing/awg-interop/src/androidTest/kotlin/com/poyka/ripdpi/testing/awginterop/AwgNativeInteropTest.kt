@@ -35,10 +35,11 @@ class AwgNativeInteropTest {
         val args = InstrumentationRegistry.getArguments()
         val mtu = requireNotNull(args.getString("awgMtu")).toInt()
         val cycle = requireNotNull(args.getString("awgCycle")).toInt()
-        require(mtu in 1280..1420 && cycle in 1..3)
+        require(mtu in 1280..1420 && cycle in 0..3)
         assertEquals("arm64-v8a", Build.SUPPORTED_ABIS.first())
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertNoActiveVpn(context)
+        awaitIpv4Underlay(context)
         assertNull("The runner must obtain real Android VPN authorization", VpnService.prepare(context))
         assertNoActiveVpn(context)
         val config =
@@ -155,6 +156,7 @@ class AwgNativeInteropTest {
                     .put("nonce", args.getString("awgNonce"))
                     .put("mtu", mtu)
                     .put("cycle", cycle)
+                    .put("peer_port", requireNotNull(args.getString("awgPeerPort")).toInt())
                     .put("abi", Build.SUPPORTED_ABIS.first())
                     .put("api", Build.VERSION.SDK_INT)
                     .put("socket_protection", protection.observation())
@@ -208,6 +210,25 @@ class AwgNativeInteropTest {
                 .getNetworkCapabilities(connectivity.activeNetwork)
                 ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true,
         )
+    }
+
+    private fun awaitIpv4Underlay(context: Context) {
+        val connectivity = context.getSystemService(ConnectivityManager::class.java)
+        val endpoint = InetAddress.getByName("10.0.2.2")
+        val deadline = System.nanoTime() + 15_000_000_000L
+        while (System.nanoTime() < deadline) {
+            assertNoActiveVpn(context)
+            val network = connectivity.activeNetwork
+            val capabilities = connectivity.getNetworkCapabilities(network)
+            val routes = network?.let(connectivity::getLinkProperties)?.routes.orEmpty()
+            if (capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                routes.any { it.matches(endpoint) }
+            ) {
+                return
+            }
+            Thread.sleep(25)
+        }
+        error("Android IPv4 underlay is not ready for the owned peer")
     }
 
     /** Records the actual platform result; it never fabricates protection success. */

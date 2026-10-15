@@ -48,8 +48,12 @@ def validate(path, nonce, source_sha):
         require(names == ["lib/arm64-v8a/libripdpi-amneziawg.so"], "APK must package exactly the selected arm64 AWG library")
         require(hashlib.sha256(apk.read(names[0])).hexdigest() == data["artifacts"]["native_library"]["sha256"], "APK packages a different native library")
     cycles = data["cycles"]
-    require(len(cycles) == 6, "six complete MTU/reconnect observations required")
-    require({(c["mtu"], c["cycle"]) for c in cycles} == {(m, c) for m in (1280, 1420) for c in (1, 2, 3)}, "incomplete MTU/cycle matrix")
+    require(len(cycles) == 8, "initial session plus three reconnects required at each MTU")
+    require({(c["mtu"], c["cycle"]) for c in cycles} == {(m, c) for m in (1280, 1420) for c in range(4)}, "incomplete MTU/cycle matrix")
+    for mtu in (1280, 1420):
+        ports = [cycle["peer_port"] for cycle in cycles if cycle["mtu"] == mtu]
+        require(all(type(port) is int and 0 < port < 65536 for port in ports) and len(set(ports)) == 1,
+                "reconnects must retain the independent peer endpoint")
     for cycle in cycles:
         require(cycle["nonce"] == nonce and cycle["abi"] == data["abi"] and cycle["api"] == data["api"], "cycle identity mismatch")
         protection = cycle["socket_protection"]

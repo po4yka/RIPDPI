@@ -29,12 +29,12 @@ Activation MUST reject an MTU outside 1280..1420 before native startup. Standalo
 
 ### Requirement: REQ-AWG-INTEROP — Measure scoped native traffic
 
-Acceptance MUST exercise real bidirectional IPv4 and IPv6 TCP, UDP and DNS payloads against an independently implemented authenticated peer at MTUs 1280 and 1420. The Android gate MUST use an arm64 emulator, identify its ABI and native_core scope, and perform three reconnect cycles per MTU. Physical-device and Android VpnService TUN/no-leak checks MUST NOT gate this change. Evidence MUST NOT claim those unmeasured capabilities; the producer owns Linux forwarding/no-leak verification.
+Acceptance MUST verify real IPv4/IPv6 TCP, UDP and DNS against an independent authenticated peer at MTUs 1280 and 1420. Android evidence MUST use arm64 emulator/native_core scope and include an initial session plus three reconnects per MTU. Physical-device and Android TUN/no-leak checks MUST NOT gate this change, and unmeasured capabilities MUST NOT be claimed. The producer owns Linux forwarding/no-leak verification.
 
 #### Scenario: Emulator native-core evidence
 
 - **WHEN** the Android arm64 native runtime exchanges and verifies payloads against the owned peer
-- **THEN** acceptance records measured traffic, selected MTU, reconnect count and emulator scope; unavailable prerequisites fail visibly.
+- **THEN** acceptance records measured traffic, selected MTU and emulator scope for cycle 0 baseline plus native session restarts 1 through 3 at each MTU, retaining one peer and endpoint across those four sessions; unavailable prerequisites fail visibly.
 
 ### Requirement: REQ-AWG-FEDERATION — Resolve the qualified consumer natively
 

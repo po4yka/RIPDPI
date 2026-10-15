@@ -134,19 +134,20 @@ def device(args):
 def device_cycles(args, adb, output):
     cycles = []
     for mtu in (1280, 1420):
-        for cycle in (1, 2, 3):
-            env = dict(os.environ, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_DNS="1")
-            with subprocess.Popen([str(output / "peer-binary")], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE, text=True, env=env) as peer:
-                try:
-                    with selectors.DefaultSelector() as selector:
-                        selector.register(peer.stdout, selectors.EVENT_READ)
-                        if not selector.select(timeout=15):
-                            raise TimeoutError("independent peer startup timeout")
-                        ready = json.loads(peer.stdout.readline())
-                    host, port = ready["endpoint"].rsplit(":", 1)
-                    if host != "127.0.0.1" or not 0 < int(port) < 65536:
-                        raise ValueError("peer must bind IPv4 loopback")
+        env = dict(os.environ, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_DNS="1", RIPDPI_AWG_INTEROP_CYCLES="4")
+        with subprocess.Popen([str(output / "peer-binary")], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True, env=env) as peer:
+            try:
+                with selectors.DefaultSelector() as selector:
+                    selector.register(peer.stdout, selectors.EVENT_READ)
+                    if not selector.select(timeout=15):
+                        raise TimeoutError("independent peer startup timeout")
+                    ready = json.loads(peer.stdout.readline())
+                host, port = ready["endpoint"].rsplit(":", 1)
+                if host != "127.0.0.1" or not 0 < int(port) < 65536:
+                    raise ValueError("peer must bind IPv4 loopback")
+                # Retain this live peer and endpoint through baseline + three restarts.
+                for cycle in range(4):
                     command = adb + ["shell", "am", "instrument", "-w", "-r", "-e", "class", METHOD,
                                      "-e", "awgPeerPort", port, "-e", "awgPublicKey", ready["public_key"],
                                      "-e", "awgMtu", str(mtu), "-e", "awgCycle", str(cycle),
@@ -158,20 +159,20 @@ def device_cycles(args, adb, output):
                                for line in log.splitlines() if line.startswith("INSTRUMENTATION_STATUS: awgEvidence=")]
                     if len(records) != 1:
                         raise ValueError("native instrumentation did not produce exactly one measurement record")
-                    peer.stdin.write("stop\n")
-                    peer.stdin.flush()
-                    if peer.wait(timeout=10) != 0:
-                        raise ValueError(f"independent peer exchanges failed: {peer.stderr.read(4096)}")
                     records[0]["instrumentation"] = artifact(path, output)
                     cycles.append(records[0])
-                finally:
-                    if peer.poll() is None:
-                        peer.terminate()
-                        try:
-                            peer.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            peer.kill()
-                            peer.wait(timeout=5)
+                peer.stdin.write("stop\n")
+                peer.stdin.flush()
+                if peer.wait(timeout=10) != 0:
+                    raise ValueError(f"independent peer exchanges failed: {peer.stderr.read(4096)}")
+            finally:
+                if peer.poll() is None:
+                    peer.terminate()
+                    try:
+                        peer.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        peer.kill()
+                        peer.wait(timeout=5)
     data = {"version": "android_awg_native_interop_v1", "nonce": args.nonce,
             "source_sha": json.loads((output / "identity.json").read_text())["source_sha"],
             "scope": "native_core", "device_class": "emulator", "abi": "arm64-v8a", "api": cycles[0]["api"],

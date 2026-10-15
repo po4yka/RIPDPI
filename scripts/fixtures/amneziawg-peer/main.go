@@ -218,6 +218,13 @@ func run() error {
 	if err != nil || mtu < 1280 || mtu > 1420 {
 		return errors.New("RIPDPI_AWG_INTEROP_MTU must be an integer from 1280 through 1420")
 	}
+	cycles := 1
+	if value := os.Getenv("RIPDPI_AWG_INTEROP_CYCLES"); value != "" {
+		cycles, err = strconv.Atoi(value)
+		if err != nil || cycles < 1 || cycles > 4 {
+			return errors.New("RIPDPI_AWG_INTEROP_CYCLES must be an integer from 1 through 4")
+		}
+	}
 	server, err := ecdh.X25519().NewPrivateKey(bytes.Repeat([]byte{9}, 32))
 	if err != nil {
 		return err
@@ -272,10 +279,19 @@ func run() error {
 	defer second6.Close()
 	expected := 4
 	results := make(chan error, 6)
-	go func() { results <- echoTCP(tcp) }()
-	go func() { results <- echoUDPPair(first, second) }()
-	go func() { results <- echoTCP(tcp6) }()
-	go func() { results <- echoUDPPair(first6, second6) }()
+	serve := func(exchange func() error) {
+		for cycle := 0; cycle < cycles; cycle++ {
+			if err := exchange(); err != nil {
+				results <- err
+				return
+			}
+		}
+		results <- nil
+	}
+	go serve(func() error { return echoTCP(tcp) })
+	go serve(func() error { return echoUDPPair(first, second) })
+	go serve(func() error { return echoTCP(tcp6) })
+	go serve(func() error { return echoUDPPair(first6, second6) })
 	if os.Getenv("RIPDPI_AWG_INTEROP_DNS") == "1" {
 		for _, address := range []string{"10.77.0.1:53", "[fd77::1]:53"} {
 			socket, err := network.ListenUDPAddrPort(netip.MustParseAddrPort(address))
@@ -283,7 +299,7 @@ func run() error {
 				return err
 			}
 			defer socket.Close()
-			go func() { results <- answerDNS(socket) }()
+			go serve(func() error { return answerDNS(socket) })
 			expected++
 		}
 	}
@@ -296,7 +312,8 @@ func run() error {
 	}
 	stop := make(chan struct{})
 	go func() { bufio.NewScanner(os.Stdin).Scan(); close(stop) }()
-	timer := time.NewTimer(30 * time.Second)
+	// Preserve the per-session deadline while one peer serves all reconnects.
+	timer := time.NewTimer(time.Duration(cycles) * 30 * time.Second)
 	defer timer.Stop()
 	completed := 0
 	for {
