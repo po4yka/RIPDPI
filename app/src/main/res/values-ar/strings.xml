@@ -246,7 +246,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">اتصال الويب المُركَّز على المنطقة وأدلة DNS و TLS و HTTP.</string>
     <string name="diagnostics_profile_desc_messaging">فحوصات إقلاع المراسلة والوسائط وإمكانية الوصول للبروتوكول.</string>
     <string name="diagnostics_profile_desc_adaptation">إقلاع Tor و VPN بالإضافة إلى إمكانية الوصول للمصافحة.</string>
-    <string name="diagnostics_profile_desc_throttling">نوافذ إنتاجية يدوية مقابل نقاط تحكم محايدة.</string>
+    <string name="diagnostics_profile_desc_throttling">فترات قياس يدوية لمعدل النقل باستخدام نقاط نهاية مرجعية محايدة.</string>
     <string name="diagnostics_profile_desc_network_full">كشف الفحص العميق للحزم عبر خدمات وبروتوكولات متعددة.</string>
     <string name="diagnostics_family_general">عام</string>
     <string name="diagnostics_family_web_connectivity">اتصال الويب</string>
@@ -1585,7 +1585,7 @@ fakeddisorder endhost</string>
     <string name="logs_active_session_body">عرض الاتصال الحالي أو جلسة التشخيص أولاً وإخفاء السجلات القديمة المحفوظة.</string>
     <string name="logs_stream_section">تدفق السجل</string>
     <string name="logs_stream_title">الإدخالات الأخيرة</string>
-    <string name="logs_entries_count">%1$d إدخال</string>
+    <string name="logs_entries_count">الإدخالات: %1$d</string>
     <string name="logs_copy_entry">نسخ سجل %1$s عند %2$s</string>
     <string name="logs_empty_title">لا توجد سجلات بعد</string>
     <string name="logs_empty_body">شغِّل RIPDPI أو أطلق حدثاً تشخيصياً لملء تدفق البيانات على الجهاز.</string>
@@ -2906,7 +2906,7 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_failure_header_format">آخر فشل · %1$s</string>
     <string name="vpn_replay_failure_replay">إعادة التشغيل</string>
     <string name="vpn_replay_failure_recommendation_title">توصية</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d حزمة</string>
+    <string name="vpn_pcap_viewer_meta_format">الحزم: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">رقم</string>
     <string name="vpn_pcap_viewer_col_time">الوقت</string>
     <string name="vpn_pcap_viewer_col_src">المصدر</string>
@@ -3865,7 +3865,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_cidr_whitelist_show_traces">إظهار آثار العناوين</string>
     <string name="diagnostics_cidr_whitelist_status_failed">فشل</string>
     <string name="diagnostics_cidr_whitelist_status_ok">حسنًا</string>
-    <string name="diagnostics_cidr_whitelist_summary_detected">اكتُشف نمط القائمة البيضاء لـ CIDR: استجابت عناوين التحكم فقط.</string>
+    <string name="diagnostics_cidr_whitelist_summary_detected">اكتُشف نمط القائمة البيضاء لـ CIDR: استجابت عناوين URL المرجعية فقط.</string>
     <string name="diagnostics_cidr_whitelist_summary_no_internet">لم تستجب أي من مجموعتي العناوين؛ قد يكون الاتصال غير متصل.</string>
     <string name="diagnostics_cidr_whitelist_summary_ok">العناوين العادية قابلة للوصول؛ لم يُكتشف نمط القائمة البيضاء لـ CIDR.</string>
     <string name="diagnostics_cidr_whitelist_title">اكتشاف القائمة البيضاء لـ CIDR</string>
@@ -3974,13 +3974,13 @@ fakeddisorder endhost</string>
     <string name="diagnostics_resolver_save_setting">حفظ كإعداد DNS</string>
     <string name="diagnostics_resolver_switch_dns">تبديل DNS إلى %1$s</string>
     <string name="diagnostics_results_section_count">%1$s (%2$d)</string>
-    <string name="diagnostics_rkn_complete">تم فحص %1$d هدف تحكم و%2$d هدف قائمة سوداء.</string>
+    <string name="diagnostics_rkn_complete">تم فحص %1$d هدف مرجعي و%2$d هدف من القائمة السوداء.</string>
     <string name="diagnostics_rkn_failed">فشل تشخيص حظر RKN.</string>
-    <string name="diagnostics_rkn_group_control">تحكم</string>
+    <string name="diagnostics_rkn_group_control">مجموعة المقارنة</string>
     <string name="diagnostics_rkn_group_test">اختبار</string>
     <string name="diagnostics_rkn_metric_flagged">معلّم</string>
     <string name="diagnostics_rkn_run">تشغيل تشخيص RKN</string>
-    <string name="diagnostics_rkn_running">جارٍ تشغيل مسابر التحكم والقائمة السوداء لـ RKN…</string>
+    <string name="diagnostics_rkn_running">جارٍ تشغيل اختبارات المقارنة والقائمة السوداء لـ RKN…</string>
     <string name="diagnostics_rkn_self_info_network_context">سياق الشبكة</string>
     <string name="diagnostics_rkn_self_info_privacy_suppressed">وضع الخصوصية مفعّل؛ سياق ipinfo.io/ifconfig.co مكبوت.</string>
     <string name="diagnostics_rkn_self_info_subtitle">يستخدم ipinfo.io مع ifconfig.co كاحتياطي؛ معطّل افتراضيًا.</string>

@@ -12,7 +12,6 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose
 import com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExport
 import com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService
-import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.components.export.ExportPreviewPresentation
 import com.poyka.ripdpi.ui.components.export.ExportPreviewPurpose
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -48,7 +47,6 @@ internal class ExportPreviewViewModel
     constructor(
         private val exports: PreparedDiagnosticsExportService,
         private val savedState: SavedStateHandle,
-        private val strings: StringResolver,
         @param:ApplicationIoScope private val cleanupScope: CoroutineScope,
     ) : ViewModel() {
         private val mutableState = MutableStateFlow<ExportPreviewState?>(null)
@@ -198,7 +196,7 @@ internal class ExportPreviewViewModel
                     ExportPreviewState(
                         token,
                         ExportPreviewPresentation.Error(
-                            strings.getString(R.string.export_preview_cleanup_failed),
+                            R.string.export_preview_cleanup_failed,
                         ),
                     )
                 owned = token
@@ -259,7 +257,7 @@ internal class ExportPreviewViewModel
                 mutableState.value =
                     ExportPreviewState(
                         token,
-                        ExportPreviewPresentation.Error(strings.getString(message)),
+                        ExportPreviewPresentation.Error(message),
                     )
             }
         }

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components.export
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
 
@@ -23,7 +24,15 @@ internal sealed interface ExportPreviewPresentation {
         val purpose: ExportPreviewPurpose,
     ) : ExportPreviewPresentation
 
-    data class Error(
-        val message: String,
-    ) : ExportPreviewPresentation
+    @ConsistentCopyVisibility
+    data class Error private constructor(
+        val message: String?,
+        @param:StringRes val messageRes: Int?,
+    ) : ExportPreviewPresentation {
+        constructor(
+            @StringRes messageRes: Int,
+        ) : this(null, messageRes)
+
+        constructor(message: String) : this(message, null)
+    }
 }

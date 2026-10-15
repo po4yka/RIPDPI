@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassApproachVerificationState
 import com.poyka.ripdpi.diagnostics.CurrentStrategyCandidateVerdict
-import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
@@ -37,32 +36,7 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
     val policyDecision = request?.resolveLegalSafetyPolicy()
     return DiagnosticsProfileOptionUiModel(
         id = profile.id,
-        name =
-            when {
-                profile.id == "default" && profile.source == "bundled" && profile.name == "Default diagnostics" -> {
-                    context.getString(R.string.diagnostics_profile_connectivity_title)
-                }
-
-                profile.id == SelectiveMatrixProfileId -> {
-                    context.getString(R.string.diagnostics_matrix_title)
-                }
-
-                profile.id == "pmtu-connectivity" -> {
-                    context.getString(R.string.diagnostics_pmtu_title)
-                }
-
-                profile.id == "http3-connectivity" -> {
-                    context.getString(R.string.diagnostics_http3_title)
-                }
-
-                profile.id == "ip-family-connectivity" -> {
-                    context.getString(R.string.diagnostics_ip_title)
-                }
-
-                else -> {
-                    profile.name
-                }
-            },
+        name = profile.localizedBundledName(context),
         source = profile.source,
         kind = request?.kind ?: ScanKind.CONNECTIVITY,
         strategyProbeSuiteId = request?.strategyProbeSuiteId,
@@ -104,52 +78,6 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     networkScopeUnverified: Boolean = false,
 ): DiagnosticsProbeResultUiModel =
     core.toProbeResultUiModel(index, pathMode, result, reportResults, networkScopeUnverified)
-
-internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis): DiagnosticsDiagnosisUiModel {
-    val isConfirmGood = diagnosis.code == "confirm_good_dpi_suspected"
-    val isConnectionConcurrency = diagnosis.code == "connection_concurrency_interaction"
-    return DiagnosticsDiagnosisUiModel(
-        code = diagnosis.code,
-        summary =
-            if (isConfirmGood) {
-                context.getString(R.string.diagnostics_confirm_good_dpi_summary)
-            } else if (isConnectionConcurrency) {
-                context.getString(R.string.diagnostics_connection_concurrency_summary)
-            } else {
-                diagnosis.summary
-            },
-        severity = diagnosis.severity,
-        target = diagnosis.target,
-        tone =
-            when (diagnosis.severity.lowercase(Locale.US)) {
-                "negative", "error", "blocked" -> DiagnosticsTone.Negative
-                "warning", "degraded" -> DiagnosticsTone.Warning
-                "positive", "ok" -> DiagnosticsTone.Positive
-                else -> DiagnosticsTone.Info
-            },
-        evidence =
-            (
-                if (isConfirmGood) {
-                    listOf(
-                        context.getString(R.string.diagnostics_confirm_good_dpi_evidence_reality),
-                        context.getString(R.string.diagnostics_confirm_good_dpi_evidence_quic),
-                    )
-                } else if (isConnectionConcurrency) {
-                    diagnosis.evidence
-                } else {
-                    diagnosis.evidence
-                }
-            ).toImmutableList(),
-        recommendation =
-            if (isConfirmGood) {
-                context.getString(R.string.diagnostics_confirm_good_dpi_recommendation)
-            } else if (isConnectionConcurrency && diagnosis.severity == "warning") {
-                context.getString(R.string.diagnostics_connection_concurrency_recommendation)
-            } else {
-                diagnosis.recommendation
-            },
-    )
-}
 
 internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
     policy: DiagnosticsRememberedPolicy,
@@ -217,6 +145,8 @@ internal fun DiagnosticsUiFactorySupport.toEventUiModel(event: DiagnosticEvent):
 
 private fun String.toPhaseLabel(ctx: StringResolver): String =
     when (this) {
+        "starting" -> ctx.getString(R.string.diagnostics_phase_starting)
+        "environment" -> ctx.getString(R.string.history_detail_section_environment)
         "pmtu" -> ctx.getString(R.string.diagnostics_pmtu_title)
         "http3" -> ctx.getString(R.string.diagnostics_http3_title)
         "ip_family" -> ctx.getString(R.string.diagnostics_ip_title)
@@ -288,7 +218,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
         }
     return DiagnosticsProgressUiModel(
         phase = progress.phase,
-        summary = progress.message,
+        summary = context.diagnosticsProgressText(progress.message),
         completedSteps = progress.completedSteps,
         totalSteps = progress.totalSteps,
         fraction = fraction,
@@ -296,7 +226,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
         isFullAudit = isFullAudit,
         scanStartedAtMs = scanStartedAt,
         phaseSteps = phaseSteps.toImmutableList(),
-        currentProbeLabel = strategyProbeProgress?.candidateLabel ?: progress.message,
+        currentProbeLabel = strategyProbeProgress?.candidateLabel ?: context.diagnosticsProgressText(progress.message),
         strategyProbeProgress = strategyProbeProgress,
         transferProgress = progress.transferProgress?.toTransferUiModel(),
         dnsBaselineStatus = dnsBaselineStatus,
@@ -381,7 +311,7 @@ internal fun DiagnosticsScanTriggerType.displayLabel(ctx: StringResolver): Strin
     }
 
 internal fun DiagnosticsScanLaunchTrigger.displaySummaryLabel(ctx: StringResolver): String? {
-    val classificationLabel = classification?.displayTriggerClassification()
+    val classificationLabel = classification?.displayTriggerClassification(ctx)
     return when (type) {
         DiagnosticsScanTriggerType.POLICY_HANDOVER -> {
             classificationLabel?.let {
@@ -395,12 +325,20 @@ internal fun DiagnosticsScanLaunchTrigger.displaySummaryLabel(ctx: StringResolve
     }
 }
 
-internal fun String.displayTriggerClassification(): String =
-    split('_', '-', ' ')
-        .filter { it.isNotBlank() }
-        .joinToString(" ") { token ->
-            token.lowercase(Locale.US).replaceFirstChar { it.titlecase(Locale.US) }
-        }
+internal fun String.displayTriggerClassification(ctx: StringResolver): String =
+    when (this) {
+        "transport_switch" -> ctx.getString(R.string.diagnostics_handover_transport_switch)
+        "link_refresh" -> ctx.getString(R.string.diagnostics_handover_link_refresh)
+        "strategy_failure" -> ctx.getString(R.string.diagnostics_handover_strategy_failure)
+        else -> this
+    }
+
+private fun StringResolver.diagnosticsProgressText(raw: String): String =
+    if (raw == "Collected network environment") {
+        getString(R.string.diagnostics_progress_environment_collected)
+    } else {
+        homeProgressText(raw)
+    }
 
 internal fun String?.shortFingerprintHash(): String? {
     val value = this?.trim().orEmpty()

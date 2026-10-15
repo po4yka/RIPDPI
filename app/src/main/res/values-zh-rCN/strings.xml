@@ -246,7 +246,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">区域聚焦的网页连接、DNS、TLS 和 HTTP 证据。</string>
     <string name="diagnostics_profile_desc_messaging">消息引导、媒体和协议可达性检查。</string>
     <string name="diagnostics_profile_desc_adaptation">Tor 和 VPN 引导加上握手可达性。</string>
-    <string name="diagnostics_profile_desc_throttling">针对中性控制端点的手动吞吐量窗口。</string>
+    <string name="diagnostics_profile_desc_throttling">针对中性对照端点的手动吞吐量测量时段。</string>
     <string name="diagnostics_profile_desc_network_full">跨多个服务和协议的深度数据包检测。</string>
     <string name="diagnostics_family_general">通用</string>
     <string name="diagnostics_family_web_connectivity">网页连接</string>
@@ -1928,7 +1928,7 @@ fake_burst 3</string>
     <string name="http_fake_profile_scope_off">HTTP 绕过策略 已禁用,此配置档当前处于空闲状态。</string>
     <string name="logs_active_session_title">仅当前会话</string>
     <string name="logs_buffer_value">%1$d / %2$d 条</string>
-    <string name="logs_entries_count">%1$d 条</string>
+    <string name="logs_entries_count">日志条数：%1$d</string>
     <string name="logs_copy_entry">复制 %2$s 的%1$s日志</string>
     <string name="logs_filters_helper">按子系统或严重程度筛选,以聚焦您正在调试的运行时。</string>
     <string name="logs_latest_none">空闲</string>
@@ -3019,7 +3019,7 @@ fake_burst 3</string>
     <string name="vpn_replay_failure_header_format">最近失败 · %1$s</string>
     <string name="vpn_replay_failure_replay">重放</string>
     <string name="vpn_replay_failure_recommendation_title">建议</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d 个数据包</string>
+    <string name="vpn_pcap_viewer_meta_format">数据包数：%1$d</string>
     <string name="vpn_pcap_viewer_col_no">编号</string>
     <string name="vpn_pcap_viewer_col_time">时间</string>
     <string name="vpn_pcap_viewer_col_src">源</string>
@@ -3831,7 +3831,7 @@ fake_burst 3</string>
     <string name="diagnostics_cidr_whitelist_show_traces">显示 URL 跟踪</string>
     <string name="diagnostics_cidr_whitelist_status_failed">失败</string>
     <string name="diagnostics_cidr_whitelist_status_ok">正常</string>
-    <string name="diagnostics_cidr_whitelist_summary_detected">检测到 CIDR 白名单模式：只有控制 URL 有响应。</string>
+    <string name="diagnostics_cidr_whitelist_summary_detected">检测到 CIDR 白名单模式：只有对照 URL 有响应。</string>
     <string name="diagnostics_cidr_whitelist_summary_no_internet">两个 URL 分组都无响应；连接可能已离线。</string>
     <string name="diagnostics_cidr_whitelist_summary_ok">常规 URL 可达；未检测到 CIDR 白名单模式。</string>
     <string name="diagnostics_cidr_whitelist_title">CIDR 白名单检测</string>
@@ -3861,7 +3861,7 @@ fake_burst 3</string>
     <string name="diagnostics_dns_integrity_metric_doq_flagged">DoQ 被标记</string>
     <string name="diagnostics_dns_integrity_metric_flagged">被标记</string>
     <string name="diagnostics_dns_integrity_metric_stub_ips">存根 IP</string>
-    <string name="diagnostics_dns_integrity_running">正在将 UDP/53 应答与 DoH 控制项进行比对……</string>
+    <string name="diagnostics_dns_integrity_running">正在将 UDP/53 应答与 DoH 对照结果进行比对……</string>
     <string name="diagnostics_domain_reachability_complete_clean">在 %1$d 个内置域名中未检测到可达性阻断。</string>
     <string name="diagnostics_domain_reachability_complete_flagged">%2$d 个域名中有 %1$d 个显示出可达性警告。</string>
     <string name="diagnostics_domain_reachability_failed">域名可达性扫描失败。</string>
@@ -3940,13 +3940,13 @@ fake_burst 3</string>
     <string name="diagnostics_resolver_save_setting">保存为 DNS 设置</string>
     <string name="diagnostics_resolver_switch_dns">将 DNS 切换为 %1$s</string>
     <string name="diagnostics_results_section_count">%1$s (%2$d)</string>
-    <string name="diagnostics_rkn_complete">已检查 %1$d 个控制目标和 %2$d 个黑名单目标。</string>
+    <string name="diagnostics_rkn_complete">已检查 %1$d 个对照目标和 %2$d 个黑名单目标。</string>
     <string name="diagnostics_rkn_failed">RKN 阻断诊断失败。</string>
-    <string name="diagnostics_rkn_group_control">控制</string>
+    <string name="diagnostics_rkn_group_control">对照</string>
     <string name="diagnostics_rkn_group_test">测试</string>
     <string name="diagnostics_rkn_metric_flagged">被标记</string>
     <string name="diagnostics_rkn_run">运行 RKN 诊断</string>
-    <string name="diagnostics_rkn_running">正在运行 RKN 控制和黑名单探针……</string>
+    <string name="diagnostics_rkn_running">正在运行 RKN 对照和黑名单探测……</string>
     <string name="diagnostics_rkn_self_info_network_context">网络环境</string>
     <string name="diagnostics_rkn_self_info_privacy_suppressed">隐私模式已开启；ipinfo.io/ifconfig.co 环境信息已被抑制。</string>
     <string name="diagnostics_rkn_self_info_subtitle">使用 ipinfo.io，并以 ifconfig.co 作为后备；默认禁用。</string>

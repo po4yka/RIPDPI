@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.WsTunnelWorkerCredentialStore
 import com.poyka.ripdpi.data.WsTunnelWorkerTransportProvisioner
-import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
@@ -35,8 +34,8 @@ class WsTunnelWorkerSettingsViewModelTest {
                 runCurrent()
 
                 val notice = awaitItem() as SettingsEffect.Notice
-                assertEquals(resource(R.string.ws_tunnel_worker_save_failed_title), notice.title)
-                assertEquals(resource(R.string.ws_tunnel_worker_save_failed_message), notice.message)
+                assertEquals(R.string.ws_tunnel_worker_save_failed_title, notice.title)
+                assertEquals(R.string.ws_tunnel_worker_save_failed_message, notice.message)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -57,8 +56,8 @@ class WsTunnelWorkerSettingsViewModelTest {
                 runCurrent()
 
                 val notice = awaitItem() as SettingsEffect.Notice
-                assertEquals(resource(R.string.ws_tunnel_worker_clear_failed_title), notice.title)
-                assertEquals(resource(R.string.ws_tunnel_worker_clear_failed_message), notice.message)
+                assertEquals(R.string.ws_tunnel_worker_clear_failed_title, notice.title)
+                assertEquals(R.string.ws_tunnel_worker_clear_failed_message, notice.message)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -86,7 +85,6 @@ class WsTunnelWorkerSettingsViewModelTest {
         val store = FakeCredentialStore(clearFailure)
         return WsTunnelWorkerSettingsViewModel(
             WsTunnelWorkerTransportProvisioner(repository, store),
-            TestStringResolver,
         )
     }
 
@@ -137,28 +135,9 @@ class WsTunnelWorkerSettingsViewModelTest {
         }
     }
 
-    private object TestStringResolver : StringResolver {
-        override fun getQuantityString(
-            resId: Int,
-            quantity: Int,
-            vararg formatArgs: Any,
-        ): String =
-            org.robolectric.RuntimeEnvironment
-                .getApplication()
-                .resources
-                .getQuantityString(resId, quantity, *formatArgs)
-
-        override fun getString(
-            resId: Int,
-            vararg formatArgs: Any,
-        ): String = resource(resId)
-    }
-
     private companion object {
         const val WorkerUrl = "https://edge.example/relay"
         const val CredentialRef = "worker"
         const val Bearer = "secret-token"
-
-        fun resource(resId: Int): String = "res:$resId"
     }
 }

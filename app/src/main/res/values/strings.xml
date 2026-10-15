@@ -1616,7 +1616,7 @@ fakeddisorder endhost</string>
     <string name="logs_active_session_body">Show the current connection or diagnostics session first and hide older persisted history.</string>
     <string name="logs_stream_section">Log stream</string>
     <string name="logs_stream_title">Recent entries</string>
-    <string name="logs_entries_count">%1$d entries</string>
+    <string name="logs_entries_count">Entries: %1$d</string>
     <string name="logs_copy_entry">Copy %1$s log at %2$s</string>
     <string name="logs_empty_title">No logs yet</string>
     <string name="logs_empty_body">Start RIPDPI or trigger a diagnostic event to populate the on-device stream.</string>
@@ -3182,7 +3182,7 @@ Source: %2$s</string>
     <string name="vpn_replay_failure_header_format">Last failure · %1$s</string>
     <string name="vpn_replay_failure_replay">Replay</string>
     <string name="vpn_replay_failure_recommendation_title">Recommendation</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d packets</string>
+    <string name="vpn_pcap_viewer_meta_format">Packets: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">NO</string>
     <string name="vpn_pcap_viewer_col_time">TIME</string>
     <string name="vpn_pcap_viewer_col_src">SRC</string>

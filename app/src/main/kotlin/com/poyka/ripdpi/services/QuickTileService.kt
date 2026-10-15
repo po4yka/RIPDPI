@@ -7,6 +7,7 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.service.quicksettings.PendingIntentActivityWrapper
 import androidx.core.service.quicksettings.TileServiceCompat
 import com.poyka.ripdpi.AppStartupReadiness
@@ -102,19 +103,32 @@ class QuickTileService :
                 QuickTileVisualState.Inactive -> Tile.STATE_INACTIVE
                 QuickTileVisualState.Unavailable -> Tile.STATE_UNAVAILABLE
             }
+        val localizedContext = ContextCompat.getContextForLanguage(this)
         qsTile.apply {
             this.state = tileState
             label =
                 when (state) {
-                    QuickTileVisualState.Active -> getString(R.string.qs_tile_label_connected)
-                    else -> getString(R.string.qs_tile_label_disconnected)
+                    QuickTileVisualState.Active -> localizedContext.getString(R.string.qs_tile_label_connected)
+                    else -> localizedContext.getString(R.string.qs_tile_label_disconnected)
                 }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 subtitle =
                     when (state) {
-                        QuickTileVisualState.Active -> getString(R.string.qs_tile_subtitle_tap_disconnect)
-                        QuickTileVisualState.Inactive -> getString(R.string.qs_tile_subtitle_tap_connect)
-                        QuickTileVisualState.Unavailable -> null
+                        QuickTileVisualState.Active -> {
+                            localizedContext.getString(
+                                R.string.qs_tile_subtitle_tap_disconnect,
+                            )
+                        }
+
+                        QuickTileVisualState.Inactive -> {
+                            localizedContext.getString(
+                                R.string.qs_tile_subtitle_tap_connect,
+                            )
+                        }
+
+                        QuickTileVisualState.Unavailable -> {
+                            null
+                        }
                     }
             }
             updateTile()
@@ -125,7 +139,7 @@ class QuickTileService :
         Toast
             .makeText(
                 this,
-                getString(R.string.failed_to_start, senderName),
+                ContextCompat.getContextForLanguage(this).getString(R.string.failed_to_start, senderName),
                 Toast.LENGTH_SHORT,
             ).show()
     }

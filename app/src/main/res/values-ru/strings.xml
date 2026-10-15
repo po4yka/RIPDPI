@@ -1159,7 +1159,7 @@ fakeddisorder endhost</string>
     <string name="logs_auto_scroll_body">Держать последнюю подходящую запись в поле зрения по мере поступления новых данных диагностики.</string>
     <string name="logs_stream_section">Поток логов</string>
     <string name="logs_stream_title">Последние записи</string>
-    <string name="logs_entries_count">%1$d записей</string>
+    <string name="logs_entries_count">Записи: %1$d</string>
     <string name="logs_copy_entry">Скопировать запись %1$s за %2$s</string>
     <string name="logs_empty_title">Логов пока нет</string>
     <string name="logs_empty_body">Запустите RIPDPI или вызовите диагностическое событие, чтобы заполнить локальный поток.</string>
@@ -2614,7 +2614,7 @@ fakeddisorder endhost</string>
     <string name="language_name_zh_cn">简体中文</string>
     <string name="language_name_hi">हिन्दी</string>
     <string name="language_name_pt_br">Português (Brasil)</string>
-    <string name="updates_section_title">Updates</string>
+    <string name="updates_section_title">Обновления</string>
     <string name="update_channel_title">Канал распространения</string>
     <string name="update_channel_play">Google Play</string>
     <string name="update_channel_fdroid">F-Droid</string>
@@ -2885,7 +2885,7 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_failure_header_format">Последний сбой · %1$s</string>
     <string name="vpn_replay_failure_replay">Повторить</string>
     <string name="vpn_replay_failure_recommendation_title">Рекомендация</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d пакетов</string>
+    <string name="vpn_pcap_viewer_meta_format">Пакеты: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">№</string>
     <string name="vpn_pcap_viewer_col_time">ВРЕМЯ</string>
     <string name="vpn_pcap_viewer_col_src">ИСТ.</string>

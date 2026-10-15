@@ -100,10 +100,10 @@
     <string name="home_generated_epsilon">Epsilon %1$s</string>
     <string name="home_generated_reality_rationale">Les négociations Reality ont abouti sur %1$s cibles distinctes sans données applicatives ; une réponse QUIC Initial a été observée. La cause de l’échec reste indéterminée.</string>
     <string name="home_generated_strategy_rationale">Détection de %1$s%2$s%3$s. Passage à %4$s recommandé.</string>
-    <string name="home_generated_tcp_probes">" sur %1$s tests TCP"</string>
-    <string name="home_generated_blocked_services">" avec %1$s services bloqués"</string>
-    <string name="home_generated_dns_rationale">Le DNS %1$s a montré %2$s, tandis que %3$s a renvoyé %4$s réponses chiffrées via %5$s sur %6$s tests avec une latence moyenne de %7$s ms.</string>
-    <string name="home_generated_dns_bootstrap">Accessibilité de l’amorçage validée sur %1$s tests.</string>
+    <string name="home_generated_tcp_probes">" (tests TCP : %1$s)"</string>
+    <string name="home_generated_blocked_services">" (services bloqués : %1$s)"</string>
+    <string name="home_generated_dns_rationale">Le DNS %1$s a montré %2$s, tandis que %3$s a renvoyé %4$s via %5$s. Nombre de tests : %6$s ; latence moyenne : %7$s ms.</string>
+    <string name="home_generated_dns_bootstrap">Accessibilité de l’amorçage validée. Nombre de tests : %1$s.</string>
     <string name="home_generated_dns_avoided">Adresses IP d’amorçage bloquées par le DPI évitées : %1$s.</string>
     <string name="home_generated_dns_preferred">Ce réseau préférait déjà ce chemin DNS chiffré.</string>
     <string name="home_generated_dns_leaned">Ce réseau tendait déjà vers %1$s.</string>

@@ -101,7 +101,13 @@ class HomePersianGeneratedPresentationTest {
         listOf("dns_mismatch", "Custom Resolver", "DOH", "192.0.2.8").forEach { assertTrue(projected.contains(it)) }
         assertFalse(projected.contains("encrypted answers"))
         assertEquals(rationale, raw.recommendationSummary)
-        assertEquals(rationale, projectHome(raw, "en").analysisSheet!!.recommendationSummary)
+        assertEquals(
+            "UDP DNS showed dns_mismatch while Custom Resolver returned matching encrypted answers over " +
+                "DOH. Probe count: 2; average latency: 33 ms. Bootstrap reachability validated. Probe count: 1. " +
+                "This network already preferred this encrypted DNS path. Avoided bootstrap IPs " +
+                "blocked by DPI: 192.0.2.8.",
+            projectHome(raw, "en").analysisSheet!!.recommendationSummary,
+        )
     }
 
     @Test

@@ -32,7 +32,7 @@ class ExportPreviewViewModelTest {
     @Test fun `preparing and ready never consume before explicit confirm and duplicate confirm consumes once`() =
         runTest {
             val service = PreviewService()
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             owner.prepare(archive())
             advanceUntilIdle()
             val ready = requireNotNull(owner.state.value)
@@ -49,7 +49,7 @@ class ExportPreviewViewModelTest {
     @Test fun `stale sheet callbacks cannot consume or cancel replacement`() =
         runTest {
             val service = PreviewService()
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             owner.prepare(archive())
             advanceUntilIdle()
             val old = requireNotNull(owner.state.value)
@@ -66,7 +66,7 @@ class ExportPreviewViewModelTest {
     @Test fun `cancel fences noncooperative late preparation and discards only its own lease`() =
         runTest {
             val service = PreviewService().apply { blocker = CompletableDeferred() }
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             owner.prepare(archive())
             advanceUntilIdle()
             val preparing = requireNotNull(owner.state.value)
@@ -84,7 +84,7 @@ class ExportPreviewViewModelTest {
         runTest {
             DiagnosticsExportPurpose.entries.forEach { purpose ->
                 val service = PreviewService()
-                val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+                val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
                 owner.prepare(
                     if (purpose == DiagnosticsExportPurpose.SaveLogs) {
                         DiagnosticsExportPreparation.Logs
@@ -124,7 +124,7 @@ class ExportPreviewViewModelTest {
     @Test fun `relock during suspended validation prevents launch until unlocked again`() =
         runTest {
             val service = PreviewService()
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             owner.prepare(archive())
             advanceUntilIdle()
             val token = owner.state.value!!.token
@@ -150,7 +150,7 @@ class ExportPreviewViewModelTest {
     @Test fun `expiry while relocked rejects stale summary capability before unlock handoff`() =
         runTest {
             val service = PreviewService()
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             owner.prepare(archive().copy(purpose = DiagnosticsExportPurpose.ShareSummary))
             advanceUntilIdle()
             val token = requireNotNull(owner.state.value).token
@@ -179,7 +179,7 @@ class ExportPreviewViewModelTest {
     @Test fun `cancel after durable consumption invalidates queued external handoff`() =
         runTest {
             val service = PreviewService()
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             owner.prepare(archive())
             advanceUntilIdle()
             val ready = requireNotNull(owner.state.value)
@@ -199,12 +199,13 @@ class ExportPreviewViewModelTest {
     @Test fun `prepare failure has neutral localized error and no confirm capability`() =
         runTest {
             val service = PreviewService().apply { prepareFailure = IllegalStateException("private /path secret CLI") }
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             owner.prepare(archive())
             advanceUntilIdle()
             val error = requireNotNull(owner.state.value)
-            val message = (error.presentation as ExportPreviewPresentation.Error).message
-            assertTrue(!message.contains("private") && !message.contains("/path") && !message.contains("CLI"))
+            val presentation = error.presentation as ExportPreviewPresentation.Error
+            assertEquals(com.poyka.ripdpi.R.string.export_preview_failed, presentation.messageRes)
+            assertNull(presentation.message)
             owner.confirm(error.token)
             advanceUntilIdle()
             assertTrue(service.consumed.isEmpty())
@@ -213,7 +214,7 @@ class ExportPreviewViewModelTest {
     @Test fun `cleanup error cannot overwrite replacement ready and remains observable`() =
         runTest {
             val service = PreviewService().apply { discardFailure = IllegalStateException("private path") }
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             owner.prepare(archive())
             advanceUntilIdle()
             val previous = requireNotNull(owner.state.value)
@@ -235,7 +236,6 @@ class ExportPreviewViewModelTest {
                 ExportPreviewViewModel(
                     service,
                     SavedStateHandle(mapOf("prepared-export-lease" to id.encoded)),
-                    FakeStringResolver(),
                     backgroundScope,
                 )
             advanceUntilIdle()
@@ -246,7 +246,6 @@ class ExportPreviewViewModelTest {
                 ExportPreviewViewModel(
                     service,
                     SavedStateHandle(mapOf("prepared-export-lease" to id.encoded)),
-                    FakeStringResolver(),
                     backgroundScope,
                 )
             advanceUntilIdle()
@@ -259,7 +258,7 @@ class ExportPreviewViewModelTest {
     @Test fun `clearing owner fences late noncooperative preparation and cleans known lease`() =
         runTest {
             val service = PreviewService().apply { blocker = CompletableDeferred() }
-            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), backgroundScope)
             val store = androidx.lifecycle.ViewModelStore().apply { put("preview", owner) }
             owner.prepare(archive())
             advanceUntilIdle()
@@ -345,6 +344,5 @@ internal fun createExportPreviewForTest() =
     ExportPreviewViewModel(
         PreviewService(),
         SavedStateHandle(),
-        FakeStringResolver(),
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main),
     )

@@ -7,7 +7,7 @@
     <string name="pause_cleanup_pending">پاک‌سازی کامل نشده است. توقف هنوز تأیید نشده است.</string>
     <string name="pause_deferred">ازسرگیری نیاز به بررسی دارد</string>
     <string name="pause_saved_settings">این حالت با تنظیمات ذخیره‌شده فعلی از سر گرفته می‌شود. ویرایش‌ها توقف را حفظ می‌کنند؛ شروع، توقف، فعال‌سازی یا حذف نمایه آن را لغو می‌کند.</string>
-    <string name="pause_remaining">%1$s دقیقه باقی مانده</string>
+    <string name="pause_remaining">دقیقه‌های باقی‌مانده: %1$s</string>
     <string name="pause_resume_now">ازسرگیری اکنون</string>
     <string name="pause_stop">توقف و لغو ازسرگیری</string>
     <string name="pause_persistence_failed">فرمان ذخیره نشد. وضعیت اتصال تغییری نکرده است.</string>

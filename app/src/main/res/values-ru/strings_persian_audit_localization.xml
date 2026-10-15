@@ -103,10 +103,10 @@
     <string name="home_generated_epsilon">Эпсилон %1$s</string>
     <string name="home_generated_reality_rationale">Рукопожатия Reality завершены на %1$s отдельных целях без данных приложения; наблюдался ответ QUIC Initial. Причина сбоя не определена.</string>
     <string name="home_generated_strategy_rationale">Обнаружено: %1$s%2$s%3$s. Рекомендуется перейти на %4$s.</string>
-    <string name="home_generated_tcp_probes">" на %1$s пробах TCP"</string>
-    <string name="home_generated_blocked_services">" с %1$s заблокированными сервисами"</string>
-    <string name="home_generated_dns_rationale">DNS %1$s показал %2$s, а %3$s вернул %4$s зашифрованных ответов через %5$s в %6$s пробах со средней задержкой %7$s мс.</string>
-    <string name="home_generated_dns_bootstrap">Доступность начальной загрузки подтверждена в %1$s пробах.</string>
+    <string name="home_generated_tcp_probes">" (пробы TCP: %1$s)"</string>
+    <string name="home_generated_blocked_services">" (заблокированные сервисы: %1$s)"</string>
+    <string name="home_generated_dns_rationale">DNS %1$s показал %2$s, а %3$s вернул %4$s через %5$s. Число проб: %6$s; средняя задержка: %7$s мс.</string>
+    <string name="home_generated_dns_bootstrap">Доступность начальной загрузки подтверждена. Число проб: %1$s.</string>
     <string name="home_generated_dns_avoided">Исключены IP-адреса начальной загрузки, заблокированные DPI: %1$s.</string>
     <string name="home_generated_dns_preferred">Эта сеть уже предпочитала этот путь зашифрованного DNS.</string>
     <string name="home_generated_dns_leaned">Эта сеть уже склонялась к %1$s.</string>

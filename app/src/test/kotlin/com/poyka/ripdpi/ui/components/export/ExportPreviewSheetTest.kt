@@ -1,8 +1,13 @@
 package com.poyka.ripdpi.ui.components.export
 
+import android.content.res.Configuration
+import android.os.LocaleList
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -22,12 +27,40 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w411dp-h839dp-mdpi")
 class ExportPreviewSheetTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test fun `retained built-in error follows the current locale without another export`() {
+        val app = RuntimeEnvironment.getApplication()
+
+        fun languageContext(tag: String) =
+            app.createConfigurationContext(
+                Configuration(app.resources.configuration).apply { setLocales(LocaleList(Locale.forLanguageTag(tag))) },
+            )
+        val context = mutableStateOf(languageContext("en"))
+        val error = ExportPreviewPresentation.Error(R.string.export_preview_failed)
+        composeRule.setContent {
+            val current = context.value
+            CompositionLocalProvider(
+                LocalContext provides current,
+                LocalConfiguration provides current.resources.configuration,
+            ) {
+                RipDpiTheme { ExportPreviewCard(error, {}, {}) }
+            }
+        }
+        for (tag in listOf("en", "fr", "fa", "en")) {
+            composeRule.runOnIdle { context.value = languageContext(tag) }
+            composeRule
+                .onNodeWithTag(ExportPreviewTestTags.Error)
+                .assertTextEquals(context.value.getString(R.string.export_preview_failed))
+            composeRule.onNodeWithTag(ExportPreviewTestTags.Confirm).assertDoesNotExist()
+        }
+    }
 
     @Test fun `each purpose hands off only after explicit confirmation`() {
         var ready by mutableStateOf<ExportPreviewPresentation?>(null)
@@ -146,7 +179,7 @@ class ExportPreviewSheetTest {
                     presentation,
                     onConfirm = {
                         confirmed++
-                        presentation = ExportPreviewPresentation.Error(text(R.string.export_preview_cleanup_failed))
+                        presentation = ExportPreviewPresentation.Error(R.string.export_preview_cleanup_failed)
                     },
                     onCancel = {},
                     onDismiss = {},

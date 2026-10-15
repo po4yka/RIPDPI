@@ -97,10 +97,10 @@
     <string name="home_generated_epsilon">Epsilon %1$s</string>
     <string name="home_generated_reality_rationale">Reality-Handshakes wurden auf %1$s verschiedenen Zielen ohne Anwendungsdaten abgeschlossen; eine QUIC-Initial-Antwort wurde beobachtet. Die Fehlerursache ist nicht bestimmt.</string>
     <string name="home_generated_strategy_rationale">Erkannt: %1$s%2$s%3$s. Wechsel zu %4$s empfohlen.</string>
-    <string name="home_generated_tcp_probes">" bei %1$s TCP-Tests"</string>
-    <string name="home_generated_blocked_services">" mit %1$s blockierten Diensten"</string>
-    <string name="home_generated_dns_rationale">DNS %1$s zeigte %2$s, während %3$s über %5$s bei %6$s Tests %4$s verschlüsselte Antworten mit durchschnittlich %7$s ms Latenz lieferte.</string>
-    <string name="home_generated_dns_bootstrap">Bootstrap-Erreichbarkeit bei %1$s Tests bestätigt.</string>
+    <string name="home_generated_tcp_probes">" (TCP-Tests: %1$s)"</string>
+    <string name="home_generated_blocked_services">" (blockierte Dienste: %1$s)"</string>
+    <string name="home_generated_dns_rationale">DNS %1$s zeigte %2$s, während %3$s über %5$s %4$s lieferte. Anzahl der Tests: %6$s; durchschnittliche Latenz: %7$s ms.</string>
+    <string name="home_generated_dns_bootstrap">Bootstrap-Erreichbarkeit bestätigt. Anzahl der Tests: %1$s.</string>
     <string name="home_generated_dns_avoided">Von DPI blockierte Bootstrap-IP-Adressen vermieden: %1$s.</string>
     <string name="home_generated_dns_preferred">Dieses Netzwerk bevorzugte bereits diesen verschlüsselten DNS-Pfad.</string>
     <string name="home_generated_dns_leaned">Dieses Netzwerk tendierte bereits zu %1$s.</string>

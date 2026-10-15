@@ -1937,7 +1937,7 @@ Origen: %2$s</string>
     <string name="settings_subscription_failover_body">Consulta el servidor de suscripción activo y las conmutaciones automáticas recientes.</string>
     <string name="diagnostics_open_logs_body">Abre el flujo en vivo de registros con filtros para servicio, proxy, túnel y diagnósticos.</string>
     <string name="logs_buffer_title">Búfer</string>
-    <string name="logs_entries_count">%1$d entradas</string>
+    <string name="logs_entries_count">Entradas: %1$d</string>
     <string name="logs_copy_entry">Copiar registro de %1$s de las %2$s</string>
     <string name="logs_filters_section">Filtros</string>
     <string name="logs_overview_body">Revisa la última actividad local de DNS, conexión, advertencias y errores capturada por RIPDPI en este dispositivo.</string>
@@ -2709,7 +2709,7 @@ Origen: %2$s</string>
     <string name="strategy_pack_downloaded_status_body">El catálogo activo de strategy-pack proviene de una instantánea descargada verificada almacenada en este dispositivo.</string>
     <string name="strategy_pack_last_refresh_attempt_label">Último intento de actualización</string>
     <string name="strategy_pack_refresh_source_hint">Fuente: catálogo firmado del canal de distribución de strategy-pack de RIPDPI configurado en este dispositivo.</string>
-    <string name="strategy_pack_section_title">Strategy packs</string>
+    <string name="strategy_pack_section_title">Paquetes de estrategias</string>
     <string name="strategy_pack_stale_status_body">RIPDPI rechazó el catálogo descargado del strategy-pack porque su marca de tiempo de emisión era demasiado antigua para la política local.</string>
     <string name="tcp_flag_card_dsl_only">Esta forma de cadena no se puede editar con la tarjeta de flags TCP del paso principal. Usa el DSL de cadena para cambiar las máscaras de flags.</string>
     <string name="tcp_flag_card_title">Composición de flags TCP</string>
@@ -3022,7 +3022,7 @@ Origen: %2$s</string>
     <string name="vpn_replay_failure_header_format">Último fallo · %1$s</string>
     <string name="vpn_replay_failure_replay">Repetir</string>
     <string name="vpn_replay_failure_recommendation_title">Recomendación</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d paquetes</string>
+    <string name="vpn_pcap_viewer_meta_format">Paquetes: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">N.º</string>
     <string name="vpn_pcap_viewer_col_time">HORA</string>
     <string name="vpn_pcap_viewer_col_src">ORIGEN</string>

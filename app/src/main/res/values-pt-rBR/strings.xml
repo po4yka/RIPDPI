@@ -1591,7 +1591,7 @@ fakeddisorder endhost</string>
     <string name="logs_active_session_body">Mostra a sessão atual de conexão ou diagnóstico primeiro e oculta o histórico persistido mais antigo.</string>
     <string name="logs_stream_section">Fluxo de logs</string>
     <string name="logs_stream_title">Entradas recentes</string>
-    <string name="logs_entries_count">%1$d entradas</string>
+    <string name="logs_entries_count">Entradas: %1$d</string>
     <string name="logs_copy_entry">Copiar log %1$s às %2$s</string>
     <string name="logs_empty_title">Ainda sem logs</string>
     <string name="logs_empty_body">Inicie o RIPDPI ou dispare um evento de diagnóstico para preencher o fluxo no dispositivo.</string>
@@ -3092,7 +3092,7 @@ Fonte: %2$s</string>
     <string name="vpn_replay_failure_header_format">Última falha · %1$s</string>
     <string name="vpn_replay_failure_replay">Repetir</string>
     <string name="vpn_replay_failure_recommendation_title">Recomendação</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d pacotes</string>
+    <string name="vpn_pcap_viewer_meta_format">Pacotes: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">Nº</string>
     <string name="vpn_pcap_viewer_col_time">TEMPO</string>
     <string name="vpn_pcap_viewer_col_src">ORIGEM</string>

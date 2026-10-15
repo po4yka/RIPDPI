@@ -7,7 +7,7 @@
     <string name="pause_cleanup_pending">لم يكتمل التنظيف. لم يُؤكد الإيقاف المؤقت بعد.</string>
     <string name="pause_deferred">الاستئناف يحتاج إلى مراجعة</string>
     <string name="pause_saved_settings">يُستأنف هذا الوضع بالإعدادات المحفوظة الحالية. تعديلات الإعدادات تحفظ التوقف؛ البدء أو الإيقاف أو تفعيل ملف أو حذفه يلغيه.</string>
-    <string name="pause_remaining">تبقى %1$s دقيقة</string>
+    <string name="pause_remaining">الدقائق المتبقية: %1$s</string>
     <string name="pause_resume_now">استئناف الآن</string>
     <string name="pause_stop">إيقاف وإلغاء الاستئناف</string>
     <string name="pause_persistence_failed">تعذّر حفظ الأمر. حالة الاتصال لم تتغيّر.</string>

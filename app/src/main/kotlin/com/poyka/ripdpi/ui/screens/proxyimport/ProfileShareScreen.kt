@@ -68,7 +68,7 @@ fun ProfileShareScreen(
                 }
             }
 
-            uiState.unshareable || uiState.shareUri == null || uiState.setupSheet == null -> {
+            uiState.unshareable || uiState.shareUri == null || uiState.profile == null -> {
                 RipDpiCard {
                     RipDpiPanelHeader(
                         title = stringResource(R.string.profile_share_unshareable_title),
@@ -81,7 +81,13 @@ fun ProfileShareScreen(
                 ProfileShareContent(
                     uiState = uiState,
                     shareUri = uiState.shareUri,
-                    setupSheet = uiState.setupSheet,
+                    setupSheet =
+                        stringResource(
+                            R.string.profile_share_setup_sheet_template,
+                            uiState.profile.displayName,
+                            profileKindLabel(uiState.profile),
+                            uiState.shareUri,
+                        ),
                     qrBitmap = qrBitmap,
                     qrLoading = qrLoading,
                     onCopyLink = onCopyLink,
@@ -286,32 +292,6 @@ internal fun previewProfileShareUiState(): ProfileShareRouteUiState {
         profileId = "preview",
         profile = profile,
         shareUri = shareUri,
-        // Preview-only sample text. Mirrors the English render of
-        // R.string.profile_share_setup_sheet_template (see ProfileSetupSheetFormatter)
-        // so this catalog preview matches the production setup sheet without a
-        // StringResolver in a non-composable function.
-        setupSheet =
-            """
-            RIPDPI setup sheet
-
-            Profile: ${profile.displayName}
-            Type: ${profileKindLabel(profile)}
-
-            Subscription/profile link:
-            $shareUri
-
-            Hiddify:
-            1. Open Hiddify.
-            2. Choose Add profile.
-            3. Scan the QR code or paste the link above.
-
-            AmneziaVPN:
-            1. Open AmneziaVPN.
-            2. Choose Add server from link or QR.
-            3. Scan the QR code or paste the link above.
-
-            Keep this sheet private. The QR code and link contain credentials.
-            """.trimIndent(),
     )
 }
 

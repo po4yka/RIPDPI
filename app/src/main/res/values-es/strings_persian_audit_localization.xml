@@ -100,10 +100,10 @@
     <string name="home_generated_epsilon">Épsilon %1$s</string>
     <string name="home_generated_reality_rationale">Las negociaciones Reality se completaron en %1$s destinos distintos sin datos de aplicación; se observó una respuesta QUIC Initial. No se ha determinado la causa del fallo.</string>
     <string name="home_generated_strategy_rationale">Detectado %1$s%2$s%3$s. Se recomienda cambiar a %4$s.</string>
-    <string name="home_generated_tcp_probes">" en %1$s pruebas TCP"</string>
-    <string name="home_generated_blocked_services">" con %1$s servicios bloqueados"</string>
-    <string name="home_generated_dns_rationale">El DNS %1$s mostró %2$s, mientras %3$s devolvió %4$s respuestas cifradas mediante %5$s en %6$s pruebas con una latencia media de %7$s ms.</string>
-    <string name="home_generated_dns_bootstrap">Accesibilidad de arranque validada en %1$s pruebas.</string>
+    <string name="home_generated_tcp_probes">" (pruebas TCP: %1$s)"</string>
+    <string name="home_generated_blocked_services">" (servicios bloqueados: %1$s)"</string>
+    <string name="home_generated_dns_rationale">El DNS %1$s mostró %2$s, mientras %3$s devolvió %4$s mediante %5$s. Número de pruebas: %6$s; latencia media: %7$s ms.</string>
+    <string name="home_generated_dns_bootstrap">Accesibilidad de arranque validada. Número de pruebas: %1$s.</string>
     <string name="home_generated_dns_avoided">Se evitaron las IP de arranque bloqueadas por DPI: %1$s.</string>
     <string name="home_generated_dns_preferred">Esta red ya prefería esta ruta DNS cifrada.</string>
     <string name="home_generated_dns_leaned">Esta red ya tendía a %1$s.</string>

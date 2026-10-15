@@ -2,11 +2,9 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayProfileStore
-import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proxyimport.RelayProfileShareMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +19,6 @@ data class ProfileShareRouteUiState(
     val profileId: String = "",
     val profile: ProxyProfile? = null,
     val shareUri: String? = null,
-    val setupSheet: String? = null,
     val unshareable: Boolean = false,
 )
 
@@ -31,7 +28,6 @@ class ProfileShareRouteViewModel
     constructor(
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialRepository: RelayCredentialRepository,
-        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ProfileShareRouteUiState())
         val uiState: StateFlow<ProfileShareRouteUiState> = _uiState.asStateFlow()
@@ -49,35 +45,11 @@ class ProfileShareRouteViewModel
                         profileId = profileId,
                         profile = shareable?.profile,
                         shareUri = shareable?.shareUri,
-                        setupSheet =
-                            shareable?.let {
-                                ProfileSetupSheetFormatter.format(
-                                    strings = stringResolver,
-                                    profileName = it.profile.displayName,
-                                    profileKind = profileKindLabel(it.profile),
-                                    shareUri = it.shareUri,
-                                )
-                            },
                         unshareable = shareable == null,
                     )
             }
         }
     }
-
-object ProfileSetupSheetFormatter {
-    fun format(
-        strings: StringResolver,
-        profileName: String,
-        profileKind: String,
-        shareUri: String,
-    ): String =
-        strings.getString(
-            R.string.profile_share_setup_sheet_template,
-            profileName,
-            profileKind,
-            shareUri,
-        )
-}
 
 internal fun profileKindLabel(profile: ProxyProfile): String =
     when (profile) {

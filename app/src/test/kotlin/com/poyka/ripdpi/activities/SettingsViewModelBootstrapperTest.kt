@@ -64,7 +64,6 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                stringResolver = FakeStringResolver(),
                 effects = effects,
                 loadInitialHostPackCatalog = { hostPackCatalogLoads += 1 },
                 loadInitialStrategyPackCatalog = { strategyPackCatalogLoads += 1 },
@@ -81,8 +80,8 @@ class SettingsViewModelBootstrapperTest {
             assertEquals(1, hostPackCatalogLoads)
             assertEquals(1, strategyPackCatalogLoads)
             assertTrue(runtimeStates.isNotEmpty())
-            assertEquals(R.string.notice_pin_key_lost_title.toString(), notice.title)
-            assertEquals(R.string.notice_pin_key_lost_message.toString(), notice.message)
+            assertEquals(R.string.notice_pin_key_lost_title, notice.title)
+            assertEquals(R.string.notice_pin_key_lost_message, notice.message)
             assertEquals(SettingsNoticeTone.Warning, notice.tone)
             assertEquals("", settings.backupPin)
             assertFalse(settings.biometricEnabled)
@@ -114,7 +113,6 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                stringResolver = FakeStringResolver(),
                 effects = effects,
                 loadInitialHostPackCatalog = {},
                 loadInitialStrategyPackCatalog = {},
@@ -168,7 +166,6 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                stringResolver = FakeStringResolver(),
                 effects = effects,
                 loadInitialHostPackCatalog = {},
                 loadInitialStrategyPackCatalog = {},

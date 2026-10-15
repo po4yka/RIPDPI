@@ -20,7 +20,6 @@ class SettingsViewModelBootstrapper
     ) {
         fun initialize(
             scope: CoroutineScope,
-            stringResolver: com.poyka.ripdpi.platform.StringResolver,
             effects: MutableSharedFlow<SettingsEffect>,
             loadInitialHostPackCatalog: () -> Unit,
             loadInitialStrategyPackCatalog: () -> Unit,
@@ -34,14 +33,11 @@ class SettingsViewModelBootstrapper
                 }
             }
             scope.launch {
-                ensurePinKeyIntegrity(stringResolver, effects)
+                ensurePinKeyIntegrity(effects)
             }
         }
 
-        private suspend fun ensurePinKeyIntegrity(
-            stringResolver: com.poyka.ripdpi.platform.StringResolver,
-            effects: MutableSharedFlow<SettingsEffect>,
-        ) {
+        private suspend fun ensurePinKeyIntegrity(effects: MutableSharedFlow<SettingsEffect>) {
             val settings = appSettingsRepository.snapshot()
             if (settings.backupPin.isNotBlank() && !pinVerifier.isKeyAvailable()) {
                 appSettingsRepository.update {
@@ -50,8 +46,8 @@ class SettingsViewModelBootstrapper
                 }
                 effects.emit(
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_pin_key_lost_title),
-                        message = stringResolver.getString(R.string.notice_pin_key_lost_message),
+                        title = R.string.notice_pin_key_lost_title,
+                        message = R.string.notice_pin_key_lost_message,
                         tone = SettingsNoticeTone.Warning,
                     ),
                 )

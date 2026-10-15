@@ -7,7 +7,7 @@
     <string name="pause_cleanup_pending">Die Bereinigung ist unvollständig. Die Pause ist noch nicht bestätigt.</string>
     <string name="pause_deferred">Fortsetzung erfordert Aufmerksamkeit</string>
     <string name="pause_saved_settings">Dieser Modus wird mit den aktuellen gespeicherten Einstellungen fortgesetzt. Bearbeitungen behalten die Pause; Start, Stopp, Profilaktivierung oder Löschung hebt sie auf.</string>
-    <string name="pause_remaining">Noch %1$s Minuten</string>
+    <string name="pause_remaining">Verbleibende Minuten: %1$s</string>
     <string name="pause_resume_now">Jetzt fortsetzen</string>
     <string name="pause_stop">Stoppen und Fortsetzung abbrechen</string>
     <string name="pause_persistence_failed">Der Befehl konnte nicht gespeichert werden. Der Verbindungsstatus bleibt unverändert.</string>

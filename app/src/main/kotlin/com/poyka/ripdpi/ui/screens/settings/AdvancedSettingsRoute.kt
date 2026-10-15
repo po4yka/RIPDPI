@@ -65,13 +65,18 @@ fun AdvancedSettingsRoute(
 }
 
 @Composable
-private fun rememberAdvancedNoticeState() =
+internal fun rememberAdvancedNoticeState() =
     rememberSaveable(
         stateSaver =
             mapSaver(
                 save = { notice ->
                     if (notice != null) {
-                        mapOf("t" to notice.title, "m" to notice.message, "tone" to notice.tone.name)
+                        mapOf(
+                            "t" to notice.title,
+                            "m" to notice.message,
+                            "raw" to notice.messageOverride,
+                            "tone" to notice.tone.name,
+                        )
                     } else {
                         emptyMap()
                     }
@@ -79,8 +84,9 @@ private fun rememberAdvancedNoticeState() =
                 restore = { values ->
                     if (values.isNotEmpty()) {
                         AdvancedNotice(
-                            title = values["t"] as String,
-                            message = values["m"] as String,
+                            title = values["t"] as Int,
+                            message = values["m"] as Int,
+                            messageOverride = values["raw"] as String?,
                             tone = WarningBannerTone.valueOf(values["tone"] as String),
                         )
                     } else {

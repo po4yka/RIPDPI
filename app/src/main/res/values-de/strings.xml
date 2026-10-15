@@ -1937,7 +1937,7 @@ Quelle: %2$s</string>
     <string name="settings_subscription_failover_body">Zeigt den aktiven Abonnementserver und die letzten automatischen Serverwechsel an.</string>
     <string name="diagnostics_open_logs_body">Öffnet den Live-Protokollstrom mit Filtern für Dienst, Proxy, Tunnel und Diagnose.</string>
     <string name="logs_buffer_title">Puffer</string>
-    <string name="logs_entries_count">%1$d Einträge</string>
+    <string name="logs_entries_count">Einträge: %1$d</string>
     <string name="logs_copy_entry">%1$s-Protokoll um %2$s kopieren</string>
     <string name="logs_filters_section">Filter</string>
     <string name="logs_overview_body">Sehen Sie sich die neuesten lokalen DNS-, Verbindungs-, Warn- und Fehleraktivitäten an, die RIPDPI auf diesem Gerät erfasst hat.</string>
@@ -3022,7 +3022,7 @@ Quelle: %2$s</string>
     <string name="vpn_replay_failure_header_format">Letzter Fehler · %1$s</string>
     <string name="vpn_replay_failure_replay">Wiederholen</string>
     <string name="vpn_replay_failure_recommendation_title">Empfehlung</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d Pakete</string>
+    <string name="vpn_pcap_viewer_meta_format">Pakete: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">NR.</string>
     <string name="vpn_pcap_viewer_col_time">ZEIT</string>
     <string name="vpn_pcap_viewer_col_src">QUELLE</string>

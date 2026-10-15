@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -47,6 +48,7 @@ import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.core.detection.ui.DetectionVisualState
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -148,10 +150,15 @@ internal fun VerdictScoreCard(
         VerdictOutcomeHierarchy(
             exposureVerdict =
                 exposureVerdict
-                    ?: score?.let { ExposureVerdictBuilder.build(result, it) },
+                    .let { raw ->
+                        score?.let { currentScore ->
+                            (raw ?: ExposureVerdictBuilder.build(result, currentScore))
+                                .localized(AndroidStringResolver(LocalContext.current), currentScore)
+                        } ?: raw
+                    },
             probeSummary = result.probeSummary(),
             score = score,
-            label = label,
+            label = label?.let { AndroidStringResolver(LocalContext.current).detectionGeneratedText(it) },
         )
     }
 }
@@ -424,7 +431,8 @@ internal fun DetectionRecommendations(
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
-        for (rec in recommendations) {
+        for (rawRecommendation in recommendations) {
+            val rec = rawRecommendation.localized(AndroidStringResolver(LocalContext.current))
             Column {
                 Text(text = rec.title, style = type.bodyEmphasis, color = colors.foreground)
                 Text(text = rec.description, style = type.caption, color = colors.mutedForeground)

@@ -7,7 +7,6 @@ import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.data.SecretString
 import com.poyka.ripdpi.data.WsTunnelWorkerTransportProvisioner
-import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -21,7 +20,6 @@ class WsTunnelWorkerSettingsViewModel
     @Inject
     constructor(
         private val provisioner: WsTunnelWorkerTransportProvisioner,
-        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val mutableEffects =
             MutableSharedFlow<SettingsEffect>(
@@ -72,8 +70,8 @@ class WsTunnelWorkerSettingsViewModel
             } catch (_: Exception) {
                 mutableEffects.emit(
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(failureTitle),
-                        message = stringResolver.getString(failureMessage),
+                        title = failureTitle,
+                        message = failureMessage,
                         tone = SettingsNoticeTone.Error,
                     ),
                 )

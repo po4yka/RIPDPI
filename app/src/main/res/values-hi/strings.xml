@@ -1587,7 +1587,7 @@ fakeddisorder endhost</string>
     <string name="logs_active_session_body">पहले वर्तमान कनेक्शन या डायग्नोस्टिक्स सत्र दिखाएँ और पुराने सहेजे गए इतिहास को छिपाएँ।</string>
     <string name="logs_stream_section">लॉग स्ट्रीम</string>
     <string name="logs_stream_title">हाल की प्रविष्टियाँ</string>
-    <string name="logs_entries_count">%1$d प्रविष्टियाँ</string>
+    <string name="logs_entries_count">प्रविष्टियाँ: %1$d</string>
     <string name="logs_copy_entry">%2$s पर %1$s लॉग कॉपी करें</string>
     <string name="logs_empty_title">अभी तक कोई लॉग नहीं</string>
     <string name="logs_empty_body">डिवाइस पर स्ट्रीम भरने के लिए RIPDPI शुरू करें या कोई डायग्नोस्टिक इवेंट ट्रिगर करें।</string>

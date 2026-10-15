@@ -72,12 +72,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsBanne
     }
     notice?.let {
         item(key = "advanced_settings_notice") {
-            WarningBanner(
-                title = it.title,
-                message = it.message,
-                tone = it.tone,
-                testTag = RipDpiTestTags.AdvancedNoticeBanner,
-            )
+            AdvancedSettingsNoticeBanner(it)
         }
     }
 }
@@ -100,5 +95,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
         contentState = contentState,
         pendingHostPack = pendingHostPack,
         onPresetSelected = onPresetSelected,
+    )
+}
+
+@Composable
+internal fun AdvancedSettingsNoticeBanner(notice: AdvancedNotice) {
+    WarningBanner(
+        title = stringResource(notice.title),
+        message = notice.messageOverride ?: stringResource(notice.message),
+        tone = notice.tone,
+        testTag = RipDpiTestTags.AdvancedNoticeBanner,
     )
 }

@@ -7,7 +7,7 @@
     <string name="pause_cleanup_pending">Connection cleanup is incomplete. Pause is not yet confirmed.</string>
     <string name="pause_deferred">Resume needs attention</string>
     <string name="pause_saved_settings">Resume uses this mode with your current saved settings. Saved edits keep the pause; Start, Stop, profile activation or deletion cancels it.</string>
-    <string name="pause_remaining">%1$s minutes remaining</string>
+    <string name="pause_remaining">Minutes remaining: %1$s</string>
     <string name="pause_resume_now">Resume now</string>
     <string name="pause_stop">Stop and cancel resume</string>
     <string name="pause_persistence_failed">Command could not be saved. Connection state is unchanged.</string>

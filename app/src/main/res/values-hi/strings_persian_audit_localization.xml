@@ -97,10 +97,10 @@
     <string name="home_generated_epsilon">एप्सिलॉन %1$s</string>
     <string name="home_generated_reality_rationale">ऐप डेटा के बिना %1$s अलग लक्ष्यों पर Reality हैंडशेक पूरे हुए; QUIC Initial उत्तर देखा गया। विफलता का कारण तय नहीं हुआ है।</string>
     <string name="home_generated_strategy_rationale">%1$s%2$s%3$s मिला। %4$s पर बदलने का सुझाव है।</string>
-    <string name="home_generated_tcp_probes">" %1$s TCP जाँचों में"</string>
-    <string name="home_generated_blocked_services">" %1$s अवरुद्ध सेवाओं के साथ"</string>
-    <string name="home_generated_dns_rationale">%1$s DNS ने %2$s दिखाया, जबकि %3$s ने %5$s के ज़रिए %6$s जाँचों में %4$s एन्क्रिप्टेड उत्तर लौटाए और औसत विलंब %7$s मिलीसेकंड था।</string>
-    <string name="home_generated_dns_bootstrap">%1$s जाँचों में बूटस्ट्रैप पहुँच सत्यापित हुई।</string>
+    <string name="home_generated_tcp_probes">" (TCP जाँचें: %1$s)"</string>
+    <string name="home_generated_blocked_services">" (अवरुद्ध सेवाएँ: %1$s)"</string>
+    <string name="home_generated_dns_rationale">%1$s DNS ने %2$s दिखाया, जबकि %3$s ने %5$s के ज़रिए %4$s लौटाए। जाँचों की संख्या: %6$s; औसत विलंब: %7$s मिलीसेकंड।</string>
+    <string name="home_generated_dns_bootstrap">बूटस्ट्रैप पहुँच सत्यापित हुई। जाँचों की संख्या: %1$s।</string>
     <string name="home_generated_dns_avoided">DPI द्वारा अवरुद्ध बूटस्ट्रैप IP से बचा गया: %1$s।</string>
     <string name="home_generated_dns_preferred">यह नेटवर्क पहले से इस एन्क्रिप्टेड DNS मार्ग को प्राथमिकता देता था।</string>
     <string name="home_generated_dns_leaned">यह नेटवर्क पहले से %1$s की ओर झुका हुआ था।</string>

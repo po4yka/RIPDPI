@@ -97,10 +97,10 @@
     <string name="home_generated_epsilon">Epsilon %1$s</string>
     <string name="home_generated_reality_rationale">Reality handshakes completed on %1$s distinct targets without application data; a QUIC Initial response was observed. The failure cause is not determined.</string>
     <string name="home_generated_strategy_rationale">Detected %1$s%2$s%3$s. Recommend switching to %4$s.</string>
-    <string name="home_generated_tcp_probes">" on %1$s TCP probe(s)"</string>
-    <string name="home_generated_blocked_services">" with %1$s blocked service(s)"</string>
-    <string name="home_generated_dns_rationale">%1$s DNS showed %2$s while %3$s returned %4$s encrypted answers over %5$s on %6$s probe(s) with %7$s ms average latency.</string>
-    <string name="home_generated_dns_bootstrap">Bootstrap reachability validated on %1$s probe(s).</string>
+    <string name="home_generated_tcp_probes">" (TCP probes: %1$s)"</string>
+    <string name="home_generated_blocked_services">" (blocked services: %1$s)"</string>
+    <string name="home_generated_dns_rationale">%1$s DNS showed %2$s while %3$s returned %4$s over %5$s. Probe count: %6$s; average latency: %7$s ms.</string>
+    <string name="home_generated_dns_bootstrap">Bootstrap reachability validated. Probe count: %1$s.</string>
     <string name="home_generated_dns_avoided">Avoided bootstrap IPs blocked by DPI: %1$s.</string>
     <string name="home_generated_dns_preferred">This network already preferred this encrypted DNS path.</string>
     <string name="home_generated_dns_leaned">This network already leaned toward %1$s.</string>

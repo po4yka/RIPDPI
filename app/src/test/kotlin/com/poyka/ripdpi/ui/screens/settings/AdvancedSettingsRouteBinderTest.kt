@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive
 import com.poyka.ripdpi.activities.DesyncCoreUiState
 import com.poyka.ripdpi.activities.FakeTransportUiState
@@ -52,15 +53,15 @@ class AdvancedSettingsRouteBinderTest {
     fun `mapNoticeEffect maps Info tone`() {
         val effect =
             SettingsEffect.Notice(
-                title = "Info title",
-                message = "Info body",
+                title = R.string.notice_fake_tls_reset_title,
+                message = R.string.notice_fake_tls_reset_message,
                 tone = SettingsNoticeTone.Info,
             )
 
         val result = mapNoticeEffect(effect)
 
-        assertEquals("Info title", result.title)
-        assertEquals("Info body", result.message)
+        assertEquals(R.string.notice_fake_tls_reset_title, result.title)
+        assertEquals(R.string.notice_fake_tls_reset_message, result.message)
         assertEquals(WarningBannerTone.Info, result.tone)
     }
 
@@ -68,8 +69,8 @@ class AdvancedSettingsRouteBinderTest {
     fun `mapNoticeEffect maps Warning tone`() {
         val effect =
             SettingsEffect.Notice(
-                title = "Warn",
-                message = "msg",
+                title = R.string.notice_pin_key_lost_title,
+                message = R.string.notice_pin_key_lost_message,
                 tone = SettingsNoticeTone.Warning,
             )
 
@@ -80,8 +81,8 @@ class AdvancedSettingsRouteBinderTest {
     fun `mapNoticeEffect maps Error tone`() {
         val effect =
             SettingsEffect.Notice(
-                title = "Err",
-                message = "msg",
+                title = R.string.ws_tunnel_worker_save_failed_title,
+                message = R.string.notice_pin_key_lost_message,
                 tone = SettingsNoticeTone.Error,
             )
 

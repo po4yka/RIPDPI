@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.displayTriggerClassification
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -126,7 +128,9 @@ internal fun DiagnosticsSessionCard(
                 text =
                     stringResource(
                         R.string.diagnostics_scan_trigger_handover_summary_format,
-                        session.triggerClassification.displayTriggerClassification(),
+                        session.triggerClassification.displayTriggerClassification(
+                            AndroidStringResolver(LocalContext.current),
+                        ),
                     ),
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = RipDpiThemeTokens.colors.mutedForeground,

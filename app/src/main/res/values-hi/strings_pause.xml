@@ -7,7 +7,7 @@
     <string name="pause_cleanup_pending">सफाई अधूरी है। विराम की पुष्टि अभी नहीं हुई है।</string>
     <string name="pause_deferred">फिर शुरू करने के लिए ध्यान चाहिए</string>
     <string name="pause_saved_settings">यह मोड वर्तमान सहेजी गई सेटिंग से शुरू होगा। साधारण बदलाव विराम रखते हैं; शुरू करना, रोकना, प्रोफ़ाइल सक्रिय करना या हटाना इसे रद्द करता है।</string>
-    <string name="pause_remaining">%1$s मिनट बाकी</string>
+    <string name="pause_remaining">शेष मिनट: %1$s</string>
     <string name="pause_resume_now">अभी फिर शुरू करें</string>
     <string name="pause_stop">रोकें और फिर शुरू करना रद्द करें</string>
     <string name="pause_persistence_failed">आदेश सहेजा नहीं जा सका। कनेक्शन की स्थिति नहीं बदली है।</string>

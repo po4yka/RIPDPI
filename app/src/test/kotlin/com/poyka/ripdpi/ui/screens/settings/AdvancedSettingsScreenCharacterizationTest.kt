@@ -241,8 +241,8 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen(
             notice =
                 AdvancedNotice(
-                    title = "Test notice title",
-                    message = "Test notice message",
+                    title = com.poyka.ripdpi.R.string.notice_fake_tls_reset_title,
+                    message = com.poyka.ripdpi.R.string.notice_fake_tls_reset_message,
                     tone = com.poyka.ripdpi.ui.components.feedback.WarningBannerTone.Info,
                 ),
         )

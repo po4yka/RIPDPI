@@ -1253,7 +1253,7 @@
     <string name="vpn_replay_failure_header_format">अंतिम विफलता · %1$s</string>
     <string name="vpn_replay_failure_replay">रीप्ले</string>
     <string name="vpn_replay_failure_recommendation_title">अनुशंसा</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d पैकेट</string>
+    <string name="vpn_pcap_viewer_meta_format">पैकेट: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">क्र.</string>
     <string name="vpn_pcap_viewer_col_time">समय</string>
     <string name="vpn_pcap_viewer_col_src">स्रोत</string>

@@ -31,13 +31,29 @@ internal fun DiagnosticsUiFactorySupport.formatAutolearnState(value: String): St
     }
 
 internal fun DiagnosticsUiFactorySupport.formatAutolearnHost(value: String): String =
-    value.takeUnless { it.isBlank() || it == "none" } ?: context.getString(R.string.diagnostics_autolearn_none_yet)
+    when (value) {
+        "unavailable" -> context.getString(R.string.diagnostics_value_unavailable)
+        "none", "" -> context.getString(R.string.diagnostics_autolearn_none_yet)
+        else -> value.takeUnless { it.isBlank() } ?: context.getString(R.string.diagnostics_autolearn_none_yet)
+    }
 
 internal fun DiagnosticsUiFactorySupport.formatAutolearnGroup(value: String): String =
-    value
-        .takeUnless { it.isBlank() || it == "none" }
-        ?.let { context.getString(R.string.diagnostics_autolearn_route_format, it) }
-        ?: context.getString(R.string.diagnostics_autolearn_none_yet)
+    when (value) {
+        "unavailable" -> {
+            context.getString(R.string.diagnostics_value_unavailable)
+        }
+
+        "none", "" -> {
+            context.getString(R.string.diagnostics_autolearn_none_yet)
+        }
+
+        else -> {
+            value
+                .takeUnless { it.isBlank() }
+                ?.let { context.getString(R.string.diagnostics_autolearn_route_format, it) }
+                ?: context.getString(R.string.diagnostics_autolearn_none_yet)
+        }
+    }
 
 internal fun DiagnosticsUiFactorySupport.formatAutolearnAction(value: String): String =
     when (value.lowercase(Locale.US)) {
@@ -45,6 +61,7 @@ internal fun DiagnosticsUiFactorySupport.formatAutolearnAction(value: String): S
         "group_penalized" -> context.getString(R.string.diagnostics_autolearn_penalized)
         "host_blocked" -> context.getString(R.string.diagnostics_autolearn_host_blocked)
         "store_reset" -> context.getString(R.string.diagnostics_autolearn_store_reset)
+        "unavailable" -> context.getString(R.string.diagnostics_value_unavailable)
         "none", "" -> context.getString(R.string.diagnostics_autolearn_none_yet)
         else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
     }
@@ -59,6 +76,7 @@ internal fun DiagnosticsUiFactorySupport.formatBlockSignal(value: String): Strin
         "connection_freeze" -> context.getString(R.string.block_signal_connection_freeze)
         "quic_breakage" -> context.getString(R.string.block_signal_quic_breakage)
         "tcp_retransmissions" -> context.getString(R.string.block_signal_tcp_retransmissions)
+        "unavailable" -> context.getString(R.string.diagnostics_value_unavailable)
         "none", "" -> context.getString(R.string.diagnostics_autolearn_none_yet)
         else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
     }
@@ -66,6 +84,10 @@ internal fun DiagnosticsUiFactorySupport.formatBlockSignal(value: String): Strin
 internal fun DiagnosticsUiFactorySupport.formatBlockProvider(value: String): String {
     val isShortCodeLike = value.none { it == '_' || it == '-' || it == ' ' } && value.length <= ShortCodeMaxLength
     return when {
+        value == "unavailable" -> {
+            context.getString(R.string.diagnostics_value_unavailable)
+        }
+
         value.isBlank() || value == "none" -> {
             context.getString(R.string.diagnostics_autolearn_none_yet)
         }

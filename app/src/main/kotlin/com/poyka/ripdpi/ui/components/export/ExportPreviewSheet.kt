@@ -124,7 +124,10 @@ private fun ColumnScope.ExportPreviewContent(presentation: ExportPreviewPresenta
                 item(key = "error") {
                     RipDpiCard {
                         SettingsCategoryHeader(stringResource(R.string.export_preview_error_title))
-                        PreviewText(presentation.message, ExportPreviewTestTags.Error)
+                        PreviewText(
+                            presentation.messageRes?.let { stringResource(it) } ?: requireNotNull(presentation.message),
+                            ExportPreviewTestTags.Error,
+                        )
                     }
                 }
             }

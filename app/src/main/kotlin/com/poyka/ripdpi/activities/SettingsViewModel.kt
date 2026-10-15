@@ -81,10 +81,8 @@ class SettingsViewModel
                 onReconnectFailure = { result ->
                     _effects.tryEmit(
                         SettingsEffect.Notice(
-                            settingsActionDependencies.stringResolver.getString(
-                                com.poyka.ripdpi.R.string.runtime_config_failed,
-                            ),
-                            result.reason.message(settingsActionDependencies.stringResolver),
+                            com.poyka.ripdpi.R.string.runtime_config_failed,
+                            result.reason.messageResource(),
                             SettingsNoticeTone.Error,
                         ),
                     )
@@ -103,7 +101,6 @@ class SettingsViewModel
         }
         private val maintenanceActions by lazy {
             SettingsMaintenanceActions(
-                stringResolver = settingsActionDependencies.stringResolver,
                 hostAutolearnStoreController = settingsActionDependencies.hostAutolearnStoreController,
                 rememberedPolicySource = settingsActionDependencies.rememberedPolicySource,
                 strategyPackService = settingsActionDependencies.strategyPackService,
@@ -122,7 +119,6 @@ class SettingsViewModel
         init {
             settingsViewModelBootstrapper.initialize(
                 scope = viewModelScope,
-                stringResolver = settingsActionDependencies.stringResolver,
                 effects = _effects,
                 loadInitialHostPackCatalog = maintenanceActions::loadInitialHostPackCatalog,
                 loadInitialStrategyPackCatalog = maintenanceActions::loadInitialStrategyPackCatalog,

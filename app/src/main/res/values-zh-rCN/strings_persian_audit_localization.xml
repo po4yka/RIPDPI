@@ -94,10 +94,10 @@
     <string name="home_generated_epsilon">艾普西隆 %1$s</string>
     <string name="home_generated_reality_rationale">Reality 握手已在 %1$s 个不同目标上完成，未传输应用数据；观察到 QUIC Initial 响应。失败原因尚未确定。</string>
     <string name="home_generated_strategy_rationale">检测到 %1$s%2$s%3$s。建议切换至 %4$s。</string>
-    <string name="home_generated_tcp_probes">，涉及 %1$s 次 TCP 探测</string>
-    <string name="home_generated_blocked_services">，涉及 %1$s 项被封锁的服务</string>
-    <string name="home_generated_dns_rationale">%1$s DNS 显示 %2$s，而 %3$s 通过 %5$s 在 %6$s 次探测中返回了 %4$s 个加密应答，平均延迟为 %7$s 毫秒。</string>
-    <string name="home_generated_dns_bootstrap">已在 %1$s 次探测中验证引导可达性。</string>
+    <string name="home_generated_tcp_probes">" (TCP 探测次数：%1$s)"</string>
+    <string name="home_generated_blocked_services">" (被封锁的服务数：%1$s)"</string>
+    <string name="home_generated_dns_rationale">%1$s DNS 显示 %2$s，而 %3$s 通过 %5$s 返回了%4$s。探测次数：%6$s；平均延迟：%7$s 毫秒。</string>
+    <string name="home_generated_dns_bootstrap">已验证引导可达性。探测次数：%1$s。</string>
     <string name="home_generated_dns_avoided">已避开被 DPI 封锁的引导 IP：%1$s。</string>
     <string name="home_generated_dns_preferred">此网络此前已优先使用此加密 DNS 路径。</string>
     <string name="home_generated_dns_leaned">此网络此前已倾向于 %1$s。</string>

@@ -149,7 +149,13 @@ private fun StringResolver.homeResolverRationale(raw: String): String? {
             homeGeneratedValue(match.groups["dnsSource"]?.value.orEmpty()),
             match.groups["trigger"]?.value.orEmpty(),
             match.groups["resolver"]?.value.orEmpty(),
-            homeGeneratedValue(match.groups["answerQuality"]?.value.orEmpty()),
+            getString(
+                if (match.groups["answerQuality"]?.value == "matching") {
+                    R.string.home_generated_dns_answers_matching
+                } else {
+                    R.string.home_generated_dns_answers_usable
+                },
+            ),
             match.groups["protocol"]?.value.orEmpty(),
             homeCount(match.groups["probeCount"]?.value.orEmpty()),
             homeCount(match.groups["latency"]?.value.orEmpty()),

@@ -104,7 +104,7 @@ internal class DiagnosticsSessionDetailUiFactory
                             add(
                                 DiagnosticsFieldUiModel(
                                     support.context.getString(R.string.diagnostics_scan_metadata_handover_class),
-                                    classification.displayTriggerClassification(),
+                                    classification.displayTriggerClassification(support.context),
                                 ),
                             )
                         }

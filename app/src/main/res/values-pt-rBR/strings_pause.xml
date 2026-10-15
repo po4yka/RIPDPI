@@ -7,7 +7,7 @@
     <string name="pause_cleanup_pending">A limpeza está incompleta. A pausa ainda não foi confirmada.</string>
     <string name="pause_deferred">A retomada requer atenção</string>
     <string name="pause_saved_settings">Este modo retoma com as configurações salvas atuais. Edições mantêm a pausa; iniciar, parar, ativar ou excluir um perfil a cancela.</string>
-    <string name="pause_remaining">Restam %1$s minutos</string>
+    <string name="pause_remaining">Minutos restantes: %1$s</string>
     <string name="pause_resume_now">Retomar agora</string>
     <string name="pause_stop">Parar e cancelar retomada</string>
     <string name="pause_persistence_failed">Não foi possível salvar o comando. O estado da conexão permanece inalterado.</string>

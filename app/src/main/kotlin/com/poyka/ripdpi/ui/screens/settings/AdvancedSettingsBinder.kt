@@ -10,6 +10,7 @@ internal fun mapNoticeEffect(effect: SettingsEffect.Notice): AdvancedNotice =
     AdvancedNotice(
         title = effect.title,
         message = effect.message,
+        messageOverride = effect.messageOverride,
         tone =
             when (effect.tone) {
                 SettingsNoticeTone.Info -> WarningBannerTone.Info

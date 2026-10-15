@@ -8,17 +8,17 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.RunningReconnectFailure
 import com.poyka.ripdpi.services.RunningReconnectState
 
-internal fun RunningReconnectFailure.message(strings: StringResolver): String =
-    strings.getString(
-        when (this) {
-            RunningReconnectFailure.PermissionRequired -> R.string.runtime_config_permission
-            RunningReconnectFailure.Lockdown -> R.string.runtime_config_lockdown
-            RunningReconnectFailure.LockdownUnknown -> R.string.runtime_config_lockdown_unknown
-            RunningReconnectFailure.StopTimedOut -> R.string.runtime_config_stop_timeout
-            RunningReconnectFailure.Superseded -> R.string.runtime_config_superseded
-            else -> R.string.runtime_config_start_failed
-        },
-    )
+internal fun RunningReconnectFailure.message(strings: StringResolver): String = strings.getString(messageResource())
+
+internal fun RunningReconnectFailure.messageResource(): Int =
+    when (this) {
+        RunningReconnectFailure.PermissionRequired -> R.string.runtime_config_permission
+        RunningReconnectFailure.Lockdown -> R.string.runtime_config_lockdown
+        RunningReconnectFailure.LockdownUnknown -> R.string.runtime_config_lockdown_unknown
+        RunningReconnectFailure.StopTimedOut -> R.string.runtime_config_stop_timeout
+        RunningReconnectFailure.Superseded -> R.string.runtime_config_superseded
+        else -> R.string.runtime_config_start_failed
+    }
 
 internal fun buildAppliedConfigurationUiState(
     inputs: MainUiInputs,

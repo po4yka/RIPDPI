@@ -7,7 +7,7 @@
     <string name="pause_cleanup_pending">Le nettoyage est incomplet. La pause n’est pas encore confirmée.</string>
     <string name="pause_deferred">La reprise nécessite votre attention</string>
     <string name="pause_saved_settings">Ce mode reprend avec les paramètres enregistrés actuels. Les modifications conservent la pause ; démarrer, arrêter, activer ou supprimer un profil l’annule.</string>
-    <string name="pause_remaining">%1$s minutes restantes</string>
+    <string name="pause_remaining">Minutes restantes : %1$s</string>
     <string name="pause_resume_now">Reprendre maintenant</string>
     <string name="pause_stop">Arrêter et annuler la reprise</string>
     <string name="pause_persistence_failed">Impossible d’enregistrer la commande. L’état de la connexion reste inchangé.</string>

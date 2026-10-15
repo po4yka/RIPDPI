@@ -2515,7 +2515,7 @@ fakeddisorder endhost</string>
     <string name="logs_active_session_body">ابتدا جلسه اتصال یا تشخیص فعلی را نمایش دهید و تاریخچه ماندگار قدیمی‌تر را پنهان کنید.</string>
     <string name="logs_auto_scroll_title">پیمایش خودکار به جدیدترین</string>
     <string name="logs_clear">پاک‌سازی</string>
-    <string name="logs_entries_count">%1$d ورودی</string>
+    <string name="logs_entries_count">ورودی‌ها: %1$d</string>
     <string name="logs_copy_entry">کپی گزارش %1$s در %2$s</string>
     <string name="logs_filtered_empty_title">هیچ ورودی با فیلترهای فعلی مطابقت ندارد</string>
     <string name="logs_filters_summary_compact">%1$d زیرسیستم • %2$d شدت</string>
@@ -3027,7 +3027,7 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_failure_header_format">آخرین خطا · %1$s</string>
     <string name="vpn_replay_failure_replay">پخش مجدد</string>
     <string name="vpn_replay_failure_recommendation_title">پیشنهاد</string>
-    <string name="vpn_pcap_viewer_meta_format">%1$d بسته</string>
+    <string name="vpn_pcap_viewer_meta_format">بسته‌ها: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">ش</string>
     <string name="vpn_pcap_viewer_col_time">زمان</string>
     <string name="vpn_pcap_viewer_col_src">مبدأ</string>

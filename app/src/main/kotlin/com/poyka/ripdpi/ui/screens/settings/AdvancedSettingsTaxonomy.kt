@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.annotation.StringRes
 import com.poyka.ripdpi.data.HostPackApplyModeMerge
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -24,9 +25,10 @@ internal data class AdaptiveFakeTtlModeUiModel(
 )
 
 internal data class AdvancedNotice(
-    val title: String,
-    val message: String,
+    @param:StringRes val title: Int,
+    @param:StringRes val message: Int,
     val tone: WarningBannerTone,
+    val messageOverride: String? = null,
 )
 
 internal data class AdvancedSettingsActions(

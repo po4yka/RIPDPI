@@ -19,7 +19,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogRefreshResult
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
-import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.TelemetryInstallSaltStore
 import com.poyka.ripdpi.strategy.StrategyPackService
@@ -28,7 +27,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
 internal class SettingsMaintenanceActions(
-    private val stringResolver: StringResolver,
     private val hostAutolearnStoreController: HostAutolearnStoreController,
     private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
     private val strategyPackService: StrategyPackService,
@@ -95,8 +93,8 @@ internal class SettingsMaintenanceActions(
                 when (hostPackCatalogUiStateCoordinator.refresh()) {
                     is HostPackCatalogRefreshResult.Success -> {
                         SettingsEffect.Notice(
-                            title = stringResolver.getString(R.string.notice_host_packs_refreshed_title),
-                            message = stringResolver.getString(R.string.notice_host_packs_refreshed_message),
+                            title = R.string.notice_host_packs_refreshed_title,
+                            message = R.string.notice_host_packs_refreshed_message,
                             tone = SettingsNoticeTone.Info,
                         )
                     }
@@ -106,24 +104,18 @@ internal class SettingsMaintenanceActions(
                             HostPackRefreshFailureCodeUiModel.VerificationFailed -> {
                                 SettingsEffect.Notice(
                                     title =
-                                        stringResolver.getString(
-                                            R.string.notice_host_pack_verification_failed_title,
-                                        ),
+                                        R.string.notice_host_pack_verification_failed_title,
                                     message =
-                                        stringResolver.getString(
-                                            R.string.notice_host_pack_verification_failed_message,
-                                        ),
+                                        R.string.notice_host_pack_verification_failed_message,
                                     tone = SettingsNoticeTone.Error,
                                 )
                             }
 
                             HostPackRefreshFailureCodeUiModel.InvalidSnapshot -> {
                                 SettingsEffect.Notice(
-                                    title = stringResolver.getString(R.string.notice_host_pack_refresh_failed_title),
+                                    title = R.string.notice_host_pack_refresh_failed_title,
                                     message =
-                                        stringResolver.getString(
-                                            R.string.notice_host_pack_refresh_failed_message,
-                                        ),
+                                        R.string.notice_host_pack_refresh_failed_message,
                                     tone = SettingsNoticeTone.Error,
                                 )
                             }
@@ -132,11 +124,9 @@ internal class SettingsMaintenanceActions(
                             null,
                             -> {
                                 SettingsEffect.Notice(
-                                    title = stringResolver.getString(R.string.notice_host_pack_download_failed_title),
+                                    title = R.string.notice_host_pack_download_failed_title,
                                     message =
-                                        stringResolver.getString(
-                                            R.string.notice_host_pack_download_failed_message,
-                                        ),
+                                        R.string.notice_host_pack_download_failed_message,
                                     tone = SettingsNoticeTone.Warning,
                                 )
                             }
@@ -162,10 +152,9 @@ internal class SettingsMaintenanceActions(
                     )
                 emit(
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_strategy_pack_refresh_failed_title),
-                        message =
-                            error.message
-                                ?: stringResolver.getString(R.string.notice_strategy_pack_refresh_failed_message),
+                        title = R.string.notice_strategy_pack_refresh_failed_title,
+                        message = R.string.notice_strategy_pack_refresh_failed_message,
+                        messageOverride = error.message,
                         tone = SettingsNoticeTone.Warning,
                     ),
                 )
@@ -178,8 +167,8 @@ internal class SettingsMaintenanceActions(
                 )
             emit(
                 SettingsEffect.Notice(
-                    title = stringResolver.getString(R.string.notice_strategy_packs_refreshed_title),
-                    message = stringResolver.getString(R.string.notice_strategy_packs_refreshed_message),
+                    title = R.string.notice_strategy_packs_refreshed_title,
+                    message = R.string.notice_strategy_packs_refreshed_message,
                     tone = SettingsNoticeTone.Info,
                 ),
             )
@@ -194,27 +183,25 @@ internal class SettingsMaintenanceActions(
                 when {
                     !cleared -> {
                         SettingsEffect.Notice(
-                            title = stringResolver.getString(R.string.notice_learned_hosts_clear_failed_title),
-                            message = stringResolver.getString(R.string.notice_learned_hosts_clear_failed_message),
+                            title = R.string.notice_learned_hosts_clear_failed_title,
+                            message = R.string.notice_learned_hosts_clear_failed_message,
                             tone = SettingsNoticeTone.Error,
                         )
                     }
 
                     currentServiceStatus() == AppStatus.Running -> {
                         SettingsEffect.Notice(
-                            title = stringResolver.getString(R.string.notice_learned_hosts_cleared_next_start_title),
+                            title = R.string.notice_learned_hosts_cleared_next_start_title,
                             message =
-                                stringResolver.getString(
-                                    R.string.notice_learned_hosts_cleared_next_start_message,
-                                ),
+                                R.string.notice_learned_hosts_cleared_next_start_message,
                             tone = SettingsNoticeTone.Info,
                         )
                     }
 
                     else -> {
                         SettingsEffect.Notice(
-                            title = stringResolver.getString(R.string.notice_learned_hosts_cleared_title),
-                            message = stringResolver.getString(R.string.notice_learned_hosts_cleared_message),
+                            title = R.string.notice_learned_hosts_cleared_title,
+                            message = R.string.notice_learned_hosts_cleared_message,
                             tone = SettingsNoticeTone.Info,
                         )
                     }
@@ -228,8 +215,8 @@ internal class SettingsMaintenanceActions(
             rememberedPolicySource.clearAll()
             emit(
                 SettingsEffect.Notice(
-                    title = stringResolver.getString(R.string.notice_remembered_networks_cleared_title),
-                    message = stringResolver.getString(R.string.notice_remembered_networks_cleared_message),
+                    title = R.string.notice_remembered_networks_cleared_title,
+                    message = R.string.notice_remembered_networks_cleared_message,
                     tone = SettingsNoticeTone.Info,
                 ),
             )
@@ -241,8 +228,8 @@ internal class SettingsMaintenanceActions(
             telemetrySaltStore.rotateSalt()
             emit(
                 SettingsEffect.Notice(
-                    title = stringResolver.getString(R.string.notice_telemetry_salt_reset_title),
-                    message = stringResolver.getString(R.string.notice_telemetry_salt_reset_message),
+                    title = R.string.notice_telemetry_salt_reset_title,
+                    message = R.string.notice_telemetry_salt_reset_message,
                     tone = SettingsNoticeTone.Info,
                 ),
             )
@@ -263,14 +250,14 @@ internal class SettingsMaintenanceActions(
             emit(
                 if (currentServiceStatus() == AppStatus.Running) {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_fake_tls_reset_next_start_title),
-                        message = stringResolver.getString(R.string.notice_fake_tls_reset_next_start_message),
+                        title = R.string.notice_fake_tls_reset_next_start_title,
+                        message = R.string.notice_fake_tls_reset_next_start_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 } else {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_fake_tls_reset_title),
-                        message = stringResolver.getString(R.string.notice_fake_tls_reset_message),
+                        title = R.string.notice_fake_tls_reset_title,
+                        message = R.string.notice_fake_tls_reset_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 },
@@ -293,14 +280,14 @@ internal class SettingsMaintenanceActions(
             emit(
                 if (currentServiceStatus() == AppStatus.Running) {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_adaptive_ttl_reset_next_start_title),
-                        message = stringResolver.getString(R.string.notice_adaptive_ttl_reset_next_start_message),
+                        title = R.string.notice_adaptive_ttl_reset_next_start_title,
+                        message = R.string.notice_adaptive_ttl_reset_next_start_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 } else {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_adaptive_ttl_reset_title),
-                        message = stringResolver.getString(R.string.notice_adaptive_ttl_reset_message),
+                        title = R.string.notice_adaptive_ttl_reset_title,
+                        message = R.string.notice_adaptive_ttl_reset_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 },
@@ -318,14 +305,14 @@ internal class SettingsMaintenanceActions(
             emit(
                 if (currentServiceStatus() == AppStatus.Running) {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_fake_payload_reset_next_start_title),
-                        message = stringResolver.getString(R.string.notice_fake_payload_reset_next_start_message),
+                        title = R.string.notice_fake_payload_reset_next_start_title,
+                        message = R.string.notice_fake_payload_reset_next_start_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 } else {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_fake_payload_reset_title),
-                        message = stringResolver.getString(R.string.notice_fake_payload_reset_message),
+                        title = R.string.notice_fake_payload_reset_title,
+                        message = R.string.notice_fake_payload_reset_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 },
@@ -349,14 +336,14 @@ internal class SettingsMaintenanceActions(
             emit(
                 if (currentServiceStatus() == AppStatus.Running) {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_http_parser_reset_next_start_title),
-                        message = stringResolver.getString(R.string.notice_http_parser_reset_next_start_message),
+                        title = R.string.notice_http_parser_reset_next_start_title,
+                        message = R.string.notice_http_parser_reset_next_start_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 } else {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_http_parser_reset_title),
-                        message = stringResolver.getString(R.string.notice_http_parser_reset_message),
+                        title = R.string.notice_http_parser_reset_title,
+                        message = R.string.notice_http_parser_reset_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 },
@@ -372,14 +359,14 @@ internal class SettingsMaintenanceActions(
             emit(
                 if (currentServiceStatus() == AppStatus.Running) {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_activation_window_reset_next_start_title),
-                        message = stringResolver.getString(R.string.notice_activation_window_reset_next_start_message),
+                        title = R.string.notice_activation_window_reset_next_start_title,
+                        message = R.string.notice_activation_window_reset_next_start_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 } else {
                     SettingsEffect.Notice(
-                        title = stringResolver.getString(R.string.notice_activation_window_reset_title),
-                        message = stringResolver.getString(R.string.notice_activation_window_reset_message),
+                        title = R.string.notice_activation_window_reset_title,
+                        message = R.string.notice_activation_window_reset_message,
                         tone = SettingsNoticeTone.Info,
                     )
                 },

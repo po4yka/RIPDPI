@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.annotation.StringRes
 import com.poyka.ripdpi.proto.AppSettings
 
 internal typealias SettingsMutation = AppSettings.Builder.() -> Unit
@@ -11,9 +12,10 @@ sealed interface SettingsEffect {
     ) : SettingsEffect
 
     data class Notice(
-        val title: String,
-        val message: String,
+        @param:StringRes val title: Int,
+        @param:StringRes val message: Int,
         val tone: SettingsNoticeTone,
+        val messageOverride: String? = null,
     ) : SettingsEffect
 
     /**
