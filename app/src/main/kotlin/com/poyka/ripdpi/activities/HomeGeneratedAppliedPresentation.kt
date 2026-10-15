@@ -58,9 +58,28 @@ private fun StringResolver.homeAppliedValueTemplate(raw: String): String? {
     return when {
         template != null -> {
             val (match, resource) = template
-            val args = match.groupValues.drop(1).toMutableList()
-            if (resource == R.string.home_generated_morphing) args[0] = homeEntropyMode(args[0])
-            getString(resource, *args.toTypedArray())
+            when (resource) {
+                R.string.home_generated_morphing -> {
+                    getString(
+                        resource,
+                        homeEntropyMode(match.groups["mode"]?.value.orEmpty()),
+                        match.groups["padding"]?.value.orEmpty(),
+                        match.groups["shannon"]?.value.orEmpty(),
+                    )
+                }
+
+                R.string.home_generated_scanner -> {
+                    getString(
+                        resource,
+                        match.groups["parallelism"]?.value.orEmpty(),
+                        match.groups["rtt"]?.value.orEmpty(),
+                    )
+                }
+
+                else -> {
+                    getString(resource, match.groupValues[1])
+                }
+            }
         }
 
         quantity != null -> {
@@ -77,8 +96,9 @@ private val homeAppliedHostCount = Regex("([0-9]+) hosts")
 private val homeAppliedValueTemplates =
     listOf(
         Regex("Manual port ([0-9]+)") to R.string.home_generated_manual_port,
-        Regex("([0-9]+) parallel · ([0-9]+) ms max RTT") to R.string.home_generated_scanner,
-        Regex("(popcount|shannon|combined) · pad ([0-9]+) · shannon ([0-9]+)") to R.string.home_generated_morphing,
+        Regex("(?<parallelism>[0-9]+) parallel · (?<rtt>[0-9]+) ms max RTT") to R.string.home_generated_scanner,
+        Regex("(?<mode>popcount|shannon|combined) · pad (?<padding>[0-9]+) · shannon (?<shannon>[0-9]+)") to
+            R.string.home_generated_morphing,
         Regex("([0-9]+) bytes") to R.string.home_generated_bytes,
         Regex("Epsilon (\\p{Nd}+[.,\u066B]\\p{Nd}{2})") to R.string.home_generated_epsilon,
     )

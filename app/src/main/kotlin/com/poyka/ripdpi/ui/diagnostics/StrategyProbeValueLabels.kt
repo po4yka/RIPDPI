@@ -12,10 +12,8 @@ internal class StrategyProbeValueLabels(
 
     fun family(value: String): String {
         val token = value.lowercase(Locale.US)
-        val resource = familyResources[token]
-        if (resource != null) return stringResolver.getString(resource)
-        if (token == "multi_disorder") return signatureLabels.lane("multidisorder")
-        return signatureLabels.lane(value)
+        return familyResources[token]?.let(stringResolver::getString)
+            ?: signatureLabels.lane(if (token == "multi_disorder") "multidisorder" else value)
     }
 
     fun dnsLane(value: String): String =

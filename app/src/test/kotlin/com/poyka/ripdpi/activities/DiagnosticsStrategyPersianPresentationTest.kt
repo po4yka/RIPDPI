@@ -15,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.diagnostics.toApproachDetailUiModel
 import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel
 import org.junit.After
@@ -72,36 +73,7 @@ class DiagnosticsStrategyPersianPresentationTest {
         assertEquals("ماتریس TCP / HTTP / HTTPS", localized.families[0].title)
         assertEquals("موفق", localized.summaryMetrics[0].label)
         val winner = requireNotNull(localized.candidateDetails["tcp-0012"])
-        assertEquals("خط مبنا", winner.familyLabel)
-        assertEquals(resolver.getString(R.string.diagnostics_approach_metric_success), winner.outcome)
-        assertEquals("0012 custom label", winner.label)
-        assertEquals("Raw rationale 0012", winner.rationale)
-        assertEquals("User note 0012", winner.notes.first())
-        assertTrue(winner.notes.contains("ارسال دقیق در این مسیر به قابلیت‌های زمان اجرای روت‌شده نیاز داشت."))
-        assertEquals(
-            listOf(
-                "هدف‌ها",
-                "وزن",
-                resolver.getString(R.string.home_stat_quality),
-                resolver.getString(R.string.profile_variants_metric_latency),
-                "فرستنده",
-                "نحوهٔ اجرا",
-                resolver.getString(R.string.adaptive_split_preset_selected),
-            ),
-            winner.metrics.map { it.label },
-        )
-        assertEquals(listOf("1/2", "10/20", "7", "17 ms"), winner.metrics.take(4).map { it.value })
-        assertEquals("عملیاتی با روت", winner.metrics[4].value)
-        assertEquals("اجرای دقیق با روت", winner.metrics[5].value)
-        assertEquals("برنده", winner.metrics[6].value)
-        assertEquals("نتایج HTTPS", winner.resultGroups.single().title)
-        assertEquals(
-            listOf("one.example", "two.example"),
-            winner.resultGroups
-                .single()
-                .items
-                .map { it.target },
-        )
+        assertPersianWinner(winner, resolver)
         val recommendation = requireNotNull(localized.recommendation)
         assertEquals(
             listOf(
@@ -206,55 +178,7 @@ class DiagnosticsStrategyPersianPresentationTest {
     fun `current families outcomes and emitter branches use Persian labels`() {
         locale.select("fa")
         val factory = DiagnosticsUiFactorySupport(locale.englishContext())
-        val families =
-            listOf(
-                "baseline",
-                "baseline_current",
-                "parser",
-                "parser_aggressive",
-                "split",
-                "split_delayed",
-                "split_tfo",
-                "ech_split",
-                "ech_tlsrec",
-                "tlsrec_split",
-                "tlsrec_seqovl",
-                "tlsrec_fake",
-                "tlsrec_oob",
-                "tlsrec_disoob",
-                "tlsrec_disorder",
-                "tlsrec_split_tfo",
-                "tlsrandrec_split",
-                "tlsrandrec_disorder",
-                "circular_tlsrec_split",
-                "fake_flags",
-                "fake_approx",
-                "fake_rst",
-                "hostfake",
-                "seqovl",
-                "activation_window",
-                "adaptive_fake_ttl",
-                "fake_payload_library",
-                "multi_disorder",
-                "disorder",
-                "disoob",
-                "oob",
-                "ipfrag2",
-                "ipfrag2_ipv6_ext",
-                "quic_disabled",
-                "quic_burst",
-                "quic_crypto_split",
-                "quic_dummy_prepend",
-                "quic_fake_version",
-                "quic_ipfrag2",
-                "quic_ipfrag2_ipv6_ext",
-                "quic_multi_initial_realistic",
-                "quic_padding_ladder",
-                "quic_sni_split",
-                "quic_version_negotiation_decoy",
-                "quic_compat_burst",
-                "quic_realistic_burst",
-            )
+        val families = knownStrategyFamilies()
         val raw =
             StrategyProbeReport(
                 StrategyProbeSuiteQuickV1,
@@ -335,6 +259,92 @@ class DiagnosticsStrategyPersianPresentationTest {
             assertEquals(label, requireNotNull(raw.recommendation).dnsStrategyLabel)
         }
     }
+
+    private fun assertPersianWinner(
+        winner: DiagnosticsStrategyProbeCandidateDetailUiModel,
+        resolver: StringResolver,
+    ) {
+        assertEquals("خط مبنا", winner.familyLabel)
+        assertEquals(resolver.getString(R.string.diagnostics_approach_metric_success), winner.outcome)
+        assertEquals("0012 custom label", winner.label)
+        assertEquals("Raw rationale 0012", winner.rationale)
+        assertEquals("User note 0012", winner.notes.first())
+        assertTrue(winner.notes.contains("ارسال دقیق در این مسیر به قابلیت‌های زمان اجرای روت‌شده نیاز داشت."))
+        assertEquals(
+            listOf(
+                "هدف‌ها",
+                "وزن",
+                resolver.getString(R.string.home_stat_quality),
+                resolver.getString(R.string.profile_variants_metric_latency),
+                "فرستنده",
+                "نحوهٔ اجرا",
+                resolver.getString(R.string.adaptive_split_preset_selected),
+            ),
+            winner.metrics.map { it.label },
+        )
+        assertEquals(listOf("1/2", "10/20", "7", "17 ms"), winner.metrics.take(4).map { it.value })
+        assertEquals("عملیاتی با روت", winner.metrics[4].value)
+        assertEquals("اجرای دقیق با روت", winner.metrics[5].value)
+        assertEquals("برنده", winner.metrics[6].value)
+        assertEquals("نتایج HTTPS", winner.resultGroups.single().title)
+        assertEquals(
+            listOf("one.example", "two.example"),
+            winner.resultGroups
+                .single()
+                .items
+                .map { it.target },
+        )
+    }
+
+    private fun knownStrategyFamilies(): List<String> =
+        listOf(
+            "baseline",
+            "baseline_current",
+            "parser",
+            "parser_aggressive",
+            "split",
+            "split_delayed",
+            "split_tfo",
+            "ech_split",
+            "ech_tlsrec",
+            "tlsrec_split",
+            "tlsrec_seqovl",
+            "tlsrec_fake",
+            "tlsrec_oob",
+            "tlsrec_disoob",
+            "tlsrec_disorder",
+            "tlsrec_split_tfo",
+            "tlsrandrec_split",
+            "tlsrandrec_disorder",
+            "circular_tlsrec_split",
+            "fake_flags",
+            "fake_approx",
+            "fake_rst",
+            "hostfake",
+            "seqovl",
+            "activation_window",
+            "adaptive_fake_ttl",
+            "fake_payload_library",
+            "multi_disorder",
+            "disorder",
+            "disoob",
+            "oob",
+            "ipfrag2",
+            "ipfrag2_ipv6_ext",
+            "quic_disabled",
+            "quic_burst",
+            "quic_crypto_split",
+            "quic_dummy_prepend",
+            "quic_fake_version",
+            "quic_ipfrag2",
+            "quic_ipfrag2_ipv6_ext",
+            "quic_multi_initial_realistic",
+            "quic_padding_ladder",
+            "quic_sni_split",
+            "quic_version_negotiation_decoy",
+            "quic_compat_burst",
+            "quic_realistic_burst",
+        )
 
     private fun results(): List<ProbeResult> =
         listOf("one.example", "two.example").map { target ->

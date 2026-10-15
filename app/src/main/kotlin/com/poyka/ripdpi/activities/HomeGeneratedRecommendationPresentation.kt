@@ -51,7 +51,10 @@ private fun StringResolver.homeStrategyRationale(raw: String): String? {
         }
 
         strategy != null -> {
-            val (pattern, tcp, services, family) = strategy.destructured
+            val pattern = strategy.groups["pattern"]?.value.orEmpty()
+            val tcp = strategy.groups["tcp"]?.value.orEmpty()
+            val services = strategy.groups["services"]?.value.orEmpty()
+            val family = strategy.groups["family"]?.value.orEmpty()
             getString(
                 R.string.home_generated_strategy_rationale,
                 homeGeneratedValue(pattern),
@@ -82,9 +85,9 @@ private val homeRealityRationale =
     )
 private val homeStrategyRationale =
     Regex(
-        "Detected (TCP RST injection|threshold-based HTTPS blocking|silent packet drop|mixed DPI " +
-            "blocking|DPI blocking)(?: on ([0-9]+) TCP probe\\(s\\))?(?: with ([0-9]+) blocked " +
-            "service\\(s\\))?\\. Recommend switching to (.+)\\.",
+        "Detected (?<pattern>TCP RST injection|threshold-based HTTPS blocking|silent packet drop|mixed DPI " +
+            "blocking|DPI blocking)(?: on (?<tcp>[0-9]+) TCP probe\\(s\\))?(?: with (?<services>[0-9]+) blocked " +
+            "service\\(s\\))?\\. Recommend switching to (?<family>.+)\\.",
     )
 
 private fun StringResolver.homeRecommendationSummary(raw: String): String? {
@@ -93,23 +96,29 @@ private fun StringResolver.homeRecommendationSummary(raw: String): String? {
     val quick = homeQuickRecommendation.matchEntire(raw)
     return when {
         confidence != null -> {
+            val summary = confidence.groups["summary"]?.value.orEmpty()
             getString(
                 R.string.home_generated_audit_suffix,
-                homeRecommendationSummary(confidence.groupValues[1]) ?: confidence.groupValues[1],
-                homeGeneratedValue(confidence.groupValues[2].lowercase(Locale.ROOT)),
-                homeCount(confidence.groupValues[3]),
+                homeRecommendationSummary(summary) ?: summary,
+                homeGeneratedValue(
+                    confidence.groups["level"]
+                        ?.value
+                        .orEmpty()
+                        .lowercase(Locale.ROOT),
+                ),
+                homeCount(confidence.groups["coverage"]?.value.orEmpty()),
             )
         }
 
         matrix != null -> {
             getString(
                 R.string.home_generated_recommended_matrix,
-                matrix.groupValues[1],
-                matrix.groupValues[2],
-                *matrix.groupValues
-                    .drop(3)
-                    .map(::homeCount)
-                    .toTypedArray(),
+                matrix.groups["tcp"]?.value.orEmpty(),
+                matrix.groups["quic"]?.value.orEmpty(),
+                homeCount(matrix.groups["worked"]?.value.orEmpty()),
+                homeCount(matrix.groups["partial"]?.value.orEmpty()),
+                homeCount(matrix.groups["failed"]?.value.orEmpty()),
+                homeCount(matrix.groups["notApplicable"]?.value.orEmpty()),
             )
         }
 
@@ -123,32 +132,37 @@ private fun StringResolver.homeRecommendationSummary(raw: String): String? {
     }
 }
 
-private val homeAuditSummarySuffix = Regex("(.+) · confidence (LOW|MEDIUM|HIGH) · matrix coverage ([0-9]+)%")
+private val homeAuditSummarySuffix =
+    Regex("(?<summary>.+) · confidence (?<level>LOW|MEDIUM|HIGH) · matrix coverage (?<coverage>[0-9]+)%")
 private val homeMatrixRecommendation =
-    Regex("Recommended (.+) \\+ (.+)\\. Worked ([0-9]+) · partial ([0-9]+) · failed ([0-9]+) · not applicable ([0-9]+)")
+    Regex(
+        "Recommended (?<tcp>.+) \\+ (?<quic>.+)\\. Worked (?<worked>[0-9]+) · partial " +
+            "(?<partial>[0-9]+) · failed (?<failed>[0-9]+) · not applicable (?<notApplicable>[0-9]+)",
+    )
 private val homeQuickRecommendation = Regex("Recommended (.+) with (.+)")
 
 private fun StringResolver.homeResolverRationale(raw: String): String? {
     val match = homeResolverRationale.matchEntire(raw) ?: return null
-    val values = match.groupValues
     val base =
         getString(
             R.string.home_generated_dns_rationale,
-            homeGeneratedValue(values[1]),
-            values[2],
-            values[3],
-            homeGeneratedValue(values[4]),
-            values[5],
-            homeCount(values[6]),
-            homeCount(values[7]),
+            homeGeneratedValue(match.groups["dnsSource"]?.value.orEmpty()),
+            match.groups["trigger"]?.value.orEmpty(),
+            match.groups["resolver"]?.value.orEmpty(),
+            homeGeneratedValue(match.groups["answerQuality"]?.value.orEmpty()),
+            match.groups["protocol"]?.value.orEmpty(),
+            homeCount(match.groups["probeCount"]?.value.orEmpty()),
+            homeCount(match.groups["latency"]?.value.orEmpty()),
         )
-    return base + homeResolverHints(values[8])
+    return base + homeResolverHints(match.groups["hints"]?.value.orEmpty())
 }
 
 private val homeResolverRationale =
     Regex(
-        "(UDP|System) DNS showed (\\S+) while (.+) returned (matching|usable) encrypted answers over " +
-            "(\\S+) on ([0-9]+) probe\\(s\\) with ([0-9]+) ms average latency\\.(.*)",
+        "(?<dnsSource>UDP|System) DNS showed (?<trigger>\\S+) while (?<resolver>.+) returned " +
+            "(?<answerQuality>matching|usable) encrypted answers over " +
+            "(?<protocol>\\S+) on (?<probeCount>[0-9]+) probe\\(s\\) with (?<latency>[0-9]+) ms " +
+            "average latency\\.(?<hints>.*)",
     )
 
 private fun StringResolver.homeResolverHints(raw: String): String {

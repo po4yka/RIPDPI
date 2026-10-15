@@ -32,16 +32,14 @@ internal fun StringResolver.homeStageLabel(
 ): String = homeGeneratedStageResources[key]?.let(::getString) ?: fallback
 
 /** Translate only full, known producer templates. Stored and exported evidence stays unchanged. */
-internal fun StringResolver.homeGeneratedText(raw: String): String {
-    homeGeneratedSentenceResources[raw]?.let { return getString(it) }
-    val counts = homeConnectivitySummary(raw)
-    if (counts != null) return counts
-    return homeCompositeSummary(raw)
+internal fun StringResolver.homeGeneratedText(raw: String): String =
+    homeGeneratedSentenceResources[raw]?.let(::getString)
+        ?: homeConnectivitySummary(raw)
+        ?: homeCompositeSummary(raw)
         ?: homeGeneratedTemplate(raw)
         ?: homeGeneratedRecommendation(raw)
         ?: homeDetectionProgress(raw)
         ?: raw
-}
 
 private fun StringResolver.homeCompositeSummary(raw: String): String? {
     val warning = homeWarningSentences.firstOrNull { raw.endsWith(" $it") }
@@ -90,32 +88,38 @@ private val homeCompletedStages =
 private data class HomeGeneratedTemplate(
     val pattern: Regex,
     val resource: Int,
-    val quantityGroup: Int? = null,
+    val quantity: Boolean = false,
 )
 
 private fun StringResolver.homeGeneratedTemplate(raw: String): String? {
-    for (template in homeGeneratedTemplates) {
-        val match = template.pattern.matchEntire(raw) ?: continue
-        val arguments = match.groupValues.drop(1)
-        val args =
-            if (template.resource in homeGeneratedRawParameterTemplates) {
-                arguments.toTypedArray()
-            } else {
-                arguments.map(::homeCount).toTypedArray()
+    val template =
+        homeGeneratedTemplates.firstNotNullOfOrNull { definition ->
+            definition.pattern.matchEntire(raw)?.let { definition to it }
+        }
+    return template?.let { (definition, match) ->
+        val first = match.groupValues[1]
+        val second = match.groupValues.getOrElse(2) { "" }
+        when {
+            definition.quantity -> {
+                first.toIntOrNull()?.let { quantity ->
+                    getQuantityString(definition.resource, quantity, homeCount(first))
+                }
             }
-        return if (template.quantityGroup == null) {
-            getString(template.resource, *args)
-        } else {
-            match.groupValues[template.quantityGroup].toIntOrNull()?.let { quantity ->
-                getQuantityString(template.resource, quantity, *args)
+
+            definition.resource == R.string.home_generated_vpn_captured -> {
+                getString(definition.resource, first, second)
+            }
+
+            definition.resource == R.string.home_generated_settlement -> {
+                getString(definition.resource, first)
+            }
+
+            else -> {
+                getString(definition.resource, homeCount(first), homeCount(second))
             }
         }
     }
-    return null
 }
-
-private val homeGeneratedRawParameterTemplates =
-    setOf(R.string.home_generated_vpn_captured, R.string.home_generated_settlement)
 
 private val homeGeneratedTemplates =
     listOf(
@@ -126,12 +130,12 @@ private val homeGeneratedTemplates =
         HomeGeneratedTemplate(
             Regex("([0-9]+) stages? finished with failures or were unavailable\\."),
             R.plurals.home_generated_stages_failed,
-            1,
+            quantity = true,
         ),
         HomeGeneratedTemplate(
             Regex("([0-9]+) additional domains? showed connectivity issues not covered by the strategy probe\\."),
             R.plurals.home_generated_coverage_gap,
-            1,
+            quantity = true,
         ),
         HomeGeneratedTemplate(Regex("Matrix ([0-9]+)% · winners ([0-9]+)%"), R.string.home_generated_coverage),
         HomeGeneratedTemplate(
@@ -167,9 +171,9 @@ internal fun StringResolver.homeStageSummary(
         key == "path_comparison" && controls != null -> {
             getString(
                 R.string.home_generated_path_controls,
-                homeGeneratedText(controls.groupValues[1]),
-                controls.groupValues[2],
-                controls.groupValues[3],
+                homeGeneratedText(controls.groups["summary"]?.value.orEmpty()),
+                controls.groups["controls"]?.value.orEmpty(),
+                controls.groups["failures"]?.value.orEmpty(),
             )
         }
 
@@ -185,7 +189,7 @@ private val homeStageSummaryTemplates =
         "Collecting diagnostics for %s." to R.string.home_generated_stage_collect,
         "Unable to start %s." to R.string.home_generated_stage_unable,
     )
-private val homePathControls = Regex("(.+) Controls=(\\[.*]) failed=(\\[.*])")
+private val homePathControls = Regex("(?<summary>.+) Controls=(?<controls>\\[.*]) failed=(?<failures>\\[.*])")
 
 private fun StringResolver.homeConnectivitySummary(raw: String): String? {
     val counts = homeConnectivityCounts.matchEntire(raw)?.groupValues?.drop(1) ?: return null
