@@ -380,6 +380,8 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "p2-awg-x",
+                    "address": ["10.66.66.2/32", "fd77::2/128"],
+                    "mtu": 1420,
                     "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100,
                     "h1": 1, "h2": 2, "h3": 3, "h4": 4,
                     "cohort_fingerprint": "sha256:7738f14d7036d6399f102b1f486127244c79606bc47eda66bdd378fd03306214",
