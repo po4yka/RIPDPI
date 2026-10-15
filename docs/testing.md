@@ -14,6 +14,35 @@ sign-off gates are unchanged.
 
 ## Coverage Layers
 
+### AWG Android native-core interop
+
+The isolated `:testing:awg-interop` instrumentation host packages the actual
+`ripdpi-amneziawg-android` JNI library without other app runtimes. The runner
+requires committed source, an exact baseline peer checkout, pinned Go 1.27.1,
+NDK 29.0.14206865, and an installed arm64 Google APIs image. It leases an emulator
+through the shared pool and measures IPv4/IPv6 TCP, UDP and DNS at MTUs 1280 and
+1420 over three native start/stop cycles per MTU.
+
+```sh
+build-gate -- python3 scripts/tests/run-android-awg-interop.py \
+  --peer-source "$AWG_BASELINE_CHECKOUT" --api 32 \
+  --output-dir "$AWG_EVIDENCE_DIRECTORY" --nonce "$AWG_ACCEPTANCE_NONCE"
+python3 scripts/tests/validate-android-awg-interop.py \
+  --evidence "$AWG_EVIDENCE_DIRECTORY/evidence.json" \
+  --nonce "$AWG_ACCEPTANCE_NONCE" --source-sha "$AWG_CONSUMER_SHA"
+```
+
+The peer checkout must identify amneziawg-go v0.2.12 at
+`2e3f7d122ca8ef61e403fddc48a9db8fccd95dbf`; the runner archives that exact
+revision rather than compiling mutable checkout files. The fresh evidence
+directory retains source and binary identities, the APK and its packaged-library
+digest, and raw per-cycle instrumentation measurements. Missing prerequisites,
+skipped tests, mismatched nonce/source/artifacts or incomplete protocols fail.
+
+This is emulator/native-core interop. Android VpnService TUN policy, no-leak
+packet forwarding, physical-device and external deployment acceptance require
+their own measurements.
+
 Use the [feature test checklist](feature-test-checklist.md) as the canonical feature and combination inventory when selecting release, nightly, or manual QA coverage. Use the [manual evidence template](feature-test-manual-evidence-template.md) when recording rooted-device, physical-network, provider-relay, TalkBack, routed netem, or remote-workflow evidence. Final checklist sign-off must run `test-lab/scripts/check-feature-test-signoff.sh` with an evidence-backed, operator-reviewed readiness JSON whose required `ready` rows are tied to the filled manual template. The required readiness rows are `android_device`, `rooted_physical_device`, `manual_talkback`, `physical_network_handover`, `routed_netem_vm`, `production_relay_matrix`, and `remote_workflow_confirmation`; print the canonical list with `test-lab/scripts/check-feature-test-signoff.sh --list-required-readiness`.
 
 ### Kotlin/JVM tests

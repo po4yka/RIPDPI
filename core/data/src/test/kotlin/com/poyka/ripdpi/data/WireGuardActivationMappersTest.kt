@@ -39,8 +39,8 @@ class WireGuardActivationMappersTest {
     }
 
     @Test
-    fun `interface address families do not depend on order for either protocol`() {
-        val awg = singBox(addresses = "\"fd00::2/128\",\"10.8.0.2/32\"").toActivationRequest()
+    fun `standalone INI address families do not depend on order`() {
+        val awg = singBox().toActivationRequest()
         val wg =
             WireGuardIniSubscriptionParser
                 .parse(
@@ -102,7 +102,7 @@ class WireGuardActivationMappersTest {
         SingBoxSubscriptionParser.parse(
             """
             {"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
-              "tag":"network","private_key":"$Key","address":[$addresses],$interfacePolicy
+              "tag":"network","private_key":"$Key","address":[$addresses],"mtu":1330,$interfacePolicy
               "peer":{$peerPolicy"public_key":"$Key","endpoint":"192.0.2.1:51820"}
             }]}}
             """.trimIndent(),

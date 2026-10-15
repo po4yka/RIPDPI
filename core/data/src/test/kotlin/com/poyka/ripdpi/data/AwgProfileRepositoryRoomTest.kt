@@ -542,7 +542,7 @@ class AwgProfileRepositoryRoomTest {
         SingBoxSubscriptionParser.parse(
             """
             {"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
-              "tag":"home","private_key_placeholder":true,"address":["10.8.0.2/32","fd00::2/128"],$interfacePolicy
+              "tag":"home","private_key_placeholder":true,"address":["10.8.0.2/32","fd00::2/128"],"mtu":1330,$interfacePolicy
               "peer":{$peerPolicy"public_key":"peerpub==","endpoint":"vpn.example.com:51820"}
             }]}}
             """.trimIndent(),

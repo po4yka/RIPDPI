@@ -43,7 +43,7 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "p2-awg-moscow",
-                    "address": ["10.66.66.2/32"],
+                    "address": ["10.66.66.2/32", "fd77::2/128"],
                     "dns": ["1.1.1.1"],
                     "mtu": 1420,
                     "jc": 4, "jmin": 40, "jmax": 70,
@@ -81,7 +81,7 @@ class SingBoxRipdpiExtensionParserTest {
         // private_key_placeholder == true -> empty string.
         assertEquals("", awg.interfacePrivateKey)
 
-        assertEquals(listOf("10.66.66.2/32"), awg.interfaceAddress)
+        assertEquals(listOf("10.66.66.2/32", "fd77::2/128"), awg.interfaceAddress)
         assertEquals(listOf("1.1.1.1"), awg.dns)
         assertEquals(1420, awg.mtu)
 
@@ -115,7 +115,7 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "p2-awg-spb",
-                    "address": ["10.66.66.3/32"],
+                    "address": ["10.66.66.3/32", "fd77::2/128"],
                     "dns": ["8.8.8.8"],
                     "mtu": 1280,
                     "jc": 3, "jmin": 20, "jmax": 50,
@@ -156,7 +156,7 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "broken",
-                    "address": ["10.66.66.4/32"],
+                    "address": ["10.66.66.4/32", "fd77::2/128"],"mtu":1330,
                     "peer": {
                       "endpoint": "10.0.0.3:51820"
                     }

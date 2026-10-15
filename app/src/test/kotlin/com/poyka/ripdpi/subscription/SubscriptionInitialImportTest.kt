@@ -172,7 +172,7 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
         const val AwgPayload =
             """{"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
               "tag":"initial-awg","private_key":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-              "address":["10.8.0.2/32"],"peer":{
+              "address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,"peer":{
                 "public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
                 "endpoint":"192.0.2.10:51820","allowed_ips":["0.0.0.0/0"]
               }}]}}"""

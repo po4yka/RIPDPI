@@ -24,9 +24,9 @@
       "additionalProperties": false,
       "properties": {
         "tag": { "type": "string", "minLength": 1 },
-        "address": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "address": { "type": "array", "minItems": 2, "maxItems": 2, "prefixItems": [{"type": "string", "pattern": "^[0-9.]+/32$"}, {"type": "string", "pattern": "^[0-9a-f:]+/128$"}], "items": false },
         "dns": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "mtu": { "type": "integer", "minimum": 576, "maximum": 1500 },
+        "mtu": { "type": "integer", "minimum": 1280, "maximum": 1420 },
         "jc": { "type": "integer", "minimum": 0, "maximum": 128 },
         "jmin": { "type": "integer", "minimum": 0, "maximum": 1280 },
         "jmax": { "type": "integer", "minimum": 0, "maximum": 1280 },

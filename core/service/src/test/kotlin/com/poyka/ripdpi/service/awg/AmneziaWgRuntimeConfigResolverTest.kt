@@ -14,6 +14,13 @@ import org.junit.Test
 class AmneziaWgRuntimeConfigResolverTest {
     private val resolver = DefaultAmneziaWgRuntimeConfigResolver()
 
+    @Test
+    fun `out of range MTU is rejected before native startup`() {
+        listOf(0, 576, 1279, 1421, 1500, Int.MAX_VALUE).forEach { mtu ->
+            assertThrows(IllegalArgumentException::class.java) { resolver.resolve(request().copy(mtu = mtu)) }
+        }
+    }
+
     private fun request() =
         AwgActivationRequest(
             profileId = "awg-uuid-1",

@@ -77,6 +77,7 @@ fun AwgActivationRequest.requireRuntimeReady() {
     require(presharedKey.isEmpty() || presharedKey.isWireGuardKey()) { "AmneziaWG preshared key is invalid" }
     require(endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }
     require(endpointPort in ValidEndpointPorts) { "AmneziaWG endpoint port invalid" }
+    require(mtu in ValidAmneziaWgMtu) { "AmneziaWG MTU must be between 1280 and 1420" }
     require(interfaceAddressV4.isIpv4Cidr()) { "AmneziaWG interface address must be an IPv4 CIDR" }
     require(interfaceAddressV6.isEmpty() || interfaceAddressV6.isIpv6Cidr()) {
         "AmneziaWG IPv6 interface address must be an IPv6 CIDR"
@@ -101,9 +102,9 @@ private fun String.isWireGuardKey(): Boolean =
         decoded.size == WireGuardKeyBytes && Base64.getEncoder().encodeToString(decoded) == this
     } == true
 
-private fun String.isIpv4Cidr(): Boolean = isCidr(Ipv4PrefixRange, String::isIpv4Address)
+internal fun String.isIpv4Cidr(): Boolean = isCidr(Ipv4PrefixRange, String::isIpv4Address)
 
-private fun String.isIpv6Cidr(): Boolean = isCidr(Ipv6PrefixRange, String::isIpv6Address)
+internal fun String.isIpv6Cidr(): Boolean = isCidr(Ipv6PrefixRange, String::isIpv6Address)
 
 private fun String.isCidr(
     prefixRange: IntRange,
@@ -138,6 +139,7 @@ private fun String.isIpv6Address(): Boolean {
 }
 
 private val ValidEndpointPorts = 1..65_535
+internal val ValidAmneziaWgMtu = 1280..1420
 private val Ipv4PrefixRange = 0..32
 private val Ipv6PrefixRange = 0..128
 private val Ipv4OctetRange = 0..255
