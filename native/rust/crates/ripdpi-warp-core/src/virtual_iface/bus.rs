@@ -5,12 +5,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use bytes::Bytes;
 use tokio::sync::broadcast;
 
-use crate::ports::{PortForwardConfig, PortProtocol, VirtualPort};
+use crate::ports::{PortForwardConfig, PortProtocol, VirtualPort, VirtualPortLease};
 
 #[derive(Debug, Clone)]
 pub(crate) enum Event {
     Shutdown,
-    ClientConnectionInitiated(PortForwardConfig, VirtualPort),
+    ClientConnectionInitiated(PortForwardConfig, VirtualPortLease),
     ClientConnectionDropped(VirtualPort),
     LocalData(PortForwardConfig, VirtualPort, Bytes),
     RemoteData(VirtualPort, Bytes),

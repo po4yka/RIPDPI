@@ -13,6 +13,7 @@ Deployment now supplies one IPv4 and one IPv6 host address with a shared tunnel 
 - Verify consumer behavior against mirrored deployment contracts and actual independent-peer traffic.
 - Add a peer-owned validated task export so the producer can resolve this consumer and native historical receipts without imposing its task schema or rewriting client records.
 - Require Android arm64 emulator native-core interop with reconnect and endpoint MTU coverage. Physical-device and Android VpnService TUN/no-leak gates are outside this change; the producer owns Linux forwarding/no-leak verification.
+- Correct shared virtual TCP initialization and close handling exposed by reconnecting to a persistent peer: avoid repeated port/sequence state and transmit queued data/FIN before socket removal.
 
 ## Capabilities
 
@@ -26,4 +27,4 @@ None. Standalone INI address order and family support stay unchanged.
 
 ## Impact
 
-`:core:data:runtime-state`, `:core:data`, `:core:service`, engine instrumentation, independent test peers, and the native task CLI federation adapter. No production dependency or wire version changes.
+`:core:data:runtime-state`, `:core:data`, `:core:service`, shared native virtual TCP, engine instrumentation, independent test peers, and the native task CLI federation adapter. No production dependency or wire version changes.

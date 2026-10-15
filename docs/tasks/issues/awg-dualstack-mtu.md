@@ -29,4 +29,4 @@ Deployment consumer of `po4yka/ripdpi-vpn-deploy#ANS-1791618048083304`.
 
 ## Ownership
 
-The AWG consumer writer owns this dedicated worktree's bundle parser/validation, activation MTU guard, related Kotlin tests and imported test resources, the serialized bundle schema/example/negative mirrors, native interop test and peer adapter, and Android AWG instrumentation. No shared dependency versions, Cargo.lock, protobuf, locale, golden images, or production native runtime changes are owned. Independent review is read-only.
+The AWG consumer writer owns this dedicated worktree's bundle parser/validation, activation MTU guard, related Kotlin tests and imported test resources, the serialized bundle schema/example/negative mirrors, native interop test and peer adapter, Android AWG instrumentation, and the shared native virtual TCP initialization/close path required for reconnects against a persistent peer. No shared dependency versions, Cargo.lock, protobuf, locale, golden images, or JNI wire shape changes are owned. Independent review is read-only.

@@ -175,7 +175,7 @@ impl WarpRuntime {
         tunnel.send_amnezia_junk().await;
         let bus = Bus::new();
         let mut tasks = Vec::<JoinHandle<()>>::new();
-        let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp));
+        let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp)?);
         let udp_pool = Arc::new(UdpAssociationPool::new());
         crate::socks::ensure_loopback_socks_host(&self.config.local_socks_host)?;
         let bind_addr = format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port);
