@@ -2,7 +2,7 @@
 id: DAT-1792081130689287
 title: Validate deployed AWG dual-stack addresses and MTU
 kind: feature
-status: doing
+status: review
 area: data
 priority: high
 owner: AWG dual-stack consumer
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: awg-dualstack-mtu
 created: 2026-10-15
-updated: 2026-10-15
+updated: 2026-10-16
+status_detail: Implementation and scoped emulator acceptance passed at b92db30c6124e453a67ab64307b608d027f6baec; full hosted Android CI remains pending in verification.
 ---
 
 ## Goal

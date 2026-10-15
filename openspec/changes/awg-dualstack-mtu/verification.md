@@ -1,34 +1,42 @@
 ---
-task_id: DAT-1792081130689287
-change: awg-dualstack-mtu
-commit_sha: null
-local: required
-local_evidence: Fifty native task CLI tests and fourteen offline runner/evidence-validator tests passed; architecture health and strict task/OpenSpec gates passed. The baseline Go peer, production Android arm64 JNI library and isolated APK compiled on 09c505102. The first resumed focused Gradle run failed before tests due to a same-worktree buildLogic lock collision; its serialized retry was interrupted during dependency resolution to prioritize device verification. Offline fixtures and compilation do not establish traffic acceptance.
-remote_ci: required
-remote_ci_evidence: Exact commit 0d341495c passed hosted JVM/app unit tests and static analysis in CI 38784005347. Its full 58-job inventory had no failures while release/native jobs remained active. Earlier bootstrap/fingerprint fixture failures and the ReturnCount violation were corrected without weakening checks. This test-host follow-up still requires exact-head revalidation.
-device: required
-device_evidence: Required scope is Android arm64 emulator native_core only, with both MTUs and an initial session plus three reconnects each. API32 startup failed on an incomplete image. The genuine API35 arm64 JNI run first exposed missing protection registration, then 09c505102 exposed an unavailable cold-boot underlay. Actual diagnostics observed no default network at boot readiness and an IPv4 underlay five seconds later. The host now waits for that explicit precondition before authorization/native startup; fresh exact-source traffic verification remains required. Physical-device and Android VpnService TUN/no-leak checks are not gates.
-artifact: passed
-artifact_evidence: Canonical bundle schema, example, golden-full and negative JSON corpus were compared byte-for-byte with the deployment producer and matched.
-deployment: not_applicable
-deployment_evidence: Deployment is owned by the linked producer task.
+task_id: "DAT-1792081130689287"
+change: "awg-dualstack-mtu"
+commit_sha: "b92db30c6124e453a67ab64307b608d027f6baec"
+local: "passed"
+local_evidence: "Focused JVM/Detekt passed 135 tests with zero failures/skips; combined Persian/resolver locale tests passed all 10. Immutable 504 baseline reproduced both TCP regressions, then the separately compiled fixed tree passed all 94 warp-core tests. Normal hooks including workspace Clippy with warnings denied passed. Fifty native task CLI tests, fourteen offline runner/validator tests and thirty-two emulator-pool tests passed earlier on unchanged paths; offline fixtures do not count as traffic."
+remote_ci: "required"
+remote_ci_evidence: "Exact b92db30c6124e453a67ab64307b608d027f6baec CI 38816708930 has passed JVM/app, Kotlin coverage and all selected Rust workspace/network/lint/coverage/Miri/loom/turmoil/fuzz/native ABI packaging lanes. The full inventory currently has 32 success, 18 planned skips and 8 running downstream Android/static-analysis jobs, with no failures. Final workflow completion remains required."
+device: "passed"
+device_evidence: "Exact-b92 production Android arm64 JNI/APK passed all eight API 35 emulator/native_core sessions, MTUs 1280 and 1420 times cycle 0 baseline and reconnects 1..3, retaining one independent Go v0.2.12 peer per MTU. All 64 measured IPv4/IPv6 TCP/UDP/DNS observations passed and all 8 real VpnService.protect calls succeeded. Invocation nonce awg-native-20261015-b92db30c6-5; evidence.json SHA256 e46419f582221aa444e528d7cdf9cbdc7ae76d3e52d60b2a0a020b3e26f9d0b5. Client validator and producer canonical Make evidence target both passed. Owned emulator cleanup completed. Physical-device and Android TUN/no-leak checks are outside the required scope."
+artifact: "passed"
+artifact_evidence: "All 31 shared bundle/schema/example/negative/golden contract artifacts match the producer byte-identically. Canonical producer federation passed 185 tasks against compiled b92. Native library SHA256 efb05d8c9ab278732bb0f7d14ed85065cde1e4582ac554ce830fd37bf4ef4e9f equals the packaged APK native digest; APK SHA256 5eef75426ddf6098d69a94e4cad4ba624bff0c72f7a9b8fc4f7f50999e3ccbca. Independent peer binary SHA256 4e62b91e762ab182a4638bcc34409139a1e265376454cf32bb17af4b9d4febcb."
+deployment: "not_applicable"
+deployment_evidence: "Deployment is owned by the linked producer task."
 ---
 
 # Verification
 
 ## Acceptance scope
 
-The Android acceptance gate is emulator/native_core only. It does not require a physical device or Android VpnService TUN/no-leak adapter. Linux forwarding/no-leak verification is owned by the producer task. Missing emulator traffic evidence continues to block this task.
+The Android acceptance gate is emulator/native_core only. Physical-device and Android VpnService TUN/no-leak checks are outside this change; Linux forwarding/no-leak verification belongs to the producer task. The measured source is b92db30c6124e453a67ab64307b608d027f6baec. Subsequent verification/task-only commits do not change its executable inputs.
 
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-AWG-FEDERATION | DAT-1792081224671303 | Native export/history tests and producer task-federation against this checkout | Passed 184 nodes and 31 byte-identical shared artifacts on 0d341495c |
-| REQ-AWG-TRANSPORT | DAT-1792081224193869 | Parser/mapper/contract Gradle tests | Hosted JVM gate passed on 0d341495c |
-| REQ-AWG-ACTIVATION | DAT-1792081224193869 | Runtime readiness and service resolver Gradle tests | Hosted JVM gate passed on 0d341495c |
-| REQ-AWG-INTEROP | DAT-1792081224671303 | Independent peer IPv4/IPv6 TCP/UDP at 1280 and 1420 | Pending |
-| REQ-AWG-INTEROP | DAT-1792081225208325 | Android arm64 emulator native-core traffic and three reconnects | Pending |
+| REQ-AWG-FEDERATION | DAT-1792081224671303 | Native export/history tests and canonical producer task-federation | Passed 185 tasks against b92; 31 byte-identical shared artifacts |
+| REQ-AWG-TRANSPORT | DAT-1792081224193869 | Focused parser/mapper/contract Gradle tests | Passed in 135-test local gate and exact-b92 hosted JVM gate |
+| REQ-AWG-ACTIVATION | DAT-1792081224193869 | Activation/readiness/service resolver tests | Passed local and exact-b92 hosted JVM gates |
+| REQ-AWG-INTEROP | DAT-1792081224671303 | Exact independent AWG v0.2.12 Go peer, production Android JNI, IPv4/IPv6 TCP/UDP/DNS | Eight actual sessions passed at MTUs 1280 and 1420 |
+| REQ-AWG-INTEROP | DAT-1792081225208325 | API 35 arm64 emulator native_core, persistent peer per MTU, cycle 0 plus restarts 1..3 | Passed 64 traffic observations and 8 real socket-protection results; client and producer validators passed |
+
+## Reconnect regression
+
+The earlier 504 native run passed its initial 1280 session and failed the first reconnect TCP read. An actual peer packet trace showed source port 1000 and initial SYN sequence 4260165794 repeated after reconnect. Two component regressions failed on that immutable baseline. The fixed source uses OS entropy for TCP seeds and the existing port ring, keeps port leases through cleanup, drains accepted payload before FIN, and polls RST before bounded abandoned-socket removal. All 94 warp-core tests pass, including five packet-level sequence/FIN/order/reset regressions. The successful eight-session run used a rebuilt library and APK from the fixed source; it did not reset the peer or loosen acceptance deadlines.
+
+## Artifact identity
+
+The invocation is bound to nonce `awg-native-20261015-b92db30c6-5` and source `b92db30c6124e453a67ab64307b608d027f6baec`. The independent peer uses v0.2.12 at commit `2e3f7d122ca8ef61e403fddc48a9db8fccd95dbf`, built with Go 1.27.1. The validator checks all eight raw instrumentation method results, payload hashes, DNS semantics, selected MTUs, real protection results, stable peer endpoints and compiled-library/APK digest equality. Production JNI/protobuf interfaces and dependency pins remain unchanged.
 
 ## Fixture integration audit
 
@@ -37,3 +45,5 @@ A full source search covered deployed bundle literals and builders in core data,
 ## Independent review
 
 Read-only review approved the strict address/MTU guards and peer lifecycle. The writer fixed both evidence findings: acceptance now rejects untracked build inputs, and APK validation binds the packaged arm64 AWG library to the recorded native-library digest. Scoped re-review reported no further actionable findings; five evidence-validator unit cases passed.
+
+The native reconnect review also found that shared EOF state could overtake queued payload. The final implementation permits FIN only after the ordered EOF marker, retains lease ownership until socket cleanup and emits a polled RST on the bounded fallback. Re-review found no remaining material findings; all five packet regressions and the actual eight-session emulator matrix passed.
