@@ -1529,7 +1529,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_tls_server_name_label">Nome de servidor TLS</string>
     <string name="dns_custom_bootstrap_label">IPs de bootstrap</string>
     <string name="dns_custom_bootstrap_helper">Informe um ou mais IPs do resolvedor separados por vírgulas ou espaços.</string>
-    <string name="dns_custom_bootstrap_error">Informe um ou mais endereços IP de bootstrap não locais.</string>
+    <string name="dns_custom_bootstrap_error">Informe um ou mais endereços IP de bootstrap. Não use endereços de loopback ou não especificados.</string>
     <string name="dns_custom_save_requirements_hint">Preencha todos os campos obrigatórios para salvar</string>
     <string name="dns_custom_switch_hint">Salve este formulário para substituir o perfil integrado atual por um endpoint personalizado.</string>
     <string name="dns_resolver_custom_active">Usando endereço personalizado</string>

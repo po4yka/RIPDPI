@@ -275,10 +275,13 @@ private fun RowScope.SettingsRowText(
             Text(text = it, modifier = Modifier.fillMaxWidth(), style = type.secondaryBody, color = state.subtitle)
         }
         value?.let {
+            val valueStyle = if (monospaceValue) type.monoValue else type.secondaryBody
+            val valueTextDirection = endpointValueTextDirection()
             Text(
                 text = it,
                 modifier = Modifier.fillMaxWidth(),
-                style = if (monospaceValue) type.monoValue else type.secondaryBody,
+                style =
+                    valueTextDirection?.let { direction -> valueStyle.copy(textDirection = direction) } ?: valueStyle,
                 color = state.value,
             )
         }

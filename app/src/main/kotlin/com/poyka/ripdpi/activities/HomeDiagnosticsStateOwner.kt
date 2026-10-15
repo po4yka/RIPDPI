@@ -27,13 +27,16 @@ internal class HomeDiagnosticsStateOwner(
     val runtimeState: MutableStateFlow<HomeDiagnosticsRuntimeState> =
         MutableStateFlow(HomeDiagnosticsRuntimeState())
 
+    private val localeState = MutableStateFlow("")
+
     val uiState: StateFlow<HomeDiagnosticsUiState> =
         combine(
             settingsState,
             serviceStateStore.status,
             connectionRuntimeState,
             runtimeState,
-        ) { settings, statusAndMode, connectionRuntime, homeDiagnosticsRuntime ->
+            localeState,
+        ) { settings, statusAndMode, connectionRuntime, homeDiagnosticsRuntime, _ ->
             buildHomeDiagnosticsUiState(
                 settings = settings,
                 appStatus = statusAndMode.first,
@@ -84,6 +87,10 @@ internal class HomeDiagnosticsStateOwner(
             requestVpnStart = requestVpnStart,
             pcapCaptureRuntimeController = pcapCaptureRuntimeController,
         )
+
+    fun onLocaleChanged(localeTags: String) {
+        localeState.value = localeTags
+    }
 
     fun initialize() {
         actions.initialize()

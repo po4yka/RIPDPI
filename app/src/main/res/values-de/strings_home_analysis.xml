@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_diagnostics_network_note_vpn">Das aktive Netzwerk ist ein VPN</string>
+    <string name="home_diagnostics_network_note_metered">Das Netzwerk meldet eine getaktete Verbindung</string>
+    <string name="home_diagnostics_network_carrier_format">Mobilfunkanbieter %1$s</string>
+    <string name="home_diagnostics_network_yes">ja</string>
+    <string name="home_diagnostics_network_no">nein</string>
+    <string name="home_diagnostics_network_reachable">erreichbar</string>
+    <string name="home_diagnostics_network_unreachable">nicht erreichbar</string>
+    <string name="home_diagnostics_routing_detector_description_format">App zur VPN-Erkennung — prüfen Sie die Routing-Überschreibung je App (Erkennung: %1$s)</string>
+    <string name="home_diagnostics_routing_severity_high">hoch</string>
+    <string name="home_diagnostics_routing_severity_medium">mittel</string>
+    <string name="home_diagnostics_routing_severity_low">niedrig</string>
+    <string name="home_diagnostics_dns_note_endpoint_unreachable_format">DoH-Endpunkt %1$s nicht erreichbar</string>
+    <string name="home_diagnostics_dns_note_comparison_incomplete">DNS-Vergleich ist unvollständig</string>
+    <string name="home_diagnostics_dns_note_answers_differ">System- und DoH-Antworten unterscheiden sich; Standort und CDN-Routing können dies verursachen</string>
+    <string name="home_diagnostics_network_scope_unavailable">Netzwerkbereich nicht verfügbar</string>
+    <string name="home_diagnostics_network_scope_unavailable_body">Das Netzwerk hat sich während der Analyse geändert oder sein ursprünglicher Bereich konnte nicht geprüft werden. Wiederholen Sie die Analyse in einem stabilen Netzwerk.</string>
+    <string name="home_diagnostics_capability_owned_stack">Eigener Netzwerkstack erforderlich</string>
+    <string name="home_diagnostics_capability_no_direct">Keine direkte Lösung</string>
+    <string name="home_diagnostics_capability_dns_format">DNS %1$s</string>
+    <string name="home_diagnostics_capability_usable_format">%1$s nutzbar</string>
+    <string name="home_diagnostics_capability_blocked_format">%1$s blockiert</string>
+    <string name="home_diagnostics_capability_accepted_format">%1$s akzeptiert</string>
+    <string name="home_diagnostics_capability_rejected_format">%1$s abgelehnt</string>
+    <string name="home_diagnostics_capability_multiplex_reusable">Multiplex-Verbindung wiederverwendbar</string>
+    <string name="home_diagnostics_capability_multiplex_limited">Multiplexing eingeschränkt</string>
+    <string name="home_diagnostics_capability_fallback_required">Ausweichpfad erforderlich</string>
+    <string name="home_diagnostics_capability_failure_format">Fehler %1$s</string>
+    <string name="home_diagnostics_capability_recorded">Für diesen Host wurden Nachweise zu den Fähigkeiten gespeichert.</string>
+    <string name="home_diagnostics_capability_policy">Richtlinie</string>
+    <string name="home_diagnostics_capability_dns_class">DNS-Klasse</string>
+    <string name="home_diagnostics_capability_quic_mode">QUIC-Modus</string>
+    <string name="home_diagnostics_capability_preferred_stack">Bevorzugter Stack</string>
+    <string name="home_diagnostics_capability_tcp_family">TCP-Familie</string>
+    <string name="home_diagnostics_capability_transport_class">Transportklasse</string>
+    <string name="home_diagnostics_capability_auth">Authentifizierung</string>
+    <string name="home_diagnostics_capability_multiplex">Multiplexing</string>
+    <string name="home_diagnostics_capability_https_proxy">HTTPS-Proxy</string>
+    <string name="home_diagnostics_capability_fallback">Ausweichpfad</string>
+    <string name="home_diagnostics_capability_last_failure">Letzter Fehler</string>
+    <string name="home_diagnostics_capability_available">Verfügbar</string>
+    <string name="home_diagnostics_capability_blocked">Blockiert</string>
+    <string name="home_diagnostics_capability_required">Erforderlich</string>
+    <string name="home_diagnostics_capability_not_required">Nicht erforderlich</string>
+    <string name="home_diagnostics_actionable_network_detection">Im Netzwerk beobachtetes Muster der VPN-Erkennung muss geprüft werden</string>
+    <string name="home_diagnostics_actionable_local_detection">Lokale Beobachtung hat VPN-bezogene Spuren gefunden</string>
+    <string name="home_diagnostics_actionable_detection_signal_format">Erkennungssignal: %1$s</string>
+    <string name="home_diagnostics_actionable_detection_review">Einige Erkennungsprüfungen müssen geprüft werden (wahrscheinlich fehlen Berechtigungen)</string>
+    <string name="home_diagnostics_actionable_routing_format">Routing je App hinzufügen für: %1$s</string>
+    <string name="home_diagnostics_actionable_failed_format">Fehlgeschlagen: %1$s</string>
+    <string name="home_diagnostics_actionable_bufferbloat">Hohe Verzögerung durch volle Puffer — versuchen Sie QoS oder einen anderen Relay-Transport</string>
+    <string name="home_diagnostics_actionable_dns_unreachable">Endpunkt für verschlüsseltes DNS nicht erreichbar — prüfen Sie die Verbindung und versuchen Sie es erneut</string>
+    <string name="home_diagnostics_actionable_regression_format">Regression: %1$s funktioniert seit dem vorherigen Durchlauf nicht mehr</string>
+    <string name="home_diagnostics_actionable_historical_format">Bester bisheriger Pfad in diesem Netzwerk: %1$s (%2$d erfolgreich / %3$d fehlgeschlagen)</string>
+    <string name="home_diagnostics_actionable_applied">Analyse abgeschlossen und Umgehung angewendet.</string>
+    <string name="home_diagnostics_bufferbloat_unknown">Unbekannt</string>
+    <plurals name="home_diagnostics_actionable_detector_count">
+        <item quantity="one">%1$d App zur VPN-Erkennung installiert</item>
+        <item quantity="other">%1$d Apps zur VPN-Erkennung installiert</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_dns_count">
+        <item quantity="one">%1$d DNS-Einstellung angewendet</item>
+        <item quantity="other">%1$d DNS-Einstellungen angewendet</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_bypass_count">
+        <item quantity="one">%1$d Umgehungseinstellung angewendet</item>
+        <item quantity="other">%1$d Umgehungseinstellungen angewendet</item>
+    </plurals>
+</resources>

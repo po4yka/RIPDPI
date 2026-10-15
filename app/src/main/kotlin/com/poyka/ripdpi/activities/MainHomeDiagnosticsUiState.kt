@@ -3,7 +3,6 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
-import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
@@ -358,13 +357,13 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
 ): HomeDiagnosticsAnalysisSheetUiState =
     HomeDiagnosticsAnalysisSheetUiState(
         runId = runId,
-        headline = headline,
-        summary = summary,
+        headline = homeHeadline(stringResolver),
+        summary = homeSummary(stringResolver),
         confidenceSummary = confidenceSummary,
         coverageSummary = coverageSummary,
         recommendationSummary = recommendationSummary,
         appliedSettings = appliedSettings.toImmutableList(),
-        capabilityEvidence = capabilityEvidence.map(::toCapabilityEvidenceUiModel).toImmutableList(),
+        capabilityEvidence = capabilityEvidence.map { it.homeUiModel(stringResolver) }.toImmutableList(),
         stageSummaries = stageSummaries.map { it.toUiState(stringResolver) }.toImmutableList(),
         completedStageCount = completedStageCount,
         failedStageCount = failedStageCount,
@@ -377,10 +376,16 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         installedVpnDetectorTopApps = installedVpnDetectorTopApps.toImmutableList(),
         pcapRecordingRequested = runtime.pcapRecordingRequested,
         remediationLadder = remediationLadder,
-        actionableHeadline = actionableHeadline,
-        actionableNextSteps = actionableNextSteps.toImmutableList(),
+        actionableHeadline = HomeActionableSummaryPresentation(this, stringResolver).headline(),
+        actionableNextSteps = HomeActionableSummaryPresentation(this, stringResolver).nextSteps().toImmutableList(),
         networkCharacterRows = buildNetworkCharacterRows(networkCharacter, stringResolver).toImmutableList(),
-        networkCharacterNotes = networkCharacter?.notes.orEmpty().toImmutableList(),
+        networkCharacterNotes =
+            networkCharacter
+                ?.notes
+                .orEmpty()
+                .map(
+                    stringResolver::homeNetworkNote,
+                ).toImmutableList(),
         strategyEffectivenessRows = strategyEffectiveness.map { it.toUiState(stringResolver) }.toImmutableList(),
         routingSanitySummary =
             routingSanity?.let {
@@ -394,7 +399,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
             routingSanity
                 ?.findings
                 ?.map {
-                    HomeAnalysisLabeledRow(it.packageName, "${it.severity}: ${it.description}")
+                    HomeAnalysisLabeledRow(it.packageName, it.homeDescription(stringResolver))
                 }.orEmpty()
                 .toImmutableList(),
         regressionDeltaSummary =
@@ -408,21 +413,13 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
             },
         regressionDeltaFailures = regressionDelta?.newlyFailedStageKeys.orEmpty().toImmutableList(),
         regressionDeltaRecoveries = regressionDelta?.newlyRecoveredStageKeys.orEmpty().toImmutableList(),
-        bufferbloatSummary =
-            bufferbloat?.let {
-                stringResolver.getString(
-                    R.string.home_diagnostics_bufferbloat_summary,
-                    it.grade.name,
-                    it.idleRttMs?.let { value -> "${value}ms" } ?: "—",
-                    it.loadedRttMs?.let { value -> "${value}ms" } ?: "—",
-                )
-            },
+        bufferbloatSummary = bufferbloat?.homeSummary(stringResolver),
         dnsCharacterizationSummary = dnsCharacterization?.resolverClass?.label(stringResolver),
         dnsCharacterizationNotes =
             dnsCharacterization
                 ?.let { dns ->
                     buildList {
-                        addAll(dns.notes)
+                        addAll(dns.notes.map { dns.homeNote(it, stringResolver) })
                         if (dns.poisonedHosts.isNotEmpty()) {
                             add("Poisoned hosts: ${dns.poisonedHosts.joinToString(", ")}")
                         }
@@ -485,8 +482,8 @@ private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(
     fingerprintMismatch: Boolean,
     stringResolver: StringResolver,
 ) = HomeDiagnosticsLatestAuditUiState(
-    headline = headline,
-    summary = summary,
+    headline = homeHeadline(stringResolver),
+    summary = homeSummary(stringResolver),
     recommendationSummary = recommendationSummary,
     ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
     completedStageCount = completedStageCount,
@@ -519,21 +516,6 @@ private fun DiagnosticScanSession.toLatestManualScanUiState() =
         actionable = false,
     )
 
-private fun toCapabilityEvidenceUiModel(
-    evidence: DiagnosticsCapabilityEvidence,
-): DiagnosticsCapabilityEvidenceUiModel =
-    DiagnosticsCapabilityEvidenceUiModel(
-        authority = evidence.authority,
-        summary = evidence.summary,
-        fields =
-            buildList {
-                addAll(evidence.details.map { DiagnosticsFieldUiModel(it.label, it.value) })
-                if (evidence.source.isNotBlank()) {
-                    add(DiagnosticsFieldUiModel("Source", evidence.source))
-                }
-            }.toImmutableList(),
-    )
-
 private fun buildNetworkCharacterRows(
     summary: HomeNetworkCharacterSummary?,
     stringResolver: StringResolver,
@@ -543,7 +525,7 @@ private fun buildNetworkCharacterRows(
     summary.transport?.takeIf { it.isNotBlank() }?.let {
         rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_transport), it)
     }
-    summary.operatorOrSsid?.takeIf { it.isNotBlank() }?.let {
+    summary.homeOperator(stringResolver)?.takeIf { it.isNotBlank() }?.let {
         rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_operator), it)
     }
     summary.asn?.takeIf { it.isNotBlank() }?.let {
@@ -556,14 +538,22 @@ private fun buildNetworkCharacterRows(
         rows +=
             HomeAnalysisLabeledRow(
                 stringResolver.getString(R.string.home_diagnostics_network_captive_portal),
-                if (it) "yes" else "no",
+                stringResolver.getString(
+                    if (it) R.string.home_diagnostics_network_yes else R.string.home_diagnostics_network_no,
+                ),
             )
     }
     summary.ipv6Reachable?.let {
         rows +=
             HomeAnalysisLabeledRow(
                 stringResolver.getString(R.string.home_diagnostics_network_ipv6),
-                if (it) "reachable" else "unreachable",
+                stringResolver.getString(
+                    if (it) {
+                        R.string.home_diagnostics_network_reachable
+                    } else {
+                        R.string.home_diagnostics_network_unreachable
+                    },
+                ),
             )
     }
     summary.mtu?.let {

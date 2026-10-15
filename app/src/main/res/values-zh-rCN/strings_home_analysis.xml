@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_diagnostics_network_note_vpn">当前网络为 VPN</string>
+    <string name="home_diagnostics_network_note_metered">网络报告为按流量计费</string>
+    <string name="home_diagnostics_network_carrier_format">运营商 %1$s</string>
+    <string name="home_diagnostics_network_yes">是</string>
+    <string name="home_diagnostics_network_no">否</string>
+    <string name="home_diagnostics_network_reachable">可访问</string>
+    <string name="home_diagnostics_network_unreachable">无法访问</string>
+    <string name="home_diagnostics_routing_detector_description_format">VPN 检测应用 — 请检查按应用路由覆盖设置（检测方式：%1$s）</string>
+    <string name="home_diagnostics_routing_severity_high">高</string>
+    <string name="home_diagnostics_routing_severity_medium">中</string>
+    <string name="home_diagnostics_routing_severity_low">低</string>
+    <string name="home_diagnostics_dns_note_endpoint_unreachable_format">无法访问 DoH 端点 %1$s</string>
+    <string name="home_diagnostics_dns_note_comparison_incomplete">DNS 比较未完成</string>
+    <string name="home_diagnostics_dns_note_answers_differ">系统与 DoH 的响应不同；地理位置和 CDN 路由可能导致这种差异</string>
+    <string name="home_diagnostics_network_scope_unavailable">网络范围不可用</string>
+    <string name="home_diagnostics_network_scope_unavailable_body">分析期间网络发生变化，或无法验证其原始范围。请在稳定的网络上重新分析。</string>
+    <string name="home_diagnostics_capability_owned_stack">需要自有网络栈</string>
+    <string name="home_diagnostics_capability_no_direct">没有直连方案</string>
+    <string name="home_diagnostics_capability_dns_format">DNS %1$s</string>
+    <string name="home_diagnostics_capability_usable_format">%1$s 可用</string>
+    <string name="home_diagnostics_capability_blocked_format">%1$s 被阻止</string>
+    <string name="home_diagnostics_capability_accepted_format">%1$s 已接受</string>
+    <string name="home_diagnostics_capability_rejected_format">%1$s 已拒绝</string>
+    <string name="home_diagnostics_capability_multiplex_reusable">多路复用连接可复用</string>
+    <string name="home_diagnostics_capability_multiplex_limited">多路复用受限</string>
+    <string name="home_diagnostics_capability_fallback_required">需要回退路径</string>
+    <string name="home_diagnostics_capability_failure_format">失败 %1$s</string>
+    <string name="home_diagnostics_capability_recorded">已记录此主机的能力证据。</string>
+    <string name="home_diagnostics_capability_policy">策略</string>
+    <string name="home_diagnostics_capability_dns_class">DNS 类别</string>
+    <string name="home_diagnostics_capability_quic_mode">QUIC 模式</string>
+    <string name="home_diagnostics_capability_preferred_stack">首选网络栈</string>
+    <string name="home_diagnostics_capability_tcp_family">TCP 系列</string>
+    <string name="home_diagnostics_capability_transport_class">传输类别</string>
+    <string name="home_diagnostics_capability_auth">身份验证</string>
+    <string name="home_diagnostics_capability_multiplex">多路复用</string>
+    <string name="home_diagnostics_capability_https_proxy">HTTPS 代理</string>
+    <string name="home_diagnostics_capability_fallback">回退路径</string>
+    <string name="home_diagnostics_capability_last_failure">最近失败</string>
+    <string name="home_diagnostics_capability_available">可用</string>
+    <string name="home_diagnostics_capability_blocked">被阻止</string>
+    <string name="home_diagnostics_capability_required">需要</string>
+    <string name="home_diagnostics_capability_not_required">不需要</string>
+    <string name="home_diagnostics_actionable_network_detection">网络中观察到的 VPN 检测模式需要复核</string>
+    <string name="home_diagnostics_actionable_local_detection">本地观察发现了 VPN 相关痕迹</string>
+    <string name="home_diagnostics_actionable_detection_signal_format">检测信号：%1$s</string>
+    <string name="home_diagnostics_actionable_detection_review">部分检测项需要复核（可能缺少权限）</string>
+    <string name="home_diagnostics_actionable_routing_format">为以下应用添加独立路由：%1$s</string>
+    <string name="home_diagnostics_actionable_failed_format">失败：%1$s</string>
+    <string name="home_diagnostics_actionable_bufferbloat">缓冲区积压导致延迟较高 — 请尝试 QoS 或其他中继传输方式</string>
+    <string name="home_diagnostics_actionable_dns_unreachable">无法访问加密 DNS 端点 — 请检查连接后重试</string>
+    <string name="home_diagnostics_actionable_regression_format">回归：%1$s 自上次运行后不再可用</string>
+    <string name="home_diagnostics_actionable_historical_format">此网络上历史最佳路径：%1$s（%2$d 次成功 / %3$d 次失败）</string>
+    <string name="home_diagnostics_actionable_applied">分析已完成，已应用绕过设置。</string>
+    <string name="home_diagnostics_bufferbloat_unknown">未知</string>
+    <plurals name="home_diagnostics_actionable_detector_count">
+        <item quantity="other">已安装 %1$d 个 VPN 检测应用</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_dns_count">
+        <item quantity="other">已应用 %1$d 项 DNS 设置</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_bypass_count">
+        <item quantity="other">已应用 %1$d 项绕过设置</item>
+    </plurals>
+</resources>

@@ -1244,6 +1244,54 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `locale signal refreshes frozen home evidence without another analysis or runtime emission`() =
+        runTest {
+            RuntimeEnvironment.setQualifiers("en")
+            val service = StubDiagnosticsHomeCompositeRunService()
+            val workflow = StubDiagnosticsHomeWorkflowService().apply { currentFingerprint = "network" }
+            val viewModel =
+                createViewModel(
+                    homeDiagnosticsServices = HomeDiagnosticsServices(workflow, service),
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                    presentationDependencies = TestPresentationDependencies(stringResolver = ResourceStringResolver()),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+            viewModel.onRunHomeFullAnalysis()
+            runCurrent()
+            val outcome =
+                homeOutcome().copy(
+                    networkCharacter =
+                        com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary(
+                            notes = listOf("Active network is a VPN", "Network reports as metered"),
+                        ),
+                    actionableHeadline = "Analysis complete and bypass applied.",
+                )
+            service.completeRun(outcome = outcome)
+            runCurrent()
+            val english = viewModel.homeDiagnosticsUiState.value
+            val progress = service.runs["home-run"]!!.value
+            val starts = service.startedRunIds.toList()
+
+            RuntimeEnvironment.setQualifiers("ar")
+            viewModel.onLocaleChanged("ar")
+            runCurrent()
+            val arabic = viewModel.homeDiagnosticsUiState.value
+            arabic.analysisSheet!!.networkCharacterNotes.forEach(::assertArabic)
+            assertArabic(arabic.analysisSheet.actionableHeadline)
+            assertEquals(starts, service.startedRunIds)
+            assertEquals(progress, service.runs["home-run"]!!.value)
+            assertEquals(english.analysisSheet!!.runId, arabic.analysisSheet.runId)
+
+            RuntimeEnvironment.setQualifiers("en")
+            viewModel.onLocaleChanged("en")
+            runCurrent()
+            assertEquals(english, viewModel.homeDiagnosticsUiState.value)
+            assertEquals(progress, service.runs["home-run"]!!.value)
+            collector.cancel()
+        }
+
+    @Test
     fun `locale signal refreshes permission presentation without a runtime change`() =
         runTest {
             RuntimeEnvironment.setQualifiers("en")

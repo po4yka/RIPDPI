@@ -31,6 +31,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
@@ -387,13 +388,11 @@ private fun VpnRelayRow(
         accessibilityLabel = stringResource(R.string.config_relay_server),
         onClick = onOpenRelaySettings,
     ) {
-        SettingsRow(
+        EndpointSettingsRow(
             title = stringResource(R.string.config_relay_server),
             subtitle = stringResource(R.string.config_vpn_relay_server_summary),
             value = relayEndpointLabel(uiState),
-            leadingIcon = RipDpiIcons.Public,
             showChevron = true,
-            showDivider = true,
         )
     }
 }

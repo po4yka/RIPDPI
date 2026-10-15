@@ -1525,7 +1525,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_tls_server_name_label">TLS सर्वर नाम</string>
     <string name="dns_custom_bootstrap_label">बूटस्ट्रैप IP</string>
     <string name="dns_custom_bootstrap_helper">अल्पविराम या रिक्त स्थान से अलग करके एक या अधिक रिज़ॉल्वर IP दर्ज करें।</string>
-    <string name="dns_custom_bootstrap_error">एक या अधिक गैर-स्थानीय बूटस्ट्रैप IP पते दर्ज करें।</string>
+    <string name="dns_custom_bootstrap_error">एक या अधिक बूटस्ट्रैप IP पते दर्ज करें। लूपबैक या अनिर्दिष्ट पते इस्तेमाल न करें।</string>
     <string name="dns_custom_save_requirements_hint">सहेजने के लिए सभी आवश्यक फ़ील्ड भरें</string>
     <string name="dns_custom_switch_hint">वर्तमान अंतर्निहित प्रोफ़ाइल को कस्टम एंडपॉइंट से बदलने के लिए इस फ़ॉर्म को सहेजें।</string>
     <string name="dns_resolver_custom_active">कस्टम पते का उपयोग किया जा रहा है</string>

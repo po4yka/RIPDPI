@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
@@ -249,7 +250,7 @@ private fun LocalBypassModeRow(uiState: ConfigUiState) {
 
 @Composable
 private fun LocalBypassListenAddressRow(uiState: ConfigUiState) {
-    SettingsRow(
+    EndpointSettingsRow(
         title = stringResource(R.string.bye_dpi_proxy_ip_setting),
         subtitle = stringResource(R.string.config_listen_address_summary),
         value =
@@ -258,9 +259,7 @@ private fun LocalBypassListenAddressRow(uiState: ConfigUiState) {
                 uiState.draft.proxyIp,
                 uiState.draft.proxyPort,
             ),
-        leadingIcon = RipDpiIcons.Public,
         monospaceValue = true,
-        showDivider = true,
         testTag = RipDpiTestTags.ConfigLocalBypassListenAddress,
     )
 }

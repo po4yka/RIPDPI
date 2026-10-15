@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_diagnostics_network_note_vpn">सक्रिय नेटवर्क एक VPN है</string>
+    <string name="home_diagnostics_network_note_metered">नेटवर्क डेटा उपयोग को मीटर्ड बताता है</string>
+    <string name="home_diagnostics_network_carrier_format">मोबाइल ऑपरेटर %1$s</string>
+    <string name="home_diagnostics_network_yes">हाँ</string>
+    <string name="home_diagnostics_network_no">नहीं</string>
+    <string name="home_diagnostics_network_reachable">पहुँच योग्य</string>
+    <string name="home_diagnostics_network_unreachable">पहुँच से बाहर</string>
+    <string name="home_diagnostics_routing_detector_description_format">VPN पहचानने वाला ऐप — प्रति-ऐप रूटिंग ओवरराइड जाँचें (पहचान: %1$s)</string>
+    <string name="home_diagnostics_routing_severity_high">उच्च</string>
+    <string name="home_diagnostics_routing_severity_medium">मध्यम</string>
+    <string name="home_diagnostics_routing_severity_low">निम्न</string>
+    <string name="home_diagnostics_dns_note_endpoint_unreachable_format">DoH एंडपॉइंट %1$s तक नहीं पहुँचा जा सकता</string>
+    <string name="home_diagnostics_dns_note_comparison_incomplete">DNS तुलना अधूरी है</string>
+    <string name="home_diagnostics_dns_note_answers_differ">सिस्टम और DoH के जवाब अलग हैं; स्थान और CDN रूटिंग इसका कारण हो सकते हैं</string>
+    <string name="home_diagnostics_network_scope_unavailable">नेटवर्क का दायरा उपलब्ध नहीं है</string>
+    <string name="home_diagnostics_network_scope_unavailable_body">विश्लेषण के दौरान नेटवर्क बदल गया या उसके मूल दायरे की पुष्टि नहीं हो सकी। स्थिर नेटवर्क पर विश्लेषण दोहराएँ।</string>
+    <string name="home_diagnostics_capability_owned_stack">ऐप का अपना नेटवर्क स्टैक आवश्यक है</string>
+    <string name="home_diagnostics_capability_no_direct">कोई सीधा समाधान नहीं</string>
+    <string name="home_diagnostics_capability_dns_format">DNS %1$s</string>
+    <string name="home_diagnostics_capability_usable_format">%1$s उपयोग योग्य</string>
+    <string name="home_diagnostics_capability_blocked_format">%1$s अवरुद्ध</string>
+    <string name="home_diagnostics_capability_accepted_format">%1$s स्वीकार किया गया</string>
+    <string name="home_diagnostics_capability_rejected_format">%1$s अस्वीकार किया गया</string>
+    <string name="home_diagnostics_capability_multiplex_reusable">मल्टीप्लेक्स कनेक्शन फिर से उपयोग योग्य</string>
+    <string name="home_diagnostics_capability_multiplex_limited">मल्टीप्लेक्सिंग सीमित</string>
+    <string name="home_diagnostics_capability_fallback_required">वैकल्पिक पथ आवश्यक</string>
+    <string name="home_diagnostics_capability_failure_format">विफलता %1$s</string>
+    <string name="home_diagnostics_capability_recorded">इस होस्ट के लिए क्षमता के साक्ष्य दर्ज किए गए।</string>
+    <string name="home_diagnostics_capability_policy">नीति</string>
+    <string name="home_diagnostics_capability_dns_class">DNS श्रेणी</string>
+    <string name="home_diagnostics_capability_quic_mode">QUIC मोड</string>
+    <string name="home_diagnostics_capability_preferred_stack">पसंदीदा स्टैक</string>
+    <string name="home_diagnostics_capability_tcp_family">TCP परिवार</string>
+    <string name="home_diagnostics_capability_transport_class">ट्रांसपोर्ट श्रेणी</string>
+    <string name="home_diagnostics_capability_auth">प्रमाणीकरण</string>
+    <string name="home_diagnostics_capability_multiplex">मल्टीप्लेक्सिंग</string>
+    <string name="home_diagnostics_capability_https_proxy">HTTPS प्रॉक्सी</string>
+    <string name="home_diagnostics_capability_fallback">वैकल्पिक पथ</string>
+    <string name="home_diagnostics_capability_last_failure">पिछली विफलता</string>
+    <string name="home_diagnostics_capability_available">उपलब्ध</string>
+    <string name="home_diagnostics_capability_blocked">अवरुद्ध</string>
+    <string name="home_diagnostics_capability_required">आवश्यक</string>
+    <string name="home_diagnostics_capability_not_required">आवश्यक नहीं</string>
+    <string name="home_diagnostics_actionable_network_detection">नेटवर्क में देखा गया VPN पहचान पैटर्न समीक्षा माँगता है</string>
+    <string name="home_diagnostics_actionable_local_detection">स्थानीय पर्यवेक्षक को VPN से जुड़े संकेत मिले</string>
+    <string name="home_diagnostics_actionable_detection_signal_format">पहचान संकेत: %1$s</string>
+    <string name="home_diagnostics_actionable_detection_review">कुछ पहचान जाँचों की समीक्षा चाहिए (संभवतः अनुमतियाँ नहीं हैं)</string>
+    <string name="home_diagnostics_actionable_routing_format">इनके लिए प्रति-ऐप रूटिंग जोड़ें: %1$s</string>
+    <string name="home_diagnostics_actionable_failed_format">विफल: %1$s</string>
+    <string name="home_diagnostics_actionable_bufferbloat">बफ़र भरने के कारण अधिक विलंब — QoS या कोई दूसरा रिले ट्रांसपोर्ट आज़माएँ</string>
+    <string name="home_diagnostics_actionable_dns_unreachable">एन्क्रिप्टेड DNS एंडपॉइंट पहुँच से बाहर है — कनेक्शन जाँचें और फिर कोशिश करें</string>
+    <string name="home_diagnostics_actionable_regression_format">रिग्रेशन: %1$s ने पिछली बार चलाने के बाद से काम करना बंद कर दिया</string>
+    <string name="home_diagnostics_actionable_historical_format">इस नेटवर्क पर पिछला सर्वश्रेष्ठ पथ: %1$s (%2$d सफल / %3$d विफल)</string>
+    <string name="home_diagnostics_actionable_applied">विश्लेषण पूरा हुआ और बायपास लागू किया गया।</string>
+    <string name="home_diagnostics_bufferbloat_unknown">अज्ञात</string>
+    <plurals name="home_diagnostics_actionable_detector_count">
+        <item quantity="one">VPN पहचानने वाला %1$d ऐप इंस्टॉल है</item>
+        <item quantity="other">VPN पहचानने वाले %1$d ऐप इंस्टॉल हैं</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_dns_count">
+        <item quantity="one">%1$d DNS सेटिंग लागू की गई</item>
+        <item quantity="other">%1$d DNS सेटिंग लागू की गईं</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_bypass_count">
+        <item quantity="one">%1$d बायपास सेटिंग लागू की गई</item>
+        <item quantity="other">%1$d बायपास सेटिंग लागू की गईं</item>
+    </plurals>
+</resources>

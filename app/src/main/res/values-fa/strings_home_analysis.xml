@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_diagnostics_network_note_vpn">شبکهٔ فعال یک VPN است</string>
+    <string name="home_diagnostics_network_note_metered">شبکه گزارش می‌دهد که مصرف داده محاسبه می‌شود</string>
+    <string name="home_diagnostics_network_carrier_format">اپراتور %1$s</string>
+    <string name="home_diagnostics_network_yes">بله</string>
+    <string name="home_diagnostics_network_no">خیر</string>
+    <string name="home_diagnostics_network_reachable">در دسترس</string>
+    <string name="home_diagnostics_network_unreachable">خارج از دسترس</string>
+    <string name="home_diagnostics_routing_detector_description_format">برنامهٔ تشخیص VPN — تنظیم جایگزین مسیریابی هر برنامه را بررسی کنید (تشخیص: %1$s)</string>
+    <string name="home_diagnostics_routing_severity_high">زیاد</string>
+    <string name="home_diagnostics_routing_severity_medium">متوسط</string>
+    <string name="home_diagnostics_routing_severity_low">کم</string>
+    <string name="home_diagnostics_dns_note_endpoint_unreachable_format">نقطهٔ پایانی DoH ‏%1$s در دسترس نیست</string>
+    <string name="home_diagnostics_dns_note_comparison_incomplete">مقایسهٔ DNS کامل نیست</string>
+    <string name="home_diagnostics_dns_note_answers_differ">پاسخ‌های سیستم و DoH متفاوت‌اند؛ موقعیت مکانی و مسیریابی CDN می‌توانند علت آن باشند</string>
+    <string name="home_diagnostics_network_scope_unavailable">محدودهٔ شبکه در دسترس نیست</string>
+    <string name="home_diagnostics_network_scope_unavailable_body">شبکه در حین تحلیل تغییر کرد یا محدودهٔ اصلی آن قابل تأیید نبود. تحلیل را در یک شبکهٔ پایدار تکرار کنید.</string>
+    <string name="home_diagnostics_capability_owned_stack">پشتهٔ اختصاصی لازم است</string>
+    <string name="home_diagnostics_capability_no_direct">راه‌حل مستقیم وجود ندارد</string>
+    <string name="home_diagnostics_capability_dns_format">DNS ‏%1$s</string>
+    <string name="home_diagnostics_capability_usable_format">‏%1$s قابل استفاده است</string>
+    <string name="home_diagnostics_capability_blocked_format">‏%1$s مسدود است</string>
+    <string name="home_diagnostics_capability_accepted_format">‏%1$s پذیرفته شد</string>
+    <string name="home_diagnostics_capability_rejected_format">‏%1$s رد شد</string>
+    <string name="home_diagnostics_capability_multiplex_reusable">اتصال چندجریانی قابل استفادهٔ مجدد است</string>
+    <string name="home_diagnostics_capability_multiplex_limited">چندجریانی محدود است</string>
+    <string name="home_diagnostics_capability_fallback_required">مسیر جایگزین لازم است</string>
+    <string name="home_diagnostics_capability_failure_format">خطای %1$s</string>
+    <string name="home_diagnostics_capability_recorded">شواهد قابلیت برای این میزبان ثبت شد.</string>
+    <string name="home_diagnostics_capability_policy">سیاست</string>
+    <string name="home_diagnostics_capability_dns_class">ردهٔ DNS</string>
+    <string name="home_diagnostics_capability_quic_mode">حالت QUIC</string>
+    <string name="home_diagnostics_capability_preferred_stack">پشتهٔ ترجیحی</string>
+    <string name="home_diagnostics_capability_tcp_family">خانوادهٔ TCP</string>
+    <string name="home_diagnostics_capability_transport_class">ردهٔ انتقال</string>
+    <string name="home_diagnostics_capability_auth">احراز هویت</string>
+    <string name="home_diagnostics_capability_multiplex">چندجریانی</string>
+    <string name="home_diagnostics_capability_https_proxy">پراکسی HTTPS</string>
+    <string name="home_diagnostics_capability_fallback">مسیر جایگزین</string>
+    <string name="home_diagnostics_capability_last_failure">آخرین خطا</string>
+    <string name="home_diagnostics_capability_available">در دسترس</string>
+    <string name="home_diagnostics_capability_blocked">مسدود</string>
+    <string name="home_diagnostics_capability_required">لازم</string>
+    <string name="home_diagnostics_capability_not_required">غیرضروری</string>
+    <string name="home_diagnostics_actionable_network_detection">الگوی تشخیص VPN مشاهده‌شده در شبکه نیاز به بررسی دارد</string>
+    <string name="home_diagnostics_actionable_local_detection">ناظر محلی نشانه‌های مرتبط با VPN پیدا کرد</string>
+    <string name="home_diagnostics_actionable_detection_signal_format">نشانهٔ تشخیص: %1$s</string>
+    <string name="home_diagnostics_actionable_detection_review">برخی بررسی‌های تشخیص نیاز به بازبینی دارند (احتمالاً مجوزها کافی نیستند)</string>
+    <string name="home_diagnostics_actionable_routing_format">مسیریابی اختصاصی برنامه را برای این موارد اضافه کنید: %1$s</string>
+    <string name="home_diagnostics_actionable_failed_format">ناموفق: %1$s</string>
+    <string name="home_diagnostics_actionable_bufferbloat">تأخیر زیاد به‌علت پرشدن بافر — QoS یا روش انتقال دیگری برای رله را امتحان کنید</string>
+    <string name="home_diagnostics_actionable_dns_unreachable">نقطهٔ پایانی DNS رمزگذاری‌شده در دسترس نیست — اتصال را بررسی و دوباره تلاش کنید</string>
+    <string name="home_diagnostics_actionable_regression_format">پسرفت: %1$s از اجرای قبلی دیگر کار نمی‌کند</string>
+    <string name="home_diagnostics_actionable_historical_format">بهترین مسیر پیشین در این شبکه: %1$s (%2$d موفق / %3$d ناموفق)</string>
+    <string name="home_diagnostics_actionable_applied">تحلیل کامل و دورزدن اعمال شد.</string>
+    <string name="home_diagnostics_bufferbloat_unknown">نامشخص</string>
+    <plurals name="home_diagnostics_actionable_detector_count">
+        <item quantity="one">%1$d برنامهٔ تشخیص VPN نصب است</item>
+        <item quantity="other">%1$d برنامهٔ تشخیص VPN نصب هستند</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_dns_count">
+        <item quantity="one">%1$d تنظیم DNS اعمال شد</item>
+        <item quantity="other">%1$d تنظیم DNS اعمال شدند</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_bypass_count">
+        <item quantity="one">%1$d تنظیم دورزدن اعمال شد</item>
+        <item quantity="other">%1$d تنظیم دورزدن اعمال شدند</item>
+    </plurals>
+</resources>

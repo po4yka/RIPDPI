@@ -12,7 +12,7 @@
     <string name="pause_stop">إيقاف وإلغاء الاستئناف</string>
     <string name="pause_persistence_failed">تعذّر حفظ الأمر. حالة الاتصال لم تتغيّر.</string>
     <string name="pause_duration_minutes">%1$s دقيقة</string>
-    <string name="pause_clock_failed">تغيّرت الساعة أو هوية بدء التشغيل. راجع الاستعادة.</string>
+    <string name="pause_clock_failed">تغيّرت الساعة أو هوية بدء التشغيل. اختر «استئناف الآن» لمراجعة الاستعادة.</string>
     <string name="pause_consent_required">يلزم إذن VPN للاستئناف.</string>
     <string name="pause_lockdown">لا تسمح حالة قفل VPN في Android بهذا الإجراء.</string>
     <string name="pause_background_restricted">أجّل Android الاستعادة في الخلفية. افتح التطبيق.</string>

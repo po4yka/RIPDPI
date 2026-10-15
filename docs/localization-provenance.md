@@ -18,7 +18,7 @@ Structural revalidation date: **2026-07-14**. `app/src/main/res/values/strings.x
 | German (de) | `values-de/` (all XML files) | 5010 | 0 | **pre-existing; AI-authored audited corrections** | **yes for corrections** | Native-speaker review pending for this update | — |
 | French (fr) | `values-fr/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Persian (fa) | `values-fa/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| Arabic (ar) | `values-ar/` | 4063 | 0 | **machine-translated** | **yes** | Nikita Pochaev (maintainer, structural review) | 2026-05-31 |
+| Arabic (ar) | `values-ar/` (all app and service XML files) | 5085 | 0 | **machine-translated; AI-authored audited corrections** | **yes** | Native-speaker review pending for this update | — |
 | Simplified Chinese (zh-CN) | `values-zh-rCN/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Hindi (hi) | `values-hi/` (all XML files) | 4948 | 0 | **machine-translated; audited corrections** | **yes** | Native-speaker review pending | — |
 | Brazilian Portuguese (pt-BR) | `values-pt-rBR/` (all app and service XML files) | 5027 | 0 | **machine-translated; AI-authored audited corrections** | **yes** | Native-speaker review pending for this update | — |
@@ -257,6 +257,34 @@ Kotlin, render, lint and hosted CI evidence separately.
 Corrections and translations were authored with an AI assistant. This entry
 records no new maintainer or native-speaker sign-off. Resource tests do not
 prove device acceptance or full linguistic correctness of the other locales.
+
+## Arabic and shared Home presentation corrections — 2026-10-15
+
+The audit source is `4e132e8c0e538c96fd46cf5a68abd058a500736e`.
+This pass corrects all 86 confirmed active Arabic resource keys. It restores
+sensitive-settings warnings and active English text, corrects network and
+packet terms, and names the visible Resume now action. The unused resource
+entries and editorial questions from the audit stay outside this correction.
+
+The bootstrap-address validation message now names the existing rejection
+rules in all ten locales: loopback and unspecified addresses are not allowed.
+Private LAN addresses remain valid. Validation behavior does not change.
+
+Shared Home presentation uses 55 new strings and three new plurals in all ten
+locales. Known generated summaries, recommendations, network notes and
+capability captions use localized resources. Raw evidence, stored English
+text, protocol tokens and custom text keep their original values. Arabic
+plurals include zero, one, two, few, many and other.
+
+The app source now has 5,074 translatable entries (5,047 strings and 27 plurals).
+Service resources add 11 entries; Quick Connect has 15 separate strings. The
+source string manifest has 5,057 keys. These counts exclude technical resources
+marked `translatable="false"`.
+
+Corrections and translations were authored with an AI assistant. Resource
+regressions check meanings, action references and literal tokens. The owning
+verification artifact records build, render, lint and hosted CI evidence
+separately. This entry records no new maintainer or native-speaker sign-off.
 
 ## Font & glyph coverage
 

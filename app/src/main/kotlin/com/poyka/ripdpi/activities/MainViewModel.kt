@@ -215,7 +215,10 @@ class MainViewModel
                 buildApproachSummary = connectionActions::buildApproachSummary,
             )
         val uiState: StateFlow<MainUiState> = uiStateOwner.uiState
-        internal val onLocaleChanged: (String) -> Unit = uiStateOwner::onLocaleChanged
+        internal val onLocaleChanged: (String) -> Unit = { localeTags ->
+            uiStateOwner.onLocaleChanged(localeTags)
+            homeDiagnostics.onLocaleChanged(localeTags)
+        }
 
         fun initialize() {
             if (startupState.value.readiness != AppStartupReadinessState.Ready || initialized) {

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_diagnostics_network_note_vpn">La red activa es una VPN</string>
+    <string name="home_diagnostics_network_note_metered">La red indica que el uso de datos es medido</string>
+    <string name="home_diagnostics_network_carrier_format">Operador %1$s</string>
+    <string name="home_diagnostics_network_yes">sí</string>
+    <string name="home_diagnostics_network_no">no</string>
+    <string name="home_diagnostics_network_reachable">accesible</string>
+    <string name="home_diagnostics_network_unreachable">inaccesible</string>
+    <string name="home_diagnostics_routing_detector_description_format">Aplicación que detecta VPN — comprueba la anulación de rutas por aplicación (detección: %1$s)</string>
+    <string name="home_diagnostics_routing_severity_high">alta</string>
+    <string name="home_diagnostics_routing_severity_medium">media</string>
+    <string name="home_diagnostics_routing_severity_low">baja</string>
+    <string name="home_diagnostics_dns_note_endpoint_unreachable_format">El punto de conexión DoH %1$s es inaccesible</string>
+    <string name="home_diagnostics_dns_note_comparison_incomplete">La comparación de DNS está incompleta</string>
+    <string name="home_diagnostics_dns_note_answers_differ">Las respuestas del sistema y de DoH difieren; la ubicación y las rutas de la CDN pueden causar esto</string>
+    <string name="home_diagnostics_network_scope_unavailable">Ámbito de red no disponible</string>
+    <string name="home_diagnostics_network_scope_unavailable_body">La red cambió durante el análisis o no se pudo verificar su ámbito original. Repite el análisis en una red estable.</string>
+    <string name="home_diagnostics_capability_owned_stack">Se requiere la pila propia</string>
+    <string name="home_diagnostics_capability_no_direct">Sin solución directa</string>
+    <string name="home_diagnostics_capability_dns_format">DNS %1$s</string>
+    <string name="home_diagnostics_capability_usable_format">%1$s utilizable</string>
+    <string name="home_diagnostics_capability_blocked_format">%1$s bloqueado</string>
+    <string name="home_diagnostics_capability_accepted_format">%1$s aceptado</string>
+    <string name="home_diagnostics_capability_rejected_format">%1$s rechazado</string>
+    <string name="home_diagnostics_capability_multiplex_reusable">Conexión multiplexada reutilizable</string>
+    <string name="home_diagnostics_capability_multiplex_limited">Multiplexación limitada</string>
+    <string name="home_diagnostics_capability_fallback_required">Se requiere una alternativa</string>
+    <string name="home_diagnostics_capability_failure_format">Fallo %1$s</string>
+    <string name="home_diagnostics_capability_recorded">Se registraron pruebas de capacidad para este servidor.</string>
+    <string name="home_diagnostics_capability_policy">Política</string>
+    <string name="home_diagnostics_capability_dns_class">Clase de DNS</string>
+    <string name="home_diagnostics_capability_quic_mode">Modo QUIC</string>
+    <string name="home_diagnostics_capability_preferred_stack">Pila preferida</string>
+    <string name="home_diagnostics_capability_tcp_family">Familia de TCP</string>
+    <string name="home_diagnostics_capability_transport_class">Clase de transporte</string>
+    <string name="home_diagnostics_capability_auth">Autenticación</string>
+    <string name="home_diagnostics_capability_multiplex">Multiplexación</string>
+    <string name="home_diagnostics_capability_https_proxy">Proxy HTTPS</string>
+    <string name="home_diagnostics_capability_fallback">Alternativa</string>
+    <string name="home_diagnostics_capability_last_failure">Último fallo</string>
+    <string name="home_diagnostics_capability_available">Disponible</string>
+    <string name="home_diagnostics_capability_blocked">Bloqueado</string>
+    <string name="home_diagnostics_capability_required">Requerido</string>
+    <string name="home_diagnostics_capability_not_required">No requerido</string>
+    <string name="home_diagnostics_actionable_network_detection">El patrón de detección de VPN observado en la red requiere revisión</string>
+    <string name="home_diagnostics_actionable_local_detection">El observador local encontró indicios relacionados con VPN</string>
+    <string name="home_diagnostics_actionable_detection_signal_format">Señal de detección: %1$s</string>
+    <string name="home_diagnostics_actionable_detection_review">Algunas comprobaciones de detección requieren revisión (probablemente faltan permisos)</string>
+    <string name="home_diagnostics_actionable_routing_format">Añade rutas por aplicación para: %1$s</string>
+    <string name="home_diagnostics_actionable_failed_format">Falló: %1$s</string>
+    <string name="home_diagnostics_actionable_bufferbloat">Latencia elevada por saturación del búfer — prueba QoS u otro transporte de retransmisión</string>
+    <string name="home_diagnostics_actionable_dns_unreachable">Punto de conexión DNS cifrado inaccesible — comprueba la conexión y vuelve a intentarlo</string>
+    <string name="home_diagnostics_actionable_regression_format">Regresión: %1$s dejó de funcionar desde la ejecución anterior</string>
+    <string name="home_diagnostics_actionable_historical_format">Mejor ruta histórica en esta red: %1$s (%2$d correctas / %3$d fallidas)</string>
+    <string name="home_diagnostics_actionable_applied">Análisis completado y evasión aplicada.</string>
+    <string name="home_diagnostics_bufferbloat_unknown">desconocida</string>
+    <plurals name="home_diagnostics_actionable_detector_count">
+        <item quantity="one">%1$d aplicación de detección de VPN instalada</item>
+        <item quantity="many">%1$d aplicaciones de detección de VPN instaladas</item>
+        <item quantity="other">%1$d aplicaciones de detección de VPN instaladas</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_dns_count">
+        <item quantity="one">Se aplicó %1$d ajuste de DNS</item>
+        <item quantity="many">Se aplicaron %1$d ajustes de DNS</item>
+        <item quantity="other">Se aplicaron %1$d ajustes de DNS</item>
+    </plurals>
+    <plurals name="home_diagnostics_actionable_bypass_count">
+        <item quantity="one">Se aplicó %1$d ajuste de evasión</item>
+        <item quantity="many">Se aplicaron %1$d ajustes de evasión</item>
+        <item quantity="other">Se aplicaron %1$d ajustes de evasión</item>
+    </plurals>
+</resources>
