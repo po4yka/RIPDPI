@@ -25,7 +25,7 @@ Deployment consumer of `po4yka/ripdpi-vpn-deploy#ANS-1791618048083304`.
 - Deployment bundles admit exactly an IPv4 /32 then IPv6 /128 and an integer MTU from 1280 through 1420.
 - Invalid addresses, missing/invalid MTU, and mismatched families produce explicit skipped-entry evidence without fallback; standalone INI address selection remains unchanged.
 - Parser, activation, service resolver, contract mirrors, and independent native peer gates pass.
-- Android arm64 emulator native interop measures real bidirectional IPv4/IPv6 traffic and records its emulator/native-core scope. Physical-device, Android TUN/no-leak and deployment evidence remain separate.
+- The Android acceptance gate requires only arm64 emulator native-core interop: real bidirectional IPv4/IPv6 TCP, UDP and DNS at MTUs 1280 and 1420, with three reconnect cycles per MTU. Evidence records emulator/native_core scope. Physical devices and Android VpnService TUN/no-leak checks are not required for this task; Linux forwarding/no-leak evidence belongs to the producer task.
 
 ## Ownership
 

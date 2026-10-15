@@ -12,7 +12,8 @@ Bundle import currently filters address arrays and defaults missing MTU; the nat
 - Validate bundle transport before constructing a subscription profile; use numeric-only syntax plus URI IPv6 validation without DNS. Reuse the existing INVALID_NETWORK_POLICY skipped-entry reason and name the offending field.
 - Reject out-of-range activation MTU so Android and native values cannot diverge through native clamping.
 - Keep schema version 1 and synchronize the canonical deployment schema/example/negative artifacts byte-identically.
-- Use actual native libraries for emulator acceptance. JVM fakes and host tests do not count as Android evidence. The independent peer uses pinned upstream versions and loopback-only host transport.
+- The Android gate is emulator/native_core only and uses the actual production AWG JNI library. JVM fakes and host tests do not count as Android evidence. The independent peer is AWG v0.2.12 at commit 2e3f7d122ca8ef61e403fddc48a9db8fccd95dbf, built with Go 1.27.1 and loopback-only host transport.
+- Physical-device and Android VpnService TUN/no-leak checks are not gates for this change. Linux forwarding/no-leak evidence remains owned by the producer task.
 
 ## Contracts and ownership
 
@@ -24,4 +25,4 @@ Strict admission breaks malformed or old single-family deployment bundles; produ
 
 ## Migration Plan
 
-Update contract fixtures and tests together, run focused data/runtime-state/service gates and independent peer interop, then obtain independent review. Run scoped emulator acceptance when installed toolchains and real native artifacts are available. Record absent evidence explicitly and keep the task open.
+Update contract fixtures and tests together, run focused data/runtime-state/service gates and independent peer interop, then obtain independent review. Complete scoped emulator acceptance with real native artifacts at both endpoint MTUs and three reconnect cycles per MTU. Record unavailable emulator prerequisites explicitly and keep its step open until measured native-core evidence passes.

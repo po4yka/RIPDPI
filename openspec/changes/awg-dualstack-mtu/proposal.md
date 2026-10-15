@@ -11,7 +11,7 @@ Deployment now supplies one IPv4 and one IPv6 host address with a shared tunnel 
 - BREAKING: deployment bundle AWG entries require ordered IPv4 /32 and IPv6 /128 addresses and an integer MTU in 1280..1420.
 - Reject unsafe activation MTUs before native startup; preserve accepted values exactly.
 - Verify consumer behavior against mirrored deployment contracts and actual independent-peer traffic.
-- Add scoped Android arm64 emulator native-core interop with reconnect and endpoint MTU coverage.
+- Require Android arm64 emulator native-core interop with reconnect and endpoint MTU coverage. Physical-device and Android VpnService TUN/no-leak gates are outside this change; the producer owns Linux forwarding/no-leak verification.
 
 ## Capabilities
 

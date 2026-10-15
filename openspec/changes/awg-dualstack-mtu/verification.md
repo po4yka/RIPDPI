@@ -7,7 +7,7 @@ local_evidence: Eight Python runner and evidence-validator tests passed; archite
 remote_ci: required
 remote_ci_evidence: Hosted CI 38771665416 found one obsolete bootstrap fixture (280 tests, one failure); CI 38773904560 then passed runtime-state but found one obsolete fingerprint fixture in core data (887 tests, one failure). Both fixtures were migrated without weakening validation; revalidation remains required.
 device: required
-device_evidence: Android arm64 emulator native-core invocation was stopped while still queued behind the machine build gate; no emulator lab was created and no physical-device acceptance was performed.
+device_evidence: Required scope is Android arm64 emulator native_core only, with both MTUs and three reconnect cycles each. Physical-device and Android VpnService TUN/no-leak checks are not required. Prior invocation was stopped while still queued; resumed invocation is paused for coordinated source changes, and no emulator lab has been created.
 artifact: passed
 artifact_evidence: Canonical bundle schema, example, golden-full and negative JSON corpus were compared byte-for-byte with the deployment producer and matched.
 deployment: not_applicable
@@ -15,6 +15,10 @@ deployment_evidence: Deployment is owned by the linked producer task.
 ---
 
 # Verification
+
+## Acceptance scope
+
+The Android acceptance gate is emulator/native_core only. It does not require a physical device or Android VpnService TUN/no-leak adapter. Linux forwarding/no-leak verification is owned by the producer task. Missing emulator traffic evidence continues to block this task.
 
 ## Requirement evidence
 

@@ -16,4 +16,4 @@ The single consumer writer owns the paths declared in the portfolio task, includ
 
 ## Verification
 
-Run focused data/runtime-state/service Gradle tests, independent peer interop, task validation and scoped real-native Android arm64 emulator acceptance. No deployment or physical-device success is implied.
+Run focused data/runtime-state/service/app Gradle tests, independent peer interop, task validation and scoped real-native Android arm64 emulator acceptance. The only Android gate is emulator/native_core traffic at MTUs 1280 and 1420 with three reconnect cycles per MTU. Physical-device and Android VpnService TUN/no-leak checks are not required; Linux forwarding/no-leak verification belongs to the producer task.
