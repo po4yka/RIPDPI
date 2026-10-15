@@ -2,7 +2,7 @@
 id: UIX-1792059951283875
 title: Correct audited Persian localization
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: fix-audited-persian-localization
 created: 2026-10-15
 updated: 2026-10-15
+status_detail: All confirmed Persian corrections are on main; local gates and all seven source CI workflows pass.
 ---
 
 ## Goal
