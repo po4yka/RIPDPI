@@ -24,11 +24,14 @@ internal fun invalidAwgPolicyField(
 
 private fun JsonElement?.isDualStackHostAddresses(): Boolean {
     val addresses = this as? JsonArray ?: return false
-    if (addresses.size != DualStackAddressCount || !addresses.isNonblankStringList()) return false
-    val ipv4 = (addresses[0] as JsonPrimitive).content
-    val ipv6 = (addresses[1] as JsonPrimitive).content
-    return ipv4.endsWith("/32") && ipv4.isIpv4Cidr() &&
-        ipv6.endsWith("/128") && ipv6.isIpv6Cidr() && ipv6 == ipv6.lowercase()
+    return if (addresses.size == DualStackAddressCount && addresses.isNonblankStringList()) {
+        val ipv4 = (addresses[0] as JsonPrimitive).content
+        val ipv6 = (addresses[1] as JsonPrimitive).content
+        ipv4.endsWith("/32") && ipv4.isIpv4Cidr() &&
+            ipv6.endsWith("/128") && ipv6.isIpv6Cidr() && ipv6 == ipv6.lowercase()
+    } else {
+        false
+    }
 }
 
 private fun JsonElement?.isDeployedMtu(): Boolean {
