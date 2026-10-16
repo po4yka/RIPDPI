@@ -1,6 +1,6 @@
 ## Context
 
-Bundle import currently filters address arrays and defaults missing MTU; the native runtime raises low MTU to 1280. The Android admission policy requires ordered dual-stack host addresses and a shared 1280..1420 MTU. The published producer still permits IPv4-only addresses and MTU 576..1500; its broader schema is mirrored verbatim and does not override client admission.
+Bundle import currently filters address arrays and defaults missing MTU; the native runtime raises low MTU to 1280. The deployment contract now supplies ordered dual-stack host addresses and a shared 1280..1420 MTU.
 
 ## Goals / Non-Goals
 
@@ -11,7 +11,7 @@ Bundle import currently filters address arrays and defaults missing MTU; the nat
 
 - Validate bundle transport before constructing a subscription profile; use numeric-only syntax plus URI IPv6 validation without DNS. Reuse the existing INVALID_NETWORK_POLICY skipped-entry reason and name the offending field.
 - Reject out-of-range activation MTU so Android and native values cannot diverge through native clamping.
-- Keep schema version 1 and synchronize the published canonical deployment schema/example/negative artifacts byte-identically. Derive explicitly client-owned dual-stack test input; verify canonical single-family AWG rejection and preservation of other protocols separately.
+- Keep schema version 1 and synchronize the canonical deployment schema/example/negative artifacts byte-identically.
 - The Android gate is emulator/native_core only and uses the actual production AWG JNI library. JVM fakes and host tests do not count as Android evidence. The independent peer is AWG v0.2.12 at commit 2e3f7d122ca8ef61e403fddc48a9db8fccd95dbf, built with Go 1.27.1 and loopback-only host transport.
 - The isolated host obtains Android VPN authorization and registers a real `VpnService.protect(fd)` callback before native startup. It records the actual platform result and verifies that no Android VPN is active; it never establishes a TUN or substitutes a successful protection callback. Native exit before authenticated readiness fails immediately.
 - Boot completion does not establish emulator network readiness. Before native startup, require an actual active underlay with an IPv4 route to the owned host peer; do not retry a failed tunnel. For each MTU retain one independent peer through cycle 0 and three subsequent native session restarts, verifying all traffic in each of the eight measured sessions.

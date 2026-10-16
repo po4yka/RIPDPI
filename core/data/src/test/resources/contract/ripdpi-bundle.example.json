@@ -4,8 +4,14 @@
   "amneziawg": [
     {
       "tag": "p2-awg-phone",
-      "address": ["10.66.66.2/32"],
-      "dns": ["1.1.1.1", "1.0.0.1"],
+      "address": [
+        "10.66.66.2/32",
+        "fd42:42:42::2/128"
+      ],
+      "dns": [
+        "1.1.1.1",
+        "1.0.0.1"
+      ],
       "mtu": 1420,
       "jc": 4,
       "jmin": 10,
@@ -22,7 +28,10 @@
         "public_key": "EXAMPLEserverPublicKeyBase64xxxxxxxxxxxxxxx=",
         "preshared_key": "EXAMPLEpresharedKeyBase64xxxxxxxxxxxxxxxxxxx=",
         "endpoint": "203.0.113.7:51820",
-        "allowed_ips": ["0.0.0.0/0", "::/0"],
+        "allowed_ips": [
+          "0.0.0.0/0",
+          "::/0"
+        ],
         "persistent_keepalive": 25
       }
     }

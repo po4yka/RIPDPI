@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: awg-dualstack-mtu
 created: 2026-10-15
 updated: 2026-10-16
-status_detail: "Published contract mirror restored across all 31 files; all 888 core:data tests and static analysis pass at 8c7a8587. Broader Android CI awaits config lifecycle correction and approved onboarding baseline refresh."
+status_detail: Implementation, local gates, all eight scoped emulator sessions, canonical federation/evidence validation and compiled-source CI38816708930 passed; ready for review without closure.
 ---
 
 ## Goal

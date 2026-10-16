@@ -24,7 +24,6 @@ class AwgDeployedTransportTest {
                     .bufferedReader()
                     .use { it.readText() },
             ).jsonObject
-            .withClientDualStackTransport()
     private val ripdpi = bundle.getValue("ripdpi").jsonObject
     private val entry =
         ripdpi
@@ -34,7 +33,7 @@ class AwgDeployedTransportTest {
             .jsonObject
 
     @Test
-    fun `client dual-stack bundle retains exact host addresses and MTU boundaries`() {
+    fun `canonical emitted bundle retains exact host addresses and MTU boundaries`() {
         listOf(1280, 1330, 1420).forEach { mtu ->
             val parsed = parse(JsonObject(entry + ("mtu" to JsonPrimitive(mtu))))
             val request = parsed.amneziaWgProfiles.single().toActivationRequest()

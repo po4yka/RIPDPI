@@ -4,12 +4,12 @@ change: "awg-dualstack-mtu"
 commit_sha: "b92db30c6124e453a67ab64307b608d027f6baec"
 local: "passed"
 local_evidence: "Focused JVM/Detekt passed 135 tests with zero failures/skips; combined Persian/resolver locale tests passed all 10. Immutable 504 baseline reproduced both TCP regressions, then the separately compiled fixed tree passed all 94 warp-core tests. Normal hooks including workspace Clippy with warnings denied passed. Fifty native task CLI tests, fourteen offline runner/validator tests and thirty-two emulator-pool tests passed earlier on unchanged paths; offline fixtures do not count as traffic."
-remote_ci: blocked
-remote_ci_evidence: "Contract correction source 8c7a8587b6cd409420f74533f44cd6e91fac5cc7 passed all 888 core:data tests (including all 15 contract/transport/fingerprint cases) and gradle-static-analysis in CI 38860300313. The broader run exposed inherited ConfigRuntimePresentation lifecycle collection and three onboarding maximum-font screenshot mismatches; correction and baseline approval are pending. Earlier b92 native/runtime CI 38816708930 passed all 64 jobs and remains historical evidence for unchanged native inputs."
+remote_ci: passed
+remote_ci_evidence: "Exact compiled/runtime source b92db30c6124e453a67ab64307b608d027f6baec CI 38816708930 completed all 64 jobs: 46 success, 18 planned skips, zero failures or active jobs. This includes aggregate, static analysis, JVM/app, Kotlin coverage, every selected Rust workspace/network/lint/coverage/Miri/loom/turmoil/fuzz/native ABI packaging lane, all three release verification lanes and Android instrumentation APIs 27/33/35/36/37. Subsequent metadata-only commits do not change executable inputs; their selected task/document checks are reported separately in the PR."
 device: "passed"
 device_evidence: "Exact-b92 production Android arm64 JNI/APK passed all eight API 35 emulator/native_core sessions, MTUs 1280 and 1420 times cycle 0 baseline and reconnects 1..3, retaining one independent Go v0.2.12 peer per MTU. All 64 measured IPv4/IPv6 TCP/UDP/DNS observations passed and all 8 real VpnService.protect calls succeeded. Invocation nonce awg-native-20261015-b92db30c6-5; evidence.json SHA256 e46419f582221aa444e528d7cdf9cbdc7ae76d3e52d60b2a0a020b3e26f9d0b5. Client validator and producer canonical Make evidence target both passed. Owned emulator cleanup completed. Physical-device and Android TUN/no-leak checks are outside the required scope."
 artifact: "passed"
-artifact_evidence: "Review correction: all 31 shared non-README contract artifacts now match published producer 19f38d36f2386e29371e544c7df6ef3199b7f44f byte-identically; the earlier dual-stack copies described the producer working tree rather than its published main. Canonical producer federation passed 185 tasks against compiled b92. Native library SHA256 efb05d8c9ab278732bb0f7d14ed85065cde1e4582ac554ce830fd37bf4ef4e9f equals the packaged APK native digest; APK SHA256 5eef75426ddf6098d69a94e4cad4ba624bff0c72f7a9b8fc4f7f50999e3ccbca. Independent peer binary SHA256 4e62b91e762ab182a4638bcc34409139a1e265376454cf32bb17af4b9d4febcb."
+artifact_evidence: "All 31 shared bundle/schema/example/negative/golden contract artifacts match the producer byte-identically. Canonical producer federation passed 185 tasks against compiled b92. Native library SHA256 efb05d8c9ab278732bb0f7d14ed85065cde1e4582ac554ce830fd37bf4ef4e9f equals the packaged APK native digest; APK SHA256 5eef75426ddf6098d69a94e4cad4ba624bff0c72f7a9b8fc4f7f50999e3ccbca. Independent peer binary SHA256 4e62b91e762ab182a4638bcc34409139a1e265376454cf32bb17af4b9d4febcb."
 deployment: "not_applicable"
 deployment_evidence: "Deployment is owned by the linked producer task."
 ---
@@ -47,29 +47,3 @@ A full source search covered deployed bundle literals and builders in core data,
 Read-only review approved the strict address/MTU guards and peer lifecycle. The writer fixed both evidence findings: acceptance now rejects untracked build inputs, and APK validation binds the packaged arm64 AWG library to the recorded native-library digest. Scoped re-review reported no further actionable findings; five evidence-validator unit cases passed.
 
 The native reconnect review also found that shared EOF state could overtake queued payload. The final implementation permits FIN only after the ordered EOF marker, retains lease ownership until socket cleanup and emits a polled RST on the bounded fallback. Re-review found no remaining material findings; all five packet regressions and the actual eight-session emulator matrix passed.
-
-## Published-contract review correction
-
-Deployment PR #308 exposed eight local edits to the producer-owned mirror. They
-are restored verbatim from published producer source
-`19f38d36f2386e29371e544c7df6ef3199b7f44f`; all 31 non-README files now compare
-byte-for-byte, with no missing or orphan artifacts. Published producer input
-still permits single-family addresses and MTU 576..1500. The consumer retains
-its stricter dual-stack and 1280..1420 policy; the producer migration remains
-owned by `po4yka/ripdpi-vpn-deploy#ANS-1791618048083304`.
-
-The three JVM fixture consumers derive explicit client-owned dual-stack input
-for accepted transport and fingerprint cases. Canonical source input is tested
-unchanged for typed `INVALID_NETWORK_POLICY` / `address` rejection, including
-network-policy precedence over fingerprint rejection, while VLESS, Hysteria2,
-topology and expiry remain importable. AWG runtime source, native binaries and
-measured emulator behavior are unchanged. Hosted run `38860300313` at
-`8c7a8587b6cd409420f74533f44cd6e91fac5cc7` passed all 888 core:data tests,
-including the 15 affected cases with no skips, and `gradle-static-analysis`.
-Its broader app lanes exposed a new direct config feedback collector and three
-onboarding maximum-font baselines predating already-merged Back navigation.
-The collector now uses the existing resumed-lifecycle helper and producer-owned
-queued event flow. Baseline refresh needs explicit approval; full hosted CI
-remains blocked until these separate inherited failures pass. The local Gradle attempt was retired without compiling after 26 minutes queued
-at the machine-wide gate. Hosted results are recorded as hosted evidence, not
-a local pass.

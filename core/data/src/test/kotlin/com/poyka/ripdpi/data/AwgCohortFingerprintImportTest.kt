@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AwgCohortFingerprintImportTest {
-    private val bundle = resource("/contract/ripdpi-bundle.golden-full.json").withClientDualStackTransport()
+    private val bundle = resource("/contract/ripdpi-bundle.golden-full.json")
     private val ripdpi = bundle.getValue("ripdpi").jsonObject
     private val valid =
         ripdpi
@@ -68,9 +68,9 @@ class AwgCohortFingerprintImportTest {
     }
 
     @Test
-    fun `server negative fingerprints are rejected with valid client transport`() {
+    fun `server negative fingerprint fixtures are rejected`() {
         listOf("neg-bad-cohort-fingerprint.json", "neg-fingerprint-mismatch.json").forEach { name ->
-            val parsed = parse(resource("/contract/negative/$name").withClientDualStackTransport())
+            val parsed = parse(resource("/contract/negative/$name"))
 
             assertTrue(parsed.amneziaWgProfiles.isEmpty())
             assertEquals("cohort_fingerprint", parsed.skipped.single().detail)
