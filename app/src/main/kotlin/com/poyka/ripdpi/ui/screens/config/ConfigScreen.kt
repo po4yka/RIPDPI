@@ -225,6 +225,8 @@ fun ConfigScreen(
             ConfigModeChips(
                 selectedMode = uiState.activeMode,
                 onModeSelected = onModeSelected,
+                vpnLabel = stringResource(R.string.config_scope_device),
+                proxyLabel = stringResource(R.string.config_scope_proxy),
                 label = stringResource(R.string.config_traffic_mode_title),
                 groupTestTag = RipDpiTestTags.ConfigTrafficEndpointSelection,
             )
@@ -391,6 +393,8 @@ private fun ConfigSelectedModeSection(
 internal fun ConfigModeChips(
     selectedMode: Mode,
     onModeSelected: (Mode) -> Unit,
+    vpnLabel: String,
+    proxyLabel: String,
     modifier: Modifier = Modifier,
     label: String? = null,
     groupTestTag: String? = null,
@@ -418,14 +422,14 @@ internal fun ConfigModeChips(
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiChip(
-                text = stringResource(R.string.config_scope_device),
+                text = vpnLabel,
                 selected = selectedMode == Mode.VPN,
                 onClick = { onModeSelected(Mode.VPN) },
                 role = Role.RadioButton,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.VPN.name)),
             )
             RipDpiChip(
-                text = stringResource(R.string.config_scope_proxy),
+                text = proxyLabel,
                 selected = selectedMode == Mode.Proxy,
                 onClick = { onModeSelected(Mode.Proxy) },
                 role = Role.RadioButton,

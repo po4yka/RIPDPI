@@ -8,6 +8,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -21,6 +22,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -46,19 +48,37 @@ class ConfigModeChipsLayoutTest {
 
     @Test
     fun modesRetainWholeLabelsSelectionTagsAndCallbacks() {
+        assertLabelsFit(R.string.home_mode_vpn, R.string.home_mode_proxy)
+    }
+
+    @Test
+    fun trafficScopesRetainWholeLabelsSelectionTagsAndCallbacks() {
+        assertLabelsFit(R.string.config_scope_device, R.string.config_scope_proxy)
+    }
+
+    private fun assertLabelsFit(
+        vpnLabelRes: Int,
+        proxyLabelRes: Int,
+    ) {
         val mode = mutableStateOf(Mode.VPN)
         val selections = mutableListOf<Mode>()
         composeRule.setContent {
             Container {
-                ConfigModeChips(mode.value, {
-                    mode.value = it
-                    selections += it
-                })
+                ConfigModeChips(
+                    selectedMode = mode.value,
+                    onModeSelected = {
+                        mode.value = it
+                        selections += it
+                    },
+                    vpnLabel = stringResource(vpnLabelRes),
+                    proxyLabel = stringResource(proxyLabelRes),
+                )
             }
         }
         configurations {
             listOf(Mode.VPN, Mode.Proxy).forEach { value ->
-                val label = RuntimeEnvironment.getApplication().getString(modeLabelRes(value))
+                val labelRes = if (value == Mode.VPN) vpnLabelRes else proxyLabelRes
+                val label = RuntimeEnvironment.getApplication().getString(labelRes)
                 assertWordsFit(label)
                 composeRule.onNodeWithTag(RipDpiTestTags.configMode(value.name)).performClick().assertIsSelected()
             }

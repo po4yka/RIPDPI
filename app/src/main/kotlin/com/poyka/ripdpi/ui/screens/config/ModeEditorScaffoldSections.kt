@@ -198,6 +198,8 @@ private fun ModeEditorModeSection(
             ConfigModeChips(
                 selectedMode = draft.mode,
                 onModeSelected = actions.onModeSelected,
+                vpnLabel = stringResource(modeLabelRes(Mode.VPN)),
+                proxyLabel = stringResource(modeLabelRes(Mode.Proxy)),
             )
             SettingsRow(
                 title = stringResource(R.string.config_xray_import_title),
