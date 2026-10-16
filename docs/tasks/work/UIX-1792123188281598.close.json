@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Exact implementation source aafb448a5 passed 170 JVM tests with no failures or skips; staticAnalysis; app Full and Simple lint; service lint; Full app and test APK builds; 5 API 37 arm64 component UI tests with fresh screenshot inspection. App SHA256 4688841ad813493eb583b661dc9139255eb28438df383434983207c253632acb. Architecture health and cargo metadata --locked passed. CI coverage failure remains separately reported.",
+  "execution_sha256": "c6eb199c8b300a89b73bce8054e729278c32322339640e8530ebf768f97eb0e7",
+  "issue_sha256": "3c6b6cac40812918499f57474e7994f8102a9eec74edb54dbdb35daf5259ea92",
+  "outcome": "done",
+  "prepared_at": "2026-10-16T05:55:58Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1792123188281598"
+}

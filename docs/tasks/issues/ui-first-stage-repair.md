@@ -2,7 +2,7 @@
 id: UIX-1792123188281598
 title: Restore connection feedback and accessible UI controls
 kind: bug
-status: review
+status: done
 area: ui
 priority: high
 owner: UI repair team
@@ -14,6 +14,9 @@ created: 2026-10-16
 updated: 2026-10-16
 spec_reason: regression-tested-single-module
 status_detail: Final aafb448a5 source passed 170 JVM tests, staticAnalysis, app/service lint, Full app/test APK builds and 5 API 37 UI checks. Architecture and locked metadata passed. CI remains a separate failed coverage check.
+closed_at: "2026-10-16T05:55:58Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Exact implementation source aafb448a5 passed 170 JVM tests with no failures or skips; staticAnalysis; app Full and Simple lint; service lint; Full app and test APK builds; 5 API 37 arm64 component UI tests with fresh screenshot inspection. App SHA256 4688841ad813493eb583b661dc9139255eb28438df383434983207c253632acb. Architecture health and cargo metadata --locked passed. CI coverage failure remains separately reported.
 ---
 
 ## Goal
