@@ -58,20 +58,15 @@ import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.screens.home.HomePauseControls
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityRoute
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
+import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
- * The entire UI of the "simple" flavor: two actions over the compiled-in config.
- *
- * - Connect / Disconnect toggles the VPN using the embedded relay profile (seeded
- *   at first launch — see M2). Wires to the same [MainViewModel] entry points the
- *   full UI uses, so the connection/permission flow is identical.
- * - Run diagnostic report kicks off the full home analysis. The completed report is
- *   handed to the OS share sheet — that auto-share-on-complete hand-off, plus the
- *   active-protocol field, lands in M5; M1 wires the trigger and progress.
+ * Everyday connection controls and automatic network configuration for the Simple flavor.
+ * Reports and backups leave the device only through an explicit user action.
  */
 @Composable
 fun SimpleHomeScreen(
@@ -84,6 +79,18 @@ fun SimpleHomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
     val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
+
+    var backupVisible by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = backupVisible) { backupVisible = false }
+    if (backupVisible) {
+        BackupRestoreRoute(
+            onBack = { backupVisible = false },
+            modifier = modifier.ripDpiTestTag(RipDpiTestTags.SimpleBackupRestoreScreen),
+            showResetAction = false,
+            additionalGuidance = stringResource(R.string.simple_backup_restore_body),
+        )
+        return
+    }
 
     var profilesVisible by rememberSaveable { mutableStateOf(false) }
     if (profilesVisible) {
@@ -127,6 +134,7 @@ fun SimpleHomeScreen(
         onShareReport = viewModel.onShareHomeAnalysis,
         onSaveReport = viewModel.onSaveHomeAnalysis,
         onOpenProfiles = { profilesVisible = true },
+        onOpenBackup = { backupVisible = true },
         onOpenAbout = { aboutVisible = true },
         modifier = modifier,
     )
@@ -151,6 +159,7 @@ internal fun SimpleHomeContent(
     onShareReport: () -> Unit = {},
     onSaveReport: () -> Unit = {},
     onOpenProfiles: () -> Unit,
+    onOpenBackup: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -246,15 +255,24 @@ internal fun SimpleHomeContent(
                     },
                 )
 
-                // Without a nav host or app bar this flavor had no route to version,
-                // licences or the privacy notice at all. The full experience reaches the
-                // same screen from settings.
+                RipDpiButton(
+                    modifier =
+                        Modifier
+                            .padding(
+                                top = spacing.lg,
+                            ).ripDpiTestTag(RipDpiTestTags.SimpleBackupRestoreAction),
+                    text = stringResource(R.string.title_backup_restore),
+                    onClick = onOpenBackup,
+                    enabled = !reportBusy && !reportCancellable,
+                    variant = RipDpiButtonVariant.Ghost,
+                )
                 RipDpiButton(
                     modifier = Modifier.padding(top = spacing.lg).ripDpiTestTag(RipDpiTestTags.SettingsProfileUtility),
                     text = stringResource(R.string.profile_utility_title),
                     onClick = onOpenProfiles,
                     variant = RipDpiButtonVariant.Ghost,
                 )
+                // This flavor has no nav host or app bar for version, licences or privacy.
                 RipDpiButton(
                     modifier =
                         Modifier
@@ -358,6 +376,13 @@ private fun ColumnScope.SimpleHomeReport(
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
+    Text(
+        modifier = Modifier.fillMaxWidth().padding(bottom = spacing.sm),
+        text = stringResource(R.string.simple_analysis_changes_body),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        textAlign = TextAlign.Center,
+    )
     RipDpiButton(
         modifier =
             Modifier
@@ -464,6 +489,7 @@ internal fun SimpleDiagnosticsStatus(
             color = if (completedResultVisible) colors.foreground else colors.mutedForeground,
             textAlign = TextAlign.Center,
         )
+        SimpleAnalysisChanges(diagnostics)
         diagnostics.analysisSheet
             ?.takeIf { resultReady }
             ?.let { sheet ->

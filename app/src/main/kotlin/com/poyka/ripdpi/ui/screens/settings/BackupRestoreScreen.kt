@@ -80,6 +80,8 @@ fun BackupRestoreRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: BackupRestoreViewModel = hiltViewModel(),
+    showResetAction: Boolean = true,
+    additionalGuidance: String? = null,
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -100,24 +102,7 @@ fun BackupRestoreRoute(
             viewModel.openImport { context.contentResolver.openInputStream(uri) }
         }
 
-    BackupRestoreEffectHandler(
-        flow = viewModel.restoreEffects,
-        snackbarHostState = snackbarHostState,
-        onRestart = {
-            // Restart the process so every DataStore / Room observer reinitializes
-            // against the freshly-restored state — the reference-implementation pattern.
-            ProcessPhoenix.triggerRebirth(context.applicationContext)
-        },
-    )
-
-    BackupResetEffectHandler(
-        flow = viewModel.resetEffects,
-        onRestart = {
-            // Restart so the freshly-wiped stores reinitialize and the app lands on
-            // onboarding (no profiles / groups / settings to resume into).
-            ProcessPhoenix.triggerRebirth(context.applicationContext)
-        },
-    )
+    BackupRestartEffects(viewModel, snackbarHostState, context)
 
     BackupRestoreScreen(
         state = uiState,
@@ -130,9 +115,11 @@ fun BackupRestoreRoute(
         },
         onResetClick = { viewModel.setResetDialogVisible(true) },
         modifier = modifier,
+        showResetAction = showResetAction,
+        additionalGuidance = additionalGuidance,
     )
 
-    if (uiState.resetDialogVisible) {
+    if (showResetAction && uiState.resetDialogVisible) {
         BackupResetConfirmationDialog(
             input = uiState.resetConfirmationInput,
             confirmEnabled = uiState.resetConfirmationMatches && !uiState.resetting,
@@ -172,6 +159,32 @@ fun BackupRestoreRoute(
             onConfirm = viewModel::confirmRestore,
         )
     }
+}
+
+@Composable
+private fun BackupRestartEffects(
+    viewModel: BackupRestoreViewModel,
+    snackbarHostState: SnackbarHostState,
+    context: Context,
+) {
+    BackupRestoreEffectHandler(
+        flow = viewModel.restoreEffects,
+        snackbarHostState = snackbarHostState,
+        onRestart = {
+            // Restart the process so every DataStore / Room observer reinitializes
+            // against the freshly-restored state — the reference-implementation pattern.
+            ProcessPhoenix.triggerRebirth(context.applicationContext)
+        },
+    )
+
+    BackupResetEffectHandler(
+        flow = viewModel.resetEffects,
+        onRestart = {
+            // Restart so the freshly-wiped stores reinitialize and the app lands on
+            // onboarding (no profiles / groups / settings to resume into).
+            ProcessPhoenix.triggerRebirth(context.applicationContext)
+        },
+    )
 }
 
 /**
@@ -781,6 +794,8 @@ internal fun BackupRestoreScreen(
     onImportClick: () -> Unit,
     onResetClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showResetAction: Boolean = true,
+    additionalGuidance: String? = null,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         RipDpiSettingsScaffold(
@@ -792,6 +807,15 @@ internal fun BackupRestoreScreen(
             navigationIcon = RipDpiIcons.Back,
             onNavigationClick = onBack,
         ) {
+            if (additionalGuidance != null) {
+                item(key = "backup_additional_guidance") {
+                    Text(
+                        text = additionalGuidance,
+                        style = RipDpiThemeTokens.type.body,
+                        color = RipDpiThemeTokens.colors.mutedForeground,
+                    )
+                }
+            }
             item(key = "backup_intro") {
                 WarningBanner(
                     title = stringResource(R.string.backup_export_intro_title),
@@ -841,8 +865,10 @@ internal fun BackupRestoreScreen(
                     }
                 }
             }
-            item(key = "backup_reset_action") {
-                BackupResetCard(state = state, onResetClick = onResetClick)
+            if (showResetAction) {
+                item(key = "backup_reset_action") {
+                    BackupResetCard(state = state, onResetClick = onResetClick)
+                }
             }
         }
         Box(
