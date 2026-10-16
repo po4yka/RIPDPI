@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
@@ -36,6 +37,13 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35], qualifiers = "w420dp-h1800dp")
 class RipDpiDegradationStripTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test
+    fun `neutral measurements use information while actual problems retain warning`() {
+        assertEquals(RipDpiIcons.Info, degradationToneIcon(RipDpiDegradationTone.Nominal))
+        assertEquals(RipDpiIcons.Warning, degradationToneIcon(RipDpiDegradationTone.Warning))
+        assertEquals(RipDpiIcons.Warning, degradationToneIcon(RipDpiDegradationTone.Critical))
+    }
 
     @Test
     fun `large font retains complete metric values and reachable actions below content`() =

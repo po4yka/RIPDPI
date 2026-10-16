@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -57,6 +58,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val CompactBottomNavFontScale = 1.5f
 private val AccessibilityBottomBarExtraHeight = 16.dp
+
+private enum class BottomNavItemLayout { Vertical, Horizontal, Label }
 
 @Suppress("LongMethod")
 @Composable
@@ -126,16 +129,10 @@ fun BottomNavBar(
                 val horizontalItems =
                     columns == 1 &&
                         labelMinWidth + components.navigation.bottomNavIndicatorWidth <= maxWidth
-                val adaptiveItemHeight =
-                    if (horizontalItems) {
-                        maxOf(components.buttons.minHeight, labelLineHeight + RipDpiThemeTokens.spacing.sm * 2)
-                    } else {
-                        bottomBarHeight
-                    }
                 if (columns < destinations.size) {
                     Column {
                         destinations.chunked(columns).forEach { row ->
-                            Row(Modifier.fillMaxWidth().height(adaptiveItemHeight)) {
+                            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                                 row.forEach { destination ->
                                     val label = labels[destinations.indexOf(destination)]
                                     BottomNavItem(
@@ -143,9 +140,14 @@ fun BottomNavBar(
                                         label = label,
                                         selected = destination == selectedRoute,
                                         onClick = { onNavigate(destination) },
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1f).heightIn(min = components.buttons.minHeight),
                                         localIndicator = true,
-                                        horizontal = horizontalItems,
+                                        layout =
+                                            if (horizontalItems) {
+                                                BottomNavItemLayout.Horizontal
+                                            } else {
+                                                BottomNavItemLayout.Label
+                                            },
                                     )
                                 }
                             }
@@ -234,12 +236,10 @@ private fun BottomNavItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     localIndicator: Boolean = false,
-    horizontal: Boolean = false,
+    layout: BottomNavItemLayout = BottomNavItemLayout.Vertical,
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
-    val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     val iconTint by animateColorAsState(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
         animationSpec = motion.stateTween(),
@@ -251,7 +251,7 @@ private fun BottomNavItem(
         label = "bottomNavLabelColor",
     )
     val selectionScale by animateFloatAsState(
-        targetValue = if (selected) motion.selectionScale else 1f,
+        targetValue = if (selected && layout != BottomNavItemLayout.Label) motion.selectionScale else 1f,
         animationSpec = motion.quickTween(easing = FastOutSlowInEasing),
         label = "bottomNavSelectionScale",
     )
@@ -283,29 +283,65 @@ private fun BottomNavItem(
                 contentDescription = label
             }
 
-    val iconContent: @Composable () -> Unit = {
+    BottomNavItemContent(label, labelColor, selected, layout, itemModifier) {
         BottomNavItemIcon(destination, iconTint, selected, localIndicator)
     }
+}
+
+@Composable
+private fun BottomNavItemContent(
+    label: String,
+    labelColor: Color,
+    selected: Boolean,
+    layout: BottomNavItemLayout,
+    modifier: Modifier = Modifier,
+    iconContent: @Composable () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
     val labelContent: @Composable () -> Unit = {
         Text(
             text = label,
             style = type.navLabel,
             color = labelColor,
             textAlign = TextAlign.Center,
-            maxLines = 1,
-            softWrap = false,
+            maxLines = if (layout == BottomNavItemLayout.Label) Int.MAX_VALUE else 1,
+            softWrap = layout == BottomNavItemLayout.Label,
             overflow = TextOverflow.Clip,
-            modifier = Modifier.padding(horizontal = spacing.xs).width(IntrinsicSize.Max),
+            modifier =
+                if (layout == BottomNavItemLayout.Label) {
+                    Modifier.fillMaxWidth().padding(horizontal = spacing.xs, vertical = spacing.sm)
+                } else {
+                    Modifier.padding(horizontal = spacing.xs).width(IntrinsicSize.Max)
+                },
         )
     }
-    if (horizontal) {
-        Row(itemModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+    if (layout == BottomNavItemLayout.Label) {
+        Box(modifier, contentAlignment = Alignment.Center) {
+            if (selected) {
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .ripDpiTestTag(RipDpiTestTags.BottomNavIndicator)
+                        .background(
+                            RipDpiThemeTokens.surfaces
+                                .resolve(
+                                    RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator,
+                                ).container,
+                            RipDpiThemeTokens.shapes.xxl,
+                        ),
+                )
+            }
+            labelContent()
+        }
+    } else if (layout == BottomNavItemLayout.Horizontal) {
+        Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
             iconContent()
             labelContent()
         }
     } else {
         Column(
-            itemModifier,
+            modifier,
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

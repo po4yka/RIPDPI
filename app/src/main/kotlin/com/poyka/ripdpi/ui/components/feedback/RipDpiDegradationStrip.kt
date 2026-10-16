@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
@@ -38,6 +39,12 @@ import kotlinx.collections.immutable.persistentListOf
  * would give the resting state more weight than an actual problem.
  */
 enum class RipDpiDegradationTone { Nominal, Warning, Critical }
+
+internal fun degradationToneIcon(tone: RipDpiDegradationTone): ImageVector =
+    when (tone) {
+        RipDpiDegradationTone.Nominal -> RipDpiIcons.Info
+        RipDpiDegradationTone.Warning, RipDpiDegradationTone.Critical -> RipDpiIcons.Warning
+    }
 
 data class RipDpiDegradationMetric(
     val label: String,
@@ -137,7 +144,7 @@ fun RipDpiDegradationStrip(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = RipDpiIcons.Warning,
+                            imageVector = degradationToneIcon(tone),
                             contentDescription = null,
                             tint = accentForeground,
                             modifier = Modifier.size(RipDpiIconSizes.Large),
