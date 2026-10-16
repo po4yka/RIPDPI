@@ -2,7 +2,7 @@
 id: UIX-1792130566603442
 title: Simplify connection, diagnostic results and the log stream
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI stage two team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: ui-stage-two
 created: 2026-10-16
 updated: 2026-10-16
+status_detail: Local and emulator checks passed. Hosted CI for the integrated revision is required after push.
 ---
 
 ## Goal
