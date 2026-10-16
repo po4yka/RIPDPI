@@ -4,6 +4,7 @@ import android.view.View
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.CompositionLocalProvider
@@ -57,9 +58,15 @@ class AdvancedSettingsImeInsetsTest {
         assertKeyboardGeometry(parentOwnsSystemBars = true)
     }
 
+    @Test
+    fun `parent keyboard consumption leaves no second keyboard gap`() {
+        assertKeyboardGeometry(parentOwnsSystemBars = true, parentOwnsIme = true)
+    }
+
     private fun assertKeyboardGeometry(
         fontScale: Float = 1f,
         parentOwnsSystemBars: Boolean = false,
+        parentOwnsIme: Boolean = false,
     ) {
         lateinit var view: View
         var density = 1f
@@ -71,7 +78,9 @@ class AdvancedSettingsImeInsetsTest {
                 RipDpiTheme {
                     Box(Modifier.fillMaxSize().testTag("test-window")) {
                         val parentInsets =
-                            if (parentOwnsSystemBars) {
+                            if (parentOwnsIme) {
+                                Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+                            } else if (parentOwnsSystemBars) {
                                 Modifier.windowInsetsPadding(WindowInsets.systemBars)
                             } else {
                                 Modifier

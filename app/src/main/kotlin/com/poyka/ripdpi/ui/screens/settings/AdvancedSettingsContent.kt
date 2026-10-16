@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -38,8 +37,7 @@ internal fun AdvancedSettingsContent(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.AdvancedSettings))
                 .fillMaxSize()
-                .background(colors.background)
-                .imePadding(),
+                .background(colors.background),
         title = stringResource(R.string.title_advanced_settings),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = actions.onBack,

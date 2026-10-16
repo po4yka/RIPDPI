@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -131,7 +132,7 @@ fun RipDpiSettingsScaffold(
     val spacing = RipDpiThemeTokens.spacing
 
     RipDpiScreenScaffold(
-        modifier = modifier,
+        modifier = modifier.imePadding(),
         topBar = {
             RipDpiTopAppBar(
                 title = title,
