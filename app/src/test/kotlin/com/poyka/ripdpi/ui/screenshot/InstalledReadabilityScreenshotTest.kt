@@ -160,7 +160,7 @@ class InstalledReadabilityScreenshotTest {
     }
 
     private fun captureThemeChoice(preference: String) {
-        capture("${preference}ThemeRussianMaximumFont", heightDp = 1200) {
+        capture("${preference}ThemeRussianMaximumFont", heightDp = 1600) {
             SettingsAppearanceSection(
                 uiState = SettingsUiState(appTheme = preference),
                 actions = screenshotSettingsActions,
