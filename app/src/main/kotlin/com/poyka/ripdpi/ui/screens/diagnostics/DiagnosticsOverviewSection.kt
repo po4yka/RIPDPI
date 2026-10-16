@@ -28,12 +28,12 @@ import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.activities.diagnosticsOutcome
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
@@ -49,7 +49,11 @@ internal enum class DiagnosticsSimpleFunnelAction {
 }
 
 internal fun DiagnosticsScanUiModel.simpleFunnelAction(isActiveScan: Boolean): DiagnosticsSimpleFunnelAction {
-    if (strategyProbeReport == null || isActiveScan) return DiagnosticsSimpleFunnelAction.Unavailable
+    if (strategyProbeReport == null || latestSession == null || isActiveScan ||
+        (selectedProfileId != null && latestSession.profileId != selectedProfileId)
+    ) {
+        return DiagnosticsSimpleFunnelAction.Unavailable
+    }
     return if (strategyProbeReport.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.HIGH) {
         DiagnosticsSimpleFunnelAction.Inspect
     } else {
@@ -121,8 +125,8 @@ internal fun OverviewSection(
     onOpenHistory: () -> Unit,
     expertMode: Boolean = true,
     homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
-    onCheckNetwork: () -> Unit = {},
     onStartVerifiedVpn: () -> Unit = {},
+    runNetworkCheck: Boolean = false,
 ) {
     TrackRecomposition("DiagnosticsOverview")
     val spacing = RipDpiThemeTokens.spacing
@@ -136,30 +140,38 @@ internal fun OverviewSection(
             ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        item {
-            DiagnosticsHealthHero(
-                overview = overview,
-                isActiveScan = isActiveScan,
-                onSelectSection = onSelectSection,
-                onRunScan = onRunScan,
+        item(key = "outcome", contentType = "outcome") {
+            DiagnosticsOutcomeCard(
+                outcome = diagnosticsOutcome(overview, scan, homeDiagnostics, isActiveScan),
+                runNetworkCheck = runNetworkCheck,
+                homeDiagnostics = homeDiagnostics,
+                onRunScan = {
+                    onSelectSection(DiagnosticsSection.Scan)
+                    onRunScan()
+                },
+                onOpenScan = { onSelectSection(DiagnosticsSection.Scan) },
+                onStartVerifiedVpn = onStartVerifiedVpn,
             )
         }
-        if (homeDiagnostics.latestAudit != null) {
-            item {
-                DiagnosticsGuidedActions(homeDiagnostics, onCheckNetwork, onStartVerifiedVpn)
+        if (scan.strategyProbeReport != null) {
+            item(key = "candidate_review", contentType = "candidate_review") {
+                DiagnosticsSimpleFunnelCard(
+                    scan = scan,
+                    isActiveScan = isActiveScan,
+                    onReviewChoices = { onSelectSection(DiagnosticsSection.Scan) },
+                    onReviewRecommendedPath = onReviewRecommendedPath,
+                )
             }
         }
-        item {
-            DiagnosticsSimpleFunnelCard(
-                overview = overview,
-                scan = scan,
-                isActiveScan = isActiveScan,
-                onReviewChoices = { onSelectSection(DiagnosticsSection.Scan) },
-                onReviewRecommendedPath = onReviewRecommendedPath,
-            )
+        if (expertMode && overview.metrics.isNotEmpty()) {
+            item(key = "technical_metrics", contentType = "technical_metrics") {
+                CollapsibleSection(title = stringResource(R.string.diagnostics_technical_details)) {
+                    OverviewStatGrid(metrics = overview.metrics)
+                }
+            }
         }
         if (live.health != DiagnosticsHealth.Idle && live.metrics.isNotEmpty()) {
-            item {
+            item(key = "live_runtime", contentType = "live_runtime") {
                 RipDpiCard(variant = RipDpiCardVariant.Tonal) {
                     StatusIndicator(
                         label = live.statusLabel,
@@ -171,7 +183,7 @@ internal fun OverviewSection(
             }
         }
         overview.activeProfile?.takeIf { expertMode }?.let { profile ->
-            item {
+            item(key = "active_profile", contentType = "active_profile") {
                 RipDpiCard {
                     androidx.compose.material3.Text(
                         text = stringResource(R.string.diagnostics_profiles_title).uppercase(),
@@ -192,7 +204,7 @@ internal fun OverviewSection(
             }
         }
         if (overview.latestSnapshot != null || overview.contextSummary != null) {
-            item {
+            item(key = "network_details", contentType = "network_details") {
                 val fieldCount =
                     (overview.latestSnapshot?.fieldGroups?.sumOf { it.fields.size } ?: 0) +
                         (overview.contextSummary?.fields?.size ?: 0)
@@ -210,7 +222,7 @@ internal fun OverviewSection(
             }
         }
         if (overview.latestSession != null || overview.recentAutomaticProbe != null) {
-            item {
+            item(key = "recent_activity", contentType = "recent_activity") {
                 CollapsibleSection(
                     title = stringResource(R.string.diagnostics_recent_activity_section),
                     defaultExpanded = expertMode,
@@ -228,7 +240,7 @@ internal fun OverviewSection(
             }
         }
         if (overview.rememberedNetworks.isNotEmpty()) {
-            item {
+            item(key = "remembered_networks", contentType = "remembered_networks") {
                 CollapsibleSection(
                     title = stringResource(R.string.diagnostics_remembered_networks_section),
                     badgeCount = overview.rememberedNetworks.size,
@@ -238,7 +250,7 @@ internal fun OverviewSection(
             }
         }
         if (overview.warnings.isNotEmpty()) {
-            item {
+            item(key = "warnings", contentType = "warnings") {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_attention_section))
                     overview.warnings.forEach { warning ->
@@ -252,7 +264,6 @@ internal fun OverviewSection(
 
 @Composable
 private fun DiagnosticsSimpleFunnelCard(
-    overview: DiagnosticsOverviewUiModel,
     scan: DiagnosticsScanUiModel,
     isActiveScan: Boolean,
     onReviewChoices: () -> Unit,
@@ -261,34 +272,29 @@ private fun DiagnosticsSimpleFunnelCard(
     val report = scan.strategyProbeReport
     val action = scan.simpleFunnelAction(isActiveScan)
     val hasHighConfidence = action == DiagnosticsSimpleFunnelAction.Inspect
-    val currentMemory = overview.rememberedNetworks.firstOrNull { it.isCurrentMatch }
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSimpleFunnel),
     ) {
-        androidx.compose.material3.Text(
-            text = stringResource(R.string.diagnostics_simple_funnel_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        androidx.compose.material3.Text(
-            text =
-                when {
-                    isActiveScan -> stringResource(R.string.diagnostics_simple_funnel_verdict_running)
-                    report?.recommendation != null -> report.recommendation.headline
-                    else -> overview.headline
-                },
-            style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        androidx.compose.material3.Text(
-            text =
-                currentMemory?.let {
-                    stringResource(R.string.diagnostics_simple_funnel_memory_format, it.strategyLabel)
-                } ?: stringResource(R.string.diagnostics_simple_funnel_body),
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+        scan.latestSession?.let { session ->
+            Text(
+                text = session.title,
+                style = RipDpiThemeTokens.type.sectionTitle,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            Text(
+                text = stringResource(R.string.diagnostics_outcome_time_format, session.startedAtLabel),
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
+        report?.recommendation?.let { recommendation ->
+            Text(
+                text = recommendation.headline,
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.foreground,
+            )
+        }
         RipDpiButton(
             text =
                 stringResource(
@@ -403,60 +409,5 @@ private fun AutomaticProbeHistoryCard(
             variant = RipDpiButtonVariant.Outline,
             modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-@Composable
-private fun DiagnosticsHealthHero(
-    overview: DiagnosticsOverviewUiModel,
-    isActiveScan: Boolean,
-    onSelectSection: (DiagnosticsSection) -> Unit,
-    onRunScan: () -> Unit,
-) {
-    TrackRecomposition("DiagnosticsHealthHero")
-    val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-    val tone = warningBannerTone(overview.health)
-
-    Column(
-        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewHero),
-        verticalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        WarningBanner(
-            title = overview.headline,
-            message = overview.body,
-            tone = tone,
-            onClick =
-                if (isActiveScan) {
-                    { onSelectSection(DiagnosticsSection.Scan) }
-                } else {
-                    null
-                },
-        )
-        RipDpiButton(
-            text = stringResource(R.string.diagnostics_overview_run_scan_action),
-            onClick = {
-                onSelectSection(DiagnosticsSection.Scan)
-                onRunScan()
-            },
-            enabled = !isActiveScan,
-            variant = RipDpiButtonVariant.Primary,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewRunScanAction),
-        )
-        RipDpiCard(variant = RipDpiCardVariant.Elevated) {
-            StatusIndicator(
-                label = overview.health.displayLabel(),
-                tone = overview.health.statusTone(),
-            )
-            androidx.compose.material3.Text(
-                text = stringResource(R.string.diagnostics_overview_section).uppercase(),
-                style = RipDpiThemeTokens.type.sectionTitle,
-                color = colors.mutedForeground,
-            )
-            OverviewStatGrid(metrics = overview.metrics)
-        }
     }
 }

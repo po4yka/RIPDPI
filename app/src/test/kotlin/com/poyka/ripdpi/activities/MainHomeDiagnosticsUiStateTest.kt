@@ -14,6 +14,38 @@ import org.junit.Test
 
 class MainHomeDiagnosticsUiStateTest {
     @Test
+    fun `latest composite metadata stays with its run and nullable network match`() {
+        val state =
+            buildHomeDiagnosticsUiState(
+                settings = AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime =
+                    HomeDiagnosticsRuntimeState(
+                        latestCompositeOutcome =
+                            DiagnosticsHomeCompositeOutcome(
+                                runId = "audit-123",
+                                fingerprintHash = "measured-network",
+                                actionable = false,
+                                headline = "Partial",
+                                summary = "One stage failed",
+                                confidenceSummary = "Confidence low (25)",
+                                coverageSummary = "Partial coverage",
+                                completedStageCount = 2,
+                                failedStageCount = 1,
+                            ),
+                        currentFingerprintHash = null,
+                    ),
+                stringResolver = FakeStringResolver(),
+            )
+        assertEquals(HomeDiagnosticsAuditSource.Composite, state.latestAudit?.source)
+        assertEquals("audit-123", state.latestAudit?.evidenceId)
+        assertEquals(HomeConfidenceLevel.LOW, state.latestAudit?.confidenceLevel)
+        assertEquals("Partial coverage", state.latestAudit?.coverageSummary)
+        assertEquals(null, state.latestAudit?.networkMatches)
+    }
+
+    @Test
     fun `quick and full analysis fallbacks describe their actual scope for visible and spoken status`() {
         listOf(
             true to R.string.diagnostics_simple_funnel_verdict_running,

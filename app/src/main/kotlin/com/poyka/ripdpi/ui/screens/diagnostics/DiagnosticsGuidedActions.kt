@@ -42,7 +42,7 @@ internal fun DiagnosticsExpertToggle(
     onExpandedChange: (Boolean) -> Unit,
 ) {
     RipDpiChip(
-        text = stringResource(R.string.persona_advanced),
+        text = stringResource(R.string.diagnostics_technical_details),
         selected = expanded,
         role = Role.Button,
         onClick = { onExpandedChange(!expanded) },
@@ -84,7 +84,7 @@ internal fun DiagnosticsGuidedTools(
             )
         }
         RipDpiButton(
-            text = stringResource(R.string.persona_advanced),
+            text = stringResource(R.string.diagnostics_technical_details),
             onClick = onExpand,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -96,6 +96,7 @@ internal fun DiagnosticsGuidedActions(
     state: HomeDiagnosticsUiState,
     onRecheck: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
+    showSummary: Boolean = true,
 ) {
     val audit = state.latestAudit ?: return
     var confirmStart by rememberSaveable { mutableStateOf(false) }
@@ -105,8 +106,10 @@ internal fun DiagnosticsGuidedActions(
             androidx.compose.foundation.layout.Arrangement
                 .spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
-        Text(audit.headline, style = RipDpiThemeTokens.type.bodyEmphasis, color = colors.foreground)
-        Text(audit.summary, style = RipDpiThemeTokens.type.secondaryBody, color = colors.mutedForeground)
+        if (showSummary) {
+            Text(audit.headline, style = RipDpiThemeTokens.type.bodyEmphasis, color = colors.foreground)
+            Text(audit.summary, style = RipDpiThemeTokens.type.secondaryBody, color = colors.mutedForeground)
+        }
         audit.comparisonSummary?.let {
             Text(it, style = RipDpiThemeTokens.type.secondaryBody, color = colors.mutedForeground)
         }
@@ -118,6 +121,7 @@ internal fun DiagnosticsGuidedActions(
             onClick = { confirmStart = true },
             enabled = state.verifiedVpnAction.enabled,
             loading = state.verifiedVpnAction.busy,
+            variant = if (showSummary) RipDpiButtonVariant.Primary else RipDpiButtonVariant.Outline,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
@@ -125,13 +129,15 @@ internal fun DiagnosticsGuidedActions(
             style = RipDpiThemeTokens.type.caption,
             color = colors.mutedForeground,
         )
-        RipDpiButton(
-            text = stringResource(R.string.diagnostics_guided_recheck),
-            onClick = onRecheck,
-            enabled = state.analysisAction.enabled && !state.analysisAction.busy,
-            variant = RipDpiButtonVariant.Outline,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (showSummary) {
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_guided_recheck),
+                onClick = onRecheck,
+                enabled = state.analysisAction.enabled && !state.analysisAction.busy,
+                variant = RipDpiButtonVariant.Outline,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
     if (confirmStart) {
         RipDpiDialog(

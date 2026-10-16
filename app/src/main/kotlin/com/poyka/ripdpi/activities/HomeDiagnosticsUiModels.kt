@@ -26,6 +26,8 @@ data class HomeDiagnosticsActionUiState(
     val busy: Boolean = false,
 )
 
+enum class HomeDiagnosticsAuditSource { Composite, Manual }
+
 @Immutable
 data class HomeDiagnosticsLatestAuditUiState(
     val headline: String,
@@ -42,6 +44,12 @@ data class HomeDiagnosticsLatestAuditUiState(
     val directTransportClass: DirectTransportClass? = null,
     val transportRemediationEvidence: TransportRemediationEvidence = TransportRemediationEvidence(),
     val comparisonSummary: String? = null,
+    val source: HomeDiagnosticsAuditSource = HomeDiagnosticsAuditSource.Composite,
+    val evidenceId: String? = null,
+    val confidenceSummary: String? = null,
+    val confidenceLevel: HomeConfidenceLevel? = null,
+    val coverageSummary: String? = null,
+    val networkMatches: Boolean? = null,
 )
 
 enum class AnalysisStageStatus {

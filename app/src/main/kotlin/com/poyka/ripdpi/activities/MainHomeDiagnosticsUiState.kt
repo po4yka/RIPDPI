@@ -102,7 +102,7 @@ private fun resolveHomeDiagnosticsAvailability(
             runtime.activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
     val verificationBusy = runtime.waitingForVerifiedVpnStart || runtime.activeVerificationSessionId != null
     val latestAudit =
-        runtime.latestCompositeOutcome?.toLatestAuditUiState(fingerprintMismatch, stringResolver)
+        runtime.latestCompositeOutcome?.toLatestAuditUiState(runtime.currentFingerprintHash, stringResolver)
             ?: runtime.latestManualDiagnosticSession?.toLatestManualScanUiState()
     val busy = analysisBusy || verificationBusy || runtime.externalScanActive
     return HomeDiagnosticsAvailability(
@@ -465,35 +465,46 @@ private fun HomeDnsResolverClass.label(stringResolver: StringResolver): String =
     )
 
 private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(
-    fingerprintMismatch: Boolean,
+    currentFingerprintHash: String?,
     stringResolver: StringResolver,
-) = HomeDiagnosticsLatestAuditUiState(
-    headline = homeHeadline(stringResolver),
-    summary = homeSummary(stringResolver),
-    recommendationSummary = recommendationSummary?.let(stringResolver::homeRecommendationText),
-    ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
-    completedStageCount = completedStageCount,
-    failedStageCount = failedStageCount,
-    totalStageCount = stageSummaries.size,
-    stale = fingerprintMismatch,
-    actionable = actionable && !fingerprintMismatch,
-    directModeResult = directModeVerdict?.result,
-    directModeReasonCode = directModeVerdict?.reasonCode,
-    directTransportClass = directModeVerdict?.transportClass,
-    transportRemediationEvidence = capabilityEvidence.toTransportRemediationEvidence(),
-    comparisonSummary =
-        regressionDelta?.takeUnless { fingerprintMismatch }?.let {
-            stringResolver.getString(
-                R.string.home_diagnostics_regression_summary,
-                it.newlyFailedStageKeys.size,
-                it.newlyRecoveredStageKeys.size,
-                it.unchangedStageCount,
-            )
-        },
-)
+): HomeDiagnosticsLatestAuditUiState {
+    val networkMatches = fingerprintHash?.let { measured -> currentFingerprintHash?.let { it == measured } }
+    val fingerprintMismatch = networkMatches == false
+    return HomeDiagnosticsLatestAuditUiState(
+        evidenceId = runId,
+        confidenceSummary = stringResolver.homeConfidence(confidenceSummary),
+        confidenceLevel = confidenceSummary.homeConfidenceLevel(),
+        coverageSummary = coverageSummary?.let(stringResolver::homeGeneratedText),
+        networkMatches = networkMatches,
+        headline = homeHeadline(stringResolver),
+        summary = homeSummary(stringResolver),
+        recommendationSummary = recommendationSummary?.let(stringResolver::homeRecommendationText),
+        ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
+        completedStageCount = completedStageCount,
+        failedStageCount = failedStageCount,
+        totalStageCount = stageSummaries.size,
+        stale = fingerprintMismatch,
+        actionable = actionable && !fingerprintMismatch,
+        directModeResult = directModeVerdict?.result,
+        directModeReasonCode = directModeVerdict?.reasonCode,
+        directTransportClass = directModeVerdict?.transportClass,
+        transportRemediationEvidence = capabilityEvidence.toTransportRemediationEvidence(),
+        comparisonSummary =
+            regressionDelta?.takeUnless { fingerprintMismatch }?.let {
+                stringResolver.getString(
+                    R.string.home_diagnostics_regression_summary,
+                    it.newlyFailedStageKeys.size,
+                    it.newlyRecoveredStageKeys.size,
+                    it.unchangedStageCount,
+                )
+            },
+    )
+}
 
 private fun DiagnosticScanSession.toLatestManualScanUiState() =
     HomeDiagnosticsLatestAuditUiState(
+        source = HomeDiagnosticsAuditSource.Manual,
+        evidenceId = id,
         headline = summary.ifBlank { profileId },
         summary =
             listOf(profileId, pathMode)
