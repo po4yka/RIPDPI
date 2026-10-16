@@ -14,10 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -25,8 +22,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
-import com.poyka.ripdpi.ui.components.LanguagePickerSheet
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -51,8 +48,9 @@ import kotlinx.collections.immutable.toImmutableList
 internal fun SettingsConnectivitySection(
     uiState: SettingsUiState,
     actions: SettingsScreenActions,
+    permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
+    batteryOptimizationIgnored: Boolean = true,
 ) {
-    var showLanguagePicker by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
         SettingsSection(title = stringResource(R.string.settings_connectivity_section)) {
             SettingsRow(
@@ -71,16 +69,9 @@ internal fun SettingsConnectivitySection(
                 testTag = RipDpiTestTags.SettingsDnsSettings,
             )
             SettingsRow(
-                title = stringResource(R.string.settings_language_title),
-                subtitle = stringResource(R.string.settings_language_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = { showLanguagePicker = true },
-                showDivider = true,
-            )
-            SettingsRow(
                 title = stringResource(R.string.subscription_status_title),
                 subtitle = stringResource(R.string.settings_subscription_status_body),
-                value = stringResource(R.string.settings_manage_action),
+                showChevron = true,
                 onClick = actions.onOpenSubscriptionStatus,
                 showDivider = true,
                 testTag = RipDpiTestTags.SettingsSubscriptionStatus,
@@ -88,7 +79,7 @@ internal fun SettingsConnectivitySection(
             SettingsRow(
                 title = stringResource(R.string.profile_utility_title),
                 subtitle = stringResource(R.string.profile_utility_disclosure),
-                value = stringResource(R.string.settings_manage_action),
+                showChevron = true,
                 onClick = actions.onOpenProfileUtility,
                 showDivider = true,
                 testTag = RipDpiTestTags.SettingsProfileUtility,
@@ -96,15 +87,28 @@ internal fun SettingsConnectivitySection(
             SettingsRow(
                 title = stringResource(R.string.title_subscription_failover),
                 subtitle = stringResource(R.string.settings_subscription_failover_body),
-                value = stringResource(R.string.settings_manage_action),
+                showChevron = true,
                 onClick = actions.onOpenSubscriptionFailover,
+                showDivider = true,
                 testTag = RipDpiTestTags.SettingsSubscriptionFailover,
             )
+            SettingsRow(
+                title = stringResource(R.string.settings_start_on_boot_title),
+                subtitle = stringResource(R.string.settings_start_on_boot_body),
+                checked = uiState.startOnBootEnabled,
+                onCheckedChange = actions.onStartOnBootChanged,
+                testTag = RipDpiTestTags.SettingsStartOnBoot,
+            )
         }
+        if (uiState.startOnBootEnabled && !batteryOptimizationIgnored) {
+            WarningBanner(
+                title = stringResource(R.string.settings_start_on_boot_title),
+                message = stringResource(R.string.settings_start_on_boot_battery_warning),
+                tone = WarningBannerTone.Warning,
+            )
+        }
+        SettingsPermissionsSection(permissionSummary = permissionSummary, actions = actions)
         SettingsAdvancedConnectivitySection(uiState = uiState, actions = actions)
-    }
-    if (showLanguagePicker) {
-        LanguagePickerSheet(onDismissRequest = { showLanguagePicker = false })
     }
 }
 
@@ -120,7 +124,7 @@ private fun SettingsAdvancedConnectivitySection(
         SettingsRow(
             title = stringResource(R.string.title_advanced_settings),
             subtitle = stringResource(R.string.settings_advanced_body),
-            value = stringResource(R.string.settings_manage_action),
+            showChevron = true,
             onClick = actions.onOpenAdvancedSettings,
             showDivider = true,
             testTag = RipDpiTestTags.SettingsAdvancedSettings,
@@ -128,7 +132,7 @@ private fun SettingsAdvancedConnectivitySection(
         SettingsRow(
             title = stringResource(R.string.title_domain_bypass_list),
             subtitle = stringResource(R.string.settings_domain_bypass_body),
-            value = stringResource(R.string.settings_manage_action),
+            showChevron = true,
             onClick = actions.onOpenDomainBypass,
             showDivider = true,
             testTag = RipDpiTestTags.SettingsDomainBypass,
@@ -136,7 +140,7 @@ private fun SettingsAdvancedConnectivitySection(
         SettingsRow(
             title = stringResource(R.string.title_routes),
             subtitle = stringResource(R.string.settings_routing_rules_body),
-            value = stringResource(R.string.settings_manage_action),
+            showChevron = true,
             onClick = actions.onOpenRoutingRules,
             showDivider = true,
             testTag = RipDpiTestTags.SettingsRoutingRules,
@@ -144,7 +148,7 @@ private fun SettingsAdvancedConnectivitySection(
         SettingsRow(
             title = stringResource(R.string.title_split_tunnel),
             subtitle = stringResource(R.string.settings_split_tunnel_body),
-            value = stringResource(R.string.settings_manage_action),
+            showChevron = true,
             onClick = actions.onOpenSplitTunnel,
             showDivider = true,
             testTag = RipDpiTestTags.SettingsSplitTunnel,
@@ -152,22 +156,9 @@ private fun SettingsAdvancedConnectivitySection(
         SettingsRow(
             title = stringResource(R.string.title_root_mode_strategies),
             subtitle = stringResource(R.string.settings_root_mode_strategies_body),
-            value = stringResource(R.string.settings_manage_action),
+            showChevron = true,
             onClick = actions.onOpenRootModeStrategies,
             testTag = RipDpiTestTags.SettingsRootModeStrategies,
-        )
-    }
-}
-
-@Composable
-internal fun SettingsBackupSection(actions: SettingsScreenActions) {
-    SettingsSection(title = stringResource(R.string.settings_backup_section)) {
-        SettingsRow(
-            title = stringResource(R.string.title_backup_restore),
-            subtitle = stringResource(R.string.settings_backup_body),
-            value = stringResource(R.string.settings_manage_action),
-            onClick = actions.onOpenBackupRestore,
-            testTag = RipDpiTestTags.SettingsBackupRestore,
         )
     }
 }
@@ -177,7 +168,6 @@ internal fun SettingsSecuritySection(
     uiState: SettingsUiState,
     localState: SettingsScreenLocalState,
     actions: SettingsScreenActions,
-    batteryOptimizationIgnored: Boolean = true,
 ) {
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
@@ -197,22 +187,19 @@ internal fun SettingsSecuritySection(
                 testTag = RipDpiTestTags.SettingsBackupPinWarning,
             )
         }
-        AnimatedVisibility(
-            visible = uiState.startOnBootEnabled && !batteryOptimizationIgnored,
-            enter = motion.sectionEnterTransition(),
-            exit = motion.sectionExitTransition(),
-        ) {
-            WarningBanner(
-                title = stringResource(R.string.settings_start_on_boot_title),
-                message = stringResource(R.string.settings_start_on_boot_battery_warning),
-                tone = WarningBannerTone.Warning,
-            )
-        }
         RipDpiCard {
             SecurityToggleRows(
                 uiState = uiState,
                 actions = actions,
                 localState = localState,
+            )
+            HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
+            SettingsRow(
+                title = stringResource(R.string.title_data_transparency),
+                subtitle = stringResource(R.string.settings_data_transparency_body),
+                onClick = actions.onOpenDataTransparency,
+                showChevron = true,
+                testTag = RipDpiTestTags.SettingsDataTransparency,
             )
         }
     }
@@ -248,14 +235,6 @@ private fun SecurityToggleRows(
         onCheckedChange = actions.onWebRtcProtectionChanged,
         showDivider = true,
         testTag = RipDpiTestTags.SettingsWebRtcProtection,
-    )
-    SettingsRow(
-        title = stringResource(R.string.settings_start_on_boot_title),
-        subtitle = stringResource(R.string.settings_start_on_boot_body),
-        checked = uiState.startOnBootEnabled,
-        onCheckedChange = actions.onStartOnBootChanged,
-        showDivider = true,
-        testTag = RipDpiTestTags.SettingsStartOnBoot,
     )
     FullTunnelExclusionsRows(uiState, actions)
     SettingsRow(
@@ -358,6 +337,8 @@ internal fun SettingsAppearanceSection(
         }
 
     SettingsSection(title = stringResource(R.string.settings_appearance_section)) {
+        SettingsLanguagePreference()
+        HorizontalDivider(color = colors.divider)
         Text(
             text = stringResource(R.string.theme_settings),
             style = RipDpiThemeTokens.type.bodyEmphasis,
@@ -398,7 +379,8 @@ internal fun SettingsAppearanceSection(
         SettingsRow(
             title = stringResource(R.string.title_app_customization),
             subtitle = stringResource(R.string.settings_customization_body),
-            value = stringResource(R.string.settings_manage_action),
+            value = stringResource(LauncherIconManager.resolveOption(uiState.appIconVariant).labelRes),
+            showChevron = true,
             onClick = actions.onOpenCustomization,
             testTag = RipDpiTestTags.SettingsCustomization,
         )
@@ -420,7 +402,13 @@ internal fun SettingsPermissionsSection(
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
 
-    SettingsSection(title = stringResource(R.string.settings_permissions_section)) {
+    if (permissionSummary.items.isEmpty() && permissionSummary.backgroundGuidance == null) return
+    RipDpiCard {
+        Text(
+            text = stringResource(R.string.settings_permissions_section),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
         AnimatedVisibility(
             visible = permissionSummary.backgroundGuidance != null,
             enter = motion.sectionEnterTransition(),
@@ -462,6 +450,7 @@ internal fun SettingsSupportSection(
     appVersionName: String,
     actions: SettingsScreenActions,
     onCommunityApiUrlDraftChanged: (String) -> Unit,
+    onResetClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
 
@@ -477,7 +466,7 @@ internal fun SettingsSupportSection(
         SettingsRow(
             title = stringResource(R.string.logs),
             subtitle = stringResource(R.string.settings_logs_body),
-            value = stringResource(R.string.settings_manage_action),
+            showChevron = true,
             onClick = actions.onOpenLogs,
             showDivider = true,
             testTag = RipDpiTestTags.SettingsLogs,
@@ -486,6 +475,7 @@ internal fun SettingsSupportSection(
             title = stringResource(R.string.title_detection_check),
             subtitle = stringResource(R.string.detection_check_subtitle),
             onClick = actions.onOpenDetectionCheck,
+            showChevron = true,
             showDivider = true,
         )
         CommunityApiUrlEditor(
@@ -505,33 +495,36 @@ internal fun SettingsSupportSection(
         )
         HorizontalDivider(color = colors.divider)
         SettingsRow(
-            title = stringResource(R.string.title_data_transparency),
-            subtitle = stringResource(R.string.settings_data_transparency_body),
-            value = stringResource(R.string.settings_manage_action),
-            onClick = actions.onOpenDataTransparency,
-            showDivider = true,
-            testTag = RipDpiTestTags.SettingsDataTransparency,
-        )
-        SettingsRow(
             title = stringResource(R.string.about_category),
             subtitle = stringResource(R.string.settings_about_body),
             value = appVersionName,
             onClick = actions.onOpenAbout,
+            showDivider = true,
             testTag = RipDpiTestTags.SettingsAbout,
         )
+        SettingsMaintenanceRows(actions = actions, onResetClick = onResetClick)
     }
 }
 
 @Composable
-internal fun SettingsDangerSection(onResetClick: () -> Unit) {
-    SettingsSection(title = stringResource(R.string.settings_danger_section)) {
-        SettingsRow(
-            title = stringResource(R.string.settings_reset_title),
-            subtitle = stringResource(R.string.settings_reset_body),
-            value = stringResource(R.string.settings_reset_action),
-            onClick = onResetClick,
-        )
-    }
+private fun SettingsMaintenanceRows(
+    actions: SettingsScreenActions,
+    onResetClick: () -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.title_backup_restore),
+        subtitle = stringResource(R.string.settings_backup_body),
+        onClick = actions.onOpenBackupRestore,
+        showChevron = true,
+        showDivider = true,
+        testTag = RipDpiTestTags.SettingsBackupRestore,
+    )
+    SettingsRow(
+        title = stringResource(R.string.settings_reset_title),
+        subtitle = stringResource(R.string.settings_reset_body),
+        value = stringResource(R.string.settings_reset_action),
+        onClick = onResetClick,
+    )
 }
 
 private fun biometricSubtitleRes(uiState: SettingsUiState): Int =
