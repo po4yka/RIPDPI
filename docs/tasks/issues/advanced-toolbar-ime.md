@@ -20,15 +20,16 @@ spec_reason: regression-tested-single-module
 Keep the Advanced title and Back target below the status bar while IME is
 visible. Keep the focused field visible and retain the existing save and Back
 behavior. This is a single-module layout regression. The Activity declares the
-supported resize policy; Advanced applies Compose IME insets. Storage, service
-and navigation contracts stay unchanged.
+supported resize policy; the settings form scaffold applies Compose IME insets.
+Storage, service and navigation contracts stay unchanged.
 
 ## Acceptance criteria
 
 - Capture the pan on a fresh main542 APK before changing production code.
 - A measured regression fails before the change and passes after it.
-- A merged-manifest test prevents automatic platform pan. A second editable
-  screen passes a real-keyboard smoke test for the Activity-wide policy.
+- The merged manifest declares resize for MainActivity and its launcher aliases.
+  Shared settings forms and the ModeEditor pass real-keyboard smoke tests for
+  the Activity-wide policy.
 - On API35+ and API30, the toolbar and its 48dp Back target stay below the
   actual status bar at normal/maximum font in gesture/three-button navigation.
 - The focused field stays above the actual IME. The first Back hides IME;
@@ -40,7 +41,8 @@ and navigation contracts stay unchanged.
 
 ## Ownership
 
-- Integration owner: AndroidManifest.xml, AdvancedSettingsContent.kt, regression tests,
+- Integration owner: AndroidManifest.xml, AdvancedSettingsContent.kt,
+  RipDpiScaffolds.kt, regression tests,
   task records, evidence, combined checks and Git integration. Owns all production
   edits. Keep the change on Advanced unless runtime evidence requires more.
 - Test worker, isolated RIPDPI-advanced-ime-test: only new
@@ -55,7 +57,9 @@ and navigation contracts stay unchanged.
 
 RDS references: docs/design/rds/preview/components-settings-row.html and
 vpn-quick-vs-advanced.html. Spec HTML stays read-only. Keep the existing RDS
-scaffold and tokens; reserve IME space without extra status-bar padding.
+scaffold and tokens; reserve IME space without extra status-bar padding. Apply
+the IME padding in the shared settings scaffold so the Activity policy does not
+leave other settings forms without keyboard avoidance.
 Use the declarative manifest adjustResize attribute required by Android's Compose
 setup. The local skill bans imperative WindowManager SOFT_INPUT_ADJUST flags;
 the official Android skill explicitly distinguishes those deprecated constants
