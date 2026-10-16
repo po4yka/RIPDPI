@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -97,6 +98,7 @@ fun LogsRoute(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun LogsScreen(
     uiState: LogsUiState,
@@ -266,10 +268,7 @@ private fun LogsStreamSection(
     // item count can lose a live edge on a batch append or move a history reader.
     val followLatest =
         remember(filteredLogs, uiState.isAutoScroll) {
-            val oldLayout = listState.layoutInfo
-            val lastVisible = oldLayout.visibleItemsInfo.lastOrNull()?.index
-            uiState.isAutoScroll &&
-                (lastVisible == null || lastVisible >= (oldLayout.totalItemsCount - 2).coerceAtLeast(0))
+            uiState.isAutoScroll && !listState.isScrollInProgress && !listState.canScrollForward
         }
     LaunchedEffect(uiState.isAutoScroll, filteredLogs.lastOrNull()?.id) {
         if (followLatest && filteredLogs.isNotEmpty()) {
@@ -403,6 +402,7 @@ private fun LogsStreamStatus(streaming: Boolean) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LogsActionsSheet(
     uiState: LogsUiState,
