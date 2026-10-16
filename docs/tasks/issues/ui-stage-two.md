@@ -46,7 +46,9 @@ screen area. This is stage two of the design audit confirmed by the user.
 - Integration owner: all locale resources, shared test tags, planning and task
   files, device tests and combined checks. These shared files have one writer.
 - Each writer uses a separate worktree. No writer edits another lane. No
-  protobuf, Rust, service lifecycle, dependency or baseline changes are planned.
+  protobuf, Rust, service lifecycle or dependency changes are planned.
+- Golden specialist: exclusive ownership of the ten approved screenshot PNGs
+  below, in a separate worktree. Other fixtures and quality baselines stay fixed.
 
 ## Design references
 
@@ -54,3 +56,21 @@ Use vpn-profile-switcher.html, diagnostic-report-summary.html,
 components-log-stream.html and components-log-row.html in docs/design/rds/preview.
 Keep the preview files read-only. Intentional differences: compact profile
 disclosure, one diagnostic verdict and a stream that fills the available height.
+
+
+## Approved screenshot scope
+
+On 2026-10-16 the user approved these ten Roborazzi PNG updates under
+`app/src/test/screenshots` for the reviewed stage-two design:
+
+- `RipDpiScreenCatalogScreenshotTest`: configScreen, configMediumScreen,
+  logsScreen and logsEmptyDarkScreen.
+- `BusyStateScreenshotTest.logsStreamLive`: light and dark.
+- `MaximumFontNavigationShellScreenshotTest.diagnosticsAtPixel7MaximumFont_full`.
+- The config capture in ArabicLocaleScreenshotTest, PersianLocaleScreenshotTest
+  and SimplifiedChineseLocaleScreenshotTest.
+
+The source is `234e1b7d79ba838c2df188ad24583b5e4e867d01`. The new contract
+uses a compact connection summary, one diagnostic outcome and a larger log
+stream. The golden specialist must run the narrow owning record task, inspect
+all ten outputs and verify them. No architecture or lint baseline may change.
