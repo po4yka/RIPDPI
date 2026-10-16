@@ -98,7 +98,7 @@ private val FAKE_BUNDLE =
           {
             "tag": "test-awg",
             "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
-            "address": ["10.8.0.2/32"],
+            "address": ["10.8.0.2/32", "fd77::2/128"],
             "dns": ["1.1.1.1"],
             "mtu": 1330,
             "peer": {
@@ -176,7 +176,7 @@ private val NONCANONICAL_AWG_KEY_BUNDLE =
 
 private val MISSING_AWG_ADDRESS_BUNDLE =
     FAKE_BUNDLE.replace(
-        "\"address\": [\"10.8.0.2/32\"]",
+        "\"address\": [\"10.8.0.2/32\", \"fd77::2/128\"]",
         "\"address\": []",
     )
 
@@ -226,7 +226,8 @@ private val MULTI_RELAY_BUNDLE =
           {
             "tag": "test-awg",
             "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
-            "address": ["10.8.0.2/32"],
+            "address": ["10.8.0.2/32", "fd77::2/128"],
+            "mtu": 1330,
             "peer": {
               "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCA=",
               "endpoint": "192.0.2.40:51820",
@@ -311,7 +312,7 @@ class ConfigSeederTest {
         )
 
     @Test
-    fun `checked in CI bundle seeds IPv4 AWG with both source default routes`() =
+    fun `checked in CI bundle preserves dual-stack AWG transport with both source default routes`() =
         runTest {
             var root = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
             while (!File(root, "settings.gradle.kts").isFile) {
@@ -325,7 +326,9 @@ class ConfigSeederTest {
             val stored = awgProfileRepository.observeProfiles().first().single()
             val request = requireNotNull(awgProfileRepository.load(stored.id)).request
             request.requireRuntimeReady()
-            assertEquals("", request.interfaceAddressV6)
+            assertEquals("10.66.66.2/32", request.interfaceAddressV4)
+            assertEquals("fd77::2/128", request.interfaceAddressV6)
+            assertEquals(1420, request.mtu)
             assertEquals(listOf("0.0.0.0/0", "::/0"), request.allowedIps)
             assertEquals(listOf("1.1.1.1", "1.0.0.1"), request.dnsServers)
         }
@@ -726,7 +729,8 @@ class ConfigSeederTest {
 
             val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
-            assertTrue(failure is IllegalArgumentException)
+            assertTrue(failure is IllegalStateException)
+            assertEquals("Required embedded relay bundle contains unsupported relay profiles", failure?.message)
             assertFalse(seeder.isSeeded())
             assertTrue(proxyGroupRepository.addedGroups.isEmpty())
             assertTrue(relayProfileStore.list().isEmpty())
@@ -740,7 +744,8 @@ class ConfigSeederTest {
 
             val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
-            assertTrue(failure is IllegalArgumentException)
+            assertTrue(failure is IllegalStateException)
+            assertEquals("Required embedded relay bundle contains unsupported relay profiles", failure?.message)
             assertFalse(seeder.isSeeded())
             assertTrue(proxyGroupRepository.addedGroups.isEmpty())
             assertTrue(relayProfileStore.list().isEmpty())

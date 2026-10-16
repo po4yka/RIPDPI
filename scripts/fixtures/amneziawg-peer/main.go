@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/ecdh"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -15,12 +16,14 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/amnezia-vpn/amneziawg-go/conn"
 	"github.com/amnezia-vpn/amneziawg-go/device"
 	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+	"golang.org/x/net/dns/dnsmessage"
 )
 
 type loopbackBind struct {
@@ -159,7 +162,69 @@ func echoUDPPair(first, second net.PacketConn) error {
 	_, err = first.WriteTo(a[:na], pa)
 	return err
 }
+
+func answerDNS(socket net.PacketConn) error {
+	if err := socket.SetDeadline(time.Now().Add(25 * time.Second)); err != nil {
+		return err
+	}
+	buffer := make([]byte, 1024)
+	size, source, err := socket.ReadFrom(buffer)
+	if err != nil {
+		return err
+	}
+	var parser dnsmessage.Parser
+	header, err := parser.Start(buffer[:size])
+	if err != nil {
+		return err
+	}
+	question, err := parser.Question()
+	if err != nil {
+		return err
+	}
+	if question.Name.String() != "acceptance.test." {
+		return errors.New("unexpected DNS question")
+	}
+	builder := dnsmessage.NewBuilder(nil, dnsmessage.Header{ID: header.ID, Response: true, Authoritative: true})
+	if err := builder.StartQuestions(); err != nil {
+		return err
+	}
+	if err := builder.Question(question); err != nil {
+		return err
+	}
+	if err := builder.StartAnswers(); err != nil {
+		return err
+	}
+	record := dnsmessage.ResourceHeader{Name: question.Name, Class: dnsmessage.ClassINET, TTL: 1}
+	switch question.Type {
+	case dnsmessage.TypeA:
+		err = builder.AResource(record, dnsmessage.AResource{A: [4]byte{192, 0, 2, 53}})
+	case dnsmessage.TypeAAAA:
+		err = builder.AAAAResource(record, dnsmessage.AAAAResource{AAAA: netip.MustParseAddr("fd77::53").As16()})
+	default:
+		return errors.New("unsupported DNS question type")
+	}
+	if err != nil {
+		return err
+	}
+	response, err := builder.Finish()
+	if err != nil {
+		return err
+	}
+	_, err = socket.WriteTo(response, source)
+	return err
+}
 func run() error {
+	mtu, err := strconv.Atoi(os.Getenv("RIPDPI_AWG_INTEROP_MTU"))
+	if err != nil || mtu < 1280 || mtu > 1420 {
+		return errors.New("RIPDPI_AWG_INTEROP_MTU must be an integer from 1280 through 1420")
+	}
+	cycles := 1
+	if value := os.Getenv("RIPDPI_AWG_INTEROP_CYCLES"); value != "" {
+		cycles, err = strconv.Atoi(value)
+		if err != nil || cycles < 1 || cycles > 4 {
+			return errors.New("RIPDPI_AWG_INTEROP_CYCLES must be an integer from 1 through 4")
+		}
+	}
 	server, err := ecdh.X25519().NewPrivateKey(bytes.Repeat([]byte{9}, 32))
 	if err != nil {
 		return err
@@ -168,14 +233,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	tun, network, err := netstack.CreateNetTUN([]netip.Addr{netip.MustParseAddr("10.77.0.1"), netip.MustParseAddr("fd77::1")}, nil, 1420)
+	tun, network, err := netstack.CreateNetTUN([]netip.Addr{netip.MustParseAddr("10.77.0.1"), netip.MustParseAddr("fd77::1")}, nil, mtu)
 	if err != nil {
 		return err
 	}
 	bind := &loopbackBind{}
 	peer := device.NewDevice(tun, bind, device.NewLogger(device.LogLevelSilent, ""))
 	defer peer.Close()
-	config := fmt.Sprintf("private_key=%s\nlisten_port=0\njc=4\njmin=64\njmax=96\ns1=8\ns2=12\ns3=0\ns4=0\nh1=268435457\nh2=268435458\nh3=268435459\nh4=268435460\npublic_key=%s\npreshared_key=%s\nallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)))
+	config := fmt.Sprintf("private_key=%s\nlisten_port=0\njc=4\njmin=64\njmax=96\ns1=8\ns2=12\nh1=268435457\nh2=268435458\nh3=268435459\nh4=268435460\npublic_key=%s\npreshared_key=%s\nallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)))
 	if err = peer.IpcSet(config); err != nil {
 		return err
 	}
@@ -212,21 +277,43 @@ func run() error {
 		return err
 	}
 	defer second6.Close()
-	results := make(chan error, 4)
-	go func() { results <- echoTCP(tcp) }()
-	go func() { results <- echoUDPPair(first, second) }()
-	go func() { results <- echoTCP(tcp6) }()
-	go func() { results <- echoUDPPair(first6, second6) }()
+	expected := 4
+	results := make(chan error, 6)
+	serve := func(exchange func() error) {
+		for cycle := 0; cycle < cycles; cycle++ {
+			if err := exchange(); err != nil {
+				results <- err
+				return
+			}
+		}
+		results <- nil
+	}
+	go serve(func() error { return echoTCP(tcp) })
+	go serve(func() error { return echoUDPPair(first, second) })
+	go serve(func() error { return echoTCP(tcp6) })
+	go serve(func() error { return echoUDPPair(first6, second6) })
+	if os.Getenv("RIPDPI_AWG_INTEROP_DNS") == "1" {
+		for _, address := range []string{"10.77.0.1:53", "[fd77::1]:53"} {
+			socket, err := network.ListenUDPAddrPort(netip.MustParseAddrPort(address))
+			if err != nil {
+				return err
+			}
+			defer socket.Close()
+			go serve(func() error { return answerDNS(socket) })
+			expected++
+		}
+	}
 	endpoint, err := bind.address()
 	if err != nil {
 		return err
 	}
-	if err = json.NewEncoder(os.Stdout).Encode(map[string]string{"endpoint": endpoint}); err != nil {
+	if err = json.NewEncoder(os.Stdout).Encode(map[string]string{"endpoint": endpoint, "public_key": base64.StdEncoding.EncodeToString(server.PublicKey().Bytes())}); err != nil {
 		return err
 	}
 	stop := make(chan struct{})
 	go func() { bufio.NewScanner(os.Stdin).Scan(); close(stop) }()
-	timer := time.NewTimer(30 * time.Second)
+	// Preserve the per-session deadline while one peer serves all reconnects.
+	timer := time.NewTimer(time.Duration(cycles) * 30 * time.Second)
 	defer timer.Stop()
 	completed := 0
 	for {
@@ -238,7 +325,7 @@ func run() error {
 			completed++
 		case <-stop:
 			// The final write can reach the client before its worker enqueues completion.
-			for completed < 4 {
+			for completed < expected {
 				select {
 				case err := <-results:
 					if err != nil {
@@ -246,7 +333,7 @@ func run() error {
 					}
 					completed++
 				case <-timer.C:
-					return fmt.Errorf("incomplete exchanges: %d/4", completed)
+					return fmt.Errorf("incomplete exchanges: %d/%d", completed, expected)
 				}
 			}
 			return nil

@@ -489,6 +489,24 @@ class AvdPoolTest(unittest.TestCase):
 
 
 class ProcessGroupCleanupTest(unittest.TestCase):
+    def test_darwin_unknown_execution_states_are_conservatively_live(self):
+        for state in ("?", "?E", "?Es"):
+            with self.subTest(state=state):
+                status = subprocess.CompletedProcess([], 0, f"12345 {state}\n", "")
+                with mock.patch.object(POOL, "command", return_value=status):
+                    self.assertTrue(POOL.group_has_live_members(12345))
+
+    def test_darwin_exit_state_is_polled_until_the_group_disappears(self):
+        process = mock.Mock(pid=12345)
+        exiting = subprocess.CompletedProcess([], 0, "12345 ?Es\n", "")
+        gone = subprocess.CompletedProcess([], 0, "", "")
+        with mock.patch.object(POOL.os, "killpg"), \
+                mock.patch.object(POOL, "command", side_effect=[exiting, gone, gone]) as inspect, \
+                mock.patch.object(POOL.time, "sleep"):
+            POOL.stop_process(process)
+        self.assertEqual(3, inspect.call_count)
+        process.wait.assert_called_once_with(timeout=5)
+
     def test_exited_zombie_leader_is_reaped_during_cleanup(self):
         process = subprocess.Popen([sys.executable, "-c", "pass"], start_new_session=True)
         try:
@@ -527,7 +545,9 @@ class ProcessGroupCleanupTest(unittest.TestCase):
 
     def test_failed_or_malformed_group_inspection_blocks_cleanup(self):
         for status in (subprocess.CompletedProcess([], 1, "", "failed"),
-                       subprocess.CompletedProcess([], 0, "ambiguous\n", "")):
+                       subprocess.CompletedProcess([], 0, "ambiguous\n", ""),
+                       subprocess.CompletedProcess([], 0, "12345 !\n", ""),
+                       subprocess.CompletedProcess([], 0, "12345 S?\n", "")):
             with self.subTest(status=status):
                 process = mock.Mock(pid=12345)
                 process.poll.return_value = 0
@@ -546,13 +566,15 @@ class ProcessGroupCleanupTest(unittest.TestCase):
         process.wait.assert_called_once_with(timeout=5)
 
     def test_live_group_after_kill_is_not_reported_as_stopped(self):
-        process = mock.Mock(pid=12345)
-        status = subprocess.CompletedProcess([], 0, "12345 S\n", "")
-        with mock.patch.object(POOL.os, "killpg"), \
-                mock.patch.object(POOL, "command", return_value=status), \
-                mock.patch.object(POOL.time, "monotonic", side_effect=[0, 16, 16, 22]):
-            with self.assertRaisesRegex(POOL.PoolError, "still active"):
-                POOL.stop_process(process)
+        for state in ("S", "?Es"):
+            with self.subTest(state=state):
+                process = mock.Mock(pid=12345)
+                status = subprocess.CompletedProcess([], 0, f"12345 {state}\n", "")
+                with mock.patch.object(POOL.os, "killpg"), \
+                        mock.patch.object(POOL, "command", return_value=status), \
+                        mock.patch.object(POOL.time, "monotonic", side_effect=[0, 16, 16, 22]):
+                    with self.assertRaisesRegex(POOL.PoolError, "still active"):
+                        POOL.stop_process(process)
 
 
 if __name__ == "__main__":

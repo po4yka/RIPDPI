@@ -58,10 +58,11 @@ async fn handle_tcp_connect(
     tcp_pool: Arc<VirtualPortPool>,
     target: SocketAddr,
 ) -> io::Result<()> {
-    let virtual_port = tcp_pool.acquire().await?;
+    let lease = tcp_pool.acquire()?;
+    let virtual_port = lease.port();
     let port_forward = PortForwardConfig { destination: target, protocol: PortProtocol::Tcp };
     let mut endpoint = bus.new_endpoint();
-    endpoint.send(Event::ClientConnectionInitiated(port_forward, virtual_port));
+    endpoint.send(Event::ClientConnectionInitiated(port_forward, lease.clone()));
     let result = async {
         write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
 
@@ -101,8 +102,8 @@ async fn handle_tcp_connect(
 
         Ok(())
     }.await;
+    lease.request_close();
     endpoint.send(Event::ClientConnectionDropped(virtual_port));
-    tcp_pool.release(virtual_port).await;
     result
 }
 
@@ -355,7 +356,7 @@ mod tests {
         server.shutdown().await.expect("close write half to force reply failure");
         let bus = Bus::new();
         let mut observer = bus.new_endpoint();
-        let pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp));
+        let pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP port entropy"));
         let result = timeout(
             Duration::from_secs(2),
             handle_tcp_connect(server, bus, Arc::clone(&pool), "192.0.2.1:443".parse().expect("target")),
@@ -363,13 +364,16 @@ mod tests {
         .await
         .expect("handler exits");
         assert!(result.is_err(), "closed write half must reject the SOCKS reply");
-        let Event::ClientConnectionInitiated(_, port) = observer.recv().await else { panic!("expected allocation") };
+        let Event::ClientConnectionInitiated(_, lease) = observer.recv().await else { panic!("expected allocation") };
+        let port = lease.port();
+        drop(lease);
         let dropped = timeout(Duration::from_millis(100), observer.recv()).await.expect("virtual socket cleanup event");
         assert!(matches!(dropped, Event::ClientConnectionDropped(actual) if actual == port));
-        for _ in crate::ports::MIN_VIRTUAL_PORT..crate::ports::MAX_VIRTUAL_PORT {
-            pool.acquire().await.expect("entire port pool must be available after failed reply");
-        }
-        assert!(pool.acquire().await.is_err(), "no duplicate release");
+        let leases: Vec<_> = (crate::ports::MIN_VIRTUAL_PORT..crate::ports::MAX_VIRTUAL_PORT)
+            .map(|_| pool.acquire().expect("entire port pool must be available after failed reply"))
+            .collect();
+        assert!(pool.acquire().is_err(), "no duplicate release");
+        drop(leases);
     }
 
     #[test]

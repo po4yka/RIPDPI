@@ -424,7 +424,8 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
                 "amneziawg": [{
                   "tag": "fixture-awg",
                   "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-                  "address": ["10.8.0.2/32"],
+                  "address": ["10.8.0.2/32", "fd77::2/128"],
+                  "mtu": 1330,
                   "dns": ["1.1.1.1"],
                   "peer": {
                     "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",

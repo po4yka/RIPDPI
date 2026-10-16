@@ -109,6 +109,8 @@ class BootstrapConsumeOnceTest {
                 assertTrue(result.profiles.isEmpty())
                 assertEquals(1, result.amneziaWgProfiles.size)
                 assertEquals("fixture-awg", result.amneziaWgProfiles.single().displayName)
+                assertEquals(listOf("10.8.0.2/32", "fd77::2/128"), result.amneziaWgProfiles.single().interfaceAddress)
+                assertEquals(1280, result.amneziaWgProfiles.single().mtu)
                 assertEquals(1, server.requestCount)
             }
         }
@@ -170,7 +172,8 @@ class BootstrapConsumeOnceTest {
             "amneziawg": [{
               "tag": "fixture-awg",
               "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-              "address": ["10.8.0.2/32"],
+              "address": ["10.8.0.2/32", "fd77::2/128"],
+              "mtu": 1280,
               "peer": {
                 "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
                 "endpoint": "192.0.2.10:51820",

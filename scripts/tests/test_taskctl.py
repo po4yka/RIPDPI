@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -813,6 +814,173 @@ class TaskctlHistoryTest(TaskctlFixture):
         work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
         work.unlink()
         work.with_suffix(".close.json").unlink()
+
+    def federation_fixture(self) -> None:
+        config = {
+            "schema": 1, "federation_contract": 1, "project": "po4yka/RIPDPI",
+            "areas": taskctl.AREA_PREFIXES, "evidence_categories": list(taskctl.EVIDENCE_CATEGORIES),
+            "evidence_transfer_policy": 1, "committed_review_policy": 1,
+            "openspec_schema": "ripdpi-change", "allowed_peers": ["po4yka/ripdpi-vpn-deploy"],
+        }
+        (self.root / taskctl.PROJECT_CONFIG_PATH).write_text(json.dumps(config), encoding="utf-8")
+        (self.root / taskctl.FEDERATION_CONTRACT_PATH).write_bytes(
+            (taskctl.DEFAULT_ROOT / taskctl.FEDERATION_CONTRACT_PATH).read_bytes()
+        )
+        for relative in ("taskctl", "scripts/tasks/taskctl.py"):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes((taskctl.DEFAULT_ROOT / relative).read_bytes())
+        self.commit_all("initialize native federation metadata")
+
+    def historical_federation_fixture(self, *, tamper_receipt: bool = False, review: bool = True) -> tuple[str, str]:
+        self.federation_fixture()
+        path = self.add_simple_task(status="review" if review else "todo")
+        self.add_simple_task(task_id="CIC-1786234567890003")
+        self.commit_all("record native task review")
+        self.prepare_simple_terminal(path)
+        if tamper_receipt:
+            receipt = self.root / "docs/tasks/work/CIC-1786234567890001.close.json"
+            payload = json.loads(receipt.read_text())
+            payload["issue_sha256"] = "0" * 64
+            receipt.write_text(json.dumps(payload))
+        terminal = self.commit_all("record terminal native task")
+        self.purge_simple_task(path)
+        deletion = self.commit_all("purge terminal native task")
+        return terminal, deletion
+
+    def test_federation_export_preserves_native_schema_and_qualifies_relations(self) -> None:
+        self.federation_fixture()
+        blocker = self.add_simple_task()
+        path = self.add_simple_task(task_id="CIC-1786234567890003", blockers=["CIC-1786234567890001"])
+        document = taskctl.read_document(path)
+        taskctl.write_document(document, dict(document.values, linked_task="po4yka/ripdpi-vpn-deploy#ANS-1791618048083304"))
+        revision = self.commit_all("record native related task")
+        before = {item: item.read_bytes() for item in (path, blocker)}
+
+        payload = taskctl.export_payload(self.root)
+
+        self.assertEqual({"contract_version", "contract_sha256", "project", "revision", "tasks"}, set(payload))
+        self.assertEqual(revision, payload["revision"])
+        self.assertEqual("po4yka/RIPDPI", payload["project"])
+        self.assertEqual(hashlib.sha256((self.root / taskctl.FEDERATION_CONTRACT_PATH).read_bytes()).hexdigest(), payload["contract_sha256"])
+        node = payload["tasks"][1]
+        self.assertIsNone(node["risk"])
+        self.assertEqual(["po4yka/RIPDPI#CIC-1786234567890001"], node["blocked_by"])
+        self.assertEqual(["po4yka/ripdpi-vpn-deploy#ANS-1791618048083304"], node["related_tasks"])
+        self.assertEqual({"done": 0, "total": 1}, node["progress"])
+        self.assertFalse(node["historical"])
+        self.assertEqual(before, {item: item.read_bytes() for item in before})
+        self.assertEqual([node], taskctl.export_payload(self.root, "CIC-1786234567890003")["tasks"])
+        self.assertEqual("po4yka/RIPDPI#CIC-1786234567890001", taskctl.qualify_federation_reference("CIC-1786234567890001", taskctl.federation_config(self.root)))
+        exported = subprocess.run((sys.executable, str(self.root / "scripts/tasks/taskctl.py"), "export", "--json"),
+                                  cwd=self.root, check=True, capture_output=True, text=True)
+        self.assertEqual(payload, json.loads(exported.stdout))
+
+    def test_federation_export_rejects_dirty_tasking_and_unrepresentable_links(self) -> None:
+        self.federation_fixture()
+        path = self.add_simple_task()
+        self.commit_all("record native task")
+        path.write_text(path.read_text() + "Changed acceptance.\n")
+        with self.assertRaisesRegex(taskctl.ContractError, "requires committed"):
+            taskctl.export_payload(self.root)
+        document = taskctl.read_document(path)
+        taskctl.write_document(document, dict(document.values, linked_task="legacy free text"))
+        self.commit_all("record unrepresentable legacy relation")
+        with self.assertRaisesRegex(taskctl.ContractError, "unrepresentable"):
+            taskctl.export_payload(self.root)
+
+    def test_federation_export_rejects_uncommitted_cli_and_metadata_inputs(self) -> None:
+        self.federation_fixture()
+        self.add_simple_task()
+        self.commit_all("record native task")
+        for relative in ("taskctl", "scripts/tasks/taskctl.py", "tools/tasking/uncommitted.json", "openspec/uncommitted.md"):
+            with self.subTest(relative=relative):
+                path = self.root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                original = path.read_bytes() if path.exists() else None
+                path.write_text("Uncommitted tasking input.\n")
+                try:
+                    with self.assertRaisesRegex(taskctl.ContractError, "requires committed"):
+                        taskctl.export_payload(self.root)
+                finally:
+                    if original is None:
+                        path.unlink()
+                    else:
+                        path.write_bytes(original)
+
+    def test_federation_export_rejects_ignored_untracked_tasks(self) -> None:
+        self.federation_fixture()
+        self.add_simple_task()
+        self.commit_all("record native task")
+        (self.root / ".git/info/exclude").write_text("docs/tasks/issues/cic-1786234567890003.md\ndocs/tasks/work/CIC-1786234567890003.md\n")
+        self.add_simple_task(task_id="CIC-1786234567890003")
+        self.assertEqual("", self.git("status", "--porcelain", "--untracked-files=all"))
+        with self.assertRaisesRegex(taskctl.ContractError, "not a committed regular file"):
+            taskctl.export_payload(self.root)
+
+    def test_federation_export_rejects_assume_unchanged_executable(self) -> None:
+        self.federation_fixture()
+        self.add_simple_task()
+        self.commit_all("record native task")
+        relative = "scripts/tasks/taskctl.py"
+        self.git("update-index", "--assume-unchanged", relative)
+        path = self.root / relative
+        path.write_text(path.read_text() + "\n# Uncommitted executable change.\n")
+        self.assertEqual("", self.git("status", "--porcelain", "--untracked-files=all"))
+        with self.assertRaisesRegex(taskctl.ContractError, "differs from HEAD"):
+            taskctl.export_payload(self.root)
+
+    def test_federation_export_rejects_revision_change_during_native_read(self) -> None:
+        self.federation_fixture()
+        self.add_simple_task()
+        self.commit_all("record native task")
+        native_load_state = taskctl.load_state
+
+        def read_then_commit(root: Path):
+            state = native_load_state(root)
+            (root / "concurrent.txt").write_text("Concurrent commit.\n")
+            self.commit_all("change HEAD during export")
+            return state
+
+        with mock.patch.object(taskctl, "load_state", side_effect=read_then_commit):
+            with self.assertRaisesRegex(taskctl.ContractError, "revision changed during export"):
+                taskctl.export_payload(self.root)
+
+    def test_federation_export_rejects_ignored_nonregular_input_before_read(self) -> None:
+        self.federation_fixture()
+        self.add_simple_task()
+        self.commit_all("record native task")
+        relative = "docs/tasks/issues/ignored-pipe.md"
+        (self.root / ".git/info/exclude").write_text(relative + "\n")
+        os.mkfifo(self.root / relative)
+        result = subprocess.run((sys.executable, str(self.root / "scripts/tasks/taskctl.py"), "export", "--json"),
+                                cwd=self.root, capture_output=True, text=True, timeout=10)
+        self.assertEqual(2, result.returncode)
+        self.assertIn("not a committed regular file", result.stderr)
+
+    def test_federation_export_resolves_receipt_bound_history_with_provenance(self) -> None:
+        terminal, deletion = self.historical_federation_fixture()
+        payload = taskctl.export_payload(self.root, "CIC-1786234567890001")
+        self.assertEqual(1, len(payload["tasks"]))
+        node = payload["tasks"][0]
+        self.assertTrue(node["historical"])
+        self.assertEqual("done", node["status"])
+        self.assertEqual({"done": 1, "total": 1}, node["progress"])
+        self.assertEqual(terminal, node["terminal_revision"])
+        self.assertEqual(deletion, node["deletion_revision"])
+        self.assertEqual(deletion, payload["revision"])
+        with self.assertRaisesRegex(taskctl.ContractError, "missing or ambiguous"):
+            taskctl.export_payload(self.root, "CIC-1786234567890999")
+
+    def test_federation_history_rejects_tampered_receipt_and_unreviewed_terminal(self) -> None:
+        self.historical_federation_fixture(tamper_receipt=True)
+        with self.assertRaisesRegex(taskctl.ContractError, "close receipt does not match"):
+            taskctl.export_payload(self.root, "CIC-1786234567890001")
+
+    def test_federation_history_rejects_terminal_without_review_provenance(self) -> None:
+        self.historical_federation_fixture(review=False)
+        with self.assertRaisesRegex(taskctl.ContractError, "invalid terminal transition todo -> done"):
+            taskctl.export_payload(self.root, "CIC-1786234567890001")
 
     def test_deletion_without_terminal_commit_is_rejected(self) -> None:
         path = self.add_simple_task()

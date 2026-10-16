@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::io;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tokio::sync::RwLock;
@@ -37,29 +37,84 @@ impl VirtualPort {
 #[derive(Clone)]
 pub(crate) struct VirtualPortPool {
     protocol: PortProtocol,
-    free_ports: Arc<RwLock<VecDeque<u16>>>,
+    free_ports: Arc<Mutex<VecDeque<u16>>>,
+}
+
+#[derive(Clone)]
+pub(crate) struct VirtualPortLease(Arc<VirtualPortLeaseInner>);
+
+struct VirtualPortLeaseInner {
+    port: VirtualPort,
+    free_ports: Arc<Mutex<VecDeque<u16>>>,
+    close_requested_at: Mutex<Option<tokio::time::Instant>>,
+}
+
+impl std::fmt::Debug for VirtualPortLease {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_tuple("VirtualPortLease").field(&self.0.port).finish()
+    }
+}
+
+impl VirtualPortLease {
+    pub(crate) fn port(&self) -> VirtualPort {
+        self.0.port
+    }
+
+    pub(crate) fn request_close(&self) {
+        if let Ok(mut requested) = self.0.close_requested_at.lock() {
+            requested.get_or_insert_with(tokio::time::Instant::now);
+        }
+    }
+
+    pub(crate) fn close_requested_at(&self) -> io::Result<Option<tokio::time::Instant>> {
+        self.0
+            .close_requested_at
+            .lock()
+            .map(|requested| *requested)
+            .map_err(|_| io::Error::other("virtual TCP close state poisoned"))
+    }
+}
+
+impl Drop for VirtualPortLeaseInner {
+    fn drop(&mut self) {
+        // No async resources: the last socket/control owner returns this lease once.
+        // Poisoning refuses future allocations instead of reusing an uncertain port.
+        if let Ok(mut ports) = self.free_ports.lock() {
+            ports.push_back(self.port.num());
+        }
+    }
 }
 
 impl VirtualPortPool {
-    pub(crate) fn new(protocol: PortProtocol) -> Self {
+    pub(crate) fn new(protocol: PortProtocol) -> io::Result<Self> {
+        let count = u64::from(MAX_VIRTUAL_PORT - MIN_VIRTUAL_PORT);
+        let offset = getrandom::u64().map_err(io::Error::other)? % count;
+        Ok(Self::with_start(protocol, MIN_VIRTUAL_PORT + offset as u16))
+    }
+
+    fn with_start(protocol: PortProtocol, start: u16) -> Self {
         let mut ports = VecDeque::new();
         for port in MIN_VIRTUAL_PORT..MAX_VIRTUAL_PORT {
             ports.push_back(port);
         }
-        Self { protocol, free_ports: Arc::new(RwLock::new(ports)) }
+        // Start recreated stacks at unpredictable points in the existing port ring.
+        ports.rotate_left(usize::from(start - MIN_VIRTUAL_PORT));
+        Self { protocol, free_ports: Arc::new(Mutex::new(ports)) }
     }
 
-    pub(crate) async fn acquire(&self) -> io::Result<VirtualPort> {
-        self.free_ports
-            .write()
-            .await
+    pub(crate) fn acquire(&self) -> io::Result<VirtualPortLease> {
+        let port = self
+            .free_ports
+            .lock()
+            .map_err(|_| io::Error::other("virtual port pool poisoned"))?
             .pop_front()
             .map(|port| VirtualPort::new(port, self.protocol))
-            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "virtual port pool exhausted"))
-    }
-
-    pub(crate) async fn release(&self, port: VirtualPort) {
-        self.free_ports.write().await.push_back(port.num());
+            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "virtual port pool exhausted"))?;
+        Ok(VirtualPortLease(Arc::new(VirtualPortLeaseInner {
+            port,
+            free_ports: Arc::clone(&self.free_ports),
+            close_requested_at: Mutex::new(None),
+        })))
     }
 }
 
@@ -127,19 +182,37 @@ impl UdpAssociationPool {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn virtual_port_pool_returns_released_ports_to_available_set() {
-        let pool = VirtualPortPool::new(PortProtocol::Tcp);
-        let first = pool.acquire().await.expect("first port");
-        let second = pool.acquire().await.expect("second port");
+    #[test]
+    fn virtual_port_pool_returns_released_ports_to_available_set() {
+        let pool = VirtualPortPool::with_start(PortProtocol::Tcp, MIN_VIRTUAL_PORT);
+        let first = pool.acquire().expect("first port");
+        let second = pool.acquire().expect("second port");
 
-        assert_eq!(first.num(), MIN_VIRTUAL_PORT);
-        assert_eq!(second.num(), MIN_VIRTUAL_PORT + 1);
-        assert_eq!(pool.free_ports.read().await.len(), usize::from(MAX_VIRTUAL_PORT - MIN_VIRTUAL_PORT) - 2);
+        assert_eq!(first.port().num(), MIN_VIRTUAL_PORT);
+        assert_eq!(second.port().num(), MIN_VIRTUAL_PORT + 1);
+        assert_eq!(pool.free_ports.lock().expect("pool").len(), usize::from(MAX_VIRTUAL_PORT - MIN_VIRTUAL_PORT) - 2);
 
-        pool.release(first).await;
+        drop(first);
 
-        assert_eq!(pool.free_ports.read().await.len(), usize::from(MAX_VIRTUAL_PORT - MIN_VIRTUAL_PORT) - 1);
+        assert_eq!(pool.free_ports.lock().expect("pool").len(), usize::from(MAX_VIRTUAL_PORT - MIN_VIRTUAL_PORT) - 1);
+    }
+
+    #[test]
+    fn shifted_tcp_pool_wraps_without_duplicates_or_lost_ports() {
+        let pool = VirtualPortPool::with_start(PortProtocol::Tcp, MAX_VIRTUAL_PORT - 1);
+        let mut leases = vec![pool.acquire().expect("last port")];
+        assert_eq!(leases[0].port().num(), MAX_VIRTUAL_PORT - 1);
+        for expected in MIN_VIRTUAL_PORT..MAX_VIRTUAL_PORT - 1 {
+            let lease = pool.acquire().expect("remaining port");
+            assert_eq!(lease.port().num(), expected);
+            leases.push(lease);
+        }
+        assert_eq!(pool.acquire().expect_err("pool exhausted").kind(), io::ErrorKind::AddrNotAvailable);
+        let retained = leases[0].clone();
+        drop(leases.remove(0));
+        assert!(pool.acquire().is_err(), "a live socket clone must retain the lease");
+        drop(retained);
+        assert_eq!(pool.acquire().expect("last owner released").port().num(), MAX_VIRTUAL_PORT - 1);
     }
 
     #[tokio::test]

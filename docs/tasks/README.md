@@ -126,6 +126,22 @@ Before writers start, record module/path ownership and serialized shared-file la
 
 The `task-contracts` CI job, Lefthook, and `just task-check` all call the same validator. It checks the strict schema, IDs, reference cycles, execution ownership, mdtask warnings, OpenSpec strict validation, verification records, generated skill hashes, board freshness, and deletion history.
 
+## Cross-repository export
+
+`./taskctl export --json` emits the validated native portfolio as fully qualified
+federation nodes. `./taskctl export --resolve-task <TASK-ID> --json` emits exactly
+one active or proven historical node in the same revision-bound envelope.
+Project identity and the exact shared contract live under `tools/tasking/`.
+Export refuses uncommitted tasking, portfolio, OpenSpec or project-contract inputs.
+The native issue schema remains authoritative; unassessed risk is exported as
+null, and a representable `linked_task` becomes a qualified related reference.
+
+Historical nodes are resolved only on demand through the native deletion-history
+validator. The receipt-bound terminal snapshot, committed transition, execution,
+archive and content hashes must validate. Terminal and deletion revision hashes
+are exported with the node; missing, ambiguous or invalid historical proof fails.
+No native issue fields or close receipts are migrated to another project's schema.
+
 ## Tool licenses
 
 OpenSpec 1.9.0 is MIT-licensed. mdtask 0.1.17 uses PolyForm Shield 1.0.0 and is pinned solely as an internal development tool; its noncompete and required notice are recorded in `tools/tasking/THIRD_PARTY_NOTICES.md`. A dependency upgrade or merge that introduces mdtask requires explicit owner/legal approval; do not infer approval from passing CI.

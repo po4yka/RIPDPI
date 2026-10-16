@@ -65,7 +65,7 @@ def terminate_process_group(process: subprocess.Popen) -> None:
 
 
 def run() -> None:
-    env = dict(os.environ, GOMAXPROCS="2", GOTOOLCHAIN=peer_go_toolchain())
+    env = dict(os.environ, GOMAXPROCS="2", GOTOOLCHAIN=peer_go_toolchain(), RIPDPI_AWG_INTEROP_MTU="1420")
     test = ["cargo", "test", "--locked", "-p", "ripdpi-warp-core", "--features", "awg-interop",
             "--test", "standalone_awg_interop", "--jobs", "2"]
     # Compile before starting the peer's finite lifetime.

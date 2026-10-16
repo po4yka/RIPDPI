@@ -141,7 +141,7 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
     ): String =
         """
         {"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
-          "tag":"fleet-awg","private_key_placeholder":true,"address":["10.8.0.2/32"],"jc":$jc,
+          "tag":"fleet-awg","private_key_placeholder":true,"address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,"jc":$jc,
           "peer":{"public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
           "endpoint":"$endpoint","preshared_key":"$psk","allowed_ips":["0.0.0.0/0"]}
         }],"hysteria_extras":{}}}

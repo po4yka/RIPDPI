@@ -821,7 +821,7 @@ class SubscriptionImportConfirmViewModelTest {
                                 "amneziawg": [{
                                   "tag": "bootstrap-awg",
                                   "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-                                  "address": ["10.8.0.2/32"],
+                                  "address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,
                                   "peer": {
                                     "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
                                     "endpoint": "192.0.2.10:51820",

@@ -43,7 +43,7 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "p2-awg-moscow",
-                    "address": ["10.66.66.2/32"],
+                    "address": ["10.66.66.2/32", "fd77::2/128"],
                     "dns": ["1.1.1.1"],
                     "mtu": 1420,
                     "jc": 4, "jmin": 40, "jmax": 70,
@@ -81,7 +81,7 @@ class SingBoxRipdpiExtensionParserTest {
         // private_key_placeholder == true -> empty string.
         assertEquals("", awg.interfacePrivateKey)
 
-        assertEquals(listOf("10.66.66.2/32"), awg.interfaceAddress)
+        assertEquals(listOf("10.66.66.2/32", "fd77::2/128"), awg.interfaceAddress)
         assertEquals(listOf("1.1.1.1"), awg.dns)
         assertEquals(1420, awg.mtu)
 
@@ -115,7 +115,7 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "p2-awg-spb",
-                    "address": ["10.66.66.3/32"],
+                    "address": ["10.66.66.3/32", "fd77::2/128"],
                     "dns": ["8.8.8.8"],
                     "mtu": 1280,
                     "jc": 3, "jmin": 20, "jmax": 50,
@@ -156,7 +156,7 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "broken",
-                    "address": ["10.66.66.4/32"],
+                    "address": ["10.66.66.4/32", "fd77::2/128"],"mtu":1330,
                     "peer": {
                       "endpoint": "10.0.0.3:51820"
                     }
@@ -181,6 +181,8 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "arm64-unsafe",
+                    "address": ["10.66.66.2/32", "fd77::2/128"],
+                    "mtu": 1330,
                     "s3": 1,
                     "s4": 0,
                     "private_key_placeholder": true,
@@ -197,6 +199,9 @@ class SingBoxRipdpiExtensionParserTest {
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
 
         assertTrue(result.amneziaWgProfiles.isEmpty())
+        assertTrue(result.skipped.isEmpty())
+        val safe = success(SingBoxSubscriptionParser.parse(json.replace("\"s3\": 1", "\"s3\": 0"), groupId))
+        assertEquals(1, safe.amneziaWgProfiles.size)
     }
 
     // -------------------------------------------------------------------------
@@ -339,6 +344,8 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "should-be-ignored",
+                    "address": ["10.66.66.2/32", "fd77::2/128"],
+                    "mtu": 1330,
                     "peer": { "public_key": "key==", "endpoint": "1.2.3.4:51820" }
                   }
                 ],
@@ -363,6 +370,14 @@ class SingBoxRipdpiExtensionParserTest {
         // Additive metadata is absent when the block is ignored.
         assertNull(result.topology)
         assertNull(result.tokenExpiresAtEpochMillis)
+        val supported =
+            success(
+                SingBoxSubscriptionParser.parse(
+                    json.replace("\"schema_version\": 99", "\"schema_version\": 1"),
+                    groupId,
+                ),
+            )
+        assertEquals(1, supported.amneziaWgProfiles.size)
     }
 
     // -------------------------------------------------------------------------
@@ -380,6 +395,8 @@ class SingBoxRipdpiExtensionParserTest {
                 "amneziawg": [
                   {
                     "tag": "p2-awg-x",
+                    "address": ["10.66.66.2/32", "fd77::2/128"],
+                    "mtu": 1420,
                     "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100,
                     "h1": 1, "h2": 2, "h3": 3, "h4": 4,
                     "cohort_fingerprint": "sha256:7738f14d7036d6399f102b1f486127244c79606bc47eda66bdd378fd03306214",
