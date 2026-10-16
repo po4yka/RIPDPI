@@ -90,13 +90,13 @@ its earlier observation and acceptance limits remain separate below.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-UI3-LOCALES | UIX-1792145489182075 | Regenerated translation manifest and exact checker; hosted initial export repair | Passed |
-| REQ-UI3-SETTINGS | UIX-1792145489882769 | Four ordered groups, actual values, preserved repairs and large-font reachability | Local and API37 passed |
+| REQ-UI3-SETTINGS | UIX-1792145489882769 | Four ordered groups, actual values, preserved repairs and large-font reachability | Passed |
 | REQ-UI3-SIMPLE | UIX-1792145490486250 | Actual saved values and before/after/cancel/failure tests | Passed |
-| REQ-UI3-BACKUP | UIX-1792145490486250 | Simple import/export access, reset hidden, real toolbar Back and consumed safe insets | Local, API37 and API30 passed |
+| REQ-UI3-BACKUP | UIX-1792145490486250 | Simple import/export access, reset hidden, real toolbar Back and consumed safe insets | Passed |
 | REQ-UI3-NAVIGATION | UIX-1792145491122016 | Full labels, roles, focus, callbacks and 48dp targets; real Arabic 98dp | Passed |
 | REQ-UI3-NEUTRAL | UIX-1792145491122016 | Information symbol for neutral status; warning and quality regressions | Passed |
 | REQ-UI3-LOCALES | UIX-1792145491791288 | Ten locales, 5393 synchronized keys, lint and approved screenshot verification | Passed |
-| REQ-UI3-ACCESS | UIX-1792145492535364 | Combined checks, exact APKs, device matrix, independent review and final CI | Combined local, device and hosted CI passed |
+| REQ-UI3-ACCESS | UIX-1792145492535364 | Combined checks, exact APKs, device matrix, independent review and final CI | Passed |
 
 ## Pre-rebase source and artifacts
 

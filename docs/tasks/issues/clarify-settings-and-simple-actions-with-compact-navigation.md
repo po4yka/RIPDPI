@@ -2,7 +2,7 @@
 id: UIX-1792145277214284
 title: Clarify settings and Simple actions with compact navigation
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: UI stage three team
@@ -13,6 +13,9 @@ openspec_change: ui-stage-three
 created: 2026-10-16
 updated: 2026-10-16
 status_detail: "Combined d9 accepted: local gates, leased API30/37 acceptance and exact main CI passed."
+closed_at: "2026-10-16T15:06:04Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source d9f636d2f: main CI38912696657 success with 47 jobs; 5569 unit and 578 executed screenshot tests passed; 16 leased API30/API37 groups accepted; all six auxiliary workflows passed."
 ---
 
 ## Goal

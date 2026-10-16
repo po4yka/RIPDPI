@@ -1,0 +1,11 @@
+{
+  "change": "ui-stage-three",
+  "evidence_summary": "Source d9f636d2f: main CI38912696657 success with 47 jobs; 5569 unit and 578 executed screenshot tests passed; 16 leased API30/API37 groups accepted; all six auxiliary workflows passed.",
+  "execution_sha256": "03190ea8e9832701e7b009bc381bec2fac2a5661f6600663dfa3ffda2cf472e6",
+  "issue_sha256": "1098e816f93486c7e1fd1fa4cef940c0aaca0fc33b3b2cb9900de31776bab51c",
+  "outcome": "done",
+  "prepared_at": "2026-10-16T15:06:04Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1792145277214284"
+}
