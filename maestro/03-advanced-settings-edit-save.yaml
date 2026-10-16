@@ -11,6 +11,18 @@ appId: com.poyka.ripdpi
     id: "settings-screen"
 - scrollUntilVisible:
     element:
+      id: "settings-advanced-connectivity"
+    direction: DOWN
+    centerElement: true
+- runFlow:
+    when:
+      notVisible:
+        id: "settings-advanced-settings"
+    commands:
+      - tapOn:
+          id: "settings-advanced-connectivity"
+- scrollUntilVisible:
+    element:
       id: "settings-advanced-settings"
     direction: DOWN
     centerElement: true
@@ -27,6 +39,14 @@ appId: com.poyka.ripdpi
     id: "advanced-input-diagnostics-history-retention-days"
 - eraseText
 - inputText: "21"
+- hideKeyboard
+- assertVisible:
+    id: "advanced_settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "advanced-save-diagnostics-history-retention-days"
+    direction: DOWN
+    centerElement: true
 - tapOn:
     id: "advanced-save-diagnostics-history-retention-days"
 - assertVisible:

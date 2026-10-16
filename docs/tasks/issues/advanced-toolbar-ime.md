@@ -42,7 +42,7 @@ Storage, service and navigation contracts stay unchanged.
 ## Ownership
 
 - Integration owner: AndroidManifest.xml, AdvancedSettingsContent.kt,
-  RipDpiScaffolds.kt, regression tests,
+  RipDpiScaffolds.kt, maestro/03-advanced-settings-edit-save.yaml, regression tests,
   task records, evidence, combined checks and Git integration. Owns all production
   edits. Keep the change on Advanced unless runtime evidence requires more.
 - Test worker, isolated RIPDPI-advanced-ime-test: only new
