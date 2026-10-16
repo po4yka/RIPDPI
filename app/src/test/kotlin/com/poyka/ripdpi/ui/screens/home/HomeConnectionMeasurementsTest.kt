@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementFreshness
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -101,6 +102,29 @@ class HomeConnectionMeasurementsTest {
         assertEquals(
             R.string.home_quality_partial,
             resolveHomeMeasurementSummary(quality.copy(sampleCount = 11L), RuntimeMeasurementFreshness.Current).body,
+        )
+    }
+
+    @Test
+    fun `waiting partial and historical measurements keep neutral treatment`() {
+        val measured = ConnectionQualitySnapshot(sampleCount = 12L, lossPct = 100f)
+        listOf(
+            resolveHomeMeasurementSummary(null, null),
+            resolveHomeMeasurementSummary(
+                ConnectionQualitySnapshot(sampleCount = 1L),
+                RuntimeMeasurementFreshness.Current,
+            ),
+            resolveHomeMeasurementSummary(measured, RuntimeMeasurementFreshness.Stopped),
+            resolveHomeMeasurementSummary(measured, RuntimeMeasurementFreshness.Stale),
+            resolveHomeMeasurementSummary(measured, RuntimeMeasurementFreshness.Unknown),
+        ).forEach { assertEquals(RipDpiDegradationTone.Nominal, it.tone) }
+        assertEquals(
+            RipDpiDegradationTone.Critical,
+            resolveHomeMeasurementSummary(measured, RuntimeMeasurementFreshness.Current).tone,
+        )
+        assertEquals(
+            RipDpiDegradationTone.Warning,
+            resolveHomeMeasurementSummary(measured.copy(lossPct = 3f), RuntimeMeasurementFreshness.Current).tone,
         )
     }
 

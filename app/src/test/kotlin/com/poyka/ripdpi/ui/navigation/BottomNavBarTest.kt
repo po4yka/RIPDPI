@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -128,6 +129,9 @@ class BottomNavBarTest {
                     assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
                     assertTrue((0 until layout.lineCount).all { line -> layout.getLineLeft(line) >= -1f })
                     assertTrue(
+                        "$label layout=${layout.size} constraints=${layout.layoutInput.constraints} " +
+                            "lines=" +
+                            (0 until layout.lineCount).map { "${layout.getLineLeft(it)}..${layout.getLineRight(it)}" },
                         (0 until layout.lineCount).all { line ->
                             layout.getLineRight(line) <= layout.size.width + 1f
                         },
@@ -137,6 +141,77 @@ class BottomNavBarTest {
 
     @Test
     fun narrowLargeFontNavigationKeepsEveryLabelAndCallback() = assertResponsiveNavigation()
+
+    @Test
+    fun maximumFontFallbackKeepsCompactTargetsAndFullLabelsInBothDirections() {
+        val width = mutableStateOf(360)
+        val direction = mutableStateOf(LayoutDirection.Ltr)
+        var selected by mutableStateOf<Route>(Route.Home)
+        val navigated = mutableListOf<Route>()
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, 2f),
+                LocalLayoutDirection provides direction.value,
+            ) {
+                RipDpiTheme {
+                    Box(Modifier.requiredWidth(width.value.dp).height(900.dp)) {
+                        BottomNavBar(selected, {
+                            selected = it
+                            navigated += it
+                        })
+                    }
+                }
+            }
+        }
+        LayoutDirection.entries.forEach { layoutDirection ->
+            composeRule.runOnIdle { direction.value = layoutDirection }
+            composeRule.waitForIdle()
+            val bar = composeRule.onNodeWithTag(RipDpiTestTags.BottomNavBar).fetchSemanticsNode().boundsInRoot
+            assertTrue("360dp/font2 navigation height is ${bar.height}", bar.height <= 112f)
+            val targets =
+                Route.topLevel.map { route ->
+                    val target = composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                    target
+                        .assertIsDisplayed()
+                        .assertHasClickAction()
+                        .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+                        .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.RequestFocus))
+                    val bounds = target.fetchSemanticsNode().boundsInRoot
+                    assertTrue("$route has a 48dp target", bounds.height >= 48f && bounds.width >= 48f)
+                    bounds
+                }
+            assertEquals(targets[0].top, targets[1].top, 1f)
+            assertTrue(targets[2].top >= targets[0].bottom - 1f)
+            assertEquals(targets[2].top, targets[3].top, 1f)
+            assertEquals(layoutDirection == LayoutDirection.Ltr, targets[0].left < targets[1].left)
+            Route.topLevel.forEach { route ->
+                assertVisibleUnclippedLabel(RuntimeEnvironment.getApplication().getString(route.titleRes))
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                    .performClick()
+                    .assertIsSelected()
+                Route.topLevel.filter { it != route }.forEach {
+                    composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(it)).assertIsNotSelected()
+                }
+                assertEquals(route, navigated.last())
+            }
+        }
+        composeRule.runOnIdle { width.value = 96 }
+        composeRule.waitForIdle()
+        val narrowLayouts =
+            Route.topLevel.map { route ->
+                val layouts = mutableListOf<TextLayoutResult>()
+                composeRule
+                    .onNodeWithText(
+                        RuntimeEnvironment.getApplication().getString(route.titleRes),
+                        useUnmergedTree = true,
+                    ).assertIsDisplayed()
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                layouts.single().also { assertFalse("Extreme narrow label remains complete", it.hasVisualOverflow) }
+            }
+        assertTrue("Extreme narrow labels can wrap", narrowLayouts.any { it.lineCount > 1 })
+        assertEquals(8, navigated.size)
+    }
 
     @Test
     @Config(qualifiers = "ru-rRU-w420dp-h1200dp")
@@ -184,7 +259,9 @@ class BottomNavBarTest {
                     .assertIsDisplayed()
                     .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
                 assertFalse(
-                    "$screenWidth/$fontScale/$layoutDirection/$label",
+                    "$screenWidth/$fontScale/$layoutDirection/$label layout=${layouts.single().size} " +
+                        "constraints=${layouts.single().layoutInput.constraints} " +
+                        "lines=${layouts.single().lineCount} height=${layouts.single().multiParagraph.height}",
                     layouts.single().hasVisualOverflow,
                 )
                 assertEquals(1, layouts.single().lineCount)
