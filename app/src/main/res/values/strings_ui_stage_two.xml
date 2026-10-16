@@ -24,4 +24,8 @@
     <string name="diagnostics_outcome_coverage_format">%1$d of %2$d stages completed; %3$d failed</string>
     <string name="diagnostics_outcome_historical">Saved evidence; current network match unknown</string>
     <string name="logs_actions_title">Log actions</string>
+    <string name="config_scope_device">Device apps</string>
+    <string name="config_scope_proxy">Proxy-configured apps</string>
+    <string name="config_section_bypass_settings">Bypass settings</string>
+    <string name="config_section_server_settings">Server settings</string>
 </resources>

@@ -24,4 +24,8 @@
     <string name="diagnostics_outcome_coverage_format">%2$d में से %1$d चरण पूरे हुए; %3$d विफल हुए</string>
     <string name="diagnostics_outcome_historical">सहेजे गए साक्ष्य; मौजूदा नेटवर्क से मिलान अज्ञात है</string>
     <string name="logs_actions_title">लॉग की कार्रवाइयाँ</string>
+    <string name="config_scope_device">डिवाइस के ऐप</string>
+    <string name="config_scope_proxy">प्रॉक्सी के लिए कॉन्फ़िगर किए गए ऐप</string>
+    <string name="config_section_bypass_settings">बायपास सेटिंग</string>
+    <string name="config_section_server_settings">सर्वर सेटिंग</string>
 </resources>

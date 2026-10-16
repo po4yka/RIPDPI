@@ -385,6 +385,7 @@ internal object RipDpiTestTags {
     const val LogsActions = "logs-actions"
     const val LogsFilters = "logs-filters"
     const val LogsFiltersSheet = "logs-filters-sheet"
+    const val LogsSheetDone = "logs-sheet-done"
     const val LogsActiveSessionOnly = "logs-active-session-only"
     const val LogsAutoScroll = "logs-auto-scroll"
     const val LogsSave = "logs-save"

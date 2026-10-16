@@ -24,4 +24,8 @@
     <string name="diagnostics_outcome_coverage_format">%1$d de %2$d etapas concluídas; %3$d falharam</string>
     <string name="diagnostics_outcome_historical">Evidências salvas; correspondência com a rede atual desconhecida</string>
     <string name="logs_actions_title">Ações do registro</string>
+    <string name="config_scope_device">Apps do dispositivo</string>
+    <string name="config_scope_proxy">Apps configurados para proxy</string>
+    <string name="config_section_bypass_settings">Configurações de contorno</string>
+    <string name="config_section_server_settings">Configurações do servidor</string>
 </resources>
