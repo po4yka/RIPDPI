@@ -1,12 +1,18 @@
 package com.poyka.ripdpi.ui.components.indicators
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.progressSemantics
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -21,12 +27,13 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val ProgressPercentFactor = 100
 private val ProgressBarHeight = 4.dp
+private const val StaticIndeterminateWidthFraction = 0.35f
 
 /**
- * Branded determinate linear progress. Wraps Material3
+ * Branded linear progress. Wraps Material3
  * [LinearProgressIndicator] using `RipDpiThemeTokens.colors.foreground`
  * for the fill and `colors.muted` for the track. Pass `progress = null`
- * for an indeterminate animation.
+ * for indeterminate progress. Reduced motion keeps a static work marker.
  *
  * Matches `components-progress-bar.html`.
  */
@@ -65,13 +72,22 @@ fun RipDpiProgressBar(
             }
     if (progress == null) {
         if (LocalInspectionMode.current || !RipDpiThemeTokens.motion.allowsInfiniteMotion) {
-            // Indeterminate means an endless animation; under reduced motion show the bare track.
-            LinearProgressIndicator(
-                progress = { 0f },
-                modifier = baseModifier,
-                color = foreground,
-                trackColor = track,
-            )
+            // A centered marker shows ongoing work without implying a measured percentage.
+            Box(
+                modifier =
+                    baseModifier
+                        .progressSemantics()
+                        .clip(RipDpiThemeTokens.shapes.full)
+                        .background(track),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(StaticIndeterminateWidthFraction)
+                        .fillMaxHeight()
+                        .background(foreground),
+                )
+            }
         } else {
             LinearProgressIndicator(
                 modifier = baseModifier,
