@@ -13,7 +13,7 @@ design docs, translation manifest and planning. Preview HTML is read-only.
 - [x] UIX-1792145490486250 Explain Simple effects and expose existing configuration backup and restore #feature !high @item:UIX-1792145277214284
 - [x] UIX-1792145491122016 Compact large-font navigation and separate neutral measurement treatment #feature !high @item:UIX-1792145277214284
 - [x] UIX-1792145491791288 Complete locales automation and affected screenshot verification #feature !high @item:UIX-1792145277214284
-- [ ] UIX-1792145492535364 Validate combined source on emulator and record review CI and integration evidence #feature !high @item:UIX-1792145277214284
+- [x] UIX-1792145492535364 Validate combined source on emulator and record review CI and integration evidence #feature !high @item:UIX-1792145277214284
 
 
 ## Verification

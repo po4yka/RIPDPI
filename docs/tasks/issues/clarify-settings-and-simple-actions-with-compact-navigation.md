@@ -2,7 +2,7 @@
 id: UIX-1792145277214284
 title: Clarify settings and Simple actions with compact navigation
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI stage three team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: ui-stage-three
 created: 2026-10-16
 updated: 2026-10-16
+status_detail: "Combined d9 accepted: local gates, leased API30/37 acceptance and exact main CI passed."
 ---
 
 ## Goal
