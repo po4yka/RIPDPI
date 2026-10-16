@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
@@ -34,7 +36,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -276,7 +277,14 @@ private fun LogsStreamSection(
         }
     }
 
-    Column(modifier = modifier) {
+    Column(
+        modifier =
+            if (filteredLogs.isEmpty()) {
+                modifier.verticalScroll(rememberScrollState())
+            } else {
+                modifier
+            },
+    ) {
         if (filteredLogs.isEmpty()) {
             LogsEmptyStateCard(
                 hasBufferedLogs = uiState.logs.isNotEmpty(),
@@ -613,8 +621,6 @@ private fun LogsEmptyStateCard(
                 },
             ),
         modifier = modifier,
-        bodyMaxLines = 3,
-        bodyOverflow = TextOverflow.Ellipsis,
     )
 }
 

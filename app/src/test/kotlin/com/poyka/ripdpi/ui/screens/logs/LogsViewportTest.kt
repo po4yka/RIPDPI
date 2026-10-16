@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.logs
 
+import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -9,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasScrollToIndexAction
@@ -19,8 +21,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LogEntry
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
@@ -29,6 +34,8 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -73,6 +80,39 @@ class LogsViewportTest {
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.logsEntry(entry.id)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `empty guidance stays complete at maximum font scale and scrolls in a short viewport`() {
+        val height = mutableStateOf(640.dp)
+        val body = ApplicationProvider.getApplicationContext<Context>().getString(R.string.logs_empty_body)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                RipDpiTheme {
+                    Box(Modifier.width(360.dp).height(height.value)) {
+                        TestLogsScreen(LogsUiState())
+                    }
+                }
+            }
+        }
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNodeWithText(body, useUnmergedTree = true)
+            .assertIsDisplayed()
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val layout = layouts.single()
+        assertFalse("Empty-state guidance must not overflow", layout.hasVisualOverflow)
+        assertEquals(body.length, layout.getLineEnd(layout.lineCount - 1))
+        assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
+
+        composeRule.runOnIdle { height.value = 300.dp }
+        val scroll = composeRule.onNode(hasScrollAction())
+        val range = scroll.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
+        assertTrue("Guidance must scroll when the viewport is too short", range.maxValue() > 0f)
+        scroll.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 10_000f) }
+        composeRule.runOnIdle {
+            assertEquals("The end of the guidance must be reachable", range.maxValue(), range.value(), 0.5f)
+        }
     }
 
     @Test
