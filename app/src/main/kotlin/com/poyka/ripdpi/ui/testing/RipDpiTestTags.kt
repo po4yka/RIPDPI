@@ -267,6 +267,7 @@ internal object RipDpiTestTags {
     const val AboutReadme = "about-readme"
 
     const val OnboardingSkip = "onboarding-skip"
+    const val OnboardingBack = "onboarding-back"
     const val OnboardingSkipTest = "onboarding-skip-test"
     const val OnboardingSkipConfirmDialog = "onboarding-skip-confirm-dialog"
     const val OnboardingSkipConfirmContinue = "onboarding-skip-confirm-continue"

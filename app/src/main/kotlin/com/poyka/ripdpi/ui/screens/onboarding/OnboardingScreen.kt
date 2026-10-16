@@ -7,6 +7,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -253,12 +254,16 @@ internal fun OnboardingScreen(
     val validationState = uiState.validationState
     val validationBusy = validationState.isBusy
     val pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size)
-    val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
-
-    // Top action is reserved for the intro only ("Skip setup"). Inner steps rely on safe defaults +
-    // the bottom CTA; the connection test keeps "Skip test" as a bottom secondary action instead.
+    // The intro offers Skip; inner steps provide an explicit path to the previous selection.
     val skipVisible = settledPage == 0
     val showIdleSkipTest = isLastPage && validationState is OnboardingValidationState.Idle
+
+    BackHandler(enabled = settledPage > 0) {
+        // Keep the validation screen in place until its permission or connection test completes.
+        if (!validationBusy) {
+            actions.onPageChanged(settledPage - 1)
+        }
+    }
 
     Box(
         modifier =
@@ -277,11 +282,12 @@ internal fun OnboardingScreen(
                     .displayCutoutPadding()
                     .padding(horizontal = layout.horizontalPadding),
         ) {
-            // 1) TOP BAR — status inset; intro-only "Skip setup"
+            // 1) TOP BAR — status inset; intro Skip or inner-step Back.
             OnboardingTopBar(
                 skipVisible = skipVisible,
-                collapseEmptySpace = useAccessibilityLayout && !skipVisible,
+                backEnabled = !validationBusy,
                 onSkip = actions.onSkip,
+                onBack = { actions.onPageChanged(settledPage - 1) },
             )
 
             // 2) CONTENT — weighted; each page renders its own title at the top
@@ -355,12 +361,13 @@ private fun OnboardingPagerContent(
     }
 }
 
-/** Status-inset top bar. The skip action ("Skip setup") is shown on the intro page only. */
+/** Status-inset top bar with Skip on the intro and Back on later steps. */
 @Composable
 private fun OnboardingTopBar(
     skipVisible: Boolean,
-    collapseEmptySpace: Boolean,
+    backEnabled: Boolean,
     onSkip: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -371,8 +378,8 @@ private fun OnboardingTopBar(
             modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .height(if (collapseEmptySpace) 0.dp else introLayout.topActionRowHeight),
-        horizontalArrangement = Arrangement.End,
+                .height(introLayout.topActionRowHeight),
+        horizontalArrangement = if (skipVisible) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (skipVisible) {
@@ -382,6 +389,16 @@ private fun OnboardingTopBar(
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingSkip),
                 textStyle = type.introAction,
                 color = colors.mutedForeground,
+                minHeight = introLayout.topActionRowHeight,
+            )
+        } else {
+            RipDpiTextAction(
+                text = stringResource(R.string.navigation_back),
+                onClick = onBack,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingBack),
+                textStyle = type.introAction,
+                color = colors.mutedForeground,
+                enabled = backEnabled,
                 minHeight = introLayout.topActionRowHeight,
             )
         }

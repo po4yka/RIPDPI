@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -39,6 +44,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -62,6 +69,7 @@ class OnboardingScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).assertExists()
         composeRule.onNodeWithText("Skip setup").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingContinue).assertExists()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingBack).assertCountEquals(0)
     }
 
     @Test
@@ -85,6 +93,88 @@ class OnboardingScreenTest {
         // Setup steps rely on safe defaults + the bottom CTA; no top "Use recommended"/skip.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
         composeRule.onAllNodesWithText("Use recommended").assertCountEquals(0)
+    }
+
+    @Test
+    fun `second step exposes back to the intro`() {
+        var selectedPage = -1
+        composeRule.setContent {
+            RipDpiTheme {
+                OnboardingScreen(
+                    uiState = OnboardingUiState(currentPage = 1),
+                    actions = OnboardingScreenActions(onPageChanged = { selectedPage = it }),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Navigate back").performClick()
+
+        assertEquals(0, selectedPage)
+    }
+
+    @Test
+    fun `system back returns to the previous step and keeps selections`() {
+        var uiState by mutableStateOf(
+            OnboardingUiState(currentPage = 2, selectedPersona = "advanced", selectedMode = Mode.Proxy),
+        )
+        lateinit var backDispatcher: OnBackPressedDispatcher
+        composeRule.setContent {
+            backDispatcher = checkNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
+            RipDpiTheme {
+                OnboardingScreen(
+                    uiState = uiState,
+                    actions =
+                        OnboardingScreenActions(
+                            onPageChanged = { uiState = uiState.copy(currentPage = it) },
+                            onContinue = { uiState = uiState.copy(currentPage = uiState.currentPage + 1) },
+                        ),
+                )
+            }
+        }
+
+        composeRule.runOnIdle { backDispatcher.onBackPressed() }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingPersonaAdvanced).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingContinue).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingModeProxy).assertIsSelected()
+    }
+
+    @Test
+    fun `busy validation disables visible back and consumes system back`() {
+        var validationState by mutableStateOf<OnboardingValidationState>(
+            OnboardingValidationState.RequestingNotifications,
+        )
+        var navigatedBack = false
+        var exitedOnboarding = false
+        lateinit var backDispatcher: OnBackPressedDispatcher
+        composeRule.setContent {
+            backDispatcher = checkNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
+            BackHandler { exitedOnboarding = true }
+            RipDpiTheme {
+                OnboardingScreen(
+                    uiState =
+                        OnboardingUiState(
+                            currentPage = OnboardingPages.lastIndex,
+                            validationState = validationState,
+                        ),
+                    actions = OnboardingScreenActions(onPageChanged = { navigatedBack = true }),
+                )
+            }
+        }
+
+        listOf(
+            OnboardingValidationState.RequestingNotifications,
+            OnboardingValidationState.RequestingVpnConsent,
+            OnboardingValidationState.StartingMode(Mode.VPN),
+            OnboardingValidationState.CheckingDns(Mode.VPN),
+            OnboardingValidationState.RunningTrafficCheck(Mode.VPN),
+        ).forEach { busyState ->
+            composeRule.runOnIdle { validationState = busyState }
+            composeRule.onNodeWithTag(RipDpiTestTags.OnboardingBack).assertIsNotEnabled()
+            composeRule.runOnIdle { backDispatcher.onBackPressed() }
+            assertFalse(navigatedBack)
+            assertFalse(exitedOnboarding)
+        }
     }
 
     @Test
