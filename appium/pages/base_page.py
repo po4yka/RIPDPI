@@ -208,9 +208,13 @@ class BasePage:
         return value == "true"
 
     def get_text(self, tag: str, timeout: int = 10) -> str:
-        """Read the text value of an element."""
+        """Read element text, including labels in an unmerged container."""
         el = self.wait_for(tag, timeout=timeout)
-        return el.text or el.get_attribute("text") or ""
+        own_text = el.text or el.get_attribute("text")
+        if own_text:
+            return own_text
+        labels = el.find_elements(AppiumBy.XPATH, './/*[@text != ""]')
+        return " ".join(label.get_attribute("text") for label in labels)
 
     def scroll_to(self, tag: str, max_swipes: int = 5) -> WebElement:
         """Swipe down until the element is visible, then return it."""

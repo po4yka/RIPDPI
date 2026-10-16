@@ -34,8 +34,6 @@ import com.poyka.ripdpi.proxyimport.ProxyImportRequest
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
-import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
@@ -56,6 +54,7 @@ enum class ConfigEditorTarget {
     Resolver,
 }
 
+@androidx.compose.runtime.Stable
 data class ConfigProfileActions(
     val share: (String) -> Unit = {},
     val select: (String) -> Unit = {},
@@ -182,11 +181,10 @@ fun ConfigScreen(
     runtimeCallbacks: ConfigRuntimeCallbacks = ConfigRuntimeCallbacks(),
 ) {
     val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val selectedPreset = uiState.presets.firstOrNull { it.isSelected } ?: uiState.presets.last()
     val desyncSummary = uiState.draft.chainSummary
     var selectedModeSectionKey by rememberSaveable { mutableStateOf(initialModeSection.stableKey) }
     val selectedModeSection = ConfigModeSection.fromStableKey(selectedModeSectionKey)
+    var showProfileChoices by rememberSaveable { mutableStateOf(false) }
 
     RipDpiContentScreenScaffold(
         modifier =
@@ -198,36 +196,41 @@ fun ConfigScreen(
         contentWidth = RipDpiScaffoldWidth.Content,
         actions = topBarActions,
     ) {
-        if (uiState.draft.useCommandLineSettings) {
-            WarningBanner(
-                title = stringResource(R.string.config_cli_banner_title),
-                message = stringResource(R.string.config_cli_banner_body),
-                tone = WarningBannerTone.Restricted,
-            )
+        ConfigSavedConnectionCard(
+            uiState = uiState,
+            profilesExpanded = showProfileChoices,
+            onChangeProfile = { showProfileChoices = !showProfileChoices },
+        )
+        ConfigPrimaryRuntimeAction(
+            uiState = uiState,
+            onRuntimeModeToggle = onRuntimeModeToggle,
+            callbacks = runtimeCallbacks,
+        )
+        if (showProfileChoices) {
+            Column(
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigProfileChoices),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+            ) {
+                ConfigPresetList(uiState, onPresetSelected)
+                ConfigRelayProfileChoices(uiState, profileActions, onPasteServerLink)
+            }
         }
 
         RipDpiCard {
             Text(
-                text = stringResource(titleResForPreset(selectedPreset.kind)),
-                style = type.screenTitle,
+                text = stringResource(R.string.config_connection_settings),
+                style = RipDpiThemeTokens.type.sectionTitle,
                 color = colors.foreground,
             )
-            Text(
-                text = stringResource(descriptionResForPreset(selectedPreset.kind)),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
-
-            ConfigModeSectionSwitcher(
-                selectedSection = selectedModeSection,
-                onSectionSelected = { section -> selectedModeSectionKey = section.stableKey },
-            )
-
             ConfigModeChips(
                 selectedMode = uiState.activeMode,
                 onModeSelected = onModeSelected,
                 label = stringResource(R.string.config_traffic_mode_title),
                 groupTestTag = RipDpiTestTags.ConfigTrafficEndpointSelection,
+            )
+            ConfigModeSectionSwitcher(
+                selectedSection = selectedModeSection,
+                onSectionSelected = { section -> selectedModeSectionKey = section.stableKey },
             )
         }
 
@@ -246,7 +249,7 @@ fun ConfigScreen(
             profileActions = profileActions,
         )
 
-        ConfigPresetList(uiState, onPresetSelected)
+        ConfigConnectionGuidance(uiState, selectedModeSection)
     }
 }
 
@@ -351,6 +354,7 @@ private fun ConfigSelectedModeSection(
         ConfigModeSection.LocalBypass -> {
             LocalBypassConfigScreen(
                 uiState = uiState,
+                settingsOnly = true,
                 onRequestVpnPermission = onRequestVpnPermission,
                 onDismissRuntimeError = onDismissRuntimeError,
                 desyncSummary = desyncSummary,
@@ -365,6 +369,7 @@ private fun ConfigSelectedModeSection(
         ConfigModeSection.Vpn -> {
             VpnConfigScreen(
                 uiState = uiState,
+                settingsOnly = true,
                 onRequestVpnPermission = onRequestVpnPermission,
                 onDismissRuntimeError = onDismissRuntimeError,
                 onRuntimeModeToggle = onRuntimeModeToggle,
@@ -413,14 +418,14 @@ internal fun ConfigModeChips(
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiChip(
-                text = stringResource(modeLabelRes(Mode.VPN)),
+                text = stringResource(R.string.config_scope_device),
                 selected = selectedMode == Mode.VPN,
                 onClick = { onModeSelected(Mode.VPN) },
                 role = Role.RadioButton,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.VPN.name)),
             )
             RipDpiChip(
-                text = stringResource(modeLabelRes(Mode.Proxy)),
+                text = stringResource(R.string.config_scope_proxy),
                 selected = selectedMode == Mode.Proxy,
                 onClick = { onModeSelected(Mode.Proxy) },
                 role = Role.RadioButton,
@@ -468,8 +473,8 @@ enum class ConfigModeSection(
 
 private fun configModeSectionTitleRes(section: ConfigModeSection): Int =
     when (section) {
-        ConfigModeSection.LocalBypass -> R.string.home_mode_local_dpi_bypass
-        ConfigModeSection.Vpn -> R.string.home_mode_remote_vpn
+        ConfigModeSection.LocalBypass -> R.string.config_section_bypass_settings
+        ConfigModeSection.Vpn -> R.string.config_section_server_settings
     }
 
 @Preview(showBackground = true)

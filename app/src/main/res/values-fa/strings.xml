@@ -2082,7 +2082,7 @@ fakeddisorder endhost</string>
     <string name="logs_auto_scroll_body">آخرین ورودی منطبق را در حالی که داده‌های تشخیصی جدید می‌رسند، در دید نگه دارید.</string>
     <string name="logs_buffer_value">%1$d / %2$d ورودی</string>
     <string name="logs_empty_title">هنوز لاگی وجود ندارد</string>
-    <string name="logs_filtered_empty_body">برای بازرسی بخش دیگری از بافر محلی، تراشه‌های نوع بالا را تنظیم کنید.</string>
+    <string name="logs_filtered_empty_body">برای بررسی رویدادهای دیگر در بافر محلی، فیلترها را باز کنید.</string>
     <string name="logs_filters_section">فیلترها</string>
     <string name="logs_latest_none">بیکار</string>
     <string name="logs_overview_section">تشخیص</string>

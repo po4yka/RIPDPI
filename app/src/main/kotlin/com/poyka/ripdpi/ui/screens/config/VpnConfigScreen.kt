@@ -66,6 +66,7 @@ internal fun VpnConfigScreen(
     modifier: Modifier = Modifier,
     onRequestVpnPermission: () -> Unit = {},
     onDismissRuntimeError: () -> Unit = {},
+    settingsOnly: Boolean = false,
 ) {
     TrackRecomposition("VpnConfigScreen")
 
@@ -76,6 +77,10 @@ internal fun VpnConfigScreen(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         SettingsCategoryHeader(title = stringResource(R.string.home_mode_remote_vpn))
+        if (settingsOnly) {
+            VpnAdvancedRows(uiState, onOpenRelaySettings, onOpenDnsSettings, showGuidance = false)
+            return@Column
+        }
         VpnSimpleCard(
             uiState = uiState,
             onRequestVpnPermission = onRequestVpnPermission,
@@ -155,6 +160,37 @@ private fun VpnSimpleCard(
             onProfileSelect = onProfileSelect,
             onProfileEdit = onProfileEdit,
         )
+    }
+}
+
+@Composable
+internal fun ConfigRelayProfileChoices(
+    uiState: ConfigUiState,
+    actions: ConfigProfileActions,
+    onPasteServerLink: () -> Unit,
+) {
+    RipDpiCard {
+        Text(
+            text = stringResource(R.string.config_vpn_profiles_title),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        VpnAddProfileAction(actions.create)
+        RipDpiButton(
+            text = stringResource(R.string.config_vpn_add_server_paste),
+            onClick = onPasteServerLink,
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnAddServerPaste),
+            variant = RipDpiButtonVariant.Outline,
+            leadingIcon = RipDpiIcons.Copy,
+        )
+        RipDpiButton(
+            text = stringResource(R.string.config_vpn_add_server_scan),
+            onClick = actions.scanServer,
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnAddServerScan),
+            variant = RipDpiButtonVariant.Outline,
+            leadingIcon = RipDpiIcons.QrCodeScanner,
+        )
+        VpnProfileList(uiState, actions.share, actions.select, actions.edit)
     }
 }
 
@@ -377,13 +413,16 @@ private fun VpnAdvancedRows(
     uiState: ConfigUiState,
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
+    showGuidance: Boolean = true,
 ) {
     RipDpiCard {
-        Text(
-            text = stringResource(R.string.config_vpn_section_body),
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+        if (showGuidance) {
+            Text(
+                text = stringResource(R.string.config_vpn_section_body),
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
         VpnRelayRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
         VpnProtocolRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
         VpnCredentialsRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)

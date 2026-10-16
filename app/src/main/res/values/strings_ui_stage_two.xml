@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">Saved profile</string>
+    <string name="config_profile_change">Change profile</string>
+    <string name="config_profile_choices">Profile choices</string>
+    <string name="config_connection_scope_vpn">Traffic: apps selected for the local VPN</string>
+    <string name="config_connection_scope_proxy">Traffic: apps configured to use this proxy</string>
+    <string name="config_connection_path_direct">Path: direct connection</string>
+    <string name="config_connection_path_relay">Path: server profile %1$s</string>
+    <string name="config_connection_start">Connect</string>
+    <string name="config_connection_stop">Disconnect</string>
+    <string name="config_connection_settings">Connection settings</string>
+    <string name="config_connection_details">Configuration details</string>
+    <string name="diagnostics_technical_details">Technical details</string>
+    <string name="diagnostics_outcome_source_audit">Network audit</string>
+    <string name="diagnostics_outcome_source_session">Saved scan</string>
+    <string name="diagnostics_outcome_source_active">Check in progress</string>
+    <string name="diagnostics_outcome_source_empty">No completed check</string>
+    <string name="diagnostics_outcome_time_format">Measured: %1$s</string>
+    <string name="diagnostics_outcome_time_unknown">Measurement time unknown</string>
+    <string name="diagnostics_outcome_confidence_unknown">Confidence unknown</string>
+    <string name="diagnostics_outcome_coverage_unknown">Coverage unknown</string>
+    <string name="diagnostics_outcome_stale">Saved result from a different network</string>
+    <string name="diagnostics_outcome_coverage_format">%1$d of %2$d stages completed; %3$d failed</string>
+    <string name="diagnostics_outcome_historical">Saved evidence; current network match unknown</string>
+    <string name="logs_actions_title">Log actions</string>
+    <string name="config_scope_device">Device apps</string>
+    <string name="config_scope_proxy">Proxy-configured apps</string>
+    <string name="config_section_bypass_settings">Bypass settings</string>
+    <string name="config_section_server_settings">Server settings</string>
+</resources>

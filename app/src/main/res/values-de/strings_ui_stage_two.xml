@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">Gespeichertes Profil</string>
+    <string name="config_profile_change">Profil ändern</string>
+    <string name="config_profile_choices">Profilauswahl</string>
+    <string name="config_connection_scope_vpn">Datenverkehr: für das lokale VPN ausgewählte Apps</string>
+    <string name="config_connection_scope_proxy">Datenverkehr: Apps, die diesen Proxy verwenden</string>
+    <string name="config_connection_path_direct">Pfad: direkte Verbindung</string>
+    <string name="config_connection_path_relay">Pfad: Serverprofil %1$s</string>
+    <string name="config_connection_start">Verbinden</string>
+    <string name="config_connection_stop">Trennen</string>
+    <string name="config_connection_settings">Verbindungseinstellungen</string>
+    <string name="config_connection_details">Konfigurationsdetails</string>
+    <string name="diagnostics_technical_details">Technische Details</string>
+    <string name="diagnostics_outcome_source_audit">Netzwerkanalyse</string>
+    <string name="diagnostics_outcome_source_session">Gespeicherte Prüfung</string>
+    <string name="diagnostics_outcome_source_active">Prüfung läuft</string>
+    <string name="diagnostics_outcome_source_empty">Keine abgeschlossene Prüfung</string>
+    <string name="diagnostics_outcome_time_format">Messzeit: %1$s</string>
+    <string name="diagnostics_outcome_time_unknown">Messzeit unbekannt</string>
+    <string name="diagnostics_outcome_confidence_unknown">Vertrauensniveau unbekannt</string>
+    <string name="diagnostics_outcome_coverage_unknown">Prüfumfang unbekannt</string>
+    <string name="diagnostics_outcome_stale">Gespeichertes Ergebnis aus einem anderen Netzwerk</string>
+    <string name="diagnostics_outcome_coverage_format">%1$d von %2$d Phasen abgeschlossen; %3$d fehlgeschlagen</string>
+    <string name="diagnostics_outcome_historical">Gespeicherte Daten; Übereinstimmung mit aktuellem Netzwerk unbekannt</string>
+    <string name="logs_actions_title">Protokollaktionen</string>
+    <string name="config_scope_device">Geräte-Apps</string>
+    <string name="config_scope_proxy">Apps mit Proxy-Einstellung</string>
+    <string name="config_section_bypass_settings">Umgehungseinstellungen</string>
+    <string name="config_section_server_settings">Servereinstellungen</string>
+</resources>

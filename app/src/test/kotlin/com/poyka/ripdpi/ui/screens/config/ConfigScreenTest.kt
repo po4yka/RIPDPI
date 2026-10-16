@@ -66,6 +66,7 @@ class ConfigScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.Vpn.stableKey))
+            .performScrollTo()
             .performClick()
 
         composeRule
@@ -130,6 +131,7 @@ class ConfigScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.configMode(Mode.Proxy.name))
+            .performScrollTo()
             .performClick()
 
         composeRule
@@ -151,6 +153,7 @@ class ConfigScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.configMode(Mode.VPN.name))
+            .performScrollTo()
             .performClick()
 
         composeRule
@@ -166,7 +169,7 @@ class ConfigScreenTest {
         setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass, uiPersona = "advanced")
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSimple).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassMode).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
@@ -177,63 +180,15 @@ class ConfigScreenTest {
     fun `simple local bypass shows auto strategy retest and precedence note`() {
         setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSimple).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigEditCurrentButton).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionDetails).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassStrategyAuto).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassPrecedenceNote).assertExists()
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassRetest)
             .assertTextEquals("Open Diagnostics to re-test")
             .assertHasClickAction()
-    }
-
-    @Test
-    fun `simple local bypass toggle starts proxy when disabled`() {
-        val selectedModes = mutableListOf<Mode>()
-        val runtimeToggles = mutableListOf<Pair<Mode, Boolean>>()
-        setConfigScreen(
-            initialModeSection = ConfigModeSection.LocalBypass,
-            onModeSelected = { selectedModes += it },
-            onRuntimeModeToggle = { mode, enabled -> runtimeToggles += mode to enabled },
-            activeMode = Mode.VPN,
-        )
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassToggle)
-            .assertHasClickAction()
-            .performScrollTo()
-            .performClick()
-
-        assertEquals(LocalBypassToggleAction.TurnOn, localBypassToggleAction(localBypassEnabled = false))
-        composeRule.runOnIdle {
-            assertEquals(emptyList<Mode>(), selectedModes)
-            assertEquals(listOf(Mode.Proxy to true), runtimeToggles)
-        }
-    }
-
-    @Test
-    fun `simple local bypass toggle stops proxy when enabled without selecting vpn`() {
-        val selectedModes = mutableListOf<Mode>()
-        val runtimeToggles = mutableListOf<Pair<Mode, Boolean>>()
-        setConfigScreen(
-            initialModeSection = ConfigModeSection.LocalBypass,
-            onModeSelected = { selectedModes += it },
-            onRuntimeModeToggle = { mode, enabled -> runtimeToggles += mode to enabled },
-            activeMode = Mode.Proxy,
-            runningMode = Mode.Proxy,
-        )
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassToggle)
-            .assertHasClickAction()
-            .performScrollTo()
-            .performClick()
-
-        assertEquals(LocalBypassToggleAction.TurnOff, localBypassToggleAction(localBypassEnabled = true))
-        composeRule.runOnIdle {
-            assertEquals(emptyList<Mode>(), selectedModes)
-            assertEquals(listOf(Mode.Proxy to false), runtimeToggles)
-        }
     }
 
     @Test
@@ -301,7 +256,8 @@ class ConfigScreenTest {
         setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSimple).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).assertExists()
@@ -320,6 +276,7 @@ class ConfigScreenTest {
             profileActions = ConfigProfileActions(create = { opened += it }),
         )
 
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         val editors =
             listOf(
                 Route.AnyTlsProfile,
@@ -364,54 +321,6 @@ class ConfigScreenTest {
     }
 
     @Test
-    fun `vpn simple toggle stops vpn runtime without selecting local bypass`() {
-        val selectedModes = mutableListOf<Mode>()
-        val runtimeToggles = mutableListOf<Pair<Mode, Boolean>>()
-        setConfigScreen(
-            initialModeSection = ConfigModeSection.Vpn,
-            onModeSelected = { selectedModes += it },
-            onRuntimeModeToggle = { mode, enabled -> runtimeToggles += mode to enabled },
-            activeMode = Mode.VPN,
-            runningMode = Mode.VPN,
-        )
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnToggle)
-            .assertHasClickAction()
-            .performScrollTo()
-            .performClick()
-
-        composeRule.runOnIdle {
-            assertEquals(emptyList<Mode>(), selectedModes)
-            assertEquals(listOf(Mode.VPN to false), runtimeToggles)
-        }
-    }
-
-    @Test
-    fun `vpn simple toggle starts vpn runtime without selecting local bypass`() {
-        val selectedModes = mutableListOf<Mode>()
-        val runtimeToggles = mutableListOf<Pair<Mode, Boolean>>()
-        setConfigScreen(
-            initialModeSection = ConfigModeSection.Vpn,
-            onModeSelected = { selectedModes += it },
-            onRuntimeModeToggle = { mode, enabled -> runtimeToggles += mode to enabled },
-            activeMode = Mode.Proxy,
-            runningMode = Mode.Proxy,
-        )
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnToggle)
-            .assertHasClickAction()
-            .performScrollTo()
-            .performClick()
-
-        composeRule.runOnIdle {
-            assertEquals(emptyList<Mode>(), selectedModes)
-            assertEquals(listOf(Mode.VPN to true), runtimeToggles)
-        }
-    }
-
-    @Test
     fun `mode section selection survives state restoration`() {
         val restorationTester = StateRestorationTester(composeRule)
         restorationTester.setContent {
@@ -431,6 +340,7 @@ class ConfigScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.Vpn.stableKey))
+            .performScrollTo()
             .performClick()
         restorationTester.emulateSavedInstanceStateRestore()
 
@@ -473,7 +383,8 @@ class ConfigScreenTest {
                 ),
         )
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSimple).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithText("Add profile").assertExists()
         composeRule
             .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("default"))
@@ -509,6 +420,7 @@ class ConfigScreenTest {
             profileActions = ConfigProfileActions(select = { selected += it }),
         )
 
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("unknown-imported"))
             .assertHasNoClickAction()

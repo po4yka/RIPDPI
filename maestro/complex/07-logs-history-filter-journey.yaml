@@ -3,6 +3,8 @@ appId: com.poyka.ripdpi
 - setOrientation: PORTRAIT
 - assertVisible:
     id: "logs-screen"
+- tapOn:
+    id: "logs-filters"
 - scrollUntilVisible:
     element:
       id: "logs-auto-scroll"
@@ -24,6 +26,13 @@ appId: com.poyka.ripdpi
     centerElement: true
 - tapOn:
     id: "logs-severity-warn"
+- scrollUntilVisible:
+    element:
+      id: "logs-sheet-done"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "logs-sheet-done"
 - pressKey: Back
 - assertVisible:
     id: "home-screen"

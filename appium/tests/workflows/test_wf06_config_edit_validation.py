@@ -24,7 +24,7 @@ def test_config_edit_validation_roundtrip(workflow_app):
     config.wait_for_screen(ConfigPage.SCREEN)
 
     # Step 2: Open mode editor.
-    config.tap_edit_current()
+    config.open_custom_editor()
     editor = ModeEditorPage(driver)
     editor.wait_for_screen(ModeEditorPage.SCREEN)
 

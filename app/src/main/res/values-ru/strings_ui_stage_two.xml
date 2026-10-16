@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">Сохранённый профиль</string>
+    <string name="config_profile_change">Изменить профиль</string>
+    <string name="config_profile_choices">Выбор профиля</string>
+    <string name="config_connection_scope_vpn">Трафик: приложения, выбранные для локального VPN</string>
+    <string name="config_connection_scope_proxy">Трафик: приложения, настроенные на этот прокси</string>
+    <string name="config_connection_path_direct">Путь: прямое подключение</string>
+    <string name="config_connection_path_relay">Путь: серверный профиль %1$s</string>
+    <string name="config_connection_start">Подключить</string>
+    <string name="config_connection_stop">Отключить</string>
+    <string name="config_connection_settings">Настройки подключения</string>
+    <string name="config_connection_details">Подробности конфигурации</string>
+    <string name="diagnostics_technical_details">Технические сведения</string>
+    <string name="diagnostics_outcome_source_audit">Анализ сети</string>
+    <string name="diagnostics_outcome_source_session">Сохранённая проверка</string>
+    <string name="diagnostics_outcome_source_active">Проверка выполняется</string>
+    <string name="diagnostics_outcome_source_empty">Нет завершённой проверки</string>
+    <string name="diagnostics_outcome_time_format">Время измерения: %1$s</string>
+    <string name="diagnostics_outcome_time_unknown">Время измерения неизвестно</string>
+    <string name="diagnostics_outcome_confidence_unknown">Достоверность неизвестна</string>
+    <string name="diagnostics_outcome_coverage_unknown">Охват проверки неизвестен</string>
+    <string name="diagnostics_outcome_stale">Сохранённый результат другой сети</string>
+    <string name="diagnostics_outcome_coverage_format">Завершено этапов: %1$d из %2$d; с ошибкой: %3$d</string>
+    <string name="diagnostics_outcome_historical">Сохранённые данные; соответствие текущей сети неизвестно</string>
+    <string name="logs_actions_title">Действия с журналом</string>
+    <string name="config_scope_device">Приложения устройства</string>
+    <string name="config_scope_proxy">Приложения с прокси</string>
+    <string name="config_section_bypass_settings">Настройки обхода</string>
+    <string name="config_section_server_settings">Настройки сервера</string>
+</resources>

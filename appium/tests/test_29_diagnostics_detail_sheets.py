@@ -44,3 +44,18 @@ def test_diagnostics_approach_detail(driver):
     assert diag.is_visible(diag.APPROACH_MODE_STRATEGIES), (
         "Strategies approach chip should be visible in tools"
     )
+
+
+@pytest.mark.automation(
+    start_route="diagnostics",
+    data_preset="diagnostics_demo",
+    service_preset="idle",
+)
+def test_technical_disclosure_preserves_primary_action_label(driver):
+    diag = DiagnosticsPage(driver)
+    diag.scroll_incrementally_to(diag.OVERVIEW_RUN)
+    before = diag.get_text(diag.OVERVIEW_RUN)
+    assert before, "The primary action must have an accessible label"
+    diag.scroll_incrementally_to(diag.EXPERT_TOGGLE).click()
+    diag.scroll_incrementally_to(diag.OVERVIEW_RUN)
+    assert diag.get_text(diag.OVERVIEW_RUN) == before

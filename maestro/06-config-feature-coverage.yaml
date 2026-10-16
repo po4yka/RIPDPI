@@ -42,8 +42,20 @@ appId: com.poyka.ripdpi
 - pressKey: Back
 - assertVisible:
     id: "config-screen"
+- scrollUntilVisible:
+    element:
+      id: "config-profile-change"
+    direction: UP
+    centerElement: true
 - tapOn:
-    id: "config-edit-current"
+    id: "config-profile-change"
+- scrollUntilVisible:
+    element:
+      id: "config-preset-custom"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "config-preset-custom"
 - assertVisible:
     id: "mode_editor-screen"
 - assertVisible:

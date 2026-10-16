@@ -320,7 +320,7 @@
     <string name="language_name_pt_br">Português (Brasil)</string>
     <string name="logs_active_session_title">Solo sesión activa</string>
     <string name="logs_clear">Borrar</string>
-    <string name="logs_filtered_empty_body">Ajusta los chips de tipo de arriba para inspeccionar otra parte del búfer local.</string>
+    <string name="logs_filtered_empty_body">Abre Filtros para ver otros eventos del búfer local.</string>
     <string name="logs_latest_empty">Aún no se han capturado eventos locales.</string>
     <string name="logs_overview_title">Flujo de eventos del dispositivo</string>
     <string name="logs_severity_info">INFO</string>

@@ -178,9 +178,9 @@ pages:
       - "config-mode-section-vpn"
       - "config-mode-vpn"
       - "config-mode-proxy"
-    state: "preset selection"
+    state: "saved connection"
     description: |
-      Configuration hub for choosing and editing bypass modes.
+      Saved connection profile, traffic scope, path, and settings navigation.
 
   - id: local_bypass_config
     title: "Local Bypass Config"
@@ -411,10 +411,10 @@ pages:
     flow_label: "logs"
     data_preset: "diagnostics_demo"
     expected_root: "logs-screen"
-    required_elements: ["logs-save", "logs-clear"]
+    required_elements: ["logs-actions", "logs-filters"]
     state: "seeded"
     description: |
-      Logs state with export, clear, filter, and log-content controls.
+      Live log stream with compact controls for filters and log actions.
 
   - id: pcap_capture_list
     title: "PCAP Captures"

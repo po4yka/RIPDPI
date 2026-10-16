@@ -1592,7 +1592,7 @@ fakeddisorder endhost</string>
     <string name="logs_empty_title">अभी तक कोई लॉग नहीं</string>
     <string name="logs_empty_body">डिवाइस पर स्ट्रीम भरने के लिए RIPDPI शुरू करें या कोई डायग्नोस्टिक इवेंट ट्रिगर करें।</string>
     <string name="logs_filtered_empty_title">वर्तमान फ़िल्टर से कोई प्रविष्टि मेल नहीं खाती</string>
-    <string name="logs_filtered_empty_body">स्थानीय बफ़र के किसी भिन्न भाग का निरीक्षण करने के लिए ऊपर दिए गए टाइप चिप समायोजित करें।</string>
+    <string name="logs_filtered_empty_body">स्थानीय बफ़र में अन्य घटनाएँ देखने के लिए फ़िल्टर खोलें।</string>
     <string name="splash_subtitle">स्थानीय कनेक्टिविटी टूल</string>
     <string name="onboarding_skip">बाद में सेट अप करें</string>
     <string name="onboarding_set_up_later">बाद में सेट अप करें</string>

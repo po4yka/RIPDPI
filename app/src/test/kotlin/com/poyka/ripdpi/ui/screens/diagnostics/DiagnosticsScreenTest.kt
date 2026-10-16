@@ -679,7 +679,7 @@ class DiagnosticsScreenTest {
 
         composeRule.onAllNodesWithText("Run scan").assertCountEquals(1)
         composeRule.onAllNodesWithText("Check network").assertCountEquals(0)
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply).assertDoesNotExist()
     }
 
     @Test
@@ -688,6 +688,7 @@ class DiagnosticsScreenTest {
         val tcpCandidateDetail = auditCandidateDetail()
         val scan =
             DiagnosticsScanUiModel(
+                latestSession = selectedAuditSession(),
                 strategyProbeReport =
                     auditReport(
                         tcpCandidateDetail,
@@ -737,12 +738,7 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).assertIsDisplayed()
-        composeRule
-            .onNodeWithText(
-                "On this network, Local bypass worked last time.",
-            ).performScrollTo()
-            .assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).performScrollTo().assertIsDisplayed()
         composeRule
             .onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply)
             .performScrollTo()
@@ -768,6 +764,7 @@ class DiagnosticsScreenTest {
         val tcpCandidateDetail = auditCandidateDetail()
         val scan =
             DiagnosticsScanUiModel(
+                latestSession = selectedAuditSession(),
                 strategyProbeReport =
                     auditReport(
                         tcpCandidateDetail,
@@ -801,7 +798,7 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).performScrollTo().assertIsDisplayed()
         composeRule
             .onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply)
             .performScrollTo()
@@ -811,6 +808,23 @@ class DiagnosticsScreenTest {
 
         assertEquals(DiagnosticsSimpleFunnelAction.Review, scan.simpleFunnelAction(isActiveScan = false))
         composeRule.runOnIdle { assertEquals(DiagnosticsSection.Scan, selectedSection) }
+    }
+
+    @Test
+    fun recommendationWithoutMatchingSessionCannotOfferCandidateReview() {
+        val report = auditReport(auditCandidateDetail())
+        assertEquals(
+            DiagnosticsSimpleFunnelAction.Unavailable,
+            DiagnosticsScanUiModel(strategyProbeReport = report).simpleFunnelAction(isActiveScan = false),
+        )
+        assertEquals(
+            DiagnosticsSimpleFunnelAction.Unavailable,
+            DiagnosticsScanUiModel(
+                selectedProfileId = "another-profile",
+                latestSession = selectedAuditSession(),
+                strategyProbeReport = report,
+            ).simpleFunnelAction(isActiveScan = false),
+        )
     }
 
     @Test
@@ -2405,6 +2419,21 @@ class DiagnosticsScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsProbeDetailSheet).fetchSemanticsNode()
     }
+
+    private fun selectedAuditSession() =
+        DiagnosticsSessionRowUiModel(
+            id = "selected-audit-session",
+            profileId = "automatic-probing",
+            title = "Selected audit",
+            subtitle = "Completed",
+            pathMode = "RAW_PATH",
+            serviceMode = "VPN",
+            status = "completed",
+            startedAtLabel = "10:30",
+            summary = "Candidate evidence available",
+            metrics = persistentListOf(),
+            tone = DiagnosticsTone.Neutral,
+        )
 
     private fun auditCandidateDetail(skipped: Boolean = false) =
         DiagnosticsStrategyProbeCandidateDetailUiModel(

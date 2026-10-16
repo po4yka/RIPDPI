@@ -14,7 +14,7 @@ def test_select_preset(driver):
     config = ConfigPage(driver)
     assert config.is_loaded(), "Config screen should be visible"
 
-    # Tap the proxy preset card in the current Config layout.
+    config.open_profile_choices()
     config.select_preset("proxy")
 
     # The preset should still be visible (selection doesn't navigate away).

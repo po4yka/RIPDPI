@@ -47,8 +47,8 @@ class ConfigRuntimeErrorVisibilityTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnToggle).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnToggle).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).assertIsNotEnabled()
 
         composeRule.runOnIdle {
             state.value =
@@ -83,8 +83,8 @@ class ConfigRuntimeErrorVisibilityTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassToggle).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassToggle).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).assertIsNotEnabled()
 
         composeRule.runOnIdle {
             state.value = state.value.copy(runtimeOperation = null, runtimeError = reason)

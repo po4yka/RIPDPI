@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -89,7 +90,10 @@ fun RipDpiBottomSheet(
     ) {
         RipDpiBottomSheetCard(
             title = title,
-            modifier = Modifier.ripDpiTestTag(testTag),
+            modifier =
+                Modifier
+                    .ripDpiAutomationTreeRoot()
+                    .ripDpiTestTag(testTag),
             message = message,
             icon = icon,
             primaryAction = primaryAction,

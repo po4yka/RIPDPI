@@ -52,6 +52,7 @@ class DiagnosticsPage(BasePage):
 
     # Overview
     OVERVIEW_HERO = "diagnostics-overview-hero"
+    OVERVIEW_RUN = "diagnostics-overview-run-scan-action"
     OVERVIEW_HISTORY_ACTION = "diagnostics-overview-history-action"
     OVERVIEW_AUTOMATIC_PROBE_CARD = "diagnostics-overview-automatic-probe-card"
 

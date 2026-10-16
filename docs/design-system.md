@@ -168,6 +168,8 @@ Settings and advanced settings:
 Diagnostics:
 
 - Use card and banner groupings to structure evidence and recommendations.
+- Show one primary outcome with metadata from the same evidence source. Keep
+  historical and technical evidence below it and label missing metadata explicitly.
 - Prefer monospace roles for low-level values, candidates, and protocol-oriented artifacts.
 - Use semantic status color only where the diagnostic state genuinely changes the user decision.
 
@@ -180,6 +182,10 @@ Config and mode editor:
 
 - Prefer `RipDpiConfigTextField` for raw config strings and `RipDpiTextField` for discrete values.
 - Validation and destructive actions must be explicit and visually stable.
+- Lead Config with the saved profile, traffic scope and path. Keep profile choices
+  behind Change profile and long guidance behind Configuration details.
+- Settings sections are navigation. The main action stops the running mode, or
+  starts the saved mode when the service is halted.
 
 Onboarding and permission flows:
 
@@ -215,7 +221,7 @@ Onboarding and permission flows:
 
 ### Monospace Log Stream
 
-- Use `RipDpiScreenScaffold` with a quiet overview card and filters above a single dominant `LogsStreamCard`.
+- Use `RipDpiScreenScaffold` with a compact status and action row above one dominant `LogsStreamCard`. Open filters and secondary actions in explicit sheets.
 - Render every actual entry with `LogRow`; reserve `SettingsRow` for stream controls, binary filters, and summary facts only.
 - Keep the stream within one bounded card, using compact spacing, quiet separators, and monospace roles for timestamps, subsystem labels, and payload text.
 - Empty or filtered-empty states should appear as dedicated cards occupying the stream slot so the screen layout does not jump.
@@ -259,11 +265,15 @@ Onboarding and permission flows:
 ### Logs
 
 - Build with `RipDpiScreenScaffold` and keep the screen visually quiet so the log stream remains dominant.
-- The top stack must keep `LogsOverviewCard`, `LogsFiltersSection`, and the stream section in that order.
+- Keep a compact status row with Filters and Log actions controls. The stream
+  fills the remaining height in the screen's only vertical event list.
+- Keep filter controls in a scrollable sheet with an explicit Done action. Save,
+  clear and support sharing belong in a separate action sheet.
 - Filter controls belong in `SettingsRow`, `RipDpiChip`, and `SettingsCategoryHeader`; `SettingsRow` is for binary filters and compact facts only, not for actual log entries.
 - The stream itself should stay inside `LogsStreamCard` and render entries with `LogRow`; preserve monospace rhythm, compact spacing, and divider discipline.
 - Empty or filtered-empty states should use a dedicated card such as `LogsEmptyStateCard`, never a raw placeholder string in the list viewport.
-- Copy, save, clear, refresh, and support-bundle feedback belongs in snackbar or explicit action rows, not transient inline text.
+- Copy, save, clear and support-bundle feedback belongs in snackbar or explicit
+  action rows. Continuous log flows do not need a simulated refresh delay.
 - Do not add strong background fills, heavy chrome, oversized badges, or banners between individual log rows.
 
 ### Settings

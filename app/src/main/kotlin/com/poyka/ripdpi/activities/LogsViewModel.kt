@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +12,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val LogsStateSubscriptionMillis = 5_000L
@@ -31,7 +29,6 @@ class LogsViewModel
         private val activeSessionOnly = MutableStateFlow(false)
         private val autoScrollEnabled = MutableStateFlow(true)
         private val clearedAfterMs = MutableStateFlow<Long?>(null)
-        private val refreshing = MutableStateFlow(false)
 
         private val runtimeEventLogs =
             dependencies.serviceStateStore.telemetry.map { telemetry ->
@@ -98,8 +95,6 @@ class LogsViewModel
                             activeSessionOnly = activeSessionOnly,
                         ).toImmutableList(),
                 )
-            }.combine(refreshing) { state, isRefreshing ->
-                state.copy(isRefreshing = isRefreshing)
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(LogsStateSubscriptionMillis),
@@ -148,14 +143,6 @@ class LogsViewModel
             autoScrollEnabled.value = enabled
         }
 
-        fun refresh() {
-            viewModelScope.launch {
-                refreshing.value = true
-                delay(REFRESH_SETTLE_DELAY_MS)
-                refreshing.value = false
-            }
-        }
-
         fun appendLog(
             message: String,
             type: LogType = classifyLogType(message),
@@ -180,9 +167,5 @@ class LogsViewModel
             serviceLifecycleBuffer.update { currentLogs ->
                 (currentLogs + entry).takeLast(MaxLogEntries)
             }
-        }
-
-        private companion object {
-            const val REFRESH_SETTLE_DELAY_MS = 300L
         }
     }

@@ -772,7 +772,7 @@
     <string name="http_fake_profile_title">HTTP fake 负载</string>
     <string name="logs_auto_scroll_title">自动滚动到最新</string>
     <string name="logs_empty_body">启动 RIPDPI 或触发诊断事件,以填充设备端事件流。</string>
-    <string name="logs_filtered_empty_body">调整上方的类型筛选标签,以查看本地缓冲区的其他部分。</string>
+    <string name="logs_filtered_empty_body">打开筛选器，查看本地缓冲区中的其他事件。</string>
     <string name="logs_filters_summary_compact">%1$d 个子系统 • %2$d 个严重级别</string>
     <string name="logs_overview_body">查看 RIPDPI 在本设备上捕获的最新本地 DNS、连接、警告和错误活动。</string>
     <string name="logs_service_failure_format">%1$s 服务启动失败:%2$s</string>

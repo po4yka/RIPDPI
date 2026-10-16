@@ -4,9 +4,17 @@ appId: com.poyka.ripdpi
 - assertVisible:
     id: "logs-screen"
 - assertVisible:
+    id: "logs-actions"
+- tapOn:
+    id: "logs-actions"
+- assertVisible:
     id: "logs-save"
 - assertVisible:
     id: "logs-clear"
+- tapOn:
+    id: "logs-sheet-done"
+- tapOn:
+    id: "logs-filters"
 - scrollUntilVisible:
     element:
       id: "logs-auto-scroll"

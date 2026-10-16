@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -28,6 +29,7 @@ enum class LogSeverity {
     Error,
 }
 
+@Immutable
 data class LogEntry(
     val id: String,
     val createdAtMs: Long,
@@ -52,6 +54,7 @@ data class LogEntry(
         ).joinToString("|")
 }
 
+@Immutable
 data class LogsUiState(
     val logs: ImmutableList<LogEntry> = persistentListOf(),
     val activeSubsystems: ImmutableSet<LogSubsystem> = LogSubsystem.entries.toImmutableSet(),
@@ -59,7 +62,6 @@ data class LogsUiState(
     val showActiveSessionOnly: Boolean = false,
     val isAutoScroll: Boolean = true,
     val bufferCapacity: Int = MaxLogEntries,
-    val isRefreshing: Boolean = false,
     val filteredLogs: ImmutableList<LogEntry> =
         filterLogs(
             logs = logs,

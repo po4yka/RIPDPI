@@ -21,10 +21,15 @@ All stable IDs live in [`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka
 - Bottom navigation: `bottom-nav-home`, `bottom-nav-config`, `bottom-nav-diagnostics`, `bottom-nav-settings`
 - Permission and repair actions: `settings-permission-<kind>`, `home-permission-issue-banner`, `home-permission-recommendation-banner`
 - Settings navigation: `settings-dns-settings`, `settings-advanced-settings`, `settings-support-bundle`, `settings-data-transparency`, `settings-about`
+- Config actions: `config-profile-change` opens saved profile choices;
+  `config-runtime-action` starts the saved mode or stops the running mode;
+  `config-connection-details` discloses long configuration guidance.
 - Advanced settings: `advanced-section-<section>`, `advanced-toggle-<setting>`, `advanced-input-<setting>`, `advanced-save-<setting>`, `advanced-option-<setting>`; the bypass strategy section is `advanced-section-bypass-strategy`.
 - Activation ranges: `advanced-<dimension>-from`, `advanced-<dimension>-to`, `advanced-<dimension>-save`
 - Diagnostics and logs: `diagnostics-top-history-action`, `diagnostics-share-archive`, `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`, `diagnostics-status-snackbar`, `logs-save`, `logs-clear`
 - Diagnostics strategy reports: `diagnostics-strategy-probe-report`, `diagnostics-strategy-probe-summary`, `diagnostics-strategy-winning-path`, `diagnostics-strategy-winning-tcp-action`, `diagnostics-strategy-winning-quic-action`, `diagnostics-strategy-full-matrix-toggle`, `diagnostics-strategy-audit-assessment`, `diagnostics-strategy-audit-low-confidence-banner`, `diagnostics-strategy-audit-medium-confidence-note`, `diagnostics-workflow-restriction-card`, `diagnostics-workflow-restriction-action`
+- Logs: `logs-filters` opens optional filters; `logs-actions` opens save, clear
+  and support sharing; `logs-sheet-done` returns from either sheet to the stream.
 
 ## Key Examples
 
@@ -50,3 +55,5 @@ The raw `testTag` value is the selector contract. Depending on the driver and in
 - `com.poyka.ripdpi:id/home-screen`
 
 When in doubt, inspect the debug build on a device and keep the raw tag value in test source so the same identifier works across Compose tests, UiAutomator, Maestro, and Appium.
+
+Logs expose `logs-empty-state` when no events match. The `logs-stream` selector is present only for a populated list. Button labels can be child Text nodes; page objects read descendant text when the container has no text value. Text-based Appium assertions use an English app locale. Device runners must restore any temporary app locale.
