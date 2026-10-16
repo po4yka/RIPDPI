@@ -2,7 +2,7 @@
 id: UIX-1792123188281598
 title: Restore connection feedback and accessible UI controls
 kind: bug
-status: doing
+status: blocked
 area: ui
 priority: high
 owner: UI repair team
@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-10-16
 updated: 2026-10-16
 spec_reason: regression-tested-single-module
+status_detail: Final static analysis and rebuild are blocked by the shared build slot, held by another task for more than 30 minutes. Feature regressions passed 170 JVM tests and 5 API 37 UI checks. Initial-snapshot memoization and a preset-list extraction still need the final Gradle repeat.
 ---
 
 ## Goal
@@ -50,3 +51,32 @@ Run app static analysis, app/service locale lint, and assemble the Full debug AP
 Use a leased API 37 emulator for rejected start/recovery, pending UI, accessible
 settings, onboarding Back, and disabled-motion progress. Check relevant light,
 dark, and large-font states without blessing screenshot fixtures.
+
+## Observed verification
+
+- JVM regressions: 170 tests passed with no failures, errors, or skipped tests.
+- API 37 UI checks: 5 instrumented tests passed on the Full arm64 APK.
+- Real app: a missing-consent rejection revealed its reason and recovery without
+  another scroll; recovery opened the Android VPN dialog and started VPN.
+- Dark onboarding with font scale 2.0: visible Back and system Back returned to
+  the intro. Font scale was restored to 1.0.
+- Independent review found no remaining defects after the superseded-stop fix
+  and the error-visibility fix.
+- Final static analysis and rebuild could not start: another task held the shared
+  build slot for more than 30 minutes. Only this job's queued commands were stopped.
+- The 170 JVM tests and 5 device checks passed before the final initial-snapshot
+  memoization and preset-list extraction. These two structural changes passed
+  independent review, formatting, and the staged architecture gate. They still
+  need the final Gradle repeat. The validation step remains open.
+
+## Design references and limits
+
+The onboarding-tour-cards reference gains Back after the intro. The progress-bar
+reference gains a centered static marker when motion is disabled. These changes
+restore navigation and progress meaning. Existing RDS surfaces and strings are
+used. No locale resources, golden fixtures, or quality baselines change.
+
+The extra Simple APK build needs the absent local embedded-relay-bundle.json.
+Actual TalkBack speech, physical devices, CI, and release frame performance are
+not covered by this local repair. Local screenshots and the layered verification
+report are in build/reports/ui-first-stage/.
