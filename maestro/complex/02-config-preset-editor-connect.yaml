@@ -3,14 +3,19 @@ appId: com.poyka.ripdpi
 - setOrientation: PORTRAIT
 - assertVisible:
     id: "config-screen"
+- tapOn:
+    id: "config-profile-change"
 - assertVisible:
     id: "config-preset-proxy"
 - tapOn:
     id: "config-preset-proxy"
-- assertVisible:
-    id: "config-mode-proxy"
+- scrollUntilVisible:
+    element:
+      id: "config-preset-custom"
+    direction: DOWN
+    centerElement: true
 - tapOn:
-    id: "config-edit-current"
+    id: "config-preset-custom"
 - assertVisible:
     id: "mode_editor-screen"
 - assertVisible:

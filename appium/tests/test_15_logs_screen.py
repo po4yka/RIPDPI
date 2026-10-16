@@ -14,9 +14,13 @@ def test_logs_controls(driver):
     logs = LogsPage(driver)
     assert logs.is_loaded(), "Logs screen should be visible"
 
-    # Toggle auto-scroll.
+    logs.open_filters()
     logs.toggle_auto_scroll()
+    logs.close_sheet()
+    assert logs.is_loaded(), "Log stream should return after closing filters"
 
-    # Clear and save should be tappable without error.
+    logs.open_actions()
     logs.tap_clear()
+    assert logs.is_loaded(), "Clear should return to the log stream"
+    logs.open_actions()
     logs.tap_save()

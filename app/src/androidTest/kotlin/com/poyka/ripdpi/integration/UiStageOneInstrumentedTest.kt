@@ -56,7 +56,7 @@ class UiStageOneInstrumentedTest {
         var toggles = 0
         renderConfig(configState().copy(runtimeOperation = ConfigRuntimeOperation.Starting)) { toggles++ }
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnToggle)
+            .onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction)
             .performScrollTo()
             .assertIsDisplayed()
             .assertIsNotEnabled()
@@ -90,7 +90,7 @@ class UiStageOneInstrumentedTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnToggle).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeError).assertIsDisplayed()
         composeRule.onNodeWithText("VPN permission required").assertIsDisplayed()
         saveScreenshot("rejected-start")

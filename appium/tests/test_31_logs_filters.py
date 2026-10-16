@@ -14,11 +14,14 @@ def test_logs_subsystem_filters(driver):
     logs = LogsPage(driver)
     assert logs.is_loaded(), "Logs screen should be visible"
 
-    # Tap subsystem filter chips.
+    logs.open_filters()
     logs.select_subsystem_filter("proxy")
+    logs.close_sheet()
     assert logs.is_loaded(), "Logs screen should remain visible after proxy filter"
 
+    logs.open_filters()
     logs.select_subsystem_filter("service")
+    logs.close_sheet()
     assert logs.is_loaded(), "Logs screen should remain visible after service filter"
 
 
@@ -31,9 +34,12 @@ def test_logs_severity_filters(driver):
     logs = LogsPage(driver)
     assert logs.is_loaded(), "Logs screen should be visible"
 
-    # Tap severity filter chips.
+    logs.open_filters()
     logs.select_severity_filter("error")
+    logs.close_sheet()
     assert logs.is_loaded(), "Logs screen should remain visible after error filter"
 
+    logs.open_filters()
     logs.select_severity_filter("warn")
+    logs.close_sheet()
     assert logs.is_loaded(), "Logs screen should remain visible after warn filter"
