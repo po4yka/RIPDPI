@@ -48,6 +48,7 @@ internal fun LocalBypassConfigScreen(
     modifier: Modifier = Modifier,
     onRequestVpnPermission: () -> Unit = {},
     onDismissRuntimeError: () -> Unit = {},
+    settingsOnly: Boolean = false,
 ) {
     TrackRecomposition("LocalBypassConfigScreen")
 
@@ -58,6 +59,23 @@ internal fun LocalBypassConfigScreen(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         SettingsCategoryHeader(title = stringResource(R.string.home_mode_local_dpi_bypass))
+        if (settingsOnly) {
+            LocalBypassAdvancedRows(
+                uiState,
+                desyncSummary,
+                onOpenDesyncSettings,
+                onOpenDnsSettings,
+                showGuidance = false,
+            )
+            RipDpiButton(
+                text = stringResource(R.string.config_local_bypass_retest_strategies),
+                onClick = onRetestStrategies,
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassRetest),
+                variant = RipDpiButtonVariant.Outline,
+                leadingIcon = RipDpiIcons.Refresh,
+            )
+            return@Column
+        }
         LocalBypassSimpleCard(
             uiState = uiState,
             onRequestVpnPermission = onRequestVpnPermission,
@@ -132,7 +150,7 @@ private fun LocalBypassToggleStateRow(localBypassEnabled: Boolean) {
 }
 
 @Composable
-private fun LocalBypassStrategyRow() {
+internal fun LocalBypassStrategyRow() {
     SettingsRow(
         title = stringResource(R.string.config_local_bypass_strategy_title),
         subtitle = stringResource(R.string.config_local_bypass_strategy_body),
@@ -144,7 +162,7 @@ private fun LocalBypassStrategyRow() {
 }
 
 @Composable
-private fun LocalBypassPrecedenceRow(commandLineOverridesEnabled: Boolean) {
+internal fun LocalBypassPrecedenceRow(commandLineOverridesEnabled: Boolean) {
     SettingsRow(
         title = stringResource(R.string.config_local_bypass_precedence_title),
         subtitle = stringResource(R.string.config_local_bypass_precedence_body),
@@ -235,13 +253,16 @@ private fun LocalBypassAdvancedRows(
     desyncSummary: String,
     onOpenDesyncSettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
+    showGuidance: Boolean = true,
 ) {
     RipDpiCard {
-        Text(
-            text = stringResource(R.string.config_local_bypass_section_body),
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+        if (showGuidance) {
+            Text(
+                text = stringResource(R.string.config_local_bypass_section_body),
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
         LocalBypassModeRow(uiState = uiState)
         LocalBypassListenAddressRow(uiState = uiState)
         LocalBypassDnsRow(uiState = uiState, onOpenDnsSettings = onOpenDnsSettings)
