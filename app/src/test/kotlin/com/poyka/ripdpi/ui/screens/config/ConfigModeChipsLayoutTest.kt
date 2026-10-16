@@ -21,6 +21,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -58,7 +59,12 @@ class ConfigModeChipsLayoutTest {
         }
         configurations {
             listOf(Mode.VPN, Mode.Proxy).forEach { value ->
-                val label = RuntimeEnvironment.getApplication().getString(modeLabelRes(value))
+                val labelRes =
+                    when (value) {
+                        Mode.VPN -> R.string.config_scope_device
+                        Mode.Proxy -> R.string.config_scope_proxy
+                    }
+                val label = RuntimeEnvironment.getApplication().getString(labelRes)
                 assertWordsFit(label)
                 composeRule.onNodeWithTag(RipDpiTestTags.configMode(value.name)).performClick().assertIsSelected()
             }
