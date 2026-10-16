@@ -214,6 +214,59 @@ class BottomNavBarTest {
     }
 
     @Test
+    @Config(qualifiers = "ar-rEG-w360dp-h1200dp")
+    fun arabicMaximumFontNavigationKeepsCompleteLabelsWithinCompactHeight() {
+        var selected by mutableStateOf<Route>(Route.Home)
+        val navigated = mutableListOf<Route>()
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, 2f),
+                LocalLayoutDirection provides LayoutDirection.Rtl,
+            ) {
+                RipDpiTheme {
+                    Box(Modifier.requiredWidth(360.dp).height(480.dp)) {
+                        BottomNavBar(selected, {
+                            selected = it
+                            navigated += it
+                        })
+                    }
+                }
+            }
+        }
+        val bar = composeRule.onNodeWithTag(RipDpiTestTags.BottomNavBar).fetchSemanticsNode().boundsInRoot
+        assertTrue("Arabic360dp/font2 navigation height is ${bar.height}", bar.height <= 112f)
+        Route.topLevel.forEach { route ->
+            val label = RuntimeEnvironment.getApplication().getString(route.titleRes)
+            val target = composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(route))
+            target
+                .assertIsDisplayed()
+                .assertHasClickAction()
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+                .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.RequestFocus))
+            val targetBounds = target.fetchSemanticsNode().boundsInRoot
+            assertTrue("$label retains a 48dp target", targetBounds.height >= 48f && targetBounds.width >= 48f)
+            val layouts = mutableListOf<TextLayoutResult>()
+            val text =
+                composeRule
+                    .onNodeWithText(label, useUnmergedTree = true)
+                    .assertIsDisplayed()
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                    .fetchSemanticsNode()
+            assertFalse("$label remains complete", layouts.single().hasVisualOverflow)
+            assertTrue("$label stays inside its target", targetBounds.contains(text.boundsInRoot.topLeft))
+            assertTrue("$label stays inside its target", targetBounds.contains(text.boundsInRoot.bottomRight))
+            assertTrue("$label stays inside the bar", bar.contains(text.boundsInRoot.topLeft))
+            assertTrue("$label stays inside the bar", bar.contains(text.boundsInRoot.bottomRight))
+            target.performClick().assertIsSelected()
+            Route.topLevel.filter { it != route }.forEach {
+                composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(it)).assertIsNotSelected()
+            }
+            assertEquals(route, navigated.last())
+        }
+        assertEquals(Route.topLevel, navigated)
+    }
+
+    @Test
     @Config(qualifiers = "ru-rRU-w420dp-h1200dp")
     fun russianLargeFontNavigationKeepsEveryLabelAndCallback() = assertResponsiveNavigation()
 

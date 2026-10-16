@@ -83,12 +83,14 @@ fun SimpleHomeScreen(
     var backupVisible by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = backupVisible) { backupVisible = false }
     if (backupVisible) {
-        BackupRestoreRoute(
-            onBack = { backupVisible = false },
-            modifier = modifier.ripDpiTestTag(RipDpiTestTags.SimpleBackupRestoreScreen),
-            showResetAction = false,
-            additionalGuidance = stringResource(R.string.simple_backup_restore_body),
-        )
+        SimpleBackupOverlay(modifier = modifier) {
+            BackupRestoreRoute(
+                onBack = { backupVisible = false },
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.SimpleBackupRestoreScreen),
+                showResetAction = false,
+                additionalGuidance = stringResource(R.string.simple_backup_restore_body),
+            )
+        }
         return
     }
 

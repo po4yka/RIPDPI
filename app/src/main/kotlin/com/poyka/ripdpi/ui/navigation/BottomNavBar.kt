@@ -310,7 +310,7 @@ private fun BottomNavItemContent(
             overflow = TextOverflow.Clip,
             modifier =
                 if (layout == BottomNavItemLayout.Label) {
-                    Modifier.fillMaxWidth().padding(horizontal = spacing.xs, vertical = spacing.sm)
+                    Modifier.fillMaxWidth().padding(horizontal = spacing.xs, vertical = spacing.xs)
                 } else {
                     Modifier.padding(horizontal = spacing.xs).width(IntrinsicSize.Max)
                 },
