@@ -98,6 +98,8 @@ internal object RipDpiTestTags {
     const val ConfigVpnSummary = "config-vpn-summary"
     const val ConfigVpnSimple = "config-vpn-simple"
     const val ConfigVpnToggle = "config-vpn-toggle"
+    const val ConfigRuntimeError = "config-runtime-error"
+    const val ConfigVpnPermissionRecovery = "config-vpn-permission-recovery"
     const val ConfigVpnToggleState = "config-vpn-toggle-state"
     const val ConfigVpnAddServerPaste = "config-vpn-add-server-paste"
     const val ConfigVpnAddServerScan = "config-vpn-add-server-scan"

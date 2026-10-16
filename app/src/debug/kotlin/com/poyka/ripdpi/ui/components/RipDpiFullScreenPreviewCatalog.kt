@@ -117,7 +117,6 @@ internal fun RipDpiConfigPreviewScene() {
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
-            onScanServer = {},
         )
     }
 }

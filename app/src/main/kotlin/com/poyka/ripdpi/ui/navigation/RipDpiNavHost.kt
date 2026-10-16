@@ -408,7 +408,7 @@ private fun RipDpiNavGraph(
             diagnosticsInitialSection = diagnosticsInitialSection,
             onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
         )
-        addConfigRoutes(navController = navController)
+        addConfigRoutes(navController = navController, mainViewModel = mainViewModel)
         addSettingsRoutes(
             navController = navController,
             actions = actions,
@@ -572,7 +572,10 @@ private fun diagnosticsRouteCallbacks(
         onDismissVerification = mainViewModel.dismissHomeVerificationSheet,
     )
 
-private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
+private fun NavGraphBuilder.addConfigRoutes(
+    navController: NavHostController,
+    mainViewModel: MainViewModel,
+) {
     navigation<ConfigGraph>(
         startDestination = Route.Config,
     ) {
@@ -582,6 +585,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ConfigRoute(
+                runtimeIntegration = configRuntimeIntegration(mainViewModel),
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
@@ -599,6 +603,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ConfigRoute(
+                runtimeIntegration = configRuntimeIntegration(mainViewModel),
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
@@ -616,6 +621,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ConfigRoute(
+                runtimeIntegration = configRuntimeIntegration(mainViewModel),
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },

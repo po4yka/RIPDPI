@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.RunningReconnectState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -84,6 +86,8 @@ internal fun configUiStateFlow(
     serviceTelemetry: Flow<ServiceTelemetrySnapshot>,
     runtimeSnapshots: Flow<ConfigRuntimeSnapshot>,
     factory: ConfigUiStateFactory,
+    runtimeFeedback: Flow<ConfigRuntimeFeedback> = flowOf(ConfigRuntimeFeedback()),
+    reconnectState: Flow<RunningReconnectState> = flowOf(RunningReconnectState.Idle),
 ): StateFlow<ConfigUiState> =
     combine(
         persistedSnapshots,
@@ -102,6 +106,14 @@ internal fun configUiStateFlow(
             networkSnapshot = runtimeSnapshot.networkSnapshot,
             capabilityRecords = runtimeSnapshot.capabilityRecords,
         )
+    }.combine(runtimeFeedback) { state, feedback ->
+        state.copy(
+            runtimeOperation = feedback.operation ?: state.runtimeOperation,
+            runtimeError = feedback.error,
+            requiresVpnPermission = feedback.requiresVpnPermission,
+        )
+    }.combine(reconnectState) { state, reconnect ->
+        if (reconnect.isConfigPending()) state.copy(runtimeOperation = ConfigRuntimeOperation.Reconnecting) else state
     }.stateIn(
         scope = scope,
         started = SharingStarted.WhileSubscribed(ConfigUiStateStopTimeoutMillis),

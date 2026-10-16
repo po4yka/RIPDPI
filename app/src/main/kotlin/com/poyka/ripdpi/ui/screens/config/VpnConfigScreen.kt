@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
@@ -63,6 +64,8 @@ internal fun VpnConfigScreen(
     onProfileEdit: (String) -> Unit = {},
     onCreateProfile: (Route) -> Unit = {},
     modifier: Modifier = Modifier,
+    onRequestVpnPermission: () -> Unit = {},
+    onDismissRuntimeError: () -> Unit = {},
 ) {
     TrackRecomposition("VpnConfigScreen")
 
@@ -75,6 +78,8 @@ internal fun VpnConfigScreen(
         SettingsCategoryHeader(title = stringResource(R.string.home_mode_remote_vpn))
         VpnSimpleCard(
             uiState = uiState,
+            onRequestVpnPermission = onRequestVpnPermission,
+            onDismissRuntimeError = onDismissRuntimeError,
             onRuntimeModeToggle = onRuntimeModeToggle,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
@@ -96,6 +101,8 @@ internal fun VpnConfigScreen(
 @Composable
 private fun VpnSimpleCard(
     uiState: ConfigUiState,
+    onRequestVpnPermission: () -> Unit,
+    onDismissRuntimeError: () -> Unit,
     onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
@@ -133,6 +140,9 @@ private fun VpnSimpleCard(
             testTag = RipDpiTestTags.ConfigVpnToggleState,
         )
         VpnSimpleActions(
+            uiState = uiState,
+            onRequestVpnPermission = onRequestVpnPermission,
+            onDismissRuntimeError = onDismissRuntimeError,
             vpnEnabled = vpnEnabled,
             onRuntimeModeToggle = onRuntimeModeToggle,
             onPasteServerLink = onPasteServerLink,
@@ -259,6 +269,9 @@ internal fun VpnProfileItem(
 
 @Composable
 private fun VpnSimpleActions(
+    uiState: ConfigUiState,
+    onRequestVpnPermission: () -> Unit,
+    onDismissRuntimeError: () -> Unit,
     vpnEnabled: Boolean,
     onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onPasteServerLink: () -> Unit,
@@ -271,11 +284,8 @@ private fun VpnSimpleActions(
         RipDpiButton(
             text =
                 stringResource(
-                    if (vpnEnabled) {
-                        R.string.config_vpn_turn_off
-                    } else {
-                        R.string.config_vpn_turn_on
-                    },
+                    uiState.runtimeOperation?.labelRes()
+                        ?: if (vpnEnabled) R.string.config_vpn_turn_off else R.string.config_vpn_turn_on,
                 ),
             onClick = { onRuntimeModeToggle(Mode.VPN, !vpnEnabled) },
             modifier =
@@ -284,7 +294,10 @@ private fun VpnSimpleActions(
                     .ripDpiTestTag(RipDpiTestTags.ConfigVpnToggle),
             variant = RipDpiButtonVariant.Primary,
             leadingIcon = RipDpiIcons.Vpn,
+            enabled = uiState.runtimeOperation == null,
+            loading = uiState.runtimeOperation != null,
         )
+        ConfigRuntimeFeedback(uiState, onRequestVpnPermission, onDismissRuntimeError)
         VpnAddProfileAction(onCreateProfile)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -386,6 +399,7 @@ private fun VpnRelayRow(
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigVpnRelay,
         accessibilityLabel = stringResource(R.string.config_relay_server),
+        accessibilityValue = relayEndpointLabel(uiState),
         onClick = onOpenRelaySettings,
     ) {
         EndpointSettingsRow(
@@ -405,6 +419,7 @@ private fun VpnProtocolRow(
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigVpnProtocol,
         accessibilityLabel = stringResource(R.string.config_vpn_protocol_title),
+        accessibilityValue = uiState.draft.relaySummary,
         onClick = onOpenRelaySettings,
     ) {
         SettingsRow(
@@ -426,6 +441,7 @@ private fun VpnCredentialsRow(
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigVpnCredentials,
         accessibilityLabel = stringResource(R.string.config_vpn_credentials_title),
+        accessibilityValue = credentialsValue(uiState),
         onClick = onOpenRelaySettings,
     ) {
         SettingsRow(
@@ -447,6 +463,7 @@ private fun VpnDnsRow(
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
+        accessibilityValue = uiState.draft.dnsSummary,
         onClick = onOpenDnsSettings,
     ) {
         SettingsRow(
@@ -470,6 +487,7 @@ private fun VpnDnsRow(
 private fun VpnActionRow(
     testTag: String,
     accessibilityLabel: String,
+    accessibilityValue: String,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -480,6 +498,7 @@ private fun VpnActionRow(
                 .clearAndSetSemantics {
                     this.testTag = testTag
                     contentDescription = accessibilityLabel
+                    stateDescription = accessibilityValue
                     role = Role.Button
                     onClick(action = {
                         onClick()

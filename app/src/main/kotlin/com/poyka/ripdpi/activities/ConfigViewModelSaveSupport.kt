@@ -1,18 +1,12 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.displayMessage
-import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.services.ServiceController
-import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
@@ -56,44 +50,6 @@ internal suspend fun applySavedConfigDraftToRunningService(
                 .CurrentSaved(draft.mode),
         )
     if (result is com.poyka.ripdpi.services.RunningReconnectResult.Failed) onReconnectFailure(result)
-}
-
-internal suspend fun startConfigRuntimeMode(
-    mode: Mode,
-    serviceController: ServiceController,
-    stringResolver: StringResolver,
-    effects: MutableSharedFlow<ConfigEffect>,
-    receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt,
-) {
-    when (val result = serviceController.startPrepared(mode, receipt)) {
-        is ServiceStartResult.Accepted -> {
-            return
-        }
-
-        is ServiceStartResult.MaintenanceAccepted -> {
-            error("Expected a mode-bound start dispatch")
-        }
-
-        is ServiceStartResult.Rejected -> {
-            val senderName = result.mode.startSenderName(stringResolver)
-            val message =
-                stringResolver.getString(R.string.failed_to_start, senderName) +
-                    ": " +
-                    result.reason.displayMessage(stringResolver)
-            effects.tryEmit(ConfigEffect.Message(message))
-        }
-    }
-}
-
-internal fun stopConfigRuntimeMode(
-    mode: Mode,
-    serviceStateStore: ServiceStateStore,
-    serviceController: ServiceController,
-    receipt: com.poyka.ripdpi.data.RuntimeStopReceipt,
-) {
-    if (serviceStateStore.status.value == AppStatus.Running to mode) {
-        serviceController.stopPrepared(receipt)
-    }
 }
 
 internal data class ConfigSaveRequest(

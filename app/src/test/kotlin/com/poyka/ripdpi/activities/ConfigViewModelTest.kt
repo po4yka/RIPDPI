@@ -1653,6 +1653,20 @@ class ConfigViewModelEditorSessionConcurrencyTest {
         }
 
     @Test
+    fun `runtime start ignores repeated taps until readiness`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val viewModel = createConfigViewModel(serviceController = serviceController)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.toggleRuntimeMode(Mode.VPN, enabled = true)
+            viewModel.toggleRuntimeMode(Mode.VPN, enabled = true)
+            runCurrent()
+
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+        }
+
+    @Test
     fun `config mode actions wait for the editor save and remain authoritative`() =
         runTest {
             val saveGate = CompletableDeferred<Unit>()

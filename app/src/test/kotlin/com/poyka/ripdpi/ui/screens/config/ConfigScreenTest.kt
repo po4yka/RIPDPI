@@ -283,6 +283,20 @@ class ConfigScreenTest {
     }
 
     @Test
+    fun `dns action exposes its current value to accessibility services`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.StateDescription,
+                    AppSettingsSerializer.defaultValue.toConfigDraft().dnsSummary,
+                ),
+            )
+    }
+
+    @Test
     fun `vpn section renders relay protocol credentials and dns rows`() {
         setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
 
@@ -410,7 +424,6 @@ class ConfigScreenTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    onScanServer = {},
                     initialModeSection = ConfigModeSection.LocalBypass,
                 )
             }
@@ -645,8 +658,7 @@ class ConfigScreenTest {
                     },
                     onRetestStrategies = onRetestStrategies,
                     onPasteServerLink = onPasteServerLink,
-                    onScanServer = onScanServer,
-                    profileActions = profileActions,
+                    profileActions = profileActions.copy(scanServer = onScanServer),
                     initialModeSection = initialModeSection,
                 )
             }

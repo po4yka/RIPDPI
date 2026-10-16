@@ -103,6 +103,17 @@ class ConfigViewModel
                 extraBufferCapacity = 1,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
+        private val runtimeActions =
+            ConfigRuntimeActions(
+                scope = viewModelScope,
+                controller = serviceController,
+                service = serviceStateStore,
+                strings = stringResolver,
+                isReconnectPending = {
+                    dependencies.reconnectCoordinator.reconnectState.value
+                        .isConfigPending()
+                },
+            )
         private val relayProfileSelector =
             ConfigRelayProfileSelector(
                 dependencies = dependencies,
@@ -200,6 +211,8 @@ class ConfigViewModel
                 serviceTelemetry = serviceStateStore.telemetry,
                 runtimeSnapshots = runtimeSnapshots,
                 factory = uiStateFactory,
+                runtimeFeedback = runtimeActions.feedback,
+                reconnectState = dependencies.reconnectCoordinator.reconnectState,
             )
 
         init {
@@ -252,26 +265,15 @@ class ConfigViewModel
             mode: Mode,
             enabled: Boolean,
         ) {
-            viewModelScope.launch {
-                val startReceipt = if (enabled) serviceController.prepareStart(mode) else null
-                val stopReceipt = if (!enabled) serviceController.prepareStop() else null
+            runtimeActions.toggle(mode, enabled) {
                 activeSaveJob.get()?.let { saveJob ->
                     suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
                     saveJob.join()
                 }
-                if (enabled) {
-                    startConfigRuntimeMode(
-                        mode,
-                        serviceController,
-                        stringResolver,
-                        _effects,
-                        checkNotNull(startReceipt),
-                    )
-                } else {
-                    stopConfigRuntimeMode(mode, serviceStateStore, serviceController, checkNotNull(stopReceipt))
-                }
             }
         }
+
+        val dismissRuntimeError: () -> Unit = runtimeActions::dismissError
 
         fun selectPreset(presetId: String) {
             val saveJob = activeSaveJob.get()

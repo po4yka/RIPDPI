@@ -25,6 +25,11 @@ internal class ConfigRelayProfileSelector(
     private val generation = AtomicLong()
 
     fun select(profileId: String) {
+        if (dependencies.reconnectCoordinator.reconnectState.value
+                .isConfigPending()
+        ) {
+            return
+        }
         val request = generation.incrementAndGet()
         val saveJob = activeSaveJob()
         if (saveJob != null) suppressSaveSuccess()

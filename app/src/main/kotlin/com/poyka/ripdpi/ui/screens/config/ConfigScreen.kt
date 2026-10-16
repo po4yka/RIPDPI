@@ -61,6 +61,7 @@ data class ConfigProfileActions(
     val select: (String) -> Unit = {},
     val edit: (String) -> Unit = {},
     val create: (Route) -> Unit = {},
+    val scanServer: () -> Unit = {},
 )
 
 @Composable
@@ -78,8 +79,10 @@ fun ConfigRoute(
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
     onProfileImport: (ProxyImportRequest.Profile) -> Unit = {},
     onProfileShare: (String) -> Unit = {},
+    runtimeIntegration: ConfigRuntimeIntegration = ConfigRuntimeIntegration(),
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
+    val runtime = configRuntimePresentation(viewModel, uiState, runtimeIntegration)
     val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
     val navigateTo = clipboardImportState.navigateToConfirm
     if (navigateTo is ProxyImportRequest.Profile) {
@@ -94,7 +97,8 @@ fun ConfigRoute(
         remember(clipboardImportViewModel) { clipboardImportViewModel::dismissError }
 
     ConfigScreen(
-        uiState = uiState,
+        uiState = runtime.uiState,
+        runtimeCallbacks = runtime.callbacks,
         modifier = modifier,
         route = route,
         topBarActions = {
@@ -132,9 +136,9 @@ fun ConfigRoute(
         },
         onRetestStrategies = onRetestStrategies,
         onPasteServerLink = clipboardImportViewModel::onImportFromClipboard,
-        onScanServer = onScanServer,
         profileActions =
             ConfigProfileActions(
+                scanServer = onScanServer,
                 share = onProfileShare,
                 select = remember(viewModel) { viewModel::selectRelayProfile },
                 create = onOpenProfileEditor,
@@ -170,15 +174,14 @@ fun ConfigScreen(
     onOpenConfigEditor: (ConfigEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
-    onScanServer: () -> Unit,
     profileActions: ConfigProfileActions = ConfigProfileActions(),
     modifier: Modifier = Modifier,
     route: Route = Route.Config,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    runtimeCallbacks: ConfigRuntimeCallbacks = ConfigRuntimeCallbacks(),
 ) {
     val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected } ?: uiState.presets.last()
     val desyncSummary = uiState.draft.chainSummary
@@ -229,6 +232,8 @@ fun ConfigScreen(
         }
 
         ConfigSelectedModeSection(
+            onRequestVpnPermission = runtimeCallbacks.requestVpnPermission,
+            onDismissRuntimeError = runtimeCallbacks.dismissError,
             section = selectedModeSection,
             uiState = uiState,
             desyncSummary = desyncSummary,
@@ -237,45 +242,54 @@ fun ConfigScreen(
             onOpenConfigEditor = onOpenConfigEditor,
             onRetestStrategies = onRetestStrategies,
             onPasteServerLink = onPasteServerLink,
-            onScanServer = onScanServer,
+            onScanServer = profileActions.scanServer,
             profileActions = profileActions,
         )
 
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-            SettingsCategoryHeader(title = stringResource(R.string.config_presets_section))
-            if (uiState.isLoading) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.ConfigPresetsLoading),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(spacing.md),
-                ) {
-                    RipDpiSpinner()
-                    RipDpiEmptyStateCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        title = stringResource(R.string.config_presets_loading_title),
-                        body = stringResource(R.string.config_presets_loading_body),
+        ConfigPresetList(uiState, onPresetSelected)
+    }
+}
+
+@Composable
+private fun ConfigPresetList(
+    uiState: ConfigUiState,
+    onPresetSelected: (ConfigPreset) -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.config_presets_section))
+        if (uiState.isLoading) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.ConfigPresetsLoading),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(spacing.md),
+            ) {
+                RipDpiSpinner()
+                RipDpiEmptyStateCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = stringResource(R.string.config_presets_loading_title),
+                    body = stringResource(R.string.config_presets_loading_body),
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                uiState.presets.forEach { preset ->
+                    PresetCard(
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configPreset(preset.id)),
+                        title = stringResource(titleResForPreset(preset.kind)),
+                        description = stringResource(descriptionResForPreset(preset.kind)),
+                        badgeText =
+                            if (preset.isSelected) {
+                                stringResource(R.string.config_badge_active)
+                            } else {
+                                null
+                            },
+                        selected = preset.isSelected,
+                        onClick = { onPresetSelected(preset) },
                     )
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                    uiState.presets.forEach { preset ->
-                        PresetCard(
-                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configPreset(preset.id)),
-                            title = stringResource(titleResForPreset(preset.kind)),
-                            description = stringResource(descriptionResForPreset(preset.kind)),
-                            badgeText =
-                                if (preset.isSelected) {
-                                    stringResource(R.string.config_badge_active)
-                                } else {
-                                    null
-                                },
-                            selected = preset.isSelected,
-                            onClick = { onPresetSelected(preset) },
-                        )
-                    }
                 }
             }
         }
@@ -320,6 +334,8 @@ internal fun ConfigModeSectionSwitcher(
 
 @Composable
 private fun ConfigSelectedModeSection(
+    onRequestVpnPermission: () -> Unit,
+    onDismissRuntimeError: () -> Unit,
     section: ConfigModeSection,
     uiState: ConfigUiState,
     desyncSummary: String,
@@ -335,6 +351,8 @@ private fun ConfigSelectedModeSection(
         ConfigModeSection.LocalBypass -> {
             LocalBypassConfigScreen(
                 uiState = uiState,
+                onRequestVpnPermission = onRequestVpnPermission,
+                onDismissRuntimeError = onDismissRuntimeError,
                 desyncSummary = desyncSummary,
                 onRuntimeModeToggle = onRuntimeModeToggle,
                 onOpenDesyncSettings = { onOpenConfigEditor(ConfigEditorTarget.Bypass) },
@@ -347,6 +365,8 @@ private fun ConfigSelectedModeSection(
         ConfigModeSection.Vpn -> {
             VpnConfigScreen(
                 uiState = uiState,
+                onRequestVpnPermission = onRequestVpnPermission,
+                onDismissRuntimeError = onDismissRuntimeError,
                 onRuntimeModeToggle = onRuntimeModeToggle,
                 onOpenRelaySettings = onEditCurrent,
                 onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },
@@ -469,7 +489,6 @@ private fun ConfigScreenPreview() {
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
-            onScanServer = {},
             initialModeSection = ConfigModeSection.LocalBypass,
         )
     }
@@ -501,7 +520,6 @@ private fun ConfigScreenDarkPreview() {
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
-            onScanServer = {},
             initialModeSection = ConfigModeSection.Vpn,
         )
     }
@@ -525,7 +543,6 @@ private fun ConfigScreenLoadingPreview() {
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
-            onScanServer = {},
             initialModeSection = ConfigModeSection.LocalBypass,
         )
     }

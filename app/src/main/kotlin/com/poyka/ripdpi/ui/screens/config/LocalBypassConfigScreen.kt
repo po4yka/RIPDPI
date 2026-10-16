@@ -13,6 +13,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
@@ -45,6 +46,8 @@ internal fun LocalBypassConfigScreen(
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
+    onRequestVpnPermission: () -> Unit = {},
+    onDismissRuntimeError: () -> Unit = {},
 ) {
     TrackRecomposition("LocalBypassConfigScreen")
 
@@ -57,6 +60,8 @@ internal fun LocalBypassConfigScreen(
         SettingsCategoryHeader(title = stringResource(R.string.home_mode_local_dpi_bypass))
         LocalBypassSimpleCard(
             uiState = uiState,
+            onRequestVpnPermission = onRequestVpnPermission,
+            onDismissRuntimeError = onDismissRuntimeError,
             onRuntimeModeToggle = onRuntimeModeToggle,
             onRetestStrategies = onRetestStrategies,
         )
@@ -74,6 +79,8 @@ internal fun LocalBypassConfigScreen(
 @Composable
 private fun LocalBypassSimpleCard(
     uiState: ConfigUiState,
+    onRequestVpnPermission: () -> Unit,
+    onDismissRuntimeError: () -> Unit,
     onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onRetestStrategies: () -> Unit,
 ) {
@@ -94,6 +101,9 @@ private fun LocalBypassSimpleCard(
         LocalBypassStrategyRow()
         LocalBypassPrecedenceRow(commandLineOverridesEnabled = uiState.draft.useCommandLineSettings)
         LocalBypassActionButtons(
+            uiState = uiState,
+            onRequestVpnPermission = onRequestVpnPermission,
+            onDismissRuntimeError = onDismissRuntimeError,
             localBypassEnabled = localBypassEnabled,
             onRuntimeModeToggle = onRuntimeModeToggle,
             onRetestStrategies = onRetestStrategies,
@@ -154,6 +164,9 @@ private fun LocalBypassPrecedenceRow(commandLineOverridesEnabled: Boolean) {
 
 @Composable
 private fun LocalBypassActionButtons(
+    uiState: ConfigUiState,
+    onRequestVpnPermission: () -> Unit,
+    onDismissRuntimeError: () -> Unit,
     localBypassEnabled: Boolean,
     onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onRetestStrategies: () -> Unit,
@@ -168,11 +181,12 @@ private fun LocalBypassActionButtons(
         RipDpiButton(
             text =
                 stringResource(
-                    if (localBypassEnabled) {
-                        R.string.config_local_bypass_turn_off
-                    } else {
-                        R.string.config_local_bypass_turn_on
-                    },
+                    uiState.runtimeOperation?.labelRes()
+                        ?: if (localBypassEnabled) {
+                            R.string.config_local_bypass_turn_off
+                        } else {
+                            R.string.config_local_bypass_turn_on
+                        },
                 ),
             onClick = {
                 when (localBypassToggleAction(localBypassEnabled)) {
@@ -186,7 +200,10 @@ private fun LocalBypassActionButtons(
                     .ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassToggle),
             variant = RipDpiButtonVariant.Primary,
             leadingIcon = RipDpiIcons.NetworkCheck,
+            enabled = uiState.runtimeOperation == null,
+            loading = uiState.runtimeOperation != null,
         )
+        ConfigRuntimeFeedback(uiState, onRequestVpnPermission, onDismissRuntimeError)
         RipDpiButton(
             text = stringResource(R.string.config_local_bypass_retest_strategies),
             onClick = onRetestStrategies,
@@ -272,6 +289,7 @@ private fun LocalBypassDnsRow(
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
+        accessibilityValue = uiState.draft.dnsSummary,
         onClick = onOpenDnsSettings,
     ) {
         SettingsRow(
@@ -301,6 +319,7 @@ private fun LocalBypassDesyncRow(
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConfigLocalBypassDesync,
         accessibilityLabel = stringResource(R.string.ripdpi_desync_method_setting),
+        accessibilityValue = desyncSummary,
         onClick = onOpenDesyncSettings,
     ) {
         SettingsRow(
@@ -327,6 +346,7 @@ private fun LocalBypassDesyncRow(
 private fun LocalBypassActionRow(
     testTag: String,
     accessibilityLabel: String,
+    accessibilityValue: String,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -337,6 +357,7 @@ private fun LocalBypassActionRow(
                 .clearAndSetSemantics {
                     this.testTag = testTag
                     contentDescription = accessibilityLabel
+                    stateDescription = accessibilityValue
                     role = Role.Button
                     onClick(action = {
                         onClick()

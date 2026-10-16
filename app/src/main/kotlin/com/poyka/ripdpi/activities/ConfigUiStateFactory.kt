@@ -89,6 +89,10 @@ internal class ConfigUiStateFactory(
                 projection.serviceStatus.second.takeIf {
                     projection.serviceStatus.first == AppStatus.Running
                 },
+            runtimeOperation =
+                ConfigRuntimeOperation.Reconnecting.takeIf {
+                    projection.serviceStatus.first == AppStatus.Reconnecting
+                },
             uiPersona = projection.settings.uiPersona.ifBlank { "simple" },
             presets = projection.presets,
             editingPreset = projection.editingPreset,
