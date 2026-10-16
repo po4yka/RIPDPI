@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_analysis_changes_body">Esta verificação pode salvar automaticamente as configurações de DNS, estratégia de contorno e WARP.</string>
+    <string name="simple_analysis_saved_changes_body">Esta verificação pode já ter salvo alterações. Restaure as configurações anteriores do app a partir de um backup completo salvo (FULL).</string>
+    <string name="simple_backup_restore_body">Antes da verificação, exporte um backup completo (FULL). Para restaurar, selecione Configurações. Backups SHARE não contêm configurações. As preferências de rede salvas permanecem. Ao reiniciar, o Simple seleciona o perfil integrado, o modo VPN e desativa substituições de CLI.</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_analysis_changes_body">قد يحفظ هذا الفحص إعدادات DNS واستراتيجية التجاوز وWARP تلقائيًا.</string>
+    <string name="simple_analysis_saved_changes_body">ربما حفظ هذا الفحص تغييرات بالفعل. استعد إعدادات التطبيق السابقة من نسخة احتياطية كاملة محفوظة (FULL).</string>
+    <string name="simple_backup_restore_body">صدّر نسخة احتياطية كاملة (FULL) قبل الفحص. اختر «الإعدادات» عند الاستعادة. لا تحتوي نسخ SHARE على إعدادات. تبقى تفضيلات الشبكة المحفوظة. عند إعادة التشغيل، يختار Simple ملفه المدمج ووضع VPN ويعطّل تجاوزات CLI.</string>
+</resources>

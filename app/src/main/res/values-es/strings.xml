@@ -1539,7 +1539,7 @@ Origen: %2$s</string>
     <string name="routing_protection_policy_prompt_title">Preguntar</string>
     <string name="save_logs">Guardar registros</string>
     <string name="semantic_state_off">Desactivado</string>
-    <string name="settings_appearance_section">Apariencia</string>
+    <string name="settings_appearance_section">Interfaz</string>
     <string name="settings_backup_pin_save">Guardar PIN</string>
     <string name="settings_biometric_confirm_enable">Activar</string>
     <string name="settings_biometric_pin_required_ok">Aceptar</string>
@@ -1553,7 +1553,7 @@ Origen: %2$s</string>
     <string name="settings_permission_status_required">Obligatorio</string>
     <string name="settings_permissions_section">Permisos</string>
     <string name="settings_reset_body">Restaurar todos los ajustes a sus valores predeterminados</string>
-    <string name="settings_security_section">Privacidad y seguridad</string>
+    <string name="settings_security_section">Privacidad</string>
     <string name="settings_support_debug_bundle_body">Crea un archivo ZIP de diagnóstico con el logcat limitado a la app, información de depuración reciente, metadatos del archivo, notas de completitud y hashes de integridad; después, envíalo mediante la hoja para compartir de Android tras elegir un destinatario. Las capturas de paquetes no se incluyen.</string>
     <string name="settings_tethering_dns_warning_body">Cuando el anclaje a red está activo, Android ejecuta un servidor DNS local que evita la VPN. Las apps pueden usarlo para enviar balizas de rastreo fuera del túnel</string>
     <string name="settings_vpn_flag_warning_title">El indicador de VPN es visible</string>
@@ -2101,7 +2101,7 @@ Origen: %2$s</string>
     <string name="settings_biometric_confirm_message">Tendrás que verificar tu identidad cada vez que abras el panel.</string>
     <string name="settings_biometric_pin_required_title">Se requiere PIN de respaldo</string>
     <string name="settings_community_api_url_label">URL de la API de la comunidad</string>
-    <string name="settings_connectivity_section">Conectividad</string>
+    <string name="settings_connectivity_section">Conexión</string>
     <string name="settings_diagnostics_export_history_title">Incluir el historial en los archivos de diagnóstico</string>
     <string name="settings_diagnostics_retention_title">Retención del historial (días)</string>
     <string name="settings_full_tunnel_body">Enruta todo el tráfico a través de la VPN sin exclusiones de aplicaciones. Evita que los módulos de spyware envíen tráfico directamente, pero las aplicaciones rusas pueden detectar la VPN</string>

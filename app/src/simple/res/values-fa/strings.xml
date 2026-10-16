@@ -4,7 +4,7 @@
     <string name="simple_title">RIPDPI اتصال سریع</string>
     <string name="simple_connect">اتصال</string>
     <string name="simple_disconnect">قطع اتصال</string>
-    <string name="simple_run_report">اجرای گزارش عیب‌یابی</string>
+    <string name="simple_run_report">بررسی و تنظیم اتصال</string>
     <string name="simple_report_cancelled">گزارش عیب‌یابی لغو شد</string>
     <string name="simple_report_failed">گزارش عیب‌یابی ناموفق بود. دوباره تلاش کنید.</string>
     <string name="simple_status_disconnected">قطع‌شده</string>

@@ -2120,7 +2120,7 @@ Source: %2$s</string>
     <string name="permissions_background_activity_body_xiaomi">Xiaomi/MIUI devices may block RIPDPI from running in the background. Go to Settings &gt; Apps &gt; Manage apps &gt; RIPDPI, set Battery saver to No restrictions and enable Autostart.</string>
     <string name="permissions_background_activity_body_huawei">Huawei devices may stop RIPDPI in the background. Go to Settings &gt; Battery &gt; App launch, find RIPDPI, disable automatic management, and enable Auto-launch, Secondary launch, and Run in background.</string>
     <string name="permissions_background_activity_body_oneplus">OnePlus devices may aggressively stop background apps. Go to Settings &gt; Battery &gt; Battery optimization, find RIPDPI and select Don\'t optimize. Also disable Deep Optimization and Sleep Standby Optimization if available.</string>
-    <string name="settings_connectivity_section">Connectivity</string>
+    <string name="settings_connectivity_section">Connection</string>
     <string name="settings_permissions_section">Permissions</string>
     <string name="settings_permission_status_granted">Granted</string>
     <string name="settings_permission_status_required">Required</string>
@@ -2144,7 +2144,7 @@ Source: %2$s</string>
     <string name="settings_connectivity_dns_body">Resolver mode, protocol, IPv6, and local tunnel DNS behavior.</string>
     <string name="settings_connectivity_dns_body_proxy">Encrypted DNS can resolve local proxy target names. Device DNS is unchanged.</string>
     <string name="settings_advanced_body">Low-level RIPDPI flags, proxy listeners, and protocol overrides.</string>
-    <string name="settings_security_section">Privacy &amp; security</string>
+    <string name="settings_security_section">Privacy</string>
     <string name="settings_webrtc_title">WebRTC protection</string>
     <string name="settings_webrtc_body">Reduce peer-discovery leaks that can bypass the local tunnel.</string>
     <string name="settings_start_on_boot_title">Start on boot</string>
@@ -2180,7 +2180,7 @@ Source: %2$s</string>
     <string name="settings_backup_pin_error">Backup PIN must be exactly four digits.</string>
     <string name="settings_backup_pin_save">Save PIN</string>
     <string name="settings_backup_pin_clear">Clear PIN</string>
-    <string name="settings_appearance_section">Appearance</string>
+    <string name="settings_appearance_section">Interface</string>
     <string name="settings_theme_body">Choose whether the app follows the system theme or stays fixed.</string>
     <string name="settings_theme_helper">The interface updates immediately after you switch this preference.</string>
     <string name="settings_customization_body">App icon, adaptive shape, and themed icon options.</string>

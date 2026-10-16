@@ -1539,7 +1539,7 @@ Quelle: %2$s</string>
     <string name="routing_protection_policy_prompt_title">Nachfragen</string>
     <string name="save_logs">Logs speichern</string>
     <string name="semantic_state_off">Aus</string>
-    <string name="settings_appearance_section">Erscheinungsbild</string>
+    <string name="settings_appearance_section">Oberfläche</string>
     <string name="settings_backup_pin_save">PIN speichern</string>
     <string name="settings_biometric_confirm_enable">Aktivieren</string>
     <string name="settings_biometric_pin_required_ok">OK</string>
@@ -1553,7 +1553,7 @@ Quelle: %2$s</string>
     <string name="settings_permission_status_required">Erforderlich</string>
     <string name="settings_permissions_section">Berechtigungen</string>
     <string name="settings_reset_body">Alle Einstellungen auf ihre Standardwerte zurücksetzen</string>
-    <string name="settings_security_section">Datenschutz &amp; Sicherheit</string>
+    <string name="settings_security_section">Datenschutz</string>
     <string name="settings_support_debug_bundle_body">Erstellen Sie eine Diagnose-ZIP mit einem auf die App beschränkten Logcat, aktuellen Debug-Informationen, Archivmetadaten, Vollständigkeitshinweisen und Integritäts-Hashes. Wählen Sie anschließend einen Empfänger und senden Sie sie über das Android-Teilen-Menü. Paketmitschnitte werden nicht eingebettet.</string>
     <string name="settings_tethering_dns_warning_body">Wenn Tethering aktiv ist, führt Android einen lokalen DNS-Server aus, der das VPN umgeht. Apps können dies nutzen, um Tracking-Beacons außerhalb des Tunnels zu senden</string>
     <string name="settings_vpn_flag_warning_title">VPN-Flag ist sichtbar</string>
@@ -2101,7 +2101,7 @@ Quelle: %2$s</string>
     <string name="settings_biometric_confirm_message">Sie müssen Ihre Identität jedes Mal verifizieren, wenn Sie das Dashboard öffnen.</string>
     <string name="settings_biometric_pin_required_title">Backup-PIN erforderlich</string>
     <string name="settings_community_api_url_label">Community-API-URL</string>
-    <string name="settings_connectivity_section">Konnektivität</string>
+    <string name="settings_connectivity_section">Verbindung</string>
     <string name="settings_diagnostics_export_history_title">Historie in Diagnose-Archive einschließen</string>
     <string name="settings_diagnostics_retention_title">Aufbewahrungsdauer der Historie (Tage)</string>
     <string name="settings_full_tunnel_body">Gesamten Datenverkehr ohne App-Ausschlüsse durch das VPN leiten. Verhindert, dass Spyware-Module Datenverkehr direkt senden, aber russische Apps können das VPN erkennen</string>

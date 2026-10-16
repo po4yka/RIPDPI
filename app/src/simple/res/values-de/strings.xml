@@ -4,7 +4,7 @@
     <string name="simple_title">RIPDPI Schnellverbindung</string>
     <string name="simple_connect">Verbinden</string>
     <string name="simple_disconnect">Trennen</string>
-    <string name="simple_run_report">Diagnosebericht erstellen</string>
+    <string name="simple_run_report">Verbindung prüfen und konfigurieren</string>
     <string name="simple_report_cancelled">Diagnosebericht abgebrochen</string>
     <string name="simple_report_failed">Diagnosebericht fehlgeschlagen. Erneut versuchen.</string>
     <string name="simple_status_disconnected">Getrennt</string>
