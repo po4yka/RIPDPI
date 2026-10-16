@@ -785,6 +785,37 @@ private fun BackupResetCard(
 }
 
 @Composable
+private fun BackupImportCard(
+    state: BackupRestoreUiState,
+    onImportClick: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.backup_restore_section))
+        RipDpiCard {
+            Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+                Text(
+                    text = stringResource(R.string.backup_restore_body),
+                    style = RipDpiThemeTokens.type.body,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+                RipDpiButton(
+                    text = stringResource(R.string.backup_restore_action),
+                    onClick = onImportClick,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.BackupImportButton),
+                    variant = RipDpiButtonVariant.Outline,
+                    loading = state.importing,
+                    enabled = !state.importing && !state.restoring,
+                    leadingIcon = RipDpiIcons.Logs,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 internal fun BackupRestoreScreen(
     state: BackupRestoreUiState,
     snackbarHostState: SnackbarHostState,
@@ -840,30 +871,7 @@ internal fun BackupRestoreScreen(
                 )
             }
             item(key = "backup_import_action") {
-                Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-                    SettingsCategoryHeader(title = stringResource(R.string.backup_restore_section))
-                    RipDpiCard {
-                        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-                            Text(
-                                text = stringResource(R.string.backup_restore_body),
-                                style = RipDpiThemeTokens.type.body,
-                                color = RipDpiThemeTokens.colors.mutedForeground,
-                            )
-                            RipDpiButton(
-                                text = stringResource(R.string.backup_restore_action),
-                                onClick = onImportClick,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .ripDpiTestTag(RipDpiTestTags.BackupImportButton),
-                                variant = RipDpiButtonVariant.Outline,
-                                loading = state.importing,
-                                enabled = !state.importing && !state.restoring,
-                                leadingIcon = RipDpiIcons.Logs,
-                            )
-                        }
-                    }
-                }
+                BackupImportCard(state = state, onImportClick = onImportClick)
             }
             if (showResetAction) {
                 item(key = "backup_reset_action") {
