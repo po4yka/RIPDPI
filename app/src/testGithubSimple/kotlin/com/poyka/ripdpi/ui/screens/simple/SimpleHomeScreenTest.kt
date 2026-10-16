@@ -609,7 +609,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Run diagnostic report").assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis).performScrollTo().assertIsNotEnabled()
         composeRule.onNodeWithText("Disable command line settings to run diagnostics").assertIsDisplayed()
     }
 
@@ -639,7 +639,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Run diagnostic report").assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis).performScrollTo().assertIsEnabled()
     }
 
     @Test
@@ -849,7 +849,7 @@ class SimpleHomeScreenTest {
         val connect = actuator().fetchSemanticsNode().boundsInRoot
         val report =
             composeRule
-                .onNodeWithText("Run diagnostic report")
+                .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis)
                 .fetchSemanticsNode()
                 .boundsInRoot
 
