@@ -164,6 +164,32 @@ class LogsViewModelFlowTest {
         }
 
     @Test
+    fun `continuous diagnostics source emits new events without refresh`() =
+        runTest {
+            val timelineSource = StubDiagnosticsTimelineSource()
+            val vm = createViewModel(timelineSource)
+            vm.uiState.test {
+                assertTrue(awaitItem().logs.isEmpty())
+                val first =
+                    DiagnosticEvent(
+                        id = "live-first",
+                        sessionId = "diag-live",
+                        source = "dns",
+                        level = "info",
+                        message = "First live event",
+                        createdAt = 42L,
+                        subsystem = "diagnostics",
+                    )
+                timelineSource.liveNativeEvents.value = listOf(first)
+                assertEquals(listOf("First live event"), awaitItem().logs.map { it.message })
+
+                timelineSource.liveNativeEvents.value =
+                    listOf(first, first.copy(id = "live-second", message = "Second live event", createdAt = 43L))
+                assertEquals(listOf("First live event", "Second live event"), awaitItem().logs.map { it.message })
+            }
+        }
+
+    @Test
     fun `log buffer respects max capacity`() =
         runTest {
             val vm = createViewModel()

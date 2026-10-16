@@ -298,7 +298,6 @@ class BusyStateScreenshotTest {
                                 ),
                             ),
                     ),
-                onRefresh = {},
                 onToggleSubsystemFilter = {},
                 onToggleSeverityFilter = {},
                 onAutoScrollChanged = {},
