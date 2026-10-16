@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
@@ -49,9 +50,8 @@ internal enum class DiagnosticsSimpleFunnelAction {
 }
 
 internal fun DiagnosticsScanUiModel.simpleFunnelAction(isActiveScan: Boolean): DiagnosticsSimpleFunnelAction {
-    if (strategyProbeReport == null || latestSession == null || isActiveScan ||
-        (selectedProfileId != null && latestSession.profileId != selectedProfileId)
-    ) {
+    val hasMatchingSession = selectedProfileId == null || latestSession?.profileId == selectedProfileId
+    if (strategyProbeReport == null || latestSession == null || isActiveScan || !hasMatchingSession) {
         return DiagnosticsSimpleFunnelAction.Unavailable
     }
     return if (strategyProbeReport.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.HIGH) {
@@ -203,24 +203,7 @@ internal fun OverviewSection(
                 }
             }
         }
-        if (overview.latestSnapshot != null || overview.contextSummary != null) {
-            item(key = "network_details", contentType = "network_details") {
-                val fieldCount =
-                    (overview.latestSnapshot?.fieldGroups?.sumOf { it.fields.size } ?: 0) +
-                        (overview.contextSummary?.fields?.size ?: 0)
-                CollapsibleSection(
-                    title = stringResource(R.string.diagnostics_network_details_section),
-                    badgeCount = fieldCount.takeIf { it > 0 },
-                ) {
-                    overview.latestSnapshot?.let { snapshot ->
-                        SnapshotCard(snapshot = snapshot)
-                    }
-                    overview.contextSummary?.let { contextSummary ->
-                        ContextGroupCard(group = contextSummary)
-                    }
-                }
-            }
-        }
+        networkDetailsItem(overview)
         if (overview.latestSession != null || overview.recentAutomaticProbe != null) {
             item(key = "recent_activity", contentType = "recent_activity") {
                 CollapsibleSection(
@@ -256,6 +239,27 @@ internal fun OverviewSection(
                     overview.warnings.forEach { warning ->
                         EventRow(event = diagnosticWarningPresentation(warning, expertMode), onClick = null)
                     }
+                }
+            }
+        }
+    }
+}
+
+private fun LazyListScope.networkDetailsItem(overview: DiagnosticsOverviewUiModel) {
+    if (overview.latestSnapshot != null || overview.contextSummary != null) {
+        item(key = "network_details", contentType = "network_details") {
+            val fieldCount =
+                (overview.latestSnapshot?.fieldGroups?.sumOf { it.fields.size } ?: 0) +
+                    (overview.contextSummary?.fields?.size ?: 0)
+            CollapsibleSection(
+                title = stringResource(R.string.diagnostics_network_details_section),
+                badgeCount = fieldCount.takeIf { it > 0 },
+            ) {
+                overview.latestSnapshot?.let { snapshot ->
+                    SnapshotCard(snapshot = snapshot)
+                }
+                overview.contextSummary?.let { contextSummary ->
+                    ContextGroupCard(group = contextSummary)
                 }
             }
         }

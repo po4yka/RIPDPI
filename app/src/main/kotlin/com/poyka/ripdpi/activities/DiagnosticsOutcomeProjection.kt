@@ -27,38 +27,49 @@ internal fun diagnosticsOutcome(
     home: HomeDiagnosticsUiState,
     active: Boolean,
 ): DiagnosticsOutcomeUiModel {
-    if (active) {
-        return DiagnosticsOutcomeUiModel(
-            source = DiagnosticsOutcomeSource.Active,
-            summary =
-                home.analysisAction.supportingText.takeIf { home.analysisAction.busy && it.isNotBlank() }
-                    ?: home.verifiedVpnAction.supportingText.takeIf { home.verifiedVpnAction.busy && it.isNotBlank() }
-                    ?: scan.activeProgress?.summary,
-        )
+    val audit = home.latestAudit?.takeIf { it.source == HomeDiagnosticsAuditSource.Composite }
+    val session = overview.latestSession
+    return when {
+        active -> {
+            DiagnosticsOutcomeUiModel(
+                source = DiagnosticsOutcomeSource.Active,
+                summary =
+                    home.analysisAction.supportingText.takeIf { home.analysisAction.busy && it.isNotBlank() }
+                        ?: home.verifiedVpnAction.supportingText.takeIf {
+                            home.verifiedVpnAction.busy && it.isNotBlank()
+                        }
+                        ?: scan.activeProgress?.summary,
+            )
+        }
+
+        audit != null -> {
+            DiagnosticsOutcomeUiModel(
+                source = DiagnosticsOutcomeSource.CompositeAudit,
+                evidenceId = audit.evidenceId,
+                headline = audit.headline,
+                summary = audit.summary,
+                confidence = audit.confidenceSummary,
+                coverage = audit.coverageSummary,
+                completedStages = audit.completedStageCount,
+                totalStages = audit.totalStageCount,
+                failedStages = audit.failedStageCount,
+                stale = audit.stale,
+                networkMatches = audit.networkMatches,
+            )
+        }
+
+        session != null -> {
+            DiagnosticsOutcomeUiModel(
+                source = DiagnosticsOutcomeSource.Session,
+                evidenceId = session.id,
+                headline = session.summary.ifBlank { session.title },
+                summary = listOfNotNull(session.title, session.completionLabel).joinToString(" · "),
+                measuredAt = session.startedAtLabel.takeIf(String::isNotBlank),
+            )
+        }
+
+        else -> {
+            DiagnosticsOutcomeUiModel(source = DiagnosticsOutcomeSource.Empty)
+        }
     }
-    home.latestAudit?.takeIf { it.source == HomeDiagnosticsAuditSource.Composite }?.let { audit ->
-        return DiagnosticsOutcomeUiModel(
-            source = DiagnosticsOutcomeSource.CompositeAudit,
-            evidenceId = audit.evidenceId,
-            headline = audit.headline,
-            summary = audit.summary,
-            confidence = audit.confidenceSummary,
-            coverage = audit.coverageSummary,
-            completedStages = audit.completedStageCount,
-            totalStages = audit.totalStageCount,
-            failedStages = audit.failedStageCount,
-            stale = audit.stale,
-            networkMatches = audit.networkMatches,
-        )
-    }
-    overview.latestSession?.let { session ->
-        return DiagnosticsOutcomeUiModel(
-            source = DiagnosticsOutcomeSource.Session,
-            evidenceId = session.id,
-            headline = session.summary.ifBlank { session.title },
-            summary = listOfNotNull(session.title, session.completionLabel).joinToString(" · "),
-            measuredAt = session.startedAtLabel.takeIf(String::isNotBlank),
-        )
-    }
-    return DiagnosticsOutcomeUiModel(source = DiagnosticsOutcomeSource.Empty)
 }
