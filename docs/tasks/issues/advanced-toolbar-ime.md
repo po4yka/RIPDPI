@@ -2,7 +2,7 @@
 id: UIX-1792168730775866
 title: Keep the Advanced toolbar fixed while the keyboard is open
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Advanced IME team
@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-10-16
 updated: 2026-10-16
 spec_reason: regression-tested-single-module
+status_detail: "Implementation integrated with ff-only into main at 85da04a2b. API35/API37, Save persistence, targeted tests and combined checks passed. API30 remains blocked before boot: 8627.29 MB available, 12288 MB required. Both approved pool removals completed; no API30 PASS or task closure is claimed."
 ---
 
 ## Goal

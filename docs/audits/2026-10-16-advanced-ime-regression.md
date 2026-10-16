@@ -2,7 +2,9 @@
 
 Date: 2026-10-16. Application source: `3945363270c62a284feea927569f0f69e5b24f4d`.
 API35/API37 and edit/save passed. API30 is blocked before boot by host disk space.
-Main integration, remote push and CI are pending.
+The verified implementation was integrated with ff-only into local main at
+`85da04a2b`. Remote push and hosted CI are separate evidence. The task remains
+in review with API30 verification open; no complete cross-version acceptance is claimed.
 
 ## Result and cause
 
@@ -90,9 +92,12 @@ Final focus harness v5 SHA256:
 After explicit user approval and successful Save restoration, documented cleanup
 removed only idle `RIPDPI_Pool_1`. Host space later fell again. API30 starts with
 Pixel 10 Pro XL and the repository default Pixel 7 both failed before boot.
-The latest available space was about 11,123 MB. No disk gate or userdata size was
-changed. Owner wrappers removed their temporary AVDs. Separate approval to remove
-idle `RIPDPI_Pool_2` is pending; it has not been removed.
+The user then explicitly authorized removal of idle `RIPDPI_Pool_2`. Documented
+dry-run and cleanup removed only that device. After both approved removals, the
+next API30 start still failed before boot: 8,627.29 MB available, 12,288 MB
+required. The wrapper removed its own temporary AVD and retained startup logs.
+No disk gate or userdata size was changed. API30 remains an open verification
+item; unrelated device data was not removed.
 
 Only this task's generated build outputs and a duplicate baseline output archive
 were cleaned. All three canonical tested APKs and preserved reports remain;
@@ -109,9 +114,20 @@ that one idle owner-created temporary AVD. Later PATHs include `/usr/sbin`.
 - Baseline pan: `20261016T164358Z/`. Rejected Compose-only candidate: `20261016T165739Z/`.
 - Original Maestro RED: `20261016T173526Z/`. Save/persistence/restore GREEN: `20261016T174420Z/`.
 - Permission interruption: `20261016T180855Z/`. Final API35 startup/cleanup: `api35-startup-20261016T181539Z/`.
-- API30 blocked starts: `api30-startup-20261016T181900Z/` and `api30-startup-20261016T182021Z/`.
+- API30 blocked starts: `api30-startup-20261016T181900Z/`, `api30-startup-20261016T182021Z/`
+  and the post-Pool2 retry `api30-startup-20261016T184718Z/`.
 - Build and check logs: `/tmp/advanced-ime-final-assemble.log`,
   `/tmp/advanced-ime-supported-{focused-final,simple-final,static,goldens}.log`.
 
 No physical-device, live network, relay-connectivity or full instrumentation-suite
 acceptance is claimed by this report.
+
+## Integration checks
+
+The job branch was fetched and rebased against origin/main before integration;
+it was already current. Production source matches the accepted APK source with
+an empty diff over app production, core, build logic, native and Gradle inputs.
+The combined tree passed task validation, design validation, architecture health
+and locked Cargo metadata again. The prior Full/Simple, lint, static and unchanged
+screenshot results apply to the identical application source. Independent final
+review found no code blocker and required the explicit API30 limitation above.
