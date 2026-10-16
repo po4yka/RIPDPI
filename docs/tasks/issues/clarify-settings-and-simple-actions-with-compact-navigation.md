@@ -41,18 +41,47 @@ and compact navigation at large fonts. Repair the translation-export CI gate.
 ## Ownership
 
 - Settings worker, isolated RIPDPI-ui-stage-three-settings: SettingsPreferencesScreen,
-  SettingsPreferenceSections and focused settings tests. No new catalog observer.
+  SettingsPreferenceSections, SettingsRow chevron forwarding and their focused
+  tests. No new catalog observer. SettingsRow has this one exclusive writer.
 - Simple worker, isolated RIPDPI-ui-stage-three-simple: SimpleHomeScreen and
   related Simple presentation, BackupRestoreScreen's optional reset visibility,
   and focused tests. No core diagnostics, seed, storage or service changes.
 - Navigation worker, isolated RIPDPI-ui-stage-three-navigation: BottomNavBar,
   RipDpiDegradationStrip and their focused tests. Keep existing IDs and roles.
+- CI repair worker, isolated RIPDPI-ui-stage-three-ci-tests: ConfigRuntimePresentation
+  lifecycle effect collection and ConfigModeChipsLayoutTest resource expectations.
+  Keep the lifecycle guard and whole-label/selection/callback assertions.
 - Integration owner: all locale resources, shared test tags, DESIGN.md,
   docs/design-system.md, translation manifest, automation, planning and combined
-  gates. These serialized files have one writer.
+  gates, and the InstalledReadabilityScreenshotTest theme viewport. These
+  serialized files have one writer.
 - A golden specialist may update only a fixture family explicitly approved by
   the user after actual/diff review, in a separate worktree. No blessing is
   authorized by this task record alone. Other baselines stay fixed.
+  The user approved 15 PNG on 2026-10-16: all nine RoborazziSimpleHomeScreenTest
+  images, ModeEditorScreenshotTest.saving light/dark, and catalog modeEditorScreen
+  plus onboardingPersona/Validation/ModeMaximumFontScreen. This isolated
+  RIPDPI-ui-stage-three-approved-goldens lane owns only those fixtures.
+  A second explicit approval on 2026-10-16 covers exactly 22 PNG: maximum
+  accessibility navigation in English, Spanish and French (six), maximum-font
+  Settings and Diagnostics shells (two), catalog Settings medium/dark/large/max
+  and onboarding DNS (five), Arabic/Persian/Chinese Settings (three), and all six
+  Russian maximum-font theme previews at 1600dp. The same isolated specialist
+  owns this second lane on fix/ui-stage-three-accessibility-goldens. Other
+  fixture families remain read-only.
+
+## Device follow-up ownership
+
+- Navigation worker, new isolated RIPDPI-ui-stage-three-arabic-navigation:
+  BottomNavBar and focused tests only. Reproduce and repair the real Arabic
+  360dp/font2 height of 114dp against the existing 112dp contract. Keep full
+  labels and 48dp targets. No exception to the normative height requirement.
+- Simple worker, new isolated RIPDPI-ui-stage-three-backup-insets:
+  SimpleHomeScreen backup overlay insets and focused tests only. Keep the Back
+  target below status-bar bounds without duplicate insets in other overlays.
+- Device specialist owns only temporary harness and acceptance artifacts.
+  Fix fixed-navigation viewport and untagged scroll-progress observations;
+  preserve failed-run evidence. Repeat all cases on rebuilt APKs after fixes.
 
 ## Design and limits
 

@@ -657,7 +657,7 @@ Accessibility is a design requirement, not an afterthought:
 - A button height is a minimum. Let its complete label wrap and its container grow.
 - Choice chips use content-driven width and height. Wrap the group instead of forcing equal columns.
 - Place long localized facts and status badges on separate lines when they compete with a title. Diagnostic session, probe, and event rows reserve whole-word width before placing metadata beside their content. Report confidence, winner, and candidate headers use the same width rule. Full candidate titles and probe targets can wrap.
-- Keep bottom navigation in one row when all labels fit. If measured labels need more width, use two columns, then one column as needed. Preserve destination order, selection, and all actions.
+- Keep bottom navigation in one row when all labels fit. If measured labels need more width, use two columns, then one column as needed. Two-column fallback uses full text labels without decorative icons and natural-height rows with at least 48dp targets. Keep labels readable and allow wrapping at extreme widths. Preserve destination order, selection, focus, and all actions.
 - Use scrollable Material 3 tabs for peer sections. Do not shrink their text to fit.
 - Keep graph labels readable. Scroll a large diagram instead of scaling its text below the chosen type size.
 - Give large app-bar titles the full content width and as many lines as needed. Place navigation and actions in their own row only when controls exist.
@@ -860,6 +860,8 @@ Settings:
 
 - build the main settings surface with `RipDpiSettingsScaffold`
 - compose sections from `SettingsCategoryHeader`, `RipDpiCard`, and `SettingsRow`
+- group top-level settings as Connection, Interface, Privacy, and Support; keep permission repairs visible in Connection and maintenance actions under Support
+- show actual language, theme, persona, and icon values; navigation-only rows keep a chevron without repeating Manage
 - let banners precede the affected card, not replace the card structure
 - use banners for cautions and permission guidance, and dialogs or form controls for edits and confirmations
 - expose the global Guided/Advanced persona control and keep persona state persistent across process death

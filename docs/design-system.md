@@ -280,7 +280,8 @@ Onboarding and permission flows:
 
 - Build top-level settings with `RipDpiSettingsScaffold`; use `RipDpiContentScreenScaffold` only for narrower detail flows that do not behave like the main settings list.
 - Compose sections from `SettingsCategoryHeader`, `RipDpiCard`, and `SettingsRow`; a settings section should read as a compact list, not a collection of bespoke cards.
-- Keep connectivity, security, personalization, transparency, and maintenance concerns in separate sections with stable ordering.
+- Keep four stable top-level groups: Connection, Interface, Privacy, and Support. Put language in Interface, permission repairs and start-on-boot in Connection, data transparency in Privacy, and backup/maintenance in Support. Preserve contextual security warnings and advanced-persona disclosure.
+- Show actual available values such as native language, theme, persona, and icon. Navigation-only rows keep an explicit chevron and short intent without a repeated Manage value or an invented count.
 - A category should resolve to one primary grouped container with stable divider rhythm. Inline banners may precede the affected card, but banners do not replace section structure.
 - Use `WarningBanner` for tunneled-outbound-specific cautions, permission guidance, or stateful advisories. Do not encode those states only through subtitle color.
 - Use `RipDpiDropdown`, `RipDpiTextField`, `RipDpiConfigTextField`, and dialogs for editable configuration, confirmation, and credential flows. Do not overload row subtitles with inline form editing.
@@ -361,7 +362,7 @@ Motion rules:
 - Action labels wrap and grow with the container. A control height is a minimum.
 - Choice groups use intrinsic chip widths in a wrapping layout. Do not enforce equal-width chips or fixed chip heights.
 - Headers reserve space for controls. Put long facts and status badges below the title when needed.
-- Bottom navigation measures complete labels. Keep one row when it fits; use two columns, then one column if required. Preserve destination order, selection, and callbacks.
+- Bottom navigation measures complete labels. Keep one row when it fits; use two columns, then one column if required. Two-column fallback uses text-only items with natural height and at least 48dp targets; decorative icons do not consume an extra row. Preserve full labels, destination order, selection, focus, and callbacks. Allow wrapping at extreme widths.
 - Diagrams retain readable text and use scrolling when their geometry exceeds the viewport. Do not shrink text with the drawing.
 - At large font scale, app-bar navigation and actions occupy a separate row above the complete title. Add this row only when controls exist. The title has no fixed line limit.
 - Text styles and Material typography take an explicit locale from the app resource configuration. Cache these styles by language tags and preserve type metrics.
@@ -414,3 +415,19 @@ The screenshot catalog intentionally excludes continuously animated or cursor-dr
 The Material 3 readability change updates primary type, icons, settings rows, and diagnostics tabs. The older RDS HTML previews `type-body`, `type-display`, `icon-set`, `components-settings-row`, and `components-tabs` remain reference-only and retain their earlier compact sizes. The current Compose tokens and `DESIGN.md` define this revision.
 
 The app-wide follow-up applies these rules to shared actions and feedback, DNS and relay choices, localized forms, graph headers and diagrams, recovery and import actions, data cards, and history navigation. The relevant RDS previews include `components-warning-banner`, `gesture-long-press-menu`, `components-chips`, `components-accordion`, `components-bottom-nav`, `vpn-dns-picker`, `vpn-relay-picker`, `vpn-throughput-graph`, `vpn-latency-graph`, `vpn-state-machine`, `diagnostic-port-matrix`, `vpn-strategy-import`, `vpn-oom-recovery`, and `android-history`. Their compact HTML layouts remain read-only. Adaptive wrapping and the measured navigation fallback are deliberate accessibility corrections. See [the audit record](design/readability-audit.md).
+
+
+### Simple analysis consequences
+
+- Name the action as checking and configuring the connection. Explain before
+  launch that DNS, bypass and WARP changes can be saved automatically.
+- Show applied settings only from the actual outcome. Cancellation, failure or
+  an unavailable outcome does not imply that earlier changes were not saved.
+- Offer the existing backup/restore surface with reset hidden in Simple. Keep
+  all export privacy and import confirmation safeguards. Explain that FULL
+  restores its saved settings payload, SHARE contains no settings, network
+  memories remain, and Simple startup reselects the bundled connection path.
+- Keep this detailed restoration guidance inside backup/restore. The default
+  Simple action explanation stays short. This is not exact diagnostic Undo.
+- Neutral measurement messages use an information icon. Warning and Critical
+  keep warning treatment; bytes or connection state alone do not prove quality.
