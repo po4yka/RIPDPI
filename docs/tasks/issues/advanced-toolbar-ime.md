@@ -19,13 +19,16 @@ spec_reason: regression-tested-single-module
 
 Keep the Advanced title and Back target below the status bar while IME is
 visible. Keep the focused field visible and retain the existing save and Back
-behavior. This is a single-module layout regression; no window policy, storage,
-service or navigation contract is changed.
+behavior. This is a single-module layout regression. The Activity declares the
+supported resize policy; Advanced applies Compose IME insets. Storage, service
+and navigation contracts stay unchanged.
 
 ## Acceptance criteria
 
 - Capture the pan on a fresh main542 APK before changing production code.
 - A measured regression fails before the change and passes after it.
+- A merged-manifest test prevents automatic platform pan. A second editable
+  screen passes a real-keyboard smoke test for the Activity-wide policy.
 - On API35+ and API30, the toolbar and its 48dp Back target stay below the
   actual status bar at normal/maximum font in gesture/three-button navigation.
 - The focused field stays above the actual IME. The first Back hides IME;
@@ -37,11 +40,12 @@ service or navigation contract is changed.
 
 ## Ownership
 
-- Integration owner: AdvancedSettingsContent.kt, integration of regression tests,
+- Integration owner: AndroidManifest.xml, AdvancedSettingsContent.kt, regression tests,
   task records, evidence, combined checks and Git integration. Owns all production
   edits. Keep the change on Advanced unless runtime evidence requires more.
-- Test worker, isolated RIPDPI-advanced-ime-test: only a new
-  AdvancedSettingsImeInsetsTest.kt in app/src/test/kotlin/.../screens/settings.
+- Test worker, isolated RIPDPI-advanced-ime-test: only new
+  AdvancedSettingsImeInsetsTest.kt in app/src/test/kotlin/.../screens/settings and
+  MainActivityImePolicyTest.kt in app/src/test/kotlin/.../activities.
   No production, locale, golden, task, build or shared scaffold edits.
 - Device specialist: temporary harness and capture files outside tracked source;
   exclusive command-scoped emulator leases and restoration. No compilation.
@@ -52,5 +56,10 @@ service or navigation contract is changed.
 RDS references: docs/design/rds/preview/components-settings-row.html and
 vpn-quick-vs-advanced.html. Spec HTML stays read-only. Keep the existing RDS
 scaffold and tokens; reserve IME space without extra status-bar padding.
-No SOFT_INPUT_ADJUST flags, second enableEdgeToEdge call, new dependency,
-locale key, golden blessing, service action or network probe is planned.
+Use the declarative manifest adjustResize attribute required by Android's Compose
+setup. The local skill bans imperative WindowManager SOFT_INPUT_ADJUST flags;
+the official Android skill explicitly distinguishes those deprecated constants
+from the supported manifest attribute. No runtime flag, second enableEdgeToEdge
+call, new dependency, locale key, golden blessing, service action or network
+probe is planned. The first Compose-only candidate failed real device acceptance
+and must not be reported as a completed fix.
