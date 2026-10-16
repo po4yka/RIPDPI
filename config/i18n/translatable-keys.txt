@@ -4718,6 +4718,9 @@ app:shortcut_quick_connect_short
 app:shortcut_stop_vpn
 app:shortcut_stop_vpn_disabled
 app:shortcut_stop_vpn_short
+app:simple_analysis_changes_body
+app:simple_analysis_saved_changes_body
+app:simple_backup_restore_body
 app:sni_of_fake_packet
 app:source_code_link
 app:splash_subtitle

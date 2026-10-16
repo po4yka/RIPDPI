@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_analysis_changes_body">Cette vérification peut enregistrer automatiquement le DNS, la stratégie de contournement et WARP.</string>
+    <string name="simple_analysis_saved_changes_body">Cette vérification a peut-être déjà enregistré des modifications. Restaurez les anciens réglages depuis une sauvegarde complète (FULL).</string>
+    <string name="simple_backup_restore_body">Avant la vérification, exportez une sauvegarde complète (FULL). Pour la restaurer, sélectionnez Paramètres. Les sauvegardes SHARE ne contiennent pas de paramètres. Les préférences réseau mémorisées sont conservées. Au redémarrage, Simple choisit son profil intégré, le mode VPN et désactive les substitutions CLI.</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_analysis_changes_body">Проверка может автоматически сохранить настройки DNS, стратегии обхода и WARP.</string>
+    <string name="simple_analysis_saved_changes_body">Проверка уже могла сохранить изменения. Прежние настройки приложения можно восстановить из сохранённой полной копии (FULL).</string>
+    <string name="simple_backup_restore_body">Перед проверкой сохраните полную копию (FULL). Для восстановления выберите «Настройки». Копии SHARE не содержат настроек. Запомненные рекомендации сети сохранятся. После перезапуска Simple выберет встроенный профиль, режим VPN и отключит переопределения CLI.</string>
+</resources>

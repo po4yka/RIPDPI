@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_analysis_changes_body">This check can save DNS, bypass strategy and WARP settings automatically.</string>
+    <string name="simple_analysis_saved_changes_body">This check may already have saved changes. Restore earlier app settings from a saved FULL backup.</string>
+    <string name="simple_backup_restore_body">Export a FULL backup before a check to keep current settings. Restore it with Settings selected. SHARE bundles contain no settings. Network memories stay. On restart, Simple selects its bundled profile, VPN mode and disables CLI overrides.</string>
+</resources>

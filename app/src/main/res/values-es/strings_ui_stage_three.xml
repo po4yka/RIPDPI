@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_analysis_changes_body">Esta comprobación puede guardar automáticamente la configuración de DNS, la estrategia de evasión y WARP.</string>
+    <string name="simple_analysis_saved_changes_body">Esta comprobación puede haber guardado cambios. Restaure la configuración anterior desde una copia completa guardada (FULL).</string>
+    <string name="simple_backup_restore_body">Antes de comprobar, exporte una copia completa (FULL). Para restaurarla, seleccione Ajustes. Las copias SHARE no contienen ajustes. Se conservan las preferencias de red. Al reiniciar, Simple selecciona su perfil integrado, el modo VPN y desactiva las opciones de CLI.</string>
+</resources>

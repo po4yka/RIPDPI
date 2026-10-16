@@ -1768,7 +1768,7 @@ fakeddisorder endhost</string>
     <string name="save_logs">ذخیره گزارش‌ها</string>
     <string name="semantic_state_collapsed">جمع‌شده</string>
     <string name="semantic_state_on">روشن</string>
-    <string name="settings_appearance_section">ظاهر</string>
+    <string name="settings_appearance_section">رابط کاربری</string>
     <string name="settings_backup_pin_error">پین پشتیبان باید دقیقاً چهار رقم باشد.</string>
     <string name="settings_biometric_body_disabled">پیش از باز کردن داشبورد، احراز هویت بیومتریک را درخواست کن.</string>
     <string name="settings_biometric_confirm_cancel">انصراف</string>
@@ -2651,7 +2651,7 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_vpn_active">برای حالت VPN محلی انتخاب‌شده فعلی ضروری است.</string>
     <string name="settings_reset_action">بازنشانی</string>
     <string name="settings_reset_dialog_body">این کار تمام تنظیمات را به مقادیر پیش‌فرض بازخواهد گرداند. اتصال شما متوقف می‌شود و تمام شخصی‌سازی‌ها از بین می‌روند.</string>
-    <string name="settings_security_section">حریم خصوصی &amp; امنیت</string>
+    <string name="settings_security_section">حریم خصوصی</string>
     <string name="settings_support_debug_bundle_title">اشتراک‌گذاری بسته پشتیبانی</string>
     <string name="settings_tethering_dns_warning_title">خطر نشت DNS اشتراک اتصال</string>
     <string name="settings_vpn_flag_warning_body">برنامه‌ها در تمام پروفایل‌های اندروید (شامل Work Profile و Knox) می‌توانند تشخیص دهند که VPN فعال است. برای جداسازی کامل، از یک دستگاه جداگانه برای برنامه‌های روسی استفاده کنید</string>

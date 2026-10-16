@@ -2076,7 +2076,7 @@ fake_burst 3</string>
     <string name="routing_protection_section_title">应用路由保护</string>
     <string name="semantic_action_collapse">折叠</string>
     <string name="semantic_state_off">关闭</string>
-    <string name="settings_appearance_section">外观</string>
+    <string name="settings_appearance_section">界面</string>
     <string name="settings_backup_pin_helper_saved">已在本地存储一个四位备用 PIN。</string>
     <string name="settings_biometric_body_without_pin">生物识别解锁已启用。请添加备用 PIN 以备后用。</string>
     <string name="settings_biometric_confirm_title">启用身份验证?</string>
@@ -2093,7 +2093,7 @@ fake_burst 3</string>
     <string name="settings_permissions_notifications_needed">建议允许,以便 Android 显示本地 VPN 或代理的状态和服务提醒。</string>
     <string name="settings_permissions_vpn_needed">在 RIPDPI 可启动本地 VPN 路径之前,请先授予 Android VPN 同意。</string>
     <string name="settings_reset_confirm">重置</string>
-    <string name="settings_security_section">隐私 &amp; 安全</string>
+    <string name="settings_security_section">隐私</string>
     <string name="settings_strategy_pack_allow_rollback_override_title">允许策略包回滚</string>
     <string name="settings_telemetry_salt_reset_action">重置遥测盐值</string>
     <string name="settings_theme_body">选择应用是跟随系统主题还是保持固定。</string>

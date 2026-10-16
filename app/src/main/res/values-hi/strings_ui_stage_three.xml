@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_analysis_changes_body">यह जाँच DNS, बायपास रणनीति और WARP की सेटिंग अपने आप सहेज सकती है।</string>
+    <string name="simple_analysis_saved_changes_body">इस जाँच ने बदलाव पहले ही सहेज दिए होंगे। सहेजे गए पूर्ण बैकअप (FULL) से ऐप की पिछली सेटिंग बहाल करें।</string>
+    <string name="simple_backup_restore_body">जाँच से पहले पूर्ण बैकअप (FULL) निर्यात करें। बहाल करते समय सेटिंग चुनें। SHARE बैकअप में सेटिंग नहीं होतीं। नेटवर्क की याद रखी गई सिफ़ारिशें बनी रहेंगी। फिर शुरू होने पर Simple अपना अंतर्निहित प्रोफ़ाइल और VPN मोड चुनता है और CLI ओवरराइड बंद करता है।</string>
+</resources>

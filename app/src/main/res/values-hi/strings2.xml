@@ -231,7 +231,7 @@
     <string name="permissions_background_activity_body_xiaomi">Xiaomi/MIUI डिवाइस RIPDPI को बैकग्राउंड में चलने से रोक सकते हैं। Settings &gt; Apps &gt; Manage apps &gt; RIPDPI पर जाएँ, Battery saver को No restrictions पर सेट करें और Autostart सक्षम करें।</string>
     <string name="permissions_background_activity_body_huawei">Huawei डिवाइस RIPDPI को बैकग्राउंड में रोक सकते हैं। Settings &gt; Battery &gt; App launch पर जाएँ, RIPDPI ढूँढें, स्वचालित प्रबंधन अक्षम करें, और Auto-launch, Secondary launch तथा Run in background सक्षम करें।</string>
     <string name="permissions_background_activity_body_oneplus">OnePlus डिवाइस बैकग्राउंड ऐप्स को आक्रामक रूप से रोक सकते हैं। Settings &gt; Battery &gt; Battery optimization पर जाएँ, RIPDPI ढूँढें और Don\'t optimize चुनें। यदि उपलब्ध हो तो Deep Optimization और Sleep Standby Optimization भी अक्षम करें।</string>
-    <string name="settings_connectivity_section">कनेक्टिविटी</string>
+    <string name="settings_connectivity_section">कनेक्शन</string>
     <string name="settings_permissions_section">अनुमतियाँ</string>
     <string name="settings_permission_status_granted">दी गई</string>
     <string name="settings_permission_status_required">आवश्यक</string>
@@ -255,7 +255,7 @@
     <string name="settings_connectivity_dns_body">रिज़ॉल्वर मोड, प्रोटोकॉल, IPv6, और स्थानीय टनल DNS व्यवहार।</string>
     <string name="settings_connectivity_dns_body_proxy">एन्क्रिप्टेड DNS स्थानीय प्रॉक्सी के लक्ष्य नाम हल कर सकता है। डिवाइस DNS नहीं बदलता।</string>
     <string name="settings_advanced_body">निम्न-स्तरीय RIPDPI फ़्लैग, प्रॉक्सी लिसनर, और प्रोटोकॉल ओवरराइड।</string>
-    <string name="settings_security_section">गोपनीयता &amp; सुरक्षा</string>
+    <string name="settings_security_section">गोपनीयता</string>
     <string name="settings_webrtc_title">WebRTC सुरक्षा</string>
     <string name="settings_webrtc_body">पीयर-डिस्कवरी लीक कम करें जो स्थानीय टनल को बायपास कर सकते हैं।</string>
     <string name="settings_start_on_boot_title">बूट पर शुरू करें</string>
@@ -291,7 +291,7 @@
     <string name="settings_backup_pin_error">बैकअप PIN ठीक चार अंकों का होना चाहिए।</string>
     <string name="settings_backup_pin_save">PIN सहेजें</string>
     <string name="settings_backup_pin_clear">PIN साफ़ करें</string>
-    <string name="settings_appearance_section">रूप-रंग</string>
+    <string name="settings_appearance_section">इंटरफ़ेस</string>
     <string name="settings_theme_body">चुनें कि ऐप सिस्टम थीम का अनुसरण करे या स्थिर रहे।</string>
     <string name="settings_theme_helper">इस प्राथमिकता को बदलने के तुरंत बाद इंटरफ़ेस अपडेट हो जाता है।</string>
     <string name="settings_customization_body">ऐप आइकन, अनुकूली आकार, और थीम वाले आइकन विकल्प।</string>

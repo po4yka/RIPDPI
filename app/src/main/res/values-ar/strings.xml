@@ -2045,7 +2045,7 @@ fakeddisorder endhost</string>
     <string name="settings_connectivity_dns_body">وضع المحلل، البروتوكول، IPv6، وسلوك DNS النفق المحلي.</string>
     <string name="settings_connectivity_dns_body_proxy">يمكن أن يحل DNS المشفّر أسماء أهداف الوكيل المحلي. يظل DNS الجهاز دون تغيير.</string>
     <string name="settings_advanced_body">أعلام RIPDPI المتقدمة، مستمعو الوكيل، وتجاوزات البروتوكول.</string>
-    <string name="settings_security_section">الخصوصية &amp; الأمان</string>
+    <string name="settings_security_section">الخصوصية</string>
     <string name="settings_webrtc_title">حماية WebRTC</string>
     <string name="settings_webrtc_body">تقليل تسريبات اكتشاف النظير التي قد تتجاوز النفق المحلي.</string>
     <string name="settings_start_on_boot_title">التشغيل عند الإقلاع</string>
@@ -2081,7 +2081,7 @@ fakeddisorder endhost</string>
     <string name="settings_backup_pin_error">يجب أن يتكون رمز PIN الاحتياطي من أربعة أرقام بالضبط.</string>
     <string name="settings_backup_pin_save">حفظ رمز PIN</string>
     <string name="settings_backup_pin_clear">مسح رمز PIN</string>
-    <string name="settings_appearance_section">المظهر</string>
+    <string name="settings_appearance_section">الواجهة</string>
     <string name="settings_theme_body">اختر ما إذا كان التطبيق يتبع سمة النظام أم يبقى ثابتًا.</string>
     <string name="settings_theme_helper">تُحدَّث الواجهة فور تغيير هذا الإعداد.</string>
     <string name="settings_customization_body">خيارات أيقونة التطبيق والشكل التكيفي والأيقونة ذات السمة.</string>

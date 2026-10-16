@@ -2084,7 +2084,7 @@ Fonte: %2$s</string>
     <string name="permissions_background_activity_body_xiaomi">Dispositivos Xiaomi/MIUI podem impedir o RIPDPI de rodar em segundo plano. Vá em Configurações &gt; Apps &gt; Gerenciar apps &gt; RIPDPI, defina Economia de bateria como Sem restrições e ative o Início automático.</string>
     <string name="permissions_background_activity_body_huawei">Dispositivos Huawei podem interromper o RIPDPI em segundo plano. Vá em Configurações &gt; Bateria &gt; Inicialização de apps, localize o RIPDPI, desative o gerenciamento automático e ative Inicialização automática, Inicialização secundária e Executar em segundo plano.</string>
     <string name="permissions_background_activity_body_oneplus">Dispositivos OnePlus podem encerrar apps em segundo plano de forma agressiva. Vá em Configurações &gt; Bateria &gt; Otimização de bateria, localize o RIPDPI e selecione Não otimizar. Também desative Otimização profunda e Otimização de espera se disponíveis.</string>
-    <string name="settings_connectivity_section">Conectividade</string>
+    <string name="settings_connectivity_section">Conexão</string>
     <string name="settings_permissions_section">Permissões</string>
     <string name="settings_permission_status_granted">Concedida</string>
     <string name="settings_permission_status_required">Necessária</string>
@@ -2108,7 +2108,7 @@ Fonte: %2$s</string>
     <string name="settings_connectivity_dns_body">Modo do resolvedor, protocolo, IPv6 e comportamento de DNS do túnel local.</string>
     <string name="settings_connectivity_dns_body_proxy">O DNS criptografado pode resolver destinos do proxy local. O DNS do dispositivo não muda.</string>
     <string name="settings_advanced_body">Flags de baixo nível do RIPDPI, listeners de proxy e substituições de protocolo.</string>
-    <string name="settings_security_section">Privacidade &amp; segurança</string>
+    <string name="settings_security_section">Privacidade</string>
     <string name="settings_webrtc_title">Proteção WebRTC</string>
     <string name="settings_webrtc_body">Reduz vazamentos de descoberta de pares que podem contornar o túnel local.</string>
     <string name="settings_start_on_boot_title">Iniciar com o sistema</string>
@@ -2144,7 +2144,7 @@ Fonte: %2$s</string>
     <string name="settings_backup_pin_error">O PIN de backup deve ter exatamente quatro dígitos.</string>
     <string name="settings_backup_pin_save">Salvar PIN</string>
     <string name="settings_backup_pin_clear">Limpar PIN</string>
-    <string name="settings_appearance_section">Aparência</string>
+    <string name="settings_appearance_section">Interface</string>
     <string name="settings_theme_body">Escolha se o app segue o tema do sistema ou permanece fixo.</string>
     <string name="settings_theme_helper">A interface é atualizada imediatamente após você mudar esta preferência.</string>
     <string name="settings_customization_body">Opções de ícone do app, forma adaptativa e ícone temático.</string>
