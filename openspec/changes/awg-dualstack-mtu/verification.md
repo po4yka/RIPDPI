@@ -4,8 +4,8 @@ change: "awg-dualstack-mtu"
 commit_sha: "b92db30c6124e453a67ab64307b608d027f6baec"
 local: "passed"
 local_evidence: "Focused JVM/Detekt passed 135 tests with zero failures/skips; combined Persian/resolver locale tests passed all 10. Immutable 504 baseline reproduced both TCP regressions, then the separately compiled fixed tree passed all 94 warp-core tests. Normal hooks including workspace Clippy with warnings denied passed. Fifty native task CLI tests, fourteen offline runner/validator tests and thirty-two emulator-pool tests passed earlier on unchanged paths; offline fixtures do not count as traffic."
-remote_ci: passed
-remote_ci_evidence: "Exact compiled/runtime source b92db30c6124e453a67ab64307b608d027f6baec CI 38816708930 completed all 64 jobs: 46 success, 18 planned skips, zero failures or active jobs. This includes aggregate, static analysis, JVM/app, Kotlin coverage, every selected Rust workspace/network/lint/coverage/Miri/loom/turmoil/fuzz/native ABI packaging lane, all three release verification lanes and Android instrumentation APIs 27/33/35/36/37. Subsequent metadata-only commits do not change executable inputs; their selected task/document checks are reported separately in the PR."
+remote_ci: blocked
+remote_ci_evidence: "Contract correction source 8c7a8587b6cd409420f74533f44cd6e91fac5cc7 passed all 888 core:data tests (including all 15 contract/transport/fingerprint cases) and gradle-static-analysis in CI 38860300313. The broader run exposed inherited ConfigRuntimePresentation lifecycle collection and three onboarding maximum-font screenshot mismatches; correction and baseline approval are pending. Earlier b92 native/runtime CI 38816708930 passed all 64 jobs and remains historical evidence for unchanged native inputs."
 device: "passed"
 device_evidence: "Exact-b92 production Android arm64 JNI/APK passed all eight API 35 emulator/native_core sessions, MTUs 1280 and 1420 times cycle 0 baseline and reconnects 1..3, retaining one independent Go v0.2.12 peer per MTU. All 64 measured IPv4/IPv6 TCP/UDP/DNS observations passed and all 8 real VpnService.protect calls succeeded. Invocation nonce awg-native-20261015-b92db30c6-5; evidence.json SHA256 e46419f582221aa444e528d7cdf9cbdc7ae76d3e52d60b2a0a020b3e26f9d0b5. Client validator and producer canonical Make evidence target both passed. Owned emulator cleanup completed. Physical-device and Android TUN/no-leak checks are outside the required scope."
 artifact: "passed"
@@ -62,7 +62,14 @@ The three JVM fixture consumers derive explicit client-owned dual-stack input
 for accepted transport and fingerprint cases. Canonical source input is tested
 unchanged for typed `INVALID_NETWORK_POLICY` / `address` rejection, including
 network-policy precedence over fingerprint rejection, while VLESS, Hysteria2,
-topology and expiry remain importable. Runtime source, native binaries and
-measured emulator behavior are unchanged. Local JVM/static checks and new
-hosted CI are pending; prior runtime evidence above applies to unchanged
-production inputs and does not stand in for these changed tests.
+topology and expiry remain importable. AWG runtime source, native binaries and
+measured emulator behavior are unchanged. Hosted run `38860300313` at
+`8c7a8587b6cd409420f74533f44cd6e91fac5cc7` passed all 888 core:data tests,
+including the 15 affected cases with no skips, and `gradle-static-analysis`.
+Its broader app lanes exposed a new direct config feedback collector and three
+onboarding maximum-font baselines predating already-merged Back navigation.
+The collector now uses the existing resumed-lifecycle helper and producer-owned
+queued event flow. Baseline refresh needs explicit approval; full hosted CI
+remains blocked until these separate inherited failures pass. The local Gradle attempt was retired without compiling after 26 minutes queued
+at the machine-wide gate. Hosted results are recorded as hosted evidence, not
+a local pass.

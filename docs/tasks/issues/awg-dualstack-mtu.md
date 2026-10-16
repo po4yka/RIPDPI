@@ -2,7 +2,7 @@
 id: DAT-1792081130689287
 title: Validate deployed AWG dual-stack addresses and MTU
 kind: feature
-status: doing
+status: review
 area: data
 priority: high
 owner: AWG dual-stack consumer
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: awg-dualstack-mtu
 created: 2026-10-15
 updated: 2026-10-16
-status_detail: "Correcting published producer contract drift and validating canonical rejection plus client-owned dual-stack acceptance for deployment PR #308."
+status_detail: "Published contract mirror restored across all 31 files; all 888 core:data tests and static analysis pass at 8c7a8587. Broader Android CI awaits config lifecycle correction and approved onboarding baseline refresh."
 ---
 
 ## Goal
