@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import kotlinx.serialization.json.Json
@@ -92,14 +93,14 @@ class RipdpiBundleContractTest {
     }
 
     // -------------------------------------------------------------------------
-    // The parser accepts the canonical example bundle and surfaces every
+    // A client-owned dual-stack variant surfaces every
     // additive field (cohort_fingerprint, salamander_upstream_tag, topology,
     // expires). The example is a bare ripdpi object; wrap it in a minimal
     // sing-box doc with a matching hysteria2 outbound so the extras attach.
     // -------------------------------------------------------------------------
     @Test
-    fun `parser accepts the canonical example bundle and surfaces all fields`() {
-        val ripdpi = example
+    fun `parser accepts client dual-stack example and surfaces all fields`() {
+        val ripdpi = example.withClientDualStackTransport()
         val hyTag = ripdpi["hysteria_extras"]!!.jsonObject.keys.first()
         val doc =
             buildJsonObject {
@@ -147,14 +148,14 @@ class RipdpiBundleContractTest {
     }
 
     // -------------------------------------------------------------------------
-    // Realistic full bundle (sing-box document + ripdpi object), byte-identical
-    // to the server's contract/ripdpi-bundle.golden-full.json. The client parses
-    // the WHOLE document end-to-end; the server validates the same file's ripdpi
-    // object against the schema. This is the cross-repo emit->parse check.
+    // A dual-stack variant of the canonical full bundle exercises accepted AWG
+    // transport end-to-end. The unmodified producer input is checked separately
+    // below, including explicit rejection of its single-family AWG entry.
     // -------------------------------------------------------------------------
     @Test
-    fun `parser consumes the realistic golden-full bundle end to end`() {
-        val result = SingBoxSubscriptionParser.parse(resource(GOLDEN_FULL), "golden-full")
+    fun `parser consumes client dual-stack full bundle end to end`() {
+        val document = json.parseToJsonElement(resource(GOLDEN_FULL)).jsonObject.withClientDualStackTransport()
+        val result = SingBoxSubscriptionParser.parse(document.toString(), "dual-stack-full")
         assertTrue("expected Success but got $result", result is SingBoxParseResult.Success)
         result as SingBoxParseResult.Success
 
@@ -213,6 +214,40 @@ class RipdpiBundleContractTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `canonical producer IPv4-only entries are rejected with explicit evidence`() {
+        val exampleDocument =
+            buildJsonObject {
+                put("outbounds", buildJsonArray {})
+                put("ripdpi", example)
+            }
+        val fullDocument = json.parseToJsonElement(resource(GOLDEN_FULL)).jsonObject
+        val negativeDocuments =
+            listOf("neg-bad-cohort-fingerprint.json", "neg-fingerprint-mismatch.json")
+                .map { json.parseToJsonElement(resource("$NEGATIVE_DIR/$it")).jsonObject }
+        (listOf(exampleDocument, fullDocument) + negativeDocuments).forEach { document ->
+            val result = SingBoxSubscriptionParser.parse(document.toString(), "canonical-producer")
+            assertTrue("expected Success but got $result", result is SingBoxParseResult.Success)
+            result as SingBoxParseResult.Success
+            assertTrue(result.amneziaWgProfiles.isEmpty())
+            val skipped = result.skipped.single { it.reason == SingBoxSkipReason.INVALID_NETWORK_POLICY }
+            assertEquals("address", skipped.detail)
+        }
+        val fullResult = SingBoxSubscriptionParser.parse(fullDocument.toString(), "canonical-full")
+        fullResult as SingBoxParseResult.Success
+        assertEquals(2, fullResult.profiles.size)
+        assertEquals(
+            false,
+            fullResult.profiles
+                .filterIsInstance<ProxyProfile.Hysteria2>()
+                .single()
+                .insecure,
+        )
+        assertEquals(true, fullResult.topology!!.splitHopEgress)
+        assertEquals("realm-a", fullResult.topology!!.hysteriaRealm)
+        assertEquals(1_798_761_599_000L, fullResult.tokenExpiresAtEpochMillis)
     }
 
     private fun paramsFrom(obj: JsonObject): AmneziaWgParameters =

@@ -2,7 +2,7 @@
 id: DAT-1792081130689287
 title: Validate deployed AWG dual-stack addresses and MTU
 kind: feature
-status: review
+status: doing
 area: data
 priority: high
 owner: AWG dual-stack consumer
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: awg-dualstack-mtu
 created: 2026-10-15
 updated: 2026-10-16
-status_detail: Implementation, local gates, all eight scoped emulator sessions, canonical federation/evidence validation and compiled-source CI38816708930 passed; ready for review without closure.
+status_detail: "Correcting published producer contract drift and validating canonical rejection plus client-owned dual-stack acceptance for deployment PR #308."
 ---
 
 ## Goal

@@ -4,7 +4,7 @@ Task ID: `DAT-1792081130689287`
 
 ## Why
 
-Deployment now supplies one IPv4 and one IPv6 host address with a shared tunnel MTU. Permissive import can silently drop malformed addresses or substitute an MTU, separating the Android and native transport configuration.
+The deployed-AWG consumer requires one IPv4 and one IPv6 host address with a shared tunnel MTU. Published producer artifacts currently remain single-family and must not be rewritten in the client mirror to imply completed producer migration. Permissive import can silently drop malformed addresses or substitute an MTU, separating the Android and native transport configuration.
 
 ## What Changes
 
