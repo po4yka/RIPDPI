@@ -149,7 +149,7 @@ private fun SettingsRowContent(
             checked = checked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
-            showChevron = value != null && showChevron,
+            showChevron = showChevron,
             state = state,
         )
     }

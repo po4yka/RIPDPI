@@ -48,6 +48,37 @@ class SettingsRowTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun navigationRowWithoutValueKeepsExplicitChevronAndAccessibleAction() {
+        var clicks = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                Box(Modifier.requiredWidth(360.dp)) {
+                    SettingsRow(
+                        title = "Logs",
+                        subtitle = "Inspect connection events",
+                        onClick = { clicks++ },
+                        showChevron = true,
+                        testTag = "navigation-row",
+                    )
+                }
+            }
+        }
+        val row = composeRule.onNodeWithTag("navigation-row")
+        val title = assertCompleteText("Logs")
+        // The decorative 24dp chevron plus the 12dp gap stays present without a summary value.
+        assertEquals(36f, row.fetchSemanticsNode().boundsInRoot.right - title.boundsInRoot.right, 1f)
+        row
+            .assertHasClickAction()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.ContentDescription,
+                    listOf("Logs, Inspect connection events"),
+                ),
+            ).performClick()
+        composeRule.runOnIdle { assertEquals(1, clicks) }
+    }
+
+    @Test
     fun valueRowsExposeTitleSubtitleAndValueToAccessibility() {
         composeRule.setContent {
             RipDpiTheme {

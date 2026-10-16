@@ -157,28 +157,28 @@ internal fun SettingsScreen(
         if (xrayProviderSnapshot != null) {
             item { XrayProviderSettingsStatusRow(snapshot = xrayProviderSnapshot) }
         }
-        item { SettingsConnectivitySection(uiState = uiState, actions = actions) }
+        item {
+            SettingsConnectivitySection(
+                uiState = uiState,
+                actions = actions,
+                permissionSummary = permissionSummary,
+                batteryOptimizationIgnored = batteryOptimizationIgnored,
+            )
+        }
+        item { SettingsAppearanceSection(uiState = uiState, actions = actions) }
         item {
             SettingsSecuritySection(
                 uiState = uiState,
                 localState = localState,
                 actions = actions,
-                batteryOptimizationIgnored = batteryOptimizationIgnored,
             )
         }
-        item { SettingsAppearanceSection(uiState = uiState, actions = actions) }
-        item { SettingsPermissionsSection(permissionSummary = permissionSummary, actions = actions) }
         item {
             SettingsSupportSection(
                 communityApiUrlDraft = localState.communityApiUrlDraft,
                 appVersionName = BuildConfig.VERSION_NAME,
                 actions = actions,
                 onCommunityApiUrlDraftChanged = localState.onCommunityApiUrlDraftChanged,
-            )
-        }
-        item { SettingsBackupSection(actions = actions) }
-        item {
-            SettingsDangerSection(
                 onResetClick = { localState.onShowResetConfirmDialogChanged(true) },
             )
         }
