@@ -11,6 +11,7 @@ class LogsPage(BasePage):
     CLEAR = "logs-clear"
     AUTO_SCROLL = "logs-auto-scroll"
     STREAM = "logs-stream"
+    EMPTY_STATE = "logs-empty-state"
     ACTIONS = "logs-actions"
     FILTERS = "logs-filters"
     SHEET_DONE = "logs-sheet-done"
@@ -26,6 +27,7 @@ class LogsPage(BasePage):
 
     def close_sheet(self) -> None:
         self.scroll_incrementally_to(self.SHEET_DONE).click()
+        self.wait_until(lambda: not self.is_visible(self.SHEET_DONE, timeout=1))
 
     def tap_save(self) -> None:
         self.tap(self.SAVE)

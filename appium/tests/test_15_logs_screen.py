@@ -15,12 +15,16 @@ def test_logs_controls(driver):
     assert logs.is_loaded(), "Logs screen should be visible"
 
     logs.open_filters()
+    before = logs.is_checked(logs.AUTO_SCROLL)
     logs.toggle_auto_scroll()
+    logs.wait_until(lambda: logs.is_checked(logs.AUTO_SCROLL) != before)
     logs.close_sheet()
-    assert logs.is_loaded(), "Log stream should return after closing filters"
+    assert logs.is_visible(logs.EMPTY_STATE), "The local buffer should start empty"
 
     logs.open_actions()
-    logs.tap_clear()
-    assert logs.is_loaded(), "Clear should return to the log stream"
-    logs.open_actions()
+    assert not logs.wait_for(logs.CLEAR).is_enabled(), "An empty buffer cannot be cleared"
     logs.tap_save()
+    logs.wait_for("export-preview-content", timeout=30)
+    logs.tap("export-preview-cancel")
+    logs.wait_until(lambda: not logs.is_visible("export-preview-content", timeout=1))
+    assert logs.is_loaded(), "Cancel should return to logs without exporting"

@@ -288,7 +288,7 @@ private fun LogsStreamSection(
         if (filteredLogs.isEmpty()) {
             LogsEmptyStateCard(
                 hasBufferedLogs = uiState.logs.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.LogsEmptyState),
             )
         } else {
             LogsStreamCard(

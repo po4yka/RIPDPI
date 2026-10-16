@@ -55,3 +55,5 @@ The raw `testTag` value is the selector contract. Depending on the driver and in
 - `com.poyka.ripdpi:id/home-screen`
 
 When in doubt, inspect the debug build on a device and keep the raw tag value in test source so the same identifier works across Compose tests, UiAutomator, Maestro, and Appium.
+
+Logs expose `logs-empty-state` when no events match. The `logs-stream` selector is present only for a populated list. Button labels can be child Text nodes; page objects read descendant text when the container has no text value. Text-based Appium assertions use an English app locale. Device runners must restore any temporary app locale.
