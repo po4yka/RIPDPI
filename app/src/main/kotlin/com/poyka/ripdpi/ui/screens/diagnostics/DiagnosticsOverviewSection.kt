@@ -51,7 +51,8 @@ internal enum class DiagnosticsSimpleFunnelAction {
 
 internal fun DiagnosticsScanUiModel.simpleFunnelAction(isActiveScan: Boolean): DiagnosticsSimpleFunnelAction {
     val hasMatchingSession = selectedProfileId == null || latestSession?.profileId == selectedProfileId
-    if (strategyProbeReport == null || latestSession == null || isActiveScan || !hasMatchingSession) {
+    val hasReportSession = strategyProbeReport != null && latestSession != null
+    if (!hasReportSession || isActiveScan || !hasMatchingSession) {
         return DiagnosticsSimpleFunnelAction.Unavailable
     }
     return if (strategyProbeReport.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.HIGH) {
