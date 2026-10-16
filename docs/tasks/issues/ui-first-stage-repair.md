@@ -2,7 +2,7 @@
 id: UIX-1792123188281598
 title: Restore connection feedback and accessible UI controls
 kind: bug
-status: blocked
+status: review
 area: ui
 priority: high
 owner: UI repair team
@@ -13,7 +13,7 @@ openspec_change: null
 created: 2026-10-16
 updated: 2026-10-16
 spec_reason: regression-tested-single-module
-status_detail: Final static analysis and rebuild are blocked by the shared build slot, held by another task for more than 30 minutes. Feature regressions passed 170 JVM tests and 5 API 37 UI checks. Initial-snapshot memoization and a preset-list extraction still need the final Gradle repeat.
+status_detail: Final aafb448a5 source passed 170 JVM tests, staticAnalysis, app/service lint, Full app/test APK builds and 5 API 37 UI checks. Architecture and locked metadata passed. CI remains a separate failed coverage check.
 ---
 
 ## Goal
@@ -62,12 +62,16 @@ dark, and large-font states without blessing screenshot fixtures.
   the intro. Font scale was restored to 1.0.
 - Independent review found no remaining defects after the superseded-stop fix
   and the error-visibility fix.
-- Final static analysis and rebuild could not start: another task held the shared
-  build slot for more than 30 minutes. Only this job's queued commands were stopped.
-- The 170 JVM tests and 5 device checks passed before the final initial-snapshot
-  memoization and preset-list extraction. These two structural changes passed
-  independent review, formatting, and the staged architecture gate. They still
-  need the final Gradle repeat. The validation step remains open.
+- Final verification repeated on main source aafb448a5, including the final
+  initial-snapshot memoization and preset-list extraction: 170 JVM tests passed
+  with no failures, errors, or skipped tests. Static analysis, app Full and Simple
+  lint, service lint, and Full app and test APK builds passed in one Gradle run.
+- The rebuilt Full arm64 APK passed all 5 focused UI tests on a leased API 37
+  emulator. No test was retried or skipped. All 5 fresh screenshots were inspected.
+  App APK SHA-256: 4688841ad813493eb583b661dc9139255eb28438df383434983207c253632acb.
+- The repeat uses component instrumentation with injected states and callbacks.
+  It verifies UI behavior; it does not repeat the real VPN-service smoke above.
+- Architecture health and locked Cargo metadata checks passed on the final tree.
 
 ## Design references and limits
 
@@ -77,6 +81,9 @@ restore navigation and progress meaning. Existing RDS surfaces and strings are
 used. No locale resources, golden fixtures, or quality baselines change.
 
 The extra Simple APK build needs the absent local embedded-relay-bundle.json.
-Actual TalkBack speech, physical devices, CI, and release frame performance are
-not covered by this local repair. Local screenshots and the layered verification
-report are in build/reports/ui-first-stage/.
+Actual TalkBack speech, physical devices, and release frame performance are not
+covered by this local repair. CI is separate: the published aafb448a5 run reports
+a kotlin-coverage failure. Its logs could not be retrieved; no cause is claimed.
+Local screenshots and the layered verification report are in
+build/reports/ui-first-stage/. Fresh exact-source device evidence is in
+/tmp/ripdpi-ui-exact-main-recheck/20261016T055349Z.
