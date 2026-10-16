@@ -320,7 +320,7 @@
     <string name="language_name_pt_br">Português (Brasil)</string>
     <string name="logs_active_session_title">Session active uniquement</string>
     <string name="logs_clear">Effacer</string>
-    <string name="logs_filtered_empty_body">Ajustez les puces de type ci-dessus pour inspecter une autre partie du tampon local.</string>
+    <string name="logs_filtered_empty_body">Ouvrez les filtres pour consulter d’autres événements du tampon local.</string>
     <string name="logs_latest_empty">Aucun événement local n\'a encore été capturé.</string>
     <string name="logs_overview_title">Flux d\'événements sur l\'appareil</string>
     <string name="logs_severity_info">INFO</string>

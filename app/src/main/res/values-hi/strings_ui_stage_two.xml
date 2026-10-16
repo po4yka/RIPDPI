@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">सहेजी गई प्रोफ़ाइल</string>
+    <string name="config_profile_change">प्रोफ़ाइल बदलें</string>
+    <string name="config_profile_choices">प्रोफ़ाइल विकल्प</string>
+    <string name="config_connection_scope_vpn">ट्रैफ़िक: स्थानीय VPN के लिए चुने गए ऐप</string>
+    <string name="config_connection_scope_proxy">ट्रैफ़िक: इस प्रॉक्सी का उपयोग करने के लिए कॉन्फ़िगर किए गए ऐप</string>
+    <string name="config_connection_path_direct">पथ: सीधा कनेक्शन</string>
+    <string name="config_connection_path_relay">पथ: सर्वर प्रोफ़ाइल %1$s</string>
+    <string name="config_connection_start">कनेक्ट करें</string>
+    <string name="config_connection_stop">डिस्कनेक्ट करें</string>
+    <string name="config_connection_settings">कनेक्शन सेटिंग</string>
+    <string name="config_connection_details">कॉन्फ़िगरेशन विवरण</string>
+    <string name="diagnostics_technical_details">तकनीकी विवरण</string>
+    <string name="diagnostics_outcome_source_audit">नेटवर्क विश्लेषण</string>
+    <string name="diagnostics_outcome_source_session">सहेजी गई जाँच</string>
+    <string name="diagnostics_outcome_source_active">जाँच जारी है</string>
+    <string name="diagnostics_outcome_source_empty">कोई जाँच पूरी नहीं हुई</string>
+    <string name="diagnostics_outcome_time_format">मापने का समय: %1$s</string>
+    <string name="diagnostics_outcome_time_unknown">मापने का समय अज्ञात है</string>
+    <string name="diagnostics_outcome_confidence_unknown">विश्वसनीयता अज्ञात है</string>
+    <string name="diagnostics_outcome_coverage_unknown">जाँच का दायरा अज्ञात है</string>
+    <string name="diagnostics_outcome_stale">किसी दूसरे नेटवर्क का सहेजा गया परिणाम</string>
+    <string name="diagnostics_outcome_coverage_format">%2$d में से %1$d चरण पूरे हुए; %3$d विफल हुए</string>
+    <string name="diagnostics_outcome_historical">सहेजे गए साक्ष्य; मौजूदा नेटवर्क से मिलान अज्ञात है</string>
+    <string name="logs_actions_title">लॉग की कार्रवाइयाँ</string>
+</resources>

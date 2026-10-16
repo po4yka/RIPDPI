@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">Profil enregistré</string>
+    <string name="config_profile_change">Changer de profil</string>
+    <string name="config_profile_choices">Choix du profil</string>
+    <string name="config_connection_scope_vpn">Trafic : applications sélectionnées pour le VPN local</string>
+    <string name="config_connection_scope_proxy">Trafic : applications configurées pour ce proxy</string>
+    <string name="config_connection_path_direct">Chemin : connexion directe</string>
+    <string name="config_connection_path_relay">Chemin : profil serveur %1$s</string>
+    <string name="config_connection_start">Connecter</string>
+    <string name="config_connection_stop">Déconnecter</string>
+    <string name="config_connection_settings">Paramètres de connexion</string>
+    <string name="config_connection_details">Détails de la configuration</string>
+    <string name="diagnostics_technical_details">Détails techniques</string>
+    <string name="diagnostics_outcome_source_audit">Analyse du réseau</string>
+    <string name="diagnostics_outcome_source_session">Vérification enregistrée</string>
+    <string name="diagnostics_outcome_source_active">Vérification en cours</string>
+    <string name="diagnostics_outcome_source_empty">Aucune vérification terminée</string>
+    <string name="diagnostics_outcome_time_format">Mesure : %1$s</string>
+    <string name="diagnostics_outcome_time_unknown">Heure de mesure inconnue</string>
+    <string name="diagnostics_outcome_confidence_unknown">Niveau de confiance inconnu</string>
+    <string name="diagnostics_outcome_coverage_unknown">Couverture inconnue</string>
+    <string name="diagnostics_outcome_stale">Résultat enregistré sur un autre réseau</string>
+    <string name="diagnostics_outcome_coverage_format">%1$d étapes sur %2$d terminées ; %3$d en échec</string>
+    <string name="diagnostics_outcome_historical">Données enregistrées ; correspondance avec le réseau actuel inconnue</string>
+    <string name="logs_actions_title">Actions du journal</string>
+</resources>

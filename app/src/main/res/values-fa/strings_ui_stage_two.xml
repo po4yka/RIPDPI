@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">نمایهٔ ذخیره‌شده</string>
+    <string name="config_profile_change">تغییر نمایه</string>
+    <string name="config_profile_choices">انتخاب نمایه</string>
+    <string name="config_connection_scope_vpn">ترافیک: برنامه‌های انتخاب‌شده برای VPN محلی</string>
+    <string name="config_connection_scope_proxy">ترافیک: برنامه‌های تنظیم‌شده برای استفاده از این پراکسی</string>
+    <string name="config_connection_path_direct">مسیر: اتصال مستقیم</string>
+    <string name="config_connection_path_relay">مسیر: نمایهٔ سرور %1$s</string>
+    <string name="config_connection_start">اتصال</string>
+    <string name="config_connection_stop">قطع اتصال</string>
+    <string name="config_connection_settings">تنظیمات اتصال</string>
+    <string name="config_connection_details">جزئیات پیکربندی</string>
+    <string name="diagnostics_technical_details">جزئیات فنی</string>
+    <string name="diagnostics_outcome_source_audit">تحلیل شبکه</string>
+    <string name="diagnostics_outcome_source_session">بررسی ذخیره‌شده</string>
+    <string name="diagnostics_outcome_source_active">بررسی در حال انجام است</string>
+    <string name="diagnostics_outcome_source_empty">بررسی تکمیل‌شده‌ای وجود ندارد</string>
+    <string name="diagnostics_outcome_time_format">زمان اندازه‌گیری: %1$s</string>
+    <string name="diagnostics_outcome_time_unknown">زمان اندازه‌گیری نامشخص است</string>
+    <string name="diagnostics_outcome_confidence_unknown">میزان اطمینان نامشخص است</string>
+    <string name="diagnostics_outcome_coverage_unknown">دامنه بررسی نامشخص است</string>
+    <string name="diagnostics_outcome_stale">نتیجه ذخیره‌شده مربوط به شبکه دیگری است</string>
+    <string name="diagnostics_outcome_coverage_format">%1$d از %2$d مرحله تکمیل شد؛ %3$d مرحله ناموفق بود</string>
+    <string name="diagnostics_outcome_historical">شواهد ذخیره‌شده؛ تطابق با شبکه فعلی نامشخص است</string>
+    <string name="logs_actions_title">عملیات گزارش</string>
+</resources>

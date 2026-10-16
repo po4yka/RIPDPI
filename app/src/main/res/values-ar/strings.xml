@@ -1590,7 +1590,7 @@ fakeddisorder endhost</string>
     <string name="logs_empty_title">لا توجد سجلات بعد</string>
     <string name="logs_empty_body">شغِّل RIPDPI أو أطلق حدثاً تشخيصياً لملء تدفق البيانات على الجهاز.</string>
     <string name="logs_filtered_empty_title">لا توجد إدخالات تطابق المرشِّحات الحالية</string>
-    <string name="logs_filtered_empty_body">عدِّل شرائح النوع أعلاه لفحص جزء مختلف من المخزن المؤقت المحلي.</string>
+    <string name="logs_filtered_empty_body">افتح عوامل التصفية لعرض أحداث أخرى في المخزن المؤقت المحلي.</string>
     <string name="splash_subtitle">أداة الاتصال المحلية</string>
     <string name="onboarding_skip">الإعداد لاحقاً</string>
     <string name="onboarding_set_up_later">الإعداد لاحقاً</string>

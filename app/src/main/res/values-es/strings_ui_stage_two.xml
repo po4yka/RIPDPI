@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">Perfil guardado</string>
+    <string name="config_profile_change">Cambiar perfil</string>
+    <string name="config_profile_choices">Opciones de perfil</string>
+    <string name="config_connection_scope_vpn">Tráfico: aplicaciones seleccionadas para la VPN local</string>
+    <string name="config_connection_scope_proxy">Tráfico: aplicaciones configuradas para usar este proxy</string>
+    <string name="config_connection_path_direct">Ruta: conexión directa</string>
+    <string name="config_connection_path_relay">Ruta: perfil de servidor %1$s</string>
+    <string name="config_connection_start">Conectar</string>
+    <string name="config_connection_stop">Desconectar</string>
+    <string name="config_connection_settings">Ajustes de conexión</string>
+    <string name="config_connection_details">Detalles de configuración</string>
+    <string name="diagnostics_technical_details">Detalles técnicos</string>
+    <string name="diagnostics_outcome_source_audit">Análisis de red</string>
+    <string name="diagnostics_outcome_source_session">Comprobación guardada</string>
+    <string name="diagnostics_outcome_source_active">Comprobación en curso</string>
+    <string name="diagnostics_outcome_source_empty">No hay comprobaciones completadas</string>
+    <string name="diagnostics_outcome_time_format">Medición: %1$s</string>
+    <string name="diagnostics_outcome_time_unknown">Hora de medición desconocida</string>
+    <string name="diagnostics_outcome_confidence_unknown">Confianza desconocida</string>
+    <string name="diagnostics_outcome_coverage_unknown">Cobertura desconocida</string>
+    <string name="diagnostics_outcome_stale">Resultado guardado de otra red</string>
+    <string name="diagnostics_outcome_coverage_format">%1$d de %2$d etapas completadas; %3$d fallidas</string>
+    <string name="diagnostics_outcome_historical">Datos guardados; coincidencia con la red actual desconocida</string>
+    <string name="logs_actions_title">Acciones del registro</string>
+</resources>

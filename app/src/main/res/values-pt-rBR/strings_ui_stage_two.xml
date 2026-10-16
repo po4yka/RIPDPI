@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">Perfil salvo</string>
+    <string name="config_profile_change">Alterar perfil</string>
+    <string name="config_profile_choices">Opções de perfil</string>
+    <string name="config_connection_scope_vpn">Tráfego: apps selecionados para a VPN local</string>
+    <string name="config_connection_scope_proxy">Tráfego: apps configurados para usar este proxy</string>
+    <string name="config_connection_path_direct">Caminho: conexão direta</string>
+    <string name="config_connection_path_relay">Caminho: perfil de servidor %1$s</string>
+    <string name="config_connection_start">Conectar</string>
+    <string name="config_connection_stop">Desconectar</string>
+    <string name="config_connection_settings">Configurações de conexão</string>
+    <string name="config_connection_details">Detalhes da configuração</string>
+    <string name="diagnostics_technical_details">Detalhes técnicos</string>
+    <string name="diagnostics_outcome_source_audit">Análise da rede</string>
+    <string name="diagnostics_outcome_source_session">Verificação salva</string>
+    <string name="diagnostics_outcome_source_active">Verificação em andamento</string>
+    <string name="diagnostics_outcome_source_empty">Nenhuma verificação concluída</string>
+    <string name="diagnostics_outcome_time_format">Medição: %1$s</string>
+    <string name="diagnostics_outcome_time_unknown">Horário da medição desconhecido</string>
+    <string name="diagnostics_outcome_confidence_unknown">Nível de confiança desconhecido</string>
+    <string name="diagnostics_outcome_coverage_unknown">Cobertura desconhecida</string>
+    <string name="diagnostics_outcome_stale">Resultado salvo de outra rede</string>
+    <string name="diagnostics_outcome_coverage_format">%1$d de %2$d etapas concluídas; %3$d falharam</string>
+    <string name="diagnostics_outcome_historical">Evidências salvas; correspondência com a rede atual desconhecida</string>
+    <string name="logs_actions_title">Ações do registro</string>
+</resources>

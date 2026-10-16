@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_saved_profile_title">已保存的配置</string>
+    <string name="config_profile_change">更改配置</string>
+    <string name="config_profile_choices">配置选项</string>
+    <string name="config_connection_scope_vpn">流量：选定使用本地 VPN 的应用</string>
+    <string name="config_connection_scope_proxy">流量：配置为使用此代理的应用</string>
+    <string name="config_connection_path_direct">路径：直接连接</string>
+    <string name="config_connection_path_relay">路径：服务器配置 %1$s</string>
+    <string name="config_connection_start">连接</string>
+    <string name="config_connection_stop">断开连接</string>
+    <string name="config_connection_settings">连接设置</string>
+    <string name="config_connection_details">配置详情</string>
+    <string name="diagnostics_technical_details">技术详情</string>
+    <string name="diagnostics_outcome_source_audit">网络分析</string>
+    <string name="diagnostics_outcome_source_session">已保存的检查</string>
+    <string name="diagnostics_outcome_source_active">正在检查</string>
+    <string name="diagnostics_outcome_source_empty">尚无已完成的检查</string>
+    <string name="diagnostics_outcome_time_format">测量时间：%1$s</string>
+    <string name="diagnostics_outcome_time_unknown">测量时间未知</string>
+    <string name="diagnostics_outcome_confidence_unknown">置信度未知</string>
+    <string name="diagnostics_outcome_coverage_unknown">检查范围未知</string>
+    <string name="diagnostics_outcome_stale">来自其他网络的已保存结果</string>
+    <string name="diagnostics_outcome_coverage_format">已完成 %1$d/%2$d 个阶段；%3$d 个失败</string>
+    <string name="diagnostics_outcome_historical">已保存的证据；是否匹配当前网络未知</string>
+    <string name="logs_actions_title">日志操作</string>
+</resources>
