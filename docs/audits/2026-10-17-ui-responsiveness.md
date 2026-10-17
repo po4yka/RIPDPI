@@ -39,7 +39,7 @@ The immutable measurement sources are baseline `4b90c30b1c676309d5a1df6e59ed74b1
 
 Both APK builds passed and contain 17 verified ARM64 native ELF libraries. The original and optimized device suites passed in 137.577 s and 135.491 s. These suite times include test orchestration and are not performance metrics. Both phases used the same `RIPDPI_Pool_1` lease on `emulator-5554`: Android 17/API 37, ARM64, four emulator cores, 1080 x 2400, density 480, font scale 1, light theme and animation scales 1.
 
-Both APKs contain the same benchmark driver and use real production screens, ViewModels and ServiceStateStore. The release-derived build is minified, profileable and not debuggable. The benchmark Activity and Perfetto binary dependency exist only in the benchmark variant.
+Both APKs contain the same benchmark driver and use real production screens. Logs and telemetry use their actual ViewModels and ServiceStateStore. The catalog receives deterministic UI state directly; its ViewModel, storage and network probes are outside this measurement. The release-derived build is minified, profileable and not debuggable. The benchmark Activity and Perfetto binary dependency exist only in the benchmark variant.
 
 Six methods each run three measured iterations with CompilationMode.None and no ART warmup:
 
@@ -49,7 +49,7 @@ Six methods each run three measured iterations with CompilationMode.None and no 
 
 Each burst publishes 100 updates at a 20 ms interval. Initial composition settles outside the measured block. The telemetry path waits for the Home stream stop timeout before the burst. All 100 input ticks must reach the store; telemetry also waits for the last value in MainViewModel. Log methods require terminal event delivery and the 250-entry cap. Catalog methods require the exact filtered row, the first row after clear, and different visible rows after scrolling.
 
-The catalog uses accessibility text input. It does not measure per-character typing or keyboard latency. Catalog frame distributions combine the burst, search, clear and scroll. The custom counterDispatch trace measures the elapsed fixture construction and publication span, not CPU time or downstream completion. Compose trace counts cover the named traced regions, not every composable call. The telemetry frame benchmark excludes the outer MainActivityContent root; a separate actual Compose regression checks root compositions, and the actual launcher smoke checks readiness.
+The catalog uses accessibility text input. It does not measure per-character typing or keyboard latency. Catalog frame distributions combine the burst, search, clear and scroll, including shared driver controls and checkpoint overhead. The custom counterDispatch trace measures the elapsed fixture construction and publication span, not CPU time or downstream completion. Compose trace counts cover the named traced regions, not every composable call. The telemetry frame benchmark excludes the outer MainActivityContent root; a separate actual Compose regression checks root compositions, and the actual launcher smoke checks readiness.
 
 Both phases run under one pool lease with fixed display size, density, font, theme and animation scales. The runner verifies installed source identities and APK hashes, saves JSON and Perfetto traces, checks crashes and service state, and restores previous device settings. Three samples on a shared-host emulator do not prove physical-device latency or release startup performance.
 
@@ -104,11 +104,11 @@ Both APKs include the same additional ARM64 Perfetto ELF, SHA-256 `56f3ee5ac2acf
 
 ## Validation
 
-The job was rebased onto main `f67a777ed8b06452650eb3355771566abf7bbfd2`. Combined implementation source `512d67de7193d6425a18edee6d27e251349f464b` has no difference from the measured optimized source in the logs, catalog, activity, navigation, benchmark, engine, native or build inputs. The added main changes contain history test tags outside the measured paths. The APKs above were not rebuilt at the rebased SHA.
+The job was rebased onto main `3a902bddea2d7cab970fe9e3a0b6ff7f81a6703e`. Independent review compared combined implementation source `fa8f942899a8bd78abde6b115d8d670e0fe28b24` with the measured optimized source. Logs, catalog, benchmark, engine, native sources, build wiring and native build inputs have no difference. New main changes add reconnect presentation and transition feedback. Settings identity is created on settings emissions, not telemetry ticks. The applied runtime configuration starts as Unknown; this skips reconnect comparison in the measured Halted scenario. Home and History feedback are outside the measured screens. New stable fields still pass through the combined state. This review supports the scope of the existing idle measurement; it does not establish byte identity or measured latency for the rebased APK. Active reconnect performance remains unmeasured.
 
-At the combined source, 322 Full host tests and all 16 selected screenshot methods passed again. The architecture check reported 21 existing indicators, zero new or worsened indicators, and zero stale entries. Full locked Cargo metadata resolved 910 packages and 116 workspace members. Final serial lint is queued. Main integration and hosted CI for this change remain pending.
+At the previous combined source on main `f67a777ed8b06452650eb3355771566abf7bbfd2`, 322 Full host tests and all 16 selected screenshot methods passed again. Root static analysis and all serial lint variants passed. The latest main requires a fresh combined run, which is queued. At the latest main, the architecture check reported 21 existing indicators, zero new or worsened indicators, and zero stale entries. Full locked Cargo metadata resolved 910 packages and 116 workspace members. Main integration and hosted CI for this change remain pending.
 
-The machine-readable [measurement summary](data/ui-stage-four-measurement.json) retains all six workloads, per-run medians, counters, sources, APK hashes and device guards. Raw APKs, 36 traces, XML, logs and screenshots remain under `.artifacts/ui-stage-four/{before-device-v6,after-device-v6,analysis-v6,pair-device-v6}` in the job checkout. Those local artifacts are not committed binaries.
+The machine-readable [measurement summary](data/ui-stage-four-measurement.json) retains all six workloads, per-run medians, counters, sources, APK hashes and device guards. The 36 traces, XML, logs, screenshots and installed APK identities remain under `.artifacts/ui-stage-four/{before-device-v6,after-device-v6,analysis-v6,pair-device-v6}` in the job checkout. The original APKs remain under `.artifacts/ui-stage-four/before/apks-4b90c30b1c67` in the measurement checkout. Optimized APKs remain under `.artifacts/ui-stage-four/after/apks-0e511e843cdb` in the job checkout. Those local artifacts are not committed binaries.
 
 Checks observed before and during combined validation:
 
@@ -117,6 +117,8 @@ Checks observed before and during combined validation:
 - Root staticAnalysis, Full and service lint passed. Simple lint passed. Benchmark lint, detekt and ktlint passed.
 - Architecture health and locked Cargo metadata passed.
 - Independent implementation and harness reviews found no remaining actionable defect.
+
+The host gate is `:app:testGithubFullDebugUnitTest` with the affected logs, root, navigation, profiles, permissions and theme classes. The screenshot gate uses the same task with `-Pripdpi.includeRoborazziUnitTests=true -Proborazzi.test.verify=true`. Static gates are `staticAnalysis`, `:app:lintGithubFullDebug`, `:app:lintGithubSimpleDebug`, `:core:service:lintDebug` and `:app:lintGithubFullBenchmark`. The measured APK gates are `:app:assembleGithubFullBenchmark` and `:baselineprofile:assembleBenchmark`. Architecture and metadata gates are `python3 scripts/ci/check_architecture_health.py` and `cargo metadata --manifest-path native/rust/Cargo.toml --locked`.
 
 Simple unit tests stopped before execution because the private local embedded relay bundle was absent. They are not counted as passing. No fake bundle or weakened gate was added. Lint variants run sequentially after KSP prewarm because concurrent variant generation caused a lint-engine UAST race.
 
