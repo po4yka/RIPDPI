@@ -111,6 +111,7 @@ Preserve modifier order. Button and IconButton scale only content; Chip scales i
 
 - Material hosts keep their explicit APIs: `Surface`, `Scaffold`, modal sheets, menus, tooltips, dividers, text, and icons. This includes the Material shells of banners, dialogs, sheets, snackbars, context menus, degradation strips, export consent, and metric pills. Their owned badges, handles, and stripes can use styles.
 - Canvas renderers, telemetry plots, progress drawing, the disconnect countdown, and navigation transitions retain their drawing or animation algorithms. Styles do not own their feature geometry.
+- Bottom navigation and the navigation rail use cached styles for their containers, selection pills, focus border, and brand fill. Bottom tabs retain typed quick tweens for selection scale and press alpha; their State values are read during attached style resolution. Indicator offset, width, alpha, and scale, label measurement, rail widths, and scrolling remain component geometry. The container-only `visualStyle` does not change tab targets or selection behavior.
 - Components that only arrange or delegate to styled RDS controls do not need an extra resolver. Do not add a style node that has no visible effect.
 - Keep the experimental opt-in local to affected files. Do not enable inherited text-style flags or use the transitional `Style`, `styleable`, `styleAppearance`, or `stylePlacement` APIs.
 
