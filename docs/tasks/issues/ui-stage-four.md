@@ -2,7 +2,7 @@
 id: UIX-1792226888578993
 title: Measure and improve UI responsiveness
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: UI performance integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: ui-stage-four
 created: 2026-10-17
 updated: 2026-10-17
+closed_at: "2026-10-17T17:27:23Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Main d8c6a7264dad7ece1606e966f98453b6f0e8b223 passed CI 39050341384 including ci-required, all API 27/33/35/36/37 instrumented checks and release variants; local v19 passed 360 host and 16 screenshot tests plus all lint gates; API 37 paired performance comparison retains 36 traces and mixed metrics in docs/audits/2026-10-17-ui-responsiveness.md.
 ---
 
 ## Goal
