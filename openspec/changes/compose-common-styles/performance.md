@@ -14,9 +14,13 @@ Use the existing release-derived `GithubFullBenchmark` app variant and matching 
 
 Compile and assemble through the host build gate. Use the supported verified libXray artifact directory, the same native ABI, and the same build properties for all states. Do not use `skipNativeBuild` as evidence of a complete target APK.
 
+The source build for PT assets starts nested Cargo commands without `--jobs`. Set `[build] jobs = 2` in a disposable Cargo home as well as the Gradle native budget. Cargo then gives build scripts `NUM_JOBS=2`; the BoringSSL build uses this value for CMake. Keep the same config for all three states. Do not copy credentials or change the user Cargo config. See the [Cargo jobs setting](https://doc.rust-lang.org/cargo/reference/config.html#buildjobs).
+
 ```sh
-./gradlew :app:assembleGithubFullBenchmark :baselineprofile:assembleBenchmark \
-  -Pripdpi.nativeAbisOverride=arm64-v8a
+CARGO_HOME="$PWD/.gradle-home/cargo-home" CMAKE_BUILD_PARALLEL_LEVEL=2 \
+  build-gate -- env -u CARGO_BUILD_JOBS ./gradlew --max-workers=4 \
+  -Pripdpi.nativeCpuBudget=2 -Pripdpi.nativeAbisOverride=arm64-v8a \
+  :app:assembleGithubFullBenchmark :baselineprofile:assembleBenchmark
 ```
 
 ## Workloads
