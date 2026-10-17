@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-10-17
+goal: UIX-1792228984398359 Migrate RDS components to Compose CommonStyle
