@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -26,7 +27,6 @@ import com.poyka.ripdpi.ui.components.profiles.ProfileSearchControls
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchEmpty
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchFilter
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchState
-import com.poyka.ripdpi.ui.components.profiles.matchesProfileQuery
 import com.poyka.ripdpi.ui.components.profiles.rememberProfileSearchState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -53,16 +53,10 @@ internal fun ProfileUtilityScreen(
     modifier: Modifier = Modifier,
 ) {
     val search = rememberProfileSearchState()
-    val visible =
-        state.profiles
-            .filter { profile ->
-                matchesProfileQuery(search.query, listOf(profile.label, profile.groupLabel.orEmpty(), profile.kind)) &&
-                    when (search.filter) {
-                        "favorites" -> profile.favorite
-                        "recent" -> profile.recentSequence != null
-                        else -> true
-                    }
-            }.let { if (search.filter == "recent") it.sortedByDescending { profile -> profile.recentSequence } else it }
+    val catalog =
+        remember(state.profiles, search.query, search.filter) {
+            projectProfileCatalog(state.profiles, search.query, search.filter)
+        }
     RipDpiSettingsScaffold(
         title = stringResource(R.string.profile_utility_title),
         navigationIcon = RipDpiIcons.Back,
@@ -102,30 +96,35 @@ internal fun ProfileUtilityScreen(
                 }
             }
 
-            visible.isEmpty() -> {
+            catalog.visible.isEmpty() -> {
                 item(key = "no-matches") {
                     Column { ProfileSearchEmpty(search, ProfileUtilityTestTags.Search) }
                 }
             }
 
             search.filter == "recent" -> {
-                items(visible, key = { ProfileUtilityTestTags.action(it.reference, "row") }) {
+                items(
+                    catalog.visible,
+                    key = { ProfileUtilityTestTags.action(it.reference, "row") },
+                    contentType = { "profile" },
+                ) {
                     ProfileUtilityRow(it, state, actions)
                 }
             }
 
             else -> {
-                visible.groupBy { it.sectionKey() }.forEach { (key, profiles) ->
-                    item(key = "section:$key") {
+                catalog.sections.forEach { section ->
+                    item(key = "section:${section.key}", contentType = "section") {
                         Text(
-                            sectionTitle(profiles.first()),
+                            sectionTitle(section.titleProfile),
                             style = RipDpiThemeTokens.type.sectionTitle,
                             color = RipDpiThemeTokens.colors.foreground,
                         )
                     }
                     items(
-                        profiles.sortedByDescending { it.applied },
+                        section.profiles,
                         key = { ProfileUtilityTestTags.action(it.reference, "row") },
+                        contentType = { "profile" },
                     ) {
                         ProfileUtilityRow(it, state, actions)
                     }
@@ -187,13 +186,6 @@ private fun ProfileUtilityHeader(
         }
     }
 }
-
-private fun ProfileUtilityItem.sectionKey(): String =
-    when (val ref = reference) {
-        is ProfileUtilityReference.NativeRelay -> "native"
-        is ProfileUtilityReference.Xray -> "xray"
-        is ProfileUtilityReference.SelectorMember -> "selector:${ref.groupId}"
-    }
 
 @Composable
 private fun sectionTitle(profile: ProfileUtilityItem): String =
