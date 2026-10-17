@@ -1,26 +1,26 @@
 # Styles migration coverage
 
-This inventory records source scope and explicit exceptions. A source candidate is not an accepted migration. See `verification.md` for observed compile, behavior, visual, device, and performance results.
+This inventory records implemented source scope and explicit exceptions. At source `93bc75744`, Full/Simple compilation, all 5,729 ordinary unit tests, both screenshot catalogs and full static analysis passed. The 404 Full and 384 Simple captures cover exactly all 420 expected fixtures. Current-source APK, device and performance acceptance remains open. See `verification.md` for the evidence and resource blockers.
 
 ## Owned shells
 
 | Family | Source scope | Style scope | Validation |
 |---|---|---|---|
-| Actions | Button, IconButton | Variant shell, border, numeric radius, content scale and padding | 87 selected theme/shared-control tests passed, including recipe replacement motion; visual/device checks pending |
-| Inputs | Chip, Switch, SegmentedButton | Own shell and state fills; Switch track and thumb use separate resolvers | 87 selected tests passed; device/visual checks pending |
-| Editing | TextField, ConfigTextField, Dropdown | Own decoration shell, focus/error border, logical padding and disabled content alpha | Six new input tests passed within the 87-test gate; device IME pending |
-| Cards and rows | Card, PresetCard, SettingsRow | Role surfaces, selected preset badge/radio marker, row and leading badge | 99 selected tests passed; visual/device checks pending |
-| Routes | ProfileCard, CapabilityPill, StackDiagram, OpportunityPanel | Own shells, status badge/glyph, connectors | 99 selected tests passed; visual/device checks pending |
-| Connection | ConnectionActuator | Delegated primary action and own fault-detail shell | 99 selected tests passed; visual/device checks pending |
-| Feedback | Accordion; nested banner/dialog/sheet/degradation decoration | Accordion shell, icon badges, sheet handle and degradation stripe | 99 selected tests passed; visual/device checks pending |
-| Indicators | LogRow, StaleDataBadge, PageIndicators, AnalysisProgressIndicator | Badges/chips, stale capsule, page fill, outer analysis shell | 99 selected tests passed; visual/device checks pending |
-| Navigation | BottomNavBar, RipDpiNavRail | Bar/rail containers, shared and local selection pills, focus border, brand and selected rail fill; typed tab scale/alpha State through styles | 142 selected unit tests passed, including five navigation tests. Owning screenshot verification: nine passed, two known Diagnostics mismatches; actuals match pre-navigation source. Broad repeat pending |
-| Scaffolds | ContentScreen, Settings, Dashboard, Intro | Existing background nodes; layout and inset contracts stay in place | Pending |
-| Home and history | HomeScreen, HomeModeCard, analysis sheet sections, HistoryScreen/Cards/EmptyStates | Screen backgrounds and own summary/badge shells | Pending |
-| Configuration and settings | ConfigScreen, ModeEditorChainBlockEditor/ScaffoldSections, AdvancedSettingsContent/Components, SettingsPreferences, RememberedNetworks, RootModeStrategies, DataTransparency | Own page, chain, badge and summary shells | Pending |
-| Diagnostics and logs | DiagnosticsScreen/Cards, PortMatrix, PcapViewer, ReplayFailure, LogsScreen | Existing page, matrix, packet and replay decoration shells | Pending |
-| Onboarding and related screens | OnboardingScreen/OptionCard/SetupPages, VpnPermission, AppCustomization/IconPicker/About, DNS, OwnedStackBrowser | Own backgrounds, option/radio/badge shells, including runtime icon colors | Pending |
-| Simple | Shared controls and SettingsRow; existing Material Scaffold | Receives shared component styles; no redundant screen resolver | Pending |
+| Actions | Button, IconButton | Variant shell, border, numeric radius, content scale and padding | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Inputs | Chip, Switch, SegmentedButton | Own shell and state fills; Switch track and thumb use separate resolvers | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Editing | TextField, ConfigTextField, Dropdown | Own decoration shell, focus/error border, logical padding and disabled content alpha | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Cards and rows | Card, PresetCard, SettingsRow | Role surfaces, selected preset badge/radio marker, row and leading badge | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Routes | ProfileCard, CapabilityPill, StackDiagram, OpportunityPanel | Own shells, status badge/glyph, connectors | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Connection | ConnectionActuator | Delegated primary action and own fault-detail shell | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Feedback | Accordion; nested banner/dialog/sheet/degradation decoration | Accordion shell, icon badges, sheet handle and degradation stripe | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Indicators | LogRow, StaleDataBadge, PageIndicators, AnalysisProgressIndicator | Badges/chips, stale capsule, page fill, outer analysis shell | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Navigation | BottomNavBar, RipDpiNavRail | Bar/rail containers, shared and local selection pills, focus border, brand and selected rail fill; typed tab scale/alpha State through styles | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Scaffolds | ContentScreen, Settings, Dashboard, Intro | Existing background nodes; layout and inset contracts stay in place | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Home and history | HomeScreen, HomeModeCard, analysis sheet sections, HistoryScreen/Cards/EmptyStates | Screen backgrounds and own summary/badge shells | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Configuration and settings | ConfigScreen, ModeEditorChainBlockEditor/ScaffoldSections, AdvancedSettingsContent/Components, SettingsPreferences, RememberedNetworks, RootModeStrategies, DataTransparency | Own page, chain, badge and summary shells | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Diagnostics and logs | DiagnosticsScreen/Cards, PortMatrix, PcapViewer, ReplayFailure, LogsScreen | Existing page, matrix, packet and replay decoration shells | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Onboarding and related screens | OnboardingScreen/OptionCard/SetupPages, VpnPermission, AppCustomization/IconPicker/About, DNS, OwnedStackBrowser | Own backgrounds, option/radio/badge shells, including runtime icon colors | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
+| Simple | Shared controls and SettingsRow; existing Material Scaffold | Receives shared component styles; no redundant screen resolver | Complete Full/Simple unit and screenshot repeat passed at source 93bc75744; current-source device repeat pending |
 
 ## Design references
 
@@ -61,4 +61,4 @@ Experimental opt-in is file-local. There are no inherited text-style flags, tran
 - Component tests exercise actual clicks, selection, disabled/loading behavior, required targets, theme updates, clipping, alpha and RTL padding. Synthetic parser tests only validate report handling.
 - The benchmark-only activity renders real screen/control composables with fixed local data. It does not establish production navigation, storage, service, or network acceptance. Product startup is measured separately with the production Application.
 - Performance runs must use the same profileable target configuration, harness, device and conditions for original, dependencies, and styles in both series. Report emulator measurements as emulator evidence. Missing runs and single-series threshold breaches are inconclusive, not passes.
-- Screenshot differences require classification. This change does not authorize golden blessing, main integration, publication, or push.
+- Screenshot differences require classification. Only the four explicitly approved fixtures were refreshed and verified. Further golden changes, main integration, publication and push are not authorized.

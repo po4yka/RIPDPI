@@ -68,3 +68,13 @@ python3 scripts/ci/check-compose-styles-performance.py \
 Use the raw iteration values for startup median and raw sampled CPU frame durations for P95. Show original-to-dependencies, dependencies-to-styles, and original-to-styles deltas. A final-to-original regression above 5 percent for the same metric in both series fails acceptance. A breach in only one series is inconclusive and needs investigation. Missing, invalid, or mixed-device evidence cannot pass.
 
 Do not bless or replace a stored benchmark baseline. Compiler reports support diagnosis but do not replace startup or frame measurements. See `verification.md` for observed results; this protocol alone is not performance evidence.
+
+## Observed status on 2026-10-18
+
+The harness, strict comparison parser and source-state provenance checks are implemented. No three-state performance series has run. There is no evidence to accept or reject the five-percent performance criterion.
+
+The original-state benchmark worktree remains at `fcf68112b8a9018f10dff002f55965086e26b44d`. Its warm Rust, pluggable-transport and Go inputs are preserved. User-authorized cleanup removed four closed generated-output directories, with 49,917 protected native-input, harness, report and artifact hashes unchanged. The report is `build/research/styles-performance-orchestration/authorized-cache-cleanup-1792277399146346000/result.json` in that worktree.
+
+The reviewed original-build resume requires at least 12 GiB free space at admission and stops its own process group at the 3-GiB cutoff. The final UI static-analysis gate passed, but the host then had about 3.5 GiB free. The benchmark resume was not started below its floor. Earlier disk failures are not accepted build or measurement results.
+
+Remaining acceptance requires an actual saved profileable APK for each source state, matching harness hashes, two complete series on the same leased device, and successful strict comparison of the six raw result sets. Current UI unit, screenshot and lint results cannot replace those measurements. Do not advance the benchmark source state until the original APK is accepted and saved.

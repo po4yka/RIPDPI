@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1792228984398359
 change: compose-common-styles
-commit_sha: null
-local: required
-local_evidence: null
-remote_ci: required
+commit_sha: 93bc75744e567f3baa96fe9965bb0d6164d7fa70
+local: blocked
+local_evidence: Compile, 5729 unit tests, both screenshot catalogs and staticAnalysis passed at the recorded source. Final APK assembly remains blocked by disk capacity; see Latest source validation.
+remote_ci: blocked
 remote_ci_evidence: Publication is not authorized.
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+device: blocked
+device_evidence: Earlier device checks passed; current-source device checks require newly accepted Full and Simple app/test APKs.
+artifact: blocked
+artifact_evidence: No accepted current-source APK set or three-state profileable comparison exists. See Latest source validation and performance.md.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -20,11 +20,39 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-RDS-STYLE-PARITY | UIX-1792229085066929 | Full/Simple unit tests and verifyScreenshots | Pending |
+| REQ-RDS-STYLE-PARITY | UIX-1792229085066929 | Source 93bc75744; Full/Simple unit tests and owning screenshot verification; all 420 expected fixtures covered | Passed locally |
 | REQ-RDS-STYLE-OVERRIDE | UIX-1792229082522189 | `styles-wave1-after-apply.log`: ten style tests plus existing theme/shared-control tests | Passed locally |
-| REQ-RDS-STYLE-THEME | UIX-1792229083651465 | Theme, state, reduced-motion and control tests | Pending |
+| REQ-RDS-STYLE-THEME | UIX-1792229083651465 | Theme, state, reduced-motion and control tests; complete Full/Simple unit and screenshot repeat at source 93bc75744 | Passed locally |
 | REQ-RDS-STYLE-COMPATIBILITY | UIX-1792229081138948 | `styles-dependency-gate-final.log`: AAR metadata, Full/Simple compilation, build convention tests | Passed locally |
 | REQ-RDS-STYLE-ACCEPTANCE | UIX-1792229086339829 | Local, screenshot, device and profileable evidence | Pending |
+
+## Latest source validation
+
+This section supersedes the pending statements in the chronological record below. The validated production and test source is `93bc75744e567f3baa96fe9965bb0d6164d7fa70`. Later evidence-only commits do not extend runtime validation to new source.
+
+| Gate | Observed result | Evidence under `build/reports/` |
+|---|---|---|
+| Full/Simple Kotlin compilation with Compose reports | Passed | `styles-final-repeat/compile-and-unit/` |
+| Ordinary unit tests | Full 2,773 and Simple 2,956; zero failures, errors or skips | `styles-final-repeat/compile-and-unit/result.json` and fresh XML |
+| Owning Full screenshot verification | 404 unchanged captures; zero added, recorded or changed | `styles-final-repeat/screenshots-full/` |
+| Owning Simple screenshot verification | 384 unchanged captures; zero added, recorded or changed | `styles-final-repeat/screenshots-simple/` |
+| Expected-fixture coverage | Exact union of all 420 fixtures; no missing or extra fixture | `styles-final-repeat/capture-catalog-coverage.json` |
+| Full `staticAnalysis` | Passed in 206 seconds with the project 6-GiB Gradle heap and one worker | `styles-final-static/{command,result}.json` and `gradle.log` |
+| Current-source Full/Simple app and test APKs | Not accepted; resource failures below | `styles-final-repeat/analysis-and-apks/` and `styles-final-resume/analysis-and-apks-full/` |
+| Current-source device repeat | Not run; requires the accepted APK set | Earlier device results remain earlier-source evidence |
+| Three-state, two-series performance comparison | Not run; no accepted original profileable APK | `performance.md` |
+
+The screenshot tasks also execute ordinary tests. Their fresh XML contains 3,071 Full tests and 3,266 Simple tests, with zero failures or errors. The one Full and 29 Simple assumption skips match the earlier catalog exactly; no new skip was introduced. Full and Simple capture counts overlap and must not be added to the 420 unique fixture count. All expected-file hashes remained unchanged during each final phase. Only the four explicitly approved images changed from the original branch baseline; the other 416 and the one-percent threshold remain unchanged.
+
+The preceding combined analysis/APK attempt stopped at the monitored disk cutoff after 279 seconds, with exit 130. The minimum sampled free space was 1,806,983,168 bytes. Sampling does not identify which host allocation caused the drop. Its APK and analysis results are not accepted. Five closed native packaging directories were then removed after path, ignored/tracked-file and open-file checks. All protected native inputs, APKs, reports and fixture hashes were preserved.
+
+A sequential analysis/Full-APK retry then failed after 143 seconds because its forced 2-GiB Gradle heap caused GC thrashing. It produced no accepted APK set. The independent static-only repeat used the project's declared 6-GiB heap, one worker and no build cache. It passed all 759 scheduled tasks (23 executed), with no disk cutoff, unchanged source and unchanged fixtures. The earlier failures remain recorded and are not relabelled as passes.
+
+The user-authorized cleanup removed only verified closed generated outputs, reproducible downloaded artifacts and eligible idle emulator-pool data through the standard locking tool. Shared caches were checked for active JVMs, open files and current working directories before removal. Installed SDK/NDK/toolchains, source, reports, native build inputs, active devices and unrelated work were preserved. Exact inventories and hash checks are in `styles-disk-cleanup/`; the benchmark-owned cleanup report is in that worktree's `build/research/styles-performance-orchestration/authorized-cache-cleanup-1792277399146346000/`. After the final static gate, observed free space was about 3.5 GiB. This is below the reviewed 8-GiB APK and 12-GiB benchmark admission floors. No further shared-cache cleanup is planned.
+
+The local Simple asset is an exact copy of the repository CI fixture, SHA-256 `cadaff4fd5daa0cfeec5182e428a3207d926dd7ea62b917edadc21876a92194c`. The normal bundle verifier and Simple tests accept it. It enables local build verification; it does not provide production relay credentials or establish live connectivity.
+
+Independent source reviews found no remaining actionable issue. The shared-surface/screen step is complete; combined device and performance acceptance remains open. No main integration, push, remote CI, archive or publication was performed.
 
 ## Initial dependency gate
 
