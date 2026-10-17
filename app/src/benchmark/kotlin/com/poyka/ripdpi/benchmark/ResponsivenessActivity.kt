@@ -235,7 +235,7 @@ class ResponsivenessActivity : ComponentActivity() {
                             CountingEvents(List(RuntimeEventCount + 1, ::runtimeEvent), eventReads)
                         } else if (workload == "logs_fresh") {
                             // Fresh equal lists reproduce decoded polling snapshots. Reads include equality work.
-                            CountingEvents(eventValues.toList(), eventReads)
+                            CountingEvents(eventValues.map { it.copy() }, eventReads)
                         } else {
                             events
                         },
