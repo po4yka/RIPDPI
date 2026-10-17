@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -15,12 +19,9 @@ import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchControls
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchEmpty
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchFilter
@@ -31,9 +32,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import java.text.DateFormat
 import java.text.NumberFormat
-import java.util.Date
 
 internal class ProfileUtilityActions(
     val favorite: (ProfileUtilityReference, Long, Boolean) -> Unit,
@@ -124,7 +123,10 @@ internal fun ProfileUtilityScreen(
                             color = RipDpiThemeTokens.colors.foreground,
                         )
                     }
-                    items(profiles, key = { ProfileUtilityTestTags.action(it.reference, "row") }) {
+                    items(
+                        profiles.sortedByDescending { it.applied },
+                        key = { ProfileUtilityTestTags.action(it.reference, "row") },
+                    ) {
                         ProfileUtilityRow(it, state, actions)
                     }
                 }
@@ -139,31 +141,8 @@ private fun ProfileUtilityHeader(
     search: ProfileSearchState,
     actions: ProfileUtilityActions,
 ) {
+    var optionsExpanded by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-        Text(
-            stringResource(R.string.profile_utility_disclosure),
-            style = RipDpiThemeTokens.type.caption,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        RipDpiTextField(
-            value = state.probeUrl,
-            onValueChange = actions.probeUrl,
-            modifier = Modifier.fillMaxWidth(),
-            decoration =
-                RipDpiTextFieldDecoration(
-                    label = stringResource(R.string.profile_utility_url),
-                    testTag = ProfileUtilityTestTags.ProbeUrl,
-                ),
-        )
-        RipDpiButton(
-            text = stringResource(R.string.profile_utility_check_fastest),
-            onClick = actions.checkFastest,
-            wrapLabel = true,
-            enabled =
-                state.catalogState == ProfileCatalogState.Ready && state.profiles.isNotEmpty() &&
-                    state.canMeasure && !state.cleanupPending,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(ProfileUtilityTestTags.Fastest),
-        )
         ProfileSearchControls(
             search,
             listOf(
@@ -172,6 +151,20 @@ private fun ProfileUtilityHeader(
             ),
             ProfileUtilityTestTags.Search,
         )
+        Text(
+            stringResource(R.string.profile_utility_disclosure),
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        ProfileUtilityDisclosure(
+            text = stringResource(R.string.profile_utility_probe_options),
+            expanded = optionsExpanded,
+            onClick = { optionsExpanded = !optionsExpanded },
+            tag = ProfileUtilityTestTags.ProbeOptions,
+        )
+        if (optionsExpanded) {
+            ProfileUtilityProbeOptions(state, actions)
+        }
         if (state.cleanupPending) {
             Text(
                 stringResource(R.string.profile_utility_cleanup_pending),
@@ -218,12 +211,16 @@ private fun ProfileUtilityRow(
 ) {
     val locale = LocalConfiguration.current.locales[0]
     RipDpiCard(
-        modifier = Modifier.ripDpiTestTag(ProfileUtilityTestTags.action(profile.reference, "row")),
+        modifier =
+            Modifier
+                .semantics { selected = profile.applied }
+                .ripDpiTestTag(ProfileUtilityTestTags.action(profile.reference, "row")),
         variant = if (profile.applied) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
     ) {
-        ProfileUtilityHeader(profile, state, actions, locale)
+        ProfileUtilityHeader(profile, state, actions)
         ProfileUtilityMeasurement(profile, locale)
         ProfileUtilityControls(profile, state, actions)
+        ProfileUtilityDetails(profile, state, actions, locale)
     }
 }
 
@@ -232,7 +229,6 @@ private fun ProfileUtilityHeader(
     profile: ProfileUtilityItem,
     state: ProfileUtilityUiState,
     actions: ProfileUtilityActions,
-    locale: java.util.Locale,
 ) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
@@ -272,16 +268,6 @@ private fun ProfileUtilityHeader(
             color = colors.foreground,
         )
     }
-    profile.lastUsedAtMillis?.let { time ->
-        Text(
-            stringResource(
-                R.string.profile_utility_last_used,
-                DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale).format(Date(time)),
-            ),
-            style = type.caption,
-            color = colors.mutedForeground,
-        )
-    }
 }
 
 @Composable
@@ -315,18 +301,6 @@ private fun ProfileUtilityMeasurement(
         style = type.body,
         color = colors.foreground,
     )
-    (profile.measurement as? ProfileMeasurementUiState.Measured)?.let { result ->
-        Text(
-            stringResource(
-                R.string.profile_utility_checked_at,
-                DateFormat
-                    .getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale)
-                    .format(Date(result.observedAtMillis)),
-            ),
-            style = type.caption,
-            color = colors.mutedForeground,
-        )
-    }
 }
 
 @Composable
@@ -346,17 +320,6 @@ private fun ProfileUtilityControls(
                     .ripDpiTestTag(ProfileUtilityTestTags.action(profile.reference, "cancel")),
         )
     } else {
-        RipDpiButton(
-            text = stringResource(R.string.profile_utility_check),
-            onClick = { actions.check(profile.reference) },
-            variant = RipDpiButtonVariant.Outline,
-            wrapLabel = true,
-            enabled = state.canMeasure && !state.cleanupPending,
-            modifier =
-                Modifier.fillMaxWidth().ripDpiTestTag(
-                    ProfileUtilityTestTags.action(profile.reference, "check"),
-                ),
-        )
         RipDpiButton(
             text = stringResource(R.string.profile_utility_check_select),
             onClick = { actions.checkAndSelect(profile.reference) },

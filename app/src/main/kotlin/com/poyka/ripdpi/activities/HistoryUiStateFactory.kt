@@ -38,6 +38,9 @@ internal class HistoryUiStateFactory
 
             return HistoryUiState(
                 selectedSection = selectedSection,
+                hasConnectionHistory = connectionRows.isNotEmpty(),
+                hasDiagnosticsHistory = diagnosticsRows.isNotEmpty(),
+                hasEventHistory = eventModels.isNotEmpty(),
                 connections =
                     HistoryConnectionsUiModel(
                         filters =

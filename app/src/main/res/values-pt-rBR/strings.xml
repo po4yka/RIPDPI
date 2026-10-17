@@ -366,11 +366,11 @@
     <string name="history_events_section">Eventos</string>
     <string name="history_connection_search_placeholder">Pesquisar conexões</string>
     <string name="history_connections_empty_title">Ainda sem histórico de conexões</string>
-    <string name="history_connections_empty_body">Inicie o RIPDPI pelo menos uma vez para capturar sessões de execução duráveis, amostras e falhas.</string>
+    <string name="history_connections_empty_body">Conecte-se para salvar sessões e resultados de conexão aqui.</string>
     <string name="history_diagnostics_empty_title">Ainda sem histórico de diagnóstico</string>
-    <string name="history_diagnostics_empty_body">Execute uma varredura de caminho bruto ou no caminho ativo para persistir relatórios e detalhes de sondagens aqui.</string>
+    <string name="history_diagnostics_empty_body">Verifique a rede para salvar os resultados aqui.</string>
     <string name="history_events_empty_title">Ainda sem eventos no histórico</string>
-    <string name="history_events_empty_body">As falhas de execução e os eventos nativos aparecerão aqui quando o RIPDPI registrá-los.</string>
+    <string name="history_events_empty_body">Os eventos de conexão aparecerão aqui quando o RIPDPI os registrar.</string>
     <string name="diagnostics_history_background_probe_badge">Sondagem automática em segundo plano</string>
     <string name="history_open_action">Abrir Histórico</string>
     <string name="diagnostics_open_history_title">O histórico persistente saiu do Diagnóstico</string>

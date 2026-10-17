@@ -325,11 +325,11 @@
     <string name="history_events_section">События</string>
     <string name="history_connection_search_placeholder">Поиск соединений</string>
     <string name="history_connections_empty_title">История подключений пока пуста</string>
-    <string name="history_connections_empty_body">Запустите RIPDPI хотя бы раз, чтобы зафиксировать долговременные сессии, образцы и сбои.</string>
+    <string name="history_connections_empty_body">Подключитесь, чтобы сохранять здесь сеансы и результаты подключения.</string>
     <string name="history_diagnostics_empty_title">История диагностики пока пуста</string>
-    <string name="history_diagnostics_empty_body">Запустите прямое сканирование или сканирование по маршруту, чтобы сохранить здесь отчёты и данные зондирования.</string>
+    <string name="history_diagnostics_empty_body">Проверьте сеть, чтобы сохранить здесь результаты.</string>
     <string name="history_events_empty_title">Событий в истории пока нет</string>
-    <string name="history_events_empty_body">Сбои среды выполнения и нативные события появятся здесь после их записи в RIPDPI.</string>
+    <string name="history_events_empty_body">События подключения появятся здесь, когда RIPDPI их запишет.</string>
     <string name="history_filter_clear_all">Очистить все</string>
     <string name="diagnostics_history_background_probe_badge">Фоновое автозондирование</string>
     <string name="history_open_action">Открыть историю</string>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_probe_options">Opciones de comprobación</string>
+    <string name="profile_utility_details">Detalles</string>
+    <string name="history_no_results_title">No hay registros coincidentes</string>
+    <string name="history_no_results_body">Cambia la búsqueda o borra los filtros para ver el historial.</string>
+    <string name="history_clear_filters_action">Borrar filtros</string>
+</resources>

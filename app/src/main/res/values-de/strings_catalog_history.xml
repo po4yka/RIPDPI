@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_probe_options">Prüfoptionen</string>
+    <string name="profile_utility_details">Details</string>
+    <string name="history_no_results_title">Keine passenden Einträge</string>
+    <string name="history_no_results_body">Ändern Sie die Suche oder setzen Sie die Filter zurück, um den Verlauf anzuzeigen.</string>
+    <string name="history_clear_filters_action">Filter zurücksetzen</string>
+</resources>

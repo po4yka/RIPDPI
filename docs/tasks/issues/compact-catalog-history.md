@@ -39,7 +39,8 @@ Show profiles before optional check setup, and give each history state a correct
   It may update behavior tests in a screenshot file, but no PNG or screenshot record.
 - History worker in RIPDPI-history-empty-actions: ui/screens/history files,
   HistoryUiModels.kt, HistoryUiStateFactory.kt and related behavior/route tests.
-  No RipDpiNavHost or shared tag edits.
+  No RipDpiNavHost or shared tag edits. It also owns the new HistoryNavigation.kt
+  helper and HistoryNavigationTest.kt to exercise real saved-back-stack behavior.
 - Device specialist: temporary harness/evidence and exclusive emulator leases only.
 - Independent reviewer: read-only source and evidence review. Golden changes,
   if required, need separately scoped user approval and an isolated golden specialist.

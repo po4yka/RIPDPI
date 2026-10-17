@@ -51,7 +51,7 @@ class ReplayHistoryScreenTest {
         composeRule.onNodeWithContentDescription("Navigate back").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("No past replays yet").assertIsDisplayed()
         composeRule
-            .onNodeWithText("Run a raw-path or in-path scan to persist reports and probe details here.")
+            .onNodeWithText("Check your network to save the results here.")
             .assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.ReplayHistoryRunScanAction).assertIsDisplayed().performClick()
 

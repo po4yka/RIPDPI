@@ -42,6 +42,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 fun HistoryRoute(
     onBack: () -> Unit,
+    onOpenConnection: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
@@ -57,6 +59,8 @@ fun HistoryRoute(
     HistoryScreen(
         uiState = uiState,
         onBack = onBack,
+        onOpenConnection = onOpenConnection,
+        onOpenDiagnostics = onOpenDiagnostics,
         onRefresh = remember(viewModel) { viewModel::refresh },
         onSelectSection = remember(viewModel) { viewModel::selectSection },
         onConnectionModeFilter = remember(viewModel) { viewModel::setConnectionModeFilter },
@@ -108,6 +112,8 @@ internal fun HistoryScreen(
     onSelectEvent: (String) -> Unit,
     onDismissEventDetail: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenConnection: () -> Unit = {},
+    onOpenDiagnostics: () -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
@@ -184,6 +190,7 @@ internal fun HistoryScreen(
                                     onSearch = onConnectionSearch,
                                     onClearFilters = onClearConnectionFilters,
                                     onSelectConnection = onSelectConnection,
+                                    onOpenConnection = onOpenConnection,
                                 )
                             }
 
@@ -195,6 +202,7 @@ internal fun HistoryScreen(
                                     onSearch = onDiagnosticsSearch,
                                     onClearFilters = onClearDiagnosticsFilters,
                                     onSelectSession = onSelectDiagnosticsSession,
+                                    onOpenDiagnostics = onOpenDiagnostics,
                                 )
                             }
 
@@ -206,6 +214,7 @@ internal fun HistoryScreen(
                                     onClearFilters = onClearEventFilters,
                                     onAutoScroll = onEventAutoScroll,
                                     onSelectEvent = onSelectEvent,
+                                    onOpenConnection = onOpenConnection,
                                 )
                             }
                         }

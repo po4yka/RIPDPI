@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_probe_options">خيارات الفحص</string>
+    <string name="profile_utility_details">التفاصيل</string>
+    <string name="history_no_results_title">لا توجد سجلات مطابقة</string>
+    <string name="history_no_results_body">غيّر البحث أو امسح المرشحات لعرض السجل.</string>
+    <string name="history_clear_filters_action">مسح المرشحات</string>
+</resources>

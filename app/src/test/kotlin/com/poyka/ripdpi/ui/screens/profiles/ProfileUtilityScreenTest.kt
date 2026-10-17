@@ -1,13 +1,17 @@
 package com.poyka.ripdpi.ui.screens.profiles
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProfileUtilityReference
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
@@ -27,10 +31,126 @@ class ProfileUtilityScreenTest {
     private val reference = ProfileUtilityReference.NativeRelay("native-one")
 
     @Test
+    @Config(qualifiers = "w360dp-h640dp-mdpi")
+    fun `compact catalog shows a profile before optional probe setup`() {
+        render(state(), actions())
+        composeRule.onNodeWithText("Native one").assertIsDisplayed()
+        composeRule.onNodeWithText(text(R.string.profile_utility_disclosure)).assertIsDisplayed()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeUrl).assertDoesNotExist()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.Fastest).assertDoesNotExist()
+    }
+
+    @Test
+    fun `probe options disclose setup without starting a check`() {
+        var calls = 0
+        render(state(), actions(fastest = { calls++ }))
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeOptions).performClick()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeUrl).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.Fastest).performScrollTo().performClick()
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun `secondary check is disclosed separately from check and select`() {
+        val checked = mutableListOf<ProfileUtilityReference>()
+        val selected = mutableListOf<ProfileUtilityReference>()
+        render(state(), actions(check = checked::add, select = selected::add))
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "check")).assertDoesNotExist()
+        composeRule
+            .onNodeWithTag(ProfileUtilityTestTags.action(reference, "check_select"))
+            .performScrollTo()
+            .performClick()
+        assertEquals(emptyList<ProfileUtilityReference>(), checked)
+        assertEquals(listOf(reference), selected)
+        composeRule
+            .onNodeWithTag(ProfileUtilityTestTags.action(reference, "details"))
+            .performScrollTo()
+            .performClick()
+        composeRule
+            .onNodeWithTag(ProfileUtilityTestTags.action(reference, "check"))
+            .performScrollTo()
+            .performClick()
+        assertEquals(listOf(reference), checked)
+        assertEquals(listOf(reference), selected)
+    }
+
+    @Test
+    fun `applied state remains exposed when details are collapsed`() {
+        val initial = state()
+        render(initial.copy(profiles = persistentListOf(initial.profiles.single().copy(applied = true))), actions())
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "row")).assertIsSelected()
+        composeRule.onNodeWithText(text(R.string.profile_utility_applied)).assertIsDisplayed()
+        composeRule.onNodeWithText(text(R.string.profile_utility_not_checked)).assertIsDisplayed()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "check")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `checking exposes cancel without opening details or probe options`() {
+        var cancellations = 0
+        val initial = state()
+        render(
+            initial.copy(
+                profiles =
+                    persistentListOf(
+                        initial.profiles.single().copy(measurement = ProfileMeasurementUiState.Checking),
+                    ),
+            ),
+            actions(cancel = { cancellations++ }),
+        )
+        composeRule.onNodeWithText(text(R.string.profile_utility_checking)).assertIsDisplayed()
+        composeRule
+            .onNodeWithTag(ProfileUtilityTestTags.action(reference, "cancel"))
+            .performScrollTo()
+            .performClick()
+        assertEquals(1, cancellations)
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeUrl).assertDoesNotExist()
+    }
+
+    @Test
+    fun `row failure remains visible while details are collapsed`() {
+        val initial = state()
+        render(
+            initial.copy(
+                profiles =
+                    persistentListOf(
+                        initial.profiles.single().copy(
+                            measurement = ProfileMeasurementUiState.Failed(ProfileUtilityFailure.HttpFailed),
+                        ),
+                    ),
+            ),
+            actions(),
+        )
+        composeRule.onNodeWithText(text(R.string.profile_utility_failed)).assertIsDisplayed()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "check")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `query does not reintroduce an applied profile that does not match`() {
+        val initial = state()
+        val other = ProfileUtilityReference.NativeRelay("other")
+        render(
+            initial.copy(
+                profiles =
+                    persistentListOf(
+                        initial.profiles.single().copy(applied = true),
+                        initial.profiles.single().copy(reference = other, label = "Travel"),
+                    ),
+            ),
+            actions(),
+        )
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.profileSearchQuery(ProfileUtilityTestTags.Search))
+            .performTextInput("Travel")
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "row")).assertDoesNotExist()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.action(other, "row")).assertExists()
+    }
+
+    @Test
     fun `check and check select dispatch distinct explicit requests`() {
         val checked = mutableListOf<ProfileUtilityReference>()
         val selected = mutableListOf<ProfileUtilityReference>()
         render(state(), actions(check = checked::add, select = selected::add))
+        openDetails()
         composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "check")).performScrollTo().performClick()
         assertEquals(listOf(reference), checked)
         assertEquals(emptyList<ProfileUtilityReference>(), selected)
@@ -54,6 +174,9 @@ class ProfileUtilityScreenTest {
     fun `cleanup pending disables both measurement choices but offers explicit retry`() {
         var retries = 0
         render(state().copy(cleanupPending = true), actions(retry = { retries++ }))
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.Cleanup).assertIsDisplayed()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeUrl).assertDoesNotExist()
+        openDetails()
         composeRule
             .onNodeWithTag(
                 ProfileUtilityTestTags.action(reference, "check"),
@@ -126,8 +249,13 @@ class ProfileUtilityScreenTest {
     @Test fun `fastest action is distinct from choosing a particular row`() {
         var calls = 0
         render(state(), actions(fastest = { calls += 1 }))
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeOptions).performClick()
         composeRule.onNodeWithTag(ProfileUtilityTestTags.Fastest).performClick()
         assertEquals(1, calls)
+    }
+
+    private fun openDetails() {
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "details")).performScrollTo().performClick()
     }
 
     private fun state() =
@@ -160,11 +288,12 @@ class ProfileUtilityScreenTest {
         retry: () -> Unit = { error("Unexpected cleanup") },
         fastest: () -> Unit = { error("Unexpected fastest selection") },
         reload: () -> Unit = { error("Unexpected catalog reload") },
+        cancel: () -> Unit = { error("Unexpected cancel") },
     ) = ProfileUtilityActions(
         favorite,
         check,
         select,
-        { error("Unexpected cancel") },
+        cancel,
         retry,
         { error("Unexpected probe URL edit") },
         fastest,

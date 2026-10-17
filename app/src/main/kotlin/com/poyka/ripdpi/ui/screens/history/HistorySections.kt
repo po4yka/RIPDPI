@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -94,6 +93,7 @@ internal fun ConnectionsSection(
     onSearch: (String) -> Unit,
     onClearFilters: () -> Unit,
     onSelectConnection: (String) -> Unit,
+    onOpenConnection: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -102,47 +102,47 @@ internal fun ConnectionsSection(
         contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        item {
-            FilterCard(
-                modifier =
-                    Modifier.ripDpiTestTag(
-                        if (uiState.connections.sessions.isEmpty()) {
-                            RipDpiTestTags.HistoryConnectionsStateEmpty
-                        } else {
-                            RipDpiTestTags.HistoryConnectionsStateContent
-                        },
-                    ),
-                title = stringResource(R.string.history_connections_section),
-                searchValue = uiState.connections.filters.query,
-                searchPlaceholder = stringResource(R.string.history_connection_search_placeholder),
-                onSearch = onSearch,
-                searchTestTag = RipDpiTestTags.HistoryConnectionsSearch,
-                primaryFilter =
-                    HistoryFilterChipsConfig(
-                        options = uiState.connections.modes,
-                        selected = uiState.connections.filters.mode,
-                        onSelect = onModeFilter,
-                        tagForOption = { RipDpiTestTags.historyConnectionsModeFilter(it) },
-                    ),
-                secondaryFilter =
-                    HistoryFilterChipsConfig(
-                        options = uiState.connections.statuses,
-                        selected = uiState.connections.filters.status,
-                        onSelect = onStatusFilter,
-                        tagForOption = { RipDpiTestTags.historyConnectionsStatusFilter(it) },
-                    ),
-                onClearFilters = onClearFilters,
-            )
+        if (uiState.hasConnectionHistory) {
+            item {
+                FilterCard(
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryConnectionsStateContent),
+                    title = stringResource(R.string.history_connections_section),
+                    searchValue = uiState.connections.filters.query,
+                    searchPlaceholder = stringResource(R.string.history_connection_search_placeholder),
+                    onSearch = onSearch,
+                    searchTestTag = RipDpiTestTags.HistoryConnectionsSearch,
+                    primaryFilter =
+                        HistoryFilterChipsConfig(
+                            options = uiState.connections.modes,
+                            selected = uiState.connections.filters.mode,
+                            onSelect = onModeFilter,
+                            tagForOption = { RipDpiTestTags.historyConnectionsModeFilter(it) },
+                        ),
+                    secondaryFilter =
+                        HistoryFilterChipsConfig(
+                            options = uiState.connections.statuses,
+                            selected = uiState.connections.filters.status,
+                            onSelect = onStatusFilter,
+                            tagForOption = { RipDpiTestTags.historyConnectionsStatusFilter(it) },
+                        ),
+                    onClearFilters = onClearFilters,
+                )
+            }
         }
 
-        if (uiState.connections.sessions.isEmpty()) {
+        if (!uiState.hasConnectionHistory) {
             item {
-                RipDpiEmptyStateCard(
+                HistoryEmptyStateCard(
                     title = stringResource(R.string.history_connections_empty_title),
                     body = stringResource(R.string.history_connections_empty_body),
+                    actionLabel = stringResource(R.string.vpn_connect),
+                    actionTestTag = RipDpiTestTags.HistoryEmptyOpenConnection,
+                    onAction = onOpenConnection,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryConnectionsStateEmpty),
                 )
             }
+        } else if (uiState.connections.sessions.isEmpty()) {
+            item { HistoryNoResultsCard(onClearFilters = onClearFilters) }
         } else {
             items(uiState.connections.sessions, key = { it.id }, contentType = { "connection_session" }) { session ->
                 ConnectionSessionCard(
@@ -163,6 +163,7 @@ internal fun DiagnosticsSection(
     onSearch: (String) -> Unit,
     onClearFilters: () -> Unit,
     onSelectSession: (String) -> Unit,
+    onOpenDiagnostics: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -171,47 +172,47 @@ internal fun DiagnosticsSection(
         contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        item {
-            FilterCard(
-                modifier =
-                    Modifier.ripDpiTestTag(
-                        if (uiState.diagnostics.sessions.isEmpty()) {
-                            RipDpiTestTags.HistoryDiagnosticsStateEmpty
-                        } else {
-                            RipDpiTestTags.HistoryDiagnosticsStateContent
-                        },
-                    ),
-                title = stringResource(R.string.history_diagnostics_section),
-                searchValue = uiState.diagnostics.filters.query,
-                searchPlaceholder = stringResource(R.string.diagnostics_search_placeholder),
-                onSearch = onSearch,
-                searchTestTag = RipDpiTestTags.HistoryDiagnosticsSearch,
-                primaryFilter =
-                    HistoryFilterChipsConfig(
-                        options = uiState.diagnostics.pathModes,
-                        selected = uiState.diagnostics.filters.pathMode,
-                        onSelect = onPathFilter,
-                        tagForOption = { RipDpiTestTags.historyDiagnosticsPathFilter(it) },
-                    ),
-                secondaryFilter =
-                    HistoryFilterChipsConfig(
-                        options = uiState.diagnostics.statuses,
-                        selected = uiState.diagnostics.filters.status,
-                        onSelect = onStatusFilter,
-                        tagForOption = { RipDpiTestTags.historyDiagnosticsStatusFilter(it) },
-                    ),
-                onClearFilters = onClearFilters,
-            )
+        if (uiState.hasDiagnosticsHistory) {
+            item {
+                FilterCard(
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryDiagnosticsStateContent),
+                    title = stringResource(R.string.history_diagnostics_section),
+                    searchValue = uiState.diagnostics.filters.query,
+                    searchPlaceholder = stringResource(R.string.diagnostics_search_placeholder),
+                    onSearch = onSearch,
+                    searchTestTag = RipDpiTestTags.HistoryDiagnosticsSearch,
+                    primaryFilter =
+                        HistoryFilterChipsConfig(
+                            options = uiState.diagnostics.pathModes,
+                            selected = uiState.diagnostics.filters.pathMode,
+                            onSelect = onPathFilter,
+                            tagForOption = { RipDpiTestTags.historyDiagnosticsPathFilter(it) },
+                        ),
+                    secondaryFilter =
+                        HistoryFilterChipsConfig(
+                            options = uiState.diagnostics.statuses,
+                            selected = uiState.diagnostics.filters.status,
+                            onSelect = onStatusFilter,
+                            tagForOption = { RipDpiTestTags.historyDiagnosticsStatusFilter(it) },
+                        ),
+                    onClearFilters = onClearFilters,
+                )
+            }
         }
 
-        if (uiState.diagnostics.sessions.isEmpty()) {
+        if (!uiState.hasDiagnosticsHistory) {
             item {
-                RipDpiEmptyStateCard(
+                HistoryEmptyStateCard(
                     title = stringResource(R.string.history_diagnostics_empty_title),
                     body = stringResource(R.string.history_diagnostics_empty_body),
+                    actionLabel = stringResource(R.string.diagnostics_simple_funnel_check_action),
+                    actionTestTag = RipDpiTestTags.HistoryEmptyOpenDiagnostics,
+                    onAction = onOpenDiagnostics,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryDiagnosticsStateEmpty),
                 )
             }
+        } else if (uiState.diagnostics.sessions.isEmpty()) {
+            item { HistoryNoResultsCard(onClearFilters = onClearFilters) }
         } else {
             items(uiState.diagnostics.sessions, key = { it.id }, contentType = { "diagnostics_session" }) { session ->
                 DiagnosticsSessionCard(
@@ -232,6 +233,7 @@ internal fun EventsSection(
     onClearFilters: () -> Unit,
     onAutoScroll: (Boolean) -> Unit,
     onSelectEvent: (String) -> Unit,
+    onOpenConnection: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -264,18 +266,25 @@ internal fun EventsSection(
         contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        item {
-            HistoryEventsFilterCard(uiState, onToggleFilter, onSearch, onClearFilters, onAutoScroll)
+        if (uiState.hasEventHistory) {
+            item {
+                HistoryEventsFilterCard(uiState, onToggleFilter, onSearch, onClearFilters, onAutoScroll)
+            }
         }
 
-        if (uiState.groupedEvents.isEmpty()) {
+        if (!uiState.hasEventHistory) {
             item {
-                RipDpiEmptyStateCard(
+                HistoryEmptyStateCard(
                     title = stringResource(R.string.history_events_empty_title),
                     body = stringResource(R.string.history_events_empty_body),
+                    actionLabel = stringResource(R.string.vpn_connect),
+                    actionTestTag = RipDpiTestTags.HistoryEmptyOpenConnection,
+                    onAction = onOpenConnection,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsStateEmpty),
                 )
             }
+        } else if (uiState.groupedEvents.isEmpty()) {
+            item { HistoryNoResultsCard(onClearFilters = onClearFilters) }
         } else {
             items(
                 uiState.groupedEvents,
@@ -306,14 +315,7 @@ private fun HistoryEventsFilterCard(
     onAutoScroll: (Boolean) -> Unit,
 ) {
     FilterCard(
-        modifier =
-            Modifier.ripDpiTestTag(
-                if (uiState.events.events.isEmpty()) {
-                    RipDpiTestTags.HistoryEventsStateEmpty
-                } else {
-                    RipDpiTestTags.HistoryEventsStateContent
-                },
-            ),
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsStateContent),
         title = stringResource(R.string.history_events_section),
         searchValue = uiState.events.filters.search,
         searchPlaceholder = stringResource(R.string.diagnostics_events_search_placeholder),

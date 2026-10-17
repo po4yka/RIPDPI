@@ -254,7 +254,7 @@
     <string name="history_connection_remembered_policy_exact_match">Correspondance exacte du réseau</string>
     <string name="history_connection_remembered_policy_reason">Motif de la correspondance</string>
     <string name="history_connections_empty_title">Aucun historique de connexion pour le moment</string>
-    <string name="history_events_empty_body">Les échecs d\'exécution et les événements natifs apparaîtront ici une fois que RIPDPI les aura enregistrés.</string>
+    <string name="history_events_empty_body">Les événements de connexion apparaîtront ici lorsque RIPDPI les enregistrera.</string>
     <string name="history_title">Historique</string>
     <string name="home_control_plane_health_action">Ouvrir les paramètres avancés</string>
     <string name="home_control_plane_host_pack_invalid_snapshot">La dernière actualisation a construit un instantané sélectionné non valide.</string>
@@ -1363,7 +1363,7 @@ fake_burst 3</string>
     <string name="fake_payload_profile_summary_label_interaction">Interaction</string>
     <string name="history_connection_remembered_policy_previous_consecutive_failures">Échecs consécutifs précédents</string>
     <string name="history_connection_remembered_policy_source">Source</string>
-    <string name="history_diagnostics_empty_body">Lancez un scan en chemin brut ou en chemin pour conserver ici les rapports et les détails de sondage.</string>
+    <string name="history_diagnostics_empty_body">Vérifiez le réseau pour enregistrer les résultats ici.</string>
     <string name="history_events_section">Événements</string>
     <string name="home_approach_cta">Ouvrir Diagnostics et examiner l\'analytique des approches</string>
     <string name="home_control_plane_health_title">L\'état du plan de contrôle nécessite un examen</string>
@@ -2493,7 +2493,7 @@ Source : %2$s</string>
     <string name="history_event_timestamp_range">%1$s · %2$s - %3$s</string>
     <string name="history_event_timestamp_single">%1$s · %2$s</string>
     <string name="history_connection_remembered_policy_previous_successes">Succès précédents</string>
-    <string name="history_connections_empty_body">Démarrez RIPDPI au moins une fois pour capturer des sessions d\'exécution durables, des échantillons et des échecs.</string>
+    <string name="history_connections_empty_body">Connectez-vous pour enregistrer ici les sessions et les résultats de connexion.</string>
     <string name="history_diagnostics_section">Diagnostics</string>
     <string name="history_open_action">Ouvrir l\'historique</string>
     <string name="home_connection_button_connecting">Connexion en cours…</string>

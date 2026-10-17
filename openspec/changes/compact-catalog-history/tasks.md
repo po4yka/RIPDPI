@@ -13,8 +13,8 @@ Workers own catalog and history presentation/tests in separate worktrees.
 ## Execution
 
 - [x] UIX-1792213814306363 Define compact catalog and history state contracts #feature !high @item:UIX-1792213600805378
-- [ ] UIX-1792213814900821 Implement compact profile controls with behavior regressions #feature !high @item:UIX-1792213600805378
-- [ ] UIX-1792213815435833 Implement useful history states and navigation regressions #feature !high @item:UIX-1792213600805378
+- [x] UIX-1792213814900821 Implement compact profile controls with behavior regressions #feature !high @item:UIX-1792213600805378
+- [x] UIX-1792213815435833 Implement useful history states and navigation regressions #feature !high @item:UIX-1792213600805378
 - [ ] UIX-1792213816018346 Integrate locale resources and run combined local checks #feature !high @item:UIX-1792213600805378
 - [ ] UIX-1792213816520760 Inspect real Full and Simple APKs on the leased emulator #feature !high @item:UIX-1792213600805378
 - [ ] UIX-1792213817008369 Review and integrate verified changes into main and push #feature !high @item:UIX-1792213600805378

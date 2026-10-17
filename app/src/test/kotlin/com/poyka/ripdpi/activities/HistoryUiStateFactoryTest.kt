@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,6 +26,52 @@ class HistoryUiStateFactoryTest {
                     coreSupport = testDiagnosticsUiCoreSupport(),
                 ),
         )
+
+    @Test
+    fun `source presence remains true when every query has no matches`() {
+        val state =
+            factory.buildUiState(
+                repositorySnapshot =
+                    HistoryRepositorySnapshot(
+                        connectionSessions = listOf(historyConnectionSession()),
+                        scanSessions = listOf(historyScanSession()),
+                        nativeEvents = listOf(historyEvent()),
+                    ),
+                selectedSection = HistorySection.Connections,
+                connectionFilters = HistoryConnectionFilterState(search = "no-such-record"),
+                diagnosticsFilters = HistoryDiagnosticsFilterState(search = "no-such-record"),
+                eventFilters = HistoryEventFilterState(search = "no-such-record"),
+                detailState = HistoryDetailState(),
+            )
+
+        assertTrue(state.connections.sessions.isEmpty())
+        assertTrue(state.diagnostics.sessions.isEmpty())
+        assertTrue(state.events.events.isEmpty())
+        assertTrue(state.groupedEvents.isEmpty())
+        assertTrue(state.hasConnectionHistory)
+        assertTrue(state.hasDiagnosticsHistory)
+        assertTrue(state.hasEventHistory)
+    }
+
+    @Test
+    fun `empty sources remain genuine empty even with stale filters`() {
+        val state =
+            factory.buildUiState(
+                repositorySnapshot = HistoryRepositorySnapshot(),
+                selectedSection = HistorySection.Connections,
+                connectionFilters = HistoryConnectionFilterState(modeFilter = "VPN", search = "old"),
+                diagnosticsFilters = HistoryDiagnosticsFilterState(statusFilter = "completed", search = "old"),
+                eventFilters = HistoryEventFilterState(sourceFilter = "Proxy", search = "old"),
+                detailState = HistoryDetailState(),
+            )
+
+        assertFalse(state.hasConnectionHistory)
+        assertFalse(state.hasDiagnosticsHistory)
+        assertFalse(state.hasEventHistory)
+        assertEquals("old", state.connections.filters.query)
+        assertEquals("old", state.diagnostics.filters.query)
+        assertEquals("old", state.events.filters.search)
+    }
 
     @Test
     fun `buildUiState filters rows and preserves focused selections`() {

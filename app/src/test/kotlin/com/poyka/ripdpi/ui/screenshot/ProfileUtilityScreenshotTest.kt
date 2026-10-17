@@ -198,6 +198,7 @@ class ProfileUtilityLargeFontControlsTest {
     fun `large font Arabic RTL keeps both full action labels usable on a phone`() = assertActions(LayoutDirection.Rtl)
 
     private fun assertFastestAction() {
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeOptions).performScrollTo().performClick()
         val fastest = composeRule.onNodeWithTag(ProfileUtilityTestTags.Fastest).performScrollTo().assertIsDisplayed()
         val fastestText =
             composeRule.onNodeWithText(
@@ -217,28 +218,7 @@ class ProfileUtilityLargeFontControlsTest {
         val checks = mutableListOf<ProfileUtilityReference>()
         val selections = mutableListOf<ProfileUtilityReference>()
         var fastestChecks = 0
-        val state =
-            ProfileUtilityUiState(
-                7,
-                persistentListOf(
-                    ProfileUtilityItem(
-                        reference,
-                        "Personal connection",
-                        null,
-                        "Shadowsocks",
-                        true,
-                        true,
-                        null,
-                        null,
-                        ProfileMeasurementUiState.NotChecked,
-                    ),
-                ),
-                "https://check.example/health",
-                ProfileCatalogState.Ready,
-                true,
-                false,
-                null,
-            )
+        val state = largeFontState(reference)
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f), LocalLayoutDirection provides direction) {
                 RipDpiTheme {
@@ -262,6 +242,8 @@ class ProfileUtilityLargeFontControlsTest {
         }
         assertFastestAction()
         assertEquals(1, fastestChecks)
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeOptions).performScrollTo().performClick()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "details")).performScrollTo().performClick()
         for ((action, label) in listOf(
             "check" to R.string.profile_utility_check,
             "check_select" to R.string.profile_utility_check_select,
@@ -290,4 +272,27 @@ class ProfileUtilityLargeFontControlsTest {
         assertEquals(listOf(reference), checks)
         assertEquals(listOf(reference), selections)
     }
+
+    private fun largeFontState(reference: ProfileUtilityReference) =
+        ProfileUtilityUiState(
+            7,
+            persistentListOf(
+                ProfileUtilityItem(
+                    reference,
+                    "Personal connection",
+                    null,
+                    "Shadowsocks",
+                    true,
+                    true,
+                    null,
+                    null,
+                    ProfileMeasurementUiState.NotChecked,
+                ),
+            ),
+            "https://check.example/health",
+            ProfileCatalogState.Ready,
+            true,
+            false,
+            null,
+        )
 }

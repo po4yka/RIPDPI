@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_probe_options">检查选项</string>
+    <string name="profile_utility_details">详情</string>
+    <string name="history_no_results_title">没有匹配的记录</string>
+    <string name="history_no_results_body">更改搜索条件或清除筛选条件以查看历史记录。</string>
+    <string name="history_clear_filters_action">清除筛选条件</string>
+</resources>

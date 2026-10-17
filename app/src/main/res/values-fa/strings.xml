@@ -366,11 +366,11 @@
     <string name="history_events_section">رویدادها</string>
     <string name="history_connection_search_placeholder">جستجوی اتصالات</string>
     <string name="history_connections_empty_title">هنوز تاریخچهٔ اتصالی وجود ندارد</string>
-    <string name="history_connections_empty_body">حداقل یک بار RIPDPI را شروع کنید تا نشست‌های زمان اجرای پایدار، نمونه‌ها و شکست‌ها ثبت شوند.</string>
+    <string name="history_connections_empty_body">متصل شوید تا نشست‌ها و نتایج اتصال در اینجا ذخیره شوند.</string>
     <string name="history_diagnostics_empty_title">هنوز تاریخچهٔ تشخیصی وجود ندارد</string>
-    <string name="history_diagnostics_empty_body">یک پویش مسیر خام یا درون‌مسیر اجرا کنید تا گزارش‌ها و جزئیات کاوش اینجا حفظ شوند.</string>
+    <string name="history_diagnostics_empty_body">شبکه را بررسی کنید تا نتایج در اینجا ذخیره شوند.</string>
     <string name="history_events_empty_title">هنوز هیچ رویداد تاریخچه‌ای وجود ندارد</string>
-    <string name="history_events_empty_body">شکست‌های زمان اجرا و رویدادهای بومی پس از ثبت توسط RIPDPI اینجا ظاهر می‌شوند.</string>
+    <string name="history_events_empty_body">رویدادهای اتصال پس از ثبت توسط RIPDPI در اینجا نمایش داده می‌شوند.</string>
     <string name="diagnostics_history_background_probe_badge">کاوش خودکار پس‌زمینه</string>
     <string name="history_open_action">باز کردن تاریخچه</string>
     <string name="diagnostics_open_history_title">تاریخچهٔ پایدار از تشخیص خارج شد</string>

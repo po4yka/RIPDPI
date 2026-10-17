@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.activities
 
 import android.app.Application
+import android.content.Context
 import android.content.res.Configuration
 import android.os.LocaleList
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -71,14 +73,7 @@ class HistoryRetainedLocaleRouteTest {
                 historyUiStateFactory = HistoryUiStateFactory(core, connectionFactory, sessionMapper),
             )
         val configuration = mutableStateOf(Configuration(context.resources.configuration))
-        composeRule.setContent {
-            CompositionLocalProvider(
-                LocalConfiguration provides configuration.value,
-                LocalContext provides ContextCompat.getContextForLanguage(context),
-            ) {
-                RipDpiTheme { HistoryRoute(onBack = {}, viewModel = viewModel) }
-            }
-        }
+        showHistoryRoute(context, configuration, viewModel)
         selectDetailsAndFilters(viewModel, connectionDetail.session.id, sessionDetail.session.id)
         assertEquals(
             "Service",
@@ -110,6 +105,28 @@ class HistoryRetainedLocaleRouteTest {
             assertSame(sessionDetail, rawSessionLoader.nextDetail)
             assertEquals(1, source.connectionDetailLoads)
             assertEquals(1, rawSessionLoader.sessionDetailLoads)
+        }
+    }
+
+    private fun showHistoryRoute(
+        context: Context,
+        configuration: State<Configuration>,
+        viewModel: HistoryViewModel,
+    ) {
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalConfiguration provides configuration.value,
+                LocalContext provides ContextCompat.getContextForLanguage(context),
+            ) {
+                RipDpiTheme {
+                    HistoryRoute(
+                        onBack = {},
+                        onOpenConnection = {},
+                        onOpenDiagnostics = {},
+                        viewModel = viewModel,
+                    )
+                }
+            }
         }
     }
 

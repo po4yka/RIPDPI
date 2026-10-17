@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ProfileUtilityReference
 internal object ProfileUtilityTestTags {
     const val Screen = "profile_utility-screen"
     const val Search = "profile_utility_search"
+    const val ProbeOptions = "profile_utility_probe_options"
     const val ProbeUrl = "profile_utility_probe_url"
     const val Fastest = "profile_utility_fastest"
     const val Cleanup = "profile_utility_cleanup"

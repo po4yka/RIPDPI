@@ -373,11 +373,11 @@
     <string name="history_events_section">Events</string>
     <string name="history_connection_search_placeholder">Search connections</string>
     <string name="history_connections_empty_title">No connection history yet</string>
-    <string name="history_connections_empty_body">Start RIPDPI at least once to capture durable runtime sessions, samples, and failures.</string>
+    <string name="history_connections_empty_body">Connect to save sessions and connection results here.</string>
     <string name="history_diagnostics_empty_title">No diagnostics history yet</string>
-    <string name="history_diagnostics_empty_body">Run a raw-path or in-path scan to persist reports and probe details here.</string>
+    <string name="history_diagnostics_empty_body">Check your network to save the results here.</string>
     <string name="history_events_empty_title">No history events yet</string>
-    <string name="history_events_empty_body">Runtime failures and native events will appear here once RIPDPI records them.</string>
+    <string name="history_events_empty_body">Connection events will appear here when RIPDPI records them.</string>
     <string name="diagnostics_history_background_probe_badge">Background automatic probing</string>
     <string name="history_open_action">Open History</string>
     <string name="diagnostics_open_history_title">Persistent history moved out of Diagnostics</string>

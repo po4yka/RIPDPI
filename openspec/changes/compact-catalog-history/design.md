@@ -28,6 +28,9 @@ This change is confined to the app module and presentation projection.
   including zero filtered rows. Give zero results an explicit Clear filters action.
 - Thread navigation callbacks through HistoryRoute/Screen. Root maps Connection
   to Route.Config and Diagnose to Route.Diagnostics() with autoStartScan=false.
+- Explicit history navigation MUST NOT restore saved destination stacks or
+  arguments: an old auto-start flag or child screen can override this action.
+  Keep launchSingleTop and test real saved-back-stack behavior.
 - Use local history empty-card composition instead of broad shared API changes.
 - Use RDS empty-state, history, accordion and profile-switcher references. The
   utility has no exact screen reference; retain its existing sections/contracts.

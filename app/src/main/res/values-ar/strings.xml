@@ -362,11 +362,11 @@
     <string name="history_events_section">الأحداث</string>
     <string name="history_connection_search_placeholder">بحث في الاتصالات</string>
     <string name="history_connections_empty_title">لا يوجد سجل اتصالات بعد</string>
-    <string name="history_connections_empty_body">شغّل RIPDPI مرة واحدة على الأقل لالتقاط جلسات التشغيل الدائمة والعينات والأعطال.</string>
+    <string name="history_connections_empty_body">اتصل لحفظ الجلسات ونتائج الاتصال هنا.</string>
     <string name="history_diagnostics_empty_title">لا يوجد سجل تشخيصات بعد</string>
-    <string name="history_diagnostics_empty_body">شغّل فحصًا مباشرًا أو ضمن المسار لحفظ التقارير وتفاصيل الفحص هنا.</string>
+    <string name="history_diagnostics_empty_body">افحص شبكتك لحفظ النتائج هنا.</string>
     <string name="history_events_empty_title">لا توجد أحداث في السجل بعد</string>
-    <string name="history_events_empty_body">ستظهر هنا أعطال التشغيل والأحداث الأصلية عندما يسجّلها RIPDPI.</string>
+    <string name="history_events_empty_body">ستظهر أحداث الاتصال هنا عندما يسجلها RIPDPI.</string>
     <string name="diagnostics_history_background_probe_badge">فحص تلقائي في الخلفية</string>
     <string name="history_open_action">فتح السجل</string>
     <string name="diagnostics_open_history_title">تم نقل السجل الدائم خارج التشخيصات</string>

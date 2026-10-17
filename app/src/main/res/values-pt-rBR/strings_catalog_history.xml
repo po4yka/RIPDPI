@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_probe_options">Opções de verificação</string>
+    <string name="profile_utility_details">Detalhes</string>
+    <string name="history_no_results_title">Nenhum registro correspondente</string>
+    <string name="history_no_results_body">Altere a busca ou limpe os filtros para ver o histórico.</string>
+    <string name="history_clear_filters_action">Limpar filtros</string>
+</resources>

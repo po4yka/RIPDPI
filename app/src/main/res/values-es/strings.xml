@@ -254,7 +254,7 @@
     <string name="history_connection_remembered_policy_exact_match">Coincidencia exacta de red</string>
     <string name="history_connection_remembered_policy_reason">Motivo de la coincidencia</string>
     <string name="history_connections_empty_title">Aún no hay historial de conexiones</string>
-    <string name="history_events_empty_body">Los fallos en tiempo de ejecución y los eventos nativos aparecerán aquí una vez que RIPDPI los registre.</string>
+    <string name="history_events_empty_body">Los eventos de conexión aparecerán aquí cuando RIPDPI los registre.</string>
     <string name="history_title">Historial</string>
     <string name="home_control_plane_health_action">Abrir ajustes avanzados</string>
     <string name="home_control_plane_host_pack_invalid_snapshot">La última actualización generó una instantánea curada no válida.</string>
@@ -1363,7 +1363,7 @@ fake_burst 3</string>
     <string name="fake_payload_profile_summary_label_interaction">Interacción</string>
     <string name="history_connection_remembered_policy_previous_consecutive_failures">Fallos consecutivos anteriores</string>
     <string name="history_connection_remembered_policy_source">Origen</string>
-    <string name="history_diagnostics_empty_body">Ejecuta un escaneo de ruta raw o en ruta para persistir aquí los informes y los detalles del sondeo.</string>
+    <string name="history_diagnostics_empty_body">Comprueba la red para guardar aquí los resultados.</string>
     <string name="history_events_section">Eventos</string>
     <string name="home_approach_cta">Abre Diagnóstico y revisa las analíticas de enfoque</string>
     <string name="home_control_plane_health_title">El estado del plano de control necesita revisión</string>
@@ -2493,7 +2493,7 @@ Origen: %2$s</string>
     <string name="history_event_timestamp_range">%1$s · %2$s - %3$s</string>
     <string name="history_event_timestamp_single">%1$s · %2$s</string>
     <string name="history_connection_remembered_policy_previous_successes">Éxitos anteriores</string>
-    <string name="history_connections_empty_body">Inicia RIPDPI al menos una vez para capturar sesiones de tiempo de ejecución duraderas, muestras y fallos.</string>
+    <string name="history_connections_empty_body">Conéctate para guardar aquí las sesiones y los resultados de conexión.</string>
     <string name="history_diagnostics_section">Diagnóstico</string>
     <string name="history_open_action">Abrir historial</string>
     <string name="home_connection_button_connecting">Conectando…</string>

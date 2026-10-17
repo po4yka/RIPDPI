@@ -36,6 +36,8 @@ class HistoryRouteTest {
             RipDpiTheme {
                 HistoryRoute(
                     onBack = {},
+                    onOpenConnection = {},
+                    onOpenDiagnostics = {},
                     viewModel = viewModel,
                 )
             }

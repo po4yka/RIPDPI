@@ -365,11 +365,11 @@
     <string name="history_events_section">इवेंट</string>
     <string name="history_connection_search_placeholder">कनेक्शन खोजें</string>
     <string name="history_connections_empty_title">अभी तक कोई कनेक्शन इतिहास नहीं</string>
-    <string name="history_connections_empty_body">टिकाऊ रनटाइम सत्र, नमूने और विफलताएँ कैप्चर करने के लिए RIPDPI को कम से कम एक बार शुरू करें।</string>
+    <string name="history_connections_empty_body">सत्र और कनेक्शन के परिणाम यहाँ सहेजने के लिए कनेक्ट करें।</string>
     <string name="history_diagnostics_empty_title">अभी तक कोई डायग्नोस्टिक्स इतिहास नहीं</string>
-    <string name="history_diagnostics_empty_body">रिपोर्ट और प्रोब विवरण यहाँ संग्रहीत करने के लिए raw-path या in-path स्कैन चलाएँ।</string>
+    <string name="history_diagnostics_empty_body">परिणाम यहाँ सहेजने के लिए अपने नेटवर्क की जाँच करें।</string>
     <string name="history_events_empty_title">अभी तक कोई इतिहास इवेंट नहीं</string>
-    <string name="history_events_empty_body">RIPDPI द्वारा रिकॉर्ड किए जाने के बाद रनटाइम विफलताएँ और नेटिव इवेंट यहाँ दिखाई देंगे।</string>
+    <string name="history_events_empty_body">RIPDPI के रिकॉर्ड करने पर कनेक्शन की घटनाएँ यहाँ दिखाई देंगी।</string>
     <string name="diagnostics_history_background_probe_badge">पृष्ठभूमि स्वचालित प्रोबिंग</string>
     <string name="history_open_action">इतिहास खोलें</string>
     <string name="diagnostics_open_history_title">टिकाऊ इतिहास डायग्नोस्टिक्स से बाहर ले जाया गया</string>

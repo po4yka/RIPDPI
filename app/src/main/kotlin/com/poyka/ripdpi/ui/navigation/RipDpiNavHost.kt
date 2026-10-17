@@ -468,7 +468,16 @@ private fun NavGraphBuilder.addPrimaryRoutes(
         )
     }
     composable<Route.History> {
-        HistoryRoute(onBack = { navController.popBackStack() })
+        HistoryRoute(
+            onBack = { navController.popBackStack() },
+            onOpenConnection = {
+                navController.navigateToConnectionFromHistory()
+            },
+            onOpenDiagnostics = {
+                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
+                navController.navigateToDiagnosticsFromHistory()
+            },
+        )
     }
     composable<Route.Logs> {
         LogsRoute(

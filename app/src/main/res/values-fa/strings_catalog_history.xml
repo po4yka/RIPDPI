@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_probe_options">گزینه‌های بررسی</string>
+    <string name="profile_utility_details">جزئیات</string>
+    <string name="history_no_results_title">رکوردی مطابق جستجو یافت نشد</string>
+    <string name="history_no_results_body">برای دیدن سابقه، جستجو را تغییر دهید یا فیلترها را پاک کنید.</string>
+    <string name="history_clear_filters_action">پاک کردن فیلترها</string>
+</resources>

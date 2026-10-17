@@ -365,11 +365,11 @@
     <string name="history_events_section">事件</string>
     <string name="history_connection_search_placeholder">搜索连接</string>
     <string name="history_connections_empty_title">尚无连接历史</string>
-    <string name="history_connections_empty_body">至少启动 RIPDPI 一次以捕获持久的运行时会话、样本和失败。</string>
+    <string name="history_connections_empty_body">连接后可在此保存会话和连接结果。</string>
     <string name="history_diagnostics_empty_title">尚无诊断历史</string>
-    <string name="history_diagnostics_empty_body">运行原始路径或路径内扫描以将报告和探测详情持久保存在此处。</string>
+    <string name="history_diagnostics_empty_body">检查网络以在此保存结果。</string>
     <string name="history_events_empty_title">尚无历史事件</string>
-    <string name="history_events_empty_body">RIPDPI 记录后，运行时失败和原生事件将显示在此处。</string>
+    <string name="history_events_empty_body">RIPDPI 记录的连接事件将显示在此处。</string>
     <string name="diagnostics_history_background_probe_badge">后台自动探测</string>
     <string name="history_open_action">打开历史</string>
     <string name="diagnostics_open_history_title">持久历史已移出诊断</string>

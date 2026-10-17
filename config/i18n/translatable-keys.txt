@@ -2940,6 +2940,7 @@ app:fake_payload_profile_status_separate
 app:fake_payload_profile_summary_label_current
 app:fake_payload_profile_summary_label_interaction
 app:fake_payload_profile_summary_label_when_used
+app:history_clear_filters_action
 app:history_connection_remembered_policy_badge
 app:history_connection_remembered_policy_exact_match
 app:history_connection_remembered_policy_fingerprint
@@ -2975,6 +2976,8 @@ app:history_events_empty_body
 app:history_events_empty_title
 app:history_events_section
 app:history_filter_clear_all
+app:history_no_results_body
+app:history_no_results_title
 app:history_open_action
 app:history_title
 app:home
@@ -3927,6 +3930,7 @@ app:profile_utility_checked_at
 app:profile_utility_checking
 app:profile_utility_cleanup_pending
 app:profile_utility_command_failed
+app:profile_utility_details
 app:profile_utility_disclosure
 app:profile_utility_empty
 app:profile_utility_environment_changed
@@ -3938,6 +3942,7 @@ app:profile_utility_last_used
 app:profile_utility_loading
 app:profile_utility_measured
 app:profile_utility_not_checked
+app:profile_utility_probe_options
 app:profile_utility_recents
 app:profile_utility_retry_cleanup
 app:profile_utility_saved

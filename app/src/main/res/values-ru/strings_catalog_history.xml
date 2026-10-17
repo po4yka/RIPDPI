@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_probe_options">Параметры проверки</string>
+    <string name="profile_utility_details">Подробнее</string>
+    <string name="history_no_results_title">Записей не найдено</string>
+    <string name="history_no_results_body">Измените запрос или сбросьте фильтры, чтобы увидеть историю.</string>
+    <string name="history_clear_filters_action">Сбросить фильтры</string>
+</resources>
