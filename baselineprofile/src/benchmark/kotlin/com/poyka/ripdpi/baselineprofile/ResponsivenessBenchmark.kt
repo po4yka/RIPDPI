@@ -13,7 +13,10 @@ import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Condition
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.StaleObjectException
+import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import org.junit.Assert.assertEquals
@@ -114,11 +117,24 @@ class ResponsivenessBenchmark {
     }
 
     private fun MacrobenchmarkScope.visibleCatalogRows(): Set<String> =
-        device
-            .findObjects(By.res(Pattern.compile("profile_utility_native:benchmark-[0-9]+_row")))
-            .filter { !it.visibleBounds.isEmpty }
-            .map { it.resourceName }
-            .toSet()
+        requireNotNull(
+            device.wait(
+                Condition<UiDevice, Set<String>?> { current ->
+                    try {
+                        current
+                            .findObjects(By.res(Pattern.compile("profile_utility_native:benchmark-[0-9]+_row")))
+                            .filter { !it.visibleBounds.isEmpty }
+                            .map { it.resourceName }
+                            .toSet()
+                            .takeIf { it.isNotEmpty() }
+                    } catch (_: StaleObjectException) {
+                        // Retry the complete snapshot after Compose replaces accessibility nodes.
+                        null
+                    }
+                },
+                TimeoutMillis,
+            ),
+        ) { "No complete visible catalog row snapshot" }
 
     private fun MacrobenchmarkScope.awaitText(text: String) {
         assertTrue("Missing driver checkpoint: $text", device.wait(Until.hasObject(By.text(text)), TimeoutMillis))
