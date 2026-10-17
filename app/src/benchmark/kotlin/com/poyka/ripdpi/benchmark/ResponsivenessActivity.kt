@@ -25,6 +25,7 @@ import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
 import com.poyka.ripdpi.ui.navigation.Route
@@ -50,18 +51,20 @@ class ResponsivenessActivity : ComponentActivity() {
 
     private val eventReads = AtomicLong()
     private val catalogReads = AtomicLong()
-    private val events = CountingEvents(List(RuntimeEventCount, ::runtimeEvent), eventReads)
+    private val eventValues = List(RuntimeEventCount, ::runtimeEvent)
+    private val events = CountingEvents(eventValues, eventReads)
     private var tick by mutableIntStateOf(0)
     private var phase by mutableStateOf("preparing")
     private var catalog by mutableStateOf(catalogInput(100, catalogReads))
     private lateinit var logsViewModel: LogsViewModel
     private lateinit var workload: String
     private lateinit var sourceToken: String
+    private val isLogs: Boolean get() = workload == "logs" || workload == "logs_fresh"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         workload = requireNotNull(intent.getStringExtra("workload"))
-        require(workload in setOf("logs", "catalog", "telemetry"))
+        require(workload in setOf("logs", "logs_fresh", "catalog", "telemetry"))
         sourceToken = requireNotNull(intent.getStringExtra("source"))
         require(sourceToken.matches(Regex("[0-9a-f]{40}")) && sourceToken.startsWith(BuildConfig.GIT_COMMIT)) {
             "The requested source must match the installed benchmark APK"
@@ -83,7 +86,7 @@ class ResponsivenessActivity : ComponentActivity() {
             // Telemetry becomes ready only after Settings navigation and the Home stop timeout.
             if (workload == "telemetry") return@launch
             withTimeout(10_000) {
-                if (workload == "logs") logsViewModel.uiState.first { it.logs.size == RuntimeEventCount }
+                if (isLogs) logsViewModel.uiState.first { it.logs.size == RuntimeEventCount }
             }
             phase = "ready"
         }
@@ -106,7 +109,7 @@ class ResponsivenessActivity : ComponentActivity() {
     @Composable
     private fun Workload(modifier: Modifier) {
         when (workload) {
-            "logs" -> {
+            "logs", "logs_fresh" -> {
                 LogsRoute({}, {}, modifier, logsViewModel)
             }
 
@@ -185,7 +188,7 @@ class ResponsivenessActivity : ComponentActivity() {
                     check(observedTicks.size == CounterTicks) { "Store missed counter ticks: $observedTicks" }
                 }
                 val counterReads = eventReads.get()
-                if (workload == "logs") {
+                if (isLogs) {
                     serviceStateStore.updateTelemetry(snapshot(tick, terminal = true))
                     withTimeout(10_000) {
                         logsViewModel.uiState.first { state ->
@@ -223,10 +226,19 @@ class ResponsivenessActivity : ComponentActivity() {
                     nativeEvents =
                         if (terminal) {
                             CountingEvents(List(RuntimeEventCount + 1, ::runtimeEvent), eventReads)
+                        } else if (workload == "logs_fresh") {
+                            // Fresh equal lists reproduce decoded polling snapshots. Reads include equality work.
+                            CountingEvents(eventValues.toList(), eventReads)
                         } else {
                             events
                         },
                 ),
+            xrayProviderSnapshot =
+                if (workload == "telemetry") {
+                    XrayProviderSnapshot(lastPingRttMs = counter.toLong(), capturedAt = FixtureEpochMillis + counter)
+                } else {
+                    null
+                },
             updatedAt = FixtureEpochMillis + counter,
         )
 }

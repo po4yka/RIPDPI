@@ -31,6 +31,8 @@ class ResponsivenessBenchmark {
 
     @Test fun logsCounterBurst() = measure("logs")
 
+    @Test fun logsFreshSnapshotBurst() = measure("logs_fresh")
+
     @Test fun telemetryShellCounterBurst() = measure("telemetry")
 
     @Test fun catalog100() = measure("catalog", 100)
@@ -72,7 +74,7 @@ class ResponsivenessBenchmark {
                 )
                 awaitText("$workload/ready/tick=0/size=$size")
                 when (workload) {
-                    "logs" -> requireNode("logs-stream")
+                    "logs", "logs_fresh" -> requireNode("logs-stream")
                     "telemetry" -> requireNode("settings-screen")
                     "catalog" -> requireNode("profile_utility_search-query")
                 }
@@ -82,7 +84,7 @@ class ResponsivenessBenchmark {
             requireNode("responsiveness-run").click()
             awaitText("$workload/done/tick=100/size=$size")
             if (workload == "catalog") exerciseCatalog(size)
-            if (workload == "logs") {
+            if (workload == "logs" || workload == "logs_fresh") {
                 assertTrue(
                     "Terminal event must reach the real log screen",
                     device.wait(Until.hasObject(By.textContains("Benchmark event 250")), TimeoutMillis),
