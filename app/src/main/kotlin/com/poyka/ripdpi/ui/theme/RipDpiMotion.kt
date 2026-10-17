@@ -6,12 +6,14 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.InfiniteRepeatableSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -287,9 +289,11 @@ data class RipDpiMotion(
     fun toastExitSpec(): TweenSpec<Float> =
         tween(durationMillis = duration(stateDurationMillis), easing = StandardEasing)
 
-    /** Spring spec that respects reducedMotion -- falls back to critically-damped (no bounce). */
-    fun <T> motionAwareSpring(expressive: Boolean = false): SpringSpec<T> =
-        if (reducedMotion || !animationsEnabled) {
+    /** Disabled motion snaps; reduced motion uses critical damping without bounce. */
+    fun <T> motionAwareSpring(expressive: Boolean = false): FiniteAnimationSpec<T> =
+        if (!animationsEnabled) {
+            snap()
+        } else if (reducedMotion) {
             spring(dampingRatio = 1f, stiffness = StandardSpringStiffness)
         } else if (expressive) {
             expressiveSpringSpec()

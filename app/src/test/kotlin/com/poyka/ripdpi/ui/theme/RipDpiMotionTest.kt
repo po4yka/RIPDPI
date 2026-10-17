@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.theme
 
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.TargetBasedAnimation
+import androidx.compose.animation.core.VectorConverter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -41,9 +44,24 @@ class RipDpiMotionTest {
     }
 
     @Test
+    fun `disabled spring settles at the target without elapsed time`() {
+        val disabledMotion = DefaultRipDpiMotion.copy(animationsEnabled = false)
+        val animation =
+            TargetBasedAnimation(
+                animationSpec = disabledMotion.motionAwareSpring<Float>(expressive = true),
+                typeConverter = Float.VectorConverter,
+                initialValue = 0f,
+                targetValue = 1f,
+            )
+
+        assertEquals(0L, animation.durationNanos)
+        assertEquals(1f, animation.getValueFromNanos(0L))
+    }
+
+    @Test
     fun `motion aware spring removes bounce when reduced motion is active`() {
         val reducedMotion = DefaultRipDpiMotion.copy(reducedMotion = true)
-        val spring = reducedMotion.motionAwareSpring<Float>(expressive = true)
+        val spring = reducedMotion.motionAwareSpring<Float>(expressive = true) as SpringSpec<Float>
 
         assertEquals(1f, spring.dampingRatio)
         assertEquals(RipDpiMotion.StandardSpringStiffness, spring.stiffness)
