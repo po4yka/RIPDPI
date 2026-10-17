@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +30,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -123,7 +123,7 @@ internal fun RootModeStrategiesScreen(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.RootModeStrategies))
                 .fillMaxWidth()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         title = stringResource(R.string.title_root_mode_strategies),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,

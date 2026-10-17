@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.logs
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +71,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -113,7 +113,6 @@ internal fun LogsScreen(
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("LogsScreen")
-    val colors = RipDpiThemeTokens.colors
     val snackbarHostState = remember { SnackbarHostState() }
     val onShowCopiedSnackbar = rememberCopiedToClipboardSnackbar(snackbarHostState)
 
@@ -125,7 +124,7 @@ internal fun LogsScreen(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.LogsScreen)
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
         topBar = { RipDpiTopAppBar(title = stringResource(R.string.logs)) },
     ) { innerPadding ->

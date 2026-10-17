@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import android.content.Context
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -36,7 +35,7 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 @Suppress("LongParameterList")
 @Composable
@@ -141,7 +140,6 @@ internal fun SettingsScreen(
     xrayProviderSnapshot: XrayProviderSnapshot? = null,
     batteryOptimizationIgnored: Boolean = true,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val localState = rememberSettingsScreenLocalState(uiState)
 
     SettingsPreferenceDialogs(localState = localState, actions = actions)
@@ -150,7 +148,7 @@ internal fun SettingsScreen(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.Settings))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         title = stringResource(R.string.settings),
     ) {
         // Embedded-Xray provider status — provider-distinct, rendered only while

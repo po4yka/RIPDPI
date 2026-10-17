@@ -1,6 +1,7 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -64,6 +65,8 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
+import com.poyka.ripdpi.ui.theme.screens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -560,7 +563,7 @@ internal fun DiagnosticsPreviewCard(
                     Modifier
                         .fillMaxWidth()
                         .heightIn(max = ProbeDetailMaxHeightDp.dp)
-                        .background(colors.inputBackground, RipDpiThemeTokens.shapes.md)
+                        .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.inputBadge, RipDpiThemeTokens.shapes.md)
                         .horizontalScroll(rememberScrollState())
                         .padding(spacing.md),
                 verticalArrangement = Arrangement.spacedBy(spacing.xs),

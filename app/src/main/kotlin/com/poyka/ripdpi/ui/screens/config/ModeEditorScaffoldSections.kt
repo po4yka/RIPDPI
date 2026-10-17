@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.config
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,13 +47,13 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 @Composable
 internal fun ModeEditorBottomBar(
     uiState: ConfigUiState,
     actions: ModeEditorActions,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
 
@@ -62,7 +61,7 @@ internal fun ModeEditorBottomBar(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(colors.background)
+                .ripDpiScreenBackground()
                 .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
         contentAlignment = Alignment.Center,
     ) {
@@ -104,7 +103,6 @@ internal fun ModeEditorBody(
     actions: ModeEditorActions,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val draft = uiState.editingPreset?.draft ?: uiState.draft
@@ -113,7 +111,7 @@ internal fun ModeEditorBody(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         contentAlignment = Alignment.TopCenter,
     ) {
         Column(

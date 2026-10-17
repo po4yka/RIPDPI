@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.home
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +36,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @Composable
@@ -83,7 +83,6 @@ fun HomeScreen(
     onCancelConfigurationReconnect: () -> Unit = {},
 ) {
     TrackRecomposition("HomeScreen")
-    val colors = RipDpiThemeTokens.colors
     val context = LocalContext.current
     val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
 
@@ -92,7 +91,7 @@ fun HomeScreen(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.Home))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         topBar = { HomeTopBar(title = stringResource(R.string.app_name)) },
     ) {
         // The failure message rides with the control that reports the fault. A

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.browser
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +45,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 /**
  * Native owned-stack browser screen.
@@ -93,13 +93,11 @@ internal fun OwnedStackBrowserScreen(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-
     RipDpiScreenScaffold(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(colors.background)
+                .ripDpiScreenBackground()
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.OwnedStackBrowser())),
         topBar = {
             RipDpiTopAppBar(

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,7 +16,7 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 @Composable
 internal fun AdvancedSettingsContent(
@@ -31,13 +30,12 @@ internal fun AdvancedSettingsContent(
     onPresetSelected: (HostPackPreset) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
     RipDpiSettingsScaffold(
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.AdvancedSettings))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         title = stringResource(R.string.title_advanced_settings),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = actions.onBack,

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +38,8 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -99,7 +100,7 @@ fun PcapViewerScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(colors.background),
+                    .ripDpiScreenBackground(),
             contentAlignment = Alignment.TopCenter,
         ) {
             LazyColumn(
@@ -225,7 +226,7 @@ private fun PcapPacketRow(
             Modifier
                 .fillMaxWidth()
                 .ripDpiClickable(onClick = onClick)
-                .background(rowBackground)
+                .ripDpiFeatureSurface(rowBackground)
                 .padding(horizontal = spacing.sm, vertical = spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {

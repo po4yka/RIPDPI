@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +41,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
 /**
  * Traffic-mode cards. Vertical placement (centering/scroll) and the page title/subtitle are owned by
@@ -529,10 +529,10 @@ private fun OnboardingChecklistMarker(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .border(
-                                width = RipDpiThemeTokens.spacing.xs / 2,
-                                color = stageStyle.border,
+                            .ripDpiFeatureSurface(
                                 shape = CircleShape,
+                                border = stageStyle.border,
+                                borderWidth = RipDpiThemeTokens.spacing.xs / 2,
                             ),
                     contentAlignment = Alignment.Center,
                 ) {

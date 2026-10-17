@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.config
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -47,6 +46,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.toImmutableList
 
 enum class ConfigEditorTarget {
@@ -191,7 +191,7 @@ fun ConfigScreen(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(route))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         title = stringResource(R.string.config),
         contentWidth = RipDpiScaffoldWidth.Content,
         actions = topBarActions,

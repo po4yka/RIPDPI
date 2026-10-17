@@ -1,7 +1,7 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.screens.home
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -33,8 +33,9 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
+import com.poyka.ripdpi.ui.theme.screens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -224,7 +225,6 @@ private fun HomeModeCardBody(uiState: HomeModeCardUiState) {
  */
 @Composable
 private fun HomeModeSummaryStrip(facets: ImmutableList<HomeModeSummaryFacet>) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val shape = RipDpiThemeTokens.shapes.md
     val stackFacets = LocalDensity.current.fontScale >= HomeModeStackedSummaryFontScale
@@ -232,8 +232,7 @@ private fun HomeModeSummaryStrip(facets: ImmutableList<HomeModeSummaryFacet>) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(colors.muted, shape)
-                .border(RipDpiStroke.Thin, colors.outline, shape)
+                .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.mutedPanel, shape)
                 .padding(horizontal = spacing.md, vertical = spacing.sm),
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {

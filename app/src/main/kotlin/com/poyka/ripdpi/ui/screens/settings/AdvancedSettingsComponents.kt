@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -49,6 +47,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -523,9 +522,12 @@ internal fun SummaryCapsule(
         text = text,
         modifier =
             modifier
-                .background(container, RipDpiThemeTokens.shapes.lg)
-                .border(RipDpiStroke.Thin, border, RipDpiThemeTokens.shapes.lg)
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .ripDpiFeatureSurface(
+                    container = container,
+                    shape = RipDpiThemeTokens.shapes.lg,
+                    border = border,
+                    borderWidth = RipDpiStroke.Thin,
+                ).padding(horizontal = 10.dp, vertical = 6.dp),
         style = type.caption,
         color = content,
     )
