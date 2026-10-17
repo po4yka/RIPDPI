@@ -9,6 +9,8 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 
+private const val BottomNavigationPressedAlpha = 0.6f
+
 internal val RipDpiComponentStyles.navigationBar: CommonStyle
     get() = NavigationBarStyle
 
@@ -78,4 +80,5 @@ internal fun bottomNavigationFocusBorderColor(
     outlineColor: Color,
 ): Color = if (isFocused) outlineColor else Color.Transparent
 
-internal fun bottomNavigationContentAlpha(isPressed: Boolean): Float = if (isPressed) 0.6f else 1f
+internal fun bottomNavigationContentAlpha(isPressed: Boolean): Float =
+    if (isPressed) BottomNavigationPressedAlpha else 1f
