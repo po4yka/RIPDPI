@@ -1,35 +1,31 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.buttons
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
@@ -49,7 +45,11 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiStaticCircularProgressInd
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
+import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleContent
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 enum class RipDpiButtonVariant {
     Primary,
@@ -57,6 +57,39 @@ enum class RipDpiButtonVariant {
     Outline,
     Ghost,
     Destructive,
+}
+
+@Composable
+@NonRestartableComposable
+fun RipDpiButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
+    leadingIcon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
+    interactionSource: MutableInteractionSource? = null,
+    hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
+    wrapLabel: Boolean = true,
+) {
+    RipDpiButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        variant = variant,
+        enabled = enabled,
+        loading = loading,
+        density = density,
+        leadingIcon = leadingIcon,
+        trailingIcon = trailingIcon,
+        interactionSource = interactionSource,
+        hapticFeedback = hapticFeedback,
+        wrapLabel = wrapLabel,
+        visualStyle = CommonStyle,
+    )
 }
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
@@ -74,6 +107,7 @@ fun RipDpiButton(
     interactionSource: MutableInteractionSource? = null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
     wrapLabel: Boolean = true,
+    visualStyle: CommonStyle = CommonStyle,
 ) {
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
@@ -81,58 +115,32 @@ fun RipDpiButton(
     val loadingStateDescription = stringResource(R.string.cd_loading)
     val type = RipDpiThemeTokens.type
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
-    val isPressed by resolvedInteractionSource.collectIsPressedAsState()
-    val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
+    val styleState =
+        rememberUpdatedStyleState(resolvedInteractionSource) {
+            it.isEnabled = enabled
+            it[RipDpiStyleStateKeys.Loading] = loading
+            it[RipDpiStyleStateKeys.Compact] = density == RipDpiControlDensity.Compact
+        }
+    val stateRole = RipDpiThemeTokens.stateRoles.button.fromVariant(variant)
+    val styleResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.button(stateRole), visualStyle, styleState)
     val state =
         RipDpiThemeTokens.state.button.resolve(
-            role = RipDpiThemeTokens.stateRoles.button.fromVariant(variant),
+            role = stateRole,
             enabled = enabled,
             loading = loading,
-            isPressed = isPressed,
-            isFocused = isFocused,
+            isPressed = styleState.isPressed,
+            isFocused = styleState.isFocused,
         )
     val isInteractive = enabled && !loading
-    val cornerRadius by animateDpAsState(
-        targetValue = state.cornerRadius,
-        animationSpec = motion.motionAwareSpring(),
-        label = "buttonCorner",
-    )
-    val shape = RoundedCornerShape(cornerRadius)
-    val horizontalPadding =
-        when (density) {
-            RipDpiControlDensity.Default -> {
-                components.buttons.horizontalPadding
-            }
-
-            RipDpiControlDensity.Compact -> {
-                components.buttons.horizontalPadding -
-                    components.buttons.focusedHorizontalPaddingOffset
-            }
-        }
     val contentIconSize =
         when (density) {
             RipDpiControlDensity.Default -> RipDpiIconSizes.Default
             RipDpiControlDensity.Compact -> RipDpiIconSizes.Default
         }
-    val animatedContainerColor by animateColorAsState(
-        targetValue = state.container,
-        animationSpec = motion.stateTween(),
-        label = "buttonContainer",
-    )
     val animatedContentColor by animateColorAsState(
         targetValue = state.content,
         animationSpec = motion.stateTween(),
         label = "buttonContent",
-    )
-    val animatedBorderColor by animateColorAsState(
-        targetValue = state.border,
-        animationSpec = motion.quickTween(),
-        label = "buttonBorder",
-    )
-    val pressedScale by animateFloatAsState(
-        targetValue = state.scale,
-        animationSpec = motion.motionAwareSpring(),
-        label = "buttonScale",
     )
     val contentAlpha by animateFloatAsState(
         targetValue = state.contentAlpha,
@@ -144,9 +152,7 @@ fun RipDpiButton(
         modifier =
             modifier
                 .defaultMinSize(minHeight = components.buttons.minHeight)
-                .clip(shape)
-                .background(animatedContainerColor, shape)
-                .border(width = state.borderWidth, color = animatedBorderColor, shape = shape)
+                .ripDpiStyleSurface(styleResolver, clip = true)
                 .ripDpiClickable(
                     enabled = isInteractive,
                     role = Role.Button,
@@ -165,13 +171,7 @@ fun RipDpiButton(
         Row(
             modifier =
                 Modifier
-                    .graphicsLayer {
-                        scaleX = pressedScale
-                        scaleY = pressedScale
-                    }.padding(
-                        horizontal = horizontalPadding,
-                        vertical = components.buttons.verticalPadding,
-                    ),
+                    .ripDpiStyleContent(styleResolver, applyPadding = true),
             horizontalArrangement = Arrangement.spacedBy(components.buttons.iconGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
