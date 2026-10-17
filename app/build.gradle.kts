@@ -415,6 +415,7 @@ dependencies {
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.runtime.tracing)
+    "benchmarkImplementation"(libs.androidx.compose.runtime.tracing)
     debugImplementation(libs.androidx.test.core.ktx)
     // Debug-only heap-leak detection (auto-installs via its own ContentProvider;
     // never present in release/benchmark builds). See the Android 17 memory

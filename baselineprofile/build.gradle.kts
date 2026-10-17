@@ -22,6 +22,12 @@ android {
     }
 
     targetProjectPath = ":app"
+    buildTypes {
+        create("benchmark") {
+            initWith(getByName("debug"))
+            matchingFallbacks += "release"
+        }
+    }
     experimentalProperties["android.experimental.self-instrumenting"] = true
     // Managed devices, including the pinned pixel6Api34Atd benchmark image, come from ripdpi.android.test.
 }
