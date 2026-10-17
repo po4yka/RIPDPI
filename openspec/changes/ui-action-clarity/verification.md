@@ -1,14 +1,14 @@
 ---
 task_id: UIX-1792228010381450
 change: ui-action-clarity
-commit_sha: 36b04215fa9eb60f125a1a66322a55b33e96e196
-local: passed
+commit_sha: 9f11a434572f52a2340a1e27ccac803db6f9e839
+local: required
 local_evidence: 465 focused Full unit tests passed with no failures or skips; Full and Simple lint, service lint, staticAnalysis, translation export, architecture health, locked Cargo metadata and task validation passed. Golden verify passed 10 tests and 19 captures after the approved updates.
 remote_ci: required
 remote_ci_evidence: Code push 87608f918 is confirmed on origin/main. CI run 39026907574 is queued; translation export, locale parity, Secret Scan, harness checks and CodeQL passed for that SHA. Hosted acceptance remains pending.
-device: passed
+device: required
 device_evidence: API 37 arm64 exclusive pool lease; five production-component instrumented methods passed with zero failures, errors or skips. Manual MainActivity Home and persona checks passed. Additional Appium filter replay did not complete; see the limitation below.
-artifact: passed
+artifact: required
 artifact_evidence: Real Full arm64 debug and AndroidTest APKs built from source 36b04215f; device harness verified both SHA-256 hashes before install.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this Android UI change.
@@ -22,10 +22,9 @@ deployment_evidence: No deployment is owned by this Android UI change.
 |---|---|---|---|
 | REQ-UIC-HOME | UIX-1792228194011328 | Direct callback, priority, disclosure and no-duplicate tests; instrumented Home check | passed |
 | REQ-UIC-PERSONA | UIX-1792228194740670 | Open, cancel, current and different selection tests; device Back and plain restart persistence | passed |
-| REQ-UIC-FILTERS | UIX-1792228195440426 | Disclosure, remove-one, clear-all, section and empty-result tests; font2 RTL instrumented check | passed |
+| REQ-UIC-FILTERS | UIX-1792235542212033 | Prior component checks passed; strict populated-report Appium regression and scoped scroll fix are required | pending |
 | REQ-UIC-NEW | UIX-1792228196083085 | Identity/timestamp projection, count, filters, backfill, interrupted jump and reader tests; normal and font2 RTL device checks | passed |
-| REQ-UIC-ACCESS | UIX-1792228197142831 | Theme/locales/static gates, five emulator checks, manual Home/persona font2 RTL and independent review | passed |
-| REQ-UIC-ACCESS | UIX-1792228198008109 | Rebased combined gates; ff-only integration and remote SHA 87608f918ee211723d365868c5fe1399f084c94e confirmed | passed |
+| REQ-UIC-ACCESS | UIX-1792235542872043 | Prior local and instrumented checks passed; normal and maximum-font RTL Appium acceptance is required | pending |
 
 ## Planned validation
 
@@ -115,3 +114,18 @@ was in progress when inspected. CI run:
 https://github.com/po4yka/RIPDPI/actions/runs/39026907574.
 The task remains in review until hosted acceptance is observed; it is not archived.
 This final evidence-only update is published after the code push above.
+
+## Appium follow-up in progress
+
+The user requested closure of the Appium gap. The earlier interpretation of the
+failure PNG as a report detail sheet is withdrawn: the saved XML still contains
+the History root and report row and does not contain a detail-sheet tag. A fresh
+trace will capture exact targets, bounds and scroll containers before a fix.
+The existing offline diagnostics_report_demo provides real raw-path and completed
+choices; no new fixture preset or external probe is needed.
+
+Follow-up execution: UIX-1792235542212033 owns the reproducible navigation fix;
+UIX-1792235542872043 owns populated-report emulator acceptance;
+UIX-1792235543599801 owns exact-SHA CI inspection and publication. The evidence
+above is the prior baseline. Current local, device and artifact states remain
+required until the follow-up tree is checked.

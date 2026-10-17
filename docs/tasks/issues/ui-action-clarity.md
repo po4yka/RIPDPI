@@ -2,7 +2,7 @@
 id: UIX-1792228010381450
 title: Expose recovery actions and simplify mode and history choices
 kind: feature
-status: review
+status: doing
 area: ui
 priority: high
 owner: UI action clarity integration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: ui-action-clarity
 created: 2026-10-17
 updated: 2026-10-17
-status_detail: Implementation, local gates, device checks, ff-only integration and authorized push completed; hosted CI remains pending.
+status_detail: "Follow-up: reproduce and fix Appium filter acceptance, inspect CI, and publish validated fixes."
 ---
 
 ## Goal
@@ -46,3 +46,10 @@ components-filter-bar.html, components-log-stream.html, and components-chips.htm
 Compose components and DESIGN.md when a deck filename has no exact match.
 The compact history disclosure and new-count label are deliberate presentation
 changes; no exact RDS full-screen reference exists. Preview sources remain read-only.
+
+## Appium acceptance follow-up ownership
+
+- Root owns planning, verification evidence, combined validation and Git integration in RIPDPI-appium-filter-acceptance.
+- The history worker owns appium/pages/base_page.py, appium/pages/history_page.py, focused Appium and host regression tests, HistorySections.kt, RipDpiTestTags.kt, and the selector-contract entry in RIPDPI-history-filter-scroll. New list tags are test metadata; existing UI behavior and resources stay in scope only if a regression is confirmed.
+- The device agent owns exclusive pool execution and captured acceptance artifacts. It does not edit sources. The review and CI agent is read-only.
+- The completion bar is a strict populated-report filter test with exact choices and no skips, normal and font2 RTL emulator runs, repeated disclosure access, remove-one and clear-all, plus relevant host checks and exact-SHA hosted CI inspection.
