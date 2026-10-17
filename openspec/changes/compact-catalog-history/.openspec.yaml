@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-17
+goal: UIX-1792213600805378 Compact the Simple profile catalog and make empty
+  history useful
