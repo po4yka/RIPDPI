@@ -59,6 +59,7 @@ import com.poyka.ripdpi.ui.screens.home.HomePauseControls
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityRoute
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
+import com.poyka.ripdpi.ui.screens.settings.SimpleInterfaceSettingsRoute
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
@@ -79,6 +80,15 @@ fun SimpleHomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
     val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
+
+    var interfaceVisible by rememberSaveable { mutableStateOf(false) }
+    if (interfaceVisible) {
+        BackHandler { interfaceVisible = false }
+        Box(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+            SimpleInterfaceSettingsRoute(onBack = { interfaceVisible = false })
+        }
+        return
+    }
 
     var backupVisible by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = backupVisible) { backupVisible = false }
@@ -137,6 +147,7 @@ fun SimpleHomeScreen(
         onSaveReport = viewModel.onSaveHomeAnalysis,
         onOpenProfiles = { profilesVisible = true },
         onOpenBackup = { backupVisible = true },
+        onOpenInterface = { interfaceVisible = true },
         onOpenAbout = { aboutVisible = true },
         modifier = modifier,
     )
@@ -162,6 +173,7 @@ internal fun SimpleHomeContent(
     onSaveReport: () -> Unit = {},
     onOpenProfiles: () -> Unit,
     onOpenBackup: () -> Unit = {},
+    onOpenInterface: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -272,6 +284,15 @@ internal fun SimpleHomeContent(
                     modifier = Modifier.padding(top = spacing.lg).ripDpiTestTag(RipDpiTestTags.SettingsProfileUtility),
                     text = stringResource(R.string.profile_utility_title),
                     onClick = onOpenProfiles,
+                    variant = RipDpiButtonVariant.Ghost,
+                )
+                RipDpiButton(
+                    modifier =
+                        Modifier
+                            .padding(top = spacing.lg)
+                            .ripDpiTestTag(RipDpiTestTags.SimpleInterfaceSettingsAction),
+                    text = stringResource(R.string.settings_appearance_section),
+                    onClick = onOpenInterface,
                     variant = RipDpiButtonVariant.Ghost,
                 )
                 // This flavor has no nav host or app bar for version, licences or privacy.

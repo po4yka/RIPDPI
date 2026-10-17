@@ -10,6 +10,7 @@ internal class DiagnosticsScanCompletionTracker {
     private var activeSessionId: String? = null
     private var activeHomeRun = false
     private var pendingSessionId: String? = null
+    private val deliveredSessionIds = mutableSetOf<String>()
     private var cancellationSessionId: String? = null
 
     fun observe(
@@ -59,7 +60,7 @@ internal class DiagnosticsScanCompletionTracker {
             null
         } else {
             pendingSessionId = null
-            pendingSession?.takeIf { it.status == "completed" }
+            pendingSession?.takeIf { it.status == "completed" && deliveredSessionIds.add(it.id) }
         }
     }
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_feedback_title">Retour haptique</string>
+    <string name="haptic_feedback_system">Selon le système</string>
+    <string name="haptic_feedback_off">Désactivé</string>
+    <string name="haptic_feedback_body">Le mode système suit les réglages de l’appareil. Désactivé coupe le retour de l’application.</string>
+    <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
+</resources>

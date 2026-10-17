@@ -30,10 +30,13 @@ internal data class SelectorSelectionRequest(
 )
 
 internal sealed interface MainActivityUiEvent {
+    data object ConnectionEstablished : MainActivityUiEvent
+
     data class ShowErrorSnackbar(
         val message: String,
         val supportCode: String? = null,
         val supportPayload: String? = null,
+        val hapticFeedbackEnabled: Boolean = true,
     ) : MainActivityUiEvent {
         val supportText: String?
             get() = supportPayload ?: supportCode
@@ -177,12 +180,17 @@ internal class MainActivityShellController(
                 showVpnPermissionDialog()
             }
 
+            MainEffect.ConnectionEstablished -> {
+                _uiEvents.trySend(MainActivityUiEvent.ConnectionEstablished)
+            }
+
             is MainEffect.ShowError -> {
                 _uiEvents.trySend(
                     MainActivityUiEvent.ShowErrorSnackbar(
                         message = effect.message,
                         supportCode = effect.supportCode,
                         supportPayload = effect.supportPayload,
+                        hapticFeedbackEnabled = effect.hapticFeedbackEnabled,
                     ),
                 )
             }

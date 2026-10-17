@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_feedback_title">स्पर्श प्रतिक्रिया</string>
+    <string name="haptic_feedback_system">सिस्टम के अनुसार</string>
+    <string name="haptic_feedback_off">बंद</string>
+    <string name="haptic_feedback_body">सिस्टम मोड डिवाइस की सेटिंग का पालन करता है। बंद करने पर ऐप की स्पर्श प्रतिक्रिया बंद रहती है।</string>
+    <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
+</resources>

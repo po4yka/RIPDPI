@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_feedback_title">Haptisches Feedback</string>
+    <string name="haptic_feedback_system">Systemstandard</string>
+    <string name="haptic_feedback_off">Aus</string>
+    <string name="haptic_feedback_body">Der Systemstandard folgt den Geräteeinstellungen. Aus deaktiviert das Feedback der App.</string>
+    <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
+</resources>

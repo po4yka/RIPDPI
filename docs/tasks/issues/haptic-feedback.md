@@ -29,8 +29,8 @@ Let Full and Simple users follow system haptics or disable app feedback. Deliver
 
 ## Ownership
 
-- Root owns proto, serializer and JSON snapshots/mappers, all locale sets and translation export, settings UI/state/actions, theme/startup preference, shared interaction gate, planning and integration.
-- Result worker owns MainConnectionActions, MainActivityShellController, Detection coordinator/ViewModel/screen, VPN permission dialog and related result tests in an isolated worktree. Root applies the small MainUiModels and MainActivityContent integration snippets to avoid shared writers.
+- Storage worker owns proto, serializer, JSON snapshots/mappers and storage tests in RIPDPI-haptic-storage. Root serializes their integration and owns all locale sets and translation export, settings UI/state/actions, theme/startup preference, shared interaction gate, planning and integration.
+- Result worker owns MainConnectionActions, MainActivityShellController, ConfigRuntimeActions, ConfigViewModel/ConfigEffect and its route/editor event consumers, Detection coordinator/ViewModel/screen, VPN permission dialog and related result tests in an isolated worktree. Root applies the small MainUiModels and MainActivityContent integration snippets to avoid shared writers. Root owns diagnostics completion tracker regression and any narrow fix.
 - Device specialist owns a new instrumented haptics test and read-only acceptance evidence in an isolated worktree, after the event interface is fixed. Root serializes all compiler runs.
 - Independent reviewer is read-only. Golden fixtures and quality baselines remain outside write scope.
 

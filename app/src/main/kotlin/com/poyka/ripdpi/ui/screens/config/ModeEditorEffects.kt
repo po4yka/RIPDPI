@@ -22,9 +22,28 @@ internal fun ModeEditorEffects(
     onBack: () -> Unit,
 ) {
     val validationMessage = stringResource(R.string.config_validation_fix)
+    val connectedMessage = stringResource(R.string.vpn_connected)
     val performHaptic = rememberRipDpiHapticPerformer()
     LifecycleEventEffect(viewModel.effects) { effect ->
         when (effect) {
+            is ConfigEffect.RuntimeConnected -> {
+                if (effect.hapticFeedbackEnabled) performHaptic(RipDpiHapticFeedback.Success)
+                snackbarHostState.showRipDpiSnackbar(
+                    message = connectedMessage,
+                    tone = RipDpiSnackbarTone.Default,
+                    duration = SnackbarDuration.Short,
+                )
+            }
+
+            is ConfigEffect.RuntimeFailed -> {
+                if (effect.hapticFeedbackEnabled) performHaptic(RipDpiHapticFeedback.Error)
+                snackbarHostState.showRipDpiSnackbar(
+                    message = effect.message,
+                    tone = RipDpiSnackbarTone.Error,
+                    duration = SnackbarDuration.Short,
+                )
+            }
+
             ConfigEffect.SaveSuccess -> {
                 performHaptic(RipDpiHapticFeedback.Success)
                 onBack()

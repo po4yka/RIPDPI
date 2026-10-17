@@ -47,6 +47,13 @@ internal class MainConnectionActions(
 
     private var connectionMetricsJob: Job? = null
     private var connectingTimeoutJob: Job? = null
+    private val resultFeedback =
+        ConnectionResultFeedback(
+            controller = serviceController,
+            service = serviceStateStore,
+            hapticsEnabled = { !currentSettings().hapticFeedbackDisabled },
+            onConnected = { mutations.trySend(MainEffect.ConnectionEstablished) },
+        )
 
     fun initialize() {
         observeStatus()
@@ -55,32 +62,47 @@ internal class MainConnectionActions(
 
     fun startMode(mode: Mode) =
         mutations.launch {
+            resultFeedback.clear()
             if (mode == Mode.VPN && hasUnsupportedVpnDoq(currentSettings())) {
-                mutations.trySend(MainEffect.ShowError(stringResolver.getString(R.string.dns_custom_doq_unavailable)))
+                mutations.trySend(
+                    MainEffect.ShowError(
+                        stringResolver.getString(R.string.dns_custom_doq_unavailable),
+                        hapticFeedbackEnabled = !currentSettings().hapticFeedbackDisabled,
+                    ),
+                )
                 return@launch
             }
+            val attempt = resultFeedback.begin(mode)
             setConnectingState()
-            when (val result = serviceController.start(mode)) {
-                is ServiceStartResult.Accepted -> {
-                }
+            var dispatchCompleted = false
+            try {
+                when (val result = serviceController.start(mode)) {
+                    is ServiceStartResult.Accepted -> {
+                        resultFeedback.accepted(attempt, result.receipt)
+                    }
 
-                is ServiceStartResult.MaintenanceAccepted -> {
-                    error("Expected a mode-bound user start")
-                }
+                    is ServiceStartResult.MaintenanceAccepted -> {
+                        error("Expected a mode-bound user start")
+                    }
 
-                is ServiceStartResult.Rejected -> {
-                    refreshPermissionSnapshot()
-                    val message =
-                        stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName) +
-                            ": " +
-                            result.reason.displayMessage(stringResolver)
-                    showError(message)
+                    is ServiceStartResult.Rejected -> {
+                        refreshPermissionSnapshot()
+                        val message =
+                            stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName) +
+                                ": " +
+                                result.reason.displayMessage(stringResolver)
+                        showError(message)
+                    }
                 }
+                dispatchCompleted = true
+            } finally {
+                if (!dispatchCompleted) resultFeedback.clear(attempt)
             }
         }
 
     fun stop() =
         mutations.launch {
+            resultFeedback.clear()
             val wasConnecting = runtimeState.value.connectionState == ConnectionState.Connecting
             serviceController.stop()
             // An accepted start can still be suspended before the service publishes a
@@ -106,6 +128,7 @@ internal class MainConnectionActions(
     }
 
     fun showPermissionIssue(issue: PermissionIssueUiState) {
+        resultFeedback.clear()
         stopConnectionMetricsPolling()
         runtimeState.update {
             it.copy(
@@ -118,7 +141,9 @@ internal class MainConnectionActions(
                 connectionDuration = ZERO,
             )
         }
-        mutations.trySend(MainEffect.ShowError(issue.message))
+        mutations.trySend(
+            MainEffect.ShowError(issue.message, hapticFeedbackEnabled = !currentSettings().hapticFeedbackDisabled),
+        )
     }
 
     fun buildApproachSummary(
@@ -175,17 +200,24 @@ internal class MainConnectionActions(
 
     private fun observeStatus() {
         mutations.launch {
-            serviceStateStore.status.collect { (status, _) ->
+            serviceStateStore.status.collect { (status, mode) ->
                 when (status) {
-                    AppStatus.Running -> onConnected()
+                    AppStatus.Running -> {
+                        onConnected()
+                        resultFeedback.observedRunning(mode)
+                    }
 
-                    AppStatus.Halted -> onHalted()
+                    AppStatus.Halted -> {
+                        onHalted()
+                    }
 
                     // Reconnecting is surfaced as a Connecting actuator purely by
                     // resolveEffectiveConnectionState (single source of truth); no
                     // runtime-state mutation is needed here, and the terminal
                     // Running/Halted edge resolves the state.
-                    AppStatus.Reconnecting -> Unit
+                    AppStatus.Reconnecting -> {
+                        Unit
+                    }
                 }
                 refreshPermissionSnapshot()
             }
@@ -196,8 +228,14 @@ internal class MainConnectionActions(
         mutations.launch {
             serviceStateStore.events.collect { event ->
                 when (event) {
-                    is ServiceEvent.Failed -> onServiceFailed(event.sender, event.reason)
-                    is ServiceEvent.PermissionRevoked -> refreshPermissionSnapshot()
+                    is ServiceEvent.Failed -> {
+                        onServiceFailed(event.sender, event.reason)
+                    }
+
+                    is ServiceEvent.PermissionRevoked -> {
+                        resultFeedback.clear()
+                        refreshPermissionSnapshot()
+                    }
                 }
             }
         }
@@ -243,6 +281,7 @@ internal class MainConnectionActions(
     }
 
     private fun onHalted() {
+        resultFeedback.clear()
         cancelConnectingTimeout()
         stopConnectionMetricsPolling()
         runtimeState.update { current ->
@@ -275,6 +314,9 @@ internal class MainConnectionActions(
     }
 
     private fun showError(message: String) {
+        resultFeedback.clear()
+        val alreadyNotified =
+            runtimeState.value.let { it.connectionState == ConnectionState.Error && it.errorMessage == message }
         cancelConnectingTimeout()
         stopConnectionMetricsPolling()
         runtimeState.update {
@@ -288,7 +330,11 @@ internal class MainConnectionActions(
                 connectionDuration = ZERO,
             )
         }
-        mutations.trySend(MainEffect.ShowError(message))
+        if (!alreadyNotified) {
+            mutations.trySend(
+                MainEffect.ShowError(message, hapticFeedbackEnabled = !currentSettings().hapticFeedbackDisabled),
+            )
+        }
     }
 
     private fun setConnectingState() {

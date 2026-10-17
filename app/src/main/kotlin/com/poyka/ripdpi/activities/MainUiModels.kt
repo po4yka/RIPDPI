@@ -38,12 +38,15 @@ sealed interface MainEffect {
         val intent: Intent,
     ) : MainEffect
 
+    data object ConnectionEstablished : MainEffect
+
     data object ShowVpnPermissionDialog : MainEffect
 
     data class ShowError(
         val message: String,
         val supportCode: String? = null,
         val supportPayload: String? = null,
+        val hapticFeedbackEnabled: Boolean = true,
     ) : MainEffect
 
     data class PrepareDiagnosticsExport(
@@ -189,6 +192,7 @@ data class MainStartupState(
     val readiness: com.poyka.ripdpi.AppStartupReadinessState =
         com.poyka.ripdpi.AppStartupReadinessState.Pending,
     val theme: String = "system",
+    val hapticFeedbackDisabled: Boolean = false,
     val startDestination: Route = Route.Home,
 ) {
     val isReady: Boolean

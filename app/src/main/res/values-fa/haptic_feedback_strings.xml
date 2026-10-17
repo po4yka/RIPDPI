@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_feedback_title">بازخورد لمسی</string>
+    <string name="haptic_feedback_system">پیش‌فرض سیستم</string>
+    <string name="haptic_feedback_off">خاموش</string>
+    <string name="haptic_feedback_body">حالت سیستم از تنظیمات دستگاه پیروی می‌کند. حالت خاموش، بازخورد برنامه را غیرفعال می‌کند.</string>
+    <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
+</resources>

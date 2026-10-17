@@ -7,8 +7,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.intl.LocaleList
@@ -17,6 +20,7 @@ import androidx.compose.ui.text.intl.LocaleList
 fun RipDpiTheme(
     themePreference: String = "system",
     contrastLevel: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
+    hapticFeedbackDisabled: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val isDark =
@@ -53,7 +57,12 @@ fun RipDpiTheme(
                 .toInt()
         }
     val layout = ripDpiLayoutForWidth(screenWidthDp = screenWidthDp)
-    val motion = rememberRipDpiMotion()
+    val baseMotion = rememberRipDpiMotion()
+    val inheritedHapticFeedback = LocalHapticFeedback.current
+    val motion =
+        remember(baseMotion, hapticFeedbackDisabled) {
+            baseMotion.copy(hapticsEnabled = baseMotion.hapticsEnabled && !hapticFeedbackDisabled)
+        }
     val surfaces =
         ripDpiSurfaceTokens(
             colors = extendedColors,
@@ -68,6 +77,8 @@ fun RipDpiTheme(
         )
 
     CompositionLocalProvider(
+        LocalHapticFeedback provides
+            if (motion.hapticsEnabled) inheritedHapticFeedback else DisabledHapticFeedback,
         LocalRipDpiExtendedColors provides extendedColors,
         LocalRipDpiContrastLevel provides contrastLevel,
         LocalRipDpiTextStyles provides type,
@@ -87,6 +98,10 @@ fun RipDpiTheme(
             content = content,
         )
     }
+}
+
+private object DisabledHapticFeedback : HapticFeedback {
+    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
 }
 
 object RipDpiThemeTokens {

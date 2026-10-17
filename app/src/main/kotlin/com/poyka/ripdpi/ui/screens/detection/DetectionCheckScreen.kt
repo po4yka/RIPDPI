@@ -23,7 +23,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +46,7 @@ import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -78,6 +78,24 @@ internal fun DetectionCheckRoute(
     viewModel: DetectionCheckViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val performHaptic = rememberRipDpiHapticPerformer()
+    LifecycleEventEffect(viewModel.effects) { effect ->
+        val feedback =
+            when (effect) {
+                DetectionCheckEffect.CheckFailed -> {
+                    RipDpiHapticFeedback.Error
+                }
+
+                is DetectionCheckEffect.CheckCompleted -> {
+                    when (effect.verdict) {
+                        Verdict.NOT_DETECTED -> RipDpiHapticFeedback.Success
+                        Verdict.NEEDS_REVIEW -> RipDpiHapticFeedback.Acknowledge
+                        Verdict.DETECTED -> RipDpiHapticFeedback.Error
+                    }
+                }
+            }
+        performHaptic(feedback)
+    }
     DetectionPermissionHandler(
         uiState = uiState,
         onPermissionsResult = remember(viewModel) { viewModel::onPermissionsResult },
@@ -570,14 +588,6 @@ private fun DetectionResultSummary(
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ) {
     result?.let {
-        LaunchedEffect(it.verdict) {
-            when (it.verdict) {
-                Verdict.NOT_DETECTED -> performHaptic(RipDpiHapticFeedback.Success)
-                Verdict.NEEDS_REVIEW -> performHaptic(RipDpiHapticFeedback.Acknowledge)
-                Verdict.DETECTED -> performHaptic(RipDpiHapticFeedback.Error)
-            }
-        }
-
         DetectionNarrativeSummary(
             result = it,
             narrative = narrative,

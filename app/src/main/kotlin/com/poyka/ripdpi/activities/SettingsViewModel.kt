@@ -218,6 +218,8 @@ class SettingsViewModel
             }
         }
 
+        fun setHapticFeedbackDisabled(disabled: Boolean) = customizationActions.setHapticFeedbackDisabled(disabled)
+
         fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
 
         fun setUiPersona(persona: String) = customizationActions.setUiPersona(persona)

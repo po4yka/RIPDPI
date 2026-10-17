@@ -15,7 +15,7 @@ The app MUST expose System default and Off in Full and Simple. Missing protobuf 
 
 ### Requirement: REQ-HAPTIC-CONNECTION — Signal actual connection results
 
-The app MUST signal success at most once for a current user start that reaches actual Running. Acceptance, pending state, restored Running, telemetry updates and cancellation MUST NOT signal success. A failed start MUST retain a single error signal and recovery message.
+The app MUST signal success at most once for a current user start that reaches actual Running, including a start of the other supported mode. Acceptance, pending state, restored Running, telemetry updates and cancellation MUST NOT signal success. A failed start MUST retain a single error signal and recovery message. An optional feedback eligibility read failure MUST NOT change the actual result or stop runtime observation.
 
 #### Scenario: Delayed result and repeated status
 
@@ -26,6 +26,11 @@ The app MUST signal success at most once for a current user start that reaches a
 
 - **WHEN** the start is cancelled or a screen attaches to an already-running service
 - **THEN** no success is synthesized from the snapshot.
+
+#### Scenario: Optional feedback verification fails
+
+- **WHEN** the requested mode reaches Running but the optional authority read fails
+- **THEN** the connection remains successful, runtime observation continues, and feedback stays quiet.
 
 ### Requirement: REQ-HAPTIC-RESULT — Deliver each check result once
 

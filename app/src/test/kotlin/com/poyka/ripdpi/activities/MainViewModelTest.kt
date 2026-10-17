@@ -2339,6 +2339,34 @@ class MainViewModelTest {
             assertEquals(listOf(Mode.VPN), serviceController.startedModes)
         }
 
+    @Test
+    fun `startup theme observes saved and changed haptics without starting a service`() =
+        runTest {
+            val repository =
+                FakeAppSettingsRepository(
+                    com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setHapticFeedbackDisabled(true)
+                        .build(),
+                )
+            val controller = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    appSettingsRepository = repository,
+                    serviceController = controller,
+                    initialize = false,
+                )
+            val collector = backgroundScope.launch { viewModel.startupState.collect {} }
+            runCurrent()
+            assertTrue(viewModel.startupState.value.hapticFeedbackDisabled)
+
+            repository.update { setHapticFeedbackDisabled(false) }
+            runCurrent()
+            assertFalse(viewModel.startupState.value.hapticFeedbackDisabled)
+            assertTrue(controller.startedModes.isEmpty())
+            collector.cancel()
+        }
+
     private fun createViewModel(
         appSettingsRepository: FakeAppSettingsRepository = onboardedVpnSettingsRepository(),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),

@@ -63,6 +63,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.IOException
 
 class FakeNetworkPathValidationSource(
     initialEvidence: NetworkPathValidationEvidence =
@@ -172,6 +173,14 @@ class FakeServiceController : com.poyka.ripdpi.services.TestSynchronousServiceCo
     var stopCount = 0
     var hardKillSwitchRefreshCount = 0
     var nextStartResult: ServiceStartResult? = null
+    var nextCaptureFailure: IOException? = null
+
+    override suspend fun captureRuntimeSnapshot(): com.poyka.ripdpi.data.RuntimeAuthoritySnapshot {
+        val failure = nextCaptureFailure
+        nextCaptureFailure = null
+        if (failure != null) throw failure
+        return super.captureRuntimeSnapshot()
+    }
 
     override fun recordStart(
         mode: Mode,

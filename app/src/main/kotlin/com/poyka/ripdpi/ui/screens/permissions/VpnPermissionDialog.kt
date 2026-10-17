@@ -1,20 +1,17 @@
 package com.poyka.ripdpi.ui.screens.permissions
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
@@ -24,14 +21,6 @@ fun VpnPermissionDialog(
     onDismiss: () -> Unit,
     onContinue: () -> Unit,
 ) {
-    val performHaptic = rememberRipDpiHapticPerformer()
-    LaunchedEffect(uiState.connectionState) {
-        if (uiState.connectionState == ConnectionState.Connecting ||
-            uiState.connectionState == ConnectionState.Connected
-        ) {
-            performHaptic(RipDpiHapticFeedback.Success)
-        }
-    }
     RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.permissions_vpn_title),

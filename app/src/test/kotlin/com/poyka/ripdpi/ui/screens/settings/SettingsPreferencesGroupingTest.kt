@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -47,6 +48,53 @@ import org.robolectric.annotation.GraphicsMode
 class SettingsPreferencesGroupingTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun `interface exposes the haptic feedback preference`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SettingsAppearanceSection(uiState = SettingsUiState(), actions = noOpActions())
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("settings-haptic-feedback").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `haptic choices expose and update the selected value`() {
+        val state = androidx.compose.runtime.mutableStateOf(SettingsUiState())
+        val choices = mutableListOf<Boolean>()
+        composeRule.setContent {
+            RipDpiTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SettingsAppearanceSection(
+                        uiState = state.value,
+                        actions =
+                            noOpActions().copy(onHapticFeedbackDisabledChanged = {
+                                choices += it
+                                state.value = state.value.copy(hapticFeedbackDisabled = it)
+                            }),
+                    )
+                }
+            }
+        }
+        val tag = RipDpiTestTags.SettingsHapticFeedback
+        composeRule.onNodeWithTag(tag).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.dropdownOption(tag, "off")).performClick()
+        composeRule.onNodeWithText(resource(R.string.haptic_feedback_off)).assertIsDisplayed()
+        composeRule.onNodeWithTag(tag).assertContentDescriptionEquals(
+            RuntimeEnvironment.getApplication().getString(
+                R.string.haptic_feedback_accessibility,
+                resource(R.string.haptic_feedback_title),
+                resource(R.string.haptic_feedback_off),
+            ),
+        )
+        composeRule.onNodeWithTag(tag).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.dropdownOption(tag, "system")).performClick()
+        assertEquals(listOf(true, false), choices)
+    }
 
     @After
     fun restoreSystemLanguage() {

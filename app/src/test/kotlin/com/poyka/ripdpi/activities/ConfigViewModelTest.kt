@@ -1653,6 +1653,53 @@ class ConfigViewModelEditorSessionConcurrencyTest {
         }
 
     @Test
+    fun `runtime connection emits a result only after service readiness`() =
+        runTest {
+            val service = FakeServiceStateStore()
+            val viewModel = createConfigViewModel(serviceStateStore = service)
+            val effects = mutableListOf<ConfigEffect>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.effects.collect { effects += it }
+            }
+
+            viewModel.toggleRuntimeMode(Mode.Proxy, enabled = true)
+            runCurrent()
+            assertTrue(effects.isEmpty())
+            service.setStatus(AppStatus.Running, Mode.Proxy)
+            runCurrent()
+
+            assertEquals(listOf(ConfigEffect.RuntimeConnected()), effects)
+        }
+
+    @Test
+    fun `disabled runtime result retains text eligibility without replay`() =
+        runTest {
+            val service = FakeServiceStateStore()
+            val settings = FakeAppSettingsRepository()
+            val viewModel = createConfigViewModel(serviceStateStore = service, appSettingsRepository = settings)
+            val effects = mutableListOf<ConfigEffect>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    viewModel.effects.collect { effects += it }
+                }
+            viewModel.toggleRuntimeMode(Mode.Proxy, enabled = true)
+            runCurrent()
+            settings.update { setHapticFeedbackDisabled(true) }
+            service.setStatus(AppStatus.Running, Mode.Proxy)
+            runCurrent()
+            assertEquals(listOf(ConfigEffect.RuntimeConnected(hapticFeedbackEnabled = false)), effects)
+            collector.cancel()
+            settings.update { setHapticFeedbackDisabled(false) }
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.effects.collect { effects += it }
+            }
+            runCurrent()
+            assertEquals(1, effects.size)
+        }
+
+    @Test
     fun `runtime start ignores repeated taps until readiness`() =
         runTest {
             val serviceController = FakeServiceController()

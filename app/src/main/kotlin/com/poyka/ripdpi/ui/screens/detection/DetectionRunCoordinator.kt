@@ -13,6 +13,8 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -36,20 +38,25 @@ internal class DetectionRunCoordinator(
     private val stringResolver: StringResolver,
     private val onSaveHistory: suspend (DetectionCheckResult, Int) -> Unit,
     private val onRefreshCommunity: () -> Unit,
+    private val onTerminalResult: suspend (DetectionCheckEffect) -> Unit = {},
 ) {
     private var runJob: Job? = null
 
     fun startCheck() {
-        if (reducer.value.isRunning) return
+        if (reducer.value.isRunning || runJob?.isActive == true) return
         runJob =
             scope.launch {
                 reducer.mutate { it.resetForCheckRun() }
                 val outcome = runCatching { runOnce() }
 
+                outcome.onSuccess { result ->
+                    deliverFeedback(DetectionCheckEffect.CheckCompleted(result.verdict))
+                }
                 outcome.onFailure { error ->
                     if (error is CancellationException) {
                         throw error
                     }
+                    currentCoroutineContext().ensureActive()
                     reducer.mutate {
                         it.copy(
                             isRunning = false,
@@ -57,6 +64,7 @@ internal class DetectionRunCoordinator(
                             error = error.message ?: stringResolver.getString(R.string.detection_error_unknown),
                         )
                     }
+                    deliverFeedback(DetectionCheckEffect.CheckFailed)
                 }
             }
     }
@@ -67,18 +75,21 @@ internal class DetectionRunCoordinator(
         reducer.mutate { it.copy(isRunning = false, progress = null) }
     }
 
-    private suspend fun runOnce() {
+    private suspend fun runOnce(): DetectionCheckResult {
         val settings = appSettingsRepository.settings.first()
         val config = DetectionResultPresenter.runnerConfig(settings, probeRunner.packageName)
+        val runContext = currentCoroutineContext()
         val result =
             probeRunner.runDetectionCheck(
                 runner = detectionCheckRunner,
                 config = config,
                 onProgress = { progress ->
+                    runContext.ensureActive()
                     reducer.mutate { it.copy(progress = progress) }
                 },
             )
 
+        currentCoroutineContext().ensureActive()
         val score = StealthScore.compute(result)
         val label = StealthScore.label(score)
         val recommendations =
@@ -95,6 +106,7 @@ internal class DetectionRunCoordinator(
         onSaveHistory(result, score)
         onRefreshCommunity()
 
+        currentCoroutineContext().ensureActive()
         reducer.mutate {
             it.withCheckResult(
                 result = result,
@@ -105,6 +117,19 @@ internal class DetectionRunCoordinator(
                 debugReportText = debugReportText,
             )
         }
+        return result
+    }
+
+    private suspend fun deliverFeedback(effect: DetectionCheckEffect) {
+        // An optional feedback read must not turn an existing result into a failure.
+        val enabled =
+            runCatching { !appSettingsRepository.snapshot().hapticFeedbackDisabled }
+                .getOrElse { error ->
+                    if (error is CancellationException) throw error
+                    false
+                }
+        currentCoroutineContext().ensureActive()
+        if (enabled) onTerminalResult(effect)
     }
 
     private fun DetectionCheckUiState.resetForCheckRun(): DetectionCheckUiState =

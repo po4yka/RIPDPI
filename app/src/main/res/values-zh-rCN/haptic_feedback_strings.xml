@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_feedback_title">触觉反馈</string>
+    <string name="haptic_feedback_system">跟随系统</string>
+    <string name="haptic_feedback_off">关闭</string>
+    <string name="haptic_feedback_body">跟随系统使用设备设置。关闭后停用应用的触觉反馈。</string>
+    <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
+</resources>

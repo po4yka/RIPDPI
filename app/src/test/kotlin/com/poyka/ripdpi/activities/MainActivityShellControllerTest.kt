@@ -186,6 +186,33 @@ class MainActivityShellControllerTest {
         }
 
     @Test
+    fun `connection result waits for a collector and is never replayed`() =
+        runTest {
+            val controller = MainActivityShellController()
+            controller.onEffect(MainEffect.ConnectionEstablished)
+            controller.uiEvents.test {
+                assertEquals(MainActivityUiEvent.ConnectionEstablished, awaitItem())
+            }
+            controller.uiEvents.test {
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `disabled error eligibility survives delayed shell delivery`() =
+        runTest {
+            val controller = MainActivityShellController()
+            controller.onEffect(MainEffect.ShowError("Failed", hapticFeedbackEnabled = false))
+            controller.uiEvents.test {
+                val event = awaitItem() as MainActivityUiEvent.ShowErrorSnackbar
+                assertEquals("Failed", event.message)
+                assertFalse(event.hapticFeedbackEnabled)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `show error effect emits snackbar event`() =
         runTest {
             val controller = MainActivityShellController()

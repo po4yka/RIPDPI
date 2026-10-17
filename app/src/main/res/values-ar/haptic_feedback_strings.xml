@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_feedback_title">الاستجابة اللمسية</string>
+    <string name="haptic_feedback_system">إعداد النظام</string>
+    <string name="haptic_feedback_off">إيقاف</string>
+    <string name="haptic_feedback_body">يتبع وضع النظام إعدادات الجهاز. يؤدي الإيقاف إلى تعطيل استجابة التطبيق.</string>
+    <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
+</resources>

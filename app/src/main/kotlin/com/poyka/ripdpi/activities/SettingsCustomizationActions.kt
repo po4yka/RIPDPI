@@ -124,6 +124,12 @@ internal class SettingsCustomizationActions(
         }
     }
 
+    fun setHapticFeedbackDisabled(disabled: Boolean) {
+        mutations.updateSetting(key = "hapticFeedbackDisabled", value = disabled.toString()) {
+            setHapticFeedbackDisabled(disabled)
+        }
+    }
+
     fun setAppTheme(theme: String) {
         mutations.updateSetting(
             key = "appTheme",

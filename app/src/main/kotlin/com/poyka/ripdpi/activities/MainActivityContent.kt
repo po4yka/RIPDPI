@@ -51,7 +51,10 @@ internal fun MainActivityContent(
 
     RecompositionReportEffect()
 
-    RipDpiTheme(themePreference = startupState.theme) {
+    RipDpiTheme(
+        themePreference = startupState.theme,
+        hapticFeedbackDisabled = startupState.hapticFeedbackDisabled || !startupState.isReady,
+    ) {
         when (startupState.readiness) {
             AppStartupReadinessState.Pending -> {
                 StartupRecoveryGateContent(failed = false, onRetry = {})
@@ -213,8 +216,12 @@ private fun MainActivityEffects(
 
     LifecycleEventEffect(controller.uiEvents) { event ->
         when (event) {
+            MainActivityUiEvent.ConnectionEstablished -> {
+                performHaptic(RipDpiHapticFeedback.Success)
+            }
+
             is MainActivityUiEvent.ShowErrorSnackbar -> {
-                performHaptic(RipDpiHapticFeedback.Error)
+                if (event.hapticFeedbackEnabled) performHaptic(RipDpiHapticFeedback.Error)
                 val result =
                     snackbarHostState.showRipDpiSnackbar(
                         message = event.message.withSupportCode(event.supportCode),

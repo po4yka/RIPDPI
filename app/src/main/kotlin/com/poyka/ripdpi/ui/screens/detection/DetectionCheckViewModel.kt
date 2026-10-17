@@ -16,9 +16,11 @@ import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
+import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,6 +72,9 @@ class DetectionCheckViewModel
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
 
+        private val _effects = MutableSharedFlow<DetectionCheckEffect>()
+        val effects = _effects.bufferForUiLifecycle(viewModelScope)
+
         private val reducer = DetectionCheckStateReducer(_uiState)
 
         private val auxStateOwner =
@@ -101,6 +106,7 @@ class DetectionCheckViewModel
                 stringResolver = stringResolver,
                 onSaveHistory = { result, score -> auxStateOwner.saveToHistory(result, score) },
                 onRefreshCommunity = { auxStateOwner.refreshCommunityStats() },
+                onTerminalResult = { _effects.emit(it) },
             )
 
         private val onboardingShown = detectionCheckPreferences.wasOnboardingShown()

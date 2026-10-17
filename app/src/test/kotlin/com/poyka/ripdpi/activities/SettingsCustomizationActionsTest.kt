@@ -20,6 +20,20 @@ import org.robolectric.RobolectricTestRunner
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class SettingsCustomizationActionsTest {
+    @Test
+    fun `haptic choice persists both values without changing boot behavior`() =
+        runTest {
+            val harness = buildHarness(batteryIgnored = false)
+            harness.actions.setHapticFeedbackDisabled(true)
+            advanceUntilIdle()
+            assertTrue(harness.repository.snapshot().hapticFeedbackDisabled)
+
+            harness.actions.setHapticFeedbackDisabled(false)
+            advanceUntilIdle()
+            assertFalse(harness.repository.snapshot().hapticFeedbackDisabled)
+            assertTrue(harness.controller.receiverEnabledCalls.isEmpty())
+        }
+
     private class RecordingStartOnBootController(
         var batteryIgnored: Boolean,
     ) : StartOnBootController(ApplicationProvider.getApplicationContext()) {

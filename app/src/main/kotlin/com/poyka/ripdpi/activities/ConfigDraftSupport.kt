@@ -345,6 +345,15 @@ data class RelayPresetSuggestionUiState(
 )
 
 sealed interface ConfigEffect {
+    data class RuntimeConnected(
+        val hapticFeedbackEnabled: Boolean = true,
+    ) : ConfigEffect
+
+    data class RuntimeFailed(
+        val message: String,
+        val hapticFeedbackEnabled: Boolean = true,
+    ) : ConfigEffect
+
     data object SaveSuccess : ConfigEffect
 
     data object ValidationFailed : ConfigEffect

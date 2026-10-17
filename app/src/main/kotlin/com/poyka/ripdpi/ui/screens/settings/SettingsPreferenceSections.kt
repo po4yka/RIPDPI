@@ -360,6 +360,11 @@ internal fun SettingsAppearanceSection(
             },
         )
         HorizontalDivider(color = colors.divider)
+        HapticFeedbackPreference(
+            disabled = uiState.hapticFeedbackDisabled,
+            onDisabledChange = actions.onHapticFeedbackDisabledChanged,
+        )
+        HorizontalDivider(color = colors.divider)
         SettingsPersonaPreference(persona = uiState.uiPersona, onPersonaSelected = actions.onPersonaSelected)
         SettingsRow(
             title = stringResource(R.string.title_app_customization),

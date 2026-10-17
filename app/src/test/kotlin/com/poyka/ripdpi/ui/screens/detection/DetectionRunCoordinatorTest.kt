@@ -20,10 +20,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -38,6 +40,7 @@ private class FakeProbeRunner(
     private val error: Throwable? = null,
     private val progress: List<DetectionProgress> = emptyList(),
     private val gate: CompletableDeferred<Unit>? = null,
+    private val nonCancellable: Boolean = false,
 ) : DetectionProbeRunner {
     override val packageName: String = "com.example"
     var runCount = 0
@@ -49,7 +52,7 @@ private class FakeProbeRunner(
     ): DetectionCheckResult {
         runCount += 1
         progress.forEach(onProgress)
-        gate?.await()
+        if (nonCancellable) withContext(NonCancellable) { gate?.await() } else gate?.await()
         error?.let { throw it }
         return result ?: detectionResult(Verdict.NOT_DETECTED)
     }
@@ -94,6 +97,7 @@ class DetectionRunCoordinatorTest {
         settingsRepository: FakeDetectionAppSettingsRepository = FakeDetectionAppSettingsRepository(),
         onSaveHistory: suspend (DetectionCheckResult, Int) -> Unit = { _, _ -> },
         onRefreshCommunity: () -> Unit = {},
+        onTerminalResult: suspend (DetectionCheckEffect) -> Unit = {},
     ): DetectionRunCoordinator =
         DetectionRunCoordinator(
             scope = scope,
@@ -105,7 +109,91 @@ class DetectionRunCoordinatorTest {
             stringResolver = RecordingStringResolver(),
             onSaveHistory = onSaveHistory,
             onRefreshCommunity = onRefreshCommunity,
+            onTerminalResult = onTerminalResult,
         )
+
+    @Test
+    fun `equal completed runs each deliver one result and retained state delivers none`() {
+        val effects = mutableListOf<DetectionCheckEffect>()
+        val flow = MutableStateFlow(DetectionCheckUiState(result = detectionResult()))
+        val coordinator = coordinator(flow, FakeProbeRunner(), onTerminalResult = { effects += it })
+        assertTrue(effects.isEmpty())
+        repeat(2) { coordinator.startCheck() }
+        assertEquals(
+            listOf(
+                DetectionCheckEffect.CheckCompleted(Verdict.NOT_DETECTED),
+                DetectionCheckEffect.CheckCompleted(Verdict.NOT_DETECTED),
+            ),
+            effects,
+        )
+    }
+
+    @Test
+    fun `each failed run emits one terminal error while cancellation stays quiet`() {
+        val effects = mutableListOf<DetectionCheckEffect>()
+        val flow = MutableStateFlow(DetectionCheckUiState())
+        val failedCoordinator =
+            coordinator(
+                flow,
+                FakeProbeRunner(error = RuntimeException("Failed")),
+                onTerminalResult = { effects += it },
+            )
+        repeat(2) { failedCoordinator.startCheck() }
+        assertEquals(listOf(DetectionCheckEffect.CheckFailed, DetectionCheckEffect.CheckFailed), effects)
+        coordinator(
+            flow,
+            FakeProbeRunner(error = CancellationException("Cancelled")),
+            onTerminalResult = { effects += it },
+        ).startCheck()
+        assertEquals(2, effects.size)
+    }
+
+    @Test
+    fun `cancelled non-cooperative probe cannot deliver or save a late result`() {
+        val effects = mutableListOf<DetectionCheckEffect>()
+        val flow = MutableStateFlow(DetectionCheckUiState())
+        val gate = CompletableDeferred<Unit>()
+        var saves = 0
+        val coordinator =
+            coordinator(
+                flow,
+                FakeProbeRunner(gate = gate, nonCancellable = true),
+                onSaveHistory = { _, _ -> saves += 1 },
+                onTerminalResult = { effects += it },
+            )
+        coordinator.startCheck()
+        coordinator.stopCheck()
+        gate.complete(Unit)
+        assertFalse(flow.value.isRunning)
+        assertNull(flow.value.result)
+        assertTrue(effects.isEmpty())
+        assertEquals(0, saves)
+    }
+
+    @Test
+    fun `feedback disabled during a run cannot replay after reenabling`() =
+        runTest {
+            val effects = mutableListOf<DetectionCheckEffect>()
+            val flow = MutableStateFlow(DetectionCheckUiState())
+            val settings = FakeDetectionAppSettingsRepository()
+            val gate = CompletableDeferred<Unit>()
+            val coordinator =
+                coordinator(
+                    flow,
+                    FakeProbeRunner(gate = gate),
+                    settingsRepository = settings,
+                    onTerminalResult = { effects += it },
+                )
+            coordinator.startCheck()
+            settings.update { setHapticFeedbackDisabled(true) }
+            gate.complete(Unit)
+            assertTrue(effects.isEmpty())
+            assertTrue(flow.value.result != null)
+            settings.update { setHapticFeedbackDisabled(false) }
+            assertTrue(effects.isEmpty())
+            coordinator.startCheck()
+            assertEquals(listOf(DetectionCheckEffect.CheckCompleted(Verdict.NOT_DETECTED)), effects)
+        }
 
     @Test
     fun `recommendation generation preserves settings without automatic fixes`() =

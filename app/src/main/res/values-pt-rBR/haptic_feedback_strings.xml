@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_feedback_title">Resposta tátil</string>
+    <string name="haptic_feedback_system">Padrão do sistema</string>
+    <string name="haptic_feedback_off">Desativada</string>
+    <string name="haptic_feedback_body">Padrão do sistema segue as configurações do dispositivo. Desativada desliga a resposta do app.</string>
+    <string name="haptic_feedback_accessibility">%1$s: %2$s</string>
+</resources>

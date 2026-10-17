@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
@@ -16,6 +17,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -109,6 +112,14 @@ class ConfigViewModel
                 controller = serviceController,
                 service = serviceStateStore,
                 strings = stringResolver,
+                onRuntimeConnected = {
+                    _effects.emit(ConfigEffect.RuntimeConnected(runtimeHapticFeedbackEnabled(appSettingsRepository)))
+                },
+                onRuntimeFailed = { message ->
+                    _effects.emit(
+                        ConfigEffect.RuntimeFailed(message, runtimeHapticFeedbackEnabled(appSettingsRepository)),
+                    )
+                },
                 isReconnectPending = {
                     dependencies.reconnectCoordinator.reconnectState.value
                         .isConfigPending()
@@ -643,3 +654,14 @@ class ConfigViewModel
                 },
             )
     }
+
+private suspend fun runtimeHapticFeedbackEnabled(repository: AppSettingsRepository): Boolean {
+    val enabled =
+        runCatching { !repository.snapshot().hapticFeedbackDisabled }
+            .getOrElse { error ->
+                if (error is CancellationException) throw error
+                false
+            }
+    currentCoroutineContext().ensureActive()
+    return enabled
+}
