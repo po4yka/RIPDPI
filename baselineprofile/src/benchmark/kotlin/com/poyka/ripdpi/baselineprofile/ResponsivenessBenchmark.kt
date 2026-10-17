@@ -74,6 +74,7 @@ class ResponsivenessBenchmark {
                     "telemetry" -> requireNode("settings-screen")
                     "catalog" -> requireNode("profile_utility_search-query")
                 }
+                device.waitForIdle()
             },
         ) {
             requireNode("responsiveness-run").click()
