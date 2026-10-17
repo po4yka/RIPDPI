@@ -107,6 +107,8 @@ Preserve modifier order. Button and IconButton scale only content; Chip scales i
 
 ### Boundaries and exceptions
 
+- Foundation 1.13 beta interpolates spring properties through normalized progress. On an interrupted reverse transition, it carries that progress velocity without scaling it for the new property delta. Button, IconButton, and Chip keep typed `animateFloatAsState` / `animateDpAsState` for their original spring scale and radius. Their remembered style reads the animation State during attached resolution at layer zero; caller styles remain at layer one. Color tweens stay in CommonStyle. Disabling motion drops active spring animators and provides the target immediately.
+
 - Material hosts keep their explicit APIs: `Surface`, `Scaffold`, modal sheets, menus, tooltips, dividers, text, and icons. This includes the Material shells of banners, dialogs, sheets, snackbars, context menus, degradation strips, export consent, and metric pills. Their owned badges, handles, and stripes can use styles.
 - Canvas renderers, telemetry plots, progress drawing, the disconnect countdown, and navigation transitions retain their drawing or animation algorithms. Styles do not own their feature geometry.
 - Components that only arrange or delegate to styled RDS controls do not need an extra resolver. Do not add a style node that has no visible effect.

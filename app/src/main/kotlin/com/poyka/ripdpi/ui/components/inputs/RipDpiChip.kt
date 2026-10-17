@@ -37,6 +37,7 @@ import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiSpringStyle
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
 import com.poyka.ripdpi.ui.theme.ripDpiStyleDrawing
@@ -98,13 +99,20 @@ fun RipDpiChip(
             it.isChecked = selected
             it[RipDpiStyleStateKeys.Compact] = density == RipDpiControlDensity.Compact
         }
-    val styleResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.chip, visualStyle, styleState)
     val state =
         RipDpiThemeTokens.state.chip.resolve(
             selected = selected,
             enabled = enabled,
             isPressed = styleState.isPressed,
         )
+    val defaults =
+        rememberRipDpiSpringStyle(
+            defaults = RipDpiThemeTokens.styles.chip,
+            scale = state.scale,
+            cornerRadius = state.cornerRadius,
+            expressiveScale = selected,
+        )
+    val styleResolver = rememberRipDpiStyleResolver(defaults, visualStyle, styleState)
     val animatedContentColor by animateColorAsState(
         targetValue = state.content,
         animationSpec = motion.stateTween(),
