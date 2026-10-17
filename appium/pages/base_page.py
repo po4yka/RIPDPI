@@ -6,7 +6,9 @@ import time
 from typing import TYPE_CHECKING, Callable
 
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+from selenium.common.exceptions import (
+    NoSuchElementException, StaleElementReferenceException, TimeoutException, WebDriverException,
+)
 from selenium.webdriver.support.ui import WebDriverWait
 
 if TYPE_CHECKING:
@@ -285,3 +287,74 @@ class BasePage:
             self.driver.swipe(center_x, start_y, center_x, end_y, duration=260)
             time.sleep(0.12)
         return self.wait_for(tag, timeout=5)
+
+    # Opt-in scrolling for screens that contain more than one scroll axis.
+    def _scoped_target(self, tag: str, container_tag: str, fully_visible: bool):
+        container = self.find(container_tag)
+        target = self._find_by_test_tag(tag)
+        if not target or not target.is_displayed() or not target.is_enabled():
+            return None
+        if target.get_attribute("resource-id") not in self._resource_ids(tag):
+            return None
+        area, rect = container.rect, target.rect
+        left, top = area["x"], area["y"]
+        right, bottom = left + area["width"], top + area["height"]
+        x, y = rect["x"], rect["y"]
+        end_x, end_y = x + rect["width"], y + rect["height"]
+        if rect["width"] <= 0 or rect["height"] <= 0:
+            return None
+        if fully_visible:
+            inside = left < x and top < y and end_x < right and end_y < bottom
+        else:
+            inside = left < (x + end_x) / 2 < right and top < (y + end_y) / 2 < bottom
+        return target if inside else None
+
+    def _scroll_container_once(self, container_tag: str, direction: str) -> bool:
+        area = self.find(container_tag).rect
+        # An inset keeps the complete gesture clear of tabs and bars.
+        inset = max(1, min(area["width"], area["height"]) // 100)
+        return self.driver.execute_script("mobile: scrollGesture", {
+            "left": area["x"] + inset, "top": area["y"] + inset,
+            "width": area["width"] - 2 * inset,
+            "height": area["height"] - 2 * inset,
+            "direction": direction, "percent": 0.55,
+        })
+
+    def scroll_to_in_container(
+        self, tag: str, container_tag: str, max_swipes: int = 5,
+        fully_visible: bool = True,
+    ):
+        """Find an exact target using bounded gestures inside one tagged body."""
+        self.wait_for(container_tag)
+        for direction in ("down", "up"):
+            for _ in range(max_swipes):
+                try:
+                    target = self._scoped_target(tag, container_tag, fully_visible)
+                    if target:
+                        return target
+                    area = self.find(container_tag).rect
+                    target = self._find_by_test_tag(tag)
+                    gesture_direction = direction
+                    if target:
+                        rect = target.rect
+                        if rect["y"] <= area["y"]:
+                            gesture_direction = "up"
+                        elif rect["y"] + rect["height"] >= area["y"] + area["height"]:
+                            gesture_direction = "down"
+                    can_scroll = self._scroll_container_once(container_tag, gesture_direction)
+                    if not can_scroll:
+                        break
+                except (NoSuchElementException, StaleElementReferenceException):
+                    continue
+        target = self._scoped_target(tag, container_tag, fully_visible)
+        if target:
+            return target
+        raise TimeoutException(f"Exact target {tag!r} is not visible inside {container_tag!r}")
+
+    def tap_in_container(self, tag: str, container_tag: str, fully_visible: bool = True) -> None:
+        """Re-find and validate the exact target after scrolling, then click once."""
+        self.scroll_to_in_container(tag, container_tag, fully_visible=fully_visible)
+        target = self._scoped_target(tag, container_tag, fully_visible)
+        if not target:
+            raise TimeoutException(f"Exact target {tag!r} moved before click in {container_tag!r}")
+        target.click()

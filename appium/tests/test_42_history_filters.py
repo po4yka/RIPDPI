@@ -18,13 +18,17 @@ def test_connections_filters_visible(driver):
     if not page.is_connections_content_visible():
         pytest.skip("No connections content available to test filters")
 
-    page.tap_connections_mode_filter("all")
-    page.tap_connections_status_filter("active")
+    mode = page.tap_first_filter_option("connections", "mode")
+    page.scroll_to(mode)
+    assert page.is_selected(mode), "The chosen connection mode must be selected"
+    status = page.tap_first_filter_option("connections", "status")
+    page.scroll_to(status)
+    assert page.is_selected(status), "The chosen connection status must be selected"
 
 
 @pytest.mark.automation(
     start_route="history",
-    data_preset="diagnostics_demo",
+    data_preset="diagnostics_report_demo",
     service_preset="idle",
 )
 def test_diagnostics_filters_visible(driver):
@@ -33,11 +37,13 @@ def test_diagnostics_filters_visible(driver):
 
     page.tap_section("diagnostics")
 
-    if not page.is_diagnostics_content_visible():
-        pytest.skip("No diagnostics content available to test filters")
-
-    page.tap_diagnostics_path_filter("all")
-    page.tap_diagnostics_status_filter("active")
+    assert page.is_diagnostics_content_visible(), "Seeded diagnostics report must exist"
+    page.tap_diagnostics_path_filter("raw-path")
+    page.scroll_to("history-diagnostics-path-raw-path")
+    assert page.is_selected("history-diagnostics-path-raw-path"), "RAW_PATH must be selected"
+    page.tap_diagnostics_status_filter("completed")
+    page.scroll_to("history-diagnostics-status-completed")
+    assert page.is_selected("history-diagnostics-status-completed"), "Completed must be selected"
 
 
 @pytest.mark.automation(
@@ -54,11 +60,13 @@ def test_events_filters_visible(driver):
     if not page.is_events_content_visible():
         pytest.skip("No events content available to test filters")
     page.open_filters("events")
-    if not page.is_prefix_visible("history-event-severity-", timeout=3):
-        pytest.skip("No event severity filters available in this fixture")
 
-    page.tap_event_source_filter("all")
-    page.tap_event_severity_filter("error")
+    source = page.tap_first_filter_option("events", "source")
+    page.scroll_to(source)
+    assert page.is_selected(source), "The chosen event source must be selected"
+    severity = page.tap_first_filter_option("events", "severity")
+    page.scroll_to(severity)
+    assert page.is_selected(severity), "The chosen event severity must be selected"
 
 
 @pytest.mark.automation(

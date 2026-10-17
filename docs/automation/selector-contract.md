@@ -28,6 +28,10 @@ All stable IDs live in [`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka
 - Activation ranges: `advanced-<dimension>-from`, `advanced-<dimension>-to`, `advanced-<dimension>-save`
 - Diagnostics and logs: `diagnostics-top-history-action`, `diagnostics-share-archive`, `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`, `diagnostics-status-snackbar`, `logs-save`, `logs-clear`
 - Diagnostics strategy reports: `diagnostics-strategy-probe-report`, `diagnostics-strategy-probe-summary`, `diagnostics-strategy-winning-path`, `diagnostics-strategy-winning-tcp-action`, `diagnostics-strategy-winning-quic-action`, `diagnostics-strategy-full-matrix-toggle`, `diagnostics-strategy-audit-assessment`, `diagnostics-strategy-audit-low-confidence-banner`, `diagnostics-strategy-audit-medium-confidence-note`, `diagnostics-workflow-restriction-card`, `diagnostics-workflow-restriction-action`
+- History vertical bodies: `history-connections-list`, `history-diagnostics-list`,
+  `history-events-list`. Scope filter gestures to the matching body so horizontal
+  section tabs do not receive vertical gestures. Category actions require the exact
+  option key; they do not fall back to a different option.
 - Logs: `logs-filters` opens optional filters; `logs-actions` opens save, clear
   and support sharing; `logs-sheet-done` returns from either sheet to the stream.
 

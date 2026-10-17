@@ -123,6 +123,7 @@ internal fun ConnectionsSection(
     val layout = RipDpiThemeTokens.layout
 
     LazyColumn(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryConnectionsList),
         contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
@@ -193,6 +194,7 @@ internal fun DiagnosticsSection(
     val layout = RipDpiThemeTokens.layout
 
     LazyColumn(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryDiagnosticsList),
         contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
@@ -313,7 +315,12 @@ internal fun EventsSection(
 
     Column(Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.weight(1f).nestedScroll(userScrollConnection),
+            modifier =
+                Modifier
+                    .weight(
+                        1f,
+                    ).nestedScroll(userScrollConnection)
+                    .ripDpiTestTag(RipDpiTestTags.HistoryEventsList),
             state = listState,
             contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
             verticalArrangement = Arrangement.spacedBy(spacing.md),

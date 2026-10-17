@@ -416,6 +416,9 @@ internal object RipDpiTestTags {
     val rememberedNetworkCard: (Long) -> String = { id -> "remembered-network-card-$id" }
     val rememberedNetworkDelete: (Long) -> String = { id -> "remembered-network-delete-$id" }
 
+    const val HistoryConnectionsList = "history-connections-list"
+    const val HistoryDiagnosticsList = "history-diagnostics-list"
+    const val HistoryEventsList = "history-events-list"
     const val HistoryConnectionsSearch = "history-connections-search"
     const val HistoryDiagnosticsSearch = "history-diagnostics-search"
     const val HistoryEventsSearch = "history-events-search"

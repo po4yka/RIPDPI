@@ -31,6 +31,14 @@ def test_history_search_and_filter(driver):
 
     # Switch to connections section and search.
     history.tap_section("connections")
+    if not history.is_connections_content_visible():
+        assert history.is_visible("history-connections-state-empty"), (
+            "Connections without history must show the empty state"
+        )
+        assert not history.is_visible(HistoryPage.CONNECTIONS_SEARCH), (
+            "Connections without history must not expose search"
+        )
+        return
     history.type_search("connections", "test query")
     if history.is_connections_content_visible():
         history.open_filters("connections")
@@ -40,7 +48,9 @@ def test_history_search_and_filter(driver):
         )
         return
 
-    history.tap_connections_mode_filter("vpn")
+    chosen_mode = history.tap_first_filter_option("connections", "mode")
+    history.scroll_to(chosen_mode)
+    assert history.is_selected(chosen_mode), "The chosen connection mode must be selected"
 
     # Clear all filters.
     history.tap_clear_all_filters()

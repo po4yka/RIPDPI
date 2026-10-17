@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException, WebDriverException
+
 from .base_page import BasePage
 
 SECTIONS = ("connections", "diagnostics", "events")
@@ -15,11 +17,56 @@ class HistoryPage(BasePage):
     FILTER_CLEAR_ALL = "history-filter-clear-all"
     EVENTS_AUTO_SCROLL = "history-events-auto-scroll"
 
+    def __init__(self, driver) -> None:
+        super().__init__(driver)
+        self._section = "connections"
+
+    def _list_tag(self, tag: str) -> str | None:
+        tag = tag.split(":id/", 1)[-1]
+        if (tag == "history-events-jump-to-latest" or
+                tag.startswith("history-section-") or tag.endswith("-detail-sheet")):
+            return None
+        if tag.startswith(("history-connections-", "history-connection-")):
+            section = "connections"
+        elif tag.startswith("history-diagnostics-"):
+            section = "diagnostics"
+        elif tag.startswith(("history-events-", "history-event-")):
+            section = "events"
+        elif tag in (self.FILTER_CLEAR_ALL, "history-no-results", "history-empty-clear-filters"):
+            section = self._section
+        else:
+            return None
+        return f"history-{section}-list"
+
+    @staticmethod
+    def _is_filter_control(tag: str) -> bool:
+        return any(part in tag for part in (
+            "-search", "-filter", "-mode-", "-status-", "-path-", "-source-", "-severity-", "-auto-scroll",
+        ))
+
+    def scroll_to(self, tag: str, max_swipes: int = 5):
+        container = self._list_tag(tag)
+        if container:
+            return self.scroll_to_in_container(
+                tag, container, max_swipes=max_swipes, fully_visible=self._is_filter_control(tag),
+            )
+        return super().scroll_to(tag, max_swipes=max_swipes)
+
+    def tap(self, tag: str, timeout: int = 10) -> None:
+        container = self._list_tag(tag)
+        if container:
+            self.tap_in_container(tag, container, fully_visible=self._is_filter_control(tag))
+        else:
+            super().tap(tag, timeout=timeout)
+
     def is_loaded(self) -> bool:
         return self.is_visible(self.SCREEN)
 
     def tap_section(self, section: str) -> None:
+        if section not in SECTIONS:
+            raise ValueError(f"Unknown history section: {section!r}")
         self.tap(f"history-section-{section}")
+        self._section = section
 
     def is_section_visible(self, section: str) -> bool:
         return self.is_visible(f"history-section-{section}")
@@ -28,19 +75,24 @@ class HistoryPage(BasePage):
         """Open a section's saved disclosure once, without toggling it closed."""
         search_tag = f"history-{section}-search"
         disclosure_tag = f"{search_tag}-filter-disclosure"
-        options_tag = f"{search_tag}-filter-options"
         self.scroll_to(disclosure_tag)
         if not self.is_selected(disclosure_tag):
             self.tap(disclosure_tag)
-        self.scroll_to(options_tag)
 
     def type_search(self, section: str, query: str) -> None:
         tag = f"history-{section}-search"
-        self.clear_and_type(tag, query)
+        self.scroll_to(tag)
+        self.find(tag).clear()
+        self.scroll_to(tag)
+        self.find(tag).send_keys(query)
+        try:
+            self.driver.hide_keyboard()
+        except WebDriverException:
+            pass
 
     def tap_auto_scroll(self) -> None:
         self.open_filters("events")
-        self.scroll_to(self.EVENTS_AUTO_SCROLL).click()
+        self.tap(self.EVENTS_AUTO_SCROLL)
 
     def is_auto_scroll_visible(self) -> bool:
         return self.is_visible(self.EVENTS_AUTO_SCROLL)
@@ -50,53 +102,62 @@ class HistoryPage(BasePage):
 
     # -- filter helpers ----------------------------------------------------------
 
-    def tap_connections_mode_filter(self, mode: str) -> None:
-        self.open_filters("connections")
-        tag = f"history-connections-mode-{mode}"
-        if self.is_visible(tag, timeout=2):
+    def tap_first_filter_option(self, section: str, group: str) -> str:
+        """Choose an available option explicitly when a legacy fixture varies."""
+        prefixes = {
+            ("connections", "mode"): "history-connections-mode-",
+            ("connections", "status"): "history-connections-status-",
+            ("diagnostics", "path"): "history-diagnostics-path-",
+            ("diagnostics", "status"): "history-diagnostics-status-",
+            ("events", "source"): "history-event-source-",
+            ("events", "severity"): "history-event-severity-",
+        }
+        prefix = prefixes[(section, group)]
+        self.open_filters(section)
+        container = f"history-{section}-list"
+        def choose_visible_option() -> str | None:
+            element = self._find_by_test_tag_prefix(prefix)
+            if not element:
+                return None
+            tag = element.get_attribute("resource-id").split(":id/", 1)[-1]
+            if not tag.startswith(prefix):
+                raise ValueError(f"Unexpected filter identity: {tag!r}")
             self.tap(tag)
-            return
-        self.tap_first_with_prefix("history-connections-mode-")
+            return tag
+
+        for direction in ("down", "up"):
+            for _ in range(5):
+                chosen = choose_visible_option()
+                if chosen:
+                    return chosen
+                if not self._scroll_container_once(container, direction):
+                    break
+        chosen = choose_visible_option()
+        if chosen:
+            return chosen
+        raise TimeoutException(f"No {group!r} filter option in history section {section!r}")
+
+    def _tap_filter(self, section: str, tag: str) -> None:
+        self.open_filters(section)
+        self.tap(tag)
+
+    def tap_connections_mode_filter(self, mode: str) -> None:
+        self._tap_filter("connections", f"history-connections-mode-{mode}")
 
     def tap_connections_status_filter(self, status: str) -> None:
-        self.open_filters("connections")
-        tag = f"history-connections-status-{status}"
-        if self.is_visible(tag, timeout=2):
-            self.tap(tag)
-            return
-        self.tap_first_with_prefix("history-connections-status-")
+        self._tap_filter("connections", f"history-connections-status-{status}")
 
     def tap_diagnostics_path_filter(self, path_mode: str) -> None:
-        self.open_filters("diagnostics")
-        tag = f"history-diagnostics-path-{path_mode}"
-        if self.is_visible(tag, timeout=2):
-            self.tap(tag)
-            return
-        self.tap_first_with_prefix("history-diagnostics-path-")
+        self._tap_filter("diagnostics", f"history-diagnostics-path-{path_mode}")
 
     def tap_diagnostics_status_filter(self, status: str) -> None:
-        self.open_filters("diagnostics")
-        tag = f"history-diagnostics-status-{status}"
-        if self.is_visible(tag, timeout=2):
-            self.tap(tag)
-            return
-        self.tap_first_with_prefix("history-diagnostics-status-")
+        self._tap_filter("diagnostics", f"history-diagnostics-status-{status}")
 
     def tap_event_source_filter(self, source: str) -> None:
-        self.open_filters("events")
-        tag = f"history-event-source-{source}"
-        if self.is_visible(tag, timeout=2):
-            self.tap(tag)
-            return
-        self.tap_first_with_prefix("history-event-source-")
+        self._tap_filter("events", f"history-event-source-{source}")
 
     def tap_event_severity_filter(self, severity: str) -> None:
-        self.open_filters("events")
-        tag = f"history-event-severity-{severity}"
-        if self.is_visible(tag, timeout=2):
-            self.tap(tag)
-            return
-        self.tap_first_with_prefix("history-event-severity-")
+        self._tap_filter("events", f"history-event-severity-{severity}")
 
     # -- detail sheet helpers ----------------------------------------------------
 
