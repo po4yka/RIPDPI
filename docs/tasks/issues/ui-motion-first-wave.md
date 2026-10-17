@@ -2,7 +2,7 @@
 id: UIX-1792222949017657
 title: Add clear connection and diagnostics feedback
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI motion integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: ui-motion-first-wave
 created: 2026-10-17
 updated: 2026-10-17
+status_detail: Implementation, local gates, emulator acceptance, ff-only main integration and first remote push are observed. Hosted CI remains under review; regenerate the two missing translation-export keys before the follow-up push.
 ---
 
 ## Goal

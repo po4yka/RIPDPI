@@ -5,7 +5,7 @@ commit_sha: e1ed3cc2dee2fd894f3469386a143109b2c5f0ed
 local: passed
 local_evidence: 113 targeted unit tests passed with no failures, errors, or skips. Full and service lint, staticAnalysis, architecture health, locked Cargo metadata, DESIGN verification, and independent review passed on the rebased implementation.
 remote_ci: required
-remote_ci_evidence: null
+remote_ci_evidence: First main push 65f5ac51e5f8c381b132bae9b2bed5a365b140fb started CI and CodeQL. Locale parity passed. Translation export failed on the two new keys; the owning generator added exactly those keys and its three discovery tests and manifest check passed locally. The follow-up hosted run is pending.
 device: passed
 device_evidence: API37 arm64 pool emulator-5554 ran all 4 ActionFeedbackInstrumentedTest methods successfully in 12.204 seconds. The Arabic font2 RTL control test also passed in 1.752 seconds. MainActivity ru/light timer and ar/dark/font2 layout were inspected; crash buffers were empty. The pool lease was released and font scale and locale were restored.
 artifact: passed
@@ -25,7 +25,7 @@ deployment_evidence: No deployment is owned by this Android UI change.
 | REQ-UAF-OUTCOME | UIX-1792223014118844 | Active, success, failure, cancellation and saved-result tests | Passed |
 | REQ-UAF-LATEST | UIX-1792223014868002 | Event insertion, reader position, jump action and filter tests | Passed |
 | REQ-UAF-ACCESS | UIX-1792223015547663 | Theme tests, locale lint, static analysis, font2/RTL emulator checks and review | Passed |
-| REQ-UAF-ACCESS | UIX-1792223016361525 | Rebased combined gates, main integration and remote SHA | Required |
+| REQ-UAF-ACCESS | UIX-1792223016361525 | Rebased combined gates, main integration and remote SHA | Passed |
 
 ## Planned commands
 
@@ -59,8 +59,7 @@ TalkBack or hardware scroll input. No golden fixture or quality baseline changed
 
 Local logs, XML results, the artifact manifest, and device evidence are stored
 in the task evidence directory under `ripdpi-ux-motion-implementation` in the
-2026-10-17 visualization workspace. Main publication remains pending. Hosted CI
-will start after the authorized push.
+2026-10-17 visualization workspace. Main publication is recorded below.
 
 ## Device results
 
@@ -85,3 +84,21 @@ hardware scroll interruption remain untested.
 
 The lease was released. Font scale was restored to 1.0, app locale to English,
 and the app was stopped. No foreground service remained.
+
+## Main integration and publication
+
+The job branch was rebased onto `origin/main`. The combined checks above passed
+after that rebase. The clean main checkout then accepted a fast-forward merge
+to `65f5ac51e5f8c381b132bae9b2bed5a365b140fb`. The authorized `git push origin main`
+succeeded, and `git ls-remote` returned that exact SHA. Production and test
+sources match the tested artifact commit; later receipts change documentation.
+
+GitHub accepted the direct push and reported the existing PR, required CI, and
+CodeQL rule bypass. No repository rule was changed. Hosted CI is a separate
+gate and this task stays in review until it passes.
+
+The first hosted translation-export gate found two missing manifest entries.
+`scripts/ci/export-strings-for-translation.sh` regenerated the manifest and
+added exactly the two new action-feedback keys. Its three discovery tests and
+`scripts/ci/check-translation-export.sh` passed. This catalog metadata correction
+does not change the APK resources or code. It is included in the follow-up push.

@@ -2974,6 +2974,7 @@ app:history_event_timestamp_range
 app:history_event_timestamp_single
 app:history_events_empty_body
 app:history_events_empty_title
+app:history_events_jump_to_latest
 app:history_events_section
 app:history_filter_clear_all
 app:history_no_results_body
@@ -2989,6 +2990,7 @@ app:home_connection_actuator_action_cancel
 app:home_connection_actuator_action_confirm_release
 app:home_connection_actuator_action_deactivate
 app:home_connection_actuator_action_retry
+app:home_connection_actuator_confirmation_remaining
 app:home_connection_actuator_direct
 app:home_connection_actuator_fault_copy
 app:home_connection_actuator_relay
