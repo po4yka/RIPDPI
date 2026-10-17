@@ -96,8 +96,8 @@ class ResponsivenessBenchmark {
     private fun MacrobenchmarkScope.exerciseCatalog(size: Int) {
         val search = requireNode("profile_utility_search-query")
         val label = "Profile ${(size - 1).toString().padStart(5, '0')}"
+        // Accessibility text input does not open the keyboard.
         search.text = label
-        device.pressBack()
         // The text field also contains the query, so assert the actual result row's identity.
         requireNode("profile_utility_native:benchmark-${size - 1}_row")
         requireNode("profile_utility_search-clear").click()
