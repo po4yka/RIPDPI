@@ -14,6 +14,7 @@ RDS owns component shells, state resolvers, surfaces, and motion. Material text 
 - Use RDS-owned stylePropertyOf keys, CommonStyle DSL extensions, and StyleResolver application helpers. Do not use transitional Style, styleable, styleAppearance, or stylePlacement.
 - Expose visualStyle with an empty CommonStyle default. Preserve all current variant, density, action, state, and interaction-source parameters.
 - Apply base, variant, then caller overrides. Enforce behavior and minimum touch targets outside visual styles.
+- Defaults evaluate existing state resolvers directly on layer zero. Apply caller overrides in a raised style layer so active default states cannot defeat explicit overrides.
 - Read theme locals at resolution time. Share the actual interaction source with style state. Preserve current state priority and motion specs.
 - Apply outer surfaces separately from inner content transforms. Preserve numeric corner-radius interpolation and modifier order.
 - Keep explicit Material typography, colors, icons, text animations, custom Canvas/progress drawing, and navigation transitions where required. Document each exception.

@@ -13,6 +13,7 @@ val consumerProguardRules =
 
 extensions.configure<LibraryExtension> {
     compileSdk = providers.gradleProperty("ripdpi.compileSdk").get().toInt()
+    compileSdkMinor = providers.gradleProperty("ripdpi.compileSdkMinor").get().toInt()
 
     defaultConfig {
         minSdk = providers.gradleProperty("ripdpi.minSdk").get().toInt()
