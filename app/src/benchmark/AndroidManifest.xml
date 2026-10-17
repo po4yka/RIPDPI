@@ -6,5 +6,10 @@
             android:name="com.poyka.ripdpi.benchmark.ResponsivenessActivity"
             android:exported="true"
             android:theme="@style/Theme.RIPDPI" />
+        <!-- Shell-only rendering workload. This entry point is absent from release APKs. -->
+        <activity
+            android:name=".benchmark.ComposeStylesBenchmarkActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
     </application>
 </manifest>

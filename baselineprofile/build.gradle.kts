@@ -1,3 +1,5 @@
+import com.android.build.api.variant.TestAndroidComponentsExtension
+
 plugins {
     id("ripdpi.android.test")
 }
@@ -29,7 +31,21 @@ android {
         }
     }
     experimentalProperties["android.experimental.self-instrumenting"] = true
+    buildTypes {
+        // Match :app's release-derived, profileable benchmark variant. Keep the
+        // existing debug lane for profile generation and startup diagnostics.
+        create("benchmark") {
+            initWith(getByName("debug"))
+            matchingFallbacks += "release"
+        }
+    }
     // Managed devices, including the pinned pixel6Api34Atd benchmark image, come from ripdpi.android.test.
+}
+
+extensions.configure<TestAndroidComponentsExtension> {
+    onVariants(selector().withBuildType("benchmark")) { variant ->
+        variant.instrumentationRunnerArguments.put("androidx.benchmark.suppressErrors", "EMULATOR")
+    }
 }
 
 kotlin {
