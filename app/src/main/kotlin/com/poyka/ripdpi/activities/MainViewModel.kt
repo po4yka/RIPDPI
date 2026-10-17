@@ -13,6 +13,7 @@ import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
+import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
@@ -20,12 +21,15 @@ import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -215,6 +219,14 @@ class MainViewModel
                 buildApproachSummary = connectionActions::buildApproachSummary,
             )
         val uiState: StateFlow<MainUiState> = uiStateOwner.uiState
+
+        // Keep action snapshots current while the shell observes only permission changes.
+        val permissionSummary: Flow<PermissionSummaryUiState> =
+            uiState.map { it.permissionSummary }.distinctUntilChanged()
+
+        internal val activityRuntimeState: Flow<MainActivityRuntimeUiState> =
+            uiState.map { it.toActivityRuntimeUiState() }.distinctUntilChanged()
+
         internal val onLocaleChanged: (String) -> Unit = { localeTags ->
             uiStateOwner.onLocaleChanged(localeTags)
             homeDiagnostics.onLocaleChanged(localeTags)

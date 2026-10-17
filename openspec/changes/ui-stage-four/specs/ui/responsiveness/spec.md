@@ -34,12 +34,17 @@ The catalog MUST retain query matching, favorites, recent and applied ordering. 
 
 ### Requirement: REQ-UI4-SHELL — Narrow permission observation
 
-The navigation shell MUST observe permission presentation without receiving unrelated telemetry-backed state. Permission changes and locale changes MUST still appear.
+The navigation shell MUST observe permission presentation without receiving unrelated telemetry-backed state. The ready activity root MUST observe settings readiness and connection state without recomposing for unrelated counters. Permission changes, connection effects and locale changes MUST still appear.
 
 #### Scenario: Telemetry changes
 
 - **WHEN** telemetry changes and permission presentation remains equal
 - **THEN** the shell permission collector receives no additional value
+
+#### Scenario: Outer activity receives counters
+
+- **WHEN** telemetry changes without a change to settings readiness or connection state
+- **THEN** the ready activity root does not recompose, while connection effects and visible permission dialogs retain current state
 
 ### Requirement: REQ-UI4-EVIDENCE — Comparable local measurements
 

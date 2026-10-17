@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
@@ -20,6 +21,8 @@ import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
@@ -52,6 +55,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -121,6 +125,63 @@ class MainActivityContentTest {
         composeRule.waitForIdle()
 
         assertEquals(snapshotCalls, permissionStatusProvider.currentSnapshotCalls)
+    }
+
+    @Test
+    fun `telemetry updates do not recompose the ready activity root`() {
+        val rootCompositions = AtomicInteger()
+        val serviceStateStore =
+            FakeServiceStateStore().apply {
+                updateTelemetry(
+                    ServiceTelemetrySnapshot(
+                        xrayProviderSnapshot = XrayProviderSnapshot(lastPingRttMs = 0, capturedAt = 0),
+                    ),
+                )
+            }
+        val viewModel = createViewModel(serviceStateStore = serviceStateStore)
+
+        composeRule.setContent {
+            MainActivityContent(
+                pauseViewModelFactory = {
+                    SideEffect { rootCompositions.incrementAndGet() }
+                    rememberPauseViewModelForTest()
+                },
+                exportPreview = remember { createExportPreviewForTest() },
+                viewModel = viewModel,
+                controller = remember { MainActivityShellController() },
+            )
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            viewModel.uiState.value.settingsLoaded && rootCompositions.get() > 0
+        }
+        composeRule.waitForIdle()
+        assertTrue("The real ready activity root must compose before measurement", rootCompositions.get() > 0)
+        assertEquals(1, pauseVmCreations)
+        composeRule.runOnIdle { rootCompositions.set(0) }
+
+        repeat(5) { index ->
+            val tick = index.toLong() + 1
+            composeRule.runOnIdle {
+                serviceStateStore.updateTelemetry(
+                    ServiceTelemetrySnapshot(
+                        xrayProviderSnapshot = XrayProviderSnapshot(lastPingRttMs = tick, capturedAt = tick),
+                        updatedAt = tick,
+                    ),
+                )
+            }
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                viewModel.uiState.value.xrayProviderSnapshot
+                    ?.capturedAt == tick
+            }
+            composeRule.waitForIdle()
+        }
+
+        assertEquals(
+            5L,
+            viewModel.uiState.value.xrayProviderSnapshot
+                ?.lastPingRttMs,
+        )
+        assertEquals(0, rootCompositions.get())
     }
 
     @Test
@@ -503,6 +564,7 @@ class MainActivityContentTest {
             com.poyka.ripdpi.data
                 .InMemoryStrategyPackStateStore(),
         appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
+        serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
     ): MainViewModel {
         val crashReportReader =
             com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
@@ -514,7 +576,7 @@ class MainActivityContentTest {
                 MainServiceDependencies(
                     appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
                     reconnectCoordinator = FakeRunningServiceReconnect(),
-                    serviceStateStore = FakeServiceStateStore(),
+                    serviceStateStore = serviceStateStore,
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),
                     hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),

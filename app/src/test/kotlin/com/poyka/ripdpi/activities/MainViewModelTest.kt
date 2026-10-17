@@ -78,6 +78,78 @@ class MainViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun `shell permissions stay distinct while runtime presentation stays current`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            val repository = onboardedVpnSettingsRepository()
+            val viewModel =
+                createViewModel(appSettingsRepository = repository, serviceStateStore = store, initialize = false)
+            val permissions = mutableListOf<com.poyka.ripdpi.permissions.PermissionSummaryUiState>()
+            val collector = backgroundScope.launch { viewModel.permissionSummary.collect { permissions += it } }
+            runCurrent()
+            val before = permissions.size
+
+            repeat(100) { index ->
+                store.updateTelemetry(
+                    ServiceTelemetrySnapshot(
+                        xrayProviderSnapshot =
+                            com.poyka.ripdpi.data.xray.XrayProviderSnapshot(
+                                capturedAt = index.toLong() + 1,
+                                lastPingRttMs = index.toLong() + 1,
+                            ),
+                    ),
+                )
+                runCurrent()
+            }
+
+            assertEquals(before, permissions.size)
+            assertEquals(
+                100L,
+                viewModel.uiState.value.xrayProviderSnapshot
+                    ?.lastPingRttMs,
+            )
+            repository.update { setRipdpiMode("proxy") }
+            runCurrent()
+            assertEquals(Mode.Proxy, viewModel.uiState.value.configuredMode)
+            collector.cancel()
+        }
+
+    @Test
+    fun `shell permissions refresh recovery and locale without telemetry`() =
+        runTest {
+            RuntimeEnvironment.setQualifiers("en")
+            val resolver = ResourceStringResolver()
+            val provider =
+                grantedPermissionStatusProvider().apply {
+                    snapshot = snapshot.copy(notifications = PermissionStatus.RequiresSettings)
+                }
+            val viewModel =
+                createViewModel(
+                    permissionStatusProvider = provider,
+                    presentationDependencies = TestPresentationDependencies(stringResolver = resolver),
+                    initialize = false,
+                )
+            val permissions = mutableListOf<com.poyka.ripdpi.permissions.PermissionSummaryUiState>()
+            val collector = backgroundScope.launch { viewModel.permissionSummary.collect { permissions += it } }
+            runCurrent()
+            viewModel.onRepairPermissionRequested(PermissionKind.Notifications)
+            runCurrent()
+            val before = requireNotNull(permissions.last().issue)
+            val snapshotCalls = provider.currentSnapshotCalls
+
+            RuntimeEnvironment.setQualifiers("ru")
+            viewModel.onLocaleChanged("ru")
+            runCurrent()
+
+            val after = requireNotNull(permissions.last().issue)
+            assertEquals(resolver.getString(R.string.permissions_notifications_title), after.title)
+            assertEquals(before.kind, after.kind)
+            assertEquals(before.recovery, after.recovery)
+            assertEquals(snapshotCalls, provider.currentSnapshotCalls)
+            collector.cancel()
+        }
+
+    @Test
     fun `calculateTransferredBytes clamps negative deltas`() {
         assertEquals(0L, calculateTransferredBytes(totalBytes = 128L, baselineBytes = 256L))
     }

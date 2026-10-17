@@ -12,6 +12,7 @@ The October 15 audit identifies log projection on Main, broad shell observation 
 - Project log inputs to event lists and active IDs before distinct comparison. Use the existing injected Default dispatcher for CPU work. Preserve event merge precedence and cancellation.
 - Cache a catalog projection keyed by immutable profiles, query and filter. Include grouping and applied order so unrelated composition does not rescan.
 - Expose a distinct permission flow derived from MainUiState and collect it in the shell. Keep MainUiState current for existing action readers, and retain its existing subscription timeout and locale behavior. A separate cold permission pipeline would leave those readers stale.
+- The outer activity collects only settings readiness and connection state for host effects. The VPN permission dialog collects its full presentation only while visible. Keep the existing dialog API and host action behavior.
 - Add a benchmark-only activity with deterministic local inputs and real production presentation. It must not enable service or scan operations or ship in release. Add a matching profileable benchmark test build type. Keep source IDs, APK hashes, repeated samples and traces outside ephemeral build directories.
 - First run baseline against unchanged production code with the measurement harness, then integrate optimizations and run the same workload. Timing is descriptive on this emulator; correctness and repeated-work counts are strict checks.
 

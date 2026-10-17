@@ -147,7 +147,9 @@ fun RipDpiNavHost(
     val selectedTopLevel = currentDestination?.topLevelRoute()
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
-    val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
+    val permissionSummary by mainViewModel.permissionSummary.collectAsStateWithLifecycle(
+        initialValue = mainViewModel.uiState.value.permissionSummary,
+    )
 
     HandleLaunchRequests(
         launchRequests = launchRequests,
@@ -220,7 +222,7 @@ fun RipDpiNavHost(
             actions = actions,
             mainViewModel = mainViewModel,
             pauseViewModel = pauseViewModel,
-            permissionSummary = mainUiState.permissionSummary,
+            permissionSummary = permissionSummary,
             diagnosticsInitialSection = diagnosticsInitialSection.value,
             onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
         )

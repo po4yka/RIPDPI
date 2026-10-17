@@ -53,6 +53,15 @@ sealed interface MainEffect {
     data object RelockRequested : MainEffect
 }
 
+@Immutable
+internal data class MainActivityRuntimeUiState(
+    val settingsLoaded: Boolean = false,
+    val connectionState: ConnectionState = ConnectionState.Disconnected,
+)
+
+internal fun MainUiState.toActivityRuntimeUiState(): MainActivityRuntimeUiState =
+    MainActivityRuntimeUiState(settingsLoaded = settingsLoaded, connectionState = connectionState)
+
 @Stable
 data class MainUiState(
     val settingsLoaded: Boolean = false,

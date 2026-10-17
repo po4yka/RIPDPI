@@ -123,7 +123,9 @@ private fun ReadyMainActivityContent(
     pauseViewModelFactory: @Composable () -> HomePauseViewModel,
 ) {
     val pauseViewModel = pauseViewModelFactory()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val runtimeState by viewModel.activityRuntimeState.collectAsStateWithLifecycle(
+        initialValue = viewModel.uiState.value.toActivityRuntimeUiState(),
+    )
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val localeTags = LocalConfiguration.current.locales.toLanguageTags()
@@ -136,8 +138,8 @@ private fun ReadyMainActivityContent(
         viewModel = viewModel,
         controller = controller,
         shellState = shellState,
-        canHandleStartConfiguredModeRequest = uiState.settingsLoaded,
-        connectionState = uiState.connectionState,
+        canHandleStartConfiguredModeRequest = runtimeState.settingsLoaded,
+        connectionState = runtimeState.connectionState,
         snackbarHostState = snackbarHostState,
     )
     Box(
@@ -178,7 +180,6 @@ private fun ReadyMainActivityContent(
         MainActivityDialogs(
             viewModel = viewModel,
             controller = controller,
-            uiState = uiState,
             shellState = shellState,
         )
     }
@@ -264,10 +265,10 @@ private fun String.withSupportCode(supportCode: String?): String = supportCode?.
 private fun MainActivityDialogs(
     viewModel: MainViewModel,
     controller: MainActivityShellController,
-    uiState: MainUiState,
     shellState: MainActivityShellState,
 ) {
     if (shellState.vpnPermissionDialogVisible) {
+        val uiState by viewModel.uiState.collectAsStateWithLifecycle()
         VpnPermissionDialog(
             uiState = uiState,
             onDismiss = controller::dismissVpnPermissionDialog,
