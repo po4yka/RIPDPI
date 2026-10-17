@@ -32,6 +32,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -45,10 +46,11 @@ class ResponsivenessActivity : ComponentActivity() {
     @Inject lateinit var serviceStateStore: ServiceStateStore
 
     private val eventReads = AtomicLong()
+    private val catalogReads = AtomicLong()
     private val events = CountingEvents(List(RuntimeEventCount, ::runtimeEvent), eventReads)
     private var tick by mutableIntStateOf(0)
     private var phase by mutableStateOf("preparing")
-    private var catalog by mutableStateOf(catalogInput(100))
+    private var catalog by mutableStateOf(catalogInput(100, catalogReads))
     private lateinit var logsViewModel: LogsViewModel
     private lateinit var workload: String
     private lateinit var sourceToken: String
@@ -60,7 +62,7 @@ class ResponsivenessActivity : ComponentActivity() {
         sourceToken = requireNotNull(intent.getStringExtra("source"))
         val size = intent.getIntExtra("size", 100)
         require(size in setOf(100, 1000, 5000))
-        catalog = catalogInput(size)
+        catalog = catalogInput(size, catalogReads)
         logsViewModel = ViewModelProvider(this)[LogsViewModel::class.java]
         serviceStateStore.updateTelemetry(snapshot(0))
         setContent {
@@ -124,7 +126,22 @@ class ResponsivenessActivity : ComponentActivity() {
         check(phase == "ready")
         phase = "running"
         eventReads.set(0)
+        catalogReads.set(0)
         lifecycleScope.launch {
+            val observedTicks = mutableSetOf<Int>()
+            // This acknowledges store delivery, not completion of downstream log/UI processing.
+            val observer =
+                if (workload != "catalog") {
+                    launch(start = CoroutineStart.UNDISPATCHED) {
+                        serviceStateStore.telemetry.collect { snapshot ->
+                            snapshot.proxyTelemetry.totalSessions.toInt().takeIf { it in 1..CounterTicks }?.let(
+                                observedTicks::add,
+                            )
+                        }
+                    }
+                } else {
+                    null
+                }
             Trace.beginAsyncSection("RIPDPI:counterBurst", 1)
             try {
                 repeat(CounterTicks) { index ->
@@ -142,6 +159,11 @@ class ResponsivenessActivity : ComponentActivity() {
                     }
                     delay(CounterTickMillis)
                 }
+                if (workload !=
+                    "catalog"
+                ) {
+                    check(observedTicks.size == CounterTicks) { "Store missed counter ticks: $observedTicks" }
+                }
                 val counterReads = eventReads.get()
                 if (workload == "logs") {
                     serviceStateStore.updateTelemetry(snapshot(tick, terminal = true))
@@ -155,11 +177,14 @@ class ResponsivenessActivity : ComponentActivity() {
                 Log.i(
                     "RipDpiResponsiveness",
                     "source=$sourceToken workload=$workload size=${catalog.profiles.size} " +
-                        "ticks=$tick counterEventReads=$counterReads finalEventReads=${eventReads.get()} " +
+                        "ticks=$tick storeObservedTicks=${observedTicks.size} " +
+                        "catalogElementReads=${catalogReads.get()} " +
+                        "counterEventReads=$counterReads finalEventReads=${eventReads.get()} " +
                         "outputRows=${logsViewModel.uiState.value.logs.size}",
                 )
                 phase = "done"
             } finally {
+                observer?.cancel()
                 Trace.endAsyncSection("RIPDPI:counterBurst", 1)
             }
         }

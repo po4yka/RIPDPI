@@ -6,6 +6,7 @@ import com.poyka.ripdpi.ui.screens.profiles.ProfileCatalogState
 import com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityItem
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityUiState
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import java.util.concurrent.atomic.AtomicLong
 
@@ -27,6 +28,29 @@ internal class CountingEvents(
     }
 }
 
+/** The same immutable instance is retained through independent catalog control updates. */
+internal class CountingProfiles(
+    private val profiles: ImmutableList<ProfileUtilityItem>,
+    private val reads: AtomicLong,
+) : ImmutableList<ProfileUtilityItem> by profiles {
+    override fun get(index: Int): ProfileUtilityItem {
+        reads.incrementAndGet()
+        return profiles[index]
+    }
+
+    override fun iterator(): Iterator<ProfileUtilityItem> =
+        object : Iterator<ProfileUtilityItem> {
+            private var index = 0
+
+            override fun hasNext(): Boolean = index < size
+
+            override fun next(): ProfileUtilityItem {
+                if (!hasNext()) throw NoSuchElementException()
+                return get(index++)
+            }
+        }
+}
+
 internal fun runtimeEvent(index: Int): NativeRuntimeEvent =
     NativeRuntimeEvent(
         source = "proxy",
@@ -36,23 +60,29 @@ internal fun runtimeEvent(index: Int): NativeRuntimeEvent =
         kind = "benchmark",
     )
 
-internal fun catalogInput(size: Int): ProfileUtilityUiState =
+internal fun catalogInput(
+    size: Int,
+    reads: AtomicLong = AtomicLong(),
+): ProfileUtilityUiState =
     ProfileUtilityUiState(
         catalogGeneration = 1,
         profiles =
-            List(size) { index ->
-                ProfileUtilityItem(
-                    reference = ProfileUtilityReference.NativeRelay("benchmark-$index"),
-                    label = "Profile ${index.toString().padStart(5, '0')}",
-                    groupLabel = "Benchmark group ${index % 10}",
-                    kind = "vless",
-                    favorite = index % 7 == 0,
-                    applied = index == 0,
-                    lastUsedAtMillis = FixtureEpochMillis + index,
-                    recentSequence = index.toLong(),
-                    measurement = ProfileMeasurementUiState.NotChecked,
-                )
-            }.toImmutableList(),
+            CountingProfiles(
+                List(size) { index ->
+                    ProfileUtilityItem(
+                        reference = ProfileUtilityReference.NativeRelay("benchmark-$index"),
+                        label = "Profile ${index.toString().padStart(5, '0')}",
+                        groupLabel = "Benchmark group ${index % 10}",
+                        kind = "vless",
+                        favorite = index % 7 == 0,
+                        applied = index == 0,
+                        lastUsedAtMillis = FixtureEpochMillis + index,
+                        recentSequence = index.toLong(),
+                        measurement = ProfileMeasurementUiState.NotChecked,
+                    )
+                }.toImmutableList(),
+                reads,
+            ),
         probeUrl = "https://benchmark.invalid/check",
         catalogState = ProfileCatalogState.Ready,
         canMeasure = false,

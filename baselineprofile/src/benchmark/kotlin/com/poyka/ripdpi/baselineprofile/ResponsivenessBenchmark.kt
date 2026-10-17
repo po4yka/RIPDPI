@@ -3,6 +3,7 @@ package com.poyka.ripdpi.baselineprofile
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.util.Log
 import androidx.benchmark.macro.CompilationMode
 import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.MacrobenchmarkScope
@@ -19,6 +20,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.regex.Pattern
 
 /** Same production screens and inputs on both revisions; no network or service actions. */
 @RunWith(AndroidJUnit4::class)
@@ -95,11 +97,23 @@ class ResponsivenessBenchmark {
         requireNode("profile_utility_native:benchmark-${size - 1}_row")
         requireNode("profile_utility_search-clear").click()
         requireNode("profile_utility_native:benchmark-0_row")
+        val before = visibleCatalogRows()
+        assertTrue("The catalog must expose visible production rows", before.isNotEmpty())
         repeat(3) {
             requireNode("profile_utility-screen").swipe(Direction.UP, 0.65f)
         }
         device.waitForIdle()
+        val after = visibleCatalogRows()
+        assertTrue("Scroll must reveal different production rows: $before -> $after", after.any { it !in before })
+        Log.i("RipDpiResponsiveness", "catalogSize=$size visibleRowsBefore=$before visibleRowsAfter=$after")
     }
+
+    private fun MacrobenchmarkScope.visibleCatalogRows(): Set<String> =
+        device
+            .findObjects(By.res(Pattern.compile("profile_utility_native:benchmark-[0-9]+_row")))
+            .filter { !it.visibleBounds.isEmpty }
+            .map { it.resourceName }
+            .toSet()
 
     private fun MacrobenchmarkScope.awaitText(text: String) {
         assertTrue("Missing driver checkpoint: $text", device.wait(Until.hasObject(By.text(text)), TimeoutMillis))
