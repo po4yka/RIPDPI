@@ -1,25 +1,27 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.inputs
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.StyleResolver
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,8 +40,13 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
 import com.poyka.ripdpi.ui.theme.RipDpiTextFieldStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleContent
+import com.poyka.ripdpi.ui.theme.ripDpiStylePadding
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -60,6 +67,7 @@ data class RipDpiDropdownLabels(
     val accessibilityLabel: String? = label,
 )
 
+/** Keep the positional legacy API; use the labels overload to supply a visual style. */
 @Composable
 fun <T> RipDpiDropdown(
     options: ImmutableList<RipDpiDropdownOption<T>>,
@@ -93,6 +101,7 @@ fun <T> RipDpiDropdown(
 }
 
 @Composable
+@NonRestartableComposable
 fun <T> RipDpiDropdown(
     options: ImmutableList<RipDpiDropdownOption<T>>,
     selectedValue: T?,
@@ -106,28 +115,60 @@ fun <T> RipDpiDropdown(
     testTag: String? = null,
     optionTagForValue: ((T) -> String)? = null,
 ) {
+    RipDpiDropdown(
+        options = options,
+        selectedValue = selectedValue,
+        onValueSelected = onValueSelected,
+        labels = labels,
+        modifier = modifier,
+        enabled = enabled,
+        readOnly = readOnly,
+        density = density,
+        interactionSource = interactionSource,
+        testTag = testTag,
+        visualStyle = CommonStyle,
+        optionTagForValue = optionTagForValue,
+    )
+}
+
+@Composable
+fun <T> RipDpiDropdown(
+    options: ImmutableList<RipDpiDropdownOption<T>>,
+    selectedValue: T?,
+    onValueSelected: (T) -> Unit,
+    labels: RipDpiDropdownLabels,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    readOnly: Boolean = false,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
+    interactionSource: MutableInteractionSource? = null,
+    testTag: String? = null,
+    visualStyle: CommonStyle = CommonStyle,
+    optionTagForValue: ((T) -> String)? = null,
+) {
     val type = RipDpiThemeTokens.type
     val components = RipDpiThemeTokens.components
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
-    val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
     val isInteractive = enabled && !readOnly
     val (expanded, setExpanded) = remember { mutableStateOf(false) }
     val selectedLabel = options.firstOrNull { it.value == selectedValue }?.label.orEmpty()
+    val styleState =
+        rememberUpdatedStyleState(resolvedInteractionSource) {
+            it.isEnabled = enabled
+            it[RipDpiStyleStateKeys.HasError] = labels.errorText != null
+            it[RipDpiStyleStateKeys.IsEmpty] = selectedLabel.isEmpty()
+            it[RipDpiStyleStateKeys.Compact] = density == RipDpiControlDensity.Compact
+            it[RipDpiStyleStateKeys.Expanded] = expanded
+            it[RipDpiStyleStateKeys.ReadOnly] = readOnly
+        }
+    val styleResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.dropdown, visualStyle, styleState)
     val fieldState =
         RipDpiThemeTokens.state.textField.resolve(
             enabled = enabled,
             hasError = labels.errorText != null,
-            isFocused = isInteractive && (expanded || isFocused),
+            isFocused = isInteractive && (expanded || styleState.isFocused),
             isEmpty = selectedLabel.isEmpty(),
         )
-    val horizontalPadding =
-        dropdownHorizontalPadding(
-            focusedHorizontalPadding = components.inputs.fieldFocusedHorizontalPadding,
-            defaultHorizontalPadding = components.inputs.fieldHorizontalPadding,
-            density = density,
-            borderWidth = fieldState.borderWidth,
-        )
-
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(components.inputs.textFieldLabelGap),
@@ -146,7 +187,7 @@ fun <T> RipDpiDropdown(
             errorText = labels.errorText,
             testTag = testTag,
             fieldState = fieldState,
-            horizontalPadding = horizontalPadding,
+            styleResolver = styleResolver,
         ) {
             DropdownOptionsMenu(
                 options = options,
@@ -180,21 +221,11 @@ private fun DropdownField(
     errorText: String?,
     testTag: String?,
     fieldState: RipDpiTextFieldStateStyle,
-    horizontalPadding: androidx.compose.ui.unit.Dp,
+    styleResolver: StyleResolver,
     dropdownContent: @Composable () -> Unit,
 ) {
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
-    val animatedBorderWidth by animateDpAsState(
-        targetValue = fieldState.borderWidth,
-        animationSpec = motion.quickTween(),
-        label = "dropdownBorderWidth",
-    )
-    val animatedBorderColor by animateColorAsState(
-        targetValue = fieldState.border,
-        animationSpec = motion.stateTween(),
-        label = "dropdownBorderColor",
-    )
     val animatedChevronRotation by animateFloatAsState(
         targetValue = if (expanded) 270f else 90f,
         animationSpec = motion.quickTween(),
@@ -207,8 +238,7 @@ private fun DropdownField(
                     .ripDpiTestTag(testTag)
                     .fillMaxWidth()
                     .heightIn(min = components.inputs.controlHeight)
-                    .background(fieldState.container, RipDpiThemeTokens.shapes.xl)
-                    .border(animatedBorderWidth, animatedBorderColor, RipDpiThemeTokens.shapes.xl)
+                    .ripDpiStyleSurface(styleResolver, shape = RipDpiThemeTokens.shapes.xl)
                     .semantics {
                         label?.let { contentDescription = it }
                         errorText?.let { error(it) }
@@ -217,8 +247,8 @@ private fun DropdownField(
                         role = androidx.compose.ui.semantics.Role.Button,
                         interactionSource = resolvedInteractionSource,
                     ) { setExpanded(true) }
-                    .padding(horizontal = horizontalPadding)
-                    .alpha(fieldState.alpha),
+                    .ripDpiStylePadding(styleResolver)
+                    .ripDpiStyleContent(styleResolver),
             horizontalArrangement = Arrangement.spacedBy(dropdownItemSpacingDp.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -241,6 +271,7 @@ private fun DropdownField(
     }
 }
 
+/** Material owns the popup surface and item behavior; field visualStyle does not style this host. */
 @Composable
 private fun <T> DropdownOptionsMenu(
     options: ImmutableList<RipDpiDropdownOption<T>>,
@@ -282,24 +313,6 @@ private fun <T> DropdownOptionsMenu(
                 },
             )
         }
-    }
-}
-
-private fun dropdownHorizontalPadding(
-    focusedHorizontalPadding: androidx.compose.ui.unit.Dp,
-    defaultHorizontalPadding: androidx.compose.ui.unit.Dp,
-    density: RipDpiControlDensity,
-    borderWidth: androidx.compose.ui.unit.Dp,
-): androidx.compose.ui.unit.Dp {
-    val basePadding =
-        if (borderWidth > 1.dp) {
-            focusedHorizontalPadding
-        } else {
-            defaultHorizontalPadding
-        }
-    return when (density) {
-        RipDpiControlDensity.Default -> basePadding
-        RipDpiControlDensity.Compact -> basePadding - 4.dp
     }
 }
 

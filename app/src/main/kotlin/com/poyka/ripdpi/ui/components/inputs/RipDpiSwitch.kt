@@ -1,11 +1,9 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.inputs
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,14 +12,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.StyleResolver
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -35,7 +36,41 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
+@Composable
+@NonRestartableComposable
+fun RipDpiSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    accessibilityLabel: String? = label,
+    helperText: String? = null,
+    errorText: String? = null,
+    enabled: Boolean = true,
+    readOnly: Boolean = false,
+    interactionSource: MutableInteractionSource? = null,
+    testTag: String? = null,
+) {
+    RipDpiSwitch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier,
+        label = label,
+        accessibilityLabel = accessibilityLabel,
+        helperText = helperText,
+        errorText = errorText,
+        enabled = enabled,
+        readOnly = readOnly,
+        interactionSource = interactionSource,
+        testTag = testTag,
+        visualStyle = CommonStyle,
+    )
+}
+
+/** [visualStyle] customizes the track; the thumb keeps its own RDS fill and shadow. */
 @Composable
 fun RipDpiSwitch(
     checked: Boolean,
@@ -49,6 +84,7 @@ fun RipDpiSwitch(
     readOnly: Boolean = false,
     interactionSource: MutableInteractionSource? = null,
     testTag: String? = null,
+    visualStyle: CommonStyle = CommonStyle,
 ) {
     if (label != null || helperText != null || errorText != null) {
         LabeledRipDpiSwitch(
@@ -63,6 +99,7 @@ fun RipDpiSwitch(
             readOnly = readOnly,
             interactionSource = interactionSource,
             testTag = testTag,
+            visualStyle = visualStyle,
         )
         return
     }
@@ -76,6 +113,7 @@ fun RipDpiSwitch(
         readOnly = readOnly,
         interactionSource = interactionSource,
         testTag = testTag,
+        visualStyle = visualStyle,
     )
 }
 
@@ -92,6 +130,7 @@ private fun LabeledRipDpiSwitch(
     readOnly: Boolean,
     interactionSource: MutableInteractionSource?,
     testTag: String?,
+    visualStyle: CommonStyle,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -136,6 +175,7 @@ private fun LabeledRipDpiSwitch(
                 readOnly = readOnly,
                 interactionSource = interactionSource,
                 testTag = testTag,
+                visualStyle = visualStyle,
                 modifier =
                     Modifier.semantics {
                         label?.let { contentDescription = it }
@@ -165,17 +205,18 @@ private fun SwitchToggleControl(
     readOnly: Boolean,
     interactionSource: MutableInteractionSource?,
     testTag: String?,
+    visualStyle: CommonStyle,
 ) {
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
-    val isPressed by resolvedInteractionSource.collectIsPressedAsState()
-    val state =
-        RipDpiThemeTokens.state.switch.resolve(
-            checked = checked,
-            enabled = enabled,
-            isPressed = isPressed,
-        )
+    val styleState =
+        rememberUpdatedStyleState(resolvedInteractionSource) {
+            it.isEnabled = enabled
+            it.isChecked = checked
+        }
+    val trackResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.switchTrack, visualStyle, styleState)
+    val thumbResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.switchThumb, CommonStyle, styleState)
     val interactive = enabled && !readOnly && onCheckedChange != null
     val thumbTravel =
         components.inputs.switchWidth -
@@ -186,22 +227,6 @@ private fun SwitchToggleControl(
         animationSpec = motion.stateTween(),
         label = "switchOffset",
     )
-    val trackColor by animateColorAsState(
-        targetValue = state.track,
-        animationSpec = motion.stateTween(),
-        label = "switchTrack",
-    )
-    val thumbColor by animateColorAsState(
-        targetValue = state.thumb,
-        animationSpec = motion.stateTween(),
-        label = "switchThumb",
-    )
-    val alpha by animateFloatAsState(
-        targetValue = state.alpha,
-        animationSpec = motion.quickTween(),
-        label = "switchAlpha",
-    )
-
     SwitchLayout(
         modifier = modifier,
         accessibilityLabel = accessibilityLabel,
@@ -218,10 +243,9 @@ private fun SwitchToggleControl(
                 thumbPadding = components.inputs.switchThumbPadding,
                 thumbSize = components.inputs.switchThumbSize,
             ),
-        trackColor = trackColor,
-        thumbColor = thumbColor,
+        trackResolver = trackResolver,
+        thumbResolver = thumbResolver,
         thumbOffset = thumbOffset,
-        alpha = alpha,
     )
 }
 
@@ -235,10 +259,9 @@ private fun SwitchLayout(
     resolvedInteractionSource: MutableInteractionSource,
     onCheckedChange: ((Boolean) -> Unit)?,
     dimensions: SwitchDimensions,
-    trackColor: Color,
-    thumbColor: Color,
+    trackResolver: StyleResolver,
+    thumbResolver: StyleResolver,
     thumbOffset: androidx.compose.ui.unit.Dp,
-    alpha: Float,
 ) {
     val thumbShadowElevation =
         RipDpiThemeTokens.surfaces
@@ -271,7 +294,7 @@ private fun SwitchLayout(
             modifier =
                 Modifier
                     .size(width = dimensions.width, height = dimensions.trackHeight)
-                    .background(trackColor.copy(alpha = alpha), CircleShape),
+                    .ripDpiStyleSurface(trackResolver, shape = CircleShape),
             contentAlignment = Alignment.CenterStart,
         ) {
             Box(
@@ -283,7 +306,7 @@ private fun SwitchLayout(
                             elevation = thumbShadowElevation,
                             shape = CircleShape,
                             clip = false,
-                        ).background(thumbColor.copy(alpha = alpha), CircleShape),
+                        ).ripDpiStyleSurface(thumbResolver, shape = CircleShape),
             )
         }
     }
