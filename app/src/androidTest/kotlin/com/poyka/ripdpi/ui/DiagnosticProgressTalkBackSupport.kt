@@ -120,7 +120,7 @@ internal class DiagnosticProgressTalkBackSupport(
         val serviceDump = shell("dumpsys activity service $component")
         val header = Regex("""(?m)^\s*SERVICE ${Regex.escape(component)} [^\n]*\bpid=(\d+)""")
         val pid = header.find(serviceDump)?.groupValues?.get(1) ?: return false
-        return shell("pidof $TalkBackPackage").split(' ').contains(pid)
+        return shell("pidof $TalkBackPackage").trim().split(Regex("\\s+")).contains(pid)
     }
 
     private fun shell(command: String): String =
