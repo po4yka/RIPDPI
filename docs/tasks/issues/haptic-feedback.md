@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: haptic-feedback
 created: 2026-10-17
 updated: 2026-10-18
-status_detail: Emulator boot requires free host disk space. Fourteen reviewed screenshot fixtures require explicit user authorization before record and strict verification. Main integration and push wait for these gates.
+status_detail: Simple real UI acceptance needs a current genuine embedded bundle with an assigned dual-stack AWG profile. Fourteen reviewed screenshot fixtures need explicit user authorization. All 16 platform tests and four Full real UI checks pass; main integration and push wait for the remaining gates.
 ---
 
 ## Goal
