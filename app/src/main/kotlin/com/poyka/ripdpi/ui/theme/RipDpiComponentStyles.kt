@@ -34,10 +34,8 @@ object RipDpiComponentStyles {
                 RipDpiStyleProperties.borderColor.provide(resolved.border)
             }
             RipDpiStyleProperties.borderWidth.provide(RipDpiStroke.Thin)
-            animate(motion.motionAwareSpring<Float>()) { rdsCornerRadius(resolved.cornerRadius) }
-            animate(motion.motionAwareSpring<Float>(expressive = state.isSelected)) {
-                rdsContentScale(resolved.scale)
-            }
+            rdsCornerRadius(resolved.cornerRadius)
+            rdsContentScale(resolved.scale)
             val compact = state[RipDpiStyleStateKeys.Compact]
             val horizontal =
                 components.inputs.chipHorizontalPadding -
@@ -139,10 +137,8 @@ private fun buttonStyle(role: RipDpiButtonStateRole) =
         animate(motion.stateTween<Float>()) { rdsBackground(resolved.container) }
         animate(motion.quickTween<Float>()) { RipDpiStyleProperties.borderColor.provide(resolved.border) }
         RipDpiStyleProperties.borderWidth.provide(resolved.borderWidth)
-        animate(motion.motionAwareSpring<Float>()) {
-            rdsCornerRadius(resolved.cornerRadius)
-            rdsContentScale(resolved.scale)
-        }
+        rdsCornerRadius(resolved.cornerRadius)
+        rdsContentScale(resolved.scale)
         val horizontal =
             components.buttons.horizontalPadding -
                 if (state[RipDpiStyleStateKeys.Compact]) components.buttons.focusedHorizontalPaddingOffset else 0.dp
@@ -170,7 +166,7 @@ private fun iconButtonStyle(role: RipDpiIconButtonStateRole) =
             )
         animate(motion.stateTween<Float>()) { rdsBackground(resolved.container) }
         animate(motion.quickTween<Float>()) { rdsBorder(resolved.border, resolved.borderWidth) }
-        animate(motion.motionAwareSpring<Float>()) { rdsContentScale(resolved.scale) }
+        rdsContentScale(resolved.scale)
     }
 
 private fun surfaceStyle(

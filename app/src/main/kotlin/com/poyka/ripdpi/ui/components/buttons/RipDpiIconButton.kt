@@ -38,6 +38,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiSpringStyle
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleContent
 import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
@@ -115,8 +116,6 @@ fun RipDpiIconButton(
             it[RipDpiStyleStateKeys.Compact] = density == RipDpiControlDensity.Compact
         }
     val stateRole = RipDpiThemeTokens.stateRoles.iconButton.fromStyle(style)
-    val styleResolver =
-        rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.iconButton(stateRole), visualStyle, styleState)
     val state =
         RipDpiThemeTokens.state.iconButton.resolve(
             role = stateRole,
@@ -126,6 +125,12 @@ fun RipDpiIconButton(
             isPressed = styleState.isPressed,
             isFocused = styleState.isFocused,
         )
+    val defaults =
+        rememberRipDpiSpringStyle(
+            defaults = RipDpiThemeTokens.styles.iconButton(stateRole),
+            scale = state.scale,
+        )
+    val styleResolver = rememberRipDpiStyleResolver(defaults, visualStyle, styleState)
     val isInteractive = enabled && !loading
     val iconSize =
         when (density) {
