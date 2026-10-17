@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screens.permissions
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +30,8 @@ import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 // Corner radius for pill-shaped rect (large value → fully rounded)
 private const val cornerRadiusPill = 99f
@@ -104,7 +104,7 @@ internal fun AuthPromptScaffold(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         topAction = {
             Box(
                 modifier =
@@ -212,10 +212,10 @@ private fun AuthPromptBadge(
 
     Box(
         modifier =
-            modifier.border(
-                introLayout.illustrationBorderWidth,
-                colors.foreground,
-                RoundedCornerShape(introLayout.illustrationCornerRadius),
+            modifier.ripDpiFeatureSurface(
+                shape = RoundedCornerShape(introLayout.illustrationCornerRadius),
+                border = colors.foreground,
+                borderWidth = introLayout.illustrationBorderWidth,
             ),
         contentAlignment = Alignment.Center,
     ) {

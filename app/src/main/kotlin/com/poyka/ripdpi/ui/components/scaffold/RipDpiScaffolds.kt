@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.components.scaffold
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -36,6 +35,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 enum class RipDpiScaffoldWidth {
     Content,
@@ -95,7 +95,7 @@ fun RipDpiContentScreenScaffold(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(RipDpiThemeTokens.colors.background),
+                    .ripDpiScreenBackground(),
             contentAlignment = Alignment.TopCenter,
         ) {
             Column(
@@ -149,7 +149,7 @@ fun RipDpiSettingsScaffold(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(RipDpiThemeTokens.colors.background),
+                    .ripDpiScreenBackground(),
             contentAlignment = Alignment.TopCenter,
         ) {
             LazyColumn(
@@ -201,7 +201,7 @@ fun RipDpiDashboardScaffold(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(colors.background),
+                    .ripDpiScreenBackground(),
             contentAlignment = Alignment.TopCenter,
         ) {
             Column(
@@ -233,14 +233,13 @@ fun RipDpiIntroScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layout = RipDpiThemeTokens.layout
-    val colors = RipDpiThemeTokens.colors
 
     Box(
         modifier =
             modifier
                 .ripDpiAutomationTreeRoot()
                 .fillMaxSize()
-                .background(colors.background)
+                .ripDpiScreenBackground()
                 .padding(horizontal = layout.horizontalPadding),
     ) {
         Box(

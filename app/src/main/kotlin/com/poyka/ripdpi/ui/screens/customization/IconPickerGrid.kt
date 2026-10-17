@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screens.customization
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -34,6 +31,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
 private const val iconGridColumns = 3
 
@@ -105,12 +103,12 @@ private fun IconOptionCell(
                     Modifier
                         .size(56.dp)
                         .ripDpiTestTag(RipDpiTestTags.customizationIconPreview(option.key))
-                        .clip(shapes.xl)
-                        .background(colorResource(option.previewBackgroundRes))
-                        .border(
-                            width = 1.dp,
-                            color = if (selected) colors.foreground else colors.cardBorder,
+                        .ripDpiFeatureSurface(
+                            container = colorResource(option.previewBackgroundRes),
                             shape = shapes.xl,
+                            border = if (selected) colors.foreground else colors.cardBorder,
+                            borderWidth = 1.dp,
+                            clip = true,
                         ),
                 contentAlignment = Alignment.Center,
             ) {
@@ -127,8 +125,11 @@ private fun IconOptionCell(
                         Modifier
                             .align(Alignment.TopEnd)
                             .size(18.dp)
-                            .clip(RipDpiThemeTokens.shapes.full)
-                            .background(colors.foreground),
+                            .ripDpiFeatureSurface(
+                                container = colors.foreground,
+                                shape = RipDpiThemeTokens.shapes.full,
+                                clip = true,
+                            ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

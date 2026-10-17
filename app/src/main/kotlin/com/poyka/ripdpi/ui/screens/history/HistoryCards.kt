@@ -1,6 +1,7 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.screens.history
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,8 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
+import com.poyka.ripdpi.ui.theme.screens
 
 @Composable
 internal fun ConnectionSessionCard(
@@ -46,10 +49,8 @@ internal fun ConnectionSessionCard(
             Box(
                 modifier =
                     Modifier
-                        .background(
-                            color = RipDpiThemeTokens.colors.inputBackground,
-                            shape = RipDpiThemeTokens.shapes.xxl,
-                        ).padding(horizontal = 8.dp, vertical = 2.dp)
+                        .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.inputBadge, RipDpiThemeTokens.shapes.xxl)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                         .ripDpiTestTag(RipDpiTestTags.historyConnectionRememberedBadge(session.id)),
             ) {
                 Text(
@@ -97,10 +98,8 @@ internal fun DiagnosticsSessionCard(
             Box(
                 modifier =
                     Modifier
-                        .background(
-                            color = RipDpiThemeTokens.colors.inputBackground,
-                            shape = RipDpiThemeTokens.shapes.xxl,
-                        ).padding(horizontal = 8.dp, vertical = 2.dp)
+                        .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.inputBadge, RipDpiThemeTokens.shapes.xxl)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                         .ripDpiTestTag(RipDpiTestTags.historyDiagnosticsAutomaticBadge(session.id)),
             ) {
                 Text(
@@ -175,9 +174,9 @@ internal fun EventRow(
                 Box(
                     modifier =
                         Modifier
-                            .background(
-                                color = colors.inputBackground,
-                                shape = RipDpiThemeTokens.shapes.xxl,
+                            .ripDpiScreenSurface(
+                                RipDpiThemeTokens.styles.screens.inputBadge,
+                                RipDpiThemeTokens.shapes.xxl,
                             ).padding(
                                 horizontal = components.rows.compactPillHorizontalPadding,
                                 vertical = components.rows.compactPillVerticalPadding,

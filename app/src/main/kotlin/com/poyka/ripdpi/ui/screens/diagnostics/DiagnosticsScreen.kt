@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,6 +57,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 data class DiagnosticsScreenActions(
     val onSelectSection: (DiagnosticsSection) -> Unit = {},
@@ -212,7 +212,6 @@ private fun DiagnosticsScreenFrame(
     topBarExtraActions: @Composable () -> Unit,
     modifier: Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
 
@@ -221,7 +220,7 @@ private fun DiagnosticsScreenFrame(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.Diagnostics()))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
         topBar = {
             DiagnosticsTopBar(
@@ -236,7 +235,7 @@ private fun DiagnosticsScreenFrame(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(colors.background)
+                    .ripDpiScreenBackground()
                     .padding(innerPadding),
             contentAlignment = Alignment.TopCenter,
         ) {

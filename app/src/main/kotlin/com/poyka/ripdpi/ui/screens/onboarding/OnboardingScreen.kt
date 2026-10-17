@@ -11,7 +11,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -74,6 +73,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.coroutines.flow.Flow
 import kotlin.math.absoluteValue
 
@@ -227,7 +227,6 @@ internal fun OnboardingScreen(
     actions: OnboardingScreenActions,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val pagerState =
         rememberPagerState(
@@ -271,7 +270,7 @@ internal fun OnboardingScreen(
                 .ripDpiAutomationTreeRoot()
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.Onboarding))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
     ) {
         Column(
             modifier =

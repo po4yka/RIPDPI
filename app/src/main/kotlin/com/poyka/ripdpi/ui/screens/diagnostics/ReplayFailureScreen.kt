@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +27,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -139,7 +139,7 @@ private fun ReplayStepRow(
                 modifier =
                     Modifier
                         .size(spacing.md)
-                        .background(statusColor, shapes.full),
+                        .ripDpiFeatureSurface(statusColor, shapes.full),
             )
             if (!isLast) {
                 Box(
@@ -147,7 +147,7 @@ private fun ReplayStepRow(
                         Modifier
                             .width(RipDpiStroke.Thin)
                             .height(spacing.xxl)
-                            .background(colors.divider),
+                            .ripDpiFeatureSurface(colors.divider),
                 )
             }
         }

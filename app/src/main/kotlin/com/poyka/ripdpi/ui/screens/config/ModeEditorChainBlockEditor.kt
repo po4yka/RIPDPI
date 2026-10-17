@@ -1,8 +1,8 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -48,8 +48,9 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
+import com.poyka.ripdpi.ui.theme.screens
 
 @Composable
 internal fun ModeEditorChainBlockEditor(
@@ -132,8 +133,7 @@ private fun ModeEditorChainBlockSurface(
                 .alpha(if (enabled) 1f else ChainOverriddenAlpha)
                 .then(if (enabled) Modifier else Modifier.semantics { disabled() })
                 .fillMaxWidth()
-                .border(RipDpiStroke.Thin, colors.border, shape)
-                .background(colors.card, shape)
+                .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.cardPanel, shape)
                 .padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
@@ -374,8 +374,7 @@ private fun ModeEditorChainBlock(
             Modifier
                 .fillMaxWidth()
                 .ripDpiTestTag(modeEditorChainBlockTag(section, index))
-                .border(RipDpiStroke.Thin, colors.border, shape)
-                .background(colors.background, shape)
+                .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.backgroundPanel, shape)
                 .padding(spacing.sm),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         verticalAlignment = Alignment.CenterVertically,

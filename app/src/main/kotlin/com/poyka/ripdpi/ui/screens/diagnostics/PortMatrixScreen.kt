@@ -1,7 +1,7 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
+import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
+import com.poyka.ripdpi.ui.theme.screens
 
 /**
  * Verdict for a single (host, port) probe in the port matrix.
@@ -78,8 +81,7 @@ fun PortMatrixScreen(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(colors.card, shape)
-                .border(width = 1.dp, color = colors.cardBorder, shape = shape)
+                .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.matrixPanel, shape)
                 .padding(RipDpiThemeTokens.spacing.md),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
@@ -122,7 +124,7 @@ private fun LegendChip(verdict: RipDpiPortVerdict) {
             modifier =
                 Modifier
                     .size(10.dp)
-                    .background(verdictColor(verdict, colors), RoundedCornerShape(2.dp)),
+                    .ripDpiFeatureSurface(verdictColor(verdict, colors), RoundedCornerShape(2.dp)),
         )
         Text(
             text = verdict.name.uppercase(),
@@ -134,7 +136,7 @@ private fun LegendChip(verdict: RipDpiPortVerdict) {
 @Composable
 private fun MatrixHeaderRow(ports: List<Int>) {
     val colors = RipDpiThemeTokens.colors
-    Row(modifier = Modifier.background(colors.muted)) {
+    Row(modifier = Modifier.ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.mutedBackground)) {
         Box(modifier = Modifier.width(110.dp).padding(8.dp)) {
             Text(
                 text = stringResource(R.string.port_matrix_host_port_header),
@@ -163,7 +165,11 @@ private fun MatrixRow(
     val colors = RipDpiThemeTokens.colors
     Row {
         Column(
-            modifier = Modifier.width(110.dp).background(colors.muted).padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier =
+                Modifier
+                    .width(110.dp)
+                    .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.mutedBackground)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(row.host, style = RipDpiThemeTokens.type.monoValue.copy(color = colors.foreground))
@@ -192,7 +198,7 @@ private fun VerdictCell(
         modifier =
             Modifier
                 .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                .background(bg)
+                .ripDpiFeatureSurface(bg)
                 .semantics { contentDescription = cellDescription },
         contentAlignment = Alignment.Center,
     ) {

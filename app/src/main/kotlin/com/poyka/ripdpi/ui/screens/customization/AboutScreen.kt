@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.customization
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -37,6 +36,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import com.poyka.ripdpi.updates.AvailableAppUpdate
 import com.poyka.ripdpi.updates.DistributionChannel
 import com.poyka.ripdpi.updates.UpdateEffect
@@ -77,14 +77,12 @@ internal fun AboutScreen(
     onCheckForUpdates: () -> Unit = {},
     onInstallUpdate: () -> Unit = {},
 ) {
-    val colors = RipDpiThemeTokens.colors
-
     RipDpiSettingsScaffold(
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.About))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         title = stringResource(R.string.about_category),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,

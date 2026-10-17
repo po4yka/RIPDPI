@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.customization
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +16,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -42,6 +40,8 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 @Composable
 fun AppCustomizationRoute(
@@ -108,7 +108,7 @@ internal fun AppCustomizationScreen(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.AppCustomization))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         title = stringResource(R.string.title_app_icon),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
@@ -124,10 +124,10 @@ internal fun AppCustomizationScreen(
                         modifier =
                             Modifier
                                 .size(72.dp)
-                                .clip(RipDpiThemeTokens.shapes.xxl)
-                                .background(
-                                    colorResource(selectedOption.previewBackgroundRes),
-                                    RipDpiThemeTokens.shapes.xxl,
+                                .ripDpiFeatureSurface(
+                                    container = colorResource(selectedOption.previewBackgroundRes),
+                                    shape = RipDpiThemeTokens.shapes.xxl,
+                                    clip = true,
                                 ),
                         contentAlignment = Alignment.Center,
                     ) {

@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,12 +16,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
 // Border widths are derived from spacing.xs (no literal dp): halve it for the 2 dp selected
 // outline, quarter it for the 1 dp unselected outline.
@@ -70,10 +68,13 @@ internal fun OnboardingOptionCard(
             modifier
                 .fillMaxWidth()
                 .heightIn(min = components.rows.settingsRowMinHeightWithSubtitle)
-                .clip(shape)
-                .background(container, shape)
-                .border(width = borderWidth, color = borderColor, shape = shape)
-                .ripDpiSelectable(
+                .ripDpiFeatureSurface(
+                    container = container,
+                    shape = shape,
+                    border = borderColor,
+                    borderWidth = borderWidth,
+                    clip = true,
+                ).ripDpiSelectable(
                     selected = selected,
                     enabled = true,
                     role = Role.RadioButton,
@@ -141,11 +142,11 @@ private fun OnboardingOptionBadge(text: String) {
     Box(
         modifier =
             Modifier
-                .clip(shape)
-                .border(
-                    width = spacing.xs / unselectedBorderDivisor,
-                    color = colors.outline,
+                .ripDpiFeatureSurface(
                     shape = shape,
+                    border = colors.outline,
+                    borderWidth = spacing.xs / unselectedBorderDivisor,
+                    clip = true,
                 ).padding(
                     horizontal = components.rows.compactPillHorizontalPadding,
                     vertical = components.rows.compactPillVerticalPadding,
@@ -165,7 +166,11 @@ private fun OnboardingRadioIndicator(selected: Boolean) {
         modifier =
             Modifier
                 .size(spacing.lg + spacing.xs)
-                .border(width = spacing.xs / 2, color = outerColor, shape = CircleShape),
+                .ripDpiFeatureSurface(
+                    shape = CircleShape,
+                    border = outerColor,
+                    borderWidth = spacing.xs / 2,
+                ),
         contentAlignment = Alignment.Center,
     ) {
         if (selected) {
@@ -173,7 +178,7 @@ private fun OnboardingRadioIndicator(selected: Boolean) {
                 modifier =
                     Modifier
                         .size(spacing.sm)
-                        .background(color = outerColor, shape = CircleShape),
+                        .ripDpiFeatureSurface(container = outerColor, shape = CircleShape),
             )
         }
     }

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -46,6 +45,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
@@ -75,7 +75,6 @@ internal fun RememberedNetworksScreen(
     onClearAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
     var showClearDialog by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<RememberedNetworkUiModel?>(null) }
 
@@ -112,7 +111,7 @@ internal fun RememberedNetworksScreen(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.RememberedNetworks))
                 .fillMaxWidth()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         title = stringResource(R.string.title_remembered_networks),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,

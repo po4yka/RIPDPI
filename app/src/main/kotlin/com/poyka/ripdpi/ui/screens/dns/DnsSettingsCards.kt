@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.dns
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +35,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -98,7 +98,7 @@ internal fun DnsActiveConfigurationCard(
                     Modifier
                         .align(Alignment.CenterVertically)
                         .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
-                        .background(
+                        .ripDpiFeatureSurface(
                             if (uiState.dns.dnsMode == DnsModeEncrypted) {
                                 colors.infoContainer
                             } else {
@@ -236,7 +236,7 @@ internal fun DnsOptionCard(
                     Modifier
                         .align(Alignment.CenterVertically)
                         .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
-                        .background(
+                        .ripDpiFeatureSurface(
                             if (selected) colors.infoContainer else colors.inputBackground,
                             RipDpiThemeTokens.shapes.full,
                         ),
@@ -295,7 +295,7 @@ internal fun DnsBadge(
     Box(
         modifier =
             modifier
-                .background(
+                .ripDpiFeatureSurface(
                     if (highlighted) colors.infoContainer else colors.inputBackground,
                     RipDpiThemeTokens.shapes.full,
                 ).padding(horizontal = 10.dp, vertical = 6.dp),

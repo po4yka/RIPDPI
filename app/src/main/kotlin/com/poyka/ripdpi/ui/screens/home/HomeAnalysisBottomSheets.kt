@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -34,6 +33,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
 private const val sheetStageContainerAlpha = 0.06f
 
@@ -220,7 +220,7 @@ private fun HomeActionableHeadlineCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(colors.muted.copy(alpha = sheetStageContainerAlpha), RipDpiThemeTokens.shapes.lg)
+                .ripDpiFeatureSurface(colors.muted.copy(alpha = sheetStageContainerAlpha), RipDpiThemeTokens.shapes.lg)
                 .padding(RipDpiThemeTokens.spacing.sm),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
@@ -378,7 +378,7 @@ internal fun StageResultRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(containerColor, RipDpiThemeTokens.shapes.sm)
+                .ripDpiFeatureSurface(containerColor, RipDpiThemeTokens.shapes.sm)
                 .padding(horizontal = spacing.sm, vertical = spacing.sm),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         verticalAlignment = Alignment.Top,

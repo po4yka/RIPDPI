@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +39,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 @Composable
 fun HistoryRoute(
@@ -117,7 +117,6 @@ internal fun HistoryScreen(
     onOpenConnection: () -> Unit = {},
     onOpenDiagnostics: () -> Unit = {},
 ) {
-    val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
     val layoutDirection = LocalLayoutDirection.current
@@ -128,7 +127,7 @@ internal fun HistoryScreen(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.History))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         topBar = {
             RipDpiTopAppBar(
                 title = stringResource(R.string.history_title),
@@ -143,7 +142,7 @@ internal fun HistoryScreen(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(colors.background)
+                    .ripDpiScreenBackground()
                     .padding(innerPadding),
         ) {
             Box(

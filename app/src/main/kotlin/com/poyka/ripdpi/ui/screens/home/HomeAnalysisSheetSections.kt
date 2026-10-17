@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +15,7 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
 private const val sheetStageContainerAlpha = 0.06f
 private const val sheetDiagnosticsDetectorsShown = 5
@@ -283,7 +283,7 @@ private fun HomeAnalysisInsetColumn(
             Modifier
                 .fillMaxWidth()
                 .then(modifier)
-                .background(colors.muted.copy(alpha = sheetStageContainerAlpha), RipDpiThemeTokens.shapes.lg)
+                .ripDpiFeatureSurface(colors.muted.copy(alpha = sheetStageContainerAlpha), RipDpiThemeTokens.shapes.lg)
                 .padding(RipDpiThemeTokens.spacing.sm),
         verticalArrangement = verticalArrangement,
     ) {

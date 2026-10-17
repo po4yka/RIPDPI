@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.dns
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,7 +28,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.toImmutableList
 
 @Composable
@@ -54,14 +53,13 @@ internal fun DnsSettingsScreen(
     val input = rememberDnsSettingsInputState(editorUiState.dns)
     val validation = rememberDnsSettingsValidation(uiState.dns, editorUiState.dns.encryptedDnsProtocol, input)
     val selectedResolver = selectedResolverOption(uiState.dns)
-    val colors = RipDpiThemeTokens.colors
 
     RipDpiContentScreenScaffold(
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.DnsSettings))
                 .fillMaxSize()
-                .background(colors.background),
+                .ripDpiScreenBackground(),
         title = stringResource(R.string.title_dns_settings),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,

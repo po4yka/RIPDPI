@@ -1,6 +1,7 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.screens.history
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,8 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
+import com.poyka.ripdpi.ui.theme.screens
 
 @Composable
 internal fun HistoryNoResultsCard(onClearFilters: () -> Unit) {
@@ -55,7 +58,10 @@ internal fun HistoryEmptyStateCard(
             verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
             Box(
-                modifier = Modifier.size(40.dp).background(colors.muted, CircleShape),
+                modifier =
+                    Modifier
+                        .size(40.dp)
+                        .ripDpiScreenSurface(RipDpiThemeTokens.styles.screens.mutedBackground, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

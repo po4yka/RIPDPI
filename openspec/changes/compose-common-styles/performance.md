@@ -10,6 +10,8 @@ Compare three production source states with the same benchmark-only harness:
 
 The original production source is `829f5a90b04aabcd4d8a4d0820190c9f48f3de98`. Planning commits do not change that UI. Record the actual build source SHA and APK SHA-256 for each state. Save each target APK and the matching test APK before device runs. Do not rebuild between series. Confirm that the benchmark harness files are identical across the states.
 
+Use `-Pripdpi.nativeAbis=arm64-v8a` with ABI splits enabled for all three benchmark builds. This emits only the ARM64 and universal target APKs, instead of five target APKs. Install the ARM64 APK so that its split version code matches existing pool installations. Keep the native ABI override unchanged. These supported build settings reduce packaging disk use and do not skip native compilation.
+
 Use the existing release-derived `GithubFullBenchmark` app variant and matching `:baselineprofile` benchmark variant. The target must have `debuggable=false` and `profileable=true`. Debug builds and a suppressed debuggable check are not acceptable substitutes.
 
 Compile and assemble through the host build gate. Use the supported verified libXray artifact directory, the same native ABI, and the same build properties for all states. Do not use `skipNativeBuild` as evidence of a complete target APK.
@@ -20,6 +22,8 @@ The source build for PT assets starts nested Cargo commands without `--jobs`. Se
 CARGO_HOME="$PWD/.gradle-home/cargo-home" CMAKE_BUILD_PARALLEL_LEVEL=2 \
   build-gate -- env -u CARGO_BUILD_JOBS ./gradlew --max-workers=4 \
   -Pripdpi.nativeCpuBudget=2 -Pripdpi.nativeAbisOverride=arm64-v8a \
+  -Pripdpi.nativeAbis=arm64-v8a -Pripdpi.enableAbiSplits=true \
+  -Pripdpi.pluggableTransportAssetsMode=source \
   :app:assembleGithubFullBenchmark :baselineprofile:assembleBenchmark
 ```
 
