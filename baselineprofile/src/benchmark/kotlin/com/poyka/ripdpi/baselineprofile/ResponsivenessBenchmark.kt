@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.util.Log
 import androidx.benchmark.macro.CompilationMode
+import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.benchmark.macro.TraceSectionMetric
@@ -24,6 +25,7 @@ import java.util.regex.Pattern
 
 /** Same production screens and inputs on both revisions; no network or service actions. */
 @RunWith(AndroidJUnit4::class)
+@OptIn(ExperimentalMetricApi::class)
 class ResponsivenessBenchmark {
     @get:Rule val benchmarkRule = MacrobenchmarkRule()
 
