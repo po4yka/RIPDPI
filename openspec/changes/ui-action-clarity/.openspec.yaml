@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-17
+goal: UIX-1792228010381450 Expose recovery actions and simplify mode and history
+  choices
