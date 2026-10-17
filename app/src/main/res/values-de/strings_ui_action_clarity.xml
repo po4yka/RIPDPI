@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_advisories_more_format">Weitere %1$d</string>
+    <string name="history_filter_disclosure">Filter · %1$d</string>
+    <string name="history_filter_remove">Filter entfernen: %1$s</string>
+    <string name="history_events_jump_to_latest_count">Neu: %1$d · Zu den neuesten</string>
+</resources>

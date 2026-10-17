@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_advisories_more_format">Ещё %1$d</string>
+    <string name="history_filter_disclosure">Фильтры · %1$d</string>
+    <string name="history_filter_remove">Убрать фильтр: %1$s</string>
+    <string name="history_events_jump_to_latest_count">Новые: %1$d · К последним</string>
+</resources>

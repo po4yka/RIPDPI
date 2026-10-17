@@ -2975,13 +2975,17 @@ app:history_event_timestamp_single
 app:history_events_empty_body
 app:history_events_empty_title
 app:history_events_jump_to_latest
+app:history_events_jump_to_latest_count
 app:history_events_section
 app:history_filter_clear_all
+app:history_filter_disclosure
+app:history_filter_remove
 app:history_no_results_body
 app:history_no_results_title
 app:history_open_action
 app:history_title
 app:home
+app:home_advisories_more_format
 app:home_approach_cta
 app:home_approach_title
 app:home_connection_actuator_action_activate

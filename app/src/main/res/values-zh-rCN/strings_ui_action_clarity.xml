@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_advisories_more_format">另有 %1$d 项</string>
+    <string name="history_filter_disclosure">筛选 · %1$d</string>
+    <string name="history_filter_remove">移除筛选条件：%1$s</string>
+    <string name="history_events_jump_to_latest_count">新增：%1$d · 跳至最新</string>
+</resources>

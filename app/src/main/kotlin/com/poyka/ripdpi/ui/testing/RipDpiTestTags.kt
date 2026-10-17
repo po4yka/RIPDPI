@@ -80,6 +80,8 @@ internal object RipDpiTestTags {
     const val HomeSetupHealthRow = "home-setup-health-row"
     const val HomeSetupHealthDetails = "home-setup-health-details"
     const val HomeSetupHealthAction = "home-setup-health-action"
+    const val HomeAdvisoryPrimaryAction = "home-advisory-primary-action"
+    const val HomeAdvisoryMore = "home-advisory-more"
     const val HomeModesDiagnosticsHeader = "home-modes-diagnostics-header"
     const val HomeModesDiagnosticsCollapsed = "home-modes-diagnostics-collapsed"
     const val HomeModesDiagnosticsExpanded = "home-modes-diagnostics-expanded"
@@ -197,6 +199,10 @@ internal object RipDpiTestTags {
     const val SettingsThemeDropdown = "settings-theme-dropdown"
     const val SettingsLanguage = "settings-language"
     const val SettingsPersona = "settings-persona"
+    const val SettingsPersonaSheet = "settings-persona-sheet"
+    const val SettingsPersonaGuided = "settings-persona-guided"
+    const val SettingsPersonaAdvanced = "settings-persona-advanced"
+    const val SettingsPersonaCancel = "settings-persona-cancel"
     const val SettingsCustomization = "settings-customization"
     const val SettingsBackgroundGuidanceBanner = "settings-background-guidance-banner"
     const val SettingsSupportBundle = "settings-support-bundle"
@@ -613,6 +619,13 @@ internal object RipDpiTestTags {
         tag: String,
         value: String,
     ): String = "$tag-option-${sanitize(value)}"
+
+    fun historyFilterDisclosure(searchTag: String): String = "$searchTag-filter-disclosure"
+
+    fun historyFilterRemove(
+        searchTag: String,
+        filterKey: String,
+    ): String = "$searchTag-filter-remove-${sanitize(filterKey)}"
 
     fun awgField(field: String): String = "awg-field-${sanitize(field)}"
 
