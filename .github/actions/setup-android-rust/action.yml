@@ -130,7 +130,12 @@ runs:
       run: |
         echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "cmake=$(grep '^ripdpi.nativeCmakeVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-        echo "compile-sdk=$(grep '^ripdpi.compileSdk=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+        compile_sdk="$(grep '^ripdpi.compileSdk=' gradle.properties | cut -d= -f2-)"
+        compile_sdk_minor="$(sed -n 's/^ripdpi.compileSdkMinor=//p' gradle.properties)"
+        if [ "${compile_sdk_minor:-0}" -gt 0 ]; then
+          compile_sdk="${compile_sdk}.${compile_sdk_minor}"
+        fi
+        echo "compile-sdk=$compile_sdk" >> "$GITHUB_OUTPUT"
 
     # Cache the Android CLI state directory as an installation accelerator only.
     # Every job still reconciles the packages below because Gradle consumes them

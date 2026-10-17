@@ -78,6 +78,29 @@ class NativeDependencyGraphTest(unittest.TestCase):
             ":core:engine:buildRustNativeLibs -Pripdpi.nativeAbisOverride=arm64-v8a", source
         )
 
+    def test_android_setup_selects_the_declared_minor_platform(self) -> None:
+        source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text()
+        step = source.split("    - name: Read native toolchain policy\n", 1)[1].split("    # Cache", 1)[0]
+        script = textwrap.dedent(step.split("      run: |\n", 1)[1])
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "output"
+            for minor, expected in (("1", "37.1"), ("0", "37"), (None, "37")):
+                with self.subTest(minor=minor):
+                    properties = "ripdpi.compileSdk=37\nripdpi.nativeNdkVersion=29\nripdpi.nativeCmakeVersion=3\n"
+                    if minor is not None:
+                        properties += f"ripdpi.compileSdkMinor={minor}\n"
+                    (root / "gradle.properties").write_text(properties)
+                    output.write_text("")
+                    result = subprocess.run(
+                        ["/bin/bash", "-e", "-o", "pipefail", "-c", script],
+                        cwd=root, env={**os.environ, "GITHUB_OUTPUT": str(output)},
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    values = dict(line.split("=", 1) for line in output.read_text().splitlines())
+                    self.assertEqual(expected, values["compile-sdk"])
+
     def test_android_setup_publishes_platform_tools_for_later_steps(self) -> None:
         source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text()
         step = source.split("    - name: Install Android SDK baseline via android CLI\n", 1)[1].split("    - uses:", 1)[0]
