@@ -1,7 +1,8 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.routes
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,20 +13,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.NonRestartableComposable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -44,8 +46,14 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiRouteAvailabilityStateRole
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
+import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
+import com.poyka.ripdpi.ui.theme.routeBadge
+import com.poyka.ripdpi.ui.theme.routeConnector
+import com.poyka.ripdpi.ui.theme.routeOpportunity
+import com.poyka.ripdpi.ui.theme.routeProfile
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -120,13 +128,30 @@ data class RipDpiRouteStackUiState(
 )
 
 @Composable
+@NonRestartableComposable
 fun RipDpiRouteProfileCard(
     state: RipDpiRouteProfileUiState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = state.state != RipDpiRouteAvailabilityState.Restricted,
 ) {
-    val colors = RipDpiThemeTokens.colors
+    RipDpiRouteProfileCard(
+        state = state,
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun RipDpiRouteProfileCard(
+    state: RipDpiRouteProfileUiState,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = state.state != RipDpiRouteAvailabilityState.Restricted,
+    visualStyle: CommonStyle = CommonStyle,
+) {
     val components = RipDpiThemeTokens.components
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
@@ -136,9 +161,20 @@ fun RipDpiRouteProfileCard(
             RipDpiThemeTokens.surfaceRoles.routes.profile,
         )
     val routeState = RipDpiThemeTokens.state.route.resolve(state.state.toThemeRole())
-    val effectiveContainer = if (state.isSelected) routeState.container else surface.container
-    val effectiveBorder = if (state.isSelected || state.isActive) routeState.border else surface.border
     val effectiveContent = if (state.isSelected) routeState.content else surface.content
+    val interactionSource = remember { MutableInteractionSource() }
+    val styleState =
+        rememberUpdatedStyleState(interactionSource) {
+            it.isEnabled = enabled
+            it.isSelected = state.isSelected
+            it[RipDpiStyleStateKeys.Active] = state.isActive
+        }
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.routeProfile(state.state.toThemeRole()),
+            visualStyle,
+            styleState,
+        )
 
     Column(
         modifier =
@@ -147,18 +183,14 @@ fun RipDpiRouteProfileCard(
                 .fillMaxWidth()
                 .heightIn(min = components.rows.settingsRowMinHeightWithSubtitle)
                 .shadow(surface.shadowElevation, shape, clip = false)
-                .clip(shape)
-                .background(effectiveContainer, shape)
-                .border(
-                    width = routeState.borderWidth,
-                    color = effectiveBorder,
-                    shape = shape,
-                ).alpha(if (enabled) routeState.alpha else routeState.alpha * RouteDisabledAlpha)
+                .ripDpiStyleSurface(styleResolver, shape, clip = true)
+                .alpha(if (enabled) routeState.alpha else routeState.alpha * RouteDisabledAlpha)
                 .ripDpiSelectable(
                     selected = state.isSelected,
                     enabled = enabled,
                     role = Role.RadioButton,
                     hapticFeedback = RipDpiHapticFeedback.Selection,
+                    interactionSource = interactionSource,
                     onClick = onClick,
                 ).padding(components.inputs.fieldHorizontalPadding),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -225,21 +257,39 @@ private fun RouteProfileHeader(
 }
 
 @Composable
+@NonRestartableComposable
 fun RipDpiRouteCapabilityPill(
     capability: RipDpiRouteCapabilityUiState,
     modifier: Modifier = Modifier,
 ) {
+    RipDpiRouteCapabilityPill(
+        capability = capability,
+        modifier = modifier,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun RipDpiRouteCapabilityPill(
+    capability: RipDpiRouteCapabilityUiState,
+    modifier: Modifier = Modifier,
+    visualStyle: CommonStyle = CommonStyle,
+) {
     val components = RipDpiThemeTokens.components
     val shape = RipDpiThemeTokens.shapes.xxl
     val state = RipDpiThemeTokens.state.route.resolve(capability.state.toThemeRole())
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.routeBadge(capability.state.toThemeRole()),
+            visualStyle,
+            rememberUpdatedStyleState(null),
+        )
 
     Row(
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.routeCapability(capability.kind.stableKey))
-                .clip(shape)
-                .background(state.badgeContainer, shape)
-                .border(RipDpiStroke.Thin, state.badgeBorder, shape)
+                .ripDpiStyleSurface(styleResolver, shape, clip = true)
                 .padding(
                     horizontal = components.rows.compactPillHorizontalPadding,
                     vertical = components.rows.compactPillVerticalPadding,
@@ -264,15 +314,31 @@ fun RipDpiRouteCapabilityPill(
 }
 
 @Composable
+@NonRestartableComposable
 fun RipDpiRouteStackDiagram(
     state: RipDpiRouteStackUiState,
     modifier: Modifier = Modifier,
 ) {
+    RipDpiRouteStackDiagram(
+        state = state,
+        modifier = modifier,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun RipDpiRouteStackDiagram(
+    state: RipDpiRouteStackUiState,
+    modifier: Modifier = Modifier,
+    visualStyle: CommonStyle = CommonStyle,
+) {
     val spacing = RipDpiThemeTokens.spacing
     val shape = RipDpiThemeTokens.shapes.lg
-    val surface =
-        RipDpiThemeTokens.surfaces.resolve(
-            RipDpiThemeTokens.surfaceRoles.routes.stack,
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.outlinedSurface(RipDpiThemeTokens.surfaceRoles.routes.stack),
+            visualStyle,
+            rememberUpdatedStyleState(null),
         )
     val description = state.accessibilityDescription()
 
@@ -281,9 +347,7 @@ fun RipDpiRouteStackDiagram(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.RouteStack)
                 .fillMaxWidth()
-                .clip(shape)
-                .background(surface.container, shape)
-                .border(RipDpiStroke.Thin, surface.border, shape)
+                .ripDpiStyleSurface(styleResolver, shape, clip = true)
                 .semantics { contentDescription = description }
                 .padding(spacing.md),
         horizontalArrangement = Arrangement.spacedBy(spacing.xs),
@@ -313,6 +377,7 @@ fun RipDpiRouteStackDiagram(
 }
 
 @Composable
+@NonRestartableComposable
 fun RipDpiRouteOpportunityPanel(
     title: String,
     message: String,
@@ -321,17 +386,45 @@ fun RipDpiRouteOpportunityPanel(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
+    RipDpiRouteOpportunityPanel(
+        title = title,
+        message = message,
+        state = state,
+        modifier = modifier,
+        actionLabel = actionLabel,
+        onAction = onAction,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun RipDpiRouteOpportunityPanel(
+    title: String,
+    message: String,
+    state: RipDpiRouteAvailabilityState,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    visualStyle: CommonStyle = CommonStyle,
+    onAction: (() -> Unit)? = null,
+) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val shape = RipDpiThemeTokens.shapes.xl
-    val surface =
-        RipDpiThemeTokens.surfaces.resolve(
-            RipDpiThemeTokens.surfaceRoles.routes.opportunity,
-        )
     val routeState = RipDpiThemeTokens.state.route.resolve(state.toThemeRole())
+    val interactionSource = remember { MutableInteractionSource() }
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.routeOpportunity(state.toThemeRole()),
+            visualStyle,
+            rememberUpdatedStyleState(interactionSource),
+        )
     val actionModifier =
         if (onAction != null) {
-            Modifier.ripDpiClickable(onClickLabel = actionLabel, onClick = onAction)
+            Modifier.ripDpiClickable(
+                onClickLabel = actionLabel,
+                interactionSource = interactionSource,
+                onClick = onAction,
+            )
         } else {
             Modifier
         }
@@ -341,9 +434,7 @@ fun RipDpiRouteOpportunityPanel(
             modifier
                 .ripDpiTestTag(RipDpiTestTags.RouteOpportunityPanel)
                 .fillMaxWidth()
-                .clip(shape)
-                .background(surface.container, shape)
-                .border(RipDpiStroke.Thin, routeState.border, shape)
+                .ripDpiStyleSurface(styleResolver, shape, clip = true)
                 .then(actionModifier)
                 .padding(spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -382,13 +473,18 @@ private fun RouteTransportGlyph(
             state.toThemeRole()
         }
     val style = RipDpiThemeTokens.state.route.resolve(role)
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.routeBadge(role),
+            CommonStyle,
+            rememberUpdatedStyleState(null),
+        )
 
     Box(
         modifier =
             modifier
                 .size(RouteGlyphSize)
-                .background(style.badgeContainer, CircleShape)
-                .border(RipDpiStroke.Thin, style.badgeBorder, CircleShape),
+                .ripDpiStyleSurface(styleResolver, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -406,9 +502,13 @@ private fun RouteStateBadge(
     active: Boolean,
 ) {
     val label = if (active) stringResource(R.string.route_state_active) else state.label()
-    val style =
-        RipDpiThemeTokens.state.route.resolve(
-            if (active) RipDpiRouteAvailabilityStateRole.Active else state.toThemeRole(),
+    val role = if (active) RipDpiRouteAvailabilityStateRole.Active else state.toThemeRole()
+    val style = RipDpiThemeTokens.state.route.resolve(role)
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.routeBadge(role),
+            CommonStyle,
+            rememberUpdatedStyleState(null),
         )
 
     Text(
@@ -417,9 +517,7 @@ private fun RouteStateBadge(
         color = style.badgeContent,
         modifier =
             Modifier
-                .clip(RipDpiThemeTokens.shapes.xxl)
-                .background(style.badgeContainer, RipDpiThemeTokens.shapes.xxl)
-                .border(RipDpiStroke.Thin, style.badgeBorder, RipDpiThemeTokens.shapes.xxl)
+                .ripDpiStyleSurface(styleResolver, RipDpiThemeTokens.shapes.xxl, clip = true)
                 .padding(
                     horizontal = RipDpiThemeTokens.components.rows.compactPillHorizontalPadding,
                     vertical = RipDpiThemeTokens.components.rows.compactPillVerticalPadding,
@@ -464,13 +562,18 @@ private fun RouteStackConnector(
     state: RipDpiRouteAvailabilityState,
     modifier: Modifier = Modifier,
 ) {
-    val style = RipDpiThemeTokens.state.route.resolve(state.toThemeRole())
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.routeConnector(state.toThemeRole()),
+            CommonStyle,
+            rememberUpdatedStyleState(null),
+        )
 
     Box(
         modifier =
             modifier
                 .height(RouteConnectorHeight)
-                .background(style.border, RoundedCornerShape(RouteConnectorHeight)),
+                .ripDpiStyleSurface(styleResolver, RoundedCornerShape(RouteConnectorHeight)),
     )
 }
 

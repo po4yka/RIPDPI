@@ -1,12 +1,14 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.inputs
 
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,10 +22,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
+import androidx.compose.foundation.style.styleResolver
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -61,8 +67,10 @@ import com.poyka.ripdpi.ui.theme.RipDpiActuatorStateRole
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.actuatorFault
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
 import kotlinx.coroutines.delay
 
 private const val DisconnectConfirmationMillis = 4_000L
@@ -74,6 +82,7 @@ private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spaceba
 
 /** Status and route information remain outside the connection action target. */
 @Composable
+@NonRestartableComposable
 fun RipDpiConnectionActuator(
     state: HomeConnectionActuatorUiState,
     onActivate: () -> Unit,
@@ -81,6 +90,27 @@ fun RipDpiConnectionActuator(
     modifier: Modifier = Modifier,
     onCopyFaultDetail: (() -> Unit)? = null,
     testTag: String? = null,
+) {
+    RipDpiConnectionActuator(
+        state = state,
+        onActivate = onActivate,
+        onDeactivate = onDeactivate,
+        modifier = modifier,
+        onCopyFaultDetail = onCopyFaultDetail,
+        testTag = testTag,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun RipDpiConnectionActuator(
+    state: HomeConnectionActuatorUiState,
+    onActivate: () -> Unit,
+    onDeactivate: () -> Unit,
+    modifier: Modifier = Modifier,
+    onCopyFaultDetail: (() -> Unit)? = null,
+    testTag: String? = null,
+    visualStyle: CommonStyle = CommonStyle,
 ) {
     val resolved = state.withResolvedLabels()
     val style = RipDpiThemeTokens.state.actuator.resolve(role = state.status.toThemeRole())
@@ -134,6 +164,7 @@ fun RipDpiConnectionActuator(
             hapticFeedback = RipDpiHapticFeedback.None,
             variant = if (state.isActivationAvailable) RipDpiButtonVariant.Primary else RipDpiButtonVariant.Outline,
             wrapLabel = true,
+            visualStyle = visualStyle,
             onClick = onAction,
         )
         if (remainingMillis > 0L) {
@@ -148,6 +179,7 @@ fun RipDpiConnectionActuator(
                 modifier = Modifier.padding(top = spacing.sm),
                 detail = resolved.faultDetail,
                 stateStyle = style,
+                stateRole = state.status.toThemeRole(),
                 onCopy = onCopyFaultDetail,
             )
         }
@@ -318,17 +350,26 @@ private fun ActuatorRouteLabels(
 private fun ActuatorFaultDetail(
     detail: String,
     stateStyle: RipDpiActuatorStateStyle,
+    stateRole: RipDpiActuatorStateRole,
     onCopy: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
     val copyLabel = stringResource(R.string.home_connection_actuator_fault_copy)
+    val interactionSource = remember { MutableInteractionSource() }
+    val resolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.actuatorFault(stateRole),
+            CommonStyle,
+            rememberUpdatedStyleState(interactionSource),
+        )
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
+                .styleResolver(resolver)
                 .clip(shape)
                 .then(
                     if (onCopy != null) {
@@ -336,13 +377,13 @@ private fun ActuatorFaultDetail(
                             role = Role.Button,
                             onClickLabel = copyLabel,
                             hapticFeedback = RipDpiHapticFeedback.Acknowledge,
+                            interactionSource = interactionSource,
                             onClick = onCopy,
                         )
                     } else {
                         Modifier
                     },
-                ).background(stateStyle.rail, shape)
-                .border(RipDpiStroke.Thin, stateStyle.railBorder, shape)
+                ).ripDpiStyleAppearance(resolver, shape)
                 .padding(horizontal = spacing.sm, vertical = spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {

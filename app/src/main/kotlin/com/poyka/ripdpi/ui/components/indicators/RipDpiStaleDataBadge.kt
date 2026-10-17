@@ -1,18 +1,21 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.indicators
 
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,8 +28,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
+import com.poyka.ripdpi.ui.theme.staleBadge
 import kotlin.time.Duration
 
 private const val FreshCutoffSeconds = 5
@@ -88,39 +93,53 @@ fun liveStaleBadgeTier(
 }
 
 @Composable
+@NonRestartableComposable
 fun RipDpiStaleDataBadge(
     label: String,
     tier: RipDpiStaleTier,
     modifier: Modifier = Modifier,
 ) {
+    RipDpiStaleDataBadge(
+        label = label,
+        tier = tier,
+        modifier = modifier,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun RipDpiStaleDataBadge(
+    label: String,
+    tier: RipDpiStaleTier,
+    modifier: Modifier = Modifier,
+    visualStyle: CommonStyle = CommonStyle,
+) {
     val colors = RipDpiThemeTokens.colors
 
     data class TierTones(
-        val container: Color,
         val content: Color,
         val dot: Color,
-        val border: Color,
     )
     val tones =
         when (tier) {
             RipDpiStaleTier.Fresh -> {
-                TierTones(colors.success, colors.background, colors.success, Color.Transparent)
+                TierTones(colors.background, colors.success)
             }
 
             RipDpiStaleTier.Recent -> {
-                TierTones(colors.card, colors.foreground, colors.mutedForeground, colors.border)
+                TierTones(colors.foreground, colors.mutedForeground)
             }
 
             RipDpiStaleTier.Aging -> {
-                TierTones(colors.muted, colors.foreground, colors.mutedForeground, colors.border)
+                TierTones(colors.foreground, colors.mutedForeground)
             }
 
             RipDpiStaleTier.Stale -> {
-                TierTones(colors.warningContainer, colors.warning, Color.Transparent, Color.Transparent)
+                TierTones(colors.warning, Color.Transparent)
             }
 
             RipDpiStaleTier.Expired -> {
-                TierTones(colors.destructiveContainer, colors.destructive, Color.Transparent, Color.Transparent)
+                TierTones(colors.destructive, Color.Transparent)
             }
         }
     val motion = RipDpiThemeTokens.motion
@@ -149,11 +168,12 @@ fun RipDpiStaleDataBadge(
         )
     val badgeDescription = stringResource(R.string.cd_stale_data_badge, label, tierLabel)
     val indicators = RipDpiThemeTokens.components.indicators
+    val styleState = rememberUpdatedStyleState(null)
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.staleBadge(tier), visualStyle, styleState)
     Row(
         modifier =
             modifier
-                .background(tones.container, RoundedCornerShape(percent = 50))
-                .border(width = RipDpiStroke.Thin, color = tones.border, shape = RoundedCornerShape(percent = 50))
+                .ripDpiStyleSurface(resolver, shape = RoundedCornerShape(percent = 50))
                 .padding(
                     horizontal = RipDpiThemeTokens.spacing.sm,
                     vertical = indicators.staleBadgeVerticalPadding,

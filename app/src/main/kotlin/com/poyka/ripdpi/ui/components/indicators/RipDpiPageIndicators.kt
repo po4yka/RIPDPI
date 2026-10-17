@@ -1,15 +1,18 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.indicators
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,6 +22,28 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.pageIndicator
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
+
+@Composable
+@NonRestartableComposable
+fun RipDpiPageIndicators(
+    currentPage: Int,
+    pageCount: Int,
+    modifier: Modifier = Modifier,
+    sectionBreakAfter: Int? = null,
+    accessibilityLabel: String? = null,
+) {
+    RipDpiPageIndicators(
+        currentPage = currentPage,
+        pageCount = pageCount,
+        modifier = modifier,
+        sectionBreakAfter = sectionBreakAfter,
+        accessibilityLabel = accessibilityLabel,
+        visualStyle = CommonStyle,
+    )
+}
 
 @Composable
 fun RipDpiPageIndicators(
@@ -27,8 +52,8 @@ fun RipDpiPageIndicators(
     modifier: Modifier = Modifier,
     sectionBreakAfter: Int? = null,
     accessibilityLabel: String? = null,
+    visualStyle: CommonStyle = CommonStyle,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val motion = RipDpiThemeTokens.motion
 
@@ -49,6 +74,8 @@ fun RipDpiPageIndicators(
                 Spacer(modifier = Modifier.width(introLayout.indicatorSpacing))
             }
             val selected = index == currentPage
+            val styleState = rememberUpdatedStyleState(null) { it.isSelected = selected }
+            val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.pageIndicator, visualStyle, styleState)
             val width by animateDpAsState(
                 targetValue =
                     if (selected) {
@@ -59,16 +86,11 @@ fun RipDpiPageIndicators(
                 animationSpec = motion.motionAwareSpring(),
                 label = "pageIndicatorWidth",
             )
-            val color by animateColorAsState(
-                targetValue = if (selected) colors.foreground else colors.border,
-                animationSpec = motion.stateTween(),
-                label = "pageIndicatorColor",
-            )
             Box(
                 modifier =
                     Modifier
                         .size(width = width, height = introLayout.indicatorSize)
-                        .background(color, RipDpiThemeTokens.shapes.full),
+                        .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full),
             )
         }
     }

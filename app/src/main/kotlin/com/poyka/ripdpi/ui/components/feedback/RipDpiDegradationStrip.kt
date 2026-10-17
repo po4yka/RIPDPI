@@ -1,7 +1,8 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +33,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.degradationAccent
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -88,18 +94,17 @@ fun RipDpiDegradationStrip(
             RipDpiDegradationTone.Warning -> colors.warningContainerForeground
             RipDpiDegradationTone.Critical -> colors.destructiveContainerForeground
         }
-    val accentColor =
-        when (tone) {
-            RipDpiDegradationTone.Nominal -> colors.mutedForeground
-            RipDpiDegradationTone.Warning -> colors.warning
-            RipDpiDegradationTone.Critical -> colors.destructive
-        }
     val accentForeground =
         when (tone) {
             RipDpiDegradationTone.Nominal -> colors.card
             RipDpiDegradationTone.Warning -> colors.warningForeground
             RipDpiDegradationTone.Critical -> colors.destructiveForeground
         }
+
+    val accentState = rememberUpdatedStyleState(null)
+    val accentStyle = RipDpiThemeTokens.styles.degradationAccent(tone)
+    val stripeResolver = rememberRipDpiStyleResolver(accentStyle, CommonStyle, accentState)
+    val badgeResolver = rememberRipDpiStyleResolver(accentStyle, CommonStyle, accentState)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -117,7 +122,7 @@ fun RipDpiDegradationStrip(
                             .align(Alignment.CenterStart)
                             .width(spacing.xs)
                             .fillMaxHeight()
-                            .background(accentColor),
+                            .ripDpiStyleSurface(stripeResolver),
                 )
             }
             Column(
@@ -140,7 +145,7 @@ fun RipDpiDegradationStrip(
                         modifier =
                             Modifier
                                 .size(components.feedback.decorativeBadgeSize)
-                                .background(accentColor, shapes.full),
+                                .ripDpiStyleSurface(badgeResolver, shape = shapes.full),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(

@@ -1,7 +1,8 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -35,6 +38,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 private const val DialogStackedActionsFontScale = 1.3f
 
@@ -191,11 +196,15 @@ private fun RipDpiModalIconBadge(
             RipDpiThemeTokens.surfaceRoles.feedback.dialogIconBadge(tone),
         )
 
+    val styleState = rememberUpdatedStyleState(null)
+    val badgeRole = RipDpiThemeTokens.surfaceRoles.feedback.dialogIconBadge(tone)
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.surface(badgeRole), CommonStyle, styleState)
+
     Box(
         modifier =
             modifier
                 .size(components.feedback.dialogIconSize)
-                .background(color = surfaceStyle.container, shape = RipDpiThemeTokens.shapes.full),
+                .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

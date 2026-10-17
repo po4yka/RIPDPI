@@ -1,10 +1,11 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,9 +15,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,8 +43,11 @@ import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
+import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.accordion
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 /**
  * Single-row expandable accordion. Title row + trailing chevron that
@@ -51,6 +58,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
  * Matches `components-accordion.html`.
  */
 @Composable
+@NonRestartableComposable
 fun RipDpiAccordion(
     title: String,
     expanded: Boolean,
@@ -60,20 +68,44 @@ fun RipDpiAccordion(
     stateTestTag: String? = null,
     body: @Composable () -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
+    RipDpiAccordion(
+        title = title,
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
+        modifier = modifier,
+        headerTestTag = headerTestTag,
+        stateTestTag = stateTestTag,
+        body = body,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun RipDpiAccordion(
+    title: String,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    headerTestTag: String? = null,
+    stateTestTag: String? = null,
+    visualStyle: CommonStyle = CommonStyle,
+    body: @Composable () -> Unit,
+) {
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val shape = RoundedCornerShape(spacing.md)
+    val interactionSource = remember { MutableInteractionSource() }
+    val styleState = rememberUpdatedStyleState(interactionSource) { it[RipDpiStyleStateKeys.Expanded] = expanded }
+    val styleResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.accordion, visualStyle, styleState)
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .then(stateTestTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier)
-                .background(colors.card, shape)
-                .border(width = RipDpiStroke.Thin, color = colors.cardBorder, shape = shape)
+                .ripDpiStyleSurface(styleResolver, shape)
                 .animateContentSize(animationSpec = motion.stateTween()),
     ) {
-        RipDpiAccordionHeader(title, expanded, onExpandedChange, headerTestTag)
+        RipDpiAccordionHeader(title, expanded, onExpandedChange, headerTestTag, interactionSource)
         AnimatedVisibility(
             visible = expanded,
             enter = motion.sectionEnterTransition(),
@@ -100,6 +132,7 @@ private fun RipDpiAccordionHeader(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     testTag: String?,
+    interactionSource: MutableInteractionSource,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
@@ -120,7 +153,10 @@ private fun RipDpiAccordionHeader(
             Modifier
                 .fillMaxWidth()
                 .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel }
-                .ripDpiClickable(role = Role.Button) { onExpandedChange(!expanded) }
+                .ripDpiClickable(
+                    role = Role.Button,
+                    interactionSource = interactionSource,
+                ) { onExpandedChange(!expanded) }
                 .then(testTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier)
                 .padding(horizontal = spacing.lg, vertical = spacing.md),
     ) {

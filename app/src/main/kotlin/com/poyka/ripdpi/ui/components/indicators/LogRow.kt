@@ -1,6 +1,7 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.indicators
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
@@ -24,6 +27,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.logBadge
+import com.poyka.ripdpi.ui.theme.metadataChip
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -60,7 +67,7 @@ fun LogRow(
     ) {
         if (stacksMessage) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                LogRowHeader(timestamp = timestamp, type = type, palette = palette)
+                LogRowHeader(timestamp = timestamp, type = type, palette = palette, tone = tone)
                 LogRowMessage(message = message, palette = palette, modifier = Modifier.fillMaxWidth())
             }
         } else {
@@ -69,7 +76,7 @@ fun LogRow(
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                 verticalAlignment = Alignment.Top,
             ) {
-                LogRowHeader(timestamp = timestamp, type = type, palette = palette)
+                LogRowHeader(timestamp = timestamp, type = type, palette = palette, tone = tone)
                 LogRowMessage(message = message, palette = palette, modifier = Modifier.weight(1f))
             }
         }
@@ -84,12 +91,15 @@ private fun LogRowHeader(
     timestamp: String,
     type: String,
     palette: LogRowPalette,
+    tone: LogRowTone,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val spacing = RipDpiThemeTokens.spacing
     val typeScale = RipDpiThemeTokens.type
     val locale = LocalConfiguration.current.locales[0]
+    val styleState = rememberUpdatedStyleState(null)
+    val badgeResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.logBadge(tone), CommonStyle, styleState)
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -103,7 +113,7 @@ private fun LogRowHeader(
         Box(
             modifier =
                 Modifier
-                    .background(palette.badgeContainer, RipDpiThemeTokens.shapes.xxl)
+                    .ripDpiStyleSurface(badgeResolver, shape = RipDpiThemeTokens.shapes.xxl)
                     .padding(
                         horizontal = components.rows.compactPillHorizontalPadding,
                         vertical = components.rows.compactPillVerticalPadding,
@@ -139,6 +149,7 @@ private fun LogMetadataChips(metadataChips: ImmutableList<String>) {
     val spacing = RipDpiThemeTokens.spacing
     val typeScale = RipDpiThemeTokens.type
 
+    val styleState = rememberUpdatedStyleState(null)
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val chipMaxWidth = maxWidth
         FlowRow(
@@ -147,11 +158,13 @@ private fun LogMetadataChips(metadataChips: ImmutableList<String>) {
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             metadataChips.forEach { chip ->
+                val resolver =
+                    rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.metadataChip, CommonStyle, styleState)
                 Box(
                     modifier =
                         Modifier
                             .widthIn(max = chipMaxWidth)
-                            .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl)
+                            .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.xxl)
                             .padding(
                                 horizontal = components.rows.compactPillHorizontalPadding,
                                 vertical = components.rows.compactPillVerticalPadding,
@@ -173,7 +186,6 @@ private fun LogMetadataChips(metadataChips: ImmutableList<String>) {
 
 @Immutable
 private data class LogRowPalette(
-    val badgeContainer: Color,
     val badgeContent: Color,
     val message: Color,
 )
@@ -185,7 +197,6 @@ private fun logRowPalette(tone: LogRowTone): LogRowPalette {
     return when (tone) {
         LogRowTone.Dns -> {
             LogRowPalette(
-                badgeContainer = colors.infoContainer,
                 badgeContent = colors.infoContainerForeground,
                 message = colors.foreground,
             )
@@ -193,7 +204,6 @@ private fun logRowPalette(tone: LogRowTone): LogRowPalette {
 
         LogRowTone.Connection -> {
             LogRowPalette(
-                badgeContainer = colors.inputBackground,
                 badgeContent = colors.foreground,
                 message = colors.foreground,
             )
@@ -201,7 +211,6 @@ private fun logRowPalette(tone: LogRowTone): LogRowPalette {
 
         LogRowTone.Warning -> {
             LogRowPalette(
-                badgeContainer = colors.warningContainer,
                 badgeContent = colors.warningContainerForeground,
                 message = colors.foreground,
             )
@@ -209,7 +218,6 @@ private fun logRowPalette(tone: LogRowTone): LogRowPalette {
 
         LogRowTone.Error -> {
             LogRowPalette(
-                badgeContainer = colors.destructiveContainer,
                 badgeContent = colors.destructiveContainerForeground,
                 message = colors.foreground,
             )

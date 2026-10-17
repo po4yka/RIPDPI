@@ -71,3 +71,12 @@ deployment_evidence: No deployment is owned by this change.
 - The resolver now observes current default/caller recipes and the composition-local context through one post-apply input state. It retains animation entries across recipe replacement. Chip scales its painting without changing hit-test coordinates.
 - The repeat passed all 87 tests, with zero failures, errors, or skipped tests. This includes actual touch near the Chip edge, disabled/read-only input, selection semantics, caller style precedence, static theme updates, and three strict animation midpoint checks. Evidence: `styles-wave2-stable-recipes.log` and `styles-wave2-test-results/` (27 seconds). Device IME and dropdown acceptance remain pending.
 - Five further inactive Android compiled-output directories were verified as ignored, untracked, and closed before removal. They contained 537,776,128 allocated bytes. Reports and images were excluded. Exact paths and free-space readings are in `styles-disk-cleanup/cleanup-compiled.json`.
+
+## Shared surfaces and decoration
+
+- The shared-surface and feedback sources passed Full production and all unit-test source compilation. The selected gate passed all 99 theme, shared-control, and design-source-rule tests, with zero failures, errors, or skipped tests (`styles-wave3-components.log`, 53 seconds; XML in `styles-wave3-test-results/`).
+- The four added surface tests cover actual disabled Card touch, SettingsRow toggle semantics and required height, Preset selection/disabled behavior, and the RouteOpportunity trailing action callback. Independent source review found no actionable issue in the 18-file slice and confirmed all 21 original public signatures/defaults.
+- Screenshot and device evidence are still required. Screen recipe candidates have not yet entered the combined source tree.
+
+- The exact Full/Simple APK gate failed at `:app:verifyEmbeddedRelayBundle` because `app/src/simple/assets/embedded-relay-bundle.json` is absent in both the main and job checkouts. This is the existing required local Simple input. No substitute bundle or bypass was added. Full and AndroidTest packaging are retried separately; the Simple APK remains blocked until the real bundle is available. Evidence: `styles-wave3-apks.log` (1 minute 11 seconds).
+- The combined source tree passed the file LoC gate: 4,204 files, zero new violations, baseline exemptions, or growth violations. Architecture health also remains at its 21 existing indicators, with zero new or worsened entries.

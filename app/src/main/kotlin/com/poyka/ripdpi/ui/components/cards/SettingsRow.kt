@@ -1,7 +1,7 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.cards
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,10 +13,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,13 +39,55 @@ import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiSettingsRowStateRole
 import com.poyka.ripdpi.ui.theme.RipDpiSettingsRowStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
+import com.poyka.ripdpi.ui.theme.settingsRow
+import com.poyka.ripdpi.ui.theme.settingsRowBadge
 
 enum class SettingsRowVariant {
     Default,
     Tonal,
     Selected,
+}
+
+@Composable
+@NonRestartableComposable
+fun SettingsRow(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    value: String? = null,
+    checked: Boolean? = null,
+    onClick: (() -> Unit)? = null,
+    onCheckedChange: ((Boolean) -> Unit)? = null,
+    leadingIcon: ImageVector? = null,
+    enabled: Boolean = true,
+    showChevron: Boolean = value != null && onClick != null,
+    showDivider: Boolean = false,
+    monospaceValue: Boolean = false,
+    variant: SettingsRowVariant = SettingsRowVariant.Default,
+    testTag: String? = null,
+) {
+    SettingsRow(
+        title = title,
+        modifier = modifier,
+        subtitle = subtitle,
+        value = value,
+        checked = checked,
+        onClick = onClick,
+        onCheckedChange = onCheckedChange,
+        leadingIcon = leadingIcon,
+        enabled = enabled,
+        showChevron = showChevron,
+        showDivider = showDivider,
+        monospaceValue = monospaceValue,
+        variant = variant,
+        testTag = testTag,
+        visualStyle = CommonStyle,
+    )
 }
 
 @Composable
@@ -61,6 +106,7 @@ fun SettingsRow(
     monospaceValue: Boolean = false,
     variant: SettingsRowVariant = SettingsRowVariant.Default,
     testTag: String? = null,
+    visualStyle: CommonStyle = CommonStyle,
 ) {
     val colors = RipDpiThemeTokens.colors
     val switchStateDescription =
@@ -73,10 +119,8 @@ fun SettingsRow(
                 },
             )
         }
-    val state =
-        RipDpiThemeTokens.state.settingsRow.resolve(
-            RipDpiThemeTokens.stateRoles.settingsRow.fromVariant(variant),
-        )
+    val stateRole = RipDpiThemeTokens.stateRoles.settingsRow.fromVariant(variant)
+    val state = RipDpiThemeTokens.state.settingsRow.resolve(stateRole)
     Column(modifier = modifier.fillMaxWidth()) {
         val rowInteractionSource = remember { MutableInteractionSource() }
         val contentModifier =
@@ -95,7 +139,8 @@ fun SettingsRow(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 onClick = onClick,
-                state = state,
+                stateRole = stateRole,
+                visualStyle = visualStyle,
                 interactionSource = rowInteractionSource,
             )
         SettingsRowContent(
@@ -109,6 +154,7 @@ fun SettingsRow(
             showChevron = showChevron,
             monospaceValue = monospaceValue,
             state = state,
+            stateRole = stateRole,
             modifier = contentModifier,
         )
         if (showDivider) {
@@ -129,6 +175,7 @@ private fun SettingsRowContent(
     showChevron: Boolean,
     monospaceValue: Boolean,
     state: RipDpiSettingsRowStateStyle,
+    stateRole: RipDpiSettingsRowStateRole,
     modifier: Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -137,7 +184,7 @@ private fun SettingsRowContent(
         horizontalArrangement = Arrangement.spacedBy(spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SettingsRowLeadingIcon(leadingIcon = leadingIcon, state = state)
+        SettingsRowLeadingIcon(leadingIcon = leadingIcon, state = state, stateRole = stateRole)
         SettingsRowText(
             title = title,
             subtitle = subtitle,
@@ -166,10 +213,22 @@ private fun Modifier.settingsRowModifier(
     checked: Boolean?,
     onCheckedChange: ((Boolean) -> Unit)?,
     onClick: (() -> Unit)?,
-    state: RipDpiSettingsRowStateStyle,
+    stateRole: RipDpiSettingsRowStateRole,
+    visualStyle: CommonStyle,
     interactionSource: MutableInteractionSource,
 ): Modifier {
     val components = RipDpiThemeTokens.components
+    val styleState =
+        rememberUpdatedStyleState(interactionSource) {
+            it.isEnabled = enabled
+            it.isChecked = checked == true
+        }
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.settingsRow(stateRole),
+            visualStyle,
+            styleState,
+        )
     val minHeight =
         if (subtitle == null) {
             components.rows.settingsRowMinHeight
@@ -183,12 +242,8 @@ private fun Modifier.settingsRowModifier(
                 contentDescription = accessibilityDescription
                 stateDescription?.let { this.stateDescription = it }
             }.fillMaxWidth()
-            .background(state.container, RipDpiThemeTokens.shapes.lg)
-            .border(
-                width = if (variant == SettingsRowVariant.Default) 0.dp else 1.dp,
-                color = state.border,
-                shape = RipDpiThemeTokens.shapes.lg,
-            ).then(
+            .ripDpiStyleSurface(styleResolver, RipDpiThemeTokens.shapes.lg)
+            .then(
                 if (variant == SettingsRowVariant.Default) {
                     Modifier
                 } else {
@@ -237,14 +292,21 @@ private fun settingsRowAccessibilityDescription(
 private fun SettingsRowLeadingIcon(
     leadingIcon: ImageVector?,
     state: RipDpiSettingsRowStateStyle,
+    stateRole: RipDpiSettingsRowStateRole,
 ) {
     if (leadingIcon == null) return
     val components = RipDpiThemeTokens.components
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.settingsRowBadge(stateRole),
+            CommonStyle,
+            rememberUpdatedStyleState(null),
+        )
     Box(
         modifier =
             Modifier
                 .size(components.rows.settingsRowLeadingBadgeSize)
-                .background(state.leadingBadgeContainer, RipDpiThemeTokens.shapes.full),
+                .ripDpiStyleSurface(styleResolver, RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
