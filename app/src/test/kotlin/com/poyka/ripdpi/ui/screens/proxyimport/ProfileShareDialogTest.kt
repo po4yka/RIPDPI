@@ -1,9 +1,13 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
 import android.view.WindowManager
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -11,6 +15,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowDialog
@@ -95,10 +100,10 @@ class ProfileShareDialogTest {
     @Test
     fun `copying the uri emits the canonical share link`() {
         val viewModel = ProfileShareViewModel()
+        viewModel.onShareProfileRequested(vlessProfile)
         var copied: String? = null
         composeRule.setContent {
             RipDpiTheme {
-                viewModel.onShareProfileRequested(vlessProfile)
                 ProfileShareDialog(
                     onDismiss = {},
                     onCopyUri = { copied = it },
@@ -112,7 +117,16 @@ class ProfileShareDialogTest {
             viewModel.onWarningHoldElapsed()
             viewModel.onWarningAcknowledged()
         }
-        composeRule.onNodeWithText("Copy link").performClick()
+        val qrDescription = RuntimeEnvironment.getApplication().getString(R.string.profile_share_qr_content_description)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithContentDescription(qrDescription).fetchSemanticsNodes().size == 1
+        }
+        composeRule.waitForIdle()
+        composeRule
+            .onNodeWithText("Copy link")
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
 
         composeRule.runOnIdle {
             org.junit.Assert.assertNotNull(copied)
