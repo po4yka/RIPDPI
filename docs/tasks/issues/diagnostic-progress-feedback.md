@@ -39,15 +39,19 @@ false percentages, repeated speech, lost focus, or motion when it is disabled.
 ## Ownership
 
 - Root owns all locale resources, generated translation keys, shared test tags,
-  planning, integration, compiler-backed checks, device test source and receipts
+  planning, integration, compiler-backed checks and receipts
   in RIPDPI-diagnostic-progress-feedback.
 - Progress worker owns new DiagnosticsMeasuredProgress.kt and focused tests in
   RIPDPI-diagnostic-progress-smoothing. Shared RipDpiProgressBar stays unchanged.
 - Phase worker owns DiagnosticsScanProgress.kt, an adjacent phase helper, and
   focused phase tests in RIPDPI-diagnostic-phase-feedback. Root wires the new
   progress wrapper after the phase patch. The phase worker does not edit locales.
-- Device specialist starts read-only. Root later grants the exclusive build and
-  leased device lane. It preserves settings, service state and artifacts.
+- Device specialist owns UiDiagnosticProgressFeedbackInstrumentedTest.kt and
+  DiagnosticProgressTalkBackSupport.kt under app/src/androidTest in
+  RIPDPI-diagnostic-progress-device. Root applies its test patch. Root later
+  grants the exclusive build and leased device lane. The specialist preserves
+  settings, service state and artifacts. Its ordinary CI tests run without
+  TalkBack; an explicit acceptance mode adds real-service and speech checks.
 - All writers use separate worktrees. Compiler work is serialized. Review is
   read-only. Golden fixtures and quality baselines are not approved for updates.
 

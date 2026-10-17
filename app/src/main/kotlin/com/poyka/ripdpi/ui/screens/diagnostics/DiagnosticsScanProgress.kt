@@ -1,9 +1,5 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
@@ -21,6 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.CompletedProbeUiModel
@@ -32,7 +30,6 @@ import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DnsBaselineStatus
 import com.poyka.ripdpi.activities.DpiFailureClass
 import com.poyka.ripdpi.activities.PhaseState
-import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.activities.ScanNetworkContextUiModel
 import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
 import com.poyka.ripdpi.activities.displayLabelRes
@@ -45,7 +42,6 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricPill
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricTone
-import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
@@ -56,9 +52,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val SparklineBarWidthPerTarget = 4
 private const val SparklineMaxBarWidth = 24
-private const val PhaseStepActiveAlpha = 1f
-private const val PhaseStepCompletedAlpha = 0.72f
-private const val PhaseStepPendingAlpha = 0.38f
 
 @Suppress("LongMethod")
 @Composable
@@ -69,7 +62,6 @@ internal fun ScanProgressCard(
 ) {
     TrackRecomposition("ScanProgressCard")
     val spacing = RipDpiThemeTokens.spacing
-    val motion = RipDpiThemeTokens.motion
     val timing = progress.scanStartedAtMs.takeIf { it > 0L }?.let { rememberScanTimingLabels(progress) }
     RipDpiCard(modifier = modifier) {
         FlowRow(
@@ -109,33 +101,13 @@ internal fun ScanProgressCard(
         if (progress.candidateTimeline.isNotEmpty()) {
             CandidateTimeline(entries = progress.candidateTimeline)
         }
-        AnimatedContent(
-            targetState = progress.currentProbeLabel,
-            transitionSpec = {
-                fadeIn(animationSpec = motion.stateTween()) togetherWith
-                    fadeOut(animationSpec = motion.quickTween())
-            },
-            label = "scanProgressLabel",
-        ) { label ->
-            Text(
-                text = label,
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = RipDpiThemeTokens.colors.foreground,
-            )
-        }
+        DiagnosticsCurrentProbeLabel(progress.currentProbeLabel)
         if (progress.phaseSteps.isNotEmpty()) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                items(
-                    items = progress.phaseSteps,
-                    key = { it.label },
-                    contentType = { "phase_chip" },
-                ) { step ->
-                    PhaseChip(step = step)
-                }
-            }
+            DiagnosticsPhaseStrip(progress.phaseSteps)
         }
-        RipDpiProgressBar(
+        DiagnosticsMeasuredProgress(
             progress = progress.fraction.takeIf { progress.totalSteps > 0 },
+            scanIdentity = progress.scanStartedAtMs,
             contentDescription = progress.activePhaseLabel(),
         )
         if (progress.totalSteps > 0) {
@@ -159,22 +131,23 @@ internal fun ScanProgressCard(
  */
 @Composable
 private fun StrategyProbeLaneRow(liveProgress: DiagnosticsStrategyProbeLiveProgressUiModel) {
+    val laneLabel =
+        stringResource(
+            when (liveProgress.lane) {
+                DiagnosticsStrategyProbeProgressLaneUiModel.TCP -> R.string.diagnostics_phase_tcp
+                DiagnosticsStrategyProbeProgressLaneUiModel.QUIC -> R.string.diagnostics_phase_quic
+            },
+        )
+    val laneDescription = stringResource(R.string.status_indicator_description, laneLabel)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StatusIndicator(
-            label =
-                when (liveProgress.lane) {
-                    DiagnosticsStrategyProbeProgressLaneUiModel.TCP -> {
-                        stringResource(R.string.diagnostics_phase_tcp)
-                    }
-
-                    DiagnosticsStrategyProbeProgressLaneUiModel.QUIC -> {
-                        stringResource(R.string.diagnostics_phase_quic)
-                    }
-                },
+            label = laneLabel,
+            // The phase strip owns phase-change speech; this label remains readable on focus.
+            modifier = Modifier.clearAndSetSemantics { contentDescription = laneDescription },
             tone = StatusIndicatorTone.Warning,
             // strategyProbeProgress is only non-null while that lane is probing.
             pulsing = true,
@@ -189,36 +162,6 @@ private fun StrategyProbeLaneRow(liveProgress: DiagnosticsStrategyProbeLiveProgr
 
 private fun DiagnosticsProgressUiModel.activePhaseLabel(): String? =
     phaseSteps.firstOrNull { it.state == PhaseState.Active }?.label
-
-@Composable
-private fun PhaseChip(step: PhaseStepUiModel) {
-    RipDpiMetricSurface(
-        tone = metricTone(step.tone),
-        shape = RipDpiThemeTokens.shapes.full,
-    ) { contentColor ->
-        Row(
-            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val dotAlpha =
-                when (step.state) {
-                    PhaseState.Completed -> PhaseStepCompletedAlpha
-                    PhaseState.Active -> PhaseStepActiveAlpha
-                    PhaseState.Pending -> PhaseStepPendingAlpha
-                }
-            Text(
-                text =
-                    when (step.state) {
-                        PhaseState.Completed -> "✓ ${step.label}"
-                        else -> step.label
-                    },
-                style = RipDpiThemeTokens.type.monoSmall,
-                color = contentColor.copy(alpha = dotAlpha),
-            )
-        }
-    }
-}
 
 @Composable
 private fun DnsBaselineBadge(status: DnsBaselineStatus) {
