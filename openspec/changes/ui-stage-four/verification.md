@@ -1,7 +1,7 @@
 ---
 task_id: UIX-1792226888578993
 change: ui-stage-four
-commit_sha: 512d67de7193d6425a18edee6d27e251349f464b
+commit_sha: 70353420b56566020a69e1500e9fb6d3fde94399
 local: required
 local_evidence: Combined 512d67de passed 322 Full host tests and 16 screenshot methods; final serial lint is queued. Earlier production-equivalent staticAnalysis and Full, Simple, service and benchmark lint passed. See docs/audits/2026-10-17-ui-responsiveness.md.
 remote_ci: required
