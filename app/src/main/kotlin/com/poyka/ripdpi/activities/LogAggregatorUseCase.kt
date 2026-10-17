@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -15,15 +16,21 @@ class LogAggregatorUseCase
         private val logEntryMapper: LogEntryMapper,
     ) {
         fun runtimeLogs(telemetry: ServiceTelemetrySnapshot): List<LogEntry> =
+            runtimeLogs(telemetry.proxyTelemetry.nativeEvents, telemetry.tunnelTelemetry.nativeEvents)
+
+        internal fun runtimeLogs(
+            proxyEvents: List<NativeRuntimeEvent>,
+            tunnelEvents: List<NativeRuntimeEvent>,
+        ): List<LogEntry> =
             (
-                telemetry.proxyTelemetry.nativeEvents.map { event ->
+                proxyEvents.map { event ->
                     logEntryMapper.runtimeEvent(
                         event = event,
                         defaultSubsystem = LogSubsystem.Proxy,
                         isActiveSession = true,
                     )
                 } +
-                    telemetry.tunnelTelemetry.nativeEvents.map { event ->
+                    tunnelEvents.map { event ->
                         logEntryMapper.runtimeEvent(
                             event = event,
                             defaultSubsystem = LogSubsystem.Tunnel,
@@ -37,9 +44,19 @@ class LogAggregatorUseCase
             live: List<DiagnosticEvent>,
             activeProgress: ScanProgress?,
             activeConnection: DiagnosticConnectionSession?,
-        ): List<LogEntry> {
-            val activeSessionIds = setOfNotNull(activeProgress?.sessionId, activeConnection?.id)
-            return (
+        ): List<LogEntry> =
+            diagnosticLogs(
+                persisted = persisted,
+                live = live,
+                activeSessionIds = setOfNotNull(activeProgress?.sessionId, activeConnection?.id),
+            )
+
+        internal fun diagnosticLogs(
+            persisted: List<DiagnosticEvent>,
+            live: List<DiagnosticEvent>,
+            activeSessionIds: Set<String>,
+        ): List<LogEntry> =
+            (
                 persisted.map { event ->
                     logEntryMapper.diagnosticEvent(
                         event = event,
@@ -55,7 +72,6 @@ class LogAggregatorUseCase
                         )
                     }
             ).dedupeAndSort()
-        }
 
         fun merge(
             manualLogs: List<LogEntry>,

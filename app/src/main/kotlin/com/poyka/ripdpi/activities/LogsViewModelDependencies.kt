@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
@@ -20,6 +21,7 @@ class LogsViewModelDependencies
         val logEntryMapper: LogEntryMapper,
         val logAggregatorUseCase: LogAggregatorUseCase,
         val serviceEventObserver: LogsServiceEventObserver,
+        val dispatchers: AppCoroutineDispatchers,
     )
 
 class LogsServiceEventObserver

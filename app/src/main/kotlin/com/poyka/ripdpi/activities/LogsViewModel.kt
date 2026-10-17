@@ -2,6 +2,8 @@ package com.poyka.ripdpi.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
@@ -9,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -31,23 +35,31 @@ class LogsViewModel
         private val clearedAfterMs = MutableStateFlow<Long?>(null)
 
         private val runtimeEventLogs =
-            dependencies.serviceStateStore.telemetry.map { telemetry ->
-                dependencies.logAggregatorUseCase.runtimeLogs(telemetry)
-            }
+            dependencies.serviceStateStore.telemetry
+                .map { telemetry ->
+                    RuntimeLogInput(
+                        proxyEvents = telemetry.proxyTelemetry.nativeEvents,
+                        tunnelEvents = telemetry.tunnelTelemetry.nativeEvents,
+                    )
+                }.distinctUntilChanged()
+                .map { input ->
+                    dependencies.logAggregatorUseCase.runtimeLogs(input.proxyEvents, input.tunnelEvents)
+                }
 
         private val diagnosticsEventLogs =
             combine(
                 dependencies.diagnosticsTimelineSource.nativeEvents,
                 dependencies.diagnosticsTimelineSource.liveNativeEvents,
-                dependencies.diagnosticsTimelineSource.activeScanProgress,
-                dependencies.diagnosticsTimelineSource.activeConnectionSession,
-            ) { persisted, live, activeProgress, activeConnection ->
-                dependencies.logAggregatorUseCase.diagnosticLogs(
-                    persisted = persisted,
-                    live = live,
-                    activeProgress = activeProgress,
-                    activeConnection = activeConnection,
-                )
+                dependencies.diagnosticsTimelineSource.activeScanProgress
+                    .map { it?.sessionId }
+                    .distinctUntilChanged(),
+                dependencies.diagnosticsTimelineSource.activeConnectionSession
+                    .map { it?.id }
+                    .distinctUntilChanged(),
+            ) { persisted, live, activeScanId, activeConnectionId ->
+                DiagnosticLogInput(persisted, live, setOfNotNull(activeScanId, activeConnectionId))
+            }.distinctUntilChanged().map { input ->
+                dependencies.logAggregatorUseCase.diagnosticLogs(input.persisted, input.live, input.activeSessionIds)
             }
 
         private val mergedLogs =
@@ -95,7 +107,7 @@ class LogsViewModel
                             activeSessionOnly = activeSessionOnly,
                         ).toImmutableList(),
                 )
-            }.stateIn(
+            }.flowOn(dependencies.dispatchers.default).stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(LogsStateSubscriptionMillis),
                 initialValue = LogsUiState(),
@@ -169,3 +181,14 @@ class LogsViewModel
             }
         }
     }
+
+private data class RuntimeLogInput(
+    val proxyEvents: List<NativeRuntimeEvent>,
+    val tunnelEvents: List<NativeRuntimeEvent>,
+)
+
+private data class DiagnosticLogInput(
+    val persisted: List<DiagnosticEvent>,
+    val live: List<DiagnosticEvent>,
+    val activeSessionIds: Set<String>,
+)
