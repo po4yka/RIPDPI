@@ -1,13 +1,11 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,10 +22,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
+import androidx.compose.foundation.style.styleResolver
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -55,11 +57,31 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.bottomNavigationContentAlpha
+import com.poyka.ripdpi.ui.theme.bottomNavigationFocusBorderColor
+import com.poyka.ripdpi.ui.theme.navigationBar
+import com.poyka.ripdpi.ui.theme.navigationIndicator
+import com.poyka.ripdpi.ui.theme.rememberBottomNavigationItemStyle
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
+import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
+import com.poyka.ripdpi.ui.theme.ripDpiStyleContent
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 private const val CompactBottomNavFontScale = 1.5f
 private val AccessibilityBottomBarExtraHeight = 16.dp
 
 private enum class BottomNavItemLayout { Vertical, Horizontal, Label }
+
+@Composable
+@NonRestartableComposable
+fun BottomNavBar(
+    selectedRoute: Route?,
+    onNavigate: (Route) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BottomNavBar(selectedRoute, onNavigate, modifier, visualStyle = CommonStyle)
+}
 
 @Suppress("LongMethod")
 @Composable
@@ -67,14 +89,16 @@ fun BottomNavBar(
     selectedRoute: Route?,
     onNavigate: (Route) -> Unit,
     modifier: Modifier = Modifier,
+    visualStyle: CommonStyle = CommonStyle,
 ) {
     val components = RipDpiThemeTokens.components
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
     val bottomBarSurface =
         RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBar)
-    val indicatorSurface =
-        RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator)
+    val barStyleState = rememberUpdatedStyleState(null)
+    val barStyleResolver =
+        rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.navigationBar, visualStyle, barStyleState)
     val destinations = Route.topLevel
     val selectedIndex = destinations.indexOfFirst { it == selectedRoute }.takeIf { it >= 0 }
     val fontScale = LocalDensity.current.fontScale
@@ -99,7 +123,7 @@ fun BottomNavBar(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(bottomBarSurface.container)
+                .ripDpiStyleSurface(barStyleResolver)
                 .navigationBarsPadding(),
     ) {
         HorizontalDivider(
@@ -201,8 +225,8 @@ fun BottomNavBar(
                                         alpha = indicatorAlpha
                                         scaleX = indicatorScaleX
                                     }.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator)
-                                    .background(
-                                        color = indicatorSurface.container,
+                                    .ripDpiScreenSurface(
+                                        RipDpiThemeTokens.styles.navigationIndicator,
                                         shape = RipDpiThemeTokens.shapes.xxl,
                                     ),
                         )
@@ -250,30 +274,31 @@ private fun BottomNavItem(
         animationSpec = motion.stateTween(),
         label = "bottomNavLabelColor",
     )
-    val selectionScale by animateFloatAsState(
-        targetValue = if (selected && layout != BottomNavItemLayout.Label) motion.selectionScale else 1f,
-        animationSpec = motion.quickTween(easing = FastOutSlowInEasing),
-        label = "bottomNavSelectionScale",
-    )
+    val selectionScale =
+        animateFloatAsState(
+            targetValue = if (selected && layout != BottomNavItemLayout.Label) motion.selectionScale else 1f,
+            animationSpec = motion.quickTween(easing = FastOutSlowInEasing),
+            label = "bottomNavSelectionScale",
+        )
     val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val focusBorderColor = rememberBottomNavFocusBorderColor(interactionSource)
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (isPressed) 0.6f else 1f,
-        animationSpec = motion.quickTween(),
-        label = "bottomNavContentAlpha",
-    )
+    val styleState = rememberUpdatedStyleState(interactionSource) { it.isSelected = selected }
+    val contentAlpha =
+        animateFloatAsState(
+            targetValue = bottomNavigationContentAlpha(styleState.isPressed),
+            animationSpec = motion.quickTween(),
+            label = "bottomNavContentAlpha",
+        )
 
+    val itemStyle = rememberBottomNavigationItemStyle(selectionScale, contentAlpha)
+    val itemResolver = rememberRipDpiStyleResolver(itemStyle, CommonStyle, styleState)
     val itemModifier =
         modifier
             .fillMaxHeight()
-            .border(RipDpiStroke.Thick, focusBorderColor, RipDpiThemeTokens.shapes.md)
+            .styleResolver(itemResolver)
+            .ripDpiStyleAppearance(itemResolver, shape = RipDpiThemeTokens.shapes.md)
             .ripDpiTestTag(RipDpiTestTags.bottomNav(destination))
-            .graphicsLayer {
-                scaleX = selectionScale
-                scaleY = selectionScale
-                alpha = contentAlpha
-            }.ripDpiSelectable(
+            .ripDpiStyleContent(itemResolver)
+            .ripDpiSelectable(
                 selected = selected,
                 role = Role.Tab,
                 interactionSource = interactionSource,
@@ -323,12 +348,9 @@ private fun BottomNavItemContent(
                     Modifier
                         .matchParentSize()
                         .ripDpiTestTag(RipDpiTestTags.BottomNavIndicator)
-                        .background(
-                            RipDpiThemeTokens.surfaces
-                                .resolve(
-                                    RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator,
-                                ).container,
-                            RipDpiThemeTokens.shapes.xxl,
+                        .ripDpiScreenSurface(
+                            RipDpiThemeTokens.styles.navigationIndicator,
+                            shape = RipDpiThemeTokens.shapes.xxl,
                         ),
                 )
             }
@@ -378,12 +400,9 @@ private fun BottomNavItemIcon(
                     height = components.navigation.bottomNavIndicatorHeight,
                 ).then(
                     if (localIndicator && selected) {
-                        Modifier.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator).background(
-                            RipDpiThemeTokens.surfaces
-                                .resolve(
-                                    RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator,
-                                ).container,
-                            RipDpiThemeTokens.shapes.xxl,
+                        Modifier.ripDpiTestTag(RipDpiTestTags.BottomNavIndicator).ripDpiScreenSurface(
+                            RipDpiThemeTokens.styles.navigationIndicator,
+                            shape = RipDpiThemeTokens.shapes.xxl,
                         )
                     } else {
                         Modifier
@@ -400,21 +419,10 @@ private fun BottomNavItemIcon(
     }
 }
 
-@Composable
-private fun rememberBottomNavFocusBorderColor(interactionSource: MutableInteractionSource): Color {
-    val isFocused by interactionSource.collectIsFocusedAsState()
-    val focusBorderColor by animateColorAsState(
-        targetValue = bottomNavFocusBorderColor(isFocused, RipDpiThemeTokens.colors.outline),
-        animationSpec = RipDpiThemeTokens.motion.quickTween(),
-        label = "bottomNavFocusBorder",
-    )
-    return focusBorderColor
-}
-
 internal fun bottomNavFocusBorderColor(
     isFocused: Boolean,
     outlineColor: Color,
-): Color = if (isFocused) outlineColor else Color.Transparent
+): Color = bottomNavigationFocusBorderColor(isFocused, outlineColor)
 
 @Preview(showBackground = true)
 @Composable

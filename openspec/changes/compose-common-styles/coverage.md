@@ -14,6 +14,7 @@ This inventory records source scope and explicit exceptions. A source candidate 
 | Connection | ConnectionActuator | Delegated primary action and own fault-detail shell | 99 selected tests passed; visual/device checks pending |
 | Feedback | Accordion; nested banner/dialog/sheet/degradation decoration | Accordion shell, icon badges, sheet handle and degradation stripe | 99 selected tests passed; visual/device checks pending |
 | Indicators | LogRow, StaleDataBadge, PageIndicators, AnalysisProgressIndicator | Badges/chips, stale capsule, page fill, outer analysis shell | 99 selected tests passed; visual/device checks pending |
+| Navigation | BottomNavBar, RipDpiNavRail | Bar/rail containers, shared and local selection pills, focus border, brand and selected rail fill; typed tab scale/alpha State through styles | 142 selected unit tests passed, including five navigation tests. Owning screenshot verification: nine passed, two known Diagnostics mismatches; actuals match pre-navigation source. Broad repeat pending |
 | Scaffolds | ContentScreen, Settings, Dashboard, Intro | Existing background nodes; layout and inset contracts stay in place | Pending |
 | Home and history | HomeScreen, HomeModeCard, analysis sheet sections, HistoryScreen/Cards/EmptyStates | Screen backgrounds and own summary/badge shells | Pending |
 | Configuration and settings | ConfigScreen, ModeEditorChainBlockEditor/ScaffoldSections, AdvancedSettingsContent/Components, SettingsPreferences, RememberedNetworks, RootModeStrategies, DataTransparency | Own page, chain, badge and summary shells | Pending |
@@ -30,8 +31,8 @@ The migration keeps the current Compose tokens and verified screenshots. The HTM
 | Actions | `components-buttons`, `components-icon-buttons` |
 | Inputs | `components-chips`, `components-switch`, `components-segmented`, `components-text-field`, `components-dropdown` |
 | Surfaces | `components-card`, `components-preset-card`, `components-settings-row`, `components-actuator`, `components-actuator-states` |
-| Feedback and chrome | `components-accordion`, `components-warning-banner`, `components-dialog`, `components-bottom-sheet`, `components-bottom-nav` |
-| Indicators | 99 selected tests passed; visual/device checks pending |
+| Feedback and chrome | `components-accordion`, `components-warning-banner`, `components-dialog`, `components-bottom-sheet`, `components-bottom-nav`, `android-nav-bar`, `android-nav-rail` |
+| Indicators | `components-status-indicator`, `components-page-indicators`, `components-log-row`, `components-analysis-progress`, `components-stage-progress` |
 | Feature scenes | `android-history`, `diagnostic-port-matrix`, `vpn-in-app-browser`, `onboarding-tour-cards` |
 
 Each name above is an existing `docs/design/rds/preview/<name>.html` file. Route shells and feature scenes without an exact preview use their current implementation and screenshot catalogs as the visual reference.
@@ -42,8 +43,10 @@ Each name above is an existing `docs/design/rds/preview/<name>.html` file. Route
 |---|---|---|
 | Text and icons | Explicit RDS typography, text/icon colors, required text animations | Material does not consume CommonStyle. A resolver must not be read from Composition before attachment. |
 | Material feedback hosts | Surface shells in WarningBanner, DialogCard, BottomSheetCard, Snackbar, DegradationStrip and metric surfaces, ContextMenu, ExportConsentDialog, tooltips | Preserve Material content locals, elevation, semantics and host behavior through explicit parameters. Own nested decoration is in scope above. |
-| Material controls/chrome | Tabs/SecondaryTabRow, dropdown menu/items, Material Scaffold, navigation hosts, modal sheet host and dividers | Preserve the native component contract. No ineffective style overlay is added. |
+| Material controls/chrome | Tabs/SecondaryTabRow, dropdown menu/items, Material Scaffold, navigation destinations/transition hosts, modal sheet host and dividers | Preserve the native component contract. No ineffective style overlay is added. |
 | Diagnostic Material cards | WinningPathCandidateCard, StrategyProbeCandidateRow, CollapsibleCountBadge, OomRecoveryBanner/WarningBadge, PCAP metadata/desync badges, ProfileVariantCard/ChipRow, state-machine NodeCard, StrategySidePanel/VerdictStrip, StrategyImport SourceTile/Badge, ThroughputRangeChip/StatCell | These are Material Surface hosts. Their explicit surface parameters remain the source of paint. |
+| Navigation geometry | Bottom navigation indicator offset/width/alpha/scale, measured label reflow, rail width/scroll | Preserve adaptive geometry and existing typed tween timing. Owned paint and focus state use styles. |
+| Feature motion and plots | OnboardingScreen parallax; DetectionSettingsScreen network-section opacity; DiagnosticsWidgets and detection StatusVisualIndicator graphs/Canvas; dropdown/accordion chevron rotation, Switch thumb offset, PageIndicators width | These values describe feature motion, plotted data, or layout, rather than shared shell styling. |
 | Drawing and progress | StatusIndicator, Spinner, ProgressBar, StageProgressIndicator, inner Analysis progress, stale marker Canvas, telemetry plots and disconnect countdown | Preserve drawing algorithms, numeric progress, custom geometry and animation timing. |
 | Remaining clipping | Diagnostics pager, handshake bar track, latency plot/loss row, quality/throughput plots, active onboarding checklist marker | Clipping defines drawing or page bounds. It is not a shared visual state recipe. |
 | Structure and delegation | TextAction, action layouts, category headers, endpoint rows, top app bar and chrome wrappers with no owned paint | These compose styled RDS or Material components and do not need another resolver. |

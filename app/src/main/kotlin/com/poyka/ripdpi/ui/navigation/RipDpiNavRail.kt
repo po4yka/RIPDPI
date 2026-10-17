@@ -1,6 +1,8 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.navigation
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,11 +13,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
+import androidx.compose.foundation.style.styleResolver
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +41,13 @@ import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.navigationBar
+import com.poyka.ripdpi.ui.theme.navigationRailBrand
+import com.poyka.ripdpi.ui.theme.navigationRailItem
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
+import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 /** Width breakpoint at which the bottom-nav switches to a left-anchored nav rail. */
 const val NavRailMinWidthDp = 600
@@ -60,13 +74,26 @@ fun rememberIsWideScreen(): Boolean = LocalConfiguration.current.screenWidthDp >
  * Matches `android-nav-rail.html`.
  */
 @Composable
+@NonRestartableComposable
 fun RipDpiNavRail(
     selectedRoute: Route?,
     onNavigate: (Route) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    RipDpiNavRail(selectedRoute, onNavigate, modifier, visualStyle = CommonStyle)
+}
+
+@Composable
+fun RipDpiNavRail(
+    selectedRoute: Route?,
+    onNavigate: (Route) -> Unit,
+    modifier: Modifier = Modifier,
+    visualStyle: CommonStyle = CommonStyle,
+) {
     val surfaces = RipDpiThemeTokens.surfaces
     val railSurface = surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBar)
+    val styleState = rememberUpdatedStyleState(null)
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.navigationBar, visualStyle, styleState)
     val destinations = Route.topLevel
     val fontScale = LocalDensity.current.fontScale
     val railWidth =
@@ -80,7 +107,7 @@ fun RipDpiNavRail(
         if (showBrand) RipDpiThemeTokens.spacing.lg else RipDpiThemeTokens.spacing.sm
     val itemSpacing = if (showBrand) RipDpiThemeTokens.spacing.sm else RipDpiThemeTokens.spacing.xs
 
-    Box(modifier = modifier.fillMaxHeight().width(railWidth).background(railSurface.container)) {
+    Box(modifier = modifier.fillMaxHeight().width(railWidth).ripDpiStyleSurface(resolver)) {
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = verticalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -112,8 +139,7 @@ private fun BrandBadge() {
         modifier =
             Modifier
                 .size(40.dp)
-                .clip(CircleShape)
-                .background(colors.foreground, CircleShape)
+                .ripDpiScreenSurface(RipDpiThemeTokens.styles.navigationRailBrand, shape = CircleShape, clip = true)
                 .padding(bottom = RipDpiThemeTokens.spacing.md),
         contentAlignment = Alignment.Center,
     ) {
@@ -133,7 +159,9 @@ private fun NavRailItem(
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val container = if (selected) colors.accent else androidx.compose.ui.graphics.Color.Transparent
+    val interactionSource = remember { MutableInteractionSource() }
+    val styleState = rememberUpdatedStyleState(interactionSource) { it.isSelected = selected }
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.navigationRailItem, CommonStyle, styleState)
     val content = if (selected) colors.foreground else colors.mutedForeground
     val label = stringResource(destination.titleRes)
     Column(
@@ -141,12 +169,14 @@ private fun NavRailItem(
             Modifier
                 .semantics(mergeDescendants = true) {
                     contentDescription = label
-                }.clip(RipDpiThemeTokens.shapes.lg)
-                .background(container)
+                }.styleResolver(resolver)
+                .clip(RipDpiThemeTokens.shapes.lg)
+                .ripDpiStyleAppearance(resolver)
                 .ripDpiSelectable(
                     selected = selected,
                     enabled = true,
                     role = Role.Tab,
+                    interactionSource = interactionSource,
                     hapticFeedback = RipDpiHapticFeedback.Selection,
                     onClick = onClick,
                 ).padding(horizontal = RipDpiThemeTokens.spacing.md, vertical = RipDpiThemeTokens.spacing.sm),
