@@ -2,7 +2,7 @@
 id: UIX-1792259259850628
 title: Smooth diagnostic progress and clarify phase changes
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: Diagnostic feedback integration
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: diagnostic-progress-feedback
 created: 2026-10-17
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 ## Goal
