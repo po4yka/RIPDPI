@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
@@ -24,6 +25,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
+import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityActions
@@ -74,6 +76,8 @@ class ResponsivenessActivity : ComponentActivity() {
             }
         }
         lifecycleScope.launch {
+            // Telemetry becomes ready only after Settings navigation and the Home stop timeout.
+            if (workload == "telemetry") return@launch
             withTimeout(10_000) {
                 if (workload == "logs") logsViewModel.uiState.first { it.logs.size == RuntimeEventCount }
             }
@@ -112,11 +116,23 @@ class ResponsivenessActivity : ComponentActivity() {
             }
 
             "telemetry" -> {
+                var pendingRoute by remember { mutableStateOf<String?>(Route.Settings.stableRoute) }
                 RipDpiNavHost(
                     mainViewModel = ViewModelProvider(this)[MainViewModel::class.java],
                     pauseViewModel = ViewModelProvider(this)[HomePauseViewModel::class.java],
-                    startDestination = Route.Settings,
                     modifier = modifier,
+                    launchRequests =
+                        RipDpiNavHostLaunchRequests(
+                            launchRouteRequested = pendingRoute,
+                            onLaunchRouteHandled = {
+                                pendingRoute = null
+                                lifecycleScope.launch {
+                                    // Home streams use WhileSubscribed(5_000); expire them before measurement.
+                                    delay(6_500)
+                                    phase = "ready"
+                                }
+                            },
+                        ),
                 )
             }
         }
