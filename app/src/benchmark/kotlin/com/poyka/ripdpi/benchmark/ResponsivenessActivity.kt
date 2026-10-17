@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.benchmark
 
+import android.os.Build
 import android.os.Bundle
 import android.os.Trace
 import android.util.Log
@@ -166,7 +167,9 @@ class ResponsivenessActivity : ComponentActivity() {
                 } else {
                     null
                 }
-            Trace.beginAsyncSection("RIPDPI:counterBurst", 1)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                Trace.beginAsyncSection("RIPDPI:counterBurst", 1)
+            }
             try {
                 repeat(CounterTicks) { index ->
                     tick = index + 1
@@ -216,7 +219,9 @@ class ResponsivenessActivity : ComponentActivity() {
                 phase = "done"
             } finally {
                 observer?.cancel()
-                Trace.endAsyncSection("RIPDPI:counterBurst", 1)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    Trace.endAsyncSection("RIPDPI:counterBurst", 1)
+                }
             }
         }
     }
