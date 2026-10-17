@@ -124,7 +124,7 @@ private fun ReadyMainActivityContent(
 ) {
     val pauseViewModel = pauseViewModelFactory()
     val runtimeState by viewModel.activityRuntimeState.collectAsStateWithLifecycle(
-        initialValue = viewModel.uiState.value.toActivityRuntimeUiState(),
+        initialValue = remember(viewModel) { viewModel.uiState.value.toActivityRuntimeUiState() },
     )
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }

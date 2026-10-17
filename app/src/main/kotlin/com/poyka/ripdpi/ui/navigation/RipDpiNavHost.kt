@@ -148,7 +148,7 @@ fun RipDpiNavHost(
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
     val permissionSummary by mainViewModel.permissionSummary.collectAsStateWithLifecycle(
-        initialValue = mainViewModel.uiState.value.permissionSummary,
+        initialValue = remember(mainViewModel) { mainViewModel.uiState.value.permissionSummary },
     )
 
     HandleLaunchRequests(
