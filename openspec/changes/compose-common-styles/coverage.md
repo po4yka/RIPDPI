@@ -53,7 +53,7 @@ Each name above is an existing `docs/design/rds/preview/<name>.html` file. Route
 | Glance widgets | Existing Glance modifiers and widget theme | These widgets use the Glance target, not Compose UI modifier nodes. This migration adds no shared color, shape, or motion value for the widget theme. |
 | Preview-only decoration | Preview scrims and scene backgrounds | Test/preview context is outside production styling. It must still match the intended screenshot scene. |
 
-Experimental opt-in is file-local. There are no inherited text-style flags, transitional style APIs, new locale keys, new backend services, or approved golden changes in this migration.
+Experimental opt-in is file-local. There are no inherited text-style flags, transitional style APIs, new locale keys, new backend services, or unapproved golden changes in this migration. The user approved only the two Logs maximum-font and two Diagnostics maximum-font fixtures after controlled classification; the other 416 remain unchanged.
 
 ## Evidence boundaries
 
