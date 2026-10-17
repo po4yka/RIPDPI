@@ -2,8 +2,10 @@ package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -49,6 +51,7 @@ class HistoryFilterLocaleTest {
                 )
             }
         }
+        composeRule.onNodeWithTag(RipDpiTestTags.historyFilterDisclosure("search")).performClick()
         labels.forEach { (key, label) ->
             composeRule.onNodeWithText(label).assertIsDisplayed().performClick()
             composeRule.runOnIdle { assertEquals(key, selected) }

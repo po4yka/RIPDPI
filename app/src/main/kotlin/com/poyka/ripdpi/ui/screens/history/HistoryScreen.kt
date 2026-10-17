@@ -18,11 +18,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -36,7 +36,6 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
-import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -118,6 +117,7 @@ internal fun HistoryScreen(
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
+    val sectionStateHolder = rememberSaveableStateHolder()
 
     RipDpiScreenScaffold(
         modifier =
@@ -181,41 +181,43 @@ internal fun HistoryScreen(
                         },
                         label = "historySectionContent",
                     ) { section ->
-                        when (section) {
-                            HistorySection.Connections -> {
-                                ConnectionsSection(
-                                    uiState = uiState,
-                                    onModeFilter = onConnectionModeFilter,
-                                    onStatusFilter = onConnectionStatusFilter,
-                                    onSearch = onConnectionSearch,
-                                    onClearFilters = onClearConnectionFilters,
-                                    onSelectConnection = onSelectConnection,
-                                    onOpenConnection = onOpenConnection,
-                                )
-                            }
+                        sectionStateHolder.SaveableStateProvider(section.name) {
+                            when (section) {
+                                HistorySection.Connections -> {
+                                    ConnectionsSection(
+                                        uiState = uiState,
+                                        onModeFilter = onConnectionModeFilter,
+                                        onStatusFilter = onConnectionStatusFilter,
+                                        onSearch = onConnectionSearch,
+                                        onClearFilters = onClearConnectionFilters,
+                                        onSelectConnection = onSelectConnection,
+                                        onOpenConnection = onOpenConnection,
+                                    )
+                                }
 
-                            HistorySection.Diagnostics -> {
-                                DiagnosticsSection(
-                                    uiState = uiState,
-                                    onPathFilter = onDiagnosticsPathFilter,
-                                    onStatusFilter = onDiagnosticsStatusFilter,
-                                    onSearch = onDiagnosticsSearch,
-                                    onClearFilters = onClearDiagnosticsFilters,
-                                    onSelectSession = onSelectDiagnosticsSession,
-                                    onOpenDiagnostics = onOpenDiagnostics,
-                                )
-                            }
+                                HistorySection.Diagnostics -> {
+                                    DiagnosticsSection(
+                                        uiState = uiState,
+                                        onPathFilter = onDiagnosticsPathFilter,
+                                        onStatusFilter = onDiagnosticsStatusFilter,
+                                        onSearch = onDiagnosticsSearch,
+                                        onClearFilters = onClearDiagnosticsFilters,
+                                        onSelectSession = onSelectDiagnosticsSession,
+                                        onOpenDiagnostics = onOpenDiagnostics,
+                                    )
+                                }
 
-                            HistorySection.Events -> {
-                                EventsSection(
-                                    uiState = uiState,
-                                    onToggleFilter = onToggleEventFilter,
-                                    onSearch = onEventSearch,
-                                    onClearFilters = onClearEventFilters,
-                                    onAutoScroll = onEventAutoScroll,
-                                    onSelectEvent = onSelectEvent,
-                                    onOpenConnection = onOpenConnection,
-                                )
+                                HistorySection.Events -> {
+                                    EventsSection(
+                                        uiState = uiState,
+                                        onToggleFilter = onToggleEventFilter,
+                                        onSearch = onEventSearch,
+                                        onClearFilters = onClearEventFilters,
+                                        onAutoScroll = onEventAutoScroll,
+                                        onSelectEvent = onSelectEvent,
+                                        onOpenConnection = onOpenConnection,
+                                    )
+                                }
                             }
                         }
                     }
@@ -242,68 +244,6 @@ internal fun HistoryScreen(
         EventDetailSheet(
             event = event,
             onDismissRequest = onDismissEventDetail,
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun HistoryScreenConnectionsPreview() {
-    RipDpiTheme {
-        HistoryScreen(
-            uiState = HistoryUiState(selectedSection = HistorySection.Connections),
-            onBack = {},
-            onRefresh = {},
-            onSelectSection = {},
-            onConnectionModeFilter = {},
-            onConnectionStatusFilter = {},
-            onConnectionSearch = {},
-            onClearConnectionFilters = {},
-            onSelectConnection = {},
-            onDismissConnectionDetail = {},
-            onDiagnosticsPathFilter = {},
-            onDiagnosticsStatusFilter = {},
-            onDiagnosticsSearch = {},
-            onClearDiagnosticsFilters = {},
-            onSelectDiagnosticsSession = {},
-            onDismissDiagnosticsDetail = {},
-            onToggleEventFilter = { _, _ -> },
-            onEventSearch = {},
-            onClearEventFilters = {},
-            onEventAutoScroll = {},
-            onSelectEvent = {},
-            onDismissEventDetail = {},
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun HistoryScreenEventsPreview() {
-    RipDpiTheme {
-        HistoryScreen(
-            uiState = HistoryUiState(selectedSection = HistorySection.Events),
-            onBack = {},
-            onRefresh = {},
-            onSelectSection = {},
-            onConnectionModeFilter = {},
-            onConnectionStatusFilter = {},
-            onConnectionSearch = {},
-            onClearConnectionFilters = {},
-            onSelectConnection = {},
-            onDismissConnectionDetail = {},
-            onDiagnosticsPathFilter = {},
-            onDiagnosticsStatusFilter = {},
-            onDiagnosticsSearch = {},
-            onClearDiagnosticsFilters = {},
-            onSelectDiagnosticsSession = {},
-            onDismissDiagnosticsDetail = {},
-            onToggleEventFilter = { _, _ -> },
-            onEventSearch = {},
-            onClearEventFilters = {},
-            onEventAutoScroll = {},
-            onSelectEvent = {},
-            onDismissEventDetail = {},
         )
     }
 }

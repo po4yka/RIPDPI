@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -40,6 +43,46 @@ class HomeScreenSetupHealthTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun `retry prompt repairs the requested permission without opening vpn consent`() {
+        var kind by mutableStateOf(PermissionKind.Notifications)
+        val repairedKinds = mutableListOf<PermissionKind>()
+        var vpnDialogs = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            permissionSummary =
+                                PermissionSummaryUiState(
+                                    issue =
+                                        PermissionIssueUiState(
+                                            kind = kind,
+                                            title = "Permission needed",
+                                            message = "Allow this permission before continuing.",
+                                            recovery = PermissionRecovery.RetryPrompt,
+                                            actionLabel = "Allow",
+                                            blocking = true,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = { repairedKinds += it },
+                    onOpenVpnPermissionDialog = { vpnDialogs++ },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).performClick()
+        composeRule.runOnIdle { kind = PermissionKind.LocalNetwork }
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).performClick()
+
+        assertEquals(listOf(PermissionKind.Notifications, PermissionKind.LocalNetwork), repairedKinds)
+        assertEquals(0, vpnDialogs)
+    }
+
+    @Test
     fun `lockdown setup health only appears when vpn is active and opens vpn settings`() {
         var repairedKind: PermissionKind? = null
         composeRule.setContent {
@@ -61,12 +104,7 @@ class HomeScreenSetupHealthTest {
 
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner).assertCountEquals(0)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
-            .assertIsDisplayed()
-            .assertHasClickAction()
-            .performClick()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
+            .onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction)
             .performScrollTo()
             .assertIsDisplayed()
             .assertHasClickAction()
@@ -98,12 +136,7 @@ class HomeScreenSetupHealthTest {
 
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner).assertCountEquals(0)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
-            .assertIsDisplayed()
-            .assertHasClickAction()
-            .performClick()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
+            .onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction)
             .performScrollTo()
             .assertIsDisplayed()
             .assertHasClickAction()
@@ -130,7 +163,7 @@ class HomeScreenSetupHealthTest {
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomePermissionRecommendationBanner).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeBackgroundGuidanceBanner).assertCountEquals(0)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
+            .onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore)
             .assertIsDisplayed()
             .performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails).assertIsDisplayed()

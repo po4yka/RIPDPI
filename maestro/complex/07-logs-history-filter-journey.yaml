@@ -51,6 +51,11 @@ appId: com.poyka.ripdpi
 - tapOn:
     id: "history-events-search"
 - inputText: "automation"
+- hideKeyboard
+- tapOn:
+    id: "history-events-search-filter-disclosure"
+- assertVisible:
+    id: "history-events-search-filter-options"
 - assertVisible:
     id: "history-events-auto-scroll"
 - tapOn:

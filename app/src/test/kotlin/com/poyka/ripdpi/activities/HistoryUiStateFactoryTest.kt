@@ -47,6 +47,7 @@ class HistoryUiStateFactoryTest {
         assertTrue(state.connections.sessions.isEmpty())
         assertTrue(state.diagnostics.sessions.isEmpty())
         assertTrue(state.events.events.isEmpty())
+        assertEquals(listOf(HistoryEventIdentityUiModel("event-1", 5L, matchesFilters = false)), state.eventTimeline)
         assertTrue(state.groupedEvents.isEmpty())
         assertTrue(state.hasConnectionHistory)
         assertTrue(state.hasDiagnosticsHistory)

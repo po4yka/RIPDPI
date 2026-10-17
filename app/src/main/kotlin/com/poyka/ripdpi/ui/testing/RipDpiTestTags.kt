@@ -620,12 +620,13 @@ internal object RipDpiTestTags {
         value: String,
     ): String = "$tag-option-${sanitize(value)}"
 
-    fun historyFilterDisclosure(searchTag: String): String = "$searchTag-filter-disclosure"
+    val historyFilterDisclosure: (String) -> String = { searchTag -> "$searchTag-filter-disclosure" }
 
-    fun historyFilterRemove(
-        searchTag: String,
-        filterKey: String,
-    ): String = "$searchTag-filter-remove-${sanitize(filterKey)}"
+    val historyFilterOptions: (String) -> String = { searchTag -> "$searchTag-filter-options" }
+
+    val historyFilterRemove: (String, String) -> String = { searchTag, filterKey ->
+        "$searchTag-filter-remove-${sanitize(filterKey)}"
+    }
 
     fun awgField(field: String): String = "awg-field-${sanitize(field)}"
 

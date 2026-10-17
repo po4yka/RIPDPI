@@ -9,9 +9,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.AnnotatedString
@@ -20,6 +22,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -85,6 +88,7 @@ class HistoryFilterLayoutTest {
                 }
             }
         }
+        composeRule.onNodeWithTag(RipDpiTestTags.historyFilterDisclosure("search")).performClick()
         listOf("light", "dark").forEach { preference ->
             listOf(411 to 2f, 320 to 2f, 420 to 1f).forEach { (viewport, fontScale) ->
                 composeRule.runOnIdle {
@@ -94,7 +98,7 @@ class HistoryFilterLayoutTest {
                 }
                 labels.forEach { (key, label) ->
                     composeRule.onNodeWithTag("status-$key").performClick().assertIsOn()
-                    assertCompleteLabel(label, fullChipContentBudget)
+                    assertCompleteLabel(key, label, fullChipContentBudget)
                 }
             }
         }
@@ -102,12 +106,13 @@ class HistoryFilterLayoutTest {
     }
 
     private fun assertCompleteLabel(
+        key: String,
         label: String,
         fullChipContentBudget: Float,
     ) {
         val results = mutableListOf<TextLayoutResult>()
         composeRule
-            .onNodeWithText(label, useUnmergedTree = true)
+            .onNode(hasText(label).and(hasAnyAncestor(hasTestTag("status-$key"))), useUnmergedTree = true)
             .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
         val layout = results.single()
         val input = layout.layoutInput

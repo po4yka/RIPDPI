@@ -63,7 +63,7 @@ internal fun subscriptionExpiryAdvisory(
         severity = if (expiring) HomeAdvisorySeverity.Warning else HomeAdvisorySeverity.Error,
         presentation = HomeAdvisoryPresentation.Banner,
         tone = if (expiring) WarningBannerTone.Warning else WarningBannerTone.Error,
-        actionLabel = null,
+        actionLabel = stringResource(R.string.settings_permission_action_review),
         onClick = onOpenStatus,
         testTag = RipDpiTestTags.HomeSubscriptionExpiryBanner,
     )

@@ -36,7 +36,7 @@ internal fun networkConditionAdvisory(
                 severity = HomeAdvisorySeverity.Info,
                 presentation = HomeAdvisoryPresentation.Banner,
                 tone = WarningBannerTone.Info,
-                actionLabel = null,
+                actionLabel = stringResource(R.string.home_network_condition_captive_action),
                 onClick = onCaptivePortalSignIn,
                 testTag = RipDpiTestTags.HomeNetworkConditionBanner,
             )

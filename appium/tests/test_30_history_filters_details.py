@@ -22,6 +22,7 @@ def test_history_events_auto_scroll(driver):
     )
 
     # Toggle auto-scroll.
+    history.open_filters("events")
     assert history.is_auto_scroll_visible(), (
         "Auto-scroll toggle should be visible in events section"
     )

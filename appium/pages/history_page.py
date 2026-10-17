@@ -24,12 +24,23 @@ class HistoryPage(BasePage):
     def is_section_visible(self, section: str) -> bool:
         return self.is_visible(f"history-section-{section}")
 
+    def open_filters(self, section: str) -> None:
+        """Open a section's saved disclosure once, without toggling it closed."""
+        search_tag = f"history-{section}-search"
+        disclosure_tag = f"{search_tag}-filter-disclosure"
+        options_tag = f"{search_tag}-filter-options"
+        self.scroll_to(disclosure_tag)
+        if not self.is_selected(disclosure_tag):
+            self.tap(disclosure_tag)
+        self.scroll_to(options_tag)
+
     def type_search(self, section: str, query: str) -> None:
         tag = f"history-{section}-search"
         self.clear_and_type(tag, query)
 
     def tap_auto_scroll(self) -> None:
-        self.tap(self.EVENTS_AUTO_SCROLL)
+        self.open_filters("events")
+        self.scroll_to(self.EVENTS_AUTO_SCROLL).click()
 
     def is_auto_scroll_visible(self) -> bool:
         return self.is_visible(self.EVENTS_AUTO_SCROLL)
@@ -40,6 +51,7 @@ class HistoryPage(BasePage):
     # -- filter helpers ----------------------------------------------------------
 
     def tap_connections_mode_filter(self, mode: str) -> None:
+        self.open_filters("connections")
         tag = f"history-connections-mode-{mode}"
         if self.is_visible(tag, timeout=2):
             self.tap(tag)
@@ -47,6 +59,7 @@ class HistoryPage(BasePage):
         self.tap_first_with_prefix("history-connections-mode-")
 
     def tap_connections_status_filter(self, status: str) -> None:
+        self.open_filters("connections")
         tag = f"history-connections-status-{status}"
         if self.is_visible(tag, timeout=2):
             self.tap(tag)
@@ -54,6 +67,7 @@ class HistoryPage(BasePage):
         self.tap_first_with_prefix("history-connections-status-")
 
     def tap_diagnostics_path_filter(self, path_mode: str) -> None:
+        self.open_filters("diagnostics")
         tag = f"history-diagnostics-path-{path_mode}"
         if self.is_visible(tag, timeout=2):
             self.tap(tag)
@@ -61,6 +75,7 @@ class HistoryPage(BasePage):
         self.tap_first_with_prefix("history-diagnostics-path-")
 
     def tap_diagnostics_status_filter(self, status: str) -> None:
+        self.open_filters("diagnostics")
         tag = f"history-diagnostics-status-{status}"
         if self.is_visible(tag, timeout=2):
             self.tap(tag)
@@ -68,6 +83,7 @@ class HistoryPage(BasePage):
         self.tap_first_with_prefix("history-diagnostics-status-")
 
     def tap_event_source_filter(self, source: str) -> None:
+        self.open_filters("events")
         tag = f"history-event-source-{source}"
         if self.is_visible(tag, timeout=2):
             self.tap(tag)
@@ -75,6 +91,7 @@ class HistoryPage(BasePage):
         self.tap_first_with_prefix("history-event-source-")
 
     def tap_event_severity_filter(self, severity: str) -> None:
+        self.open_filters("events")
         tag = f"history-event-severity-{severity}"
         if self.is_visible(tag, timeout=2):
             self.tap(tag)

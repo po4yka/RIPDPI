@@ -11,5 +11,9 @@ appId: com.poyka.ripdpi
     id: "history-section-events"
 - assertVisible:
     id: "history-events-search"
+- tapOn:
+    id: "history-events-search-filter-disclosure"
+- assertVisible:
+    id: "history-events-search-filter-options"
 - assertVisible:
     id: "history-events-auto-scroll"

@@ -27,6 +27,7 @@ internal class HistoryUiStateFactory
             val filteredEvents = eventModels.filter { it.matches(eventFilters) }
 
             val groupedEvents = groupConsecutiveEvents(filteredEvents)
+            val matchingEventIds = filteredEvents.mapTo(hashSetOf()) { it.id }
             val selectedConnection =
                 detailState.selectedConnectionDetail?.let(
                     connectionDetailUiFactory::toConnectionDetail,
@@ -82,6 +83,15 @@ internal class HistoryUiStateFactory
                         focusedEventId = detailState.selectedEventId,
                     ),
                 groupedEvents = groupedEvents.toImmutableList(),
+                eventTimeline =
+                    repositorySnapshot.nativeEvents
+                        .map { event ->
+                            HistoryEventIdentityUiModel(
+                                id = event.id,
+                                createdAt = event.createdAt,
+                                matchesFilters = event.id in matchingEventIds,
+                            )
+                        }.toImmutableList(),
                 selectedConnectionDetail = selectedConnection,
                 selectedDiagnosticsDetail = selectedDiagnostics,
                 selectedEvent = eventModels.firstOrNull { it.id == detailState.selectedEventId },

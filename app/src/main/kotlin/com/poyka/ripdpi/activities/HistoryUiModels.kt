@@ -58,12 +58,20 @@ data class GroupedEventUiModel(
 )
 
 @Immutable
+data class HistoryEventIdentityUiModel(
+    val id: String,
+    val createdAt: Long,
+    val matchesFilters: Boolean = true,
+)
+
+@Immutable
 data class HistoryUiState(
     val selectedSection: HistorySection = HistorySection.Connections,
     val connections: HistoryConnectionsUiModel = HistoryConnectionsUiModel(),
     val diagnostics: DiagnosticsSessionsUiModel = DiagnosticsSessionsUiModel(),
     val events: DiagnosticsEventsUiModel = DiagnosticsEventsUiModel(),
     val groupedEvents: ImmutableList<GroupedEventUiModel> = persistentListOf(),
+    val eventTimeline: ImmutableList<HistoryEventIdentityUiModel> = persistentListOf(),
     val selectedConnectionDetail: HistoryConnectionDetailUiModel? = null,
     val selectedDiagnosticsDetail: DiagnosticsSessionDetailUiModel? = null,
     val selectedEvent: DiagnosticsEventUiModel? = null,

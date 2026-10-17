@@ -34,8 +34,9 @@ Make recovery and interface choices explicit while giving history results more s
 - Home worker owns HomeAdvisories.kt, HomeNetworkConditionBanner.kt, HomeSubscriptionExpiryBanner.kt, adjacent Home presentation helpers, and focused Home tests in RIPDPI-home-action-clarity.
 - Persona worker owns the persona row in SettingsPreferenceSections.kt, a new SettingsPersonaPreference helper, and focused settings tests in RIPDPI-persona-choice.
 - History worker owns HistoryFilters.kt, HistorySections.kt, HistoryScreen.kt, HistoryUiModels.kt, HistoryUiStateFactory.kt, adjacent app-only projections, and their focused tests in RIPDPI-history-clarity.
+- History worker also owns appium/pages/history_page.py, Appium history tests 14/30/42, and Maestro route/01-history-and-logs-coverage.yaml and complex/07-logs-history-filter-journey.yaml for required disclosure before control access. Root owns maestro/ui-refactor/status-setup-health.yaml.
 - Each writer uses a separate worktree. Workers send test-only patches for centrally observed RED before production changes. Compiler-backed commands run centrally to avoid duplicate native outputs.
-- Review agents are read-only. Baselines, golden fixtures, build logic, native code, persistence, and wire contracts remain outside scope.
+- Review agents are read-only. After explicit user approval, the golden-blesser owns only the 14 PNG files in the reviewed Home/filter manifest in RIPDPI-ui-action-clarity-goldens. Other baselines, fixtures, build logic, native code, persistence, and wire contracts remain outside scope.
 
 ## Design references
 

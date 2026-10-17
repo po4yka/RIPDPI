@@ -139,6 +139,10 @@ class HistoryScreenTest {
                 )
             }
         }
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.historyFilterDisclosure(RipDpiTestTags.HistoryDiagnosticsSearch),
+            ).performClick()
         val context = org.robolectric.RuntimeEnvironment.getApplication()
         listOf(
             "RAW_PATH" to com.poyka.ripdpi.R.string.diagnostics_scope_direct_label,

@@ -21,12 +21,14 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -268,17 +270,15 @@ internal fun EventsSection(
             ?.representative
             ?.id
     var previousLatestEventId by remember { mutableStateOf<String?>(null) }
+    var arrivalTracker by rememberSaveable(stateSaver = EventArrivalTrackerSaver) {
+        mutableStateOf(EventArrivalTracker())
+    }
     // Keep the request across replacement scrolls until it finishes or the reader scrolls.
     var followIntent by remember { mutableStateOf(EventFollowIntent.None) }
     val userScrollConnection = rememberEventUserScrollConnection { followIntent = EventFollowIntent.None }
-    val isAtLiveEdge by remember(listState) {
-        derivedStateOf {
-            listState.firstVisibleItemIndex <= 1 &&
-                listState.firstVisibleItemScrollOffset <= liveEdgeScrollOffsetThreshold
-        }
-    }
+    val isAtLiveEdge by rememberEventLiveEdge(listState)
 
-    LaunchedEffect(uiState.events.filters.autoScroll, latestEventId) {
+    LaunchedEffect(uiState.events.filters, latestEventId, uiState.eventTimeline) {
         val firstVisibleKey =
             listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.index == listState.firstVisibleItemIndex }
@@ -292,37 +292,26 @@ internal fun EventsSection(
                     uiState.events.filters.autoScroll &&
                         (isAtLiveEdge || wasFollowingLatest || followIntent == EventFollowIntent.Auto)
                 )
+        arrivalTracker =
+            arrivalTracker.observe(uiState.eventTimeline, uiState.events.filters, isAtLiveEdge)
         previousLatestEventId = latestEventId
         if (latestEventId != null && shouldFollow) {
             val targetIndex =
                 if (followIntent == EventFollowIntent.Jump || listState.firstVisibleItemIndex > 0) 1 else 0
             if (followIntent == EventFollowIntent.None) followIntent = EventFollowIntent.Auto
             listState.scrollToEvent(targetIndex, motion)
+            arrivalTracker = arrivalTracker.clearPending()
             followIntent = EventFollowIntent.None
         } else {
             followIntent = EventFollowIntent.None
         }
     }
 
+    LaunchedEffect(isAtLiveEdge) {
+        if (isAtLiveEdge) arrivalTracker = arrivalTracker.clearPending()
+    }
+
     Column(Modifier.fillMaxSize()) {
-        if (latestEventId != null && !isAtLiveEdge) {
-            RipDpiButton(
-                text = stringResource(R.string.history_events_jump_to_latest),
-                onClick = {
-                    scope.launch {
-                        followIntent = EventFollowIntent.Jump
-                        listState.scrollToEvent(1, motion)
-                        followIntent = EventFollowIntent.None
-                    }
-                },
-                variant = RipDpiButtonVariant.Secondary,
-                modifier =
-                    Modifier
-                        .padding(horizontal = layout.horizontalPadding, vertical = spacing.sm)
-                        .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.HistoryEventsJumpToLatest),
-            )
-        }
         LazyColumn(
             modifier = Modifier.weight(1f).nestedScroll(userScrollConnection),
             state = listState,
@@ -336,7 +325,53 @@ internal fun EventsSection(
             }
             historyEventRows(uiState, onClearFilters, onSelectEvent, onOpenConnection)
         }
+        if (latestEventId != null && !isAtLiveEdge) {
+            HistoryLatestEventsButton(
+                pendingCount = arrivalTracker.pendingCount,
+                onClick = {
+                    scope.launch {
+                        followIntent = EventFollowIntent.Jump
+                        listState.scrollToEvent(1, motion)
+                        arrivalTracker = arrivalTracker.clearPending()
+                        followIntent = EventFollowIntent.None
+                    }
+                },
+            )
+        }
     }
+}
+
+@Composable
+private fun rememberEventLiveEdge(listState: LazyListState): State<Boolean> =
+    remember(listState) {
+        derivedStateOf {
+            listState.firstVisibleItemIndex <= 1 &&
+                listState.firstVisibleItemScrollOffset <= liveEdgeScrollOffsetThreshold
+        }
+    }
+
+@Composable
+private fun HistoryLatestEventsButton(
+    pendingCount: Int,
+    onClick: () -> Unit,
+) {
+    val layout = RipDpiThemeTokens.layout
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiButton(
+        text =
+            if (pendingCount > 0) {
+                stringResource(R.string.history_events_jump_to_latest_count, pendingCount)
+            } else {
+                stringResource(R.string.history_events_jump_to_latest)
+            },
+        onClick = onClick,
+        variant = RipDpiButtonVariant.Secondary,
+        modifier =
+            Modifier
+                .padding(horizontal = layout.horizontalPadding, vertical = spacing.sm)
+                .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.HistoryEventsJumpToLatest),
+    )
 }
 
 @Composable

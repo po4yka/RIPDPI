@@ -3,14 +3,36 @@ appId: com.poyka.ripdpi
 - setOrientation: PORTRAIT
 - launchApp:
     stopApp: true
+    arguments:
+      com.poyka.ripdpi.automation.ENABLED: true
+      com.poyka.ripdpi.automation.RESET_STATE: true
+      com.poyka.ripdpi.automation.DISABLE_MOTION: true
+      com.poyka.ripdpi.automation.START_ROUTE: home
+      com.poyka.ripdpi.automation.PERMISSION_PRESET: vpn_missing
+      com.poyka.ripdpi.automation.DATA_PRESET: settings_ready
 - assertVisible:
     id: "home-screen"
 - assertVisible:
     id: "home-setup-health-row"
-- tapOn:
-    id: "home-setup-health-row"
 - assertVisible:
-    id: "home-setup-health-details"
+    id: "home-advisory-primary-action"
+- tapOn:
+    id: "home-advisory-primary-action"
+- assertVisible:
+    id: "vpn-permission-dialog"
+- tapOn:
+    id: "vpn-permission-dialog-dismiss"
+- assertVisible:
+    id: "home-advisory-primary-action"
+- runFlow:
+    when:
+      visible:
+        id: "home-advisory-more"
+    commands:
+      - tapOn:
+          id: "home-advisory-more"
+      - assertVisible:
+          id: "home-setup-health-details"
 - scrollUntilVisible:
     element:
       id: "home-modes-diagnostics-header"

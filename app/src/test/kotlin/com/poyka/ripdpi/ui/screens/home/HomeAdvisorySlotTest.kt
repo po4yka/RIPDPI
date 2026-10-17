@@ -54,7 +54,7 @@ class HomeAdvisorySlotTest {
     fun `expanding the card reaches every advisory it holds`() {
         setHome()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
 
         composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(LOCKDOWN_LABEL).performScrollTo().assertIsDisplayed()

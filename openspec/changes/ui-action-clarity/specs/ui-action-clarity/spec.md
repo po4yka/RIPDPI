@@ -60,6 +60,11 @@ The return-to-latest action MUST show the count of matching newly newest event i
 - **WHEN** the content filters change, a group is refreshed, or older events are loaded
 - **THEN** the counter does not present these records as new arrivals
 
+#### Scenario: A timestamp exceeds the saved identity bound
+
+- **WHEN** more than 256 distinct identities share the high-water timestamp
+- **THEN** saved UI tracking remains bounded and ignores later equal-time arrivals until a newer timestamp, without counting forgotten identities again
+
 ### Requirement: REQ-UIC-ACCESS - Accessible and bounded presentation
 
 The new controls MUST support all ten locales, light and dark themes, font scale 2.0, RTL, and disabled motion. Descriptions and action labels MUST wrap. The changes MUST use existing callbacks, app-only projections, and theme tokens without a new dependency or network, storage, JNI, or protobuf contract.

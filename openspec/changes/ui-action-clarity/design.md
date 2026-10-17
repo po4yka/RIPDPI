@@ -23,6 +23,9 @@ action. This wave keeps those behaviors and changes app presentation only.
   bounded high-water tracker distinguishes new matching identities from old
   records and filter changes. Track identities tied at the latest timestamp
   so same-time events count once. Do not store payloads or an unbounded ID set.
+  Keep at most 256 IDs at one timestamp in saved UI state. If that timestamp
+  saturates the bound, ignore further equal-time arrivals conservatively until
+  a newer timestamp is observed; never count forgotten IDs again as new.
 - Clear the count at the live edge, after a completed jump, or when content
   filters change. Preserve reader anchors and the existing Auto/Jump intent.
 - Root owns locale resources, shared tags, generated translation metadata,

@@ -100,10 +100,9 @@ internal fun buildHomeAdvisories(
 /**
  * The one slot every advisory shares.
  *
- * A lone advisory renders exactly as it did when it owned its own surface, so
- * the common case is unchanged. More than one collapses into a single card
- * headed by the most severe of them, which is the ordering the stacked version
- * never had: it showed whatever was declared first.
+ * A lone banner or compact hint keeps its existing surface. A row shows its
+ * recovery directly. Multiple advisories share a card that preserves the
+ * highest-priority warning and the first available recovery action.
  */
 @Composable
 internal fun HomeAdvisorySlot(advisories: List<HomeAdvisory>) {
@@ -117,7 +116,7 @@ internal fun HomeAdvisorySlot(advisories: List<HomeAdvisory>) {
         }
         return
     }
-    AdvisoryCard(top, rest = advisories)
+    AdvisoryCard(top, advisories = advisories)
 }
 
 @Composable
@@ -133,47 +132,46 @@ internal fun AdvisoryBanner(advisory: HomeAdvisory) {
     )
 }
 
-/**
- * Header plus, when there is more than one advisory, the rest behind a
- * disclosure. The header is named by the advisory that matters most rather than
- * by a generic label, so a subscription that expired is not filed under a title
- * about setup.
- */
+/** Keep the priority warning and first recovery visible; disclose only the remaining items. */
 @Composable
 private fun AdvisoryCard(
     top: HomeAdvisory,
-    rest: List<HomeAdvisory> = emptyList(),
+    advisories: List<HomeAdvisory> = listOf(top),
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    RipDpiCard {
-        SettingsRow(
-            // Collapsed, the header is the only thing naming what needs
-            // attention, so it takes the most severe advisory's title. Expanded,
-            // the list names every one of them and a header repeating the first
-            // row would print the same sentence twice in a row.
-            title = if (expanded) stringResource(R.string.home_setup_health_title) else top.title,
-            subtitle =
-                when {
-                    expanded -> stringResource(R.string.home_setup_health_expanded)
-                    rest.size > 1 -> stringResource(R.string.home_setup_health_collapsed_format, rest.size)
-                    else -> top.message
-                },
-            value =
-                stringResource(
-                    if (expanded) R.string.semantic_action_collapse else R.string.settings_permission_action_review,
-                ),
-            onClick = { expanded = !expanded },
-            leadingIcon = if (rest.size > 1) RipDpiIcons.Settings else RipDpiIcons.Info,
-            showChevron = true,
-            testTag = RipDpiTestTags.HomeSetupHealthRow,
+    val recoveryIndex = advisories.indexOfFirst { it.onClick != null }
+    val remaining = advisories.filterIndexed { index, _ -> index != 0 && index != recoveryIndex }
+    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthRow)) {
+        AdvisoryRow(
+            advisory = top,
+            showDivider = false,
+            testTag = if (recoveryIndex == 0) RipDpiTestTags.HomeAdvisoryPrimaryAction else top.testTag,
         )
-        if (expanded) {
-            Column(
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthDetails),
-                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-            ) {
-                rest.ifEmpty { listOf(top) }.forEach { advisory ->
-                    AdvisoryRow(advisory, showDivider = true)
+        if (recoveryIndex > 0) {
+            AdvisoryRow(
+                advisory = advisories[recoveryIndex],
+                showDivider = false,
+                testTag = RipDpiTestTags.HomeAdvisoryPrimaryAction,
+            )
+        }
+        if (remaining.isNotEmpty()) {
+            SettingsRow(
+                title = stringResource(R.string.home_advisories_more_format, remaining.size),
+                value =
+                    stringResource(
+                        if (expanded) R.string.semantic_action_collapse else R.string.semantic_action_expand,
+                    ),
+                onClick = { expanded = !expanded },
+                leadingIcon = RipDpiIcons.Info,
+                showChevron = true,
+                testTag = RipDpiTestTags.HomeAdvisoryMore,
+            )
+            if (expanded) {
+                Column(
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthDetails),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                ) {
+                    remaining.forEach { advisory -> AdvisoryRow(advisory, showDivider = true) }
                 }
             }
         }
@@ -184,6 +182,7 @@ private fun AdvisoryCard(
 private fun AdvisoryRow(
     advisory: HomeAdvisory,
     showDivider: Boolean,
+    testTag: String = advisory.testTag,
 ) {
     val compact = advisory.presentation == HomeAdvisoryPresentation.CompactRow
     SettingsRow(
@@ -197,7 +196,7 @@ private fun AdvisoryRow(
         leadingIcon = RipDpiIcons.Info,
         showDivider = showDivider,
         variant = if (compact) SettingsRowVariant.Tonal else SettingsRowVariant.Default,
-        testTag = advisory.testTag,
+        testTag = testTag,
     )
 }
 
@@ -255,7 +254,7 @@ private fun permissionIssueAdvisory(
 
                 PermissionRecovery.ShowVpnPermissionDialog,
                 PermissionRecovery.RetryPrompt,
-                -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
+                -> issue.message
             },
         // The one advisory that stops the app from doing its job at all.
         severity = HomeAdvisorySeverity.Error,
@@ -268,13 +267,13 @@ private fun permissionIssueAdvisory(
                     { onRepairPermission(PermissionKind.BatteryOptimization) }
                 }
 
-                PermissionRecovery.ShowVpnPermissionDialog,
-                PermissionRecovery.RetryPrompt,
-                -> {
+                PermissionRecovery.ShowVpnPermissionDialog -> {
                     onOpenVpnPermissionDialog
                 }
 
-                PermissionRecovery.OpenSettings -> {
+                PermissionRecovery.RetryPrompt,
+                PermissionRecovery.OpenSettings,
+                -> {
                     { onRepairPermission(issue.kind) }
                 }
             },

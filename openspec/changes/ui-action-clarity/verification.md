@@ -32,7 +32,8 @@ deployment_evidence: No deployment is owned by this Android UI change.
 Run focused app unit tests for Home, persona, history filters, event counters,
 and their UI projections, then all theme tests. Run Full and service lint,
 `staticAnalysis`, translation-export discovery and manifest checks, architecture
-health, locked Cargo metadata, and strict task validation. No fixture blessing.
+health, locked Cargo metadata, and strict task validation. The user approved only
+the 14 reviewed Home/filter PNG updates, with an isolated golden-blesser writer.
 
 Build real Full debug and AndroidTest APKs. Record source SHA and artifact hashes.
 Under an exclusive API37 arm64 pool lease, test Home recovery/disclosure, persona

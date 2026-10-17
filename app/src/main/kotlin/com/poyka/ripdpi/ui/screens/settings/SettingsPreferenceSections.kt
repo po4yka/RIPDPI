@@ -360,22 +360,7 @@ internal fun SettingsAppearanceSection(
             },
         )
         HorizontalDivider(color = colors.divider)
-        SettingsRow(
-            title = stringResource(R.string.settings_persona_title),
-            subtitle = stringResource(R.string.settings_persona_body),
-            value = stringResource(personaValueRes(uiState.uiPersona)),
-            onClick = {
-                actions.onPersonaSelected(
-                    if (uiState.uiPersona == "advanced") {
-                        "simple"
-                    } else {
-                        "advanced"
-                    },
-                )
-            },
-            showDivider = true,
-            testTag = RipDpiTestTags.SettingsPersona,
-        )
+        SettingsPersonaPreference(persona = uiState.uiPersona, onPersonaSelected = actions.onPersonaSelected)
         SettingsRow(
             title = stringResource(R.string.title_app_customization),
             subtitle = stringResource(R.string.settings_customization_body),
@@ -386,13 +371,6 @@ internal fun SettingsAppearanceSection(
         )
     }
 }
-
-private fun personaValueRes(persona: String): Int =
-    if (persona == "advanced") {
-        R.string.persona_advanced
-    } else {
-        R.string.persona_simple
-    }
 
 @Composable
 internal fun SettingsPermissionsSection(
