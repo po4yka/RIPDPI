@@ -26,6 +26,7 @@ internal class DiagnosticProgressTalkBackSupport(
 ) {
     private val context = instrumentation.targetContext
     private val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+    private var cancellationFocusTarget: CancellationTarget? = null
 
     init {
         automation.serviceInfo =
@@ -45,10 +46,16 @@ internal class DiagnosticProgressTalkBackSupport(
     }
 
     fun focusCancellation() {
+        val target = cancellationTarget()
+        cancellationFocusTarget?.let { previous ->
+            assertEquals("The named Cancel node must retain its identity", previous.named, target.named)
+            assertEquals("The Cancel action must retain its identity", previous.action, target.action)
+        }
         assertTrue(
             "TalkBack must be able to focus Cancel",
-            cancellationNode().performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS),
+            target.named.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS),
         )
+        cancellationFocusTarget = target
     }
 
     fun focusCurrentProgress(expected: Float) {
@@ -62,12 +69,17 @@ internal class DiagnosticProgressTalkBackSupport(
 
     fun assertCancellationFocus() {
         assertBound()
+        val target = cancellationTarget()
+        val previous = checkNotNull(cancellationFocusTarget) { "Cancel has not been focused" }
+        assertEquals("The named Cancel node must retain its identity", previous.named, target.named)
+        assertEquals("The Cancel action must retain its identity", previous.action, target.action)
         val focused = automation.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
         val label = context.getString(R.string.diagnostics_action_cancel)
         assertTrue(
-            "TalkBack focus must stay on Cancel",
-            focused != null && (focused.text?.toString() == label || focused.contentDescription?.toString() == label),
+            "TalkBack focus must stay on the same named Cancel node",
+            focused != null && focused == target.named && hasExactVisibleLabel(focused, label),
         )
+        assertTrue("Cancel must retain its visible clickable action ancestor", isActionFor(target.action, target.named))
     }
 
     fun assertBound() {
@@ -131,26 +143,53 @@ internal class DiagnosticProgressTalkBackSupport(
                 .use { it.readText() }
         }
 
-    private fun cancellationNode(): AccessibilityNodeInfo {
-        val label = context.getString(R.string.diagnostics_action_cancel)
-        return findCancellationNode(automation.rootInActiveWindow, label)
-            ?: error("No visible accessible Cancel action")
+    private data class CancellationTarget(
+        val named: AccessibilityNodeInfo,
+        val action: AccessibilityNodeInfo,
+    )
+
+    private fun cancellationTarget(): CancellationTarget =
+        findCancellationTarget(automation.rootInActiveWindow, context.getString(R.string.diagnostics_action_cancel))
+            ?: error("No unique visible named Cancel with a clickable action ancestor")
+
+    private fun findCancellationTarget(
+        root: AccessibilityNodeInfo?,
+        label: String,
+    ): CancellationTarget? {
+        val targets = mutableListOf<CancellationTarget>()
+        collectCancellationTargets(root, label, null, targets)
+        return targets.singleOrNull()
     }
 
-    private fun findCancellationNode(
+    private fun collectCancellationTargets(
         node: AccessibilityNodeInfo?,
         label: String,
-    ): AccessibilityNodeInfo? {
-        if (node == null) return null
-        if (
-            node.isVisibleToUser && node.isClickable &&
-            (node.text?.toString() == label || node.contentDescription?.toString() == label)
-        ) {
-            return node
+        nearestAction: AccessibilityNodeInfo?,
+        targets: MutableList<CancellationTarget>,
+    ) {
+        if (node == null) return
+        val action = if (node.isVisibleToUser && node.isClickable) node else nearestAction
+        if (hasExactVisibleLabel(node, label) && action != null && isActionFor(action, node)) {
+            targets += CancellationTarget(node, action)
         }
-        return (0 until node.childCount).firstNotNullOfOrNull { index ->
-            findCancellationNode(node.getChild(index), label)
-        }
+        repeat(node.childCount) { index -> collectCancellationTargets(node.getChild(index), label, action, targets) }
+    }
+
+    private fun hasExactVisibleLabel(
+        node: AccessibilityNodeInfo,
+        label: String,
+    ): Boolean =
+        node.isVisibleToUser && (node.text?.toString() == label || node.contentDescription?.toString() == label)
+
+    private fun isActionFor(
+        action: AccessibilityNodeInfo,
+        named: AccessibilityNodeInfo,
+    ): Boolean {
+        val actionBounds = Rect().also { action.getBoundsInScreen(it) }
+        val namedBounds = Rect().also { named.getBoundsInScreen(it) }
+        return action.isVisibleToUser && action.isClickable &&
+            action.actionList.any { it.id == AccessibilityNodeInfo.ACTION_CLICK } &&
+            !namedBounds.isEmpty && actionBounds.contains(namedBounds)
     }
 
     private fun findRangeNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? =
@@ -187,8 +226,8 @@ internal class DiagnosticProgressTalkBackSupport(
             )
         }
         val root = automation.rootInActiveWindow
-        val cancel = findCancellationNode(root, context.getString(R.string.diagnostics_action_cancel))
-        val bounds = Rect().also { cancel?.getBoundsInScreen(it) }
+        val cancel = findCancellationTarget(root, context.getString(R.string.diagnostics_action_cancel))
+        val bounds = Rect().also { cancel?.action?.getBoundsInScreen(it) }
         val temporary = File(file.parentFile, "${file.name}.tmp")
         temporary.writeText(
             JSONObject()
@@ -196,19 +235,23 @@ internal class DiagnosticProgressTalkBackSupport(
                 .put("uptimeMillis", SystemClock.uptimeMillis())
                 .put("cancelBounds", JSONArray(listOf(bounds.left, bounds.top, bounds.right, bounds.bottom)))
                 .put("cancelFound", cancel != null)
-                .put("cancelFocused", cancel?.isAccessibilityFocused ?: false)
+                .put("cancelFocused", cancel?.named?.isAccessibilityFocused ?: false)
+                .put("cancelNamedIdentity", cancel?.named?.let(::nodeIdentity) ?: JSONObject.NULL)
+                .put("cancelActionIdentity", cancel?.action?.let(::nodeIdentity) ?: JSONObject.NULL)
                 .put("activeRootPackage", root?.packageName?.toString().orEmpty())
                 .put("windows", windows)
                 .toString(2),
         )
         check(temporary.renameTo(file))
-        checkNotNull(cancel) { "No visible accessible Cancel action; raw windows saved to $file" }
+        checkNotNull(cancel) { "No unique named Cancel with a clickable action ancestor; raw windows saved to $file" }
     }
 
     private fun collectWindowNodes(
         node: AccessibilityNodeInfo,
         nodes: JSONArray,
+        parentIndex: Int? = null,
     ) {
+        val index = nodes.length()
         val bounds = Rect().also { node.getBoundsInScreen(it) }
         val state =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -218,6 +261,12 @@ internal class DiagnosticProgressTalkBackSupport(
             }
         nodes.put(
             JSONObject()
+                .put("index", index)
+                .put("parentIndex", parentIndex ?: JSONObject.NULL)
+                .put("identity", nodeIdentity(node))
+                .put("actions", JSONArray(node.actionList.map { it.id }))
+                .put("importantForAccessibility", node.isImportantForAccessibility)
+                .put("focusable", node.isFocusable)
                 .put("package", node.packageName?.toString().orEmpty())
                 .put("class", node.className?.toString().orEmpty())
                 .put("text", node.text?.toString().orEmpty())
@@ -229,8 +278,24 @@ internal class DiagnosticProgressTalkBackSupport(
                 .put("clickable", node.isClickable)
                 .put("bounds", JSONArray(listOf(bounds.left, bounds.top, bounds.right, bounds.bottom))),
         )
-        repeat(node.childCount) { index -> node.getChild(index)?.let { collectWindowNodes(it, nodes) } }
+        repeat(node.childCount) { child -> node.getChild(child)?.let { collectWindowNodes(it, nodes, index) } }
     }
+
+    private fun nodeIdentity(node: AccessibilityNodeInfo): JSONObject =
+        JSONObject()
+            .put("windowId", node.windowId)
+            .put("hash", node.hashCode())
+            .put("viewId", node.viewIdResourceName.orEmpty())
+            .put(
+                "uniqueId",
+                if (Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.TIRAMISU
+                ) {
+                    node.uniqueId ?: JSONObject.NULL
+                } else {
+                    JSONObject.NULL
+                },
+            )
 
     companion object {
         private const val TalkBackPackage = "com.google.android.marvin.talkback"
