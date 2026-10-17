@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.HomePauseViewModel
 import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.activities.MainViewModel
@@ -62,6 +63,9 @@ class ResponsivenessActivity : ComponentActivity() {
         workload = requireNotNull(intent.getStringExtra("workload"))
         require(workload in setOf("logs", "catalog", "telemetry"))
         sourceToken = requireNotNull(intent.getStringExtra("source"))
+        require(sourceToken.matches(Regex("[0-9a-f]{40}")) && sourceToken.startsWith(BuildConfig.GIT_COMMIT)) {
+            "The requested source must match the installed benchmark APK"
+        }
         val size = intent.getIntExtra("size", 100)
         require(size in setOf(100, 1000, 5000))
         catalog = catalogInput(size, catalogReads)
