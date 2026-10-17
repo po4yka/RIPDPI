@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewRootForTest
+import androidx.compose.ui.test.v2.runEmptyComposeUiTest
 import androidx.core.view.drawToBitmap
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -91,44 +92,53 @@ internal fun captureStaticRoboImage(
 ) {
     withStaticMotion {
         registerRoborazziActivityToRobolectricIfNeeded()
-        val activityScenario =
-            ActivityScenario.launch<RoborazziActivity>(
-                RoborazziActivity.createIntent(
-                    context = ApplicationProvider.getApplicationContext(),
-                    theme = android.R.style.Theme_Translucent_NoTitleBar_Fullscreen,
-                ),
-            )
-        val configuredContent = roborazziComposeOptions.configured(activityScenario) { content() }
-        try {
-            activityScenario.onActivity { activity ->
-                activity.setContent { configuredContent() }
-                val composeView =
-                    activity.window.decorView
-                        .findViewById<ViewGroup>(android.R.id.content)
-                        .getChildAt(0) as ComposeView
+        runEmptyComposeUiTest {
+            ActivityScenario
+                .launch<RoborazziActivity>(
+                    RoborazziActivity.createIntent(
+                        context = ApplicationProvider.getApplicationContext(),
+                        theme = android.R.style.Theme_Translucent_NoTitleBar_Fullscreen,
+                    ),
+                ).use { activityScenario ->
+                    val configuredContent = roborazziComposeOptions.configured(activityScenario) { content() }
+                    try {
+                        activityScenario.onActivity { activity ->
+                            activity.setContent { configuredContent() }
+                        }
+                        waitForIdle()
+                        lateinit var captureView: View
+                        activityScenario.onActivity { activity ->
+                            val composeView =
+                                activity.window.decorView
+                                    .findViewById<ViewGroup>(android.R.id.content)
+                                    .getChildAt(0) as ComposeView
 
-                @SuppressLint("VisibleForTests")
-                val viewRootForTest = composeView.getChildAt(0) as ViewRootForTest
-                roborazziComposeOptions.beforeCapture()
-                val captureView = viewRootForTest.view
-                val density = activity.resources.displayMetrics.density
-                val widthPx = (widthDp * density).roundToInt()
-                val heightPx = (heightDp * density).roundToInt()
-                captureView.measure(
-                    View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-                    View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY),
-                )
-                captureView.layout(0, 0, widthPx, heightPx)
-                val bitmap = captureView.drawToBitmap()
-                if (filePath == null) {
-                    bitmap.captureRoboImage(roborazziOptions = roborazziOptions)
-                } else {
-                    bitmap.captureRoboImage(filePath, roborazziOptions)
+                            @SuppressLint("VisibleForTests")
+                            val viewRootForTest = composeView.getChildAt(0) as ViewRootForTest
+                            roborazziComposeOptions.beforeCapture()
+                            captureView = viewRootForTest.view
+                            val density = activity.resources.displayMetrics.density
+                            val widthPx = (widthDp * density).roundToInt()
+                            val heightPx = (heightDp * density).roundToInt()
+                            captureView.measure(
+                                View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+                                View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY),
+                            )
+                            captureView.layout(0, 0, widthPx, heightPx)
+                        }
+                        waitForIdle()
+                        runOnUiThread {
+                            val bitmap = captureView.drawToBitmap()
+                            if (filePath == null) {
+                                bitmap.captureRoboImage(roborazziOptions = roborazziOptions)
+                            } else {
+                                bitmap.captureRoboImage(filePath, roborazziOptions)
+                            }
+                        }
+                    } finally {
+                        roborazziComposeOptions.afterCapture()
+                    }
                 }
-                activity.finish()
-            }
-        } finally {
-            roborazziComposeOptions.afterCapture()
         }
     }
 }
