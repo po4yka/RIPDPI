@@ -309,16 +309,15 @@ class BasePage:
             inside = left < (x + end_x) / 2 < right and top < (y + end_y) / 2 < bottom
         return target if inside else None
 
-    def _scroll_container_once(self, container_tag: str, direction: str) -> bool:
+    def _scroll_container_once(self, container_tag: str, direction: str) -> None:
         area = self.find(container_tag).rect
-        # An inset keeps the complete gesture clear of tabs and bars.
-        inset = max(1, min(area["width"], area["height"]) // 100)
-        return self.driver.execute_script("mobile: scrollGesture", {
-            "left": area["x"] + inset, "top": area["y"] + inset,
-            "width": area["width"] - 2 * inset,
-            "height": area["height"] - 2 * inset,
-            "direction": direction, "percent": 0.55,
-        })
+        center_x = area["x"] + area["width"] // 2
+        upper_y = area["y"] + int(area["height"] * 0.2)
+        lower_y = area["y"] + int(area["height"] * 0.8)
+        start_y, end_y = (lower_y, upper_y) if direction == "down" else (upper_y, lower_y)
+        # W3C touch actions work with Compose here; scrollGesture reports false
+        # without moving this body. Both endpoints stay clear of tabs and bars.
+        self.driver.swipe(center_x, start_y, center_x, end_y, duration=600)
 
     def scroll_to_in_container(
         self, tag: str, container_tag: str, max_swipes: int = 5,
@@ -341,9 +340,7 @@ class BasePage:
                             gesture_direction = "up"
                         elif rect["y"] + rect["height"] >= area["y"] + area["height"]:
                             gesture_direction = "down"
-                    can_scroll = self._scroll_container_once(container_tag, gesture_direction)
-                    if not can_scroll:
-                        break
+                    self._scroll_container_once(container_tag, gesture_direction)
                 except (NoSuchElementException, StaleElementReferenceException):
                     continue
         target = self._scoped_target(tag, container_tag, fully_visible)

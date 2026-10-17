@@ -40,12 +40,16 @@ class FakeDriver:
         self.on_scroll = on_scroll
 
     def execute_script(self, command, args):
-        if command != "mobile: scrollGesture":
-            raise AssertionError(f"Unexpected command {command}")
-        self.gestures.append(args)
+        raise AssertionError(f"Unsupported scroll backend: {command}")
+
+    def swipe(self, start_x, start_y, end_x, end_y, duration):
+        self.gestures.append({
+            "start_x": start_x, "start_y": start_y,
+            "end_x": end_x, "end_y": end_y, "duration": duration,
+            "direction": "down" if end_y < start_y else "up",
+        })
         if self.on_scroll:
             self.on_scroll()
-        return False
 
 
 class FakePage(BasePage):
@@ -80,10 +84,14 @@ class HistoryScopedScrollTest(unittest.TestCase):
         self.assertEqual(0, clipped.clicks)
         self.assertEqual(1, visible.clicks)
         self.assertEqual(1, len(driver.gestures))
-        area = driver.gestures[0]
-        self.assertGreater(area["top"], 742)
-        self.assertLess(area["top"] + area["height"], 1848)
-        self.assertEqual("down", area["direction"])
+        gesture = driver.gestures[0]
+        self.assertEqual(540, gesture["start_x"])
+        self.assertEqual(540, gesture["end_x"])
+        self.assertGreater(gesture["start_y"], 742)
+        self.assertLess(gesture["start_y"], 1848)
+        self.assertGreater(gesture["end_y"], 742)
+        self.assertLess(gesture["end_y"], 1848)
+        self.assertEqual("down", gesture["direction"])
 
     def test_missing_exact_target_never_clicks_an_available_other_option(self):
         other = FakeElement("history-diagnostics-status-failed", {"x": 108, "y": 900, "width": 864, "height": 160})
@@ -93,7 +101,7 @@ class HistoryScopedScrollTest(unittest.TestCase):
             page.tap_in_container(self.TARGET, self.BODY)
 
         self.assertEqual(0, other.clicks)
-        self.assertEqual(["down", "up"], [g["direction"] for g in page.driver.gestures])
+        self.assertEqual(["down"] * 5 + ["up"] * 5, [g["direction"] for g in page.driver.gestures])
 
     def test_recycled_element_identity_is_not_clicked(self):
         wrong = FakeElement("history-diagnostics-report-row", {"x": 108, "y": 900, "width": 864, "height": 160})
@@ -133,7 +141,8 @@ class HistoryScopedScrollTest(unittest.TestCase):
         self.assertEqual(self.TARGET, selected)
         self.assertEqual(1, choice.clicks)
         self.assertEqual(1, len(driver.gestures))
-        self.assertGreater(driver.gestures[0]["top"], 742)
+        self.assertGreater(driver.gestures[0]["start_y"], 742)
+        self.assertLess(driver.gestures[0]["end_y"], 1848)
 
     def test_external_latest_action_does_not_use_the_events_list_container(self):
         latest = FakeElement("history-events-jump-to-latest", {"x": 60, "y": 1700, "width": 960, "height": 130})

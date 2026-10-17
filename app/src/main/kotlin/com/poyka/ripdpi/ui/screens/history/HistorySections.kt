@@ -314,13 +314,9 @@ internal fun EventsSection(
     }
 
     Column(Modifier.fillMaxSize()) {
+        val listModifier = Modifier.weight(1f).nestedScroll(userScrollConnection)
         LazyColumn(
-            modifier =
-                Modifier
-                    .weight(
-                        1f,
-                    ).nestedScroll(userScrollConnection)
-                    .ripDpiTestTag(RipDpiTestTags.HistoryEventsList),
+            modifier = listModifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsList),
             state = listState,
             contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
             verticalArrangement = Arrangement.spacedBy(spacing.md),

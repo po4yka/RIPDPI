@@ -130,8 +130,7 @@ class HistoryPage(BasePage):
                 chosen = choose_visible_option()
                 if chosen:
                     return chosen
-                if not self._scroll_container_once(container, direction):
-                    break
+                self._scroll_container_once(container, direction)
         chosen = choose_visible_option()
         if chosen:
             return chosen
