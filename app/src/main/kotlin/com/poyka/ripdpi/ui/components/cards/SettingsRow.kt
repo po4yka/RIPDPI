@@ -53,6 +53,14 @@ enum class SettingsRowVariant {
     Selected,
 }
 
+/** Optional presentation for the styled overload; behavior remains explicit. */
+data class SettingsRowDecoration(
+    val showChevron: Boolean? = null,
+    val showDivider: Boolean = false,
+    val monospaceValue: Boolean = false,
+    val testTag: String? = null,
+)
+
 @Composable
 @NonRestartableComposable
 fun SettingsRow(
@@ -81,18 +89,22 @@ fun SettingsRow(
         onCheckedChange = onCheckedChange,
         leadingIcon = leadingIcon,
         enabled = enabled,
-        showChevron = showChevron,
-        showDivider = showDivider,
-        monospaceValue = monospaceValue,
         variant = variant,
-        testTag = testTag,
         visualStyle = CommonStyle,
+        decoration =
+            SettingsRowDecoration(
+                showChevron = showChevron,
+                showDivider = showDivider,
+                monospaceValue = monospaceValue,
+                testTag = testTag,
+            ),
     )
 }
 
 @Composable
 fun SettingsRow(
     title: String,
+    visualStyle: CommonStyle,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     value: String? = null,
@@ -101,12 +113,8 @@ fun SettingsRow(
     onCheckedChange: ((Boolean) -> Unit)? = null,
     leadingIcon: ImageVector? = null,
     enabled: Boolean = true,
-    showChevron: Boolean = value != null && onClick != null,
-    showDivider: Boolean = false,
-    monospaceValue: Boolean = false,
     variant: SettingsRowVariant = SettingsRowVariant.Default,
-    testTag: String? = null,
-    visualStyle: CommonStyle = CommonStyle,
+    decoration: SettingsRowDecoration = SettingsRowDecoration(),
 ) {
     val colors = RipDpiThemeTokens.colors
     val switchStateDescription =
@@ -125,7 +133,7 @@ fun SettingsRow(
         val rowInteractionSource = remember { MutableInteractionSource() }
         val contentModifier =
             Modifier.settingsRowModifier(
-                testTag = testTag,
+                testTag = decoration.testTag,
                 accessibilityDescription =
                     settingsRowAccessibilityDescription(
                         title = title,
@@ -151,13 +159,13 @@ fun SettingsRow(
             onCheckedChange = onCheckedChange,
             leadingIcon = leadingIcon,
             enabled = enabled,
-            showChevron = showChevron,
-            monospaceValue = monospaceValue,
+            showChevron = decoration.showChevron ?: (value != null && onClick != null),
+            monospaceValue = decoration.monospaceValue,
             state = state,
             stateRole = stateRole,
             modifier = contentModifier,
         )
-        if (showDivider) {
+        if (decoration.showDivider) {
             HorizontalDivider(color = colors.divider)
         }
     }

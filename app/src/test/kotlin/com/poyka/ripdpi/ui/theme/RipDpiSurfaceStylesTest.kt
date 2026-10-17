@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.cards.SettingsRowDecoration
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteAvailabilityState
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteOpportunityPanel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -87,7 +88,7 @@ class RipDpiSurfaceStylesTest {
                     checked = checked,
                     enabled = enabled,
                     onCheckedChange = { checked = it },
-                    testTag = Target,
+                    decoration = SettingsRowDecoration(testTag = Target),
                     visualStyle = visualOverride,
                 )
             }

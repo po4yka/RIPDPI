@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.StyleResolver
+import androidx.compose.foundation.style.StyleState
 import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -99,13 +100,7 @@ fun RipDpiTextField(
     val components = RipDpiThemeTokens.components
     val resolvedTextStyle = behavior.textStyle ?: RipDpiThemeTokens.type.monoValue
     val resolvedInteractionSource = behavior.interactionSource ?: remember { MutableInteractionSource() }
-    val styleState =
-        rememberUpdatedStyleState(resolvedInteractionSource) {
-            it.isEnabled = behavior.enabled
-            it[RipDpiStyleStateKeys.HasError] = decoration.errorText != null
-            it[RipDpiStyleStateKeys.IsEmpty] = value.isEmpty()
-            it[RipDpiStyleStateKeys.Compact] = behavior.density == RipDpiControlDensity.Compact
-        }
+    val styleState = rememberTextFieldStyleState(resolvedInteractionSource, value, decoration, behavior)
     val styleResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.textField, visualStyle, styleState)
     val state =
         RipDpiThemeTokens.state.textField.resolve(
@@ -176,6 +171,20 @@ fun RipDpiTextField(
         }
     }
 }
+
+@Composable
+private fun rememberTextFieldStyleState(
+    interactionSource: MutableInteractionSource,
+    value: String,
+    decoration: RipDpiTextFieldDecoration,
+    behavior: RipDpiTextFieldBehavior,
+): StyleState =
+    rememberUpdatedStyleState(interactionSource) {
+        it.isEnabled = behavior.enabled
+        it[RipDpiStyleStateKeys.HasError] = decoration.errorText != null
+        it[RipDpiStyleStateKeys.IsEmpty] = value.isEmpty()
+        it[RipDpiStyleStateKeys.Compact] = behavior.density == RipDpiControlDensity.Compact
+    }
 
 @Composable
 @NonRestartableComposable
