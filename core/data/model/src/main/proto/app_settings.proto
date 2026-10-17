@@ -472,4 +472,7 @@ message AppSettings {
   // stored only in the Android-Keystore-backed credential store.
   string ws_tunnel_worker_url = 411;
   string ws_tunnel_worker_credential_ref = 412;
+
+  // False preserves the Android system touch feedback setting on upgrade.
+  bool haptic_feedback_disabled = 413;
 }

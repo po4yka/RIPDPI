@@ -13,6 +13,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -36,6 +37,7 @@ class AppSettingsRepositoryPersistenceTest {
                     .setDnsMode(DnsModePlainUdp)
                     .setDnsIp("9.9.9.9")
                     .setWebrtcProtectionEnabled(true)
+                    .setHapticFeedbackDisabled(true)
                     .setDiagnosticsHistoryRetentionDays(7)
                     .build()
             withRepository { repository ->
@@ -45,12 +47,25 @@ class AppSettingsRepositoryPersistenceTest {
                     setDnsMode(expected.dnsMode)
                     setDnsIp(expected.dnsIp)
                     setWebrtcProtectionEnabled(expected.webrtcProtectionEnabled)
+                    setHapticFeedbackDisabled(expected.hapticFeedbackDisabled)
                     setDiagnosticsHistoryRetentionDays(expected.diagnosticsHistoryRetentionDays)
                 }
             }
 
             assertEquals(expected, AppSettings.parseFrom(settingsFile.readBytes()))
             withRepository { assertEquals(expected, it.snapshot()) }
+        }
+
+    @Test
+    fun `reset restores system haptic feedback after store reopen`() =
+        runTest {
+            withRepository { repository ->
+                repository.update { setHapticFeedbackDisabled(true) }
+                assertTrue(repository.snapshot().hapticFeedbackDisabled)
+                repository.replace(AppSettingsSerializer.defaultValue)
+            }
+
+            withRepository { assertFalse(it.snapshot().hapticFeedbackDisabled) }
         }
 
     @Test

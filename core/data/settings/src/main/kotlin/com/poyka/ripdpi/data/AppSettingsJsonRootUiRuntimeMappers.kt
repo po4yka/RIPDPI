@@ -6,6 +6,7 @@ internal fun AppSettingsSnapshot.withUiRuntimeSnapshot(settings: AppSettings): A
     copy(
         rootUiRuntime =
             rootUiRuntime.copy(
+                hapticFeedbackDisabled = settings.hapticFeedbackDisabled,
                 onboardingComplete = settings.onboardingComplete,
                 webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
                 biometricEnabled = settings.biometricEnabled,
@@ -16,6 +17,7 @@ internal fun AppSettingsSnapshot.withUiRuntimeSnapshot(settings: AppSettings): A
 
 internal fun AppSettings.Builder.applyRootUiRuntimeSnapshot(snapshot: AppSettingsSnapshot): AppSettings.Builder =
     setAppTheme(snapshot.rootUiRuntime.appTheme)
+        .setHapticFeedbackDisabled(snapshot.rootUiRuntime.hapticFeedbackDisabled)
         .setRipdpiMode(snapshot.rootUiRuntime.mode.preferenceValue)
         .setIpv6Enable(snapshot.dns.ipv6Enabled)
         .setEnableCmdSettings(snapshot.proxyDesync.enableCommandLineSettings)

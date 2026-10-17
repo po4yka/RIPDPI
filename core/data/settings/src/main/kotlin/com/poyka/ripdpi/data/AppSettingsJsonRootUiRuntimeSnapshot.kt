@@ -6,6 +6,7 @@ import kotlinx.serialization.json.put
 
 internal data class AppSettingsRootUiRuntimeSnapshot(
     val appTheme: String = defaultSettings.appTheme,
+    val hapticFeedbackDisabled: Boolean = defaultSettings.hapticFeedbackDisabled,
     val mode: Mode = Mode.fromString(defaultSettings.ripdpiMode),
     val onboardingComplete: Boolean = defaultSettings.onboardingComplete,
     val webrtcProtectionEnabled: Boolean = defaultSettings.webrtcProtectionEnabled,
@@ -18,6 +19,7 @@ internal data class AppSettingsRootUiRuntimeSnapshot(
 
 internal fun JsonObjectBuilder.writeRootUiRuntimeSnapshot(snapshot: AppSettingsRootUiRuntimeSnapshot) {
     put("appTheme", snapshot.appTheme)
+    put("hapticFeedbackDisabled", snapshot.hapticFeedbackDisabled)
     put("mode", snapshot.mode.preferenceValue)
     put("onboardingComplete", snapshot.onboardingComplete)
     put("webrtcProtectionEnabled", snapshot.webrtcProtectionEnabled)
@@ -32,6 +34,7 @@ internal fun JsonObject.readRootUiRuntimeSnapshot(
 ): AppSettingsRootUiRuntimeSnapshot =
     AppSettingsRootUiRuntimeSnapshot(
         appTheme = stringValue("appTheme", defaults.appTheme),
+        hapticFeedbackDisabled = booleanValue("hapticFeedbackDisabled", defaults.hapticFeedbackDisabled),
         mode = Mode.fromString(stringValue("mode", defaults.mode.preferenceValue)),
         onboardingComplete = booleanValue("onboardingComplete", defaults.onboardingComplete),
         webrtcProtectionEnabled = booleanValue("webrtcProtectionEnabled", defaults.webrtcProtectionEnabled),
