@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_connection_actuator_confirmation_remaining">Confirmez sous %1$d s</string>
+    <string name="history_events_jump_to_latest">Voir les plus récents</string>
+</resources>
