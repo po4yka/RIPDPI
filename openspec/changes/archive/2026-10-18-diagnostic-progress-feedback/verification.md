@@ -1,11 +1,11 @@
 ---
 task_id: "UIX-1792259259850628"
 change: "diagnostic-progress-feedback"
-commit_sha: "c7748db05bdad7672fb99d06dce2fad918ec5ff3"
+commit_sha: "d72bc73f6b23a0dd6cddd9988442bfba16588a80"
 local: "passed"
 local_evidence: "289 diagnostics/theme tests including 26 focused tests, strict light/dark golden verification, staticAnalysis and app/service locale lint passed for identical production and host-test sources. Current AndroidTest detekt, ktlint and APK build passed. Rebased architecture and locked Cargo metadata passed. Independent code review was clean."
-remote_ci: "required"
-remote_ci_evidence: null
+remote_ci: "passed"
+remote_ci_evidence: "Exact d72bc73f6b23a0dd6cddd9988442bfba16588a80 passed all five hosted workflows. CI run 39078011214 passed ci-required, 47 jobs and all required ABI, flavor and API matrix lanes; 17 conditional skips were expected. https://github.com/po4yka/RIPDPI/actions/runs/39078011214"
 device: "passed"
 device_evidence: "API37 arm64 Google emulator pool attempt9 passed seven lanes, ten JUnit executions and two MainActivity smokes. Real Google TalkBack normal and system-off each recognized hardware double-tap and exactly one cancellation callback. All 44 selected speech fragments have distinct real AOSP success events; focus was stable; settings were restored exactly; fresh crash/ANR checks were clean."
 artifact: "passed"
@@ -100,9 +100,23 @@ network scan or a review of audible voice quality.
 | REQ-DPF-SEMANTICS | UIX-1792259449132890 | Immediate measured semantics and actual TalkBack progress reading | passed |
 | REQ-DPF-PHASE | UIX-1792259450323979 | Localized phase tests and real phase speech without counter replay | passed |
 | REQ-DPF-MOTION | UIX-1792259451701964 | Normal/reduced/off tests, actual system-off TalkBack, RTL/font2 | passed |
-| REQ-DPF-VALIDATION | UIX-1792259452596071 | Local/device/artifact checks passed; exact published CI is pending | pending |
+| REQ-DPF-VALIDATION | UIX-1792259452596071 | Local/device/artifact checks and exact published d72bc73f hosted CI passed | passed |
 
 ## Publication
 
-Main integration and ordinary push are authorized. Exact published-SHA hosted
-CI remains required. The task stays in review until this evidence is observed.
+Fast-forward main integration and ordinary push completed at
+`d72bc73f6b23a0dd6cddd9988442bfba16588a80`. The exact published revision passed
+[CI run 39078011214](https://github.com/po4yka/RIPDPI/actions/runs/39078011214)
+and the CodeQL, Secret Scan, harness-checks and fleet-fixtures workflows.
+
+All 64 CI jobs were loaded: 47 passed and 17 conditional skips were expected.
+There were no failures, cancellations, missing required jobs or unexpected
+skips. The final `ci-required` barrier passed. Coverage includes all four native
+ABIs; GitHub, F-Droid and Play debug builds; Full and Simple release builds for
+all three flavors; and instrumentation on API 27, 33, 35, 36 and 37. These hosted
+API lanes are separate from the local real TalkBack acceptance above.
+
+The local records are `ci-d72bc73f6/terminal.json` and
+`ci-d72bc73f6/coverage-ledger.json`. Remote main matched the tested SHA when the
+terminal result was recorded. Later lifecycle commits change task and
+specification records only.

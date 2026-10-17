@@ -2,7 +2,7 @@
 id: UIX-1792259259850628
 title: Smooth diagnostic progress and clarify phase changes
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: Diagnostic feedback integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: diagnostic-progress-feedback
 created: 2026-10-17
 updated: 2026-10-18
+closed_at: "2026-10-17T23:55:29Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Measured progress and phase feedback passed 289 host tests, static and locale gates, unchanged goldens, real API37 TalkBack normal/off acceptance, and exact d72bc73f hosted CI 39078011214 across all required ABI, flavor and API lanes.
 ---
 
 ## Goal
