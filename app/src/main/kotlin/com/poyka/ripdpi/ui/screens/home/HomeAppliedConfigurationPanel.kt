@@ -13,12 +13,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
+import com.poyka.ripdpi.activities.ReconnectSettingsIdentity
+import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -28,17 +27,15 @@ internal fun HomeAppliedConfigurationPanel(
     onReconnect: (com.poyka.ripdpi.services.RunningReconnectRequest.ConfirmedRuntime) -> Unit,
     onCancelReconnect: () -> Unit,
 ) {
-    if (!state.visible) return
     var confirming by remember {
-        mutableStateOf<com.poyka.ripdpi.services.RunningReconnectRequest.ConfirmedRuntime?>(
-            null,
-        )
+        mutableStateOf<ReconnectReviewCapture?>(null)
     }
     val currentState by rememberUpdatedState(state)
-    val eligible = state.pending && !state.reconnecting && state.confirmation != null
-    LaunchedEffect(state.confirmation, eligible) {
-        if (!eligible || confirming != state.confirmation) confirming = null
+    val eligible = state.visible && state.pending && !state.reconnecting && state.confirmation != null
+    LaunchedEffect(state.confirmation, state.reconnectSettingsIdentity, eligible) {
+        if (!eligible || confirming?.matches(state) != true) confirming = null
     }
+    if (!state.visible) return
     RipDpiCard(modifier = Modifier.ripDpiTestTag("home_runtime_configuration")) {
         HomeAppliedConfigurationSummary(state)
         if (state.reconnecting) {
@@ -52,7 +49,16 @@ internal fun HomeAppliedConfigurationPanel(
         } else if (eligible) {
             RipDpiButton(
                 text = stringResource(R.string.oom_recovery_action_reconnect),
-                onClick = { confirming = currentState.confirmation },
+                onClick = {
+                    val latest = currentState
+                    latest.confirmation?.let {
+                        confirming =
+                            ReconnectReviewCapture(
+                                it,
+                                latest.reconnectSettingsIdentity,
+                            )
+                    }
+                },
                 variant = RipDpiButtonVariant.Secondary,
                 wrapLabel = true,
                 modifier = Modifier.fillMaxWidth().ripDpiTestTag("home_runtime_reconnect"),
@@ -60,20 +66,28 @@ internal fun HomeAppliedConfigurationPanel(
         }
     }
     val captured = confirming
-    if (captured != null && eligible && captured == state.confirmation) {
-        RipDpiDialog(
-            onDismissRequest = { confirming = null },
-            title = stringResource(R.string.runtime_config_confirm_title),
-            dismissAction = RipDpiDialogAction(stringResource(R.string.config_cancel), { confirming = null }),
-            confirmAction =
-                RipDpiDialogAction(stringResource(R.string.oom_recovery_action_reconnect), {
+    if (captured != null && eligible && captured.matches(state)) {
+        HomeReconnectReviewDialog(
+            state = state,
+            onDismiss = { confirming = null },
+            onConfirm = {
+                if (confirming === captured) {
                     confirming = null
                     val latest = currentState
-                    if (latest.pending && !latest.reconnecting && captured == latest.confirmation) onReconnect(captured)
-                }, "home_runtime_confirm"),
-            visuals = RipDpiDialogVisuals(message = stringResource(R.string.runtime_config_confirm_body)),
+                    val remainsEligible = latest.visible && latest.pending && !latest.reconnecting
+                    if (remainsEligible && captured.matches(latest)) onReconnect(captured.runtime)
+                }
+            },
         )
     }
+}
+
+private class ReconnectReviewCapture(
+    val runtime: RunningReconnectRequest.ConfirmedRuntime,
+    private val settingsIdentity: ReconnectSettingsIdentity,
+) {
+    fun matches(state: HomeAppliedConfigurationUiState): Boolean =
+        runtime == state.confirmation && settingsIdentity === state.reconnectSettingsIdentity
 }
 
 @Composable

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_preview_current">Aplicado actualmente</string>
+    <string name="runtime_config_preview_saved">Guardado para reconectar</string>
+    <string name="runtime_config_preview_route">Ruta</string>
+    <string name="runtime_config_preview_dns">DNS</string>
+    <string name="runtime_config_preview_strategy">Estrategia de evasión TCP</string>
+    <string name="runtime_config_preview_route_unresolved">Se determina al reconectar</string>
+    <string name="runtime_config_preview_note">Este es un resumen parcial de los ajustes guardados. Los perfiles y las rutas se determinan al reconectar. También pueden aplicarse otros cambios guardados. Los valores efectivos se confirman después de reconectar.</string>
+    <string name="runtime_config_preview_unavailable">No disponible</string>
+</resources>

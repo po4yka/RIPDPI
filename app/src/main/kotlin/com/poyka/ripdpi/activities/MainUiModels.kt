@@ -153,6 +153,7 @@ internal data class MainUiInputs(
     val applications: Map<Mode, com.poyka.ripdpi.data.RuntimeConfigurationApplication> = emptyMap(),
     val pendingConfigurations: Map<Mode, com.poyka.ripdpi.data.RuntimeConfigurationPendingStatus> = emptyMap(),
     val reconnectState: RunningReconnectState = RunningReconnectState.Idle,
+    val reconnectSettingsIdentity: ReconnectSettingsIdentity = ReconnectSettingsIdentity(),
 )
 
 internal data class MainUiInputsBase(
@@ -163,6 +164,7 @@ internal data class MainUiInputsBase(
     val permissions: PermissionRuntimeState,
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
     val pathValidation: NetworkPathValidationEvidence? = null,
+    val reconnectSettingsIdentity: ReconnectSettingsIdentity = ReconnectSettingsIdentity(),
 )
 
 internal fun calculateTransferredBytes(
@@ -201,4 +203,6 @@ data class HomeAppliedConfigurationUiState(
     val reconnecting: Boolean = false,
     val message: String? = null,
     val confirmation: RunningReconnectRequest.ConfirmedRuntime? = null,
+    val reconnectSettingsIdentity: ReconnectSettingsIdentity = ReconnectSettingsIdentity(),
+    val reconnectComparison: HomeReconnectComparisonUiState? = null,
 )

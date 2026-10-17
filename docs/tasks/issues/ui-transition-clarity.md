@@ -31,11 +31,12 @@ and explain safe saved settings before a confirmed reconnect.
 
 ## Ownership
 
-- Root owns all locale resource sets, translation manifest, shared test tags, MainUiStateOwner wiring, planning, integration, compiler-backed checks, and publication in RIPDPI-ui-transition-clarity.
+- Root owns all locale resource sets, translation manifest, shared test tags, MainUiStateOwner and MainUiInputs wiring, MainViewModel flow tests, focused device acceptance tests, planning, integration, compiler-backed checks, and publication in RIPDPI-ui-transition-clarity.
 - History worker owns HistoryScreen.kt, a local transition helper, and focused History tests in RIPDPI-history-rtl-transitions.
 - Connection worker owns RipDpiConnectionActuator.kt, a local feedback helper, and focused actuator tests in RIPDPI-connection-state-feedback.
 - Reconnect worker owns RuntimeConfigurationPresentation.kt, an adjacent safe comparison projection, the applied-configuration portion of MainUiModels.kt, HomeAppliedConfigurationPanel.kt, and focused tests in RIPDPI-reconnect-settings-preview.
-- Each writer uses its own worktree. Root observes test-only RED before production patches. Workers do not run compilers, use devices, or edit serialized files.
+- Each writer uses its own worktree. Root observes test-only RED before production patches. Implementation workers do not run compilers, use devices, or edit serialized files.
+- The device specialist owns only UiTransitionClarityInstrumentedTest.kt under app/src/androidTest in RIPDPI-ui-transition-device. Root applies its patch. After the source commit and root local gates, the device specialist owns one serialized compiler lane for read-only runtime-panel golden checks, real APK builds, leased execution, and evidence. Root does not run compilers during that lane.
 - Review is read-only. Device work uses an exclusive command-scoped pool lease. No golden blessing, quality baseline, dependency, Rust, service, JNI, protobuf, storage, or network behavior change is planned.
 
 ## Design references

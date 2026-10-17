@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 @Suppress("LongParameterList")
@@ -25,17 +26,20 @@ internal class MainUiStateOwner(
     buildApproachSummary: (AppSettings, Mode, List<BypassApproachSummary>) -> HomeApproachSummaryUiState?,
 ) {
     private val localeState = MutableStateFlow("")
+    private val settingsSnapshots = settingsState.map { it to ReconnectSettingsIdentity() }
 
     val uiState: StateFlow<MainUiState> =
         combine(
-            settingsState,
+            settingsSnapshots,
             serviceDependencies.serviceStateStore.status,
             runtimeState,
             permissionState,
             diagnosticsDependencies.diagnosticsTimelineSource.approachStats,
-        ) { settings, statusAndMode, runtime, permissions, approachStats ->
+        ) { settingsSnapshot, statusAndMode, runtime, permissions, approachStats ->
+            val (settings, settingsIdentity) = settingsSnapshot
             MainUiInputsBase(
                 settings = settings,
+                reconnectSettingsIdentity = settingsIdentity,
                 statusAndMode = statusAndMode,
                 runtime = runtime,
                 telemetry = serviceDependencies.serviceStateStore.telemetry.value,
@@ -63,6 +67,7 @@ internal class MainUiStateOwner(
         ) { (base, hardKillSwitch, hostPackCatalog), strategyPackRuntimeState ->
             MainUiInputs(
                 settings = base.settings,
+                reconnectSettingsIdentity = base.reconnectSettingsIdentity,
                 statusAndMode = base.statusAndMode,
                 runtime = base.runtime,
                 telemetry = base.telemetry,

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_preview_current">अभी लागू</string>
+    <string name="runtime_config_preview_saved">दोबारा कनेक्ट करने के लिए सहेजा गया</string>
+    <string name="runtime_config_preview_route">रूट</string>
+    <string name="runtime_config_preview_dns">DNS</string>
+    <string name="runtime_config_preview_strategy">TCP बायपास रणनीति</string>
+    <string name="runtime_config_preview_route_unresolved">दोबारा कनेक्ट करते समय तय होगा</string>
+    <string name="runtime_config_preview_note">यह सहेजी गई सेटिंग का आंशिक सारांश है। प्रोफ़ाइल और रूट दोबारा कनेक्ट करते समय तय होते हैं। सहेजे गए अन्य बदलाव भी लागू हो सकते हैं। दोबारा कनेक्ट होने के बाद प्रभावी मानों की पुष्टि होती है।</string>
+    <string name="runtime_config_preview_unavailable">उपलब्ध नहीं</string>
+</resources>

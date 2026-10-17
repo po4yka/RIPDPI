@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_preview_current">Применено сейчас</string>
+    <string name="runtime_config_preview_saved">Сохранено для переподключения</string>
+    <string name="runtime_config_preview_route">Маршрут</string>
+    <string name="runtime_config_preview_dns">DNS</string>
+    <string name="runtime_config_preview_strategy">Стратегия обхода TCP</string>
+    <string name="runtime_config_preview_route_unresolved">Определяется при переподключении</string>
+    <string name="runtime_config_preview_note">Это неполная сводка сохранённых настроек. Профили и маршруты определяются при переподключении. Могут примениться и другие сохранённые изменения. Итоговые значения станут известны после переподключения.</string>
+    <string name="runtime_config_preview_unavailable">Недоступно</string>
+</resources>

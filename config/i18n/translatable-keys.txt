@@ -4511,6 +4511,14 @@ app:runtime_config_lockdown_unknown
 app:runtime_config_pending
 app:runtime_config_pending_body
 app:runtime_config_permission
+app:runtime_config_preview_current
+app:runtime_config_preview_dns
+app:runtime_config_preview_note
+app:runtime_config_preview_route
+app:runtime_config_preview_route_unresolved
+app:runtime_config_preview_saved
+app:runtime_config_preview_strategy
+app:runtime_config_preview_unavailable
 app:runtime_config_start_failed
 app:runtime_config_stop_timeout
 app:runtime_config_superseded

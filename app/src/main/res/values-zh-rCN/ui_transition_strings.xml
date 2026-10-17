@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_preview_current">当前已应用</string>
+    <string name="runtime_config_preview_saved">已保存，供重新连接时使用</string>
+    <string name="runtime_config_preview_route">路由</string>
+    <string name="runtime_config_preview_dns">DNS</string>
+    <string name="runtime_config_preview_strategy">TCP 绕过策略</string>
+    <string name="runtime_config_preview_route_unresolved">重新连接时确定</string>
+    <string name="runtime_config_preview_note">这只是已保存设置的部分摘要。配置文件和路由将在重新连接时确定。其他已保存的更改也可能生效。 实际生效的值将在重新连接后确认。</string>
+    <string name="runtime_config_preview_unavailable">不可用</string>
+</resources>

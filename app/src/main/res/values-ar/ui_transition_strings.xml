@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_preview_current">مطبّق حاليًا</string>
+    <string name="runtime_config_preview_saved">محفوظ لإعادة الاتصال</string>
+    <string name="runtime_config_preview_route">المسار</string>
+    <string name="runtime_config_preview_dns">DNS</string>
+    <string name="runtime_config_preview_strategy">استراتيجية تجاوز TCP</string>
+    <string name="runtime_config_preview_route_unresolved">يُحدَّد عند إعادة الاتصال</string>
+    <string name="runtime_config_preview_note">هذا ملخص جزئي للإعدادات المحفوظة. تُحدَّد الملفات الشخصية والمسارات عند إعادة الاتصال. قد تُطبَّق أيضًا تغييرات محفوظة أخرى. تُؤكَّد القيم الفعلية بعد إعادة الاتصال.</string>
+    <string name="runtime_config_preview_unavailable">غير متاح</string>
+</resources>

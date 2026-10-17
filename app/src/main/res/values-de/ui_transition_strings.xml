@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_preview_current">Derzeit angewendet</string>
+    <string name="runtime_config_preview_saved">Für die Neuverbindung gespeichert</string>
+    <string name="runtime_config_preview_route">Route</string>
+    <string name="runtime_config_preview_dns">DNS</string>
+    <string name="runtime_config_preview_strategy">TCP-Umgehungsstrategie</string>
+    <string name="runtime_config_preview_route_unresolved">Wird beim Neuverbinden ermittelt</string>
+    <string name="runtime_config_preview_note">Dies ist eine unvollständige Übersicht der gespeicherten Einstellungen. Profile und Routen werden beim Neuverbinden ermittelt. Weitere gespeicherte Änderungen können ebenfalls angewendet werden. Die tatsächlich angewendeten Werte werden nach der Neuverbindung bestätigt.</string>
+    <string name="runtime_config_preview_unavailable">Nicht verfügbar</string>
+</resources>

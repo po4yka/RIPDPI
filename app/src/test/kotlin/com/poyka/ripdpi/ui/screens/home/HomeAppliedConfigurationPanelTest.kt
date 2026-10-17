@@ -10,10 +10,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
@@ -21,6 +24,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
+import com.poyka.ripdpi.activities.HomeReconnectComparisonUiState
+import com.poyka.ripdpi.activities.ReconnectSettingsIdentity
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -56,12 +61,29 @@ class HomeAppliedConfigurationPanelTest {
         composeRule.onNodeWithTag("home_runtime_reconnect").performClick()
         composeRule.onNodeWithText(text(R.string.runtime_config_confirm_body)).assertExists()
         assertEquals(0, reconnects)
-        composeRule.onNodeWithText(text(R.string.config_cancel)).performClick()
+        composeRule.onNodeWithText(text(R.string.config_cancel)).performScrollTo().performClick()
         assertEquals(0, reconnects)
         composeRule.onNodeWithTag("home_runtime_confirm").assertDoesNotExist()
         composeRule.onNodeWithTag("home_runtime_reconnect").performClick()
-        composeRule.onNodeWithTag("home_runtime_confirm").performClick()
+        composeRule.onNodeWithTag("home_runtime_confirm").performScrollTo().performClick()
         assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `reconnect confirmation shows current confirmed configuration for comparison`() {
+        val current = "RIPDPI · Plain DNS"
+        render(
+            HomeAppliedConfigurationUiState(
+                visible = true,
+                status = "Pending",
+                confirmedSummary = current,
+                pending = true,
+                confirmation = confirmation,
+            ),
+        )
+        composeRule.onNodeWithTag("home_runtime_reconnect").performClick()
+        // One copy belongs to the panel; the confirmation must also show the current configuration.
+        composeRule.onAllNodesWithText(current).assertCountEquals(2)
     }
 
     @Test
@@ -124,6 +146,110 @@ class HomeAppliedConfigurationPanelTest {
                         2,
                     ),
             )
+        }
+
+    @Test fun `confirmation closes when hidden saved settings change with identical visible summary`() =
+        assertConfirmationInvalidated {
+            it.copy(reconnectSettingsIdentity = ReconnectSettingsIdentity())
+        }
+
+    @Test
+    fun `saved intent comparison appears only after explicit review and confirm still reconnects once`() {
+        var reconnects = 0
+        render(
+            HomeAppliedConfigurationUiState(
+                visible = true,
+                status = "Pending",
+                confirmedSummary = "RIPDPI · DoT",
+                pending = true,
+                confirmation = confirmation,
+                reconnectComparison = HomeReconnectComparisonUiState("RIPDPI · DoT", "ODoH", "Custom"),
+            ),
+            { reconnects++ },
+        )
+        composeRule.onNodeWithTag("home_runtime_reconnect_dialog").assertDoesNotExist()
+        composeRule.onNodeWithText("ODoH").assertDoesNotExist()
+        composeRule.onNodeWithTag("home_runtime_reconnect").performClick()
+        composeRule.onNodeWithTag("home_runtime_reconnect_current").assertExists()
+        composeRule.onNodeWithTag("home_runtime_reconnect_saved").assertExists()
+        composeRule.onNodeWithText("ODoH").assertExists()
+        composeRule.onNodeWithText("Custom").assertExists()
+        composeRule.onNodeWithText(text(R.string.runtime_config_preview_route_unresolved)).assertExists()
+        composeRule.onNodeWithText(text(R.string.runtime_config_preview_note)).assertExists()
+        assertEquals(0, reconnects)
+        composeRule.onNodeWithTag("home_runtime_confirm").performScrollTo().performClick()
+        assertEquals(1, reconnects)
+    }
+
+    @Test
+    fun `queued confirm from cancelled review keeps current connection`() {
+        var reconnects = 0
+        render(
+            HomeAppliedConfigurationUiState(
+                visible = true,
+                status = "Pending",
+                pending = true,
+                confirmation = confirmation,
+            ),
+            { reconnects++ },
+        )
+        composeRule.onNodeWithTag("home_runtime_reconnect").performClick()
+        val staleConfirm =
+            composeRule
+                .onNodeWithTag("home_runtime_confirm")
+                .performScrollTo()
+                .fetchSemanticsNode()
+                .config[SemanticsActions.OnClick]
+                .action!!
+        val cancel =
+            composeRule
+                .onNodeWithText(text(R.string.config_cancel))
+                .performScrollTo()
+                .fetchSemanticsNode()
+                .config[SemanticsActions.OnClick]
+                .action!!
+        // Both actions run while Foundation's nodes are attached, before recomposition removes the review.
+        composeRule.runOnUiThread {
+            cancel()
+            staleConfirm()
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("home_runtime_confirm").assertDoesNotExist()
+        assertEquals(0, reconnects)
+    }
+
+    @Test
+    fun `same review consumes two queued confirms only once`() {
+        var reconnects = 0
+        render(
+            HomeAppliedConfigurationUiState(
+                visible = true,
+                status = "Pending",
+                pending = true,
+                confirmation = confirmation,
+            ),
+            { reconnects++ },
+        )
+        composeRule.onNodeWithTag("home_runtime_reconnect").performClick()
+        val confirm =
+            composeRule
+                .onNodeWithTag("home_runtime_confirm")
+                .performScrollTo()
+                .fetchSemanticsNode()
+                .config[SemanticsActions.OnClick]
+                .action!!
+        composeRule.runOnUiThread {
+            confirm()
+            confirm()
+        }
+        composeRule.waitForIdle()
+        assertEquals(1, reconnects)
+        composeRule.onNodeWithTag("home_runtime_confirm").assertDoesNotExist()
+    }
+
+    @Test fun `confirmation closes when runtime panel becomes hidden`() =
+        assertConfirmationInvalidated {
+            it.copy(visible = false)
         }
 
     private fun assertConfirmationInvalidated(

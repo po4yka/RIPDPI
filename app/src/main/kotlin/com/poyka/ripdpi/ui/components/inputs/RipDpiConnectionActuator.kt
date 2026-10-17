@@ -53,8 +53,6 @@ import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
-import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -270,18 +268,7 @@ private fun ActuatorHeadline(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (state.status == HomeConnectionActuatorStatus.Engaging) {
-                // Progress is indeterminate: the service does not report stage completion events.
-                // Keep it outside the button so cancellation stays available.
-                RipDpiSpinner(size = RipDpiSpinnerSize.Small)
-            } else {
-                Icon(
-                    imageVector = state.status.icon(),
-                    contentDescription = null,
-                    modifier = Modifier.size(RipDpiIconSizes.Small),
-                    tint = stateStyle.label,
-                )
-            }
+            ConnectionStatusFeedback(status = state.status, tint = stateStyle.label)
             Text(
                 modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
                 text = state.statusDescription,
@@ -427,13 +414,4 @@ private fun HomeConnectionActuatorStatus.toThemeRole(): RipDpiActuatorStateRole 
         HomeConnectionActuatorStatus.Locked -> RipDpiThemeTokens.stateRoles.actuator.locked
         HomeConnectionActuatorStatus.Degraded -> RipDpiThemeTokens.stateRoles.actuator.degraded
         HomeConnectionActuatorStatus.Fault -> RipDpiThemeTokens.stateRoles.actuator.fault
-    }
-
-private fun HomeConnectionActuatorStatus.icon() =
-    when (this) {
-        HomeConnectionActuatorStatus.Open -> RipDpiIcons.Offline
-        HomeConnectionActuatorStatus.Engaging -> RipDpiIcons.Vpn
-        HomeConnectionActuatorStatus.Locked -> RipDpiIcons.Check
-        HomeConnectionActuatorStatus.Degraded -> RipDpiIcons.Warning
-        HomeConnectionActuatorStatus.Fault -> RipDpiIcons.Error
     }

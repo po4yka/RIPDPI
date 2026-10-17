@@ -58,6 +58,8 @@ internal fun buildAppliedConfigurationUiState(
         reconnecting = reconnecting,
         message = message,
         confirmation = application.reconnectConfirmation(mode, status, pending, reconnecting),
+        reconnectSettingsIdentity = inputs.reconnectSettingsIdentity,
+        reconnectComparison = confirmed?.let { buildReconnectComparison(it, inputs.settings, strings) },
     )
 }
 

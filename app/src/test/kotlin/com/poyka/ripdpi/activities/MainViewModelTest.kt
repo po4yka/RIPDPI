@@ -132,6 +132,36 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `reconnect review identity changes on hidden settings but stays stable on telemetry`() =
+        runTest {
+            val settings = onboardedVpnSettingsRepository()
+            val service = FakeServiceStateStore()
+            val viewModel =
+                createViewModel(appSettingsRepository = settings, serviceStateStore = service, initialize = false)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+            val original = viewModel.uiState.value.appliedConfiguration.reconnectSettingsIdentity
+
+            service.updateTelemetry(ServiceTelemetrySnapshot(updatedAt = 42L))
+            runCurrent()
+            assertTrue(
+                "Unrelated telemetry must not invalidate a reconnect review",
+                original === viewModel.uiState.value.appliedConfiguration.reconnectSettingsIdentity,
+            )
+
+            settings.update { cmdArgs = "unshown-settings-value" }
+            runCurrent()
+            val changed = viewModel.uiState.value.appliedConfiguration.reconnectSettingsIdentity
+            assertFalse("An undisplayed proto edit must invalidate the old review", original === changed)
+
+            settings.replace(settings.snapshot().toBuilder().build())
+            runCurrent()
+            assertTrue(changed === viewModel.uiState.value.appliedConfiguration.reconnectSettingsIdentity)
+            assertEquals("ReconnectSettingsIdentity", changed.toString())
+            collector.cancel()
+        }
+
+    @Test
     fun `startup destination prefers onboarding until it is completed`() {
         val settings = AppSettings.newBuilder().build()
 

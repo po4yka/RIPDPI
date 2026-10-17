@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -22,7 +23,9 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -117,6 +120,7 @@ internal fun HistoryScreen(
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
+    val layoutDirection = LocalLayoutDirection.current
     val sectionStateHolder = rememberSaveableStateHolder()
 
     RipDpiScreenScaffold(
@@ -160,7 +164,9 @@ internal fun HistoryScreen(
                     AnimatedContent(
                         targetState = uiState.selectedSection,
                         transitionSpec = {
-                            val direction = targetState.ordinal.compareTo(initialState.ordinal)
+                            val logicalDirection = targetState.ordinal.compareTo(initialState.ordinal)
+                            val direction =
+                                if (layoutDirection == LayoutDirection.Rtl) -logicalDirection else logicalDirection
                             val enterSlide =
                                 slideInHorizontally(
                                     initialOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) 1 else -1 },
@@ -177,7 +183,9 @@ internal fun HistoryScreen(
                                     fadeOut(
                                         animationSpec = motion.quickTween(),
                                     )
-                            enterSlide togetherWith exitSlide
+                            (enterSlide togetherWith exitSlide).using(
+                                if (motion.animationsEnabled) SizeTransform() else null,
+                            )
                         },
                         label = "historySectionContent",
                     ) { section ->
