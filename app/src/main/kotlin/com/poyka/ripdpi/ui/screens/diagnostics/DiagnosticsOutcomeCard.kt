@@ -1,12 +1,23 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsOutcomeSource
 import com.poyka.ripdpi.activities.DiagnosticsOutcomeUiModel
@@ -28,31 +39,12 @@ internal fun DiagnosticsOutcomeCard(
     onOpenScan: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
     val active = outcome.source == DiagnosticsOutcomeSource.Active
     RipDpiCard(
         variant = RipDpiCardVariant.Elevated,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewHero),
     ) {
-        Text(stringResource(outcome.source.label()), style = type.sectionTitle, color = colors.mutedForeground)
-        Text(
-            outcome.headline?.takeIf(String::isNotBlank)
-                ?: stringResource(
-                    if (active) {
-                        R.string.diagnostics_simple_funnel_verdict_running
-                    } else {
-                        R.string.diagnostics_headline_no_data
-                    },
-                ),
-            style = type.cardTitle,
-            color = colors.foreground,
-        )
-        Text(
-            outcome.summary?.takeIf(String::isNotBlank) ?: stringResource(R.string.diagnostics_simple_funnel_body),
-            style = type.body,
-            color = colors.mutedForeground,
-        )
+        DiagnosticsOutcomeTransition(outcome)
         RipDpiButton(
             text =
                 stringResource(
@@ -80,6 +72,74 @@ internal fun DiagnosticsOutcomeCard(
         ) {
             DiagnosticsGuidedActions(homeDiagnostics, {}, onStartVerifiedVpn, showSummary = false)
         }
+    }
+}
+
+@Composable
+private fun DiagnosticsOutcomeTransition(outcome: DiagnosticsOutcomeUiModel) {
+    val motion = RipDpiThemeTokens.motion
+    Box(Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsOutcomeTransition)) {
+        if (!motion.animationsEnabled || motion.reducedMotion) {
+            DiagnosticsOutcomeSummary(outcome)
+        } else {
+            // Text updates keep the same holder and do not restart completion motion.
+            val content = key(outcome.source, outcome.evidenceId) { rememberUpdatedState(outcome) }
+            AnimatedContent(
+                targetState = content,
+                transitionSpec = {
+                    val completion =
+                        initialState.value.source == DiagnosticsOutcomeSource.Active &&
+                            (
+                                targetState.value.source == DiagnosticsOutcomeSource.Session ||
+                                    targetState.value.source == DiagnosticsOutcomeSource.CompositeAudit
+                            )
+                    if (completion) {
+                        (
+                            fadeIn(animationSpec = motion.stateTween()) togetherWith
+                                fadeOut(animationSpec = motion.quickTween())
+                        ).using(null)
+                    } else {
+                        (EnterTransition.None togetherWith ExitTransition.None).using(null)
+                    }
+                },
+                label = "diagnosticsOutcome",
+            ) { displayed ->
+                DiagnosticsOutcomeSummary(
+                    outcome = displayed.value,
+                    modifier = if (displayed === content) Modifier else Modifier.semantics { hideFromAccessibility() },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticsOutcomeSummary(
+    outcome: DiagnosticsOutcomeUiModel,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val active = outcome.source == DiagnosticsOutcomeSource.Active
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+        Text(stringResource(outcome.source.label()), style = type.sectionTitle, color = colors.mutedForeground)
+        Text(
+            outcome.headline?.takeIf(String::isNotBlank)
+                ?: stringResource(
+                    if (active) {
+                        R.string.diagnostics_simple_funnel_verdict_running
+                    } else {
+                        R.string.diagnostics_headline_no_data
+                    },
+                ),
+            style = type.cardTitle,
+            color = colors.foreground,
+        )
+        Text(
+            outcome.summary?.takeIf(String::isNotBlank) ?: stringResource(R.string.diagnostics_simple_funnel_body),
+            style = type.body,
+            color = colors.mutedForeground,
+        )
     }
 }
 
