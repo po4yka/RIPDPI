@@ -2,7 +2,7 @@
 id: UIX-1792244042561922
 title: Clarify connection feedback and reconnect changes
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI transition integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: ui-transition-clarity
 created: 2026-10-17
 updated: 2026-10-17
+status_detail: Implementation, local gates, real APK emulator acceptance, main push, and exact-source hosted CI passed.
 ---
 
 ## Goal

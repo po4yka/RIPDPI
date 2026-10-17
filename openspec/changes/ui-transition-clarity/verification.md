@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1792244042561922
 change: ui-transition-clarity
-commit_sha: null
-local: required
-local_evidence: null
-remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+commit_sha: "3a902bddea2d7cab970fe9e3a0b6ff7f81a6703e"
+local: "passed"
+local_evidence: "121 focused tests and 16 runtime-panel golden tests passed without failures, errors, or skips. Post-rebase staticAnalysis, Full/Simple/service lint, translation export, architecture health, locked Cargo metadata, task contracts and strict OpenSpec validation passed on the same source commit."
+remote_ci: "passed"
+remote_ci_evidence: "Exact source commit 3a902bddea2d7cab970fe9e3a0b6ff7f81a6703e passed CI run https://github.com/po4yka/RIPDPI/actions/runs/39044755755, including ci-required, all five API cohorts (27/33/35/36/37), and all three release flavors. All six auxiliary workflows passed. CI reported 47 successful jobs and 17 conditional job skips, with no failures, cancellations, or timeouts."
+device: "passed"
+device_evidence: "API 37 arm64-v8a: 8 component tests and 1 actual Arabic dialog test passed. MainActivity Home and five History section steps passed in EN/light/font1 and AR/dark/font2. Crash and ANR counts were zero; device settings were restored and the pool lease was released."
+artifact: "passed"
+artifact_evidence: "GithubFullDebug app and test APKs were built from 3a902bddea2d7cab970fe9e3a0b6ff7f81a6703e. Generated and DEX source stamps matched. Local and installed SHA-256 matched: app 29344d7f1321fbccff299f511403f123d6bbd8fb7ce9350eb3b4ee25c181dd2f; test 35afd7723a808ab082fb1cd512c034fb55c7e3de7e88d0ff530d3e09a7f1dbfa."
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this app presentation change.
 ---
@@ -20,36 +20,58 @@ deployment_evidence: No deployment is owned by this app presentation change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-UTC-RTL | UIX-1792244219751542 | 8 actual-offset and retained-state tests, including static and reduced motion | passed |
-| REQ-UTC-FEEDBACK | UIX-1792244220667211 | 7 frozen-clock status, semantics, same-status, reduced/off and action tests | passed |
-| REQ-UTC-PREVIEW | UIX-1792244221670352 | 5 safe projection tests and 17 review panel tests | passed |
-| REQ-UTC-SNAPSHOT | UIX-1792244221670352 | 69 MainViewModel tests, hidden settings identity, telemetry stability, stale runtime and one-shot review | passed |
-| REQ-UTC-VALIDATION | UIX-1792244222504548 | Combined gates, independent review, real APK and leased emulator | pending |
+| REQ-UTC-RTL | UIX-1792244219751542 | 8 actual-offset, motion-policy, and retained-state tests; device LTR/RTL round trips | passed |
+| REQ-UTC-FEEDBACK | UIX-1792244220667211 | 7 status, semantics, telemetry, motion-policy, and action tests; device normal/reduced/off cases | passed |
+| REQ-UTC-PREVIEW | UIX-1792244221670352 | 5 safe projection tests, 17 review panel tests, and EN/Arabic device review | passed |
+| REQ-UTC-SNAPSHOT | UIX-1792244221670352 | 69 MainViewModel tests plus stale runtime, hidden settings, cancellation, and one-shot confirmation cases | passed |
+| REQ-UTC-VALIDATION | UIX-1792244222504548 | Local gates, independent review, real APK, emulator, and exact-source hosted CI passed | passed |
 
-## Planned acceptance
+## Local validation
 
-Observe RED/GREEN focused tests, theme tests, Full/service locale lint and
-staticAnalysis. Validate translation export, architecture health, full locked
-Cargo metadata and task contracts. Under an exclusive emulator pool lease,
-inspect RTL/LTR forward/reverse transitions, status success/fault/cancel,
-normal/reduced/off motion, reconnect preview/confirm/cancel/stale state,
-light/dark and font2. Record app and test source SHA and APK hashes. Preserve
-existing golden captures; report any intentional diff before blessing.
+The combined cohort passed 121 tests with no failures, errors, or skips.
+The separate runtime-panel golden gate passed all 16 cases without fixture
+changes. The normal unit task excludes screenshot classes; these counts are
+separate. Meaningful RED tests preceded the RTL, comparison, feedback,
+settings-identity, and cancellation fixes.
 
-UIX-1792244223589481 owns authorized ff-only main integration, ordinary push,
-and exact-published-SHA hosted CI inspection after rebase and combined gates.
-The saved summary is partial: catalog-dependent route selection is resolved by
-the service when reconnecting. A settings token covers all AppSettings values;
-it does not claim to freeze independent provider catalogs.
-
-## Local checks before the source commit
-
-The combined unit cohort passed: 121 tests, 0 failures, 0 errors, 0 skips.
-staticAnalysis, Full and Simple app lint, service lint, translation export,
+After fetch and rebase, the source commit stayed unchanged. The combined
+121-test gate, staticAnalysis, Full/Simple/service lint, translation export,
 architecture health, full locked Cargo metadata, task contracts, and strict
-OpenSpec validation passed. Read-only independent review and structured review
-reported no actionable blockers. No golden fixture was changed.
+OpenSpec validation passed before integration. Read-only independent review
+and structured review found no actionable blockers.
 
-Runtime-panel golden verification, the real APK build, emulator acceptance,
-and exact published revision CI remain required. The normal unit task excludes
-screenshot classes; the 121-test count does not include golden checks.
+## Device and artifact validation
+
+Both real GithubFullDebug APKs were built from the source commit in the
+frontmatter. Generated and DEX source stamps matched. The local and installed
+APK hashes matched the artifact receipt.
+
+API 37 arm64-v8a passed all 8 component tests and a separate actual Arabic
+dialog test, with no failures or skips. MainActivity Home and five History
+section steps passed in EN/light/font1 and AR/dark/font2. Comparison values
+and both actions remained reachable by scrolling. Crash and ANR counts were
+zero. Device settings were restored and the exclusive pool lease was released.
+
+The first external smoke runner chose `clean_home`, which deliberately opens
+onboarding. That failed result was retained. Only the external runner preset
+changed to `settings_ready`; a fresh full cohort passed on the same sealed
+APKs. No app source or test assertion changed.
+
+Component tests use controlled presentation states. MainActivity smoke uses
+repository-owned offline presets. This evidence does not claim a live network
+or service reconnect test. The saved summary is partial. Effective values and
+catalog-dependent routes are confirmed after reconnecting. The settings token
+covers observed AppSettings emissions; it does not freeze provider catalogs.
+
+## Publication
+
+The source commit was integrated with a fast-forward and pushed to main.
+Hosted CI passed for that exact revision: [CI run 39044755755](https://github.com/po4yka/RIPDPI/actions/runs/39044755755).
+All five API cohorts (27, 33, 35, 36, and 37), all three release flavors,
+and `ci-required` passed. The complete CI graph had 47 successful jobs and
+17 conditional job skips, with no failures, cancellations, or timeouts. All six
+auxiliary workflows passed. Conditional job skips are not test skip counts.
+
+This receipt refers to the tested source commit. The later receipt commit changes
+documentation only. No golden fixture, quality baseline, dependency, native,
+service, JNI, protobuf, or storage contract changed.
