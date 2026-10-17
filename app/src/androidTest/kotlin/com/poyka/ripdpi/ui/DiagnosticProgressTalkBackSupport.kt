@@ -133,9 +133,24 @@ internal class DiagnosticProgressTalkBackSupport(
 
     private fun cancellationNode(): AccessibilityNodeInfo {
         val label = context.getString(R.string.diagnostics_action_cancel)
-        val nodes = automation.rootInActiveWindow.findAccessibilityNodeInfosByText(label)
-        return nodes.firstOrNull { it.isVisibleToUser && it.isClickable }
+        return findCancellationNode(automation.rootInActiveWindow, label)
             ?: error("No visible accessible Cancel action")
+    }
+
+    private fun findCancellationNode(
+        node: AccessibilityNodeInfo?,
+        label: String,
+    ): AccessibilityNodeInfo? {
+        if (node == null) return null
+        if (
+            node.isVisibleToUser && node.isClickable &&
+            (node.text?.toString() == label || node.contentDescription?.toString() == label)
+        ) {
+            return node
+        }
+        return (0 until node.childCount).firstNotNullOfOrNull { index ->
+            findCancellationNode(node.getChild(index), label)
+        }
     }
 
     private fun findRangeNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? =
@@ -157,51 +172,63 @@ internal class DiagnosticProgressTalkBackSupport(
         file: File,
         stage: String,
     ) {
-        val cancel = cancellationNode()
-        val bounds = Rect().also { cancel.getBoundsInScreen(it) }
         val windows = JSONArray()
         automation.windows.forEach { window ->
             val nodes = JSONArray()
             window.root?.let { collectWindowNodes(it, nodes) }
-            windows.put(JSONObject().put("id", window.id).put("type", window.type).put("nodes", nodes))
+            windows.put(
+                JSONObject()
+                    .put("id", window.id)
+                    .put("type", window.type)
+                    .put("title", window.title?.toString().orEmpty())
+                    .put("active", window.isActive)
+                    .put("focused", window.isFocused)
+                    .put("nodes", nodes),
+            )
         }
+        val root = automation.rootInActiveWindow
+        val cancel = findCancellationNode(root, context.getString(R.string.diagnostics_action_cancel))
+        val bounds = Rect().also { cancel?.getBoundsInScreen(it) }
         val temporary = File(file.parentFile, "${file.name}.tmp")
         temporary.writeText(
             JSONObject()
                 .put("stage", stage)
                 .put("uptimeMillis", SystemClock.uptimeMillis())
                 .put("cancelBounds", JSONArray(listOf(bounds.left, bounds.top, bounds.right, bounds.bottom)))
-                .put("cancelFocused", cancel.isAccessibilityFocused)
+                .put("cancelFound", cancel != null)
+                .put("cancelFocused", cancel?.isAccessibilityFocused ?: false)
+                .put("activeRootPackage", root?.packageName?.toString().orEmpty())
                 .put("windows", windows)
                 .toString(2),
         )
         check(temporary.renameTo(file))
+        checkNotNull(cancel) { "No visible accessible Cancel action; raw windows saved to $file" }
     }
 
     private fun collectWindowNodes(
         node: AccessibilityNodeInfo,
         nodes: JSONArray,
     ) {
-        val source = node.packageName?.toString()
-        if (source == context.packageName || source == TalkBackPackage) {
-            val state =
-                if (Build.VERSION.SDK_INT >=
-                    Build.VERSION_CODES.R
-                ) {
-                    node.stateDescription?.toString().orEmpty()
-                } else {
-                    ""
-                }
-            nodes.put(
-                JSONObject()
-                    .put("package", source)
-                    .put("text", node.text?.toString().orEmpty())
-                    .put("description", node.contentDescription?.toString().orEmpty())
-                    .put("progress", node.rangeInfo?.current ?: JSONObject.NULL)
-                    .put("state", state)
-                    .put("focused", node.isAccessibilityFocused),
-            )
-        }
+        val bounds = Rect().also { node.getBoundsInScreen(it) }
+        val state =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                node.stateDescription?.toString().orEmpty()
+            } else {
+                ""
+            }
+        nodes.put(
+            JSONObject()
+                .put("package", node.packageName?.toString().orEmpty())
+                .put("class", node.className?.toString().orEmpty())
+                .put("text", node.text?.toString().orEmpty())
+                .put("description", node.contentDescription?.toString().orEmpty())
+                .put("progress", node.rangeInfo?.current ?: JSONObject.NULL)
+                .put("state", state)
+                .put("focused", node.isAccessibilityFocused)
+                .put("visible", node.isVisibleToUser)
+                .put("clickable", node.isClickable)
+                .put("bounds", JSONArray(listOf(bounds.left, bounds.top, bounds.right, bounds.bottom))),
+        )
         repeat(node.childCount) { index -> node.getChild(index)?.let { collectWindowNodes(it, nodes) } }
     }
 
