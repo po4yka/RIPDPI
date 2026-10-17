@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.indicators
 
 import androidx.compose.animation.AnimatedContent
@@ -19,9 +21,12 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -46,12 +51,14 @@ import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.analysisContainer
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
 private val SegmentHeight = 6.dp
 private val SegmentGap = 4.dp
-private const val ContainerBgAlpha = 0.06f
 private const val PulseTargetAlpha = 0.45f
 private const val PulseDurationMs = 1200
 private const val ShimmerDurationMs = 1800
@@ -66,11 +73,29 @@ private data class PipelineAlphas(
 )
 
 @Composable
+@NonRestartableComposable
 fun AnalysisProgressIndicator(
     stages: ImmutableList<AnalysisStageUiState>,
     activeStageIndex: Int?,
     stageLabel: String,
     modifier: Modifier = Modifier,
+) {
+    AnalysisProgressIndicator(
+        stages = stages,
+        activeStageIndex = activeStageIndex,
+        stageLabel = stageLabel,
+        modifier = modifier,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun AnalysisProgressIndicator(
+    stages: ImmutableList<AnalysisStageUiState>,
+    activeStageIndex: Int?,
+    stageLabel: String,
+    modifier: Modifier = Modifier,
+    visualStyle: CommonStyle = CommonStyle,
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
@@ -80,12 +105,14 @@ fun AnalysisProgressIndicator(
     val pipelineAlphas = rememberPipelineAlphas(motion)
     val resources = LocalContext.current.resources
     val description = buildStageDescription(resources, stages)
+    val styleState = rememberUpdatedStyleState(null)
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.analysisContainer, visualStyle, styleState)
 
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(color = colors.info.copy(alpha = ContainerBgAlpha), shape = containerShape)
+                .ripDpiStyleSurface(resolver, shape = containerShape)
                 .padding(horizontal = spacing.sm, vertical = spacing.sm)
                 .semantics(mergeDescendants = true) {
                     contentDescription = description

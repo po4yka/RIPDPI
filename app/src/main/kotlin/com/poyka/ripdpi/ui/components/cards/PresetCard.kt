@@ -1,7 +1,7 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.cards
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,26 +12,57 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.presetBadge
+import com.poyka.ripdpi.ui.theme.presetRadio
+import com.poyka.ripdpi.ui.theme.presetRadioDot
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 private const val disabledAlpha = 0.38f
+
+@Composable
+@NonRestartableComposable
+fun PresetCard(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier,
+    metadata: String? = null,
+    badgeText: String? = null,
+    selected: Boolean = false,
+    enabled: Boolean = true,
+    interactionSource: MutableInteractionSource? = null,
+    onClick: () -> Unit,
+) {
+    PresetCard(
+        title = title,
+        description = description,
+        modifier = modifier,
+        metadata = metadata,
+        badgeText = badgeText,
+        selected = selected,
+        enabled = enabled,
+        interactionSource = interactionSource,
+        onClick = onClick,
+        visualStyle = CommonStyle,
+    )
+}
 
 @Suppress("LongMethod")
 @Composable
@@ -44,6 +75,7 @@ fun PresetCard(
     selected: Boolean = false,
     enabled: Boolean = true,
     interactionSource: MutableInteractionSource? = null,
+    visualStyle: CommonStyle = CommonStyle,
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -55,8 +87,25 @@ fun PresetCard(
         RipDpiThemeTokens.surfaces.resolve(
             RipDpiThemeTokens.surfaceRoles.presetCard.card(selected),
         )
-    val badgePalette = presetCardBadgePalette(selected = selected)
+    val badgeContent = if (selected) colors.background else colors.mutedForeground
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val styleState =
+        rememberUpdatedStyleState(resolvedInteractionSource) {
+            it.isEnabled = enabled
+            it.isSelected = selected
+        }
+    val styleResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.outlinedSurface(RipDpiThemeTokens.surfaceRoles.presetCard.card(selected)),
+            visualStyle,
+            styleState,
+        )
+    val badgeResolver =
+        rememberRipDpiStyleResolver(
+            RipDpiThemeTokens.styles.presetBadge(RipDpiThemeTokens.surfaceRoles.presetCard.badge(selected)),
+            CommonStyle,
+            styleState,
+        )
 
     Column(
         modifier =
@@ -64,13 +113,8 @@ fun PresetCard(
                 .fillMaxWidth()
                 .heightIn(min = components.rows.settingsRowMinHeightWithSubtitle)
                 .shadow(surfaceStyle.shadowElevation, shape, clip = false)
-                .clip(shape)
-                .background(surfaceStyle.container, shape)
-                .border(
-                    width = if (surfaceStyle.border == Color.Transparent) 0.dp else 1.dp,
-                    color = surfaceStyle.border,
-                    shape = shape,
-                ).alpha(if (enabled) 1f else disabledAlpha)
+                .ripDpiStyleSurface(styleResolver, shape, clip = true)
+                .alpha(if (enabled) 1f else disabledAlpha)
                 .ripDpiSelectable(
                     selected = selected,
                     enabled = enabled,
@@ -99,10 +143,8 @@ fun PresetCard(
                 Box(
                     modifier =
                         Modifier
-                            .background(
-                                color = badgePalette.container,
-                                shape = RipDpiThemeTokens.shapes.xxl,
-                            ).padding(
+                            .ripDpiStyleSurface(badgeResolver, RipDpiThemeTokens.shapes.xxl)
+                            .padding(
                                 horizontal = components.rows.compactPillHorizontalPadding,
                                 vertical = components.rows.compactPillVerticalPadding,
                             ),
@@ -110,7 +152,7 @@ fun PresetCard(
                     Text(
                         text = it,
                         style = type.smallLabel,
-                        color = badgePalette.content,
+                        color = badgeContent,
                     )
                 }
             }
@@ -136,22 +178,18 @@ fun PresetCard(
 
 private val RadioIndicatorSize = 18.dp
 private val RadioIndicatorDotSize = 8.dp
-private val RadioIndicatorBorderWidth = RipDpiStroke.Thick
 
 @Composable
 private fun RadioIndicator(selected: Boolean) {
-    val colors = RipDpiThemeTokens.colors
-    val outerColor = if (selected) colors.foreground else colors.mutedForeground
+    val state = rememberUpdatedStyleState(null) { it.isSelected = selected }
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.presetRadio, CommonStyle, state)
+    val dotResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.presetRadioDot, CommonStyle, state)
 
     Box(
         modifier =
             Modifier
                 .size(RadioIndicatorSize)
-                .border(
-                    width = RadioIndicatorBorderWidth,
-                    color = outerColor,
-                    shape = CircleShape,
-                ),
+                .ripDpiStyleSurface(resolver, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         if (selected) {
@@ -159,36 +197,9 @@ private fun RadioIndicator(selected: Boolean) {
                 modifier =
                     Modifier
                         .size(RadioIndicatorDotSize)
-                        .background(color = outerColor, shape = CircleShape),
+                        .ripDpiStyleSurface(dotResolver, CircleShape),
             )
         }
-    }
-}
-
-@Immutable
-private data class PresetCardBadgePalette(
-    val container: Color,
-    val content: Color,
-)
-
-@Composable
-private fun presetCardBadgePalette(selected: Boolean): PresetCardBadgePalette {
-    val colors = RipDpiThemeTokens.colors
-    val badgeSurface =
-        RipDpiThemeTokens.surfaces.resolve(
-            RipDpiThemeTokens.surfaceRoles.presetCard.badge(selected),
-        )
-
-    return if (selected) {
-        PresetCardBadgePalette(
-            container = badgeSurface.content,
-            content = colors.background,
-        )
-    } else {
-        PresetCardBadgePalette(
-            container = badgeSurface.container,
-            content = colors.mutedForeground,
-        )
     }
 }
 

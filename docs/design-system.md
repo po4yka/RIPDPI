@@ -26,6 +26,7 @@ When any of these disagree, the Compose theme code and screenshot baselines win.
 | Motion | `ui/theme/RipDpiMotion.kt` | Durations, scales, easing, spring behavior, reduced-motion handling |
 | Surface tokens | `ui/theme/RipDpiSurface.kt` | First-class panel, modal, feedback, menu, and navigation-chrome surfaces |
 | State tokens | `ui/theme/RipDpiState.kt` | First-class pressed, focused, disabled, loading, selected, and semantic tone resolution for shared components |
+| Component styles | `ui/theme/RipDpiComponentStyles.kt` and family extensions | Typed `CommonStyle` recipes that apply existing RDS values during layout and drawing |
 
 Feature geometry does not belong in the shared theme. Flow-specific measurements stay close to the screen family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldMetrics`.
 
@@ -56,6 +57,62 @@ Current first-class state families:
 - `actuator`
 - `actuatorStage`
 - `route`
+
+## Compose Component Styles
+
+The RDS style layer uses the experimental Compose Foundation 1.13 `CommonStyle` and `StyleResolver` APIs. `RipDpiThemeTokens.styles` exposes the component catalog. Colors, surfaces, state resolvers, and motion tokens remain the source of values. Styles do not introduce a separate theme or change the design.
+
+Use `visualStyle: CommonStyle = CommonStyle` to customize an eligible RDS component. `RipDpiIconButton.style` still selects its existing variant. Styles apply to the owned shell of a component. They do not change callbacks, enabled/loading rules, minimum touch targets, semantics, haptics, or automation IDs.
+
+```kotlin
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
+// A caller can change an RDS visual property without replacing behavior.
+RipDpiButton(
+    text = label,
+    onClick = onClick,
+    visualStyle = CommonStyle { rdsCornerRadius(12.dp) },
+)
+```
+
+Existing calls keep their original signatures through small `@NonRestartableComposable` overloads. These overloads pass the empty style to the styled implementation. A caller needs the file-local experimental opt-in only when it uses the `CommonStyle` overload. Keep trailing content and action callbacks last in both signatures.
+
+### Resolution and state
+
+The catalog combines the component defaults and its variant on style layer zero. The caller override runs on layer one. RDS default recipes read `state` directly and call the existing pure state resolver. They must not use nested `pressed`, `selected`, or other state helpers, which increase layer priority. Caller styles can use those helpers. This contract guarantees caller priority over RDS defaults; it does not support arbitrary higher-layer default styles.
+
+One `InteractionSource` supplies both the behavior modifier and the style state. Built-in state includes enabled, pressed, focused, selected, and checked. `RipDpiStyleStateKeys` supplies loading, error, empty, compact, expanded, read-only, and active state where the component needs them. A style state never enables or disables behavior by itself.
+
+Cached recipes read current RDS composition locals through the attached resolver. Create and bind a resolver within the same static composition-local provider scope. The adapter publishes current recipes and the composition-local context from `SideEffect`, after node updates are applied. It keeps the resolver and its active animations when a recipe changes. Cached recipes also update when static providers change. A theme, contrast, or motion change must update the attached node. Do not capture a theme value in a long-lived style without updating that style when the value changes.
+
+Bind each resolver exactly once with `styleResolver` or `ripDpiStyleSurface`. Child content can read that resolver in layout/draw callbacks through `ripDpiStyleContent` or `ripDpiStylePadding`; it must not bind the resolver again. Do not resolve properties from Composition before the node is attached. Material `Text` and `Icon` retain explicit typography and colors.
+
+### Typed properties
+
+| DSL | Applied value |
+|---|---|
+| `rdsBackground(Color/Fill)` | Container fill |
+| `rdsBackgroundAlpha(Float)` | Replacement alpha for a solid fill; does not fade children or shadows |
+| `rdsBorder(Color, Dp)` | Border color and width; zero means no border |
+| `rdsCornerRadius(Dp)` | Numeric radius with the component shape as fallback |
+| `rdsContainerAlpha(Float)` | Shell alpha where its appearance modifier is attached |
+| `rdsContentScale(Float)` | Content transform, or whole-shell transform for Chip |
+| `rdsContentAlpha(Float)` | Content alpha where the component attaches its content modifier |
+| `rdsMinHeight(Dp)` | Optional layout minimum; required component targets still apply |
+| `rdsContentPadding(start, top, end, bottom)` | Logical padding for components with a style padding modifier |
+
+Only properties used by a component's modifier pipeline affect that component. Cards retain their `paddingValues`; screen geometry is not a style property. Switch `visualStyle` applies to its track, while the thumb has a separate default recipe. Connection actuator `visualStyle` forwards to its primary action. The legacy Dropdown overload keeps its original positional signature and delegates to the primary overload.
+
+Preserve modifier order. Button and IconButton scale only content; Chip scales its painted shell through `ripDpiStyleDrawing`. Its input and semantics coordinates keep the required touch target. Disabled content alpha, Text-only loading alpha, and shadows retain their original positions. Animate numeric corner radii with RDS motion specifications and construct the shape from the resolved number. Do not assume that a whole `Shape` can interpolate. Reduced or disabled motion must use the existing motion token behavior.
+
+### Boundaries and exceptions
+
+- Material hosts keep their explicit APIs: `Surface`, `Scaffold`, modal sheets, menus, tooltips, dividers, text, and icons. This includes the Material shells of banners, dialogs, sheets, snackbars, context menus, degradation strips, export consent, and metric pills. Their owned badges, handles, and stripes can use styles.
+- Canvas renderers, telemetry plots, progress drawing, the disconnect countdown, and navigation transitions retain their drawing or animation algorithms. Styles do not own their feature geometry.
+- Components that only arrange or delegate to styled RDS controls do not need an extra resolver. Do not add a style node that has no visible effect.
+- Keep the experimental opt-in local to affected files. Do not enable inherited text-style flags or use the transitional `Style`, `styleable`, `styleAppearance`, or `stylePlacement` APIs.
+
+Screenshot differences must be reviewed before any separate golden approval. A dependency update or a change in recomposition count does not prove a performance gain. The migration verification record tracks compile, unit, screenshot, device, and three-state profileable performance evidence separately.
 
 ## Surface Roles
 

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.ZeroCornerSize
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -42,6 +46,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
+import com.poyka.ripdpi.ui.theme.sheetHandle
 
 enum class RipDpiSheetScrollPolicy {
     Container,
@@ -186,15 +193,16 @@ fun RipDpiBottomSheetCard(
 
 @Composable
 private fun RipDpiBottomSheetHandle() {
-    val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
+    val styleState = rememberUpdatedStyleState(null)
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.sheetHandle, CommonStyle, styleState)
 
     Box(
         modifier =
             Modifier
                 .padding(top = components.sheets.handleTopPadding)
                 .size(width = components.sheets.handleWidth, height = components.sheets.handleHeight)
-                .background(color = colors.border, shape = RipDpiThemeTokens.shapes.full),
+                .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full),
     )
 }
 
@@ -204,11 +212,15 @@ private fun RipDpiBottomSheetIconBadge(icon: ImageVector) {
     val surfaceStyle =
         RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.feedback.bottomSheetIconBadge)
 
+    val styleState = rememberUpdatedStyleState(null)
+    val badgeRole = RipDpiThemeTokens.surfaceRoles.feedback.bottomSheetIconBadge
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.surface(badgeRole), CommonStyle, styleState)
+
     Box(
         modifier =
             Modifier
                 .size(components.feedback.dialogIconSize)
-                .background(color = surfaceStyle.container, shape = RipDpiThemeTokens.shapes.full),
+                .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

@@ -1,7 +1,8 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -34,11 +37,15 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiBannerStateRole
 import com.poyka.ripdpi.ui.theme.RipDpiBannerStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
+import com.poyka.ripdpi.ui.theme.warningIcon
 
 enum class WarningBannerTone {
     Warning,
@@ -63,10 +70,8 @@ fun WarningBanner(
     onDismiss: (() -> Unit)? = null,
 ) {
     val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.feedback.banner)
-    val state =
-        RipDpiThemeTokens.state.banner.resolve(
-            RipDpiThemeTokens.stateRoles.banner.fromTone(tone),
-        )
+    val stateRole = RipDpiThemeTokens.stateRoles.banner.fromTone(tone)
+    val state = RipDpiThemeTokens.state.banner.resolve(stateRole)
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
     val baseModifier =
         modifier
@@ -98,6 +103,7 @@ fun WarningBanner(
             message = message,
             icon = resolvedIcon,
             state = state,
+            stateRole = stateRole,
             onDismiss = onDismiss,
         )
     }
@@ -109,6 +115,7 @@ private fun WarningBannerContent(
     message: String,
     icon: ImageVector,
     state: RipDpiBannerStateStyle,
+    stateRole: RipDpiBannerStateRole,
     onDismiss: (() -> Unit)? = null,
 ) {
     val components = RipDpiThemeTokens.components
@@ -141,7 +148,7 @@ private fun WarningBannerContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    WarningBannerLeadingIcon(icon, state)
+                    WarningBannerLeadingIcon(icon, state, stateRole)
                     WarningBannerDismissButton(onDismiss, state)
                 }
                 WarningBannerText(title, message, state)
@@ -152,7 +159,7 @@ private fun WarningBannerContent(
                 horizontalArrangement = Arrangement.spacedBy(spacing.md),
                 verticalAlignment = Alignment.Top,
             ) {
-                WarningBannerLeadingIcon(icon, state)
+                WarningBannerLeadingIcon(icon, state, stateRole)
                 WarningBannerText(title, message, state, Modifier.weight(1f))
                 WarningBannerDismissButton(onDismiss, state)
             }
@@ -164,12 +171,15 @@ private fun WarningBannerContent(
 private fun WarningBannerLeadingIcon(
     icon: ImageVector,
     state: RipDpiBannerStateStyle,
+    stateRole: RipDpiBannerStateRole,
 ) {
+    val styleState = rememberUpdatedStyleState(null)
+    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.warningIcon(stateRole), CommonStyle, styleState)
     Box(
         modifier =
             Modifier
                 .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
-                .background(state.iconContainer, RipDpiThemeTokens.shapes.full),
+                .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, tint = state.icon, modifier = Modifier.size(RipDpiIconSizes.Large))

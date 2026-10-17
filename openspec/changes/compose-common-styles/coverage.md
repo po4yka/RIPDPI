@@ -6,20 +6,35 @@ This inventory records source scope and explicit exceptions. A source candidate 
 
 | Family | Source scope | Style scope | Validation |
 |---|---|---|---|
-| Actions | Button, IconButton | Variant shell, border, numeric radius, content scale and padding | 77 selected theme/shared-control tests passed; visual/device checks pending |
-| Inputs | Chip, Switch, SegmentedButton | Own shell and state fills; Switch track and thumb use separate resolvers | Pending |
-| Editing | TextField, ConfigTextField, Dropdown | Own decoration shell, focus/error border, logical padding and disabled content alpha | Pending |
-| Cards and rows | Card, PresetCard, SettingsRow | Role surfaces, selected preset badge/radio marker, row and leading badge | Pending |
-| Routes | ProfileCard, CapabilityPill, StackDiagram, OpportunityPanel | Own shells, status badge/glyph, connectors | Pending |
-| Connection | ConnectionActuator | Delegated primary action and own fault-detail shell | Pending |
-| Feedback | Accordion; nested banner/dialog/sheet/degradation decoration | Accordion shell, icon badges, sheet handle and degradation stripe | Pending |
-| Indicators | LogRow, StaleDataBadge, PageIndicators, AnalysisProgressIndicator | Badges/chips, stale capsule, page fill, outer analysis shell | Pending |
+| Actions | Button, IconButton | Variant shell, border, numeric radius, content scale and padding | 87 selected theme/shared-control tests passed, including recipe replacement motion; visual/device checks pending |
+| Inputs | Chip, Switch, SegmentedButton | Own shell and state fills; Switch track and thumb use separate resolvers | 87 selected tests passed; device/visual checks pending |
+| Editing | TextField, ConfigTextField, Dropdown | Own decoration shell, focus/error border, logical padding and disabled content alpha | Six new input tests passed within the 87-test gate; device IME pending |
+| Cards and rows | Card, PresetCard, SettingsRow | Role surfaces, selected preset badge/radio marker, row and leading badge | 99 selected tests passed; visual/device checks pending |
+| Routes | ProfileCard, CapabilityPill, StackDiagram, OpportunityPanel | Own shells, status badge/glyph, connectors | 99 selected tests passed; visual/device checks pending |
+| Connection | ConnectionActuator | Delegated primary action and own fault-detail shell | 99 selected tests passed; visual/device checks pending |
+| Feedback | Accordion; nested banner/dialog/sheet/degradation decoration | Accordion shell, icon badges, sheet handle and degradation stripe | 99 selected tests passed; visual/device checks pending |
+| Indicators | LogRow, StaleDataBadge, PageIndicators, AnalysisProgressIndicator | Badges/chips, stale capsule, page fill, outer analysis shell | 99 selected tests passed; visual/device checks pending |
 | Scaffolds | ContentScreen, Settings, Dashboard, Intro | Existing background nodes; layout and inset contracts stay in place | Pending |
 | Home and history | HomeScreen, HomeModeCard, analysis sheet sections, HistoryScreen/Cards/EmptyStates | Screen backgrounds and own summary/badge shells | Pending |
 | Configuration and settings | ConfigScreen, ModeEditorChainBlockEditor/ScaffoldSections, AdvancedSettingsContent/Components, SettingsPreferences, RememberedNetworks, RootModeStrategies, DataTransparency | Own page, chain, badge and summary shells | Pending |
 | Diagnostics and logs | DiagnosticsScreen/Cards, PortMatrix, PcapViewer, ReplayFailure, LogsScreen | Existing page, matrix, packet and replay decoration shells | Pending |
 | Onboarding and related screens | OnboardingScreen/OptionCard/SetupPages, VpnPermission, AppCustomization/IconPicker/About, DNS, OwnedStackBrowser | Own backgrounds, option/radio/badge shells, including runtime icon colors | Pending |
 | Simple | Shared controls and SettingsRow; existing Material Scaffold | Receives shared component styles; no redundant screen resolver | Pending |
+
+## Design references
+
+The migration keeps the current Compose tokens and verified screenshots. The HTML deck is read-only and retains some earlier compact layouts, as documented in `docs/design-system.md`. This change introduces no design revision.
+
+| Family | Existing RDS preview references |
+|---|---|
+| Actions | `components-buttons`, `components-icon-buttons` |
+| Inputs | `components-chips`, `components-switch`, `components-segmented`, `components-text-field`, `components-dropdown` |
+| Surfaces | `components-card`, `components-preset-card`, `components-settings-row`, `components-actuator`, `components-actuator-states` |
+| Feedback and chrome | `components-accordion`, `components-warning-banner`, `components-dialog`, `components-bottom-sheet`, `components-bottom-nav` |
+| Indicators | 99 selected tests passed; visual/device checks pending |
+| Feature scenes | `android-history`, `diagnostic-port-matrix`, `vpn-in-app-browser`, `onboarding-tour-cards` |
+
+Each name above is an existing `docs/design/rds/preview/<name>.html` file. Route shells and feature scenes without an exact preview use their current implementation and screenshot catalogs as the visual reference.
 
 ## Explicit exceptions
 
@@ -32,6 +47,7 @@ This inventory records source scope and explicit exceptions. A source candidate 
 | Drawing and progress | StatusIndicator, Spinner, ProgressBar, StageProgressIndicator, inner Analysis progress, stale marker Canvas, telemetry plots and disconnect countdown | Preserve drawing algorithms, numeric progress, custom geometry and animation timing. |
 | Remaining clipping | Diagnostics pager, handshake bar track, latency plot/loss row, quality/throughput plots, active onboarding checklist marker | Clipping defines drawing or page bounds. It is not a shared visual state recipe. |
 | Structure and delegation | TextAction, action layouts, category headers, endpoint rows, top app bar and chrome wrappers with no owned paint | These compose styled RDS or Material components and do not need another resolver. |
+| Glance widgets | Existing Glance modifiers and widget theme | These widgets use the Glance target, not Compose UI modifier nodes. This migration adds no shared color, shape, or motion value for the widget theme. |
 | Preview-only decoration | Preview scrims and scene backgrounds | Test/preview context is outside production styling. It must still match the intended screenshot scene. |
 
 Experimental opt-in is file-local. There are no inherited text-style flags, transitional style APIs, new locale keys, new backend services, or approved golden changes in this migration.
