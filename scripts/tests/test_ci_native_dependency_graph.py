@@ -162,7 +162,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
         self.assertIn("      - android-instrumentation-apks\n", required)
         self.assertIn('"android-instrumentation-apks",', required)
 
-    def test_baseline_guard_allows_only_registered_jni_inventories(self) -> None:
+    def test_baseline_guard_allows_only_registered_inventories_and_benchmark_code(self) -> None:
         source = job_source("gradle-static-analysis")
         guard = re.search(
             r"(?ms)^      - name: Fail if baseline files modified\n.*?^        run: \|\n"
@@ -173,12 +173,23 @@ class NativeDependencyGraphTest(unittest.TestCase):
         inventories = sorted(ROOT.glob("native/rust/crates/*/jni-symbols.baseline"))
         self.assertEqual(5, len(inventories))
         cases = [(str(path.relative_to(ROOT)), 0) for path in inventories]
+        benchmark_source = (
+            "baselineprofile/src/benchmark/kotlin/com/poyka/ripdpi/performance/"
+            "ComposeStylesBenchmark.kt"
+        )
+        cases.extend((path, 0) for path in (
+            "baselineprofile/build.gradle.kts", benchmark_source,
+        ))
         cases.extend((path, 1) for path in (
             "app/detekt-baseline.xml", "app/lint-baseline.xml",
             "config/file-loc-baseline.json", "config/architecture-health-baseline.json",
             "native/rust/crates/unknown/jni-symbols.baseline",
             "native/rust/crates/ripdpi-relay-android/jni-symbols.baseline.backup",
             "other/native/rust/crates/ripdpi-relay-android/jni-symbols.baseline",
+            "baselineprofile/baseline.json", "baselineprofile/lint-baseline.xml",
+            "baselineprofile/src/benchmark/performance.baseline",
+            "baselineprofile/build.gradle.kts.backup", f"{benchmark_source}.backup",
+            f"other/{benchmark_source}",
         ))
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
