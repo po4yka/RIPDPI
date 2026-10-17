@@ -2,7 +2,7 @@
 id: UIX-1792226888578993
 title: Measure and improve UI responsiveness
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI performance integration
