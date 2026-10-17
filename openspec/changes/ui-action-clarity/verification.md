@@ -5,7 +5,7 @@ commit_sha: 36b04215fa9eb60f125a1a66322a55b33e96e196
 local: passed
 local_evidence: 465 focused Full unit tests passed with no failures or skips; Full and Simple lint, service lint, staticAnalysis, translation export, architecture health, locked Cargo metadata and task validation passed. Golden verify passed 10 tests and 19 captures after the approved updates.
 remote_ci: required
-remote_ci_evidence: Main integration and remote push are pending; hosted CI has not been accepted.
+remote_ci_evidence: Code push 87608f918 is confirmed on origin/main. CI run 39026907574 is queued; translation export, locale parity, Secret Scan, harness checks and CodeQL passed for that SHA. Hosted acceptance remains pending.
 device: passed
 device_evidence: API 37 arm64 exclusive pool lease; five production-component instrumented methods passed with zero failures, errors or skips. Manual MainActivity Home and persona checks passed. Additional Appium filter replay did not complete; see the limitation below.
 artifact: passed
@@ -25,7 +25,7 @@ deployment_evidence: No deployment is owned by this Android UI change.
 | REQ-UIC-FILTERS | UIX-1792228195440426 | Disclosure, remove-one, clear-all, section and empty-result tests; font2 RTL instrumented check | passed |
 | REQ-UIC-NEW | UIX-1792228196083085 | Identity/timestamp projection, count, filters, backfill, interrupted jump and reader tests; normal and font2 RTL device checks | passed |
 | REQ-UIC-ACCESS | UIX-1792228197142831 | Theme/locales/static gates, five emulator checks, manual Home/persona font2 RTL and independent review | passed |
-| REQ-UIC-ACCESS | UIX-1792228198008109 | Rebased combined gates, ff-only integration and remote SHA | Required |
+| REQ-UIC-ACCESS | UIX-1792228198008109 | Rebased combined gates; ff-only integration and remote SHA 87608f918ee211723d365868c5fe1399f084c94e confirmed | passed |
 
 ## Planned validation
 
@@ -100,3 +100,18 @@ font2 RTL layout, and EventsSection raw-arrival counts with reader position.
 Manual MainActivity coverage confirms Home action access and persona persistence.
 The final crash buffer was empty and the captured log scan found no app crash or
 ANR. Font scale was restored to 1.0 and the pool lease was released.
+
+## Integration and hosted checks
+
+The job branch was rebased against origin/main, and combined local gates passed.
+The clean main checkout was advanced with a fast-forward merge. The authorized
+push published 87608f918ee211723d365868c5fe1399f084c94e, and ls-remote returned
+the same SHA. GitHub reported use of the account's existing bypass for PR and
+required-check rules on this direct push. No repository rules were changed.
+
+For that published code tree, translation export, locale parity, Secret Scan,
+harness checks and CodeQL completed successfully. CI was queued and fleet-fixtures
+was in progress when inspected. CI run:
+https://github.com/po4yka/RIPDPI/actions/runs/39026907574.
+The task remains in review until hosted acceptance is observed; it is not archived.
+This final evidence-only update is published after the code push above.

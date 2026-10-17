@@ -2,7 +2,7 @@
 id: UIX-1792228010381450
 title: Expose recovery actions and simplify mode and history choices
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI action clarity integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: ui-action-clarity
 created: 2026-10-17
 updated: 2026-10-17
+status_detail: Implementation, local gates, device checks, ff-only integration and authorized push completed; hosted CI remains pending.
 ---
 
 ## Goal
