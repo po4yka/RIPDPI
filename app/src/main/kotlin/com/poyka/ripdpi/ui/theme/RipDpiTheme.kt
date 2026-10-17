@@ -105,6 +105,9 @@ private object DisabledHapticFeedback : HapticFeedback {
 }
 
 object RipDpiThemeTokens {
+    val styles: RipDpiComponentStyles
+        get() = RipDpiComponentStyles
+
     val colors: RipDpiExtendedColors
         @Composable get() = LocalRipDpiExtendedColors.current
 
