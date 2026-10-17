@@ -83,7 +83,16 @@ Negative overrun means that the frame completed before its deadline. Catalog 1,0
 
 The fresh-list comparison traverses both 250-event lists. The counter includes an AtomicLong increment per element access; twice as many counted reads does not establish twice the production CPU cost. It remains a cost of structural deduplication, while mapping and formatting are skipped. Both log scenarios observed all 100 ticks, delivered the terminal event and retained 250 output rows. The catalog 1,000 baseline observed 99 projections because Compose can combine adjacent updates; it is not reported as 100 exact projections.
 
-Fresh-log frame medians vary: before 2.880/3.007/2.814 ms; after 17.827/2.880/17.858 ms. The same slow regime appears in the original stable-log iteration 2 (17.878 ms), while optimized fresh iteration 1 remains fast with the same 50,000 counted reads. The comparison therefore does not prove that structural equality caused the frame outliers. The cause of this frame-time regime is not established; a narrow main/render trace review remains pending.
+Fresh-log frame medians vary: before 2.880/3.007/2.814 ms; after 17.827/2.880/17.858 ms. The same slow regime appears in the original stable-log iteration 2 (17.878 ms), while optimized fresh iteration 1 remains fast with the same 50,000 counted reads. The comparison therefore does not prove that structural equality caused the frame outliers. A [narrow review of four traces](data/frame-diagnosis-summary.json) locates a graphics buffer-release wait component:
+
+| Iteration | RenderThread waitForBufferRelease, count | Elapsed sum, ms |
+|---|---:|---:|
+| Optimized fresh logs 0 | 129 | 1,872.656 |
+| Optimized fresh logs 1 | 2 | 0.101 |
+| Optimized fresh logs 2 | 130 | 1,890.446 |
+| Original stable logs 2 | 130 | 1,870.955 |
+
+The slow fresh iterations have about 1,971-1,983 ms in eglSwapBuffers, which includes these nested waits. The fast fresh iteration has about 92 ms there. Main-thread Compose:recompose elapsed sums stay close across the three optimized fresh runs (19.3-20.5 ms). Do not add nested slice durations as CPU time. These traces establish the wait component, not a GPU or driver root cause. They also do not establish that equality traversal causes the waits.
 
 Actual launcher checks reached MainActivity and onboarding on both APKs. Crash buffers were empty, service dumps contained no running app service, and exit records contained only test force stops. Prior device settings were restored exactly. Screenshots of Logs, Settings, the 5,000-profile catalog and the real launcher were rendered and inspected.
 

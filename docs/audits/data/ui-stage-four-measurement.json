@@ -824,5 +824,7 @@
         "after": 0
       }
     }
-  ]
+  ],
+  "frameDiagnosis": "frame-diagnosis-summary.json",
+  "frameDiagnosisConclusion": "Slow selected iterations contain about 1.87-1.89 seconds of RenderThread waitForBufferRelease spans. The selected fast iteration has only 0.101 ms across two such spans. This also occurs in a baseline slow iteration. This locates a graphics buffer-release wait component. It does not establish the graphics driver or GPU root cause."
 }

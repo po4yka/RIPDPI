@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "scope": "RIPDPI:counterBurst interval; app-owned main and RenderThread slices and thread_state spans clipped to that interval",
+  "interpretation": "Slow selected iterations contain about 1.87-1.89 seconds of RenderThread waitForBufferRelease spans. The selected fast iteration has only 0.101 ms across two such spans. This also occurs in a baseline slow iteration. This locates a graphics buffer-release wait component. It does not establish the graphics driver or GPU root cause.",
+  "units": "ms",
+  "limits": [
+    "Slice durations are elapsed spans. Nested slices overlap; do not add them as CPU time.",
+    "thread_state Running is scheduler-recorded CPU running duration. Rows are aggregated by thread name; multiple threads with the same name can be included. These sums are not per-frame CPU measures.",
+    "Equal event traversal counts do not prove equal CPU cost or the cause of frame timing.",
+    "No direct GPU execution-time or VSYNC root-cause conclusion is made."
+  ],
+  "sources": {
+    "after": "0e511e843cdbcf69c3036ff6274e3e08a8fc2927",
+    "before": "4b90c30b1c676309d5a1df6e59ed74b11ee202af"
+  },
+  "query": {
+    "path": "frame-diagnosis/main-render.sql",
+    "sha256": "e6b9d81fc08fbd07004f599489458ff776da02c6e802d55d6069c3a1243687bd"
+  },
+  "iterations": [
+    {
+      "phase": "after",
+      "source": "0e511e843cdbcf69c3036ff6274e3e08a8fc2927",
+      "workload": "logsFreshSnapshotBurst",
+      "iteration": 0,
+      "frameCpuSampleMedianMs": 17.8266875,
+      "frameSampleCount": 144,
+      "trace": "after-device-v6/benchmark-output/ResponsivenessBenchmark_logsFreshSnapshotBurst_iter000_2026-10-17-14-27-08.perfetto-trace",
+      "input": {
+        "path": "frame-diagnosis/after-logsFreshSnapshotBurst-0-main-render.csv",
+        "bytes": 141216,
+        "sha256": "f58799816ffb0ee2cf5bf0ba1d5a686408d659d62920524afa21af45bd723509"
+      },
+      "renderWaitForBufferRelease": {
+        "count": 129,
+        "sumElapsedMs": 1872.656,
+        "maxElapsedMs": 26.008
+      },
+      "renderEglSwapBuffersWithDamageKHR": {
+        "count": 130,
+        "sumElapsedMs": 1970.847,
+        "maxElapsedMs": 26.566
+      },
+      "mainComposeRecompose": {
+        "count": 100,
+        "sumElapsedMs": 19.969,
+        "maxElapsedMs": 1.083
+      },
+      "mainRecomposerRecompose": {
+        "count": 130,
+        "sumElapsedMs": 43.873,
+        "maxElapsedMs": 1.418
+      },
+      "threadCpuRunning": [
+        {
+          "threadName": "RenderThread",
+          "state": "Running",
+          "spanCount": 477,
+          "sumCpuRunningMs": 228.94,
+          "maxCpuRunningSpanMs": 4.255
+        },
+        {
+          "threadName": "om.poyka.ripdpi",
+          "state": "Running",
+          "spanCount": 720,
+          "sumCpuRunningMs": 304.641,
+          "maxCpuRunningSpanMs": 4.18
+        }
+      ]
+    },
+    {
+      "phase": "after",
+      "source": "0e511e843cdbcf69c3036ff6274e3e08a8fc2927",
+      "workload": "logsFreshSnapshotBurst",
+      "iteration": 1,
+      "frameCpuSampleMedianMs": 2.8803335,
+      "frameSampleCount": 132,
+      "trace": "after-device-v6/benchmark-output/ResponsivenessBenchmark_logsFreshSnapshotBurst_iter001_2026-10-17-14-27-13.perfetto-trace",
+      "input": {
+        "path": "frame-diagnosis/after-logsFreshSnapshotBurst-1-main-render.csv",
+        "bytes": 128744,
+        "sha256": "9fbf9ea15881f814bb25e087b55e554616f720b6d465738b9fdd873ad222c3fe"
+      },
+      "renderWaitForBufferRelease": {
+        "count": 2,
+        "sumElapsedMs": 0.101,
+        "maxElapsedMs": 0.055
+      },
+      "renderEglSwapBuffersWithDamageKHR": {
+        "count": 129,
+        "sumElapsedMs": 91.822,
+        "maxElapsedMs": 1.689
+      },
+      "mainComposeRecompose": {
+        "count": 100,
+        "sumElapsedMs": 19.309,
+        "maxElapsedMs": 1.013
+      },
+      "mainRecomposerRecompose": {
+        "count": 129,
+        "sumElapsedMs": 42.628,
+        "maxElapsedMs": 1.287
+      },
+      "threadCpuRunning": [
+        {
+          "threadName": "RenderThread",
+          "state": "Running",
+          "spanCount": 393,
+          "sumCpuRunningMs": 214.737,
+          "maxCpuRunningSpanMs": 5.011
+        },
+        {
+          "threadName": "om.poyka.ripdpi",
+          "state": "Running",
+          "spanCount": 642,
+          "sumCpuRunningMs": 275.2,
+          "maxCpuRunningSpanMs": 2.168
+        }
+      ]
+    },
+    {
+      "phase": "after",
+      "source": "0e511e843cdbcf69c3036ff6274e3e08a8fc2927",
+      "workload": "logsFreshSnapshotBurst",
+      "iteration": 2,
+      "frameCpuSampleMedianMs": 17.857916,
+      "frameSampleCount": 159,
+      "trace": "after-device-v6/benchmark-output/ResponsivenessBenchmark_logsFreshSnapshotBurst_iter002_2026-10-17-14-27-18.perfetto-trace",
+      "input": {
+        "path": "frame-diagnosis/after-logsFreshSnapshotBurst-2-main-render.csv",
+        "bytes": 140087,
+        "sha256": "1f1e198981f032cf7120064179580c8ba30572e02ad81dbcac6ba3bdcdafd5f3"
+      },
+      "renderWaitForBufferRelease": {
+        "count": 130,
+        "sumElapsedMs": 1890.446,
+        "maxElapsedMs": 24.654
+      },
+      "renderEglSwapBuffersWithDamageKHR": {
+        "count": 130,
+        "sumElapsedMs": 1982.512,
+        "maxElapsedMs": 25.649
+      },
+      "mainComposeRecompose": {
+        "count": 100,
+        "sumElapsedMs": 20.531,
+        "maxElapsedMs": 1.328
+      },
+      "mainRecomposerRecompose": {
+        "count": 129,
+        "sumElapsedMs": 43.11,
+        "maxElapsedMs": 1.782
+      },
+      "threadCpuRunning": [
+        {
+          "threadName": "RenderThread",
+          "state": "Running",
+          "spanCount": 306,
+          "sumCpuRunningMs": 213.948,
+          "maxCpuRunningSpanMs": 6.193
+        },
+        {
+          "threadName": "om.poyka.ripdpi",
+          "state": "Running",
+          "spanCount": 608,
+          "sumCpuRunningMs": 294.176,
+          "maxCpuRunningSpanMs": 5.166
+        }
+      ]
+    },
+    {
+      "phase": "before",
+      "source": "4b90c30b1c676309d5a1df6e59ed74b11ee202af",
+      "workload": "logsCounterBurst",
+      "iteration": 2,
+      "frameCpuSampleMedianMs": 17.878291,
+      "frameSampleCount": 148,
+      "trace": "before-device-v6/benchmark-output/ResponsivenessBenchmark_logsCounterBurst_iter002_2026-10-17-14-24-25.perfetto-trace",
+      "input": {
+        "path": "frame-diagnosis/before-logsCounterBurst-2-main-render.csv",
+        "bytes": 145017,
+        "sha256": "383029a314a9a8f968d6e548ce6927be73ab1671180493439dec1720c30ac7fa"
+      },
+      "renderWaitForBufferRelease": {
+        "count": 130,
+        "sumElapsedMs": 1870.955,
+        "maxElapsedMs": 24.425
+      },
+      "renderEglSwapBuffersWithDamageKHR": {
+        "count": 136,
+        "sumElapsedMs": 1979.741,
+        "maxElapsedMs": 25.331
+      },
+      "mainComposeRecompose": {
+        "count": 100,
+        "sumElapsedMs": 18.293,
+        "maxElapsedMs": 0.669
+      },
+      "mainRecomposerRecompose": {
+        "count": 136,
+        "sumElapsedMs": 42.953,
+        "maxElapsedMs": 1.634
+      },
+      "threadCpuRunning": [
+        {
+          "threadName": "RenderThread",
+          "state": "Running",
+          "spanCount": 334,
+          "sumCpuRunningMs": 252.11,
+          "maxCpuRunningSpanMs": 9.27
+        },
+        {
+          "threadName": "om.poyka.ripdpi",
+          "state": "Running",
+          "spanCount": 564,
+          "sumCpuRunningMs": 419.793,
+          "maxCpuRunningSpanMs": 4.36
+        }
+      ]
+    }
+  ]
+}
