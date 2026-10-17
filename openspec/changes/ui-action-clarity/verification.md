@@ -5,7 +5,7 @@ commit_sha: 203ab331e11a898b2ecb42dfde8270f691f2f4f8
 local: passed
 local_evidence: The rebased app source passed 91 History and theme tests, staticAnalysis, Full and Simple lint, and service lint. The final Python helper passed eight host guards, Python compile, independent review, and structured review. Architecture health and locked Cargo metadata passed.
 remote_ci: required
-remote_ci_evidence: Baseline 9f11a4345 passed CI run 39027050440, including ci-required, all five Android device jobs, and three release shards. The follow-up is not yet published.
+remote_ci_evidence: Baseline 9f11a4345 passed CI run 39027050440, including ci-required, all five Android device jobs, and three release shards. Follow-up cfac71c70 is confirmed on origin/main. Exact-SHA CI run 39033921788 and CodeQL, Secret Scan, fleet-fixtures, and harness checks started. The final evidence commit requires its own terminal check receipt.
 device: passed
 device_evidence: The final helper passed all 15 Appium cases with zero failures, errors, or skips on API 37 arm64. Five independent Arabic dark font2 runs, an English light font1 run, and legacy compatibility checks used the clean APK with its installed hash verified. Crash and ANR scans were empty, settings were restored, and the pool lease was released.
 artifact: passed
@@ -128,7 +128,7 @@ choices; no new fixture preset or external probe is needed.
 Follow-up execution: UIX-1792235542212033 owns the reproducible navigation fix;
 UIX-1792235542872043 owns populated-report emulator acceptance;
 UIX-1792235543599801 owns exact-SHA CI inspection and publication. The evidence
-above is the prior baseline. Local, artifact, and final device checks have passed. Publication remains required.
+above is the prior baseline. Local, artifact, and final device checks passed before publication. Hosted follow-up checks are recorded below.
 
 The corrected baseline test failed after the exact raw-path selection. Its reverse
 swipe started at y=576, inside the horizontal tabs, above the vertical body at
@@ -200,3 +200,21 @@ staticAnalysis, Full and Simple lint, service lint, and the debug APK build.
 The final helper passed all eight host regression checks and Python compile.
 Architecture health, full locked Cargo metadata, task contracts, and both
 independent and structured reviews also passed. No baseline was extended.
+
+## Follow-up publication
+
+The job branch was fetched and rebased onto unchanged origin/main 9f11a4345.
+The final eight host checks, architecture health, and full locked Cargo metadata
+passed on that tree. The existing 91-test build and 15-case device records apply:
+the application source did not change after those checks. Both worktrees were
+clean before the fast-forward integration. The authorized push published
+cfac71c7066bce9b456497d8b32b578cff7e8af0 to origin/main; ls-remote confirmed it.
+GitHub reported the account's existing PR and required-check bypass. No rule
+was changed.
+
+Exact-SHA CI run 39033921788 was in progress at publication, as were CodeQL,
+Secret Scan, fleet-fixtures, and harness checks. This evidence-only commit
+completes the execution record and remains in review while its own hosted
+checks run. The final terminal receipt will be saved as published-head-ci-terminal.json
+under the follow-up evidence root and is reported separately. A queued or
+in-progress workflow is not recorded as passed.

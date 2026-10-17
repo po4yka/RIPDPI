@@ -2,7 +2,7 @@
 id: UIX-1792228010381450
 title: Expose recovery actions and simplify mode and history choices
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI action clarity integration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: ui-action-clarity
 created: 2026-10-17
 updated: 2026-10-17
-status_detail: "Follow-up: reproduce and fix Appium filter acceptance, inspect CI, and publish validated fixes."
+status_detail: Appium filter follow-up published after all 15 device cases passed; final hosted checks are being observed.
 ---
 
 ## Goal
