@@ -92,6 +92,7 @@ private class CountedProfiles(
             override fun hasNext(): Boolean = iterator.hasNext()
 
             override fun next(): ProfileUtilityItem {
+                if (!iterator.hasNext()) throw NoSuchElementException()
                 reads.incrementAndGet()
                 return iterator.next()
             }
