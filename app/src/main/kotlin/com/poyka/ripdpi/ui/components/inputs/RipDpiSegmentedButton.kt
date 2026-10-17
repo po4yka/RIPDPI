@@ -1,7 +1,8 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.inputs
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,21 +10,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
-import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -33,21 +37,39 @@ import kotlinx.collections.immutable.persistentListOf
  * read as muted on the card. Matches `components-segmented.html`.
  */
 @Composable
+@NonRestartableComposable
 fun RipDpiSegmentedButton(
     options: ImmutableList<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    RipDpiSegmentedButton(
+        options = options,
+        selectedIndex = selectedIndex,
+        onSelect = onSelect,
+        modifier = modifier,
+        visualStyle = CommonStyle,
+    )
+}
+
+@Composable
+fun RipDpiSegmentedButton(
+    options: ImmutableList<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    visualStyle: CommonStyle = CommonStyle,
+) {
     val colors = RipDpiThemeTokens.colors
     val gap = RipDpiThemeTokens.components.rows.compactPillVerticalPadding
     val shape = RoundedCornerShape(percent = 50)
+    val groupState = rememberUpdatedStyleState(null)
+    val groupResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.segmentedGroup, visualStyle, groupState)
     Row(
         modifier =
             modifier
-                .clip(shape)
-                .background(colors.muted, shape)
-                .border(width = RipDpiStroke.Thin, color = colors.border, shape = shape)
+                .ripDpiStyleSurface(groupResolver, shape = shape, clip = true)
                 .padding(gap)
                 .selectableGroup(),
         verticalAlignment = Alignment.CenterVertically,
@@ -55,15 +77,21 @@ fun RipDpiSegmentedButton(
     ) {
         options.forEachIndexed { index, label ->
             val isSelected = index == selectedIndex
-            val container = if (isSelected) colors.foreground else colors.muted
+            val interactionSource = remember { MutableInteractionSource() }
+            val styleState = rememberUpdatedStyleState(interactionSource) { it.isSelected = isSelected }
+            val itemResolver =
+                rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.segmentedItem, CommonStyle, styleState)
             val content = if (isSelected) colors.background else colors.mutedForeground
             Row(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .clip(shape)
-                        .background(container, shape)
-                        .ripDpiSelectable(selected = isSelected, role = Role.Tab) { onSelect(index) }
+                        .ripDpiStyleSurface(itemResolver, shape = shape, clip = true)
+                        .ripDpiSelectable(
+                            selected = isSelected,
+                            role = Role.Tab,
+                            interactionSource = interactionSource,
+                        ) { onSelect(index) }
                         .padding(horizontal = RipDpiThemeTokens.spacing.md, vertical = RipDpiThemeTokens.spacing.sm),
                 horizontalArrangement = Arrangement.Center,
             ) {

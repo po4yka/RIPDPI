@@ -1,9 +1,8 @@
+@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
+
 package com.poyka.ripdpi.ui.components.inputs
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,18 +10,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.foundation.style.StyleResolver
+import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
@@ -35,12 +35,14 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
+import com.poyka.ripdpi.ui.theme.ripDpiStyleContent
+import com.poyka.ripdpi.ui.theme.ripDpiStylePadding
+import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 private const val textFieldContentSpacingDp = 8
-
-// Internal threshold for detecting a focused/thickened border — not a design token.
-private val FocusedPaddingMinimumDp = 1.dp
 
 data class RipDpiTextFieldDecoration(
     val label: String? = null,
@@ -64,6 +66,7 @@ data class RipDpiTextFieldBehavior(
 )
 
 @Composable
+@NonRestartableComposable
 fun RipDpiTextField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -72,15 +75,43 @@ fun RipDpiTextField(
     behavior: RipDpiTextFieldBehavior = RipDpiTextFieldBehavior(),
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
+    RipDpiTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        decoration = decoration,
+        behavior = behavior,
+        visualStyle = CommonStyle,
+        trailingContent = trailingContent,
+    )
+}
+
+@Composable
+fun RipDpiTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    decoration: RipDpiTextFieldDecoration = RipDpiTextFieldDecoration(),
+    behavior: RipDpiTextFieldBehavior = RipDpiTextFieldBehavior(),
+    visualStyle: CommonStyle = CommonStyle,
+    trailingContent: (@Composable () -> Unit)? = null,
+) {
     val components = RipDpiThemeTokens.components
     val resolvedTextStyle = behavior.textStyle ?: RipDpiThemeTokens.type.monoValue
     val resolvedInteractionSource = behavior.interactionSource ?: remember { MutableInteractionSource() }
-    val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
+    val styleState =
+        rememberUpdatedStyleState(resolvedInteractionSource) {
+            it.isEnabled = behavior.enabled
+            it[RipDpiStyleStateKeys.HasError] = decoration.errorText != null
+            it[RipDpiStyleStateKeys.IsEmpty] = value.isEmpty()
+            it[RipDpiStyleStateKeys.Compact] = behavior.density == RipDpiControlDensity.Compact
+        }
+    val styleResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.textField, visualStyle, styleState)
     val state =
         RipDpiThemeTokens.state.textField.resolve(
             enabled = behavior.enabled,
             hasError = decoration.errorText != null,
-            isFocused = isFocused,
+            isFocused = styleState.isFocused,
             isEmpty = value.isEmpty(),
         )
 
@@ -118,12 +149,8 @@ fun RipDpiTextField(
             decorationBox = { innerTextField ->
                 RipDpiTextFieldShell(
                     shape = RipDpiThemeTokens.shapes.xl,
-                    containerColor = state.container,
-                    borderColor = state.border,
-                    borderWidth = state.borderWidth,
-                    alpha = state.alpha,
+                    styleResolver = styleResolver,
                     minHeight = behavior.minHeight ?: components.inputs.controlHeight,
-                    density = behavior.density,
                     trailingContent = trailingContent,
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
@@ -151,6 +178,7 @@ fun RipDpiTextField(
 }
 
 @Composable
+@NonRestartableComposable
 fun RipDpiConfigTextField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -158,6 +186,29 @@ fun RipDpiConfigTextField(
     decoration: RipDpiTextFieldDecoration = RipDpiTextFieldDecoration(),
     behavior: RipDpiTextFieldBehavior = RipDpiTextFieldBehavior(),
     multiline: Boolean = false,
+    trailingContent: (@Composable () -> Unit)? = null,
+) {
+    RipDpiConfigTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        decoration = decoration,
+        behavior = behavior,
+        multiline = multiline,
+        visualStyle = CommonStyle,
+        trailingContent = trailingContent,
+    )
+}
+
+@Composable
+fun RipDpiConfigTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    decoration: RipDpiTextFieldDecoration = RipDpiTextFieldDecoration(),
+    behavior: RipDpiTextFieldBehavior = RipDpiTextFieldBehavior(),
+    multiline: Boolean = false,
+    visualStyle: CommonStyle = CommonStyle,
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val components = RipDpiThemeTokens.components
@@ -178,6 +229,7 @@ fun RipDpiConfigTextField(
                         behavior.minHeight
                     },
             ),
+        visualStyle = visualStyle,
         trailingContent = trailingContent,
     )
 }
@@ -185,37 +237,19 @@ fun RipDpiConfigTextField(
 @Composable
 private fun RipDpiTextFieldShell(
     shape: Shape,
-    containerColor: Color,
-    borderColor: Color,
-    borderWidth: androidx.compose.ui.unit.Dp,
-    alpha: Float,
+    styleResolver: StyleResolver,
     minHeight: androidx.compose.ui.unit.Dp,
-    density: RipDpiControlDensity,
     trailingContent: (@Composable () -> Unit)?,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val components = RipDpiThemeTokens.components
-    val basePadding =
-        if (borderWidth > FocusedPaddingMinimumDp) {
-            components.inputs.fieldFocusedHorizontalPadding
-        } else {
-            components.inputs.fieldHorizontalPadding
-        }
-    val horizontalPadding =
-        when (density) {
-            RipDpiControlDensity.Default -> basePadding
-            RipDpiControlDensity.Compact -> basePadding - 4.dp
-        }
-
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = minHeight)
-                .background(containerColor, shape)
-                .border(borderWidth, borderColor, shape)
-                .padding(start = horizontalPadding, end = horizontalPadding)
-                .alpha(alpha),
+                .ripDpiStyleSurface(styleResolver, shape = shape)
+                .ripDpiStylePadding(styleResolver)
+                .ripDpiStyleContent(styleResolver),
         horizontalArrangement = Arrangement.spacedBy(textFieldContentSpacingDp.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = {

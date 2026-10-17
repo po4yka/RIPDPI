@@ -14,13 +14,19 @@ import androidx.compose.foundation.style.appearance
 import androidx.compose.foundation.style.placement
 import androidx.compose.foundation.style.styleResolver
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalContext
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -42,23 +48,28 @@ internal fun rememberRipDpiStyleResolver(
     visualStyle: CommonStyle,
     styleState: StyleState,
 ): StyleResolver {
-    val currentContext = currentCompositionLocalContext
-    val compositionLocalContext = remember { mutableStateOf(currentContext) }
+    val currentInputs = RipDpiStyleInputs(currentCompositionLocalContext, defaultStyle, visualStyle)
+    val inputs = remember { mutableStateOf(currentInputs) }
     // Notify the node after applyChanges has installed its new composition-local map.
-    SideEffect { compositionLocalContext.value = currentContext }
+    SideEffect { inputs.value = currentInputs }
     val mergedStyle =
-        remember(defaultStyle, visualStyle) {
+        remember {
             CommonStyle {
-                // Static locals replace their map without snapshot reads at the bound node.
-                // Observe map changes without replacing the resolver or its active animations.
-                compositionLocalContext.value.let {
-                    with(defaultStyle) { applyStyle() }
-                    styleLayer { with(visualStyle) { applyStyle() } }
-                }
+                // Read the latest recipes without replacing the resolver or its active animations.
+                // The context also invalidates static locals after their new map is installed.
+                val current = inputs.value
+                with(current.defaults) { applyStyle() }
+                styleLayer { with(current.visual) { applyStyle() } }
             }
         }
     return remember(mergedStyle, styleState) { StyleResolver(mergedStyle, styleState) }
 }
+
+private data class RipDpiStyleInputs(
+    val context: CompositionLocalContext,
+    val defaults: CommonStyle,
+    val visual: CommonStyle,
+)
 
 /** Bind once on the outer component; child content uses [ripDpiStyleContent]. */
 fun Modifier.ripDpiStyleSurface(
@@ -143,6 +154,35 @@ fun Modifier.ripDpiStyleContent(
         }
     return if (applyPadding) content.ripDpiStylePadding(resolver) else content
 }
+
+/** Scale the whole painted shell while keeping its input and semantics coordinates unchanged. */
+fun Modifier.ripDpiStyleDrawing(resolver: StyleResolver): Modifier =
+    drawWithCache {
+        val alphaPaint = Paint()
+        onDrawWithContent {
+            val content = this
+            val contentScale = resolver.resolve { RipDpiStyleProperties.contentScale.value }
+            val alpha = resolver.resolve { RipDpiStyleProperties.contentAlpha.value.coerceIn(0f, 1f) }
+            if (contentScale == 1f && alpha == 1f) {
+                drawContent()
+            } else {
+                withTransform({ scale(contentScale, contentScale, center) }) {
+                    if (alpha == 1f) {
+                        content.drawContent()
+                    } else {
+                        val canvas = drawContext.canvas
+                        alphaPaint.alpha = alpha
+                        canvas.saveLayer(Rect(Offset.Zero, size), alphaPaint)
+                        try {
+                            content.drawContent()
+                        } finally {
+                            canvas.restore()
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 /** Apply logical inner padding separately when transforms must stay before the shell. */
 fun Modifier.ripDpiStylePadding(resolver: StyleResolver): Modifier = padding(RipDpiStylePadding(resolver))
