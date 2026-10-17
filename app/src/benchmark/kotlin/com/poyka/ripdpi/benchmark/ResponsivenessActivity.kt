@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -76,7 +77,7 @@ class ResponsivenessActivity : ComponentActivity() {
         serviceStateStore.updateTelemetry(snapshot(0))
         setContent {
             RipDpiTheme {
-                Column(Modifier.fillMaxSize().ripDpiAutomationTreeRoot()) {
+                Column(Modifier.fillMaxSize().safeDrawingPadding().ripDpiAutomationTreeRoot()) {
                     DriverControls()
                     Workload(Modifier.weight(1f))
                 }
