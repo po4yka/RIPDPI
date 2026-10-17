@@ -288,6 +288,31 @@ class BasePage:
             time.sleep(0.12)
         return self.wait_for(tag, timeout=5)
 
+    def wait_for_stable_target(self, tag: str, timeout: int = 10):
+        """Re-find an exact visible target until two bounds observations agree."""
+        previous_bounds = None
+
+        def stable(_):
+            nonlocal previous_bounds
+            try:
+                target = self._find_by_test_tag(tag)
+                if (not target or not target.is_displayed() or not target.is_enabled() or
+                        target.get_attribute("resource-id") not in self._resource_ids(tag)):
+                    previous_bounds = None
+                    return False
+                bounds = target.rect
+                if bounds["width"] <= 0 or bounds["height"] <= 0:
+                    previous_bounds = None
+                    return False
+                unchanged = bounds == previous_bounds
+                previous_bounds = dict(bounds)
+                return target if unchanged else False
+            except (NoSuchElementException, StaleElementReferenceException):
+                previous_bounds = None
+                return False
+
+        return WebDriverWait(self.driver, timeout).until(stable, message=f"Target {tag!r} did not settle")
+
     # Opt-in scrolling for screens that contain more than one scroll axis.
     def _scoped_target(self, tag: str, container_tag: str, fully_visible: bool):
         container = self.find(container_tag)

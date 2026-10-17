@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException, WebDriverException
+from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage
 
@@ -65,8 +66,34 @@ class HistoryPage(BasePage):
     def tap_section(self, section: str) -> None:
         if section not in SECTIONS:
             raise ValueError(f"Unknown history section: {section!r}")
-        self.tap(f"history-section-{section}")
+        if not self._section_ready(section):
+            target = self.wait_for_stable_target(f"history-section-{section}")
+            target.click()
+            WebDriverWait(self.driver, 10).until(
+                lambda _: self._section_ready(section),
+                message=f"History section {section!r} did not become selected and visible",
+            )
         self._section = section
+
+    def _section_ready(self, section: str) -> bool:
+        try:
+            tab_tag = f"history-section-{section}"
+            tab = self._find_by_test_tag(tab_tag)
+            if (not tab or not tab.is_displayed() or not tab.is_enabled() or
+                    tab.get_attribute("resource-id") not in self._resource_ids(tab_tag)):
+                return False
+            attribute = "checked" if tab.get_attribute("checkable") == "true" else "selected"
+            if tab.get_attribute(attribute) != "true":
+                return False
+            body_tag = f"history-{section}-list"
+            body = self._find_by_test_tag(body_tag)
+            return bool(
+                body and body.is_displayed() and body.is_enabled() and
+                body.get_attribute("resource-id") in self._resource_ids(body_tag) and
+                body.rect["height"] > 0
+            )
+        except (NoSuchElementException, StaleElementReferenceException):
+            return False
 
     def is_section_visible(self, section: str) -> bool:
         return self.is_visible(f"history-section-{section}")

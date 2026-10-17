@@ -160,6 +160,58 @@ class HistoryScopedScrollTest(unittest.TestCase):
         page.tap(latest.tag)
         self.assertEqual(1, latest.clicks)
 
+    def test_section_switch_waits_for_stable_tab_and_selected_body_before_return(self):
+        body = self.body()
+
+        class MovingTab:
+            def __init__(self):
+                self.observations = []
+                self.clicked = False
+                self.positions = [100, 130, 130]
+
+            @property
+            def rect(self):
+                x = self.positions[min(len(self.observations), len(self.positions) - 1)]
+                self.observations.append(x)
+                return {"x": x, "y": 527, "width": 450, "height": 180}
+
+            def is_displayed(self):
+                return True
+
+            def is_enabled(self):
+                return True
+
+            def get_attribute(self, name):
+                return {
+                    "resource-id": "history-section-diagnostics",
+                    "checkable": "true", "checked": str(self.clicked).lower(),
+                }.get(name)
+
+            def click(self):
+                if len(self.observations) < 2 or self.observations[-1] != self.observations[-2]:
+                    raise AssertionError("The tab must stop moving before its single click")
+                self.clicked = True
+
+        tab = MovingTab()
+
+        class SwitchingHistory(HistoryPage, FakePage):
+            def __init__(self):
+                FakePage.__init__(self, {"history-section-diagnostics": tab})
+                self._section = "connections"
+                self.body_reads = 0
+
+            def _find_by_test_tag(self, tag):
+                if tag == "history-diagnostics-list":
+                    self.body_reads += 1
+                    return body if self.body_reads >= 3 and tab.clicked else False
+                return self.elements.get(tag, False)
+
+        page = SwitchingHistory()
+        page.tap_section("diagnostics")
+        self.assertTrue(tab.clicked)
+        self.assertGreaterEqual(page.body_reads, 3)
+        self.assertEqual("diagnostics", page._section)
+
     def test_history_category_request_uses_exact_target_without_prefix_fallback(self):
         class RecordingHistory(HistoryPage):
             def __init__(self):
