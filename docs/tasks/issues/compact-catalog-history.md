@@ -2,7 +2,7 @@
 id: UIX-1792213600805378
 title: Compact the Simple profile catalog and make empty history useful
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: Catalog and history UI team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: compact-catalog-history
 created: 2026-10-17
 updated: 2026-10-17
+status_detail: Implementation, local checks and device acceptance passed. Main e82cf62f9 was integrated with ff-only and pushed. Hosted CI is tracked in verification.md.
 ---
 
 ## Goal
@@ -41,6 +42,10 @@ Show profiles before optional check setup, and give each history state a correct
   HistoryUiModels.kt, HistoryUiStateFactory.kt and related behavior/route tests.
   No RipDpiNavHost or shared tag edits. It also owns the new HistoryNavigation.kt
   helper and HistoryNavigationTest.kt to exercise real saved-back-stack behavior.
+- Golden specialist in RIPDPI-simple-catalog-history-goldens: only the 13
+  ProfileUtilityScreenshotTest PNG and RipDpiScreenCatalogScreenshotTest
+  replayHistoryEmptyScreen PNG. The user approved these 14 fixtures on 2026-10-17
+  after complete actual/compare review. No other fixture or source writer is allowed.
 - Device specialist: temporary harness/evidence and exclusive emulator leases only.
 - Independent reviewer: read-only source and evidence review. Golden changes,
   if required, need separately scoped user approval and an isolated golden specialist.

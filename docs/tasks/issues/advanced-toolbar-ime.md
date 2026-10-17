@@ -2,7 +2,7 @@
 id: UIX-1792168730775866
 title: Keep the Advanced toolbar fixed while the keyboard is open
 kind: bug
-status: review
+status: done
 area: ui
 priority: high
 owner: Advanced IME team
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-17
 spec_reason: regression-tested-single-module
 status_detail: "Implementation integrated with ff-only into main at 85da04a2b. API35/API37, Save persistence, targeted tests and combined checks passed. API30 remains blocked before boot: 8627.29 MB available, 12288 MB required. Both approved pool removals completed; no API30 PASS or task closure is claimed."
+closed_at: "2026-10-17T06:17:42Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "API30 final focus source394536327/APK755f975: 2 passed, 0 failed, 0 skipped; four PNG independently reviewed, restoration and own temporary AVD cleanup verified. Prior API35/API37 and Save gates passed. Exact main79e71d147 pushed and CI38950288714 completed successfully. Evidence: docs/audits/2026-10-16-advanced-ime-regression.md."
 ---
 
 ## Goal

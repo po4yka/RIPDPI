@@ -1,10 +1,11 @@
 # Advanced keyboard regression verification
 
 Date: 2026-10-16. Application source: `3945363270c62a284feea927569f0f69e5b24f4d`.
-API35/API37 and edit/save passed. API30 is blocked before boot by host disk space.
-The verified implementation was integrated with ff-only into local main at
-`85da04a2b`. Remote push and hosted CI are separate evidence. The task remains
-in review with API30 verification open; no complete cross-version acceptance is claimed.
+API35/API37, edit/save and the final API30 focus recheck passed. The implementation
+was integrated with ff-only at `85da04a2b` and pushed through main
+`79e71d1473fc320e55ac2bb9aba936b10a4f199d`. Hosted CI 38950288714 completed
+successfully on that exact main commit. The final API30 gate was completed on
+2026-10-17; its evidence is separate from later catalog/history UI acceptance.
 
 ## Result and cause
 
@@ -57,7 +58,7 @@ real toolbar Back must return to the expected route.
 | 37 | StrategyConfig, light, font 1.0, gestures, multiline field and Save reachability | PASS | `20261016T172255Z` |
 | 35 | Advanced, dark, font 2.0, three-button, direct entry | PASS | `20261016T181607Z` |
 | 35 | Advanced, light, font 1.0, gestures, entry through Settings | PASS | `20261016T181607Z` |
-| 30 | Same two Advanced cases | BLOCKED before boot | See startup logs below |
+| 30 | Same two Advanced cases | PASS: 2 passed, 0 failed, 0 skipped | `20261017T052700Z` |
 
 The API35 and API37 runs use Pixel 10 Pro XL profiles. On API37 the exact baseline
 trigger put the title at y0..59 under a status bar ending at 156px and removed
@@ -76,7 +77,7 @@ Advanced accordion when required, hides the keyboard, checks the Advanced route
 and scrolls Save into view before tapping it. Assertions and the persona remain.
 Flow SHA256: `433e93de4470f0c3f632a9e73ebe650aca6c6ca19c9551bb315833b248176f05`.
 
-## Preparation failures and remaining gate
+## Retained preparation failures
 
 Early API35/API30 starts failed before APK installation because normal userdata
 allocation requires 12,288 MB. Later API35 tests initially lost Back to a
@@ -96,8 +97,9 @@ The user then explicitly authorized removal of idle `RIPDPI_Pool_2`. Documented
 dry-run and cleanup removed only that device. After both approved removals, the
 next API30 start still failed before boot: 8,627.29 MB available, 12,288 MB
 required. The wrapper removed its own temporary AVD and retained startup logs.
-No disk gate or userdata size was changed. API30 remains an open verification
-item; unrelated device data was not removed.
+No disk gate or userdata size was changed. API30 was still open at that
+checkpoint. The final recheck below closes this verification gap; unrelated
+device data was not removed.
 
 Only this task's generated build outputs and a duplicate baseline output archive
 were cleaned. All three canonical tested APKs and preserved reports remain;
@@ -131,3 +133,34 @@ The combined tree passed task validation, design validation, architecture health
 and locked Cargo metadata again. The prior Full/Simple, lint, static and unchanged
 screenshot results apply to the identical application source. Independent final
 review found no code blocker and required the explicit API30 limitation above.
+
+## Final API30 focus recheck (2026-10-17)
+
+The unchanged accepted Full APK passed both required cases on a non-rooted API30
+ARM64 Google APIs Pixel 10 Pro XL emulator: dark/font2/three-button/direct entry
+and light/font1/gestures/entry through Settings. Results: 2 passed, 0 failed,
+0 skipped. All four shown/hidden PNG were inspected by the device specialist and
+an independent reviewer. The focused field was at `[108,1017,972,1161]`, with
+IME top 1161px. Back was at `[60,84,204,228]`, below the status bar ending at
+72px, and retained its 48dp target. First Back hid IME and kept Advanced plus
+value 14. The real toolbar Back returned to Home or Settings as required.
+
+The run used source `3945363270c62a284feea927569f0f69e5b24f4d` and accepted APK
+SHA256 `755f97512d8da7ca35dd478356b83324922a1828dfc9d18fe1a7437a2a736975`.
+The observed checkout differed from the declared APK source only in task/docs
+and the previously verified Maestro flow; the application production diff was
+empty. Final focus helper v7 SHA256:
+`a72d89fd036b76ceb891d57f54a359fec79e9922aa7a9ba8fd875f8084049f68`.
+Earlier v5/v6 locale guards stopped before the cases and remain separate failed
+preparation attempts; they do not count as acceptance.
+
+Size 1344x2992, density 480 and the original font setting were restored. Navigation
+restoration passed three stable samples. Crash buffer was empty and app services
+were absent. The wrapper returned 0 and removed only its owner-created temporary
+AVD; its `.avd`, `.ini` and metadata were confirmed absent. Raw evidence:
+`/tmp/ripdpi-advanced-ime-device/20261017T052700Z/visual-review.md` and
+`/tmp/ripdpi-advanced-ime-device/api30-startup-20261017T052640Z/wrapper-result.json`.
+This focus recheck does not claim a full API30 Maestro/edit-save suite.
+
+[Hosted main CI](https://github.com/po4yka/RIPDPI/actions/runs/38950288714)
+was re-read on 2026-10-17: completed/success at exact main `79e71d147`.
