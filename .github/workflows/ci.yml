@@ -1606,7 +1606,11 @@ jobs:
         run: |
           changed_paths=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
           # JNI inventories are checked against built ELF exports in rust-native-packaging.
-          if printf '%s\n' "$changed_paths" | grep -E 'baseline' | grep -Ev '^native/rust/crates/(ripdpi-android|ripdpi-tunnel-android|ripdpi-relay-android|ripdpi-warp-android|ripdpi-amneziawg-android)/jni-symbols\.baseline$'; then
+          # These exact benchmark code paths do not contain expected-result baselines.
+          if printf '%s\n' "$changed_paths" | grep -E 'baseline' |
+            grep -Ev '^native/rust/crates/(ripdpi-android|ripdpi-tunnel-android|ripdpi-relay-android|ripdpi-warp-android|ripdpi-amneziawg-android)/jni-symbols\.baseline$' |
+            grep -Fxv -e 'baselineprofile/build.gradle.kts' \
+              -e 'baselineprofile/src/benchmark/kotlin/com/poyka/ripdpi/performance/ComposeStylesBenchmark.kt'; then
             echo "error: baseline files must not be modified in PRs — fix violations in code"
             exit 1
           fi
