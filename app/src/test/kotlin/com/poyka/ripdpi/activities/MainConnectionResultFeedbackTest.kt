@@ -254,6 +254,135 @@ class MainConnectionResultFeedbackTest {
         }
 
     @Test
+    fun `config retries report equal actual failures once per new start`() =
+        runTest {
+            val controller = FakeServiceController()
+            val fixture = ConnectionFeedbackFixture(backgroundScope, controller = controller)
+            val config =
+                ConfigRuntimeActions(
+                    scope = backgroundScope,
+                    controller = controller,
+                    service = fixture.store,
+                    strings = FakeStringResolver(),
+                )
+            runCurrent()
+            repeat(2) { attempt ->
+                config.toggle(Mode.Proxy, true)
+                runCurrent()
+                repeat(2) {
+                    fixture.store.emitFailed(Sender.Proxy, FailureReason.NativeError("Failed"))
+                    runCurrent()
+                    fixture.store.setStatus(AppStatus.Halted, Mode.Proxy)
+                    runCurrent()
+                }
+                assertEquals(null, config.feedback.value.operation)
+                assertEquals(attempt + 1, fixture.effects.replayCache.size)
+                assertTrue(fixture.effects.replayCache.all { it is MainEffect.ShowError })
+            }
+            assertEquals(listOf(Mode.Proxy, Mode.Proxy), controller.startedModes)
+        }
+
+    @Test
+    fun `terminated config starts retain distinct equal failure results`() =
+        runTest {
+            val controller =
+                object : TestSynchronousServiceController() {
+                    override fun recordStart(
+                        mode: Mode,
+                        receipt: RuntimeActivationReceipt?,
+                    ): ServiceStartResult {
+                        val accepted = checkNotNull(receipt)
+                        testAuthority.cancelPendingActivation(accepted)
+                        assertEquals(null, testAuthority.snapshotAuthority().desiredMode)
+                        return ServiceStartResult.Accepted(accepted)
+                    }
+
+                    override fun recordStop() = Unit
+                }
+            val fixture = ConnectionFeedbackFixture(backgroundScope, controller = controller)
+            val config = ConfigRuntimeActions(backgroundScope, controller, fixture.store, FakeStringResolver())
+            runCurrent()
+            repeat(2) { attempt ->
+                config.toggle(Mode.Proxy, true)
+                runCurrent()
+                repeat(2) {
+                    fixture.store.emitFailed(Sender.Proxy, FailureReason.NativeError("Failed"))
+                    runCurrent()
+                    fixture.store.setStatus(AppStatus.Halted, Mode.Proxy)
+                    runCurrent()
+                }
+                assertEquals(attempt + 1, fixture.effects.replayCache.size)
+            }
+        }
+
+    @Test
+    fun `unavailable failure identity preserves messages and never replays on read recovery`() =
+        runTest {
+            val controller = FakeServiceController()
+            val fixture = ConnectionFeedbackFixture(backgroundScope, controller = controller)
+            runCurrent()
+            fixture.actions.startMode(Mode.Proxy)
+            runCurrent()
+            controller.nextCaptureFailure = IOException("Authority unavailable")
+            fixture.store.emitFailed(Sender.Proxy, FailureReason.NativeError("Failed"))
+            runCurrent()
+            assertEquals(null, controller.nextCaptureFailure)
+            assertEquals(1, fixture.effects.replayCache.size)
+            fixture.store.emitFailed(Sender.Proxy, FailureReason.NativeError("Failed"))
+            runCurrent()
+            assertEquals(1, fixture.effects.replayCache.size)
+            fixture.store.emitFailed(Sender.Proxy, FailureReason.NativeError("Changed"))
+            runCurrent()
+            assertEquals(2, fixture.effects.replayCache.size)
+            assertTrue(fixture.effects.replayCache.all { it is MainEffect.ShowError })
+        }
+
+    @Test
+    fun `slow old failure identity cannot replace a later successful attempt`() =
+        runTest {
+            val controller =
+                object : TestSynchronousServiceController() {
+                    var nextCaptureGate: CompletableDeferred<Unit>? = null
+
+                    override suspend fun captureRuntimeSnapshot(): com.poyka.ripdpi.data.RuntimeAuthoritySnapshot {
+                        val snapshot = super.captureRuntimeSnapshot()
+                        val gate = nextCaptureGate
+                        nextCaptureGate = null
+                        gate?.await()
+                        return snapshot
+                    }
+
+                    override fun recordStart(
+                        mode: Mode,
+                        receipt: RuntimeActivationReceipt?,
+                    ): ServiceStartResult = ServiceStartResult.Accepted(checkNotNull(receipt))
+
+                    override fun recordStop() = Unit
+                }
+            val fixture = ConnectionFeedbackFixture(backgroundScope, controller = controller)
+            runCurrent()
+            fixture.actions.startMode(Mode.Proxy)
+            runCurrent()
+            val oldCapture = CompletableDeferred<Unit>()
+            controller.nextCaptureGate = oldCapture
+            fixture.store.emitFailed(Sender.Proxy, FailureReason.NativeError("Old failure"))
+            runCurrent()
+            assertEquals(null, controller.nextCaptureGate)
+            fixture.store.setStatus(AppStatus.Halted, Mode.Proxy)
+            runCurrent()
+            fixture.actions.startMode(Mode.Proxy)
+            runCurrent()
+            fixture.store.setStatus(AppStatus.Running, Mode.Proxy)
+            runCurrent()
+            assertEquals(ConnectionState.Connected, fixture.state.value.connectionState)
+            assertEquals(listOf(MainEffect.ConnectionEstablished), fixture.effects.replayCache)
+            oldCapture.complete(Unit)
+            runCurrent()
+            assertEquals(ConnectionState.Connected, fixture.state.value.connectionState)
+            assertEquals(listOf(MainEffect.ConnectionEstablished), fixture.effects.replayCache)
+        }
+
+    @Test
     fun `changed non-user runtime failure remains visible`() =
         runTest {
             val fixture = ConnectionFeedbackFixture(backgroundScope)

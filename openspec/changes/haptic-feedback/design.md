@@ -12,9 +12,9 @@ Task UIX-1792259264757428 adds user control to the existing platform-based hapti
 - Add bool haptic_feedback_disabled at the next live free protobuf tag (413 at planning). False preserves legacy behavior. Mirror it in JSON FULL snapshots and canonical defaults.
 - Pass the preference through startup state into RipDpiTheme. AND it with the current motion haptics gate. Keep View.performHapticFeedback and its system opt-out.
 - Reuse a compact dropdown in Full Interface settings and a Simple interface overlay. Existing RDS settings row/dropdown are the reference; no dedicated haptics deck sheet exists.
-- Connection arms only an explicit start and consumes it on actual Running. Rejection, timeout and cancellation clear it. Initial Running is quiet. Reuse the existing one-shot error signal to avoid duplicate errors.
+- Connection arms only an explicit start and consumes it on actual Running. Rejection, timeout and cancellation clear it. Initial Running is quiet. Reuse the existing one-shot error signal to avoid duplicate errors. Distinguish sequential equal failures from new explicit starts with the existing authority and command ID. Apply visible error state before the optional identity read; a local action epoch rejects deferred feedback after a new start, stop, dismissal or Running status.
 - Detection emits terminal events from the coordinator and ViewModel. UI consumes them through LifecycleEventEffect. Remove effects from retained result rendering and VPN consent state.
-- Preserve diagnostics session completion events. Add regression coverage for equal runs, restored results, lifecycle consumption and Off consumption.
+- Preserve diagnostics session completion events. Keep accepted starts silent. Capture result eligibility at production and gate it again at consumption. Add regression coverage for equal runs, restored results, lifecycle consumption and Off consumption.
 
 ## Contracts and ownership
 
@@ -24,8 +24,8 @@ Task UIX-1792259264757428 adds user control to the existing platform-based hapti
 
 ## Risks / Trade-offs
 
-- Status lacks an operation ID. Test pending-attempt invalidation against late status; do not change service authority or claim protocol-level correlation.
-- A result produced while the UI is stopped queues under the existing convention and is consumed once on resume. Off suppresses delivery at consumption, so re-enabling never replays consumed results.
+- Status and failure events lack an operation ID. Test pending-attempt invalidation against late status; do not change service authority or claim protocol-level correlation.
+- A result produced while the UI is stopped queues under the existing convention and is consumed once on resume. Off at production makes that result ineligible even if System is selected before consumption. Off at consumption also suppresses feedback. Visible messages remain available.
 - Device tests count calls and check preference persistence; a physical device is required to assess tactile quality.
 - Additional settings rows may affect screenshots. Verify actual images; golden updates require separate approval and are not automatic.
 

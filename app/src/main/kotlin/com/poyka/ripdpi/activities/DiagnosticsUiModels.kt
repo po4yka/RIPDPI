@@ -974,12 +974,14 @@ sealed interface DiagnosticsEffect {
         val tone: DiagnosticsTone,
         val actionLabel: String? = null,
         val action: SnackbarAction? = null,
+        val hapticFeedbackEnabled: Boolean = true,
     ) : DiagnosticsEffect
 
     data class ScanStartFailed(
         val message: String,
         val actionLabel: String? = null,
         val action: SnackbarAction? = null,
+        val hapticFeedbackEnabled: Boolean = true,
     ) : DiagnosticsEffect
 }
 

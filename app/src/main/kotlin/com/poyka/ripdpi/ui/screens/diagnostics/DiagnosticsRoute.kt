@@ -242,7 +242,6 @@ private suspend fun handleDiagnosticsEffect(
         }
 
         is DiagnosticsEffect.ScanStarted -> {
-            performHaptic(RipDpiHapticFeedback.Acknowledge)
             showDiagnosticsSnackbar(snackbarHostState, effect.scanTypeLabel, RipDpiSnackbarTone.Info)
         }
 
@@ -251,7 +250,7 @@ private suspend fun handleDiagnosticsEffect(
         }
 
         is DiagnosticsEffect.ScanCompleted -> {
-            performHaptic(effect.tone.toHapticFeedback())
+            if (effect.hapticFeedbackEnabled) performHaptic(effect.tone.toHapticFeedback())
             val result =
                 snackbarHostState.showRipDpiSnackbar(
                     message = effect.summary,
@@ -265,7 +264,7 @@ private suspend fun handleDiagnosticsEffect(
         }
 
         is DiagnosticsEffect.ScanStartFailed -> {
-            performHaptic(RipDpiHapticFeedback.Error)
+            if (effect.hapticFeedbackEnabled) performHaptic(RipDpiHapticFeedback.Error)
             val result =
                 snackbarHostState.showRipDpiSnackbar(
                     message = effect.message,

@@ -32,9 +32,19 @@ The app MUST signal success at most once for a current user start that reaches a
 - **WHEN** the requested mode reaches Running but the optional authority read fails
 - **THEN** the connection remains successful, runtime observation continues, and feedback stays quiet.
 
+#### Scenario: Repeat a failed Config start
+
+- **WHEN** two separate accepted Config starts each fail with the same message without an intervening Running status or error dismissal
+- **THEN** each attempt reports one error and duplicate failure notifications within an attempt add no signal.
+
+#### Scenario: Deferred feedback after a newer connection
+
+- **WHEN** an old failure waits for optional identity data and a new user start reaches Running
+- **THEN** the old read does not replace the new connection state or deliver stale feedback.
+
 ### Requirement: REQ-HAPTIC-RESULT — Deliver each check result once
 
-Detection and diagnostics MUST deliver feedback from operation events. Rendering a retained result, navigation, recomposition and Activity recreation MUST NOT replay consumed feedback. Consecutive completed runs with equal results MUST each deliver one event. Cancellation MUST remain quiet. Disabled feedback MUST be consumed without later replay.
+Detection and diagnostics MUST deliver feedback from operation events. Diagnostics start events MUST remain silent. Rendering a retained result, navigation, recomposition and Activity recreation MUST NOT replay consumed feedback. Consecutive completed runs with equal results MUST each deliver one event. Cancellation MUST remain quiet. Disabled feedback MUST be consumed without later replay.
 
 #### Scenario: Equal results and screen return
 
@@ -45,6 +55,17 @@ Detection and diagnostics MUST deliver feedback from operation events. Rendering
 
 - **WHEN** an event is consumed while app feedback is Off and the user later enables it
 - **THEN** the old event is not replayed.
+
+#### Scenario: Diagnostic acceptance stays quiet
+
+- **WHEN** diagnostics accepts a new scan request
+- **THEN** the start message remains visible and acceptance does not produce a haptic signal.
+
+#### Scenario: Enable feedback after a queued result
+
+- **WHEN** diagnostics creates a result while feedback is Off and System is selected before the screen consumes it
+- **THEN** the result text and actions remain available without a haptic signal.
+- **AND** a new result created under System can signal once.
 
 ### Requirement: REQ-HAPTIC-VALIDATION — Preserve accessible offline behavior
 

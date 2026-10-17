@@ -5,6 +5,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PauseAuthorityRef
+import com.poyka.ripdpi.data.RuntimeCommandOrigin
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -21,8 +23,11 @@ import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.ui.diagnostics.uiEvidenceNote
 import com.poyka.ripdpi.ui.diagnostics.verificationLabelRes
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.time.Duration.Companion.ZERO
@@ -47,6 +52,8 @@ internal class MainConnectionActions(
 
     private var connectionMetricsJob: Job? = null
     private var connectingTimeoutJob: Job? = null
+    private var lastNotifiedFailure: FailureFeedbackIdentity? = null
+    private var failureFeedbackEpoch = 0L
     private val resultFeedback =
         ConnectionResultFeedback(
             controller = serviceController,
@@ -62,6 +69,7 @@ internal class MainConnectionActions(
 
     fun startMode(mode: Mode) =
         mutations.launch {
+            failureFeedbackEpoch++
             resultFeedback.clear()
             if (mode == Mode.VPN && hasUnsupportedVpnDoq(currentSettings())) {
                 mutations.trySend(
@@ -102,6 +110,7 @@ internal class MainConnectionActions(
 
     fun stop() =
         mutations.launch {
+            failureFeedbackEpoch++
             resultFeedback.clear()
             val wasConnecting = runtimeState.value.connectionState == ConnectionState.Connecting
             serviceController.stop()
@@ -114,6 +123,7 @@ internal class MainConnectionActions(
         }
 
     fun dismissError() {
+        failureFeedbackEpoch++
         runtimeState.update { current ->
             if (current.connectionState != ConnectionState.Error) {
                 current
@@ -128,6 +138,7 @@ internal class MainConnectionActions(
     }
 
     fun showPermissionIssue(issue: PermissionIssueUiState) {
+        failureFeedbackEpoch++
         resultFeedback.clear()
         stopConnectionMetricsPolling()
         runtimeState.update {
@@ -247,6 +258,7 @@ internal class MainConnectionActions(
             mutations.launch {
                 delay(CONNECTING_TIMEOUT)
                 if (runtimeState.value.connectionState == ConnectionState.Connecting) {
+                    connectingTimeoutJob = null
                     showError(stringResolver.getString(R.string.connection_timed_out))
                 }
             }
@@ -258,6 +270,7 @@ internal class MainConnectionActions(
     }
 
     private fun onConnected() {
+        failureFeedbackEpoch++
         cancelConnectingTimeout()
         val baselineBytes = currentTransferredBytes()
         val connectedAtMs = SystemClock.elapsedRealtime()
@@ -299,13 +312,14 @@ internal class MainConnectionActions(
         }
     }
 
-    private fun onServiceFailed(
+    private suspend fun onServiceFailed(
         sender: Sender,
         reason: FailureReason,
     ) {
         if (reason == FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission)) {
-            showError(stringResolver.getString(R.string.permissions_local_network_needed))
-            onLocalNetworkRequired(if (sender == Sender.VPN) Mode.VPN else Mode.Proxy)
+            if (showError(stringResolver.getString(R.string.permissions_local_network_needed))) {
+                onLocalNetworkRequired(if (sender == Sender.VPN) Mode.VPN else Mode.Proxy)
+            }
             return
         }
         val detail = reason.displayMessage
@@ -313,9 +327,11 @@ internal class MainConnectionActions(
         showError(message)
     }
 
-    private fun showError(message: String) {
+    private suspend fun showError(message: String): Boolean {
+        val epoch = ++failureFeedbackEpoch
+        val hapticFeedbackEnabled = !currentSettings().hapticFeedbackDisabled
         resultFeedback.clear()
-        val alreadyNotified =
+        val repeatedMessage =
             runtimeState.value.let { it.connectionState == ConnectionState.Error && it.errorMessage == message }
         cancelConnectingTimeout()
         stopConnectionMetricsPolling()
@@ -330,11 +346,14 @@ internal class MainConnectionActions(
                 connectionDuration = ZERO,
             )
         }
-        if (!alreadyNotified) {
-            mutations.trySend(
-                MainEffect.ShowError(message, hapticFeedbackEnabled = !currentSettings().hapticFeedbackDisabled),
-            )
+        val identity = serviceController.failureFeedbackIdentity()
+        if (epoch != failureFeedbackEpoch) return false
+        val newUserAttempt = identity != null && lastNotifiedFailure != null && identity != lastNotifiedFailure
+        if (!repeatedMessage || newUserAttempt) {
+            lastNotifiedFailure = identity
+            mutations.trySend(MainEffect.ShowError(message, hapticFeedbackEnabled = hapticFeedbackEnabled))
         }
+        return true
     }
 
     private fun setConnectingState() {
@@ -421,5 +440,26 @@ internal class ConnectionRuntimeStateReducer(
 
     fun update(reducer: (ConnectionRuntimeState) -> ConnectionRuntimeState) {
         state.update(reducer)
+    }
+}
+
+private data class FailureFeedbackIdentity(
+    val authority: PauseAuthorityRef,
+    val commandId: String,
+)
+
+private suspend fun ServiceController.failureFeedbackIdentity(): FailureFeedbackIdentity? {
+    val snapshot =
+        try {
+            captureRuntimeSnapshot()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+    currentCoroutineContext().ensureActive()
+    // Terminated starts retain their command ID, but no longer retain desiredMode.
+    return snapshot?.takeIf { it.command?.origin == RuntimeCommandOrigin.UserStart }?.let {
+        FailureFeedbackIdentity(it.reference, checkNotNull(it.command).commandId)
     }
 }

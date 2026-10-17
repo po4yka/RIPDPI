@@ -183,6 +183,7 @@ class DiagnosticsViewModel
                 diagnosticsResolverActions = diagnosticsInteractionDependencies.diagnosticsResolverActions,
                 uiStateFactory = uiStateFactory,
                 effects = _effects,
+                hapticFeedbackEnabled = { !appSettingsRepository.snapshot().hapticFeedbackDisabled },
                 currentUiState = { uiState.value },
             )
 
