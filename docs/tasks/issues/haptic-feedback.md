@@ -2,7 +2,7 @@
 id: UIX-1792259264757428
 title: Control haptic feedback and deliver actual results once
 kind: feature
-status: doing
+status: blocked
 area: ui
 priority: high
 owner: Haptic integration
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: haptic-feedback
 created: 2026-10-17
-updated: 2026-10-17
+updated: 2026-10-18
+status_detail: Emulator boot requires free host disk space. Fourteen reviewed screenshot fixtures require explicit user authorization before record and strict verification. Main integration and push wait for these gates.
 ---
 
 ## Goal
