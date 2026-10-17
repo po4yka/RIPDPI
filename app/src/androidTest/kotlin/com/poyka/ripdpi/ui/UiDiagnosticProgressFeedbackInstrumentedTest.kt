@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui
 
 import android.animation.ValueAnimator
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -65,6 +66,7 @@ import org.junit.Test
 import org.junit.rules.TestName
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Production presentation with controlled snapshots; no scan engine or service is substituted. */
 @RunWith(AndroidJUnit4::class)
@@ -153,7 +155,7 @@ class UiDiagnosticProgressFeedbackInstrumentedTest {
     @Test
     fun systemMotionPolicyAndPhaseChangesKeepCancellationReachable() {
         var state by mutableStateOf(progress())
-        var cancellations = 0
+        val cancellations = AtomicInteger()
         var observedMotion: RipDpiMotion? = null
         val talkBack = arguments.getString("diagnosticTalkBack") == "true"
         val talkBackSupport =
@@ -167,7 +169,10 @@ class UiDiagnosticProgressFeedbackInstrumentedTest {
         render(motion = null) {
             observedMotion = RipDpiThemeTokens.motion
             ScanProgressCard(state, strategyProbeSelected = false)
-            CancelButton { cancellations++ }
+            CancelButton {
+                val count = cancellations.incrementAndGet()
+                Log.i("DiagnosticProgressTest", "Cancellation callback: count=$count")
+            }
         }
         compose.runOnIdle {
             assertEquals(ValueAnimator.areAnimatorsEnabled(), observedMotion!!.animationsEnabled)
@@ -236,12 +241,16 @@ class UiDiagnosticProgressFeedbackInstrumentedTest {
             talkBackSupport.assertCancellationFocus()
             talkBackSupport.checkpoint("cancel-refocused")
             talkBackSupport.checkpoint("activate-cancel")
-            compose.waitUntil(timeoutMillis = AcceptanceTimeoutMillis) { cancellations == 1 }
+            try {
+                compose.waitUntil(timeoutMillis = AcceptanceTimeoutMillis) { cancellations.get() == 1 }
+            } finally {
+                Log.i("DiagnosticProgressTest", "Cancellation wait finished: observedCount=${cancellations.get()}")
+            }
             talkBackSupport.assertBound()
         } else {
             cancel().performScrollTo().assertIsDisplayed().performClick()
         }
-        compose.runOnIdle { assertEquals(1, cancellations) }
+        compose.runOnIdle { assertEquals(1, cancellations.get()) }
     }
 
     private fun assertStaticFeedback(motion: RipDpiMotion) {
