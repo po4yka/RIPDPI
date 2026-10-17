@@ -181,5 +181,31 @@ CodeQL were pending at push. No branch-protection setting was changed.
 
 The initial hosted checkpoint observed Secret Scan and both locale workflows
 passing. [Source CI run 39013413945](https://github.com/po4yka/RIPDPI/actions/runs/39013413945)
-was queued on exact source `e82cf62f940a427bfe1d6b289440e71554799704`.
-The final hosted result must be recorded before task archival.
+was initially queued on exact source
+`e82cf62f940a427bfe1d6b289440e71554799704`. It completed successfully on
+attempt 2 after the dependency retry described below. The ci-required gate
+passed. CodeQL, harness-checks, Secret Scan, both locale workflows and
+fleet-fixtures also completed successfully on that exact source.
+
+### Initial hosted dependency failure
+
+The first CI attempt failed in `xray-linked-unit-tests`, job `117341756739`.
+Engine tests passed (329 tests). Service tests reported 1912 tests and 54
+failures, with no errors or skips. All failures occurred during Robolectric
+sandbox initialization: MavenArtifactFetcher received HTTP 403 from
+`repo1.maven.org` while fetching an Android sandbox SDK POM or its SHA512 file.
+No corresponding test body ran. There is no core, build-logic, Gradle or workflow
+diff between prior main `79e71d147` and source `e82cf62f`.
+
+The same POM returned 200 in a later local HEAD request. This does not prove
+access from a GitHub runner. A request to rerun the specific failed job was
+rejected while the overall workflow was still in progress; the attempt number
+remained 1 and no tests reran at that point. The initial workflow then finished
+with only this job and the dependent ci-required gate failing. All Debug/Release
+variants and all five instrumented API27/33/35/36/37 lanes passed. A single
+failed-job retry was accepted as attempt 2 on the unchanged exact source
+`e82cf62f940a427bfe1d6b289440e71554799704`. The retry job
+`117348199871` passed, then ci-required passed and the overall workflow
+completed successfully. No source or gate changed between attempts.
+Raw failure evidence:
+`/tmp/catalog-ci-xray-job.log` and `/tmp/catalog-ci-xray-tests.zip`.

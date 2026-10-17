@@ -2,7 +2,7 @@
 id: UIX-1792213600805378
 title: Compact the Simple profile catalog and make empty history useful
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: Catalog and history UI team
@@ -13,6 +13,9 @@ openspec_change: compact-catalog-history
 created: 2026-10-17
 updated: 2026-10-17
 status_detail: Implementation, local checks and device acceptance passed. Main e82cf62f9 was integrated with ff-only and pushed. Hosted CI is tracked in verification.md.
+closed_at: "2026-10-17T08:11:48Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Source e82cf62f pushed to main with CI39013413945 attempt2 success after one Maven403 retry; all other workflows passed. Final146Full+146Simple and static/lint passed;14approved PNG verified in both flavors;17API37 UI cases passed with restoration and independent review. Exact APK source8b8849ba7 and coverage limits are recorded in docs/audits/2026-10-17-catalog-history.md.
 ---
 
 ## Goal

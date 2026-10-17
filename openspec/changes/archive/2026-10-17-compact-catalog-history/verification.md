@@ -4,8 +4,8 @@ change: compact-catalog-history
 commit_sha: e82cf62f940a427bfe1d6b289440e71554799704
 local: passed
 local_evidence: "Final combined e82cf62f: Full 146 and Simple 146 targeted tests passed with no failures, errors or skips; staticAnalysis and Full/Simple/service lint passed (757 tasks). Approved golden e82cf62f: Full record/verify and Simple verify each 14 passed; other 406 PNG unchanged. See docs/audits/2026-10-17-catalog-history.md."
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: "Exact e82cf62f940a427bfe1d6b289440e71554799704: CI39013413945 completed successfully on attempt 2 after one unchanged-source Maven403 retry; ci-required passed. CodeQL, harness-checks, Secret Scan, both locale workflows and fleet-fixtures passed. All Debug/Release variants and five API27/33/35/36/37 instrumented lanes passed. https://github.com/po4yka/RIPDPI/actions/runs/39013413945"
 device: passed
 device_evidence: "API37 exclusive pool, exact APK source 8b8849ba7, 17 passed with 0 failures/skips. All 59 PNG reviewed, 63 stable capture pairs, exact settings restored in 3 samples, crash empty and wrapper exit 0. Commit e82cf62f changes only 14 approved test PNG. See docs/audits/2026-10-17-catalog-history.md for hashes, raw paths and explicit coverage limits."
 artifact: passed
@@ -24,7 +24,7 @@ deployment_evidence: No deployment is owned by this app presentation change.
 | REQ-CH-HISTORY | UIX-1792213815435833 | Source-vs-filter tests, 3 real NavController regressions and device CTA/clear cycle | Passed |
 | REQ-CH-ACCESS | UIX-1792213816018346 | 146 Full and 146 Simple tests, locale lint, theme and font2/RTL checks | Passed |
 | REQ-CH-ACCEPTANCE | UIX-1792213816520760 | Exact real APK manifests, 17/0/0 API37 matrix and restoration | Passed |
-| REQ-CH-ACCEPTANCE | UIX-1792213817008369 | Independent review, rebase, architecture, Cargo, main/push and CI | Required |
+| REQ-CH-ACCEPTANCE | UIX-1792213817008369 | Independent GO, rebase and combined gates, ff-only main/push e82cf62f and CI39013413945 attempt2 success | Passed |
 
 ## Planned evidence
 

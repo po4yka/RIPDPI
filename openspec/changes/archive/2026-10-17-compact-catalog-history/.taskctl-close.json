@@ -1,0 +1,11 @@
+{
+  "change": "compact-catalog-history",
+  "evidence_summary": "Source e82cf62f pushed to main with CI39013413945 attempt2 success after one Maven403 retry; all other workflows passed. Final146Full+146Simple and static/lint passed;14approved PNG verified in both flavors;17API37 UI cases passed with restoration and independent review. Exact APK source8b8849ba7 and coverage limits are recorded in docs/audits/2026-10-17-catalog-history.md.",
+  "execution_sha256": "6c7566dbfcb3ba2095fbf8b4b6d2895abebd38b7bb32f57dfac55cd71265e2eb",
+  "issue_sha256": "4b0350a54d2a39f1b8e1e0a43fceb3e1548bc7125f63fd478219728acaabede1",
+  "outcome": "done",
+  "prepared_at": "2026-10-17T08:11:48Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1792213600805378"
+}
