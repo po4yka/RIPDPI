@@ -32,5 +32,5 @@ Keep logs, navigation and catalog input responsive under repeated telemetry and 
 - Logs writer: LogsViewModel.kt, LogsViewModelDependencies.kt, log projection helpers, related unit tests. Dedicated perf/ui-stage-four-logs worktree.
 - Catalog writer: ProfileUtilityScreen.kt, catalog projection helpers and related unit tests. Dedicated perf/ui-stage-four-catalog worktree.
 - Measurement writer: benchmark-only app driver, baselineprofile tests and benchmark source manifest. Dedicated perf/ui-stage-four-measure worktree. No production source ownership.
-- Integration owner: MainViewModel permission projection and RipDpiNavHost, all build scripts, task/OpenSpec files, report and serialized shared files. No locale, golden, schema or dependency updates are planned.
+- Integration owner: MainViewModel permission projection and RipDpiNavHost, all build scripts, task/OpenSpec files, report and serialized shared files. The version catalog has one benchmark-only Perfetto binary pin, which matches the existing resolved tracing version. No locale, golden, schema or production dependency updates are planned.
 - Root activity regression writer: MainActivityContentTest.kt in the isolated logs worktree. The integration owner owns MainActivityContent.kt and the activity runtime projection in MainUiModels.kt and MainViewModel.kt.

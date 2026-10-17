@@ -416,6 +416,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.runtime.tracing)
     "benchmarkImplementation"(libs.androidx.compose.runtime.tracing)
+    // Load tracing from the installed APK; Android 17 rejects a writable sideloaded library.
+    "benchmarkImplementation"(libs.androidx.tracing.perfetto.binary)
     debugImplementation(libs.androidx.test.core.ktx)
     // Debug-only heap-leak detection (auto-installs via its own ContentProvider;
     // never present in release/benchmark builds). See the Android 17 memory
