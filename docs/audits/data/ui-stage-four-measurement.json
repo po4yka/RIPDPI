@@ -1,0 +1,828 @@
+{
+  "pairResult": "passed",
+  "variant": "githubFullBenchmark",
+  "iterationsPerMethod": 3,
+  "methodsPerPhase": 6,
+  "tracesPerPhase": 18,
+  "sources": {
+    "before": "4b90c30b1c676309d5a1df6e59ed74b11ee202af",
+    "after": "0e511e843cdbcf69c3036ff6274e3e08a8fc2927"
+  },
+  "apks": {
+    "before": {
+      "app": "e170c2a03af23bbe0a8020699d53073eaf2e730b65c226d5d0e1787a5568d5f3",
+      "test": "e56aa58d454e7091080e1bee5563c6190dbc4517e818e71e8ab3720952d0d3f6"
+    },
+    "after": {
+      "app": "337c248248398da751f8e502aa8ebf96fe5d77ef8285a2255756bbe756d28760",
+      "test": "e56aa58d454e7091080e1bee5563c6190dbc4517e818e71e8ab3720952d0d3f6"
+    }
+  },
+  "device": {
+    "build": {
+      "brand": "google",
+      "device": "emu64a",
+      "fingerprint": "google/sdk_gphone64_arm64/emu64a:17/CE2A.260420.019/15611780:userdebug/dev-keys",
+      "id": "CE2A.260420.019",
+      "model": "sdk_gphone64_arm64",
+      "type": "userdebug",
+      "version": {
+        "codename": "REL",
+        "sdk": 37
+      }
+    },
+    "cpuCoreCount": 4,
+    "cpuLocked": false,
+    "cpuMaxFreqHz": 2000,
+    "memTotalBytes": 4105830400,
+    "sustainedPerformanceModeEnabled": false,
+    "artMainlineVersion": 370546200,
+    "osCodenameAbbreviated": "REL",
+    "compilationMode": "run-from-apk",
+    "payload": {}
+  },
+  "runnerSha256": "041f913f57aec901b01e255533aef328557bd1dda643e7493c739f229b3aa46f",
+  "workloads": {
+    "catalog100": {
+      "before": {
+        "frameCpuMs": {
+          "P50": 4.807917,
+          "P90": 7.784674800000002,
+          "P95": 15.250824999999955,
+          "P99": 18.266857
+        },
+        "frameOverrunMs": {
+          "P50": -10.350819,
+          "P90": -3.783517599999993,
+          "P95": 1.7678672,
+          "P99": 6.777156680000003
+        },
+        "framesPerIteration": [
+          184,
+          132,
+          149
+        ],
+        "frameCpuRunMediansMs": [
+          4.519083,
+          4.9116665,
+          4.893792
+        ],
+        "dispatchElapsedMedianMs": 1.990709,
+        "burstElapsedMedianMs": 2100.344,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2114.945,
+            "dispatchMs": 1.737,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2070.188,
+            "dispatchMs": 2.087,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2100.344,
+            "dispatchMs": 1.991,
+            "navHostCount": 0
+          }
+        ]
+      },
+      "after": {
+        "frameCpuMs": {
+          "P50": 4.354166,
+          "P90": 16.793833,
+          "P95": 17.982333,
+          "P99": 20.31725
+        },
+        "frameOverrunMs": {
+          "P50": -10.630208,
+          "P90": 2.179584,
+          "P95": 3.117943,
+          "P99": 14.714983
+        },
+        "framesPerIteration": [
+          137,
+          137,
+          127
+        ],
+        "frameCpuRunMediansMs": [
+          4.269791,
+          4.231666,
+          4.795583
+        ],
+        "dispatchElapsedMedianMs": 1.850837,
+        "burstElapsedMedianMs": 2115.445,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2135.413,
+            "dispatchMs": 1.742,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2080.721,
+            "dispatchMs": 1.851,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2115.445,
+            "dispatchMs": 2.796,
+            "navHostCount": 0
+          }
+        ]
+      }
+    },
+    "catalog1000": {
+      "before": {
+        "frameCpuMs": {
+          "P50": 7.203291,
+          "P90": 19.385475200000002,
+          "P95": 33.00552069999999,
+          "P99": 35.19392155999999
+        },
+        "frameOverrunMs": {
+          "P50": -7.335315,
+          "P90": 6.219193000000007,
+          "P95": 18.7271246,
+          "P99": 20.135118219999995
+        },
+        "framesPerIteration": [
+          136,
+          211,
+          120
+        ],
+        "frameCpuRunMediansMs": [
+          8.6641045,
+          6.351625,
+          6.980874999999999
+        ],
+        "dispatchElapsedMedianMs": 1.521586,
+        "burstElapsedMedianMs": 2151.012,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2151.012,
+            "dispatchMs": 1.511,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2151.502,
+            "dispatchMs": 1.533,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2118.723,
+            "dispatchMs": 1.522,
+            "navHostCount": 0
+          }
+        ]
+      },
+      "after": {
+        "frameCpuMs": {
+          "P50": 3.901125,
+          "P90": 5.7697496,
+          "P95": 12.65639199999999,
+          "P99": 19.33663975999999
+        },
+        "frameOverrunMs": {
+          "P50": -11.311843,
+          "P90": -7.768045400000006,
+          "P95": 1.720504999999997,
+          "P99": 6.621654519999999
+        },
+        "framesPerIteration": [
+          228,
+          148,
+          211
+        ],
+        "frameCpuRunMediansMs": [
+          3.7538955,
+          4.0572915,
+          3.861959
+        ],
+        "dispatchElapsedMedianMs": 1.704162,
+        "burstElapsedMedianMs": 2116.401,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2103.291,
+            "dispatchMs": 1.662,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2117.957,
+            "dispatchMs": 2.713,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2116.401,
+            "dispatchMs": 1.704,
+            "navHostCount": 0
+          }
+        ]
+      }
+    },
+    "catalog5000": {
+      "before": {
+        "frameCpuMs": {
+          "P50": 18.5745625,
+          "P90": 22.097208000000002,
+          "P95": 23.650906000000003,
+          "P99": 34.84035144999998
+        },
+        "frameOverrunMs": {
+          "P50": 3.757393,
+          "P90": 8.6828115,
+          "P95": 14.337311750000001,
+          "P99": 22.190086649999998
+        },
+        "framesPerIteration": [
+          144,
+          136,
+          126
+        ],
+        "frameCpuRunMediansMs": [
+          17.8061665,
+          18.847292,
+          18.759229
+        ],
+        "dispatchElapsedMedianMs": 1.163173,
+        "burstElapsedMedianMs": 2773.372,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2773.372,
+            "dispatchMs": 1.13,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2872.061,
+            "dispatchMs": 1.751,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2771.488,
+            "dispatchMs": 1.163,
+            "navHostCount": 0
+          }
+        ]
+      },
+      "after": {
+        "frameCpuMs": {
+          "P50": 4.028479,
+          "P90": 6.181554500000001,
+          "P95": 8.109337499999985,
+          "P99": 17.195282019999997
+        },
+        "frameOverrunMs": {
+          "P50": -11.122529499999999,
+          "P90": -7.473190199999998,
+          "P95": -3.5671799500000105,
+          "P99": 5.490531189999986
+        },
+        "framesPerIteration": [
+          167,
+          195,
+          158
+        ],
+        "frameCpuRunMediansMs": [
+          4.195917,
+          3.512666,
+          4.2894795
+        ],
+        "dispatchElapsedMedianMs": 2.135543,
+        "burstElapsedMedianMs": 2109.377,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2095.489,
+            "dispatchMs": 2.094,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2109.377,
+            "dispatchMs": 2.737,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2118.595,
+            "dispatchMs": 2.136,
+            "navHostCount": 0
+          }
+        ]
+      }
+    },
+    "logsCounterBurst": {
+      "before": {
+        "frameCpuMs": {
+          "P50": 3.2488955,
+          "P90": 18.3968747,
+          "P95": 19.392116149999993,
+          "P99": 21.110711069999994
+        },
+        "frameOverrunMs": {
+          "P50": -11.0494005,
+          "P90": 2.8793311000000017,
+          "P95": 3.5919810499999985,
+          "P99": 5.924781839999994
+        },
+        "framesPerIteration": [
+          140,
+          142,
+          148
+        ],
+        "frameCpuRunMediansMs": [
+          2.8780419999999998,
+          2.9356455,
+          17.878291
+        ],
+        "dispatchElapsedMedianMs": 126.164082,
+        "burstElapsedMedianMs": 2245.718,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2225.264,
+            "dispatchMs": 113.618,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2245.718,
+            "dispatchMs": 126.164,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2255.318,
+            "dispatchMs": 130.232,
+            "navHostCount": 0
+          }
+        ]
+      },
+      "after": {
+        "frameCpuMs": {
+          "P50": 2.983917,
+          "P90": 3.898983600000001,
+          "P95": 4.532128699999998,
+          "P99": 9.399612519999994
+        },
+        "frameOverrunMs": {
+          "P50": -12.09392,
+          "P90": -10.011922799999997,
+          "P95": -8.1578423,
+          "P99": -0.5881402600000033
+        },
+        "framesPerIteration": [
+          140,
+          138,
+          129
+        ],
+        "frameCpuRunMediansMs": [
+          2.9012919999999998,
+          3.1576455,
+          2.856125
+        ],
+        "dispatchElapsedMedianMs": 22.259248,
+        "burstElapsedMedianMs": 2118.453,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2127.155,
+            "dispatchMs": 22.259,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2118.453,
+            "dispatchMs": 26.681,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2113.721,
+            "dispatchMs": 21.675,
+            "navHostCount": 0
+          }
+        ]
+      }
+    },
+    "logsFreshSnapshotBurst": {
+      "before": {
+        "frameCpuMs": {
+          "P50": 2.89575,
+          "P90": 3.6808000000000005,
+          "P95": 3.942570699999999,
+          "P99": 6.5425759200000035
+        },
+        "frameOverrunMs": {
+          "P50": -12.238339,
+          "P90": -10.270853200000001,
+          "P95": -9.247071600000002,
+          "P99": -3.209129759999998
+        },
+        "framesPerIteration": [
+          139,
+          141,
+          147
+        ],
+        "frameCpuRunMediansMs": [
+          2.879958,
+          3.007125,
+          2.814333
+        ],
+        "dispatchElapsedMedianMs": 123.307414,
+        "burstElapsedMedianMs": 2240.456,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2250.799,
+            "dispatchMs": 118.679,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2240.456,
+            "dispatchMs": 128.029,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2240.043,
+            "dispatchMs": 123.307,
+            "navHostCount": 0
+          }
+        ]
+      },
+      "after": {
+        "frameCpuMs": {
+          "P50": 17.374667,
+          "P90": 19.413591400000005,
+          "P95": 20.0881538,
+          "P99": 31.88437399999998
+        },
+        "frameOverrunMs": {
+          "P50": 1.812306,
+          "P90": 3.4482018,
+          "P95": 4.824457699999998,
+          "P99": 18.84457547999999
+        },
+        "framesPerIteration": [
+          144,
+          132,
+          159
+        ],
+        "frameCpuRunMediansMs": [
+          17.8266875,
+          2.8803335,
+          17.857916
+        ],
+        "dispatchElapsedMedianMs": 26.598709,
+        "burstElapsedMedianMs": 2143.265,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 2152.555,
+            "dispatchMs": 26.599,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 2143.265,
+            "dispatchMs": 25.636,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 2140.032,
+            "dispatchMs": 28.661,
+            "navHostCount": 0
+          }
+        ]
+      }
+    },
+    "telemetryShellCounterBurst": {
+      "before": {
+        "frameCpuMs": {
+          "P50": 3.324937,
+          "P90": 4.383553900000001,
+          "P95": 5.348818750000003,
+          "P99": 17.711526500000005
+        },
+        "frameOverrunMs": {
+          "P50": -2.903285,
+          "P90": 5.8145915,
+          "P95": 6.57302305,
+          "P99": 17.723505170000017
+        },
+        "framesPerIteration": [
+          103,
+          104,
+          103
+        ],
+        "frameCpuRunMediansMs": [
+          3.44475,
+          3.2896875,
+          3.272209
+        ],
+        "dispatchElapsedMedianMs": 1270.916713,
+        "burstElapsedMedianMs": 3401.914,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 3355.071,
+            "dispatchMs": 1226.323,
+            "navHostCount": 100
+          },
+          {
+            "iteration": 1,
+            "burstMs": 3401.914,
+            "dispatchMs": 1270.917,
+            "navHostCount": 100
+          },
+          {
+            "iteration": 2,
+            "burstMs": 3454.127,
+            "dispatchMs": 1313.265,
+            "navHostCount": 100
+          }
+        ]
+      },
+      "after": {
+        "frameCpuMs": {
+          "P50": 3.5868539999999998,
+          "P90": 4.8000835,
+          "P95": 8.152156249999999,
+          "P99": 18.601526749999994
+        },
+        "frameOverrunMs": {
+          "P50": -4.072124499999999,
+          "P90": 6.1425175,
+          "P95": 9.45343975,
+          "P99": 18.017144799999997
+        },
+        "framesPerIteration": [
+          101,
+          101,
+          104
+        ],
+        "frameCpuRunMediansMs": [
+          3.733792,
+          3.332042,
+          3.730104
+        ],
+        "dispatchElapsedMedianMs": 1326.297997,
+        "burstElapsedMedianMs": 3436.046,
+        "traceIterations": [
+          {
+            "iteration": 0,
+            "burstMs": 3519.275,
+            "dispatchMs": 1407.748,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 1,
+            "burstMs": 3436.046,
+            "dispatchMs": 1326.298,
+            "navHostCount": 0
+          },
+          {
+            "iteration": 2,
+            "burstMs": 3434.646,
+            "dispatchMs": 1323.303,
+            "navHostCount": 0
+          }
+        ]
+      }
+    }
+  },
+  "guards": {
+    "before": {
+      "success": true,
+      "settingsRestoredExactly": true,
+      "settings": {
+        "size": "Physical size: 1344x2992\nOverride size: 1080x2400\n",
+        "density": "Physical density: 480\n",
+        "night": "Night mode: no",
+        "system:font_scale": "1.0",
+        "global:window_animation_scale": "1.0",
+        "global:transition_animation_scale": "1.0",
+        "global:animator_duration_scale": "1.0"
+      },
+      "launcherSmoke": {
+        "readyTag": "onboarding-continue",
+        "resumed": "    topResumedActivity=ActivityRecord{126998718 u0 com.poyka.ripdpi/.activities.MainActivity t189}\n  ResumedActivity: ActivityRecord{126998718 u0 com.poyka.ripdpi/.activities.MainActivity t189}",
+        "crashFree": true,
+        "scope": "Actual launcher/root readiness only; no frame latency measurement"
+      },
+      "crashBuffersEmpty": true,
+      "serviceDump": "ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  (nothing)",
+      "exitReasons": [
+        "reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0"
+      ],
+      "hostHardware": "Mac16,7\n51539607552\n14",
+      "hostOS": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434"
+    },
+    "after": {
+      "success": true,
+      "settingsRestoredExactly": true,
+      "settings": {
+        "size": "Physical size: 1344x2992\nOverride size: 1080x2400\n",
+        "density": "Physical density: 480\n",
+        "night": "Night mode: no",
+        "system:font_scale": "1.0",
+        "global:window_animation_scale": "1.0",
+        "global:transition_animation_scale": "1.0",
+        "global:animator_duration_scale": "1.0"
+      },
+      "launcherSmoke": {
+        "readyTag": "onboarding-continue",
+        "resumed": "    topResumedActivity=ActivityRecord{150318412 u0 com.poyka.ripdpi/.activities.MainActivity t211}\n  ResumedActivity: ActivityRecord{150318412 u0 com.poyka.ripdpi/.activities.MainActivity t211}",
+        "crashFree": true,
+        "scope": "Actual launcher/root readiness only; no frame latency measurement"
+      },
+      "crashBuffersEmpty": true,
+      "serviceDump": "ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  (nothing)",
+      "exitReasons": [
+        "reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0"
+      ],
+      "hostHardware": "Mac16,7\n51539607552\n14",
+      "hostOS": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434"
+    }
+  },
+  "limits": [
+    "One emulator; relative local evidence only.",
+    "Frame percentiles pool samples from the reported workload. Counter dispatch duration and SQL sum(dur) are elapsed publication spans, not CPU time or downstream completion. Counter burst is an elapsed span that includes fixed delays.",
+    "NavHost/Settings benchmark does not measure full MainActivity latency."
+  ],
+  "driverComparisons": [
+    {
+      "workload": "catalog",
+      "size": 100,
+      "beforeRecords": 3,
+      "afterRecords": 3,
+      "catalogElementReads": {
+        "before": 10000,
+        "after": 0
+      },
+      "counterEventReads": {
+        "before": 0,
+        "after": 0
+      },
+      "finalEventReads": {
+        "before": 0,
+        "after": 0
+      },
+      "storeObservedTicks": {
+        "before": 0,
+        "after": 0
+      },
+      "outputRows": {
+        "before": 0,
+        "after": 0
+      }
+    },
+    {
+      "workload": "catalog",
+      "size": 1000,
+      "beforeRecords": 3,
+      "afterRecords": 3,
+      "catalogElementReads": {
+        "before": 99000,
+        "after": 0
+      },
+      "counterEventReads": {
+        "before": 0,
+        "after": 0
+      },
+      "finalEventReads": {
+        "before": 0,
+        "after": 0
+      },
+      "storeObservedTicks": {
+        "before": 0,
+        "after": 0
+      },
+      "outputRows": {
+        "before": 0,
+        "after": 0
+      }
+    },
+    {
+      "workload": "catalog",
+      "size": 5000,
+      "beforeRecords": 3,
+      "afterRecords": 3,
+      "catalogElementReads": {
+        "before": 500000,
+        "after": 0
+      },
+      "counterEventReads": {
+        "before": 0,
+        "after": 0
+      },
+      "finalEventReads": {
+        "before": 0,
+        "after": 0
+      },
+      "storeObservedTicks": {
+        "before": 0,
+        "after": 0
+      },
+      "outputRows": {
+        "before": 0,
+        "after": 0
+      }
+    },
+    {
+      "workload": "logs",
+      "size": 100,
+      "beforeRecords": 3,
+      "afterRecords": 3,
+      "catalogElementReads": {
+        "before": 0,
+        "after": 0
+      },
+      "counterEventReads": {
+        "before": 25000,
+        "after": 0
+      },
+      "finalEventReads": {
+        "before": 25251,
+        "after": 251
+      },
+      "storeObservedTicks": {
+        "before": 100,
+        "after": 100
+      },
+      "outputRows": {
+        "before": 250,
+        "after": 250
+      }
+    },
+    {
+      "workload": "logs_fresh",
+      "size": 100,
+      "beforeRecords": 3,
+      "afterRecords": 3,
+      "catalogElementReads": {
+        "before": 0,
+        "after": 0
+      },
+      "counterEventReads": {
+        "before": 25000,
+        "after": 50000
+      },
+      "finalEventReads": {
+        "before": 25251,
+        "after": 50251
+      },
+      "storeObservedTicks": {
+        "before": 100,
+        "after": 100
+      },
+      "outputRows": {
+        "before": 250,
+        "after": 250
+      }
+    },
+    {
+      "workload": "telemetry",
+      "size": 100,
+      "beforeRecords": 3,
+      "afterRecords": 3,
+      "catalogElementReads": {
+        "before": 0,
+        "after": 0
+      },
+      "counterEventReads": {
+        "before": 0,
+        "after": 0
+      },
+      "finalEventReads": {
+        "before": 0,
+        "after": 0
+      },
+      "storeObservedTicks": {
+        "before": 100,
+        "after": 100
+      },
+      "outputRows": {
+        "before": 0,
+        "after": 0
+      }
+    }
+  ]
+}
