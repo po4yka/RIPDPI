@@ -197,6 +197,13 @@ class ResponsivenessActivity : ComponentActivity() {
                         }
                     }
                 }
+                if (workload == "telemetry") {
+                    withTimeout(10_000) {
+                        ViewModelProvider(this@ResponsivenessActivity)[MainViewModel::class.java].uiState.first {
+                            it.xrayProviderSnapshot?.lastPingRttMs == CounterTicks.toLong()
+                        }
+                    }
+                }
                 Log.i(
                     "RipDpiResponsiveness",
                     "source=$sourceToken workload=$workload size=${catalog.profiles.size} " +
