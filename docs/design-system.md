@@ -75,7 +75,7 @@ RipDpiButton(
 )
 ```
 
-Existing calls keep their original signatures through small `@NonRestartableComposable` overloads. These overloads pass the empty style to the styled implementation. A caller needs the file-local experimental opt-in only when it uses the `CommonStyle` overload. Keep trailing content and action callbacks last in both signatures.
+Existing calls keep their original signatures through small `@NonRestartableComposable` overloads. The styled `SettingsRow` overload groups chevron, divider, monospace-value, and test-tag options in `SettingsRowDecoration`. It requires an explicit `visualStyle` to keep legacy overload resolution unambiguous; omitting the style still uses the unchanged legacy API and its empty default. These overloads pass the empty style to the styled implementation. A caller needs the file-local experimental opt-in only when it uses the `CommonStyle` overload. Keep trailing content and action callbacks last in both signatures.
 
 ### Resolution and state
 
