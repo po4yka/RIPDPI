@@ -1,13 +1,17 @@
 package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
@@ -19,19 +23,37 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.coroutines.launch
 
 private const val liveEdgeScrollOffsetThreshold = 24
+
+private enum class EventFollowIntent {
+    None,
+    Auto,
+    Jump,
+}
 
 @Composable
 internal fun HistorySectionChips(
@@ -239,69 +261,143 @@ internal fun EventsSection(
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val latestEventId =
+        uiState.groupedEvents
+            .firstOrNull()
+            ?.representative
+            ?.id
+    var previousLatestEventId by remember { mutableStateOf<String?>(null) }
+    // Keep the request across replacement scrolls until it finishes or the reader scrolls.
+    var followIntent by remember { mutableStateOf(EventFollowIntent.None) }
+    val userScrollConnection = rememberEventUserScrollConnection { followIntent = EventFollowIntent.None }
     val isAtLiveEdge by remember(listState) {
         derivedStateOf {
-            listState.firstVisibleItemIndex == 0 &&
+            listState.firstVisibleItemIndex <= 1 &&
                 listState.firstVisibleItemScrollOffset <= liveEdgeScrollOffsetThreshold
         }
     }
 
-    LaunchedEffect(
-        uiState.events.filters.autoScroll,
-        uiState.events.events
-            .firstOrNull()
-            ?.id,
-    ) {
-        if (uiState.events.filters.autoScroll && uiState.events.events.isNotEmpty() && isAtLiveEdge) {
-            if (motion.animationsEnabled) {
-                listState.animateScrollToItem(0)
-            } else {
-                listState.scrollToItem(0)
-            }
+    LaunchedEffect(uiState.events.filters.autoScroll, latestEventId) {
+        val firstVisibleKey =
+            listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == listState.firstVisibleItemIndex }
+                ?.key
+        val wasFollowingLatest =
+            previousLatestEventId != null && firstVisibleKey == previousLatestEventId &&
+                listState.firstVisibleItemScrollOffset <= liveEdgeScrollOffsetThreshold
+        val shouldFollow =
+            followIntent == EventFollowIntent.Jump ||
+                (
+                    uiState.events.filters.autoScroll &&
+                        (isAtLiveEdge || wasFollowingLatest || followIntent == EventFollowIntent.Auto)
+                )
+        previousLatestEventId = latestEventId
+        if (latestEventId != null && shouldFollow) {
+            val targetIndex =
+                if (followIntent == EventFollowIntent.Jump || listState.firstVisibleItemIndex > 0) 1 else 0
+            if (followIntent == EventFollowIntent.None) followIntent = EventFollowIntent.Auto
+            listState.scrollToEvent(targetIndex, motion)
+            followIntent = EventFollowIntent.None
+        } else {
+            followIntent = EventFollowIntent.None
         }
     }
 
-    LazyColumn(
-        state = listState,
-        contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
-        verticalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        if (uiState.hasEventHistory) {
-            item {
-                HistoryEventsFilterCard(uiState, onToggleFilter, onSearch, onClearFilters, onAutoScroll)
+    Column(Modifier.fillMaxSize()) {
+        if (latestEventId != null && !isAtLiveEdge) {
+            RipDpiButton(
+                text = stringResource(R.string.history_events_jump_to_latest),
+                onClick = {
+                    scope.launch {
+                        followIntent = EventFollowIntent.Jump
+                        listState.scrollToEvent(1, motion)
+                        followIntent = EventFollowIntent.None
+                    }
+                },
+                variant = RipDpiButtonVariant.Secondary,
+                modifier =
+                    Modifier
+                        .padding(horizontal = layout.horizontalPadding, vertical = spacing.sm)
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.HistoryEventsJumpToLatest),
+            )
+        }
+        LazyColumn(
+            modifier = Modifier.weight(1f).nestedScroll(userScrollConnection),
+            state = listState,
+            contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.md),
+        ) {
+            if (uiState.hasEventHistory) {
+                item(key = "events_filters", contentType = "filters") {
+                    HistoryEventsFilterCard(uiState, onToggleFilter, onSearch, onClearFilters, onAutoScroll)
+                }
+            }
+            historyEventRows(uiState, onClearFilters, onSelectEvent, onOpenConnection)
+        }
+    }
+}
+
+@Composable
+private fun rememberEventUserScrollConnection(onUserScroll: () -> Unit): NestedScrollConnection {
+    val currentOnUserScroll by rememberUpdatedState(onUserScroll)
+    return remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (source == NestedScrollSource.UserInput && available != Offset.Zero) currentOnUserScroll()
+                return Offset.Zero
             }
         }
+    }
+}
 
-        if (!uiState.hasEventHistory) {
-            item {
-                HistoryEmptyStateCard(
-                    title = stringResource(R.string.history_events_empty_title),
-                    body = stringResource(R.string.history_events_empty_body),
-                    actionLabel = stringResource(R.string.vpn_connect),
-                    actionTestTag = RipDpiTestTags.HistoryEmptyOpenConnection,
-                    onAction = onOpenConnection,
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsStateEmpty),
-                )
-            }
-        } else if (uiState.groupedEvents.isEmpty()) {
-            item { HistoryNoResultsCard(onClearFilters = onClearFilters) }
-        } else {
-            items(
-                uiState.groupedEvents,
-                key = { it.representative.id },
-                contentType = { "event" },
-            ) { grouped ->
-                EventRow(
-                    event = grouped.representative,
-                    occurrenceCount = grouped.count,
-                    lastTimestampLabel = grouped.lastTimestampLabel,
-                    onClick = { onSelectEvent(grouped.representative.id) },
-                    modifier =
-                        Modifier.ripDpiTestTag(
-                            RipDpiTestTags.historyEvent(grouped.representative.id),
-                        ),
-                )
-            }
+private suspend fun LazyListState.scrollToEvent(
+    index: Int,
+    motion: RipDpiMotion,
+) {
+    if (motion.animationsEnabled && !motion.reducedMotion) {
+        animateScrollToItem(index)
+    } else {
+        scrollToItem(index)
+    }
+}
+
+private fun LazyListScope.historyEventRows(
+    uiState: HistoryUiState,
+    onClearFilters: () -> Unit,
+    onSelectEvent: (String) -> Unit,
+    onOpenConnection: () -> Unit,
+) {
+    if (!uiState.hasEventHistory) {
+        item {
+            HistoryEmptyStateCard(
+                title = stringResource(R.string.history_events_empty_title),
+                body = stringResource(R.string.history_events_empty_body),
+                actionLabel = stringResource(R.string.vpn_connect),
+                actionTestTag = RipDpiTestTags.HistoryEmptyOpenConnection,
+                onAction = onOpenConnection,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsStateEmpty),
+            )
+        }
+    } else if (uiState.groupedEvents.isEmpty()) {
+        item { HistoryNoResultsCard(onClearFilters = onClearFilters) }
+    } else {
+        items(
+            uiState.groupedEvents,
+            key = { it.representative.id },
+            contentType = { "event" },
+        ) { grouped ->
+            EventRow(
+                event = grouped.representative,
+                occurrenceCount = grouped.count,
+                lastTimestampLabel = grouped.lastTimestampLabel,
+                onClick = { onSelectEvent(grouped.representative.id) },
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyEvent(grouped.representative.id)),
+            )
         }
     }
 }
