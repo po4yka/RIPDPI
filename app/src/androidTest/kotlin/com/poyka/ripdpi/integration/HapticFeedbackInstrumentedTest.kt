@@ -2,7 +2,7 @@ package com.poyka.ripdpi.integration
 
 import android.os.Build
 import android.view.HapticFeedbackConstants
-import android.view.View
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -408,7 +408,8 @@ class HapticFeedbackInstrumentedTest {
     }
 }
 
-private class RecordingHapticView : View(InstrumentationRegistry.getInstrumentation().targetContext) {
+// Platform ripple needs a ViewGroup for its container; keep the real ripple path active.
+private class RecordingHapticView : FrameLayout(InstrumentationRegistry.getInstrumentation().targetContext) {
     val calls = mutableListOf<Int>()
     val flaggedCalls = mutableListOf<Pair<Int, Int>>()
 
