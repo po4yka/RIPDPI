@@ -1,0 +1,11 @@
+{
+  "change": "compose-common-styles",
+  "evidence_summary": "Hosted run 39141917390 passed at c504dffe15e9be6ae8365fbf85f135efb13be609 with 6025 app unit tests, screenshots, static analysis, all Debug/Release shards and all five device lanes. Historical performance remains INCONCLUSIVE, exit 3; owner acceptance is recorded separately.",
+  "execution_sha256": "cab2a8e307633d39fd5034cab49f4e750950b188994ad6c16e2eecc681c6e609",
+  "issue_sha256": "64d4a08acc4547d8c5bf0ad626fd92c3442a80b02341c37888c1a49300ea59eb",
+  "outcome": "done",
+  "prepared_at": "2026-10-18T16:29:23Z",
+  "reason": "Owner accepted the migration and recorded emulator performance limitation; required runtime integration checks passed.",
+  "schema": 1,
+  "task_id": "UIX-1792228984398359"
+}
