@@ -38,11 +38,15 @@ class AutomationPermissionFlowInstrumentedTest {
     @Test
     fun grantedPermissionLaunchShowsReadyHomeConnectionAction() {
         composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Home))
+        composeRule.waitForAutomationTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed)
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
             .performScrollTo()
+            .assertIsDisplayed()
             .performClick()
+        composeRule.waitForAutomationTag(RipDpiTestTags.HomeModesDiagnosticsExpanded)
+        composeRule.waitForAutomationTag(RipDpiTestTags.homeModeCard(HomeMode.LocalDpiBypass.name))
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModeCard(HomeMode.LocalDpiBypass.name))
             .performScrollTo()
