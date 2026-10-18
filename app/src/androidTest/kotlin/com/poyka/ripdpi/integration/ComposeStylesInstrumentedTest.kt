@@ -4,6 +4,7 @@ package com.poyka.ripdpi.integration
 
 import android.content.ComponentName
 import android.provider.Settings
+import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
@@ -70,6 +71,12 @@ class ComposeStylesInstrumentedTest {
         composeRule.runOnUiThread {
             WindowCompat.setDecorFitsSystemWindows(composeRule.activity.window, false)
             composeRule.activity.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            // API 27 clears owner focus by asking the root to choose another focus target.
+            // Give this one-editor fixture a neutral target instead of refocusing the editor.
+            composeRule.activity.findViewById<ViewGroup>(android.R.id.content).apply {
+                isFocusableInTouchMode = true
+                descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
+            }
         }
         var value by mutableStateOf("")
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
@@ -113,8 +120,8 @@ class ComposeStylesInstrumentedTest {
         // Observe the selected IME's real window for both visibility transitions.
         assertTrue("The selected IME must become visible", device.wait(Until.hasObject(By.pkg(imePackage)), 5_000L))
         field.performImeAction()
-        field.assertTextContains("resolver.example").assertIsNotFocused()
         composeRule.runOnIdle { assertEquals(1, commits) }
+        field.assertTextContains("resolver.example").assertIsNotFocused()
         assertTrue("The selected IME must hide after Done", device.wait(Until.gone(By.pkg(imePackage)), 5_000L))
     }
 
