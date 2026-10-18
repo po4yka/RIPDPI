@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Client PR #620 merged at fdc42a19f8701216b727f76ab5dc7fd5b73abcde. CI run 39108896877 passed on 34fc33d082b94573ac2dcd278c030ed0b02e1f11; artifact 12130007070 reports parser 7 tests, 0 failures, 0 skipped. All 31 contract files match; strict validators, task checks and all 50 taskctl tests passed.",
+  "execution_sha256": "b5c6e2944d9e73cbb62f4afabbaa97314bba8b40c93feb664636358c5a081481",
+  "issue_sha256": "9d7a485a161a86e99e858d5f4c266e7548ef97be871de49b9812d20059f7df50",
+  "outcome": "done",
+  "prepared_at": "2026-10-18T08:48:48Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TST-1792309202117414"
+}

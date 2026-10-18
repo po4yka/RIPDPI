@@ -2,7 +2,7 @@
 id: TST-1792309202117414
 title: Sync canonical bundle fixture keys
 kind: chore
-status: review
+status: done
 area: testing
 priority: high
 owner: bundle-contract-fixtures
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-18
 updated: 2026-10-18
 spec_reason: test-only
+closed_at: "2026-10-18T08:48:48Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Client PR #620 merged at fdc42a19f8701216b727f76ab5dc7fd5b73abcde. CI run 39108896877 passed on 34fc33d082b94573ac2dcd278c030ed0b02e1f11; artifact 12130007070 reports parser 7 tests, 0 failures, 0 skipped. All 31 contract files match; strict validators, task checks and all 50 taskctl tests passed."
 ---
 
 ## Goal
