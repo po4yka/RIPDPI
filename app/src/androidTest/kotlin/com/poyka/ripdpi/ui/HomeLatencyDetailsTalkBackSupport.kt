@@ -58,8 +58,19 @@ internal class HomeLatencyDetailsTalkBackSupport(
             assertEquals("The origin name must retain its identity", it.namedIdentity, target.namedIdentity)
             assertEquals("The origin action must retain its identity", it.actionIdentity, target.actionIdentity)
         }
+        check(stage == "origin-focused") { "Only the initial origin uses physical touch exploration" }
         origin = target
-        focus(stage, context.getString(R.string.vpn_quality_metric_rtt_p50), target)
+        currentTarget = target
+        focusStage = stage
+        expectedSpeech = context.getString(R.string.vpn_quality_metric_rtt_p50)
+        focusInitialization = stableFocus(target, requireTarget = false)
+        focusSettled = null
+        // The external driver must establish TalkBack actor history with real touch exploration.
+        // Start speech attribution before that physical input, then observe its result only.
+        focusRequestUptimeMillis = SystemClock.uptimeMillis()
+        Log.i(LogTag, "Focus: $stage")
+        checkpoint("explore-origin")
+        focusSettled = stableFocus(target, requireTarget = true)
     }
 
     fun focusText(
@@ -261,6 +272,7 @@ internal class HomeLatencyDetailsTalkBackSupport(
                 .put("uptimeMillis", SystemClock.uptimeMillis())
                 .put("expectedSpeech", if (focusStage == stage) expectedSpeech else JSONObject.NULL)
                 .put("focusRequestedAtStage", focusStage == stage)
+                .put("focusAcquisition", if (focusStage == "origin-focused") "touch-exploration" else JSONObject.NULL)
                 .put("targetNamedIdentity", target?.namedIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("targetActionIdentity", target?.actionIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("targetLabel", target?.label ?: JSONObject.NULL)

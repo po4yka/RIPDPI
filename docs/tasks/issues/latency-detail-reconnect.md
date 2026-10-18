@@ -66,6 +66,10 @@ Open latency evidence from the measured RTT value and verify real reconnect from
   RIPDPI-latency-native-transition. The reconnect device specialist owns a new
   external AppOps parser driver copy. Root combines the reviewed source patch
   after the completed temporary matrix and preserves all failed-run inputs.
+- The TalkBack exploration writer owns the latency TalkBack helper in
+  RIPDPI-latency-talkback-exploration and a new latency driver copy. The device
+  specialist owns a new reconnect PCAP driver copy. These fixes preserve the
+  previous captures and keep post-dismiss focus checks observational.
 
 ## Design sources
 
