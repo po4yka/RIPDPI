@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1792259264757428
 change: haptic-feedback
-commit_sha: 2099cbb498813c5f2c74264cbb65751b0ff01021
+commit_sha: 020d36fdc3e5becf53f8484f67ce100680281c71
 local: passed
-local_evidence: Behavioral tests, static analysis, locale lint, architecture and locked Cargo metadata pass. After the user approved 14 fixtures, canonical record and strict verification passed; the two strict screenshot families passed all 21 tests without failures, errors or skips.
+local_evidence: At f005bad646a56f36575c9eef27f12bb7f72d55f5, all 923 behavioral, storage, backup and CI fixture tests passed. Static analysis, Full and Simple locale lint, service lint and 21 strict screenshot tests passed. After rebase to 020d36fdc3e5becf53f8484f67ce100680281c71, production and build inputs are identical; architecture health, locked Cargo metadata and strict task and OpenSpec validation pass. All 16 affected bundle contract tests pass with zero failures, errors and skips.
 remote_ci: required
 remote_ci_evidence: null
-device: required
-device_evidence: At 2099cbb, all 16 API 37 instrumented tests and all four Full real UI checks pass. The user has authorized completing UI acceptance without a genuine backend bundle. Repeat Full and Simple real UI checks on the rebased source with the existing CI fixture as an ignored debug asset; keep the real-network evidence limit explicit.
+device: passed
+device_evidence: At f005bad646a56f36575c9eef27f12bb7f72d55f5, API 37 Full and Simple passed all 16 instrumented tests and eight real UI checks. Off and System survived plain restarts without automation extras. Both Arabic RTL controls were reachable at font 200 percent. Installed APK hashes match, device settings were restored, and no crash or ANR was found. The existing CI fixture supplied the local Simple debug asset.
 artifact: passed
-artifact_evidence: Four arm64 APKs were built and hashed at 2099cbb; their installation and device receipts are retained. The 14 user-approved PNG files are committed at f12ef96a8 and were independently reviewed. All 406 other screenshot fixtures are unchanged. The genuine Simple input blocker is tracked under the device gate.
+artifact_evidence: Four arm64 APKs were built and hashed at f005bad646a56f36575c9eef27f12bb7f72d55f5. Device installation matched the sealed hashes and sizes. Exactly 14 approved PNG files changed; 406 other fixtures are unchanged. All eight real device UI images were inspected by root and the device specialist.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this app preference change.
 ---
@@ -20,41 +20,40 @@ deployment_evidence: No deployment is owned by this app preference change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-HAPTIC-PREFERENCE | UIX-1792259354389850 | Storage and backup tests pass; Full and Simple behavior cohorts each pass 432 tests; Full plain restart passes for Off and System; Simple real restart remains blocked | host and Full device passed; Simple blocked |
-| REQ-HAPTIC-CONNECTION | UIX-1792259354945871 | Actual Running, acceptance, cancellation, equal retries, IO failure, restored state and deferred failure race regressions pass | host passed |
-| REQ-HAPTIC-RESULT | UIX-1792259354945871 | Detection and diagnostics once-only, lifecycle, Off, IO and cancellation tests pass | host passed |
-| REQ-HAPTIC-VALIDATION | UIX-1792259355458709 | Full, Simple and service lint pass; all 16 platform tests pass; Full real UI and Arabic font 200 percent pass; all 14 approved PNG files were reviewed and both strict screenshot families pass 21 tests; Simple real UI remains required | blocked |
+| REQ-HAPTIC-PREFERENCE | UIX-1792259354389850 | Storage, defaults, backup and restart tests; Full and Simple real Off and System plain restarts | passed |
+| REQ-HAPTIC-CONNECTION | UIX-1792259354945871 | Actual Running, acceptance, cancellation, equal retries, IO failure, restored state and deferred failure race regressions | passed |
+| REQ-HAPTIC-RESULT | UIX-1792259354945871 | Detection and diagnostics once-only, lifecycle, Off, IO and cancellation tests | passed |
+| REQ-HAPTIC-VALIDATION | UIX-1792259355458709 | 923 unit tests, 21 screenshot tests, lint, static analysis, 16 instrumented tests and eight real UI checks | passed locally; hosted CI required |
 
-## Observed local evidence
+## Source and local evidence
 
-- At c8f66c79a, Full and Simple each passed 432 tests with no failures, errors or skips. The final narrow Main and diagnostics cohort passed all 25 tests. The RED runs reproduced duplicate suppression, stale state and disabled feedback defects before the fixes.
-- At 2099cbb, one combined Gradle run passed static analysis, Full and Simple app lint, service lint, and all four debug APK assembly tasks: 929 tasks, build successful in 8 minutes 8 seconds.
-- Architecture validation passed with 21 existing findings and no new or worse findings. Locked Cargo metadata resolved all 116 workspace crates. The native inputs were checked against their producer and all 16 input hashes matched.
-- The Android test host now uses FrameLayout so Material can find its ripple container. Test bodies, assertions and feedback recording overrides did not change.
-- Local receipts and logs are under `.artifacts/haptic-feedback/`: `combined-unit-summary.json`, `combined-gates/`, `host-fix-gates/`, `host-fix-scope.json`, and `apk-receipt-2099cbb49.json`. These generated files are not committed.
-- The final API 37 run used a standard Pool_1 lease and a read-only checkout at the exact APK source commit, 2099cbb. Full and Simple each passed eight instrumented tests, with no failures, errors or skips. Full passed back/reopen, Off plain restart, System plain restart and Arabic font 200 percent option checks. Root and the independent device reviewer checked the real Full screenshots.
-- `device-api37-2099cbb49-popup-choice/` contains the exact source and installed APK hashes, all 16 test results, four Full UI results, plain launch arguments, and restoration receipts. Locale, font, size and density match the original values. The crash buffer is empty. The overall run remains failed because Simple cannot finish startup with the old private bundle.
-- After explicit approval on 2026-10-18, the golden specialist recorded only the six InstalledReadability Russian maximum-font PNG files and eight SimpleHome PNG files. Full record passed three tests; Simple record passed eight tests. Strict verification of the complete families passed 12 Full and nine Simple tests, with no failures, errors or skips. The source was e050b0af5; production code was unchanged from the device source, 2099cbb.
-- The specialist and an independent read-only reviewer inspected all 14 fresh images against their old baselines. They found no defects in maximum-font, RTL, dark, running or completed layouts. SHA-256 checks of all 420 existing fixtures confirmed exactly 14 approved changes and 406 unchanged files. The excluded simpleHomeReportCompletedMaximumFont PNG is byte-identical. The fixture-only commit is f12ef96a85d6e04ab859c4f9c8a888a42e05e073.
-- `approved-goldens/` contains the four canonical task logs, archived JUnit XML and counts, and `scope-verification.json`. Build outputs were removed by concurrent external cleanup before this run; retained device receipts establish the earlier APK checks. The screenshot tasks rebuilt their inputs and passed after that cleanup.
+- The compiler and device source is `f005bad646a56f36575c9eef27f12bb7f72d55f5`. Full and Simple each passed 432 behavioral tests, settings storage passed 12 tests, and backup plus CI fixture tests passed 47 tests. All 923 executions had zero failures, errors and skips. Earlier RED runs reproduced duplicate feedback, stale state and disabled feedback defects before the fixes.
+- One combined Gradle run passed static analysis, Full and Simple app lint, service lint and all four debug APK assembly tasks: 929 tasks, build successful in 17 minutes 13 seconds. Strict Roborazzi verification passed all 12 InstalledReadability and nine SimpleHome tests, with zero failures, errors and skips.
+- Native input verification matched all 16 files to producer `1993443f95232c1f7fd89e81891d350e93b6344d`. Locked Cargo metadata resolved all 116 workspace crates. Architecture health found 21 existing indicators and no new or worse findings.
+- Rebase onto `7409cd0154234fee588bd148ed2b07e3365cc286` produced `020d36fdc3e5becf53f8484f67ce100680281c71`. The complete tree diff from the tested source contains only two upstream bundle test JSON files and three task documents. Production sources, build inputs, instrumented tests and screenshots are byte-identical. Device evidence remains attributed to its actual source; it is not relabelled as a new APK run.
+- The independent reviewer found no material defects. Feedback eligibility, once-only consumption and authority/epoch checks remain intact. Off changes only the haptic gate. Reduced-motion and progress behavior remain unchanged.
+- Logs, archived JUnit XML, counts, APK receipts and source-equivalence checks are retained under `.artifacts/haptic-feedback/test-bundle-acceptance/`. Generated evidence and local bundle assets are not committed.
 
-## Historical Simple input blocker and revised UI acceptance
+## Device acceptance
 
-The genuine local bundle is 4735 bytes, SHA-256 `9ed07fb571c49434e75729f781d19785e6054c773e47600c4302eff920c7140a`. Its AWG profile has one IPv4 host address. `SingBoxAwgNetworkPolicy.isDualStackHostAddresses` requires one IPv4 /32 and one IPv6 /128. The parser reports `INVALID_NETWORK_POLICY` for `address`, and `ConfigSeeder` correctly refuses a required bundle with skipped profiles.
+The successful run used the standard Pool_1 command-scoped lease on API 37, arm64, pixel_10_pro_xl. Full and Simple each passed eight instrumented tests and four real UI checks: back/reopen Off, Off after plain restart, System after plain restart, and Arabic RTL with font scale 2.0. Each variant used three plain launches without automation extras. Root and the device specialist inspected all eight real UI PNG files and found no clipping or overlap in the preference, helper text or navigation.
 
-The build task checks only that the file exists and is nonempty. It does not establish runtime compatibility. A bounded read-only check found 16 assets and three distinct contents across registered worktrees. All genuine copies have the same old IPv4-only profile; the other two contents match CI fixtures and were excluded from real acceptance. No private endpoints, addresses or credentials were printed, and the input was not changed. A current genuine bundle with an assigned IPv6 address is required.
+Installed app APK hashes and sizes match the sealed inputs. Locale values, font scale 1.0, size 1344 by 2992 and density 480 were restored exactly. Restoration errors are empty; the crash buffer is empty; no new app ANR or fatal log matches were found. The lease was released.
 
-A separate read-only source review found that an ordinary successful Simple reseed preserves the haptic preference. ConfigSeeder changes only its explicit settings fields; the relay activation path uses the current settings builder. The existing one-time pre-release reset is a separate path. This source review does not replace the missing real Simple restart check.
+Attempt 1 stopped before any tests because the installed ABI-split APK had versionCode 20000012 and the new universal debug APK had versionCode 12. Attempt 2 first used Android debug `install -r -d` under the lease, preserving app data. The unchanged runner then passed all tests. The setup failure remains in the evidence; no assertions were relaxed and no uninstall was used.
 
-The user has now confirmed that no current genuine bundle is available and authorized completion without it. Use `scripts/fixtures/embedded-relay-bundle/ci-fixture.json` for the local debug build. Its SHA-256 is `cadaff4fd5daa0cfeec5182e428a3207d926dd7ea62b917edadc21876a92194c` and its size is 1932 bytes. This is the existing CI fallback, not a new production profile. The previous private asset is preserved locally with mode 0600. Neither asset is tracked or published. Production readiness checks remain active. Device acceptance covers the real UI and plain restart; it does not cover real relay connections.
+## Approved screenshots
 
-## Remaining gates
+The user approved exactly six InstalledReadability Russian maximum-font PNG files and eight SimpleHome PNG files, excluding simpleHomeReportCompletedMaximumFont. The golden specialist and independent reviewer inspected all 14 images. Canonical record and strict verification passed. SHA-256 checks of all 420 tracked PNG files confirmed 14 approved changes and 406 unchanged files, with dimensions preserved. The excluded maximum-font image is byte-identical. Receipts are retained in `.artifacts/haptic-feedback/approved-goldens/`.
 
-- Complete Full and Simple real UI checks with the authorized CI fixture under the command-scoped emulator lease. Use plain restarts without automation extras to verify saved Off and System values.
-- Fetch and rebase, repeat the applicable combined-tree gates, integrate main, push, and inspect hosted CI for the exact published SHA.
-- Device tests count platform calls. They do not establish tactile quality on physical hardware.
-- Runtime failure events do not contain a command ID. Authority snapshots distinguish sequential starts; they do not add protocol-level correlation to late native events.
+## Local test bundle and evidence limits
 
-## Publication
+The old genuine local bundle could not pass the current AWG dual-stack address policy. That historical startup failure was preserved. The user then confirmed that no current genuine bundle is available and authorized UI acceptance without one.
 
-UIX-1792259356008226 owns independent review, combined gates, rebase, authorized main integration, push and exact-source hosted CI inspection. Main has not been changed or pushed. Hosted CI has not validated this feature SHA.
+The local Simple debug build uses the existing `scripts/fixtures/embedded-relay-bundle/ci-fixture.json`, the same fallback used by CI. It is 1932 bytes with SHA-256 `cadaff4fd5daa0cfeec5182e428a3207d926dd7ea62b917edadc21876a92194c`. The previous private input was preserved locally with mode 0600. Both local asset copies remain ignored and are not published. Production parser and readiness checks remain active.
+
+This proves real UI and preference persistence with explicit test data. It does not prove live relay connections, backend availability or tactile quality on physical hardware. Platform tests count haptic calls. Runtime failure events have no command ID; authority and epoch checks do not add protocol-level correlation to late native events.
+
+## Remaining publication gates
+
+The affected bundle contract gate passed on the rebased tree: 16 tests across RipdpiBundleContractTest, AwgDeployedTransportTest, AwgCohortFingerprintImportTest and CiRelayBundleFixtureTest, with zero failures, errors and skips. Integrate the job branch into main with fast-forward, push the authorized changes, and inspect hosted CI for the exact published SHA. Main and remote have not yet received this feature.
