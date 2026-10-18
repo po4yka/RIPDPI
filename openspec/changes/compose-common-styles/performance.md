@@ -69,7 +69,45 @@ Use the raw iteration values for startup median and raw sampled CPU frame durati
 
 Do not bless or replace a stored benchmark baseline. Compiler reports support diagnosis but do not replace startup or frame measurements. See `verification.md` for observed results; this protocol alone is not performance evidence.
 
-## Observed status on 2026-10-18
+## Observed result on 2026-10-18
+
+All three normal source builds passed and their actual APKs were saved. The table records the build commits, not the production reference commits. The Styles runtime and build tree matches the validated primary source `9793d98` across 8,049 scoped entries. Four harness source hashes are identical in all states.
+
+| State | Actual build commit | ARM64 app APK SHA-256 |
+|---|---|---|
+| original | `fcf68112b8a9018f10dff002f55965086e26b44d` | `321c5777fca625d67c3076668d49cd949f5df9b286bc5cc69624170503a59bab` |
+| dependencies | `abbbb0cb08c4768df47277186d39a7e6cba60daf` | `168145bef2ff089692ff420bad06809e597bb5580aa8f11c0f4561efe98f1375` |
+| styles | `3675441ea60de7aa0ffd2d2805c6f25dbda79b3b` | `326b853ef087b5d4e5ca1e4e6ee08f56abcc8b57adf9d2ce544bdc064a738cfb` |
+
+Acceptance records, metadata, APKs and source contracts are in [/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/accepted](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/accepted). The original-to-dependencies native difference is exactly the published `graphics-path` 1.0.1 to 1.1.0 library; the other 15 entries match. All 16 Styles native entries match the accepted dependency-only APK. Published AAR hashes and extracted bytes are checked in [native dependency proof](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/maven-proof/published-native-proof.json).
+
+The final comparison completed all six runs under one standard pool lease on API 37 ARM64 `emulator-5558`. Each run passed all four benchmark methods with ten iterations each. All 240 Perfetto traces and six actual reported JSON files were pulled and hashed. The installed target hashes and the single shared test APK were checked for every run. Raw JSON execution contexts match exactly. Measured app compilation is `Full()` in the saved harness; JSON context `compilationMode=verify` is the instrumentation target compiler filter. Font scale and animation settings were fixed and restored. Cleanup had no failures and the build gate was released.
+
+| Series | Metric | Original ms | Dependencies ms | Styles ms |
+|---:|---|---:|---:|---:|
+| 1 | startupCold/timeToInitialDisplayMs:median | 301.221 | 284.063 | 286.168 |
+| 1 | settingsScroll/frameDurationCpuMs:p95 | 4.209 | 4.029 | 4.102 |
+| 1 | logsScroll/frameDurationCpuMs:p95 | 20.521 | 31.950 | 30.845 |
+| 1 | controlInteractions/frameDurationCpuMs:p95 | 15.843 | 16.929 | 19.613 |
+| 2 | startupCold/timeToInitialDisplayMs:median | 255.555 | 278.446 | 297.959 |
+| 2 | settingsScroll/frameDurationCpuMs:p95 | 4.075 | 3.733 | 5.180 |
+| 2 | logsScroll/frameDurationCpuMs:p95 | 33.534 | 21.265 | 31.684 |
+| 2 | controlInteractions/frameDurationCpuMs:p95 | 15.650 | 3.684 | 3.927 |
+
+The strict parser returned **INCONCLUSIVE**, exit **3**. Original-to-Styles changes cross 5 percent for each metric in only one series. There is no repeated final-to-original breach and there is no PASS. Controls show a repeated dependency-only-to-Styles increase of **15.85 percent** and **6.61 percent**; this needs separate diagnosis. Large differences between series also prevent a general performance claim. No sample was filtered and no baseline or threshold was changed.
+
+These are emulator measurements with four reported vCPUs and `cpuLocked=false`. Equal JSON contexts do not establish equal physical clock or host load. They do not establish physical-device performance or the cause of the variation. The next acceptance check is the same frozen APK comparison on a physical ARM64 device with controlled conditions, plus diagnosis of Controls. Migration acceptance remains open.
+
+- [Full strict comparison](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/measurements/three-state-20261018-listener-fix-1/comparison.md) and [machine-readable result](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/measurements/three-state-20261018-listener-fix-1/comparison.json).
+- [Six-run manifest](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/measurements/three-state-20261018-listener-fix-1/manifest.json), [run and restoration summary](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/measurements/three-state-20261018-listener-fix-1/summary.json), and per-run invocation, install, raw JSON and trace records in the same directory.
+- Comparison JSON SHA-256: `3e6255abdd805efd69e8cf24f130734925abec30a80f2f44be72b09129d0eec7`.
+- Manifest SHA-256: `0f17408bcbd7faf3edb0ec12b7825c3e2217f7dce74b3610a3fe8f1ecc84c832`.
+
+Failed preflight and missing-run-end-JSON attempts are retained in separate directories. Their incomplete data are not in the final manifest. The final controller starts each preflight scene separately and uses the existing `androidx.benchmark.macro.junit4.InstrumentationResultsRunListener` from the pinned 1.5.0 test APK to report the final JSON. APKs and measured workloads were unchanged. Synthetic controller tests do not replace the six actual runs.
+
+## Earlier capacity blocker
+
+The following is the historical status before the accepted source rebuilds. Its former build reports later became unavailable; it does not describe the current artifact or measurement result.
 
 The harness, strict comparison parser and source-state provenance checks are implemented. No three-state performance series has run. There is no evidence to accept or reject the five-percent performance criterion.
 
