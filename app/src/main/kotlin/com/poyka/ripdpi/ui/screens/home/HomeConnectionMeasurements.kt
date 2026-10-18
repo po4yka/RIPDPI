@@ -10,10 +10,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ConnectionQualitySnapshot
@@ -38,6 +41,7 @@ import com.poyka.ripdpi.ui.theme.DefaultRipDpiNetworkQualityThresholds
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.resolveDegradationTone
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.first
 
 @Composable
 internal fun HomeConnectionMeasurements(
@@ -51,11 +55,17 @@ internal fun HomeConnectionMeasurements(
     var selectedSnapshot by remember { mutableStateOf<LatencyDetailSnapshot?>(null) }
     var returnFocusRequested by remember { mutableStateOf(false) }
     val latencyFocus = remember { FocusRequester() }
+    val windowInfo = LocalWindowInfo.current
     val observed = quality?.takeIf { it.hasObservedMeasurements() }
+    val hasLatencyOrigin = observed != null && observed.sampleCount > 0L
     val hasMeasurements = connected || observed != null || dataTransferred != 0L
-    LaunchedEffect(returnFocusRequested) {
-        if (returnFocusRequested) {
-            if (observed != null && observed.sampleCount > 0L) latencyFocus.requestFocus()
+    LaunchedEffect(returnFocusRequested, hasLatencyOrigin, selectedSnapshot, windowInfo) {
+        if (returnFocusRequested && selectedSnapshot == null) {
+            if (hasLatencyOrigin) {
+                // Dialog disposal precedes the host window's focus callback.
+                snapshotFlow { windowInfo.isWindowFocused }.first { it }
+                latencyFocus.requestFocus()
+            }
             returnFocusRequested = false
         }
     }
@@ -73,10 +83,12 @@ internal fun HomeConnectionMeasurements(
                         dataTransferred,
                         latencyModifier =
                             Modifier
+                                .focusProperties { canFocus = true }
                                 .focusRequester(
                                     latencyFocus,
                                 ).ripDpiTestTag(RipDpiTestTags.HomeLatencyMetric),
                         onOpenLatency = {
+                            returnFocusRequested = false
                             selectedSnapshot =
                                 selectedLatencyDetailSnapshot(
                                     observed,

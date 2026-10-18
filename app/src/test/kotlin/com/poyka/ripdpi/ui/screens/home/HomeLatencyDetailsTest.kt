@@ -1,11 +1,20 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.InputModeManager
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -70,6 +79,44 @@ class HomeLatencyDetailsTest {
         detailText(R.string.measurement_quality_p95, 95L).assertExists()
         detailText(R.string.measurement_quality_samples, 20L, "9").assertExists()
         detailText(R.string.measurement_source, text(R.string.measurement_tunnel)).assertExists()
+    }
+
+    @Test
+    fun `dismiss waits for host window focus before restoring the origin`() {
+        val focused = mutableStateOf(true)
+        render(windowFocused = focused, inputModeOverride = InputMode.Keyboard)
+        open()
+        composeRule.runOnIdle { focused.value = false }
+        dismiss()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertIsNotFocused()
+
+        composeRule.runOnIdle { focused.value = true }
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertIsFocused()
+    }
+
+    @Test
+    fun `dismiss restores origin input focus in touch mode`() {
+        render(windowFocused = mutableStateOf(true), inputModeOverride = InputMode.Touch)
+        open()
+        dismiss()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertIsFocused()
+    }
+
+    @Test
+    fun `a vanished origin cancels pending restoration before later telemetry`() {
+        val focused = mutableStateOf(true)
+        render(windowFocused = focused, inputModeOverride = InputMode.Touch)
+        open()
+        composeRule.runOnIdle { focused.value = false }
+        dismiss()
+        composeRule.runOnIdle { quality.value = null }
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertDoesNotExist()
+
+        composeRule.runOnIdle {
+            quality.value = sample()
+            focused.value = true
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertIsNotFocused()
     }
 
     @Test
@@ -179,13 +226,34 @@ class HomeLatencyDetailsTest {
         composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertHasClickAction()
     }
 
-    private fun render() {
+    private fun render(
+        windowFocused: State<Boolean>? = null,
+        inputModeOverride: InputMode? = null,
+    ) {
         composeRule.setContent {
+            val hostWindowInfo = LocalWindowInfo.current
+            val windowInfo =
+                remember(hostWindowInfo, windowFocused) {
+                    object : WindowInfo by hostWindowInfo {
+                        override val isWindowFocused: Boolean
+                            get() = windowFocused?.value ?: hostWindowInfo.isWindowFocused
+                    }
+                }
+            val hostInputMode = LocalInputModeManager.current
+            val inputModeManager =
+                remember(hostInputMode, inputModeOverride) {
+                    object : InputModeManager by hostInputMode {
+                        override val inputMode: InputMode
+                            get() = inputModeOverride ?: hostInputMode.inputMode
+                    }
+                }
             RipDpiTheme(themePreference = "light") {
                 expectedForeground = RipDpiThemeTokens.colors.foreground.toArgb()
                 CompositionLocalProvider(
                     LocalRipDpiMotion provides motion.value,
                     LocalInspectionMode provides false,
+                    LocalWindowInfo provides windowInfo,
+                    LocalInputModeManager provides inputModeManager,
                 ) {
                     HomeConnectionMeasurements(
                         quality = quality.value,
