@@ -2293,9 +2293,9 @@ jobs:
           - device: pixel6Api27Aosp
             api: 27
             system-image: default
-          - device: pixel6Api33Atd
+          - device: pixel6Api33Google
             api: 33
-            system-image: aosp_atd
+            system-image: google_apis
           - device: pixel6Api35Google
             api: 35
             system-image: google_apis

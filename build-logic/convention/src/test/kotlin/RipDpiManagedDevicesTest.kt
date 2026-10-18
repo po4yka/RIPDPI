@@ -32,7 +32,7 @@ class RipDpiManagedDevicesTest {
 
         assertEquals(listOf(minSdk, 33, 35, 36, targetSdk), ciDevices.map(RipDpiManagedDeviceSpec::apiLevel).sorted())
         assertEquals(
-            mapOf(27 to "aosp", 33 to "aosp-atd", 35 to "google", 36 to "google", 37 to "google"),
+            mapOf(27 to "aosp", 33 to "google", 35 to "google", 36 to "google", 37 to "google"),
             ciDevices.associate { it.apiLevel to it.systemImageSource },
         )
         assertTrue(ciDevices.all { it.testedAbi == "x86_64" })
@@ -45,7 +45,7 @@ class RipDpiManagedDevicesTest {
         val job = workflow.substringAfter("  android-instrumented-tests:").substringBefore("\n  rust-loom:")
 
         assertContains(job, "- device: pixel6Api27Aosp\n            api: 27\n            system-image: default")
-        assertContains(job, "- device: pixel6Api33Atd\n            api: 33\n            system-image: aosp_atd")
+        assertContains(job, "- device: pixel6Api33Google\n            api: 33\n            system-image: google_apis")
         assertContains(job, "- device: pixel6Api35Google\n            api: 35\n            system-image: google_apis")
         assertContains(job, "- device: pixel6Api36Google\n            api: 36\n            system-image: google_apis")
         assertContains(

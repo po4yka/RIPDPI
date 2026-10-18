@@ -22,6 +22,18 @@ On 2026-10-18 the owner stated that acceptance was complete and authorized final
 
 The integration rebases the migration onto `e82b513ff8ad9da3f6163a52a71ac8337f1f1877`. It retains current haptic preference/result handling, diagnostics progress, route state and responsiveness changes. Both benchmark-only activities remain declared; a duplicate `benchmark` build-type declaration from the automatic merge is removed. Combined-tree build, test and device results will be recorded before main is advanced. Historical APK and performance source SHAs below remain their actual build identities.
 
+## Hosted integration correction
+
+Run [39127078764](https://github.com/po4yka/RIPDPI/actions/runs/39127078764) tested source `d804ca4cb1ef25e89e4f4beffcb25c7da7864e86`. Unit tests passed: Full 2,921 and Simple 3,104, with zero failures or skips. Both screenshot suites, static analysis, all three channel Debug builds, and all three channel release-verification shards passed. The required aggregate failed because the instrumented matrix failed. This run is not an integration PASS.
+
+On API 27 the generic test Activity lacks the production host's `adjustResize` window mode. LatinIME starts and renders, but the test does not observe IME insets. The test now sets the same resize mode as MainActivity before it sets content; API 27 and its assertions remain unchanged. This diagnosis and correction require the next CI device run.
+
+The API 33 ATD image has no software IME. Its log records `mSelectedMethodId is null!` after the field requests the keyboard. The CI lane and shared managed-device registry now select the full Google APIs image for API 33; API coverage and IME assertions remain unchanged. The separate API 34 ATD benchmark image is unchanged.
+
+The shell test failed during Activity destruction: the legacy Compose test continuation interceptor sent snapshot notifications inside Styles animation cancellation, after the resolver was unbound. The shell class now uses the public JUnit v2 test environment and explicit default `ComposeUiTestConfig`, as the Styles interaction class already does. Product sources, motion and test assertions are unchanged. All 38 build-convention unit tests, 49 CI helper tests and workflow actionlint passed for the correction. The next required hosted run must verify the device corrections; no successful rerun is claimed here.
+
+The owner declared acceptance complete. The redundant seven-phase local repeat was cancelled before admission, without child processes. It produced no fresh APK, test or device result. Historical local, device and performance records keep their original source identities; current integration checks run in hosted CI. Cancellation and downloaded hosted reports are preserved under [ripdpi-styles-integration](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-integration).
+
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
