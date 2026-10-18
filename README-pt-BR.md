@@ -164,14 +164,14 @@ Cadeias de relay multissalto carregam uma lista ordenada de 2-4 saltos TCP (entr
 
 ## Requisitos de build
 
-Requisitos: JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, toolchain Rust `1.98.1`, targets Rust para Android das ABIs necessárias, [`just`](https://just.systems) (executor de tarefas; as receitas do `justfile` espelham a CI) e [`lefthook`](https://github.com/evilmartians/lefthook) (execute `lefthook install` uma vez para conectar os gates de pre-commit).
+Requisitos: JDK 17, Android SDK (platform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, toolchain Rust `1.98.1`, targets Rust para Android das ABIs necessárias, [`just`](https://just.systems) (executor de tarefas; as receitas do `justfile` espelham a CI) e [`lefthook`](https://github.com/evilmartians/lefthook) (execute `lefthook install` uma vez para conectar os gates de pre-commit).
 
 Um checkout novo também precisa do AAR real do libXray com os patches do projeto antes de empacotar o APK. Prepare Go amd64, as versões fixadas de `gomobile` e `gobind` e `ANDROID_NDK_HOME` conforme [o guia de libXray](docs/native/libxray-packaging.md#build). O produtor precisa de um diretório `native/xray/artifacts/` novo ou vazio e acesso às fontes fixadas. Para reutilizar um diretório verificado que corresponda às versões atuais, passe `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` ao Gradle; a verificação de empacotamento continua ativa.
 
 Instale os pacotes SDK necessários com Android CLI 1.0+:
 
 ```bash
-android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
+android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
 ```
 
 ```bash
