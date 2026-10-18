@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui
 
 import android.animation.ValueAnimator
 import android.graphics.Bitmap
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -180,7 +181,7 @@ class HomeLatencyDetailsAcceptanceTest {
         render { LatencyHome(latencyQuality()) }
         origin().performClick()
         detailText(R.string.measurement_quality_p95, 64L).assertIsDisplayed()
-        assertTrue(UiDevice.getInstance(instrumentation).pressBack())
+        assertTrue(UiDevice.getInstance(instrumentation).pressKeyCode(KeyEvent.KEYCODE_BACK))
         compose.onNodeWithTag(RipDpiTestTags.LatencyDetailDialog).assertDoesNotExist()
         // Input focus is distinct from real TalkBack focus, checked in the dedicated lane.
         origin().assertIsFocused()
