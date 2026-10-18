@@ -27,6 +27,7 @@ Task UIX-1792259264757428 adds user control to the existing platform-based hapti
 - Status and failure events lack an operation ID. Test pending-attempt invalidation against late status; do not change service authority or claim protocol-level correlation.
 - A result produced while the UI is stopped queues under the existing convention and is consumed once on resume. Off at production makes that result ineligible even if System is selected before consumption. Off at consumption also suppresses feedback. Visible messages remain available.
 - Device tests count calls and check preference persistence; a physical device is required to assess tactile quality.
+- If no current genuine relay bundle is available, use the existing repository CI bundle as an ignored local debug input for UI acceptance, as authorized by the user. Keep production validation intact. Test plain restart without automation extras and record the bundle hash. This proves UI persistence, not relay connectivity or backend availability.
 - Additional settings rows may affect screenshots. Verify actual images; golden updates require separate approval and are not automatic.
 
 ## Migration Plan

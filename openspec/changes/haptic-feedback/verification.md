@@ -6,8 +6,8 @@ local: passed
 local_evidence: Behavioral tests, static analysis, locale lint, architecture and locked Cargo metadata pass. After the user approved 14 fixtures, canonical record and strict verification passed; the two strict screenshot families passed all 21 tests without failures, errors or skips.
 remote_ci: required
 remote_ci_evidence: null
-device: blocked
-device_evidence: At 2099cbb, all 16 API 37 instrumented tests and all four Full real UI checks pass. Simple real UI acceptance is blocked because the genuine embedded AWG profile has only IPv4 while the current contract requires IPv4 and IPv6. Installed APK hashes match and emulator settings were restored without errors.
+device: required
+device_evidence: At 2099cbb, all 16 API 37 instrumented tests and all four Full real UI checks pass. The user has authorized completing UI acceptance without a genuine backend bundle. Repeat Full and Simple real UI checks on the rebased source with the existing CI fixture as an ignored debug asset; keep the real-network evidence limit explicit.
 artifact: passed
 artifact_evidence: Four arm64 APKs were built and hashed at 2099cbb; their installation and device receipts are retained. The 14 user-approved PNG files are committed at f12ef96a8 and were independently reviewed. All 406 other screenshot fixtures are unchanged. The genuine Simple input blocker is tracked under the device gate.
 deployment: not_applicable
@@ -38,7 +38,7 @@ deployment_evidence: No deployment is owned by this app preference change.
 - The specialist and an independent read-only reviewer inspected all 14 fresh images against their old baselines. They found no defects in maximum-font, RTL, dark, running or completed layouts. SHA-256 checks of all 420 existing fixtures confirmed exactly 14 approved changes and 406 unchanged files. The excluded simpleHomeReportCompletedMaximumFont PNG is byte-identical. The fixture-only commit is f12ef96a85d6e04ab859c4f9c8a888a42e05e073.
 - `approved-goldens/` contains the four canonical task logs, archived JUnit XML and counts, and `scope-verification.json`. Build outputs were removed by concurrent external cleanup before this run; retained device receipts establish the earlier APK checks. The screenshot tasks rebuilt their inputs and passed after that cleanup.
 
-## Simple input blocker
+## Historical Simple input blocker and revised UI acceptance
 
 The genuine local bundle is 4735 bytes, SHA-256 `9ed07fb571c49434e75729f781d19785e6054c773e47600c4302eff920c7140a`. Its AWG profile has one IPv4 host address. `SingBoxAwgNetworkPolicy.isDualStackHostAddresses` requires one IPv4 /32 and one IPv6 /128. The parser reports `INVALID_NETWORK_POLICY` for `address`, and `ConfigSeeder` correctly refuses a required bundle with skipped profiles.
 
@@ -46,9 +46,11 @@ The build task checks only that the file exists and is nonempty. It does not est
 
 A separate read-only source review found that an ordinary successful Simple reseed preserves the haptic preference. ConfigSeeder changes only its explicit settings fields; the relay activation path uses the current settings builder. The existing one-time pre-release reset is a separate path. This source review does not replace the missing real Simple restart check.
 
+The user has now confirmed that no current genuine bundle is available and authorized completion without it. Use `scripts/fixtures/embedded-relay-bundle/ci-fixture.json` for the local debug build. Its SHA-256 is `cadaff4fd5daa0cfeec5182e428a3207d926dd7ea62b917edadc21876a92194c` and its size is 1932 bytes. This is the existing CI fallback, not a new production profile. The previous private asset is preserved locally with mode 0600. Neither asset is tracked or published. Production readiness checks remain active. Device acceptance covers the real UI and plain restart; it does not cover real relay connections.
+
 ## Remaining gates
 
-- Obtain a current genuine Simple bundle and complete its real UI checks under the command-scoped emulator lease. Keep the existing successful 16 platform tests and Full real UI evidence distinct from this missing gate.
+- Complete Full and Simple real UI checks with the authorized CI fixture under the command-scoped emulator lease. Use plain restarts without automation extras to verify saved Off and System values.
 - Fetch and rebase, repeat the applicable combined-tree gates, integrate main, push, and inspect hosted CI for the exact published SHA.
 - Device tests count platform calls. They do not establish tactile quality on physical hardware.
 - Runtime failure events do not contain a command ID. Authority snapshots distinguish sequential starts; they do not add protocol-level correlation to late native events.
