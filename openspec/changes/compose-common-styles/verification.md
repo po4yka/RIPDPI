@@ -2,19 +2,25 @@
 task_id: UIX-1792228984398359
 change: compose-common-styles
 commit_sha: 9793d98b6e15f9376e5e246cd15bdd3a016f0361
-local: passed
-local_evidence: Compile, 5729 unit tests, screenshot catalogs and staticAnalysis were observed at source 93bc75744. The same runtime and build sources at 9793d98 now passed normal Full and Simple app/test APK assembly. See current and historical evidence below.
-remote_ci: blocked
-remote_ci_evidence: Publication is not authorized.
-device: passed
-device_evidence: Source 9793d98 passed all six exact Full/Simple instrumented cases and both product launcher checks on a leased API 37 ARM64 emulator. The saved report records unchanged APKs and restored settings.
-artifact: blocked
-artifact_evidence: Four debug app/test APKs and all three profileable states are accepted and saved. The complete six-run comparison returned INCONCLUSIVE, exit 3. Performance acceptance remains open; see performance.md.
+local: required
+local_evidence: Earlier local checks are recorded below. The branch is now rebased on main e82b513ff; combined-tree checks are pending before integration.
+remote_ci: required
+remote_ci_evidence: The owner authorized main integration and remote push on 2026-10-18. Hosted checks remain pending publication.
+device: required
+device_evidence: Source 9793d98 passed six cases and both product launchers. The combined-tree device repeat is pending fresh APKs.
+artifact: passed
+artifact_evidence: The owner accepted the completed migration on 2026-10-18 after the six-run comparison returned INCONCLUSIVE. This is owner acceptance of the recorded limitation, not a numerical performance PASS. Fresh combined-tree APKs remain part of the local integration gate.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
 
 # Verification
+
+## Owner acceptance and final integration
+
+On 2026-10-18 the owner stated that acceptance was complete and authorized final main integration, documentation and dependency updates, and remote push. This decision accepts the recorded emulator performance limitation. The strict comparison remains INCONCLUSIVE, exit 3, with the Controls observations retained. Neither the five-percent threshold nor the raw evidence is changed.
+
+The integration rebases the migration onto `e82b513ff8ad9da3f6163a52a71ac8337f1f1877`. It retains current haptic preference/result handling, diagnostics progress, route state and responsiveness changes. Both benchmark-only activities remain declared; a duplicate `benchmark` build-type declaration from the automatic merge is removed. Combined-tree build, test and device results will be recorded before main is advanced. Historical APK and performance source SHAs below remain their actual build identities.
 
 ## Requirement evidence
 
@@ -24,7 +30,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-RDS-STYLE-OVERRIDE | UIX-1792229082522189 | `styles-wave1-after-apply.log`: ten style tests plus existing theme/shared-control tests | Passed locally |
 | REQ-RDS-STYLE-THEME | UIX-1792229083651465 | Theme, state, reduced-motion and control tests; complete Full/Simple unit and screenshot repeat at source 93bc75744 | Passed locally |
 | REQ-RDS-STYLE-COMPATIBILITY | UIX-1792229081138948 | `styles-dependency-gate-final.log`: AAR metadata, Full/Simple compilation, build convention tests | Passed locally |
-| REQ-RDS-STYLE-ACCEPTANCE | UIX-1792229086339829 | Current Full/Simple APK and device checks passed; six actual performance runs completed | Blocked by inconclusive performance acceptance |
+| REQ-RDS-STYLE-ACCEPTANCE | UIX-1792229086339829 | Current Full/Simple APK and device checks passed; six actual performance runs completed | Owner accepted the recorded INCONCLUSIVE limitation; combined-tree gate pending |
 
 ## Latest source validation
 
@@ -43,7 +49,7 @@ The three device cases are `disconnectNeedsASecondActionBeforeItDispatches`, `dr
 
 All three benchmark states use the same release-derived, non-debuggable, shell-profileable configuration and identical harness sources. No APK was rebuilt between series. One API 37 ARM64 pool lease held `emulator-5558` through all six runs. The second series used reverse state order. Actual installed APK hashes, context records, output paths and traces connect the source declarations to execution. Settings restoration and owned process cleanup passed; the shared build slot was released.
 
-The strict parser found no metric with an original-to-Styles regression above 5 percent in both series. Each metric crossed the limit in only one series, so this is INCONCLUSIVE, not PASS. Controls were slower than the dependency-only state by 15.85 and 6.61 percent. `performance.md` retains all values and the evidence limits. Step `UIX-1792229086339829` remains open; the migration has not passed performance acceptance. No golden or performance baseline was changed.
+The strict parser found no metric with an original-to-Styles regression above 5 percent in both series. Each metric crossed the limit in only one series, so this is INCONCLUSIVE, not PASS. Controls were slower than the dependency-only state by 15.85 and 6.61 percent. `performance.md` retains all values and the evidence limits. The owner later accepted this limitation; the numerical comparison did not pass. Step `UIX-1792229086339829` stays open until combined-tree integration checks finish. No golden or performance baseline was changed.
 
 ### Storage recovery and build repairs
 

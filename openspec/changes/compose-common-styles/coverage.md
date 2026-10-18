@@ -1,6 +1,6 @@
 # Styles migration coverage
 
-This inventory records implemented source scope and explicit exceptions. At source `93bc75744`, Full/Simple compilation, all 5,729 ordinary unit tests, both screenshot catalogs and full static analysis passed. The 404 Full and 384 Simple captures cover exactly all 420 expected fixtures. Current-source APK assembly and the six-case device repeat with two launcher checks passed. Performance acceptance remains open with an INCONCLUSIVE result. See `verification.md` for evidence and historical report availability.
+This inventory records implemented source scope and explicit exceptions. At source `93bc75744`, Full/Simple compilation, all 5,729 ordinary unit tests, both screenshot catalogs and full static analysis passed. The 404 Full and 384 Simple captures cover exactly all 420 expected fixtures. Current-source APK assembly and the six-case device repeat with two launcher checks passed. The owner accepted the recorded INCONCLUSIVE result on 2026-10-18; combined-tree checks are pending final integration. See `verification.md` for evidence and historical report availability.
 
 ## Owned shells
 
@@ -63,5 +63,5 @@ Experimental opt-in is file-local. There are no inherited text-style flags, tran
 - Component tests exercise actual clicks, selection, disabled/loading behavior, required targets, theme updates, clipping, alpha and RTL padding. Synthetic parser tests only validate report handling.
 - The benchmark-only activity renders real screen/control composables with fixed local data. It does not establish production navigation, storage, service, or network acceptance. Product startup is measured separately with the production Application.
 - Performance runs must use the same profileable target configuration, harness, device and conditions for original, dependencies, and styles in both series. Report emulator measurements as emulator evidence. Missing runs and single-series threshold breaches are inconclusive, not passes.
-- Screenshot differences require classification. Only the four explicitly approved fixtures were refreshed and verified. Further golden changes, main integration, publication and push are not authorized.
-- Current-source Full/Simple APK and six-case device checks passed. The complete three-state, two-series comparison is INCONCLUSIVE; performance acceptance remains open. See `verification.md` and `performance.md` for actual source and artifact provenance.
+- Screenshot differences require classification. Only the four explicitly approved fixtures were refreshed and verified. Further golden changes require separate approval. The owner authorized main integration and remote push on 2026-10-18.
+- Current-source Full/Simple APK and six-case device checks passed. The complete three-state, two-series comparison is INCONCLUSIVE; the owner accepted the recorded limitation on 2026-10-18. See `verification.md` and `performance.md` for actual source and artifact provenance.
