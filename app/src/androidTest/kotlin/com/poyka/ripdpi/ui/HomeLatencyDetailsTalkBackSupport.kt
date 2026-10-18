@@ -34,6 +34,8 @@ internal class HomeLatencyDetailsTalkBackSupport(
             check(!exists()) { "Each acceptance run must use a fresh acceptanceRunId" }
             check(mkdirs())
         }
+    private var armedTransition: JSONObject? = null
+    private var transitionCompleted = false
     private var origin: NamedTarget? = null
     private var currentTarget: NamedTarget? = null
     private var focusStage: String? = null
@@ -118,6 +120,10 @@ internal class HomeLatencyDetailsTalkBackSupport(
         assertBound()
         val acknowledgement = File(directory, "$stage.continue")
         acknowledgement.delete()
+        val previousArm = File(directory, "$stage.arm.json")
+        check(!previousArm.exists() || previousArm.delete()) { "Cannot remove the previous transition arm" }
+        armedTransition = null
+        transitionCompleted = false
         writeWindowEvidence(stage)
         val screenshot = checkNotNull(automation.takeScreenshot())
         File(
@@ -129,11 +135,11 @@ internal class HomeLatencyDetailsTalkBackSupport(
         Log.i(LogTag, "Ready: $stage")
         var snapshotAt = SystemClock.uptimeMillis()
         waitUntil(AcceptanceTimeoutMillis) {
-            if (SystemClock.uptimeMillis() - snapshotAt >= SnapshotIntervalMillis) {
+            if (acknowledgement.exists() || SystemClock.uptimeMillis() - snapshotAt >= SnapshotIntervalMillis) {
                 writeWindowEvidence(stage, observeTransition = true)
                 snapshotAt = SystemClock.uptimeMillis()
             }
-            acknowledgement.exists()
+            acknowledgement.exists() && (physicalTransition(stage) == null || transitionCompleted)
         }
         acknowledgement.delete()
         assertBound()
@@ -248,16 +254,38 @@ internal class HomeLatencyDetailsTalkBackSupport(
                     .put("nodes", nodes),
             )
         }
+        // Persist the same raw snapshot before any target, marker or destination check can fail.
+        val rawSnapshot =
+            JSONObject()
+                .put("acceptanceRunId", runId)
+                .put("stage", stage)
+                .put("uptimeMillis", SystemClock.uptimeMillis())
+                .put("windows", windows)
+        val raw = File(directory, "$stage-native-windows.json.tmp").apply { writeText(rawSnapshot.toString(2)) }
+        check(raw.renameTo(File(directory, "$stage-native-windows.json")))
         val focused = automation.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
         val target = currentTarget
+        val armed = observeTransition && target != null && readTransitionArm(stage, target)
         val transition =
-            if (observeTransition && target != null) transitionEvidence(stage, windows, target) else null
+            if (armed) {
+                destinationEvidence(
+                    stage,
+                    windows,
+                    JSONObject(checkNotNull(target).namedIdentity).getInt("windowId"),
+                    context.packageName,
+                    SystemClock.uptimeMillis(),
+                )
+            } else {
+                null
+            }
+        val pending = armed && transition == null
+        transitionCompleted = transition != null
         // A physical action can replace the old target before the external acknowledgement.
         // Only the expected destination in this same native snapshot can retire that target.
-        if (transition == null) target?.let(::validateTarget)
+        if (!armed) target?.let(::validateTarget)
         val targetBounds =
             target?.let {
-                if (transition == null) {
+                if (!armed) {
                     nativeBounds(it.action ?: it.named)
                         .let { rectangle -> listOf(rectangle.left, rectangle.top, rectangle.right, rectangle.bottom) }
                         .also { value -> it.lastValidatedBounds = value }
@@ -284,11 +312,13 @@ internal class HomeLatencyDetailsTalkBackSupport(
                 .put("focusSettled", focusSettled ?: JSONObject.NULL)
                 .put("focusRequestUptimeMillis", focusRequestUptimeMillis ?: JSONObject.NULL)
                 .put("targetBounds", targetBounds?.let(::JSONArray) ?: JSONObject.NULL)
+                .put("targetTransitionPending", pending)
+                .put("transitionArmed", armedTransition ?: JSONObject.NULL)
                 .put("targetRetired", transition != null)
                 .put("nativeTransition", transition ?: JSONObject.NULL)
                 .put(
                     "targetFocused",
-                    transition == null && focused != null && focused?.let(::identityKey) == target?.focusIdentity,
+                    !armed && focused != null && focused?.let(::identityKey) == target?.focusIdentity,
                 ).put("originNamedIdentity", origin?.namedIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("originActionIdentity", origin?.actionIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("originFocusIdentity", origin?.focusIdentity?.let(::JSONObject) ?: JSONObject.NULL)
@@ -300,59 +330,137 @@ internal class HomeLatencyDetailsTalkBackSupport(
         assertBound()
     }
 
-    private enum class PhysicalTransition(
-        val destinationTag: String,
-    ) {
-        OpenDetails(RipDpiTestTags.LatencyDetailDialog),
-        ReturnHome(RipDpiTestTags.HomeLatencyMetric),
+    private fun physicalTransition(stage: String): Pair<String, String>? =
+        when (stage) {
+            "open-latency", "reopen-latency" -> "OpenDetails" to RipDpiTestTags.LatencyDetailDialog
+            "dismiss-latency", "back-latency" -> "ReturnHome" to RipDpiTestTags.HomeLatencyMetric
+            else -> null
+        }
+
+    private fun protocolValue(value: Any?): Any? =
+        when (value) {
+            JSONObject.NULL -> null
+            is JSONObject -> value.keys().asSequence().associateWith { protocolValue(value.get(it)) }
+            is JSONArray -> (0 until value.length()).map { protocolValue(value.get(it)) }
+            else -> value
+        }
+
+    private fun validateArm(
+        marker: JSONObject,
+        expected: JSONObject,
+        now: Long,
+    ): Long {
+        val fields = marker.keys().asSequence().toSet()
+        val fixed = expected.keys().asSequence().toSet()
+        check(fields == fixed + setOf("snapshotUptimeMillis", "verifiedAtUptimeMillis")) { "Unknown arm marker fields" }
+        fixed.forEach {
+            check(protocolValue(marker.get(it)) == protocolValue(expected.get(it))) { "Foreign transition arm: $it" }
+        }
+        val snapshot = marker.get("snapshotUptimeMillis")
+        val verified = marker.get("verifiedAtUptimeMillis")
+        check((snapshot is Int || snapshot is Long) && (verified is Int || verified is Long))
+        val snapshotAt = (snapshot as Number).toLong()
+        val verifiedAt = (verified as Number).toLong()
+        check(snapshotAt > 0 && snapshotAt <= verifiedAt && verifiedAt <= now)
+        check(
+            verifiedAt - snapshotAt <= ArmFreshMillis && now - verifiedAt <= ArmFreshMillis,
+        ) { "Stale transition arm" }
+        return verifiedAt
     }
 
-    private fun transitionEvidence(
+    private fun readTransitionArm(
+        stage: String,
+        target: NamedTarget,
+    ): Boolean {
+        val transition = physicalTransition(stage)
+        val file = File(directory, "$stage.arm.json")
+        if (!file.exists()) {
+            check(armedTransition == null) { "Armed transition marker disappeared" }
+            return false
+        }
+        check(transition != null) { "Arm marker is forbidden for this checkpoint" }
+        val marker = JSONObject(file.readText())
+        val now = SystemClock.uptimeMillis()
+        val previous = armedTransition
+        if (previous == null) {
+            val expected =
+                JSONObject()
+                    .put("schema", 1)
+                    .put("acceptanceRunId", runId)
+                    .put("stage", stage)
+                    .put("kind", transition.first)
+                    .put("targetNamedIdentity", JSONObject(target.namedIdentity))
+                    .put("targetActionIdentity", target.actionIdentity?.let(::JSONObject) ?: JSONObject.NULL)
+                    .put("targetFocusIdentity", JSONObject(target.focusIdentity))
+                    .put("targetBounds", JSONArray(checkNotNull(target.lastValidatedBounds)))
+                    .put("sourceWindowId", JSONObject(target.namedIdentity).getInt("windowId"))
+            validateArm(marker, expected, now)
+            validateTarget(target)
+            armedTransition = marker
+        } else {
+            check(protocolValue(marker) == protocolValue(previous)) { "Armed transition marker changed" }
+        }
+        check(now - marker.getLong("verifiedAtUptimeMillis") <= TransitionTimeoutMillis) {
+            "Physical transition destination timeout"
+        }
+        return true
+    }
+
+    private fun destinationEvidence(
         stage: String,
         windows: JSONArray,
-        target: NamedTarget,
+        sourceWindow: Int,
+        packageName: String,
+        now: Long,
     ): JSONObject? {
-        val transition =
-            when (stage) {
-                "open-latency", "reopen-latency" -> PhysicalTransition.OpenDetails
-                "dismiss-latency", "back-latency" -> PhysicalTransition.ReturnHome
-                else -> return null
-            }
+        val transition = checkNotNull(physicalTransition(stage))
         val snapshots = (0 until windows.length()).map(windows::getJSONObject)
 
-        fun hasVisibleTag(
+        fun visibleTags(
             window: JSONObject,
             tag: String,
-        ): Boolean {
+        ): List<JSONObject> {
             val nodes = window.getJSONArray("nodes")
-            if (nodes.length() == 0 || nodes.getJSONObject(0).getString("package") != context.packageName) return false
-            return (0 until nodes.length()).map(nodes::getJSONObject).any { node ->
-                val identity = node.getJSONObject("identity")
-                val rectangle = node.getJSONArray("bounds")
-                node.getString("package") == context.packageName && node.getBoolean("visible") &&
-                    identity.getInt("windowId") == window.getInt("id") &&
-                    identity.getString("viewId").substringAfterLast('/') == tag &&
-                    rectangle.getInt(2) > rectangle.getInt(0) && rectangle.getInt(3) > rectangle.getInt(1)
+            val matching =
+                (0 until nodes.length()).map(nodes::getJSONObject).filter { node ->
+                    val rectangle = node.getJSONArray("bounds")
+                    node.getBoolean("visible") &&
+                        node.getJSONObject("identity").getString("viewId").substringAfterLast('/') == tag &&
+                        rectangle.getInt(2) > rectangle.getInt(0) && rectangle.getInt(3) > rectangle.getInt(1)
+                }
+            matching.forEach { node ->
+                check(nodes.length() > 0 && nodes.getJSONObject(0).getString("package") == packageName)
+                check(
+                    node.getString("package") == packageName &&
+                        node.getJSONObject("identity").getInt("windowId") == window.getInt("id"),
+                )
             }
+            return matching
         }
-        if (transition == PhysicalTransition.ReturnHome &&
-            snapshots.any { hasVisibleTag(it, RipDpiTestTags.LatencyDetailDialog) }
+        if (transition.first == "ReturnHome" &&
+            snapshots.any { visibleTags(it, RipDpiTestTags.LatencyDetailDialog).isNotEmpty() }
         ) {
             return null
         }
-        val sourceWindow = JSONObject(target.namedIdentity).getInt("windowId")
-        val destination =
-            snapshots.singleOrNull {
+        val candidates =
+            snapshots.filter {
                 it.getInt("type") == AccessibilityWindowInfo.TYPE_APPLICATION && it.getBoolean("active") &&
                     it.getBoolean("focused") && it.getInt("id") != sourceWindow &&
-                    hasVisibleTag(it, transition.destinationTag)
-            } ?: return null
+                    visibleTags(it, transition.second).isNotEmpty()
+            }
+        check(candidates.size <= 1) { "Ambiguous physical transition destination windows" }
+        val destination = candidates.singleOrNull() ?: return null
+        val node = visibleTags(destination, transition.second).single()
         return JSONObject()
-            .put("kind", transition.name)
+            .put("kind", transition.first)
             .put("sourceWindowId", sourceWindow)
             .put("destinationWindowId", destination.getInt("id"))
-            .put("destinationTag", transition.destinationTag)
-            .put("observedAtUptimeMillis", SystemClock.uptimeMillis())
+            .put("destinationTag", transition.second)
+            .put(
+                "destinationIdentity",
+                node.getJSONObject("identity"),
+            ).put("destinationBounds", node.getJSONArray("bounds"))
+            .put("observedAtUptimeMillis", now)
     }
 
     private fun collectNodes(
@@ -499,5 +607,7 @@ internal class HomeLatencyDetailsTalkBackSupport(
         private const val BindingTimeoutMillis = 15_000L
         private const val AcceptanceTimeoutMillis = 120_000L
         private const val SnapshotIntervalMillis = 500L
+        private const val ArmFreshMillis = 5_000L
+        private const val TransitionTimeoutMillis = 15_000L
     }
 }

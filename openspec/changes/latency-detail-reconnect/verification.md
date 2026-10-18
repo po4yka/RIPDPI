@@ -114,3 +114,29 @@ relay credentials or perform network requests. This input establishes UI
 test setup only. Actual reconnect acceptance uses the separate Full APK and
 local network fixture. No relay connectivity result is inferred from these
 Simple host tests.
+
+## Matrix three findings
+
+The actual matrix at code `702ed20878f3293ab02124393cf77b53d61b880e`
+passed 11 ordinary latency tests and the initial genuine TalkBack touch
+exploration and speech proof. It failed during the physical dialog transition.
+The failing native window snapshot was not saved before target validation;
+the exact capture and refresh interleaving is not established.
+
+Reconnect passed three ownership guards and genuine Android VPN consent.
+The first VPN lane observed real initial DNS and payload traffic, but it did
+not complete. The saved panel action was below the visible Home viewport.
+The app also applied DNS through a legitimate same-runtime DNS refresh.
+Transport listener changes remained pending. The old test incorrectly
+required the initial whole applied receipt after that refresh.
+
+The correction must preserve initial DoH, verified DoT, distinct native
+listeners, exact owned receipt checks, cancellation, stale review, and the
+new runtime and durable command on confirmation. Only an explicit coherent
+DNS revision from the known owned settings may enter the ownership journal.
+This live DNS change must not be attributed to explicit reconnect.
+
+Both child restorations and the outer restoration reported no errors. The
+pool wrapper removed only its owned temporary AVD, and the independent
+observer confirmed that its files and processes were absent. Matrix three
+is a failed feature acceptance run. No full network lane passed.

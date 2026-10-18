@@ -71,6 +71,15 @@ Open latency evidence from the measured RTT value and verify real reconnect from
   specialist owns a new reconnect PCAP driver copy. These fixes preserve the
   previous captures and keep post-dismiss focus checks observational.
 
+
+- The transition-handshake writer owns HomeLatencyDetailsTalkBackSupport.kt
+  in RIPDPI-latency-transition-handshake and a new external latency driver.
+  The reconnect acceptance writer owns the four reconnect AndroidTest files
+  in RIPDPI-reconnect-runtime-revisions and a new external reconnect driver.
+  It adds bounded real scrolling and records only coherent DNS revisions
+  from the known owned settings, without accepting unknown runtime owners.
+  Root combines these reviewed changes after matrix three cleanup.
+
 ## Design sources
 
 Use DESIGN.md, docs/design-system.md and the executable theme. RDS references are

@@ -91,6 +91,38 @@ internal class HomeReconnectOwnershipJournal(
         persist(state.put("commandId", commandId))
     }
 
+    /** Records only a positive DNS refresh of an already owned native runtime and command. */
+    fun recordDnsRevision(
+        previous: AppliedRuntimeConfiguration,
+        configuration: AppliedRuntimeConfiguration,
+        authority: RuntimeAuthoritySnapshot,
+        currentSettings: AppSettings,
+    ) {
+        val state = requireActive()
+        check((1..2).any { currentSettings == readSettings("owned-settings-$it.pb") }) {
+            "DNS refresh must use the exact owned pending settings"
+        }
+        val expectedDns =
+            com.poyka.ripdpi.data.RuntimeConfigurationDns(
+                currentSettings.dnsMode,
+                currentSettings.dnsProviderId,
+                currentSettings.encryptedDnsProtocol,
+            )
+        check(isOwnedDnsRevision(previous, configuration, expectedDns)) { "Unexpected DNS runtime revision" }
+        check(isCoherent(configuration, authority)) { "DNS native and durable receipts differ" }
+        check(authority.command?.commandId == state.getString("commandId")) { "DNS command owner changed" }
+        check(configuration.mode.name == state.getString("mode"))
+        val runtimes = state.getJSONArray("runtimes")
+        check(
+            runtimes.length() > 0 &&
+                runtimes.getJSONObject(runtimes.length() - 1).toString() == previous.toEvidence().toString(),
+        ) {
+            "DNS revision must follow the last recorded positive owned receipt"
+        }
+        runtimes.put(configuration.toEvidence())
+        persist(state)
+    }
+
     fun isCoherent(
         configuration: AppliedRuntimeConfiguration,
         authority: RuntimeAuthoritySnapshot,
@@ -193,6 +225,23 @@ internal class HomeReconnectOwnershipJournal(
 
     private fun strings(array: JSONArray): Set<String> = (0 until array.length()).map(array::getString).toSet()
 }
+
+/** A DNS ACK cannot replace the native runtime, transport selection or strategy. */
+internal fun isOwnedDnsRevision(
+    previous: AppliedRuntimeConfiguration,
+    current: AppliedRuntimeConfiguration,
+    expectedDns: com.poyka.ripdpi.data.RuntimeConfigurationDns,
+): Boolean =
+    current.mode == Mode.VPN && current.revision > previous.revision && current.appliedAt >= previous.appliedAt &&
+        current.reason == com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.DnsRefresh &&
+        current.dns == expectedDns &&
+        current ==
+        previous.copy(
+            revision = current.revision,
+            appliedAt = current.appliedAt,
+            dns = expectedDns,
+            reason = com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.DnsRefresh,
+        )
 
 internal fun persistPrivateBytes(
     destination: File,
@@ -322,7 +371,13 @@ class HomeReconnectOwnershipJournalTest {
             journal.activate(
                 Mode.VPN,
                 (1..3).map {
-                    original.toBuilder().setProxyPort(20_000 + it).build()
+                    original
+                        .toBuilder()
+                        .setProxyPort(20_000 + it)
+                        .setDnsMode("encrypted")
+                        .setDnsProviderId("custom")
+                        .setEncryptedDnsProtocol("dot")
+                        .build()
                 },
                 emptySet(),
                 command.commandId,
@@ -338,6 +393,67 @@ class HomeReconnectOwnershipJournalTest {
                 )
             }
             journal.recordRuntime(configuration, authority)
+            val refreshed =
+                configuration.copy(
+                    revision = 2L,
+                    appliedAt = 2L,
+                    dns = configuration.dns.copy(protocol = "dot"),
+                    reason = com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.DnsRefresh,
+                )
+            val pending =
+                original
+                    .toBuilder()
+                    .setProxyPort(20_002)
+                    .setDnsMode("encrypted")
+                    .setDnsProviderId("custom")
+                    .setEncryptedDnsProtocol("dot")
+                    .build()
+            // The positive private-journal path uses the exact same owned settings list.
+            val refreshedAuthority =
+                authority.copy(
+                    command =
+                        command.copy(
+                            phase =
+                                RuntimeActivationPhase.Applied(
+                                    identity.copy(revision = 2L),
+                                    com.poyka.ripdpi.data.RuntimeClaimKind.Activation,
+                                ),
+                        ),
+                )
+            check(isOwnedDnsRevision(configuration, refreshed, refreshed.dns))
+            listOf(
+                refreshed.copy(runtimeId = "foreign-runtime"),
+                refreshed.copy(mode = Mode.Proxy),
+                refreshed.copy(revision = 1L),
+                refreshed.copy(appliedAt = 0L),
+                refreshed.copy(reason = com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.InitialStart),
+                refreshed.copy(effectiveSelection = refreshed.effectiveSelection.copy(provider = "foreign")),
+                refreshed.copy(strategy = refreshed.strategy.copy(enabled = true)),
+                refreshed.copy(dns = refreshed.dns.copy(protocol = "doh")),
+            ).forEach { check(!isOwnedDnsRevision(configuration, it, refreshed.dns)) }
+            org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+                journal.recordDnsRevision(configuration, refreshed, refreshedAuthority, original)
+            }
+            org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+                journal.recordDnsRevision(configuration, refreshed, authority, pending)
+            }
+            org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+                journal.recordDnsRevision(
+                    configuration,
+                    refreshed,
+                    refreshedAuthority.copy(
+                        command = checkNotNull(refreshedAuthority.command).copy(commandId = "foreign"),
+                    ),
+                    pending,
+                )
+            }
+            org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+                journal.recordDnsRevision(configuration.copy(appliedAt = 0L), refreshed, refreshedAuthority, pending)
+            }
+            journal.recordDnsRevision(configuration, refreshed, refreshedAuthority, pending)
+            org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+                journal.recordDnsRevision(configuration, refreshed, refreshedAuthority, pending)
+            }
         } finally {
             check(directory.deleteRecursively())
         }

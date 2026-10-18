@@ -39,7 +39,7 @@ The latency action and detail surface MUST retain names, 48dp targets, Back, exp
 
 ### Requirement: REQ-LDR-RECONNECT — Observe real reconnect behavior
 
-Acceptance MUST drive Home comparison cancellation and confirmation through the actual service, native runtime and network path. Cancellation MUST retain the original running session and applied state. Confirmation MUST observe a real new runtime and its applied saved settings. Reachability before and after MUST be measured by actual traffic. Stale confirmation MUST not apply an old review. The test MUST NOT inject a connected status or replace the service with a fake.
+Acceptance MUST drive Home review through the actual service, native runtime and network. Cancellation MUST retain the running session and applied transport. Confirmation MUST observe a new runtime with applied saved settings. Actual traffic MUST succeed before and after. Stale confirmation MUST NOT apply an old review. Acceptance MUST NOT inject connected status or replace the service with a fake.
 
 #### Scenario: Cancel then confirm saved settings
 
@@ -47,10 +47,18 @@ Acceptance MUST drive Home comparison cancellation and confirmation through the 
 - **THEN** cancellation preserves the current runtime and confirmation starts the new runtime with observed applied state
 - **AND** actual traffic succeeds before and after reconnect
 
+#### Scenario: Record a supported live DNS update
+
+- **WHEN** known owned settings cause a supported live DNS refresh before review
+- **THEN** acceptance records only its coherent positive DNS revision with the same runtime and durable command
+- **AND** unchanged transport remains pending until explicit confirmation
+- **AND** cancellation preserves that running transport and does not reverse an independently applied DNS update
+- **AND** evidence does not attribute the DNS change to confirmation
+
 #### Scenario: Use supported fixture configuration in each mode
 
 - **WHEN** the real reconnect matrix runs four VPN lanes and two additional Proxy lanes
-- **THEN** VPN observes HTTP DoH before reconnect and verified DoT after reconnect
+- **THEN** VPN observes initial HTTP DoH, the coherent live change to verified DoT, and verified DoT after explicit transport reconnect
 - **AND** Proxy observes fresh HTTP DoH queries and real listener changes before and after reconnect
 - **AND** every lane retains cancellation, stale-review, actual-runtime, applied-state and traffic assertions
 - **AND** receipts do not claim Proxy custom-CA DoT coverage

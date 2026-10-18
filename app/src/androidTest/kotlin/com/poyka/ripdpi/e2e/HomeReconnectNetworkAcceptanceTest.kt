@@ -238,9 +238,9 @@ class HomeReconnectNetworkAcceptanceTest {
         initialReceipt = runBlocking { serviceController.prepareStart(mode) }
         ownership.recordCommand(initialReceipt.commandId)
         val original = startInitial(mode, ports[0])
-        cancelReview(mode, original, ports)
-        invalidateReview(mode, original, ports)
-        confirmFreshReview(mode, original, ports)
+        val current = cancelReview(mode, original, ports)
+        invalidateReview(mode, current, ports)
+        confirmFreshReview(mode, current, ports)
     }
 
     private fun startInitial(
@@ -276,14 +276,23 @@ class HomeReconnectNetworkAcceptanceTest {
         mode: Mode,
         original: AppliedRuntimeConfiguration,
         ports: List<Int>,
-    ) {
+    ): AppliedRuntimeConfiguration {
         runBlocking { settings.replace(ownedSettings[1]) }
+        val current = awaitOwnedDnsRefresh(mode, original)
         awaitPending(mode)
         openReview("open-cancel-review")
         ui.readSection(
             "read-current",
             RipDpiTestTags.HomeRuntimeReconnectCurrent,
-            context.getString(R.string.dns_protocol_doh),
+            context.getString(
+                if (current.dns.protocol ==
+                    "dot"
+                ) {
+                    R.string.dns_protocol_dot
+                } else {
+                    R.string.dns_protocol_doh
+                },
+            ),
         )
         ui.readSection(
             "read-saved",
@@ -300,11 +309,37 @@ class HomeReconnectNetworkAcceptanceTest {
         )
         ui.action("cancel-review", RipDpiTestTags.HomeRuntimeReconnectDialog, context.getString(R.string.config_cancel))
         ui.awaitTag(RipDpiTestTags.HomeRuntimeReconnectDialog, false)
-        assertCurrent(mode, original)
+        assertCurrent(mode, current)
+        evidence.assertListenerOpen(ports[0])
         evidence.assertListenerClosed(ports[1])
-        evidence.probe("cancelled", mode, ports[0], "doh")
-        assertCurrent(mode, original)
+        evidence.assertListenerClosed(ports[2])
+        evidence.probe("cancelled", mode, ports[0], checkNotNull(current.dns.protocol))
+        assertCurrent(mode, current)
         evidence.assertOnlySessions(original.runtimeId)
+        return current
+    }
+
+    private fun awaitOwnedDnsRefresh(
+        mode: Mode,
+        original: AppliedRuntimeConfiguration,
+    ): AppliedRuntimeConfiguration {
+        if (mode != Mode.VPN) return original
+        var current: AppliedRuntimeConfiguration? = null
+        HomeReconnectNetworkAcceptanceSupport.await("No positive owned live DNS refresh", 70_000) {
+            current = (applications.applications.value[mode] as? RuntimeConfigurationApplication.Applied)?.configuration
+            current?.let {
+                isOwnedDnsRevision(original, it, original.dns.copy(protocol = replacementDnsProtocol))
+            } == true
+        }
+        val refreshed = checkNotNull(current)
+        ownership.recordDnsRevision(
+            original,
+            refreshed,
+            awaitCoherentAuthority(refreshed),
+            runBlocking { settings.snapshot() },
+        )
+        evidence.record("owned-dns-refresh", refreshed.toEvidence())
+        return refreshed
     }
 
     private fun invalidateReview(
@@ -319,7 +354,8 @@ class HomeReconnectNetworkAcceptanceTest {
         assertCurrent(mode, original)
         evidence.assertListenerClosed(ports[1])
         evidence.assertListenerClosed(ports[2])
-        evidence.probe("stale", mode, ports[0], "doh")
+        evidence.assertListenerOpen(ports[0])
+        evidence.probe("stale", mode, ports[0], checkNotNull(original.dns.protocol))
         assertCurrent(mode, original)
         evidence.assertOnlySessions(original.runtimeId)
         ui.observe("stale-review-dismissed")

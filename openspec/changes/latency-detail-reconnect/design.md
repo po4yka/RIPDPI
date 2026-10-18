@@ -25,8 +25,11 @@ service reconnect. See proposal.md and the delta requirements.
   fixture may provide network endpoints and test configuration, but must not
   fake running status, native startup or applied runtime evidence. Retain actual
   requests before and after, session identity and saved/applied configuration.
-- Use the existing fixture trust contract for VPN: HTTP DoH before reconnect
-  and verified DoT with the fixture CA after reconnect. Run both additional
+- Use the existing fixture trust contract for VPN: initial HTTP DoH, then
+  a coherent live DNS revision with verified DoT and the fixture CA. Explicit
+  reconnect must change the native listener and runtime while retaining DoT.
+  Record only the known owned DNS revision; unknown runtime owners remain
+  rejected. Run both additional
   Proxy lanes through the supported HTTP DoH fixture path and real A/B/C
   listener changes. Proxy custom-CA DoT is outside this acceptance; it is not
   an established Proxy UI contract. Keep TLS validation unchanged.

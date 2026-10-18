@@ -30,6 +30,7 @@ internal class HomeReconnectTalkBackSupport(
     private var focusInitialization: JSONObject? = null
     private var focusSettled: JSONObject? = null
     private var focusRequestUptimeMillis: Long? = null
+    private var navigation: JSONObject? = null
 
     init {
         check(directory.exists() || directory.mkdirs())
@@ -73,12 +74,29 @@ internal class HomeReconnectTalkBackSupport(
         label: String,
     ) {
         rawEvidence(stage, null, "none")
-        var target: Target? = null
-        HomeReconnectNetworkAcceptanceSupport.await("No unique visible action $tag / $label") {
-            target = findAction(tag, label)
-            target != null
+        var target = findAction(tag, label)
+        if (stage in setOf("open-cancel-review", "open-stale-review", "open-fresh-review")) {
+            repeat(6) { attempt ->
+                if (target == null) {
+                    val container =
+                        appRoots().flatMap(::allNodes).single {
+                            it.isVisibleToUser && it.isScrollable && !bounds(it).isEmpty &&
+                                it.actionList.any { action -> action.id == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD }
+                        }
+                    navigation =
+                        JSONObject()
+                            .put("identity", identity(container))
+                            .put("bounds", rectangle(container))
+                            .put("direction", "forward")
+                            .put("attempt", attempt + 1)
+                    checkpoint("$stage-scroll-${attempt + 1}", null, "scroll-forward")
+                    navigation = null
+                    target = findAction(tag, label)
+                }
+            }
         }
-        checkpoint(stage, checkNotNull(target), if (talkBack) "double-tap" else "tap")
+        checkNotNull(target) { "No unique visible action $tag / $label after bounded physical navigation" }
+        checkpoint(stage, target, if (talkBack) "double-tap" else "tap")
     }
 
     fun readSection(
@@ -121,16 +139,29 @@ internal class HomeReconnectTalkBackSupport(
             focusSettled = stableFocus(target, requireTarget = true)
         }
         val acknowledgement = File(directory, "$stage.continue")
+        val armFile = File(directory, "$stage.arm.json")
         acknowledgement.delete()
+        armFile.delete()
+        var arm: JSONObject? = null
+        var transitionComplete = false
         rawEvidence(stage, target, gesture)
         File(directory, "stage").writeText(stage)
         Log.i("HomeReconnectAcceptance", "Ready: $stage")
         var snapshotAt = SystemClock.uptimeMillis()
         HomeReconnectNetworkAcceptanceSupport.await("No external acknowledgement: $stage", 120_000) {
-            if (SystemClock.uptimeMillis() - snapshotAt >= 500) {
-                rawEvidence(stage, target, gesture, observeTransition = true)
+            check(arm == null || armFile.exists()) { "Armed physical transition marker disappeared" }
+            val incoming = if (armFile.exists()) JSONObject(armFile.readText()) else arm
+            if (SystemClock.uptimeMillis() - snapshotAt >= 500 || acknowledgement.exists() ||
+                incoming?.toString() != arm?.toString()
+            ) {
+                transitionComplete = rawEvidence(stage, target, gesture, incoming, arm)
+                arm = incoming
                 assertBound()
                 snapshotAt = SystemClock.uptimeMillis()
+            }
+            if (acknowledgement.exists() && gesture in setOf("tap", "double-tap")) {
+                check(arm != null) { "Physical transition was not armed before input" }
+                check(transitionComplete) { "Physical transition has no positive native destination" }
             }
             acknowledgement.exists()
         }
@@ -226,8 +257,9 @@ internal class HomeReconnectTalkBackSupport(
         stage: String,
         target: Target?,
         gesture: String,
-        observeTransition: Boolean = false,
-    ) {
+        arm: JSONObject? = null,
+        previousArm: JSONObject? = null,
+    ): Boolean {
         val windows = JSONArray()
         automation.windows.forEach { window ->
             val nodes = JSONArray()
@@ -242,21 +274,45 @@ internal class HomeReconnectTalkBackSupport(
                     .put("nodes", nodes),
             )
         }
-        val transition =
-            if (observeTransition && target != null &&
-                gesture != "none"
-            ) {
-                transitionEvidence(stage, windows, target)
-            } else {
-                null
+        File(directory, "$stage-native-windows.json").writeText(
+            JSONObject()
+                .put("acceptanceRunId", directory.parentFile.name)
+                .put("stage", stage)
+                .put("uptimeMillis", SystemClock.uptimeMillis())
+                .put("windows", windows)
+                .toString(2),
+        )
+        if (arm != null) {
+            val armedTarget = checkNotNull(target)
+            validateArm(stage, armedTarget, arm, previousArm)
+            // Input waits for this completed receipt, so the final strict pass cannot race it.
+            if (previousArm == null) {
+                validateTarget(armedTarget)
+                val actualBounds = bounds(checkNotNull(armedTarget.action))
+                check(
+                    listOf(actualBounds.left, actualBounds.top, actualBounds.right, actualBounds.bottom) ==
+                        armedTarget.lastValidatedBounds,
+                )
+                check(
+                    automation.windows
+                        .singleOrNull {
+                            it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.isActive && it.isFocused
+                        }?.let {
+                            it.id == arm.getInt("sourceWindowId") &&
+                                it.root?.packageName?.toString() == context.packageName
+                        } ==
+                        true,
+                )
             }
-        // A physical action can replace the old target before the external acknowledgement.
-        // Only the expected destination in this same native snapshot can retire that target.
-        if (transition == null) target?.let(::validateTarget)
+        }
+        val transition = if (arm != null) transitionEvidence(stage, windows, checkNotNull(target)) else null
+        // Only an authenticated pre-input arm permits bounded observation without the old handle.
+        // Acknowledgement still requires the actual destination in this same native window tree.
+        if (arm == null) target?.let(::validateTarget)
         val focused = automation.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
         val actionBounds =
             target?.action?.let {
-                if (transition == null) {
+                if (arm == null) {
                     bounds(it)
                         .let { rectangle -> listOf(rectangle.left, rectangle.top, rectangle.right, rectangle.bottom) }
                         .also { value -> target.lastValidatedBounds = value }
@@ -267,6 +323,10 @@ internal class HomeReconnectTalkBackSupport(
         val data =
             JSONObject()
                 .put("stage", stage)
+                .put("acceptanceRunId", directory.parentFile.name)
+                .put("navigation", navigation ?: JSONObject.NULL)
+                .put("transitionArmed", arm ?: JSONObject.NULL)
+                .put("targetTransitionPending", arm != null && transition == null)
                 .put("uptimeMillis", SystemClock.uptimeMillis())
                 .put("gesture", gesture)
                 .put("talkBack", talkBack)
@@ -278,7 +338,7 @@ internal class HomeReconnectTalkBackSupport(
                     actionBounds?.let(::JSONArray) ?: JSONObject.NULL,
                 ).put(
                     "targetFocused",
-                    transition == null && focused != null && target != null &&
+                    arm == null && focused != null && target != null &&
                         identityKey(focused) == target.focusIdentity,
                 ).put("targetRetired", transition != null)
                 .put("nativeTransition", transition ?: JSONObject.NULL)
@@ -306,26 +366,75 @@ internal class HomeReconnectTalkBackSupport(
         val temporary = File(directory, "$stage.json.tmp")
         temporary.writeText(data.toString(2))
         check(temporary.renameTo(File(directory, "$stage.json")))
+        return transition != null
+    }
+
+    private fun validateArm(
+        stage: String,
+        target: Target,
+        arm: JSONObject,
+        previous: JSONObject?,
+    ) {
+        check(
+            arm.keys().asSequence().toSet() ==
+                setOf(
+                    "schema",
+                    "acceptanceRunId",
+                    "stage",
+                    "kind",
+                    "targetNamedIdentity",
+                    "targetActionIdentity",
+                    "targetFocusIdentity",
+                    "targetBounds",
+                    "sourceWindowId",
+                    "snapshotUptimeMillis",
+                    "verifiedAtUptimeMillis",
+                ),
+        ) { "Unknown physical arm schema" }
+        check(arm.get("schema") == 1 && arm.getString("acceptanceRunId") == directory.parentFile.name)
+        check(arm.getString("stage") == stage && arm.getString("kind") == checkNotNull(physicalTransition(stage)).name)
+        check(arm.getJSONObject("targetNamedIdentity").toString() == target.namedIdentity)
+        check(arm.getJSONObject("targetActionIdentity").toString() == target.actionIdentity)
+        check(arm.getJSONObject("targetFocusIdentity").toString() == target.focusIdentity)
+        check(
+            arm.getJSONArray("targetBounds").toString() ==
+                JSONArray(checkNotNull(target.lastValidatedBounds)).toString(),
+        )
+        check(arm.get("sourceWindowId") == JSONObject(target.namedIdentity).getInt("windowId"))
+        listOf("snapshotUptimeMillis", "verifiedAtUptimeMillis").forEach {
+            check(arm.get(it) is Int || arm.get(it) is Long) { "Non-integral physical arm timestamp" }
+        }
+        val now = SystemClock.uptimeMillis()
+        val snapshot = arm.getLong("snapshotUptimeMillis")
+        val verified = arm.getLong("verifiedAtUptimeMillis")
+        check(snapshot >= 0 && snapshot <= verified && verified <= now && now - verified <= 15_000)
+        if (previous == null) {
+            check(verified - snapshot <= 5_000 && now - verified <= 5_000) { "Stale pre-input arm" }
+        } else {
+            check(previous.toString() == arm.toString()) { "Physical arm changed after input" }
+        }
     }
 
     private enum class PhysicalTransition(
         val destinationTag: String,
     ) {
         OpenReview(RipDpiTestTags.HomeRuntimeReconnectDialog),
-        ReturnHome(RipDpiTestTags.HomeStatusCard),
+        ReturnHome("home-screen"),
     }
+
+    private fun physicalTransition(stage: String): PhysicalTransition? =
+        when (stage) {
+            "open-cancel-review", "open-stale-review", "open-fresh-review" -> PhysicalTransition.OpenReview
+            "cancel-review", "confirm-review" -> PhysicalTransition.ReturnHome
+            else -> null
+        }
 
     private fun transitionEvidence(
         stage: String,
         windows: JSONArray,
         target: Target,
     ): JSONObject? {
-        val transition =
-            when (stage) {
-                "open-cancel-review", "open-stale-review", "open-fresh-review" -> PhysicalTransition.OpenReview
-                "cancel-review", "confirm-review" -> PhysicalTransition.ReturnHome
-                else -> return null
-            }
+        val transition = physicalTransition(stage) ?: return null
         val snapshots = (0 until windows.length()).map(windows::getJSONObject)
 
         fun hasVisibleTag(
@@ -334,14 +443,14 @@ internal class HomeReconnectTalkBackSupport(
         ): Boolean {
             val nodes = window.getJSONArray("nodes")
             if (nodes.length() == 0 || nodes.getJSONObject(0).getString("package") != context.packageName) return false
-            return (0 until nodes.length()).map(nodes::getJSONObject).any { node ->
+            return (0 until nodes.length()).map(nodes::getJSONObject).count { node ->
                 val identity = node.getJSONObject("identity")
                 val rectangle = node.getJSONArray("bounds")
                 node.getString("package") == context.packageName && node.getBoolean("visible") &&
                     identity.getInt("windowId") == window.getInt("id") &&
                     identity.getString("viewId").substringAfterLast('/') == tag &&
                     rectangle.getInt(2) > rectangle.getInt(0) && rectangle.getInt(3) > rectangle.getInt(1)
-            }
+            } == 1
         }
         if (transition == PhysicalTransition.ReturnHome &&
             snapshots.any { hasVisibleTag(it, RipDpiTestTags.HomeRuntimeReconnectDialog) }
@@ -438,7 +547,8 @@ internal class HomeReconnectTalkBackSupport(
                     } else {
                         ""
                     },
-                ).put("visible", node.isVisibleToUser)
+                ).put("scrollable", node.isScrollable)
+                .put("visible", node.isVisibleToUser)
                 .put("focused", node.isAccessibilityFocused)
                 .put("clickable", node.isClickable)
                 .put("actions", JSONArray(node.actionList.map { it.id }))
