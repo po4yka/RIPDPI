@@ -35,7 +35,8 @@ Let Full and Simple users follow system haptics or disable app feedback. Deliver
 - The result worker also owns DiagnosticsMutationRunner, DiagnosticsUiModels, the DiagnosticsViewModel sampler wiring, DiagnosticsRoute event guards and the queued-feedback regression in its isolated worktree. Root applies that patch after the observed RED and keeps locale and fixture ownership separate.
 - Root owns the MainConnectionActions repeated Config-start failure regression and its narrow authority-based deduplication fix.
 - Device specialist owns a new instrumented haptics test and read-only acceptance evidence in an isolated worktree, after the event interface is fixed. Root serializes all compiler runs.
-- Independent reviewer is read-only. Golden fixtures and quality baselines remain outside write scope.
+- Independent reviewer is read-only. Quality baselines remain outside write scope.
+- On 2026-10-18 the user authorized exactly 14 reviewed screenshot PNG updates: six InstalledReadability Russian maximum-font settings images and eight SimpleHome images, excluding simpleHomeReportCompletedMaximumFont. The golden specialist owns only these fixtures. It has exclusive write access to the dedicated haptic feature worktree during record, strict verification and the fixture commit; root performs no parallel writes. Other fixtures remain unchanged.
 
 ## Design reference
 
