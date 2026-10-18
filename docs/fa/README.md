@@ -149,14 +149,14 @@ RIPDPI فراداده‌های عملیاتی را برای تشخیص و عیب
 
 ## ساخت
 
-پیش‌نیازها: JDK 17، Android SDK (platform `37`, CMake `3.31.6`)، Android NDK `29.0.14206865`، زنجیرهٔ ابزار Rust `1.98.1`، و اهداف Rust اندروید برای ABIهای مورد نیاز.
+پیش‌نیازها: JDK 17، Android SDK (platform `37.1`, CMake `3.31.6`)، Android NDK `29.0.14206865`، زنجیرهٔ ابزار Rust `1.98.1`، و اهداف Rust اندروید برای ABIهای مورد نیاز.
 
 یک checkout تازه پیش از بسته‌بندی APK به AAR واقعی libXray با وصله‌های پروژه نیز نیاز دارد. Go با معماری amd64، نسخه‌های تثبیت‌شدهٔ `gomobile` و `gobind` و `ANDROID_NDK_HOME` را طبق [راهنمای libXray](../native/libxray-packaging.md#build) آماده کنید. تولیدکننده به پوشهٔ جدید یا خالی `native/xray/artifacts/` و دسترسی به منابع تثبیت‌شده نیاز دارد. برای استفادهٔ دوباره از پوشهٔ تأییدشده و سازگار با نسخه‌های فعلی، `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` را به Gradle بدهید؛ بررسی بسته‌بندی همچنان اجرا می‌شود.
 
 بسته‌های لازم SDK را با Android CLI 1.0+ نصب کنید:
 
 ```bash
-android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
+android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
 ```
 
 ```bash

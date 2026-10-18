@@ -147,14 +147,14 @@ RIPDPI записывает операционные метаданные для
 
 ## Сборка
 
-Требования: JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, Android Rust targets для нужных ABI.
+Требования: JDK 17, Android SDK (platform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, Android Rust targets для нужных ABI.
 
 Для упаковки APK в свежем checkout также нужен настоящий libXray AAR с патчами проекта. Подготовьте amd64 Go, закреплённые версии `gomobile` и `gobind`, а также `ANDROID_NDK_HOME` по [инструкции libXray](docs/native/libxray-packaging.md#build). Сборщику нужен новый или пустой каталог `native/xray/artifacts/` и доступ к закреплённым исходникам. Для повторного использования проверенного каталога артефактов, соответствующих текущим версиям, передайте Gradle `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts`. Проверка перед упаковкой сохраняется.
 
 Установите нужные пакеты SDK через Android CLI 1.0+:
 
 ```bash
-android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
+android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
 ```
 
 ```bash
