@@ -62,6 +62,10 @@ Open latency evidence from the measured RTT value and verify real reconnect from
   The device specialist owns the result-based VPN consent setup change in
   HomeReconnectNetworkAcceptanceSupport.kt in its existing isolated worktree.
   Root combines these test fixes after both device leases end.
+- The native transition writer owns the two TalkBack support files in
+  RIPDPI-latency-native-transition. The reconnect device specialist owns a new
+  external AppOps parser driver copy. Root combines the reviewed source patch
+  after the completed temporary matrix and preserves all failed-run inputs.
 
 ## Design sources
 

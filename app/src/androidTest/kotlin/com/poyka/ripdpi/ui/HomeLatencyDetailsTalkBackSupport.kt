@@ -119,7 +119,7 @@ internal class HomeLatencyDetailsTalkBackSupport(
         var snapshotAt = SystemClock.uptimeMillis()
         waitUntil(AcceptanceTimeoutMillis) {
             if (SystemClock.uptimeMillis() - snapshotAt >= SnapshotIntervalMillis) {
-                writeWindowEvidence(stage)
+                writeWindowEvidence(stage, observeTransition = true)
                 snapshotAt = SystemClock.uptimeMillis()
             }
             acknowledgement.exists()
@@ -219,7 +219,10 @@ internal class HomeLatencyDetailsTalkBackSupport(
                 .use { it.readText() }
         }
 
-    private fun writeWindowEvidence(stage: String) {
+    private fun writeWindowEvidence(
+        stage: String,
+        observeTransition: Boolean = false,
+    ) {
         val windows = JSONArray()
         automation.windows.forEach { window ->
             val nodes = JSONArray()
@@ -236,7 +239,21 @@ internal class HomeLatencyDetailsTalkBackSupport(
         }
         val focused = automation.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
         val target = currentTarget
-        target?.let(::validateTarget)
+        val transition =
+            if (observeTransition && target != null) transitionEvidence(stage, windows, target) else null
+        // A physical action can replace the old target before the external acknowledgement.
+        // Only the expected destination in this same native snapshot can retire that target.
+        if (transition == null) target?.let(::validateTarget)
+        val targetBounds =
+            target?.let {
+                if (transition == null) {
+                    nativeBounds(it.action ?: it.named)
+                        .let { rectangle -> listOf(rectangle.left, rectangle.top, rectangle.right, rectangle.bottom) }
+                        .also { value -> it.lastValidatedBounds = value }
+                } else {
+                    checkNotNull(it.lastValidatedBounds)
+                }
+            }
         val json =
             JSONObject()
                 .put("acceptanceRunId", runId)
@@ -254,9 +271,13 @@ internal class HomeLatencyDetailsTalkBackSupport(
                 ).put("focusInitialization", focusInitialization ?: JSONObject.NULL)
                 .put("focusSettled", focusSettled ?: JSONObject.NULL)
                 .put("focusRequestUptimeMillis", focusRequestUptimeMillis ?: JSONObject.NULL)
-                .put("targetBounds", target?.let { bounds(it.action ?: it.named) } ?: JSONObject.NULL)
-                .put("targetFocused", focused != null && focused?.let(::identityKey) == target?.focusIdentity)
-                .put("originNamedIdentity", origin?.namedIdentity?.let(::JSONObject) ?: JSONObject.NULL)
+                .put("targetBounds", targetBounds?.let(::JSONArray) ?: JSONObject.NULL)
+                .put("targetRetired", transition != null)
+                .put("nativeTransition", transition ?: JSONObject.NULL)
+                .put(
+                    "targetFocused",
+                    transition == null && focused != null && focused?.let(::identityKey) == target?.focusIdentity,
+                ).put("originNamedIdentity", origin?.namedIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("originActionIdentity", origin?.actionIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("originFocusIdentity", origin?.focusIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("originReturned", focused != null && focused?.let(::identityKey) == origin?.focusIdentity)
@@ -265,6 +286,61 @@ internal class HomeLatencyDetailsTalkBackSupport(
         val temporary = File(directory, "$stage.json.tmp").apply { writeText(json.toString(2)) }
         check(temporary.renameTo(File(directory, "$stage.json")))
         assertBound()
+    }
+
+    private enum class PhysicalTransition(
+        val destinationTag: String,
+    ) {
+        OpenDetails(RipDpiTestTags.LatencyDetailDialog),
+        ReturnHome(RipDpiTestTags.HomeLatencyMetric),
+    }
+
+    private fun transitionEvidence(
+        stage: String,
+        windows: JSONArray,
+        target: NamedTarget,
+    ): JSONObject? {
+        val transition =
+            when (stage) {
+                "open-latency", "reopen-latency" -> PhysicalTransition.OpenDetails
+                "dismiss-latency", "back-latency" -> PhysicalTransition.ReturnHome
+                else -> return null
+            }
+        val snapshots = (0 until windows.length()).map(windows::getJSONObject)
+
+        fun hasVisibleTag(
+            window: JSONObject,
+            tag: String,
+        ): Boolean {
+            val nodes = window.getJSONArray("nodes")
+            if (nodes.length() == 0 || nodes.getJSONObject(0).getString("package") != context.packageName) return false
+            return (0 until nodes.length()).map(nodes::getJSONObject).any { node ->
+                val identity = node.getJSONObject("identity")
+                val rectangle = node.getJSONArray("bounds")
+                node.getString("package") == context.packageName && node.getBoolean("visible") &&
+                    identity.getInt("windowId") == window.getInt("id") &&
+                    identity.getString("viewId").substringAfterLast('/') == tag &&
+                    rectangle.getInt(2) > rectangle.getInt(0) && rectangle.getInt(3) > rectangle.getInt(1)
+            }
+        }
+        if (transition == PhysicalTransition.ReturnHome &&
+            snapshots.any { hasVisibleTag(it, RipDpiTestTags.LatencyDetailDialog) }
+        ) {
+            return null
+        }
+        val sourceWindow = JSONObject(target.namedIdentity).getInt("windowId")
+        val destination =
+            snapshots.singleOrNull {
+                it.getInt("type") == AccessibilityWindowInfo.TYPE_APPLICATION && it.getBoolean("active") &&
+                    it.getBoolean("focused") && it.getInt("id") != sourceWindow &&
+                    hasVisibleTag(it, transition.destinationTag)
+            } ?: return null
+        return JSONObject()
+            .put("kind", transition.name)
+            .put("sourceWindowId", sourceWindow)
+            .put("destinationWindowId", destination.getInt("id"))
+            .put("destinationTag", transition.destinationTag)
+            .put("observedAtUptimeMillis", SystemClock.uptimeMillis())
     }
 
     private fun collectNodes(
@@ -396,6 +472,7 @@ internal class HomeLatencyDetailsTalkBackSupport(
         val action: AccessibilityNodeInfo?,
         val label: String,
     ) {
+        var lastValidatedBounds: List<Int>? = null
         val focus = action ?: named
         val namedIdentity = identityKey(named)
         val actionIdentity = action?.let(::identityKey)

@@ -128,7 +128,7 @@ internal class HomeReconnectTalkBackSupport(
         var snapshotAt = SystemClock.uptimeMillis()
         HomeReconnectNetworkAcceptanceSupport.await("No external acknowledgement: $stage", 120_000) {
             if (SystemClock.uptimeMillis() - snapshotAt >= 500) {
-                rawEvidence(stage, target, gesture)
+                rawEvidence(stage, target, gesture, observeTransition = true)
                 assertBound()
                 snapshotAt = SystemClock.uptimeMillis()
             }
@@ -144,6 +144,7 @@ internal class HomeReconnectTalkBackSupport(
         val sectionTag: String? = null,
     ) {
         val label = named.text?.toString()?.takeIf { it.isNotBlank() } ?: named.contentDescription?.toString().orEmpty()
+        var lastValidatedBounds: List<Int>? = null
         val focus = action ?: named
         val namedIdentity = identityKey(named)
         val actionIdentity = action?.let(::identityKey)
@@ -225,6 +226,7 @@ internal class HomeReconnectTalkBackSupport(
         stage: String,
         target: Target?,
         gesture: String,
+        observeTransition: Boolean = false,
     ) {
         val windows = JSONArray()
         automation.windows.forEach { window ->
@@ -240,9 +242,28 @@ internal class HomeReconnectTalkBackSupport(
                     .put("nodes", nodes),
             )
         }
-        target?.let(::validateTarget)
+        val transition =
+            if (observeTransition && target != null &&
+                gesture != "none"
+            ) {
+                transitionEvidence(stage, windows, target)
+            } else {
+                null
+            }
+        // A physical action can replace the old target before the external acknowledgement.
+        // Only the expected destination in this same native snapshot can retire that target.
+        if (transition == null) target?.let(::validateTarget)
         val focused = automation.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
-        val actionBounds = target?.action?.let(::bounds)
+        val actionBounds =
+            target?.action?.let {
+                if (transition == null) {
+                    bounds(it)
+                        .let { rectangle -> listOf(rectangle.left, rectangle.top, rectangle.right, rectangle.bottom) }
+                        .also { value -> target.lastValidatedBounds = value }
+                } else {
+                    checkNotNull(target.lastValidatedBounds)
+                }
+            }
         val data =
             JSONObject()
                 .put("stage", stage)
@@ -254,11 +275,14 @@ internal class HomeReconnectTalkBackSupport(
                     target?.label.orEmpty(),
                 ).put(
                     "targetBounds",
-                    actionBounds?.let { JSONArray(listOf(it.left, it.top, it.right, it.bottom)) } ?: JSONObject.NULL,
+                    actionBounds?.let(::JSONArray) ?: JSONObject.NULL,
                 ).put(
                     "targetFocused",
-                    focused != null && target != null && identityKey(focused) == target.focusIdentity,
-                ).put("namedIdentity", target?.namedIdentity?.let(::JSONObject) ?: JSONObject.NULL)
+                    transition == null && focused != null && target != null &&
+                        identityKey(focused) == target.focusIdentity,
+                ).put("targetRetired", transition != null)
+                .put("nativeTransition", transition ?: JSONObject.NULL)
+                .put("namedIdentity", target?.namedIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("actionIdentity", target?.actionIdentity?.let(::JSONObject) ?: JSONObject.NULL)
                 .put("targetLabel", target?.label ?: JSONObject.NULL)
                 .put("focusIdentity", target?.focusIdentity?.let(::JSONObject) ?: JSONObject.NULL)
@@ -282,6 +306,61 @@ internal class HomeReconnectTalkBackSupport(
         val temporary = File(directory, "$stage.json.tmp")
         temporary.writeText(data.toString(2))
         check(temporary.renameTo(File(directory, "$stage.json")))
+    }
+
+    private enum class PhysicalTransition(
+        val destinationTag: String,
+    ) {
+        OpenReview(RipDpiTestTags.HomeRuntimeReconnectDialog),
+        ReturnHome(RipDpiTestTags.HomeStatusCard),
+    }
+
+    private fun transitionEvidence(
+        stage: String,
+        windows: JSONArray,
+        target: Target,
+    ): JSONObject? {
+        val transition =
+            when (stage) {
+                "open-cancel-review", "open-stale-review", "open-fresh-review" -> PhysicalTransition.OpenReview
+                "cancel-review", "confirm-review" -> PhysicalTransition.ReturnHome
+                else -> return null
+            }
+        val snapshots = (0 until windows.length()).map(windows::getJSONObject)
+
+        fun hasVisibleTag(
+            window: JSONObject,
+            tag: String,
+        ): Boolean {
+            val nodes = window.getJSONArray("nodes")
+            if (nodes.length() == 0 || nodes.getJSONObject(0).getString("package") != context.packageName) return false
+            return (0 until nodes.length()).map(nodes::getJSONObject).any { node ->
+                val identity = node.getJSONObject("identity")
+                val rectangle = node.getJSONArray("bounds")
+                node.getString("package") == context.packageName && node.getBoolean("visible") &&
+                    identity.getInt("windowId") == window.getInt("id") &&
+                    identity.getString("viewId").substringAfterLast('/') == tag &&
+                    rectangle.getInt(2) > rectangle.getInt(0) && rectangle.getInt(3) > rectangle.getInt(1)
+            }
+        }
+        if (transition == PhysicalTransition.ReturnHome &&
+            snapshots.any { hasVisibleTag(it, RipDpiTestTags.HomeRuntimeReconnectDialog) }
+        ) {
+            return null
+        }
+        val sourceWindow = JSONObject(target.namedIdentity).getInt("windowId")
+        val destination =
+            snapshots.singleOrNull {
+                it.getInt("type") == AccessibilityWindowInfo.TYPE_APPLICATION && it.getBoolean("active") &&
+                    it.getBoolean("focused") && it.getInt("id") != sourceWindow &&
+                    hasVisibleTag(it, transition.destinationTag)
+            } ?: return null
+        return JSONObject()
+            .put("kind", transition.name)
+            .put("sourceWindowId", sourceWindow)
+            .put("destinationWindowId", destination.getInt("id"))
+            .put("destinationTag", transition.destinationTag)
+            .put("observedAtUptimeMillis", SystemClock.uptimeMillis())
     }
 
     private fun sectionEvidence(
