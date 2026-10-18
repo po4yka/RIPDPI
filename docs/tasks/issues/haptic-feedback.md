@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: haptic-feedback
 created: 2026-10-17
 updated: 2026-10-18
-status_detail: Simple real UI acceptance needs a current genuine embedded bundle with an assigned dual-stack AWG profile. Fourteen reviewed screenshot fixtures need explicit user authorization. All 16 platform tests and four Full real UI checks pass; main integration and push wait for the remaining gates.
+status_detail: All 14 approved screenshots are committed; strict Full and Simple verification passes 21 tests. Simple real UI acceptance needs a current genuine embedded bundle with an assigned dual-stack AWG profile. All 16 platform tests and four Full real UI checks pass; main integration and push wait for the remaining device and combined-tree gates.
 ---
 
 ## Goal
