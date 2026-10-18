@@ -2,12 +2,12 @@
 
 package com.poyka.ripdpi.integration
 
+import android.content.ComponentName
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,6 +34,10 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.input.ImeAction
 import androidx.core.view.WindowCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
@@ -49,10 +53,10 @@ import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.atomic.AtomicBoolean
 
 /** Run on a leased device with the software IME enabled, including with a hardware keyboard. */
 @RunWith(AndroidJUnit4::class)
@@ -68,13 +72,22 @@ class ComposeStylesInstrumentedTest {
             composeRule.activity.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
         var value by mutableStateOf("")
-        val imeVisible = AtomicBoolean()
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val imePackage =
+            requireNotNull(
+                ComponentName.unflattenFromString(
+                    Settings.Secure
+                        .getString(
+                            composeRule.activity.contentResolver,
+                            Settings.Secure.DEFAULT_INPUT_METHOD,
+                        ).orEmpty(),
+                ),
+            ) { "A software IME must be selected before this test" }.packageName
         var commits = 0
         composeRule.setContent {
             RipDpiTheme {
                 val keyboard = LocalSoftwareKeyboardController.current
                 val focus = LocalFocusManager.current
-                imeVisible.set(WindowInsets.isImeVisible)
                 Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                     RipDpiTextField(
                         value = value,
@@ -96,11 +109,13 @@ class ComposeStylesInstrumentedTest {
         }
         val field = composeRule.onNodeWithTag(Field)
         field.performClick().assertIsFocused().performTextInput("resolver.example")
-        composeRule.waitUntil(timeoutMillis = 5_000L) { imeVisible.get() }
+        composeRule.waitForIdle()
+        // Observe the selected IME's real window for both visibility transitions.
+        assertTrue("The selected IME must become visible", device.wait(Until.hasObject(By.pkg(imePackage)), 5_000L))
         field.performImeAction()
-        composeRule.waitUntil(timeoutMillis = 5_000L) { !imeVisible.get() }
         field.assertTextContains("resolver.example").assertIsNotFocused()
         composeRule.runOnIdle { assertEquals(1, commits) }
+        assertTrue("The selected IME must hide after Done", device.wait(Until.gone(By.pkg(imePackage)), 5_000L))
     }
 
     @Test
