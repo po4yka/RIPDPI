@@ -60,7 +60,7 @@ Current first-class state families:
 
 ## Compose Component Styles
 
-The RDS style layer uses the experimental Compose Foundation 1.13 `CommonStyle` and `StyleResolver` APIs. `RipDpiThemeTokens.styles` exposes the component catalog. Colors, surfaces, state resolvers, and motion tokens remain the source of values. Styles do not introduce a separate theme or change the design.
+The RDS style layer uses the experimental Compose Foundation 1.13.0-beta01 `CommonStyle` and `StyleResolver` APIs. The published Compose BOM beta 2026.10.00 pins this API generation; build with Android SDK 37.1. `RipDpiThemeTokens.styles` exposes the component catalog. Colors, surfaces, state resolvers, and motion tokens remain the source of values. Styles do not introduce a separate theme or change the design.
 
 Use `visualStyle: CommonStyle = CommonStyle` to customize an eligible RDS component. `RipDpiIconButton.style` still selects its existing variant. Styles apply to the owned shell of a component. They do not change callbacks, enabled/loading rules, minimum touch targets, semantics, haptics, or automation IDs.
 

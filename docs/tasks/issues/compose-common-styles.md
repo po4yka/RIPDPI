@@ -2,7 +2,7 @@
 id: UIX-1792228984398359
 title: Migrate RDS components to Compose CommonStyle
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: styles-integration
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: compose-common-styles
 created: 2026-10-17
-updated: 2026-10-17
+updated: 2026-10-18
+status_detail: Owner accepted the recorded performance limitation; hosted run 39141917390 passed required checks, APK builds and all five device lanes at checkout c504dffe15e9be6ae8365fbf85f135efb13be609.
 ---
 
 ## Goal
