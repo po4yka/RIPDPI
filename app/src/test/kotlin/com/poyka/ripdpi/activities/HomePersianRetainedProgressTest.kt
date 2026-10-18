@@ -96,7 +96,13 @@ class HomePersianRetainedProgressTest {
             val english = project(runtime, strings)
             locale.select("fa")
             val persian = project(runtime, strings).analysisSheet!!.appliedSettings.single()
-            assertTrue(persian.label.any { it in '\u0600'..'\u06ff' })
+            assertTrue(
+                "Expected Persian applied-setting label: ${persian.label}",
+                persian.label.any {
+                    it in
+                        '\u0600'..'\u06ff'
+                },
+            )
             assertEquals("اپسیلون $number", persian.value)
             assertEquals(setting, raw.appliedSettings.single())
             locale.select("en")
