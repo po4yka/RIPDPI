@@ -1,9 +1,10 @@
 package com.poyka.ripdpi.integration
 
 import android.content.Intent
+import androidx.compose.ui.test.ComposeUiTestConfig
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -129,7 +130,7 @@ class MainActivityShellInstrumentedTest {
     val hiltInjectionRule = hiltRule.injectBeforeActivityRule()
 
     @get:Rule(order = 2)
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createAndroidComposeRule<MainActivity>(ComposeUiTestConfig())
 
     @BindValue
     @JvmField

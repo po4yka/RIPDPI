@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.integration
 
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -57,6 +58,10 @@ class ComposeStylesInstrumentedTest {
 
     @Test
     fun textInputAndDoneActionKeepTheValueAndReleaseFocus() {
+        // Match MainActivity so IME insets are observable on API 27.
+        composeRule.runOnUiThread {
+            composeRule.activity.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
         var value by mutableStateOf("")
         val imeVisible = AtomicBoolean()
         var commits = 0

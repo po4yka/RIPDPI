@@ -19,9 +19,9 @@ internal val ripDpiManagedDeviceSpecs =
             includeInCiGroup = true,
         ),
         RipDpiManagedDeviceSpec(
-            name = "pixel6Api33Atd",
+            name = "pixel6Api33Google",
             apiLevel = 33,
-            systemImageSource = "aosp-atd",
+            systemImageSource = "google",
             includeInCiGroup = true,
         ),
         RipDpiManagedDeviceSpec(
@@ -59,7 +59,7 @@ internal val ripDpiManagedDeviceSpecs =
  * declarative, version-pinned emulators instead of shell-provisioned AVDs.
  *
  *  - pixel6Api27Aosp    Pixel 6, API 27, AOSP          minSdk compatibility smoke
- *  - pixel6Api33Atd     Pixel 6, API 33, aosp-atd      modern runtime behavior smoke
+ *  - pixel6Api33Google  Pixel 6, API 33, Google APIs   runtime and software IME smoke
  *  - pixel6Api34Atd     Pixel 6, API 34, aosp-atd      pinned macrobenchmark device
  *  - pixel6Api35Google  Pixel 6, API 35, Google APIs   previous-target compatibility smoke
  *  - pixel6Api36Google  Pixel 6, API 36, Google APIs   Android 16 runtime smoke
