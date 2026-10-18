@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1792228984398359
 change: compose-common-styles
-commit_sha: 93bc75744e567f3baa96fe9965bb0d6164d7fa70
-local: blocked
-local_evidence: Compile, 5729 unit tests, both screenshot catalogs and staticAnalysis passed at the recorded source. Final APK assembly remains blocked by disk capacity; see Latest source validation.
+commit_sha: 9793d98b6e15f9376e5e246cd15bdd3a016f0361
+local: passed
+local_evidence: Compile, 5729 unit tests, screenshot catalogs and staticAnalysis were observed at source 93bc75744. The same runtime and build sources at 9793d98 now passed normal Full and Simple app/test APK assembly. See current and historical evidence below.
 remote_ci: blocked
 remote_ci_evidence: Publication is not authorized.
-device: blocked
-device_evidence: Earlier device checks passed; current-source device checks require newly accepted Full and Simple app/test APKs.
+device: passed
+device_evidence: Source 9793d98 passed all six exact Full/Simple instrumented cases and both product launcher checks on a leased API 37 ARM64 emulator. The saved report records unchanged APKs and restored settings.
 artifact: blocked
-artifact_evidence: No accepted current-source APK set or three-state profileable comparison exists. See Latest source validation and performance.md.
+artifact_evidence: Four debug app/test APKs and all three profileable states are accepted and saved. The complete six-run comparison returned INCONCLUSIVE, exit 3. Performance acceptance remains open; see performance.md.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -24,11 +24,40 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-RDS-STYLE-OVERRIDE | UIX-1792229082522189 | `styles-wave1-after-apply.log`: ten style tests plus existing theme/shared-control tests | Passed locally |
 | REQ-RDS-STYLE-THEME | UIX-1792229083651465 | Theme, state, reduced-motion and control tests; complete Full/Simple unit and screenshot repeat at source 93bc75744 | Passed locally |
 | REQ-RDS-STYLE-COMPATIBILITY | UIX-1792229081138948 | `styles-dependency-gate-final.log`: AAR metadata, Full/Simple compilation, build convention tests | Passed locally |
-| REQ-RDS-STYLE-ACCEPTANCE | UIX-1792229086339829 | Local, screenshot, device and profileable evidence | Pending |
+| REQ-RDS-STYLE-ACCEPTANCE | UIX-1792229086339829 | Current Full/Simple APK and device checks passed; six actual performance runs completed | Blocked by inconclusive performance acceptance |
 
 ## Latest source validation
 
-This section supersedes the pending statements in the chronological record below. The validated production and test source is `93bc75744e567f3baa96fe9965bb0d6164d7fa70`. Later evidence-only commits do not extend runtime validation to new source.
+Source `9793d98b6e15f9376e5e246cd15bdd3a016f0361` was clean through APK assembly, device checks and performance measurement. Its runtime and build sources equal `93bc75744e567f3baa96fe9965bb0d6164d7fa70`; only five planning files differ. New evidence is stored outside disposable build directories in [ripdpi-styles-validation](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation). Earlier unit, screenshot and static-analysis results remain observed historical results. Their raw `build/reports/` files became unavailable during a separate host capacity change. They were not restored, recreated or rerun in this continuation.
+
+| Current check | Observed result | Evidence |
+|---|---|---|
+| Full app and AndroidTest APK assembly | Passed; repository-owned ARM64 native and pluggable-transport source builds; verified Xray AAR | [APK summary](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/apks/run-9793d98-repaired/summary.json) |
+| Simple app and AndroidTest APK assembly | Passed; normal bundle verifier and source builds | [Four-APK manifest](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/apks/run-9793d98-repaired/apk-manifest.json) |
+| Expected screenshots | All 420 hashes unchanged during assembly | APK summary and artifact controller record |
+| Current-source device repeat | Full 3/3 and Simple 3/3; zero failures, errors or skips | [Actual report](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/device/run-9793d98-resumed-fixed/report.json) |
+| Product launcher checks | Both passed; actual manifest aliases resolve to MainActivity; crash buffers empty | Actual report, UI XML and PNG files in the same directory |
+| Three-state performance comparison | Six complete runs; 24 benchmark cases, 240 iteration traces and six raw JSON files; INCONCLUSIVE, exit 3 | [Comparison](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/measurements/three-state-20261018-listener-fix-1/comparison.md), [manifest](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/measurements/three-state-20261018-listener-fix-1/manifest.json), [summary](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/performance/measurements/three-state-20261018-listener-fix-1/summary.json) |
+
+The three device cases are `disconnectNeedsASecondActionBeforeItDispatches`, `dropdownSelectsOnceClosesAndKeepsDisabledBehavior`, and `textInputAndDoneActionKeepTheValueAndReleaseFocus`. Each ran on both variants under one standard pool lease. The runner checked saved APK hashes before installation and after the run, and checked product activity identity. Full English and Simple Arabic launcher PNGs were inspected; no obvious text overlap or clipping was found in these captures. This is a launcher and interaction check, not full navigation or live network acceptance. Font scale and IME were restored. Existing Simple app locales were restored; Full was absent before installation, so restoring an earlier Full locale was not applicable.
+
+All three benchmark states use the same release-derived, non-debuggable, shell-profileable configuration and identical harness sources. No APK was rebuilt between series. One API 37 ARM64 pool lease held `emulator-5558` through all six runs. The second series used reverse state order. Actual installed APK hashes, context records, output paths and traces connect the source declarations to execution. Settings restoration and owned process cleanup passed; the shared build slot was released.
+
+The strict parser found no metric with an original-to-Styles regression above 5 percent in both series. Each metric crossed the limit in only one series, so this is INCONCLUSIVE, not PASS. Controls were slower than the dependency-only state by 15.85 and 6.61 percent. `performance.md` retains all values and the evidence limits. Step `UIX-1792229086339829` remains open; the migration has not passed performance acceptance. No golden or performance baseline was changed.
+
+### Storage recovery and build repairs
+
+The scoped cleanup removed three closed ignored native-packaging directories in the inactive Appium worktree and the eligible idle `RIPDPI_Pool_2` through the normal pool cleanup command. The observed free-space gains total 3,992,829,952 bytes, about 3.72 GiB. Protected source, reports and fixture hashes remained unchanged. A later independent capacity increase and missing build trees are recorded separately; that increase is not attributed to this cleanup. See [recorded observations](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-validation/resumed-observations.json).
+
+The first source rebuild exposed missing files in two private Cargo registries. Archive checksums were checked against locked or exact registry metadata; only 90 missing files in each private home were restored. Existing file contents, shared caches, source and Cargo configuration were preserved. The following normal source builds passed. The Simple asset remains the exact repository CI fixture, SHA-256 `cadaff4fd5daa0cfeec5182e428a3207d926dd7ea62b917edadc21876a92194c`; it supplies local build data, not production relay credentials.
+
+Earlier failed controller runs remain separate. They exposed launcher aliases, Activity reuse between preflight scenes, and a missing AndroidX run-end listener. The final controllers resolve aliases through the actual manifest, start each preflight scene separately, and pass the packaged AndroidX 1.5.0 listener to instrumentation. They still require exact test identities and reported output paths. No app APK, benchmark workload, comparison threshold or parser validity check was changed to accept those failures. The final complete runs are the evidence above.
+
+## Earlier source validation record
+
+This record describes checks observed before the current APK and device repeat. Its raw reports later became unavailable. Pending statements in this record are historical; the current result is above.
+
+The historical gate used production and test source `93bc75744e567f3baa96fe9965bb0d6164d7fa70`. Later evidence-only commits do not extend runtime validation to new source.
 
 | Gate | Observed result | Evidence under `build/reports/` |
 |---|---|---|
