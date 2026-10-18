@@ -140,3 +140,46 @@ Both child restorations and the outer restoration reported no errors. The
 pool wrapper removed only its owned temporary AVD, and the independent
 observer confirmed that its files and processes were absent. Matrix three
 is a failed feature acceptance run. No full network lane passed.
+
+## Combined source and matrix five
+
+Source `9fd8fd5a323fb38f55a03eb8d2e6c4c017311a41` includes the upstream
+Compose Styles and SDK 37.1 changes. All eleven fresh local producer phases
+passed. Full and Simple each passed 109 focused regressions and eight Home
+measurement screenshot checks. Settings and backup checks passed fourteen
+more tests. The total is 248 executions with no failures, errors or skips.
+Both app/test variants compiled. Static analysis, app/service locale lint,
+architecture health, locked Cargo metadata, task validation and strict
+OpenSpec validation passed. An independent check verified the source,
+actual APK contents, native input provenance and fresh JUnit reports.
+These results apply to that exact source, before the cache correction below.
+
+Matrix five passed eleven ordinary latency scenarios and real TalkBack with
+normal motion. The TalkBack scenario recorded seven successful speech
+fragments and two observed returns to the original metric. The system-off
+scenario failed its strict speech proof. A pending activation hint and the
+selected RTT text each contain 22 UTF-16 code units. One AOSP success event
+therefore has two pending candidates. The capture has no per-utterance
+cancellation proof for the hint. The matcher must keep rejecting that
+ambiguity. The correction waits for positive completion of prior speech
+before initial physical exploration; it does not discard pending requests.
+
+Reconnect passed three ownership guards and genuine Android VPN consent.
+The first VPN lane failed after six physical scrolls; the other five lanes
+did not run. All six input traces confirm an owned collector attached to
+the actual input device. Kernel events and the after-scroll PNG show that
+the gesture moved Home and exposed Reconnect. The newly published native
+JSON still contains the initial viewport. The test client reused a stale
+accessibility node cache. The correction clears that same automation
+client cache before a logical tree collection on API 34 and later, and
+requires the public cache-clear call to succeed. It keeps the existing
+identity, focus, arm and actual network assertions.
+
+Both child restorations and outer restoration reported no errors. The
+independent observer confirmed removal of only the owned temporary AVD.
+Matrix five remains a failed feature run. Fresh compilation, APK verification
+and the complete device matrix are required after the cache correction.
+Evidence is under `candidate-build-9fd8fd5a323f`,
+`candidate-9fd8fd5a-independent-verification-strict-v2`,
+`latency-device-attempt9`, `reconnect-device-attempt7` and
+`temporary-voice-matrix-attempt5` at the local artifact root above.

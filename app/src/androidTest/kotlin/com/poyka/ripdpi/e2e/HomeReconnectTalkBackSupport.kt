@@ -213,11 +213,15 @@ internal class HomeReconnectTalkBackSupport(
         return candidates.singleOrNull()
     }
 
-    private fun appRoots(): List<AccessibilityNodeInfo> =
-        automation.windows
+    private fun appRoots(): List<AccessibilityNodeInfo> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            check(automation.clearCache()) { "Cannot clear the native accessibility cache" }
+        }
+        return automation.windows
             .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
             .mapNotNull { it.root }
             .filter { it.packageName?.toString() == context.packageName }
+    }
 
     private fun allNodes(root: AccessibilityNodeInfo): List<AccessibilityNodeInfo> =
         buildList {
@@ -260,6 +264,9 @@ internal class HomeReconnectTalkBackSupport(
         arm: JSONObject? = null,
         previousArm: JSONObject? = null,
     ): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            check(automation.clearCache()) { "Cannot clear the native accessibility cache" }
+        }
         val windows = JSONArray()
         automation.windows.forEach { window ->
             val nodes = JSONArray()

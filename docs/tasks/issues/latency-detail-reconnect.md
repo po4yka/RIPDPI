@@ -80,6 +80,13 @@ Open latency evidence from the measured RTT value and verify real reconnect from
   from the known owned settings, without accepting unknown runtime owners.
   Root combines these reviewed changes after matrix three cleanup.
 
+- The accessibility-cache writer owns only HomeReconnectTalkBackSupport.kt
+  in RIPDPI-reconnect-accessibility-cache. It clears the existing automation
+  client cache before a logical tree collection on supported Android versions.
+  Root owns a new external latency driver that waits for positive completion
+  of prior speech before initial exploration. The strict speech matcher stays
+  unchanged. Root integrates these changes after matrix five cleanup.
+
 ## Design sources
 
 Use DESIGN.md, docs/design-system.md and the executable theme. RDS references are
