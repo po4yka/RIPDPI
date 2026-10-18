@@ -2,7 +2,7 @@
 id: TST-1792309202117414
 title: Sync canonical bundle fixture keys
 kind: chore
-status: doing
+status: review
 area: testing
 priority: high
 owner: bundle-contract-fixtures
@@ -39,3 +39,15 @@ Canonical source: `po4yka/ripdpi-vpn-deploy` commit
 `cc6e171e9edfe8555bbc7800aa584e8a571a865c`, security delivery repair PR #332.
 The key values are deterministic synthetic fixture bytes. No private identity
 or live deployment is part of this change.
+
+## Completion evidence
+
+PR #620 merged as `fdc42a19f8701216b727f76ab5dc7fd5b73abcde`. Its contract
+resources match tested source commit
+`34fc33d082b94573ac2dcd278c030ed0b02e1f11` byte for byte. CI run `39108896877`
+passed. Its `test-results` artifact `12130007070` reports 7 parser contract
+tests with 0 failures and 0 skipped tests. The execution record contains the
+scoped checks and the local build queue limit.
+
+The completion change owns only this issue, its execution record, close
+receipt and generated board. It does not change source or resource files.
