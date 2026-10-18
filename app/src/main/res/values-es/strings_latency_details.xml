@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="latency_detail_title">Detalles de latencia</string>
+    <string name="latency_detail_open">Abrir detalles de latencia</string>
+    <string name="latency_detail_snapshot_note">Instantánea de la medición seleccionada. Vuelve a abrir para cargar los valores más recientes.</string>
+    <string name="latency_detail_percentiles_note" formatted="false">p50/p95 son los tiempos que no superan el 50/95% de los recorridos de ida y vuelta medidos.</string>
+    <string name="latency_detail_source_unavailable">Fuente de medición no disponible</string>
+</resources>

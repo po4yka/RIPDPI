@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ConnectionQualitySnapshot
@@ -25,6 +27,16 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 class HomeConnectionMeasurementsTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test
+    fun `measured RTT opens latency evidence`() {
+        render(ConnectionQualitySnapshot(sampleCount = 12L, rttP50Ms = 32L, rttP95Ms = 64L), currentSource())
+        node(R.string.vpn_quality_metric_rtt_p50).assertHasClickAction().performClick()
+        composeRule
+            .onNodeWithText(
+                RuntimeEnvironment.getApplication().getString(R.string.measurement_quality_p95, 64L),
+            ).assertExists()
+    }
 
     @Test
     fun `empty default shows traffic without nominal RTT jitter or sample claims`() {

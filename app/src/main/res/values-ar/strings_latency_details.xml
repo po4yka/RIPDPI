@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="latency_detail_title">تفاصيل زمن الاستجابة</string>
+    <string name="latency_detail_open">فتح تفاصيل زمن الاستجابة</string>
+    <string name="latency_detail_snapshot_note">لقطة للقياس المحدد. أعد الفتح لتحميل أحدث القيم.</string>
+    <string name="latency_detail_percentiles_note" formatted="false">p50/p95 هما الزمنان اللذان لا تتجاوزهما 50/95% من رحلات الذهاب والإياب المقاسة.</string>
+    <string name="latency_detail_source_unavailable">مصدر القياس غير متاح</string>
+</resources>

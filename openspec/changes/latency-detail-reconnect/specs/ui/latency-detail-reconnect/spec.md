@@ -47,6 +47,14 @@ Acceptance MUST drive Home comparison cancellation and confirmation through the 
 - **THEN** cancellation preserves the current runtime and confirmation starts the new runtime with observed applied state
 - **AND** actual traffic succeeds before and after reconnect
 
+#### Scenario: Use supported fixture configuration in each mode
+
+- **WHEN** the real reconnect matrix runs four VPN lanes and two additional Proxy lanes
+- **THEN** VPN observes HTTP DoH before reconnect and verified DoT after reconnect
+- **AND** Proxy observes fresh HTTP DoH queries and real listener changes before and after reconnect
+- **AND** every lane retains cancellation, stale-review, actual-runtime, applied-state and traffic assertions
+- **AND** receipts do not claim Proxy custom-CA DoT coverage
+
 ### Requirement: REQ-LDR-VERIFY — Keep validation and publication evidence distinct
 
 The change MUST record focused host tests, normal/reduced/off presentation, real TalkBack, RTL/font2, actual reconnect network evidence, exact APK provenance and hosted CI separately. It MUST preserve privacy, service admission and quality gates. All new text MUST cover ten locales. Main integration MUST follow rebased combined checks and authorized ordinary push.

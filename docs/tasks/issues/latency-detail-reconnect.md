@@ -36,10 +36,26 @@ Open latency evidence from the measured RTT value and verify real reconnect from
 - UI worker owns RipDpiDegradationStrip.kt, HomeConnectionMeasurements.kt and new
   latency detail presentation/model helpers in RIPDPI-latency-details-ui.
 - Root owns focused host regressions, with independent test design before production changes.
-- Device specialist owns new latency/reconnect AndroidTest classes and test-only local
-  fixture helpers in RIPDPI-latency-reconnect-device. It does not modify production services.
+- UI worker also owns new HomeLatencyDetailsAcceptanceTest.kt and
+  HomeLatencyDetailsTalkBackSupport.kt in its isolated worktree.
+- Device specialist owns new reconnect AndroidTest classes and test-only local
+  fixture helpers in RIPDPI-latency-reconnect-device. Reconnect files under
+  app/src/androidTest/kotlin/com/poyka/ripdpi/e2e are
+  HomeReconnectNetworkAcceptanceTest.kt, HomeReconnectNetworkAcceptanceSupport.kt,
+  HomeReconnectTalkBackSupport.kt and HomeReconnectOwnershipJournal.kt.
+  It does not modify production services.
+  The same writer repairs the mode-specific fixture assumption in these tests
+  and the external reconnect driver. VPN retains verified DoT; both Proxy
+  lanes use the existing HTTP DoH fixture path and real listener changes.
+  This work adds no Proxy custom-CA runtime contract.
 - Writers use separate worktrees. Build and emulator lanes are serialized by root.
-- Review is read-only. Golden fixtures and quality baselines are not approved for changes.
+- The golden specialist owns only HomeMeasurementsScreenshotTest.measured_zero_rtt.png
+  and HomeMeasurementsScreenshotTest.stopped_measurements.png in the isolated
+  RIPDPI-latency-detail-goldens worktree. The user approved these two fixtures
+  on 2026-10-18 after review of the generated before/actual/compare artifacts.
+  The contract change is a 48dp RTT action and a 24dp content shift. The same
+  update aligns the old warning icon with the Info icon already in main.
+- Review is read-only. Quality baselines and all other golden fixtures are unchanged.
 
 ## Design sources
 

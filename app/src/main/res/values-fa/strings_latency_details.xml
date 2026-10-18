@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="latency_detail_title">جزئیات تأخیر</string>
+    <string name="latency_detail_open">باز کردن جزئیات تأخیر</string>
+    <string name="latency_detail_snapshot_note">تصویری از اندازه‌گیری انتخاب‌شده. برای بارگیری آخرین مقادیر، دوباره باز کنید.</string>
+    <string name="latency_detail_percentiles_note" formatted="false">p50/p95 زمان‌هایی هستند که ۵۰/۹۵٪ از رفت‌وبرگشت‌های اندازه‌گیری‌شده از آن‌ها بیشتر طول نمی‌کشند.</string>
+    <string name="latency_detail_source_unavailable">منبع اندازه‌گیری در دسترس نیست</string>
+</resources>

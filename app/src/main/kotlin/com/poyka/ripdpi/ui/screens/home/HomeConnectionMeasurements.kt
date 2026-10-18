@@ -5,7 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
@@ -18,10 +25,15 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationMetric
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
+import com.poyka.ripdpi.ui.screens.health.LatencyDetailDialog
+import com.poyka.ripdpi.ui.screens.health.LatencyDetailSnapshot
 import com.poyka.ripdpi.ui.screens.health.MeasurementCaption
 import com.poyka.ripdpi.ui.screens.health.MeasurementSource
 import com.poyka.ripdpi.ui.screens.health.measurementNow
 import com.poyka.ripdpi.ui.screens.health.measurementTimestamp
+import com.poyka.ripdpi.ui.screens.health.selectedLatencyDetailSnapshot
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiNetworkQualityThresholds
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.resolveDegradationTone
@@ -36,34 +48,70 @@ internal fun HomeConnectionMeasurements(
     onReprobe: () -> Unit,
     now: Long? = null,
 ) {
+    var selectedSnapshot by remember { mutableStateOf<LatencyDetailSnapshot?>(null) }
+    var returnFocusRequested by remember { mutableStateOf(false) }
+    val latencyFocus = remember { FocusRequester() }
     val observed = quality?.takeIf { it.hasObservedMeasurements() }
-    if (!connected && observed == null && dataTransferred == 0L) return
+    val hasMeasurements = connected || observed != null || dataTransferred != 0L
+    LaunchedEffect(returnFocusRequested) {
+        if (returnFocusRequested) {
+            if (observed != null && observed.sampleCount > 0L) latencyFocus.requestFocus()
+            returnFocusRequested = false
+        }
+    }
+    if (!hasMeasurements && selectedSnapshot == null) return
     val currentTime = now ?: source?.let { measurementNow(it) } ?: 0L
     val summary = resolveHomeMeasurementSummary(observed, source?.freshness(currentTime).takeIf { connected })
-    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
-        RipDpiDegradationStrip(
-            title = stringResource(summary.title),
-            body = stringResource(summary.body),
-            metrics = homeMeasurementMetrics(observed, dataTransferred),
-            sinceLabel =
-                observed?.takeIf { it.sampleCount > 0L }?.let {
-                    stringResource(R.string.home_quality_samples, it.sampleCount)
-                } ?: stringResource(R.string.measurement_byte_total),
-            primaryAction = RipDpiDegradationAction(stringResource(R.string.vpn_quality_strip_reprobe), onReprobe),
-            secondaryAction = null,
-            tone = summary.tone,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        observed?.let {
-            MeasurementCaption(stringResource(R.string.measurement_quality_meaning))
-            MeasurementCaption(
-                if (it.windowStartAtMs > 0L) {
-                    stringResource(R.string.measurement_quality_window, measurementTimestamp(it.windowStartAtMs))
-                } else {
-                    stringResource(R.string.measurement_window_unknown)
-                },
+    if (hasMeasurements) {
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+            RipDpiDegradationStrip(
+                title = stringResource(summary.title),
+                body = stringResource(summary.body),
+                metrics =
+                    homeMeasurementMetrics(
+                        observed,
+                        dataTransferred,
+                        latencyModifier =
+                            Modifier
+                                .focusRequester(
+                                    latencyFocus,
+                                ).ripDpiTestTag(RipDpiTestTags.HomeLatencyMetric),
+                        onOpenLatency = {
+                            selectedSnapshot =
+                                selectedLatencyDetailSnapshot(
+                                    observed,
+                                    source,
+                                    connected,
+                                    now ?: System.currentTimeMillis(),
+                                )
+                        },
+                    ),
+                sinceLabel =
+                    observed?.takeIf { it.sampleCount > 0L }?.let {
+                        stringResource(R.string.home_quality_samples, it.sampleCount)
+                    } ?: stringResource(R.string.measurement_byte_total),
+                primaryAction = RipDpiDegradationAction(stringResource(R.string.vpn_quality_strip_reprobe), onReprobe),
+                secondaryAction = null,
+                tone = summary.tone,
+                modifier = Modifier.fillMaxWidth(),
             )
-            MeasurementSource(source, currentTime)
+            observed?.let {
+                MeasurementCaption(stringResource(R.string.measurement_quality_meaning))
+                MeasurementCaption(
+                    if (it.windowStartAtMs > 0L) {
+                        stringResource(R.string.measurement_quality_window, measurementTimestamp(it.windowStartAtMs))
+                    } else {
+                        stringResource(R.string.measurement_window_unknown)
+                    },
+                )
+                MeasurementSource(source, currentTime)
+            }
+        }
+    }
+    selectedSnapshot?.let { snapshot ->
+        LatencyDetailDialog(snapshot) {
+            selectedSnapshot = null
+            returnFocusRequested = true
         }
     }
 }
@@ -123,6 +171,8 @@ private fun assessedHomeMeasurementSummary(quality: ConnectionQualitySnapshot): 
 private fun homeMeasurementMetrics(
     quality: ConnectionQualitySnapshot?,
     dataTransferred: Long,
+    latencyModifier: Modifier,
+    onOpenLatency: () -> Unit,
 ) = buildList {
     quality?.let {
         add(
@@ -136,6 +186,8 @@ private fun homeMeasurementMetrics(
                 homeMetric(
                     R.string.vpn_quality_metric_rtt_p50,
                     stringResource(R.string.home_quality_metric_ms_format, it.rttP50Ms),
+                    action = RipDpiDegradationAction(stringResource(R.string.latency_detail_open), onOpenLatency),
+                    modifier = latencyModifier,
                 ),
             )
             add(
@@ -158,4 +210,13 @@ private fun homeMeasurementMetrics(
 private fun homeMetric(
     label: Int,
     value: String,
-) = RipDpiDegradationMetric(stringResource(label), value, delta = "", deltaIsBad = false)
+    action: RipDpiDegradationAction? = null,
+    modifier: Modifier = Modifier,
+) = RipDpiDegradationMetric(
+    stringResource(label),
+    value,
+    delta = "",
+    deltaIsBad = false,
+    action = action,
+    modifier = modifier,
+)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,11 +25,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -57,6 +60,8 @@ data class RipDpiDegradationMetric(
     val value: String,
     val delta: String,
     val deltaIsBad: Boolean,
+    val action: RipDpiDegradationAction? = null,
+    val modifier: Modifier = Modifier,
 )
 
 data class RipDpiDegradationAction(
@@ -228,6 +233,14 @@ private fun RipDpiDegradationMetricChip(metric: RipDpiDegradationMetric) {
     val deltaColor = if (metric.deltaIsBad) colors.destructive else colors.success
 
     Surface(
+        modifier =
+            metric.modifier.then(
+                metric.action?.let { action ->
+                    Modifier
+                        .heightIn(min = RipDpiThemeTokens.components.buttons.minHeight)
+                        .ripDpiClickable(role = Role.Button, onClickLabel = action.label, onClick = action.onClick)
+                } ?: Modifier,
+            ),
         shape = shapes.md,
         color = colors.inputBackground,
         contentColor = colors.foreground,
@@ -238,7 +251,7 @@ private fun RipDpiDegradationMetricChip(metric: RipDpiDegradationMetric) {
                 Modifier
                     .padding(horizontal = spacing.sm, vertical = spacing.xs),
             horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs, Alignment.CenterVertically),
         ) {
             Text(
                 text = metric.label,

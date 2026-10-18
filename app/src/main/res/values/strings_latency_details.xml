@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="latency_detail_title">Latency details</string>
+    <string name="latency_detail_open">Open latency details</string>
+    <string name="latency_detail_snapshot_note">Selected measurement snapshot. Reopen to load the latest values.</string>
+    <string name="latency_detail_percentiles_note" formatted="false">p50/p95 are the times at or below which 50/95% of measured round trips fall.</string>
+    <string name="latency_detail_source_unavailable">Measurement source unavailable</string>
+</resources>

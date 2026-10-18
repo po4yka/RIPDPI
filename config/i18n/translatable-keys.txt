@@ -3572,6 +3572,11 @@ app:language_name_zh_cn
 app:language_picker_native_format
 app:language_picker_sheet_title
 app:language_picker_system_language
+app:latency_detail_open
+app:latency_detail_percentiles_note
+app:latency_detail_snapshot_note
+app:latency_detail_source_unavailable
+app:latency_detail_title
 app:logs
 app:logs_actions_title
 app:logs_active_session_body

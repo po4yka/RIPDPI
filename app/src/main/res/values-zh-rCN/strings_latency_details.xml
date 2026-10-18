@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="latency_detail_title">延迟详情</string>
+    <string name="latency_detail_open">打开延迟详情</string>
+    <string name="latency_detail_snapshot_note">所选测量的快照。重新打开以加载最新值。</string>
+    <string name="latency_detail_percentiles_note" formatted="false">p50/p95 表示 50/95% 的实测往返耗时不超过的时间。</string>
+    <string name="latency_detail_source_unavailable">测量来源不可用</string>
+</resources>

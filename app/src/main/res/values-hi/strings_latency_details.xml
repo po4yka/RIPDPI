@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="latency_detail_title">विलंब का विवरण</string>
+    <string name="latency_detail_open">विलंब का विवरण खोलें</string>
+    <string name="latency_detail_snapshot_note">चुने गए मापन का स्नैपशॉट। नवीनतम मान लोड करने के लिए फिर से खोलें।</string>
+    <string name="latency_detail_percentiles_note" formatted="false">p50/p95 वे समय हैं जिनसे मापे गए 50/95% आने-जाने के चक्र अधिक समय नहीं लेते।</string>
+    <string name="latency_detail_source_unavailable">मापन का स्रोत उपलब्ध नहीं है</string>
+</resources>
