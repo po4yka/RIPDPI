@@ -25,8 +25,8 @@
       "cohort_fingerprint": "sha256:4edc275de5b78634c718569b8c6ab3ac3d87bc44afa83357b4e165e93dd3914b",
       "private_key_placeholder": true,
       "peer": {
-        "public_key": "EXAMPLEserverPublicKeyBase64xxxxxxxxxxxxxxx=",
-        "preshared_key": "EXAMPLEpresharedKeyBase64xxxxxxxxxxxxxxxxxxx=",
+        "public_key": "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=",
+        "preshared_key": "ISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISE=",
         "endpoint": "203.0.113.7:51820",
         "allowed_ips": [
           "0.0.0.0/0",
