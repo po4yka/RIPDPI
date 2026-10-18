@@ -6,13 +6,16 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.test.assertIsDisplayed
@@ -29,6 +32,7 @@ import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.input.ImeAction
+import androidx.core.view.WindowCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
@@ -58,8 +62,9 @@ class ComposeStylesInstrumentedTest {
 
     @Test
     fun textInputAndDoneActionKeepTheValueAndReleaseFocus() {
-        // Match MainActivity so IME insets are observable on API 27.
+        // Match MainActivity's edge-to-edge and resize contract on older APIs.
         composeRule.runOnUiThread {
+            WindowCompat.setDecorFitsSystemWindows(composeRule.activity.window, false)
             composeRule.activity.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
         var value by mutableStateOf("")
@@ -70,7 +75,7 @@ class ComposeStylesInstrumentedTest {
                 val keyboard = LocalSoftwareKeyboardController.current
                 val focus = LocalFocusManager.current
                 imeVisible.set(WindowInsets.isImeVisible)
-                Column {
+                Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                     RipDpiTextField(
                         value = value,
                         onValueChange = { value = it },
