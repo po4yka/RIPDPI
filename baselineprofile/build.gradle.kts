@@ -24,12 +24,6 @@ android {
     }
 
     targetProjectPath = ":app"
-    buildTypes {
-        create("benchmark") {
-            initWith(getByName("debug"))
-            matchingFallbacks += "release"
-        }
-    }
     experimentalProperties["android.experimental.self-instrumenting"] = true
     buildTypes {
         // Match :app's release-derived, profileable benchmark variant. Keep the
