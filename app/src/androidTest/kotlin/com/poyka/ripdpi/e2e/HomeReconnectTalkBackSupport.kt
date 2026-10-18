@@ -27,6 +27,9 @@ internal class HomeReconnectTalkBackSupport(
 ) {
     private val context = instrumentation.targetContext
     private val automation = instrumentation.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+    private var focusInitialization: JSONObject? = null
+    private var focusSettled: JSONObject? = null
+    private var focusRequestUptimeMillis: Long? = null
 
     init {
         check(directory.exists() || directory.mkdirs())
@@ -108,14 +111,14 @@ internal class HomeReconnectTalkBackSupport(
     ) {
         assertBound()
         if (talkBack && target != null) {
+            focusInitialization = stableFocus(target, requireTarget = false)
+            focusRequestUptimeMillis = SystemClock.uptimeMillis()
             Log.i("HomeReconnectAcceptance", "Focus: $stage")
             assertTrue(
-                "Cannot focus the actual named node",
-                target.named.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS),
+                "Cannot focus the actual action or standalone text node",
+                target.focus.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS),
             )
-            HomeReconnectNetworkAcceptanceSupport.await("Actual accessibility focus did not reach the named node") {
-                automation.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY) == target.named
-            }
+            focusSettled = stableFocus(target, requireTarget = true)
         }
         val acknowledgement = File(directory, "$stage.continue")
         acknowledgement.delete()
@@ -135,11 +138,18 @@ internal class HomeReconnectTalkBackSupport(
         assertBound()
     }
 
-    private data class Target(
+    private inner class Target(
         val named: AccessibilityNodeInfo,
         val action: AccessibilityNodeInfo?,
         val sectionTag: String? = null,
-    )
+    ) {
+        val label = named.text?.toString()?.takeIf { it.isNotBlank() } ?: named.contentDescription?.toString().orEmpty()
+        val focus = action ?: named
+        val namedIdentity = identityKey(named)
+        val actionIdentity = action?.let(::identityKey)
+        val focusIdentity = identityKey(focus)
+        val actionChain = actionChain(named, action).map(::identityKey)
+    }
 
     private fun findAction(
         tag: String,
@@ -156,7 +166,8 @@ internal class HomeReconnectTalkBackSupport(
                     (node.text?.toString() == label || node.contentDescription?.toString() == label)
                 ) {
                     val namedBounds = bounds(node)
-                    if (action != null && action.isVisibleToUser && action.isClickable &&
+                    if (action != null && action.windowId == node.windowId && action.isVisibleToUser &&
+                        action.isClickable &&
                         action.actionList.any { it.id == AccessibilityNodeInfo.ACTION_CLICK } &&
                         !namedBounds.isEmpty && bounds(action).contains(namedBounds)
                     ) {
@@ -229,8 +240,8 @@ internal class HomeReconnectTalkBackSupport(
                     .put("nodes", nodes),
             )
         }
-        target?.named?.refresh()
-        target?.action?.refresh()
+        target?.let(::validateTarget)
+        val focused = automation.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
         val actionBounds = target?.action?.let(::bounds)
         val data =
             JSONObject()
@@ -240,18 +251,31 @@ internal class HomeReconnectTalkBackSupport(
                 .put("talkBack", talkBack)
                 .put(
                     "expectedSpeech",
-                    target?.named?.text?.toString() ?: target
-                        ?.named
-                        ?.contentDescription
-                        ?.toString()
-                        .orEmpty(),
+                    target?.label.orEmpty(),
                 ).put(
                     "targetBounds",
                     actionBounds?.let { JSONArray(listOf(it.left, it.top, it.right, it.bottom)) } ?: JSONObject.NULL,
-                ).put("targetFocused", target?.named?.isAccessibilityFocused ?: false)
-                .put("namedIdentity", target?.named?.let(::identity) ?: JSONObject.NULL)
-                .put("actionIdentity", target?.action?.let(::identity) ?: JSONObject.NULL)
+                ).put(
+                    "targetFocused",
+                    focused != null && target != null && identityKey(focused) == target.focusIdentity,
+                ).put("namedIdentity", target?.namedIdentity?.let(::JSONObject) ?: JSONObject.NULL)
+                .put("actionIdentity", target?.actionIdentity?.let(::JSONObject) ?: JSONObject.NULL)
+                .put("targetLabel", target?.label ?: JSONObject.NULL)
+                .put("focusIdentity", target?.focusIdentity?.let(::JSONObject) ?: JSONObject.NULL)
+                .put("actionChain", target?.actionChain?.let { JSONArray(it.map(::JSONObject)) } ?: JSONObject.NULL)
+                .put("actualFocusedIdentity", focused?.let(::identity) ?: JSONObject.NULL)
+                .put("focusInitialization", if (target != null && talkBack) focusInitialization else JSONObject.NULL)
+                .put("focusSettled", if (target != null && talkBack) focusSettled else JSONObject.NULL)
                 .put(
+                    "focusRequestUptimeMillis",
+                    if (target != null &&
+                        talkBack
+                    ) {
+                        focusRequestUptimeMillis
+                    } else {
+                        JSONObject.NULL
+                    },
+                ).put(
                     "comparisonSections",
                     target?.sectionTag?.let { sectionEvidence(it, target.named) } ?: JSONObject.NULL,
                 ).put("windows", windows)
@@ -344,6 +368,80 @@ internal class HomeReconnectTalkBackSupport(
         repeat(node.childCount) { node.getChild(it)?.let { child -> collect(child, nodes, index) } }
     }
 
+    private fun identityKey(node: AccessibilityNodeInfo): String = identity(node).toString()
+
+    private fun actionChain(
+        named: AccessibilityNodeInfo,
+        action: AccessibilityNodeInfo?,
+    ): List<AccessibilityNodeInfo> {
+        val result = mutableListOf<AccessibilityNodeInfo>()
+        var node: AccessibilityNodeInfo? = named
+        repeat(64) {
+            val current = checkNotNull(node) { "The action must be an actual ancestor of the named node" }
+            check(result.none { it == current }) { "Cyclic native accessibility hierarchy" }
+            check(current.windowId == named.windowId) { "Action ancestry changed windows" }
+            result += current
+            if (current == (action ?: named)) return result
+            check(!current.isVisibleToUser || !current.isClickable) { "Action is not the nearest clickable ancestor" }
+            node = current.parent
+        }
+        error("Native action ancestry exceeds the bounded traversal")
+    }
+
+    private fun validateTarget(target: Target) {
+        check(target.named.refresh() && target.focus.refresh()) { "The selected native target disappeared" }
+        check(identityKey(target.named) == target.namedIdentity && identityKey(target.focus) == target.focusIdentity)
+        check(target.named.isVisibleToUser && !bounds(target.named).isEmpty)
+        check(target.named.packageName?.toString() == context.packageName)
+        check(actionChain(target.named, target.action).map(::identityKey) == target.actionChain)
+        target.action?.let { action ->
+            check(identityKey(action) == target.actionIdentity)
+            check(action.isVisibleToUser && action.isClickable && action.isEnabled)
+            check(action.windowId == target.named.windowId && bounds(action).contains(bounds(target.named)))
+            check(action.actionList.any { it.id == AccessibilityNodeInfo.ACTION_CLICK })
+        }
+    }
+
+    /** Observe stable native state. This function never changes accessibility focus. */
+    private fun stableFocus(
+        target: Target,
+        requireTarget: Boolean,
+    ): JSONObject {
+        var previous: String? = null
+        var stableAt = 0L
+        var evidence: JSONObject? = null
+        HomeReconnectNetworkAcceptanceSupport.await("Native focus did not settle", 15_000) {
+            validateTarget(target)
+            val window =
+                automation.windows.singleOrNull {
+                    it.id == target.named.windowId && it.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
+                        it.isActive && it.isFocused && it.root?.packageName?.toString() == context.packageName
+                }
+            val focused = automation.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+            val key = focused?.let(::identityKey)
+            val valid =
+                window != null && focused != null && focused.windowId == window.id &&
+                    focused.isVisibleToUser && focused.packageName?.toString() == context.packageName &&
+                    (!requireTarget || key == target.focusIdentity)
+            val now = SystemClock.uptimeMillis()
+            if (!valid || key != previous) {
+                previous = if (valid) key else null
+                stableAt = now
+            }
+            if (valid && now - stableAt >= FocusStableMillis) {
+                evidence =
+                    JSONObject()
+                        .put("windowId", checkNotNull(window).id)
+                        .put("focusIdentity", JSONObject(checkNotNull(key)))
+                        .put("stableSinceUptimeMillis", stableAt)
+                        .put("observedAtUptimeMillis", now)
+                        .put("minimumStableMillis", FocusStableMillis)
+            }
+            evidence != null
+        }
+        return checkNotNull(evidence)
+    }
+
     private fun identity(node: AccessibilityNodeInfo): JSONObject =
         JSONObject()
             .put(
@@ -365,6 +463,7 @@ internal class HomeReconnectTalkBackSupport(
     private fun bounds(node: AccessibilityNodeInfo): Rect = Rect().also { node.getBoundsInScreen(it) }
 
     companion object {
+        private const val FocusStableMillis = 1_000L
         private const val TalkBackPackage = "com.google.android.marvin.talkback"
     }
 }

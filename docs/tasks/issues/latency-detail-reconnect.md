@@ -56,6 +56,12 @@ Open latency evidence from the measured RTT value and verify real reconnect from
   The contract change is a 48dp RTT action and a 24dp content shift. The same
   update aligns the old warning icon with the Info icon already in main.
 - Review is read-only. Quality baselines and all other golden fixtures are unchanged.
+- The TalkBack contract writer owns only HomeLatencyDetailsTalkBackSupport.kt
+  and HomeReconnectTalkBackSupport.kt in RIPDPI-talkback-action-focus. It also
+  owns new external driver copies; the original failed-run drivers are kept.
+  The device specialist owns the result-based VPN consent setup change in
+  HomeReconnectNetworkAcceptanceSupport.kt in its existing isolated worktree.
+  Root combines these test fixes after both device leases end.
 
 ## Design sources
 

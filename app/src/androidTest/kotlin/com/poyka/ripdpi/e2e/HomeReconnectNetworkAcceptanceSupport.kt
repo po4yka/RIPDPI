@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -331,16 +333,34 @@ class HomeReconnectVpnConsentTest {
         val directory = File(context.filesDir, "home-reconnect-acceptance/$runId/consent")
         val ui = HomeReconnectTalkBackSupport(instrumentation, directory, false)
         val consent = android.net.VpnService.prepare(context)
+        val activityResultCode = AtomicReference<Int?>()
         if (consent != null) {
             androidx.test.core.app.ActivityScenario
                 .launch<com.poyka.ripdpi.activities.MainActivity>(
                     Intent(context, com.poyka.ripdpi.activities.MainActivity::class.java)
                         .putExtra(com.poyka.ripdpi.automation.AutomationLaunchContract.Enabled, false),
                 ).use { activity ->
-                    activity.onActivity { it.startActivity(consent) }
-                    ui.observe("vpn-consent")
-                    HomeReconnectNetworkAcceptanceSupport.await("Actual platform VPN consent was not granted") {
-                        android.net.VpnService.prepare(context) == null
+                    lateinit var launcher: ActivityResultLauncher<Intent>
+                    // ActivityScenario is already resumed; explicitly own and unregister this one result launcher.
+                    activity.onActivity { host ->
+                        launcher =
+                            host.activityResultRegistry.register(
+                                "home-reconnect-consent-$runId",
+                                ActivityResultContracts.StartActivityForResult(),
+                            ) { result -> activityResultCode.set(result.resultCode) }
+                    }
+                    try {
+                        activity.onActivity { launcher.launch(consent) }
+                        ui.observe("vpn-consent")
+                        HomeReconnectNetworkAcceptanceSupport.await("No actual platform VPN consent result") {
+                            activityResultCode.get() != null
+                        }
+                        assertEquals("Platform VPN consent was rejected", Activity.RESULT_OK, activityResultCode.get())
+                        HomeReconnectNetworkAcceptanceSupport.await("Actual platform VPN consent was not granted") {
+                            android.net.VpnService.prepare(context) == null
+                        }
+                    } finally {
+                        activity.onActivity { launcher.unregister() }
                     }
                 }
         }
@@ -349,6 +369,7 @@ class HomeReconnectVpnConsentTest {
             JSONObject()
                 .put("setupOnly", true)
                 .put("alreadyGranted", consent == null)
+                .put("activityResultCode", activityResultCode.get() ?: JSONObject.NULL)
                 .put("genuinePrepareReturnsNull", android.net.VpnService.prepare(context) == null)
                 .toString(2)
                 .encodeToByteArray(),
