@@ -1,26 +1,48 @@
 ---
 task_id: UIX-1792228984398359
 change: compose-common-styles
-commit_sha: 9793d98b6e15f9376e5e246cd15bdd3a016f0361
-local: required
-local_evidence: Earlier local checks are recorded below. The branch is now rebased on main e82b513ff; combined-tree checks are pending before integration.
-remote_ci: required
-remote_ci_evidence: The owner authorized main integration and remote push on 2026-10-18. Hosted checks remain pending publication.
-device: required
-device_evidence: Source 9793d98 passed six cases and both product launchers. The combined-tree device repeat is pending fresh APKs.
+commit_sha: c504dffe15e9be6ae8365fbf85f135efb13be609
+local: not_applicable
+local_evidence: The owner accepted the historical local validation. Redundant local repeats were cancelled before admission and produced no result. Targeted correction checks and historical source identities remain recorded below.
+remote_ci: passed
+remote_ci_evidence: Hosted run 39141917390 and its required aggregate passed for actual checkout c504dffe15e9be6ae8365fbf85f135efb13be609, associated with head 250c59fd403ff043613004143a247bc5fc83d11c. Full source-tree equality is recorded below.
+device: passed
+device_evidence: All five hosted API 27/33/35/36/37 lanes passed Full integration and the selected Simple navigation case. Full had 410 passes and 35 existing skips. Styles passed 15/15 and shell passed 20/20 within Full. API 35 also passed JNI 5/5 and Xray provider 4/4.
 artifact: passed
-artifact_evidence: The owner accepted the completed migration on 2026-10-18 after the six-run comparison returned INCONCLUSIVE. This is owner acceptance of the recorded limitation, not a numerical performance PASS. Fresh combined-tree APKs remain part of the local integration gate.
+artifact_evidence: All three channel Debug jobs, the Full/Simple instrumentation APK bundle, four-ABI native packaging and all three release-verification shards passed. The owner accepted the historical numerical performance result INCONCLUSIVE on 2026-10-18; this is not a numerical performance PASS.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
 
 # Verification
 
+## Final hosted validation
+
+Run [39141917390](https://github.com/po4yka/RIPDPI/actions/runs/39141917390) passed, including `ci-required`, for actual runner checkout `c504dffe15e9be6ae8365fbf85f135efb13be609`. Its associated PR head is `250c59fd403ff043613004143a247bc5fc83d11c`; both have full source tree `07a389eacfbaa065d639dba4d273653aaf28a18c`. The task-job checkout log and fetched merge-ref tree establish this relationship. They do not establish APK byte equality or a new execution on a future rebased main commit.
+
+Full 2,921 and Simple 3,104 app unit tests passed, with zero failures or skips. Both screenshot suites, full static analysis, all three channel Debug jobs, the Full/Simple instrumentation APK bundle, four-ABI native packaging and all three channel release-verification shards passed. Only the four owner-approved expected images differ from the main base; the other 416 and both one-percent comparison thresholds are unchanged.
+
+All device lanes used x86_64. Full counts below are total / passed / failures / errors / existing skips. The three Styles cases and four shell cases passed on every API: 15/15 and 20/20 respectively. They are subsets of Full and are not added to its totals.
+
+| API | Image | Full counts | Simple navigation | Additional suites |
+|---|---|---|---|---|
+| 27 | `default` | 89 / 82 / 0 / 0 / 7 | 1/1 passed | Not selected |
+| 33 | `google_apis` | 89 / 82 / 0 / 0 / 7 | 1/1 passed | Not selected |
+| 35 | `google_apis` | 89 / 82 / 0 / 0 / 7 | 1/1 passed | JNI 5/5; Xray provider 4/4 |
+| 36 | `google_apis` | 89 / 82 / 0 / 0 / 7 | 1/1 passed | Not selected |
+| 37 | `google_apis_ps16k` | 89 / 82 / 0 / 0 / 7 | 1/1 passed | Not selected |
+
+Full totals are 445 executions, 410 passes and 35 existing skips, with no failure or error. Simple ran only `simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel` once per API; all five passed without skips. The seven existing Full skips cover optional network/root cases and the Simple-only navigation method. JNI and real Xray-provider acceptance ran only on API 35, with no failures or skips. API 27 now passes real keyboard appearance, one Done callback, retained text, lost field focus and real keyboard disappearance; the fixture correction did not change the callback or timeouts.
+
+Raw owning XML, instrumentation output, SHA-256 hashes and exact scope are in the [device summary](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-integration/hosted-device-250/device-summary.json). The [unit summary](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-integration/ci-watch-39141917390/unit-summary.json) and [source-tree proof](/Users/npochaev/Documents/Codex/2026-10-18/ripdpi-styles-integration/pr-622-250-merge-tree.json) retain their actual source identities. Preserved owning suites are used instead of app output files that later suites can overwrite.
+
+The final closure commits update documentation, normative specifications and task receipts. Protected PR checks must also pass on that final head before main integration. Historical local launcher and performance results below remain tied to their actual source and APK hashes. Owner acceptance does not convert the numerical INCONCLUSIVE result into PASS.
+
 ## Owner acceptance and final integration
 
 On 2026-10-18 the owner stated that acceptance was complete and authorized final main integration, documentation and dependency updates, and remote push. This decision accepts the recorded emulator performance limitation. The strict comparison remains INCONCLUSIVE, exit 3, with the Controls observations retained. Neither the five-percent threshold nor the raw evidence is changed.
 
-The integration rebases the migration onto `e82b513ff8ad9da3f6163a52a71ac8337f1f1877`. It retains current haptic preference/result handling, diagnostics progress, route state and responsiveness changes. Both benchmark-only activities remain declared; a duplicate `benchmark` build-type declaration from the automatic merge is removed. Combined-tree build, test and device results will be recorded before main is advanced. Historical APK and performance source SHAs below remain their actual build identities.
+The integration rebases the migration onto `e82b513ff8ad9da3f6163a52a71ac8337f1f1877`. It retains current haptic preference/result handling, diagnostics progress, route state and responsiveness changes. Both benchmark-only activities remain declared; a duplicate `benchmark` build-type declaration from the automatic merge is removed. Combined-tree build, test and device results are recorded above. The final documentation and task closure use the same PR before protected main integration. Historical APK and performance source SHAs below remain their actual build identities.
 
 ## Hosted integration correction
 
@@ -48,7 +70,7 @@ Run [39134300484](https://github.com/po4yka/RIPDPI/actions/runs/39134300484) tes
 
 The only failure was the API 27 Styles IME test's post-Done inset-visibility wait. The earlier IME-show wait passed. The log records input restart after text insertion but does not record the actual keyboard window, callback count or field focus at failure. It does not prove that the keyboard remained visible or that changing callback order would fix it. The required aggregate failed; this run is not an integration PASS.
 
-The test now observes the selected software IME's actual accessibility window through the existing UiAutomator dependency. It must first observe the keyboard appear, then disappear after Done. The field-value, focus and single-callback assertions run before the final visibility wait. Both visibility timeouts remain five seconds. The callback and product code are unchanged; no manual keyboard dismissal, retry, API exclusion or baseline change is added. The next hosted run must verify the window transitions and all required gates.
+The test now observes the selected software IME's actual accessibility window through the existing UiAutomator dependency. It must first observe the keyboard appear, then disappear after Done. The field-value, focus and single-callback assertions run before the final visibility wait. Both visibility timeouts remain five seconds. The callback and product code are unchanged; no manual keyboard dismissal, retry, API exclusion or baseline change is added. At that checkpoint a new hosted run was required; its outcome is recorded separately below.
 
 ## Fourth hosted focus observation
 
@@ -56,17 +78,17 @@ Run [39138081023](https://github.com/po4yka/RIPDPI/actions/runs/39138081023) tes
 
 The new observer confirmed that the real selected IME appeared. After Done the field still contained `resolver.example`, but its semantics reported `Focused=true`, so the no-focus assertion failed before callback-count and IME-hide assertions. This is stronger evidence than the earlier inset timeout; it does not establish the callback count or final keyboard visibility.
 
-The published Compose source calls `AndroidComposeView.clearOwnerFocus()`, which calls `super.clearFocus()`. Android 8.1 [View.clearFocus()](https://android.googlesource.com/platform/frameworks/base/+/android-8.1.0_r1/core/java/android/view/View.java) then asks the root to choose focus again. The one-editor fixture now supplies a focusable non-editor content container before content is installed. Default focus search chooses that container before its descendants; an explicit field focus request remains possible. The Done callback, real-IME visibility checks, API coverage and five-second timeouts are unchanged. Callback count is now asserted before no-focus to retain that diagnostic if focus fails. This source-supported fixture correction still needs a successful hosted run; no success is claimed from the failed run.
+The published Compose source calls `AndroidComposeView.clearOwnerFocus()`, which calls `super.clearFocus()`. Android 8.1 [View.clearFocus()](https://android.googlesource.com/platform/frameworks/base/+/android-8.1.0_r1/core/java/android/view/View.java) then asks the root to choose focus again. The one-editor fixture now supplies a focusable non-editor content container before content is installed. Default focus search chooses that container before its descendants; an explicit field focus request remains possible. The Done callback, real-IME visibility checks, API coverage and five-second timeouts are unchanged. Callback count is now asserted before no-focus to retain that diagnostic if focus fails. The final hosted run above verifies this source-supported fixture correction. This failed checkpoint remains a failure.
 
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-RDS-STYLE-PARITY | UIX-1792229085066929 | Source 93bc75744; Full/Simple unit tests and owning screenshot verification; all 420 expected fixtures covered | Passed locally |
-| REQ-RDS-STYLE-OVERRIDE | UIX-1792229082522189 | `styles-wave1-after-apply.log`: ten style tests plus existing theme/shared-control tests | Passed locally |
-| REQ-RDS-STYLE-THEME | UIX-1792229083651465 | Theme, state, reduced-motion and control tests; complete Full/Simple unit and screenshot repeat at source 93bc75744 | Passed locally |
-| REQ-RDS-STYLE-COMPATIBILITY | UIX-1792229081138948 | `styles-dependency-gate-final.log`: AAR metadata, Full/Simple compilation, build convention tests | Passed locally |
-| REQ-RDS-STYLE-ACCEPTANCE | UIX-1792229086339829 | Current Full/Simple APK and device checks passed; six actual performance runs completed | Owner accepted the recorded INCONCLUSIVE limitation; combined-tree gate pending |
+| REQ-RDS-STYLE-PARITY | UIX-1792229085066929 | Source 93bc75744; Full/Simple unit tests and owning screenshot verification; all 420 expected fixtures covered | passed |
+| REQ-RDS-STYLE-OVERRIDE | UIX-1792229082522189 | `styles-wave1-after-apply.log`: ten style tests plus existing theme/shared-control tests | passed |
+| REQ-RDS-STYLE-THEME | UIX-1792229083651465 | Theme, state, reduced-motion and control tests; complete Full/Simple unit and screenshot repeat at source 93bc75744 | passed |
+| REQ-RDS-STYLE-COMPATIBILITY | UIX-1792229081138948 | `styles-dependency-gate-final.log`: AAR metadata, Full/Simple compilation, build convention tests | passed |
+| REQ-RDS-STYLE-ACCEPTANCE | UIX-1792229086339829 | Hosted functional/build gates passed at `c504dffe1`; six historical performance runs returned INCONCLUSIVE, exit 3. The owner accepted this limitation on 2026-10-18; no numerical performance PASS is claimed | passed |
 
 ## Historical validation at source 9793d98
 
@@ -85,7 +107,7 @@ The three device cases are `disconnectNeedsASecondActionBeforeItDispatches`, `dr
 
 All three benchmark states use the same release-derived, non-debuggable, shell-profileable configuration and identical harness sources. No APK was rebuilt between series. One API 37 ARM64 pool lease held `emulator-5558` through all six runs. The second series used reverse state order. Actual installed APK hashes, context records, output paths and traces connect the source declarations to execution. Settings restoration and owned process cleanup passed; the shared build slot was released.
 
-The strict parser found no metric with an original-to-Styles regression above 5 percent in both series. Each metric crossed the limit in only one series, so this is INCONCLUSIVE, not PASS. Controls were slower than the dependency-only state by 15.85 and 6.61 percent. `performance.md` retains all values and the evidence limits. The owner later accepted this limitation; the numerical comparison did not pass. Step `UIX-1792229086339829` stays open until combined-tree integration checks finish. No golden or performance baseline was changed.
+The strict parser found no metric with an original-to-Styles regression above 5 percent in both series. Each metric crossed the limit in only one series, so this is INCONCLUSIVE, not PASS. Controls were slower than the dependency-only state by 15.85 and 6.61 percent. `performance.md` retains all values and the evidence limits. The owner later accepted this limitation; the numerical comparison did not pass. The combined-tree runtime and build checks above resolve the final execution step under the owner's recorded acceptance. No golden or performance baseline was changed.
 
 ### Storage recovery and build repairs
 
