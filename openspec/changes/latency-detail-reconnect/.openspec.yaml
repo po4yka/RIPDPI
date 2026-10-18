@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-10-18
+goal: UIX-1792294575616838 Open measured latency details and verify real reconnect
