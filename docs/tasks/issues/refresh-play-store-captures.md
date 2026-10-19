@@ -39,6 +39,7 @@ Replace stale Android capture inputs and Play Store images through their owning 
 - The output scope is 147 potential generated paths. Capture scripts define the exact file set. No source hashes are changed by hand.
 - The device specialist owns the build-gate and command-scoped official emulator lease during capture. It restores settings and removes only an owned temporary device through the official pool.
 - Independent review is read-only. All worktrees and branches are preserved.
+- Root owns the marketing generator font fix in src/app/layout.tsx, src/app/page.tsx, capture.mjs and public/fonts. The Linux CI artifact showed missing Chinese marketing glyphs on all seven Chinese pages. Use a pinned local font with its redistribution license and a regression gate; add no package dependency. The Android source frames remain unchanged. The device specialist owns subsequent generated marketing outputs after the source fix is committed and reviewed.
 
 ## Scope and evidence
 
