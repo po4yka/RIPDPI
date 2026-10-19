@@ -238,7 +238,8 @@ class CaptureDevice:
             else:
                 raise RuntimeError("The real diagnostic scan exceeded five minutes. No frame was saved.")
         self.tap(self.tag(self.tree(), "diagnostics-section-scan"))
-        self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 590)
+        # Keep the preceding scan action behind the fixed header, with the result heading visible.
+        self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 470)
 
     def align(self, tag_name: str, top: int, attempts: int = 32) -> None:
         for _ in range(attempts):

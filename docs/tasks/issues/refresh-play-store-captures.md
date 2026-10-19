@@ -12,7 +12,7 @@ spec_mode: not-required
 openspec_change: null
 created: 2026-10-19
 updated: 2026-10-19
-spec_reason: docs-only
+spec_reason: tooling-only
 ---
 
 ## Goal
@@ -32,6 +32,7 @@ Replace stale Android capture inputs and Play Store images through their owning 
 ## Ownership
 
 - Root owns this portfolio record, execution, evidence, combined checks and integration in RIPDPI-diagnostic-progress-feedback.
+- Root also owns the narrow diagnostic viewport correction in play-store-screenshots/scripts/capture-android.py. It uses real scrolling to hide the preceding partial control and keeps the complete scan summary visible. All seven diagnostic locales require fresh visual review.
 - The device specialist owns only the generated source frames and manifest in play-store-screenshots/public, plus generated source and marketing PNGs in docs/screenshots, in RIPDPI-marketing-capture-refresh on fix/refresh-play-store-captures.
 - The output scope is 147 potential generated paths. Capture scripts define the exact file set. No source hashes are changed by hand.
 - The device specialist owns the build-gate and command-scoped official emulator lease during capture. It restores settings and removes only an owned temporary device through the official pool.
@@ -39,4 +40,4 @@ Replace stale Android capture inputs and Play Store images through their owning 
 
 ## Scope and evidence
 
-The user approved this extension on 2026-10-19. Scheduled Play Store Screenshots run 39236316569 failed before host rendering because its Android input manifest was captured at revision 79f42770660f7d3dcad89bf914b7345e286ff210. The pre-feature source already differed in 537 input paths; current source differs in 551. This is generated documentation and marketing asset maintenance, with no application behavior change.
+The user approved this extension on 2026-10-19. Scheduled Play Store Screenshots run 39236316569 failed before host rendering because its Android input manifest was captured at revision 79f42770660f7d3dcad89bf914b7345e286ff210. The pre-feature source already differed in 537 input paths; current source differs in 551. This is capture tooling and generated documentation maintenance, with no application behavior change. Actual capture review found a partial preceding diagnostic action at the old fixed scroll position. A fresh complete batch must use the corrected tool; incomplete captures remain diagnostic evidence.
