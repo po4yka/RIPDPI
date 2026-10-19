@@ -38,19 +38,19 @@ python3 scripts/capture-android.py \
 python3 scripts/validate-source-captures.py
 ```
 
-The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy configuration use that profile. Home uses 290 dpi / 1.24. The relay picker uses 260 dpi / 1.5 by default, with localized overrides. DNS and backup profiles also depend on the locale. [The owning profile constants](scripts/source_captures.py) define these settings; the manifest records each frame's actual readback. Capture cleanup restores the base density and font scale on success and failure.
+The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy configuration use that profile. Home uses 290 dpi, with font scale 1.0 for English and 0.8 for the other locales. This keeps its real strategy description and measurement captions in the phone viewport. The relay picker uses 260 dpi / 1.5 by default, with localized overrides. DNS and backup profiles also depend on the locale. [The owning profile constants](scripts/source_captures.py) define these settings; the manifest records each frame's actual readback. Capture cleanup restores the base density and font scale on success and failure.
 
 | Locale | Relay: dpi / font scale | DNS: dpi / font scale | Backup: dpi / font scale |
 |---|---|---|---|
-| en | 260 / 1.5 | 360 / 1 | 480 / 0.75 |
+| en | 264 / 1.5 | 360 / 1 | 480 / 0.75 |
 | ru | 260 / 1.5 | 300 / 1.18 | 460 / 0.7826087 |
 | es | 260 / 1.5 | 290 / 1.24 | 460 / 0.7826087 |
-| de | 260 / 1.5 | 300 / 1.2 | 460 / 0.7826087 |
-| fr | 260 / 1.5 | 300 / 1.2 | 460 / 0.7826087 |
-| fa | 250 / 1.56 | 360 / 1 | 440 / 0.8181818 |
-| zh-CN | 255 / 1.5294118 | 420 / 0.8571429 | 500 / 0.72 |
+| de | 260 / 1.5 | 290 / 1.2 | 430 / 0.8372093 |
+| fr | 260 / 1.5 | 290 / 1.2 | 460 / 0.7826087 |
+| fa | 250 / 1.56 | 300 / 1 | 440 / 0.8181818 |
+| zh-CN | 255 / 1.5294118 | 360 / 0.8571429 | 500 / 0.72 |
 
-Home capture requires at least two observed RTT samples. For English, German, French, and Persian, a bounded native scroll brings the complete quality-window metadata into view; the manifest records its measured delta. The other three locales need no Home scroll. DNS capture focuses the complete custom DoH form and IPv6 controls. Its prefilled values are not applied. Native scroll focus is recorded per locale.
+Home capture requires at least two observed RTT samples. For English, a bounded native scroll brings the complete quality-window metadata into view; the manifest records its measured delta. The other locales need no Home scroll. DNS capture focuses the complete custom DoH form and IPv6 controls. Its prefilled values are not applied. Native scroll focus is recorded per locale. Backup capture scrolls French by 12 pixels and Chinese by 16 pixels to keep the restore card whole. The import button must move by the requested distance within four pixels; the manifest records the observed offset for every locale.
 
 Inspect all 42 source frames at full size. Check the captured state and whole content blocks, not just the PNG dimensions. In particular, the diagnostics poster must show an actual completed check, not demo results or the run warning screen. Connection data must come from the real service. Do not use a simulated connected preset. A warning that applies to the captured state must stay visible.
 

@@ -22,6 +22,16 @@ capture_spec.loader.exec_module(capture)
 
 
 class SourceCaptureTests(unittest.TestCase):
+    def test_backup_focus_rejects_an_unobserved_scroll(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.locale = "fr"
+        device.tree = Mock(return_value=ElementTree.fromstring(
+            '<hierarchy><node resource-id="backup-import-button" bounds="[100,1500][980,1600]" /></hierarchy>'))
+        device.scroll = Mock()
+        with self.assertRaisesRegex(RuntimeError, "backup.*viewport"):
+            device.focus_backup()
+        device.scroll.assert_called_once_with(12)
+
     def test_relay_bottom_focus_waits_for_stable_complete_content(self):
         def tree(at_end):
             preset = '' if at_end else '<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="[136,214][546,290]" />'
@@ -166,6 +176,11 @@ class SourceCaptureTests(unittest.TestCase):
         self.data["runReceipts"]["dnsFocus"] = {locale: {"requestedBottomScrollPixels": offset,
             "observedBottomScrollPixels": offset, "observedAtUtc": "2026-10-10T00:00:00+00:00"}
             for locale, offset in DNS_BOTTOM_FOCUS_PIXELS.items()}
+        self.data["state"]["backupScrollPixels"] = capture.BACKUP_SCROLL_PIXELS
+        self.data["runReceipts"]["backupFocus"] = {
+            locale: {"requestedScrollPixels": offset, "observedScrollPixels": offset,
+                     "observedAtUtc": "2026-10-19T00:00:00+00:00"}
+            for locale, offset in capture.BACKUP_SCROLL_PIXELS.items()}
         self.save()
 
     def save(self):
@@ -205,6 +220,16 @@ class SourceCaptureTests(unittest.TestCase):
                 self.data["runReceipts"]["displayFrames"][f"{locale}/relay"] = {
                     **display_profile(locale, "relay"), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
 
+    def test_unobserved_backup_focus_is_rejected(self):
+        self.data["state"]["backupScrollPixels"] = capture.BACKUP_SCROLL_PIXELS
+        self.data["runReceipts"]["backupFocus"] = {
+            locale: {"requestedScrollPixels": offset, "observedScrollPixels": offset,
+                     "observedAtUtc": "2026-10-19T00:00:00+00:00"}
+            for locale, offset in capture.BACKUP_SCROLL_PIXELS.items()}
+        self.data["runReceipts"]["backupFocus"]["fr"]["observedScrollPixels"] = 0
+        self.save()
+        self.assertTrue(any("backup controls viewport" in error for error in self.validate()))
+
     def test_unobserved_dns_focus_is_rejected(self):
         self.data["runReceipts"]["dnsFocus"]["ru"]["observedBottomScrollPixels"] = 0
         self.save()
@@ -216,7 +241,7 @@ class SourceCaptureTests(unittest.TestCase):
         self.assertTrue(any("per-frame density" in error for error in self.validate()))
 
     def test_unobserved_home_scroll_is_rejected(self):
-        self.data["runReceipts"]["homeMeasurements"]["fa"]["observedContentScrollPixels"] = 0
+        self.data["runReceipts"]["homeMeasurements"]["en"]["observedContentScrollPixels"] = 0
         self.save()
         self.assertTrue(any("Home content viewport" in error for error in self.validate()))
 

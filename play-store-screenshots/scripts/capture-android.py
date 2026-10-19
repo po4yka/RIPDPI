@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 PACKAGE = "com.poyka.ripdpi"
 VARIANT = "githubFullDebug"
@@ -120,6 +120,8 @@ class CaptureDevice:
             self.show_relay_fields()
         elif name == "dns-settings":
             self.show_dns_editor()
+        elif name == "backup":
+            self.focus_backup()
 
         time.sleep(1)
 
@@ -349,6 +351,19 @@ class CaptureDevice:
             "requestedBottomScrollPixels": offset, "observedBottomScrollPixels": observed,
             "observedAtUtc": datetime.now(timezone.utc).isoformat()}
 
+    def focus_backup(self) -> None:
+        offset = BACKUP_SCROLL_PIXELS[self.locale]
+        before = self.bounds(self.tag(self.tree(), "backup-import-button"))[1]
+        if offset:
+            self.scroll(offset)
+        after = self.bounds(self.tag(self.tree(), "backup-import-button"))[1]
+        observed = before - after
+        if abs(observed - offset) > 4:
+            raise RuntimeError("The actual backup controls did not reach their complete viewport.")
+        self.receipts.setdefault("backupFocus", {})[self.locale] = {
+            "requestedScrollPixels": offset, "observedScrollPixels": observed,
+            "observedAtUtc": datetime.now(timezone.utc).isoformat()}
+
     def clear_statusbar_demo(self) -> None:
         # Keep Android's current time and real service/network indicators.
         self.adb("shell", "am", "broadcast", "-a", "com.android.systemui.demo", "-e", "command", "exit")
@@ -384,7 +399,7 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
         "theme": "light", "locales": list(LOCALES),
         "routes": {name: route for name, (route, _) in SCREENS.items()},
         "state": {"permissionPreset": "granted", "servicePreset": "live", "dataPreset": "settings_ready",
-                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "localeDisplayOverrides": DISPLAY_OVERRIDES, "dnsBottomFocusPixels": DNS_BOTTOM_FOCUS_PIXELS, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
+                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "localeDisplayOverrides": DISPLAY_OVERRIDES, "dnsBottomFocusPixels": DNS_BOTTOM_FOCUS_PIXELS, "backupScrollPixels": BACKUP_SCROLL_PIXELS, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
                   "home": "real VPN service started through the app; Android VPN consent granted normally",
                   "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
                   "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",
