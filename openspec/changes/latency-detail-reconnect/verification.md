@@ -223,3 +223,40 @@ fresh APK verification and another full device matrix before publication.
 Evidence is in `matrix6-device-owner-handoff.json`,
 `controlled-latency-clock-candidate-v1` and
 `reconnect-return-home-pending-candidate-v1` under the local artifact root.
+
+
+## Matrix seven and the VPN endpoint contract
+
+Source `f75a8d2359a85c2c03cc3980296bca63403fbe2a` passed all eleven
+local producer phases and independent actual APK verification. All 248 JUnit
+executions in 25 suites were fresh, with no failures, errors or skips.
+Architecture health, task validation and strict OpenSpec validation passed.
+
+Matrix seven passed all thirteen latency scenarios, including real TalkBack
+with normal and disabled animation. Each TalkBack lane had seven successful
+speech fragments and two observed returns to the metric. Fresh normal, off
+and Arabic RTL/font2 PNGs passed visual inspection. Latency restoration
+reported no errors. The reconnect journal and genuine VPN consent passed.
+
+The first VPN network lane passed physical review and cancellation, then
+failed a TCP check against the configured port 42915. The native runtime
+actually listened on 45903. Source tracing confirmed the existing VPN
+contract: it requests port zero and private session authentication, then
+publishes the allocated endpoint. DNS refresh reuses that endpoint and
+credentials. The applied configuration receipt does not contain the actual
+listener address. Thus the port failure is a test contract mismatch; it
+does not establish that Cancel stopped the running VPN.
+
+The correction is limited to acceptance. VPN must use an owned fresh native
+listener snapshot for continuity checks and retain the real separate-UID
+VPN DNS, payload and TUN-counter proofs. Proxy keeps configured A/B/C ports
+and the supported SOCKS handshake. Runtime generation must remain distinct
+from a possibly reused ephemeral address. No production port or session
+authentication policy changes. Fresh compilation, APK verification and
+another complete network acceptance remain required.
+
+The matrix result is 17 passed, one failed, five not run and zero skipped.
+All restoration levels reported no errors. The final observer confirmed
+removal of only the owned temporary AVD and its processes. Evidence is in
+`matrix7-device-owner-handoff.json`, `matrix7-root-visual-review.json` and
+`reconnect-attempt9-readonly-triage-v1` under the local artifact root.

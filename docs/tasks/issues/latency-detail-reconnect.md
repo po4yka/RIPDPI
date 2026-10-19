@@ -94,6 +94,13 @@ Open latency evidence from the measured RTT value and verify real reconnect from
   driver copy, which waits for a pending window transition before strict
   destination verification. Both fixes follow matrix six cleanup and review.
 
+- The endpoint-contract writer owns HomeReconnectNetworkAcceptanceTest.kt and
+  HomeReconnectNetworkAcceptanceSupport.kt in an isolated worktree from f75a8d2.
+  VPN acceptance uses its actual private listener from owned fresh telemetry.
+  Proxy acceptance keeps configured ports and its supported SOCKS handshake.
+  Root owns the corresponding specification and evidence update. Review is
+  read-only; no production listener or authentication policy is changed.
+
 ## Design sources
 
 Use DESIGN.md, docs/design-system.md and the executable theme. RDS references are

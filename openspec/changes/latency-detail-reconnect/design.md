@@ -27,7 +27,15 @@ service reconnect. See proposal.md and the delta requirements.
   requests before and after, session identity and saved/applied configuration.
 - Use the existing fixture trust contract for VPN: initial HTTP DoH, then
   a coherent live DNS revision with verified DoT and the fixture CA. Explicit
-  reconnect must change the native listener and runtime while retaining DoT.
+  reconnect must start a new native runtime and listener generation while
+  retaining DoT. VPN allocates its private authenticated listener at bind time.
+  Its actual endpoint comes from fresh telemetry of the admitted runtime; the
+  saved Proxy port does not specify that endpoint. DNS refresh and cancellation
+  retain the same actual endpoint. Confirmation requires a new runtime and
+  actual VPN traffic through its listener. If the address changes, the previous
+  address must be closed. The operating system may reuse an ephemeral address;
+  an address alone does not prove a runtime generation. No private credentials
+  are read or exported by the acceptance test.
   Record only the known owned DNS revision; unknown runtime owners remain
   rejected. Run both additional
   Proxy lanes through the supported HTTP DoH fixture path and real A/B/C

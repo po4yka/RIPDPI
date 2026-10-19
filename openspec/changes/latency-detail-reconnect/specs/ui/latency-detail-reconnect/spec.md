@@ -63,6 +63,17 @@ Acceptance MUST drive Home review through the actual service, native runtime and
 - **AND** every lane retains cancellation, stale-review, actual-runtime, applied-state and traffic assertions
 - **AND** receipts do not claim Proxy custom-CA DoT coverage
 
+#### Scenario: Verify the actual listener owned by VPN
+
+- **WHEN** VPN acceptance observes its running native service
+- **THEN** it resolves the actual private listener from a fresh snapshot of the admitted runtime
+- **AND** it does not infer that listener from the saved Proxy port or use a no-auth SOCKS handshake
+- **AND** supported DNS refresh, cancellation and stale review preserve the same runtime and actual endpoint
+- **AND** confirmation requires a new owned runtime, its actual listener and successful VPN DNS and payload traffic
+- **AND** if the new address differs, the old address is closed
+- **AND** reuse of an ephemeral address cannot replace positive evidence of the new runtime generation
+- **AND** Proxy retains configured A/B/C port and supported SOCKS checks
+
 ### Requirement: REQ-LDR-VERIFY — Keep validation and publication evidence distinct
 
 The change MUST record focused host tests, normal/reduced/off presentation, real TalkBack, RTL/font2, actual reconnect network evidence, exact APK provenance and hosted CI separately. It MUST preserve privacy, service admission and quality gates. All new text MUST cover ten locales. Main integration MUST follow rebased combined checks and authorized ordinary push.

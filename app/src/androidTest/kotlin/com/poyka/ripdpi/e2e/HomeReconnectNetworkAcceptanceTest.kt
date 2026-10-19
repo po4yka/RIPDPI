@@ -24,9 +24,13 @@ import com.poyka.ripdpi.data.LocalNetworkPermissionApi
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.RuntimeConfigurationPendingStatus
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementFreshness
+import com.poyka.ripdpi.service.telemetry.freshness
+import com.poyka.ripdpi.service.telemetry.measurementSource
 import com.poyka.ripdpi.services.DefaultServiceController
 import com.poyka.ripdpi.services.RunningServiceReconnect
 import com.poyka.ripdpi.services.ServiceController
@@ -85,6 +89,7 @@ class HomeReconnectNetworkAcceptanceTest {
     private lateinit var ownedSettings: List<AppSettings>
     private lateinit var replacementDnsProtocol: String
     private lateinit var initialReceipt: com.poyka.ripdpi.data.RuntimeActivationReceipt
+    private var originalVpnListener: Int? = null
     private var baselineIds = emptySet<String>()
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
@@ -267,6 +272,10 @@ class HomeReconnectNetworkAcceptanceTest {
         ownership.recordRuntime(original, awaitCoherentAuthority(original, initialReceipt.commandId))
         assertEquals("doh", original.dns.protocol)
         awaitRunning(mode)
+        if (mode == Mode.VPN) {
+            originalVpnListener = captureVpnListener("initial", original)
+            evidence.assertTcpListenerOpen(checkNotNull(originalVpnListener))
+        }
         evidence.probe("initial", mode, port, "doh")
         ui.observe("initial-running")
         return original
@@ -279,6 +288,7 @@ class HomeReconnectNetworkAcceptanceTest {
     ): AppliedRuntimeConfiguration {
         runBlocking { settings.replace(ownedSettings[1]) }
         val current = awaitOwnedDnsRefresh(mode, original)
+        if (mode == Mode.VPN) assertOriginalVpnListener("dns-refreshed", current)
         awaitPending(mode)
         openReview("open-cancel-review")
         ui.readSection(
@@ -310,9 +320,13 @@ class HomeReconnectNetworkAcceptanceTest {
         ui.action("cancel-review", RipDpiTestTags.HomeRuntimeReconnectDialog, context.getString(R.string.config_cancel))
         ui.awaitTag(RipDpiTestTags.HomeRuntimeReconnectDialog, false)
         assertCurrent(mode, current)
-        evidence.assertListenerOpen(ports[0])
-        evidence.assertListenerClosed(ports[1])
-        evidence.assertListenerClosed(ports[2])
+        if (mode == Mode.VPN) {
+            assertOriginalVpnListener("cancelled", current)
+        } else {
+            evidence.assertListenerOpen(ports[0])
+            evidence.assertListenerClosed(ports[1])
+            evidence.assertListenerClosed(ports[2])
+        }
         evidence.probe("cancelled", mode, ports[0], checkNotNull(current.dns.protocol))
         assertCurrent(mode, current)
         evidence.assertOnlySessions(original.runtimeId)
@@ -352,9 +366,13 @@ class HomeReconnectNetworkAcceptanceTest {
         runBlocking { settings.replace(ownedSettings[2]) }
         ui.awaitTag(RipDpiTestTags.HomeRuntimeReconnectDialog, false)
         assertCurrent(mode, original)
-        evidence.assertListenerClosed(ports[1])
-        evidence.assertListenerClosed(ports[2])
-        evidence.assertListenerOpen(ports[0])
+        if (mode == Mode.VPN) {
+            assertOriginalVpnListener("stale", original)
+        } else {
+            evidence.assertListenerClosed(ports[1])
+            evidence.assertListenerClosed(ports[2])
+            evidence.assertListenerOpen(ports[0])
+        }
         evidence.probe("stale", mode, ports[0], checkNotNull(original.dns.protocol))
         assertCurrent(mode, original)
         evidence.assertOnlySessions(original.runtimeId)
@@ -377,9 +395,25 @@ class HomeReconnectNetworkAcceptanceTest {
         assertNotEquals(original.runtimeId, replacement.runtimeId)
         assertEquals(replacementDnsProtocol, replacement.dns.protocol)
         ui.awaitTag(RipDpiTestTags.HomeRuntimeReconnectDialog, false)
-        evidence.assertListenerClosed(ports[0])
-        evidence.assertListenerClosed(ports[1])
-        evidence.assertListenerOpen(ports[2])
+        if (mode == Mode.VPN) {
+            val replacementListener = captureVpnListener("reconnected", replacement)
+            evidence.assertTcpListenerOpen(replacementListener)
+            val previousListener = checkNotNull(originalVpnListener)
+            if (previousListener != replacementListener) evidence.assertListenerClosed(previousListener)
+            evidence.record(
+                "vpn-listener-replacement",
+                JSONObject()
+                    .put("originalRuntimeId", original.runtimeId)
+                    .put("replacementRuntimeId", replacement.runtimeId)
+                    .put("originalAddress", "127.0.0.1:$previousListener")
+                    .put("replacementAddress", "127.0.0.1:$replacementListener")
+                    .put("endpointReused", previousListener == replacementListener),
+            )
+        } else {
+            evidence.assertListenerClosed(ports[0])
+            evidence.assertListenerClosed(ports[1])
+            evidence.assertListenerOpen(ports[2])
+        }
         evidence.probe("reconnected", mode, ports[2], replacementDnsProtocol)
         evidence.assertOnlySessions(original.runtimeId, replacement.runtimeId)
         evidence.record(
@@ -391,6 +425,72 @@ class HomeReconnectNetworkAcceptanceTest {
                 .put("mode", mode.name),
         )
         ui.observe("reconnected")
+    }
+
+    private fun assertOriginalVpnListener(
+        stage: String,
+        configuration: AppliedRuntimeConfiguration,
+    ) {
+        val listener = captureVpnListener(stage, configuration)
+        assertEquals(
+            "The owned VPN runtime must retain its actual listener",
+            checkNotNull(originalVpnListener),
+            listener,
+        )
+        evidence.assertTcpListenerOpen(listener)
+    }
+
+    private fun captureVpnListener(
+        stage: String,
+        configuration: AppliedRuntimeConfiguration,
+    ): Int {
+        check(configuration.mode == Mode.VPN)
+        val before = awaitCoherentAuthority(configuration)
+        val notBefore = System.currentTimeMillis()
+        var listener: Int? = null
+        var capturedAt = 0L
+        HomeReconnectNetworkAcceptanceSupport.await("No fresh listener for the owned VPN runtime", 15_000) {
+            val telemetry = serviceState.telemetry.value
+            val proxy = telemetry.proxyTelemetry
+            val now = System.currentTimeMillis()
+            val port =
+                Regex("127\\.0\\.0\\.1:([0-9]{1,5})")
+                    .matchEntire(proxy.listenerAddress.orEmpty())
+                    ?.groupValues
+                    ?.get(1)
+                    ?.toIntOrNull()
+            if (telemetry.mode != Mode.VPN || telemetry.status != AppStatus.Running ||
+                serviceState.status.value != AppStatus.Running to Mode.VPN ||
+                telemetry.proxyTelemetryStatus.state != RuntimeTelemetryState.Snapshot ||
+                proxy.source != "proxy" || proxy.state != "running" || port == null || port !in 1..65535 ||
+                proxy.capturedAt <= maxOf(configuration.appliedAt, notBefore) || proxy.capturedAt > now ||
+                proxy.measurementSource(telemetry).freshness(now) != RuntimeMeasurementFreshness.Current
+            ) {
+                return@await false
+            }
+            val current =
+                (applications.applications.value[Mode.VPN] as? RuntimeConfigurationApplication.Applied)?.configuration
+            val after = runBlocking { serviceController.captureRuntimeSnapshot() }
+            if (current != configuration || before != after || !ownership.isCoherent(configuration, after)) {
+                return@await false
+            }
+            listener = port
+            capturedAt = proxy.capturedAt
+            true
+        }
+        val port = checkNotNull(listener)
+        val command = checkNotNull(before.command)
+        evidence.record(
+            "vpn-listener-$stage",
+            JSONObject()
+                .put("configuration", configuration.toEvidence())
+                .put("commandId", command.commandId)
+                .put("generation", command.generation)
+                .put("address", "127.0.0.1:$port")
+                .put("notBefore", notBefore)
+                .put("capturedAt", capturedAt),
+        )
+        return port
     }
 
     private fun openReview(stage: String) {
