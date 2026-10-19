@@ -26,7 +26,7 @@ Replace stale Android capture inputs and Play Store images through their owning 
 - Regenerate the source manifest, English aliases and documentation copies through capture-android.py.
 - Pass strict source validation and regenerate all 56 marketing images through capture:prod.
 - Review the actual images for layout, clipping, locale text and source freshness.
-- Preserve application source, workflows, Roborazzi fixtures and unrelated work. Limit capture-tool changes to the reviewed framing corrections below.
+- Preserve production application source, workflows, Roborazzi fixtures and unrelated work. Limit capture-tool changes to the reviewed framing corrections below.
 - Publish the reviewed generated files and inspect exact published push CI and the screenshot workflow.
 
 ## Ownership
@@ -40,6 +40,9 @@ Replace stale Android capture inputs and Play Store images through their owning 
 - The device specialist owns the build-gate and command-scoped official emulator lease during capture. It restores settings and removes only an owned temporary device through the official pool.
 - Independent review is read-only. All worktrees and branches are preserved.
 - Root owns the marketing generator font fix in src/app/layout.tsx, src/app/page.tsx, capture.mjs, public/fonts, package.json and the host font validation and tests in scripts. The Linux CI artifact showed missing Chinese marketing glyphs on all seven Chinese pages. Use a pinned local font with its redistribution license and a regression gate; add no package dependency. The Android source frames remain unchanged. The device specialist owns subsequent generated marketing outputs after the source fix is committed and reviewed.
+
+- The recovery test worker owns only app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/XrayProviderE2ETest.kt and TestSupport.kt in the isolated RIPDPI-xray-dns-recovery-acceptance worktree on fix/xray-dns-recovery-acceptance. First add safe phase, query and response observations and reproduce the four-case provider suite. Keep all assertions, expected counts, timeout limits and negative bypass checks unchanged until the observed cause supports a reviewed correction. The worker owns the serialized local build and official emulator lease for this diagnosis. Root owns task records and integration. Other agents inspect code and evidence read-only.
+- The published API 35 provider gate found DNS SERVFAIL after TCP recovery. This adds test diagnosis to CI acceptance, not a production network change. Production Kotlin, Rust, wire contracts, fixture protocols, dependencies and quality gates remain outside this diagnostic writer scope. A production correction needs a separate design and explicit ownership before editing. The existing Android source capture manifest excludes these test files.
 
 ## Scope and evidence
 
