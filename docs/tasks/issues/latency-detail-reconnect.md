@@ -2,7 +2,7 @@
 id: UIX-1792294575616838
 title: Open measured latency details and verify real reconnect
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: Latency and reconnect integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: latency-detail-reconnect
 created: 2026-10-18
 updated: 2026-10-19
+closed_at: "2026-10-19T09:50:30Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source 3892c80727e7cbaa1e06b348ea4f95123a251fe5: 248 fresh local executions; 23 emulator cases including real TalkBack normal/off and six local-network lanes; strict source/APK/native verification; all seven exact published push workflows and 53 active checks passed. CI https://github.com/po4yka/RIPDPI/actions/runs/39227195065; root-source-ci-3892-final-v1/summary.json SHA256 d4c812aebc8132bb3d8f274aad96d67e8f2e05427ffa141c25dcf7cc07a6307a."
 ---
 
 ## Goal

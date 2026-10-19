@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-10-19T09:50:30Z",
+  "change": "latency-detail-reconnect",
+  "commit_sha": "3892c80727e7cbaa1e06b348ea4f95123a251fe5",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "UIX-1792294575616838"
+}

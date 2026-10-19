@@ -1,0 +1,11 @@
+{
+  "change": "latency-detail-reconnect",
+  "evidence_summary": "Source 3892c80727e7cbaa1e06b348ea4f95123a251fe5: 248 fresh local executions; 23 emulator cases including real TalkBack normal/off and six local-network lanes; strict source/APK/native verification; all seven exact published push workflows and 53 active checks passed. CI https://github.com/po4yka/RIPDPI/actions/runs/39227195065; root-source-ci-3892-final-v1/summary.json SHA256 d4c812aebc8132bb3d8f274aad96d67e8f2e05427ffa141c25dcf7cc07a6307a.",
+  "execution_sha256": "74e77a89a1993f9a4c2e33a821aab3a6c86735818f4efe559e7ef70a8d0a6003",
+  "issue_sha256": "dc883f047d295e4176f48a62265d2a7c455a1d8abbf53c12f83ae8cf05209d92",
+  "outcome": "done",
+  "prepared_at": "2026-10-19T09:50:30Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1792294575616838"
+}
