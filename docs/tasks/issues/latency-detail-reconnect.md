@@ -87,6 +87,13 @@ Open latency evidence from the measured RTT value and verify real reconnect from
   of prior speech before initial exploration. The strict speech matcher stays
   unchanged. Root integrates these changes after matrix five cleanup.
 
+- The controlled-clock writer owns only HomeLatencyDetailsAcceptanceTest.kt in
+  the isolated latency-talkback-fixture-clock worktree. The manual TalkBack
+  case uses the existing explicit clock input for its fixed measurement source.
+  Other cases retain the live clock. Root owns the new external ReturnHome
+  driver copy, which waits for a pending window transition before strict
+  destination verification. Both fixes follow matrix six cleanup and review.
+
 ## Design sources
 
 Use DESIGN.md, docs/design-system.md and the executable theme. RDS references are

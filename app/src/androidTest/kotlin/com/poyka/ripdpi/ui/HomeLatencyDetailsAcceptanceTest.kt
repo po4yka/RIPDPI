@@ -258,7 +258,8 @@ class HomeLatencyDetailsAcceptanceTest {
         var observedMotion: RipDpiMotion? = null
         render(motion = null) {
             observedMotion = RipDpiThemeTokens.motion
-            LatencyHome(quality, source)
+            // Keep this controlled snapshot current while real TalkBack speech completes.
+            LatencyHome(quality, source, now = source.capturedAt)
         }
         compose.runOnIdle {
             assertEquals(ValueAnimator.areAnimatorsEnabled(), checkNotNull(observedMotion).animationsEnabled)
@@ -389,8 +390,9 @@ private fun LatencyHome(
     quality: ConnectionQualitySnapshot?,
     source: RuntimeMeasurementSource? = latencySource(),
     connected: Boolean = true,
+    now: Long? = null,
 ) {
-    HomeConnectionMeasurements(quality, source, connected, dataTransferred = 0L, onReprobe = {})
+    HomeConnectionMeasurements(quality, source, connected, dataTransferred = 0L, onReprobe = {}, now = now)
 }
 
 private fun latencyQuality() =

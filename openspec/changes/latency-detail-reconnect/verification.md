@@ -183,3 +183,43 @@ Evidence is under `candidate-build-9fd8fd5a323f`,
 `candidate-9fd8fd5a-independent-verification-strict-v2`,
 `latency-device-attempt9`, `reconnect-device-attempt7` and
 `temporary-voice-matrix-attempt5` at the local artifact root above.
+
+
+## Matrix six and controlled presentation clock
+
+Source `a42e79d942d84d5c42de12c57b14a7162033a602` passed all eleven
+local producer phases. Independent verification confirmed 25 fresh JUnit
+suites and 248 executions with no failures, errors or skips. The actual
+app and test APKs, all 26 changed app source files, two approved PNGs and
+89 native inputs matched their receipts. Fourteen stale results in the
+first build were rejected; the repeated owning tasks produced fresh results.
+
+Matrix six passed eleven ordinary latency scenarios, three ownership guards
+and genuine Android VPN consent. Offline and online speech readiness passed.
+The TalkBack normal lane failed; system-off did not run. Prior speech had
+positive unique completions, and physical exploration produced real TalkBack
+actor history and matching RTT speech. The fixed measurement source then aged
+past its freshness limit. The resulting Home text wrapped and moved the same
+metric down by 60 pixels. The strict frozen bounds check correctly rejected
+that movement. The manual presentation case now uses the existing explicit
+clock input with its controlled source timestamp. Other presentation cases
+and production clocks remain unchanged. Snapshot retention and reopening
+assertions remain in place.
+
+The first VPN lane passed the former scroll failure, but its driver rejected
+the initial pending ReturnHome frame 62 milliseconds after cancellation.
+The same saved sequence later contained the real matching Home destination.
+The new external driver waits only while the exact pending flags hold.
+Completion still requires no dialog, a unique active and focused Home in
+another window, a matching transition proof, and the unchanged 15-second
+arm budget. Independent saved-data replay accepted the real destination
+and rejected identity, state and stale-arm mutations. No network lane
+completed; the other five lanes did not run.
+
+Both child restorations and outer restoration had no errors. The observer
+confirmed removal of only the owned temporary AVD and its processes. Matrix
+six is a failed acceptance run; the corrected source requires compilation,
+fresh APK verification and another full device matrix before publication.
+Evidence is in `matrix6-device-owner-handoff.json`,
+`controlled-latency-clock-candidate-v1` and
+`reconnect-return-home-pending-candidate-v1` under the local artifact root.
