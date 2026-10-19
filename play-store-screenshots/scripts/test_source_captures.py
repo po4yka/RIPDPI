@@ -241,7 +241,7 @@ class SourceCaptureTests(unittest.TestCase):
         self.assertTrue(any("per-frame density" in error for error in self.validate()))
 
     def test_unobserved_home_scroll_is_rejected(self):
-        self.data["runReceipts"]["homeMeasurements"]["en"]["observedContentScrollPixels"] = 0
+        self.data["runReceipts"]["homeMeasurements"]["en"]["observedContentScrollPixels"] = 5
         self.save()
         self.assertTrue(any("Home content viewport" in error for error in self.validate()))
 

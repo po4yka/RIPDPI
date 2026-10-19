@@ -51,10 +51,10 @@ def inputs_sha256(inputs: dict[str, str]) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 DISPLAY_PROFILES = {name: {"densityDpi": DENSITY_DPI, "fontScale": 1.0} for name in SCREENS}
-DISPLAY_PROFILES["home"] = {"densityDpi": 290, "fontScale": 1.0}
+DISPLAY_PROFILES["home"] = {"densityDpi": 290, "fontScale": 0.8}
 DISPLAY_PROFILES["relay"] = {"densityDpi": 260, "fontScale": 1.5}
 
-HOME_SCROLL_PIXELS = {locale: 20 if locale == "en" else 0 for locale in LOCALES}
+HOME_SCROLL_PIXELS = {locale: 0 for locale in LOCALES}
 
 BACKUP_DENSITIES = {"en": 480, "ru": 460, "es": 460, "de": 430, "fr": 460, "fa": 440, "zh-CN": 500}
 DNS_DISPLAY_PROFILES = {
@@ -72,9 +72,6 @@ DISPLAY_OVERRIDES = {
         "dns-settings": DNS_DISPLAY_PROFILES[locale],
     } for locale in LOCALES
 }
-for locale in LOCALES:
-    if locale != "en":
-        DISPLAY_OVERRIDES[locale]["home"] = {"densityDpi": 290, "fontScale": 0.8}
 DISPLAY_OVERRIDES["en"]["relay"] = {"densityDpi": 264, "fontScale": 1.5}
 DISPLAY_OVERRIDES["fa"]["relay"] = {"densityDpi": 250, "fontScale": 1.56}
 DISPLAY_OVERRIDES["zh-CN"]["relay"] = {"densityDpi": 255, "fontScale": 1.5294118}
