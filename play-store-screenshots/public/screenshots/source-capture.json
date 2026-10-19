@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "capturedAtUtc": "2026-10-19T14:31:49.466962+00:00",
-  "builtFromRevision": "e7f9c41fe4f53f676830042bc5ae950aa4b89ef2",
+  "capturedAtUtc": "2026-10-19T15:28:08.985492+00:00",
+  "builtFromRevision": "078ff4bd2b9bf05466a97336d3a2ab6be2d10868",
   "apk": {
     "variant": "githubFullDebug",
     "filename": "app-github-full-arm64-v8a-debug.apk",
-    "sha256": "73a69df0bf3da9d426e40165083f3fafded2d215d9aab5d1165ae83a20ed5022"
+    "sha256": "2a981ce7c6c721a387cbb7147d9784a3a46583c8c5f5eba74710a0b7527ee989"
   },
   "libXray": {
-    "manifestSha256": "f2cc2ce9ffb075745803a2b69d647b058a99bf5276c50d1ce093bb8227d55470",
-    "aarSha256": "4908b513f2d4efc6b97ddc32120418cab579f6dd0b440005e00332ef2304dfc7",
+    "manifestSha256": "35ae2340900d2f49bf27ab724013d11f0992259589e6f91ab9e78a65a49e6c2e",
+    "aarSha256": "4b3779f6cbbb5e56703575347964da40c95e51a706b79d0af01df31c8da8d08a",
     "verification": "verify-libxray-artifacts.sh --release passed"
   },
   "device": {
     "kind": "dedicated emulator",
-    "avd": "RIPDPI_Temp_371e7f52c1f4",
+    "avd": "RIPDPI_Temp_7053ef3818bf",
     "model": "sdk_gphone64_arm64",
     "api": 37,
     "abi": "arm64-v8a",
@@ -199,54 +199,54 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.ACCESS_LOCAL_NETWORK"
       ],
-      "observedAtUtc": "2026-10-19T14:13:10.706956+00:00"
+      "observedAtUtc": "2026-10-19T15:10:11.179045+00:00"
     },
     "vpn": {
-      "observedAtUtc": "2026-10-19T14:29:03.853441+00:00",
+      "observedAtUtc": "2026-10-19T15:25:25.264926+00:00",
       "service": "RipDpiVpnService",
       "transport": "VPN CONNECTED; owner com.poyka.ripdpi",
-      "stoppedNormallyAtUtc": "2026-10-19T14:29:30.617278+00:00"
+      "stoppedNormallyAtUtc": "2026-10-19T15:25:48.843711+00:00"
     },
     "homeMeasurements": {
       "en": {
         "sampleCount": 2,
-        "observedAtUtc": "2026-10-19T14:13:25.569243+00:00",
+        "observedAtUtc": "2026-10-19T15:10:25.121377+00:00",
         "contentScrollPixels": 0,
         "observedContentScrollPixels": 0
       },
       "ru": {
-        "sampleCount": 3,
-        "observedAtUtc": "2026-10-19T14:16:31.826936+00:00",
+        "sampleCount": 2,
+        "observedAtUtc": "2026-10-19T15:13:27.883551+00:00",
         "contentScrollPixels": 0,
         "observedContentScrollPixels": 0
       },
       "es": {
         "sampleCount": 2,
-        "observedAtUtc": "2026-10-19T14:19:01.643195+00:00",
+        "observedAtUtc": "2026-10-19T15:15:49.359219+00:00",
         "contentScrollPixels": 0,
         "observedContentScrollPixels": 0
       },
       "de": {
         "sampleCount": 2,
-        "observedAtUtc": "2026-10-19T14:21:23.792263+00:00",
+        "observedAtUtc": "2026-10-19T15:18:11.923220+00:00",
         "contentScrollPixels": 0,
         "observedContentScrollPixels": 0
       },
       "fr": {
         "sampleCount": 2,
-        "observedAtUtc": "2026-10-19T14:24:08.653022+00:00",
+        "observedAtUtc": "2026-10-19T15:20:46.426895+00:00",
         "contentScrollPixels": 0,
         "observedContentScrollPixels": 0
       },
       "fa": {
         "sampleCount": 2,
-        "observedAtUtc": "2026-10-19T14:26:44.186184+00:00",
+        "observedAtUtc": "2026-10-19T15:23:06.620661+00:00",
         "contentScrollPixels": 0,
         "observedContentScrollPixels": 0
       },
       "zh-CN": {
         "sampleCount": 2,
-        "observedAtUtc": "2026-10-19T14:29:22.057050+00:00",
+        "observedAtUtc": "2026-10-19T15:25:40.283494+00:00",
         "contentScrollPixels": 0,
         "observedContentScrollPixels": 0
       }
@@ -506,15 +506,15 @@
       }
     },
     "diagnostics": {
-      "id": "be687d2e-cb07-4120-8a62-bb28b4e15d4b",
+      "id": "a0e24f5d-0ada-4b8f-9632-871e9e7907a3",
       "profileId": "default",
       "status": "completed",
       "reportCompletionKind": null,
       "reportTerminationReason": null,
-      "startedAt": 1792419233073,
-      "finishedAt": 1792419277263,
-      "reportBytes": 151222,
-      "reportSha256": "dcccb237d66b52a8d72cbdae4225bfc78fee4453c06b1c1d364f3ac4e63f9cd9",
+      "startedAt": 1792422653817,
+      "finishedAt": 1792422694454,
+      "reportBytes": 151234,
+      "reportSha256": "0a250a4c379a9c5903f78bd5b3fc872077286b4c8bb5dc47ab935c7b864619d8",
       "resultCount": 21,
       "outcomes": {
         "dns_compatible_divergence": 6,
@@ -526,80 +526,80 @@
         "tls_ok": 5
       },
       "previousSessionId": null,
-      "clickedAt": 1792419223000
+      "clickedAt": 1792422643000
     },
     "dnsFocus": {
       "en": {
         "requestedBottomScrollPixels": 45,
         "observedBottomScrollPixels": 46,
-        "observedAtUtc": "2026-10-19T14:15:55.778613+00:00"
+        "observedAtUtc": "2026-10-19T15:12:52.234537+00:00"
       },
       "ru": {
         "requestedBottomScrollPixels": 45,
-        "observedBottomScrollPixels": 45,
-        "observedAtUtc": "2026-10-19T14:18:18.031959+00:00"
+        "observedBottomScrollPixels": 46,
+        "observedAtUtc": "2026-10-19T15:15:13.602202+00:00"
       },
       "es": {
         "requestedBottomScrollPixels": 45,
         "observedBottomScrollPixels": 45,
-        "observedAtUtc": "2026-10-19T14:20:47.663695+00:00"
+        "observedAtUtc": "2026-10-19T15:17:35.904827+00:00"
       },
       "de": {
         "requestedBottomScrollPixels": 35,
-        "observedBottomScrollPixels": 35,
-        "observedAtUtc": "2026-10-19T14:23:09.594728+00:00"
+        "observedBottomScrollPixels": 34,
+        "observedAtUtc": "2026-10-19T15:19:58.039959+00:00"
       },
       "fr": {
         "requestedBottomScrollPixels": 35,
         "observedBottomScrollPixels": 35,
-        "observedAtUtc": "2026-10-19T14:25:51.084137+00:00"
+        "observedAtUtc": "2026-10-19T15:22:28.970615+00:00"
       },
       "fa": {
         "requestedBottomScrollPixels": 35,
         "observedBottomScrollPixels": 35,
-        "observedAtUtc": "2026-10-19T14:28:30.406143+00:00"
+        "observedAtUtc": "2026-10-19T15:24:52.339073+00:00"
       },
       "zh-CN": {
         "requestedBottomScrollPixels": 35,
         "observedBottomScrollPixels": 36,
-        "observedAtUtc": "2026-10-19T14:31:23.886630+00:00"
+        "observedAtUtc": "2026-10-19T15:27:43.202380+00:00"
       }
     },
     "backupFocus": {
       "en": {
         "requestedScrollPixels": 0,
         "observedScrollPixels": 0,
-        "observedAtUtc": "2026-10-19T14:16:16.515347+00:00"
+        "observedAtUtc": "2026-10-19T15:13:13.276912+00:00"
       },
       "ru": {
         "requestedScrollPixels": 0,
         "observedScrollPixels": 0,
-        "observedAtUtc": "2026-10-19T14:18:39.029773+00:00"
+        "observedAtUtc": "2026-10-19T15:15:34.811256+00:00"
       },
       "es": {
         "requestedScrollPixels": 0,
         "observedScrollPixels": 0,
-        "observedAtUtc": "2026-10-19T14:21:08.571722+00:00"
+        "observedAtUtc": "2026-10-19T15:17:57.059485+00:00"
       },
       "de": {
         "requestedScrollPixels": 0,
         "observedScrollPixels": 0,
-        "observedAtUtc": "2026-10-19T14:23:30.828158+00:00"
+        "observedAtUtc": "2026-10-19T15:20:19.113377+00:00"
       },
       "fr": {
         "requestedScrollPixels": 12,
         "observedScrollPixels": 12,
-        "observedAtUtc": "2026-10-19T14:26:14.364623+00:00"
+        "observedAtUtc": "2026-10-19T15:22:51.813671+00:00"
       },
       "fa": {
         "requestedScrollPixels": 0,
         "observedScrollPixels": 0,
-        "observedAtUtc": "2026-10-19T14:28:52.107073+00:00"
+        "observedAtUtc": "2026-10-19T15:25:13.551295+00:00"
       },
       "zh-CN": {
         "requestedScrollPixels": 16,
         "observedScrollPixels": 17,
-        "observedAtUtc": "2026-10-19T14:31:46.758937+00:00"
+        "observedAtUtc": "2026-10-19T15:28:06.390924+00:00"
       }
     },
     "relayBottomFocus": {
@@ -624,10 +624,10 @@
       "precedingPresetBounds": [],
       "unchangedObservations": 2,
       "scrollAttempts": 3,
-      "observedAtUtc": "2026-10-19T14:30:58.949270+00:00"
+      "observedAtUtc": "2026-10-19T15:27:17.923837+00:00"
     }
   },
-  "uiInputsSha256": "e2d329e803ee11e04575b366fb36becbb5db54bbb79ae45a2c3cd71d1fc19c9f",
+  "uiInputsSha256": "48365ec03a5a208f5807926a6e0c8f457260dfb7e577beb4adc025c29301a69c",
   "uiInputs": {
     "app/build.gradle.kts": "dcc110d723ef6538d140d924494297f5ada9916c8ace3e9cbfe78b9cee3c55e8",
     "app/src/debug/AndroidManifest.xml": "0a71b2dbb6392c1721b94200c058c294497d6096a8ca76de700a831be1b985c7",
@@ -3242,98 +3242,98 @@
     "core/service/src/main/res/values/strings_pause.xml": "e6468226409d8b678ddb7ce8f900decce2644af33fb4e71ee20ed6b539be6868",
     "core/service/src/main/res/values/strings_runtime_localization.xml": "8da6f499a270661ad4d6cbec514c2e37b15bae5f08895f5e45701544c6845e27",
     "gradle.properties": "b55a1a4a622ee5910a34f593ac6ef3f19fb078a982fe9c0fac9184e4ef370211",
-    "gradle/libs.versions.toml": "42cdbe5cd4dda373f9e538339da63f9f4235e33960bed22cc5b0811fa46bf1c9"
+    "gradle/libs.versions.toml": "045094347ebb2846abaed5b3ca2c7ab9446f46d4187b5d34ea7d406ac5b8708b"
   },
   "images": {
-    "play-store-screenshots/public/screenshots/en/home-light.png": "2ca6465c306af51ebd55be5b334860bfcd1c40b8ff5c3bb8daea05ff6f55477b",
-    "docs/screenshots/ui/en/home.png": "2ca6465c306af51ebd55be5b334860bfcd1c40b8ff5c3bb8daea05ff6f55477b",
-    "play-store-screenshots/public/screenshots/en/diagnostics.png": "d18557152583e4c9b00bd7e7145170bd74be16884d73559e45509519f653114b",
-    "docs/screenshots/ui/en/diagnostics.png": "d18557152583e4c9b00bd7e7145170bd74be16884d73559e45509519f653114b",
-    "play-store-screenshots/public/screenshots/en/relay.png": "7d34e16c22257f8b3aabd505c508a54b9c34955a117b8cc858bfb7c4d74a6549",
-    "docs/screenshots/ui/en/relay.png": "7d34e16c22257f8b3aabd505c508a54b9c34955a117b8cc858bfb7c4d74a6549",
-    "play-store-screenshots/public/screenshots/en/dns-settings.png": "a76bf35203953ad1a72aed7dfda491d3dcd5cc169925277c6d85a7d7dd2e3554",
-    "docs/screenshots/ui/en/dns-settings.png": "a76bf35203953ad1a72aed7dfda491d3dcd5cc169925277c6d85a7d7dd2e3554",
-    "play-store-screenshots/public/screenshots/en/strategies.png": "29e31faa80a7b63fc6ef43f65765ad1ec3c1e9ab494b9edcbe78daf505506580",
-    "docs/screenshots/ui/en/strategies.png": "29e31faa80a7b63fc6ef43f65765ad1ec3c1e9ab494b9edcbe78daf505506580",
-    "play-store-screenshots/public/screenshots/en/backup.png": "83c7bac592f6593e1731043f427bccf60713e01329ff6d13fb770b5a1eb48d7d",
-    "docs/screenshots/ui/en/backup.png": "83c7bac592f6593e1731043f427bccf60713e01329ff6d13fb770b5a1eb48d7d",
-    "play-store-screenshots/public/screenshots/ru/home-light.png": "d1d88394976b77a4734cd4f2ab3003545e555ca1122b6c7c1ee546e70dd611f6",
-    "docs/screenshots/ui/ru/home.png": "d1d88394976b77a4734cd4f2ab3003545e555ca1122b6c7c1ee546e70dd611f6",
-    "play-store-screenshots/public/screenshots/ru/diagnostics.png": "1289998b3b5e067b0d4e14c6b1d0ff043e0b3fee6e48ec17d8b8873504467fac",
-    "docs/screenshots/ui/ru/diagnostics.png": "1289998b3b5e067b0d4e14c6b1d0ff043e0b3fee6e48ec17d8b8873504467fac",
-    "play-store-screenshots/public/screenshots/ru/relay.png": "44ac890cb33b74d87d86ea79dcc7843fa2094fd69e74b78419810ce95807fc2e",
-    "docs/screenshots/ui/ru/relay.png": "44ac890cb33b74d87d86ea79dcc7843fa2094fd69e74b78419810ce95807fc2e",
-    "play-store-screenshots/public/screenshots/ru/dns-settings.png": "0d214f4bdeec39a2803685e28985d9e4f476b61d38e68c0143e5ddb28c7a4a65",
-    "docs/screenshots/ui/ru/dns-settings.png": "0d214f4bdeec39a2803685e28985d9e4f476b61d38e68c0143e5ddb28c7a4a65",
-    "play-store-screenshots/public/screenshots/ru/strategies.png": "0c31853b37ff85a2be784d794bed45341b9a4dfe1574175c5e71739740b1b7c8",
-    "docs/screenshots/ui/ru/strategies.png": "0c31853b37ff85a2be784d794bed45341b9a4dfe1574175c5e71739740b1b7c8",
-    "play-store-screenshots/public/screenshots/ru/backup.png": "cba94cadcc7a1920da32ca0d9eb5d54986cf076314c4497f64c49989d2c92a03",
-    "docs/screenshots/ui/ru/backup.png": "cba94cadcc7a1920da32ca0d9eb5d54986cf076314c4497f64c49989d2c92a03",
-    "play-store-screenshots/public/screenshots/es/home-light.png": "48b7e22ac8e7336de20589315015cf953aeb588c1bc6dce534baed5e4872a343",
-    "docs/screenshots/ui/es/home.png": "48b7e22ac8e7336de20589315015cf953aeb588c1bc6dce534baed5e4872a343",
-    "play-store-screenshots/public/screenshots/es/diagnostics.png": "ca7fd86fefa0575dbf3e34f00eaa9a35a0c6ff3c67c244a563ad6a1268cfaaac",
-    "docs/screenshots/ui/es/diagnostics.png": "ca7fd86fefa0575dbf3e34f00eaa9a35a0c6ff3c67c244a563ad6a1268cfaaac",
-    "play-store-screenshots/public/screenshots/es/relay.png": "07597bb06ed03d0837c1bcc7fc8042c4e4e2de915bcf711c1fe5689343529b33",
-    "docs/screenshots/ui/es/relay.png": "07597bb06ed03d0837c1bcc7fc8042c4e4e2de915bcf711c1fe5689343529b33",
-    "play-store-screenshots/public/screenshots/es/dns-settings.png": "829dda7c5435a3a9d3ab8fa88b0aa8d5ccc77e6f3574b0c1458a127fe6092506",
-    "docs/screenshots/ui/es/dns-settings.png": "829dda7c5435a3a9d3ab8fa88b0aa8d5ccc77e6f3574b0c1458a127fe6092506",
-    "play-store-screenshots/public/screenshots/es/strategies.png": "1a47263fdc076370c073feeeaae71a3e25262b24d6dc3763915e242244ac8dbf",
-    "docs/screenshots/ui/es/strategies.png": "1a47263fdc076370c073feeeaae71a3e25262b24d6dc3763915e242244ac8dbf",
-    "play-store-screenshots/public/screenshots/es/backup.png": "b756ea2dd21dfb62460312a5d7b28cff8b1610c91511754f84c5a2e1bd66cb88",
-    "docs/screenshots/ui/es/backup.png": "b756ea2dd21dfb62460312a5d7b28cff8b1610c91511754f84c5a2e1bd66cb88",
-    "play-store-screenshots/public/screenshots/de/home-light.png": "10b8ec5bfa6b067007836dbf55b5f1eb04a97d0838dfe5e3e121b8caa7d01e94",
-    "docs/screenshots/ui/de/home.png": "10b8ec5bfa6b067007836dbf55b5f1eb04a97d0838dfe5e3e121b8caa7d01e94",
-    "play-store-screenshots/public/screenshots/de/diagnostics.png": "313050d51e2ad588694de3f71185051d82a03b4197e32f42b59c5d3209197888",
-    "docs/screenshots/ui/de/diagnostics.png": "313050d51e2ad588694de3f71185051d82a03b4197e32f42b59c5d3209197888",
-    "play-store-screenshots/public/screenshots/de/relay.png": "0061f0dc012f7bfabfc2d0383c9b968d2b2b11b8da87cdd90ea8ca08e17bddf9",
-    "docs/screenshots/ui/de/relay.png": "0061f0dc012f7bfabfc2d0383c9b968d2b2b11b8da87cdd90ea8ca08e17bddf9",
-    "play-store-screenshots/public/screenshots/de/dns-settings.png": "76f79e50c5c516b4f2573f9d8c36f217f83cfdfb2a727e0e158b38a4ac8ed371",
-    "docs/screenshots/ui/de/dns-settings.png": "76f79e50c5c516b4f2573f9d8c36f217f83cfdfb2a727e0e158b38a4ac8ed371",
-    "play-store-screenshots/public/screenshots/de/strategies.png": "ce4317dd8316ecbec8f6d06811ca4a5f1eca47f41f90e31fed64a3f7e574d593",
-    "docs/screenshots/ui/de/strategies.png": "ce4317dd8316ecbec8f6d06811ca4a5f1eca47f41f90e31fed64a3f7e574d593",
-    "play-store-screenshots/public/screenshots/de/backup.png": "8d52cc4a0288a34789134d6507fc102ffc75a5d355a96875a2023aeb72c3efa8",
-    "docs/screenshots/ui/de/backup.png": "8d52cc4a0288a34789134d6507fc102ffc75a5d355a96875a2023aeb72c3efa8",
-    "play-store-screenshots/public/screenshots/fr/home-light.png": "dc0825817500740453fe1c05be9f28390e452eb5c32731c7f1b56437fc0e6e49",
-    "docs/screenshots/ui/fr/home.png": "dc0825817500740453fe1c05be9f28390e452eb5c32731c7f1b56437fc0e6e49",
-    "play-store-screenshots/public/screenshots/fr/diagnostics.png": "73ae0a1d4410980375330a0569a5736928ac0309a4a55f4cc19ddc8b27e8a391",
-    "docs/screenshots/ui/fr/diagnostics.png": "73ae0a1d4410980375330a0569a5736928ac0309a4a55f4cc19ddc8b27e8a391",
-    "play-store-screenshots/public/screenshots/fr/relay.png": "a8fe349764db7930fea9eac22ff0f340dd23c0fb0bafadfaa2804f4a08659ebb",
-    "docs/screenshots/ui/fr/relay.png": "a8fe349764db7930fea9eac22ff0f340dd23c0fb0bafadfaa2804f4a08659ebb",
-    "play-store-screenshots/public/screenshots/fr/dns-settings.png": "95d705672e5a2579c4d674de4f5e36e9dfdc046c20af5090639c1a2b980a8377",
-    "docs/screenshots/ui/fr/dns-settings.png": "95d705672e5a2579c4d674de4f5e36e9dfdc046c20af5090639c1a2b980a8377",
-    "play-store-screenshots/public/screenshots/fr/strategies.png": "66987612ed25f19705a40593e216c0515895e34a4e7d5887c3b5f77f002e4bb9",
-    "docs/screenshots/ui/fr/strategies.png": "66987612ed25f19705a40593e216c0515895e34a4e7d5887c3b5f77f002e4bb9",
-    "play-store-screenshots/public/screenshots/fr/backup.png": "bc5c3bcd78b850d9f1e3f453a5f3c18d72f1f7b9e076cbf3847624c891a9c38e",
-    "docs/screenshots/ui/fr/backup.png": "bc5c3bcd78b850d9f1e3f453a5f3c18d72f1f7b9e076cbf3847624c891a9c38e",
-    "play-store-screenshots/public/screenshots/fa/home-light.png": "c8b78e7a589d43f9f984b75aa6e6165578fa498401fa96897b283b85842a0211",
-    "docs/screenshots/ui/fa/home.png": "c8b78e7a589d43f9f984b75aa6e6165578fa498401fa96897b283b85842a0211",
-    "play-store-screenshots/public/screenshots/fa/diagnostics.png": "304e39189e1073923dfad060bf471e8666a60756ae96c982fbdd48b8b30082c5",
-    "docs/screenshots/ui/fa/diagnostics.png": "304e39189e1073923dfad060bf471e8666a60756ae96c982fbdd48b8b30082c5",
-    "play-store-screenshots/public/screenshots/fa/relay.png": "5b86be89d0162ca146b9c99bf6d938fc95dded620c7ead00714c7d27176e178d",
-    "docs/screenshots/ui/fa/relay.png": "5b86be89d0162ca146b9c99bf6d938fc95dded620c7ead00714c7d27176e178d",
-    "play-store-screenshots/public/screenshots/fa/dns-settings.png": "dff8c16d721450e45926da1ee326f4c92e8b2c0c15325c122577dc6fcf45ae78",
-    "docs/screenshots/ui/fa/dns-settings.png": "dff8c16d721450e45926da1ee326f4c92e8b2c0c15325c122577dc6fcf45ae78",
-    "play-store-screenshots/public/screenshots/fa/strategies.png": "6cd96ddca7e7fa1a3c6c7bff79e382906f1a729616425630778c0427dbd3ac07",
-    "docs/screenshots/ui/fa/strategies.png": "6cd96ddca7e7fa1a3c6c7bff79e382906f1a729616425630778c0427dbd3ac07",
-    "play-store-screenshots/public/screenshots/fa/backup.png": "ce0f28467b0a25761f37b9b86af908ac756c2ada7c19a69c3ed846285975d48d",
-    "docs/screenshots/ui/fa/backup.png": "ce0f28467b0a25761f37b9b86af908ac756c2ada7c19a69c3ed846285975d48d",
-    "play-store-screenshots/public/screenshots/zh-CN/home-light.png": "0d1f062de2fff40d830293d4f8ae13d3d52d897dcceae2491fbe15fc877085a0",
-    "docs/screenshots/ui/zh-CN/home.png": "0d1f062de2fff40d830293d4f8ae13d3d52d897dcceae2491fbe15fc877085a0",
-    "play-store-screenshots/public/screenshots/zh-CN/diagnostics.png": "6c25150570c7fe688445794996e155a2c37015d605b067e05cd5ea00bef5a332",
-    "docs/screenshots/ui/zh-CN/diagnostics.png": "6c25150570c7fe688445794996e155a2c37015d605b067e05cd5ea00bef5a332",
-    "play-store-screenshots/public/screenshots/zh-CN/relay.png": "9e53878088d5f508ca353819bb353c1d89f0abd14595e13a66a1b179ce55f4f9",
-    "docs/screenshots/ui/zh-CN/relay.png": "9e53878088d5f508ca353819bb353c1d89f0abd14595e13a66a1b179ce55f4f9",
-    "play-store-screenshots/public/screenshots/zh-CN/dns-settings.png": "848659809269fd0f11a2145ae738f31bfbf128fcd1608847855b6d99ea722d60",
-    "docs/screenshots/ui/zh-CN/dns-settings.png": "848659809269fd0f11a2145ae738f31bfbf128fcd1608847855b6d99ea722d60",
-    "play-store-screenshots/public/screenshots/zh-CN/strategies.png": "acc5c2f603a9be8aead3be80c75becf08cab337367671da653e876b33b599e2e",
-    "docs/screenshots/ui/zh-CN/strategies.png": "acc5c2f603a9be8aead3be80c75becf08cab337367671da653e876b33b599e2e",
-    "play-store-screenshots/public/screenshots/zh-CN/backup.png": "3f381923eaf79f9852128de43fbaf3c54f9a149206de363fe88493cb3ea21023",
-    "docs/screenshots/ui/zh-CN/backup.png": "3f381923eaf79f9852128de43fbaf3c54f9a149206de363fe88493cb3ea21023",
-    "play-store-screenshots/public/screenshots/home-light.png": "2ca6465c306af51ebd55be5b334860bfcd1c40b8ff5c3bb8daea05ff6f55477b",
-    "play-store-screenshots/public/screenshots/diagnostics.png": "d18557152583e4c9b00bd7e7145170bd74be16884d73559e45509519f653114b",
-    "play-store-screenshots/public/screenshots/relay.png": "7d34e16c22257f8b3aabd505c508a54b9c34955a117b8cc858bfb7c4d74a6549",
-    "play-store-screenshots/public/screenshots/dns-settings.png": "a76bf35203953ad1a72aed7dfda491d3dcd5cc169925277c6d85a7d7dd2e3554",
-    "play-store-screenshots/public/screenshots/strategies.png": "29e31faa80a7b63fc6ef43f65765ad1ec3c1e9ab494b9edcbe78daf505506580",
-    "play-store-screenshots/public/screenshots/backup.png": "83c7bac592f6593e1731043f427bccf60713e01329ff6d13fb770b5a1eb48d7d"
+    "play-store-screenshots/public/screenshots/en/home-light.png": "75ad41ee1577bc83cad3476d8937f5a4393e1962fd62f2d79941951c7f8452c7",
+    "docs/screenshots/ui/en/home.png": "75ad41ee1577bc83cad3476d8937f5a4393e1962fd62f2d79941951c7f8452c7",
+    "play-store-screenshots/public/screenshots/en/diagnostics.png": "9d7e374c7c98d1eee1eb5e98877329035e74e2ee898f2a6e1f7b74a7574d4c85",
+    "docs/screenshots/ui/en/diagnostics.png": "9d7e374c7c98d1eee1eb5e98877329035e74e2ee898f2a6e1f7b74a7574d4c85",
+    "play-store-screenshots/public/screenshots/en/relay.png": "156b20cac19961a7f73b53bf5f8839600bc64844c0a86b47831e1fa313b66570",
+    "docs/screenshots/ui/en/relay.png": "156b20cac19961a7f73b53bf5f8839600bc64844c0a86b47831e1fa313b66570",
+    "play-store-screenshots/public/screenshots/en/dns-settings.png": "62dae451b81d6776ee7e5d634574b7dfd004675b8b032694c1044d524eb3826a",
+    "docs/screenshots/ui/en/dns-settings.png": "62dae451b81d6776ee7e5d634574b7dfd004675b8b032694c1044d524eb3826a",
+    "play-store-screenshots/public/screenshots/en/strategies.png": "b193878301f8ce39b32bf8d9aca799827e754fc7f1bd9baa15d8186cd982c0f3",
+    "docs/screenshots/ui/en/strategies.png": "b193878301f8ce39b32bf8d9aca799827e754fc7f1bd9baa15d8186cd982c0f3",
+    "play-store-screenshots/public/screenshots/en/backup.png": "e4390849bb74716e1f254788af922e87988c72cc4b7c4c83e25527927745efd0",
+    "docs/screenshots/ui/en/backup.png": "e4390849bb74716e1f254788af922e87988c72cc4b7c4c83e25527927745efd0",
+    "play-store-screenshots/public/screenshots/ru/home-light.png": "f08b2108dd002814df6ba7d77237f56f066e1b4cf124b1607538c0fdf95fa5ec",
+    "docs/screenshots/ui/ru/home.png": "f08b2108dd002814df6ba7d77237f56f066e1b4cf124b1607538c0fdf95fa5ec",
+    "play-store-screenshots/public/screenshots/ru/diagnostics.png": "52c4042f4ee5819b8602af37a36dfd3fda5e0159d2352764d0bda1858c79b8d4",
+    "docs/screenshots/ui/ru/diagnostics.png": "52c4042f4ee5819b8602af37a36dfd3fda5e0159d2352764d0bda1858c79b8d4",
+    "play-store-screenshots/public/screenshots/ru/relay.png": "67dfd8cb99ad875068acae9e1f3e0be71f36c95cc40ba937093a176090aace56",
+    "docs/screenshots/ui/ru/relay.png": "67dfd8cb99ad875068acae9e1f3e0be71f36c95cc40ba937093a176090aace56",
+    "play-store-screenshots/public/screenshots/ru/dns-settings.png": "6986305a5d1e07c27c3cfbba21d3b98f1f67b356f4fa37894e72ec3c87fdf03d",
+    "docs/screenshots/ui/ru/dns-settings.png": "6986305a5d1e07c27c3cfbba21d3b98f1f67b356f4fa37894e72ec3c87fdf03d",
+    "play-store-screenshots/public/screenshots/ru/strategies.png": "fc1bc9bb8216268cdfafa6b41c8bc8a911755a29c6bbe08ffdd40340dfda519b",
+    "docs/screenshots/ui/ru/strategies.png": "fc1bc9bb8216268cdfafa6b41c8bc8a911755a29c6bbe08ffdd40340dfda519b",
+    "play-store-screenshots/public/screenshots/ru/backup.png": "066e7be1f80275560043058049523cd9a11e57eac40530cae381f73b718ffbb9",
+    "docs/screenshots/ui/ru/backup.png": "066e7be1f80275560043058049523cd9a11e57eac40530cae381f73b718ffbb9",
+    "play-store-screenshots/public/screenshots/es/home-light.png": "a8903cb6137ff3873a07bf917361a5fb8eb5d3b37eaf53eaa34e8a0a5ab22759",
+    "docs/screenshots/ui/es/home.png": "a8903cb6137ff3873a07bf917361a5fb8eb5d3b37eaf53eaa34e8a0a5ab22759",
+    "play-store-screenshots/public/screenshots/es/diagnostics.png": "c1fa6f4853acdf86f26eeb70ae8942f598b913b08504668b0c6e6ef555dd0839",
+    "docs/screenshots/ui/es/diagnostics.png": "c1fa6f4853acdf86f26eeb70ae8942f598b913b08504668b0c6e6ef555dd0839",
+    "play-store-screenshots/public/screenshots/es/relay.png": "6ebf4d75567366f7990cdca6e14e6c9f305da38c3aed5af75ca138db66f00d8e",
+    "docs/screenshots/ui/es/relay.png": "6ebf4d75567366f7990cdca6e14e6c9f305da38c3aed5af75ca138db66f00d8e",
+    "play-store-screenshots/public/screenshots/es/dns-settings.png": "3f553b9ed3c0b1ce7b5b352c09c19dbb77d0187b2221857f46112b275ffe4ff2",
+    "docs/screenshots/ui/es/dns-settings.png": "3f553b9ed3c0b1ce7b5b352c09c19dbb77d0187b2221857f46112b275ffe4ff2",
+    "play-store-screenshots/public/screenshots/es/strategies.png": "55a5b92cfde6cd2f9acf0f58634028fa4182d301730856cd06d43fefe5dabb53",
+    "docs/screenshots/ui/es/strategies.png": "55a5b92cfde6cd2f9acf0f58634028fa4182d301730856cd06d43fefe5dabb53",
+    "play-store-screenshots/public/screenshots/es/backup.png": "e831b8cddffee12a8bb121ee989cb512e04187692baf34b39c7713f9c10adda9",
+    "docs/screenshots/ui/es/backup.png": "e831b8cddffee12a8bb121ee989cb512e04187692baf34b39c7713f9c10adda9",
+    "play-store-screenshots/public/screenshots/de/home-light.png": "de104e10b51c20d420bb1892d39c3932e1f8e12fd59f94a7c394f6cdc40740ce",
+    "docs/screenshots/ui/de/home.png": "de104e10b51c20d420bb1892d39c3932e1f8e12fd59f94a7c394f6cdc40740ce",
+    "play-store-screenshots/public/screenshots/de/diagnostics.png": "7a4b32cc129da560cb40a03f535ff84b0a29497a1d43dff1d1a62129fe0acd54",
+    "docs/screenshots/ui/de/diagnostics.png": "7a4b32cc129da560cb40a03f535ff84b0a29497a1d43dff1d1a62129fe0acd54",
+    "play-store-screenshots/public/screenshots/de/relay.png": "7de79da4029e8c4316bfdb641f25889745fc590a3bfa0e9e36cc3070bc519084",
+    "docs/screenshots/ui/de/relay.png": "7de79da4029e8c4316bfdb641f25889745fc590a3bfa0e9e36cc3070bc519084",
+    "play-store-screenshots/public/screenshots/de/dns-settings.png": "b7947d54fd1ea376cfb96511e5590307ceec46dae8112dc09f0575e3f191a1c0",
+    "docs/screenshots/ui/de/dns-settings.png": "b7947d54fd1ea376cfb96511e5590307ceec46dae8112dc09f0575e3f191a1c0",
+    "play-store-screenshots/public/screenshots/de/strategies.png": "f93589c0acc8efbdd3855f7083032a4d8da22feae926264fa29d0cf75fe3cee7",
+    "docs/screenshots/ui/de/strategies.png": "f93589c0acc8efbdd3855f7083032a4d8da22feae926264fa29d0cf75fe3cee7",
+    "play-store-screenshots/public/screenshots/de/backup.png": "1e66d07b589f6a3994f791b425d98e5c061b355a41ec0424076089f68569e79e",
+    "docs/screenshots/ui/de/backup.png": "1e66d07b589f6a3994f791b425d98e5c061b355a41ec0424076089f68569e79e",
+    "play-store-screenshots/public/screenshots/fr/home-light.png": "832d756c311a690ac9a585241464370c209f98354ad780586d05096d8236a4f5",
+    "docs/screenshots/ui/fr/home.png": "832d756c311a690ac9a585241464370c209f98354ad780586d05096d8236a4f5",
+    "play-store-screenshots/public/screenshots/fr/diagnostics.png": "9974771f165f8742602d22033841f88fb5c57170ed3da9d5706c13e9b91b4fe2",
+    "docs/screenshots/ui/fr/diagnostics.png": "9974771f165f8742602d22033841f88fb5c57170ed3da9d5706c13e9b91b4fe2",
+    "play-store-screenshots/public/screenshots/fr/relay.png": "84dfd412fc133aaaf0a9a5dd884d50ad7fbcd0d6cf127cc044f66564cd99587a",
+    "docs/screenshots/ui/fr/relay.png": "84dfd412fc133aaaf0a9a5dd884d50ad7fbcd0d6cf127cc044f66564cd99587a",
+    "play-store-screenshots/public/screenshots/fr/dns-settings.png": "29b7455a1db12e1e04b3ae8525dfc3fed0646815a6b3502b647df561609bf9b2",
+    "docs/screenshots/ui/fr/dns-settings.png": "29b7455a1db12e1e04b3ae8525dfc3fed0646815a6b3502b647df561609bf9b2",
+    "play-store-screenshots/public/screenshots/fr/strategies.png": "d0d39790fe0e12742ea9a33fed5eae2c0c0fcd9888a80b249e1b9aa7bd793e78",
+    "docs/screenshots/ui/fr/strategies.png": "d0d39790fe0e12742ea9a33fed5eae2c0c0fcd9888a80b249e1b9aa7bd793e78",
+    "play-store-screenshots/public/screenshots/fr/backup.png": "c45127ef1a3c87ef41ce3152a4539a197c99340e8f07c89c604ddac6a4888076",
+    "docs/screenshots/ui/fr/backup.png": "c45127ef1a3c87ef41ce3152a4539a197c99340e8f07c89c604ddac6a4888076",
+    "play-store-screenshots/public/screenshots/fa/home-light.png": "0a4f33a66ca5417953a3586394a950da74bb05e14713ba9d6e5ed5288fe36df8",
+    "docs/screenshots/ui/fa/home.png": "0a4f33a66ca5417953a3586394a950da74bb05e14713ba9d6e5ed5288fe36df8",
+    "play-store-screenshots/public/screenshots/fa/diagnostics.png": "9594963dc77a00441caf51285fa8b52c133e30e5b8502034b4321e6e935a8522",
+    "docs/screenshots/ui/fa/diagnostics.png": "9594963dc77a00441caf51285fa8b52c133e30e5b8502034b4321e6e935a8522",
+    "play-store-screenshots/public/screenshots/fa/relay.png": "75a1e511c8f73c66f6293218fe7640e385b8224aae4924aaf0e132f8ae1cc820",
+    "docs/screenshots/ui/fa/relay.png": "75a1e511c8f73c66f6293218fe7640e385b8224aae4924aaf0e132f8ae1cc820",
+    "play-store-screenshots/public/screenshots/fa/dns-settings.png": "4c74f1da762e916e0a3d2d053f1ef96cbaf1d9bba4c927b1d5898a87c24063b6",
+    "docs/screenshots/ui/fa/dns-settings.png": "4c74f1da762e916e0a3d2d053f1ef96cbaf1d9bba4c927b1d5898a87c24063b6",
+    "play-store-screenshots/public/screenshots/fa/strategies.png": "4641816388d6947ee0d26253fd54577ed10b4ff49d5f3a5fc13b3addfef1fceb",
+    "docs/screenshots/ui/fa/strategies.png": "4641816388d6947ee0d26253fd54577ed10b4ff49d5f3a5fc13b3addfef1fceb",
+    "play-store-screenshots/public/screenshots/fa/backup.png": "8ec10756bf2321e3d46ab97296e09d352434905d30d1b4c015f8e4fb810b4001",
+    "docs/screenshots/ui/fa/backup.png": "8ec10756bf2321e3d46ab97296e09d352434905d30d1b4c015f8e4fb810b4001",
+    "play-store-screenshots/public/screenshots/zh-CN/home-light.png": "82d4f58b4fe0af8ab31fbe29e25f5998433dbc0122c5394a8e438d83f7ffe22c",
+    "docs/screenshots/ui/zh-CN/home.png": "82d4f58b4fe0af8ab31fbe29e25f5998433dbc0122c5394a8e438d83f7ffe22c",
+    "play-store-screenshots/public/screenshots/zh-CN/diagnostics.png": "df6e5899dfd26fba90b6fe19aa75f2bbc816d585ead12799666b4627bb1be41b",
+    "docs/screenshots/ui/zh-CN/diagnostics.png": "df6e5899dfd26fba90b6fe19aa75f2bbc816d585ead12799666b4627bb1be41b",
+    "play-store-screenshots/public/screenshots/zh-CN/relay.png": "8d681b45d3bd3a10bae0437a65db7fca2932e5e49ff367755c53cf25206375f9",
+    "docs/screenshots/ui/zh-CN/relay.png": "8d681b45d3bd3a10bae0437a65db7fca2932e5e49ff367755c53cf25206375f9",
+    "play-store-screenshots/public/screenshots/zh-CN/dns-settings.png": "be47de185ba1fa5d7b0dd9b44013267f1ad9b9b1c51f2a1b4e9a165a003c6206",
+    "docs/screenshots/ui/zh-CN/dns-settings.png": "be47de185ba1fa5d7b0dd9b44013267f1ad9b9b1c51f2a1b4e9a165a003c6206",
+    "play-store-screenshots/public/screenshots/zh-CN/strategies.png": "05c922ea671b2a5dcaacf724c64e42ca63794a983af1bea717e931e8a9330669",
+    "docs/screenshots/ui/zh-CN/strategies.png": "05c922ea671b2a5dcaacf724c64e42ca63794a983af1bea717e931e8a9330669",
+    "play-store-screenshots/public/screenshots/zh-CN/backup.png": "1c54e36866de976977e521f65dc99751fcbda902afa5ccf2882160afbdacef2c",
+    "docs/screenshots/ui/zh-CN/backup.png": "1c54e36866de976977e521f65dc99751fcbda902afa5ccf2882160afbdacef2c",
+    "play-store-screenshots/public/screenshots/home-light.png": "75ad41ee1577bc83cad3476d8937f5a4393e1962fd62f2d79941951c7f8452c7",
+    "play-store-screenshots/public/screenshots/diagnostics.png": "9d7e374c7c98d1eee1eb5e98877329035e74e2ee898f2a6e1f7b74a7574d4c85",
+    "play-store-screenshots/public/screenshots/relay.png": "156b20cac19961a7f73b53bf5f8839600bc64844c0a86b47831e1fa313b66570",
+    "play-store-screenshots/public/screenshots/dns-settings.png": "62dae451b81d6776ee7e5d634574b7dfd004675b8b032694c1044d524eb3826a",
+    "play-store-screenshots/public/screenshots/strategies.png": "b193878301f8ce39b32bf8d9aca799827e754fc7f1bd9baa15d8186cd982c0f3",
+    "play-store-screenshots/public/screenshots/backup.png": "e4390849bb74716e1f254788af922e87988c72cc4b7c4c83e25527927745efd0"
   }
 }
