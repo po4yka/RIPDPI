@@ -49,8 +49,10 @@ service reconnect. See proposal.md and the delta requirements.
   observed value. Do not set the process animation scale in the test.
 - Capture fixture traffic on host loopback with an exact filter for its three
   bound TCP ports. Keep the emulator console capture as a separate diagnostic.
-  Before capture stop, require all actual DNS and payload nonces in a raw
-  snapshot. After stop, repeat the strict check on the complete immutable PCAP.
+  Before capture stop, apply the unchanged packet predicate to a raw snapshot
+  and matching fixture DNS events. Verify all payload nonces, DoH DNS names
+  and VPN DoT TLS records. After stop, repeat the strict check on the complete
+  immutable PCAP and fixture events.
 - RDS references: components-metric-pill, components-bottom-sheet,
   motion-page-transitions and motion-reduced-motion. Adapt the Trackables
   reference to a local detail surface; no cross-window shared morph is claimed.
