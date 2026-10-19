@@ -68,7 +68,9 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
             if line.split("#", 1)[0].strip()
         }
 
-        for raw_path in COVERAGE_CRITICAL_FILES.read_text(encoding="utf-8").splitlines():
+        for raw_path in COVERAGE_CRITICAL_FILES.read_text(
+            encoding="utf-8"
+        ).splitlines():
             path = raw_path.strip()
             if not path or path.startswith("#"):
                 continue
@@ -98,7 +100,9 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         # This job executes the pinned external emitter. Keep all repository cache
         # actions out of that execution context; it only needs a JDK for Gradle's
         # JVM-only FleetCompat test.
-        self.assertIn("actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6", fleet_job)
+        self.assertIn(
+            "actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad", fleet_job
+        )
         self.assertNotIn("uses: ./.github/actions/setup-android-rust", fleet_job)
         self.assertNotIn("actions/cache", fleet_job)
 
@@ -208,6 +212,7 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
 
         self.assertIn("-Pripdpi.nativeAbisOverride=${gradle_abi}", packet_smoke)
         self.assertNotIn("-Pripdpi.localNativeAbis=", packet_smoke)
+
 
 if __name__ == "__main__":
     unittest.main()
