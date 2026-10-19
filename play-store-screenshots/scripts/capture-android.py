@@ -82,11 +82,11 @@ class CaptureDevice:
         self.adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
         time.sleep(0.6)
 
-    def scroll(self, delta: int) -> None:
+    def scroll(self, delta: int, *, x: int = 540) -> None:
         density = int(re.findall(r"density: ([0-9]+)", self.adb("shell", "wm", "density"))[-1])
         slop = round(density * 8 / 160)
         step = max(-600, min(600, delta + (slop if delta > 0 else -slop)))
-        self.adb("shell", "input", "swipe", "540", "1450" if step > 0 else "750", "540", str(1450 - step) if step > 0 else str(750 - step), "900")
+        self.adb("shell", "input", "swipe", str(x), "1450" if step > 0 else "750", str(x), str(1450 - step) if step > 0 else str(750 - step), "900")
         time.sleep(0.8)
 
     def show_route(self, name: str, route: str, *, reset: bool = False) -> None:
@@ -242,15 +242,15 @@ class CaptureDevice:
         self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 470)
 
     @staticmethod
-    def viewport_top(tree: ElementTree.Element, node: ElementTree.Element) -> int:
+    def viewport_bounds(tree: ElementTree.Element, node: ElementTree.Element) -> list[int]:
         parents = {child: parent for parent in tree.iter() for child in parent}
         ancestor = parents.get(node)
         while ancestor is not None:
             if ancestor.get("scrollable") == "true":
                 bounds = CaptureDevice.bounds(ancestor)
-                if len(bounds) != 4 or bounds[3] <= bounds[1]:
+                if len(bounds) != 4 or bounds[3] <= bounds[1] or bounds[2] <= bounds[0] + 8:
                     raise RuntimeError("The actual capture viewport bounds are invalid. No frame was saved.")
-                return bounds[1]
+                return bounds
             ancestor = parents.get(ancestor)
         raise RuntimeError("The actual capture viewport is missing. No frame was saved.")
 
@@ -261,11 +261,16 @@ class CaptureDevice:
             if node is None:
                 self.scroll(500)
                 continue
-            target_top = top if top is not None else self.viewport_top(tree, node) + 4
+            viewport = self.viewport_bounds(tree, node) if top is None else None
+            target_top = top if top is not None else viewport[1] + 4
             delta = self.bounds(node)[1] - target_top
             if abs(delta) <= 4:
                 return
-            self.scroll(delta)
+            if viewport is None:
+                self.scroll(delta)
+            else:
+                # The editor's scroll padding is outside inputs, including the local port.
+                self.scroll(delta, x=viewport[0] + 8)
         raise RuntimeError(f"Could not align a complete capture section: {tag_name}")
 
     def show_relay_fields(self) -> None:
@@ -278,7 +283,7 @@ class CaptureDevice:
             if switch is not None:
                 if switch.get("checked") == "false":
                     self.tap(switch)
-                self.align("mode-editor-relay-section-tls-transports")
+                self.align("mode-editor-relay-chip-ru-mobile-relay")
                 return
             self.scroll(550)
         raise RuntimeError("The relay editor switch is missing.")

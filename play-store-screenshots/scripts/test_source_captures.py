@@ -22,6 +22,30 @@ capture_spec.loader.exec_module(capture)
 
 
 class SourceCaptureTests(unittest.TestCase):
+    def test_relay_frame_keeps_the_last_recommended_preset_whole(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(return_value=ElementTree.fromstring(
+            '<hierarchy><node resource-id="config-mode-proxy" />'
+            '<node checkable="true" clickable="true" checked="true" /></hierarchy>'))
+        device.tap = Mock()
+        device.align = Mock()
+        device.show_relay_fields()
+        device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
+
+    def test_relay_alignment_swipes_outside_the_visible_port_field(self):
+        def tree(chip_top):
+            return ElementTree.fromstring(
+                '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+                f'<node resource-id="last-chip" bounds="[136,{chip_top}][546,{chip_top + 76}]" />'
+                '<node class="android.widget.EditText" text="11980" bounds="[136,1417][944,1494]" />'
+                '</node></hierarchy>')
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(side_effect=[tree(225), tree(214)])
+        device.adb = Mock(return_value="Physical density: 360\nOverride density: 255")
+        with patch.object(capture.time, "sleep"):
+            device.align("last-chip")
+        device.adb.assert_any_call("shell", "input", "swipe", "70", "1450", "70", "1426", "900")
+
     def test_relay_alignment_uses_the_actual_header_height(self):
         for viewport_top in (160, 207):
             with self.subTest(viewport_top=viewport_top):
@@ -34,7 +58,7 @@ class SourceCaptureTests(unittest.TestCase):
                 device.tree = Mock(side_effect=[tree(262), tree(viewport_top + 4)])
                 device.scroll = Mock()
                 device.align("relay-section")
-                device.scroll.assert_called_once_with(262 - viewport_top - 4)
+                device.scroll.assert_called_once_with(262 - viewport_top - 4, x=8)
 
     def test_relay_alignment_rejects_a_missing_scroll_viewport(self):
         device = capture.CaptureDevice("emulator-5556")
@@ -108,7 +132,7 @@ class SourceCaptureTests(unittest.TestCase):
         self.assertTrue(any("truthful producer" in error for error in self.validate()))
 
     def test_unapplied_complete_relay_viewports_are_rejected(self):
-        for locale in ("fa", "zh-CN"):
+        for locale in ("en", "fa", "zh-CN"):
             with self.subTest(locale=locale):
                 self.data["runReceipts"]["displayFrames"][f"{locale}/relay"] = {
                     **DISPLAY_PROFILES["relay"], "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
