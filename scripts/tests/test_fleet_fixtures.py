@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for scripts/ci/check_fleet_fixtures.py."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -128,7 +129,14 @@ class FleetFixturesHappyPathTest(unittest.TestCase):
             )
             subprocess.run(["git", "init", "-q", str(deploy)], check=True)
             subprocess.run(
-                ["git", "-C", str(deploy), "config", "user.email", "test@example.invalid"],
+                [
+                    "git",
+                    "-C",
+                    str(deploy),
+                    "config",
+                    "user.email",
+                    "test@example.invalid",
+                ],
                 check=True,
             )
             subprocess.run(
@@ -172,7 +180,9 @@ class FleetFixturesHappyPathTest(unittest.TestCase):
         self.assertIn("RIPDPI_VPN_DEPLOY_DIR", source)
         self.assertIn("push:\n    branches: [main]", source)
         self.assertNotIn("workflow_dispatch:", source)
-        self.assertIn("actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6", source)
+        self.assertIn(
+            "actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad", source
+        )
         self.assertNotIn("uses: ./.github/actions/setup-android-rust", source)
         self.assertNotIn("actions/cache", source)
         self.assertLess(
@@ -235,9 +245,7 @@ class FleetFixturesDefectTest(unittest.TestCase):
             fixtures.validate_fixtures(self.tree, self.sha)
 
     def test_malformed_meta_json_is_rejected(self) -> None:
-        (self.tree / "p1-only" / "meta.json").write_text(
-            "}}}", encoding="utf-8"
-        )
+        (self.tree / "p1-only" / "meta.json").write_text("}}}", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "meta.json.*JSON"):
             fixtures.validate_fixtures(self.tree, self.sha)
 

@@ -90,7 +90,7 @@ class CiToolPinningTest(unittest.TestCase):
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
         self.assertIn("embedded-relay-bundle-base64:\n    description:", action)
-        self.assertIn("base64 --decode > \"$bundle_path\"", action)
+        self.assertIn('base64 --decode > "$bundle_path"', action)
         self.assertIn('test -s "$bundle_path"', action)
 
         # Secret-less (dependabot) pull_request runs materialize the committed
@@ -174,7 +174,7 @@ class CiToolPinningTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0",
+            "uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283",
             source,
         )
         self.assertIn("tool: cargo-fuzz@0.13.1", source)
@@ -202,7 +202,9 @@ class CiToolPinningTest(unittest.TestCase):
         )
         default_prefix = default[1] if default else "gradle-build-cache"
         self.assertEqual("gradle-build-cache", default_prefix)
-        cache_steps = action.split("    - name: Restore shared Gradle build cache (read-only)\n")[1]
+        cache_steps = action.split(
+            "    - name: Restore shared Gradle build cache (read-only)\n"
+        )[1]
         keys = re.findall(r"(?m)^        key: (.+)$", cache_steps)
         restore_keys = re.findall(r"(?m)^          (.+-)$", cache_steps)
         self.assertEqual(2, len(keys))
