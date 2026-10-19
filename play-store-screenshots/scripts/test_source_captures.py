@@ -22,15 +22,79 @@ capture_spec.loader.exec_module(capture)
 
 
 class SourceCaptureTests(unittest.TestCase):
+    def test_relay_bottom_focus_waits_for_stable_complete_content(self):
+        def tree(at_end):
+            preset = '' if at_end else '<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="[136,214][546,290]" />'
+            tls_top, advanced_top = (221, 1521) if at_end else (303, 1603)
+            return ElementTree.fromstring(
+                '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+                f'{preset}<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,{tls_top}][944,{tls_top + 396}]" />'
+                f'<node resource-id="mode-editor-advanced" bounds="[107,{advanced_top}][973,{advanced_top + 77}]" />'
+                '</node></hierarchy>')
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(side_effect=[tree(False), tree(True), tree(True), tree(True)])
+        device.scroll = Mock()
+        device.focus_relay_bottom()
+        self.assertEqual(device.tree.call_count, 4)
+        self.assertEqual(device.scroll.call_count, 3)
+        for call in device.scroll.call_args_list:
+            self.assertEqual(call.args, (600,))
+            self.assertEqual(call.kwargs, {"x": 70})
+
+    def test_relay_bottom_focus_rejects_stable_clipped_sections(self):
+        for preset, advanced in ((None, (1603, 1680)), ((180, 256), (1521, 1598))):
+            with self.subTest(preset=preset, advanced=advanced):
+                preset_xml = (f'<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="[136,{preset[0]}][546,{preset[1]}]" />'
+                              if preset else '')
+                device = capture.CaptureDevice("emulator-5556")
+                device.tree = Mock(return_value=ElementTree.fromstring(
+                    '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+                    f'{preset_xml}<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
+                    f'<node resource-id="mode-editor-advanced" bounds="[107,{advanced[0]}][973,{advanced[1]}]" />'
+                    '</node></hierarchy>'))
+                device.scroll = Mock()
+                with self.assertRaisesRegex(RuntimeError, "clipped section"):
+                    device.focus_relay_bottom()
+
+    def test_relay_bottom_focus_has_a_bounded_wait(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(side_effect=[ElementTree.fromstring(
+            '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+            '<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
+            f'<node resource-id="mode-editor-advanced" bounds="[107,{1521 + offset}][973,{1598 + offset}]" />'
+            '</node></hierarchy>') for offset in range(8)])
+        device.scroll = Mock()
+        with self.assertRaisesRegex(RuntimeError, "eight observations"):
+            device.focus_relay_bottom()
+        self.assertEqual(device.tree.call_count, 8)
+
+    def test_relay_bottom_focus_rejects_a_present_preset_without_bounds(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(return_value=ElementTree.fromstring(
+            '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+            '<node resource-id="mode-editor-relay-chip-ru-mobile-relay" />'
+            '<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
+            '<node resource-id="mode-editor-advanced" bounds="[107,1521][973,1598]" />'
+            '</node></hierarchy>'))
+        device.scroll = Mock()
+        with self.assertRaisesRegex(RuntimeError, "clipped section"):
+            device.focus_relay_bottom()
+
     def test_relay_frame_keeps_the_last_recommended_preset_whole(self):
         device = capture.CaptureDevice("emulator-5556")
+        device.locale = "en"
         device.tree = Mock(return_value=ElementTree.fromstring(
             '<hierarchy><node resource-id="config-mode-proxy" />'
             '<node checkable="true" clickable="true" checked="true" /></hierarchy>'))
         device.tap = Mock()
         device.align = Mock()
+        device.focus_relay_bottom = Mock()
         device.show_relay_fields()
         device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
+        device.focus_relay_bottom.assert_not_called()
+        device.locale = "zh-CN"
+        device.show_relay_fields()
+        device.focus_relay_bottom.assert_called_once_with()
 
     def test_relay_alignment_swipes_outside_the_visible_port_field(self):
         def tree(chip_top):

@@ -33,6 +33,7 @@ Replace stale Android capture inputs and Play Store images through their owning 
 
 - Root owns this portfolio record, execution, evidence, combined checks and integration in RIPDPI-diagnostic-progress-feedback.
 - Root also owns narrow diagnostic and relay viewport corrections in play-store-screenshots/scripts/capture-android.py, source_captures.py and their focused tests. They use real scrolling to hide preceding partial controls and keep complete target sections visible. Relay gestures use the actual scroll gutter to avoid editable fields. The English relay profile retains the stacked header at font scale 1.5. All seven diagnostic and relay locales require fresh visual review.
+- The Chinese relay capture keeps its original display profile and uses the actual content end. It requires two unchanged observations and complete TLS and Advanced bounds. Preceding presets must be whole or fully above the viewport. Failed profile probes and observer results remain separate evidence.
 - The device specialist owns only the generated source frames and manifest in play-store-screenshots/public, plus generated source and marketing PNGs in docs/screenshots, in RIPDPI-marketing-capture-refresh on fix/refresh-play-store-captures.
 - The output scope is 147 potential generated paths. Capture scripts define the exact file set. No source hashes are changed by hand.
 - The device specialist owns the build-gate and command-scoped official emulator lease during capture. It restores settings and removes only an owned temporary device through the official pool.

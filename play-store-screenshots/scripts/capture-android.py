@@ -273,6 +273,41 @@ class CaptureDevice:
                 self.scroll(delta, x=viewport[0] + 8)
         raise RuntimeError(f"Could not align a complete capture section: {tag_name}")
 
+    def focus_relay_bottom(self) -> None:
+        previous_geometry = None
+        stable_observations = 0
+        for attempt in range(8):
+            tree = self.tree()
+            tls = self.tag(tree, "mode-editor-relay-section-tls-transports")
+            advanced = self.tag(tree, "mode-editor-advanced")
+            if tls is None or advanced is None:
+                raise RuntimeError("The complete relay end sections are missing. No frame was saved.")
+            viewport = self.viewport_bounds(tree, advanced)
+            tls_bounds, advanced_bounds = self.bounds(tls), self.bounds(advanced)
+            preset = self.tag(tree, "mode-editor-relay-chip-ru-mobile-relay")
+            preset_bounds = self.bounds(preset) if preset is not None else []
+            geometry = (viewport, tls_bounds, advanced_bounds, preset_bounds)
+            stable_observations = stable_observations + 1 if geometry == previous_geometry else 0
+            if stable_observations >= 2:
+                def inside(bounds):
+                    return (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
+                            and viewport[1] <= bounds[1] < bounds[3] <= viewport[3])
+
+                preset_complete = preset is None or (len(preset_bounds) == 4
+                    and preset_bounds[0] < preset_bounds[2] and preset_bounds[1] < preset_bounds[3]
+                    and (preset_bounds[3] <= viewport[1] or inside(preset_bounds)))
+                if not inside(tls_bounds) or not inside(advanced_bounds) or not preset_complete:
+                    raise RuntimeError("The relay end contains a clipped section. No frame was saved.")
+                self.receipts["relayBottomFocus"] = {
+                    "viewportBounds": viewport, "tlsBounds": tls_bounds, "advancedBounds": advanced_bounds,
+                    "precedingPresetBounds": preset_bounds, "unchangedObservations": stable_observations,
+                    "scrollAttempts": attempt, "observedAtUtc": datetime.now(timezone.utc).isoformat(),
+                }
+                return
+            previous_geometry = geometry
+            self.scroll(600, x=viewport[0] + 8)
+        raise RuntimeError("The relay end did not settle within eight observations. No frame was saved.")
+
     def show_relay_fields(self) -> None:
         self.tap(self.tag(self.tree(), "config-mode-proxy"))
         for _ in range(14):
@@ -284,6 +319,9 @@ class CaptureDevice:
                 if switch.get("checked") == "false":
                     self.tap(switch)
                 self.align("mode-editor-relay-chip-ru-mobile-relay")
+                if self.locale == "zh-CN":
+                    # Here the natural end shows TLS and Advanced whole, with presets above the header.
+                    self.focus_relay_bottom()
                 return
             self.scroll(550)
         raise RuntimeError("The relay editor switch is missing.")
