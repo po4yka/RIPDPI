@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "capture:prod": "python3 scripts/validate-source-captures.py && next build && node scripts/capture-prod.mjs && node scripts/validate-play-store.mjs --strict",
+    "capture:prod": "python3 scripts/validate-source-captures.py && node --test scripts/test-marketing-fonts.mjs && next build && node scripts/capture-prod.mjs && node scripts/validate-play-store.mjs --strict",
     "validate": "node scripts/validate-play-store.mjs --strict",
     "validate:sources": "python3 scripts/validate-source-captures.py",
-    "test:sources": "python3 -m unittest discover -s scripts -p 'test_source_captures.py'"
+    "test:sources": "python3 -m unittest discover -s scripts -p 'test_source_captures.py'",
+    "test:fonts": "node --test scripts/test-marketing-fonts.mjs"
   },
   "dependencies": {
     "html-to-image": "^1.11.13",

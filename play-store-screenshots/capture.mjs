@@ -2,6 +2,7 @@ import puppeteer from "puppeteer";
 import path from "path";
 import fs from "fs";
 import os from "os";
+import { verifyBundledChineseFont, verifyRenderedChineseFont } from "./scripts/marketing-fonts.mjs";
 
 const PORT = Number(process.env.CAPTURE_PORT ?? 3099);
 
@@ -27,6 +28,8 @@ function ensureDir(dir) {
 }
 
 async function main() {
+  const chineseFont = verifyBundledChineseFont();
+  console.log(`Pinned Chinese font: ${chineseFont.characters} characters, ${chineseFont.sha256}`);
   const sourceManifest = JSON.parse(fs.readFileSync("public/screenshots/source-capture.json", "utf8"));
   const sourceSize = /^([1-9]\d*)x([1-9]\d*)$/.exec(sourceManifest.device?.screen ?? "");
   if (!sourceSize) throw new Error("Capture manifest has no valid physical screen size");
@@ -59,12 +62,13 @@ async function main() {
         const measurement = await page.evaluate(async ({ captureSize, phone }) => {
           const slide = document.querySelector("[data-marketing-slide]");
           await document.fonts.ready;
-          if (slide.dataset.locale === "fa") {
+          if (["fa", "zh-CN"].includes(slide.dataset.locale)) {
             const family = getComputedStyle(slide).fontFamily.split(",")[0];
+            const samples = slide.dataset.locale === "fa" ? ["شبکه", "تنظیمات"] : ["网络", "设置"];
             // Hydration can select a face after the initial font-ready promise resolves.
             await Promise.all([
-              document.fonts.load(`400 48px ${family}`, "شبکه"),
-              document.fonts.load(`700 100px ${family}`, "تنظیمات"),
+              document.fonts.load(`400 48px ${family}`, samples[0]),
+              document.fonts.load(`700 100px ${family}`, samples[1]),
             ]);
           }
           await Promise.all(Array.from(document.images, async (img) => {
@@ -135,6 +139,7 @@ async function main() {
             actualUiWidthAt260: captures.length ? captures[0].getBoundingClientRect().width * 260 / bounds.width : null };
         }, { captureSize, phone: slide.param !== "fg" });
         if (pageErrors.length) throw new Error(`Page errors: ${pageErrors.join("; ")}`);
+        if (lang === "zh-CN") measurement.pinnedChineseFonts = await verifyRenderedChineseFont(page);
         const stagedPath = path.join(staging, lang, `${slide.name}.png`);
         await page.screenshot({ path: stagedPath, type: "png", omitBackground: false,
           clip: { x: 0, y: 0, width: slide.w, height: slide.h } });

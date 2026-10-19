@@ -76,11 +76,11 @@ Every phone poster contains one complete, unchanged feature frame. All six featu
 
 Headlines use 100 px type, and explanatory copy uses 48 px type. At a 260 px poster width, the app frame is about 202 px wide and explanatory type is at least 11.5 px. README galleries use larger posters, two per row. The banner has one short action, a small brand icon, and a clear connection path diagram. It does not use a miniature app screen or imitate measured data.
 
-Persian copy uses bundled **Vazirmatn v33.003**, regular and bold. The source, SHA-256 values, and SIL OFL 1.1 license are in [`public/fonts`](public/fonts/README.md). The RTL brand group and banner composition mirror together. Other locales retain Geist Sans. The font is a marketing asset, not an Android dependency.
+Persian copy uses bundled **Vazirmatn v33.003**, regular and bold. Chinese copy uses a pinned local **Noto Sans SC** variable subset. The sources, SHA-256 values, and SIL OFL 1.1 licenses are in [`public/fonts`](public/fonts/README.md). The RTL brand group and banner composition mirror together. Other locales retain Geist Sans. These fonts are marketing assets, not Android dependencies.
 
 ## Verification
 
-Capture waits for font readiness and image decoding. It rejects page errors, clipped text, text over real UI, image distortion, a mismatch with the source manifest viewport, and a frame smaller than 824 px. Each phone poster must contain one real frame. It also rejects small marketing text, headlines longer than two lines, and a missing Persian font.
+Capture waits for font readiness and image decoding. It rejects page errors, clipped text, text over real UI, image distortion, a mismatch with the source manifest viewport, and a frame smaller than 824 px. Each phone poster must contain one real frame. It also rejects small marketing text, headlines longer than two lines, and a missing Persian font. Chinese copy must pass the pinned font hash and glyph coverage checks. Chrome must report the local Chinese font for actual rendered Chinese text; system fallback fails the capture. Run `bun run test:fonts` for the focused positive and negative font checks.
 
 The sum of visible marketing text bounding boxes must fit within 20% of each canvas. This conservative layout measure does not certify approval by Google Play. Strict output validation checks the complete 56-file set, 8-bit RGB without alpha, exact dimensions, a maximum size of 8 MB, and byte-identical root English aliases.
 
@@ -91,15 +91,16 @@ Before publication, review all 49 unique assets at full size and at 260 px phone
 | Path | Role |
 |---|---|
 | `src/app/page.tsx` | Six posters, feature graphic, preview and export |
-| `src/app/layout.tsx` | Geist and pinned local Persian font loading |
+| `src/app/layout.tsx` | Geist and pinned local Persian and Chinese font loading |
 | `src/copy/{lang}.ts` | Localized headings and descriptions |
 | `capture.mjs` | Fail-closed layout gate and staged batch output |
 | `scripts/capture-prod.mjs` | Production server lifecycle |
 | `scripts/capture-android.py` | Actual Android capture flow |
 | `scripts/validate-source-captures.py` | Frame integrity, locale and UI freshness |
 | `scripts/validate-play-store.mjs` | Strict PNG and file-set checks |
+| `scripts/marketing-fonts.mjs` | Pinned Chinese font coverage and actual Chrome font checks |
 | `public/screenshots/source-capture.json` | Capture provenance and observed states |
-| `public/fonts/` | Pinned Persian fonts and license |
+| `public/fonts/` | Pinned Persian and Chinese fonts and licenses |
 | `public/app-icon.png` | Canonical app icon |
 | `../docs/screenshots/` | Generated store artwork |
 
