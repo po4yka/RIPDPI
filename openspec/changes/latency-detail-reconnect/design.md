@@ -43,6 +43,14 @@ service reconnect. See proposal.md and the delta requirements.
   an established Proxy UI contract. Keep TLS validation unchanged.
 - Separate real-service reconnect proof from controlled latency presentation
   snapshots. Test cancellation and stale review as well as confirmation.
+- Check the actual process animation policy after the real activity window
+  starts and before service dispatch. Keep the explicit system-policy argument,
+  bounded observation on the main thread and strict equality. Record the same
+  observed value. Do not set the process animation scale in the test.
+- Capture fixture traffic on host loopback with an exact filter for its three
+  bound TCP ports. Keep the emulator console capture as a separate diagnostic.
+  Before capture stop, require all actual DNS and payload nonces in a raw
+  snapshot. After stop, repeat the strict check on the complete immutable PCAP.
 - RDS references: components-metric-pill, components-bottom-sheet,
   motion-page-transitions and motion-reduced-motion. Adapt the Trackables
   reference to a local detail surface; no cross-window shared morph is claimed.

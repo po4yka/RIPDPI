@@ -101,6 +101,12 @@ Open latency evidence from the measured RTT value and verify real reconnect from
   Root owns the corresponding specification and evidence update. Review is
   read-only; no production listener or authentication policy is changed.
 
+- The motion-startup writer owns only HomeReconnectNetworkAcceptanceTest.kt
+  in the isolated reconnect-motion-policy-startup worktree from ed8b78b4.
+  It keeps the strict actual animation-policy check and records that value
+  after the real activity window starts, before service dispatch. Root owns
+  the evidence and specification update. The previous matrices stay unchanged.
+
 ## Design sources
 
 Use DESIGN.md, docs/design-system.md and the executable theme. RDS references are

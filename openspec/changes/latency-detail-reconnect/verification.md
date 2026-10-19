@@ -260,3 +260,65 @@ All restoration levels reported no errors. The final observer confirmed
 removal of only the owned temporary AVD and its processes. Evidence is in
 `matrix7-device-owner-handoff.json`, `matrix7-root-visual-review.json` and
 `reconnect-attempt9-readonly-triage-v1` under the local artifact root.
+
+## Matrix eight and the capture interface
+
+Source `ed8b78b4fa7467b76cec95a590fcaf0e3ced53aa` passed the eleven
+local producer phases and independent APK verification. The 248 executions
+in 25 JUnit suites were fresh, with no failures, errors or skips.
+
+Matrix eight passed all thirteen latency scenarios, three ownership guards
+and genuine VPN consent. The first VPN instrumentation test passed, but its
+external packet gate failed. Thus the matrix result is 17 passed, one failed,
+five not run and zero skipped. No full network lane was accepted.
+
+Saved logs show a Wi-Fi-backed VPN on network 105 and address 10.0.2.16.
+The console PCAP only contains the legacy 10.0.2.15 interface. Android
+Emulator 37.2.12 uses netsim for Wi-Fi; the console capture covers legacy
+cellular/WAN traffic. The required DNS and payload events occurred inside
+the capture interval, and the owned file copy matched its source. The failure
+was the capture interface, not a confirmed product traffic failure.
+
+The new external driver captures only actual local IPv4 TCP on the three
+bound fixture ports. It retains the console PCAP as a diagnostic and keeps
+the exact packet predicate. The first local capture preflight failed after
+an immediate stop: real requests finished, but the PCAP held only its header.
+The corrected driver waits for all required actual bytes before stop, then
+verifies the final immutable file again. It does not add traffic or construct
+packets. The second preflight passed with 48 actual frames, the exact filter,
+unique DoH and echo data, verified DoT traffic and no remaining owned process.
+This establishes capture operation only, not product acceptance.
+
+All matrix eight restoration levels and owned AVD cleanup passed. Evidence is
+in `matrix8-device-owner-handoff.json`, `reconnect-attempt10-packet-triage-v1`,
+`host-loopback-capture-candidate-v3` and
+`host-loopback-capture-preflight-attempt2-execution`.
+
+## Matrix nine and process animation-policy initialization
+
+The same source passed all thirteen latency scenarios, three ownership guards,
+genuine VPN consent and the full VPN normal-motion lane. That network lane
+passed cancellation, stale review, new runtime admission, all four unique
+traffic probes, the strict packet predicate and exact settings restoration.
+
+The next VPN system-off lane failed in `setUp`, before Hilt injection,
+ownership preparation or activity launch. The driver had set and read back
+all three global animation scales as zero. The new process still reported
+`ValueAnimator.areAnimatorsEnabled()` as true. The assertion ran before the
+first window initialized the process animation cache. No network scenario
+started in this lane. The recovery check then failed because no ownership
+journal existed; this is a separate secondary failure.
+
+The matrix result is 18 passed, one failed, four not run and zero skipped.
+The failing lane has no successful private recovery receipt. Outer settings
+restoration and the official owned AVD cleanup passed. The failed run and
+its secondary recovery result remain unchanged.
+
+The test correction keeps argument validation before setup and checks the
+actual process policy after the real activity window starts, before service
+dispatch. It uses bounded observation on the main thread and records the
+same actual value that satisfies strict equality. It never sets the process
+scale. Fresh compilation, APK verification and the remaining full network
+acceptance are required after this correction. Main integration and hosted
+CI are still open. Evidence is in `matrix9-device-owner-handoff.json` and
+`reconnect-device-attempt11` under the local artifact root.

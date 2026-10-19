@@ -88,6 +88,7 @@ class HomeReconnectNetworkAcceptanceTest {
     private lateinit var ownership: HomeReconnectOwnershipJournal
     private lateinit var ownedSettings: List<AppSettings>
     private lateinit var replacementDnsProtocol: String
+    private var expectedAnimationsEnabled = true
     private lateinit var initialReceipt: com.poyka.ripdpi.data.RuntimeActivationReceipt
     private var originalVpnListener: Int? = null
     private var baselineIds = emptySet<String>()
@@ -108,7 +109,7 @@ class HomeReconnectNetworkAcceptanceTest {
         check(runId.matches(Regex("[A-Za-z0-9-]{1,80}")))
         val expectedOff = arguments.getString("ripdpi.reconnectAnimationsOff")
         check(expectedOff in listOf("true", "false")) { "Explicit actual motion policy is required" }
-        assertEquals(expectedOff != "true", ValueAnimator.areAnimatorsEnabled())
+        expectedAnimationsEnabled = expectedOff != "true"
         hilt.inject()
         assertTrue("No fake service controller", serviceController is DefaultServiceController)
         assertTrue("No injected connected state", serviceState is DefaultServiceStateStore)
@@ -143,18 +144,6 @@ class HomeReconnectNetworkAcceptanceTest {
                 directory,
                 arguments.getString("ripdpi.reconnectTalkBack") == "true",
             )
-        evidence.record(
-            "bindings",
-            JSONObject()
-                .put("serviceController", serviceController.javaClass.name)
-                .put("serviceState", serviceState.javaClass.name)
-                .put("appliedSource", applications.javaClass.name)
-                .put(
-                    "reconnect",
-                    reconnect.javaClass.name,
-                ).put("actualAnimationsEnabled", ValueAnimator.areAnimatorsEnabled())
-                .put("applicationBoundary", "Hilt test application: ready-startup and LOCAL public-IP resolver only"),
-        )
         observers.launch(start = CoroutineStart.UNDISPATCHED) {
             applications.applications.collect { current ->
                 current.values
@@ -262,6 +251,7 @@ class HomeReconnectNetworkAcceptanceTest {
             ActivityScenario.launch(
                 Intent(context, MainActivity::class.java).putExtra(AutomationLaunchContract.Enabled, false),
             )
+        awaitActualMotionPolicyAndRecordBindings()
         assertTrue(
             "Real service dispatch was rejected",
             runBlocking {
@@ -279,6 +269,30 @@ class HomeReconnectNetworkAcceptanceTest {
         evidence.probe("initial", mode, port, "doh")
         ui.observe("initial-running")
         return original
+    }
+
+    private fun awaitActualMotionPolicyAndRecordBindings() {
+        var actualAnimationsEnabled: Boolean? = null
+        HomeReconnectNetworkAcceptanceSupport.await("The real activity did not observe the requested motion policy") {
+            checkNotNull(activity).onActivity {
+                actualAnimationsEnabled = ValueAnimator.areAnimatorsEnabled()
+            }
+            actualAnimationsEnabled == expectedAnimationsEnabled
+        }
+        val observedAnimationsEnabled = checkNotNull(actualAnimationsEnabled)
+        assertEquals(expectedAnimationsEnabled, observedAnimationsEnabled)
+        evidence.record(
+            "bindings",
+            JSONObject()
+                .put("serviceController", serviceController.javaClass.name)
+                .put("serviceState", serviceState.javaClass.name)
+                .put("appliedSource", applications.javaClass.name)
+                .put(
+                    "reconnect",
+                    reconnect.javaClass.name,
+                ).put("actualAnimationsEnabled", observedAnimationsEnabled)
+                .put("applicationBoundary", "Hilt test application: ready-startup and LOCAL public-IP resolver only"),
+        )
     }
 
     private fun cancelReview(
