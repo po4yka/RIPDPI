@@ -2,7 +2,7 @@
 id: UIX-1792294575616838
 title: Open measured latency details and verify real reconnect
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: Latency and reconnect integration
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: latency-detail-reconnect
 created: 2026-10-18
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 ## Goal

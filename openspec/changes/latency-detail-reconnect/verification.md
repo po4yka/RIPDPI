@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1792294575616838
 change: latency-detail-reconnect
-commit_sha: null
-local: required
-local_evidence: null
-remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+commit_sha: 3892c80727e7cbaa1e06b348ea4f95123a251fe5
+local: passed
+local_evidence: Fresh eleven-phase candidate build and post-rebase architecture, locked Cargo metadata, static analysis, locale lint and Full/Simple golden checks passed. See candidate-build-3892c80727e7-attempt2 and post-rebase-gates-3892-attempt1 under the local artifact root.
+remote_ci: passed
+remote_ci_evidence: Exact published main source 3892c80727e7cbaa1e06b348ea4f95123a251fe5 passed all seven push workflows, 53 active checks and 17 expected specialized skips. CI https://github.com/po4yka/RIPDPI/actions/runs/39227195065 completed successfully on attempt 1. Independent receipt root-source-ci-3892-final-v1/summary.json SHA256 d4c812aebc8132bb3d8f274aad96d67e8f2e05427ffa141c25dcf7cc07a6307a.
+device: passed
+device_evidence: Matrix12 passed all 23 cases with no failures or skips. Both TalkBack modes, all six real local-network lanes, restoration and official temporary-device cleanup passed. See matrix12-device-owner-handoff.json and matrix12-independent-audit-v1/final-audit.json.
+artifact: passed
+artifact_evidence: Strict source/APK/DEX/native verification passed for source 3892c80727e7cbaa1e06b348ea4f95123a251fe5, with 25 fresh JUnit suites and 248 executions. See candidate-3892c80727e7-independent-verification-strict-v1/summary.json.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -20,11 +20,61 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-LDR-DETAIL | UIX-1792300268446369 | Focused host and real APK latency detail checks | required |
-| REQ-LDR-SNAPSHOT | UIX-1792300268446369 | Selected snapshot retention and reopen regression | required |
-| REQ-LDR-ACCESS | UIX-1792300269982685 | Normal/reduced/off, real TalkBack, Back/focus, RTL/font2 | required |
-| REQ-LDR-RECONNECT | UIX-1792300269490435 | Actual service/native session and before/after fixture traffic | required |
-| REQ-LDR-VERIFY | UIX-1792300270507626 | Combined gates, APK hashes and exact published hosted CI | required |
+| REQ-LDR-DETAIL | UIX-1792300268446369 | Home latency host regressions and all 13 actual latency scenarios passed | passed |
+| REQ-LDR-SNAPSHOT | UIX-1792300268446369 | Selected snapshot retention, clear, disconnect and reopen tests passed | passed |
+| REQ-LDR-ACCESS | UIX-1792300269982685 | Normal/reduced/off motion, real TalkBack speech and focus, Back and RTL/font2 passed | passed |
+| REQ-LDR-RECONNECT | UIX-1792300269490435 | Six real local-network lanes passed with native session, command generation, DNS, payload, TUN and packet proof | passed |
+| REQ-LDR-VERIFY | UIX-1792300270507626 | Combined gates, APK hashes and all seven exact published push workflows passed; CI run 39227195065 | passed |
+
+## Final observed implementation gates
+
+The tested implementation is `3892c80727e7cbaa1e06b348ea4f95123a251fe5`.
+The sections below keep the earlier failed runs as history. The final receipts
+in this section supersede their pending local, artifact and device gates.
+All seven exact published push workflows completed successfully on attempt 1.
+The independent GitHub API check matched all 53 active checks and 17 expected
+specialized skips for the published main SHA. CI run:
+https://github.com/po4yka/RIPDPI/actions/runs/39227195065.
+The receipt is `root-source-ci-3892-final-v1/summary.json`, SHA256
+`d4c812aebc8132bb3d8f274aad96d67e8f2e05427ffa141c25dcf7cc07a6307a`.
+
+- The fresh eleven-phase build passed. Its strict independent verifier checked
+  25 fresh XML suites and 248 executions, with no failures, errors or skips.
+  It also checked 26 source files, six helpers, the two approved PNGs, 42
+  consumed native files, all 89 native input files, AGP metadata and actual DEX.
+- App SHA256: `156d1679eae10e6cf41dce1ad1f0dca8d6af71faf0810bee72ddc65ec91187d5`.
+  Test APK SHA256: `30ccec7b4e3827549663d8c57907ab95322fcd4792daafe262379f23d6856bbb`.
+  Build receipt SHA256: `4d22c0ec0a43b9244e65a8037b22b42b2bb9c44f747ee6036471f970722d8a82`.
+  Strict summary SHA256: `fe2fb6eacde54845073c85ebf47decf843f6cf388221bb969eb5cfb072be3be3`.
+- Native bytes came from the verified CI inputs for unchanged source `0c9a5f83`.
+  This was a fresh Kotlin/APK build; it was not a new local Rust build.
+- The leased API37 arm64 emulator passed 23 cases: 13 latency, six network,
+  three journal guards and one genuine VPN consent case. No case was skipped.
+  Normal and system-off TalkBack each read seven selected fragments and returned
+  latency focus twice. Each network TalkBack mode read seven selected fragments.
+- Independent packet replay passed all six lanes: 744 frames, 24 unique payload
+  tokens and 24 DNS nonces. Encrypted DoT names use matching fixture DNS events
+  plus actual TLS packets. Payload echoes are present in both TCP directions.
+  The tests use a local fixture and make no public Internet or physical-device claim.
+- Matrix10 and matrix11 exposed driver speech ordering defects. The final V5
+  driver waits before scroll and before navigation acknowledgement. An exact
+  owned interruption is recorded separately from playback success. It keeps all
+  matcher history and waits strictly longer than the existing 12-second window.
+  In the real system-off lane the audit stayed 14 requests, 13 matches and one
+  unmatched interrupted request; the observed wait was 12.417 seconds. All seven
+  selected fragments still had real strict success events. The matcher was unchanged.
+- All six capture processes ended, all lane and outer settings were restored,
+  the fixture ended, and the official pool removed the four owned temporary
+  device paths. Pool and cleanup observer exits were both zero.
+- Final matrix summary SHA256: `87c13591dad37e6bb71aaf06521bfd9f2dfafec123b83676c354d75d3a34989a`.
+  Final execution receipt SHA256: `a403cc8e6d50023b6301c78222ab88cb9934bdff858d79dd02d5275ecc60d83f`.
+  The independent final audit found no actionable defect.
+- `git fetch origin` and `git rebase origin/main` left the tested source unchanged.
+  The post-rebase architecture, locked Cargo metadata, static analysis, locale
+  and Full/Simple golden gates passed. The clean main checkout was fast-forwarded
+  to the tested source and the ordinary main push passed.
+
+## Historical investigations
 
 ## Planned gates
 
