@@ -241,13 +241,28 @@ class CaptureDevice:
         # Keep the preceding scan action behind the fixed header, with the result heading visible.
         self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 470)
 
-    def align(self, tag_name: str, top: int, attempts: int = 32) -> None:
+    @staticmethod
+    def viewport_top(tree: ElementTree.Element, node: ElementTree.Element) -> int:
+        parents = {child: parent for parent in tree.iter() for child in parent}
+        ancestor = parents.get(node)
+        while ancestor is not None:
+            if ancestor.get("scrollable") == "true":
+                bounds = CaptureDevice.bounds(ancestor)
+                if len(bounds) != 4 or bounds[3] <= bounds[1]:
+                    raise RuntimeError("The actual capture viewport bounds are invalid. No frame was saved.")
+                return bounds[1]
+            ancestor = parents.get(ancestor)
+        raise RuntimeError("The actual capture viewport is missing. No frame was saved.")
+
+    def align(self, tag_name: str, top: int | None = None, attempts: int = 32) -> None:
         for _ in range(attempts):
-            node = self.tag(self.tree(), tag_name)
+            tree = self.tree()
+            node = self.tag(tree, tag_name)
             if node is None:
                 self.scroll(500)
                 continue
-            delta = self.bounds(node)[1] - top
+            target_top = top if top is not None else self.viewport_top(tree, node) + 4
+            delta = self.bounds(node)[1] - target_top
             if abs(delta) <= 4:
                 return
             self.scroll(delta)
@@ -263,7 +278,7 @@ class CaptureDevice:
             if switch is not None:
                 if switch.get("checked") == "false":
                     self.tap(switch)
-                self.align("mode-editor-relay-section-tls-transports", 262)
+                self.align("mode-editor-relay-section-tls-transports")
                 return
             self.scroll(550)
         raise RuntimeError("The relay editor switch is missing.")

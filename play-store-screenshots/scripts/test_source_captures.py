@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock
+from xml.etree import ElementTree
 
 from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
 
@@ -21,6 +22,29 @@ capture_spec.loader.exec_module(capture)
 
 
 class SourceCaptureTests(unittest.TestCase):
+    def test_relay_alignment_uses_the_actual_header_height(self):
+        for viewport_top in (160, 207):
+            with self.subTest(viewport_top=viewport_top):
+                def tree(section_top):
+                    return ElementTree.fromstring(
+                        f'<hierarchy><node scrollable="true" bounds="[0,{viewport_top}][1080,1630]">'
+                        f'<node resource-id="relay-section" bounds="[128,{section_top}][980,1500]" />'
+                        '</node></hierarchy>')
+                device = capture.CaptureDevice("emulator-5556")
+                device.tree = Mock(side_effect=[tree(262), tree(viewport_top + 4)])
+                device.scroll = Mock()
+                device.align("relay-section")
+                device.scroll.assert_called_once_with(262 - viewport_top - 4)
+
+    def test_relay_alignment_rejects_a_missing_scroll_viewport(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(return_value=ElementTree.fromstring(
+            '<hierarchy><node resource-id="relay-section" bounds="[128,262][980,1500]" /></hierarchy>'))
+        device.scroll = Mock()
+        with self.assertRaisesRegex(RuntimeError, "viewport is missing"):
+            device.align("relay-section")
+        device.scroll.assert_not_called()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
