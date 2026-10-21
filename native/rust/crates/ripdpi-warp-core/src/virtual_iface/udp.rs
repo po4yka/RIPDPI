@@ -10,12 +10,14 @@ use tokio::time::Duration;
 
 use crate::ports::{PortProtocol, VirtualPort};
 
-use super::bus::{Bus, Event};
+use super::bus::{Bus, BusEndpoint, Event};
 use super::device::VirtualIpDevice;
 use super::socket_factory::{configure_interface, new_udp_client_socket, select_source};
 
 pub(crate) struct DynamicUdpInterface {
     bus: Bus,
+    // Subscribe during construction so LocalData survives until run is first polled.
+    endpoint: BusEndpoint,
     source_peer_ip: IpAddr,
     source_peer_ipv6: Option<Ipv6Addr>,
     mtu: usize,
@@ -23,19 +25,23 @@ pub(crate) struct DynamicUdpInterface {
 
 impl DynamicUdpInterface {
     pub(crate) fn new(bus: Bus, source_peer_ip: IpAddr, source_peer_ipv6: Option<Ipv6Addr>, mtu: usize) -> Self {
-        Self { bus, source_peer_ip, source_peer_ipv6, mtu }
+        let endpoint = bus.new_endpoint();
+        Self { bus, endpoint, source_peer_ip, source_peer_ipv6, mtu }
     }
 
-    /// # Cancel safety
-    /// Not cancel-safe for continuation: interface polling consumes bus packets.
-    /// Terminal cancellation drops this interface and all owned virtual sockets.
+    /// # Cancel safety:
+    /// Not cancel-safe for continuation: the receive arm consumes bus packets
+    /// and polling mutates virtual sockets. The receive and timer waits in
+    /// `select!` are individually cancel-safe when another arm completes.
+    /// Terminal cancellation drops this interface, its startup subscription, and
+    /// all owned virtual sockets.
     // NOT cancel-safe: the runtime aborts only during complete interface teardown.
     pub(crate) async fn run(self) -> anyhow::Result<()> {
         let mut sockets = SocketSet::new([]);
         let mut device = VirtualIpDevice::new(PortProtocol::Udp, self.bus.clone(), self.mtu);
         let mut iface = Interface::new(IfaceConfig::new(HardwareAddress::Ip), &mut device, Instant::now());
         configure_interface(&mut iface, self.source_peer_ip, self.source_peer_ipv6)?;
-        let mut endpoint = self.bus.new_endpoint();
+        let mut endpoint = self.endpoint;
         let mut next_poll: Option<tokio::time::Instant> = None;
         let mut port_client_handle_map: HashMap<(VirtualPort, IpAddr), SocketHandle> = HashMap::new();
         let mut send_queue: HashMap<(VirtualPort, IpAddr), VecDeque<(SocketAddr, Bytes)>> = HashMap::new();
@@ -140,5 +146,50 @@ mod tests {
         assert!(queues.contains_key(&(second, v4)));
         remove_client(&mut sockets, &mut handles, &mut queues, first);
         assert_eq!(sockets.iter().count(), 1, "cleanup is idempotent");
+    }
+    /// # Cancel safety:
+    /// Not cancel-safe for continuation: cancelling the joined exchange skips
+    /// shutdown. Normal success and timeout send shutdown and join the interface
+    /// before assertions; terminal cancellation requires test-runtime teardown
+    /// to stop the virtual device's spawned worker.
+    // NOT cancel-safe: terminal cancellation tears down this complete test runtime.
+    #[tokio::test]
+    async fn datagram_queued_during_startup_reaches_the_real_udp_interface() {
+        let bus = Bus::new();
+        let mut observer = bus.new_endpoint();
+        let source: IpAddr = "10.77.0.2".parse().expect("source");
+        let target: SocketAddr = "10.77.0.1:41002".parse().expect("target");
+        let interface = DynamicUdpInterface::new(bus.clone(), source, None, 1280);
+        let sender = bus.new_endpoint();
+
+        // The runtime has constructed the interface and spawned its future, but
+        // the scheduler has not polled that future when SOCKS emits this event.
+        sender.send(Event::LocalData(
+            crate::ports::PortForwardConfig { destination: target, protocol: PortProtocol::Udp },
+            VirtualPort::new(1000, PortProtocol::Udp),
+            Bytes::from_static(b"startup-datagram"),
+        ));
+
+        let (run, outbound) = tokio::join!(interface.run(), async {
+            let outcome = tokio::time::timeout(Duration::from_secs(1), async {
+                loop {
+                    if let Event::OutboundInternetPacket(packet) = observer.recv().await {
+                        break packet;
+                    }
+                }
+            })
+            .await;
+            bus.shutdown();
+            outcome
+        });
+        run.expect("virtual interface exits after owned shutdown");
+        let packet = outbound.expect("a pre-poll datagram must not disappear at readiness");
+        let ip = smoltcp::wire::Ipv4Packet::new_checked(packet.as_ref()).expect("real IPv4 packet");
+        assert_eq!(ip.src_addr(), "10.77.0.2".parse::<std::net::Ipv4Addr>().expect("source"));
+        assert_eq!(ip.dst_addr(), "10.77.0.1".parse::<std::net::Ipv4Addr>().expect("target"));
+        let udp = smoltcp::wire::UdpPacket::new_checked(ip.payload()).expect("real UDP packet");
+        assert_eq!(udp.src_port(), 1000);
+        assert_eq!(udp.dst_port(), 41002);
+        assert_eq!(udp.payload(), b"startup-datagram");
     }
 }
