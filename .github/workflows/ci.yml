@@ -205,6 +205,7 @@ jobs:
             scripts.tests.test_build_observability_contracts \
             scripts.tests.test_check_ci_preflight \
             scripts.tests.test_ci_native_dependency_graph \
+            scripts.tests.test_native_size_policy \
             scripts.tests.test_prebuilt_android_instrumentation \
             scripts.tests.test_ci_tool_pinning \
             scripts.tests.test_nightly_coverage_selection \
@@ -1603,8 +1604,15 @@ jobs:
 
       - name: Fail if baseline files modified
         if: github.event_name == 'pull_request'
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          changed_paths=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          changed_paths=$(git diff --name-only "$PR_BASE_SHA"...HEAD)
+          if printf '%s\n' "$changed_paths" | grep -Fxq 'scripts/ci/native-size-baseline.json'; then
+            python3 scripts/ci/check_native_size_policy.py
+            # Remove only the validated policy file; every other baseline stays banned.
+            changed_paths=$(printf '%s\n' "$changed_paths" | grep -Fxv 'scripts/ci/native-size-baseline.json' || true)
+          fi
           # JNI inventories are checked against built ELF exports in rust-native-packaging.
           # These exact benchmark code paths do not contain expected-result baselines.
           if printf '%s\n' "$changed_paths" | grep -E 'baseline' |
