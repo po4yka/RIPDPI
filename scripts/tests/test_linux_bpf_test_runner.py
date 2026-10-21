@@ -63,5 +63,23 @@ class LinuxBpfTestRunnerTest(unittest.TestCase):
             self.assertEqual(binary.resolve(), runner.select_binary(json.dumps(unit) + "\n" + json.dumps(integration), "network-e2e"))
 
 
+    def test_coverage_profile_is_forwarded_after_uid_and_capability_drop(self):
+        profile = "/tmp/coverage with spaces/rust-%p-%14m.profraw"
+        command = runner.runtime_command(Path("/tmp/test-binary"), "test", {
+            "CARGO_LLVM_COV": "1", "LLVM_PROFILE_FILE": profile, "UNRELATED_SECRET": "not-forwarded",
+        })
+        index = command.index("--no-new-privs")
+        self.assertEqual(["--", "env", f"LLVM_PROFILE_FILE={profile}", "/tmp/test-binary"], command[index + 1:index + 5])
+        self.assertFalse(any("UNRELATED_SECRET" in arg for arg in command))
+
+    def test_instrumented_execution_requires_a_profile_destination(self):
+        with self.assertRaisesRegex(ValueError, "LLVM_PROFILE_FILE"):
+            runner.runtime_command(Path("/tmp/test-binary"), "test", {"CARGO_LLVM_COV": "1"})
+
+    def test_ordinary_execution_does_not_add_runtime_environment(self):
+        command = runner.runtime_command(Path("/tmp/test-binary"), "test", {})
+        self.assertNotIn("env", command)
+
+
 if __name__ == "__main__":
     unittest.main()
