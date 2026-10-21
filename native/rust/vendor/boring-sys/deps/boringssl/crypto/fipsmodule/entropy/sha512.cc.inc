@@ -15,11 +15,15 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <openssl/base.h>
+#include <openssl/sha2.h>
+
 
 // This is a copy of the SHA-384 code for the purpose of isolating the jitter
 // entropy source certification from any changes to the normal implementation.
 
-namespace bssl::entropy {
+BSSL_NAMESPACE_BEGIN
+namespace entropy {
 namespace {
 
 constexpr size_t kSHA384Block = 128;
@@ -70,8 +74,8 @@ void SHA384_Init(SHA512_CTX *sha) {
 }
 
 void SHA384_Final(uint8_t out[kSHA384DigestLength], SHA512_CTX *sha) {
-  // This function must be paired with |SHA384_Init|, which sets
-  // |sha->md_len| to |kSHA384DigestLength|.
+  // This function must be paired with `SHA384_Init`, which sets
+  // `sha->md_len` to `kSHA384DigestLength`.
   sha512_final_impl(out, kSHA384DigestLength, sha);
   return;
 }
@@ -321,4 +325,5 @@ void sha512_update(SHA512_CTX *c, const void *in_data, size_t len) {
 }
 
 }  // namespace
-}  // namespace bssl::entropy
+}  // namespace entropy
+BSSL_NAMESPACE_END

@@ -28,6 +28,9 @@
 #include "../internal.h"
 #include "internal.h"
 
+
+using namespace bssl;
+
 static int v3_check_critical(const char **value);
 static int v3_check_generic(const char **value);
 static X509_EXTENSION *do_ext_nconf(const CONF *conf, const X509V3_CTX *ctx,
@@ -42,7 +45,7 @@ static unsigned char *generic_asn1(const char *value, const X509V3_CTX *ctx,
 
 X509_EXTENSION *X509V3_EXT_nconf(const CONF *conf, const X509V3_CTX *ctx,
                                  const char *name, const char *value) {
-  // If omitted, fill in an empty |X509V3_CTX|.
+  // If omitted, fill in an empty `X509V3_CTX`.
   X509V3_CTX ctx_tmp;
   if (ctx == nullptr) {
     X509V3_set_ctx(&ctx_tmp, nullptr, nullptr, nullptr, nullptr, 0);
@@ -65,7 +68,7 @@ X509_EXTENSION *X509V3_EXT_nconf(const CONF *conf, const X509V3_CTX *ctx,
 
 X509_EXTENSION *X509V3_EXT_nconf_nid(const CONF *conf, const X509V3_CTX *ctx,
                                      int ext_nid, const char *value) {
-  // If omitted, fill in an empty |X509V3_CTX|.
+  // If omitted, fill in an empty `X509V3_CTX`.
   X509V3_CTX ctx_tmp;
   if (ctx == nullptr) {
     X509V3_set_ctx(&ctx_tmp, nullptr, nullptr, nullptr, nullptr, 0);
@@ -102,9 +105,9 @@ static X509_EXTENSION *do_ext_nconf(const CONF *conf, const X509V3_CTX *ctx,
   // Now get internal extension representation based on type
   if (method->v2i) {
     if (*value == '@') {
-      // TODO(davidben): This is the only place where |X509V3_EXT_nconf|'s
-      // |conf| parameter is used. All other codepaths use the copy inside
-      // |ctx|. Should this be switched and then the parameter ignored?
+      // TODO(davidben): This is the only place where `X509V3_EXT_nconf`'s
+      // `conf` parameter is used. All other codepaths use the copy inside
+      // `ctx`. Should this be switched and then the parameter ignored?
       if (conf == nullptr) {
         OPENSSL_PUT_ERROR(X509V3, X509V3_R_NO_CONFIG_DATABASE);
         return nullptr;
@@ -133,7 +136,7 @@ static X509_EXTENSION *do_ext_nconf(const CONF *conf, const X509V3_CTX *ctx,
     // TODO(davidben): Should this check be removed? This matches OpenSSL, but
     // r2i-based extensions do not necessarily require a config database. The
     // two built-in extensions only use it some of the time, and already handle
-    // |X509V3_get_section| returning NULL.
+    // `X509V3_get_section` returning NULL.
     if (!ctx->db) {
       OPENSSL_PUT_ERROR(X509V3, X509V3_R_NO_CONFIG_DATABASE);
       return nullptr;
@@ -226,14 +229,14 @@ static int v3_check_generic(const char **value) {
 static X509_EXTENSION *v3_generic_extension(const char *ext, const char *value,
                                             int crit, int gen_type,
                                             const X509V3_CTX *ctx) {
-  bssl::UniquePtr<ASN1_OBJECT> obj(OBJ_txt2obj(ext, 0));
+  UniquePtr<ASN1_OBJECT> obj(OBJ_txt2obj(ext, 0));
   if (obj == nullptr) {
     OPENSSL_PUT_ERROR(X509V3, X509V3_R_EXTENSION_NAME_ERROR);
     ERR_add_error_data(2, "name=", ext);
     return nullptr;
   }
 
-  bssl::UniquePtr<unsigned char> ext_der;
+  UniquePtr<unsigned char> ext_der;
   size_t ext_len = 0;
   if (gen_type == 1) {
     ext_der.reset(x509v3_hex_to_bytes(value, &ext_len));
@@ -252,7 +255,7 @@ static X509_EXTENSION *v3_generic_extension(const char *ext, const char *value,
     return nullptr;
   }
 
-  bssl::UniquePtr<ASN1_OCTET_STRING> oct(ASN1_OCTET_STRING_new());
+  UniquePtr<ASN1_OCTET_STRING> oct(ASN1_OCTET_STRING_new());
   if (oct == nullptr) {
     return nullptr;
   }
@@ -308,7 +311,7 @@ int X509V3_EXT_add_nconf(const CONF *conf, const X509V3_CTX *ctx,
                          const char *section, X509 *cert) {
   STACK_OF(X509_EXTENSION) **sk = nullptr;
   if (cert) {
-    sk = &cert->extensions;
+    sk = &FromOpaque(cert)->extensions;
   }
   return X509V3_EXT_add_nconf_sk(conf, ctx, section, sk);
 }
@@ -344,8 +347,8 @@ int X509V3_EXT_REQ_add_nconf(const CONF *conf, const X509V3_CTX *ctx,
 
 // Config database functions
 
-const STACK_OF(CONF_VALUE) *X509V3_get_section(const X509V3_CTX *ctx,
-                                               const char *section) {
+const STACK_OF(CONF_VALUE) *bssl::X509V3_get_section(const X509V3_CTX *ctx,
+                                                     const char *section) {
   if (ctx->db == nullptr) {
     OPENSSL_PUT_ERROR(X509V3, X509V3_R_OPERATION_NOT_DEFINED);
     return nullptr;

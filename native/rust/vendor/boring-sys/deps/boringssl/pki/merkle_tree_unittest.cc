@@ -17,206 +17,98 @@
 #include <cassert>
 #include <cstdint>
 #include <limits>
+#include <sstream>
+#include <string>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
+#include <openssl/digest.h>
 #include <openssl/sha2.h>
+
+#include "../crypto/test/file_test.h"
+#include "../crypto/test/test_util.h"
 
 BSSL_NAMESPACE_BEGIN
 
 namespace {
 
-class MerkleTree {
- public:
-  class Data {
-   public:
-    virtual ~Data() = default;
-    virtual std::vector<uint8_t> At(uint64_t index) = 0;
-    // Caching functions are only called for full subtrees (size is a power of
-    // 2) that have size at least 2.
-    virtual std::optional<TreeHash> NodeHash(Subtree node) = 0;
-    virtual void CacheNodeHash(Subtree node, TreeHash hash) = 0;
-  };
+// Returns a subtree consistency proof for `subtree` in the first `n` elements
+// of `tree`. This is currently implemented recursively, matching the
+// specification. If we ever need to expose it, we can implement it more
+// efficiently.
+std::vector<uint8_t> SubtreeConsistencyProof(const MerkleTree &mt,
+                                             Subtree subtree,
+                                             const Subtree &tree,
+                                             bool known_hash = true) {
+  BSSL_CHECK(subtree.IsValid());
+  BSSL_CHECK(tree.IsValid());
+  BSSL_CHECK(tree.Contains(subtree));
 
-  explicit MerkleTree(Data *data) : data_(data) {}
-  MerkleTree(const MerkleTree &) = delete;
-  MerkleTree(MerkleTree &&) = default;
-  MerkleTree &operator=(const MerkleTree &) = delete;
-  MerkleTree &operator=(MerkleTree &&) = default;
-
-  // MTH computes the Merkle Tree Hash (MTH; RFC 9162, section 2.1.1) of a
-  // tree containing `end - start` elements from D_n, starting at d[start]. If
-  // start > end or there is an internal error, this function returns nullopt.
-  //
-  // Note that the MTH function defined in RFC 9162 takes an ordered list of
-  // inputs D_n. This function takes start and end indicies to identify the
-  // inputs.
-  std::optional<TreeHash> MTH(const Subtree &subtree) {
-    if (!subtree.IsValid()) {
-      return std::nullopt;
+  if (subtree.Size() == 0) {
+    return {};
+  }
+  if (subtree == tree) {
+    if (known_hash) {
+      return {};
     }
-    SHA256_CTX ctx;
-    SHA256_Init(&ctx);
-    TreeHash out;
-    uint64_t n = subtree.Size();
-    if (n == 0) {
-      // The hash of an empty list is the hash of an empty string.
-      SHA256_Final(out.data(), &ctx);
-      return out;
-    }
-    if (n == 1) {
-      // One element in the list: return a leaf hash.
-      static const uint8_t header = 0x00;
-      auto leaf = data_->At(subtree.start);
-      SHA256_Update(&ctx, &header, 1);
-      SHA256_Update(&ctx, leaf.data(), leaf.size());
-      SHA256_Final(out.data(), &ctx);
-      return out;
-    }
-    // Only use the cache for subtrees with a size that is a power of 2.
-    uint64_t s = subtree.end - subtree.start;
-    bool use_cache = (s & (s - 1)) == 0;
-    if (use_cache) {
-      if (auto hash_opt = data_->NodeHash(subtree); hash_opt.has_value()) {
-        return *hash_opt;
-      }
-    }
-    // n elements in the list: MTH() is defined recursively.
-    auto left = MTH(subtree.Left());
-    auto right = MTH(subtree.Right());
-    if (!left.has_value() || !right.has_value()) {
-      return std::nullopt;
-    }
-    HashNode(*left, *right, out);
-    if (use_cache) {
-      data_->CacheNodeHash(subtree, out);
-    }
-    return out;
+    TreeHash h = mt.SubtreeHash(subtree);
+    return std::vector(h.begin(), h.end());
   }
 
-  // Computes an inclusion proof to the element at index in subtree from start
-  // to end.
-  std::optional<std::vector<TreeHash>> InclusionProof(uint64_t index,
-                                                      const Subtree &subtree) {
-    return SubtreeSubproof({index, index + 1}, subtree, true);
+  uint64_t k = tree.Split();
+  Subtree subproof_tree, mth_tree;
+  if (subtree.end <= k) {
+    subproof_tree = tree.Left();
+    mth_tree = tree.Right();
+  } else if (subtree.start >= k) {
+    mth_tree = tree.Left();
+    subproof_tree = tree.Right();
+  } else {
+    subtree.start = k;
+    mth_tree = tree.Left();
+    subproof_tree = tree.Right();
+    known_hash = false;
   }
-
-  // Computes a consistency proof that |subtree| is contained in |tree|.
-  std::optional<std::vector<TreeHash>> ConsistencyProof(const Subtree &subtree,
-                                                        const Subtree &tree) {
-    return SubtreeSubproof(subtree, tree, true);
-  }
-
- private:
-  // Computes a SUBTREE_SUBPROOF from subtree to tree, where subtree is
-  // contained within tree.
-  std::optional<std::vector<TreeHash>> SubtreeSubproof(Subtree subtree,
-                                                       const Subtree &tree,
-                                                       bool known_hash) {
-    if (!subtree.IsValid() || !tree.IsValid() || !tree.Contains(subtree)) {
-      // Invalid inputs
-      return std::nullopt;
-    }
-    uint64_t n = tree.Size();
-    if (n == 0) {
-      // There must be a tree with contents for there to be a proof that
-      // something is in said tree.
-      return std::nullopt;
-    }
-    if (subtree == tree) {
-      if (known_hash) {
-        return std::vector<TreeHash>();
-      }
-      auto mth = MTH(tree);
-      if (!mth.has_value()) {
-        return std::nullopt;
-      }
-      return {{*mth}};
-    }
-
-    uint64_t k = tree.Split();
-    Subtree subproof_tree, mth_tree;
-    if (subtree.end <= k) {
-      subproof_tree = tree.Left();
-      mth_tree = tree.Right();
-    } else if (subtree.start >= k) {
-      mth_tree = tree.Left();
-      subproof_tree = tree.Right();
-    } else {
-      subtree.start = k;
-      mth_tree = tree.Left();
-      subproof_tree = tree.Right();
-      known_hash = false;
-    }
-    auto subproof = SubtreeSubproof(subtree, subproof_tree, known_hash);
-    auto mth = MTH(mth_tree);
-    if (!subproof.has_value() || !mth.has_value()) {
-      return std::nullopt;
-    }
-    subproof->push_back(*mth);
-    return subproof;
-  }
-
-  Data *data_;
-};
-
-size_t countr_zero(uint64_t n) {
-  if (n == 0) {
-    return 8 * sizeof(n);
-  }
-  size_t count = 0;
-  while ((n & 1) == 0) {
-    n >>= 1;
-    count++;
-  }
-  return count;
+  std::vector<uint8_t> subproof =
+      SubtreeConsistencyProof(mt, subtree, subproof_tree, known_hash);
+  TreeHash mth = mt.SubtreeHash(mth_tree);
+  subproof.insert(subproof.end(), mth.begin(), mth.end());
+  return subproof;
 }
 
-class ConcatData : public MerkleTree::Data {
- public:
-  explicit ConcatData(Span<const uint8_t> label)
-      : label_(label.begin(), label.end()) {}
-
-  std::vector<uint8_t> At(uint64_t index) override {
-    std::vector<uint8_t> out(label_.size() + sizeof(index));
-    memcpy(out.data(), label_.data(), label_.size());
-    memcpy(out.data() + label_.size(), &index, sizeof(index));
-    return out;
+std::vector<std::vector<uint8_t>> MakeTestEntries(std::string_view label,
+                                                  size_t n) {
+  std::vector<std::vector<uint8_t>> entries;
+  entries.reserve(n);
+  for (size_t i = 0; i < n; i++) {
+    std::vector<uint8_t> entry(label.begin(), label.end());
+    for (size_t j = 0; j < 8; j++) {
+      entry.push_back(static_cast<uint8_t>(i >> (j * 8)));
+    }
+    entries.push_back(std::move(entry));
   }
+  return entries;
+}
 
-  std::optional<TreeHash> NodeHash(Subtree node) override {
-    size_t level_index = countr_zero(node.Size()) - 1;
-    if (node_cache_.size() <= level_index) {
-      return std::nullopt;
-    }
-    size_t position_index = node.start / node.Size();
-    if (node_cache_[level_index].size() <= position_index) {
-      return std::nullopt;
-    }
-    return node_cache_[level_index][position_index];
+// Generates test entries compatible with the "accumulated" tests described
+// in appendix C of draft-ietf-plants-merkle-tree-certs.
+// This works for `n` up to 255.
+std::vector<std::vector<uint8_t>> MakeAccumulatedTestEntries(size_t n) {
+  std::vector<std::vector<uint8_t>> entries;
+  entries.reserve(n);
+  for (size_t i = 0; i < n; i++) {
+    entries.push_back({static_cast<uint8_t>(i)});
   }
+  return entries;
+}
 
-  void CacheNodeHash(Subtree node, TreeHash hash) override {
-    size_t level_index = countr_zero(node.Size()) - 1;
-    size_t position_index = node.start / node.Size();
-    if (level_index >= node_cache_.size()) {
-      BSSL_CHECK(level_index == node_cache_.size());
-      node_cache_.push_back({});
-    }
-    if (position_index < node_cache_[level_index].size()) {
-      node_cache_[level_index][position_index] = hash;
-      return;
-    }
-    node_cache_[level_index].resize(position_index);
-    node_cache_[level_index].push_back(hash);
+std::vector<uint8_t> ConcatProof(const std::vector<TreeHash> &proof) {
+  std::vector<uint8_t> out;
+  for (const auto &p : proof) {
+    out.insert(out.end(), p.begin(), p.end());
   }
-
- private:
-  std::vector<uint8_t> label_;
-  std::vector<std::vector<std::optional<TreeHash>>> node_cache_;
-};
-
+  return out;
+}
 
 TEST(MerkleTreeTest, SubtreeIsValid) {
   // An empty subtree is valid.
@@ -256,175 +148,357 @@ TEST(MerkleTreeTest, SubtreeSplit) {
   EXPECT_EQ((Subtree{u64_max - 3, u64_max}).Split(), u64_max - 1);
 }
 
-std::vector<uint8_t> ConcatProof(const std::vector<TreeHash> &proof) {
-  std::vector<uint8_t> out;
-  for (const auto &p : proof) {
-    out.insert(out.end(), p.begin(), p.end());
+// This executes the "accumulated" Subtree Hashes test from appendix C.1 of
+// draft-ietf-plants-merkle-tree-certs.
+TEST(MerkleTreeTest, AccumulatedSubtreeHashes) {
+  auto entries = MakeAccumulatedTestEntries(256);
+  MerkleTreeInMemory tree(entries);
+
+  ScopedEVP_MD_CTX ctx;
+  EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr);
+
+  for (uint64_t end = 0; end < 131; ++end) {
+    for (uint64_t start = 0; start < end + 1; ++start) {
+      Subtree subtree{start, end};
+      if (!subtree.IsValid()) {
+        continue;
+      }
+      std::stringstream ss;
+      ss << "[" << std::to_string(start) << ", " << std::to_string(end) << ") "
+         << EncodeHex(tree.SubtreeHash(subtree)) << "\n";
+      std::string str = ss.str();
+      EVP_DigestUpdate(ctx.get(), str.data(), str.size());
+    }
   }
-  return out;
+  std::vector<uint8_t> final(EVP_MAX_MD_SIZE);
+  unsigned final_size;
+  EVP_DigestFinal_ex(ctx.get(), final.data(), &final_size);
+  final.resize(final_size);
+
+  const uint8_t kExpected[] = {
+      0xb8, 0x28, 0x06, 0xad, 0x42, 0x65, 0xbb, 0x15, 0x1c, 0x11, 0x19,
+      0xc0, 0xf4, 0xdb, 0x43, 0x7b, 0xb4, 0xd1, 0xa1, 0xf8, 0x87, 0xb3,
+      0xa7, 0xfb, 0xa1, 0xcd, 0x4e, 0xbf, 0x55, 0x2e, 0x3e, 0x81,
+  };
+  EXPECT_EQ(Bytes(final), Bytes(kExpected));
 }
 
-TEST(MerkleTreeTest, VerifySubtreeConsistencyProof) {
-  ConcatData tree_data(StringAsBytes("label"));
-  MerkleTree tree(&tree_data);
+// This executes the "accumulated" Subtree Inclusion Proofs test from appendix
+// C.2 of draft-ietf-plants-merkle-tree-certs.
+TEST(MerkleTreeTest, AccumulatedSubtreeInclusionProofs) {
+  auto entries = MakeAccumulatedTestEntries(256);
+  MerkleTreeInMemory tree(entries);
+
+  ScopedEVP_MD_CTX ctx;
+  EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr);
+
+  for (uint64_t end = 0; end < 131; ++end) {
+    for (uint64_t start = 0; start < end + 1; ++start) {
+      Subtree subtree{start, end};
+      if (!subtree.IsValid()) {
+        continue;
+      }
+      for (uint64_t index = start; index < end; ++index) {
+        std::stringstream ss;
+        ss << std::to_string(index) << " [" << std::to_string(start) << ", "
+           << std::to_string(end) << ")";
+        auto proof = tree.SubtreeInclusionProof(index, subtree);
+        for (size_t i = 0; i < proof.size(); i += SHA256_DIGEST_LENGTH) {
+          ss << " " << EncodeHex(Span(proof).subspan(i, SHA256_DIGEST_LENGTH));
+        }
+        ss << "\n";
+        std::string str = ss.str();
+        EVP_DigestUpdate(ctx.get(), str.data(), str.size());
+      }
+    }
+  }
+  std::vector<uint8_t> final(EVP_MAX_MD_SIZE);
+  unsigned final_size;
+  EVP_DigestFinal_ex(ctx.get(), final.data(), &final_size);
+  final.resize(final_size);
+
+  const uint8_t kExpected[] = {
+      0xac, 0x2a, 0x8f, 0x98, 0x9e, 0x44, 0xd9, 0x9e, 0x39, 0x9d, 0xb4,
+      0x48, 0x05, 0x0f, 0xf5, 0xf1, 0x97, 0x57, 0xdf, 0x53, 0xcf, 0xb7,
+      0x16, 0xaa, 0x81, 0x01, 0x5d, 0x39, 0x55, 0xd8, 0x16, 0x3f,
+  };
+  EXPECT_EQ(Bytes(final), Bytes(kExpected));
+}
+
+// This executes the "accumulated" Subtree Consistency Proofs test from appendix
+// C.3 of draft-ietf-plants-merkle-tree-certs.
+TEST(MerkleTreeTest, AccumulatedSubtreeConsistencyProofs) {
+  auto entries = MakeAccumulatedTestEntries(256);
+  MerkleTreeInMemory tree(entries);
+
+  ScopedEVP_MD_CTX ctx;
+  EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr);
+
+  for (size_t n = 0; n < 131; ++n) {
+    Subtree final_tree{0, n};
+    for (uint64_t end = 0; end < n + 1; ++end) {
+      for (uint64_t start = 0; start < end + 1; ++start) {
+        Subtree subtree{start, end};
+        if (!subtree.IsValid()) {
+          continue;
+        }
+        std::stringstream ss;
+        ss << "[" << std::to_string(start) << ", " << std::to_string(end)
+           << ") " << std::to_string(n);
+        auto proof = SubtreeConsistencyProof(tree, subtree, final_tree);
+        for (size_t i = 0; i < proof.size(); i += SHA256_DIGEST_LENGTH) {
+          ss << " " << EncodeHex(Span(proof).subspan(i, SHA256_DIGEST_LENGTH));
+        }
+        ss << "\n";
+        std::string str = ss.str();
+        EVP_DigestUpdate(ctx.get(), str.data(), str.size());
+      }
+    }
+  }
+  std::vector<uint8_t> final(EVP_MAX_MD_SIZE);
+  unsigned final_size;
+  EVP_DigestFinal_ex(ctx.get(), final.data(), &final_size);
+  final.resize(final_size);
+
+  const uint8_t kExpected[] = {
+      0x10, 0xfa, 0x99, 0xb3, 0x7b, 0xf9, 0xbf, 0x9f, 0xfa, 0x26, 0xb4,
+      0x12, 0xfb, 0xd9, 0x8b, 0xd7, 0x53, 0x63, 0x25, 0x6d, 0x0b, 0x75,
+      0xd6, 0x1b, 0xc4, 0x53, 0x8b, 0x9c, 0x9c, 0x5a, 0x0a, 0x74,
+  };
+  EXPECT_EQ(Bytes(final), Bytes(kExpected));
+}
+
+TEST(MerkleTreeTest, VerifySubtreeInclusionProof) {
+  auto entries = MakeTestEntries("label", 847);
+  MerkleTreeInMemory tree(entries);
 
   uint64_t index = 0;
-  auto node_hash = tree.MTH({index, index + 1});
+  auto node_hash = tree.SubtreeHash({index, index + 1});
   Subtree subtree{0, 16};
-  auto proof = tree.InclusionProof(index, subtree);
-  ASSERT_TRUE(proof.has_value());
-  auto root_hash = EvaluateMerkleSubtreeConsistencyProof(
-      subtree.end, {index, index + 1}, ConcatProof(*proof), *node_hash);
+  auto proof = tree.SubtreeInclusionProof(index, subtree);
+  EXPECT_TRUE(VerifyMerkleSubtreeConsistencyProof(
+      subtree.end, {index, index + 1}, proof, node_hash,
+      tree.SubtreeHash(subtree)));
+  // Check again with EvaluateMerkleSubtreeInclusionProof
+  auto root_hash =
+      EvaluateMerkleSubtreeInclusionProof(proof, index, node_hash, subtree);
   ASSERT_TRUE(root_hash.has_value());
-  EXPECT_EQ(root_hash, tree.MTH(subtree));
+  EXPECT_EQ(root_hash, tree.SubtreeHash(subtree));
+
+  // Build and verify a proof from a subtree with start != 0
+  index = 845;
+  node_hash = tree.SubtreeHash({index, index + 1});
+  subtree = {840, 847};
+  proof = tree.SubtreeInclusionProof(index, subtree);
+  EXPECT_TRUE(VerifyMerkleSubtreeConsistencyProof(
+      subtree.Size(), {index - subtree.start, index - subtree.start + 1}, proof,
+      node_hash, tree.SubtreeHash(subtree)));
+  // Check again with EvaluateMerkleSubtreeInclusionProof
+  root_hash =
+      EvaluateMerkleSubtreeInclusionProof(proof, index, node_hash, subtree);
+  ASSERT_TRUE(root_hash.has_value());
+  EXPECT_EQ(root_hash, tree.SubtreeHash(subtree));
+}
+
+TEST(MerkleTreeTest, SubtreeInclusionProofInvalidArgs) {
+  auto entries = MakeTestEntries("label", 847);
+  MerkleTreeInMemory tree(entries);
+
+  uint64_t index = 845;
+  auto node_hash = tree.SubtreeHash({index, index + 1});
+  Subtree subtree = {840, 847};
+  auto proof = tree.SubtreeInclusionProof(index, subtree);
+
+  // If the wrong node hash is passed in, the function will still compute a
+  // root hash, but it won't match the expected value.
+  auto wrong_node_hash = tree.SubtreeHash({index + 1, index + 2});
+  auto root_hash = EvaluateMerkleSubtreeInclusionProof(
+      proof, index, wrong_node_hash, subtree);
+  ASSERT_TRUE(root_hash.has_value());
+  EXPECT_NE(root_hash, tree.SubtreeHash(subtree));
+
+  // If the subtree isn't valid, the function will fail.
+  ASSERT_FALSE(
+      EvaluateMerkleSubtreeInclusionProof(proof, index, node_hash, {840, 849}));
+
+  // If the index isn't contained within the subtree, the function will fail.
+  ASSERT_FALSE(
+      EvaluateMerkleSubtreeInclusionProof(proof, 848, node_hash, {840, 847}));
 }
 
 // Test that the computed consistency proofs match the examples given in RFC
 // 9162 section 2.1.5.
 TEST(MerkleTreeTest, SubtreeConsistencyProofRFC9162) {
-  ConcatData tree_data(StringAsBytes("label"));
-  MerkleTree tree(&tree_data);
+  auto entries = MakeTestEntries("label", 7);
+  MerkleTreeInMemory tree(entries);
 
   // The example from section 2.1.5 has a final tree with 7 leaves.
   Subtree final_tree{0, 7};
 
-  // The examples refer to letters representing the MTH of various subtrees
-  // within that tree.
-  // a isn't used in any of the examples.
-  auto b = tree.MTH({1, 2});
-  auto c = tree.MTH({2, 3});
-  auto d = tree.MTH({3, 4});
-  // e isn't used in any of the examples.
-  auto f = tree.MTH({5, 6});
-  auto g = tree.MTH({0, 2});
-  auto h = tree.MTH({2, 4});
-  auto i = tree.MTH({4, 6});
-  auto j = tree.MTH({6, 7});
-  auto k = tree.MTH({0, 4});
-  auto l = tree.MTH({4, 7});
+  // The examples refer to letters representing the hashes of various subtrees
+  // within that tree. a and e aren't used in any of the examples.
+  auto b = tree.SubtreeHash({1, 2});
+  auto c = tree.SubtreeHash({2, 3});
+  auto d = tree.SubtreeHash({3, 4});
+  auto f = tree.SubtreeHash({5, 6});
+  auto g = tree.SubtreeHash({0, 2});
+  auto h = tree.SubtreeHash({2, 4});
+  auto i = tree.SubtreeHash({4, 6});
+  auto j = tree.SubtreeHash({6, 7});
+  auto k = tree.SubtreeHash({0, 4});
+  auto l = tree.SubtreeHash({4, 7});
 
   // Inclusion proofs:
 
   // Section 2.1.5: "The inclusion proof for `d0` is `[b, h, l]`."
-  auto d0_proof = tree.InclusionProof(0, final_tree);
-  EXPECT_THAT(*d0_proof, testing::ElementsAre(*b, *h, *l));
+  auto d0_proof = tree.SubtreeInclusionProof(0, final_tree);
+  EXPECT_EQ(d0_proof, ConcatProof({b, h, l}));
 
   // Section 2.1.5: "The inclusion proof for `d3` is `[c, g, l]`."
-  auto d3_proof = tree.InclusionProof(3, final_tree);
-  EXPECT_THAT(*d3_proof, testing::ElementsAre(*c, *g, *l));
+  auto d3_proof = tree.SubtreeInclusionProof(3, final_tree);
+  EXPECT_EQ(d3_proof, ConcatProof({c, g, l}));
 
   // Section 2.1.5: "The inclusion proof for `d4` is `[f, j, k]`."
-  auto d4_proof = tree.InclusionProof(4, final_tree);
-  EXPECT_THAT(*d4_proof, testing::ElementsAre(*f, *j, *k));
+  auto d4_proof = tree.SubtreeInclusionProof(4, final_tree);
+  EXPECT_EQ(d4_proof, ConcatProof({f, j, k}));
 
   // Section 2.1.5: "The inclusion proof for `d6` is `[i, k]`."
-  auto d6_proof = tree.InclusionProof(6, final_tree);
-  EXPECT_THAT(*d6_proof, testing::ElementsAre(*i, *k));
+  auto d6_proof = tree.SubtreeInclusionProof(6, final_tree);
+  EXPECT_EQ(d6_proof, ConcatProof({i, k}));
 
   // Consistency proofs:
 
-  // The consistency proofs refer to the lettered MTHs above, as well as some
-  // MTHs representing the tree as it was incrementally built.
+  // The consistency proofs refer to the lettered hashes above, as well as some
+  // hashes of the tree as it was incrementally built.
   Subtree hash0_subtree = {0, 3};
   Subtree hash1_subtree = {0, 4};
-  auto hash1 = tree.MTH(hash1_subtree);
+  auto hash1 = tree.SubtreeHash(hash1_subtree);
   ASSERT_EQ(hash1, k);
   Subtree hash2_subtree = {0, 6};
 
   // "The consistency proof between hash0 and hash is [c, d, g, l]."
-  auto hash0_proof = tree.ConsistencyProof(hash0_subtree, final_tree);
-  EXPECT_THAT(*hash0_proof, testing::ElementsAre(*c, *d, *g, *l));
+  auto hash0_proof = SubtreeConsistencyProof(tree, hash0_subtree, final_tree);
+  EXPECT_EQ(hash0_proof, ConcatProof({c, d, g, l}));
 
-  // "The consistency proof beween hash1 and hash is [l]."
-  auto hash1_proof = tree.ConsistencyProof(hash1_subtree, final_tree);
-  EXPECT_THAT(*hash1_proof, testing::ElementsAre(*l));
+  // "The consistency proof between hash1 and hash is [l]."
+  auto hash1_proof = SubtreeConsistencyProof(tree, hash1_subtree, final_tree);
+  EXPECT_EQ(hash1_proof, ConcatProof({l}));
 
   // "The consistency proof between hash2 and hash is [i, j, k]."
-  auto hash2_proof = tree.ConsistencyProof(hash2_subtree, final_tree);
-  EXPECT_THAT(*hash2_proof, testing::ElementsAre(*i, *j, *k));
+  auto hash2_proof = SubtreeConsistencyProof(tree, hash2_subtree, final_tree);
+  EXPECT_EQ(hash2_proof, ConcatProof({i, j, k}));
 }
 
 TEST(MerkleTreeTest, ValidProofsTest) {
-  ConcatData tree_data(StringAsBytes("label"));
-  MerkleTree tree(&tree_data);
-
   uint64_t n = 4, start = 0, end = 3;
   Subtree full_tree{0, n};
-  auto tree_hash = tree.MTH(full_tree);
+  auto entries = MakeTestEntries("label", n);
+  MerkleTreeInMemory tree(entries);
+
+  auto tree_hash = tree.SubtreeHash(full_tree);
   Subtree subtree{start, end};
   ASSERT_TRUE(subtree.IsValid());
-  auto subtree_hash = tree.MTH(subtree);
+  auto subtree_hash = tree.SubtreeHash(subtree);
 
-  auto proof = tree.ConsistencyProof(subtree, full_tree);
-  ASSERT_TRUE(proof.has_value());
-  auto computed_hash = EvaluateMerkleSubtreeConsistencyProof(
-      n, subtree, ConcatProof(*proof), *subtree_hash);
-  EXPECT_EQ(computed_hash, tree_hash);
+  auto proof = SubtreeConsistencyProof(tree, subtree, full_tree);
+  EXPECT_TRUE(VerifyMerkleSubtreeConsistencyProof(n, subtree, proof,
+                                                  subtree_hash, tree_hash));
 }
 
 TEST(MerkleTreeTest, ValidProofs) {
-  ConcatData tree_data(StringAsBytes("label"));
-  MerkleTree tree(&tree_data);
-
   // As of the time of writing this test, a run was performed with limit=257 and
-  // the test passed (but it took 1.7 seconds to run). This value is set to 129
-  // to balance how much of the space to explore with test execution time.
-  uint64_t limit = 129;
-  for (uint64_t n = 0; n < limit; n++) {
-    Subtree full_tree{0, n};
-    auto tree_hash = tree.MTH(full_tree);
-    for (uint64_t end = 0; end <= n; end++) {
+  // the test passed. This value is set to 129 to balance how much of the space
+  // to explore with test execution time. In particular, in an unoptimized
+  // build, limit=257 takes about 4 seconds.
+  for (bool incremental : {false, true}) {
+    SCOPED_TRACE(incremental);
+
+    uint64_t limit = 129;
+    auto entries = MakeTestEntries("label", limit);
+    MerkleTreeInMemory tree;
+    if (incremental) {
+      for (const auto &entry : entries) {
+        tree.Append(entry);
+      }
+    } else {
+      tree = MerkleTreeInMemory(entries);
+    }
+
+    // Exhaustively test subtree consistency proofs.
+    for (uint64_t n = 0; n < limit; n++) {
+      Subtree full_tree{0, n};
+      auto tree_hash = tree.SubtreeHash(full_tree);
+      for (uint64_t end = 0; end <= n; end++) {
+        for (uint64_t start = 0; start < end; start++) {
+          Subtree subtree{start, end};
+          if (!subtree.IsValid()) {
+            continue;
+          }
+          SCOPED_TRACE(testing::Message() << "Tree n=" << n << ", start: "
+                                          << start << ", end: " << end);
+          auto subtree_hash = tree.SubtreeHash(subtree);
+          auto proof = SubtreeConsistencyProof(tree, subtree, full_tree);
+          EXPECT_TRUE(VerifyMerkleSubtreeConsistencyProof(
+              n, subtree, proof, subtree_hash, tree_hash));
+        }
+      }
+    }
+
+    // Exhaustively test subtree inclusion proofs.
+    for (uint64_t end = 0; end <= limit; end++) {
       for (uint64_t start = 0; start < end; start++) {
         Subtree subtree{start, end};
         if (!subtree.IsValid()) {
           continue;
         }
-        SCOPED_TRACE(testing::Message() << "Tree n=" << n << ", start: "
-                                        << start << ", end: " << end);
-        auto subtree_hash = tree.MTH(subtree);
+        for (uint64_t index = start; index < end; index++) {
+          SCOPED_TRACE(testing::Message() << "index: " << index << ", start: "
+                                          << start << ", end: " << end);
+          auto subtree_hash = tree.SubtreeHash(subtree);
+          auto entry_hash = tree.SubtreeHash({index, index + 1});
+          auto proof = tree.SubtreeInclusionProof(index, subtree);
+          auto computed_hash = EvaluateMerkleSubtreeInclusionProof(
+              proof, index, entry_hash, subtree);
+          EXPECT_EQ(computed_hash, subtree_hash);
 
-        auto proof = tree.ConsistencyProof(subtree, full_tree);
-        ASSERT_TRUE(proof.has_value());
-        auto computed_hash = EvaluateMerkleSubtreeConsistencyProof(
-            n, subtree, ConcatProof(*proof), *subtree_hash);
-        EXPECT_EQ(computed_hash, tree_hash);
+          // A subtree inclusion proof is a special case of a consistency proof.
+          auto proof2 =
+              SubtreeConsistencyProof(tree, {index, index + 1}, subtree);
+          EXPECT_EQ(proof, proof2);
+        }
       }
     }
   }
 }
 
-class ConstData : public MerkleTree::Data {
+class MerkleTreeLarge : public MerkleTree {
  public:
-  // A tree that uses ConstData has the same data at every index in the tree.
-  std::vector<uint8_t> At(uint64_t index) override { return {}; }
-
-  std::optional<TreeHash> NodeHash(Subtree node) override {
-    size_t index = countr_zero(node.Size()) - 1;
-    if (node_cache_.size() <= index) {
-      return std::nullopt;
+  // Constructs a Merkle Tree over 2^64 - 1 copies of `entry`.
+  explicit MerkleTreeLarge(Span<const uint8_t> entry) {
+    HashLeaf(entry, levels_[0]);
+    for (size_t i = 1; i < levels_.size(); i++) {
+      HashNode(levels_[i - 1], levels_[i - 1], levels_[i]);
     }
-    return node_cache_[index];
   }
 
-  void CacheNodeHash(Subtree node, TreeHash hash) override {
-    size_t index = countr_zero(node.Size()) - 1;
-    // Cache entries are only inserted if not present, and always inserted from
-    // lowest level of the tree to highest.
-    BSSL_CHECK(index == node_cache_.size());
-    node_cache_.push_back(hash);
+  uint64_t Size() const override {
+    return std::numeric_limits<uint64_t>::max();
+  }
+
+  TreeHash GetNode(size_t level, uint64_t index) const override {
+    BSSL_CHECK(level < 64);
+    return levels_[level];
   }
 
  private:
-  std::vector<TreeHash> node_cache_;
+  std::array<TreeHash, 64> levels_;
 };
 
 TEST(MerkleTreeTest, VeryLargeProofs) {
-  ConstData tree_data;
-  MerkleTree tree(&tree_data);
+  MerkleTreeLarge tree(StringAsBytes("entry"));
 
   Subtree fullest_tree = {0, std::numeric_limits<uint64_t>::max()};
-  auto root_hash = tree.MTH(fullest_tree);
-  ASSERT_TRUE(root_hash.has_value());
+  auto root_hash = tree.SubtreeHash(fullest_tree);
 
   Subtree test_subtrees[] = {
       fullest_tree,
@@ -438,12 +512,114 @@ TEST(MerkleTreeTest, VeryLargeProofs) {
     SCOPED_TRACE(testing::Message() << "Subtree start: " << subtree.start
                                     << ", end: " << subtree.end);
 
-    auto proof = tree.ConsistencyProof(subtree, fullest_tree);
-    ASSERT_TRUE(proof.has_value());
-    auto computed_root_hash = EvaluateMerkleSubtreeConsistencyProof(
-        fullest_tree.end, subtree, ConcatProof(*proof), *tree.MTH(subtree));
-    EXPECT_EQ(computed_root_hash, root_hash);
+    auto proof = SubtreeConsistencyProof(tree, subtree, fullest_tree);
+    EXPECT_TRUE(VerifyMerkleSubtreeConsistencyProof(
+        fullest_tree.end, subtree, proof, tree.SubtreeHash(subtree),
+        root_hash));
   }
+}
+
+void InclusionProofFileTest(FileTest *t) {
+  uint64_t index, start, end;
+  ASSERT_TRUE(t->GetUint64(&index, "Index"));
+  ASSERT_TRUE(t->GetUint64(&start, "Start"));
+  ASSERT_TRUE(t->GetUint64(&end, "End"));
+  std::vector<uint8_t> entry_hash, subtree_hash, proof;
+  ASSERT_TRUE(t->GetBase64(&entry_hash, "EntryHash"));
+  ASSERT_TRUE(t->GetBase64(&subtree_hash, "SubtreeHash"));
+  ASSERT_TRUE(t->GetBase64(&proof, "Proof"));
+
+  const Subtree subtree{start, end};
+  TreeHashConstSpan entry_hash_span(entry_hash);
+  TreeHashConstSpan subtree_hash_span(subtree_hash);
+
+  auto computed_hash = EvaluateMerkleSubtreeInclusionProof(
+      proof, index, entry_hash_span, subtree);
+  EXPECT_TRUE(computed_hash.has_value());
+  EXPECT_EQ(*computed_hash, subtree_hash_span);
+
+  // Truncated inclusion proofs don't work.
+  const size_t original_proof_size = proof.size();
+  EXPECT_FALSE(EvaluateMerkleSubtreeInclusionProof(
+      Span(proof).subspan(original_proof_size - 1), index, entry_hash_span,
+      subtree));
+  EXPECT_FALSE(EvaluateMerkleSubtreeInclusionProof(
+      Span(proof).subspan(original_proof_size - EVP_MD_size(EVP_sha256())),
+      index, entry_hash_span, subtree));
+
+  // Extended inclusion proofs don't work.
+  proof.resize(original_proof_size + EVP_MD_size(EVP_sha256()));
+  EXPECT_FALSE(EvaluateMerkleSubtreeInclusionProof(
+      Span(proof).subspan(original_proof_size + 1), index, entry_hash_span,
+      subtree));
+  EXPECT_FALSE(EvaluateMerkleSubtreeInclusionProof(proof, index,
+                                                   entry_hash_span, subtree));
+
+  // Bitflipped inclusion proof should produce a wrong subtree hash.
+  proof.resize(original_proof_size);
+  proof[0] ^= 1;
+  computed_hash = EvaluateMerkleSubtreeInclusionProof(proof, index,
+                                                      entry_hash_span, subtree);
+  EXPECT_TRUE(computed_hash.has_value());
+  EXPECT_NE(*computed_hash, subtree_hash_span);
+}
+
+TEST(MerkleTreeTest, LargeInclusionProofs) {
+  FileTestGTest(
+      "crypto/x509/test/mtc/large_merkle_tree_inclusion_proof_tests.txt",
+      InclusionProofFileTest);
+}
+
+void ConsistencyProofFileTest(FileTest *t) {
+  uint64_t start, end, tree_size;
+  ASSERT_TRUE(t->GetUint64(&start, "Start"));
+  ASSERT_TRUE(t->GetUint64(&end, "End"));
+  ASSERT_TRUE(t->GetUint64(&tree_size, "TreeSize"));
+  std::vector<uint8_t> subtree_hash, tree_hash, proof;
+  ASSERT_TRUE(t->GetBase64(&subtree_hash, "SubtreeHash"));
+  ASSERT_TRUE(t->GetBase64(&tree_hash, "TreeHash"));
+  if (!t->HasAttribute("ProofEmpty")) {
+    ASSERT_TRUE(t->GetBase64(&proof, "Proof"));
+  }
+
+  const Subtree subtree{start, end};
+  TreeHashConstSpan subtree_hash_span(subtree_hash);
+  TreeHashConstSpan tree_hash_span(tree_hash);
+
+  EXPECT_TRUE(VerifyMerkleSubtreeConsistencyProof(
+      tree_size, subtree, proof, subtree_hash_span, tree_hash_span));
+
+  // Truncated consistency proofs don't work.
+  const size_t original_proof_size = proof.size();
+  if (original_proof_size > 0) {
+    EXPECT_FALSE(VerifyMerkleSubtreeConsistencyProof(
+        tree_size, subtree, Span(proof).subspan(original_proof_size - 1),
+        subtree_hash_span, tree_hash_span));
+    EXPECT_FALSE(VerifyMerkleSubtreeConsistencyProof(
+        tree_size, subtree,
+        Span(proof).subspan(original_proof_size - EVP_MD_size(EVP_sha256())),
+        subtree_hash_span, tree_hash_span));
+  }
+
+  // Extended consistency proofs don't work.
+  proof.resize(original_proof_size + EVP_MD_size(EVP_sha256()));
+  EXPECT_FALSE(VerifyMerkleSubtreeConsistencyProof(
+      tree_size, subtree, Span(proof).subspan(original_proof_size + 1),
+      subtree_hash_span, tree_hash_span));
+  EXPECT_FALSE(VerifyMerkleSubtreeConsistencyProof(
+      tree_size, subtree, proof, subtree_hash_span, tree_hash_span));
+
+  // Bitflipped input subtree hash should either fail verification.
+  proof.resize(original_proof_size);
+  subtree_hash[0] ^= 1;
+  EXPECT_FALSE(VerifyMerkleSubtreeConsistencyProof(
+      tree_size, subtree, proof, subtree_hash_span, tree_hash_span));
+}
+
+TEST(MerkleTreeTest, LargeConsistencyProofs) {
+  FileTestGTest(
+      "crypto/x509/test/mtc/large_merkle_tree_consistency_proof_tests.txt",
+      ConsistencyProofFileTest);
 }
 
 }  // namespace

@@ -19,6 +19,8 @@
 
 #include <array>
 #include <optional>
+#include <tuple>
+#include <vector>
 
 #include <openssl/sha2.h>
 #include <openssl/span.h>
@@ -29,11 +31,19 @@ BSSL_NAMESPACE_BEGIN
 // half-open interval [start, end) of tree indexes. A Subtree with start == end
 // represents a range of zero elements.
 struct Subtree {
-  uint64_t start;
-  uint64_t end;
+  uint64_t start = 0;
+  uint64_t end = 0;
 
   constexpr bool operator==(const Subtree &other) const {
     return start == other.start && end == other.end;
+  }
+
+  constexpr bool operator!=(const Subtree &other) const {
+    return !(*this == other);
+  }
+
+  constexpr bool operator<(const Subtree &other) const {
+    return std::tie(start, end) < std::tie(other.start, other.end);
   }
 
   // Returns the number of elements in the Subtree.
@@ -57,13 +67,11 @@ struct Subtree {
   constexpr Subtree Left() const { return {start, Split()}; }
 
   // Returns the right subtree of this Subtree. If this subtree has fewer than 2
-  // elements, returns an empty subtree.
+  // elements, returns an (invalid) empty subtree.
   constexpr Subtree Right() const { return {Split(), end}; }
 
   // Returns whether [start, end) specifies a valid Subtree.
   constexpr bool IsValid() const {
-    // A Subtree's half-open interval must have start <= end, otherwise the
-    // interval is improperly defined.
     if (start > end) {
       return false;
     }
@@ -127,29 +135,89 @@ using TreeHashSpan = Span<uint8_t, SHA256_DIGEST_LENGTH>;
 using TreeHashConstSpan = Span<const uint8_t, SHA256_DIGEST_LENGTH>;
 
 // Performs the procedure defined in section 4.4.3 of
-// draft-davidben-tls-merkle-tree-certs-08, Verifying a Subtree Consistency
+// draft-ietf-plants-merkle-tree-certs, Verifying a Subtree Consistency
 // Proof:
 //
 //   Given a Merkle Tree over `n` elements, a subtree defined by `[start, end)`,
 //   a consistency proof `proof`, a subtree hash `node_hash`, and a root hash
 //   `root_hash`
 //
-// The one difference between this function and the routine described in
-// draft-davidben-tls-merkle-tree-certs-08 is that instead of taking `root_hash`
-// as an input, this function returns the computed root hash and it is the
-// caller's responsibility to verify that the computed root hash matches the
-// expected root hash. This function returns std::nullopt if other steps of
-// proof verification failed.
-OPENSSL_EXPORT std::optional<TreeHash> EvaluateMerkleSubtreeConsistencyProof(
+// Returns whether the consistency proof was accepted.
+OPENSSL_EXPORT bool VerifyMerkleSubtreeConsistencyProof(
     uint64_t n, const Subtree &subtree, Span<const uint8_t> proof,
-    TreeHashConstSpan node_hash);
+    TreeHashConstSpan node_hash, TreeHashConstSpan root_hash);
+
+// Performs the procedure defined in section 4.3.2 of
+// draft-davidben-tls-merkle-tree-certs-08, Evaluating a Subtree Inclusion
+// Proof:
+//
+//   Given a subtree inclusion proof, inclusion_proof, for entry index, with
+//   hash entry_hash, of a subtree [start, end), the subtree inclusion proof can
+//   be evaluated to compute the expected subtree hash
+OPENSSL_EXPORT std::optional<TreeHash> EvaluateMerkleSubtreeInclusionProof(
+    Span<const uint8_t> inclusion_proof, uint64_t index,
+    TreeHashConstSpan entry_hash, const Subtree &subtree);
+
+// Helper function to compute the hash value of a leaf in a Merkle tree, i.e.
+// HASH(0x00 || entry). 32 bytes of output are written to `out`. This function
+// is intended for internal use only and only exists here for the convenience of
+// merkle_tree_unittest.cc.
+OPENSSL_EXPORT void HashLeaf(Span<const uint8_t> entry, TreeHashSpan out);
 
 // Helper function to compute the hash value of an interior node in a Merkle
 // tree, i.e. HASH(0x01 || left || right). 32 bytes of output are written to
-// |out|. This function is intended for internal use only and only exists here
+// `out`. This function is intended for internal use only and only exists here
 // for the convenience of merkle_tree_unittest.cc.
 OPENSSL_EXPORT void HashNode(TreeHashConstSpan left, TreeHashConstSpan right,
                              TreeHashSpan out);
+
+// A base class for a Merkle Tree structure. May be useful for generating test
+// data. Implementations of this class are expected to provide access to all
+// full subtrees, but partial subtrees are computed dynamically.
+class OPENSSL_EXPORT MerkleTree {
+ public:
+  // The subtree hash for any empty subtree.
+  static const TreeHash kEmptySubtreeHash;
+
+  virtual ~MerkleTree() = default;
+
+  // Returns the number of leaves in the Merkle Tree.
+  virtual uint64_t Size() const = 0;
+
+  // Returns the node `index` at level `level`, that is the hash of the subtree
+  // {index << level, (index + 1) << level}`. `(index + 1) << level` must be at
+  // most `Size()`.
+  virtual TreeHash GetNode(size_t level, uint64_t index) const = 0;
+
+  // Returns the hash of `subtree` in the Merkle Tree. `subtree` must be valid
+  // and `subtree.end` must be at most size().
+  TreeHash SubtreeHash(const Subtree &subtree) const;
+
+  // Returns an inclusion proof for entry `index` in `subtree`. `subtree` must
+  // be valid and `subtree.end` must be at most size(). `index` must be
+  // contained in the subtree.
+  std::vector<uint8_t> SubtreeInclusionProof(uint64_t index,
+                                             const Subtree &subtree) const;
+};
+
+// A Merkle Tree implementation that maintains nodes in memory. May be useful
+// for generating test data.
+class OPENSSL_EXPORT MerkleTreeInMemory : public MerkleTree {
+ public:
+  MerkleTreeInMemory();
+  explicit MerkleTreeInMemory(Span<const std::vector<uint8_t>> entries);
+
+  uint64_t Size() const override;
+  TreeHash GetNode(size_t level, uint64_t index) const override;
+
+  void Append(Span<const uint8_t> entry);
+
+ private:
+  void UpdateLevels();
+
+  // levels_[i][j] contains MTH(D[2^i * j : 2^i * (j+1)]).
+  std::vector<std::vector<TreeHash>> levels_;
+};
 
 BSSL_NAMESPACE_END
 

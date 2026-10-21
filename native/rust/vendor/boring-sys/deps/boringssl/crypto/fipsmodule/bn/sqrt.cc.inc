@@ -19,6 +19,8 @@
 #include "internal.h"
 
 
+using namespace bssl;
+
 BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
   // Compute a square root of |a| mod |p| using the Tonelli/Shanks algorithm
   // (cf. Henri Cohen, "A Course in Algebraic Computational Number Theory",
@@ -61,7 +63,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
     return ret;
   }
 
-  bssl::BN_CTXScope scope(ctx);
+  BN_CTXScope scope(ctx);
   A = BN_CTX_get(ctx);
   b = BN_CTX_get(ctx);
   q = BN_CTX_get(ctx);
@@ -84,7 +86,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
     goto end;
   }
 
-  // now write  |p| - 1  as  2^e*q  where  q  is odd
+  // now write  |p| - 1  as  2ᵉ⋅q  where  q  is odd
   e = 1;
   while (!BN_is_bit_set(p, e)) {
     e++;
@@ -113,23 +115,23 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
     // |p| == 5  (mod 8)
     //
     // In this case  2  is always a non-square since
-    // Legendre(2,p) = (-1)^((p^2-1)/8)  for any odd prime.
-    // So if  a  really is a square, then  2*a  is a non-square.
+    // Legendre(2,p) = (-1)^((p²-1)/8)  for any odd prime.
+    // So if  a  really is a square, then  2⋅a  is a non-square.
     // Thus for
-    //      b := (2*a)^((|p|-5)/8),
-    //      i := (2*a)*b^2
+    //      b := (2⋅a)^((|p|-5)/8),
+    //      i := (2⋅a)⋅b²
     // we have
-    //     i^2 = (2*a)^((1 + (|p|-5)/4)*2)
-    //         = (2*a)^((p-1)/2)
-    //         = -1;
+    //     i² = (2⋅a)^((1 + (|p|-5)/4)⋅2)
+    //        = (2⋅a)^((p-1)/2)
+    //        = -1;
     // so if we set
-    //      x := a*b*(i-1),
+    //      x := a⋅b⋅(i-1),
     // then
-    //     x^2 = a^2 * b^2 * (i^2 - 2*i + 1)
-    //         = a^2 * b^2 * (-2*i)
-    //         = a*(-i)*(2*a*b^2)
-    //         = a*(-i)*i
-    //         = a.
+    //     x² = a² ⋅ b² ⋅ (i² - 2⋅i + 1)
+    //        = a² ⋅ b² ⋅ (-2⋅i)
+    //        = a⋅(-i)⋅(2⋅a⋅b²)
+    //        = a⋅(-i)⋅i
+    //        = a.
     //
     // (This is due to A.O.L. Atkin,
     // <URL:
@@ -150,12 +152,12 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
       goto end;
     }
 
-    // y := b^2
+    // y := b²
     if (!BN_mod_sqr(y, b, p, ctx)) {
       goto end;
     }
 
-    // t := (2*a)*b^2 - 1
+    // t := (2*a)*b² - 1
     if (!BN_mod_mul(t, t, y, p, ctx) ||
         !BN_sub_word(t, 1)) {
       goto end;
@@ -220,7 +222,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
   }
 
   // Now that we have some non-square, we can find an element
-  // of order  2^e  by computing its q'th power.
+  // of order  2ᵉ  by computing its q'th power.
   if (!BN_mod_exp_mont(y, y, q, p, ctx, nullptr)) {
     goto end;
   }
@@ -230,7 +232,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
   }
 
   // Now we know that (if  p  is indeed prime) there is an integer
-  // k,  0 <= k < 2^e,  such that
+  // k,  0 <= k < 2ᵉ,  such that
   //
   //      a^q * y^k == 1   (mod p).
   //
@@ -241,7 +243,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
   //
   // and it satisfies
   //
-  //     X^2 = a^q * a     * y^k
+  //      X² = a^q * a     * y^k
   //         = a,
   //
   // so it is the square root that we are looking for.
@@ -252,7 +254,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
   }
 
   // x := a^((q-1)/2)
-  if (BN_is_zero(t)) {  // special case: p = 2^e + 1
+  if (BN_is_zero(t)) {  // special case: p = 2ᵉ + 1
     if (!BN_nnmod(t, A, p, ctx)) {
       goto end;
     }
@@ -276,7 +278,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
     }
   }
 
-  // b := a*x^2  (= a^q)
+  // b := a*x²  (= a^q)
   if (!BN_mod_sqr(b, x, p, ctx) ||
       !BN_mod_mul(b, b, A, p, ctx)) {
     goto end;

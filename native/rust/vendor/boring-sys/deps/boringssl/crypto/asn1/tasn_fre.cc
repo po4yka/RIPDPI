@@ -21,17 +21,20 @@
 
 #include "internal.h"
 
+
+using namespace bssl;
+
 // Free up an ASN1 structure
 
 void ASN1_item_free(ASN1_VALUE *val, const ASN1_ITEM *it) {
   ASN1_item_ex_free(&val, it);
 }
 
-void ASN1_item_ex_free(ASN1_VALUE **pval, const ASN1_ITEM *it) {
+void bssl::ASN1_item_ex_free(ASN1_VALUE **pval, const ASN1_ITEM *it) {
   if (!pval) {
     return;
   }
-  if ((it->itype != ASN1_ITYPE_PRIMITIVE) && !*pval) {
+  if ((it->itype != ASN1_ITYPE_PRIMITIVE) && !asn1_load_ptr(pval)) {
     return;
   }
 
@@ -65,8 +68,8 @@ void ASN1_item_ex_free(ASN1_VALUE **pval, const ASN1_ITEM *it) {
       if (asn1_cb) {
         asn1_cb(ASN1_OP_FREE_POST, pval, it, nullptr);
       }
-      OPENSSL_free(*pval);
-      *pval = nullptr;
+      OPENSSL_free(asn1_load_ptr(pval));
+      asn1_store_ptr(pval, nullptr);
       break;
     }
 
@@ -105,43 +108,44 @@ void ASN1_item_ex_free(ASN1_VALUE **pval, const ASN1_ITEM *it) {
       if (asn1_cb) {
         asn1_cb(ASN1_OP_FREE_POST, pval, it, nullptr);
       }
-      OPENSSL_free(*pval);
-      *pval = nullptr;
+      OPENSSL_free(asn1_load_ptr(pval));
+      asn1_store_ptr(pval, nullptr);
       break;
     }
   }
 }
 
-void ASN1_template_free(ASN1_VALUE **pval, const ASN1_TEMPLATE *tt) {
+void bssl::ASN1_template_free(ASN1_VALUE **pval, const ASN1_TEMPLATE *tt) {
   if (tt->flags & ASN1_TFLG_SK_MASK) {
-    STACK_OF(ASN1_VALUE) *sk = (STACK_OF(ASN1_VALUE) *)*pval;
+    STACK_OF(ASN1_VALUE) *sk = asn1_load_ptr_as<STACK_OF(ASN1_VALUE)>(pval);
     for (size_t i = 0; i < sk_ASN1_VALUE_num(sk); i++) {
       ASN1_VALUE *vtmp = sk_ASN1_VALUE_value(sk, i);
       ASN1_item_ex_free(&vtmp, ASN1_ITEM_ptr(tt->item));
     }
     sk_ASN1_VALUE_free(sk);
-    *pval = nullptr;
+    asn1_store_ptr(pval, nullptr);
   } else {
     ASN1_item_ex_free(pval, ASN1_ITEM_ptr(tt->item));
   }
 }
 
-void ASN1_primitive_free(ASN1_VALUE **pval, const ASN1_ITEM *it) {
-  // Historically, |it->funcs| for primitive types contained an
-  // |ASN1_PRIMITIVE_FUNCS| table of callbacks.
+void bssl::ASN1_primitive_free(ASN1_VALUE **pval, const ASN1_ITEM *it) {
+  // Historically, `it->funcs` for primitive types contained an
+  // `ASN1_PRIMITIVE_FUNCS` table of callbacks.
   assert(it->funcs == nullptr);
 
   int utype = it->itype == ASN1_ITYPE_MSTRING ? -1 : it->utype;
   switch (utype) {
     case V_ASN1_OBJECT:
-      ASN1_OBJECT_free((ASN1_OBJECT *)*pval);
+      ASN1_OBJECT_free(asn1_load_ptr_as<ASN1_OBJECT>(pval));
       break;
 
     case V_ASN1_BOOLEAN:
       if (it) {
-        *(ASN1_BOOLEAN *)pval = (ASN1_BOOLEAN)it->size;
+        *reinterpret_cast<ASN1_BOOLEAN *>(pval) =
+            static_cast<ASN1_BOOLEAN>(it->size);
       } else {
-        *(ASN1_BOOLEAN *)pval = ASN1_BOOLEAN_NONE;
+        *reinterpret_cast<ASN1_BOOLEAN *>(pval) = ASN1_BOOLEAN_NONE;
       }
       return;
 
@@ -149,16 +153,11 @@ void ASN1_primitive_free(ASN1_VALUE **pval, const ASN1_ITEM *it) {
       break;
 
     case V_ASN1_ANY:
-      if (*pval != nullptr) {
-        asn1_type_cleanup((ASN1_TYPE *)*pval);
-        OPENSSL_free(*pval);
-      }
+      ASN1_TYPE_free(asn1_load_ptr_as<ASN1_TYPE>(pval));
       break;
 
     default:
-      ASN1_STRING_free((ASN1_STRING *)*pval);
-      *pval = nullptr;
-      break;
+      ASN1_STRING_free(asn1_load_ptr_as<ASN1_STRING>(pval));
   }
-  *pval = nullptr;
+  asn1_store_ptr(pval, nullptr);
 }

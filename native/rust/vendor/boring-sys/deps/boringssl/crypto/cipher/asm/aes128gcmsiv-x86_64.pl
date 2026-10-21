@@ -28,7 +28,7 @@ $0 =~ m/(.*[\/\\])[^\/\\]+$/; $dir=$1;
 ( $xlate="${dir}../../perlasm/x86_64-xlate.pl" and -f $xlate) or
 die "can't locate x86_64-xlate.pl";
 
-open OUT,"| \"$^X\" \"$xlate\" $flavour \"$output\"";
+open OUT, "|-", $^X, $xlate, $flavour, $output;
 *STDOUT=*OUT;
 
 $code.=<<___;
@@ -273,7 +273,7 @@ aesgcmsiv_htable_polyval:
     jnz .Lhtable_polyval_prefix_loop
     jmp .Lhtable_polyval_prefix_complete
 
-    # hash remaining prefix bocks (up to 7 total prefix blocks)
+    # hash remaining prefix blocks (up to 7 total prefix blocks)
 .align 64
 .Lhtable_polyval_prefix_loop:
     sub \$16, $hlp0

@@ -23,8 +23,11 @@
 #include <openssl/obj.h>
 #include <openssl/x509.h>
 
+#include "../internal.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 int X509_print_ex_fp(FILE *fp, const X509 *x, unsigned long nmflag,
                      unsigned long cflag) {
@@ -48,6 +51,7 @@ int X509_print(BIO *bp, const X509 *x) {
 
 int X509_print_ex(BIO *bp, const X509 *x, unsigned long nmflags,
                   unsigned long cflag) {
+  auto *impl = FromOpaque(x);
   char mlch = ' ';
   int nmindent = 0;
   if ((nmflags & XN_FLAG_SEP_MASK) == XN_FLAG_SEP_MULTILINE) {
@@ -89,7 +93,7 @@ int X509_print_ex(BIO *bp, const X509 *x, unsigned long nmflags,
         return 0;
       }
     } else {
-      ERR_clear_error();  // Clear |ASN1_INTEGER_get_uint64|'s error.
+      ERR_clear_error();  // Clear `ASN1_INTEGER_get_uint64`'s error.
       const char *neg =
           (serial->type == V_ASN1_NEG_INTEGER) ? " (Negative)" : "";
       if (BIO_printf(bp, "\n%12s%s", "", neg) <= 0) {
@@ -106,7 +110,7 @@ int X509_print_ex(BIO *bp, const X509 *x, unsigned long nmflags,
   }
 
   if (!(cflag & X509_FLAG_NO_SIGNAME)) {
-    if (X509_signature_print(bp, &x->tbs_sig_alg, nullptr) <= 0) {
+    if (X509_signature_print(bp, impl->tbs_sig_alg.get(), nullptr) <= 0) {
       return 0;
     }
   }
@@ -162,7 +166,7 @@ int X509_print_ex(BIO *bp, const X509 *x, unsigned long nmflags,
     if (BIO_printf(bp, "%12sPublic Key Algorithm: ", "") <= 0) {
       return 0;
     }
-    if (i2a_ASN1_OBJECT(bp, x->key.algor.algorithm) <= 0) {
+    if (i2a_ASN1_OBJECT(bp, impl->key.algor->algorithm) <= 0) {
       return 0;
     }
     if (BIO_puts(bp, "\n") <= 0) {
@@ -179,35 +183,37 @@ int X509_print_ex(BIO *bp, const X509 *x, unsigned long nmflags,
   }
 
   if (!(cflag & X509_FLAG_NO_IDS)) {
-    if (x->issuerUID) {
+    if (impl->issuerUID) {
       if (BIO_printf(bp, "%8sIssuer Unique ID: ", "") <= 0) {
         return 0;
       }
-      if (!X509_signature_dump(bp, x->issuerUID, 12)) {
+      if (!X509_signature_dump(bp, impl->issuerUID.get(), 12)) {
         return 0;
       }
     }
-    if (x->subjectUID) {
+    if (impl->subjectUID) {
       if (BIO_printf(bp, "%8sSubject Unique ID: ", "") <= 0) {
         return 0;
       }
-      if (!X509_signature_dump(bp, x->subjectUID, 12)) {
+      if (!X509_signature_dump(bp, impl->subjectUID.get(), 12)) {
         return 0;
       }
     }
   }
 
   if (!(cflag & X509_FLAG_NO_EXTENSIONS)) {
-    X509V3_extensions_print(bp, "X509v3 extensions", x->extensions, cflag, 8);
+    X509V3_extensions_print(bp, "X509v3 extensions", impl->extensions, cflag,
+                            8);
   }
 
   if (!(cflag & X509_FLAG_NO_SIGDUMP)) {
-    if (X509_signature_print(bp, &x->sig_alg, &x->signature) <= 0) {
+    if (X509_signature_print(bp, impl->sig_alg.get(), impl->signature.get()) <=
+        0) {
       return 0;
     }
   }
   if (!(cflag & X509_FLAG_NO_AUX)) {
-    if (!X509_CERT_AUX_print(bp, x->aux, 0)) {
+    if (!X509_CERT_AUX_print(bp, impl->aux, 0)) {
       return 0;
     }
   }

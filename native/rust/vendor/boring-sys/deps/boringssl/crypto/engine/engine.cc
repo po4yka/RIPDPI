@@ -23,25 +23,26 @@
 #include <openssl/rsa.h>
 
 #include "../internal.h"
+#include "../mem_internal.h"
 
+
+using namespace bssl;
 
 struct engine_st {
   RSA_METHOD *rsa_method;
   ECDSA_METHOD *ecdsa_method;
 };
 
-ENGINE *ENGINE_new(void) {
-  return reinterpret_cast<ENGINE *>(OPENSSL_zalloc(sizeof(ENGINE)));
-}
+ENGINE *ENGINE_new() { return New<ENGINE>(); }
 
 int ENGINE_free(ENGINE *engine) {
   // Methods are currently required to be static so are not unref'ed.
-  OPENSSL_free(engine);
+  Delete(engine);
   return 1;
 }
 
 // set_method takes a pointer to a method and its given size and sets
-// |*out_member| to point to it. This function might want to be extended in the
+// `*out_member` to point to it. This function might want to be extended in the
 // future to support making a copy of the method so that a stable ABI for
 // ENGINEs can be supported. But, for the moment, all *_METHODS must be
 // static.

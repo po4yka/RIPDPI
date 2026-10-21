@@ -208,7 +208,7 @@ $0 =~ m/(.*[\/\\])[^\/\\]+$/; $dir=$1;
 ( $xlate="${dir}../../../perlasm/x86_64-xlate.pl" and -f $xlate) or
 die "can't locate x86_64-xlate.pl";
 
-open OUT,"| \"$^X\" \"$xlate\" $flavour \"$output\"";
+open OUT, "|-", $^X, $xlate, $flavour, $output;
 *STDOUT=*OUT;
 
 $movkey = $PREFIX eq "aes_hw" ? "movups" : "movups";
@@ -3387,7 +3387,8 @@ ${PREFIX}_set_encrypt_key_base:
 	ret
 .cfi_endproc
 .seh_endproc
-
+.size	${PREFIX}_set_encrypt_key_base,.-${PREFIX}_set_encrypt_key_base
+
 .align	16
 .Lkey_expansion_128:
 .cfi_startproc
@@ -3466,7 +3467,6 @@ ${PREFIX}_set_encrypt_key_base:
 	xorps	%xmm1,%xmm2
 	ret
 .cfi_endproc
-.size	${PREFIX}_set_encrypt_key_base,.-${PREFIX}_set_encrypt_key_base
 
 .globl	${PREFIX}_set_encrypt_key_alt
 .type	${PREFIX}_set_encrypt_key_alt,\@abi-omnipotent
@@ -3679,7 +3679,9 @@ ___
 
 $code.=<<___;
 .section .rodata
+
 .align	64
+aesni_constants:
 .Lbswap_mask:
 	.byte	15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
 .Lincrement32:
