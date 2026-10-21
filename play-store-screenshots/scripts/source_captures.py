@@ -51,20 +51,20 @@ def inputs_sha256(inputs: dict[str, str]) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 DISPLAY_PROFILES = {name: {"densityDpi": DENSITY_DPI, "fontScale": 1.0} for name in SCREENS}
-DISPLAY_PROFILES["home"] = {"densityDpi": 290, "fontScale": 1.24}
+DISPLAY_PROFILES["home"] = {"densityDpi": 290, "fontScale": 0.8}
 DISPLAY_PROFILES["relay"] = {"densityDpi": 260, "fontScale": 1.5}
 
-HOME_SCROLL_PIXELS = {locale: 20 if locale in ("en", "de", "fr", "fa") else 0 for locale in LOCALES}
+HOME_SCROLL_PIXELS = {locale: 0 for locale in LOCALES}
 
-BACKUP_DENSITIES = {"en": 480, "ru": 460, "es": 460, "de": 460, "fr": 460, "fa": 440, "zh-CN": 500}
+BACKUP_DENSITIES = {"en": 480, "ru": 460, "es": 460, "de": 430, "fr": 460, "fa": 440, "zh-CN": 500}
 DNS_DISPLAY_PROFILES = {
     "en": {"densityDpi": 360, "fontScale": 1.0},
     "ru": {"densityDpi": 300, "fontScale": 1.18},
     "es": {"densityDpi": 290, "fontScale": 1.24},
-    "de": {"densityDpi": 300, "fontScale": 1.2},
-    "fr": {"densityDpi": 300, "fontScale": 1.2},
-    "fa": {"densityDpi": 360, "fontScale": 1.0},
-    "zh-CN": {"densityDpi": 420, "fontScale": 0.8571429},
+    "de": {"densityDpi": 290, "fontScale": 1.2},
+    "fr": {"densityDpi": 290, "fontScale": 1.2},
+    "fa": {"densityDpi": 300, "fontScale": 1.0},
+    "zh-CN": {"densityDpi": 360, "fontScale": 0.8571429},
 }
 DISPLAY_OVERRIDES = {
     locale: {
@@ -72,9 +72,11 @@ DISPLAY_OVERRIDES = {
         "dns-settings": DNS_DISPLAY_PROFILES[locale],
     } for locale in LOCALES
 }
+DISPLAY_OVERRIDES["en"]["relay"] = {"densityDpi": 264, "fontScale": 1.5}
 DISPLAY_OVERRIDES["fa"]["relay"] = {"densityDpi": 250, "fontScale": 1.56}
 DISPLAY_OVERRIDES["zh-CN"]["relay"] = {"densityDpi": 255, "fontScale": 1.5294118}
-DNS_BOTTOM_FOCUS_PIXELS = {locale: 0 if locale in ("fa", "zh-CN") else 45 for locale in LOCALES}
+DNS_BOTTOM_FOCUS_PIXELS = {locale: 35 if locale in ("de", "fr", "fa", "zh-CN") else 45 for locale in LOCALES}
+BACKUP_SCROLL_PIXELS = {locale: {"fr": 12, "zh-CN": 16}.get(locale, 0) for locale in LOCALES}
 
 
 def display_profile(locale: str, name: str) -> dict:

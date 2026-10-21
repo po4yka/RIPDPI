@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock
+from xml.etree import ElementTree
 
 from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
 
@@ -21,6 +22,127 @@ capture_spec.loader.exec_module(capture)
 
 
 class SourceCaptureTests(unittest.TestCase):
+    def test_backup_focus_rejects_an_unobserved_scroll(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.locale = "fr"
+        device.tree = Mock(return_value=ElementTree.fromstring(
+            '<hierarchy><node resource-id="backup-import-button" bounds="[100,1500][980,1600]" /></hierarchy>'))
+        device.scroll = Mock()
+        with self.assertRaisesRegex(RuntimeError, "backup.*viewport"):
+            device.focus_backup()
+        device.scroll.assert_called_once_with(12)
+
+    def test_relay_bottom_focus_waits_for_stable_complete_content(self):
+        def tree(at_end):
+            preset = '' if at_end else '<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="[136,214][546,290]" />'
+            tls_top, advanced_top = (221, 1521) if at_end else (303, 1603)
+            return ElementTree.fromstring(
+                '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+                f'{preset}<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,{tls_top}][944,{tls_top + 396}]" />'
+                f'<node resource-id="mode-editor-advanced" bounds="[107,{advanced_top}][973,{advanced_top + 77}]" />'
+                '</node></hierarchy>')
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(side_effect=[tree(False), tree(True), tree(True), tree(True)])
+        device.scroll = Mock()
+        device.focus_relay_bottom()
+        self.assertEqual(device.tree.call_count, 4)
+        self.assertEqual(device.scroll.call_count, 3)
+        for call in device.scroll.call_args_list:
+            self.assertEqual(call.args, (600,))
+            self.assertEqual(call.kwargs, {"x": 70})
+
+    def test_relay_bottom_focus_rejects_stable_clipped_sections(self):
+        for preset, advanced in ((None, (1603, 1680)), ((180, 256), (1521, 1598))):
+            with self.subTest(preset=preset, advanced=advanced):
+                preset_xml = (f'<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="[136,{preset[0]}][546,{preset[1]}]" />'
+                              if preset else '')
+                device = capture.CaptureDevice("emulator-5556")
+                device.tree = Mock(return_value=ElementTree.fromstring(
+                    '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+                    f'{preset_xml}<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
+                    f'<node resource-id="mode-editor-advanced" bounds="[107,{advanced[0]}][973,{advanced[1]}]" />'
+                    '</node></hierarchy>'))
+                device.scroll = Mock()
+                with self.assertRaisesRegex(RuntimeError, "clipped section"):
+                    device.focus_relay_bottom()
+
+    def test_relay_bottom_focus_has_a_bounded_wait(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(side_effect=[ElementTree.fromstring(
+            '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+            '<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
+            f'<node resource-id="mode-editor-advanced" bounds="[107,{1521 + offset}][973,{1598 + offset}]" />'
+            '</node></hierarchy>') for offset in range(8)])
+        device.scroll = Mock()
+        with self.assertRaisesRegex(RuntimeError, "eight observations"):
+            device.focus_relay_bottom()
+        self.assertEqual(device.tree.call_count, 8)
+
+    def test_relay_bottom_focus_rejects_a_present_preset_without_bounds(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(return_value=ElementTree.fromstring(
+            '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+            '<node resource-id="mode-editor-relay-chip-ru-mobile-relay" />'
+            '<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
+            '<node resource-id="mode-editor-advanced" bounds="[107,1521][973,1598]" />'
+            '</node></hierarchy>'))
+        device.scroll = Mock()
+        with self.assertRaisesRegex(RuntimeError, "clipped section"):
+            device.focus_relay_bottom()
+
+    def test_relay_frame_keeps_the_last_recommended_preset_whole(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.locale = "en"
+        device.tree = Mock(return_value=ElementTree.fromstring(
+            '<hierarchy><node resource-id="config-mode-proxy" />'
+            '<node checkable="true" clickable="true" checked="true" /></hierarchy>'))
+        device.tap = Mock()
+        device.align = Mock()
+        device.focus_relay_bottom = Mock()
+        device.show_relay_fields()
+        device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
+        device.focus_relay_bottom.assert_not_called()
+        device.locale = "zh-CN"
+        device.show_relay_fields()
+        device.focus_relay_bottom.assert_called_once_with()
+
+    def test_relay_alignment_swipes_outside_the_visible_port_field(self):
+        def tree(chip_top):
+            return ElementTree.fromstring(
+                '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
+                f'<node resource-id="last-chip" bounds="[136,{chip_top}][546,{chip_top + 76}]" />'
+                '<node class="android.widget.EditText" text="11980" bounds="[136,1417][944,1494]" />'
+                '</node></hierarchy>')
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(side_effect=[tree(225), tree(214)])
+        device.adb = Mock(return_value="Physical density: 360\nOverride density: 255")
+        with patch.object(capture.time, "sleep"):
+            device.align("last-chip")
+        device.adb.assert_any_call("shell", "input", "swipe", "70", "1450", "70", "1426", "900")
+
+    def test_relay_alignment_uses_the_actual_header_height(self):
+        for viewport_top in (160, 207):
+            with self.subTest(viewport_top=viewport_top):
+                def tree(section_top):
+                    return ElementTree.fromstring(
+                        f'<hierarchy><node scrollable="true" bounds="[0,{viewport_top}][1080,1630]">'
+                        f'<node resource-id="relay-section" bounds="[128,{section_top}][980,1500]" />'
+                        '</node></hierarchy>')
+                device = capture.CaptureDevice("emulator-5556")
+                device.tree = Mock(side_effect=[tree(262), tree(viewport_top + 4)])
+                device.scroll = Mock()
+                device.align("relay-section")
+                device.scroll.assert_called_once_with(262 - viewport_top - 4, x=8)
+
+    def test_relay_alignment_rejects_a_missing_scroll_viewport(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(return_value=ElementTree.fromstring(
+            '<hierarchy><node resource-id="relay-section" bounds="[128,262][980,1500]" /></hierarchy>'))
+        device.scroll = Mock()
+        with self.assertRaisesRegex(RuntimeError, "viewport is missing"):
+            device.align("relay-section")
+        device.scroll.assert_not_called()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -54,6 +176,11 @@ class SourceCaptureTests(unittest.TestCase):
         self.data["runReceipts"]["dnsFocus"] = {locale: {"requestedBottomScrollPixels": offset,
             "observedBottomScrollPixels": offset, "observedAtUtc": "2026-10-10T00:00:00+00:00"}
             for locale, offset in DNS_BOTTOM_FOCUS_PIXELS.items()}
+        self.data["state"]["backupScrollPixels"] = capture.BACKUP_SCROLL_PIXELS
+        self.data["runReceipts"]["backupFocus"] = {
+            locale: {"requestedScrollPixels": offset, "observedScrollPixels": offset,
+                     "observedAtUtc": "2026-10-19T00:00:00+00:00"}
+            for locale, offset in capture.BACKUP_SCROLL_PIXELS.items()}
         self.save()
 
     def save(self):
@@ -84,7 +211,7 @@ class SourceCaptureTests(unittest.TestCase):
         self.assertTrue(any("truthful producer" in error for error in self.validate()))
 
     def test_unapplied_complete_relay_viewports_are_rejected(self):
-        for locale in ("fa", "zh-CN"):
+        for locale in ("en", "fa", "zh-CN"):
             with self.subTest(locale=locale):
                 self.data["runReceipts"]["displayFrames"][f"{locale}/relay"] = {
                     **DISPLAY_PROFILES["relay"], "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
@@ -92,6 +219,16 @@ class SourceCaptureTests(unittest.TestCase):
                 self.assertTrue(any("per-frame density" in error for error in self.validate()))
                 self.data["runReceipts"]["displayFrames"][f"{locale}/relay"] = {
                     **display_profile(locale, "relay"), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
+
+    def test_unobserved_backup_focus_is_rejected(self):
+        self.data["state"]["backupScrollPixels"] = capture.BACKUP_SCROLL_PIXELS
+        self.data["runReceipts"]["backupFocus"] = {
+            locale: {"requestedScrollPixels": offset, "observedScrollPixels": offset,
+                     "observedAtUtc": "2026-10-19T00:00:00+00:00"}
+            for locale, offset in capture.BACKUP_SCROLL_PIXELS.items()}
+        self.data["runReceipts"]["backupFocus"]["fr"]["observedScrollPixels"] = 0
+        self.save()
+        self.assertTrue(any("backup controls viewport" in error for error in self.validate()))
 
     def test_unobserved_dns_focus_is_rejected(self):
         self.data["runReceipts"]["dnsFocus"]["ru"]["observedBottomScrollPixels"] = 0
@@ -104,7 +241,7 @@ class SourceCaptureTests(unittest.TestCase):
         self.assertTrue(any("per-frame density" in error for error in self.validate()))
 
     def test_unobserved_home_scroll_is_rejected(self):
-        self.data["runReceipts"]["homeMeasurements"]["fa"]["observedContentScrollPixels"] = 0
+        self.data["runReceipts"]["homeMeasurements"]["en"]["observedContentScrollPixels"] = 5
         self.save()
         self.assertTrue(any("Home content viewport" in error for error in self.validate()))
 

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.os.Build
 import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
@@ -554,7 +555,12 @@ class XrayProviderE2ETest {
             val establishmentCount = tunnelProvider.establishmentCount
             val resolverBefore = resolverOverrides.override.value
             val failuresBefore = state.telemetry.value.tunnelTelemetry.dnsFailuresTotal
-            readControl("peer/stop", "POST")
+            val stopStartedAt = SystemClock.elapsedRealtime()
+            val stopAck = readControl("peer/stop", "POST")
+            logRecoveryObservation(
+                "stop-ack-$network",
+                "startedAt=$stopStartedAt running=${stopAck.getBoolean("running")}",
+            )
             try {
                 val before = readControl("receipts").getInt("count")
                 val directBefore = readControl("direct-receipts").getInt("count")
@@ -564,7 +570,15 @@ class XrayProviderE2ETest {
                 assertEquals(before, readControl("receipts").getInt("count"))
                 assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
                 val dnsReceiptsBefore = readControl("dns-http-receipts").getInt("count")
+                val dnsStartedAt = SystemClock.elapsedRealtime()
                 val dnsFailure = testProcessDnsProbe(queryHost = "peer-owned-loss-$network.test", timeoutMs = 3_000L)
+                logRecoveryObservation(
+                    "outage-dns-$network",
+                    "startedAt=$dnsStartedAt query=${dnsFailure.queryHost} ok=${dnsFailure.ok} " +
+                        "rcode=${dnsFailure.rcode} latencyMs=${dnsFailure.latencyMs} " +
+                        "dohBefore=$dnsReceiptsBefore " +
+                        "dohAfter=${readControl("dns-http-receipts").getInt("count")}",
+                )
                 Log.i(
                     "XrayPeerRecovery",
                     "phase=peer-stopped ok=${dnsFailure.ok} rcode=${dnsFailure.rcode} " +
@@ -600,7 +614,12 @@ class XrayProviderE2ETest {
                     tunnelProvider.establishmentCount,
                 )
             } finally {
-                readControl("peer/start", "POST")
+                val startStartedAt = SystemClock.elapsedRealtime()
+                val startAck = readControl("peer/start", "POST")
+                logRecoveryObservation(
+                    "start-ack-$network",
+                    "startedAt=$startStartedAt running=${startAck.getBoolean("running")}",
+                )
             }
             awaitOwnedPeerEcho(network)
             repeat(3) { assertOwnedEncryptedDnsThroughProvider("recovered-$network-$it") }
@@ -641,12 +660,20 @@ class XrayProviderE2ETest {
 
     private fun assertOwnedEncryptedDnsThroughProvider(label: String) {
         val before = readControl("dns-http-receipts").getInt("count")
+        val startedAt = SystemClock.elapsedRealtime()
         val response =
             testProcessDnsProbe(
                 queryHost = "peer-owned-$label.test",
                 serverHost = "198.18.0.53",
                 timeoutMs = 3_000L,
             )
+        val after = readControl("dns-http-receipts").getInt("count")
+        logRecoveryObservation(
+            "encrypted-dns-$label",
+            "startedAt=$startedAt query=${response.queryHost} ok=${response.ok} rcode=${response.rcode} " +
+                "latencyMs=${response.latencyMs} answers=${response.answers.size} " +
+                "failure=${response.failureKind}/${response.failureStage} dohBefore=$before dohAfter=$after",
+        )
         assertTrue(
             "Encrypted DNS must originate from a distinct test UID",
             response.probeUid != null && response.probeUid != Process.myUid(),
@@ -666,6 +693,29 @@ class XrayProviderE2ETest {
             before + 1,
             readControl("dns-http-receipts").getInt("count"),
         )
+    }
+
+    private fun logRecoveryObservation(
+        phase: String,
+        detail: String,
+    ) {
+        val telemetry = state.telemetry.value.tunnelTelemetry
+        Log.i(
+            "XrayPeerRecovery",
+            "phase=$phase observedAt=${SystemClock.elapsedRealtime()} $detail " +
+                "dnsQueries=${telemetry.dnsQueriesTotal} dnsFailures=${telemetry.dnsFailuresTotal} " +
+                "endpoint=${boundedRecoveryText(telemetry.resolverEndpoint)} " +
+                "lastDnsError=${boundedRecoveryText(telemetry.lastDnsError)}",
+        )
+    }
+
+    private fun boundedRecoveryText(value: String?): String {
+        val redacted = XrayProfileRedactor.redactText(value.orEmpty()).replace('\n', ' ').replace('\r', ' ')
+        return if (redacted.length > RecoveryTextLimit) {
+            redacted.take(RecoveryTextLimit) + "[truncated]"
+        } else {
+            redacted
+        }
     }
 
     private fun assertOwnedDnsThroughProvider() {
@@ -864,6 +914,7 @@ class XrayProviderE2ETest {
 
     private fun awaitOwnedPeerEcho(network: String): AppProcessTcpProbeResult {
         var latest: AppProcessTcpProbeResult? = null
+        val startedAt = SystemClock.elapsedRealtime()
         awaitUntil(
             failureMessage = {
                 "Owned peer did not echo after listener bound: " +
@@ -877,6 +928,11 @@ class XrayProviderE2ETest {
                 latest.probeUid != Process.myUid() &&
                 latest.response.orEmpty().contains("xray-owned-echo")
         }
+        logRecoveryObservation(
+            "tcp-ready-$network",
+            "startedAt=$startedAt socketStartedAt=${latest?.socketConstructionStartedAtElapsedMs} " +
+                "exchangeCompletedAt=${latest?.exchangeCompletedAtElapsedMs}",
+        )
         return requireNotNull(latest)
     }
 
@@ -931,6 +987,7 @@ class XrayProviderE2ETest {
     }
 
     private companion object {
+        const val RecoveryTextLimit = 512
         const val AttributionLogTag = "XrayNegativeProbe"
         const val ProfileId = "xray-provider-acceptance"
     }

@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 PACKAGE = "com.poyka.ripdpi"
 VARIANT = "githubFullDebug"
@@ -82,11 +82,11 @@ class CaptureDevice:
         self.adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
         time.sleep(0.6)
 
-    def scroll(self, delta: int) -> None:
+    def scroll(self, delta: int, *, x: int = 540) -> None:
         density = int(re.findall(r"density: ([0-9]+)", self.adb("shell", "wm", "density"))[-1])
         slop = round(density * 8 / 160)
         step = max(-600, min(600, delta + (slop if delta > 0 else -slop)))
-        self.adb("shell", "input", "swipe", "540", "1450" if step > 0 else "750", "540", str(1450 - step) if step > 0 else str(750 - step), "900")
+        self.adb("shell", "input", "swipe", str(x), "1450" if step > 0 else "750", str(x), str(1450 - step) if step > 0 else str(750 - step), "900")
         time.sleep(0.8)
 
     def show_route(self, name: str, route: str, *, reset: bool = False) -> None:
@@ -120,6 +120,8 @@ class CaptureDevice:
             self.show_relay_fields()
         elif name == "dns-settings":
             self.show_dns_editor()
+        elif name == "backup":
+            self.focus_backup()
 
         time.sleep(1)
 
@@ -238,19 +240,75 @@ class CaptureDevice:
             else:
                 raise RuntimeError("The real diagnostic scan exceeded five minutes. No frame was saved.")
         self.tap(self.tag(self.tree(), "diagnostics-section-scan"))
-        self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 590)
+        # Keep the preceding scan action behind the fixed header, with the result heading visible.
+        self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 470)
 
-    def align(self, tag_name: str, top: int, attempts: int = 32) -> None:
+    @staticmethod
+    def viewport_bounds(tree: ElementTree.Element, node: ElementTree.Element) -> list[int]:
+        parents = {child: parent for parent in tree.iter() for child in parent}
+        ancestor = parents.get(node)
+        while ancestor is not None:
+            if ancestor.get("scrollable") == "true":
+                bounds = CaptureDevice.bounds(ancestor)
+                if len(bounds) != 4 or bounds[3] <= bounds[1] or bounds[2] <= bounds[0] + 8:
+                    raise RuntimeError("The actual capture viewport bounds are invalid. No frame was saved.")
+                return bounds
+            ancestor = parents.get(ancestor)
+        raise RuntimeError("The actual capture viewport is missing. No frame was saved.")
+
+    def align(self, tag_name: str, top: int | None = None, attempts: int = 32) -> None:
         for _ in range(attempts):
-            node = self.tag(self.tree(), tag_name)
+            tree = self.tree()
+            node = self.tag(tree, tag_name)
             if node is None:
                 self.scroll(500)
                 continue
-            delta = self.bounds(node)[1] - top
+            viewport = self.viewport_bounds(tree, node) if top is None else None
+            target_top = top if top is not None else viewport[1] + 4
+            delta = self.bounds(node)[1] - target_top
             if abs(delta) <= 4:
                 return
-            self.scroll(delta)
+            if viewport is None:
+                self.scroll(delta)
+            else:
+                # The editor's scroll padding is outside inputs, including the local port.
+                self.scroll(delta, x=viewport[0] + 8)
         raise RuntimeError(f"Could not align a complete capture section: {tag_name}")
+
+    def focus_relay_bottom(self) -> None:
+        previous_geometry = None
+        stable_observations = 0
+        for attempt in range(8):
+            tree = self.tree()
+            tls = self.tag(tree, "mode-editor-relay-section-tls-transports")
+            advanced = self.tag(tree, "mode-editor-advanced")
+            if tls is None or advanced is None:
+                raise RuntimeError("The complete relay end sections are missing. No frame was saved.")
+            viewport = self.viewport_bounds(tree, advanced)
+            tls_bounds, advanced_bounds = self.bounds(tls), self.bounds(advanced)
+            preset = self.tag(tree, "mode-editor-relay-chip-ru-mobile-relay")
+            preset_bounds = self.bounds(preset) if preset is not None else []
+            geometry = (viewport, tls_bounds, advanced_bounds, preset_bounds)
+            stable_observations = stable_observations + 1 if geometry == previous_geometry else 0
+            if stable_observations >= 2:
+                def inside(bounds):
+                    return (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
+                            and viewport[1] <= bounds[1] < bounds[3] <= viewport[3])
+
+                preset_complete = preset is None or (len(preset_bounds) == 4
+                    and preset_bounds[0] < preset_bounds[2] and preset_bounds[1] < preset_bounds[3]
+                    and (preset_bounds[3] <= viewport[1] or inside(preset_bounds)))
+                if not inside(tls_bounds) or not inside(advanced_bounds) or not preset_complete:
+                    raise RuntimeError("The relay end contains a clipped section. No frame was saved.")
+                self.receipts["relayBottomFocus"] = {
+                    "viewportBounds": viewport, "tlsBounds": tls_bounds, "advancedBounds": advanced_bounds,
+                    "precedingPresetBounds": preset_bounds, "unchangedObservations": stable_observations,
+                    "scrollAttempts": attempt, "observedAtUtc": datetime.now(timezone.utc).isoformat(),
+                }
+                return
+            previous_geometry = geometry
+            self.scroll(600, x=viewport[0] + 8)
+        raise RuntimeError("The relay end did not settle within eight observations. No frame was saved.")
 
     def show_relay_fields(self) -> None:
         self.tap(self.tag(self.tree(), "config-mode-proxy"))
@@ -262,7 +320,10 @@ class CaptureDevice:
             if switch is not None:
                 if switch.get("checked") == "false":
                     self.tap(switch)
-                self.align("mode-editor-relay-section-tls-transports", 262)
+                self.align("mode-editor-relay-chip-ru-mobile-relay")
+                if self.locale == "zh-CN":
+                    # Here the natural end shows TLS and Advanced whole, with presets above the header.
+                    self.focus_relay_bottom()
                 return
             self.scroll(550)
         raise RuntimeError("The relay editor switch is missing.")
@@ -288,6 +349,19 @@ class CaptureDevice:
             raise RuntimeError(f"The actual DNS editor did not reach its complete viewport: {self.locale}, requested {offset}px, observed {observed}px.")
         self.receipts.setdefault("dnsFocus", {})[self.locale] = {
             "requestedBottomScrollPixels": offset, "observedBottomScrollPixels": observed,
+            "observedAtUtc": datetime.now(timezone.utc).isoformat()}
+
+    def focus_backup(self) -> None:
+        offset = BACKUP_SCROLL_PIXELS[self.locale]
+        before = self.bounds(self.tag(self.tree(), "backup-import-button"))[1]
+        if offset:
+            self.scroll(offset)
+        after = self.bounds(self.tag(self.tree(), "backup-import-button"))[1]
+        observed = before - after
+        if abs(observed - offset) > 4:
+            raise RuntimeError("The actual backup controls did not reach their complete viewport.")
+        self.receipts.setdefault("backupFocus", {})[self.locale] = {
+            "requestedScrollPixels": offset, "observedScrollPixels": observed,
             "observedAtUtc": datetime.now(timezone.utc).isoformat()}
 
     def clear_statusbar_demo(self) -> None:
@@ -325,7 +399,7 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
         "theme": "light", "locales": list(LOCALES),
         "routes": {name: route for name, (route, _) in SCREENS.items()},
         "state": {"permissionPreset": "granted", "servicePreset": "live", "dataPreset": "settings_ready",
-                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "localeDisplayOverrides": DISPLAY_OVERRIDES, "dnsBottomFocusPixels": DNS_BOTTOM_FOCUS_PIXELS, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
+                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "localeDisplayOverrides": DISPLAY_OVERRIDES, "dnsBottomFocusPixels": DNS_BOTTOM_FOCUS_PIXELS, "backupScrollPixels": BACKUP_SCROLL_PIXELS, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
                   "home": "real VPN service started through the app; Android VPN consent granted normally",
                   "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
                   "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",

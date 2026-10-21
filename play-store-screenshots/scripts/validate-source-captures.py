@@ -8,7 +8,7 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, BACKUP_SCROLL_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 
 def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
@@ -91,6 +91,14 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
                    or abs(value.get("observedBottomScrollPixels", -1000) - DNS_BOTTOM_FOCUS_PIXELS[locale]) > 4
                    for locale, value in dns_focus.items())):
         errors.append("Missing actual DNS editor viewport receipts.")
+    backup_focus = receipts.get("backupFocus", {})
+    if (manifest.get("state", {}).get("backupScrollPixels") != BACKUP_SCROLL_PIXELS
+            or set(backup_focus) != set(LOCALES)
+            or any(value.get("requestedScrollPixels") != BACKUP_SCROLL_PIXELS[locale]
+                   or not value.get("observedAtUtc")
+                   or abs(value.get("observedScrollPixels", -1000) - BACKUP_SCROLL_PIXELS[locale]) > 4
+                   for locale, value in backup_focus.items())):
+        errors.append("Missing actual backup controls viewport receipts.")
     if (displays != expected_displays or manifest.get("state", {}).get("displayProfiles") != DISPLAY_PROFILES
             or manifest.get("state", {}).get("localeDisplayOverrides") != DISPLAY_OVERRIDES):
         errors.append("Missing actual per-frame density and font-scale receipts.")

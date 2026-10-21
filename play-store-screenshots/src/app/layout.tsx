@@ -22,6 +22,13 @@ const vazirmatn = localFont({
   display: "swap",
 });
 
+const notoSansSc = localFont({
+  src: "../../public/fonts/NotoSansSC-Marketing.woff2",
+  weight: "400 700",
+  variable: "--font-noto-sans-sc",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "RIPDPI Play Store Screenshots",
   description: "Google Play Store screenshot generator for RIPDPI",
@@ -35,7 +42,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${vazirmatn.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${vazirmatn.variable} ${notoSansSc.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

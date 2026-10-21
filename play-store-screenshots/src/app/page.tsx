@@ -47,6 +47,8 @@ const BRAND = {
 // Marketing copy is separate from the unchanged Android pixels.
 const marketingFont = (copy: SlideCopy) => copy.locale === "fa"
   ? "var(--font-vazirmatn), sans-serif"
+  : copy.locale === "zh-CN"
+  ? "var(--font-noto-sans-sc), sans-serif"
   : "var(--font-geist-sans), Arial, sans-serif";
 
 function Slide({ children, copy, dark = false }: {
