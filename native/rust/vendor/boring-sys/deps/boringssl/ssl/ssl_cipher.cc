@@ -20,7 +20,10 @@
 #include <string.h>
 
 #include <iterator>
+#include <optional>
 
+#include <openssl/aead.h>
+#include <openssl/bytestring.h>
 #include <openssl/err.h>
 #include <openssl/md5.h>
 #include <openssl/mem.h>
@@ -213,7 +216,21 @@ static constexpr SSL_CIPHER kCiphers[] = {
         SSL_HANDSHAKE_MAC_DEFAULT,
     },
 
-    // Cipher C027
+    // HMAC based TLS v1.2 ciphersuites from RFC5289
+
+    // Cipher C023 (deprecated)
+    {
+        TLS1_TXT_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+        SSL_CIPHER_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+        SSL_kECDHE,
+        SSL_aECDSA,
+        SSL_AES128,
+        SSL_SHA256,
+        SSL_HANDSHAKE_MAC_SHA256,
+    },
+
+    // Cipher C027 (deprecated)
     {
         TLS1_TXT_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
         "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
@@ -371,9 +388,9 @@ typedef struct cipher_alias_st {
   const char *name = nullptr;
 
   // The following fields are bitmasks for the corresponding fields on
-  // |SSL_CIPHER|. A cipher matches a cipher alias iff, for each bitmask, the
+  // `SSL_CIPHER`. A cipher matches a cipher alias iff, for each bitmask, the
   // bit corresponding to the cipher's value is set to 1. If any bitmask is
-  // all zeroes, the alias matches nothing. Use |~0u| for the default value.
+  // all zeroes, the alias matches nothing. Use `~0u` for the default value.
   uint32_t algorithm_mkey = ~0u;
   uint32_t algorithm_auth = ~0u;
   uint32_t algorithm_enc = ~0u;
@@ -440,11 +457,6 @@ static const CIPHER_ALIAS kCipherAliases[] = {
     // Legacy strength classes.
     {"HIGH", ~0u, ~0u, ~0u, ~0u, 0},
     {"FIPS", ~0u, ~0u, ~0u, ~0u, 0},
-
-    // Temporary no-op aliases corresponding to removed SHA-2 legacy CBC
-    // ciphers. These should be removed after 2018-05-14.
-    {"SHA256", 0, 0, 0, 0, 0},
-    {"SHA384", 0, 0, 0, 0, 0},
 };
 
 static const size_t kCipherAliasesLen = std::size(kCipherAliases);
@@ -548,10 +560,10 @@ static bool is_cipher_list_separator(char c, bool is_strict) {
   return !is_strict && (c == ' ' || c == ';' || c == ',');
 }
 
-// rule_equals returns whether the NUL-terminated string |rule| is equal to the
-// |buf_len| bytes at |buf|.
+// rule_equals returns whether the NUL-terminated string `rule` is equal to the
+// `buf_len` bytes at `buf`.
 static bool rule_equals(const char *rule, const char *buf, size_t buf_len) {
-  // |strncmp| alone only checks that |buf| is a prefix of |rule|.
+  // `strncmp` alone only checks that `buf` is a prefix of `rule`.
   return strncmp(rule, buf, buf_len) == 0 && rule[buf_len] == '\0';
 }
 
@@ -595,66 +607,195 @@ static void ll_append_head(CIPHER_ORDER **head, CIPHER_ORDER *curr,
   *head = curr;
 }
 
-SSLCipherPreferenceList::~SSLCipherPreferenceList() {
-  OPENSSL_free(in_group_flags);
+// Helper to iterate over a client cipher list and find a given cipher protocol
+// ID. Returns the index of the cipher, if found in `cipher_list`, or returns
+// std::nullopt if not found.
+static std::optional<size_t> FindProtocolID(CBS *cipher_list,
+                                            uint16_t cipher_id) {
+  assert(CBS_len(cipher_list) % 2 == 0);
+  if (CBS_len(cipher_list) == 0) {
+    return std::nullopt;
+  }
+  size_t cur_index = 0;
+  while (CBS_len(cipher_list) > 0) {
+    uint16_t cipher_suite;
+    if (!CBS_get_u16(cipher_list, &cipher_suite)) {
+      return std::nullopt;
+    }
+    if (cipher_suite == cipher_id) {
+      return cur_index;
+    }
+    ++cur_index;
+  }
+  return std::nullopt;
 }
 
-bool SSLCipherPreferenceList::Init(UniquePtr<STACK_OF(SSL_CIPHER)> ciphers_arg,
-                                   Span<const bool> in_group_flags_arg) {
-  if (sk_SSL_CIPHER_num(ciphers_arg.get()) != in_group_flags_arg.size()) {
+bool SSLCipherPreferenceList::Init(UniquePtr<STACK_OF(SSL_CIPHER)> ciphers,
+                                   Array<bool> in_group_flags) {
+  if (sk_SSL_CIPHER_num(ciphers.get()) != in_group_flags.size()) {
+    OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
+    return false;
+  }
+  // The last element has no next element to be in a group with.
+  if (!in_group_flags.empty() && in_group_flags.back()) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
     return false;
   }
 
-  Array<bool> copy;
-  if (!copy.CopyFrom(in_group_flags_arg)) {
-    return false;
-  }
-  ciphers = std::move(ciphers_arg);
-  size_t unused_len;
-  copy.Release(&in_group_flags, &unused_len);
+  ciphers_ = std::move(ciphers);
+  in_group_flags_ = std::move(in_group_flags);
   return true;
 }
 
-bool SSLCipherPreferenceList::Init(const SSLCipherPreferenceList &other) {
-  size_t size = sk_SSL_CIPHER_num(other.ciphers.get());
-  Span<const bool> other_flags(other.in_group_flags, size);
+bool SSLCipherPreferenceList::Init(Span<const uint16_t> cipher_ids,
+                                   Span<const bool> in_group_flags) {
+  if (cipher_ids.size() != in_group_flags.size()) {
+    OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
+    return false;
+  }
+
+  UniquePtr<STACK_OF(SSL_CIPHER)> ciphers(sk_SSL_CIPHER_new_null());
+  if (!ciphers) {
+    return false;
+  }
+  for (uint16_t cipher_id : cipher_ids) {
+    const SSL_CIPHER *cipher = SSL_get_cipher_by_value(cipher_id);
+    if (cipher == nullptr) {
+      OPENSSL_PUT_ERROR(SSL, SSL_R_UNKNOWN_CIPHER_TYPE);
+      return false;
+    }
+    if (!sk_SSL_CIPHER_push(ciphers.get(), cipher)) {
+      return false;
+    }
+  }
+
+  Array<bool> flags;
+  if (!flags.CopyFrom(in_group_flags)) {
+    OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
+    return false;
+  }
+  return Init(std::move(ciphers), std::move(flags));
+}
+
+void SSLCipherPreferenceList::Reset() {
+  sk_SSL_CIPHER_zero(ciphers_.get());
+  in_group_flags_.Reset();
+}
+
+bool SSLCipherPreferenceList::CopyFrom(const SSLCipherPreferenceList &other) {
   UniquePtr<STACK_OF(SSL_CIPHER)> other_ciphers(
-      sk_SSL_CIPHER_dup(other.ciphers.get()));
+      sk_SSL_CIPHER_dup(other.ciphers()));
   if (!other_ciphers) {
     return false;
   }
-  return Init(std::move(other_ciphers), other_flags);
+  Array<bool> other_flags;
+  if (!other_flags.CopyFrom(other.in_group_flags())) {
+    return false;
+  }
+  return Init(std::move(other_ciphers), std::move(other_flags));
 }
 
 void SSLCipherPreferenceList::Remove(const SSL_CIPHER *cipher) {
   size_t index;
-  if (!sk_SSL_CIPHER_find(ciphers.get(), &index, cipher)) {
+  if (!sk_SSL_CIPHER_find(ciphers_.get(), &index, cipher)) {
     return;
   }
-  if (!in_group_flags[index] /* last element of group */ && index > 0) {
-    in_group_flags[index - 1] = false;
+  if (!in_group_flags_[index] /* last element of group */ && index > 0) {
+    in_group_flags_[index - 1] = false;
   }
-  for (size_t i = index; i < sk_SSL_CIPHER_num(ciphers.get()) - 1; ++i) {
-    in_group_flags[i] = in_group_flags[i + 1];
+  for (size_t i = index; i < size() - 1; ++i) {
+    in_group_flags_[i] = in_group_flags_[i + 1];
   }
-  sk_SSL_CIPHER_delete(ciphers.get(), index);
+  sk_SSL_CIPHER_delete(ciphers_.get(), index);
+  in_group_flags_.Shrink(size());
+}
+
+bool SSLCipherPreferenceList::Contains(uint16_t cipher_id) const {
+  for (const SSL_CIPHER *cipher : ciphers_.get()) {
+    if (cipher->protocol_id == cipher_id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const SSL_CIPHER *SSLCipherPreferenceList::ChooseCipher(
+    const CBS *client_cipher_list, bool prioritize_client_pref,
+    uint16_t version, uint32_t mask_k, uint32_t mask_a) const {
+  if (CBS_len(client_cipher_list) % 2 != 0) {
+    OPENSSL_PUT_ERROR(SSL, SSL_R_ERROR_IN_RECEIVED_CIPHER_LIST);
+    return nullptr;
+  }
+
+  // Index of the best matching cipher suite found so far, indexed into
+  // `client_cipher_list`.
+  std::optional<size_t> best_index = std::nullopt;
+  const SSL_CIPHER *best_cipher = nullptr;
+
+  // Iterate over our list (the server preference list) and check for each
+  // cipher in the client's list.
+  for (size_t i = 0; i < size(); ++i) {
+    const SSL_CIPHER *const c = sk_SSL_CIPHER_value(ciphers_.get(), i);
+    bool in_group = in_group_flags_[i];
+    // If prioritizing the client preference list, treat all of the server's
+    // allowed ciphers as a single equipreference group so that the client's
+    // preferences dictate the choice.
+    if (prioritize_client_pref) {
+      in_group = (i < size() - 1);
+    }
+
+    if (version >= SSL_CIPHER_get_min_version(c) &&
+        version <= SSL_CIPHER_get_max_version(c) &&
+        (c->algorithm_mkey & mask_k) != 0 &&
+        (c->algorithm_auth & mask_a) != 0) {
+      CBS copy = *client_cipher_list;
+      std::optional<size_t> client_list_index =
+          FindProtocolID(&copy, c->protocol_id);
+      // Within a group, the client's preference order applies.
+      if (client_list_index.has_value() &&
+          (!best_index.has_value() || *best_index > *client_list_index)) {
+        best_index = *client_list_index;
+        best_cipher = c;
+      }
+    }
+
+    // Always evaluate a whole equipreference group.
+    if (in_group) {
+      continue;
+    }
+    // We are about to leave a (possibly singleton) group. If we have a match,
+    // return it because we will only see less-preferred ciphers if we keep
+    // going.
+    if (best_index.has_value()) {
+      assert(best_cipher != nullptr);
+      return best_cipher;
+    }
+  }
+
+  // The final cipher suite must end a group, so, if we found a match, we must
+  // have returned early above.
+  assert(!best_index.has_value());
+  assert(best_cipher == nullptr);
+  OPENSSL_PUT_ERROR(SSL, SSL_R_NO_SHARED_CIPHER);
+  return nullptr;
 }
 
 bool ssl_cipher_is_deprecated(const SSL_CIPHER *cipher) {
-  return cipher->protocol_id == SSL_CIPHER_ECDHE_RSA_WITH_AES_128_CBC_SHA256 ||
+  return cipher->protocol_id ==
+             SSL_CIPHER_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 ||
+         cipher->protocol_id == SSL_CIPHER_ECDHE_RSA_WITH_AES_128_CBC_SHA256 ||
          cipher->algorithm_enc == SSL_3DES;
 }
 
-// ssl_cipher_apply_rule applies the rule type |rule| to ciphers matching its
-// parameters in the linked list from |*head_p| to |*tail_p|. It writes the new
-// head and tail of the list to |*head_p| and |*tail_p|, respectively.
+// ssl_cipher_apply_rule applies the rule type `rule` to ciphers matching its
+// parameters in the linked list from `*head_p` to `*tail_p`. It writes the new
+// head and tail of the list to `*head_p` and `*tail_p`, respectively.
 //
-// - If |cipher_id| is non-zero, only that cipher is selected.
-// - Otherwise, if |strength_bits| is non-negative, it selects ciphers
+// - If `cipher_id` is non-zero, only that cipher is selected.
+// - Otherwise, if `strength_bits` is non-negative, it selects ciphers
 //   of that strength.
-// - Otherwise, |alias| must be non-null. It selects ciphers that matches
-//   |*alias|.
+// - Otherwise, `alias` must be non-null. It selects ciphers that matches
+//   `*alias`.
 static void ssl_cipher_apply_rule(uint16_t cipher_id, const CIPHER_ALIAS *alias,
                                   int rule, int strength_bits, bool in_group,
                                   CIPHER_ORDER **head_p,
@@ -701,7 +842,7 @@ static void ssl_cipher_apply_rule(uint16_t cipher_id, const CIPHER_ALIAS *alias,
     cp = curr->cipher;
 
     // Selection criteria is either a specific cipher, the value of
-    // |strength_bits|, or the algorithms used.
+    // `strength_bits`, or the algorithms used.
     if (cipher_id != 0) {
       if (cipher_id != cp->protocol_id) {
         continue;
@@ -999,16 +1140,14 @@ static bool ssl_cipher_process_rulestr(const char *rule_str,
 }
 
 bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
-                            const bool has_aes_hw, const char *rule_str,
-                            bool strict) {
+                            const char *rule_str, bool strict) {
   // Return with error if nothing to do.
   if (rule_str == nullptr || out_cipher_list == nullptr) {
     return false;
   }
 
   // We prefer ECDHE ciphers over non-PFS ciphers. Then we prefer AEAD over
-  // non-AEAD. The constants are masked by 0xffff to remove the vestigial 0x03
-  // byte from SSL 2.0.
+  // non-AEAD.
   static const uint16_t kAESCiphers[] = {
       SSL_CIPHER_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
       SSL_CIPHER_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -1027,6 +1166,7 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
       SSL_CIPHER_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
       SSL_CIPHER_ECDHE_RSA_WITH_AES_256_CBC_SHA,
       SSL_CIPHER_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+      SSL_CIPHER_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
       SSL_CIPHER_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
       SSL_CIPHER_RSA_WITH_AES_128_GCM_SHA256,
       SSL_CIPHER_RSA_WITH_AES_256_GCM_SHA384,
@@ -1054,6 +1194,7 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
   // TODO(crbug.com/boringssl/29): We should also set up equipreference groups
   // as a server.
   size_t num = 0;
+  const bool has_aes_hw = EVP_has_aes_hardware();
   if (has_aes_hw) {
     for (uint16_t id : kAESCiphers) {
       co_list[num++].cipher = SSL_get_cipher_by_value(id);
@@ -1121,7 +1262,8 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
 
   UniquePtr<SSLCipherPreferenceList> pref_list =
       MakeUnique<SSLCipherPreferenceList>();
-  if (!pref_list || !pref_list->Init(std::move(cipherstack), in_group_flags)) {
+  if (!pref_list ||
+      !pref_list->Init(std::move(cipherstack), std::move(in_group_flags))) {
     return false;
   }
 
@@ -1129,12 +1271,53 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
 
   // Configuring an empty cipher list is an error but still updates the
   // output.
-  if (sk_SSL_CIPHER_num((*out_cipher_list)->ciphers.get()) == 0) {
+  if (sk_SSL_CIPHER_num((*out_cipher_list)->ciphers()) == 0) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_NO_CIPHER_MATCH);
     return false;
   }
 
   return true;
+}
+
+bool ssl_create_default_tls13_cipher_list(
+    SSLCipherPreferenceList *out_cipher_list) {
+  // If we have AES hardware:
+  // For a client: AES-128 > AES-256 > ChaCha20.
+  // For a server: (AES-128 | AES-256 | ChaCha20), i.e. defer to client
+  // preference.
+  static const uint16_t kCiphersAESHardware[] = {
+      SSL_CIPHER_AES_128_GCM_SHA256,
+      SSL_CIPHER_AES_256_GCM_SHA384,
+      SSL_CIPHER_CHACHA20_POLY1305_SHA256,
+  };
+  static const bool kInGroupFlagsAESHardware[] = {
+      true,
+      true,
+      false,
+  };
+  // If we do not have AES hardware:
+  // For a client: ChaCha20 > AES-128 > AES-256.
+  // For a server: ChaCha20 > (AES-128 | AES-256).
+  static const uint16_t kCiphersNoAESHardware[] = {
+      SSL_CIPHER_CHACHA20_POLY1305_SHA256,
+      SSL_CIPHER_AES_128_GCM_SHA256,
+      SSL_CIPHER_AES_256_GCM_SHA384,
+  };
+  static const bool kInGroupFlagsNoAESHardware[] = {
+      false,
+      true,
+      false,
+  };
+
+  Span<const uint16_t> ciphers = EVP_has_aes_hardware()
+                                     ? Span(kCiphersAESHardware)
+                                     : Span(kCiphersNoAESHardware);
+  Span<const bool> in_group_flags = EVP_has_aes_hardware()
+                                        ? Span(kInGroupFlagsAESHardware)
+                                        : Span(kInGroupFlagsNoAESHardware);
+
+  out_cipher_list->Reset();
+  return out_cipher_list->Init(ciphers, in_group_flags);
 }
 
 uint32_t ssl_cipher_auth_mask_for_key(const EVP_PKEY *key, bool sign_ok) {
@@ -1555,7 +1738,7 @@ const char *SSL_CIPHER_get_version(const SSL_CIPHER *cipher) {
   return "TLSv1/SSLv3";
 }
 
-STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods(void) { return nullptr; }
+STACK_OF(SSL_COMP) *SSL_COMP_get_compression_methods() { return nullptr; }
 
 int SSL_COMP_add_compression_method(int id, COMP_METHOD *cm) { return 1; }
 
@@ -1565,7 +1748,7 @@ const char *SSL_COMP_get0_name(const SSL_COMP *comp) { return comp->name; }
 
 int SSL_COMP_get_id(const SSL_COMP *comp) { return comp->id; }
 
-void SSL_COMP_free_compression_methods(void) {}
+void SSL_COMP_free_compression_methods() {}
 
 size_t SSL_get_all_cipher_names(const char **out, size_t max_out) {
   return GetAllNames(out, max_out, Span(&kUnknownCipher, 1), &SSL_CIPHER::name,

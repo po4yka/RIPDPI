@@ -169,7 +169,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
             r"((?:^          [^\n]*\n|^\n)+)", source,
         )
         self.assertIsNotNone(guard)
-        script = textwrap.dedent(guard[1]).replace("${{ github.base_ref }}", "base")
+        script = textwrap.dedent(guard[1])
         inventories = sorted(ROOT.glob("native/rust/crates/*/jni-symbols.baseline"))
         self.assertEqual(5, len(inventories))
         cases = [(str(path.relative_to(ROOT)), 0) for path in inventories]
@@ -214,11 +214,13 @@ class NativeDependencyGraphTest(unittest.TestCase):
                     result = subprocess.run(
                         ["bash", "-e", "-o", "pipefail", "-c", script],
                         cwd=directory, capture_output=True, text=True, timeout=10,
+                        env={**os.environ, "PR_BASE_SHA": "refs/remotes/origin/base"},
                     )
                     self.assertEqual(expected, result.returncode, result.stdout + result.stderr)
             result = subprocess.run(
-                ["bash", "-e", "-o", "pipefail", "-c", script.replace("origin/base", "origin/missing")],
+                ["bash", "-e", "-o", "pipefail", "-c", script],
                 cwd=directory, capture_output=True, text=True, timeout=10,
+                env={**os.environ, "PR_BASE_SHA": "refs/remotes/origin/missing"},
             )
             self.assertNotEqual(0, result.returncode, "Git discovery must fail closed")
 

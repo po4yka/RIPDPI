@@ -19,10 +19,13 @@
 #include <openssl/mem.h>
 
 #include "../internal.h"
+#include "../mem_internal.h"
 #include "internal.h"
 
 
-// kMinNumBuckets is the minimum size of the buckets array in an |_LHASH|.
+BSSL_NAMESPACE_BEGIN
+
+// kMinNumBuckets is the minimum size of the buckets array in an `_LHASH`.
 static const size_t kMinNumBuckets = 16;
 
 // kMaxAverageChainLength contains the maximum, average chain length. When the
@@ -30,37 +33,37 @@ static const size_t kMinNumBuckets = 16;
 static const size_t kMaxAverageChainLength = 2;
 static const size_t kMinAverageChainLength = 1;
 
-// lhash_item_st is an element of a hash chain. It points to the opaque data
+// LHASH_ITEM is an element of a hash chain. It points to the opaque data
 // for this element and to the next item in the chain. The linked-list is NULL
 // terminated.
-typedef struct lhash_item_st {
-  void *data;
-  struct lhash_item_st *next;
-  // hash contains the cached, hash value of |data|.
-  uint32_t hash;
-} LHASH_ITEM;
+struct LHASH_ITEM {
+  void *data = nullptr;
+  LHASH_ITEM *next = nullptr;
+  // hash contains the cached, hash value of `data`.
+  uint32_t hash = 0;
+};
 
-struct lhash_st {
+struct _LHASH {
   // num_items contains the total number of items in the hash table.
-  size_t num_items;
-  // buckets is an array of |num_buckets| pointers. Each points to the head of
+  size_t num_items = 0;
+  // buckets is an array of `num_buckets` pointers. Each points to the head of
   // a chain of LHASH_ITEM objects that have the same hash value, mod
-  // |num_buckets|.
-  LHASH_ITEM **buckets;
-  // num_buckets contains the length of |buckets|. This value is always >=
+  // `num_buckets`.
+  LHASH_ITEM **buckets = nullptr;
+  // num_buckets contains the length of `buckets`. This value is always >=
   // kMinNumBuckets.
-  size_t num_buckets;
-  // callback_depth contains the current depth of |lh_doall| or |lh_doall_arg|
-  // calls. If non-zero then this suppresses resizing of the |buckets| array,
+  size_t num_buckets = 0;
+  // callback_depth contains the current depth of `lh_doall` or `lh_doall_arg`
+  // calls. If non-zero then this suppresses resizing of the `buckets` array,
   // which would otherwise disrupt the iteration.
-  unsigned callback_depth;
+  unsigned callback_depth = 0;
 
-  lhash_cmp_func comp;
-  lhash_hash_func hash;
+  lhash_cmp_func comp = nullptr;
+  lhash_hash_func hash = nullptr;
 };
 
 _LHASH *OPENSSL_lh_new(lhash_hash_func hash, lhash_cmp_func comp) {
-  _LHASH *ret = reinterpret_cast<_LHASH *>(OPENSSL_zalloc(sizeof(_LHASH)));
+  _LHASH *ret = New<_LHASH>();
   if (ret == nullptr) {
     return nullptr;
   }
@@ -69,7 +72,7 @@ _LHASH *OPENSSL_lh_new(lhash_hash_func hash, lhash_cmp_func comp) {
   ret->buckets = reinterpret_cast<LHASH_ITEM **>(
       OPENSSL_calloc(ret->num_buckets, sizeof(LHASH_ITEM *)));
   if (ret->buckets == nullptr) {
-    OPENSSL_free(ret);
+    Delete(ret);
     return nullptr;
   }
 
@@ -87,23 +90,23 @@ void OPENSSL_lh_free(_LHASH *lh) {
     LHASH_ITEM *next;
     for (LHASH_ITEM *n = lh->buckets[i]; n != nullptr; n = next) {
       next = n->next;
-      OPENSSL_free(n);
+      Delete(n);
     }
   }
 
   OPENSSL_free(lh->buckets);
-  OPENSSL_free(lh);
+  Delete(lh);
 }
 
 size_t OPENSSL_lh_num_items(const _LHASH *lh) { return lh->num_items; }
 
 // get_next_ptr_and_hash returns a pointer to the pointer that points to the
-// item equal to |data|. In other words, it searches for an item equal to |data|
+// item equal to `data`. In other words, it searches for an item equal to `data`
 // and, if it's at the start of a chain, then it returns a pointer to an
-// element of |lh->buckets|, otherwise it returns a pointer to the |next|
-// element of the previous item in the chain. If an element equal to |data| is
-// not found, it returns a pointer that points to a NULL pointer. If |out_hash|
-// is not NULL, then it also puts the hash value of |data| in |*out_hash|.
+// element of `lh->buckets`, otherwise it returns a pointer to the `next`
+// element of the previous item in the chain. If an element equal to `data` is
+// not found, it returns a pointer that points to a NULL pointer. If `out_hash`
+// is not NULL, then it also puts the hash value of `data` in `*out_hash`.
 static LHASH_ITEM **get_next_ptr_and_hash(const _LHASH *lh, uint32_t *out_hash,
                                           const void *data,
                                           lhash_hash_func_helper call_hash_func,
@@ -124,8 +127,8 @@ static LHASH_ITEM **get_next_ptr_and_hash(const _LHASH *lh, uint32_t *out_hash,
   return ret;
 }
 
-// get_next_ptr_by_key behaves like |get_next_ptr_and_hash| but takes a key
-// which may be a different type from the values stored in |lh|.
+// get_next_ptr_by_key behaves like `get_next_ptr_and_hash` but takes a key
+// which may be a different type from the values stored in `lh`.
 static LHASH_ITEM **get_next_ptr_by_key(const _LHASH *lh, const void *key,
                                         uint32_t key_hash,
                                         int (*cmp_key)(const void *key,
@@ -157,8 +160,8 @@ void *OPENSSL_lh_retrieve_key(const _LHASH *lh, const void *key,
   return *next_ptr == nullptr ? nullptr : (*next_ptr)->data;
 }
 
-// lh_rebucket allocates a new array of |new_num_buckets| pointers and
-// redistributes the existing items into it before making it |lh->buckets| and
+// lh_rebucket allocates a new array of `new_num_buckets` pointers and
+// redistributes the existing items into it before making it `lh->buckets` and
 // freeing the old array.
 static void lh_rebucket(_LHASH *lh, const size_t new_num_buckets) {
   LHASH_ITEM **new_buckets, *cur, *next;
@@ -189,7 +192,7 @@ static void lh_rebucket(_LHASH *lh, const size_t new_num_buckets) {
   lh->buckets = new_buckets;
 }
 
-// lh_maybe_resize resizes the |buckets| array if needed.
+// lh_maybe_resize resizes the `buckets` array if needed.
 static void lh_maybe_resize(_LHASH *lh) {
   size_t avg_chain_length;
 
@@ -231,15 +234,15 @@ int OPENSSL_lh_insert(_LHASH *lh, void **old_data, void *data,
 
 
   if (*next_ptr != nullptr) {
-    // An element equal to |data| already exists in the hash table. It will be
+    // An element equal to `data` already exists in the hash table. It will be
     // replaced.
     *old_data = (*next_ptr)->data;
     (*next_ptr)->data = data;
     return 1;
   }
 
-  // An element equal to |data| doesn't exist in the hash table yet.
-  item = reinterpret_cast<LHASH_ITEM *>(OPENSSL_malloc(sizeof(LHASH_ITEM)));
+  // An element equal to `data` doesn't exist in the hash table yet.
+  item = New<LHASH_ITEM>();
   if (item == nullptr) {
     return 0;
   }
@@ -270,7 +273,7 @@ void *OPENSSL_lh_delete(_LHASH *lh, const void *data,
   item = *next_ptr;
   *next_ptr = item->next;
   ret = reinterpret_cast<LHASH_ITEM *>(item->data);
-  OPENSSL_free(item);
+  Delete(item);
 
   lh->num_items--;
   lh_maybe_resize(lh);
@@ -284,7 +287,7 @@ void OPENSSL_lh_doall_arg(_LHASH *lh, void (*func)(void *, void *), void *arg) {
   }
 
   if (lh->callback_depth < UINT_MAX) {
-    // |callback_depth| is a saturating counter.
+    // `callback_depth` is a saturating counter.
     lh->callback_depth++;
   }
 
@@ -301,7 +304,9 @@ void OPENSSL_lh_doall_arg(_LHASH *lh, void (*func)(void *, void *), void *arg) {
   }
 
   // The callback may have added or removed elements and the non-zero value of
-  // |callback_depth| will have suppressed any resizing. Thus any needed
+  // `callback_depth` will have suppressed any resizing. Thus any needed
   // resizing is done here.
   lh_maybe_resize(lh);
 }
+
+BSSL_NAMESPACE_END

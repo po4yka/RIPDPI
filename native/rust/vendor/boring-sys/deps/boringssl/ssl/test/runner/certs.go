@@ -18,6 +18,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -28,6 +29,7 @@ import (
 	"fmt"
 	"math/bits"
 	"os"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -45,6 +47,10 @@ var (
 	oidECDSAWithSHA256         = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
 	oidEd25519                 = asn1.ObjectIdentifier{1, 3, 101, 112}
 	oidPSS                     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
+
+	oidMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
+	oidMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
+	oidMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 
 	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
 
@@ -68,6 +74,9 @@ const (
 	X509SignRSAWithSHA256
 	X509SignECDSAWithSHA256
 	X509SignEd25519
+	X509SignMLDSA44
+	X509SignMLDSA65
+	X509SignMLDSA87
 )
 
 func (alg X509SignatureAlgorithm) Marshal(bb *cryptobyte.Builder) error {
@@ -85,10 +94,35 @@ func (alg X509SignatureAlgorithm) Marshal(bb *cryptobyte.Builder) error {
 		bb.AddASN1(cbasn1.SEQUENCE, func(algID *cryptobyte.Builder) {
 			algID.AddASN1ObjectIdentifier(oidEd25519)
 		})
+	case X509SignMLDSA44:
+		bb.AddASN1(cbasn1.SEQUENCE, func(algID *cryptobyte.Builder) {
+			algID.AddASN1ObjectIdentifier(oidMLDSA44)
+		})
+	case X509SignMLDSA65:
+		bb.AddASN1(cbasn1.SEQUENCE, func(algID *cryptobyte.Builder) {
+			algID.AddASN1ObjectIdentifier(oidMLDSA65)
+		})
+	case X509SignMLDSA87:
+		bb.AddASN1(cbasn1.SEQUENCE, func(algID *cryptobyte.Builder) {
+			algID.AddASN1ObjectIdentifier(oidMLDSA87)
+		})
 	default:
 		return errors.New("unknown algorithm")
 	}
 	return nil
+}
+
+func mldsaX509SignatureAlgorithm(key *mldsa.PrivateKey) (X509SignatureAlgorithm, error) {
+	params := key.PublicKey().Parameters()
+	switch params {
+	case mldsa.MLDSA44():
+		return X509SignMLDSA44, nil
+	case mldsa.MLDSA65():
+		return X509SignMLDSA65, nil
+	case mldsa.MLDSA87():
+		return X509SignMLDSA87, nil
+	}
+	return 0, fmt.Errorf("unsupported ML-DSA Parameters: %v", params)
 }
 
 func chooseDefaultX509SignatureAlgorithm(signer crypto.Signer) (X509SignatureAlgorithm, error) {
@@ -100,6 +134,9 @@ func chooseDefaultX509SignatureAlgorithm(signer crypto.Signer) (X509SignatureAlg
 	}
 	if _, ok := signer.(ed25519.PrivateKey); ok {
 		return X509SignEd25519, nil
+	}
+	if mldsaKey, ok := signer.(*mldsa.PrivateKey); ok {
+		return mldsaX509SignatureAlgorithm(mldsaKey)
 	}
 	return 0, fmt.Errorf("unsupported key type: %T", signer)
 }
@@ -127,17 +164,20 @@ func signX509(signer crypto.Signer, alg X509SignatureAlgorithm, in []byte) ([]by
 		default:
 			return nil, errors.New("unknown algorithm")
 		}
+	} else if mldsaKey, ok := signer.(*mldsa.PrivateKey); ok {
+		params := mldsaKey.PublicKey().Parameters()
+		algMatchesParams := (alg == X509SignMLDSA44 && params == mldsa.MLDSA44()) ||
+			(alg == X509SignMLDSA65 && params == mldsa.MLDSA65()) ||
+			(alg == X509SignMLDSA87 && params == mldsa.MLDSA87())
+		if !algMatchesParams {
+			return nil, errors.New("unknown algorithm")
+		}
+		opts = crypto.Hash(0)
 	} else {
 		return nil, fmt.Errorf("unsupported key type: %T", signer)
 	}
 
-	digest := in
-	if hash := opts.HashFunc(); hash != crypto.Hash(0) {
-		h := hash.New()
-		h.Write(in)
-		digest = h.Sum(nil)
-	}
-	return signer.Sign(rand.Reader, digest, opts)
+	return crypto.SignMessage(signer, rand.Reader, in, opts)
 }
 
 func addX509Time(bb *cryptobyte.Builder, t time.Time) {
@@ -372,9 +412,11 @@ func (issuer *X509ChainBuilder) Issue(subject X509Info) *X509ChainBuilder {
 }
 
 func (b *X509ChainBuilder) ToCredential() Credential {
+	chain := slices.Clone(b.chain)
+	slices.Reverse(chain)
 	return Credential{
-		Certificate:     b.chain,
-		ChainPath:       writeTempCertFile(b.chain),
+		Certificate:     chain,
+		ChainPath:       writeTempCertFile(chain),
 		PrivateKey:      b.privateKey,
 		KeyPath:         writeTempKeyFile(b.privateKey),
 		RootCertificate: b.rootCert,

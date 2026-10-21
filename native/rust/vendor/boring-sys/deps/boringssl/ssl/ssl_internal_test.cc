@@ -17,6 +17,7 @@
 #include <openssl/aead.h>
 #include <openssl/ssl.h>
 
+#include "../crypto/test/test_util.h"
 #include "internal.h"
 
 
@@ -143,9 +144,9 @@ TEST(ReconstructSeqnumTest, Halfway) {
 }
 
 TEST(DTLSMessageBitmapTest, Basic) {
-  // expect_bitmap checks that |b|'s unmarked bits are those listed in |ranges|.
-  // Each element of |ranges| must be non-empty and non-overlapping, and
-  // |ranges| must be sorted.
+  // expect_bitmap checks that `b`'s unmarked bits are those listed in `ranges`.
+  // Each element of `ranges` must be non-empty and non-overlapping, and
+  // `ranges` must be sorted.
   auto expect_bitmap = [](const DTLSMessageBitmap &b,
                           const std::vector<DTLSMessageBitmap::Range> &ranges) {
     EXPECT_EQ(ranges.empty(), b.IsComplete());
@@ -337,8 +338,8 @@ TEST(MRUQueueTest, Basic) {
 
 TEST(SSLAEADContextTest, Lengths) {
   struct LengthTest {
-    // All plaintext lengths from |min_plaintext_len| to |max_plaintext_len|
-    // should return in |cipertext_len|.
+    // All plaintext lengths from `min_plaintext_len` to `max_plaintext_len`
+    // should return in `cipertext_len`.
     size_t min_plaintext_len;
     size_t max_plaintext_len;
     size_t ciphertext_len;
@@ -540,6 +541,188 @@ TEST(SSLAEADContextTest, Lengths) {
                   t.max_plaintext_len);
       }
     }
+  }
+}
+
+TEST(SSLBufferTest, EnsureCapBoundary) {
+  SSLBuffer buf;
+  // The maximum safe capacity is 0xffff - (SSL3_ALIGN_PAYLOAD - 1) = 65528.
+  EXPECT_TRUE(buf.EnsureCap(0, 65528));
+
+  // Anything larger should be rejected to prevent uint16_t overflow.
+  EXPECT_FALSE(buf.EnsureCap(0, 65529));
+  EXPECT_TRUE(ErrorEquals(ERR_get_error(), ERR_LIB_SSL, ERR_R_INTERNAL_ERROR));
+}
+
+TEST(SSLTest, ECHPublicName) {
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("")));
+  EXPECT_TRUE(ssl_is_valid_ech_public_name(StringAsBytes("example.com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes(".example.com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.com.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example..com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("www.-example.com")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("www.example-.com")));
+  EXPECT_FALSE(
+      ssl_is_valid_ech_public_name(StringAsBytes("no_underscores.example")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(
+      StringAsBytes("invalid_chars.\x01.example")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(
+      StringAsBytes("invalid_chars.\xff.example")));
+  static const uint8_t kWithNUL[] = {'t', 'e', 's', 't', 0};
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(kWithNUL));
+
+  // Test an LDH label with every character and the maximum length.
+  EXPECT_TRUE(ssl_is_valid_ech_public_name(StringAsBytes(
+      "abcdefhijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes(
+      "abcdefhijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-01234567899")));
+
+  // Inputs with trailing numeric components are rejected.
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("127.0.0.1")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.1")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.0x01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("example.0X01")));
+  // Leading zeros and values that overflow `uint32_t` are still rejected.
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(
+      StringAsBytes("example.123456789000000000000000")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(
+      StringAsBytes("example.012345678900000000000000")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(
+      StringAsBytes("example.0x123456789abcdefABCDEF0")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(
+      StringAsBytes("example.0x0123456789abcdefABCDEF")));
+  // Adding a non-digit or non-hex character makes it a valid DNS name again.
+  // Single-component numbers are rejected.
+  EXPECT_TRUE(
+      ssl_is_valid_ech_public_name(StringAsBytes("example.1234567890a")));
+  EXPECT_TRUE(
+      ssl_is_valid_ech_public_name(StringAsBytes("example.01234567890a")));
+  EXPECT_TRUE(ssl_is_valid_ech_public_name(
+      StringAsBytes("example.0x123456789abcdefg")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("1")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("0x01")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("0X01")));
+  // Numbers with trailing dots are rejected. (They are already rejected by the
+  // LDH label rules, but the WHATWG URL parser additionally rejects them.)
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("1.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("01.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("0x01.")));
+  EXPECT_FALSE(ssl_is_valid_ech_public_name(StringAsBytes("0X01.")));
+}
+
+// See Appendix A of draft-ietf-tls-trust-anchor-ids-05.
+TEST(SSLTest, TrustAnchorIDPattern) {
+  // 32473.{123-456}.{789-}
+  const std::vector<uint8_t> kTestPattern1 = {
+      0x81, 0xfd, 0x59, 0x81, 0xfd, 0x59, 0x7b, 0x83, 0x48, 0x86, 0x15, 0x80};
+  // 32473.{2^64+1 - 2^64+3}
+  const std::vector<uint8_t> kTestPattern2 = {
+      0x81, 0xfd, 0x59, 0x81, 0xfd, 0x59, 0x82, 0x80, 0x80,
+      0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01, 0x82, 0x80,
+      0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x03};
+  const struct {
+    std::vector<uint8_t> pattern;
+    std::vector<uint8_t> id;
+    bool contains;
+  } kTests[] = {
+      // Tests for pattern 32473.{123-456}.{789-}
+      {kTestPattern1,
+       // 32473.123.789
+       {0x81, 0xfd, 0x59, 0x7b, 0x86, 0x15},
+       true},
+      {kTestPattern1,
+       // 32473.300.900
+       {0x81, 0xfd, 0x59, 0x82, 0x2c, 0x87, 0x04},
+       true},
+      {kTestPattern1,
+       // 32473.456.99999
+       {0x81, 0xfd, 0x59, 0x83, 0x48, 0x86, 0x8d, 0x1f},
+       true},
+      {kTestPattern1,
+       // 32473.456.(2^64 - 1)
+       {0x81, 0xfd, 0x59, 0x83, 0x48, 0x81, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0x7f},
+       true},
+      {kTestPattern1,
+       // 32473.456.(2^64)
+       {0x81, 0xfd, 0x59, 0x83, 0x48, 0x82, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+        0x80, 0x80, 0x00},
+       true},
+      {kTestPattern1,
+       // 32473.123
+       {0x81, 0xfd, 0x59, 0x7b},
+       false},
+      {kTestPattern1,
+       // 32473.123.789.0
+       {0x81, 0xfd, 0x59, 0x7b, 0x86, 0x15, 0x00},
+       false},
+      {kTestPattern1,
+       // 32474.123.789
+       {0x81, 0xfd, 0x5a, 0x7b, 0x86, 0x15},
+       false},
+      {kTestPattern1,
+       // 32473.500.789
+       {0x81, 0xfd, 0x59, 0x83, 0x74, 0x86, 0x15},
+       false},
+      {kTestPattern1,
+       // 32473.123.700
+       {0x81, 0xfd, 0x59, 0x7b, 0x85, 0x3c},
+       false},
+      {kTestPattern1,
+       // invalid ID (not minimally encoded)
+       {0x80, 0x81, 0xfd, 0x59, 0x7b, 0x86, 0x15},
+       false},
+      {kTestPattern1,
+       // invalid ID (component was truncated)
+       {0x81, 0xfd, 0x59, 0x7b, 0x86, 0x95},
+       false},
+      // Tests for pattern 32473.{2^64+1 - 2^64+3}
+      {kTestPattern2,
+       // 32473.2
+       {0x81, 0xfd, 0x59, 0x02},
+       false},
+      {kTestPattern2,
+       // 32473.2^64
+       {0x81, 0xfd, 0x59, 0x82, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+        0x00},
+       false},
+      {kTestPattern2,
+       // 32473.(2^64+1)
+       {0x81, 0xfd, 0x59, 0x82, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+        0x01},
+       true},
+      {kTestPattern2,
+       // 32473.(2^64+2)
+       {0x81, 0xfd, 0x59, 0x82, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+        0x02},
+       true},
+      {kTestPattern2,
+       // 32473.(2^64+3)
+       {0x81, 0xfd, 0x59, 0x82, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+        0x03},
+       true},
+      {kTestPattern2,
+       // 32473.(2^64+4)
+       {0x81, 0xfd, 0x59, 0x82, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+        0x04},
+       false},
+      // Invalid pattern with an odd number of components.
+      {{0x81, 0xfd, 0x59}, {0x81, 0xfd, 0x59}, false},
+      // Invalid pattern with a truncated "min".
+      {{0x81, 0xfd}, {0x81, 0xfd, 0x59}, false},
+      // Invalid pattern with a truncated "max".
+      {{0x81, 0xfd, 0x59, 0x81, 0xff, 0xff}, {0x81, 0xfd, 0x59}, false},
+      // The 0x80 infinity marker cannot appear as the "min" value of a pattern,
+      // only "max".
+      {{0x80, 0x42}, {0x00}, false},
+      {{0x80, 0x80}, {0x00}, false},
+  };
+  for (const auto &t : kTests) {
+    SCOPED_TRACE(Bytes(t.pattern));
+    SCOPED_TRACE(Bytes(t.id));
+    EXPECT_EQ(t.contains, ssl_trust_anchor_pattern_matches_id(t.pattern, t.id));
   }
 }
 

@@ -84,7 +84,7 @@ my $xlate;
 ( $xlate="${dir}../../../perlasm/x86_64-xlate.pl" and -f $xlate) or
 die "can't locate x86_64-xlate.pl";
 
-open OUT, "| \"$^X\" \"$xlate\" $flavour \"$output\"";
+open OUT, "|-", $^X, $xlate, $flavour, $output;
 *STDOUT = *OUT;
 
 my ($Xi, $Htable, $in, $len) = $win64 ? ("%rcx", "%rdx", "%r8", "%r9") :
@@ -336,7 +336,9 @@ $code .= <<____;
 .size	gcm_ghash_ssse3,.-gcm_ghash_ssse3
 
 .section .rodata
+
 .align	16
+ghash_ssse3_constants:
 # .Lreverse_bytes is a permutation which, if applied with pshufb, reverses the
 # bytes in an XMM register.
 .Lreverse_bytes:

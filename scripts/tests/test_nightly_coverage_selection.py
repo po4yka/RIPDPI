@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import re
+import shlex
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -33,6 +35,21 @@ def nightly_rust_coverage_job(source: str) -> str:
 
 
 class NightlyCoverageSelectionTest(unittest.TestCase):
+    def test_bpf_coverage_matches_selected_test_packages(self) -> None:
+        source = COVERAGE_SCRIPT.read_text(encoding="utf-8")
+        function = source.split("bpf_coverage_suites() {", 1)[1].split("\n}\n", 1)[0]
+        for packages, expected in (
+            ("", ["socket-options", "network-e2e"]),
+            ("ripdpi-proxy-runtime", ["network-e2e"]),
+            ("ripdpi-privileged-ops", ["socket-options"]),
+            ("ripdpi-proxy-runtime@0.1.0 ripdpi-config", ["network-e2e"]),
+            ("ripdpi-config", []),
+        ):
+            with self.subTest(packages=packages):
+                script = f"test_package_specs={shlex.quote(packages)}\nbpf_coverage_suites() {{{function}\n}}\nbpf_coverage_suites"
+                result = subprocess.run(["bash", "-c", script], check=True, text=True, capture_output=True)
+                self.assertEqual(expected, result.stdout.splitlines())
+
     def test_nightly_rust_coverage_includes_ignored_low_cost_tests(self) -> None:
         job = nightly_rust_coverage_job(CI_WORKFLOW.read_text(encoding="utf-8"))
         self.assertIn('RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED: "1"', job)

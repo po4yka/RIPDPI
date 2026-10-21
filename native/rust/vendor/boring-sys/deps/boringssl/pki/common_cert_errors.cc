@@ -55,7 +55,7 @@ DEFINE_CERT_ERROR_ID(kEkuLacksServerAuth,
                      "The extended key usage does not include server auth");
 DEFINE_CERT_ERROR_ID(kEkuLacksServerAuthButHasAnyEKU,
                      "The extended key usage does not include server auth but "
-                     "instead includes anyExtendeKeyUsage");
+                     "instead includes anyExtendedKeyUsage");
 DEFINE_CERT_ERROR_ID(kEkuLacksClientAuth,
                      "The extended key usage does not include client auth");
 DEFINE_CERT_ERROR_ID(kEkuLacksClientAuthButHasAnyEKU,
@@ -103,6 +103,9 @@ DEFINE_CERT_ERROR_ID(kNoIssuersFound, "No matching issuer found");
 DEFINE_CERT_ERROR_ID(kDeadlineExceeded, "Deadline exceeded");
 DEFINE_CERT_ERROR_ID(kIterationLimitExceeded, "Iteration limit exceeded");
 DEFINE_CERT_ERROR_ID(kDepthLimitExceeded, "Depth limit exceeded");
+DEFINE_CERT_ERROR_ID(kMtcLandmarkNotRecognized, "Landmark not recognized");
+DEFINE_CERT_ERROR_ID(kMtcUnacceptableCosignatureVerificationResult,
+                     "Unacceptable cosignature verification result");
 
 }  // namespace cert_errors
 BSSL_NAMESPACE_END

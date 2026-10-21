@@ -57,10 +57,12 @@ if ! cargo llvm-cov --locked --version >/dev/null 2>&1; then
     exit 1
 fi
 
-# Tests that need CAP_NET_ADMIN (BPF attach, TCP window clamp) are excluded
-# from CI — mirrors the nextest exclusions in run-rust-workspace-tests.sh.
+# Socket-filter tests run instrumented with CAP_NET_ADMIN below. Keep the
+# ordinary coverage processes unprivileged; retain the existing clamp exclusions.
 SKIP_PATTERNS=(
     --skip 'platform::linux::tests::bpf_'
+    --skip 'linux::tests::socket_options::bpf_'
+    --skip 'drop_sack_and_strip_timestamps_round_trip_succeeds'
     --skip 'platform::linux::tests::tcp_window_clamp'
     --skip 'runtime::tests::window_clamp'
 )
@@ -102,11 +104,52 @@ run_coverage() {
     fi
 }
 
+# Match the selected test scope, not the report scope or transitive dependencies.
+bpf_coverage_suites() {
+    if [[ -z "${test_package_specs//[[:space:]]/}" ]]; then
+        printf '%s\n' socket-options network-e2e
+        return
+    fi
+    local package
+    for package in $test_package_specs; do
+        case "${package%%@*}" in
+            ripdpi-privileged-ops) printf '%s\n' socket-options ;;
+            ripdpi-proxy-runtime) printf '%s\n' network-e2e ;;
+        esac
+    done
+}
+
+run_bpf_coverage() {
+    [[ "$(uname -s)" == "Linux" ]] || return 0
+    local suites=()
+    local suite
+    while IFS= read -r suite; do
+        suites+=("$suite")
+    done < <(bpf_coverage_suites)
+    [[ "${#suites[@]}" -gt 0 ]] || return 0
+    local coverage_env
+    coverage_env="$(cd "$target_dir" && pwd)/bpf-coverage-env.sh"
+    (
+        cd "$repo_root/native/rust"
+        # cargo-llvm-cov's external-test protocol keeps the exact instrumented
+        # target and profile pattern. Do not clean here: earlier profiles merge.
+        cargo llvm-cov --locked show-env --sh > "$coverage_env"
+        # shellcheck disable=SC1090
+        source "$coverage_env"
+        for suite in "${suites[@]}"; do
+            python3 "$repo_root/scripts/ci/run-linux-bpf-tests.py" --suite "$suite"
+        done
+    )
+}
+
 echo "==> rust coverage clean"
 cargo llvm-cov --locked clean --manifest-path "$workspace_manifest" --workspace
 
 echo "==> rust coverage run"
 run_coverage
+
+echo "==> instrumented socket-filter coverage"
+run_bpf_coverage
 
 echo "==> rust coverage reports"
 cargo llvm-cov --locked report \

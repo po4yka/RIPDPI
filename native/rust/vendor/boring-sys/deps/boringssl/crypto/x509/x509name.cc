@@ -26,6 +26,8 @@
 #include "internal.h"
 
 
+using namespace bssl;
+
 int X509_NAME_get_text_by_NID(const X509_NAME *name, int nid, char *buf,
                               int len) {
   const ASN1_OBJECT *obj;
@@ -79,7 +81,8 @@ int X509_NAME_entry_count(const X509_NAME *name) {
   if (name == nullptr) {
     return 0;
   }
-  return (int)sk_X509_NAME_ENTRY_num(name->entries);
+  const auto *impl = FromOpaque(name);
+  return (int)sk_X509_NAME_ENTRY_num(impl->entries.get());
 }
 
 int X509_NAME_get_index_by_NID(const X509_NAME *name, int nid, int lastpos) {
@@ -98,14 +101,15 @@ int X509_NAME_get_index_by_OBJ(const X509_NAME *name, const ASN1_OBJECT *obj,
   if (name == nullptr) {
     return -1;
   }
+  const auto *impl = FromOpaque(name);
   if (lastpos < 0) {
     lastpos = -1;
   }
-  const STACK_OF(X509_NAME_ENTRY) *sk = name->entries;
+  const STACK_OF(X509_NAME_ENTRY) *sk = impl->entries.get();
   int n = (int)sk_X509_NAME_ENTRY_num(sk);
   for (lastpos++; lastpos < n; lastpos++) {
     const X509_NAME_ENTRY *ne = sk_X509_NAME_ENTRY_value(sk, lastpos);
-    if (OBJ_cmp(ne->object, obj) == 0) {
+    if (OBJ_cmp(X509_NAME_ENTRY_get_object(ne), obj) == 0) {
       return lastpos;
     }
   }
@@ -113,21 +117,27 @@ int X509_NAME_get_index_by_OBJ(const X509_NAME *name, const ASN1_OBJECT *obj,
 }
 
 X509_NAME_ENTRY *X509_NAME_get_entry(const X509_NAME *name, int loc) {
-  if (name == nullptr || loc < 0 ||
-      sk_X509_NAME_ENTRY_num(name->entries) <= (size_t)loc) {
+  if (name == nullptr) {
+    return nullptr;
+  }
+  const auto *impl = FromOpaque(name);
+  if (loc < 0 || sk_X509_NAME_ENTRY_num(impl->entries.get()) <= (size_t)loc) {
     return nullptr;
   } else {
-    return (sk_X509_NAME_ENTRY_value(name->entries, loc));
+    return (sk_X509_NAME_ENTRY_value(impl->entries.get(), loc));
   }
 }
 
 X509_NAME_ENTRY *X509_NAME_delete_entry(X509_NAME *name, int loc) {
-  if (name == nullptr || loc < 0 ||
-      sk_X509_NAME_ENTRY_num(name->entries) <= (size_t)loc) {
+  if (name == nullptr) {
+    return nullptr;
+  }
+  const auto *impl = FromOpaque(name);
+  if (loc < 0 || sk_X509_NAME_ENTRY_num(impl->entries.get()) <= (size_t)loc) {
     return nullptr;
   }
 
-  STACK_OF(X509_NAME_ENTRY) *sk = name->entries;
+  STACK_OF(X509_NAME_ENTRY) *sk = impl->entries.get();
   X509_NAME_ENTRY *ret = sk_X509_NAME_ENTRY_delete(sk, loc);
   size_t n = sk_X509_NAME_ENTRY_num(sk);
   x509_name_invalidate_cache(name);
@@ -137,17 +147,17 @@ X509_NAME_ENTRY *X509_NAME_delete_entry(X509_NAME *name, int loc) {
 
   int set_prev;
   if (loc != 0) {
-    set_prev = sk_X509_NAME_ENTRY_value(sk, loc - 1)->set;
+    set_prev = FromOpaque(sk_X509_NAME_ENTRY_value(sk, loc - 1))->set;
   } else {
-    set_prev = ret->set - 1;
+    set_prev = FromOpaque(ret)->set - 1;
   }
-  int set_next = sk_X509_NAME_ENTRY_value(sk, loc)->set;
+  int set_next = FromOpaque(sk_X509_NAME_ENTRY_value(sk, loc))->set;
 
   // If we removed a singleton RDN, update the RDN indices so they are
   // consecutive again.
   if (set_prev + 1 < set_next) {
     for (size_t i = loc; i < n; i++) {
-      sk_X509_NAME_ENTRY_value(sk, i)->set--;
+      FromOpaque(sk_X509_NAME_ENTRY_value(sk, i))->set--;
     }
   }
   return ret;
@@ -199,14 +209,15 @@ int X509_NAME_add_entry(X509_NAME *name, const X509_NAME_ENTRY *entry, int loc,
   if (name == nullptr) {
     return 0;
   }
-  if (name->entries == nullptr) {
-    name->entries = sk_X509_NAME_ENTRY_new_null();
-    if (name->entries == nullptr) {
+  auto *impl = FromOpaque(name);
+  if (impl->entries == nullptr) {
+    impl->entries.reset(sk_X509_NAME_ENTRY_new_null());
+    if (impl->entries == nullptr) {
       return 0;
     }
   }
 
-  STACK_OF(X509_NAME_ENTRY) *sk = name->entries;
+  STACK_OF(X509_NAME_ENTRY) *sk = impl->entries.get();
   int n = (int)sk_X509_NAME_ENTRY_num(sk);
   if (loc > n) {
     loc = n;
@@ -222,33 +233,33 @@ int X509_NAME_add_entry(X509_NAME *name, const X509_NAME_ENTRY *entry, int loc,
       set = 0;
       inc = 1;
     } else {
-      set = sk_X509_NAME_ENTRY_value(sk, loc - 1)->set;
+      set = FromOpaque(sk_X509_NAME_ENTRY_value(sk, loc - 1))->set;
     }
   } else {  // if (set >= 0)
     if (loc >= n) {
       if (loc != 0) {
-        set = sk_X509_NAME_ENTRY_value(sk, loc - 1)->set + 1;
+        set = FromOpaque(sk_X509_NAME_ENTRY_value(sk, loc - 1))->set + 1;
       } else {
         set = 0;
       }
     } else {
-      set = sk_X509_NAME_ENTRY_value(sk, loc)->set;
+      set = FromOpaque(sk_X509_NAME_ENTRY_value(sk, loc))->set;
     }
   }
 
-  bssl::UniquePtr<X509_NAME_ENTRY> new_entry(X509_NAME_ENTRY_dup(entry));
+  UniquePtr<X509_NAME_ENTRY> new_entry(X509_NAME_ENTRY_dup(entry));
   if (new_entry == nullptr) {
     return 0;
   }
-  new_entry->set = set;
+  FromOpaque(new_entry.get())->set = set;
   if (!sk_X509_NAME_ENTRY_insert(sk, new_entry.get(), loc)) {
     return 0;
   }
-  new_entry.release(); // |sk| took ownership.
+  new_entry.release(); // `sk` took ownership.
   if (inc) {
     n = (int)sk_X509_NAME_ENTRY_num(sk);
     for (int i = loc + 1; i < n; i++) {
-      sk_X509_NAME_ENTRY_value(sk, i)->set += 1;
+      FromOpaque(sk_X509_NAME_ENTRY_value(sk, i))->set += 1;
     }
   }
   return 1;
@@ -317,33 +328,35 @@ err:
 }
 
 int X509_NAME_ENTRY_set_object(X509_NAME_ENTRY *ne, const ASN1_OBJECT *obj) {
-  if ((ne == nullptr) || (obj == nullptr)) {
+  auto *ne_impl = FromOpaque(ne);
+  if (ne_impl == nullptr || obj == nullptr) {
     OPENSSL_PUT_ERROR(X509, ERR_R_PASSED_NULL_PARAMETER);
     return 0;
   }
-  ASN1_OBJECT_free(ne->object);
-  ne->object = OBJ_dup(obj);
-  return ((ne->object == nullptr) ? 0 : 1);
+  ne_impl->object.reset(OBJ_dup(obj));
+  return ne_impl->object != nullptr;
 }
 
 int X509_NAME_ENTRY_set_data(X509_NAME_ENTRY *ne, int type,
                              const unsigned char *bytes, ossl_ssize_t len) {
-  if ((ne == nullptr) || ((bytes == nullptr) && (len != 0))) {
+  auto *ne_impl = FromOpaque(ne);
+  if (ne_impl == nullptr || (bytes == nullptr && len != 0)) {
     return 0;
   }
   if ((type > 0) && (type & MBSTRING_FLAG)) {
-    ASN1_STRING *dst = &ne->value;
+    ASN1_STRING *dst = ne_impl->value.get();
     return ASN1_STRING_set_by_NID(&dst, bytes, len, type,
-                                  OBJ_obj2nid(ne->object)) != nullptr;
+                                  OBJ_obj2nid(ne_impl->object.get())) !=
+           nullptr;
   }
   if (len < 0) {
     len = strlen((const char *)bytes);
   }
-  if (!ASN1_STRING_set(&ne->value, bytes, len)) {
+  if (!ASN1_STRING_set(ne_impl->value.get(), bytes, len)) {
     return 0;
   }
   if (type != V_ASN1_UNDEF) {
-    ne->value.type = type;
+    ne_impl->value->type = type;
   }
   return 1;
 }
@@ -352,7 +365,7 @@ ASN1_OBJECT *X509_NAME_ENTRY_get_object(const X509_NAME_ENTRY *ne) {
   if (ne == nullptr) {
     return nullptr;
   }
-  return ne->object;
+  return FromOpaque(ne)->object.get();
 }
 
 ASN1_STRING *X509_NAME_ENTRY_get_data(const X509_NAME_ENTRY *ne) {
@@ -360,5 +373,5 @@ ASN1_STRING *X509_NAME_ENTRY_get_data(const X509_NAME_ENTRY *ne) {
     return nullptr;
   }
   // This function is not const-correct for OpenSSL compatibility.
-  return const_cast<ASN1_STRING*>(&ne->value);
+  return const_cast<ASN1_STRING*>(FromOpaque(ne)->value.get());
 }

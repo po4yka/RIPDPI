@@ -165,7 +165,7 @@ func addTrustAnchorTests() {
 			RequestTrustAnchors: [][]byte{id2},
 			Bugs: ProtocolBugs{
 				ExpectPeerAvailableTrustAnchors: [][]byte{id1, id2},
-				ExpectPeerMatchTrustAnchor:      ptrTo(true),
+				ExpectPeerMatchTrustAnchor:      new(true),
 			},
 		},
 		shimCredentials: []*Credential{
@@ -196,7 +196,7 @@ func addTrustAnchorTests() {
 			RequestTrustAnchors: [][]byte{id1},
 			Bugs: ProtocolBugs{
 				ExpectPeerAvailableTrustAnchors: [][]byte{id2, id3},
-				ExpectPeerMatchTrustAnchor:      ptrTo(false),
+				ExpectPeerMatchTrustAnchor:      new(false),
 			},
 		},
 		shimCredentials: []*Credential{
@@ -222,7 +222,7 @@ func addTrustAnchorTests() {
 			VerifySignatureAlgorithms: []signatureAlgorithm{signatureRSAPSSWithSHA256, signatureECDSAWithP256AndSHA256},
 			Bugs: ProtocolBugs{
 				ExpectPeerAvailableTrustAnchors: [][]byte{id2},
-				ExpectPeerMatchTrustAnchor:      ptrTo(false),
+				ExpectPeerMatchTrustAnchor:      new(false),
 			},
 		},
 		shimCredentials: []*Credential{
@@ -246,7 +246,7 @@ func addTrustAnchorTests() {
 			VerifySignatureAlgorithms: []signatureAlgorithm{signatureRSAPSSWithSHA256, signatureECDSAWithP256AndSHA256},
 			Bugs: ProtocolBugs{
 				ExpectPeerAvailableTrustAnchors: [][]byte{},
-				ExpectPeerMatchTrustAnchor:      ptrTo(false),
+				ExpectPeerMatchTrustAnchor:      new(false),
 			},
 		},
 		shimCredentials: []*Credential{
@@ -257,6 +257,31 @@ func addTrustAnchorTests() {
 			&rsaCertificate,
 		},
 		flags: []string{"-expect-selected-credential", "2"},
+	})
+
+	// The caller can override the default available list.
+	testCases = append(testCases, testCase{
+		testType: serverTest,
+		name:     "TrustAnchors-Server-OverrideAvailable",
+		config: Config{
+			RequestTrustAnchors: [][]byte{id1},
+			Bugs: ProtocolBugs{
+				ExpectPeerAvailableTrustAnchors: [][]byte{id1, id2, id3},
+			},
+		},
+		shimCredentials: []*Credential{&rsaCertificate},
+		flags:           []string{"-available-trust-anchors", trustAnchorListFlagValue(id1, id2, id3)},
+	})
+	testCases = append(testCases, testCase{
+		testType: serverTest,
+		name:     "TrustAnchors-Server-OverrideAvailable-NotRequested",
+		config: Config{
+			Bugs: ProtocolBugs{
+				ExpectPeerAvailableTrustAnchors: [][]byte{},
+			},
+		},
+		shimCredentials: []*Credential{&rsaCertificate},
+		flags:           []string{"-available-trust-anchors", trustAnchorListFlagValue(id1, id2, id3)},
 	})
 
 	// The ClientHello list may be empty. The client must be able to send it and
@@ -284,7 +309,7 @@ func addTrustAnchorTests() {
 			RequestTrustAnchors: [][]byte{},
 			Bugs: ProtocolBugs{
 				ExpectPeerAvailableTrustAnchors: [][]byte{id1, id2},
-				ExpectPeerMatchTrustAnchor:      ptrTo(false),
+				ExpectPeerMatchTrustAnchor:      new(false),
 			},
 		},
 		shimCredentials: []*Credential{
@@ -326,5 +351,118 @@ func addTrustAnchorTests() {
 		shouldFail:         true,
 		expectedError:      ":UNEXPECTED_EXTENSION:",
 		expectedLocalError: "remote error: unsupported extension",
+	})
+
+	// Having a trust_anchor_id property does not, on its own, gate the credential
+	// on an issuer match.
+	testCases = append(testCases, testCase{
+		testType: serverTest,
+		name:     "TrustAnchors-NoTrustAnchorNegotiationProperty",
+		config: Config{
+			MinVersion:          VersionTLS13,
+			RequestTrustAnchors: [][]byte{id2},
+		},
+		shimCredentials: []*Credential{
+			rsaCertificate.WithProperties(CertificatePropertyList{
+				TrustAnchorID: id1,
+			}),
+			ecdsaP256Certificate.WithTrustAnchorID(id2),
+		},
+		// The first credential is chosen because it is not gated on a trust anchors.
+		flags: []string{"-expect-selected-credential", "0"},
+		expectations: connectionExpectations{
+			peerCertificate: &rsaCertificate,
+		},
+	})
+
+	// The trust_anchor_negotiation property, however, does gate it.
+	testCases = append(testCases, testCase{
+		testType: serverTest,
+		name:     "TrustAnchors-TrustAnchorNegotiationProperty",
+		config: Config{
+			MinVersion:          VersionTLS13,
+			RequestTrustAnchors: [][]byte{id2},
+		},
+		shimCredentials: []*Credential{
+			rsaCertificate.WithProperties(CertificatePropertyList{
+				TrustAnchorID:          id1,
+				TrustAnchorNegotiation: true,
+			}),
+			ecdsaP256Certificate.WithTrustAnchorID(id2),
+		},
+		// The second credential is chosen because the first is gated on trust
+		// anchors and does not match.
+		flags: []string{"-expect-selected-credential", "1"},
+		expectations: connectionExpectations{
+			peerCertificate: &ecdsaP256Certificate,
+		},
+	})
+
+	group := MakeTrustAnchorID(32473, 100, 200, 300, 400)
+	// These ranges match the test group.
+	match := MakeTrustAnchorIDPattern(32473).Range(50, 100).Exact(200).Range(300, 350).AtLeast(350).Bytes()
+	matchExact := MakeTrustAnchorIDPattern(32473, 100, 200, 300, 400).Bytes()
+	// These ranges do not.
+	tooShort := MakeTrustAnchorIDPattern(32473, 100, 200, 300).Bytes()
+	tooLong := MakeTrustAnchorIDPattern(32473, 100, 200, 300, 400, 0).Bytes()
+	componentTooLow := MakeTrustAnchorIDPattern(32473, 100, 200).Range(301, 350).Exact(400).Bytes()
+	componentTooHigh := MakeTrustAnchorIDPattern(32473, 100, 200).Range(250, 299).Exact(400).Bytes()
+
+	testCases = append(testCases, testCase{
+		testType: serverTest,
+		name:     "TrustAnchorGroups-Match-Server",
+		config: Config{
+			MinVersion:          VersionTLS13,
+			RequestTrustAnchors: [][]byte{group},
+			Bugs: ProtocolBugs{
+				ExpectPeerAvailableTrustAnchors: [][]byte{id1, id2},
+				ExpectPeerMatchTrustAnchor:      new(true),
+			},
+		},
+		shimCredentials: []*Credential{
+			// Neither the ID nor the group inclusions match.
+			rsaCertificate.WithMustMatchIssuer(true).WithProperties(CertificatePropertyList{
+				TrustAnchorID:     id1,
+				TrustAnchorGroups: [][]byte{tooShort, tooLong, componentTooLow, componentTooHigh},
+			}),
+			// The group inclusions match, after skipping some irrelevant inclusions.
+			ecdsaP256Certificate.WithMustMatchIssuer(true).WithProperties(CertificatePropertyList{
+				TrustAnchorID:     id2,
+				TrustAnchorGroups: [][]byte{tooShort, match},
+			}),
+		},
+		expectations: connectionExpectations{
+			peerCertificate: &ecdsaP256Certificate,
+		},
+		flags: []string{"-expect-selected-credential", "1"},
+	})
+
+	testCases = append(testCases, testCase{
+		testType: serverTest,
+		name:     "TrustAnchorGroups-MatchExact-Server",
+		config: Config{
+			MinVersion:          VersionTLS13,
+			RequestTrustAnchors: [][]byte{group},
+			Bugs: ProtocolBugs{
+				ExpectPeerAvailableTrustAnchors: [][]byte{id1, id2},
+				ExpectPeerMatchTrustAnchor:      new(true),
+			},
+		},
+		shimCredentials: []*Credential{
+			// Neither the ID nor the group inclusions match.
+			rsaCertificate.WithMustMatchIssuer(true).WithProperties(CertificatePropertyList{
+				TrustAnchorID:     id1,
+				TrustAnchorGroups: [][]byte{tooShort, tooLong, componentTooLow, componentTooHigh},
+			}),
+			// The group inclusions match, after skipping some irrelevant inclusions.
+			ecdsaP256Certificate.WithMustMatchIssuer(true).WithProperties(CertificatePropertyList{
+				TrustAnchorID:     id2,
+				TrustAnchorGroups: [][]byte{tooShort, matchExact},
+			}),
+		},
+		expectations: connectionExpectations{
+			peerCertificate: &ecdsaP256Certificate,
+		},
+		flags: []string{"-expect-selected-credential", "1"},
 	})
 }
