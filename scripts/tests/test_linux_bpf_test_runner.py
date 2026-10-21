@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import tempfile
 from pathlib import Path
 import unittest
 
@@ -32,6 +34,33 @@ class LinuxBpfTestRunnerTest(unittest.TestCase):
     def test_new_filter_requires_explicit_coverage(self):
         with self.assertRaisesRegex(ValueError, "inventory changed"):
             runner.select_tests(self.listing(runner.EXPECTED_TESTS | {"linux::tests::socket_options::bpf_new_filter"}))
+
+
+    def test_network_suite_selects_only_actual_filter_round_trip(self):
+        name = "drop_sack_and_strip_timestamps_round_trip_succeeds"
+        self.assertEqual([name], runner.select_tests(self.listing({name, "http_round_trip"}), "network-e2e"))
+
+    def test_new_network_filter_test_requires_explicit_coverage(self):
+        names = {"drop_sack_and_strip_timestamps_round_trip_succeeds", "strip_timestamps_only_round_trip"}
+        with self.assertRaisesRegex(ValueError, "inventory changed"):
+            runner.select_tests(self.listing(names), "network-e2e")
+
+    def test_missing_network_filter_test_fails(self):
+        with self.assertRaisesRegex(ValueError, "inventory changed"):
+            runner.select_tests(self.listing({"http_round_trip"}), "network-e2e")
+
+    def test_network_suite_rejects_unit_artifact_and_selects_integration_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "network_e2e"
+            binary.write_text("test binary")
+            binary.chmod(0o700)
+            unit = {"reason": "compiler-artifact", "target": {"name": "ripdpi_privileged_ops", "kind": ["lib"]},
+                    "profile": {"test": True}, "executable": str(binary)}
+            integration = {"reason": "compiler-artifact", "target": {"name": "network_e2e", "kind": ["test"]},
+                           "profile": {"test": True}, "executable": str(binary)}
+            with self.assertRaisesRegex(ValueError, "expected one"):
+                runner.select_binary(json.dumps(unit), "network-e2e")
+            self.assertEqual(binary.resolve(), runner.select_binary(json.dumps(unit) + "\n" + json.dumps(integration), "network-e2e"))
 
 
 if __name__ == "__main__":
