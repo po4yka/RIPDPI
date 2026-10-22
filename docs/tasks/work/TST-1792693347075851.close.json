@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Accepted source 40c46dba03153607cbc9c9c500d025bb2dd09b06 is tree-identical to tested head 0f80db4ff3c182efb9a25a424a754d6c5343d1b3. Deterministic red/green passed. The full Linux workspace passed 5831 tests, four privileged BPF tests and one startup smoke test. Canonical coverage passed at 86.57 percent with the unchanged 78 percent minimum enforced and zero uncovered critical files. CI 39834193370 attempt 1 passed 46 jobs with 18 routed skips. The local macOS daemon cleanup failure remains in the committed review evidence.",
+  "execution_sha256": "075b58635e8f1c28d5684f08eddbd01655b53aba1a015f8d8ef2bb655a392775",
+  "issue_sha256": "8e5bf74e15fa65828358c013ea6c9cab4365a0a2e2b48b69039b5284c76eb95a",
+  "outcome": "done",
+  "prepared_at": "2026-10-22T20:37:16Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TST-1792693347075851"
+}
