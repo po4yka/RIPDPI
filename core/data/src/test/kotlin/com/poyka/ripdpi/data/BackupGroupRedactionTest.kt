@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.backup.BackupExporter
-import com.poyka.ripdpi.data.backup.BackupGroupRedactor
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
@@ -60,18 +59,14 @@ class BackupGroupRedactionTest {
     )
 
     @Test
-    fun `SHARE export of subscription group empties token and scrubs link`() {
+    fun `SHARE export of subscription group removes token and complete link`() {
         val doc = export(BackupVariant.SHARE, listOf(subscriptionGroup))
         val sub = doc.groups.single().subscription!!
 
         assertTrue("SHARE must remove mirror credentials and per-device URLs", sub.mirrors.mirrors.isEmpty())
         assertEquals("token must be emptied in SHARE", "", sub.token)
-        assertFalse("link must not retain userinfo credentials", sub.link.contains("s3cr3t"))
-        assertFalse("link must not retain the bearer token param", sub.link.contains("bearer-abc"))
-        assertFalse("link must not retain the username userinfo", sub.link.contains("user:"))
-        // Non-secret structure is preserved so the share remains useful context.
-        assertTrue("host should survive scrubbing", sub.link.contains("sub.example.com"))
-        assertTrue("non-secret query param should survive", sub.link.contains("autoUpdate=true"))
+        assertEquals("subscription URLs can carry credentials in any component", "", sub.link)
+        assertFalse(doc.containsCredentials)
     }
 
     @Test
@@ -113,35 +108,50 @@ class BackupGroupRedactionTest {
     }
 
     @Test
-    fun `scrubLink drops userinfo and secret query params but keeps the rest`() {
-        val scrubbed =
-            BackupGroupRedactor.scrubLink(
-                "https://alice:hunter2@host.example.com/sub/x?access_token=abc&keep=1",
+    fun `SHARE drops every URL credential carrier while FULL preserves it`() {
+        val links =
+            listOf(
+                "https://sub.example.com/sub/bearer-path-secret",
+                "https://sub.example.com/bootstrap/one-time-secret",
+                "https://sub.example.com/sub/%62%65%61%72%65%72",
+                "https://sub.example.com/sub?%74oken=encoded-key-secret",
+                "https://sub.example.com/sub?unknown=opaque-query-secret",
+                "https://sub.example.com/sub#fragment-secret",
+                "https://user:password@sub.example.com/sub",
+                "https://credential-host-secret.example.com/",
+                "opaque:credential-secret",
+                "not a uri ::: user:pass@oops",
+                "",
             )
-        assertFalse(scrubbed.contains("hunter2"))
-        assertFalse(scrubbed.contains("alice"))
-        assertFalse(scrubbed.contains("access_token"))
-        assertTrue(scrubbed.contains("host.example.com"))
-        assertTrue(scrubbed.contains("keep=1"))
-    }
-
-    @Test
-    fun `scrubLink empties an unparseable link rather than risk a leak`() {
-        // A value that is not a valid URI is treated as opaque and dropped.
-        assertEquals("", BackupGroupRedactor.scrubLink("not a uri ::: user:pass@oops"))
-    }
-
-    @Test
-    fun `scrubLink preserves an already-clean link`() {
-        val clean = "https://sub.example.com/sub/hash?autoUpdate=true"
-        assertEquals(clean, BackupGroupRedactor.scrubLink(clean))
+        links.forEach { link ->
+            val group = subscriptionGroup.copy(subscription = subscriptionGroup.subscription!!.copy(link = link))
+            val share = export(BackupVariant.SHARE, listOf(group))
+            assertEquals(
+                "SHARE must remove the complete link",
+                "",
+                share.groups
+                    .single()
+                    .subscription!!
+                    .link,
+            )
+            assertFalse(share.containsCredentials)
+            val full = export(BackupVariant.FULL, listOf(group))
+            assertEquals(
+                link,
+                full.groups
+                    .single()
+                    .subscription!!
+                    .link,
+            )
+            assertTrue(full.containsCredentials)
+        }
     }
 
     @Test
     fun `SHARE export drops group members so per-node credentials never leak`() {
         // Subscription/selector member nodes can embed per-node credentials. They
-        // are re-fetchable from the (scrubbed) subscription link, so SHARE drops
-        // them entirely rather than risk leaking a node password publicly.
+        // are removed with the credential-bearing subscription link. FULL exports
+        // keep both for private restore.
         val member =
             ProxyProfile.Trojan(
                 id = "tr-member-1",
