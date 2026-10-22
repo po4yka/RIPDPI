@@ -7,12 +7,11 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.classifyFailureClass
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.runInterruptible
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -23,6 +22,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -186,10 +186,10 @@ class NaiveProxyManagerPreflightTest {
             val pidFile = File.createTempFile("naiveproxy-probe-pid-", ".txt").apply { delete() }
             val script =
                 executableScript(
-                    "printf '%s' \$\$ > '${pidFile.absolutePath}'; trap '' TERM; exec sleep 30",
+                    "trap '' TERM; printf '%s' \$\$ > '${pidFile.absolutePath}'; exec sleep 30",
                 )
 
-            val result = testProbeRunner(timeoutMillis = 2_000L).run(NaiveProxyBinaryRef(script.absolutePath))
+            val result = readyProbeRunner(pidFile, timeoutMillis = 2_000L).run(NaiveProxyBinaryRef(script.absolutePath))
 
             assertEquals(NaiveProxyPreflightResult.Rejected("NaiveProxy pre-launch probe timed out"), result)
             assertProcessExited(pidFile)
@@ -201,19 +201,12 @@ class NaiveProxyManagerPreflightTest {
             val pidFile = File.createTempFile("naiveproxy-probe-pid-", ".txt").apply { delete() }
             val script =
                 executableScript(
-                    "printf '%s' \$\$ > '${pidFile.absolutePath}'; trap '' TERM; exec sleep 30",
+                    "trap '' TERM; printf '%s' \$\$ > '${pidFile.absolutePath}'; exec sleep 30",
                 )
-            val probe = testProbeRunner(timeoutMillis = 5_000L)
+            val ready = CompletableDeferred<Unit>()
+            val probe = readyProbeRunner(pidFile) { ready.complete(Unit) }
             val job = async { probe.run(NaiveProxyBinaryRef(script.absolutePath)) }
-            runCurrent()
-            runInterruptible(Dispatchers.IO) {
-                repeat(200) {
-                    if (pidFile.exists()) {
-                        return@runInterruptible
-                    }
-                    Thread.sleep(10L)
-                }
-            }
+            ready.await()
 
             job.cancelAndJoin()
 
@@ -313,6 +306,58 @@ class NaiveProxyManagerPreflightTest {
             ioDispatcher = Dispatchers.IO,
             timeoutMillis = timeoutMillis,
         )
+
+    /** Exercise timeout/cleanup only after the real child has installed its TERM trap. */
+    private fun readyProbeRunner(
+        pidFile: File,
+        timeoutMillis: Long = 5_000L,
+        onReady: () -> Unit = {},
+    ): DefaultNaiveProxyPreflightProbe =
+        DefaultNaiveProxyPreflightProbe(Dispatchers.IO, timeoutMillis) { binary ->
+            val process = ProcessBuilder(binary.absolutePath, "--probe").redirectErrorStream(true).start()
+            var handedOff = false
+            try {
+                awaitFixtureReady(process, pidFile)
+                onReady()
+                handedOff = true
+                process
+            } finally {
+                if (!handedOff) terminateFixture(process)
+            }
+        }
+
+    private fun awaitFixtureReady(
+        process: Process,
+        pidFile: File,
+    ) {
+        // Android compile stubs omit pid(); this real-process test runs on the host JDK.
+        val expectedPid = Process::class.java.getMethod("pid").invoke(process) as Long
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30L)
+        while (!pidFile.exists() || pidFile.readText().toLongOrNull() != expectedPid) {
+            check(process.isAlive) { "Probe fixture exited before readiness" }
+            check(System.nanoTime() < deadline) { "Probe fixture did not become ready" }
+            Thread.sleep(10L)
+        }
+        check(process.isAlive) { "Probe fixture exited before handoff" }
+    }
+
+    private fun terminateFixture(process: Process) {
+        var interrupted = Thread.interrupted()
+        try {
+            process.destroyForcibly()
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5L)
+            while (process.isAlive && System.nanoTime() < deadline) {
+                try {
+                    process.waitFor((deadline - System.nanoTime()).coerceAtLeast(1L), TimeUnit.NANOSECONDS)
+                } catch (_: InterruptedException) {
+                    interrupted = true
+                }
+            }
+            check(!process.isAlive) { "Probe fixture could not be reaped" }
+        } finally {
+            if (interrupted) Thread.currentThread().interrupt()
+        }
+    }
 
     private fun assertProcessExited(pidFile: File) {
         assertTrue("Probe did not publish its pid", pidFile.exists())
