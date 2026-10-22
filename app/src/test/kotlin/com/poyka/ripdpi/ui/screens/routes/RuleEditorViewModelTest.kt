@@ -19,7 +19,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -49,7 +48,10 @@ class RuleEditorViewModelTest {
         runTest {
             val existing = RuleEntity(id = 7L, name = "Original", domains = "old.example", ports = "443")
             val dao = FakeRuleDao(listOf(existing))
-            val viewModel = newViewModel(ruleId = existing.id, dao = dao, holdHydration = true)
+            val hydrationGate = CompletableDeferred<Unit>()
+            val groups = FakeProxyGroupRepository(hydrationGate)
+            val viewModel = newViewModel(ruleId = existing.id, dao = dao, groups = groups)
+            groups.listStarted.await()
 
             viewModel.setDomains("new.example")
             viewModel.save {}
@@ -57,13 +59,21 @@ class RuleEditorViewModelTest {
 
             assertEquals(existing, dao.rules.single())
             assertFalse(viewModel.uiState.value.loaded)
+
+            hydrationGate.complete(Unit)
+            viewModel.uiState.first { it.loaded }
+            assertEquals(existing.domains, viewModel.uiState.value.domains)
+            viewModel.setDomains("new.example")
+            viewModel.save {}
+            runCurrent()
+            assertEquals(existing.copy(domains = "new.example"), dao.rules.single())
         }
 
     @Test
     fun `repeated save while insertion is pending writes once`() =
         runTest {
             val dao = FakeRuleDao(emptyList())
-            val viewModel = newViewModel(ruleId = 0L, dao = dao, holdHydration = false)
+            val viewModel = newViewModel(ruleId = 0L, dao = dao)
             viewModel.uiState.first { it.loaded }
             val insertGate = CompletableDeferred<Unit>()
             dao.insertGate = insertGate
@@ -83,7 +93,7 @@ class RuleEditorViewModelTest {
     fun `failed save keeps draft and allows another save without navigation`() =
         runTest {
             val dao = FakeRuleDao(emptyList())
-            val viewModel = newViewModel(0L, dao, false)
+            val viewModel = newViewModel(0L, dao)
             viewModel.uiState.first { it.loaded }
             viewModel.setDomains("retained.example")
             var navigations = 0
@@ -105,7 +115,7 @@ class RuleEditorViewModelTest {
         runTest {
             val dao = FakeRuleDao(emptyList())
             dao.nextLoadFailure = IOException("Test load failure")
-            val viewModel = newViewModel(0L, dao, false)
+            val viewModel = newViewModel(0L, dao)
             viewModel.uiState.first { it.failure != null }
             assertFalse(viewModel.uiState.value.loaded)
             assertEquals(RuleEditorFailure.Load, viewModel.uiState.value.failure)
@@ -119,7 +129,7 @@ class RuleEditorViewModelTest {
     fun `cancelled save keeps draft and clears saving without navigation`() =
         runTest {
             val dao = FakeRuleDao(emptyList())
-            val viewModel = newViewModel(0L, dao, false)
+            val viewModel = newViewModel(0L, dao)
             viewModel.uiState.first { it.loaded }
             dao.insertGate = CompletableDeferred()
             viewModel.setDomains("cancelled.example")
@@ -148,7 +158,7 @@ class RuleEditorViewModelTest {
         runTest {
             Dispatchers.setMain(StandardTestDispatcher(testScheduler))
             val dao = FakeRuleDao(emptyList())
-            val viewModel = newViewModel(0L, dao, false)
+            val viewModel = newViewModel(0L, dao)
             viewModel.uiState.first { it.loaded }
             viewModel.setDomains("retained.example")
             val scopeJob = viewModel.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!
@@ -164,9 +174,8 @@ class RuleEditorViewModelTest {
     private fun newViewModel(
         ruleId: Long,
         dao: FakeRuleDao,
-        holdHydration: Boolean,
+        groups: FakeProxyGroupRepository = FakeProxyGroupRepository(),
     ): RuleEditorViewModel {
-        val groups = FakeProxyGroupRepository(holdHydration)
         val relays = FakeRelayProfileStore()
         val context = ApplicationProvider.getApplicationContext<Context>()
         return RuleEditorViewModel(
@@ -265,9 +274,9 @@ class RuleEditorViewModelTest {
     }
 
     private class FakeProxyGroupRepository(
-        private val holdHydration: Boolean,
+        private val hydrationGate: CompletableDeferred<Unit>? = null,
     ) : ProxyGroupRepository {
-        private val pendingGroups = MutableSharedFlow<List<ProxyGroup>>()
+        val listStarted = CompletableDeferred<Unit>()
 
         override suspend fun add(group: ProxyGroup) = Unit
 
@@ -300,9 +309,13 @@ class RuleEditorViewModelTest {
             id: String,
         ) = Unit
 
-        override suspend fun list(): List<ProxyGroup> = emptyList()
+        override suspend fun list(): List<ProxyGroup> {
+            listStarted.complete(Unit)
+            hydrationGate?.await()
+            return emptyList()
+        }
 
-        override fun groups(): Flow<List<ProxyGroup>> = if (holdHydration) pendingGroups else flowOf(emptyList())
+        override fun groups(): Flow<List<ProxyGroup>> = flowOf(emptyList())
     }
 
     private class FakeRelayProfileStore : RelayProfileStore {
