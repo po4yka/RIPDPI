@@ -2,7 +2,7 @@
 id: DAT-1792661188293948
 title: Keep verified reserve profiles available offline
 kind: feature
-status: review
+status: doing
 area: data
 priority: high
 owner: Offline reserves

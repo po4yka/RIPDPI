@@ -2,7 +2,7 @@
 id: TRN-1792659369802828
 title: Verify payloads before automatic selector failover
 kind: feature
-status: review
+status: doing
 area: transport
 priority: high
 owner: Client runtime implementer
