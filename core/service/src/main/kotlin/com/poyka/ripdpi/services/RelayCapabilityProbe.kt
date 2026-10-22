@@ -294,11 +294,10 @@ internal fun consumeVerifiedPayload(
     return response.body.byteStream().use { input ->
         var received = 0
         val buffer = ByteArray(TcpPayloadReadBufferBytes)
-        while (true) {
+        while (received <= expected.expectedBytes) {
             val count = input.read(buffer, 0, minOf(buffer.size, expected.expectedBytes - received + 1))
             if (count == -1) break
             received += count
-            if (received > expected.expectedBytes) break
             digest.update(buffer, 0, count)
         }
         received == expected.expectedBytes &&
