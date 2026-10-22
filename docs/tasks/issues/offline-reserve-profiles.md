@@ -2,7 +2,7 @@
 id: DAT-1792661188293948
 title: Keep verified reserve profiles available offline
 kind: feature
-status: review
+status: done
 area: data
 priority: high
 owner: Offline reserves
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: offline-reserve-profiles
 created: 2026-10-22
 updated: 2026-10-22
+closed_at: "2026-10-22T11:39:01Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Source 5be355fd0397dfea71f7e68ec790a29c568be174 passed full affected JVM job119791123903, coverage119791124405 and static119790735839; encrypted reserve reload, failure-safe refresh and real TLS/SOCKS offline selection tests passed. No platform-keystore/device/deployment claim.
 ---
 
 ## Goal

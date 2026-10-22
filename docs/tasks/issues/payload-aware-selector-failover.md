@@ -2,7 +2,7 @@
 id: TRN-1792659369802828
 title: Verify payloads before automatic selector failover
 kind: feature
-status: review
+status: done
 area: transport
 priority: high
 owner: Client runtime implementer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: payload-aware-selector-failover
 created: 2026-10-22
 updated: 2026-10-22
+closed_at: "2026-10-22T11:39:00Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Source 5be355fd0397dfea71f7e68ec790a29c568be174 passed full affected JVM job119791123903, coverage119791124405, static119790735839, architecture119790735937, task119790640414 and fleet119789975065; strict TLS/SOCKS positives and failure cases passed; shared contract bytes match. No deployment/device claim.
 ---
 
 ## Goal
