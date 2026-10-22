@@ -185,6 +185,114 @@ class SelectorUrltestProberTest {
             assertEquals("reserve", store.selectedProfileId("g").value)
         }
 
+    @Test
+    fun `payload healthy reserve qualifies without probing a stalled tail`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "active")
+            val group =
+                urltestGroup(listOf(member("reserve"), member("tail"), member("active"))).copy(
+                    failover = SelectorFailover("unused", 60, 0, policy()),
+                )
+            val observed = mutableListOf<String>()
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { member, _ ->
+                        observed.add(member.id)
+                        when (member.id) {
+                            "active" -> {
+                                null
+                            }
+
+                            "reserve" -> {
+                                20L
+                            }
+
+                            else -> {
+                                kotlinx.coroutines.awaitCancellation()
+                            }
+                        }
+                    },
+                    SelectorProbeScopeProvider { testScope(group) },
+                    { testScheduler.currentTime },
+                )
+            prober.runProbePass(group, "unused", 0)
+            advanceTimeBy(60_000)
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("reserve", store.selectedProfileId("g").value)
+            assertEquals(listOf("active", "reserve", "active", "reserve"), observed)
+            assertEquals(60_000L, testScheduler.currentTime)
+        }
+
+    @Test
+    fun `payload reserve traversal rotates without backoff for unobserved members`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "active")
+            val group =
+                urltestGroup(listOf(member("active"), member("failed"), member("reserve"))).copy(
+                    failover = SelectorFailover("unused", 60, 0, policy()),
+                )
+            val observed = mutableListOf<String>()
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { member, _ ->
+                        observed.add(member.id)
+                        if (member.id == "reserve") 20L else null
+                    },
+                    SelectorProbeScopeProvider { testScope(group) },
+                    { testScheduler.currentTime },
+                )
+            repeat(3) {
+                prober.runProbePass(group, "unused", 0)
+                if (it < 2) advanceTimeBy(60_000)
+            }
+            assertEquals("reserve", store.selectedProfileId("g").value)
+            assertEquals(listOf("active", "failed", "active", "reserve", "active", "reserve"), observed)
+            assertEquals(120_000L, testScheduler.currentTime)
+        }
+
+    @Test
+    fun `payload whole-pass deadline rotates stalled reserve without counting unobserved failures`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "active")
+            val group =
+                urltestGroup(listOf(member("active"), member("stall"), member("reserve"))).copy(
+                    failover = SelectorFailover("unused", 60, 0, policy()),
+                )
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { member, _ ->
+                        when (member.id) {
+                            "active" -> {
+                                null
+                            }
+
+                            "reserve" -> {
+                                20L
+                            }
+
+                            else -> {
+                                kotlinx.coroutines.awaitCancellation()
+                            }
+                        }
+                    },
+                    SelectorProbeScopeProvider { testScope(group) },
+                    { testScheduler.currentTime },
+                )
+            prober.runProbePass(group, "unused", 0)
+            assertEquals(60_000L, testScheduler.currentTime)
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("active", store.selectedProfileId("g").value)
+            advanceTimeBy(60_000)
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("reserve", store.selectedProfileId("g").value)
+        }
+
     private fun prober(
         store: SelectorSelectionStore,
         probe: MemberLatencyProbe,

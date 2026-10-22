@@ -466,8 +466,11 @@ must return HTTP 200, identity encoding, complete 32–64 KiB content and the ex
 SHA-256. The ordinary profile measurement remains a separate reachability use case.
 
 `SelectorUrltestProber` requires consecutive active failures and candidate
-recoveries before switching in declared member order. A healthy active member is
-retained regardless of latency. Switch cooldown, capped outage backoff, selection
+recoveries before switching. Each pass checks the active member first, then at
+most one reserve in rotating declared order; a recovering reserve stays selected
+for observation until it qualifies or fails. A healthy active member is retained
+regardless of latency. The whole pass has a deadline independent of group size;
+unobserved members do not count as failures. Switch cooldown, capped outage backoff, selection
 revision checks and policy/network scope invalidation bound retries and prevent
 stale changes. When every candidate fails, the encrypted selection remains;
 control failures alone do not identify censorship.

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
@@ -63,7 +64,7 @@ class SelectorUrltestProber internal constructor(
     private val selectionStore: SelectorSelectionStore,
     private val probe: MemberLatencyProbe,
     private val scopeProvider: SelectorProbeScopeProvider,
-    private val monotonicMillis: () -> Long = { System.nanoTime() / 1_000_000L },
+    private val monotonicMillis: () -> Long = { System.nanoTime() / NanosecondsPerMillisecond },
 ) {
     private val log = Logger.withTag("selector-urltest")
     private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
@@ -72,6 +73,9 @@ class SelectorUrltestProber internal constructor(
         val scope: SelectorProbeScope,
         var selection: SelectorSelectionSnapshot,
         val state: PayloadFailoverState,
+        var reserveIndex: Int = 0,
+        var recoveringReserve: String? = null,
+        val failedReserves: MutableSet<String> = mutableSetOf(),
     )
 
     /** Fences a replaced or stopped policy against a probe already about to commit. */
@@ -164,8 +168,14 @@ class SelectorUrltestProber internal constructor(
             }
         if (monotonicMillis() < scoped.state.nextProbeAt) return
         val results =
-            group.members.filterNot { it.id in group.cloudflareMemberIds }.map { member ->
-                MemberLatency(member.id, probe.measure(member, MemberProbeTarget.Payload(policy)))
+            withTimeoutOrNull(payloadPassDeadlineMillis(policy)) {
+                measurePayloadRound(group, scoped, policy)
+            } ?: run {
+                // A pass deadline provides no complete observation; rotate without inventing failures.
+                scoped.recoveringReserve = null
+                scoped.reserveIndex++
+                scoped.state.discardObservation()
+                return
             }
         currentCoroutineContext().ensureActive()
         if (scopeProvider.capture(group) != scope || selectionStore.snapshot(group.id) != selection ||
@@ -174,10 +184,23 @@ class SelectorUrltestProber internal constructor(
             payloadStates.remove(group.id, scoped)
             return
         }
+        currentCoroutineContext().ensureActive()
         val now = monotonicMillis()
-        val winner = scoped.state.observe(results, selection.profileId, now) ?: return
+        val eligibleReserves =
+            group.members.count {
+                it.id !in group.cloudflareMemberIds && it.id != selection.profileId
+            }
+        val winner =
+            scoped.state.observe(
+                results,
+                selection.profileId,
+                now,
+                allCandidatesObserved = scoped.failedReserves.size >= eligibleReserves,
+            ) ?: return
         if (selectionStore.selectAutomatically(group.id, selection, winner)) {
             scoped.state.switched(now)
+            scoped.recoveringReserve = null
+            scoped.failedReserves.clear()
             val selected = selectionStore.snapshot(group.id)
             if (selected.profileId == winner && !selected.isManual) {
                 scoped.selection = selected
@@ -188,9 +211,56 @@ class SelectorUrltestProber internal constructor(
         }
     }
 
+    /** At most the active exit and one reserve are measured, independent of subscription size. */
+    private suspend fun measurePayloadRound(
+        group: ProxyGroup,
+        scoped: ScopedPayloadState,
+        policy: PayloadFailoverPolicy,
+    ): List<MemberLatency> {
+        val eligible = group.members.filterNot { it.id in group.cloudflareMemberIds }
+        val active = eligible.firstOrNull { it.id == scoped.selection.profileId }
+        val results = mutableListOf<MemberLatency>()
+        val target = MemberProbeTarget.Payload(policy)
+        if (active != null) {
+            val result = MemberLatency(active.id, probe.measure(active, target))
+            results.add(result)
+            if (result.latencyMillis != null) {
+                scoped.recoveringReserve = null
+                scoped.failedReserves.clear()
+                return results
+            }
+        }
+        val reserves = eligible.filterNot { it.id == active?.id }
+        if (reserves.isEmpty()) return results
+        val reserve =
+            reserves.firstOrNull { it.id == scoped.recoveringReserve }
+                ?: reserves[scoped.reserveIndex.mod(reserves.size)]
+        val result = MemberLatency(reserve.id, probe.measure(reserve, target))
+        results.add(result)
+        if (result.latencyMillis != null) {
+            scoped.recoveringReserve = reserve.id
+            scoped.failedReserves.clear()
+        } else {
+            scoped.failedReserves.add(reserve.id)
+            scoped.recoveringReserve = null
+            scoped.reserveIndex = (reserves.indexOf(reserve) + 1).mod(reserves.size)
+        }
+        return results
+    }
+
+    private fun payloadPassDeadlineMillis(policy: PayloadFailoverPolicy): Long =
+        MaxPayloadCandidatesPerPass *
+            (policy.probes.size * policy.timeoutSeconds * MillisecondsPerSecond + CandidateLifecycleBudgetMillis)
+
     private companion object {
         const val MinIntervalSeconds = 1
         const val MinMembers = 2
+        const val MaxPayloadCandidatesPerPass = 2
+        const val MillisecondsPerSecond = 1_000L
+        const val NanosecondsPerMillisecond = 1_000_000L
+
+        // Each candidate reserves 5 seconds for readiness and 5 seconds for native cleanup.
+        const val CandidateLifecycleBudgetMillis = 10_000L
     }
 }
 

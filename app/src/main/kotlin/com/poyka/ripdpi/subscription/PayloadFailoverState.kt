@@ -17,21 +17,27 @@ internal class PayloadFailoverState(
         results: List<MemberLatency>,
         current: String?,
         now: Long,
+        allCandidatesObserved: Boolean = true,
     ): String? {
         results.forEach { result ->
+            val previous = successes[result.profileId] ?: 0
             successes[result.profileId] =
-                if (result.latencyMillis ==
-                    null
-                ) {
-                    0
+                if (result.latencyMillis != null) {
+                    (previous + 1).coerceAtMost(policy.recoveryThreshold)
                 } else {
-                    ((successes[result.profileId] ?: 0) + 1).coerceAtMost(policy.recoveryThreshold)
+                    0
                 }
         }
         val activeHealthy = results.any { it.profileId == current && it.latencyMillis != null }
+        if (activeHealthy) successes.clear()
         failures = if (activeHealthy) 0 else (failures + 1).coerceAtMost(policy.failureThreshold)
         val anyHealthy = results.any { it.latencyMillis != null }
-        outagePasses = if (anyHealthy) 0 else (outagePasses + 1).coerceAtMost(MaxBackoffExponent)
+        outagePasses =
+            when {
+                anyHealthy -> 0
+                allCandidatesObserved -> (outagePasses + 1).coerceAtMost(MaxBackoffExponent)
+                else -> outagePasses
+            }
         val waitSeconds =
             (policy.intervalSeconds.toLong() * (1L shl outagePasses)).coerceAtMost(policy.maxBackoffSeconds.toLong())
         nextProbeAt = now + waitSeconds * MillisecondsPerSecond
@@ -40,6 +46,12 @@ internal class PayloadFailoverState(
             .firstOrNull {
                 it.profileId != current && (successes[it.profileId] ?: 0) >= policy.recoveryThreshold
             }?.profileId
+    }
+
+    /** Incomplete rounds cannot extend a consecutive evidence streak. */
+    fun discardObservation() {
+        failures = 0
+        successes.clear()
     }
 
     fun switched(now: Long) {

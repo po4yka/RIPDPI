@@ -39,3 +39,17 @@ Existing persisted selector policies have no payload extension and retain their
 meaning. Reimporting a qualified bundle installs the complete new policy. To
 remove it, reissue and import a bundle without the extension. Runtime capability
 does not authorize deployment or populate placeholder public controls.
+
+### Bounded candidate traversal
+
+A pass checks the active eligible member first. Success ends the pass immediately.
+Failure permits one reserve probe in rotating declared order. A successful reserve
+is observed again on the next pass until the recovery threshold is reached; a
+failed reserve advances the cursor. Only observed results update counters. A whole
+pass deadline is two candidate budgets, each containing two control timeouts plus
+5 seconds readiness and 5 seconds cleanup (140 seconds maximum at the policy's
+30-second control ceiling), followed by at most the existing 5-second cancellation
+cleanup wait. Deadline cancellation discards the incomplete round and its
+consecutive evidence, then advances the cursor without inventing failures for
+unobserved candidates. Outage backoff starts only after each eligible reserve has
+actually failed in the current scope; a healthy observation clears that coverage.

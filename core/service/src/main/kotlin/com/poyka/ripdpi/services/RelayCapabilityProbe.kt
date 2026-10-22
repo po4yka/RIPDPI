@@ -220,7 +220,7 @@ internal class OkHttpRelayTcpProbe(
                 Request
                     .Builder()
                     .url(url)
-                    .header("Accept-Encoding", "identity")
+                    .apply { if (expectedPayload != null) header("Accept-Encoding", "identity") }
                     .get()
                     .build(),
             )
@@ -250,7 +250,7 @@ internal class OkHttpRelayTcpProbe(
                             response.use {
                                 when {
                                     response.code !in SuccessfulStatusRange ||
-                                        (expectedPayload != null && response.code != 200) -> {
+                                        (expectedPayload != null && response.code != PayloadSuccessStatus) -> {
                                         RelayTcpProbeResult(false, response.code, RelayProbeFailure.TcpHttpStatus)
                                     }
 
@@ -283,7 +283,7 @@ internal fun consumeVerifiedPayload(
     response: Response,
     expected: PayloadProbeControl,
 ): Boolean {
-    if (response.code != 200 || response.header("Content-Range") != null ||
+    if (response.code != PayloadSuccessStatus || response.header("Content-Range") != null ||
         response.header("Content-Encoding")?.let { !it.equals("identity", ignoreCase = true) } == true
     ) {
         return false
@@ -599,3 +599,5 @@ private fun unsignedShortBytes(value: Int): ByteArray =
         (value ushr ByteBits).toByte(),
         value.toByte(),
     )
+
+private const val PayloadSuccessStatus = 200
