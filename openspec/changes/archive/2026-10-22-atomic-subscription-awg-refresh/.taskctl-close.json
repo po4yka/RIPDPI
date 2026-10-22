@@ -1,0 +1,11 @@
+{
+  "change": "atomic-subscription-awg-refresh",
+  "evidence_summary": "Merged source ede4099f5e53023c03e4e6875cdb8521cb627d56 has the identical complete tree as tested b5b09af6ea93f5c076232e5d97529aa79ff93396. CI 39815952976 attempt 1 passed all required checks, five Full/Simple API matrices, JNI strategy and real Xray TUN acceptance. Local affected-module/app JVM and static checks passed; no physical-device or deployment result is claimed.",
+  "execution_sha256": "005355e7057c5bff5d85212d93f170d5bddd382434f653c59c3c0a37b0e6b451",
+  "issue_sha256": "092df440e895482b8d71df67f97fd927189dc81447d55c645db2ce3f092ee211",
+  "outcome": "done",
+  "prepared_at": "2026-10-22T17:35:01Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1792683530998740"
+}

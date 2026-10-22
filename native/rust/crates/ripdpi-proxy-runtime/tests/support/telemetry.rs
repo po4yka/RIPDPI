@@ -40,10 +40,11 @@ pub struct ProxyHarnessTelemetry {
 
 impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
     fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
-        self.startup.mark_started();
         if let Some(delegate) = &self.delegate {
             delegate.on_listener_started(bind_addr, max_clients, group_count);
         }
+        // The latch publishes completed telemetry to callers returning from start_proxy.
+        self.startup.mark_started();
     }
 
     fn on_listener_stopped(&self) {
@@ -149,6 +150,91 @@ impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
         if let Some(delegate) = &self.delegate {
             delegate.on_tls_handshake_completed(target, latency_ms);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
+
+    use super::super::START_TIMEOUT;
+
+    struct BlockingListenerTelemetry {
+        entered: SyncSender<(SocketAddr, usize, usize)>,
+        release: Mutex<Receiver<()>>,
+    }
+
+    impl RuntimeTelemetrySink for BlockingListenerTelemetry {
+        fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
+            self.entered.send((bind_addr, max_clients, group_count)).expect("report delegate entry");
+            self.release.lock().expect("lock delegate release").recv_timeout(START_TIMEOUT).expect("release delegate");
+        }
+
+        fn on_listener_stopped(&self) {}
+        fn on_client_accepted(&self) {}
+        fn on_client_finished(&self) {}
+        fn on_client_error(&self, _error: &io::Error) {}
+        fn on_route_selected(
+            &self,
+            _target: SocketAddr,
+            _group_index: usize,
+            _host: Option<&str>,
+            _phase: &'static str,
+        ) {
+        }
+        fn on_failure_classified(
+            &self,
+            _target: SocketAddr,
+            _failure: &ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure,
+            _host: Option<&str>,
+        ) {
+        }
+        fn on_route_advanced(
+            &self,
+            _target: SocketAddr,
+            _from_group: usize,
+            _to_group: usize,
+            _trigger: u32,
+            _host: Option<&str>,
+        ) {
+        }
+        fn on_host_autolearn_state(
+            &self,
+            _enabled: bool,
+            _learned_host_count: usize,
+            _penalized_host_count: usize,
+            _blocked_host_count: usize,
+            _last_block_signal: Option<&str>,
+            _last_block_provider: Option<&str>,
+        ) {
+        }
+        fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
+    }
+
+    #[test]
+    fn startup_waits_for_listener_telemetry_delegate() {
+        let startup = Arc::new(StartupLatch::default());
+        let (entered_tx, entered_rx) = sync_channel(1);
+        let (release_tx, release_rx) = sync_channel(1);
+        let telemetry = ProxyHarnessTelemetry {
+            startup: startup.clone(),
+            delegate: Some(Arc::new(BlockingListenerTelemetry {
+                entered: entered_tx,
+                release: Mutex::new(release_rx),
+            })),
+        };
+        let bind_addr = SocketAddr::from(([127, 0, 0, 1], 12345));
+        let worker = std::thread::spawn(move || telemetry.on_listener_started(bind_addr, 128, 2));
+
+        let forwarded = entered_rx.recv_timeout(START_TIMEOUT).expect("delegate entered");
+        let ready_while_delegate_blocked = *startup.started.lock().expect("inspect startup latch");
+        release_tx.send(()).expect("release delegate");
+        worker.join().expect("listener telemetry worker");
+
+        assert_eq!(forwarded, (bind_addr, 128, 2));
+        assert!(!ready_while_delegate_blocked, "startup was published before listener telemetry completed");
+        startup.wait(START_TIMEOUT);
     }
 }
 
