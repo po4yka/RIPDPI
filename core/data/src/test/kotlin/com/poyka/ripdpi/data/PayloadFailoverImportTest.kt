@@ -30,6 +30,8 @@ class PayloadFailoverImportTest {
         val source = fixture()
         val invalid =
             listOf(
+                source.replaceFirst("\"schema_version\": 1", "\"schema_version\": 2"),
+                source.replaceFirst("\"schema_version\": 1,", ""),
                 source.replace("\"expected_bytes\": 32768", "\"expected_bytes\": 0"),
                 source.replace("\"failure_threshold\": 2", "\"failure_threshold\": 1"),
                 source.replace("\"timeout_seconds\": 10", "\"timeout_seconds\": 31"),
