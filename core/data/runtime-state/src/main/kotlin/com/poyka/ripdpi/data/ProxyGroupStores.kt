@@ -140,6 +140,7 @@ data class SelectorFailover(
     val probeUrl: String,
     val intervalSeconds: Int,
     val toleranceMs: Int,
+    val payloadPolicy: PayloadFailoverPolicy? = null,
 )
 
 /**

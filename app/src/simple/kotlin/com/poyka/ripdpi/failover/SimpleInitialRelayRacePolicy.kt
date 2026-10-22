@@ -110,6 +110,9 @@ internal class SimpleInitialRelayRacePolicy
                 bundleSource.read()?.let { payload ->
                     SelectorUrltestGroupImport.import(payload, SIMPLE_SEED_GROUP_ID)
                 } as? SelectorUrltestImportResult.Success
+            check(imported?.failoverPolicy !is FailoverPolicy.Payload) {
+                "Embedded Simple configuration does not support payload failover policy"
+            }
             val urltest = imported?.failoverPolicy as? FailoverPolicy.Urltest
             val normalizedProbeUrl = urltest?.probeUrl?.normalizeHttpProbeUrl()
             if (imported == null) {
@@ -399,6 +402,9 @@ internal class SimpleRelayEgressReadinessPolicy
                 bundleSource.read()?.let { payload ->
                     SelectorUrltestGroupImport.import(payload, SIMPLE_SEED_GROUP_ID)
                 } as? SelectorUrltestImportResult.Success
+            check(imported?.failoverPolicy !is FailoverPolicy.Payload) {
+                "Embedded Simple configuration does not support payload failover policy"
+            }
             val probeUrl =
                 (imported?.failoverPolicy as? FailoverPolicy.Urltest)
                     ?.probeUrl

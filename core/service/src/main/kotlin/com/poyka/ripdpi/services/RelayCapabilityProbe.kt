@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.PayloadProbeControl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -22,6 +23,7 @@ import java.net.Proxy
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -193,14 +195,16 @@ class RelayCapabilityProbe internal constructor(
 
 internal class OkHttpRelayTcpProbe(
     private val timeoutMillis: Long = TcpProbeTimeoutMillis,
+    private val expectedPayload: PayloadProbeControl? = null,
+    private val clientBuilder: () -> OkHttpClient.Builder = { OkHttpClient.Builder() },
 ) : RelayTcpProbe {
     override suspend fun probe(
         endpoint: RelayProbeEndpoint,
         url: String,
     ): RelayTcpProbeResult {
+        require(expectedPayload == null || expectedPayload.url == url)
         val client =
-            OkHttpClient
-                .Builder()
+            clientBuilder()
                 .proxy(
                     Proxy(
                         Proxy.Type.SOCKS,
@@ -216,6 +220,7 @@ internal class OkHttpRelayTcpProbe(
                 Request
                     .Builder()
                     .url(url)
+                    .header("Accept-Encoding", "identity")
                     .get()
                     .build(),
             )
@@ -244,14 +249,16 @@ internal class OkHttpRelayTcpProbe(
                         val result =
                             response.use {
                                 when {
-                                    response.code !in SuccessfulStatusRange -> {
+                                    response.code !in SuccessfulStatusRange ||
+                                        (expectedPayload != null && response.code != 200) -> {
                                         RelayTcpProbeResult(false, response.code, RelayProbeFailure.TcpHttpStatus)
                                     }
 
                                     else -> {
                                         val complete =
                                             try {
-                                                consumeBoundedPayload(response)
+                                                expectedPayload?.let { consumeVerifiedPayload(response, it) }
+                                                    ?: consumeBoundedPayload(response)
                                             } catch (_: IOException) {
                                                 false
                                             }
@@ -268,6 +275,34 @@ internal class OkHttpRelayTcpProbe(
                 },
             )
         }
+    }
+}
+
+/** Exact bytes and digest; redirects, compression, partial ranges and truncated bodies never qualify. */
+internal fun consumeVerifiedPayload(
+    response: Response,
+    expected: PayloadProbeControl,
+): Boolean {
+    if (response.code != 200 || response.header("Content-Range") != null ||
+        response.header("Content-Encoding")?.let { !it.equals("identity", ignoreCase = true) } == true
+    ) {
+        return false
+    }
+    val declared = response.body.contentLength()
+    if (declared >= 0 && declared != expected.expectedBytes.toLong()) return false
+    val digest = MessageDigest.getInstance("SHA-256")
+    return response.body.byteStream().use { input ->
+        var received = 0
+        val buffer = ByteArray(TcpPayloadReadBufferBytes)
+        while (true) {
+            val count = input.read(buffer, 0, minOf(buffer.size, expected.expectedBytes - received + 1))
+            if (count == -1) break
+            received += count
+            if (received > expected.expectedBytes) return false
+            digest.update(buffer, 0, count)
+        }
+        received == expected.expectedBytes &&
+            digest.digest().joinToString("") { "%02x".format(it) } == expected.sha256
     }
 }
 

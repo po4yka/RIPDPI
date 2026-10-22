@@ -1,12 +1,15 @@
 package com.poyka.ripdpi.subscription
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
 
@@ -16,6 +19,16 @@ data class MemberLatency(
     val latencyMillis: Long?,
 )
 
+sealed interface MemberProbeTarget {
+    data class Reachability(
+        val url: String,
+    ) : MemberProbeTarget
+
+    data class Payload(
+        val policy: PayloadFailoverPolicy,
+    ) : MemberProbeTarget
+}
+
 /**
  * Measures a single selector member's reachability latency against the group's
  * `probeUrl`. Injectable so the prober is testable without a real network: the
@@ -24,11 +37,11 @@ data class MemberLatency(
 fun interface MemberLatencyProbe {
     /**
      * Returns the round-trip latency in milliseconds for [profile] probed against
-     * [probeUrl], or `null` when the member did not respond.
+     * [target], or `null` when the member did not respond.
      */
     suspend fun measure(
         profile: ProxyProfile,
-        probeUrl: String,
+        target: MemberProbeTarget,
     ): Long?
 }
 
@@ -50,11 +63,20 @@ class SelectorUrltestProber internal constructor(
     private val selectionStore: SelectorSelectionStore,
     private val probe: MemberLatencyProbe,
     private val scopeProvider: SelectorProbeScopeProvider,
+    private val monotonicMillis: () -> Long = { System.nanoTime() / 1_000_000L },
 ) {
     private val log = Logger.withTag("selector-urltest")
+    private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
+
+    private data class ScopedPayloadState(
+        val scope: SelectorProbeScope,
+        var selection: SelectorSelectionSnapshot,
+        val state: PayloadFailoverState,
+    )
 
     /** Fences a replaced or stopped policy against a probe already about to commit. */
     internal fun invalidatePendingSelection(groupId: String) {
+        payloadStates.remove(groupId)
         selectionStore.invalidatePendingSelection(groupId)
     }
 
@@ -71,9 +93,13 @@ class SelectorUrltestProber internal constructor(
             failover.intervalSeconds
                 .coerceAtLeast(MinIntervalSeconds)
                 .seconds.inWholeMilliseconds
-        while (true) {
-            delay(intervalMillis)
-            runProbePass(group, failover.probeUrl, failover.toleranceMs)
+        try {
+            while (true) {
+                delay(intervalMillis)
+                runProbePass(group, failover.probeUrl, failover.toleranceMs)
+            }
+        } finally {
+            invalidatePendingSelection(group.id)
         }
     }
 
@@ -87,12 +113,20 @@ class SelectorUrltestProber internal constructor(
         probeUrl: String,
         toleranceMs: Int,
     ) {
+        val policy = group.failover?.payloadPolicy
+        if (policy != null) {
+            runPayloadPass(group, policy)
+            return
+        }
         val scope = scopeProvider.capture(group) ?: return
         val selection = selectionStore.snapshot(group.id)
         if (selection.isManual && selection.profileId in group.cloudflareMemberIds) return
         val latencies =
             group.members.filterNot { it.id in group.cloudflareMemberIds }.map { member ->
-                MemberLatency(profileId = member.id, latencyMillis = probe.measure(member, probeUrl))
+                MemberLatency(
+                    profileId = member.id,
+                    latencyMillis = probe.measure(member, MemberProbeTarget.Reachability(probeUrl)),
+                )
             }
         currentCoroutineContext().ensureActive()
         if (scopeProvider.capture(group) == scope) {
@@ -106,6 +140,51 @@ class SelectorUrltestProber internal constructor(
             ) {
                 log.i { "urltest selecting lower-latency member $winner for group ${group.id}" }
             }
+        }
+    }
+
+    private suspend fun runPayloadPass(
+        group: ProxyGroup,
+        policy: PayloadFailoverPolicy,
+    ) {
+        val scope =
+            scopeProvider.capture(group) ?: run {
+                payloadStates.remove(group.id)
+                return
+            }
+        val selection = selectionStore.snapshot(group.id)
+        if (selection.isManual && selection.profileId in group.cloudflareMemberIds) {
+            payloadStates.remove(group.id)
+            return
+        }
+        val previous = payloadStates[group.id]?.takeIf { it.scope == scope && it.selection == selection }
+        val scoped =
+            previous ?: ScopedPayloadState(scope, selection, PayloadFailoverState(policy)).also {
+                payloadStates[group.id] = it
+            }
+        if (monotonicMillis() < scoped.state.nextProbeAt) return
+        val results =
+            group.members.filterNot { it.id in group.cloudflareMemberIds }.map { member ->
+                MemberLatency(member.id, probe.measure(member, MemberProbeTarget.Payload(policy)))
+            }
+        currentCoroutineContext().ensureActive()
+        if (scopeProvider.capture(group) != scope || selectionStore.snapshot(group.id) != selection ||
+            payloadStates[group.id] !== scoped
+        ) {
+            payloadStates.remove(group.id, scoped)
+            return
+        }
+        val now = monotonicMillis()
+        val winner = scoped.state.observe(results, selection.profileId, now) ?: return
+        if (selectionStore.selectAutomatically(group.id, selection, winner)) {
+            scoped.state.switched(now)
+            val selected = selectionStore.snapshot(group.id)
+            if (selected.profileId == winner && !selected.isManual) {
+                scoped.selection = selected
+            } else {
+                payloadStates.remove(group.id, scoped)
+            }
+            log.i { "payload-qualified selector failover for group ${group.id}" }
         }
     }
 

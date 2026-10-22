@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.subscription
 
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
@@ -31,6 +32,10 @@ sealed interface FailoverPolicy {
         val intervalSeconds: Int,
         val toleranceMs: Int,
     ) : FailoverPolicy
+
+    data class Payload(
+        val policy: PayloadFailoverPolicy,
+    ) : FailoverPolicy
 }
 
 /**
@@ -49,6 +54,15 @@ fun FailoverPolicy.toSelectorFailover(): SelectorFailover? =
                 probeUrl = probeUrl,
                 intervalSeconds = intervalSeconds,
                 toleranceMs = toleranceMs,
+            )
+        }
+
+        is FailoverPolicy.Payload -> {
+            SelectorFailover(
+                probeUrl = policy.probes.first().url,
+                intervalSeconds = policy.intervalSeconds,
+                toleranceMs = 0,
+                payloadPolicy = policy,
             )
         }
     }
@@ -141,6 +155,12 @@ object SelectorUrltestGroupImport {
         }
 
         val selectorEntry = selector
+        val payloadPolicy =
+            try {
+                PayloadFailoverImport.parse(payload, selectorEntry?.string("tag"))
+            } catch (_: IllegalArgumentException) {
+                return SelectorUrltestImportResult.Error("Invalid payload failover policy")
+            }
         if (selectorEntry == null) {
             // No selector: a urltest by itself is an orphan and is skipped.
             return SelectorUrltestImportResult.Success(
@@ -165,7 +185,7 @@ object SelectorUrltestGroupImport {
         val missing = memberOrder.filterNot { it in profileTags }
         missingSelectorMemberError(missing, parsed.skipped)?.let { return it }
 
-        val failoverPolicy = failoverPolicy(urltest)
+        val failoverPolicy = payloadPolicy?.let { FailoverPolicy.Payload(it) } ?: failoverPolicy(urltest)
 
         // Resolve the member tags back to their concrete profiles, in declared
         // selector order, so the group durably carries its candidate set. A

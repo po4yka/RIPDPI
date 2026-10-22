@@ -26,3 +26,5 @@ copy (or a parser that hasn't learned a new version) fails the build.
 `cohort-fingerprint.golden.json` is the paired golden: both repos compute the
 fingerprint from the same `params` and assert the same `fingerprint`, so the
 Python emit-side and the Kotlin parse-side can never disagree on the algorithm.
+
+`ripdpi-bundle.payload-failover.json` is the full deterministic deployer output for the explicit payload policy. Its two synthetic relay members and independently named HTTPS controls exercise strict import and persistence. The companion schema remains byte-identical to the deployer source.

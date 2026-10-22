@@ -87,6 +87,104 @@ class SelectorUrltestProberTest {
             assertEquals(parsed.profiles.single { it.displayName == "origin" }.id, store.selectedProfileId("g").value)
         }
 
+    @Test
+    fun `payload policy drives typed controls and switches only after consecutive observations`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "active")
+            val group =
+                urltestGroup(listOf(member("active"), member("reserve"))).copy(
+                    failover = SelectorFailover("unused", 60, 0, policy()),
+                )
+            var now = 0L
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { member, target ->
+                        assertEquals(MemberProbeTarget.Payload(policy()), target)
+                        if (member.id == "reserve") 20L else null
+                    },
+                    SelectorProbeScopeProvider { testScope(group) },
+                    { now },
+                )
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("active", store.selectedProfileId("g").value)
+            now = 60_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("reserve", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `payload network changes discard evidence and in-flight switches`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "active")
+            val group =
+                urltestGroup(listOf(member("active"), member("reserve"))).copy(
+                    failover = SelectorFailover("unused", 60, 0, policy()),
+                )
+            var now = 0L
+            var scope = testScope(group)
+            var changeDuringProbe = false
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { member, _ ->
+                        if (changeDuringProbe) scope = scope.copy(underlayGeneration = scope.underlayGeneration!! + 1)
+                        if (member.id == "reserve") 20L else null
+                    },
+                    SelectorProbeScopeProvider { scope },
+                    { now },
+                )
+            prober.runProbePass(group, "unused", 0)
+            scope = scope.copy(underlayGeneration = 2)
+            now = 60_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("active", store.selectedProfileId("g").value)
+            changeDuringProbe = true
+            now = 120_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("active", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `payload outage backoff skips probes and invalidation discards prior evidence`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "active")
+            val group =
+                urltestGroup(listOf(member("active"), member("reserve"))).copy(
+                    failover = SelectorFailover("unused", 60, 0, policy()),
+                )
+            var now = 0L
+            var calls = 0
+            var recovered = false
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { member, _ ->
+                        calls++
+                        if (recovered && member.id == "reserve") 20L else null
+                    },
+                    SelectorProbeScopeProvider { testScope(group) },
+                    { now },
+                )
+            prober.runProbePass(group, "unused", 0)
+            now = 60_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals(2, calls)
+            recovered = true
+            now = 120_000
+            prober.runProbePass(group, "unused", 0)
+            prober.invalidatePendingSelection("g")
+            now = 180_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("active", store.selectedProfileId("g").value)
+            now = 240_000
+            prober.runProbePass(group, "unused", 0)
+            assertEquals("reserve", store.selectedProfileId("g").value)
+        }
+
     private fun prober(
         store: SelectorSelectionStore,
         probe: MemberLatencyProbe,
@@ -523,7 +621,7 @@ class SelectorUrltestProberTest {
     ) : MemberLatencyProbe {
         override suspend fun measure(
             profile: ProxyProfile,
-            probeUrl: String,
+            target: MemberProbeTarget,
         ): Long? = latencies[profile.id]
     }
 
