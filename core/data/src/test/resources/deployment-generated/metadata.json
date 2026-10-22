@@ -1,0 +1,26 @@
+{
+  "backend_commit": "794202c393648986ceea7afd7d022933fbe44dce",
+  "materializer": "scripts/client_payload.py",
+  "materializer_sha256": "531bf33c93c696b9b45a4eff8e209cff1ea9ac362a55154b324462faab096a39",
+  "generator": "scripts/tests/generate_deployment_bundle_fixture.py",
+  "payload_sha256": "583d1a51c7f864b66726255d6656dd9bb40e8cf08a97a1cdb47c748232d501d3",
+  "authority": "synthetic only; no inventory, SOPS, real Terraform, server, or network calls",
+  "asserted_boundary_calls": [
+    "synthetic terraform server_ipv4"
+  ],
+  "expected_activatable_tags": [
+    "p0-reality-upcloud-fixture",
+    "p1-xhttp-upcloud-fixture",
+    "p1-xhttp-upcloud-fixture:alternate",
+    "p2-hysteria2-upcloud-fixture"
+  ],
+  "expected_unsupported_tags": [
+    "p3-snell-v4-stream-fresh-upcloud-fixture",
+    "p3-snell-v4-stream-reuse-upcloud-fixture"
+  ],
+  "expected_selector": "select",
+  "expected_default": "auto",
+  "expected_nested_selector": "snell-evaluation",
+  "amneziawg": "not included",
+  "validation_scope": "current materializer serialization and input validation; no runtime acceptance"
+}

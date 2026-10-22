@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.SocketEffect
@@ -148,9 +149,97 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
+    fun `invalid selector with AWG does not clear existing relay members`() =
+        runTest {
+            val payload =
+                AwgOnlyPackageRoutePayload.replace(
+                    "\"outbounds\": []",
+                    """"outbounds": [{"type":"selector","tag":"select","outbounds":["missing"]}]""",
+                )
+            server.enqueue(response(200, payload))
+            val prior =
+                ProxyProfile.Trojan(
+                    id = "prior",
+                    groupId = "subscription-group",
+                    displayName = "Prior",
+                    server = "prior.example",
+                    serverPort = 443,
+                    password = "fixture",
+                )
+            val fixture = fixture(now = 3_000L, initialMembers = listOf(prior))
+
+            val result = fixture.coordinator.refresh("subscription-group")
+
+            assertTrue(result is SubscriptionRefreshResult.Failed)
+            assertEquals(
+                listOf(prior),
+                fixture.repository
+                    .list()
+                    .single()
+                    .members,
+            )
+            assertEquals(
+                SubscriptionRefreshFailure.PARSE_ERROR,
+                fixture.repository
+                    .list()
+                    .single()
+                    .subscription
+                    ?.lastRefreshFailure,
+            )
+        }
+
+    @Test
+    fun `rejected relay transport with AWG preserves both stores`() =
+        runTest {
+            val payload =
+                AwgOnlyPackageRoutePayload.replace(
+                    "\"outbounds\": []",
+                    """"outbounds": [{"type":"vless","tag":"rejected","server":"relay.example",
+                  "server_port":443,"uuid":"00000000-0000-0000-0000-000000000000","transport":{"type":"ws"}}]""",
+                )
+            server.enqueue(response(200, payload))
+            val prior =
+                ProxyProfile.Trojan(
+                    id = "prior",
+                    groupId = "subscription-group",
+                    displayName = "Prior",
+                    server = "prior.example",
+                    serverPort = 443,
+                    password = "fixture",
+                )
+            val fixture = fixture(now = 3_000L, initialMembers = listOf(prior))
+
+            val result = fixture.coordinator.refresh("subscription-group")
+
+            assertTrue(result is SubscriptionRefreshResult.Failed)
+            assertTrue(
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .isEmpty(),
+            )
+            assertEquals(
+                listOf(prior),
+                fixture.repository
+                    .list()
+                    .single()
+                    .members,
+            )
+        }
+
+    @Test
     fun `AWG-only refresh persists package rules with no group members`() =
         runTest {
-            server.enqueue(response(200, AwgOnlyPackageRoutePayload))
+            val backendPayload =
+                AwgOnlyPackageRoutePayload.replace(
+                    "\"outbounds\": []",
+                    """
+                    "outbounds": [
+                    {"type":"selector","tag":"select","outbounds":["direct"],"default":"direct"},
+                    {"type":"direct","tag":"direct"},{"type":"block","tag":"block"}]
+                    """.trimIndent(),
+                )
+            server.enqueue(response(200, backendPayload))
             val staleMember =
                 ProxyProfile.Trojan(
                     id = "stale-member",
@@ -167,6 +256,13 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
             assertTrue(result is SubscriptionRefreshResult.Updated)
             val stored = fixture.repository.list().single()
             assertTrue(stored.members.isEmpty())
+            assertEquals(
+                1,
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .size,
+            )
             assertEquals("com.awg.app", stored.packageRoutingRules.single().packageName)
             assertEquals(PackageRoutingAction.VIA_TUN, stored.packageRoutingRules.single().action)
         }
