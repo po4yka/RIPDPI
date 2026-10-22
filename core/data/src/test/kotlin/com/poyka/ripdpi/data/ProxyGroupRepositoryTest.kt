@@ -146,11 +146,13 @@ class ProxyGroupRepositoryTest {
         }
 
     @Test
-    fun `groups flow emits on every change`() =
+    fun `groups flow waits for validated load then emits on every change`() =
         runTest {
             val repository = newRepository()
 
             repository.groups().test {
+                expectNoEvents()
+                repository.list()
                 assertEquals(emptyList<ProxyGroup>(), awaitItem())
 
                 repository.add(group("g1"))

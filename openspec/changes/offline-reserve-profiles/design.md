@@ -10,7 +10,7 @@ The existing payload-aware selector change supplies strict two-origin HTTPS leng
 
 ## Decisions
 
-- Defer catalogue loading until the guarded startup boundary, so unreadable storage produces retryable failed readiness instead of aborting dependency construction.
+- Observing groups performs no storage I/O and emits nothing before a successful load or mutation. The guarded startup `list()` validates and publishes the first snapshot; read failures remain with that caller. Reads/publication and writes share the repository mutex, preventing a delayed load from publishing over a newer mutation. Early application-scope collectors remain alive across failed readiness and retry.
 - Read an existing sealed catalogue strictly. Absent data remains an empty catalogue; decryption/authentication errors remain errors. Keep the existing encryption key and wire shape. Ciphertext and metadata share one editor commit.
 - Store the complete accepted current generation; never revive profiles removed by a later successful authoritative update. Keep delivery permission and transport credentials separate.
 - Treat a refresh with no activatable relay profiles as invalid unless it contains a supported non-relay profile set. Do not mark unchanged old reserves healthy after discarding unsupported parsed nodes.

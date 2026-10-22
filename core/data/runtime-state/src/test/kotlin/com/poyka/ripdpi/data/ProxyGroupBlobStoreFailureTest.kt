@@ -2,7 +2,10 @@ package com.poyka.ripdpi.data
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -13,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class ProxyGroupBlobStoreFailureTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
@@ -53,7 +57,7 @@ class ProxyGroupBlobStoreFailureTest {
     }
 
     @Test
-    fun `constructing a repository and its flow defers strict validation without losing unreadable bytes`() =
+    fun `early collectors wait through strict read failures without losing unreadable bytes`() =
         runTest {
             seedCorruptSealedCatalogue()
             val retained = preferences.all.toMap()
@@ -63,11 +67,18 @@ class ProxyGroupBlobStoreFailureTest {
                     KeystoreProxyGroupBlobStore(context),
                     testMutationPreparationSource(authority),
                 )
-            val groups = repository.groups()
+            val observed = mutableListOf<List<ProxyGroup>>()
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    repository.groups().collect { observed += it }
+                }
+            assertTrue(collector.isActive)
+            assertTrue(observed.isEmpty())
             assertEquals(retained, preferences.all)
 
             assertTrue(runCatching { repository.list() }.exceptionOrNull() is IllegalArgumentException)
-            assertTrue(runCatching { groups.first() }.exceptionOrNull() is IllegalArgumentException)
+            assertTrue(collector.isActive)
+            assertTrue(observed.isEmpty())
             assertTrue(
                 runCatching { repository.replaceAll(authority.reserveStop(), emptyList()) }
                     .exceptionOrNull() is IllegalArgumentException,
