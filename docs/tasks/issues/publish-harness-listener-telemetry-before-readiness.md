@@ -2,7 +2,7 @@
 id: TST-1792693347075851
 title: Publish harness listener telemetry before readiness
 kind: bug
-status: review
+status: done
 area: testing
 priority: medium
 owner: Protocol implementation
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-22
 updated: 2026-10-23
 spec_reason: test-only
+closed_at: "2026-10-22T20:37:16Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Accepted source 40c46dba03153607cbc9c9c500d025bb2dd09b06 is tree-identical to tested head 0f80db4ff3c182efb9a25a424a754d6c5343d1b3. Deterministic red/green passed. The full Linux workspace passed 5831 tests, four privileged BPF tests and one startup smoke test. Canonical coverage passed at 86.57 percent with the unchanged 78 percent minimum enforced and zero uncovered critical files. CI 39834193370 attempt 1 passed 46 jobs with 18 routed skips. The local macOS daemon cleanup failure remains in the committed review evidence.
 ---
 
 ## Goal
