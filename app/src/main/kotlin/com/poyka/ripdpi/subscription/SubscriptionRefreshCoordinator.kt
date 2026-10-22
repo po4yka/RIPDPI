@@ -470,13 +470,7 @@ class SubscriptionRefreshCoordinator private constructor(
             val base64 = Base64SubscriptionParser.parse(body, groupId)
             if (base64.profiles.isNotEmpty()) parsed = RefreshOutcome.Updated(base64.profiles, null)
         }
-        parsed =
-            parsed?.let { outcome ->
-                outcome.profiles
-                    .filterNot { it is ProxyProfile.RawConfig }
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { outcome.copy(profiles = it) }
-            }
+        parsed = supportedProfileOutcome(parsed)
         if (parsed == null && wireGuardCount > 0) {
             parsed =
                 RefreshOutcome.Updated(
@@ -489,6 +483,14 @@ class SubscriptionRefreshCoordinator private constructor(
         }
         return parsed
     }
+
+    private fun supportedProfileOutcome(parsed: RefreshOutcome.Updated?): RefreshOutcome.Updated? =
+        parsed?.let { outcome ->
+            outcome.profiles
+                .filterNot { it is ProxyProfile.RawConfig }
+                .takeIf { it.isNotEmpty() }
+                ?.let { outcome.copy(profiles = it) }
+        }
 
     private suspend fun persistWireGuardProfiles(
         singBox: SingBoxParseResult.Success?,
