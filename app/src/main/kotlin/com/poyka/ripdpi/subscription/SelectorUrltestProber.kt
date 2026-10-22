@@ -120,8 +120,16 @@ class SelectorUrltestProber internal constructor(
         val policy = group.failover?.payloadPolicy
         if (policy != null) {
             runPayloadPass(group, policy)
-            return
+        } else {
+            runReachabilityPass(group, probeUrl, toleranceMs)
         }
+    }
+
+    private suspend fun runReachabilityPass(
+        group: ProxyGroup,
+        probeUrl: String,
+        toleranceMs: Int,
+    ) {
         val scope = scopeProvider.capture(group) ?: return
         val selection = selectionStore.snapshot(group.id)
         if (selection.isManual && selection.profileId in group.cloudflareMemberIds) return
@@ -151,63 +159,77 @@ class SelectorUrltestProber internal constructor(
         group: ProxyGroup,
         policy: PayloadFailoverPolicy,
     ) {
-        val scope =
-            scopeProvider.capture(group) ?: run {
-                payloadStates.remove(group.id)
-                return
-            }
-        val selection = selectionStore.snapshot(group.id)
-        if (selection.isManual && selection.profileId in group.cloudflareMemberIds) {
-            payloadStates.remove(group.id)
-            return
-        }
-        val previous = payloadStates[group.id]?.takeIf { it.scope == scope && it.selection == selection }
-        val scoped =
-            previous ?: ScopedPayloadState(scope, selection, PayloadFailoverState(policy)).also {
-                payloadStates[group.id] = it
-            }
-        if (monotonicMillis() < scoped.state.nextProbeAt) return
-        val results =
-            withTimeoutOrNull(payloadPassDeadlineMillis(policy)) {
-                measurePayloadRound(group, scoped, policy)
-            } ?: run {
+        val scoped = payloadState(group, policy) ?: return
+        if (monotonicMillis() >= scoped.state.nextProbeAt) {
+            val results =
+                withTimeoutOrNull(payloadPassDeadlineMillis(policy)) {
+                    measurePayloadRound(group, scoped, policy)
+                }
+            if (results == null) {
                 // A pass deadline provides no complete observation; rotate without inventing failures.
                 scoped.recoveringReserve = null
                 scoped.reserveIndex++
                 scoped.state.discardObservation()
-                return
+            } else {
+                commitPayloadObservation(group, scoped, results)
             }
+        }
+    }
+
+    private suspend fun payloadState(
+        group: ProxyGroup,
+        policy: PayloadFailoverPolicy,
+    ): ScopedPayloadState? {
+        val scope = scopeProvider.capture(group)
+        val selection = selectionStore.snapshot(group.id)
+        return if (scope == null || (selection.isManual && selection.profileId in group.cloudflareMemberIds)) {
+            payloadStates.remove(group.id)
+            null
+        } else {
+            val previous = payloadStates[group.id]?.takeIf { it.scope == scope && it.selection == selection }
+            previous ?: ScopedPayloadState(scope, selection, PayloadFailoverState(policy)).also {
+                payloadStates[group.id] = it
+            }
+        }
+    }
+
+    private suspend fun commitPayloadObservation(
+        group: ProxyGroup,
+        scoped: ScopedPayloadState,
+        results: List<MemberLatency>,
+    ) {
         currentCoroutineContext().ensureActive()
-        if (scopeProvider.capture(group) != scope || selectionStore.snapshot(group.id) != selection ||
+        val selection = scoped.selection
+        if (scopeProvider.capture(group) != scoped.scope || selectionStore.snapshot(group.id) != selection ||
             payloadStates[group.id] !== scoped
         ) {
             payloadStates.remove(group.id, scoped)
-            return
-        }
-        currentCoroutineContext().ensureActive()
-        val now = monotonicMillis()
-        val eligibleReserves =
-            group.members.count {
-                it.id !in group.cloudflareMemberIds && it.id != selection.profileId
+        } else {
+            currentCoroutineContext().ensureActive()
+            val now = monotonicMillis()
+            val eligibleReserves =
+                group.members.count {
+                    it.id !in group.cloudflareMemberIds && it.id != selection.profileId
+                }
+            val winner =
+                scoped.state.observe(
+                    results,
+                    selection.profileId,
+                    now,
+                    allCandidatesObserved = scoped.failedReserves.size >= eligibleReserves,
+                )
+            if (winner != null && selectionStore.selectAutomatically(group.id, selection, winner)) {
+                scoped.state.switched(now)
+                scoped.recoveringReserve = null
+                scoped.failedReserves.clear()
+                val selected = selectionStore.snapshot(group.id)
+                if (selected.profileId == winner && !selected.isManual) {
+                    scoped.selection = selected
+                } else {
+                    payloadStates.remove(group.id, scoped)
+                }
+                log.i { "payload-qualified selector failover for group ${group.id}" }
             }
-        val winner =
-            scoped.state.observe(
-                results,
-                selection.profileId,
-                now,
-                allCandidatesObserved = scoped.failedReserves.size >= eligibleReserves,
-            ) ?: return
-        if (selectionStore.selectAutomatically(group.id, selection, winner)) {
-            scoped.state.switched(now)
-            scoped.recoveringReserve = null
-            scoped.failedReserves.clear()
-            val selected = selectionStore.snapshot(group.id)
-            if (selected.profileId == winner && !selected.isManual) {
-                scoped.selection = selected
-            } else {
-                payloadStates.remove(group.id, scoped)
-            }
-            log.i { "payload-qualified selector failover for group ${group.id}" }
         }
     }
 
@@ -219,33 +241,34 @@ class SelectorUrltestProber internal constructor(
     ): List<MemberLatency> {
         val eligible = group.members.filterNot { it.id in group.cloudflareMemberIds }
         val active = eligible.firstOrNull { it.id == scoped.selection.profileId }
-        val results = mutableListOf<MemberLatency>()
         val target = MemberProbeTarget.Payload(policy)
-        if (active != null) {
-            val result = MemberLatency(active.id, probe.measure(active, target))
-            results.add(result)
-            if (result.latencyMillis != null) {
-                scoped.recoveringReserve = null
-                scoped.failedReserves.clear()
-                return results
-            }
-        }
-        val reserves = eligible.filterNot { it.id == active?.id }
-        if (reserves.isEmpty()) return results
-        val reserve =
-            reserves.firstOrNull { it.id == scoped.recoveringReserve }
-                ?: reserves[scoped.reserveIndex.mod(reserves.size)]
-        val result = MemberLatency(reserve.id, probe.measure(reserve, target))
-        results.add(result)
-        if (result.latencyMillis != null) {
-            scoped.recoveringReserve = reserve.id
-            scoped.failedReserves.clear()
-        } else {
-            scoped.failedReserves.add(reserve.id)
+        val activeResult = active?.let { MemberLatency(it.id, probe.measure(it, target)) }
+        if (activeResult?.latencyMillis != null) {
             scoped.recoveringReserve = null
-            scoped.reserveIndex = (reserves.indexOf(reserve) + 1).mod(reserves.size)
+            scoped.failedReserves.clear()
+            return listOf(activeResult)
         }
-        return results
+        val results = listOfNotNull(activeResult)
+        val reserves = eligible.filterNot { it.id == active?.id }
+        val reserve =
+            reserves.takeIf { it.isNotEmpty() }?.let { candidates ->
+                candidates.firstOrNull { it.id == scoped.recoveringReserve }
+                    ?: candidates[scoped.reserveIndex.mod(candidates.size)]
+            }
+        return if (reserve == null) {
+            results
+        } else {
+            val result = MemberLatency(reserve.id, probe.measure(reserve, target))
+            if (result.latencyMillis != null) {
+                scoped.recoveringReserve = reserve.id
+                scoped.failedReserves.clear()
+            } else {
+                scoped.failedReserves.add(reserve.id)
+                scoped.recoveringReserve = null
+                scoped.reserveIndex = (reserves.indexOf(reserve) + 1).mod(reserves.size)
+            }
+            results + result
+        }
     }
 
     private fun payloadPassDeadlineMillis(policy: PayloadFailoverPolicy): Long =
