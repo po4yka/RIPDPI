@@ -2,7 +2,7 @@
 id: DAT-1792661188293948
 title: Keep verified reserve profiles available offline
 kind: feature
-status: doing
+status: review
 area: data
 priority: high
 owner: Offline reserves
@@ -52,6 +52,15 @@ cases timed out before measurement on each API. The deferred group snapshot cont
 preparation waiting for a seed before its first validated catalogue load.
 
 The three closure commits were reverted with ordinary commits, preserving their
-receipts in history. This task remains doing until explicit cold-start loading,
+receipts in history. This task was returned to doing pending explicit cold-start loading,
 read-failure propagation, affected JVM/static checks and the complete required
-instrumentation matrix pass. No timeout, assertion or safety gate may be weakened.
+instrumentation matrix results. No timeout, assertion or safety gate was weakened.
+
+## Renewed acceptance — 2026-10-22
+
+The complete required CI matrix 39792086326 passed on `6ec802d16d19a5c0f81f817be8cfc8f1205d29b5`,
+including all five API levels, Full/Simple JVM tests, coverage and static analysis.
+PR 645 rebase-merged the exact same complete tree `8d205fb96495d83294b14ef9bd5f90dc49f98d71`
+as `33046c961cf4a501a1a8ac35243c6a171424fdc3`. The cold-start incident is resolved;
+physical-device, filtered-network and deployment acceptance remain unclaimed.
+This follow-up records review, archival/terminal and purge in separate commits.

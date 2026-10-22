@@ -1,17 +1,17 @@
 ---
-task_id: DAT-1792661188293948
-change: offline-reserve-profiles
-commit_sha: null
-local: required
-local_evidence: "Formatting, strict OpenSpec/task validation and architecture-health pass. Combined JVM/staticAnalysis command could not start: build-gate timed out after 120 seconds (exit 75), with both machine slots occupied. No JVM, staticAnalysis, AndroidKeyStore or device success is claimed."
-remote_ci: blocked
-remote_ci_evidence: "Final CI 39772247126 on b0b48501b738295bc0597ab5fb6815c0975d477f passed full JVM, staticAnalysis and native builds but failed API33 job119814631151 and API35 job119814630708 service-start instrumentation. Cold-start regression remains open. Coverage job119803343421 separately failed dependency retrieval with Maven Central HTTP429 before tests. No full CI pass is claimed."
-device: not_applicable
-device_evidence: Source PR uses local socket and restart tests; physical-device and filtered-network acceptance are not claimed.
-artifact: not_applicable
-artifact_evidence: No release artifact is requested.
-deployment: not_applicable
-deployment_evidence: User explicitly excludes server deployment.
+task_id: "DAT-1792661188293948"
+change: "offline-reserve-profiles"
+commit_sha: "33046c961cf4a501a1a8ac35243c6a171424fdc3"
+local: "passed"
+local_evidence: "Formatting, diff whitespace, task/OpenSpec validation, architecture-health and normal commit hooks passed. Local Full/Simple source and test compilation passed, but the Full test run exhausted disk space in Robolectric temporary files and Gradle reporting; Simple did not execute. That local runtime attempt is not acceptance; complete hosted JVM and emulator runs provide runtime evidence."
+remote_ci: "passed"
+remote_ci_evidence: "CI run 39792086326 attempt 1 passed on 6ec802d16d19a5c0f81f817be8cfc8f1205d29b5: 46 successful and 18 intentionally unrouted jobs, zero failed or pending jobs. Full and Simple JVM tests, Kotlin coverage, static analysis, all native gates and API 27/33/35/36/37 Full and Simple instrumentation passed. API 35 also passed JNI strategy and real Xray provider TUN acceptance. ci-required and CodeQL passed. Rebase-merged 33046c961cf4a501a1a8ac35243c6a171424fdc3 has the identical complete tree 8d205fb96495d83294b14ef9bd5f90dc49f98d71."
+device: "not_applicable"
+device_evidence: "Physical-device acceptance is outside this scope. Hosted emulator evidence is recorded under remote_ci; filtered-network acceptance is not claimed."
+artifact: "not_applicable"
+artifact_evidence: "No release artifact is owned by this storage change; complete CI build evidence is recorded above."
+deployment: "not_applicable"
+deployment_evidence: "No server deployment or credential action was requested or performed."
 ---
 
 # Verification
@@ -20,37 +20,46 @@ deployment_evidence: User explicitly excludes server deployment.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-RESERVE-RELOAD | DAT-1792661307731110 | Offline restart and real HTTPS/SOCKS selector test; affected module gates | Implemented; JVM execution blocked |
-| REQ-RESERVE-STORAGE | DAT-1792661302262545 | Runtime-state corrupt/read/write failure regressions | Implemented; JVM execution blocked |
-| REQ-RESERVE-REFRESH | DAT-1792661307171939 | Unusable/stale refresh and authoritative replacement regressions | Implemented; JVM execution blocked |
+| REQ-RESERVE-RELOAD | DAT-1792661307731110 | OfflineReservePayloadIntegrationTest restart and real TLS/SOCKS qualification; SelectorColdStartupTest | Passed |
+| REQ-RESERVE-STORAGE | DAT-1792661302262545 | ProxyGroupOfflineReserveTest and repository concurrency/corruption/read-write regressions | Passed |
+| REQ-RESERVE-REFRESH | DAT-1792661307171939 | SubscriptionRefreshCoordinatorTest and SubscriptionRefreshDeliveryTest invalid/stale refresh regressions | Passed |
 
-## Local commands
+## Source and CI evidence
 
-Passed: explicit-file `ktlint` on changed Kotlin/Gradle files, `git diff --check`, `./taskctl validate`, `./taskctl openspec cli validate offline-reserve-profiles --strict`, and `python3 scripts/ci/check_architecture_health.py`.
+Tested source: `6ec802d16d19a5c0f81f817be8cfc8f1205d29b5`. PR 645 was rebase-merged as
+`33046c961cf4a501a1a8ac35243c6a171424fdc3`. Both complete Git trees are
+`8d205fb96495d83294b14ef9bd5f90dc49f98d71`; the comparison is empty and contains no unrelated main changes.
 
-Attempted through the machine-wide gate, but Gradle never started:
+CI 39792086326 attempt 1 passed with 46 successful and 18 intentionally unrouted
+jobs, zero failed or pending jobs. Evidence includes JVM job 119871905296,
+coverage 119871905701, static analysis 119871344251 and ci-required 119895349234.
+The full emulator jobs passed on API 27 (119886816494), 33 (119886816402),
+35 (119886816584), 36 (119886816512) and 37 (119886816505), including Simple
+integration. API 35 additionally passed JNI strategy and real Xray provider TUN
+acceptance. CodeQL run 39792086294 passed.
 
-```sh
-BUILD_GATE_TIMEOUT=120 CMAKE_BUILD_PARALLEL_LEVEL=4 build-gate -- env -u CARGO_BUILD_JOBS ./gradlew \
-  :core:data:runtime-state:testDebugUnitTest :core:service:testDebugUnitTest \
-  :app:testGithubFullDebugUnitTest staticAnalysis \
-  --max-workers=4 -Pripdpi.nativeCpuBudget=4 -Pripdpi.skipNativeBuild=true
-```
+## Acceptance incident and resolution
 
-Task acceptance remains open pending JVM and CI validation. The socket integration uses real local TLS/SOCKS transfer and a temporary-file catalogue port; it does not invoke the native relay engine or the platform keystore. Its scenarios are implemented, not yet executed. No server or credential action was performed.
+The prior closure was reverted after CI 39772247126 exposed a cold-start
+catalogue deadlock on all five API levels. The corrected lifecycle explicitly
+loads the validated catalogue before awaiting its observation seed. Read errors
+propagate without publication or mutation and allow a later recovery attempt.
+`SelectorColdStartupTest` covers empty startup, persisted selection and read-error
+recovery. The complete corrected JVM and emulator matrix above passed without
+weakening timeouts, assertions or safety gates.
 
-## Review follow-up: early catalogue observers
+The subsequent JVM run exposed two test-boundary defects: the routing-editor
+fake delayed the old observation API instead of the explicit read, and an
+exception identity assertion crossed coroutine stack recovery. The corrected
+fake gates the actual read and verifies both rejection before hydration and a
+successful save afterward; original exception identity is checked inside the
+timeout boundary. Existing no-publication/no-write/no-refresh assertions remain.
 
-The repository observation stream now performs no reads and publishes no initial empty fallback. Guarded `list()` publishes a validated snapshot under the mutation mutex. Corrupt-storage and startup-retry regressions now start a collector before loading; the core-data flow test explicitly performs the initial load. Independent source review found no remaining issue.
+## Scope and local limitation
 
-Rechecked formatting, task/OpenSpec contracts, architecture-health and diff whitespace successfully. The follow-up runtime-state/app JVM and staticAnalysis command again timed out at build-gate after 120 seconds (exit 75), before Gradle started. Before acceptance, rerun the combined command above and include `:core:data:testDebugUnitTest` for the updated observer contract test.
-
-## Acceptance incident — cold service startup
-
-Final-source instrumentation exposed a deferred catalogue-loading deadlock that
-JVM tests with eagerly seeded repositories did not cover. Closure was reverted;
-acceptance is reopened. Required repair: validate and publish the persisted
-catalogue before waiting for selector subscriptions, propagate unreadable-storage
-errors, and verify empty cold starts plus persisted selectors without weakening
-existing corruption or lifecycle tests. The complete required CI matrix must pass
-before closing this change again.
+Local formatting, architecture and task checks passed. The local full app test
+attempt exhausted disk space after both variants compiled; its incomplete test
+results are not acceptance. Hosted complete runs passed. Real HTTPS/SOCKS tests
+use local TLS servers and test storage ports; they are not physical-device,
+platform-keystore or filtered-network proof. No server deployment or credential
+action was performed.
