@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="migration_title">Перенос на новый сервер</string>
+    <string name="migration_tested">Новый путь проверен</string>
+    <string name="migration_received">Замена получена; путь не проверен</string>
+    <string name="migration_privacy">Квитанция останется на устройстве, пока вы не поделитесь ею. Проверяется один путь, а не все приложения.</string>
+    <string name="migration_url">HTTP(S)-адрес для проверки</string>
+    <string name="migration_awg_help">Для AmneziaWG сначала подключите импортированный профиль нового сервера.</string>
+    <string name="migration_check_awg">Проверить путь AmneziaWG %1$d</string>
+    <string name="migration_check_relay">Проверить путь реле %1$d</string>
+    <string name="migration_connect_awg">Подключите именно новый профиль AmneziaWG и повторите проверку.</string>
+    <string name="migration_changed">Поставка, конфигурация или сеть изменились. Повторите проверку.</string>
+    <string name="migration_invalid">Введите корректный HTTP(S)-адрес и выберите актуальный профиль переноса.</string>
+    <string name="migration_failed">Проверка пути не удалась. Успешный результат не сохранён.</string>
+    <string name="migration_export">Поделиться квитанцией переноса</string>
+    <string name="migration_export_failed">Не удалось подготовить или отправить квитанцию.</string>
+</resources>

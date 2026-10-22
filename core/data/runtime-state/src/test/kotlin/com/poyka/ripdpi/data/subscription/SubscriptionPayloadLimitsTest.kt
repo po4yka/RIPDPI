@@ -13,7 +13,30 @@ class SubscriptionPayloadLimitsTest {
     fun `exact payload limit is accepted`() {
         val body = "x".repeat(MaxSubscriptionPayloadBytes.toInt()).toResponseBody("text/plain".toMediaType())
 
-        assertEquals(MaxSubscriptionPayloadBytes.toInt(), body.readBoundedSubscriptionPayload().length)
+        assertEquals(MaxSubscriptionPayloadBytes.toInt(), body.readBoundedSubscriptionPayload().text.length)
+    }
+
+    @Test
+    fun `migration hash retains exact bytes and rejects lossy text decoding`() {
+        val bytes = "  {\"key\":\"значение\"} ".toByteArray(Charsets.UTF_8)
+        val payload =
+            bytes
+                .toResponseBody("application/json; charset=utf-8".toMediaType())
+                .readBoundedSubscriptionPayload()
+        payload.requireMigrationUtf8()
+        assertEquals(migrationSha256(bytes), payload.sha256)
+        val invalid =
+            byteArrayOf(0xC3.toByte(), 0x28)
+                .toResponseBody("application/json".toMediaType())
+                .readBoundedSubscriptionPayload()
+        assertTrue(runCatching { invalid.requireMigrationUtf8() }.exceptionOrNull() is IllegalArgumentException)
+        val differentCharset =
+            bytes
+                .toResponseBody("application/json; charset=iso-8859-1".toMediaType())
+                .readBoundedSubscriptionPayload()
+        assertTrue(
+            runCatching { differentCharset.requireMigrationUtf8() }.exceptionOrNull() is IllegalArgumentException,
+        )
     }
 
     @Test

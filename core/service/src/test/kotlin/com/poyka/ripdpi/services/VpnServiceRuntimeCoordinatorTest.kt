@@ -2224,6 +2224,7 @@ class VpnServiceRuntimeCoordinatorTest {
             dispatcher = dispatcher,
             amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
             runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+            activeRegistry = ActiveAwgRuntimeRegistry(),
         )
 
     @Test
@@ -2673,6 +2674,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         dispatcher = dispatcher,
                         amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
                         runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                        activeRegistry = ActiveAwgRuntimeRegistry(),
                     ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(

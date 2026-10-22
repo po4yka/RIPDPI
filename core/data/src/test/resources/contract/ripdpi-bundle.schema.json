@@ -156,6 +156,56 @@
     },
     "topology": { "$ref": "#/$defs/topology" },
     "payload_failover": { "$ref": "#/$defs/payload_failover" },
+    "migration": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "migration_id",
+        "delivery_id",
+        "target_tags",
+        "receipt_key",
+        "awg_previous_tags"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "migration_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "delivery_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "target_tags": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          }
+        },
+        "receipt_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "awg_previous_tags": {
+          "type": "object",
+          "maxProperties": 128,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "expires": {
       "description": "RFC 3339 / ISO-8601 UTC instant after which the subscription token stops serving this bundle (the server returns 410). Carried inside the ripdpi object so the client can warn 'subscription expires in N days, refresh' proactively, instead of discovering expiry only when the fetch fails. Optional; absent for non-expiring tokens.",
       "type": "string",

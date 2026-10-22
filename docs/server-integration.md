@@ -65,7 +65,7 @@ The RIPDPI bundle is a normal sing-box JSON document with one additional top-lev
 }
 ```
 
-`SingBoxSubscriptionParser` parses the standard outbounds first, then reads the `ripdpi` block when `schema_version == 1`. `amneziawg[]` entries become AmneziaWG profiles; `hysteria_extras` entries are matched to their Hysteria2 outbound by `tag` and carry the salamander obfs password onto that profile. An unknown `schema_version` is ignored — the sing-box outbounds still import. Compatibility with other clients depends on their version and supported outbound types. Validate a bundle for its intended recipient; clients that ignore the `ripdpi` key cannot activate its AmneziaWG profiles.
+`SingBoxSubscriptionParser` parses the standard outbounds first, then reads the `ripdpi` block when `schema_version == 1`. `amneziawg[]` entries become AmneziaWG profiles; `hysteria_extras` entries are matched to their Hysteria2 outbound by `tag` and carry the salamander obfs password onto that profile. An unknown `schema_version` is ignored unless migration metadata is present; migration deliveries reject unsupported extension versions. Compatibility with other clients depends on their version and supported outbound types. Validate a bundle for its intended recipient; clients that ignore the `ripdpi` key cannot activate its AmneziaWG profiles.
 
 The deploy repository owns the **executable JSON Schema** `contract/ripdpi-bundle.schema.json` (prose companion: `docs/RIPDPI-BUNDLE.md`). A copy is vendored at `core/data/src/test/resources/contract/` and validated locally by `RipdpiBundleContractTest`. The repositories do not compare their copies in every CI run, so a release update must verify byte identity or run the cross-repository emit/validate/app-parse gate. `schema_version` stays `1`: post-1 fields are additive and optional. The parser surfaces them too:
 
@@ -85,6 +85,39 @@ The emitted bundle must not contain a usable AmneziaWG **device private key**. I
 - **New subscriptions auto-update.** A background worker is scheduled after the first refresh attempt. Existing subscriptions keep their saved auto-update preference, including an opt-out. Terminal expiry or revocation stops refresh.
 - **One-shot (`url=`) imports do not refresh.** Re-import to pick up server changes.
 - **Failover is automatic.** The selector/urltest groups in the sing-box document let the client move between P0/P1/P2 as reachability changes.
+
+## Server migration receipts
+
+A replacement bundle may include `ripdpi.migration` with schema version `1`,
+opaque migration and delivery UUIDs, declared target tags, a receipt key and an
+`awg_previous_tags` map. The shared schemas and HMAC vectors are vendored under
+`core/data/src/test/resources/contract/`. The client validates the extension,
+hashes the exact UTF-8 response bytes and records receipt authority only after
+successfully persisting the imported profiles. Invalid refreshes keep the
+previous delivery; a successful metadata-free refresh clears its authority.
+An unchanged delivery and exact target configuration retain a prior test.
+
+For AmneziaWG, `awg_previous_tags` maps a new target tag to its previous published
+tag. The importer carries the locally stored private key and existing local
+overrides only from that origin within the same subscription group. It preserves
+the old row and replaces delivered server fields in the new row. It never borrows
+a key from another subscription. A device without the old key still requires the
+private-key recovery flow above.
+
+Open **Subscription status** to test a declared replacement path. Enter an
+HTTP(S) test URL. Reality/Vision, XHTTP and Hysteria2 use an isolated candidate
+runtime and require a successful full-body HTTP probe. For AmneziaWG, connect the
+imported replacement profile first: the test requires that exact active runtime
+configuration and rejects session or network changes. Delivery changes, local
+profile edits, cancellation and stale results cannot upgrade a receipt.
+
+**Share migration receipt** explicitly exports a small JSON file through the
+Android share chooser. A `received` receipt proves possession of the imported
+delivery; `path-tested` additionally records one successfully tested target and
+time. The HMAC binds those fields to the delivery and exact payload digest. It
+is a possession proof, not tamper-resistant device attestation or a promise that
+every application works. Export omits credentials, endpoints, local profile IDs,
+network identifiers and the receipt key. Nothing is uploaded automatically.
 
 ## Deployment protocol boundaries
 

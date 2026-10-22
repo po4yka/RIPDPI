@@ -36,6 +36,9 @@ internal class DefaultNaiveProxyPreflightProbe
     internal constructor(
         private val ioDispatcher: CoroutineDispatcher,
         private val timeoutMillis: Long,
+        private val processStarter: (NaiveProxyBinaryRef) -> Process = { binary ->
+            ProcessBuilder(binary.absolutePath, "--probe").redirectErrorStream(true).start()
+        },
     ) : NaiveProxyPreflightProbe {
         @Inject
         constructor(dispatchers: AppCoroutineDispatchers) : this(
@@ -79,9 +82,7 @@ internal class DefaultNaiveProxyPreflightProbe
 
         private fun startProbeProcess(binary: NaiveProxyBinaryRef): Process =
             try {
-                ProcessBuilder(binary.absolutePath, "--probe")
-                    .redirectErrorStream(true)
-                    .start()
+                processStarter(binary)
             } catch (_: IOException) {
                 rejectProbe("NaiveProxy pre-launch probe could not start")
             } catch (_: SecurityException) {

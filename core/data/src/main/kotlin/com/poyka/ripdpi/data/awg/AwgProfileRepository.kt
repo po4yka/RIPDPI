@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.PreparedSubscriptionRefresh
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyGroup
@@ -98,6 +99,33 @@ class AwgProfileRepository
                 dao.getProfile(id)?.toSavedProfile()
             }
 
+        /**
+         * Commit short cross-store work only while this exact rehydrated request is current.
+         * The action must not re-enter this repository. Network work belongs outside this guard.
+         * Lock order is AWG row, then subscription group; group transforms cannot suspend.
+         */
+        suspend fun withCurrentRequest(
+            expected: AwgActivationRequest,
+            action: suspend () -> Boolean,
+        ): Boolean =
+            mutationMutex.withLock {
+                profileMutations.recover()
+                val current = dao.getProfile(expected.profileId)?.toSavedProfile()?.request
+                current == expected && action()
+            }
+
+        /** Consistent read across journal-owned stores; the action must only read and never re-enter mutation APIs. */
+        suspend fun readCurrentRequest(
+            expected: AwgActivationRequest,
+            action: suspend () -> Boolean,
+        ): Boolean =
+            mutationMutex.withLock {
+                profileMutations.readRecovered {
+                    val current = dao.getProfile(expected.profileId)?.toSavedProfile()?.request
+                    current == expected && action()
+                }
+            }
+
         private suspend fun secretsFor(id: String): AwgSecrets = credentialStore.load(id) ?: AwgSecrets()
 
         /**
@@ -125,7 +153,7 @@ class AwgProfileRepository
          * Empty imported private keys are templates; they cannot erase a locally supplied key.
          * Each row uses the existing recoverable row/credential mutation. Batch retries are idempotent.
          */
-        suspend fun saveSubscriptionProfiles(profiles: List<AwgSubscriptionProfile>): List<String> =
+        suspend fun saveSubscriptionProfiles(profiles: List<AwgSubscriptionProfile>): List<SavedAwgProfile> =
             mutationMutex.withLock {
                 if (profiles.isEmpty()) return@withLock emptyList()
                 profileMutations.recover()
@@ -135,20 +163,30 @@ class AwgProfileRepository
                         write.profile,
                         write.secrets,
                     )
-                    write.profile.id
+                    profileMutations.readRecovered {
+                        val saved = checkNotNull(dao.getProfile(write.profile.id)).toSavedProfile()
+                        check(saved == write.profile.toSavedProfile(write.secrets)) {
+                            "Imported AWG profile changed before receipt capture"
+                        }
+                        saved
+                    }
                 }
             }
 
         /** Lock order is AWG then recovery; the preparation callback never re-enters either owner. */
         suspend fun commitSubscriptionRefresh(
             expected: ProxyGroup,
-            replacement: ProxyGroup,
             profiles: List<AwgSubscriptionProfile>,
+            prepareGroup: (List<SavedAwgProfile>) -> ProxyGroup,
         ): Boolean =
             mutationMutex.withLock {
                 require(profiles.all { it.groupId == expected.id })
-                profileMutations.commitSubscriptionRefresh(expected, replacement) {
-                    prepareSubscriptionWrites(profiles)
+                profileMutations.commitSubscriptionRefresh(expected) {
+                    val writes = prepareSubscriptionWrites(profiles)
+                    PreparedSubscriptionRefresh(
+                        prepareGroup(writes.map { it.profile.toSavedProfile(it.secrets) }),
+                        writes,
+                    )
                 }
             }
 
@@ -157,7 +195,11 @@ class AwgProfileRepository
         ): List<SubscriptionAwgWrite> {
             if (profiles.isEmpty()) return emptyList()
             profiles.requireValidSubscriptionProfiles()
-            val origins = profiles.map { it.origin }.toSet()
+            val previousOrigins =
+                profiles.associate { profile ->
+                    profile.origin to profile.previousMemberId?.let { profile.copy(memberId = it).origin }
+                }
+            val origins = profiles.map { it.origin }.toSet() + previousOrigins.values.filterNotNull()
             val existingMembers =
                 dao.allProfiles().mapNotNull { row ->
                     row.subscriptionOrigin()?.takeIf { it in origins }?.let { it to row }
@@ -169,7 +211,8 @@ class AwgProfileRepository
             return profiles.map { profile ->
                 val existing = existingByOrigin[profile.origin]?.toSavedProfile()
                 val id = existing?.id ?: generateProfileId()
-                val request = mergeSubscriptionRequest(profile, existing?.request)
+                val previous = previousOrigins[profile.origin]?.let { existingByOrigin[it]?.toSavedProfile() }
+                val request = mergeSubscriptionRequest(profile, existing?.request ?: previous?.request)
                 profileWrite(profile.name, request, id, profile.origin)
             }
         }
@@ -248,10 +291,11 @@ class AwgProfileRepository
             }
         }
 
-        private suspend fun AwgProfileEntity.toSavedProfile(): SavedAwgProfile {
+        private suspend fun AwgProfileEntity.toSavedProfile(): SavedAwgProfile = toSavedProfile(secretsFor(id))
+
+        private fun AwgProfileEntity.toSavedProfile(secrets: AwgSecrets): SavedAwgProfile {
             // Decode tolerantly so an older blob with an additive field does not throw.
             val decoded = decodeJson.decodeFromString<AwgActivationRequest>(requestJson)
-            val secrets = secretsFor(id)
             // Stamp the stable row id as the profileId and re-inject the sealed secrets so the
             // activation request is identical across re-connects and carries the opaque id.
             return SavedAwgProfile(

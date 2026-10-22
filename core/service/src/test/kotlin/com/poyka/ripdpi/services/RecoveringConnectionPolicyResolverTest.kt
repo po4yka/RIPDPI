@@ -223,8 +223,7 @@ internal class RecoveryOnlyProfileMutationCoordinator(
 
     override suspend fun commitSubscriptionRefresh(
         expected: com.poyka.ripdpi.data.ProxyGroup,
-        replacement: com.poyka.ripdpi.data.ProxyGroup,
-        prepareAwgWrites: suspend () -> List<com.poyka.ripdpi.data.SubscriptionAwgWrite>,
+        prepare: suspend () -> com.poyka.ripdpi.data.PreparedSubscriptionRefresh,
     ): Boolean = error("Subscription commit is outside this test boundary")
 
     override suspend fun upsertAwg(

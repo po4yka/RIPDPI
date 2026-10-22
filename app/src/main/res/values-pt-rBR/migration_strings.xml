@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="migration_title">Migração de servidor</string>
+    <string name="migration_tested">Novo caminho testado</string>
+    <string name="migration_received">Substituição recebida; caminho não testado</string>
+    <string name="migration_privacy">O recibo fica neste dispositivo até você compartilhá-lo. O teste verifica um caminho, não todos os apps.</string>
+    <string name="migration_url">URL HTTP(S) de teste</string>
+    <string name="migration_awg_help">Para AmneziaWG, conecte primeiro o perfil de substituição importado.</string>
+    <string name="migration_check_awg">Testar caminho AmneziaWG %1$d</string>
+    <string name="migration_check_relay">Testar caminho de relay %1$d</string>
+    <string name="migration_connect_awg">Conecte o perfil AmneziaWG de substituição exato e tente novamente.</string>
+    <string name="migration_changed">A entrega, configuração ou rede mudou. Execute o teste novamente.</string>
+    <string name="migration_invalid">Digite uma URL HTTP(S) válida e use um destino de migração atual.</string>
+    <string name="migration_failed">O teste do caminho falhou. Nenhum recibo de teste bem-sucedido foi registrado.</string>
+    <string name="migration_export">Compartilhar recibo de migração</string>
+    <string name="migration_export_failed">Não foi possível preparar ou compartilhar o recibo.</string>
+</resources>

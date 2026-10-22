@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="migration_title">انتقال سرور</string>
+    <string name="migration_tested">مسیر جدید آزمایش شد</string>
+    <string name="migration_received">جایگزین دریافت شد؛ مسیر آزمایش نشده</string>
+    <string name="migration_privacy">رسید تا زمان اشتراک‌گذاری روی این دستگاه می‌ماند. آزمایش یک مسیر را بررسی می‌کند، نه همهٔ برنامه‌ها.</string>
+    <string name="migration_url">نشانی HTTP(S) برای آزمایش</string>
+    <string name="migration_awg_help">برای AmneziaWG ابتدا به نمایهٔ جایگزین واردشده وصل شوید.</string>
+    <string name="migration_check_awg">آزمایش مسیر AmneziaWG شمارهٔ %1$d</string>
+    <string name="migration_check_relay">آزمایش مسیر رلهٔ %1$d</string>
+    <string name="migration_connect_awg">به همان نمایهٔ جایگزین AmneziaWG وصل شوید و دوباره تلاش کنید.</string>
+    <string name="migration_changed">تحویل، پیکربندی یا شبکه تغییر کرده است. آزمایش را تکرار کنید.</string>
+    <string name="migration_invalid">نشانی HTTP(S) معتبر وارد کنید و هدف انتقال فعلی را انتخاب کنید.</string>
+    <string name="migration_failed">آزمایش مسیر موفق نبود. رسید آزمایش موفق ثبت نشد.</string>
+    <string name="migration_export">اشتراک‌گذاری رسید انتقال</string>
+    <string name="migration_export_failed">آماده‌سازی یا اشتراک‌گذاری رسید ممکن نشد.</string>
+</resources>

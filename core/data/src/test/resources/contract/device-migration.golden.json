@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "schema_version": 1,
+    "migration_id": "11111111-1111-4111-8111-111111111111",
+    "delivery_id": "22222222-2222-4222-8222-222222222222",
+    "target_tags": [
+      "p0-reality-fixture-green",
+      "migration-awg-22222222-2222-4222-8222-222222222222"
+    ],
+    "receipt_key": "1111111111111111111111111111111111111111111111111111111111111111",
+    "awg_previous_tags": {
+      "migration-awg-22222222-2222-4222-8222-222222222222": "p2-awg-fixture"
+    }
+  },
+  "payload_utf8": " {\"outbounds\":[],\"ripdpi\":{\"migration\":{\"schema_version\":1,\"migration_id\":\"11111111-1111-4111-8111-111111111111\",\"delivery_id\":\"22222222-2222-4222-8222-222222222222\",\"target_tags\":[\"p0-reality-fixture-green\",\"migration-awg-22222222-2222-4222-8222-222222222222\"],\"receipt_key\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"awg_previous_tags\":{\"migration-awg-22222222-2222-4222-8222-222222222222\":\"p2-awg-fixture\"}}}}\n",
+  "vectors": [
+    {
+      "name": "received",
+      "signing_utf8": "ripdpi-device-migration-receipt-v1\n11111111-1111-4111-8111-111111111111\n22222222-2222-4222-8222-222222222222\n27b6764bbae4d50fd2f01db885b5ea5d653a77c36a1ca526f8dc2ddfcc48d5ec\nreceived\n1792674000000\n0\n\n",
+      "receipt": {
+        "schema_version": 1,
+        "migration_id": "11111111-1111-4111-8111-111111111111",
+        "delivery_id": "22222222-2222-4222-8222-222222222222",
+        "payload_sha256": "27b6764bbae4d50fd2f01db885b5ea5d653a77c36a1ca526f8dc2ddfcc48d5ec",
+        "state": "received",
+        "received_at_ms": 1792674000000,
+        "tested_at_ms": 0,
+        "tested_tag": "",
+        "mac": "b54dd0b2ec33fa6f1095445d2d682db95849924f09f83a0d93ec2be12a51e909"
+      }
+    },
+    {
+      "name": "path-tested",
+      "signing_utf8": "ripdpi-device-migration-receipt-v1\n11111111-1111-4111-8111-111111111111\n22222222-2222-4222-8222-222222222222\n27b6764bbae4d50fd2f01db885b5ea5d653a77c36a1ca526f8dc2ddfcc48d5ec\npath-tested\n1792674000000\n1792674001000\np0-reality-fixture-green\n",
+      "receipt": {
+        "schema_version": 1,
+        "migration_id": "11111111-1111-4111-8111-111111111111",
+        "delivery_id": "22222222-2222-4222-8222-222222222222",
+        "payload_sha256": "27b6764bbae4d50fd2f01db885b5ea5d653a77c36a1ca526f8dc2ddfcc48d5ec",
+        "state": "path-tested",
+        "received_at_ms": 1792674000000,
+        "tested_at_ms": 1792674001000,
+        "tested_tag": "p0-reality-fixture-green",
+        "mac": "9d8caf4d1a93385f4c1901ab3755f86a42468a00faf560470d0c9ca708d8736a"
+      }
+    },
+    {
+      "name": "path-tested-awg",
+      "signing_utf8": "ripdpi-device-migration-receipt-v1\n11111111-1111-4111-8111-111111111111\n22222222-2222-4222-8222-222222222222\n27b6764bbae4d50fd2f01db885b5ea5d653a77c36a1ca526f8dc2ddfcc48d5ec\npath-tested\n1792674000000\n1792674002000\nmigration-awg-22222222-2222-4222-8222-222222222222\n",
+      "receipt": {
+        "schema_version": 1,
+        "migration_id": "11111111-1111-4111-8111-111111111111",
+        "delivery_id": "22222222-2222-4222-8222-222222222222",
+        "payload_sha256": "27b6764bbae4d50fd2f01db885b5ea5d653a77c36a1ca526f8dc2ddfcc48d5ec",
+        "state": "path-tested",
+        "received_at_ms": 1792674000000,
+        "tested_at_ms": 1792674002000,
+        "tested_tag": "migration-awg-22222222-2222-4222-8222-222222222222",
+        "mac": "23de35ff117ff0c66c7f14149908ff7e99c2650a614b1208f7428533fe4dfaac"
+      }
+    }
+  ]
+}

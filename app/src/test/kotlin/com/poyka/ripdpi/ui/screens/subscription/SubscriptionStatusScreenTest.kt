@@ -45,6 +45,7 @@ class SubscriptionStatusScreenTest {
                         uiState.value = state(expiry = Now + EightDaysMillis, revealSecrets = true)
                     },
                     onRefresh = {},
+                    migrationContent = {},
                 )
             }
         }
@@ -131,6 +132,7 @@ class SubscriptionStatusScreenTest {
                     onBack = {},
                     onToggleSecrets = onToggleSecrets,
                     onRefresh = onRefresh,
+                    migrationContent = {},
                 )
             }
         }

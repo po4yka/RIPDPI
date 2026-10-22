@@ -35,6 +35,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
@@ -229,6 +230,10 @@ class MainActivityShellInstrumentedTest {
     @BindValue
     @JvmField
     var diagnosticsDetailLoader: DiagnosticsDetailLoader = StubInstrumentedDiagnosticsDetailLoader()
+
+    @BindValue
+    @JvmField
+    var diagnosticsArchiveClock: DiagnosticsArchiveClock = DiagnosticsManagerModule.provideDiagnosticsArchiveClock()
 
     @BindValue
     @JvmField

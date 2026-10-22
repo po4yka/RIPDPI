@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.data.subscription
 
+import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlMap
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
@@ -53,11 +55,14 @@ sealed interface SingBoxParseResult {
         /** Absent preserves existing delivery endpoints; an explicit empty list removes them. */
         val subscriptionMirrors: SubscriptionMirrorSet? = null,
         val cloudflareMemberIds: Set<String>? = null,
+        val migration: MigrationMetadata? = null,
     ) : SingBoxParseResult
 
     /** Parsing failed; [message] carries a human-readable, location-aware reason. */
     data class Error(
         val message: String,
+        /** A recognized bundle cannot silently downgrade through another subscription parser. */
+        val recognizedBundle: Boolean = false,
     ) : SingBoxParseResult
 }
 
@@ -145,8 +150,33 @@ object SingBoxSubscriptionParser {
         groupId: String,
     ): SingBoxParseResult =
         runCatching { singBoxJson.parseToJsonElement(payload) }
-            .mapCatching { rootElement -> parseRootElement(rootElement, groupId) }
-            .getOrElse { SingBoxParseResult.Error("malformed sing-box JSON or metadata") }
+            .fold(
+                onSuccess = { root ->
+                    val recognized =
+                        root is JsonArray ||
+                            (root is JsonObject && ("outbounds" in root || "type" in root || "ripdpi" in root))
+                    val result =
+                        runCatching { parseRootElement(root, groupId) }
+                            .getOrElse { SingBoxParseResult.Error("malformed sing-box JSON or metadata") }
+                    if (result is SingBoxParseResult.Error) {
+                        result.copy(recognizedBundle = recognized || hasMalformedBundleMarker(payload))
+                    } else {
+                        result
+                    }
+                },
+                onFailure = {
+                    SingBoxParseResult.Error(
+                        "malformed sing-box JSON or metadata",
+                        recognizedBundle = hasMalformedBundleMarker(payload),
+                    )
+                },
+            )
+
+    private fun hasMalformedBundleMarker(payload: String): Boolean {
+        val yamlRoot = runCatching { Yaml.default.parseToYamlNode(payload) }.getOrNull() as? YamlMap
+        return yamlRoot?.entries?.keys?.any { it.content in setOf("outbounds", "type", "ripdpi") }
+            ?: payload.trimStart().startsWith("{")
+    }
 
     private fun parseRootElement(
         rootElement: JsonElement,
@@ -202,6 +232,12 @@ object SingBoxSubscriptionParser {
                     skipped = skipped + ripdpi.skipped,
                     subscriptionMirrors = ripdpi.subscriptionMirrors,
                     cloudflareMemberIds = ripdpi.cloudflareMemberIds,
+                    migration =
+                        parseMigrationMetadata(
+                            rootElement,
+                            ripdpi.profiles.map { it.displayName } + ripdpi.amneziaWgProfiles.map { it.displayName },
+                            ripdpi.amneziaWgProfiles.map { it.displayName },
+                        ),
                 )
             }
         }

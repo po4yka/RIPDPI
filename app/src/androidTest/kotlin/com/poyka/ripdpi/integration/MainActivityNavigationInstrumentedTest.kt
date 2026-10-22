@@ -51,6 +51,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
@@ -336,6 +337,10 @@ class MainActivityNavigationInstrumentedTest {
     @BindValue
     @JvmField
     var diagnosticsDetailLoader: DiagnosticsDetailLoader = StubInstrumentedDiagnosticsDetailLoader()
+
+    @BindValue
+    @JvmField
+    var diagnosticsArchiveClock: DiagnosticsArchiveClock = DiagnosticsManagerModule.provideDiagnosticsArchiveClock()
 
     @BindValue
     @JvmField
@@ -695,6 +700,10 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
+    var diagnosticsArchiveClock: DiagnosticsArchiveClock = DiagnosticsManagerModule.provideDiagnosticsArchiveClock()
+
+    @BindValue
+    @JvmField
     var preparedExports: com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService =
         com.poyka.ripdpi.testing
             .StubInstrumentedPreparedExportService()
@@ -882,6 +891,10 @@ class MainActivityBiometricStartupInstrumentedTest {
     @BindValue
     @JvmField
     var diagnosticsDetailLoader: DiagnosticsDetailLoader = StubInstrumentedDiagnosticsDetailLoader()
+
+    @BindValue
+    @JvmField
+    var diagnosticsArchiveClock: DiagnosticsArchiveClock = DiagnosticsManagerModule.provideDiagnosticsArchiveClock()
 
     @BindValue
     @JvmField

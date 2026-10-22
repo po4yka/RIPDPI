@@ -13,12 +13,17 @@ data class SubscriptionAwgWrite(
     val secrets: AwgSecrets,
 )
 
+/** Group metadata and AWG identities are derived together from the same canonical prepared rows. */
+data class PreparedSubscriptionRefresh(
+    val replacement: ProxyGroup,
+    val awgWrites: List<SubscriptionAwgWrite>,
+)
+
 interface SubscriptionRefreshMutationCoordinator {
     /** Checks group ownership before preparation; journals AWG and group after-images under one recovery lock. */
     suspend fun commitSubscriptionRefresh(
         expected: ProxyGroup,
-        replacement: ProxyGroup,
-        prepareAwgWrites: suspend () -> List<SubscriptionAwgWrite>,
+        prepare: suspend () -> PreparedSubscriptionRefresh,
     ): Boolean
 }
 
@@ -32,16 +37,17 @@ internal class SubscriptionRefreshMutations(
 ) : SubscriptionRefreshMutationCoordinator {
     override suspend fun commitSubscriptionRefresh(
         expected: ProxyGroup,
-        replacement: ProxyGroup,
-        prepareAwgWrites: suspend () -> List<SubscriptionAwgWrite>,
+        prepare: suspend () -> PreparedSubscriptionRefresh,
     ): Boolean =
         mutex.withLock {
             recover()
-            require(replacement.id == expected.id)
             val current = groups.snapshot()
             if (current.singleOrNull { it.id == expected.id } != expected) return@withLock false
             val subscription = expected.subscription ?: return@withLock false
             require(subscription.refreshRevision in 0 until Long.MAX_VALUE) { "Subscription revision is exhausted" }
+            val prepared = prepare()
+            val replacement = prepared.replacement
+            require(replacement.id == expected.id)
             val accepted =
                 replacement.copy(
                     subscription =
@@ -50,11 +56,10 @@ internal class SubscriptionRefreshMutations(
                                 subscription.refreshRevision + 1,
                         ),
                 )
-            val writes = prepareAwgWrites()
             val intent =
                 SubscriptionRefreshIntent(
                     current.map { if (it.id == expected.id) accepted else it },
-                    writes.map { write ->
+                    prepared.awgWrites.map { write ->
                         with(write.profile) { AwgUpsertIntent(id, name, requestJson, updatedAt, write.secrets) }
                     },
                 )

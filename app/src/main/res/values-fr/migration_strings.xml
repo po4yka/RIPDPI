@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="migration_title">Migration de serveur</string>
+    <string name="migration_tested">Nouveau chemin testé</string>
+    <string name="migration_received">Remplacement reçu ; chemin non testé</string>
+    <string name="migration_privacy">Le reçu reste sur cet appareil jusqu’au partage. Le test vérifie un chemin, pas toutes les applications.</string>
+    <string name="migration_url">URL HTTP(S) de test</string>
+    <string name="migration_awg_help">Pour AmneziaWG, connectez d’abord le profil de remplacement importé.</string>
+    <string name="migration_check_awg">Tester le chemin AmneziaWG %1$d</string>
+    <string name="migration_check_relay">Tester le chemin relais %1$d</string>
+    <string name="migration_connect_awg">Connectez le profil AmneziaWG de remplacement exact, puis réessayez.</string>
+    <string name="migration_changed">La livraison, la configuration ou le réseau a changé. Relancez le test.</string>
+    <string name="migration_invalid">Saisissez une URL HTTP(S) valide et utilisez une cible de migration actuelle.</string>
+    <string name="migration_failed">Le test du chemin a échoué. Aucun reçu de test réussi enregistré.</string>
+    <string name="migration_export">Partager le reçu de migration</string>
+    <string name="migration_export_failed">Impossible de préparer ou de partager le reçu.</string>
+</resources>

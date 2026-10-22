@@ -17,7 +17,7 @@ const val MaxSubscriptionRawConfigBytes: Int = 64 * 1024
 class SubscriptionPayloadTooLargeException : IllegalArgumentException("subscription payload exceeds limit")
 
 /** Reads at most [MaxSubscriptionPayloadBytes], including responses without a Content-Length header. */
-fun ResponseBody.readBoundedSubscriptionPayload(): String {
+fun ResponseBody.readBoundedSubscriptionPayload(): SubscriptionPayload {
     val declaredLength = contentLength()
     if (declaredLength > MaxSubscriptionPayloadBytes) throw SubscriptionPayloadTooLargeException()
 
@@ -32,7 +32,31 @@ fun ResponseBody.readBoundedSubscriptionPayload(): String {
         if (total > MaxSubscriptionPayloadBytes) throw SubscriptionPayloadTooLargeException()
     }
     val charset = contentType()?.charset(StandardCharsets.UTF_8) ?: StandardCharsets.UTF_8
-    return buffer.readString(charset)
+    return SubscriptionPayload(buffer.readByteArray(), charset)
+}
+
+/** Keeps original entity bytes for a receipt digest; text decoding never defines payload identity. */
+class SubscriptionPayload internal constructor(
+    private val bytes: ByteArray,
+    charset: java.nio.charset.Charset,
+) {
+    val text: String = bytes.toString(charset)
+    val sha256: String get() = migrationSha256(bytes)
+
+    fun requireMigrationUtf8() {
+        val strict =
+            try {
+                StandardCharsets.UTF_8
+                    .newDecoder()
+                    .decode(java.nio.ByteBuffer.wrap(bytes))
+                    .toString()
+            } catch (invalid: java.nio.charset.CharacterCodingException) {
+                throw IllegalArgumentException("migration payload must be UTF-8", invalid)
+            }
+        require(strict == text) { "migration payload must be UTF-8" }
+    }
+
+    override fun toString(): String = "SubscriptionPayload([REDACTED])"
 }
 
 /** Rejects parser expansion and individually unbounded opaque fallback configs. */

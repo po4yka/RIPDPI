@@ -81,6 +81,7 @@ data class Subscription(
     val consumedAt: Long? = null,
     /** Per-endpoint credentials, sealed together with the subscription blob. */
     val mirrors: SubscriptionMirrorSet = SubscriptionMirrorSet(),
+    val migration: com.poyka.ripdpi.data.subscription.MigrationDelivery? = null,
 ) {
     /** `true` once a [SubscriptionKind.BOOTSTRAP] token has been consumed. */
     val isConsumed: Boolean

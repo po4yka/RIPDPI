@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="migration_title">सर्वर माइग्रेशन</string>
+    <string name="migration_tested">नया पथ जाँचा गया</string>
+    <string name="migration_received">बदली हुई कॉन्फ़िगरेशन मिली; पथ नहीं जाँचा गया</string>
+    <string name="migration_privacy">साझा करने तक रसीद इसी डिवाइस पर रहती है। परीक्षण एक पथ जाँचता है, सभी ऐप नहीं।</string>
+    <string name="migration_url">HTTP(S) परीक्षण URL</string>
+    <string name="migration_awg_help">AmneziaWG के लिए पहले आयातित नई प्रोफ़ाइल से कनेक्ट करें।</string>
+    <string name="migration_check_awg">AmneziaWG पथ %1$d जाँचें</string>
+    <string name="migration_check_relay">रिले पथ %1$d जाँचें</string>
+    <string name="migration_connect_awg">सटीक नई AmneziaWG प्रोफ़ाइल से कनेक्ट करके फिर प्रयास करें।</string>
+    <string name="migration_changed">डिलीवरी, कॉन्फ़िगरेशन या नेटवर्क बदल गया। परीक्षण फिर चलाएँ।</string>
+    <string name="migration_invalid">मान्य HTTP(S) URL दर्ज करें और वर्तमान माइग्रेशन लक्ष्य चुनें।</string>
+    <string name="migration_failed">पथ परीक्षण सफल नहीं हुआ। सफल परीक्षण की रसीद दर्ज नहीं हुई।</string>
+    <string name="migration_export">माइग्रेशन रसीद साझा करें</string>
+    <string name="migration_export_failed">रसीद तैयार या साझा नहीं की जा सकी।</string>
+</resources>

@@ -174,6 +174,7 @@ class SharedProxySelectorRuntimeStackTest {
                     dispatcher,
                     TestRipDpiAmneziaWgFactory(),
                     RecordingAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 ),
                 ProxyRuntimeSupervisor(backgroundScope, dispatcher, proxyFactory, TestNativeNetworkSnapshotProvider()),
             )

@@ -526,6 +526,7 @@ private class NoOpAmneziaWgRuntimeSupervisorFactory :
     AmneziaWgRuntimeSupervisorFactory(
         NoOpRipDpiAmneziaWgFactory(),
         TestAmneziaWgRuntimeConfigResolver(),
+        ActiveAwgRuntimeRegistry(),
     )
 
 /** No-op [FlowAppAttributionStore] for constructing a [FlowAttributionBridge] in module wiring tests. */

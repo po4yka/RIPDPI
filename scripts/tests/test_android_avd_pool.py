@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 import unittest
+import xml.etree.ElementTree as ET
 from unittest import mock
 from pathlib import Path
 
@@ -23,7 +24,7 @@ POOL = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(POOL)
 
 FAKE_TOOL = r'''
-import json, os, signal, socket, sys, time
+import json, os, signal, socket, sys, time, xml.etree.ElementTree as ET
 from pathlib import Path
 kind = Path(sys.argv[0]).name
 args = sys.argv[1:]
@@ -38,10 +39,13 @@ elif kind == "avdmanager":
     name = args[args.index("-n") + 1]
     directory = Path(args[args.index("-p") + 1])
     package = args[args.index("-k") + 1].split(";")
+    image = Path(os.environ["ANDROID_SDK_ROOT"]).joinpath(*package)
+    details = ET.parse(image / "package.xml").getroot().find("{*}localPackage/{*}type-details")
+    tags = [tag.findtext("{*}id") for tag in details.findall("{*}tag")]
     profile = args[args.index("-d") + 1]
     directory.mkdir()
     (directory / "config.ini").write_text(
-        f"abi.type={package[3]}\ntag.id={package[2]}\nhw.device.name={profile}\n"
+        f"abi.type={package[3]}\ntag.id={tags[0]}\ntag.ids={','.join(tags)}\nhw.device.name={profile}\n"
         f"image.sysdir.1=system-images/{package[1]}/{package[2]}/{package[3]}/\n")
     (directory.parent / f"{name}.ini").write_text(
         f"path={directory}\ntarget={package[1]}\n")
@@ -118,15 +122,28 @@ class AvdPoolTest(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"#!{sys.executable}\n" + FAKE_TOOL)
             path.chmod(0o755)
-        image = self.sdk / "system-images/android-37.0/google_apis/arm64-v8a"
-        image.mkdir(parents=True)
-        (image / "source.properties").write_text("Pkg.Revision=1\n")
+        self.install_image()
         self.env = dict(os.environ, ANDROID_SDK_ROOT=str(self.sdk), ANDROID_AVD_HOME=str(self.home),
                         FAKE_STATE=str(self.state), PATH=f"{self.bin}:{os.environ['PATH']}")
         self.base = ["run", "--api", "37", "--arch", "arm64-v8a", "--boot-timeout", "5"]
 
     def tearDown(self):
         self.temporary.cleanup()
+
+    def install_image(self, target="google_apis", tags=("google_apis",)):
+        package_id = f"system-images;android-37.0;{target};arm64-v8a"
+        image = self.sdk.joinpath(*package_id.split(";"))
+        image.mkdir(parents=True, exist_ok=True)
+        (image / "source.properties").write_text("Pkg.Revision=1\n")
+        root = ET.Element("repository")
+        package = ET.SubElement(root, "localPackage", path=package_id)
+        details = ET.SubElement(package, "type-details")
+        ET.SubElement(details, "api-level").text = "37.0"
+        ET.SubElement(details, "abi").text = "arm64-v8a"
+        for tag in tags:
+            ET.SubElement(ET.SubElement(details, "tag"), "id").text = tag
+        ET.ElementTree(root).write(image / "package.xml")
+        return image
 
     def invoke(self, *args, **env):
         return subprocess.run([sys.executable, str(SCRIPT), *args], env=dict(self.env, **env),
@@ -155,6 +172,43 @@ class AvdPoolTest(unittest.TestCase):
         self.assertNotIn("-f", creates[0])
         self.assertEqual("keep", marker.read_text())
         self.assertFalse((self.home / "RIPDPI_Pool_2.avd").exists())
+
+    def test_multitag_image_uses_exact_package_and_preserves_all_tags(self):
+        self.install_image("google_apis_ps16k", ("google_apis", "page_size_16kb"))
+        flags = ("--target", "google_apis_ps16k")
+        self.assert_ok(self.run_child("pass", *flags))
+        self.assert_ok(self.run_child("pass", *flags))
+        creates = [cmd for cmd in self.commands() if cmd[0] == "avdmanager"]
+        self.assertEqual(1, len(creates))
+        self.assertEqual("system-images;android-37.0;google_apis_ps16k;arm64-v8a",
+                         creates[0][creates[0].index("-k") + 1])
+        config = self.home / "RIPDPI_Pool_1.avd/config.ini"
+        original = config.read_text()
+        for changed in (original.replace("tag.id=google_apis", "tag.id=page_size_16kb"),
+                        original.replace("tag.ids=google_apis,page_size_16kb", "tag.ids=google_apis")):
+            with self.subTest(config=changed):
+                config.write_text(changed)
+                result = self.run_child("pass", *flags, "--pool-size", "1")
+                self.assertEqual(1, result.returncode)
+                self.assertIn("incompatible", result.stderr)
+                self.assertEqual(changed, config.read_text())
+
+    def test_installed_package_mismatch_is_rejected_before_creation(self):
+        image = self.install_image()
+        package_file = image / "package.xml"
+        original = package_file.read_text()
+        for changed in (original.replace("system-images;android-37.0;google_apis;arm64-v8a",
+                                         "system-images;android-37.0;google_apis_ps16k;arm64-v8a"),
+                        original.replace("<api-level>37.0", "<api-level>35"),
+                        original.replace("<abi>arm64-v8a", "<abi>x86_64"),
+                        original.replace("<id>google_apis</id>", "<id></id>"),
+                        "<broken"):
+            with self.subTest(package=changed):
+                package_file.write_text(changed)
+                result = self.run_child()
+                self.assertEqual(1, result.returncode)
+                self.assertFalse(any(cmd[0] == "avdmanager" for cmd in self.commands()))
+                self.assertFalse(list(self.home.glob("*.avd")))
 
     def test_exports_unique_target_serial_and_cold_boot_flags(self):
         self.assert_ok(self.run_child("import os; print(os.environ['ANDROID_SERIAL'], os.environ['RIPDPI_AVD_NAME'])"))

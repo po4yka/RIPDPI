@@ -9,4 +9,5 @@
     <cache-path
         name="detection_exports"
         path="detection-exports/" />
+    <cache-path name="migration_receipts" path="migration-receipts/" />
 </paths>

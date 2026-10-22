@@ -49,6 +49,12 @@ Use the [feature test checklist](feature-test-checklist.md) as the canonical fea
 
 These run through Gradle on the host JVM and cover the Android-facing logic without starting an emulator.
 
+`AppWorkerFactoryTest` constructs the production Hilt component and creates app
+workers through `RipDpiApp`'s configured factory. Keep the AndroidX Hilt compiler
+on each worker-owning module's KSP configuration; the Dagger Hilt compiler alone
+does not generate WorkManager bindings. Pure worker-policy tests do not verify
+this registration.
+
 - `core:engine` - native wrapper lifecycle - config contract snapshots - state-machine tests - fault-injection tests - relay config bridge coverage for Cloudflare Tunnel modes, credential references, TLS catalog versioning, and Finalmask payloads - advanced strategy JSON coverage for markers, fake payload profiles, activation windows, adaptive fake TTL, per-network `networkScopeKey`, and UI/native bridge parity - native telemetry golden contracts
 - `core:data` - app settings and serializer coverage for network-strategy memory toggles - support settings deep-link parsing, all-settings registry coverage, and all-or-nothing preview/apply coverage - fingerprint hashing and privacy-preserving network summaries - relay profile persistence coverage for Cloudflare Tunnel mode, Finalmask config, and credential-reference round trips - encrypted DNS path candidate planning, ordering, and persistence-backed migration coverage
 - `core:service` - service state store - lifecycle coordination - diagnostics runtime coordination - relay supervisor coverage for Cloudflare Tunnel publish mode, MASQUE URL validation, feature gating, helper orchestration, and NaiveProxy watchdog behavior - connection-policy resolution, remembered-policy replay, and active-policy signature tracking - direct-mode DNS and transport-policy enforcement, confirmation/revalidation, and transport-family replay - owned-stack browser / `SecureHttpClient` execution path, Android 17 ECH gating, H2-only retry, and native owned-TLS fallback trace handling - handover monitor debounce/classification and service restart behavior - merged service telemetry golden contracts

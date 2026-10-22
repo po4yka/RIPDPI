@@ -32,9 +32,9 @@ class SubscriptionRefreshMutationTest {
             var preparations = 0
 
             assertFalse(
-                mutations.commitSubscriptionRefresh(original, replacement) {
+                mutations.commitSubscriptionRefresh(original) {
                     preparations++
-                    listOf(rotation)
+                    PreparedSubscriptionRefresh(replacement, listOf(rotation))
                 },
             )
 
@@ -59,7 +59,12 @@ class SubscriptionRefreshMutationTest {
                 entered.complete(Unit)
                 release.await()
             }
-            val refresh = async { mutations.commitSubscriptionRefresh(original, replacement) { listOf(rotation) } }
+            val refresh =
+                async {
+                    mutations.commitSubscriptionRefresh(
+                        original,
+                    ) { PreparedSubscriptionRefresh(replacement, listOf(rotation)) }
+                }
             entered.await()
             val edit = launch { groups.update(accepted.copy(name = "Edited after rotation")) }
             runCurrent()
@@ -89,7 +94,9 @@ class SubscriptionRefreshMutationTest {
 
                 assertTrue(
                     runCatching {
-                        mutations.commitSubscriptionRefresh(original, replacement) { listOf(rotation) }
+                        mutations.commitSubscriptionRefresh(
+                            original,
+                        ) { PreparedSubscriptionRefresh(replacement, listOf(rotation)) }
                     }.isFailure,
                 )
                 assertEquals(rotation.secrets, fixture.awgCredentials.load(rotation.profile.id))
@@ -125,7 +132,12 @@ class SubscriptionRefreshMutationTest {
             }
             groups.groups().test {
                 assertEquals(listOf(original), awaitItem())
-                val refresh = launch { mutations.commitSubscriptionRefresh(original, replacement) { listOf(rotation) } }
+                val refresh =
+                    launch {
+                        mutations.commitSubscriptionRefresh(
+                            original,
+                        ) { PreparedSubscriptionRefresh(replacement, listOf(rotation)) }
+                    }
                 entered.await()
                 refresh.cancelAndJoin()
 
@@ -158,9 +170,9 @@ class SubscriptionRefreshMutationTest {
                 var preparations = 0
                 assertTrue(
                     runCatching {
-                        mutations.commitSubscriptionRefresh(current, replacement) {
+                        mutations.commitSubscriptionRefresh(current) {
                             preparations++
-                            listOf(rotation)
+                            PreparedSubscriptionRefresh(replacement, listOf(rotation))
                         }
                     }.exceptionOrNull() is IllegalArgumentException,
                 )
@@ -183,7 +195,9 @@ class SubscriptionRefreshMutationTest {
             fixture.afterPrepare = { error("Interrupted after journal prepare") }
             assertTrue(
                 runCatching {
-                    mutations.commitSubscriptionRefresh(original, replacement) { listOf(rotation) }
+                    mutations.commitSubscriptionRefresh(
+                        original,
+                    ) { PreparedSubscriptionRefresh(replacement, listOf(rotation)) }
                 }.isFailure,
             )
             val pending = checkNotNull(fixture.journal.pending())

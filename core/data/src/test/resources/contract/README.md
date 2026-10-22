@@ -8,6 +8,9 @@ These files are **vendored byte-identical** from the server repo
 | `ripdpi-bundle.schema.json` | `ripdpi-vpn-deploy/contract/ripdpi-bundle.schema.json` |
 | `ripdpi-bundle.example.json` | `ripdpi-vpn-deploy/contract/ripdpi-bundle.example.json` |
 | `ripdpi-bundle.golden-full.json` | `ripdpi-vpn-deploy/contract/ripdpi-bundle.golden-full.json` |
+| `device-migration-metadata.schema.json` | `ripdpi-vpn-deploy/contract/device-migration-metadata.schema.json` |
+| `device-migration-receipt.schema.json` | `ripdpi-vpn-deploy/contract/device-migration-receipt.schema.json` |
+| `device-migration.golden.json` | `ripdpi-vpn-deploy/contract/device-migration.golden.json` |
 | `cohort-fingerprint.golden.json` | `ripdpi-vpn-deploy/contract/cohort-fingerprint.golden.json` |
 | `amneziawg-arm64-version-floor.json` | `ripdpi-vpn-deploy/contract/amneziawg-arm64-version-floor.json` |
 
@@ -28,3 +31,8 @@ fingerprint from the same `params` and assert the same `fingerprint`, so the
 Python emit-side and the Kotlin parse-side can never disagree on the algorithm.
 
 `ripdpi-bundle.payload-failover.json` is the full deterministic deployer output for the explicit payload policy. Its two synthetic relay members and independently named HTTPS controls exercise strict import and persistence. The companion schema remains byte-identical to the deployer source.
+
+`DeviceMigrationContractTest` consumes the shared migration vectors to pin exact
+HTTP entity-byte hashing, receipt fields and HMAC framing. The receipt is an
+explicit offline export; the shared key is retained only in sealed subscription
+state and is never included in that export.

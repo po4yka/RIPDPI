@@ -11,12 +11,15 @@ import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
+import com.poyka.ripdpi.data.awg.SavedAwgProfile
 import com.poyka.ripdpi.data.awg.requireValidSubscriptionProfiles
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
+import com.poyka.ripdpi.data.awg.toMigrationTarget
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
 import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
+import com.poyka.ripdpi.data.subscription.MigrationMetadata
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
@@ -28,6 +31,7 @@ import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
 import com.poyka.ripdpi.data.subscription.fitsSubscriptionLimits
 import com.poyka.ripdpi.data.subscription.isValidForRefresh
 import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
+import com.poyka.ripdpi.data.subscription.receivedMigration
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
 import dagger.Module
@@ -199,6 +203,38 @@ class SubscriptionRefreshCoordinator private constructor(
         outcome: RefreshOutcome.Updated,
     ): SubscriptionRefreshResult {
         val subscription = expected.subscription ?: return SubscriptionRefreshResult.Superseded
+        val replacement = replacementGroup(expected, attemptedAt, outcome)
+        val committed =
+            awgProfileRepository.commitSubscriptionRefresh(expected, outcome.awgProfiles) { prepared ->
+                replacement.copy(
+                    subscription =
+                        checkNotNull(replacement.subscription).copy(
+                            migration =
+                                receivedMigration(
+                                    outcome.migration,
+                                    outcome.payloadSha256,
+                                    attemptedAt,
+                                    replacement.members,
+                                    prepared.map(SavedAwgProfile::toMigrationTarget),
+                                    subscription.migration,
+                                ),
+                        ),
+                )
+            }
+        return if (committed) {
+            log.i { "refreshed subscription group ${expected.id}: ${replacement.members.size} profiles persisted" }
+            SubscriptionRefreshResult.Updated(replacement.members.size)
+        } else {
+            SubscriptionRefreshResult.Superseded
+        }
+    }
+
+    private fun replacementGroup(
+        expected: ProxyGroup,
+        attemptedAt: Long,
+        outcome: RefreshOutcome.Updated,
+    ): ProxyGroup {
+        val subscription = checkNotNull(expected.subscription)
         val withMembers =
             if (outcome.clearRelayMembers) {
                 expected.copy(members = emptyList(), cloudflareMemberIds = emptySet())
@@ -211,27 +247,20 @@ class SubscriptionRefreshCoordinator private constructor(
                     isSelector = outcome.isSelector,
                 )
             }
-        val replacement =
-            withMembers.copy(
-                packageRoutingRules = outcome.packageRoutingRules,
-                subscription =
-                    subscription
-                        .withUserinfoHeader(outcome.subscriptionUserinfo)
-                        .copy(
-                            lastUpdated = attemptedAt,
-                            lastRefreshAttemptAtEpochMillis = attemptedAt,
-                            tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
-                            lifecycleState = SubscriptionLifecycleState.ACTIVE,
-                            lastRefreshFailure = null,
-                            mirrors = outcome.subscriptionMirrors ?: subscription.mirrors,
-                        ),
-            )
-        return if (awgProfileRepository.commitSubscriptionRefresh(expected, replacement, outcome.awgProfiles)) {
-            log.i { "refreshed subscription group ${expected.id}: ${replacement.members.size} profiles persisted" }
-            SubscriptionRefreshResult.Updated(replacement.members.size)
-        } else {
-            SubscriptionRefreshResult.Superseded
-        }
+        return withMembers.copy(
+            packageRoutingRules = outcome.packageRoutingRules,
+            subscription =
+                subscription
+                    .withUserinfoHeader(outcome.subscriptionUserinfo)
+                    .copy(
+                        lastUpdated = attemptedAt,
+                        lastRefreshAttemptAtEpochMillis = attemptedAt,
+                        tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
+                        lifecycleState = SubscriptionLifecycleState.ACTIVE,
+                        lastRefreshFailure = null,
+                        mirrors = outcome.subscriptionMirrors ?: subscription.mirrors,
+                    ),
+        )
     }
 
     private suspend fun persistFailure(
@@ -278,13 +307,19 @@ class SubscriptionRefreshCoordinator private constructor(
             try {
                 deliveryHttpClient.newCall(request).execute().use { response ->
                     classifyHttpFailure(response.code, group)?.let { return@use it }
-                    val body =
+                    val payload =
                         try {
                             response.body.readBoundedSubscriptionPayload()
                         } catch (_: SubscriptionPayloadTooLargeException) {
                             return@use payloadTooLargeFailure()
                         }
-                    val singBox = SingBoxSubscriptionParser.parse(body, group.id) as? SingBoxParseResult.Success
+                    val body = payload.text
+                    val singBoxResult = SingBoxSubscriptionParser.parse(body, group.id)
+                    if (singBoxResult is SingBoxParseResult.Error && singBoxResult.recognizedBundle) {
+                        return@use RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
+                    }
+                    val singBox = singBoxResult as? SingBoxParseResult.Success
+                    if (singBox?.migration != null) payload.requireMigrationUtf8()
                     if (singBox?.tokenExpiresAtEpochMillis?.let { clockMillis() >= it } == true) {
                         return@use RefreshOutcome.Failure(
                             SubscriptionRefreshFailure.EXPIRED,
@@ -310,6 +345,8 @@ class SubscriptionRefreshCoordinator private constructor(
                                 awgProfiles = parsedWireGuardProfiles(singBox, wireGuard),
                                 subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty(),
                                 subscriptionMirrors = singBox?.subscriptionMirrors,
+                                migration = singBox?.migration,
+                                payloadSha256 = payload.sha256,
                             )
                         }
                     } else {
@@ -494,7 +531,9 @@ class SubscriptionRefreshCoordinator private constructor(
         wireGuardIni: com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionResult?,
     ): List<AwgSubscriptionProfile> =
         buildList {
-            singBox?.amneziaWgProfiles?.forEach { add(it.toAwgSubscriptionProfile()) }
+            singBox?.amneziaWgProfiles?.forEach {
+                add(it.toAwgSubscriptionProfile(previousTag = singBox.migration?.awgPreviousTags?.get(it.displayName)))
+            }
             wireGuardIni?.amneziaWgProfiles?.forEach {
                 add(it.toAwgSubscriptionProfile(memberId = "peer:${it.peerPublicKey}"))
             }
@@ -524,6 +563,8 @@ class SubscriptionRefreshCoordinator private constructor(
             val subscriptionMirrors: SubscriptionMirrorSet? = null,
             val cloudflareMemberIds: Set<String>? = null,
             val isSelector: Boolean = false,
+            val migration: MigrationMetadata? = null,
+            val payloadSha256: String = "",
         ) : RefreshOutcome
 
         data class Failure(

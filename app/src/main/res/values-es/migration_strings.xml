@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="migration_title">Migración de servidor</string>
+    <string name="migration_tested">Nueva ruta verificada</string>
+    <string name="migration_received">Reemplazo recibido; ruta sin verificar</string>
+    <string name="migration_privacy">El recibo permanece en el dispositivo hasta que lo compartas. La prueba comprueba una ruta, no todas las aplicaciones.</string>
+    <string name="migration_url">URL HTTP(S) de prueba</string>
+    <string name="migration_awg_help">Para AmneziaWG, conecta primero el perfil de reemplazo importado.</string>
+    <string name="migration_check_awg">Probar ruta AmneziaWG %1$d</string>
+    <string name="migration_check_relay">Probar ruta de relé %1$d</string>
+    <string name="migration_connect_awg">Conecta el perfil AmneziaWG de reemplazo exacto y vuelve a intentarlo.</string>
+    <string name="migration_changed">La entrega, configuración o red cambió. Repite la prueba.</string>
+    <string name="migration_invalid">Introduce una URL HTTP(S) válida y usa un destino de migración actual.</string>
+    <string name="migration_failed">La prueba de ruta falló. No se registró un recibo verificado.</string>
+    <string name="migration_export">Compartir recibo de migración</string>
+    <string name="migration_export_failed">No se pudo preparar o compartir el recibo.</string>
+</resources>

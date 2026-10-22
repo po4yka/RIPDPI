@@ -25,6 +25,12 @@ incompatible pool causes the command to fail; it does not create another dated
 device or replace an incompatible disk. Serialize work or explicitly remove an
 idle pool slot before using a different profile.
 
+`--target` selects the exact installed SDK package segment, for example
+`google_apis_ps16k`. The pool checks its `package.xml` identity, API, ABI and
+complete tag list against the AVD. A multi-tag package can have `tag.id=google_apis`
+and `tag.ids=google_apis,page_size_16kb`; its package name is not a tag alias.
+Stale SDK directories without valid package metadata cannot create or reuse a slot.
+
 The pool uses host-wide AVD and port locks across repository worktrees. Lock files
 remain in place after use; the OS releases the lock when the owner exits. Do not
 delete lock files to recover a busy lane. Active emulator processes and open AVD

@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.saveMigrationTargets
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
@@ -57,7 +58,10 @@ class SubscriptionImportConfirmViewModel
         private val repository: ProxyGroupRepository,
         private val bootstrapConsumer: BootstrapConsumer,
         private val groupIdFactory: () -> String,
-        private val saveAwgProfiles: suspend (List<AmneziaWgSubscriptionProfile>) -> Unit,
+        private val saveAwgProfiles: suspend (
+            List<AmneziaWgSubscriptionProfile>,
+            Map<String, String>,
+        ) -> List<com.poyka.ripdpi.data.subscription.MigrationTarget>,
         private val refreshSubscription: suspend (String) -> SubscriptionRefreshResult,
         private val scheduleAutoUpdate: (List<ProxyGroup>) -> Unit,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
@@ -72,8 +76,12 @@ class SubscriptionImportConfirmViewModel
             repository = repository,
             bootstrapConsumer = BootstrapConsumer(),
             groupIdFactory = { UUID.randomUUID().toString() },
-            saveAwgProfiles = { profiles ->
-                awgProfileRepository.saveSubscriptionProfiles(profiles.map { it.toAwgSubscriptionProfile() })
+            saveAwgProfiles = { profiles, previousTags ->
+                awgProfileRepository.saveMigrationTargets(
+                    profiles.map {
+                        it.toAwgSubscriptionProfile(previousTag = previousTags[it.displayName])
+                    },
+                )
             },
             refreshSubscription = refreshCoordinator::refresh,
             scheduleAutoUpdate = autoUpdateScheduler::schedule,
@@ -84,7 +92,10 @@ class SubscriptionImportConfirmViewModel
             repository: ProxyGroupRepository,
             bootstrapConsumer: BootstrapConsumer = BootstrapConsumer(),
             groupIdFactory: () -> String = { UUID.randomUUID().toString() },
-            saveAwgProfiles: suspend (List<AmneziaWgSubscriptionProfile>) -> Unit = {},
+            saveAwgProfiles: suspend (
+                List<AmneziaWgSubscriptionProfile>,
+                Map<String, String>,
+            ) -> List<com.poyka.ripdpi.data.subscription.MigrationTarget> = { _, _ -> emptyList() },
             refreshSubscription: suspend (
                 String,
             ) -> SubscriptionRefreshResult = { error("No test refresh") },
@@ -219,7 +230,8 @@ class SubscriptionImportConfirmViewModel
         ) {
             when (val result = bootstrapConsumer.consume(state.url, groupId)) {
                 is BootstrapConsumeResult.Consumed -> {
-                    saveAwgProfiles(result.amneziaWgProfiles)
+                    val awgTargets =
+                        saveAwgProfiles(result.amneziaWgProfiles, result.migration?.awgPreviousTags.orEmpty())
                     repository.add(
                         subscriptionGroup(
                             existing = existing,
@@ -232,6 +244,14 @@ class SubscriptionImportConfirmViewModel
                                     kind = SubscriptionKind.BOOTSTRAP,
                                     consumedAt = result.consumedAtMillis,
                                     mirrors = result.subscriptionMirrors,
+                                    migration =
+                                        com.poyka.ripdpi.data.subscription.receivedMigration(
+                                            result.migration,
+                                            result.payloadSha256,
+                                            result.consumedAtMillis,
+                                            result.profiles,
+                                            awgTargets,
+                                        ),
                                 ),
                             members = result.profiles,
                             packageRoutingRules = result.packageRoutingRules,
