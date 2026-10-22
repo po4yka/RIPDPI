@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 import uuid
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -181,7 +182,7 @@ class Pool:
             return False
         config = read_ini(directory / "config.ini")
         actual = {"api": config.get("target", "").removeprefix("android-"),
-                  "arch": config.get("abi.type"), "target": config.get("tag.id"),
+                  "arch": config.get("abi.type"),
                   "profile": config.get("hw.device.name")}
         # avdmanager commonly omits target in config.ini; the pointer contains it.
         if not actual["api"]:
@@ -192,9 +193,32 @@ class Pool:
         image = Path(image_path)
         if not image.is_absolute():
             image = self.sdk / image
-        expected = self.sdk / "system-images" / f"android-{requested['api']}" / requested["target"] / requested["arch"]
+        expected, tags = self.installed_image(requested)
         return (image.resolve() == expected.resolve()
-                and all(metadata.get(k) == v and actual[k] == v for k, v in requested.items()))
+                and config.get("tag.id") == tags[0]
+                and config.get("tag.ids", config.get("tag.id", "")).split(",") == tags
+                and all(metadata.get(k) == v for k, v in requested.items())
+                and all(value == requested[key] for key, value in actual.items()))
+
+    def installed_image(self, requested: dict[str, str]) -> tuple[Path, list[str]]:
+        package_id = f"system-images;android-{requested['api']};{requested['target']};{requested['arch']}"
+        image = self.sdk.joinpath(*package_id.split(";"))
+        if not (image / "source.properties").is_file():
+            raise PoolError(f"System image is not installed: {image}; install it explicitly first")
+        try:
+            packages = ET.parse(image / "package.xml").getroot().findall("{*}localPackage")
+        except (OSError, ET.ParseError) as exc:
+            raise PoolError(f"Cannot read installed system image package: {image}") from exc
+        if len(packages) != 1 or packages[0].get("path") != package_id:
+            raise PoolError(f"Installed system image package identity mismatch: {image}")
+        details = packages[0].find("{*}type-details")
+        if (details is None or details.findtext("{*}api-level") != requested["api"]
+                or details.findtext("{*}abi") != requested["arch"]):
+            raise PoolError(f"Installed system image API/ABI mismatch: {image}")
+        tags = [tag.findtext("{*}id", "") for tag in details.findall("{*}tag")]
+        if not tags or len(set(tags)) != len(tags) or any(not SAFE_VALUE.fullmatch(tag) for tag in tags):
+            raise PoolError(f"Invalid installed system image tags: {image}")
+        return image, tags
 
     def active_reason(self, name: str) -> str | None:
         """All probes must succeed; uncertainty prevents launch and deletion."""
@@ -243,9 +267,7 @@ class Pool:
         directory, ini, meta = self.paths(name)
         if directory.exists() or ini.exists() or meta.exists():
             raise PoolError(f"AVD {name} already exists; no data was changed")
-        image = self.sdk / "system-images" / f"android-{requested['api']}" / requested["target"] / requested["arch"]
-        if not (image / "source.properties").is_file():
-            raise PoolError(f"System image is not installed: {image}; install it explicitly first")
+        self.installed_image(requested)
         if not self.manager:
             raise PoolError("Installed avdmanager is required to create a free pool slot")
         value = dict(requested, schema=1, name=name, kind="temporary" if reason else "pool",
