@@ -39,6 +39,12 @@ The client MUST distinguish absent from unreadable sealed data, preserve unreada
 - **WHEN** a durable catalogue write fails
 - **THEN** the repository reports failure and does not publish the proposed new member set as committed
 
+#### Scenario: Service starts before application catalogue loading
+
+- **WHEN** a cold service starts with an absent or valid saved catalogue before application initialization has loaded groups
+- **THEN** lifecycle preparation explicitly validates and publishes the catalogue before awaiting selector subscription readiness
+- **AND** an unreadable catalogue rejects preparation without publishing an empty fallback, while a later explicit retry can load recovered data
+
 #### Scenario: Shareable backup contains signed controls
 
 - **WHEN** a SHARE backup exports a group whose probe or payload control URLs contain credentials

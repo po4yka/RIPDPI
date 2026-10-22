@@ -11,6 +11,7 @@ The existing payload-aware selector change supplies strict two-origin HTTPS leng
 ## Decisions
 
 - Observing groups performs no storage I/O and emits nothing before a successful load or mutation. The guarded startup `list()` validates and publishes the first snapshot; read failures remain with that caller. Reads/publication and writes share the repository mutex, preventing a delayed load from publishing over a newer mutation. Early application-scope collectors remain alive across failed readiness and retry.
+- Service lifecycle preparation also owns an explicit `list()` before awaiting the selector subscription seed, because headless starts cannot depend on application initialization. One-shot catalogue queries use `list()`; observation alone remains free of storage I/O. Storage errors propagate before runtime activation.
 - Read an existing sealed catalogue strictly. Absent data remains an empty catalogue; decryption/authentication errors remain errors. Keep the existing encryption key and wire shape. Ciphertext and metadata share one editor commit.
 - SHARE exports remove automatic failover controls so signed control URLs cannot leave the device in shareable backups; full private exports retain them.
 - Store the complete accepted current generation; never revive profiles removed by a later successful authoritative update. Keep delivery permission and transport credentials separate.
