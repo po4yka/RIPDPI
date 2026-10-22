@@ -115,8 +115,11 @@ dependencies {
     testFixturesImplementation(project(":core:engine-api"))
     testFixturesApi(project(":core:data"))
     testFixturesApi(libs.kotlinx.coroutines.core)
+    testFixturesImplementation(libs.okhttp)
+    testFixturesImplementation(libs.okhttp.tls)
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp.tls)
 }

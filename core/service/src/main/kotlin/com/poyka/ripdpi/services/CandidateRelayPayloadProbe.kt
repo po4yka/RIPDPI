@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
 import kotlinx.coroutines.CancellationException
@@ -77,6 +78,29 @@ class CandidateRelayPayloadProbe internal constructor(
         credentials: RelayCredentialRecord,
         probeUrl: String,
     ): CandidateRelayMeasurement =
+        measureUsing(profile, credentials, HttpDeadlineMillis) { endpoint ->
+            httpProbe.probe(endpoint, probeUrl)
+        }
+
+    suspend fun measurePayload(
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        policy: PayloadFailoverPolicy,
+    ): CandidateRelayMeasurement =
+        measureUsing(
+            profile,
+            credentials,
+            policy.timeoutSeconds * policy.probes.size * MillisecondsPerSecond,
+        ) { endpoint ->
+            httpProbe.probePayload(endpoint, policy)
+        }
+
+    private suspend fun measureUsing(
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        httpDeadlineMillis: Long,
+        probe: suspend (RelayProbeEndpoint) -> CandidateHttpPayloadEvidence,
+    ): CandidateRelayMeasurement =
         mutex.withLock {
             val previous = pending
             if (previous != null) {
@@ -114,7 +138,7 @@ class CandidateRelayPayloadProbe internal constructor(
             } catch (_: Exception) {
                 return@withLock CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration)
             }
-            measureResolved(config, probeUrl, before)
+            measureResolved(config, before, httpDeadlineMillis, probe)
         }
 
     private fun createRuntimeOrNull() =
@@ -128,8 +152,9 @@ class CandidateRelayPayloadProbe internal constructor(
 
     private suspend fun measureResolved(
         config: ResolvedRipDpiRelayConfig,
-        probeUrl: String,
         before: CandidateRelayProbeEnvironment,
+        httpDeadlineMillis: Long,
+        probe: suspend (RelayProbeEndpoint) -> CandidateHttpPayloadEvidence,
     ): CandidateRelayMeasurement {
         val runtime = createRuntimeOrNull() ?: return CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Ready)
         val job =
@@ -162,8 +187,8 @@ class CandidateRelayPayloadProbe internal constructor(
                     require(endpoint.host == "127.0.0.1" || endpoint.host == "::1")
                     stage = CandidateMeasurementStage.Http
                     val result =
-                        withTimeoutOrNull(HttpDeadlineMillis) {
-                            httpProbe.probe(RelayProbeEndpoint(endpoint.host, endpoint.port), probeUrl)
+                        withTimeoutOrNull(httpDeadlineMillis) {
+                            probe(RelayProbeEndpoint(endpoint.host, endpoint.port))
                         }
                     when {
                         result == null -> {
@@ -237,3 +262,5 @@ class CandidateRelayPayloadProbe internal constructor(
 private const val HttpDeadlineMillis = 15_000L
 private const val ReadyDeadlineMillis = 5_000L
 private const val CleanupDeadlineMillis = 5_000L
+
+private const val MillisecondsPerSecond = 1_000L

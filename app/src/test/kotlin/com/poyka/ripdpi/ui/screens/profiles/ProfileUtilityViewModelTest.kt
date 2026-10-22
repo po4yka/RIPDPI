@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PauseClock
 import com.poyka.ripdpi.data.PauseClockReading
 import com.poyka.ripdpi.data.PauseIntentAuthority
+import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.PendingProfileMutation
 import com.poyka.ripdpi.data.ProfileMutationGenerationPublisher
 import com.poyka.ripdpi.data.ProfileMutationJournal
@@ -892,6 +893,7 @@ private class Fixture(
                 )
             },
             { httpClockNanos.get() },
+            { _: PayloadProbeControl, _: Long -> error("Profile utility must request generic reachability probes") },
         ) as CandidateHttpPayloadProbe
     private val probeFixtures =
         ProfileUtilityProbeFixtures(

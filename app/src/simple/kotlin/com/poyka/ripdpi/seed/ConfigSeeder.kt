@@ -17,6 +17,8 @@ import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.data.validateNativeRelayProfile
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -111,6 +113,10 @@ open class ConfigSeeder
             val json = checkNotNull(readBundle()) { "Required embedded relay bundle is unavailable" }
 
             val groupId = SIMPLE_SEED_GROUP_ID
+            val root = runCatching { Json.parseToJsonElement(json) as? JsonObject }.getOrNull()
+            check((root?.get("ripdpi") as? JsonObject)?.containsKey("payload_failover") != true) {
+                "Embedded Simple configuration does not support payload failover policy"
+            }
             val result = SingBoxSubscriptionParser.parse(json, groupId)
 
             when (result) {

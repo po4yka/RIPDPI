@@ -203,7 +203,10 @@ class SubscriptionImportConfirmViewModel
             scheduleAutoUpdate(repository.list())
             when (result) {
                 is SubscriptionRefreshResult.Updated -> completeImport()
-                is SubscriptionRefreshResult.Failed -> _uiState.update { it.copy(importFailed = true) }
+
+                is SubscriptionRefreshResult.Failed,
+                SubscriptionRefreshResult.Superseded,
+                -> _uiState.update { it.copy(importFailed = true) }
             }
         }
 

@@ -1,0 +1,157 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "https",
+        "tag": "remote",
+        "server": "1.1.1.1",
+        "detour": "select"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-upcloud-fixture",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "password": "fixture-device:synthetic-password",
+      "tls": {
+        "enabled": true,
+        "server_name": "owned.example.test"
+      },
+      "up_mbps": 200,
+      "down_mbps": 100,
+      "obfs": {
+        "type": "salamander",
+        "password": "synthetic-obfs-first"
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-hetzner-fixture",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "password": "fixture-device:synthetic-password",
+      "tls": {
+        "enabled": true,
+        "server_name": "second.example.test"
+      },
+      "up_mbps": 200,
+      "down_mbps": 100,
+      "obfs": {
+        "type": "salamander",
+        "password": "synthetic-obfs-first"
+      }
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": [
+        "p2-hysteria2-upcloud-fixture",
+        "p2-hysteria2-hetzner-fixture",
+        "auto"
+      ],
+      "default": "auto",
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "p2-hysteria2-upcloud-fixture",
+        "p2-hysteria2-hetzner-fixture"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      }
+    ],
+    "final": "select",
+    "auto_detect_interface": true
+  },
+  "ripdpi": {
+    "schema_version": 1,
+    "amneziawg": [],
+    "hysteria_extras": {
+      "p2-hysteria2-upcloud-fixture": {
+        "insecure": false,
+        "obfs": {
+          "type": "salamander",
+          "password": "synthetic-obfs-first"
+        },
+        "salamander_upstream_tag": "v2.13.0"
+      },
+      "p2-hysteria2-hetzner-fixture": {
+        "insecure": false,
+        "obfs": {
+          "type": "salamander",
+          "password": "synthetic-obfs-first"
+        },
+        "salamander_upstream_tag": "v2.13.0"
+      }
+    },
+    "topology": {
+      "split_hop_egress": false,
+      "hysteria_realm": null
+    },
+    "payload_failover": {
+      "schema_version": 1,
+      "selector_tag": "select",
+      "probes": [
+        {
+          "url": "https://control-a.example.test/__throttle_probe?bytes=32768",
+          "expected_bytes": 32768,
+          "sha256": "80e00fc9e65a58c5ad59c399511a2ed5f27140f43e3b58f93c2f00a0c0df8816"
+        },
+        {
+          "url": "https://control-b.example.test/__throttle_probe?bytes=32768",
+          "expected_bytes": 32768,
+          "sha256": "80e00fc9e65a58c5ad59c399511a2ed5f27140f43e3b58f93c2f00a0c0df8816"
+        }
+      ],
+      "interval_seconds": 60,
+      "timeout_seconds": 10,
+      "failure_threshold": 2,
+      "recovery_threshold": 2,
+      "cooldown_seconds": 120,
+      "max_backoff_seconds": 900
+    }
+  }
+}

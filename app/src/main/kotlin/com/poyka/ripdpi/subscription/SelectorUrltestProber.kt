@@ -1,12 +1,18 @@
 package com.poyka.ripdpi.subscription
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
 
@@ -16,6 +22,16 @@ data class MemberLatency(
     val latencyMillis: Long?,
 )
 
+sealed interface MemberProbeTarget {
+    data class Reachability(
+        val url: String,
+    ) : MemberProbeTarget
+
+    data class Payload(
+        val policy: PayloadFailoverPolicy,
+    ) : MemberProbeTarget
+}
+
 /**
  * Measures a single selector member's reachability latency against the group's
  * `probeUrl`. Injectable so the prober is testable without a real network: the
@@ -24,11 +40,11 @@ data class MemberLatency(
 fun interface MemberLatencyProbe {
     /**
      * Returns the round-trip latency in milliseconds for [profile] probed against
-     * [probeUrl], or `null` when the member did not respond.
+     * [target], or `null` when the member did not respond.
      */
     suspend fun measure(
         profile: ProxyProfile,
-        probeUrl: String,
+        target: MemberProbeTarget,
     ): Long?
 }
 
@@ -50,11 +66,24 @@ class SelectorUrltestProber internal constructor(
     private val selectionStore: SelectorSelectionStore,
     private val probe: MemberLatencyProbe,
     private val scopeProvider: SelectorProbeScopeProvider,
+    private val monotonicMillis: () -> Long = { System.nanoTime() / NanosecondsPerMillisecond },
 ) {
     private val log = Logger.withTag("selector-urltest")
+    private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
+    private val probeRoundMutex = Mutex()
+
+    private data class ScopedPayloadState(
+        val scope: SelectorProbeScope,
+        var selection: SelectorSelectionSnapshot,
+        val state: PayloadFailoverState,
+        var reserveIndex: Int = 0,
+        var recoveringReserve: String? = null,
+        val failedReserves: MutableSet<String> = mutableSetOf(),
+    )
 
     /** Fences a replaced or stopped policy against a probe already about to commit. */
     internal fun invalidatePendingSelection(groupId: String) {
+        payloadStates.remove(groupId)
         selectionStore.invalidatePendingSelection(groupId)
     }
 
@@ -71,9 +100,13 @@ class SelectorUrltestProber internal constructor(
             failover.intervalSeconds
                 .coerceAtLeast(MinIntervalSeconds)
                 .seconds.inWholeMilliseconds
-        while (true) {
-            delay(intervalMillis)
-            runProbePass(group, failover.probeUrl, failover.toleranceMs)
+        try {
+            while (true) {
+                delay(intervalMillis)
+                runProbePass(group, failover.probeUrl, failover.toleranceMs)
+            }
+        } finally {
+            invalidatePendingSelection(group.id)
         }
     }
 
@@ -87,12 +120,31 @@ class SelectorUrltestProber internal constructor(
         probeUrl: String,
         toleranceMs: Int,
     ) {
+        val policy = group.failover?.payloadPolicy
+        if (policy != null) {
+            runPayloadPass(group, policy)
+        } else {
+            runReachabilityPass(group, probeUrl, toleranceMs)
+        }
+    }
+
+    private suspend fun runReachabilityPass(
+        group: ProxyGroup,
+        probeUrl: String,
+        toleranceMs: Int,
+    ) {
         val scope = scopeProvider.capture(group) ?: return
         val selection = selectionStore.snapshot(group.id)
         if (selection.isManual && selection.profileId in group.cloudflareMemberIds) return
         val latencies =
             group.members.filterNot { it.id in group.cloudflareMemberIds }.map { member ->
-                MemberLatency(profileId = member.id, latencyMillis = probe.measure(member, probeUrl))
+                MemberLatency(
+                    profileId = member.id,
+                    latencyMillis =
+                        probeRoundMutex.withLock {
+                            probe.measure(member, MemberProbeTarget.Reachability(probeUrl))
+                        },
+                )
             }
         currentCoroutineContext().ensureActive()
         if (scopeProvider.capture(group) == scope) {
@@ -109,9 +161,136 @@ class SelectorUrltestProber internal constructor(
         }
     }
 
+    private suspend fun runPayloadPass(
+        group: ProxyGroup,
+        policy: PayloadFailoverPolicy,
+    ) = probeRoundMutex.withLock {
+        // Wait for other selector work before capturing scope or starting the measurement budget.
+        val scoped = payloadState(group, policy) ?: return@withLock
+        if (monotonicMillis() >= scoped.state.nextProbeAt) {
+            val results =
+                withTimeoutOrNull(payloadPassDeadlineMillis(policy)) {
+                    measurePayloadRound(group, scoped, policy)
+                }
+            if (results == null) {
+                // A pass deadline provides no complete observation; rotate without inventing failures.
+                scoped.recoveringReserve = null
+                scoped.reserveIndex++
+                scoped.state.discardObservation()
+            } else {
+                commitPayloadObservation(group, scoped, results)
+            }
+        }
+    }
+
+    private suspend fun payloadState(
+        group: ProxyGroup,
+        policy: PayloadFailoverPolicy,
+    ): ScopedPayloadState? {
+        val scope = scopeProvider.capture(group)
+        val selection = selectionStore.snapshot(group.id)
+        return if (scope == null || (selection.isManual && selection.profileId in group.cloudflareMemberIds)) {
+            payloadStates.remove(group.id)
+            null
+        } else {
+            val previous = payloadStates[group.id]?.takeIf { it.scope == scope && it.selection == selection }
+            previous ?: ScopedPayloadState(scope, selection, PayloadFailoverState(policy)).also {
+                payloadStates[group.id] = it
+            }
+        }
+    }
+
+    private suspend fun commitPayloadObservation(
+        group: ProxyGroup,
+        scoped: ScopedPayloadState,
+        results: List<MemberLatency>,
+    ) {
+        currentCoroutineContext().ensureActive()
+        val selection = scoped.selection
+        if (scopeProvider.capture(group) != scoped.scope || selectionStore.snapshot(group.id) != selection ||
+            payloadStates[group.id] !== scoped
+        ) {
+            payloadStates.remove(group.id, scoped)
+        } else {
+            currentCoroutineContext().ensureActive()
+            val now = monotonicMillis()
+            val eligibleReserves =
+                group.members.count {
+                    it.id !in group.cloudflareMemberIds && it.id != selection.profileId
+                }
+            val winner =
+                scoped.state.observe(
+                    results,
+                    selection.profileId,
+                    now,
+                    allCandidatesObserved = scoped.failedReserves.size >= eligibleReserves,
+                )
+            if (winner != null && selectionStore.selectAutomatically(group.id, selection, winner)) {
+                scoped.state.switched(now)
+                scoped.recoveringReserve = null
+                scoped.failedReserves.clear()
+                val selected = selectionStore.snapshot(group.id)
+                if (selected.profileId == winner && !selected.isManual) {
+                    scoped.selection = selected
+                } else {
+                    payloadStates.remove(group.id, scoped)
+                }
+                log.i { "payload-qualified selector failover for group ${group.id}" }
+            }
+        }
+    }
+
+    /** At most the active exit and one reserve are measured, independent of subscription size. */
+    private suspend fun measurePayloadRound(
+        group: ProxyGroup,
+        scoped: ScopedPayloadState,
+        policy: PayloadFailoverPolicy,
+    ): List<MemberLatency> {
+        val eligible = group.members.filterNot { it.id in group.cloudflareMemberIds }
+        val active = eligible.firstOrNull { it.id == scoped.selection.profileId }
+        val target = MemberProbeTarget.Payload(policy)
+        val activeResult = active?.let { MemberLatency(it.id, probe.measure(it, target)) }
+        if (activeResult?.latencyMillis != null) {
+            scoped.recoveringReserve = null
+            scoped.failedReserves.clear()
+            return listOf(activeResult)
+        }
+        val results = listOfNotNull(activeResult)
+        val reserves = eligible.filterNot { it.id == active?.id }
+        val reserve =
+            reserves.takeIf { it.isNotEmpty() }?.let { candidates ->
+                candidates.firstOrNull { it.id == scoped.recoveringReserve }
+                    ?: candidates[scoped.reserveIndex.mod(candidates.size)]
+            }
+        return if (reserve == null) {
+            results
+        } else {
+            val result = MemberLatency(reserve.id, probe.measure(reserve, target))
+            if (result.latencyMillis != null) {
+                scoped.recoveringReserve = reserve.id
+                scoped.failedReserves.clear()
+            } else {
+                scoped.failedReserves.add(reserve.id)
+                scoped.recoveringReserve = null
+                scoped.reserveIndex = (reserves.indexOf(reserve) + 1).mod(reserves.size)
+            }
+            results + result
+        }
+    }
+
+    private fun payloadPassDeadlineMillis(policy: PayloadFailoverPolicy): Long =
+        MaxPayloadCandidatesPerPass *
+            (policy.probes.size * policy.timeoutSeconds * MillisecondsPerSecond + CandidateLifecycleBudgetMillis)
+
     private companion object {
         const val MinIntervalSeconds = 1
         const val MinMembers = 2
+        const val MaxPayloadCandidatesPerPass = 2
+        const val MillisecondsPerSecond = 1_000L
+        const val NanosecondsPerMillisecond = 1_000_000L
+
+        // Each candidate reserves 5 seconds for readiness and 5 seconds for native cleanup.
+        const val CandidateLifecycleBudgetMillis = 10_000L
     }
 }
 

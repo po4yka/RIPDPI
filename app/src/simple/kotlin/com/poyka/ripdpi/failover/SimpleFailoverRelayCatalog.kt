@@ -49,6 +49,9 @@ internal class EmbeddedSimpleFailoverRelayCatalog
                 bundleSource.read()?.let { payload ->
                     SelectorUrltestGroupImport.import(payload, SIMPLE_SEED_GROUP_ID)
                 } as? SelectorUrltestImportResult.Success
+            check(imported?.failoverPolicy !is FailoverPolicy.Payload) {
+                "Embedded Simple configuration does not support payload failover policy"
+            }
             val targetUrl =
                 (imported?.failoverPolicy as? FailoverPolicy.Urltest)
                     ?.probeUrl

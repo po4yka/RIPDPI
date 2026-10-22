@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.backup.BackupExporter
+import com.poyka.ripdpi.data.backup.BackupSerializer
 import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
@@ -9,6 +10,7 @@ import com.poyka.ripdpi.data.subscription.SubscriptionMirror
 import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -186,4 +188,71 @@ class BackupGroupRedactionTest {
         val full = export(BackupVariant.FULL, listOf(group)).groups.single()
         assertEquals("FULL must preserve package rules verbatim", listOf(rule), full.packageRoutingRules)
     }
+
+    @Test
+    fun `SHARE omits signed payload controls even without members or a subscription`() {
+        for (subscription in listOf(null, subscriptionGroup.subscription)) {
+            val group = subscriptionGroup.copy(subscription = subscription, failover = signedFailover())
+            val share = export(BackupVariant.SHARE, listOf(group))
+            val encoded = BackupSerializer.encodeToString(share)
+
+            assertNull(share.groups.single().failover)
+            assertFalse(encoded.contains("fixture-primary-token"))
+            assertFalse(encoded.contains("fixture-control-token"))
+            assertFalse(encoded.contains("fixture-signed-control"))
+            assertEquals(group.id, share.groups.single().id)
+        }
+    }
+
+    @Test
+    fun `FULL preserves complete payload policy and signed controls`() {
+        val group = subscriptionGroup.copy(failover = signedFailover())
+        val full = export(BackupVariant.FULL, listOf(group))
+
+        assertEquals(group, full.groups.single())
+        val encoded = BackupSerializer.encodeToString(full)
+        assertTrue(encoded.contains("fixture-primary-token"))
+        assertTrue(encoded.contains("fixture-control-token"))
+        assertTrue(encoded.contains("fixture-signed-control"))
+    }
+
+    @Test
+    fun `SHARE omits ordinary URL-test controls with credentials`() {
+        val group = subscriptionGroup.copy(failover = signedFailover().copy(payloadPolicy = null))
+        val share = export(BackupVariant.SHARE, listOf(group))
+
+        assertNull(share.groups.single().failover)
+        assertFalse(BackupSerializer.encodeToString(share).contains("fixture-primary-token"))
+    }
+
+    private fun signedFailover() =
+        SelectorFailover(
+            probeUrl = "https://primary.example/probe?token=fixture-primary-token",
+            intervalSeconds = 30,
+            toleranceMs = 0,
+            payloadPolicy =
+                PayloadFailoverPolicy(
+                    schemaVersion = 1,
+                    selectorTag = "select",
+                    probes =
+                        listOf(
+                            PayloadProbeControl(
+                                "https://control.example/payload?access_token=fixture-control-token",
+                                32_768,
+                                "a".repeat(64),
+                            ),
+                            PayloadProbeControl(
+                                "https://independent.example/payload?X-Amz-Signature=fixture-signed-control",
+                                32_768,
+                                "b".repeat(64),
+                            ),
+                        ),
+                    intervalSeconds = 30,
+                    timeoutSeconds = 5,
+                    failureThreshold = 2,
+                    recoveryThreshold = 2,
+                    cooldownSeconds = 60,
+                    maxBackoffSeconds = 120,
+                ),
+        )
 }

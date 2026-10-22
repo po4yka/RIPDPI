@@ -335,19 +335,15 @@ object BackupAllowlist {
  * and keeps only the other subscription metadata. FULL exports bypass this redactor.
  */
 object BackupGroupRedactor {
-    /** Returns [group] with subscription secrets, members and package names stripped (SHARE-safe). */
+    /** Returns [group] without subscription secrets, members, failover controls or package names. */
     fun redact(group: ProxyGroup): ProxyGroup {
         // SHARE backups must not carry the member node list. A selector/subscription
         // group's [ProxyGroup.members] can embed per-node credentials (e.g. AnyTLS/SSH
         // passwords). Remove members with the subscription URL so SHARE never
         // exposes delivery or node credentials. FULL exports keep them verbatim
         // (they bypass this redactor in [BackupExporter.export]).
-        val base =
-            if (group.members.isEmpty() && group.packageRoutingRules.isEmpty()) {
-                group
-            } else {
-                group.copy(members = emptyList(), packageRoutingRules = emptyList())
-            }
+        // Control URLs can also contain arbitrary signed query/path credentials.
+        val base = group.copy(members = emptyList(), packageRoutingRules = emptyList(), failover = null)
         val sub = base.subscription ?: return base
         return base.copy(
             subscription =

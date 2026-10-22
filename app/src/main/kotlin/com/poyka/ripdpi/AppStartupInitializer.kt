@@ -159,6 +159,8 @@ class AppStartupInitializer
 
         private suspend fun recoverBeforeReadiness(): AppStartupRecovery =
             withContext(Dispatchers.IO) {
+                // Unreadable reserves must gate startup before recovery can replace saved state.
+                proxyGroupRepository.list()
                 AppStartupRecovery(
                     profileMutationRecovery = recoverProfileMutations(),
                     compatibilityReset = recoverCompatibilityReset(),

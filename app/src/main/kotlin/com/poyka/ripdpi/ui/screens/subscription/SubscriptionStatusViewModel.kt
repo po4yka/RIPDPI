@@ -96,7 +96,7 @@ class SubscriptionStatusViewModel internal constructor(
         val job =
             viewModelScope.launch {
                 try {
-                    if (refreshGroup(groupId) is SubscriptionRefreshResult.Failed) {
+                    if (refreshGroup(groupId) !is SubscriptionRefreshResult.Updated) {
                         refreshFailedGroupId.value = groupId
                     }
                 } catch (cancellation: CancellationException) {

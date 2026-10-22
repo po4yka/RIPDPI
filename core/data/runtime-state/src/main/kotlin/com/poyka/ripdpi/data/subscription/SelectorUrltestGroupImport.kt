@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.subscription
 
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
@@ -30,6 +31,10 @@ sealed interface FailoverPolicy {
         val intervalSeconds: Int,
         val toleranceMs: Int,
     ) : FailoverPolicy
+
+    data class Payload(
+        val policy: PayloadFailoverPolicy,
+    ) : FailoverPolicy
 }
 
 /**
@@ -48,6 +53,15 @@ fun FailoverPolicy.toSelectorFailover(): SelectorFailover? =
                 probeUrl = probeUrl,
                 intervalSeconds = intervalSeconds,
                 toleranceMs = toleranceMs,
+            )
+        }
+
+        is FailoverPolicy.Payload -> {
+            SelectorFailover(
+                probeUrl = policy.probes.first().url,
+                intervalSeconds = policy.intervalSeconds,
+                toleranceMs = 0,
+                payloadPolicy = policy,
             )
         }
     }
@@ -136,9 +150,18 @@ object SelectorUrltestGroupImport {
                 return SelectorUrltestImportResult.Error("invalid selector topology")
             }
         val selectorEntry = topology.selector
+        val payloadPolicy =
+            try {
+                PayloadFailoverImport.parse(payload, selectorEntry?.string("tag"))
+            } catch (_: IllegalArgumentException) {
+                return SelectorUrltestImportResult.Error("Invalid payload failover policy")
+            }
         val awgOnly =
             parsed.amneziaWgProfiles.isNotEmpty() && profiles.isEmpty() &&
                 parsed.skipped.isEmpty() && topology.selectsOnlyDirect()
+        if (awgOnly && payloadPolicy != null) {
+            return SelectorUrltestImportResult.Error("Payload failover requires remote relay candidates")
+        }
         if (selectorEntry == null || awgOnly) {
             // The deployer uses select -> direct for a device-only AWG bundle.
             // It is not a remote relay group; AWG owns the device tunnel.
@@ -156,12 +179,13 @@ object SelectorUrltestGroupImport {
         val memberOrder = topology.memberTags
         val missing = memberOrder.filterNot { it in profileTags }
         missingSelectorMemberError(missing, parsed.skipped)?.let { return it }
-        val failoverPolicy =
+        val legacyPolicy =
             try {
                 failoverPolicy(topology.urltest())
             } catch (_: IllegalArgumentException) {
                 return SelectorUrltestImportResult.Error("unsupported selector probe topology")
             }
+        val failoverPolicy = payloadPolicy?.let { FailoverPolicy.Payload(it) } ?: legacyPolicy
 
         // Resolve the member tags back to their concrete profiles, in declared
         // selector order, so the group durably carries its candidate set. A
@@ -181,8 +205,18 @@ object SelectorUrltestGroupImport {
             return SelectorUrltestImportResult.Error("selector has no supported candidate for its selection")
         }
 
-        return SelectorUrltestImportResult.Success(
-            profiles = profiles,
+        return importedSelector(parsed, groupId, selectorEntry, memberProfiles, failoverPolicy)
+    }
+
+    private fun importedSelector(
+        parsed: SingBoxParseResult.Success,
+        groupId: String,
+        selectorEntry: JsonObject,
+        memberProfiles: List<ProxyProfile>,
+        failoverPolicy: FailoverPolicy,
+    ): SelectorUrltestImportResult.Success =
+        SelectorUrltestImportResult.Success(
+            profiles = parsed.profiles,
             group =
                 selectorGroup(groupId, selectorEntry, memberProfiles, failoverPolicy, parsed.packageRoutingRules)
                     .copy(
@@ -197,7 +231,6 @@ object SelectorUrltestGroupImport {
             skipped = parsed.skipped,
             cloudflareMemberIds = parsed.cloudflareMemberIds,
         )
-    }
 
     private fun missingSelectorMemberError(
         missing: List<String>,

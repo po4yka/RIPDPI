@@ -14,7 +14,7 @@ class RelayPayloadMemberLatencyProbe
     ) : MemberLatencyProbe {
         override suspend fun measure(
             profile: ProxyProfile,
-            probeUrl: String,
+            target: MemberProbeTarget,
         ): Long? {
             val mapped =
                 try {
@@ -23,7 +23,23 @@ class RelayPayloadMemberLatencyProbe
                     null
                 } ?: return null
             return (
-                payloadProbe.measure(mapped.profile, mapped.credentials, probeUrl) as?
+                when (target) {
+                    is MemberProbeTarget.Reachability -> {
+                        payloadProbe.measure(
+                            mapped.profile,
+                            mapped.credentials,
+                            target.url,
+                        )
+                    }
+
+                    is MemberProbeTarget.Payload -> {
+                        payloadProbe.measurePayload(
+                            mapped.profile,
+                            mapped.credentials,
+                            target.policy,
+                        )
+                    }
+                } as?
                     com.poyka.ripdpi.services.CandidateRelayMeasurement.Succeeded
             )?.latencyMillis
         }

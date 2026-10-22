@@ -5,8 +5,13 @@ import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
+import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindVless
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -59,6 +64,54 @@ class CandidateRelayPayloadProbeTest {
             assertEquals(RelaySocketProtection.VpnRequired, runtime.config?.socketProtection)
             assertEquals(1, runtime.stops)
             assertTrue(runtime.finished)
+        }
+
+    @Test
+    fun `payload policy probes REALITY and xHTTP through protected independent sessions`() =
+        runTest {
+            val controls =
+                listOf(
+                    PayloadProbeControl("https://a.example.test/control", 32_768, "a".repeat(64)),
+                    PayloadProbeControl("https://b.example.test/control", 32_768, "a".repeat(64)),
+                )
+            val policy = PayloadFailoverPolicy(1, "select", controls, 60, 10, 2, 2, 120, 900)
+            for (kind in listOf(RelayKindVlessReality, RelayKindVless)) {
+                val runtime = FakeCandidateRuntime()
+                val observed = mutableListOf<String>()
+                val http =
+                    CandidateHttpPayloadProbe(
+                        RelayTcpProbe { _, _ -> error("Payload policy must not use generic reachability") },
+                        System::nanoTime,
+                    ) { control, timeout ->
+                        assertEquals(10_000L, timeout)
+                        RelayTcpProbe { endpoint, url ->
+                            assertEquals(RelayProbeEndpoint("127.0.0.1", 1234), endpoint)
+                            observed.add(url)
+                            RelayTcpProbeResult(control == controls.last(), 200)
+                        }
+                    }
+                val candidate =
+                    CandidateRelayPayloadProbe(
+                        resolve = { _, _, _ -> sampleResolvedRelayConfig().copy(kind = kind) },
+                        runtimeFactory = factory(runtime),
+                        httpProbe = http,
+                        environment = { environment().copy(vpnProtectionRequired = true) },
+                        dispatcher = StandardTestDispatcher(testScheduler),
+                    )
+                val profile =
+                    RelayProfileRecord(
+                        id = "candidate",
+                        kind = kind,
+                        vlessTransport = if (kind == RelayKindVlessReality) "tcp" else RelayVlessTransportXhttp,
+                    )
+                assertTrue(
+                    candidate.measurePayload(profile, Credentials, policy) is CandidateRelayMeasurement.Succeeded,
+                )
+                assertEquals(controls.map { it.url }, observed)
+                assertEquals(RelaySocketProtection.VpnRequired, runtime.config?.socketProtection)
+                assertEquals(1, runtime.stops)
+                assertTrue(runtime.finished)
+            }
         }
 
     @Test
