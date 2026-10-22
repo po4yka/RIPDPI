@@ -1,17 +1,17 @@
 ---
-task_id: TRN-1792659369802828
-change: payload-aware-selector-failover
-commit_sha: null
-local: required
-local_evidence: null
-remote_ci: blocked
-remote_ci_evidence: "Final CI 39772247126 on b0b48501b738295bc0597ab5fb6815c0975d477f passed full JVM, staticAnalysis and native builds but failed API33 job119814631151 and API35 job119814630708 service-start instrumentation. Cold-start regression remains open. Coverage job119803343421 separately failed dependency retrieval with Maven Central HTTP429 before tests. No full CI pass is claimed."
-device: not_applicable
-device_evidence: No device capture or native wire contract changes; existing protected relay lifecycle is reused. Filtered-network and physical-device acceptance are not claimed.
-artifact: required
-artifact_evidence: null
-deployment: not_applicable
-deployment_evidence: No deployment or live control endpoint is owned by this change.
+task_id: "TRN-1792659369802828"
+change: "payload-aware-selector-failover"
+commit_sha: "33046c961cf4a501a1a8ac35243c6a171424fdc3"
+local: "passed"
+local_evidence: "Formatting, diff whitespace, task/OpenSpec validation, architecture-health and normal commit hooks passed. Local Full/Simple source and test compilation passed, but the Full test run exhausted disk space in Robolectric temporary files and Gradle reporting; Simple did not execute. That local runtime attempt is not acceptance; complete hosted JVM and emulator runs provide runtime evidence."
+remote_ci: "passed"
+remote_ci_evidence: "CI run 39792086326 attempt 1 passed on 6ec802d16d19a5c0f81f817be8cfc8f1205d29b5: 46 successful and 18 intentionally unrouted jobs, zero failed or pending jobs. Full and Simple JVM tests, Kotlin coverage, static analysis, all native gates and API 27/33/35/36/37 Full and Simple instrumentation passed. API 35 also passed JNI strategy and real Xray provider TUN acceptance. ci-required and CodeQL passed. Rebase-merged 33046c961cf4a501a1a8ac35243c6a171424fdc3 has the identical complete tree 8d205fb96495d83294b14ef9bd5f90dc49f98d71."
+device: "not_applicable"
+device_evidence: "Physical-device acceptance is outside this scope. Hosted emulator evidence is recorded under remote_ci; filtered-network acceptance is not claimed."
+artifact: "passed"
+artifact_evidence: "Shared bundle schema and payload fixture match the producer byte-for-byte; SHA-256 bcd0997a270baad54106fa954377e350e99727847dde2cd0fb1cf8d0a2fb63f0 and bfd3e692ecbbe25994d2ee9fa32422ee9a180f920f8c5c99cc46f62e78dcca16 respectively."
+deployment: "not_applicable"
+deployment_evidence: "No server deployment or credential action was requested or performed."
 ---
 
 # Verification
@@ -20,17 +20,47 @@ deployment_evidence: No deployment or live control endpoint is owned by this cha
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-PAYLOAD-IMPORT | TRN-1792659466914740 | Strict importer and persistence tests, exact shared schema mirror | Pending |
-| REQ-PAYLOAD-VERIFY | TRN-1792659467442022 | Real local HTTP payload verifier tests through candidate SOCKS routing | Pending |
-| REQ-PAYLOAD-STABILITY | TRN-1792659467948091 | Virtual-clock thresholds, cooldown, backoff and cancellation tests | Pending |
-| REQ-PAYLOAD-SAFETY | TRN-1792659468436110 | Network/manual fences, no-direct selection and affected module gates | Pending |
+| REQ-PAYLOAD-IMPORT | TRN-1792659466914740 | PayloadFailoverImportTest, PayloadSelectorTopologyTest, persisted policy and exact schema mirror | Passed |
+| REQ-PAYLOAD-VERIFY | TRN-1792659467442022 | StrictPayloadSocksTest real TLS/SOCKS transfer and VerifiedPayloadTest body boundary checks | Passed |
+| REQ-PAYLOAD-STABILITY | TRN-1792659467948091 | PayloadFailoverStateTest and SelectorPayloadQueueTest virtual-clock thresholds, cooldown, backoff and cancellation | Passed |
+| REQ-PAYLOAD-SAFETY | TRN-1792659468436110 | Manual/network fences, SHARE redaction, full JVM/static and five-API lifecycle matrix | Passed |
 
-## Acceptance incident — cold service startup
+## Source and CI evidence
 
-Final-source instrumentation exposed a deferred catalogue-loading deadlock that
-JVM tests with eagerly seeded repositories did not cover. Closure was reverted;
-acceptance is reopened. Required repair: validate and publish the persisted
-catalogue before waiting for selector subscriptions, propagate unreadable-storage
-errors, and verify empty cold starts plus persisted selectors without weakening
-existing corruption or lifecycle tests. The complete required CI matrix must pass
-before closing this change again.
+Tested source: `6ec802d16d19a5c0f81f817be8cfc8f1205d29b5`. PR 645 was rebase-merged as
+`33046c961cf4a501a1a8ac35243c6a171424fdc3`. Both complete Git trees are
+`8d205fb96495d83294b14ef9bd5f90dc49f98d71`; the comparison is empty and contains no unrelated main changes.
+
+CI 39792086326 attempt 1 passed with 46 successful and 18 intentionally unrouted
+jobs, zero failed or pending jobs. Evidence includes JVM job 119871905296,
+coverage 119871905701, static analysis 119871344251 and ci-required 119895349234.
+The full emulator jobs passed on API 27 (119886816494), 33 (119886816402),
+35 (119886816584), 36 (119886816512) and 37 (119886816505), including Simple
+integration. API 35 additionally passed JNI strategy and real Xray provider TUN
+acceptance. CodeQL run 39792086294 passed.
+
+## Acceptance incident and resolution
+
+The prior closure was reverted after CI 39772247126 exposed a cold-start
+catalogue deadlock on all five API levels. The corrected lifecycle explicitly
+loads the validated catalogue before awaiting its observation seed. Read errors
+propagate without publication or mutation and allow a later recovery attempt.
+`SelectorColdStartupTest` covers empty startup, persisted selection and read-error
+recovery. The complete corrected JVM and emulator matrix above passed without
+weakening timeouts, assertions or safety gates.
+
+The subsequent JVM run exposed two test-boundary defects: the routing-editor
+fake delayed the old observation API instead of the explicit read, and an
+exception identity assertion crossed coroutine stack recovery. The corrected
+fake gates the actual read and verifies both rejection before hydration and a
+successful save afterward; original exception identity is checked inside the
+timeout boundary. Existing no-publication/no-write/no-refresh assertions remain.
+
+## Scope and local limitation
+
+Local formatting, architecture and task checks passed. The local full app test
+attempt exhausted disk space after both variants compiled; its incomplete test
+results are not acceptance. Hosted complete runs passed. Real HTTPS/SOCKS tests
+use local TLS servers and test storage ports; they are not physical-device,
+platform-keystore or filtered-network proof. No server deployment or credential
+action was performed.
