@@ -2,6 +2,12 @@ package com.poyka.ripdpi.serialization
 
 import kotlinx.serialization.json.Json
 
+/** Explicit opt-in contracts reject unknown fields instead of weakening their requested semantics. */
+val RipDpiStrictJson: Json =
+    Json {
+        ignoreUnknownKeys = false
+    }
+
 /** Primary JSON instance for tolerant inbound app/runtime payloads. */
 val RipDpiJson: Json =
     Json {

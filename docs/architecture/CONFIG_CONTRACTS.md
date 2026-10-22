@@ -450,3 +450,32 @@ standalone YAML schema `2`. Additive changes stay covered by §7.
 | Proto evolution / DataStore | `protobuf-schema-evolution`, `protobuf-datastore` skills |
 | Diagnostics wire contract | `diagnostics-system` skill |
 | Runtime telemetry events & snapshots | [`TELEMETRY_CONTRACT.md`](TELEMETRY_CONTRACT.md) |
+
+## Imported selector payload failover
+
+The optional `ripdpi.payload_failover` bundle extension is owned by
+`PayloadFailoverPolicy` and imported through `SelectorUrltestGroupImport` into
+`SelectorFailover.payloadPolicy`. Its required controls, timing bounds and
+strict unknown-field rejection never fall back to latency-only `urltest`
+semantics. The mirrored schema and actual deployer fixture live in
+`core/data/src/test/resources/contract/`.
+
+`CandidateRelayPayloadProbe` runs HTTPS GETs through each independent candidate's
+protected loopback SOCKS listener. One of two distinct normalized control origins
+must return HTTP 200, identity encoding, complete 32–64 KiB content and the exact
+SHA-256. The ordinary profile measurement remains a separate reachability use case.
+
+`SelectorUrltestProber` requires consecutive active failures and candidate
+recoveries before switching. Each pass checks the active member first, then at
+most one reserve in rotating declared order; a recovering reserve stays selected
+for observation until it qualifies or fails. A healthy active member is retained
+regardless of latency. The whole pass has a deadline independent of group size;
+unobserved members do not count as failures. Switch cooldown, capped outage backoff, selection
+revision checks and policy/network scope invalidation bound retries and prevent
+stale changes. When every candidate fails, the encrypted selection remains;
+control failures alone do not identify censorship.
+
+This policy is supported by imported selector groups. The embedded Simple seed
+explicitly rejects it before any storage mutation because its initial-race runtime
+has a separate probe contract. Device and filtered-network acceptance remain
+separate from local fixture evidence.

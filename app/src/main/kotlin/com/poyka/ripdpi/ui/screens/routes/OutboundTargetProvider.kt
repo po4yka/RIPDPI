@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.platform.StringResolver
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,7 +47,7 @@ class OutboundTargetCatalog
     ) {
         /** Returns built-in actions first, then groups, then profiles, each with a display label. */
         suspend fun targets(): List<OutboundTarget> {
-            val groups = proxyGroupRepository.groups().first()
+            val groups = proxyGroupRepository.list()
             val profiles = relayProfileStore.list()
             return buildList {
                 add(OutboundTarget(OutboundTag.Proxy, builtInProxyLabel()))

@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.subscription
 
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
+import com.poyka.ripdpi.data.PayloadProbeControl
+import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import kotlinx.coroutines.flow.first
@@ -97,6 +101,77 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
                     .first()
                     .single(),
             )
+        }
+
+    @Test
+    fun `invalid payload policy cannot replace saved AWG credentials or relay reserves`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            server.enqueue(response(200, bundle()))
+            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh("subscription-group"))
+            val originalAwg =
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .single()
+            val accepted =
+                fixture.repository.list().single().copy(
+                    isSelector = true,
+                    members =
+                        listOf("primary", "reserve").map { id ->
+                            ProxyProfile.Trojan(
+                                id = id,
+                                groupId = "subscription-group",
+                                displayName = id,
+                                server = "$id.example",
+                                serverPort = 443,
+                                password = "fixture-password",
+                            )
+                        },
+                    failover =
+                        SelectorFailover(
+                            "https://control-a.example/payload",
+                            30,
+                            0,
+                            PayloadFailoverPolicy(
+                                1,
+                                "select",
+                                listOf("control-a", "control-b").map {
+                                    PayloadProbeControl("https://$it.example/payload", 32_768, "a".repeat(64))
+                                },
+                                30,
+                                3,
+                                2,
+                                2,
+                                60,
+                                120,
+                            ),
+                        ),
+                )
+            fixture.repository.update(accepted)
+            for (invalidPolicy in listOf("{}", "null")) {
+                val changed =
+                    bundle("192.0.2.30:443", "fixture-untrusted-rotation", 8)
+                        .replace("\"hysteria_extras\":{}", "\"hysteria_extras\":{},\"payload_failover\":$invalidPolicy")
+                server.enqueue(response(200, changed))
+
+                val result = fixture.coordinator.refresh("subscription-group")
+                val stored = fixture.repository.list().single()
+
+                assertEquals(SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.PARSE_ERROR, false), result)
+                assertEquals(accepted.members, stored.members)
+                assertEquals(accepted.failover, stored.failover)
+                assertEquals(accepted.subscription!!.lastUpdated, stored.subscription!!.lastUpdated)
+                assertEquals(SubscriptionRefreshFailure.PARSE_ERROR, stored.subscription!!.lastRefreshFailure)
+                assertEquals(
+                    originalAwg,
+                    fixture.awgRepository
+                        .observeProfiles()
+                        .first()
+                        .single(),
+                )
+                assertEquals(originalAwg, fixture.awgRepository.load(originalAwg.id))
+            }
         }
 
     @Test

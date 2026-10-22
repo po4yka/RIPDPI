@@ -612,6 +612,23 @@ class ConfigSeederTest {
         }
 
     @Test
+    fun `unsupported payload policy is rejected before seed mutation`() =
+        runTest {
+            val seeder =
+                makeSeeder(
+                    FAKE_BUNDLE.replace(
+                        "\"schema_version\": 1,",
+                        "\"schema_version\": 1, \"payload_failover\": {},",
+                    ),
+                )
+            val failure = runCatching { seeder.seed() }.exceptionOrNull()
+            assertEquals("Embedded Simple configuration does not support payload failover policy", failure?.message)
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(relayProfileStore.list().isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
     fun `missing asset fails seed without mutating storage`() =
         runTest {
             val seeder = makeSeeder(bundleJson = null)

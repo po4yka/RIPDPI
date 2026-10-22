@@ -240,7 +240,12 @@ class RelayActivationSelectorReloadTriggerTest {
             val fixture = fixture(listOf(selectorGroup(listOf(member("a"), member("b")))), "a")
             val coordinator =
                 SelectorReloadCoordinator(backgroundScope, fixture.provider.selectionChanges(), fixture.trigger)
-            val listener = SelectorReloadModule.provideSelectorReloadLifecycleListener(coordinator, fixture.trigger)
+            val listener =
+                SelectorReloadModule.provideSelectorReloadLifecycleListener(
+                    coordinator,
+                    fixture.trigger,
+                    fixture.groups,
+                )
             listener.start(Mode.VPN)
             // Intentionally do not runCurrent before production preparation.
             listener.prepare()

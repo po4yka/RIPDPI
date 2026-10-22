@@ -11,7 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
@@ -140,6 +140,7 @@ data class SelectorFailover(
     val probeUrl: String,
     val intervalSeconds: Int,
     val toleranceMs: Int,
+    val payloadPolicy: PayloadFailoverPolicy? = null,
 )
 
 /**
@@ -467,7 +468,7 @@ interface ProxyGroupRepository {
         id: String,
     )
 
-    /** Returns all stored groups ordered by [ProxyGroup.order]. */
+    /** Loads stored groups and publishes the validated snapshot; read failures propagate to the caller. */
     suspend fun list(): List<ProxyGroup>
 
     /** Replaces the group collection after the caller durably reserves its explicit restore/reset receipt. */
@@ -478,7 +479,10 @@ interface ProxyGroupRepository {
 
     suspend fun compensateReplacement(groups: List<ProxyGroup>)
 
-    /** Hot stream of the group collection; re-emits after every mutation. */
+    /**
+     * Observes validated snapshots without reading storage. Waits for a successful [list] or mutation
+     * before its first emission, so early collectors cannot bypass guarded startup loading.
+     */
     fun groups(): Flow<List<ProxyGroup>>
 }
 
@@ -492,7 +496,7 @@ class SharedPreferencesProxyGroupRepository
         private val json = RipDpiJson
         private val listSerializer = ListSerializer(ProxyGroup.serializer())
         private val mutex = Mutex()
-        private val state = MutableStateFlow(readGroups())
+        private val state = MutableStateFlow<List<ProxyGroup>?>(null)
 
         override suspend fun add(group: ProxyGroup) {
             val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.ImportOnly)
@@ -541,7 +545,10 @@ class SharedPreferencesProxyGroupRepository
             }
         }
 
-        override suspend fun list(): List<ProxyGroup> = readGroups()
+        override suspend fun list(): List<ProxyGroup> =
+            mutex.withLock {
+                readGroups().also { state.value = it }
+            }
 
         override suspend fun replaceAll(
             receipt: DurableCommandReceipt,
@@ -559,13 +566,15 @@ class SharedPreferencesProxyGroupRepository
             }
         }
 
-        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
+        override fun groups(): Flow<List<ProxyGroup>> = state.filterNotNull()
 
         private fun readGroups(): List<ProxyGroup> =
             blobStore.read()?.let { json.decodeFromString(listSerializer, it) } ?: emptyList()
 
         private fun writeGroups(groups: List<ProxyGroup>) {
             val ordered = groups.sortedBy(ProxyGroup::order)
+            // Validate the existing catalogue before even the first replacement write.
+            if (state.value == null) readGroups()
             blobStore.write(json.encodeToString(listSerializer, ordered))
             state.value = ordered
         }
@@ -613,22 +622,21 @@ class KeystoreProxyGroupBlobStore
 
         override fun read(): String? {
             val version = preferences.getInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
-            val raw = secure.getString(SealedGroupsKey) ?: migrateLegacyPlaintext() ?: return null
+            // Unreadable sealed reserves are not an empty catalogue. In particular,
+            // never revive obsolete plaintext after authentication or decoding fails.
+            val raw = secure.getStringStrict(SealedGroupsKey) ?: migrateLegacyPlaintext() ?: return null
             return ProxyGroupSchema.migrate(raw, version)
         }
 
         override fun write(json: String) {
-            secure.putString(SealedGroupsKey, json)
-            preferences
-                .edit()
-                .remove(GroupsKey)
-                .putInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
-                .apply()
+            secure.putString(SealedGroupsKey, json) {
+                remove(GroupsKey)
+                putInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
+            }
         }
 
         override fun clear() {
-            secure.remove(SealedGroupsKey)
-            preferences.edit().clear().apply()
+            preferences.edit().clear().commitOrThrow()
         }
 
         /**
@@ -639,8 +647,7 @@ class KeystoreProxyGroupBlobStore
          */
         private fun migrateLegacyPlaintext(): String? {
             val legacy = preferences.getString(GroupsKey, null) ?: return null
-            secure.putString(SealedGroupsKey, legacy)
-            preferences.edit().remove(GroupsKey).apply()
+            secure.putString(SealedGroupsKey, legacy) { remove(GroupsKey) }
             return legacy
         }
 
