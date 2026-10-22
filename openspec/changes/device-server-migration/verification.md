@@ -1,15 +1,15 @@
 ---
 task_id: TRN-1792673614153980
 change: device-server-migration
-commit_sha: null
+commit_sha: fc8005cb4c67ca78996b68ed9746154ebeedcb69
 local: passed
-local_evidence: Combined implementation rebased on main passed the full runtime-state (287), data (914), service (2271) and app (2975) suites with zero failures, errors or skips, plus staticAnalysis and app/service lint in 25m24s. Earlier app timeouts did not recur; no assertions or timeouts were changed.
+local_evidence: Integrated revision 39b0dafc passed 6462 unfiltered JVM tests with zero failures, errors or skips plus staticAnalysis and app/service lint. Subsequent generated-worker regression and complete worker suites passed 11 tests plus app lint, detekt and ktlint. Emulator-pool package identity tests passed all 34 cases.
 remote_ci: required
 remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: Final received, connect-AWG and path-tested Compose renders were inspected; explicit FileProvider JSON read-grant tests passed. Native APK and exact-SHA artifact acceptance remain pending.
+device: passed
+device_evidence: Owned API 37 arm64 16-KiB emulator imported the real HTTPS subscription, preserved received on failure, passed a real Hysteria2 full-body request, displayed New path tested and opened the explicit Android JSON share chooser. Server verification accepted both received and path-tested receipt HMACs and exact payload digests.
+artifact: passed
+artifact_evidence: Native-enabled fc8005cb arm64 debug APK assembled in 4m4s; native ELF and 16-KiB APK alignment checks passed. APK SHA256 c7b7e16feb60026e73145963d0c7e4632fc0443e87166ed55b53a115f3ce8883. Actual native traffic succeeded on the installed APK.
 deployment: not_applicable
 deployment_evidence: This client change does not deploy or retire a server; live operator migration remains separately authorized.
 ---
@@ -20,114 +20,77 @@ deployment_evidence: This client change does not deploy or retire a server; live
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-MIGRATION-DELIVERY | TRN-1792674002992530 | `DeviceMigrationContractTest`, `DeviceMigrationCoordinatorTest`, `ImportConfirmViewModelTest`, `SubscriptionPayloadLimitsTest`, `ProxyGroupSecretAtRestTest`, `AwgProfileRepositoryRoomTest` cover strict metadata, raw-byte digest, refresh/bootstrap persistence, same-group AWG key carry, exact durable snapshots, invalid payloads and receipt confidentiality | Implemented; requirement-specific and complete combined JVM gates passed |
-| REQ-MIGRATION-TARGET | TRN-1792674004430919 | `CandidateRelayPayloadProbeTest` exercises Reality, XHTTP and Hysteria2 candidate branches; `ActiveAwgMigrationProbeTest` exercises exact active AmneziaWG configuration and full-body probe completion | Implemented; injected-probe tests passed, real device/server reachability unverified |
-| REQ-MIGRATION-FENCE | TRN-1792674004430919 | Coordinator, AWG repository and runtime tests cover delivery/profile/network/runtime changes, cancellation, key edits, replacement, session death and cleanup | Implemented; requirement-specific and complete combined JVM gates passed |
-| REQ-MIGRATION-EXPORT | TRN-1792674005207294 | Shared received/relay/AWG HMAC vectors, strict receipt fields, explicit Compose actions, all ten locale resources, and FileProvider exact JSON/read-only grant tests | Implemented; four UI/share tests passed; all three final states rendered and inspected |
+| REQ-MIGRATION-DELIVERY | TRN-1792674002992530 | Contract, coordinator, import, payload-limit, sealed-storage and AWG repository tests; real HTTPS import and received receipt | Passed |
+| REQ-MIGRATION-TARGET | TRN-1792674004430919 | Candidate tests cover Reality, XHTTP and Hysteria2; active-AWG tests bind exact runtime configuration; real emulator Hysteria2 request completed its full body | Passed within the stated emulator scope |
+| REQ-MIGRATION-FENCE | TRN-1792674004430919 | Delivery/profile/network/runtime changes, cancellation, key edits, replacement, session death and cleanup regressions | Passed |
+| REQ-MIGRATION-EXPORT | TRN-1792674005207294 | Shared HMAC vectors, strict fields, ten locales, FileProvider read grants, Compose renders and actual Android share chooser; server accepted exported JSON | Passed |
 
-## Observed local checks
+## Local checks
 
-- Final combined implementation at `a5e2eaa00345396c33142ea58f6d53eaac53955d`
-  passed the unfiltered runtime-state (287), data (914), service (2271) and app
-  (2975) suites: 6447 tests, zero failures, errors or skipped tests.
-  The same invocation passed `staticAnalysis`, `:app:lintGithubFullDebug` and
-  `:core:service:lintDebug`, with `BUILD SUCCESSFUL` in 25m24s. It used the
-  machine-wide build gate, four workers and `-Pripdpi.skipNativeBuild=true`.
-  No test assertion or timeout was changed. Earlier timeout failures below
-  remain historical observations and did not recur on this combined revision.
-- Regenerated the canonical translation export with all 14 migration keys;
-  export synchronization and all three translation-export tests passed.
+- Integrated revision `39b0dafc` passed the unfiltered runtime-state (287), data
+  (922), service (2271) and app (2982) suites: 6462 tests, zero failures, errors
+  or skips. The same build-gated invocation passed `staticAnalysis`,
+  `:app:lintGithubFullDebug` and `:core:service:lintDebug` in 15m34s.
+  `-Pripdpi.skipNativeBuild=true` applied only to these JVM checks.
+- Earlier app timeout failures were retained as failures until the combined
+  gate passed. The subprocess regression now waits for real-child readiness
+  before exercising the unchanged timeout and reap assertions.
+- The generated Hilt worker factory regression failed before adding the missing
+  AndroidX Hilt KSP processor, then passed with both complete existing worker
+  suites: 11 tests, zero failures, errors or skips. App lint, detekt and ktlint
+  passed in the same invocation. This follow-up did not rerun all 6462 tests.
+- All 34 emulator-pool tests passed after exact SDK package identity support was
+  added for the installed 16-KiB image. Existing pool slots were preserved.
+- Native-enabled `assembleGithubFullDebug` passed at `fc8005cb` in 4m4s with
+  verified pinned native prebuilts; their owning source/build inputs were
+  unchanged from their CI source revision. `verify_native_elfs.py --abis
+  arm64-v8a` and `zipalign -c -P 16 -v 4` passed.
+- Task contracts, strict OpenSpec validation, architecture health with no new
+  or worsened indicators, locked Cargo metadata, translation export parity,
+  changed Kotlin formatting and strict harness links passed before publication.
+- Companion bundle, payload and migration contract resources remain identical
+  to the canonical server resources. Atomic subscription refresh journals exact
+  AWG after-images and matching receipt identities after checking group ownership.
 
-- Full affected JVM suites passed with `-Pripdpi.skipNativeBuild=true`: runtime-state
-  281 tests, core/data 903 tests, core/service 2262 tests and app 2947 tests;
-  no failures, errors or skipped tests at that revision. These results include
-  catalog generation, recovery and card-render changes, before the final
-  JSON/flow-YAML parser guard and two regression tests.
-- The combined Gradle gate completed with `BUILD SUCCESSFUL` in 13m31s:
-  `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :core:service:testDebugUnitTest :app:testGithubFullDebugUnitTest :core:data:runtime-state:testDebugUnitTest :core:data:testDebugUnitTest staticAnalysis :app:lintGithubFullDebug :core:service:lintDebug -Pripdpi.skipNativeBuild=true --max-workers=4 -Pripdpi.nativeCpuBudget=4 --continue`.
-  Task-specific temporary Gradle caches and build outputs were redirected to an
-  external volume to avoid repeating the earlier disk exhaustion.
-- After the final parser guard, all runtime-state (281) and data (903) tests,
-  app/runtime-state detekt and ktlint, runtime-state lint and app full/simple
-  lint passed. Service code was unchanged after its 2262-test successful run.
-- Two final unfiltered app runs each reported 2949 tests, one failure, no errors
-  or skips: `ProfileUtilityViewModelTest.failed checked ACK commit publishes
-  neither recents nor applied configuration` timed out while its first
-  measurement remained `Checking`. The unchanged class passed alone (21 tests)
-  and together with `DeviceMigrationCoordinatorTest` and
-  `MigrationStatusCardTest` (32 tests total). No assertion or timeout was changed.
-  All migration regression cases passed; the full-suite failure cause remains
-  unresolved at that earlier revision. The final rebased full gate above passed.
-- Final unfiltered app command:
-  `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :app:testGithubFullDebugUnitTest -Pripdpi.skipNativeBuild=true --max-workers=4 -Pripdpi.nativeCpuBudget=4`.
-  The diagnostic class selections above establish only diagnosis, not full-suite
-  acceptance. The final parser rejects malformed RIPDPI metadata without losing
-  ordinary Clash JSON or flow-YAML refresh support.
-- Strict OpenSpec validation passed.
-- Architecture health passed: 21 baseline indicators, no new or worsened entries.
-- `cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 1`
-  passed. No Rust production source changed.
-- Shared migration metadata, receipt, golden-vector and bundle schema resources
-  are byte-identical to the companion server contract at final local verification.
-- `git diff --check` and ktlint for all 44 changed Kotlin files passed.
-- `just task-check` passed after reinstalling its pinned tooling: 146 tasks, 450 steps.
-- All 76 existing localization regression tests passed; the 14 migration strings have matching keys and format arguments across all ten locales.
+## Actual emulator interaction
 
-## Render inspection
+The owned temporary API 37 arm64 emulator used 16-KiB pages. A test CA was
+trusted only inside that disposable emulator; production trust configuration was
+unchanged and SELinux remained enforcing. HTTPS import used localhost through
+one ADB reverse mapping. The payload URL targeted `127.0.0.1:51432`, with no
+reverse mapping for that port. Direct use of that exact URL inside the emulator
+could not reach the host payload; the real Hysteria2 request reached the peer
+loopback. The separate emulator host alias was not the probe URL.
+The test selected the supported Firefox fingerprint through the application UI.
 
-Final `migration-received.png`, `migration-connect-awg.png` and
-`migration-tested.png` renders under `app/build/compose-previews/renders/` have
-readable status text, complete fields and buttons, visible AWG guidance and
-disabled in-flight actions without clipping or overlap. These are Robolectric
-native-graphics renders, not physical-device acceptance. No dedicated migration
-RDS screen exists; the implementation reuses the subscription card components.
-Existing screenshot baselines are unchanged.
+1. Importing the actual HTTPS response persisted one replacement profile and
+   displayed `Replacement received; path not tested`.
+2. Explicit `Share migration receipt` opened Android's chooser for one JSON
+   file. The server codec accepted its HMAC and exact response-byte digest.
+3. A failed candidate request left the received state intact and displayed that
+   no tested receipt had been recorded.
+4. The positive request transferred 38912 bytes through the pinned Hysteria2
+   peer and changed the UI to `New path tested`. Payload SHA256:
+   `a01441c8e417b004d30b946477e1dc5cd6014010f60314a16d40818e3fec873b`.
+5. A second explicit export opened the real chooser. The server codec accepted
+   `state=path-tested`, the exact target tag, HMAC and original bundle digest.
+   Received receipt SHA256:
+   `04c55af1607569f21e412f89863982b277abf8f971fbe5e1dd95de90831051b3`.
+   Tested receipt SHA256:
+   `fb01bb19c32e8768054229347c2fbf2d3e759285898da547707f2ab8a3bb722c`.
 
-## Atomic refresh integration — 2026-10-22
+The final screenshot was inspected: status, explanatory copy, URL field and
+all actions were readable without overlap or clipping. No chooser recipient
+was selected. The emulator crash buffer contained zero fatal exceptions. The owned temporary
+emulator and peer were stopped, and their test certificate and authority keys
+were removed after verification; existing pool slots were preserved.
+Earlier received, connect-AWG and tested Compose renders also passed inspection.
 
-Merged the published atomic subscription refresh implementation from `ede4099f5`
-without rewriting the migration branch. Refresh now derives receipt targets from
-exact prepared AWG row/credential after-images after the captured-group ownership
-check and journals them with the accepted group. Same-group renamed AWG members
-retain the device key and preserve their source row. New regression cases cover
-stale-owner rejection, journal replay with matching receipt identities and
-existing observers, exact target fingerprints, unchanged-payload proof retention,
-and metadata-free authority removal.
+## Remaining scope
 
-Observed before publication of this integration:
-
-- Scoped Kotlin formatting and `git diff --check` passed.
-- Task contracts passed: 147 tasks, 452 steps.
-- Architecture health passed: 21 indicators, none new, worsened or stale.
-- Independent semantic review found no actionable defects.
-- The five bundle/payload/migration contract resources match the companion
-  canonical server contract `29ed8d13` byte-for-byte, preserving both
-  `payload_failover` and `migration`.
-- Focused JVM checks are queued behind the machine-wide build gate; they have
-  not run yet. The full combined four-module JVM/static-analysis/lint gate is
-  pending after those checks. Earlier full-gate results below predate this merge
-  and do not establish acceptance of the integrated revision.
-
-## Remaining gates
-
-- Complete emulator interaction and share-chooser acceptance using the
-  command-scoped emulator pool lease.
-- Require hosted CI, successful native build and exact-SHA APK evidence after
-  authorized publication before accepting the feature as shipped.
-
-## Resource and evidence boundaries
-
-A fresh local native compilation failed while copying the relay native library
-because the machine ran out of disk space; the fresh worktree also lacked its
-Xray artifact. Only this task's disposable Rust build intermediate was removed.
-An earlier combined JVM/static attempt was stopped while waiting for the shared
-build gate when free space fell below 500 MiB. The earlier combined gate succeeded with
-external temporary build storage; final parser follow-up checks retain the
-full app suite failure described above. Native-off JVM checks establish Kotlin
-behavior, not APK packaging or native transport acceptance.
-
-Unit fixtures and injected probes establish client behavior, never actual server
-reachability. No live receipt or device/server migration is claimed. No remote
-telemetry or implicit upload was added. The pre-integration full JVM gate passed; hosted, device and native artifact acceptance
-remain unresolved until results are observed for the implementation revision.
-The task remains open and no deployment or production migration is claimed.
+Hosted CI for the current revision and subsequent main integration remain
+required. The task stays open until those results are observed. Actual emulator
+traffic acceptance covers Hysteria2; Reality, XHTTP and active AWG migration
+branches have automated probe coverage rather than physical-device acceptance.
+No production server migration, credential rotation or physical-device result
+is claimed. The feature adds no remote telemetry or implicit receipt upload.
