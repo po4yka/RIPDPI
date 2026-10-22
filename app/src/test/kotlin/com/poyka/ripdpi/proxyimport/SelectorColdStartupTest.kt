@@ -115,7 +115,11 @@ class SelectorColdStartupTest {
             fixture.listener.start(Mode.VPN)
             runCurrent()
 
-            val observed = runCatching { withTimeout(1_000L) { fixture.listener.prepare() } }.exceptionOrNull()
+            val observed =
+                withTimeout(1_000L) {
+                    // Catch before coroutine stack-trace recovery can copy the original exception.
+                    runCatching { fixture.listener.prepare() }.exceptionOrNull()
+                }
 
             assertSame(failure, observed)
             assertTrue(snapshots.isEmpty())
