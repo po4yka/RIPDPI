@@ -14,7 +14,7 @@ HTTP verifier accepts empty successful responses. Reuse this runtime ownership.
 ## Decisions
 
 - Parse `ripdpi.payload_failover` into a typed persisted policy attached to the matching selector. Require all fields, schema version 1, exactly two distinct HTTPS origins, expected bytes 32768–65536 and lowercase SHA-256.
-- Keep unsupported custom properties out of URL-test outbounds. Absence of the extension means the existing ordinary policy; a malformed present extension refuses the import.
+- Keep unsupported custom properties out of URL-test outbounds. Absence of the extension means the existing ordinary policy; a malformed present extension refuses the import before alternate-format/AWG fallbacks or any profile persistence.
 - Reuse candidate relay startup, VPN protection, SOCKS endpoint and cleanup. Structured HTTP requests require status 200, identity encoding, full EOF, exact bytes and digest. Either control can establish health, avoiding a single control outage as a false path failure. No result is labeled censorship.
 - Keep per-run health counters scoped to the current network, group and policy. Require failure/recovery thresholds, cooldown and bounded exponential backoff. Use monotonic time, cancellation and a bounded whole-pass deadline. Do not select direct or clear the live encrypted selection on total failure.
 - Probe observations are ephemeral; restart deliberately discards health confidence and remeasures. Imported policy and chosen selector remain in existing durable stores. No new raw network identity persistence.
@@ -53,3 +53,7 @@ cleanup wait. Deadline cancellation discards the incomplete round and its
 consecutive evidence, then advances the cursor without inventing failures for
 unobserved candidates. Outage backoff starts only after each eligible reserve has
 actually failed in the current scope; a healthy observation clears that coverage.
+
+### Shared probe capacity
+
+Whole payload rounds must acquire shared selector probe capacity before starting the pass deadline. Contending groups wait cancellably without consuming their measurement budget; existing scope and selection fences still discard obsolete results. Serialized rounds retain bounded candidate runtime ownership and permit each failed active exit to test its reserve.

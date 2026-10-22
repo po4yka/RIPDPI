@@ -51,7 +51,8 @@ class StrictPayloadSocksTest {
                     "HTTP/1.1 200 OK\r\nContent-Length: 32768\r\n\r\nshort",
                     "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n" + payload + "x",
                     "HTTP/1.1 200 OK\r\nContent-Length: 32768\r\n\r\n" + "y".repeat(32_768),
-                    "HTTP/1.1 302 Found\r\nLocation: https://control-b.example.test/payload\r\nContent-Length: 0\r\n\r\n",
+                    "HTTP/1.1 302 Found\r\n" +
+                        "Location: https://control-b.example.test/payload\r\nContent-Length: 0\r\n\r\n",
                     "HTTP/1.1 204 No Content\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n8000\r\n$payload\r\n",
                 )

@@ -22,6 +22,11 @@ Ordinary bundles without the extension SHALL retain their URL-test policy.
 - **WHEN** a supplied policy contains an unknown field, selector mismatch or invalid payload digest
 - **THEN** the entire import is rejected instead of silently using RTT checks
 
+#### Scenario: Malformed policy alongside AWG profiles
+
+- **WHEN** a refresh includes AWG entries and an invalid payload policy
+- **THEN** it fails before any AWG or relay persistence, without alternate-format or AWG-only fallback
+
 ### Requirement: REQ-PAYLOAD-VERIFY — Prove the candidate payload
 
 The client MUST fetch controls through the candidate relay using authenticated
@@ -55,6 +60,12 @@ and preserve cancellation and candidate cleanup ownership.
 
 - **WHEN** the active candidate reaches the failure threshold and an alternate reaches the recovery threshold outside cooldown
 - **THEN** the selector switches through its existing guarded reload path
+
+#### Scenario: Concurrent selector rounds
+
+- **WHEN** multiple selectors share probe capacity and their active candidates consume their full measurement budgets
+- **THEN** queue waiting does not consume a payload round's deadline and each round can check its reserve
+- **AND** cancellation while waiting starts no candidate and commits no selection
 
 ### Requirement: REQ-PAYLOAD-SAFETY — Preserve encrypted routing
 

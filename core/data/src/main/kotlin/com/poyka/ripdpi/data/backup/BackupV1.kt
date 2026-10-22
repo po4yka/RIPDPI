@@ -340,7 +340,7 @@ object BackupGroupRedactor {
     private val SECRET_QUERY_KEYS: Set<String> =
         setOf("token", "access_token", "accesstoken", "auth", "key", "apikey", "api_key")
 
-    /** Returns [group] with subscription secrets, members and package names stripped (SHARE-safe). */
+    /** Returns [group] without subscription secrets, members, failover controls or package names. */
     fun redact(group: ProxyGroup): ProxyGroup {
         // SHARE backups must not carry the member node list. A selector/subscription
         // group's [ProxyGroup.members] can embed per-node credentials (e.g. AnyTLS/SSH
@@ -348,12 +348,9 @@ object BackupGroupRedactor {
         // recipient device, so it is dropped rather than risk leaking a secret into a
         // publicly-shared backup. FULL exports keep members verbatim (they bypass this
         // redactor in [BackupExporter.export]).
-        val base =
-            if (group.members.isEmpty() && group.packageRoutingRules.isEmpty()) {
-                group
-            } else {
-                group.copy(members = emptyList(), packageRoutingRules = emptyList())
-            }
+        // Control URLs can contain arbitrary signed query/path credentials. SHARE already
+        // omits the members, so omit their automatic probe policy instead of guessing token names.
+        val base = group.copy(members = emptyList(), packageRoutingRules = emptyList(), failover = null)
         val sub = base.subscription ?: return base
         return base.copy(
             subscription =

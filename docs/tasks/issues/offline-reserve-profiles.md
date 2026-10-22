@@ -33,3 +33,10 @@ Retain accepted encrypted reserve profiles across offline restart and rejected r
 - Persistence worker initially owns ProxyGroupStores and persistence tests, then hands off that file and owns the shared encrypted editor transaction and offline socket integration test.
 - Task files, dependencies, schemas and shared generated assets have only the parent writer.
 - Reuse TRN-1792659369802828 payload verification through its existing PR dependency.
+
+## Combined review ownership
+
+- Parent owns combined integration, SHARE backup redaction, its tests and all task/specification files.
+- Queue worker owns selector round scheduling and its focused concurrency tests, with service probe changes only if the shared-capacity boundary requires them.
+- Refresh worker owns malformed-policy rejection before subscription side effects and its app/parser regression tests.
+- Workers use separate worktrees from the merged client branch; no shared schema, dependency, runtime model or generated file has multiple writers.

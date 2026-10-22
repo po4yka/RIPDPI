@@ -283,13 +283,13 @@ internal fun consumeVerifiedPayload(
     response: Response,
     expected: PayloadProbeControl,
 ): Boolean {
-    val declared = response.body.contentLength()
     if (response.code != PayloadSuccessStatus || response.header("Content-Range") != null ||
-        response.header("Content-Encoding")?.let { !it.equals("identity", ignoreCase = true) } == true ||
-        (declared >= 0 && declared != expected.expectedBytes.toLong())
+        response.header("Content-Encoding")?.let { !it.equals("identity", ignoreCase = true) } == true
     ) {
         return false
     }
+    val declared = response.body.contentLength()
+    if (declared >= 0 && declared != expected.expectedBytes.toLong()) return false
     val digest = MessageDigest.getInstance("SHA-256")
     return response.body.byteStream().use { input ->
         var received = 0

@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Singleton
@@ -68,6 +70,7 @@ class SelectorUrltestProber internal constructor(
 ) {
     private val log = Logger.withTag("selector-urltest")
     private val payloadStates = ConcurrentHashMap<String, ScopedPayloadState>()
+    private val probeRoundMutex = Mutex()
 
     private data class ScopedPayloadState(
         val scope: SelectorProbeScope,
@@ -137,7 +140,10 @@ class SelectorUrltestProber internal constructor(
             group.members.filterNot { it.id in group.cloudflareMemberIds }.map { member ->
                 MemberLatency(
                     profileId = member.id,
-                    latencyMillis = probe.measure(member, MemberProbeTarget.Reachability(probeUrl)),
+                    latencyMillis =
+                        probeRoundMutex.withLock {
+                            probe.measure(member, MemberProbeTarget.Reachability(probeUrl))
+                        },
                 )
             }
         currentCoroutineContext().ensureActive()
@@ -158,8 +164,9 @@ class SelectorUrltestProber internal constructor(
     private suspend fun runPayloadPass(
         group: ProxyGroup,
         policy: PayloadFailoverPolicy,
-    ) {
-        val scoped = payloadState(group, policy) ?: return
+    ) = probeRoundMutex.withLock {
+        // Wait for other selector work before capturing scope or starting the measurement budget.
+        val scoped = payloadState(group, policy) ?: return@withLock
         if (monotonicMillis() >= scoped.state.nextProbeAt) {
             val results =
                 withTimeoutOrNull(payloadPassDeadlineMillis(policy)) {

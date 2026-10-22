@@ -39,6 +39,12 @@ The client MUST distinguish absent from unreadable sealed data, preserve unreada
 - **WHEN** a durable catalogue write fails
 - **THEN** the repository reports failure and does not publish the proposed new member set as committed
 
+#### Scenario: Shareable backup contains signed controls
+
+- **WHEN** a SHARE backup exports a group whose probe or payload control URLs contain credentials
+- **THEN** it omits the failover policy even if the group has no subscription or members
+- **AND** a FULL private backup preserves the complete policy for restore
+
 ### Requirement: REQ-RESERVE-REFRESH — Publish only current usable refresh results
 
 A refresh MUST preserve accepted reserves and their payload policy on failure. Only a usable result for the still-current source and catalogue snapshot may replace them. Obsolete results MUST NOT report installation, change newer metadata or recreate deleted state. Delivery-token expiry MUST NOT become transport-credential expiry.

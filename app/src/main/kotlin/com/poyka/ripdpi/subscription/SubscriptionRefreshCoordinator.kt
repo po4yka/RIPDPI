@@ -437,6 +437,9 @@ class SubscriptionRefreshCoordinator private constructor(
         singBox: SingBoxParseResult.Success?,
     ): RefreshOutcome.Updated? {
         val selector = SelectorUrltestGroupImport.import(body, groupId)
+        // A recognized sing-box document is one import unit. In particular, a rejected payload
+        // policy must not fall through to AWG-only persistence or another format's parser.
+        if (singBox != null && selector is SelectorUrltestImportResult.Error) return null
         var parsed =
             if (selector is SelectorUrltestImportResult.Success && selector.profiles.isNotEmpty()) {
                 RefreshOutcome.Updated(
