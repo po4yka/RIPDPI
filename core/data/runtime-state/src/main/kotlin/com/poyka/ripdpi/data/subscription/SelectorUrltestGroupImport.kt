@@ -156,9 +156,7 @@ object SelectorUrltestGroupImport {
             } catch (_: IllegalArgumentException) {
                 return SelectorUrltestImportResult.Error("Invalid payload failover policy")
             }
-        val awgOnly =
-            parsed.amneziaWgProfiles.isNotEmpty() && profiles.isEmpty() &&
-                parsed.skipped.isEmpty() && topology.selectsOnlyDirect()
+        val awgOnly = isDeviceOnlyAwg(parsed, topology)
         if (awgOnly && payloadPolicy != null) {
             return SelectorUrltestImportResult.Error("Payload failover requires remote relay candidates")
         }
@@ -207,6 +205,13 @@ object SelectorUrltestGroupImport {
 
         return importedSelector(parsed, groupId, selectorEntry, memberProfiles, failoverPolicy)
     }
+
+    private fun isDeviceOnlyAwg(
+        parsed: SingBoxParseResult.Success,
+        topology: SelectorTopology,
+    ): Boolean =
+        parsed.amneziaWgProfiles.isNotEmpty() && parsed.profiles.isEmpty() &&
+            parsed.skipped.isEmpty() && topology.selectsOnlyDirect()
 
     private fun importedSelector(
         parsed: SingBoxParseResult.Success,
