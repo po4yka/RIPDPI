@@ -11,13 +11,16 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PersistedEchEntry
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupBlobStore
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import com.poyka.ripdpi.data.testMutationPreparationSource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
@@ -889,30 +892,65 @@ class AppStartupInitializerFailureTest {
         }
 
     @Test
-    fun `subscription worker enqueue failure is isolated after preceding startup steps`() =
+    fun `unreadable reserves gate startup before recovery and retry after storage becomes readable`() =
         runTest {
-            val proxyGroupRepository =
-                RecordingProxyGroupRepository(
-                    listFailure = IllegalStateException("subscription-list-boom"),
-                )
+            var readable = false
+            var bytes: String? = "[]"
+            val retained = bytes
+            val storage =
+                object : ProxyGroupBlobStore {
+                    override fun read(): String? {
+                        check(readable) { "Saved catalogue is unreadable" }
+                        return bytes
+                    }
+
+                    override fun write(json: String) {
+                        bytes = json
+                    }
+
+                    override fun clear() {
+                        bytes = null
+                    }
+                }
+            val repository = SharedPreferencesProxyGroupRepository(storage, testMutationPreparationSource())
+            var recoveryCalls = 0
+            val profileMutations =
+                object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
+                    override suspend fun recover() {
+                        recoveryCalls += 1
+                    }
+                }
+            val compatibilityResetter = RecordingAppCompatibilityResetter()
+            val strategyPackService = RecordingStrategyPackService()
+            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
             val initializer =
                 createInitializer(
-                    compatibilityResetter = RecordingAppCompatibilityResetter(),
-                    strategyPackService = RecordingStrategyPackService(),
-                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
-                    proxyGroupRepository = proxyGroupRepository,
+                    compatibilityResetter = compatibilityResetter,
+                    strategyPackService = strategyPackService,
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
+                    proxyGroupRepository = repository,
+                    startupOverrides = StartupTestOverrides(profileMutations = profileMutations),
                     scope = backgroundScope,
                 )
 
-            val report = initializer.initializeSubsystems()
+            initializer.initialize()
+            initializer.readiness.first { it == AppStartupReadinessState.Failed }
 
-            assertEquals(AppStartupSubsystemStatus.Succeeded, report.compatibilityReset.status)
-            assertEquals(AppStartupSubsystemStatus.Succeeded, report.strategyPackInitialization.status)
-            assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
-            assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchSeed.status)
-            assertEquals(AppStartupSubsystemStatus.Failed, report.subscriptionWorkerEnqueue.status)
-            assertEquals("subscription-list-boom", report.subscriptionWorkerEnqueue.errorMessage)
-            assertEquals(1, proxyGroupRepository.listCalls)
+            assertEquals(retained, bytes)
+            assertEquals(0, recoveryCalls)
+            assertEquals(0, compatibilityResetter.calls)
+            assertEquals(0, strategyPackService.initializeCalls)
+            assertEquals(0, diagnosticsBootstrapper.calls)
+
+            readable = true
+            initializer.retryRecovery()
+            initializer.readiness.first { it == AppStartupReadinessState.Ready }
+
+            assertEquals(retained, bytes)
+            assertEquals(1, recoveryCalls)
+            assertEquals(1, compatibilityResetter.calls)
+            assertEquals(1, strategyPackService.initializeCalls)
+            assertEquals(1, diagnosticsBootstrapper.calls)
         }
 
     @Test
@@ -948,17 +986,18 @@ class AppStartupInitializerFailureTest {
         }
 
     @Test
-    fun `two simultaneous subsystem failures are each recorded with distinct messages`() =
+    fun `two optional subsystem failures are each recorded after catalogue validation`() =
         runTest {
             val compatibilityResetter =
                 RecordingAppCompatibilityResetter(failure = IllegalStateException("compat-boom"))
-            val proxyGroupRepository =
-                RecordingProxyGroupRepository(listFailure = IllegalStateException("subscription-list-boom"))
+            val diagnosticsBootstrapper =
+                RecordingDiagnosticsBootstrapper(failure = IllegalStateException("diagnostics-boom"))
+            val proxyGroupRepository = RecordingProxyGroupRepository()
             val initializer =
                 createInitializer(
                     compatibilityResetter = compatibilityResetter,
                     strategyPackService = RecordingStrategyPackService(),
-                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
                     proxyGroupRepository = proxyGroupRepository,
                     scope = backgroundScope,
                 )
@@ -967,25 +1006,22 @@ class AppStartupInitializerFailureTest {
 
             assertEquals(AppStartupSubsystemStatus.Failed, report.compatibilityReset.status)
             assertEquals("compat-boom", report.compatibilityReset.errorMessage)
-            assertEquals(AppStartupSubsystemStatus.Failed, report.subscriptionWorkerEnqueue.status)
-            assertEquals("subscription-list-boom", report.subscriptionWorkerEnqueue.errorMessage)
-
-            // Every subsystem between the two failures still ran.
+            assertEquals(AppStartupSubsystemStatus.Failed, report.diagnosticsBootstrap.status)
+            assertEquals("diagnostics-boom", report.diagnosticsBootstrap.errorMessage)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.strategyPackInitialization.status)
-            assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.dnsPathInvalidatorRegistration.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.sharedPriorsWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchSeed.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchWorkerEnqueue.status)
-            // ...and the loop continued past the SECOND failure to the trailing subsystem.
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.subscriptionWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.bootSessionRecorderRegistration.status)
 
-            // Both distinct messages render in one log line; neither masks the other.
             val log = report.toLogMessage()
             assertTrue(log.contains("compatibility_reset=failed(error=compat-boom)"))
-            assertTrue(log.contains("subscription_auto_update_worker_enqueue=failed(error=subscription-list-boom)"))
+            assertTrue(log.contains("diagnostics_bootstrap=failed(error=diagnostics-boom)"))
             assertEquals(1, compatibilityResetter.calls)
-            assertEquals(1, proxyGroupRepository.listCalls)
+            assertEquals(1, diagnosticsBootstrapper.calls)
+            assertEquals(2, proxyGroupRepository.listCalls)
         }
 }
 

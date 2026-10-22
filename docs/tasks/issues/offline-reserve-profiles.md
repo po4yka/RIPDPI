@@ -1,0 +1,35 @@
+---
+id: DAT-1792661188293948
+title: Keep verified reserve profiles available offline
+kind: feature
+status: doing
+area: data
+priority: high
+owner: Offline reserves
+parent: null
+blocked_by: []
+spec_mode: required
+openspec_change: offline-reserve-profiles
+created: 2026-10-22
+updated: 2026-10-22
+---
+
+## Goal
+
+Retain accepted encrypted reserve profiles across offline restart and rejected refresh, then qualify failover with actual HTTPS payloads.
+
+## Acceptance criteria
+
+- Offline reload preserves complete member credentials, payload policy and selected profile.
+- Invalid/obsolete refresh cannot overwrite or falsely validate saved reserves.
+- Corrupt sealed storage fails without legacy fallback or destructive overwrite.
+- Local real HTTPS/SOCKS checks select a working reserve and reject wrong content.
+- Relevant JVM/static/task gates pass; no server deployment is performed.
+
+## Ownership
+
+- Parent owns this portfolio, OpenSpec, docs, final integration and offline integration tests.
+- Refresh worker owns app subscription refresh code/tests, then guarded startup and deferred ProxyGroupStores loading after persistence handoff.
+- Persistence worker initially owns ProxyGroupStores and persistence tests, then hands off that file and owns the shared encrypted editor transaction and offline socket integration test.
+- Task files, dependencies, schemas and shared generated assets have only the parent writer.
+- Reuse TRN-1792659369802828 payload verification through its existing PR dependency.

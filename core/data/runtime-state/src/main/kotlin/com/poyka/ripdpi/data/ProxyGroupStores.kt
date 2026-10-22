@@ -12,6 +12,8 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
@@ -493,7 +495,7 @@ class SharedPreferencesProxyGroupRepository
         private val json = RipDpiJson
         private val listSerializer = ListSerializer(ProxyGroup.serializer())
         private val mutex = Mutex()
-        private val state = MutableStateFlow(readGroups())
+        private val state by lazy { MutableStateFlow(readGroups()) }
 
         override suspend fun add(group: ProxyGroup) {
             val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.ImportOnly)
@@ -560,15 +562,17 @@ class SharedPreferencesProxyGroupRepository
             }
         }
 
-        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
+        override fun groups(): Flow<List<ProxyGroup>> = flow { emitAll(state.asStateFlow()) }
 
         private fun readGroups(): List<ProxyGroup> =
             blobStore.read()?.let { json.decodeFromString(listSerializer, it) } ?: emptyList()
 
         private fun writeGroups(groups: List<ProxyGroup>) {
             val ordered = groups.sortedBy(ProxyGroup::order)
+            // Validate the existing catalogue before even the first replacement write.
+            val currentState = state
             blobStore.write(json.encodeToString(listSerializer, ordered))
-            state.value = ordered
+            currentState.value = ordered
         }
     }
 
@@ -614,22 +618,21 @@ class KeystoreProxyGroupBlobStore
 
         override fun read(): String? {
             val version = preferences.getInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
-            val raw = secure.getString(SealedGroupsKey) ?: migrateLegacyPlaintext() ?: return null
+            // Unreadable sealed reserves are not an empty catalogue. In particular,
+            // never revive obsolete plaintext after authentication or decoding fails.
+            val raw = secure.getStringStrict(SealedGroupsKey) ?: migrateLegacyPlaintext() ?: return null
             return ProxyGroupSchema.migrate(raw, version)
         }
 
         override fun write(json: String) {
-            secure.putString(SealedGroupsKey, json)
-            preferences
-                .edit()
-                .remove(GroupsKey)
-                .putInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
-                .apply()
+            secure.putString(SealedGroupsKey, json) {
+                remove(GroupsKey)
+                putInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
+            }
         }
 
         override fun clear() {
-            secure.remove(SealedGroupsKey)
-            preferences.edit().clear().apply()
+            preferences.edit().clear().commitOrThrow()
         }
 
         /**
@@ -640,8 +643,7 @@ class KeystoreProxyGroupBlobStore
          */
         private fun migrateLegacyPlaintext(): String? {
             val legacy = preferences.getString(GroupsKey, null) ?: return null
-            secure.putString(SealedGroupsKey, legacy)
-            preferences.edit().remove(GroupsKey).apply()
+            secure.putString(SealedGroupsKey, legacy) { remove(GroupsKey) }
             return legacy
         }
 

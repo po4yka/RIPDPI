@@ -183,7 +183,10 @@ class SubscriptionImportConfirmViewModel
         private suspend fun refreshAndCompleteImport(groupId: String) {
             when (refreshSubscription(groupId)) {
                 is SubscriptionRefreshResult.Updated -> completeImport()
-                is SubscriptionRefreshResult.Failed -> _uiState.update { it.copy(importFailed = true) }
+
+                is SubscriptionRefreshResult.Failed,
+                SubscriptionRefreshResult.Superseded,
+                -> _uiState.update { it.copy(importFailed = true) }
             }
         }
 

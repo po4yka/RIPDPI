@@ -462,8 +462,15 @@ internal class KeystoreEncryptedPreferences(
     fun putString(
         key: String,
         value: String,
+        configure: SharedPreferences.Editor.() -> Unit = {},
     ) {
-        preferences.edit().putString(key, encrypt(value)).commitOrThrow()
+        val encrypted = encrypt(value)
+        // Ciphertext, schema metadata and legacy-key removal share one durable write.
+        preferences
+            .edit()
+            .apply(configure)
+            .putString(key, encrypted)
+            .commitOrThrow()
     }
 
     fun remove(key: String) {
