@@ -341,7 +341,7 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
 
     private fun awgPayload() =
         """{"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
-          "tag":"green","private_key_placeholder":true,"address":["10.8.0.2/32"],"jc":4,
+          "tag":"green","private_key_placeholder":true,"address":["10.8.0.2/32","fd77::2/128"],"mtu":1330,"jc":4,
           "peer":{"public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
           "endpoint":"192.0.2.20:443","preshared_key":"fixture-psk","allowed_ips":["0.0.0.0/0"]}
         }],"migration":{"schema_version":1,
