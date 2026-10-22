@@ -44,18 +44,25 @@ internal class SelectorTopology(
             entries.all { it.kind() in setOf("selector", "direct", "block", "dns") }
     }
 
-    private fun selectRoot(): JsonObject? {
-        if (selectors.isEmpty()) return null
-        if (finalTag != null) {
-            return requireNotNull(selectors.singleOrNull { it.text("tag") == finalTag }) {
-                "route final does not name a selector"
+    private fun selectRoot(): JsonObject? =
+        when {
+            selectors.isEmpty() -> {
+                null
+            }
+
+            finalTag != null -> {
+                requireNotNull(selectors.singleOrNull { it.text("tag") == finalTag }) {
+                    "route final does not name a selector"
+                }
+            }
+
+            else -> {
+                val referenced = selectors.flatMap { it.members() }.toSet()
+                requireNotNull(selectors.singleOrNull { it.text("tag") !in referenced }) {
+                    "selector root is ambiguous or cyclic"
+                }
             }
         }
-        val referenced = selectors.flatMap { it.members() }.toSet()
-        return requireNotNull(selectors.singleOrNull { it.text("tag") !in referenced }) {
-            "selector root is ambiguous or cyclic"
-        }
-    }
 
     private fun leaves(
         entry: JsonObject,

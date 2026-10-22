@@ -420,15 +420,14 @@ class SubscriptionRefreshCoordinator private constructor(
         val selector = SelectorUrltestGroupImport.import(body, groupId)
         // A recognised bundle must not fall through to AWG-only success after
         // its relay topology fails: that would erase the last working members.
-        if (singBox != null && selector is SelectorUrltestImportResult.Error) return null
+        val rejectedTopology = singBox != null && selector is SelectorUrltestImportResult.Error
         val members =
             (selector as? SelectorUrltestImportResult.Success)
                 ?.let { it.group?.members ?: it.profiles }
                 .orEmpty()
                 .filterNot { it is ProxyProfile.RawConfig }
-        if (singBox != null && (singBox.profiles.isNotEmpty() || singBox.skipped.isNotEmpty()) &&
-            members.isEmpty()
-        ) {
+        val hasRelayCandidates = singBox?.let { it.profiles.isNotEmpty() || it.skipped.isNotEmpty() } == true
+        if (rejectedTopology || (hasRelayCandidates && members.isEmpty())) {
             return null
         }
         var parsed =
