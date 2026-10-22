@@ -15,7 +15,8 @@ import org.junit.Test
 class ProxyGroupRepositoryTest {
     private fun newRepository(): SharedPreferencesProxyGroupRepository =
         SharedPreferencesProxyGroupRepository(
-            FakeProxyGroupBlobStore(),
+            com.poyka.ripdpi.data
+                .ProxyGroupCatalog(FakeProxyGroupBlobStore()),
             com.poyka.ripdpi.data
                 .testMutationPreparationSource(),
         )
@@ -108,7 +109,8 @@ class ProxyGroupRepositoryTest {
             val blobStore = FakeProxyGroupBlobStore()
             val first =
                 SharedPreferencesProxyGroupRepository(
-                    blobStore,
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
                         .testMutationPreparationSource(),
                 )
@@ -122,7 +124,8 @@ class ProxyGroupRepositoryTest {
 
             val reloaded =
                 SharedPreferencesProxyGroupRepository(
-                    blobStore,
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
                         .testMutationPreparationSource(),
                 )
@@ -138,7 +141,8 @@ class ProxyGroupRepositoryTest {
             )
             val afterDelete =
                 SharedPreferencesProxyGroupRepository(
-                    blobStore,
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
                         .testMutationPreparationSource(),
                 )

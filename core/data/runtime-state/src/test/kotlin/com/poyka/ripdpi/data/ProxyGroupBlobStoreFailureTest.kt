@@ -64,7 +64,8 @@ class ProxyGroupBlobStoreFailureTest {
             val authority = testPauseAuthority()
             val repository =
                 SharedPreferencesProxyGroupRepository(
-                    KeystoreProxyGroupBlobStore(context),
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(KeystoreProxyGroupBlobStore(context)),
                     testMutationPreparationSource(authority),
                 )
             val observed = mutableListOf<List<ProxyGroup>>()

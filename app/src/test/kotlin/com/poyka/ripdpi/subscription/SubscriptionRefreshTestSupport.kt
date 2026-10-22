@@ -45,12 +45,13 @@ abstract class SubscriptionRefreshTestSupport {
         initialMembers: List<ProxyProfile> = emptyList(),
         httpClient: OkHttpClient = OkHttpClient(),
     ): Fixture {
-        val repository: ProxyGroupRepository =
-            SharedPreferencesProxyGroupRepository(
-                FakeBlobStore(),
-                com.poyka.ripdpi.data
-                    .testMutationPreparationSource(),
-            )
+        val catalog =
+            com.poyka.ripdpi.data
+                .ProxyGroupCatalog(FakeBlobStore())
+        val awgDao = FakeAwgDao()
+        val awgCredentials = FakeAwgCredentialStore()
+        val mutations = subscriptionMutationCoordinator(catalog, awgDao, awgCredentials)
+        val repository: ProxyGroupRepository = SharedPreferencesProxyGroupRepository(catalog, mutations)
         repository.add(
             subscriptionGroup("subscription-group", 0, initialLifecycle, initialFailure).copy(
                 packageRoutingRules = initialRules,
@@ -58,14 +59,11 @@ abstract class SubscriptionRefreshTestSupport {
             ),
         )
         val publisher = SubscriptionRecordingPublisher()
-        val awgDao = FakeAwgDao()
-        val awgCredentials = FakeAwgCredentialStore()
         val awgRepository =
             AwgProfileRepository(
                 awgDao,
                 awgCredentials,
-                com.poyka.ripdpi.data.awg
-                    .TestDirectAwgProfileMutationCoordinator(awgDao, awgCredentials),
+                mutations,
             )
         val coordinator =
             SubscriptionRefreshCoordinator(

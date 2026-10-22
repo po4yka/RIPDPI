@@ -800,6 +800,12 @@ class StandaloneAmneziaWgActivatorTest {
 
         override fun warpRuntimeRevision(profileId: String): Long = unsupported()
 
+        override suspend fun commitSubscriptionRefresh(
+            expected: com.poyka.ripdpi.data.ProxyGroup,
+            replacement: com.poyka.ripdpi.data.ProxyGroup,
+            prepareAwgWrites: suspend () -> List<com.poyka.ripdpi.data.SubscriptionAwgWrite>,
+        ): Boolean = error("Subscription commit is outside this test boundary")
+
         override suspend fun upsertAwg(
             preparation: ProfileMutationPreparation,
             profile: com.poyka.ripdpi.data.awg.AwgProfileEntity,
