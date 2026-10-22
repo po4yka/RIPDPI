@@ -278,6 +278,57 @@ class AwgProfileRepositoryRoomTest {
             assertNull(repository.load("awg-does-not-exist"))
         }
 
+    @Test
+    fun `migration copies only same-group origin and preserves source`() =
+        runTest {
+            val source = subscriptionProfile(request = sampleRequest().copy(privateKey = "local-key"))
+            val sourceId = repository.saveSubscriptionProfiles(listOf(source)).map { it.id }.single()
+            val incoming =
+                source.copy(
+                    memberId = "tag:migration-new",
+                    name = "migration-new",
+                    previousMemberId = source.memberId,
+                    request =
+                        source.request.copy(
+                            privateKey = "",
+                            peerPublicKey = "new-peer",
+                            endpointHost = "new.example",
+                        ),
+                )
+            val newId = repository.saveSubscriptionProfiles(listOf(incoming)).map { it.id }.single()
+            assertTrue(newId != sourceId)
+            assertEquals("local-key", repository.load(newId)!!.request.privateKey)
+            assertEquals("new-peer", repository.load(newId)!!.request.peerPublicKey)
+            assertEquals("new.example", repository.load(newId)!!.request.endpointHost)
+            assertEquals(source.request.endpointHost, repository.load(sourceId)!!.request.endpointHost)
+            assertEquals(newId, repository.saveSubscriptionProfiles(listOf(incoming)).map { it.id }.single())
+            val unrelated = incoming.copy(groupId = "other-subscription")
+            val otherId = repository.saveSubscriptionProfiles(listOf(unrelated)).map { it.id }.single()
+            assertEquals("", repository.load(otherId)!!.request.privateKey)
+        }
+
+    @Test
+    fun `current-request guard rejects edited row before committing other state`() =
+        runTest {
+            val id = repository.saveSubscriptionProfiles(listOf(subscriptionProfile())).map { it.id }.single()
+            val expected = repository.load(id)!!.request
+            var commits = 0
+            assertTrue(
+                repository.withCurrentRequest(expected) {
+                    commits++
+                    true
+                },
+            )
+            repository.save("edited", expected.copy(endpointHost = "changed.example"), id)
+            assertFalse(
+                repository.withCurrentRequest(expected) {
+                    commits++
+                    true
+                },
+            )
+            assertEquals(1, commits)
+        }
+
     private fun subscriptionProfile(
         groupId: String = "subscription-one",
         memberId: String = "tag:home",
@@ -287,7 +338,7 @@ class AwgProfileRepositoryRoomTest {
     @Test
     fun `subscription rotation survives editor save and repository restart`() =
         runTest {
-            val id = repository.saveSubscriptionProfiles(listOf(subscriptionProfile())).single()
+            val id = repository.saveSubscriptionProfiles(listOf(subscriptionProfile())).map { it.id }.single()
             val local =
                 repository.load(id)!!.request.copy(
                     privateKey = "local-key",
@@ -315,7 +366,11 @@ class AwgProfileRepositoryRoomTest {
             repeat(2) {
                 assertEquals(
                     id,
-                    restarted.saveSubscriptionProfiles(listOf(subscriptionProfile(request = rotated))).single(),
+                    restarted
+                        .saveSubscriptionProfiles(
+                            listOf(subscriptionProfile(request = rotated)),
+                        ).map { it.id }
+                        .single(),
                 )
             }
             val saved = restarted.observeProfiles().first().single()
@@ -340,10 +395,10 @@ class AwgProfileRepositoryRoomTest {
             val manual = repository.save("home", sampleRequest())
             val first = subscriptionProfile(groupId = "a:b", memberId = "c")
             val second = subscriptionProfile(groupId = "a", memberId = "b:c")
-            val ids = repository.saveSubscriptionProfiles(listOf(first, second))
+            val ids = repository.saveSubscriptionProfiles(listOf(first, second)).map { it.id }
             assertEquals(2, ids.distinct().size)
             assertFalse(ids.contains(manual))
-            assertEquals(ids, repository.saveSubscriptionProfiles(listOf(first, second)))
+            assertEquals(ids, repository.saveSubscriptionProfiles(listOf(first, second)).map { it.id })
             assertEquals(3, dao.allProfiles().size)
             assertEquals(sampleRequest(profileId = manual), repository.load(manual)!!.request)
         }
@@ -352,18 +407,19 @@ class AwgProfileRepositoryRoomTest {
     fun `explicit imported key replaces old key and empty PSK removes old PSK`() =
         runTest {
             val profile = subscriptionProfile()
-            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
-            repository.saveSubscriptionProfiles(
-                listOf(
-                    profile.copy(
-                        request =
-                            sampleRequest().copy(
-                                privateKey = "replacement-key",
-                                presharedKey = "",
-                            ),
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
+            repository
+                .saveSubscriptionProfiles(
+                    listOf(
+                        profile.copy(
+                            request =
+                                sampleRequest().copy(
+                                    privateKey = "replacement-key",
+                                    presharedKey = "",
+                                ),
+                        ),
                     ),
-                ),
-            )
+                ).map { it.id }
             assertEquals("replacement-key", repository.load(id)!!.request.privateKey)
             assertEquals("", repository.load(id)!!.request.presharedKey)
         }
@@ -372,10 +428,12 @@ class AwgProfileRepositoryRoomTest {
     fun `duplicate subscription members fail before any row changes`() =
         runTest {
             val profile = subscriptionProfile()
-            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val original = dao.getProfile(id)
             val duplicate = profile.copy(request = sampleRequest().copy(endpointPort = 443))
-            assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(profile, duplicate)) }.isFailure)
+            assertTrue(
+                runCatching { repository.saveSubscriptionProfiles(listOf(profile, duplicate)).map { it.id } }.isFailure,
+            )
             assertEquals(listOf(original), dao.allProfiles())
         }
 
@@ -383,14 +441,14 @@ class AwgProfileRepositoryRoomTest {
     fun `failed subscription write restores credentials and association for retry`() =
         runTest {
             val profile = subscriptionProfile()
-            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val original = dao.getProfile(id)
             val rotated = profile.copy(request = sampleRequest().copy(privateKey = "", presharedKey = "rotated"))
             failingDao.failNextUpsertAfterWrite = true
-            assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(rotated)) }.isFailure)
+            assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(rotated)).map { it.id } }.isFailure)
             assertEquals(original, dao.getProfile(id))
             assertEquals("psk==", repository.load(id)!!.request.presharedKey)
-            assertEquals(id, repository.saveSubscriptionProfiles(listOf(rotated)).single())
+            assertEquals(id, repository.saveSubscriptionProfiles(listOf(rotated)).map { it.id }.single())
             assertEquals("privkey==", repository.load(id)!!.request.privateKey)
             assertEquals("rotated", repository.load(id)!!.request.presharedKey)
         }
@@ -401,7 +459,15 @@ class AwgProfileRepositoryRoomTest {
             val ids =
                 List(
                     10,
-                ) { async { repository.saveSubscriptionProfiles(listOf(subscriptionProfile())).single() } }.awaitAll()
+                ) {
+                    async {
+                        repository
+                            .saveSubscriptionProfiles(
+                                listOf(subscriptionProfile()),
+                            ).map { it.id }
+                            .single()
+                    }
+                }.awaitAll()
             assertEquals(1, ids.distinct().size)
             assertEquals(1, dao.allProfiles().size)
             assertTrue(ids.first().matches(Regex("awg-[0-9a-f-]{36}")))
@@ -415,7 +481,8 @@ class AwgProfileRepositoryRoomTest {
                 repository
                     .saveSubscriptionProfiles(
                         listOf(subscriptionProfile(request = sampleRequest().copy(privateKey = ""))),
-                    ).single()
+                    ).map { it.id }
+                    .single()
             assertEquals("", repository.load(id)!!.request.privateKey)
             assertEquals(2, dao.allProfiles().size)
         }
@@ -427,7 +494,7 @@ class AwgProfileRepositoryRoomTest {
                 com.poyka.ripdpi.data.awg
                     .AwgProfileEntity("legacy", "legacy", "invalid-json", 0),
             )
-            assertTrue(repository.saveSubscriptionProfiles(emptyList()).isEmpty())
+            assertTrue(repository.saveSubscriptionProfiles(emptyList()).map { it.id }.isEmpty())
             assertEquals(1, dao.allProfiles().size)
         }
 
@@ -435,11 +502,11 @@ class AwgProfileRepositoryRoomTest {
     fun `ambiguous stored membership fails before updating either row`() =
         runTest {
             val profile = subscriptionProfile()
-            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val original = dao.getProfile(id)!!
             dao.upsertProfile(original.copy(id = "duplicate"))
             val before = dao.allProfiles()
-            assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(profile)) }.isFailure)
+            assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(profile)).map { it.id } }.isFailure)
             assertEquals(before, dao.allProfiles())
         }
 
@@ -447,13 +514,13 @@ class AwgProfileRepositoryRoomTest {
     fun `subscription refresh applies supplied network policy and keeps local key`() =
         runTest {
             val profile = subscriptionProfile()
-            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val supplied =
                 networkPolicyProfile(
                     "\"dns\":[\"9.9.9.9\"],",
                     "\"allowed_ips\":[\"10.0.0.0/8\",\"fd00::/8\"],",
                 )
-            assertEquals(id, repository.saveSubscriptionProfiles(listOf(supplied)).single())
+            assertEquals(id, repository.saveSubscriptionProfiles(listOf(supplied)).map { it.id }.single())
             val saved = repository.load(id)!!.request
             assertEquals(listOf("9.9.9.9"), saved.dnsServers)
             assertEquals(listOf("10.0.0.0/8", "fd00::/8"), saved.allowedIps)
@@ -471,11 +538,14 @@ class AwgProfileRepositoryRoomTest {
                             allowedIps = listOf("10.0.0.0/8"),
                         ),
                 )
-            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
-            repository.saveSubscriptionProfiles(listOf(networkPolicyProfile()))
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
+            repository.saveSubscriptionProfiles(listOf(networkPolicyProfile())).map { it.id }
             assertEquals(profile.request.dnsServers, repository.load(id)!!.request.dnsServers)
             assertEquals(profile.request.allowedIps, repository.load(id)!!.request.allowedIps)
-            repository.saveSubscriptionProfiles(listOf(networkPolicyProfile("\"dns\":[],", "\"allowed_ips\":[],")))
+            repository
+                .saveSubscriptionProfiles(
+                    listOf(networkPolicyProfile("\"dns\":[],", "\"allowed_ips\":[],")),
+                ).map { it.id }
             assertEquals(emptyList<String>(), repository.load(id)!!.request.dnsServers)
             assertEquals(emptyList<String>(), repository.load(id)!!.request.allowedIps)
         }
@@ -493,7 +563,7 @@ class AwgProfileRepositoryRoomTest {
                             ),
                     )
                 }
-            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val before = requireNotNull(repository.load(id))
             val invalid =
                 listOf(
@@ -516,7 +586,10 @@ class AwgProfileRepositoryRoomTest {
                             interfacePolicy = if (field == "dns") jsonField else "",
                             peerPolicy = if (field == "allowed_ips") jsonField else "",
                         )
-                    repository.saveSubscriptionProfiles(parsed.amneziaWgProfiles.map { it.toAwgSubscriptionProfile() })
+                    repository
+                        .saveSubscriptionProfiles(
+                            parsed.amneziaWgProfiles.map { it.toAwgSubscriptionProfile() },
+                        ).map { it.id }
                     assertEquals(before, repository.load(id))
                     assertTrue(parsed.amneziaWgProfiles.isEmpty())
                     val skipped = parsed.skipped.single()

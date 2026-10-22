@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="migration_title">Serverumzug</string>
+    <string name="migration_tested">Neuer Pfad geprüft</string>
+    <string name="migration_received">Ersatz erhalten; Pfad ungeprüft</string>
+    <string name="migration_privacy">Der Beleg bleibt auf diesem Gerät, bis du ihn teilst. Ein Test prüft einen Pfad, nicht alle Apps.</string>
+    <string name="migration_url">HTTP(S)-Testadresse</string>
+    <string name="migration_awg_help">Verbinde für AmneziaWG zuerst das importierte Ersatzprofil.</string>
+    <string name="migration_check_awg">AmneziaWG-Pfad %1$d prüfen</string>
+    <string name="migration_check_relay">Relay-Pfad %1$d prüfen</string>
+    <string name="migration_connect_awg">Verbinde das genaue AmneziaWG-Ersatzprofil und versuche es erneut.</string>
+    <string name="migration_changed">Lieferung, Konfiguration oder Netzwerk geändert. Test wiederholen.</string>
+    <string name="migration_invalid">Gib eine gültige HTTP(S)-Adresse ein und nutze ein aktuelles Umzugsziel.</string>
+    <string name="migration_failed">Pfadprüfung fehlgeschlagen. Kein Prüfbeleg gespeichert.</string>
+    <string name="migration_export">Umzugsbeleg teilen</string>
+    <string name="migration_export_failed">Beleg konnte nicht erstellt oder geteilt werden.</string>
+</resources>

@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-22
+goal: TRN-1792673614153980 Export offline device migration receipts after exact
+  new-path tests

@@ -533,6 +533,7 @@ class SharedProxyRuntimeStackTest {
                 dispatcher = dispatcher,
                 amneziaWgFactory = awgFactory,
                 runtimeConfigResolver = RecordingAmneziaWgRuntimeConfigResolver(),
+                activeRegistry = ActiveAwgRuntimeRegistry(),
             )
         val stack =
             SharedProxyRuntimeStack(

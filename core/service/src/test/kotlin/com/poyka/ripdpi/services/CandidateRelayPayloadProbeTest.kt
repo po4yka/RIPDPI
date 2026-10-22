@@ -67,6 +67,38 @@ class CandidateRelayPayloadProbeTest {
         }
 
     @Test
+    fun `migration baseline relay kinds run authenticated candidates and complete cleanup`() =
+        runTest {
+            for (profile in listOf(
+                RelayProfileRecord(id = "p0", kind = com.poyka.ripdpi.data.RelayKindVlessReality),
+                RelayProfileRecord(
+                    id = "p1",
+                    kind = com.poyka.ripdpi.data.RelayKindVless,
+                    vlessTransport = com.poyka.ripdpi.data.RelayVlessTransportXhttp,
+                ),
+                RelayProfileRecord(id = "p2", kind = com.poyka.ripdpi.data.RelayKindHysteria2),
+            )) {
+                val runtime = FakeCandidateRuntime()
+                val credentials = RelayCredentialRecord(profileId = profile.id)
+                val probe =
+                    CandidateRelayPayloadProbe(
+                        resolve = { actual, secret, _ ->
+                            assertEquals(profile, actual)
+                            assertEquals(credentials, secret)
+                            sampleResolvedRelayConfig().copy(kind = profile.kind)
+                        },
+                        runtimeFactory = factory(runtime),
+                        httpProbe = capabilities { _, _ -> RelayTcpProbeResult(true, 200) },
+                        environment = { environment() },
+                        dispatcher = StandardTestDispatcher(testScheduler),
+                    )
+                assertTrue(probe.measure(profile, credentials, "https://probe") is CandidateRelayMeasurement.Succeeded)
+                assertEquals(1, runtime.stops)
+                assertTrue(runtime.finished)
+            }
+        }
+
+    @Test
     fun `payload policy probes REALITY and xHTTP through protected independent sessions`() =
         runTest {
             val controls =

@@ -48,6 +48,7 @@ class VpnSupervisorExitHandlerTest {
                 dispatcher = dispatcher,
                 amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
                 runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                activeRegistry = ActiveAwgRuntimeRegistry(),
             )
         private val proxyRuntimeSupervisor =
             ProxyRuntimeSupervisor(

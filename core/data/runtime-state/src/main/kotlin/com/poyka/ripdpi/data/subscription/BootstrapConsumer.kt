@@ -38,6 +38,8 @@ sealed interface BootstrapConsumeResult {
         val cloudflareMemberIds: Set<String> = emptySet(),
         val isSelector: Boolean = false,
         val failover: SelectorFailover? = null,
+        val migration: MigrationMetadata? = null,
+        val payloadSha256: String = "",
     ) : BootstrapConsumeResult
 
     /**
@@ -211,9 +213,10 @@ class BootstrapConsumer(
 
     @Suppress("ReturnCount")
     private fun parseBody(
-        body: String,
+        payload: SubscriptionPayload,
         groupId: String,
     ): BootstrapConsumeResult {
+        val body = payload.text
         if (body.isBlank()) {
             return BootstrapConsumeResult.ParseError("empty bootstrap payload")
         }
@@ -230,6 +233,13 @@ class BootstrapConsumer(
             singBoxProfileCount in 1..MaxSubscriptionProfiles &&
             singBox.profiles.fitsSubscriptionLimits()
         ) {
+            if (singBox.migration != null) {
+                try {
+                    payload.requireMigrationUtf8()
+                } catch (_: IllegalArgumentException) {
+                    return BootstrapConsumeResult.ParseError("invalid migration encoding")
+                }
+            }
             val selector = SelectorUrltestGroupImport.import(body, groupId)
             if (selector !is SelectorUrltestImportResult.Success) {
                 return BootstrapConsumeResult.ParseError("invalid bootstrap selector")
@@ -240,11 +250,16 @@ class BootstrapConsumer(
                 packageRoutingRules = singBox.packageRoutingRules,
                 amneziaWgProfiles = singBox.amneziaWgProfiles,
                 subscriptionMirrors = singBox.subscriptionMirrors ?: SubscriptionMirrorSet(),
+                migration = singBox.migration,
+                payloadSha256 = payload.sha256,
                 // These ids belong to singBox.profiles, not the selector's independent parse.
                 cloudflareMemberIds = singBox.cloudflareMemberIds.orEmpty(),
                 isSelector = selector.group != null,
                 failover = selector.failoverPolicy.toSelectorFailover(),
             )
+        }
+        if (singBox is SingBoxParseResult.Error && body.trimStart().startsWith("{")) {
+            return BootstrapConsumeResult.ParseError("invalid bootstrap JSON metadata")
         }
         val base64 = Base64SubscriptionParser.parse(body, groupId)
         if (base64.profiles.isNotEmpty() && base64.profiles.fitsSubscriptionLimits()) {

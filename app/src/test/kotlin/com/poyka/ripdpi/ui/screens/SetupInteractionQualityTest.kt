@@ -240,7 +240,13 @@ class SetupInteractionQualityTest {
             )
         composeRule.setContent {
             RipDpiTheme {
-                SubscriptionStatusScreen(SubscriptionStatusUiState(summary, refreshingGroupId = "first"), {}, {}, {})
+                SubscriptionStatusScreen(
+                    SubscriptionStatusUiState(summary, refreshingGroupId = "first"),
+                    {},
+                    {},
+                    {},
+                    {},
+                )
             }
         }
         val nodes = composeRule.onAllNodesWithText(text(R.string.subscription_status_refresh_action))

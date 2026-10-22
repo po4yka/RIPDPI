@@ -350,6 +350,7 @@ class PausedServiceReconstructionTest {
                     dispatcher = dispatcher,
                     amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
                     runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 ),
                 ProxyRuntimeSupervisor(
                     scope = service.serviceScope,

@@ -139,6 +139,7 @@ class ProxyServiceLocalNetworkRevocationTest {
                     dispatcher = dispatcher,
                     amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
                     runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 ),
             proxyRuntimeSupervisor =
                 ProxyRuntimeSupervisor(

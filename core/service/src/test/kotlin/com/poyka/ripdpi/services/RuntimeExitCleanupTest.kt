@@ -150,7 +150,13 @@ class RuntimeExitCleanupTest {
             ProxyRuntimeSupervisor(scope, dispatcher, proxyFactory, TestNativeNetworkSnapshotProvider(), 100L)
         private val warp = WarpRuntimeSupervisor(scope, dispatcher, warpFactory, TestWarpRuntimeConfigResolver())
         private val awg =
-            AmneziaWgRuntimeSupervisor(scope, dispatcher, awgFactory, RecordingAmneziaWgRuntimeConfigResolver())
+            AmneziaWgRuntimeSupervisor(
+                scope,
+                dispatcher,
+                awgFactory,
+                RecordingAmneziaWgRuntimeConfigResolver(),
+                activeRegistry = ActiveAwgRuntimeRegistry(),
+            )
         private val relay =
             UpstreamRelaySupervisor(
                 scope = scope,

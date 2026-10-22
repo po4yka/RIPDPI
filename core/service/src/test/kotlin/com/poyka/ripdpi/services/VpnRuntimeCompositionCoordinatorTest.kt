@@ -50,6 +50,7 @@ class VpnRuntimeCompositionCoordinatorTest {
                     dispatcher = dispatcher,
                     amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
                     runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 )
             val proxyRuntimeSupervisor =
                 ProxyRuntimeSupervisor(

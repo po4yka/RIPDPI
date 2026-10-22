@@ -720,6 +720,7 @@ private fun TestScope.buildProxySupervisorBundle(
                 dispatcher = dispatcher,
                 amneziaWgFactory = awgFactory,
                 runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                activeRegistry = ActiveAwgRuntimeRegistry(),
             ),
         proxyRuntimeSupervisor =
             ProxyRuntimeSupervisor(
@@ -853,6 +854,7 @@ private fun TestScope.buildStaleReplacementCoordinator(
                         dispatcher = dispatcher,
                         amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
                         runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                        activeRegistry = ActiveAwgRuntimeRegistry(),
                     ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(

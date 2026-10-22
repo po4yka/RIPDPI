@@ -40,6 +40,7 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -694,18 +695,24 @@ class SubscriptionImportConfirmViewModelTest {
             }
         }
 
-    @Test
-    fun `bootstrap import and reconfirm retain explicit delivery and selector metadata`() =
-        runTest {
-            MockWebServer().use { server ->
-                val payload = """{"outbounds":[
+    private fun bootstrapMetadataPayload() =
+        """{"outbounds":[
               {"type":"selector","tag":"select","outbounds":["edge","origin","auto"],"default":"edge"},
               {"type":"urltest","tag":"auto","url":"https://probe.example","interval":"10s"},
               {"type":"trojan","tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
               {"type":"trojan","tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
               ],"ripdpi":{"schema_version":1,"cloudflare_outbound_tags":["edge"],
+              "migration":{"schema_version":1,"migration_id":"11111111-1111-1111-1111-111111111111",
+                "delivery_id":"22222222-2222-2222-2222-222222222222","target_tags":["edge"],
+                "receipt_key":"${"a".repeat(64)}","awg_previous_tags":{}},
               "subscription_mirrors":[{"id":"origin","url":"https://origin.example/sub/device",
                 "token":"fixture-scoped","transport":"direct"}]}}"""
+
+    @Test
+    fun `bootstrap import and reconfirm retain explicit delivery and selector metadata`() =
+        runTest {
+            MockWebServer().use { server ->
+                val payload = bootstrapMetadataPayload()
                 server.enqueue(
                     MockResponse
                         .Builder()
@@ -729,6 +736,19 @@ class SubscriptionImportConfirmViewModelTest {
                     awaitItem()
                 }
                 val first = repository.list().single()
+                assertEquals(
+                    com.poyka.ripdpi.data.subscription
+                        .migrationSha256(payload.toByteArray()),
+                    first.subscription?.migration?.payloadSha256,
+                )
+                assertEquals(
+                    listOf("edge"),
+                    first.subscription
+                        ?.migration
+                        ?.metadata
+                        ?.targetTags,
+                )
+                assertNull(first.subscription?.migration?.pathTest)
                 assertTrue(first.isSelector)
                 assertEquals(setOf(first.members.single { it.displayName == "edge" }.id), first.cloudflareMemberIds)
                 assertEquals(
@@ -846,8 +866,9 @@ class SubscriptionImportConfirmViewModelTest {
                         repository = repository,
                         bootstrapConsumer = BootstrapConsumer(clockMillis = { 42L }),
                         groupIdFactory = { "bootstrap-awg" },
-                        saveAwgProfiles = { profiles ->
+                        saveAwgProfiles = { profiles, _ ->
                             savedAwgNames += profiles.map { it.displayName }
+                            emptyList()
                         },
                     )
                 viewModel.setRequest(server.url("/bootstrap/awg").toString(), "Boot", bootstrap = true)

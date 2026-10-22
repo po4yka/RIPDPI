@@ -1,10 +1,14 @@
 package com.poyka.ripdpi.ui.screens.subscription
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -21,6 +25,9 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -32,11 +39,35 @@ fun SubscriptionStatusRoute(
     viewModel: SubscriptionStatusViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val migrationModel: MigrationStatusViewModel = hiltViewModel()
+    val migrations by migrationModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(migrationModel) {
+        migrationModel.receipts.collect { receipt ->
+            try {
+                val intent = withContext(Dispatchers.IO) { migrationReceiptShareIntent(context, receipt) }
+                context.startActivity(Intent.createChooser(intent, null))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                Toast.makeText(context, R.string.migration_export_failed, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     SubscriptionStatusScreen(
         uiState = uiState,
         onBack = onBack,
         onToggleSecrets = viewModel::toggleSecrets,
         onRefresh = viewModel::refresh,
+        migrationContent = { groupId ->
+            migrations[groupId]?.let { state ->
+                MigrationStatusCard(
+                    state,
+                    { tag, url -> migrationModel.check(groupId, tag, url) },
+                    { migrationModel.export(groupId) },
+                )
+            }
+        },
         modifier = modifier,
     )
 }
@@ -47,6 +78,7 @@ internal fun SubscriptionStatusScreen(
     onBack: () -> Unit,
     onToggleSecrets: () -> Unit,
     onRefresh: (String) -> Unit,
+    migrationContent: @Composable (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (uiState.secretsRevealed) SecureWindowEffect()
@@ -81,6 +113,7 @@ internal fun SubscriptionStatusScreen(
                     refreshEnabled = uiState.refreshingGroupId == null,
                     refreshFailed = uiState.refreshFailedGroupId == item.groupId,
                     onRefresh = { onRefresh(item.groupId) },
+                    migrationContent = { migrationContent(item.groupId) },
                 )
             }
         }
@@ -94,6 +127,7 @@ private fun SubscriptionStatusCard(
     refreshEnabled: Boolean,
     refreshFailed: Boolean,
     onRefresh: () -> Unit,
+    migrationContent: @Composable () -> Unit,
 ) {
     RipDpiCard {
         Text(item.groupName, style = RipDpiThemeTokens.type.sectionTitle)
@@ -155,6 +189,7 @@ private fun SubscriptionStatusCard(
                 color = RipDpiThemeTokens.colors.destructive,
             )
         }
+        migrationContent()
         if (item.details.refreshable) {
             RipDpiButton(
                 text = stringResource(R.string.subscription_status_refresh_action),

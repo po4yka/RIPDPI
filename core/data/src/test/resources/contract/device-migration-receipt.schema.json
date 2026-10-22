@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RIPDPI explicit offline device migration receipt",
+  "description": "HMAC binds fixed newline-delimited fields; tested time must not precede received time. Receipt possession is not hardware attestation.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "migration_id",
+    "delivery_id",
+    "payload_sha256",
+    "state",
+    "received_at_ms",
+    "tested_at_ms",
+    "tested_tag",
+    "mac"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "migration_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+    },
+    "delivery_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+    },
+    "payload_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "state": {
+      "enum": [
+        "received",
+        "path-tested"
+      ]
+    },
+    "received_at_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "tested_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "tested_tag": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "mac": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "received"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "tested_at_ms": {
+            "const": 0
+          },
+          "tested_tag": {
+            "const": ""
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "tested_at_ms": {
+            "minimum": 1
+          },
+          "tested_tag": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.subscription.MigrationDelivery
+import com.poyka.ripdpi.data.subscription.MigrationMetadata
 import com.poyka.ripdpi.data.subscription.SubscriptionMirror
 import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import kotlinx.coroutines.test.runTest
@@ -37,6 +39,19 @@ class ProxyGroupSecretAtRestTest {
                 Subscription(
                     link = "https://sub.example/x",
                     token = subToken,
+                    migration =
+                        MigrationDelivery(
+                            MigrationMetadata(
+                                "11111111-1111-1111-1111-111111111111",
+                                "22222222-2222-2222-2222-222222222222",
+                                listOf("m1"),
+                                "a".repeat(64),
+                                emptyMap(),
+                            ),
+                            "b".repeat(64),
+                            1000,
+                            emptyList(),
+                        ),
                     mirrors =
                         SubscriptionMirrorSet(
                             listOf(
@@ -98,6 +113,7 @@ class ProxyGroupSecretAtRestTest {
                 ).list().single()
             assertEquals(memberPassword, (loaded.members.single() as ProxyProfile.Trojan).password)
             assertEquals(subToken, loaded.subscription?.token)
+            assertEquals(sampleGroup().subscription?.migration, loaded.subscription?.migration)
             assertEquals(sampleGroup().subscription?.mirrors, loaded.subscription?.mirrors)
             assertEquals(setOf("m1"), loaded.cloudflareMemberIds)
         }

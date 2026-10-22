@@ -10,11 +10,14 @@ import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.saveMigrationTargets
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
 import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
+import com.poyka.ripdpi.data.subscription.MigrationMetadata
+import com.poyka.ripdpi.data.subscription.MigrationTarget
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
@@ -26,6 +29,7 @@ import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
 import com.poyka.ripdpi.data.subscription.fitsSubscriptionLimits
 import com.poyka.ripdpi.data.subscription.isValidForRefresh
 import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
+import com.poyka.ripdpi.data.subscription.receivedMigration
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
 import dagger.Module
@@ -214,6 +218,15 @@ class SubscriptionRefreshCoordinator private constructor(
                             isSelector = outcome.isSelector,
                         )
                     }
+                val migration =
+                    receivedMigration(
+                        outcome.migration,
+                        outcome.payloadSha256,
+                        attemptedAt,
+                        withMembers.members,
+                        outcome.awgTargets,
+                        subscription.migration,
+                    )
                 withMembers.copy(
                     packageRoutingRules = outcome.packageRoutingRules,
                     subscription =
@@ -226,6 +239,7 @@ class SubscriptionRefreshCoordinator private constructor(
                                 lifecycleState = SubscriptionLifecycleState.ACTIVE,
                                 lastRefreshFailure = null,
                                 mirrors = outcome.subscriptionMirrors ?: subscription.mirrors,
+                                migration = migration,
                             ),
                 )
             }
@@ -281,13 +295,19 @@ class SubscriptionRefreshCoordinator private constructor(
             try {
                 deliveryHttpClient.newCall(request).execute().use { response ->
                     classifyHttpFailure(response.code, group)?.let { return@use it }
-                    val body =
+                    val payload =
                         try {
                             response.body.readBoundedSubscriptionPayload()
                         } catch (_: SubscriptionPayloadTooLargeException) {
                             return@use payloadTooLargeFailure()
                         }
-                    val singBox = SingBoxSubscriptionParser.parse(body, group.id) as? SingBoxParseResult.Success
+                    val body = payload.text
+                    val singBoxResult = SingBoxSubscriptionParser.parse(body, group.id)
+                    if (singBoxResult is SingBoxParseResult.Error && singBoxResult.recognizedBundle) {
+                        return@use RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
+                    }
+                    val singBox = singBoxResult as? SingBoxParseResult.Success
+                    if (singBox?.migration != null) payload.requireMigrationUtf8()
                     if (singBox?.tokenExpiresAtEpochMillis?.let { clockMillis() >= it } == true) {
                         return@use RefreshOutcome.Failure(
                             SubscriptionRefreshFailure.EXPIRED,
@@ -309,10 +329,13 @@ class SubscriptionRefreshCoordinator private constructor(
                         if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
                             payloadTooLargeFailure()
                         } else {
-                            persistWireGuardProfiles(singBox, wireGuard)
+                            val awgTargets = persistWireGuardProfiles(singBox, wireGuard)
                             profiles.copy(
                                 subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty(),
                                 subscriptionMirrors = singBox?.subscriptionMirrors,
+                                migration = singBox?.migration,
+                                payloadSha256 = payload.sha256,
+                                awgTargets = awgTargets,
                             )
                         }
                     } else {
@@ -495,16 +518,22 @@ class SubscriptionRefreshCoordinator private constructor(
     private suspend fun persistWireGuardProfiles(
         singBox: SingBoxParseResult.Success?,
         wireGuardIni: com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionResult?,
-    ): Int {
+    ): List<MigrationTarget> {
         val profiles =
             buildList {
-                singBox?.amneziaWgProfiles?.forEach { add(it.toAwgSubscriptionProfile()) }
+                singBox?.amneziaWgProfiles?.forEach {
+                    add(
+                        it.toAwgSubscriptionProfile(
+                            previousTag = singBox.migration?.awgPreviousTags?.get(it.displayName),
+                        ),
+                    )
+                }
                 wireGuardIni?.amneziaWgProfiles?.forEach {
                     add(it.toAwgSubscriptionProfile(memberId = "peer:${it.peerPublicKey}"))
                 }
                 wireGuardIni?.profiles?.forEach { add(it.toAwgSubscriptionProfile()) }
             }
-        return awgProfileRepository.saveSubscriptionProfiles(profiles).size
+        return awgProfileRepository.saveMigrationTargets(profiles)
     }
 
     private fun payloadTooLargeFailure(): RefreshOutcome.Failure =
@@ -529,6 +558,9 @@ class SubscriptionRefreshCoordinator private constructor(
             val subscriptionMirrors: SubscriptionMirrorSet? = null,
             val cloudflareMemberIds: Set<String>? = null,
             val isSelector: Boolean = false,
+            val migration: MigrationMetadata? = null,
+            val payloadSha256: String = "",
+            val awgTargets: List<MigrationTarget> = emptyList(),
         ) : RefreshOutcome
 
         data class Failure(

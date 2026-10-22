@@ -96,6 +96,33 @@ class AwgProfileRepository
                 dao.getProfile(id)?.toSavedProfile()
             }
 
+        /**
+         * Commit short cross-store work only while this exact rehydrated request is current.
+         * The action must not re-enter this repository. Network work belongs outside this guard.
+         * Lock order is AWG row, then subscription group; group transforms cannot suspend.
+         */
+        suspend fun withCurrentRequest(
+            expected: AwgActivationRequest,
+            action: suspend () -> Boolean,
+        ): Boolean =
+            mutationMutex.withLock {
+                profileMutations.recover()
+                val current = dao.getProfile(expected.profileId)?.toSavedProfile()?.request
+                current == expected && action()
+            }
+
+        /** Consistent read across journal-owned stores; the action must only read and never re-enter mutation APIs. */
+        suspend fun readCurrentRequest(
+            expected: AwgActivationRequest,
+            action: suspend () -> Boolean,
+        ): Boolean =
+            mutationMutex.withLock {
+                profileMutations.readRecovered {
+                    val current = dao.getProfile(expected.profileId)?.toSavedProfile()?.request
+                    current == expected && action()
+                }
+            }
+
         private suspend fun secretsFor(id: String): AwgSecrets = credentialStore.load(id) ?: AwgSecrets()
 
         /**
@@ -123,7 +150,7 @@ class AwgProfileRepository
          * Empty imported private keys are templates; they cannot erase a locally supplied key.
          * Each row uses the existing recoverable row/credential mutation. Batch retries are idempotent.
          */
-        suspend fun saveSubscriptionProfiles(profiles: List<AwgSubscriptionProfile>): List<String> =
+        suspend fun saveSubscriptionProfiles(profiles: List<AwgSubscriptionProfile>): List<SavedAwgProfile> =
             mutationMutex.withLock {
                 if (profiles.isEmpty()) return@withLock emptyList()
                 require(profiles.all { it.groupId.isNotBlank() && it.memberId.isNotBlank() }) {
@@ -134,7 +161,11 @@ class AwgProfileRepository
                 }
                 profiles.forEach { it.request.obfuscation.requireArm64Safe() }
                 profileMutations.recover()
-                val origins = profiles.map { it.origin }.toSet()
+                val previousOrigins =
+                    profiles.associate { profile ->
+                        profile.origin to profile.previousMemberId?.let { profile.copy(memberId = it).origin }
+                    }
+                val origins = profiles.map { it.origin }.toSet() + previousOrigins.values.filterNotNull()
                 val existingMembers =
                     dao.allProfiles().mapNotNull { row ->
                         row.subscriptionOrigin()?.takeIf { it in origins }?.let { it to row }
@@ -146,8 +177,16 @@ class AwgProfileRepository
                 profiles.map { profile ->
                     val existing = existingByOrigin[profile.origin]?.toSavedProfile()
                     val id = existing?.id ?: generateProfileId()
-                    val request = mergeSubscriptionRequest(profile, existing?.request)
+                    val previous = previousOrigins[profile.origin]?.let { existingByOrigin[it]?.toSavedProfile() }
+                    val request = mergeSubscriptionRequest(profile, existing?.request ?: previous?.request)
                     saveLocked(profile.name, request, id, profile.origin, ProfileMutationOrigin.SubscriptionRefresh)
+                    profileMutations.readRecovered {
+                        val saved = checkNotNull(dao.getProfile(id)) { "imported AWG profile missing" }.toSavedProfile()
+                        check(saved.name == profile.name && saved.request == request.copy(profileId = id)) {
+                            "imported AWG profile changed before receipt capture"
+                        }
+                        saved
+                    }
                 }
             }
 

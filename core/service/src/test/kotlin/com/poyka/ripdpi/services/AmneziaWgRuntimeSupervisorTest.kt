@@ -34,6 +34,7 @@ class AmneziaWgRuntimeSupervisorTest {
                     dispatcher = dispatcher,
                     amneziaWgFactory = factory,
                     runtimeConfigResolver = resolver,
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 )
             val exits = mutableListOf<SupervisorExitCause>()
 
@@ -55,6 +56,7 @@ class AmneziaWgRuntimeSupervisorTest {
                     dispatcher = dispatcher,
                     amneziaWgFactory = factory,
                     runtimeConfigResolver = RecordingAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 )
             val exits = mutableListOf<SupervisorExitCause>()
 
@@ -78,6 +80,7 @@ class AmneziaWgRuntimeSupervisorTest {
                     dispatcher = dispatcher,
                     amneziaWgFactory = factory,
                     runtimeConfigResolver = resolver,
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 )
 
             supervisor.start(sampleRequest()) {}
@@ -109,6 +112,7 @@ class AmneziaWgRuntimeSupervisorTest {
                     dispatcher = dispatcher,
                     amneziaWgFactory = factory,
                     runtimeConfigResolver = RecordingAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 )
 
             supervisor.start(sampleRequest()) {}
@@ -133,6 +137,7 @@ class AmneziaWgRuntimeSupervisorTest {
                     dispatcher = dispatcher,
                     amneziaWgFactory = TestRipDpiAmneziaWgFactory(),
                     runtimeConfigResolver = RecordingAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
                 )
 
             assertEquals(RuntimeTelemetryOutcome.NoData, supervisor.pollTelemetry())

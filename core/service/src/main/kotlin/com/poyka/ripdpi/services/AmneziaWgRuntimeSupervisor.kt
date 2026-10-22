@@ -16,6 +16,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
 /**
@@ -33,6 +34,7 @@ internal class AmneziaWgRuntimeSupervisor(
     private val amneziaWgFactory: RipDpiAmneziaWgFactory,
     private val runtimeConfigResolver: AmneziaWgRuntimeConfigResolver,
     private val stopTimeoutMillis: Long = 5_000L,
+    private val activeRegistry: ActiveAwgRuntimeRegistry,
 ) {
     private var amneziaWgRuntime: RipDpiAmneziaWgRuntime? = null
     private var amneziaWgJob: Job? = null
@@ -45,6 +47,7 @@ internal class AmneziaWgRuntimeSupervisor(
         get() = amneziaWgRuntime
 
     private var consumed: ConsumedUpstreamConfiguration? = null
+    private var activeRegistration: ActiveAwgRuntimeRegistry.Registration? = null
 
     fun requireConsumedConfiguration(): ConsumedUpstreamConfiguration = checkNotNull(consumed)
 
@@ -62,6 +65,7 @@ internal class AmneziaWgRuntimeSupervisor(
         exitReporting = shouldReportExit
 
         val exitCause = CompletableDeferred<SupervisorExitCause>()
+        val sessionRegistration = AtomicReference<ActiveAwgRuntimeRegistry.Registration?>()
         val job =
             scope.launch(dispatcher, start = CoroutineStart.UNDISPATCHED) {
                 try {
@@ -80,6 +84,7 @@ internal class AmneziaWgRuntimeSupervisor(
         amneziaWgJob = job
 
         job.invokeOnCompletion {
+            activeRegistry.revoke(sessionRegistration.get())
             scope.launch(dispatcher) {
                 if (amneziaWgRuntime !== runtime) {
                     return@launch
@@ -95,6 +100,10 @@ internal class AmneziaWgRuntimeSupervisor(
         try {
             runtime.awaitReady()
             consumed = consumedConfiguration
+            activeRegistration =
+                activeRegistry.register(resolvedConfig) { amneziaWgRuntime === runtime && job.isActive }
+            sessionRegistration.set(activeRegistration)
+            if (!job.isActive) activeRegistry.revoke(sessionRegistration.get())
         } catch (cancelled: CancellationException) {
             cleanupFailedReadiness(shouldReportExit)
             throw cancelled
@@ -113,6 +122,7 @@ internal class AmneziaWgRuntimeSupervisor(
     }
 
     suspend fun stop() {
+        activeRegistry.revoke(activeRegistration)
         val runtime = amneziaWgRuntime ?: return
         val job = amneziaWgJob
         stopRequested = true
@@ -137,6 +147,8 @@ internal class AmneziaWgRuntimeSupervisor(
     }
 
     fun detach() {
+        activeRegistry.revoke(activeRegistration)
+        activeRegistration = null
         exitReporting?.set(false)
         amneziaWgJob = null
         amneziaWgRuntime = null
@@ -151,6 +163,7 @@ internal open class AmneziaWgRuntimeSupervisorFactory
     constructor(
         private val amneziaWgFactory: RipDpiAmneziaWgFactory,
         private val runtimeConfigResolver: AmneziaWgRuntimeConfigResolver,
+        private val activeRegistry: ActiveAwgRuntimeRegistry,
     ) {
         open fun create(
             scope: CoroutineScope,
@@ -161,5 +174,6 @@ internal open class AmneziaWgRuntimeSupervisorFactory
                 dispatcher = dispatcher,
                 amneziaWgFactory = amneziaWgFactory,
                 runtimeConfigResolver = runtimeConfigResolver,
+                activeRegistry = activeRegistry,
             )
     }
