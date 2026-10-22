@@ -2,7 +2,7 @@
 id: VPN-1792657107995294
 title: Repair VPN rollout audit defects
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: rollout-integrator
