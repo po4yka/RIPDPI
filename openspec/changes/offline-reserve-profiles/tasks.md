@@ -10,9 +10,9 @@ Parent owns planning, docs and offline integration tests. Refresh worker owns ap
 
 ## Execution
 
-- [ ] DAT-1792661302262545 Preserve encrypted reserve state and test corrupt or failed storage #feature !high @item:DAT-1792661188293948
-- [ ] DAT-1792661307171939 Guard reserve refresh publication and test unusable and obsolete results #feature !high @item:DAT-1792661188293948
-- [ ] DAT-1792661307731110 Verify offline restart and real payload-qualified reserve selection #feature !high @item:DAT-1792661188293948
+- [x] DAT-1792661302262545 Preserve encrypted reserve state and test corrupt or failed storage #feature !high @item:DAT-1792661188293948
+- [x] DAT-1792661307171939 Guard reserve refresh publication and test unusable and obsolete results #feature !high @item:DAT-1792661188293948
+- [x] DAT-1792661307731110 Verify offline restart and real payload-qualified reserve selection #feature !high @item:DAT-1792661188293948
 
 ## Verification
 
