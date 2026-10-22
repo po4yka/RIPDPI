@@ -119,9 +119,12 @@ abstract class SelectorReloadModule {
         fun provideSelectorReloadLifecycleListener(
             coordinator: SelectorReloadCoordinator,
             trigger: RelayActivationSelectorReloadTrigger,
+            groupRepository: ProxyGroupRepository,
         ): SelectorRuntimeLifecycleListener =
             object : SelectorRuntimeLifecycleListener {
                 override suspend fun prepare() {
+                    // Headless service starts must load the validated seed before waiting for observers.
+                    groupRepository.list()
                     coordinator.awaitSubscription()
                     trigger.prepare()
                 }
