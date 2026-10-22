@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.ProxyGroup
@@ -16,9 +17,11 @@ import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
+import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
 import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -58,6 +61,7 @@ class SubscriptionImportConfirmViewModel
         private val groupIdFactory: () -> String,
         private val saveAwgProfiles: suspend (List<AmneziaWgSubscriptionProfile>) -> Unit,
         private val refreshSubscription: suspend (String) -> SubscriptionRefreshResult,
+        private val scheduleAutoUpdate: (List<ProxyGroup>) -> Unit,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
         @Inject
@@ -65,6 +69,7 @@ class SubscriptionImportConfirmViewModel
             repository: ProxyGroupRepository,
             awgProfileRepository: AwgProfileRepository,
             refreshCoordinator: SubscriptionRefreshCoordinator,
+            @ApplicationContext context: Context,
         ) : this(
             repository = repository,
             bootstrapConsumer = BootstrapConsumer(),
@@ -73,6 +78,7 @@ class SubscriptionImportConfirmViewModel
                 awgProfileRepository.saveSubscriptionProfiles(profiles.map { it.toAwgSubscriptionProfile() })
             },
             refreshSubscription = refreshCoordinator::refresh,
+            scheduleAutoUpdate = { groups -> SubscriptionAutoUpdateWorker.enqueuePeriodic(context, groups) },
             constructorMarker = Unit,
         )
 
@@ -84,7 +90,16 @@ class SubscriptionImportConfirmViewModel
             refreshSubscription: suspend (
                 String,
             ) -> SubscriptionRefreshResult = { error("No test refresh") },
-        ) : this(repository, bootstrapConsumer, groupIdFactory, saveAwgProfiles, refreshSubscription, Unit)
+            scheduleAutoUpdate: (List<ProxyGroup>) -> Unit = {},
+        ) : this(
+            repository,
+            bootstrapConsumer,
+            groupIdFactory,
+            saveAwgProfiles,
+            refreshSubscription,
+            scheduleAutoUpdate,
+            Unit,
+        )
 
         private val _uiState = MutableStateFlow(SubscriptionImportConfirmUiState())
         val uiState: StateFlow<SubscriptionImportConfirmUiState> = _uiState.asStateFlow()
@@ -154,7 +169,11 @@ class SubscriptionImportConfirmViewModel
                         consumeBootstrap(state, existing, groupId, groupName, order)
                     } else {
                         val subscription =
-                            existing?.subscription ?: Subscription(link = state.url, kind = SubscriptionKind.LONG_LIVED)
+                            existing?.subscription ?: Subscription(
+                                link = state.url,
+                                kind = SubscriptionKind.LONG_LIVED,
+                                autoUpdate = true,
+                            )
                         repository.add(
                             subscriptionGroup(
                                 existing = existing,
@@ -181,7 +200,10 @@ class SubscriptionImportConfirmViewModel
         }
 
         private suspend fun refreshAndCompleteImport(groupId: String) {
-            when (refreshSubscription(groupId)) {
+            val result = refreshSubscription(groupId)
+            // Schedule from the saved result so terminal failures and opt-outs stay excluded.
+            scheduleAutoUpdate(repository.list())
+            when (result) {
                 is SubscriptionRefreshResult.Updated -> completeImport()
                 is SubscriptionRefreshResult.Failed -> _uiState.update { it.copy(importFailed = true) }
             }

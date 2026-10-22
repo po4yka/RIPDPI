@@ -664,11 +664,13 @@ class SubscriptionImportConfirmViewModelTest {
                 )
                 server.start()
                 val repository = FakeProxyGroupRepository()
+                var scheduleCalls = 0
                 val viewModel =
                     SubscriptionImportConfirmViewModel(
                         repository = repository,
                         bootstrapConsumer = BootstrapConsumer(clockMillis = { 42L }),
                         groupIdFactory = { "bootstrap-group" },
+                        scheduleAutoUpdate = { scheduleCalls++ },
                     )
 
                 viewModel.setRequest(
@@ -684,6 +686,8 @@ class SubscriptionImportConfirmViewModelTest {
 
                 val group = repository.list().single()
                 assertEquals(SubscriptionKind.BOOTSTRAP, group.subscription?.kind)
+                assertFalse(group.subscription!!.autoUpdate)
+                assertEquals(0, scheduleCalls)
                 assertEquals(42L, group.subscription?.consumedAt)
                 assertEquals(1, group.members.size)
                 assertEquals(1, server.requestCount)
