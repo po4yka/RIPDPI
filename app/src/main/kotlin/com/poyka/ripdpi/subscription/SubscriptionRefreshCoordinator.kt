@@ -48,6 +48,9 @@ internal enum class SubscriptionRefreshRunResult {
 
 /** Result of one manual or automatic subscription refresh. */
 sealed interface SubscriptionRefreshResult {
+    /** The fetched generation lost ownership before it could be installed. */
+    data object Superseded : SubscriptionRefreshResult
+
     data class Updated(
         val memberCount: Int,
     ) : SubscriptionRefreshResult
@@ -117,7 +120,7 @@ class SubscriptionRefreshCoordinator private constructor(
         var retry = false
         for (group in due) {
             when (val result = refreshGroup(group)) {
-                is SubscriptionRefreshResult.Updated -> Unit
+                is SubscriptionRefreshResult.Updated, SubscriptionRefreshResult.Superseded -> Unit
                 is SubscriptionRefreshResult.Failed -> retry = retry || result.retryable
             }
         }
@@ -174,26 +177,31 @@ class SubscriptionRefreshCoordinator private constructor(
                 }
             when (outcome) {
                 is RefreshOutcome.Updated -> {
-                    persistSuccess(group.id, attemptedAt, outcome)
-                    SubscriptionRefreshResult.Updated(outcome.profiles.size)
+                    persistSuccess(group, attemptedAt, outcome)
                 }
 
                 is RefreshOutcome.Failure -> {
-                    persistFailure(group.id, attemptedAt, outcome)
-                    SubscriptionRefreshResult.Failed(outcome.failure, outcome.retry)
+                    if (persistFailure(group, attemptedAt, outcome)) {
+                        SubscriptionRefreshResult.Failed(outcome.failure, outcome.retry)
+                    } else {
+                        SubscriptionRefreshResult.Superseded
+                    }
                 }
             }
         }
     }
 
     private suspend fun persistSuccess(
-        groupId: String,
+        expected: ProxyGroup,
         attemptedAt: Long,
         outcome: RefreshOutcome.Updated,
-    ) {
+    ): SubscriptionRefreshResult {
+        var installed = false
         val updated =
-            repository.updateGroup(groupId) { current ->
+            repository.updateGroup(expected.id) { current ->
+                if (current != expected) return@updateGroup current
                 val subscription = current.subscription ?: return@updateGroup current
+                installed = true
                 val withMembers =
                     if (outcome.clearRelayMembers) {
                         current.copy(members = emptyList(), cloudflareMemberIds = emptySet())
@@ -221,26 +229,37 @@ class SubscriptionRefreshCoordinator private constructor(
                             ),
                 )
             }
-        if (updated != null) {
-            log.i { "refreshed subscription group $groupId: ${updated.members.size} profiles persisted" }
+        return if (installed && updated != null) {
+            log.i { "refreshed subscription group ${expected.id}: ${updated.members.size} profiles persisted" }
+            SubscriptionRefreshResult.Updated(updated.members.size)
+        } else {
+            SubscriptionRefreshResult.Superseded
         }
     }
 
     private suspend fun persistFailure(
-        groupId: String,
+        expected: ProxyGroup,
         attemptedAt: Long,
         outcome: RefreshOutcome.Failure,
-    ) {
-        repository.updateSubscription(groupId) { subscription ->
-            subscription.copy(
-                lastRefreshAttemptAtEpochMillis = attemptedAt,
-                lifecycleState = outcome.lifecycleState ?: subscription.lifecycleState,
-                lastRefreshFailure =
-                    subscription.lastRefreshFailure?.takeIf { it.isTerminal && !outcome.failure.isTerminal }
-                        ?: outcome.failure,
+    ): Boolean {
+        var installed = false
+        repository.updateGroup(expected.id) { current ->
+            if (current != expected) return@updateGroup current
+            val subscription = current.subscription ?: return@updateGroup current
+            installed = true
+            current.copy(
+                subscription =
+                    subscription.copy(
+                        lastRefreshAttemptAtEpochMillis = attemptedAt,
+                        lifecycleState = outcome.lifecycleState ?: subscription.lifecycleState,
+                        lastRefreshFailure =
+                            subscription.lastRefreshFailure?.takeIf { it.isTerminal && !outcome.failure.isTerminal }
+                                ?: outcome.failure,
+                    ),
             )
         }
-        log.w { "subscription group $groupId refresh failed: ${outcome.failure.name}" }
+        if (installed) log.w { "subscription group ${expected.id} refresh failed: ${outcome.failure.name}" }
+        return installed
     }
 
     private suspend fun fetchAndParse(
@@ -439,6 +458,13 @@ class SubscriptionRefreshCoordinator private constructor(
             val base64 = Base64SubscriptionParser.parse(body, groupId)
             if (base64.profiles.isNotEmpty()) parsed = RefreshOutcome.Updated(base64.profiles, null)
         }
+        parsed =
+            parsed?.let { outcome ->
+                outcome.profiles
+                    .filterNot { it is ProxyProfile.RawConfig }
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { outcome.copy(profiles = it) }
+            }
         if (parsed == null && wireGuardCount > 0) {
             parsed =
                 RefreshOutcome.Updated(
