@@ -46,8 +46,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -913,6 +915,13 @@ class AppStartupInitializerFailureTest {
                     }
                 }
             val repository = SharedPreferencesProxyGroupRepository(storage, testMutationPreparationSource())
+            val observed = mutableListOf<List<ProxyGroup>>()
+            val collector =
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                    repository.groups().collect { observed += it }
+                }
+            assertTrue(collector.isActive)
+            assertTrue(observed.isEmpty())
             var recoveryCalls = 0
             val profileMutations =
                 object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
@@ -937,6 +946,8 @@ class AppStartupInitializerFailureTest {
             initializer.readiness.first { it == AppStartupReadinessState.Failed }
 
             assertEquals(retained, bytes)
+            assertTrue(collector.isActive)
+            assertTrue(observed.isEmpty())
             assertEquals(0, recoveryCalls)
             assertEquals(0, compatibilityResetter.calls)
             assertEquals(0, strategyPackService.initializeCalls)
@@ -947,6 +958,8 @@ class AppStartupInitializerFailureTest {
             initializer.readiness.first { it == AppStartupReadinessState.Ready }
 
             assertEquals(retained, bytes)
+            assertTrue(collector.isActive)
+            assertEquals(listOf(emptyList<ProxyGroup>()), observed)
             assertEquals(1, recoveryCalls)
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)

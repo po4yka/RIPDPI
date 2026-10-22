@@ -31,7 +31,8 @@ The client MUST distinguish absent from unreadable sealed data, preserve unreada
 #### Scenario: Corrupt storage at startup
 
 - **WHEN** saved storage is unreadable during startup
-- **THEN** dependency construction succeeds, readiness fails before recovery mutations, and retry rechecks storage without clearing it
+- **THEN** dependency construction and early collectors perform no storage I/O, readiness fails before recovery mutations, and retry rechecks storage without clearing it
+- **AND** collectors remain active without an empty fallback and receive the first validated snapshot after a successful retry
 
 #### Scenario: Storage write fails
 

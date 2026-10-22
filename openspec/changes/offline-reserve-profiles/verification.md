@@ -37,4 +37,10 @@ BUILD_GATE_TIMEOUT=120 CMAKE_BUILD_PARALLEL_LEVEL=4 build-gate -- env -u CARGO_B
   --max-workers=4 -Pripdpi.nativeCpuBudget=4 -Pripdpi.skipNativeBuild=true
 ```
 
-The source PR remains draft and task acceptance remains open. The socket integration uses real local TLS/SOCKS transfer and a temporary-file catalogue port; it does not invoke the native relay engine or the platform keystore. Its scenarios are implemented, not yet executed. No server or credential action was performed.
+Task acceptance remains open pending JVM and CI validation. The socket integration uses real local TLS/SOCKS transfer and a temporary-file catalogue port; it does not invoke the native relay engine or the platform keystore. Its scenarios are implemented, not yet executed. No server or credential action was performed.
+
+## Review follow-up: early catalogue observers
+
+The repository observation stream now performs no reads and publishes no initial empty fallback. Guarded `list()` publishes a validated snapshot under the mutation mutex. Corrupt-storage and startup-retry regressions now start a collector before loading; the core-data flow test explicitly performs the initial load. Independent source review found no remaining issue.
+
+Rechecked formatting, task/OpenSpec contracts, architecture-health and diff whitespace successfully. The follow-up runtime-state/app JVM and staticAnalysis command again timed out at build-gate after 120 seconds (exit 75), before Gradle started. Before acceptance, rerun the combined command above and include `:core:data:testDebugUnitTest` for the updated observer contract test.
