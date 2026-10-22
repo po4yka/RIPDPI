@@ -2,7 +2,7 @@
 id: DAT-1792661188293948
 title: Keep verified reserve profiles available offline
 kind: feature
-status: review
+status: done
 area: data
 priority: high
 owner: Offline reserves
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: offline-reserve-profiles
 created: 2026-10-22
 updated: 2026-10-22
+closed_at: "2026-10-22T15:10:48Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Merged source 33046c961cf4a501a1a8ac35243c6a171424fdc3 has the identical complete tree as tested 6ec802d16d19a5c0f81f817be8cfc8f1205d29b5. CI 39792086326 passed offline-reserve storage/refresh/real TLS-SOCKS tests, full JVM/static/coverage and all five Android API lifecycle matrices. Local ENOSPC is not acceptance; physical-device and deployment results are unclaimed.
 ---
 
 ## Goal
