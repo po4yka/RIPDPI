@@ -61,7 +61,11 @@ class ProxyGroupOfflineReserveTest {
         }
 
     private fun createRepository(storage: ProxyGroupBlobStore) =
-        SharedPreferencesProxyGroupRepository(storage, testMutationPreparationSource(testPauseAuthority()))
+        SharedPreferencesProxyGroupRepository(
+            com.poyka.ripdpi.data
+                .ProxyGroupCatalog(storage),
+            testMutationPreparationSource(testPauseAuthority()),
+        )
 
     private fun reserveGroup(): ProxyGroup =
         ProxyGroup(

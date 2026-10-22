@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-22
+goal: DAT-1792683530998740 Commit subscription AWG rotations under current group
+  ownership

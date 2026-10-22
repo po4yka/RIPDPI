@@ -94,6 +94,13 @@ internal class ProfileMutationReplayWriter(
 ) {
     suspend fun replay(intent: ProfileMutationIntent) {
         when (intent) {
+            is SubscriptionRefreshIntent -> {
+                // Recovery must not rotate credentials when the existing catalogue is unreadable.
+                stores.groupCatalog.snapshot()
+                intent.awgProfiles.forEach { replayAwgUpsert(it) }
+                stores.groupCatalog.replace(intent.groups)
+            }
+
             is AwgUpsertIntent -> {
                 replayAwgUpsert(intent)
             }

@@ -13,7 +13,6 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.data.xray.toXrayProfileRecordPair
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,7 +31,7 @@ class ProfileMutationStores
         val xraySecrets: XrayProfileSecretStore,
         val xraySelection: XrayProviderSelectionStore,
         val bootSession: BootSessionStateStore,
-        val groupBlob: ProxyGroupBlobStore,
+        val groupCatalog: ProxyGroupCatalog,
         val selectorChoice: com.poyka.ripdpi.data.selector.SelectorChoicePersistence,
     )
 
@@ -44,6 +43,7 @@ data class ExpectedRelayProfileState(
 interface ProfileMutationCoordinator :
     ProfileMutationRecoveryAccess,
     WarpRuntimeRevisionReader,
+    SubscriptionRefreshMutationCoordinator,
     StandaloneAwgMutationCoordinator {
     override suspend fun captureMutation(origin: ProfileMutationOrigin): ProfileMutationPreparation
 
@@ -115,6 +115,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
 ) : ProfileMutationCoordinator,
     XrayProviderMutationCoordinator,
     StandaloneAwgMutationCoordinator by runtime.standalone,
+    SubscriptionRefreshMutationCoordinator by runtime.subscriptionRefresh,
     WarpRuntimeRevisionReader by runtime.warpRevisions {
     @Inject
     constructor(
@@ -517,15 +518,7 @@ private suspend fun ProfileMutationStores.measuredPayloadMatches(
         }
 
         is ProfileUtilitySelectionPayload.Selector -> {
-            val groups =
-                groupBlob
-                    .read()
-                    ?.let {
-                        RipDpiContractJson.decodeFromString(
-                            kotlinx.serialization.builtins.ListSerializer(ProxyGroup.serializer()),
-                            it,
-                        )
-                    }.orEmpty()
+            val groups = groupCatalog.snapshot()
             reference == ProfileUtilityReference.SelectorMember(payload.groupId, payload.memberId) &&
                 groups
                     .singleOrNull { it.id == payload.groupId }

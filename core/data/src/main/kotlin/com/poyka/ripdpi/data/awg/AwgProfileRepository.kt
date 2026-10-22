@@ -2,6 +2,8 @@ package com.poyka.ripdpi.data.awg
 
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProfileMutationOrigin
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.SubscriptionAwgWrite
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.flow.Flow
@@ -126,30 +128,51 @@ class AwgProfileRepository
         suspend fun saveSubscriptionProfiles(profiles: List<AwgSubscriptionProfile>): List<String> =
             mutationMutex.withLock {
                 if (profiles.isEmpty()) return@withLock emptyList()
-                require(profiles.all { it.groupId.isNotBlank() && it.memberId.isNotBlank() }) {
-                    "AWG subscription identity is missing"
-                }
-                require(profiles.map { it.origin }.distinct().size == profiles.size) {
-                    "AWG subscription member identity is ambiguous"
-                }
-                profiles.forEach { it.request.obfuscation.requireArm64Safe() }
                 profileMutations.recover()
-                val origins = profiles.map { it.origin }.toSet()
-                val existingMembers =
-                    dao.allProfiles().mapNotNull { row ->
-                        row.subscriptionOrigin()?.takeIf { it in origins }?.let { it to row }
-                    }
-                require(existingMembers.map { it.first }.distinct().size == existingMembers.size) {
-                    "Stored AWG subscription member identity is ambiguous"
-                }
-                val existingByOrigin = existingMembers.toMap()
-                profiles.map { profile ->
-                    val existing = existingByOrigin[profile.origin]?.toSavedProfile()
-                    val id = existing?.id ?: generateProfileId()
-                    val request = mergeSubscriptionRequest(profile, existing?.request)
-                    saveLocked(profile.name, request, id, profile.origin, ProfileMutationOrigin.SubscriptionRefresh)
+                prepareSubscriptionWrites(profiles).map { write ->
+                    profileMutations.upsertAwg(
+                        profileMutations.captureMutation(ProfileMutationOrigin.SubscriptionRefresh),
+                        write.profile,
+                        write.secrets,
+                    )
+                    write.profile.id
                 }
             }
+
+        /** Lock order is AWG then recovery; the preparation callback never re-enters either owner. */
+        suspend fun commitSubscriptionRefresh(
+            expected: ProxyGroup,
+            replacement: ProxyGroup,
+            profiles: List<AwgSubscriptionProfile>,
+        ): Boolean =
+            mutationMutex.withLock {
+                require(profiles.all { it.groupId == expected.id })
+                profileMutations.commitSubscriptionRefresh(expected, replacement) {
+                    prepareSubscriptionWrites(profiles)
+                }
+            }
+
+        private suspend fun prepareSubscriptionWrites(
+            profiles: List<AwgSubscriptionProfile>,
+        ): List<SubscriptionAwgWrite> {
+            if (profiles.isEmpty()) return emptyList()
+            profiles.requireValidSubscriptionProfiles()
+            val origins = profiles.map { it.origin }.toSet()
+            val existingMembers =
+                dao.allProfiles().mapNotNull { row ->
+                    row.subscriptionOrigin()?.takeIf { it in origins }?.let { it to row }
+                }
+            require(existingMembers.map { it.first }.distinct().size == existingMembers.size) {
+                "Stored AWG subscription member identity is ambiguous"
+            }
+            val existingByOrigin = existingMembers.toMap()
+            return profiles.map { profile ->
+                val existing = existingByOrigin[profile.origin]?.toSavedProfile()
+                val id = existing?.id ?: generateProfileId()
+                val request = mergeSubscriptionRequest(profile, existing?.request)
+                profileWrite(profile.name, request, id, profile.origin)
+            }
+        }
 
         private fun mergeSubscriptionRequest(
             incoming: AwgSubscriptionProfile,
@@ -178,23 +201,34 @@ class AwgProfileRepository
             origin: JsonElement?,
             mutationOrigin: ProfileMutationOrigin,
         ): String {
+            val write = profileWrite(name, request, id, origin)
+            profileMutations.upsertAwg(
+                profileMutations.captureMutation(mutationOrigin),
+                profile = write.profile,
+                secrets = write.secrets,
+            )
+            return id
+        }
+
+        private fun profileWrite(
+            name: String,
+            request: AwgActivationRequest,
+            id: String,
+            origin: JsonElement?,
+        ): SubscriptionAwgWrite {
             request.obfuscation.requireArm64Safe()
             val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")
             val fields = encodeJson.encodeToJsonElement(sanitized).jsonObject.toMutableMap()
             if (origin != null) fields[SubscriptionOriginKey] = origin
-            val updatedProfile =
+            return SubscriptionAwgWrite(
                 AwgProfileEntity(
                     id = id,
                     name = name,
                     requestJson = JsonObject(fields).toString(),
                     updatedAt = System.currentTimeMillis(),
-                )
-            profileMutations.upsertAwg(
-                profileMutations.captureMutation(mutationOrigin),
-                profile = updatedProfile,
-                secrets = AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
+                ),
+                AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
             )
-            return id
         }
 
         /** Deletes the saved profile identified by [id]; a no-op when it does not exist. */

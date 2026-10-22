@@ -139,7 +139,12 @@ class SelectorColdStartupTest {
         private val context = ApplicationProvider.getApplicationContext<Context>()
         private val authority = testPauseAuthority()
         private val preparation = testMutationPreparationSource()
-        val groups = SharedPreferencesProxyGroupRepository(store, preparation)
+        val groups =
+            SharedPreferencesProxyGroupRepository(
+                com.poyka.ripdpi.data
+                    .ProxyGroupCatalog(store),
+                preparation,
+            )
         val active = SelectorActiveGroupStore(context, authority)
         val selections = SharedPreferencesSelectorSelectionStore(context, preparation, authority, active)
         private val provider = ActiveSelectorSelectionProvider(groups, selections, active)

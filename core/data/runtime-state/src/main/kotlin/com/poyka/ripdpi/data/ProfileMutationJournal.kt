@@ -26,6 +26,7 @@ enum class ProfileMutationFamily {
     Warp,
     Backup,
     Xray,
+    Subscription,
 }
 
 /** Encrypted write-ahead record for a cross-store profile mutation. */

@@ -27,7 +27,8 @@ class ProxyGroupRepositoryConcurrencyTest {
         // backing for the repository under test.
         repository =
             SharedPreferencesProxyGroupRepository(
-                FakeProxyGroupBlobStore(),
+                com.poyka.ripdpi.data
+                    .ProxyGroupCatalog(FakeProxyGroupBlobStore()),
                 com.poyka.ripdpi.data
                     .testMutationPreparationSource(
                         com.poyka.ripdpi.data

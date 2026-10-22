@@ -161,7 +161,11 @@ class OfflineReservePayloadIntegrationTest {
     }
 
     private fun repository(file: File) =
-        SharedPreferencesProxyGroupRepository(TemporaryFileBlobStore(file), testMutationPreparationSource())
+        SharedPreferencesProxyGroupRepository(
+            com.poyka.ripdpi.data
+                .ProxyGroupCatalog(TemporaryFileBlobStore(file)),
+            testMutationPreparationSource(),
+        )
 
     private fun restoredSelection(group: ProxyGroup): SharedPreferencesSelectorSelectionStore {
         val initial = selectionStore()

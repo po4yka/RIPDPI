@@ -86,6 +86,12 @@ class TestDirectAwgProfileMutationCoordinator(
         return receipt
     }
 
+    override suspend fun commitSubscriptionRefresh(
+        expected: com.poyka.ripdpi.data.ProxyGroup,
+        replacement: com.poyka.ripdpi.data.ProxyGroup,
+        prepareAwgWrites: suspend () -> List<com.poyka.ripdpi.data.SubscriptionAwgWrite>,
+    ): Boolean = error("Subscription commit is outside this test boundary")
+
     override suspend fun upsertAwg(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: AwgProfileEntity,

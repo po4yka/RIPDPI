@@ -816,7 +816,8 @@ private class Fixture(
             MemoryXraySecrets(),
             SharedPreferencesXrayProviderSelectionStore(disk),
             SharedPreferencesBootSessionStateStore(disk.getSharedPreferences("unit-boot", Context.MODE_PRIVATE)),
-            MemoryGroupBlob(),
+            com.poyka.ripdpi.data
+                .ProxyGroupCatalog(MemoryGroupBlob()),
             selector,
         )
     val mutations =
@@ -828,7 +829,7 @@ private class Fixture(
             ProfileMutationGenerationPublisher(),
             authority,
         )
-    val groups = SharedPreferencesProxyGroupRepository(stores.groupBlob, mutations)
+    val groups = SharedPreferencesProxyGroupRepository(stores.groupCatalog, mutations)
     val selectionStore = SharedPreferencesSelectorSelectionStore(disk, mutations, authority, selector)
     val xrayProfiles = DefaultDurableXrayProfileStore(stores.xrayMetadata, stores.xraySecrets)
     val runtimeRegistry = DefaultServiceRuntimeRegistry()
