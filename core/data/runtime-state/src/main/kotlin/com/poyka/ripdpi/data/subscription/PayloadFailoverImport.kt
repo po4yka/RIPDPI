@@ -13,15 +13,16 @@ internal object PayloadFailoverImport {
         payload: String,
         selectorTag: String?,
     ): PayloadFailoverPolicy? {
-        val root = RipDpiStrictJson.parseToJsonElement(payload) as? JsonObject ?: return null
-        val extension = root["ripdpi"] as? JsonObject ?: return null
-        val value = extension["payload_failover"] ?: return null
-        require(
-            (extension["schema_version"] as? JsonPrimitive)?.intOrNull ==
-                SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION,
-        )
-        val policy = RipDpiStrictJson.decodeFromJsonElement<PayloadFailoverPolicy>(value)
-        require(policy.selectorTag == selectorTag)
-        return policy
+        val root = RipDpiStrictJson.parseToJsonElement(payload) as? JsonObject
+        val extension = root?.get("ripdpi") as? JsonObject ?: return null
+        return extension["payload_failover"]?.let { value ->
+            require(
+                (extension["schema_version"] as? JsonPrimitive)?.intOrNull ==
+                    SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION,
+            )
+            val policy = RipDpiStrictJson.decodeFromJsonElement<PayloadFailoverPolicy>(value)
+            require(policy.selectorTag == selectorTag)
+            policy
+        }
     }
 }
