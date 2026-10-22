@@ -2,7 +2,7 @@
 id: DAT-1792683530998740
 title: Commit subscription AWG rotations under current group ownership
 kind: bug
-status: review
+status: done
 area: data
 priority: high
 owner: Client subscription maintainer
@@ -13,6 +13,9 @@ openspec_change: atomic-subscription-awg-refresh
 created: 2026-10-22
 updated: 2026-10-22
 status_detail: Merged source ede4099 has an identical full tree to tested b5b09; CI 39815952976 and all five emulator matrices passed.
+closed_at: "2026-10-22T17:35:01Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Merged source ede4099f5e53023c03e4e6875cdb8521cb627d56 has the identical complete tree as tested b5b09af6ea93f5c076232e5d97529aa79ff93396. CI 39815952976 attempt 1 passed all required checks, five Full/Simple API matrices, JNI strategy and real Xray TUN acceptance. Local affected-module/app JVM and static checks passed; no physical-device or deployment result is claimed.
 ---
 
 ## Goal
