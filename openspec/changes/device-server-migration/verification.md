@@ -2,8 +2,8 @@
 task_id: TRN-1792673614153980
 change: device-server-migration
 commit_sha: null
-local: blocked
-local_evidence: Final runtime-state and data suites plus static analysis and lint passed; full app suite reproduced one timeout in unchanged ProfileUtilityViewModelTest (2949 tests, one failure). Its isolated 21 tests and combined 32 migration/profile tests passed; root cause remains unresolved.
+local: passed
+local_evidence: Combined implementation rebased on main passed the full runtime-state (287), data (914), service (2271) and app (2975) suites with zero failures, errors or skips, plus staticAnalysis and app/service lint in 25m24s. Earlier app timeouts did not recur; no assertions or timeouts were changed.
 remote_ci: required
 remote_ci_evidence: null
 device: required
@@ -20,12 +20,23 @@ deployment_evidence: This client change does not deploy or retire a server; live
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-MIGRATION-DELIVERY | TRN-1792674002992530 | `DeviceMigrationContractTest`, `DeviceMigrationCoordinatorTest`, `ImportConfirmViewModelTest`, `SubscriptionPayloadLimitsTest`, `ProxyGroupSecretAtRestTest`, `AwgProfileRepositoryRoomTest` cover strict metadata, raw-byte digest, refresh/bootstrap persistence, same-group AWG key carry, exact durable snapshots, invalid payloads and receipt confidentiality | Implemented; requirement-specific tests passed; full app gate remains blocked |
+| REQ-MIGRATION-DELIVERY | TRN-1792674002992530 | `DeviceMigrationContractTest`, `DeviceMigrationCoordinatorTest`, `ImportConfirmViewModelTest`, `SubscriptionPayloadLimitsTest`, `ProxyGroupSecretAtRestTest`, `AwgProfileRepositoryRoomTest` cover strict metadata, raw-byte digest, refresh/bootstrap persistence, same-group AWG key carry, exact durable snapshots, invalid payloads and receipt confidentiality | Implemented; requirement-specific and complete combined JVM gates passed |
 | REQ-MIGRATION-TARGET | TRN-1792674004430919 | `CandidateRelayPayloadProbeTest` exercises Reality, XHTTP and Hysteria2 candidate branches; `ActiveAwgMigrationProbeTest` exercises exact active AmneziaWG configuration and full-body probe completion | Implemented; injected-probe tests passed, real device/server reachability unverified |
-| REQ-MIGRATION-FENCE | TRN-1792674004430919 | Coordinator, AWG repository and runtime tests cover delivery/profile/network/runtime changes, cancellation, key edits, replacement, session death and cleanup | Implemented; requirement-specific tests passed; full app gate remains blocked |
+| REQ-MIGRATION-FENCE | TRN-1792674004430919 | Coordinator, AWG repository and runtime tests cover delivery/profile/network/runtime changes, cancellation, key edits, replacement, session death and cleanup | Implemented; requirement-specific and complete combined JVM gates passed |
 | REQ-MIGRATION-EXPORT | TRN-1792674005207294 | Shared received/relay/AWG HMAC vectors, strict receipt fields, explicit Compose actions, all ten locale resources, and FileProvider exact JSON/read-only grant tests | Implemented; four UI/share tests passed; all three final states rendered and inspected |
 
 ## Observed local checks
+
+- Final combined implementation at `a5e2eaa00345396c33142ea58f6d53eaac53955d`
+  passed the unfiltered runtime-state (287), data (914), service (2271) and app
+  (2975) suites: 6447 tests, zero failures, errors or skipped tests.
+  The same invocation passed `staticAnalysis`, `:app:lintGithubFullDebug` and
+  `:core:service:lintDebug`, with `BUILD SUCCESSFUL` in 25m24s. It used the
+  machine-wide build gate, four workers and `-Pripdpi.skipNativeBuild=true`.
+  No test assertion or timeout was changed. Earlier timeout failures below
+  remain historical observations and did not recur on this combined revision.
+- Regenerated the canonical translation export with all 14 migration keys;
+  export synchronization and all three translation-export tests passed.
 
 - Full affected JVM suites passed with `-Pripdpi.skipNativeBuild=true`: runtime-state
   281 tests, core/data 903 tests, core/service 2262 tests and app 2947 tests;
@@ -46,7 +57,7 @@ deployment_evidence: This client change does not deploy or retire a server; live
   and together with `DeviceMigrationCoordinatorTest` and
   `MigrationStatusCardTest` (32 tests total). No assertion or timeout was changed.
   All migration regression cases passed; the full-suite failure cause remains
-  unresolved and the local gate is blocked, not accepted.
+  unresolved at that earlier revision. The final rebased full gate above passed.
 - Final unfiltered app command:
   `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :app:testGithubFullDebugUnitTest -Pripdpi.skipNativeBuild=true --max-workers=4 -Pripdpi.nativeCpuBudget=4`.
   The diagnostic class selections above establish only diagnosis, not full-suite
@@ -74,8 +85,6 @@ Existing screenshot baselines are unchanged.
 
 ## Remaining gates
 
-- Diagnose and resolve the full app suite timeout, then pass the unfiltered
-  app suite on the combined implementation revision.
 - Complete emulator interaction and share-chooser acceptance using the
   command-scoped emulator pool lease.
 - Require hosted CI, successful native build and exact-SHA APK evidence after
@@ -94,6 +103,6 @@ behavior, not APK packaging or native transport acceptance.
 
 Unit fixtures and injected probes establish client behavior, never actual server
 reachability. No live receipt or device/server migration is claimed. No remote
-telemetry or implicit upload was added. The final full app suite is blocked; hosted, device and native artifact
-acceptance remain unresolved until results are observed for the implementation revision.
+telemetry or implicit upload was added. The final full JVM gate passed; hosted, device and native artifact acceptance
+remain unresolved until results are observed for the implementation revision.
 The task remains open and no deployment or production migration is claimed.
