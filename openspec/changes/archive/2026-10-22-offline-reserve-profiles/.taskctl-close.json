@@ -1,0 +1,11 @@
+{
+  "change": "offline-reserve-profiles",
+  "evidence_summary": "Merged source 33046c961cf4a501a1a8ac35243c6a171424fdc3 has the identical complete tree as tested 6ec802d16d19a5c0f81f817be8cfc8f1205d29b5. CI 39792086326 passed offline-reserve storage/refresh/real TLS-SOCKS tests, full JVM/static/coverage and all five Android API lifecycle matrices. Local ENOSPC is not acceptance; physical-device and deployment results are unclaimed.",
+  "execution_sha256": "d2a09caf8f12264ec58ab48832df775dc3257905bf280ffec5d2f161fccbec49",
+  "issue_sha256": "23b8d4bb53450d07ea23c8be03518bc6a5a29192e1eae2fa2f3ad838c3ff4da5",
+  "outcome": "done",
+  "prepared_at": "2026-10-22T15:10:48Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1792661188293948"
+}

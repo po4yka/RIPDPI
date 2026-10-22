@@ -914,7 +914,12 @@ class AppStartupInitializerFailureTest {
                         bytes = null
                     }
                 }
-            val repository = SharedPreferencesProxyGroupRepository(storage, testMutationPreparationSource())
+            val repository =
+                SharedPreferencesProxyGroupRepository(
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(storage),
+                    testMutationPreparationSource(),
+                )
             val observed = mutableListOf<List<ProxyGroup>>()
             val collector =
                 backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

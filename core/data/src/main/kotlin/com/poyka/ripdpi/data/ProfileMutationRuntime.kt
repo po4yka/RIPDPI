@@ -61,4 +61,12 @@ internal class ProfileMutationRuntime(
             journalRecovery,
             afterImageWriter,
         )
+    val subscriptionRefresh: SubscriptionRefreshMutationCoordinator =
+        SubscriptionRefreshMutations(
+            mutex,
+            journalRecovery::recover,
+            stores.groupCatalog,
+            pauseAuthority,
+            afterImageWriter,
+        )
 }

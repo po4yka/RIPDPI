@@ -10,14 +10,16 @@ import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
-import com.poyka.ripdpi.data.awg.saveMigrationTargets
+import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
+import com.poyka.ripdpi.data.awg.SavedAwgProfile
+import com.poyka.ripdpi.data.awg.requireValidSubscriptionProfiles
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
+import com.poyka.ripdpi.data.awg.toMigrationTarget
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
 import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
 import com.poyka.ripdpi.data.subscription.MigrationMetadata
-import com.poyka.ripdpi.data.subscription.MigrationTarget
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
@@ -200,55 +202,65 @@ class SubscriptionRefreshCoordinator private constructor(
         attemptedAt: Long,
         outcome: RefreshOutcome.Updated,
     ): SubscriptionRefreshResult {
-        var installed = false
-        val updated =
-            repository.updateGroup(expected.id) { current ->
-                if (current != expected) return@updateGroup current
-                val subscription = current.subscription ?: return@updateGroup current
-                installed = true
-                val withMembers =
-                    if (outcome.clearRelayMembers) {
-                        current.copy(members = emptyList(), cloudflareMemberIds = emptySet())
-                    } else {
-                        SubscriptionMemberPersistence.apply(
-                            group = current,
-                            members = outcome.profiles,
-                            failover = outcome.failover,
-                            cloudflareMemberIds = outcome.cloudflareMemberIds,
-                            isSelector = outcome.isSelector,
-                        )
-                    }
-                val migration =
-                    receivedMigration(
-                        outcome.migration,
-                        outcome.payloadSha256,
-                        attemptedAt,
-                        withMembers.members,
-                        outcome.awgTargets,
-                        subscription.migration,
-                    )
-                withMembers.copy(
-                    packageRoutingRules = outcome.packageRoutingRules,
+        val subscription = expected.subscription ?: return SubscriptionRefreshResult.Superseded
+        val replacement = replacementGroup(expected, attemptedAt, outcome)
+        val committed =
+            awgProfileRepository.commitSubscriptionRefresh(expected, outcome.awgProfiles) { prepared ->
+                replacement.copy(
                     subscription =
-                        subscription
-                            .withUserinfoHeader(outcome.subscriptionUserinfo)
-                            .copy(
-                                lastUpdated = attemptedAt,
-                                lastRefreshAttemptAtEpochMillis = attemptedAt,
-                                tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
-                                lifecycleState = SubscriptionLifecycleState.ACTIVE,
-                                lastRefreshFailure = null,
-                                mirrors = outcome.subscriptionMirrors ?: subscription.mirrors,
-                                migration = migration,
-                            ),
+                        checkNotNull(replacement.subscription).copy(
+                            migration =
+                                receivedMigration(
+                                    outcome.migration,
+                                    outcome.payloadSha256,
+                                    attemptedAt,
+                                    replacement.members,
+                                    prepared.map(SavedAwgProfile::toMigrationTarget),
+                                    subscription.migration,
+                                ),
+                        ),
                 )
             }
-        return if (installed && updated != null) {
-            log.i { "refreshed subscription group ${expected.id}: ${updated.members.size} profiles persisted" }
-            SubscriptionRefreshResult.Updated(updated.members.size)
+        return if (committed) {
+            log.i { "refreshed subscription group ${expected.id}: ${replacement.members.size} profiles persisted" }
+            SubscriptionRefreshResult.Updated(replacement.members.size)
         } else {
             SubscriptionRefreshResult.Superseded
         }
+    }
+
+    private fun replacementGroup(
+        expected: ProxyGroup,
+        attemptedAt: Long,
+        outcome: RefreshOutcome.Updated,
+    ): ProxyGroup {
+        val subscription = checkNotNull(expected.subscription)
+        val withMembers =
+            if (outcome.clearRelayMembers) {
+                expected.copy(members = emptyList(), cloudflareMemberIds = emptySet())
+            } else {
+                SubscriptionMemberPersistence.apply(
+                    group = expected,
+                    members = outcome.profiles,
+                    failover = outcome.failover,
+                    cloudflareMemberIds = outcome.cloudflareMemberIds,
+                    isSelector = outcome.isSelector,
+                )
+            }
+        return withMembers.copy(
+            packageRoutingRules = outcome.packageRoutingRules,
+            subscription =
+                subscription
+                    .withUserinfoHeader(outcome.subscriptionUserinfo)
+                    .copy(
+                        lastUpdated = attemptedAt,
+                        lastRefreshAttemptAtEpochMillis = attemptedAt,
+                        tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
+                        lifecycleState = SubscriptionLifecycleState.ACTIVE,
+                        lastRefreshFailure = null,
+                        mirrors = outcome.subscriptionMirrors ?: subscription.mirrors,
+                    ),
+        )
     }
 
     private suspend fun persistFailure(
@@ -329,13 +341,12 @@ class SubscriptionRefreshCoordinator private constructor(
                         if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
                             payloadTooLargeFailure()
                         } else {
-                            val awgTargets = persistWireGuardProfiles(singBox, wireGuard)
                             profiles.copy(
+                                awgProfiles = parsedWireGuardProfiles(singBox, wireGuard),
                                 subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty(),
                                 subscriptionMirrors = singBox?.subscriptionMirrors,
                                 migration = singBox?.migration,
                                 payloadSha256 = payload.sha256,
-                                awgTargets = awgTargets,
                             )
                         }
                     } else {
@@ -515,26 +526,19 @@ class SubscriptionRefreshCoordinator private constructor(
                 ?.let { outcome.copy(profiles = it) }
         }
 
-    private suspend fun persistWireGuardProfiles(
+    private fun parsedWireGuardProfiles(
         singBox: SingBoxParseResult.Success?,
         wireGuardIni: com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionResult?,
-    ): List<MigrationTarget> {
-        val profiles =
-            buildList {
-                singBox?.amneziaWgProfiles?.forEach {
-                    add(
-                        it.toAwgSubscriptionProfile(
-                            previousTag = singBox.migration?.awgPreviousTags?.get(it.displayName),
-                        ),
-                    )
-                }
-                wireGuardIni?.amneziaWgProfiles?.forEach {
-                    add(it.toAwgSubscriptionProfile(memberId = "peer:${it.peerPublicKey}"))
-                }
-                wireGuardIni?.profiles?.forEach { add(it.toAwgSubscriptionProfile()) }
+    ): List<AwgSubscriptionProfile> =
+        buildList {
+            singBox?.amneziaWgProfiles?.forEach {
+                add(it.toAwgSubscriptionProfile(previousTag = singBox.migration?.awgPreviousTags?.get(it.displayName)))
             }
-        return awgProfileRepository.saveMigrationTargets(profiles)
-    }
+            wireGuardIni?.amneziaWgProfiles?.forEach {
+                add(it.toAwgSubscriptionProfile(memberId = "peer:${it.peerPublicKey}"))
+            }
+            wireGuardIni?.profiles?.forEach { add(it.toAwgSubscriptionProfile()) }
+        }.also { it.requireValidSubscriptionProfiles() }
 
     private fun payloadTooLargeFailure(): RefreshOutcome.Failure =
         RefreshOutcome.Failure(
@@ -551,6 +555,7 @@ class SubscriptionRefreshCoordinator private constructor(
         data class Updated(
             val profiles: List<ProxyProfile>,
             val failover: SelectorFailover?,
+            val awgProfiles: List<AwgSubscriptionProfile> = emptyList(),
             val subscriptionUserinfo: String = "",
             val tokenExpiresAtEpochMillis: Long? = null,
             val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
@@ -560,7 +565,6 @@ class SubscriptionRefreshCoordinator private constructor(
             val isSelector: Boolean = false,
             val migration: MigrationMetadata? = null,
             val payloadSha256: String = "",
-            val awgTargets: List<MigrationTarget> = emptyList(),
         ) : RefreshOutcome
 
         data class Failure(

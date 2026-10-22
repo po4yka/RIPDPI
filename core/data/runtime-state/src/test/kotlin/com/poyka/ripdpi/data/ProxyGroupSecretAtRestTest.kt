@@ -83,7 +83,8 @@ class ProxyGroupSecretAtRestTest {
             val blobStore = FakeProxyGroupBlobStore()
             val repo =
                 SharedPreferencesProxyGroupRepository(
-                    blobStore,
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
                         .testMutationPreparationSource(
                             com.poyka.ripdpi.data
@@ -104,7 +105,8 @@ class ProxyGroupSecretAtRestTest {
             assertTrue(persisted.contains("fixture-mirror-token"))
             val loaded =
                 SharedPreferencesProxyGroupRepository(
-                    blobStore,
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
                         .testMutationPreparationSource(
                             com.poyka.ripdpi.data
@@ -124,7 +126,8 @@ class ProxyGroupSecretAtRestTest {
             val blobStore = FakeProxyGroupBlobStore()
             val repo =
                 SharedPreferencesProxyGroupRepository(
-                    blobStore,
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
                         .testMutationPreparationSource(
                             com.poyka.ripdpi.data

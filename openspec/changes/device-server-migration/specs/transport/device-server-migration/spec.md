@@ -27,6 +27,19 @@ NOT inherit a previous migration receipt.
 - **WHEN** a different valid delivery replaces the stored subscription
 - **THEN** prior tested evidence cannot authorize that new delivery
 
+#### Scenario: Superseded refresh has no migration effects
+
+- **WHEN** the subscription source, group, or refresh revision changes before a fetched payload commits
+- **THEN** refresh MUST reject it before preparing AWG row IDs, keys, or receipt authority
+- **AND** the winning group and its migration state MUST remain unchanged
+
+#### Scenario: Interrupted refresh replays one matching delivery
+
+- **WHEN** refresh is interrupted after its durable intent is prepared
+- **THEN** recovery MUST replay AWG rows, merged credentials, and migration receipt from the same after-images
+- **AND** receipt targets MUST match the exact assigned row IDs and fingerprints
+- **AND** existing group observers MUST receive the recovered revision without a reload
+
 #### Scenario: AWG tag changes
 
 - **WHEN** a valid migration maps a new AWG tag to a previous tag in the same subscription group

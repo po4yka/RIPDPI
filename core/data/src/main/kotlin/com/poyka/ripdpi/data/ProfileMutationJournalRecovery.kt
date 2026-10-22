@@ -114,6 +114,9 @@ internal class ProfileMutationJournalRecovery(
 /** Utility references cover native relay/Xray catalogs and selector members, not WARP/AWG provisioning stores. */
 internal fun ProfileMutationIntent.affectsUtilityCatalog(): Boolean =
     when (family) {
-        ProfileMutationFamily.Relay, ProfileMutationFamily.Xray, ProfileMutationFamily.Backup -> true
+        ProfileMutationFamily.Relay, ProfileMutationFamily.Xray, ProfileMutationFamily.Backup,
+        ProfileMutationFamily.Subscription,
+        -> true
+
         ProfileMutationFamily.Warp, ProfileMutationFamily.Awg -> false
     }

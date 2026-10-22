@@ -3,20 +3,14 @@ package com.poyka.ripdpi.data
 import android.content.Context
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
-import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -68,6 +62,8 @@ data class Subscription(
     val autoUpdate: Boolean = false,
     val autoUpdateDelay: Long = 0L,
     val lastUpdated: Long = 0L,
+    /** Monotonic accepted-refresh ownership, independent of wall-clock resolution. */
+    val refreshRevision: Long = 0L,
     val updateWhenConnectedOnly: Boolean = false,
     val forceResolve: Boolean = false,
     val deduplication: Boolean = false,
@@ -491,31 +487,20 @@ interface ProxyGroupRepository {
 class SharedPreferencesProxyGroupRepository
     @Inject
     constructor(
-        private val blobStore: ProxyGroupBlobStore,
+        private val catalog: ProxyGroupCatalog,
         private val intentPreparation: PauseMutationPreparationSource,
     ) : ProxyGroupRepository {
-        private val json = RipDpiJson
-        private val listSerializer = ListSerializer(ProxyGroup.serializer())
-        private val mutex = Mutex()
-        private val state = MutableStateFlow<List<ProxyGroup>?>(null)
-
         override suspend fun add(group: ProxyGroup) {
             val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.ImportOnly)
             intentPreparation.mutateCatalog(preparation) {
-                mutex.withLock {
-                    val next = readGroups().filterNot { it.id == group.id } + group
-                    writeGroups(next)
-                }
+                catalog.update { it.filterNot { saved -> saved.id == group.id } + group }
             }
         }
 
         override suspend fun update(group: ProxyGroup) {
             val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.SavedEdit)
             intentPreparation.mutateCatalog(preparation) {
-                mutex.withLock {
-                    val next = readGroups().map { if (it.id == group.id) group else it }
-                    writeGroups(next)
-                }
+                catalog.update { groups -> groups.map { if (it.id == group.id) group else it } }
             }
         }
 
@@ -524,61 +509,31 @@ class SharedPreferencesProxyGroupRepository
             transform: (ProxyGroup) -> ProxyGroup,
         ): ProxyGroup? {
             val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.SavedEdit)
-            return intentPreparation.mutateCatalog(preparation) {
-                mutex.withLock {
-                    val groups = readGroups()
-                    val current = groups.firstOrNull { it.id == id } ?: return@withLock null
-                    val updated = transform(current)
-                    writeGroups(groups.map { if (it.id == id) updated else it })
-                    updated
-                }
-            }
+            return intentPreparation.mutateCatalog(preparation) { catalog.updateGroup(id, transform) }
         }
 
         override suspend fun delete(
             preparation: ProfileMutationPreparation,
             id: String,
         ) {
-            intentPreparation.mutateCatalog(preparation) {
-                mutex.withLock {
-                    writeGroups(readGroups().filterNot { it.id == id })
-                }
-            }
+            intentPreparation.mutateCatalog(preparation) { catalog.update { it.filterNot { group -> group.id == id } } }
         }
 
-        override suspend fun list(): List<ProxyGroup> =
-            mutex.withLock {
-                readGroups().also { state.value = it }
-            }
+        override suspend fun list(): List<ProxyGroup> = catalog.load()
 
         override suspend fun replaceAll(
             receipt: DurableCommandReceipt,
             groups: List<ProxyGroup>,
         ) {
-            intentPreparation.mutateReservedCatalog(receipt) {
-                mutex.withLock { writeGroups(groups) }
-            }
+            intentPreparation.mutateReservedCatalog(receipt) { catalog.replace(groups) }
         }
 
         override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
             val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.Compensation)
-            intentPreparation.mutateCatalog(preparation) {
-                mutex.withLock { writeGroups(groups) }
-            }
+            intentPreparation.mutateCatalog(preparation) { catalog.replace(groups) }
         }
 
-        override fun groups(): Flow<List<ProxyGroup>> = state.filterNotNull()
-
-        private fun readGroups(): List<ProxyGroup> =
-            blobStore.read()?.let { json.decodeFromString(listSerializer, it) } ?: emptyList()
-
-        private fun writeGroups(groups: List<ProxyGroup>) {
-            val ordered = groups.sortedBy(ProxyGroup::order)
-            // Validate the existing catalogue before even the first replacement write.
-            if (state.value == null) readGroups()
-            blobStore.write(json.encodeToString(listSerializer, ordered))
-            state.value = ordered
-        }
+        override fun groups(): Flow<List<ProxyGroup>> = catalog.groups()
     }
 
 /**

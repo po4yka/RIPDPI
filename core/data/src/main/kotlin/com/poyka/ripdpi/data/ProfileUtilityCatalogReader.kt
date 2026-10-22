@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -9,7 +8,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
-import kotlinx.serialization.builtins.ListSerializer
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -66,15 +64,7 @@ class ProfileUtilityCatalogReader
                                             "xray",
                                         )
                                     }
-                                val groups =
-                                    stores.groupBlob
-                                        .read()
-                                        ?.let { encoded ->
-                                            RipDpiJson.decodeFromString(
-                                                ListSerializer(ProxyGroup.serializer()),
-                                                encoded,
-                                            )
-                                        }.orEmpty()
+                                val groups = stores.groupCatalog.snapshot()
                                 val members =
                                     groups.flatMap { group ->
                                         group.members.map { member ->

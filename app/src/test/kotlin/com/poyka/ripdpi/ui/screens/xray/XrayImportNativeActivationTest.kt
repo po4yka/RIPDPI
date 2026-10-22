@@ -1133,7 +1133,11 @@ class NativeRelayActivationFenceTest {
             )
         val real =
             com.poyka.ripdpi.data
-                .SharedPreferencesProxyGroupRepository(MemoryGroupBlob(), mutations)
+                .SharedPreferencesProxyGroupRepository(
+                    com.poyka.ripdpi.data
+                        .ProxyGroupCatalog(MemoryGroupBlob()),
+                    mutations,
+                )
         val cleanup = java.io.IOException("Metadata rollback failed")
         val repository =
             object : ProxyGroupRepository by real {
@@ -1188,7 +1192,11 @@ class NativeRelayActivationFenceTest {
                 )
             val repository =
                 com.poyka.ripdpi.data
-                    .SharedPreferencesProxyGroupRepository(MemoryGroupBlob(), mutations)
+                    .SharedPreferencesProxyGroupRepository(
+                        com.poyka.ripdpi.data
+                            .ProxyGroupCatalog(MemoryGroupBlob()),
+                        mutations,
+                    )
             val selections =
                 com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore(
                     org.robolectric.RuntimeEnvironment.getApplication(),
@@ -1255,7 +1263,11 @@ class NativeRelayActivationFenceTest {
                 )
             val real =
                 com.poyka.ripdpi.data
-                    .SharedPreferencesProxyGroupRepository(MemoryGroupBlob(), mutations)
+                    .SharedPreferencesProxyGroupRepository(
+                        com.poyka.ripdpi.data
+                            .ProxyGroupCatalog(MemoryGroupBlob()),
+                        mutations,
+                    )
             val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
             val release = kotlinx.coroutines.CompletableDeferred<Unit>()
             val repository =
@@ -1291,7 +1303,11 @@ class NativeRelayActivationFenceTest {
             val blob = MemoryGroupBlob().apply { failNextAfterWrite = true }
             val repository =
                 com.poyka.ripdpi.data
-                    .SharedPreferencesProxyGroupRepository(blob, mutations)
+                    .SharedPreferencesProxyGroupRepository(
+                        com.poyka.ripdpi.data
+                            .ProxyGroupCatalog(blob),
+                        mutations,
+                    )
             val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(mutations))
             val pause = mutations.testAuthority.begin(Mode.Proxy, 300_000, mutations.testAuthority.snapshotAuthority())
             assertTrue(

@@ -28,11 +28,15 @@ relay probes already require a complete bounded HTTP body and owned cleanup.
   outer RIPDPI schema remains 1, with no embedded self-referential payload digest.
 - Store metadata and receipt state inside the existing sealed subscription blob.
   Receipt export is a whitelist, never serialization of the subscription object.
-  Persist received state only after relay parsing and every AWG save succeed,
-  and atomically with the final group update. A crash before that commit cannot
-  acknowledge delivery. Capture target identities from the actual persisted rows;
-  stale partial writes cannot qualify as tested evidence. A changed digest or
-  delivery resets tested state; absent metadata removes old receipt authority.
+  Subscription refresh parses without writing and checks the captured group under
+  the shared recovery lock before preparing any AWG row or credential. Build the
+  receipt from the exact prepared AWG after-images, including assigned row IDs and
+  locally merged keys, and journal those rows with the group and receipt in one
+  recoverable intent. The owner increments refreshRevision; stale generations
+  cannot create keys or receipt authority. Recovery publishes the same group to
+  existing observers. Bootstrap imports capture completed durable row writes.
+  A changed digest or delivery resets tested state; absent metadata removes old
+  receipt authority. Exact unchanged targets retain their previous path proof.
 - Use a dedicated migration verification coordinator, not selector URL-test's
   latency signal or generic connected status. Select only an exact declared target.
   Map relay targets with `mapRelayProfile`, then call `CandidateRelayMeasurements`.
@@ -93,8 +97,10 @@ relay probes already require a complete bounded HTTP body and owned cleanup.
 - Shared-secret MAC proves delivery-key possession and binds receipt fields; it
   does not attest an uncompromised device or prevent the owner from fabricating a
   receipt. Operator retirement policy must retain this trust boundary.
-- AWG and group persistence span stores. Commit receipt authority last, keep batch
-  retry idempotent, and require exact current target comparison for test/export.
+- AWG and group persistence span stores. Journal refresh after-images together,
+  publish the group only after row and credential writes, and replay the same
+  receipt/row identities after interruption. Preparation never re-enters either
+  the AWG row lock or recovery owner. Test/export still requires current targets.
 - Server tags are technical identifiers. Never derive exported tags from device
   names or endpoints; reject ambiguous parsing and use only declared tags.
 - No test fixture substitutes for a real device or live server result. Local and

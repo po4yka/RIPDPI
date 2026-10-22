@@ -67,20 +67,22 @@ class BackupPrivateDataStoreTest {
                         xraySelection = xraySelection,
                         bootSession = BackupBootSessionStateStore(),
                         selectorChoice = TestSelectorChoicePersistence(),
-                        groupBlob =
-                            object : ProxyGroupBlobStore {
-                                private var encoded: String? = null
+                        groupCatalog =
+                            ProxyGroupCatalog(
+                                object : ProxyGroupBlobStore {
+                                    private var encoded: String? = null
 
-                                override fun read() = encoded
+                                    override fun read() = encoded
 
-                                override fun write(json: String) {
-                                    encoded = json
-                                }
+                                    override fun write(json: String) {
+                                        encoded = json
+                                    }
 
-                                override fun clear() {
-                                    encoded = null
-                                }
-                            },
+                                    override fun clear() {
+                                        encoded = null
+                                    }
+                                },
+                            ),
                     ),
                 awgProfiles = database.awgProfileDao(),
                 awgCredentials = awgCredentials,

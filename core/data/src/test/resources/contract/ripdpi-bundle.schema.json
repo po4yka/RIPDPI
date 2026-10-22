@@ -9,6 +9,34 @@
   "required": ["schema_version", "amneziawg", "hysteria_extras"],
   "additionalProperties": true,
   "$defs": {
+    "payload_failover": {
+      "description": "Opt-in useful-data verification for the matching RIPDPI selector runtime. Both control origins must be distinct after HTTPS authority normalization; timeout must not exceed interval and maximum backoff must not be shorter than interval. Producer and consumer enforce these semantic constraints.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "selector_tag", "probes", "interval_seconds", "timeout_seconds", "failure_threshold", "recovery_threshold", "cooldown_seconds", "max_backoff_seconds"],
+      "properties": {
+        "schema_version": { "type": "integer", "const": 1 },
+        "selector_tag": { "const": "select" },
+        "probes": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["url", "expected_bytes", "sha256"],
+            "properties": {
+              "url": { "type": "string", "minLength": 1, "maxLength": 2048, "pattern": "^https://[^\\s]+$" },
+              "expected_bytes": { "type": "integer", "minimum": 32768, "maximum": 65536 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+        "interval_seconds": { "type": "integer", "minimum": 30, "maximum": 3600 },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "failure_threshold": { "type": "integer", "minimum": 2, "maximum": 10 },
+        "recovery_threshold": { "type": "integer", "minimum": 2, "maximum": 10 },
+        "cooldown_seconds": { "type": "integer", "minimum": 30, "maximum": 3600 },
+        "max_backoff_seconds": { "type": "integer", "minimum": 60, "maximum": 3600 }
+      }
+    },
     "cohort_fingerprint": {
       "description": "SHA-256 of the resolved AWG obfuscation parameter set. Canonical preimage (UTF-8, no trailing newline): 'jc=<jc>&jmin=<jmin>&jmax=<jmax>&s1=<s1>&s2=<s2>&h1=<h1>&h2=<h2>&h3=<h3>&h4=<h4>&i1=<i1>&i2=<i2>&i3=<i3>&i4=<i4>&i5=<i5>' where each value is its base-10 (jc..h4) or lowercase-hex (i1..i5) form, and an absent i-value renders as the empty string. The client recomputes this from the parsed params and compares; a mismatch means the bundle's params drifted from the cohort the fingerprint was minted for (show 'profile outdated, refresh subscription' instead of a silent handshake stall).",
       "type": "string",
@@ -127,6 +155,7 @@
       "additionalProperties": { "$ref": "#/$defs/hysteria_extras_entry" }
     },
     "topology": { "$ref": "#/$defs/topology" },
+    "payload_failover": { "$ref": "#/$defs/payload_failover" },
     "migration": {
       "type": "object",
       "required": [

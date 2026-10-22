@@ -11,10 +11,13 @@ import com.poyka.ripdpi.data.subscription.migrationSha256
 import com.poyka.ripdpi.data.subscription.receivedMigration
 import com.poyka.ripdpi.services.AwgMigrationMeasurement
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -260,6 +263,90 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
             )
             assertEquals("received", state(coordinator.receipt(Group)))
         }
+
+    @Test
+    fun `superseded migration refresh cannot create AWG rows or receipt authority`() =
+        runTest {
+            lateinit var repository: ProxyGroupRepository
+            val client =
+                OkHttpClient
+                    .Builder()
+                    .addNetworkInterceptor { chain ->
+                        chain.proceed(chain.request()).also {
+                            runBlocking { repository.updateGroup(Group) { it.copy(name = "Edited during delivery") } }
+                        }
+                    }.build()
+            val fixture = fixture(1000, httpClient = client)
+            repository = fixture.repository
+            server.enqueue(response(200, awgPayload()))
+
+            assertEquals(SubscriptionRefreshResult.Superseded, fixture.coordinator.refresh(Group))
+            val group = repository.list().single()
+            assertEquals("Edited during delivery", group.name)
+            val subscription = checkNotNull(group.subscription)
+            assertEquals(0L, subscription.refreshRevision)
+            assertNull(subscription.migration)
+            assertTrue(
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `AWG refresh receipt fingerprints exact assigned rows and retains proof only for the same payload`() =
+        runTest {
+            val fixture = fixture(1000)
+            val body = awgPayload()
+            server.enqueue(response(200, body))
+            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh(Group))
+            val first = fixture.repository.list().single()
+            val firstSubscription = checkNotNull(first.subscription)
+            val receipt = checkNotNull(firstSubscription.migration)
+            val row =
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .single()
+            assertEquals(row.id, receipt.targets.single().profileId)
+            assertEquals(row.request.migrationFingerprint(), receipt.targets.single().fingerprint)
+            assertEquals(migrationSha256(body.toByteArray()), receipt.payloadSha256)
+            val tested =
+                receipt.copy(
+                    pathTest =
+                        com.poyka.ripdpi.data.subscription.MigrationPathTest(
+                            "green",
+                            1001,
+                            receipt.targets.single().fingerprint,
+                        ),
+                )
+            fixture.repository.update(first.copy(subscription = firstSubscription.copy(migration = tested)))
+            server.enqueue(response(200, body))
+            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh(Group))
+            val second = fixture.repository.list().single()
+            val secondSubscription = checkNotNull(second.subscription)
+            assertEquals(tested, secondSubscription.migration)
+            assertEquals(2L, secondSubscription.refreshRevision)
+            server.enqueue(response(200, trojanPayload))
+            assertTrue(fixture.coordinator.refresh(Group) is SubscriptionRefreshResult.Updated)
+            assertNull(
+                fixture.repository
+                    .list()
+                    .single()
+                    .subscription!!
+                    .migration,
+            )
+        }
+
+    private fun awgPayload() =
+        """{"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
+          "tag":"green","private_key_placeholder":true,"address":["10.8.0.2/32"],"jc":4,
+          "peer":{"public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+          "endpoint":"192.0.2.20:443","preshared_key":"fixture-psk","allowed_ips":["0.0.0.0/0"]}
+        }],"migration":{"schema_version":1,
+          "migration_id":"${identity.migrationId}","delivery_id":"${identity.deliveryId}",
+          "target_tags":["green"],"receipt_key":"${identity.receiptKey}","awg_previous_tags":{}}}}"""
 
     private fun coordinator(
         repository: ProxyGroupRepository,

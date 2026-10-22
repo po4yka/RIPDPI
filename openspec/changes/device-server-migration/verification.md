@@ -83,6 +83,31 @@ native-graphics renders, not physical-device acceptance. No dedicated migration
 RDS screen exists; the implementation reuses the subscription card components.
 Existing screenshot baselines are unchanged.
 
+## Atomic refresh integration — 2026-10-22
+
+Merged the published atomic subscription refresh implementation from `ede4099f5`
+without rewriting the migration branch. Refresh now derives receipt targets from
+exact prepared AWG row/credential after-images after the captured-group ownership
+check and journals them with the accepted group. Same-group renamed AWG members
+retain the device key and preserve their source row. New regression cases cover
+stale-owner rejection, journal replay with matching receipt identities and
+existing observers, exact target fingerprints, unchanged-payload proof retention,
+and metadata-free authority removal.
+
+Observed before publication of this integration:
+
+- Scoped Kotlin formatting and `git diff --check` passed.
+- Task contracts passed: 147 tasks, 452 steps.
+- Architecture health passed: 21 indicators, none new, worsened or stale.
+- Independent semantic review found no actionable defects.
+- The five bundle/payload/migration contract resources match the companion
+  canonical server contract `29ed8d13` byte-for-byte, preserving both
+  `payload_failover` and `migration`.
+- Focused JVM checks are queued behind the machine-wide build gate; they have
+  not run yet. The full combined four-module JVM/static-analysis/lint gate is
+  pending after those checks. Earlier full-gate results below predate this merge
+  and do not establish acceptance of the integrated revision.
+
 ## Remaining gates
 
 - Complete emulator interaction and share-chooser acceptance using the
@@ -103,6 +128,6 @@ behavior, not APK packaging or native transport acceptance.
 
 Unit fixtures and injected probes establish client behavior, never actual server
 reachability. No live receipt or device/server migration is claimed. No remote
-telemetry or implicit upload was added. The final full JVM gate passed; hosted, device and native artifact acceptance
+telemetry or implicit upload was added. The pre-integration full JVM gate passed; hosted, device and native artifact acceptance
 remain unresolved until results are observed for the implementation revision.
 The task remains open and no deployment or production migration is claimed.

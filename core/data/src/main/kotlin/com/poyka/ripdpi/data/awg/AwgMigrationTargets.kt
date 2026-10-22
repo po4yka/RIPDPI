@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.subscription.migrationFingerprint
 
 /** Captures actual stored identities after every recoverable subscription write completes. */
 suspend fun AwgProfileRepository.saveMigrationTargets(profiles: List<AwgSubscriptionProfile>): List<MigrationTarget> =
-    saveSubscriptionProfiles(profiles).map { saved ->
-        MigrationTarget(saved.name, saved.id, true, saved.request.migrationFingerprint())
-    }
+    saveSubscriptionProfiles(profiles).map(SavedAwgProfile::toMigrationTarget)
+
+/** Uses the exact rehydrated after-image, including its assigned row id and merged key fields. */
+fun SavedAwgProfile.toMigrationTarget(): MigrationTarget =
+    MigrationTarget(name, id, true, request.migrationFingerprint())
