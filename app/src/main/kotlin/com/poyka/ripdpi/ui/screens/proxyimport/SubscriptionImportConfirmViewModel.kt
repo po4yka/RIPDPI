@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.ProxyGroup
@@ -17,11 +16,10 @@ import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
-import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
+import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateScheduler
 import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -69,7 +67,7 @@ class SubscriptionImportConfirmViewModel
             repository: ProxyGroupRepository,
             awgProfileRepository: AwgProfileRepository,
             refreshCoordinator: SubscriptionRefreshCoordinator,
-            @ApplicationContext context: Context,
+            autoUpdateScheduler: SubscriptionAutoUpdateScheduler,
         ) : this(
             repository = repository,
             bootstrapConsumer = BootstrapConsumer(),
@@ -78,7 +76,7 @@ class SubscriptionImportConfirmViewModel
                 awgProfileRepository.saveSubscriptionProfiles(profiles.map { it.toAwgSubscriptionProfile() })
             },
             refreshSubscription = refreshCoordinator::refresh,
-            scheduleAutoUpdate = { groups -> SubscriptionAutoUpdateWorker.enqueuePeriodic(context, groups) },
+            scheduleAutoUpdate = autoUpdateScheduler::schedule,
             constructorMarker = Unit,
         )
 
