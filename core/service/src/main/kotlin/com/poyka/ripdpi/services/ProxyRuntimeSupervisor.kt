@@ -209,6 +209,10 @@ internal class ProxyRuntimeSupervisor(
         stopFailure?.let { throw it }
     }
 
+    fun detachCompleted() {
+        if (proxyJob?.isCompleted == true) detach()
+    }
+
     fun detach() {
         forwardingLease.set(null)
         exitReporting?.set(false)

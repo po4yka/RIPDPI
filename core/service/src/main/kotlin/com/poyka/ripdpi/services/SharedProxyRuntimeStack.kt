@@ -236,9 +236,7 @@ internal class SharedProxyRuntimeStack(
 
     suspend fun stop(skipRuntimeShutdown: Boolean) {
         if (skipRuntimeShutdown) {
-            detachAll()
-            upstreamRelaySupervisor.stop()
-            return
+            detachCompletedRuntimes()
         }
 
         clearForeignRelayFailed()
@@ -267,11 +265,12 @@ internal class SharedProxyRuntimeStack(
         stopFailure?.let { throw it }
     }
 
-    fun detachAll() {
+    /** Release exited workers only. Live siblings must still receive stop and join. */
+    fun detachCompletedRuntimes() {
         clearForeignRelayFailed()
-        upstreamRelaySupervisor.detach()
-        warpRuntimeSupervisor.detach()
-        amneziaWgRuntimeSupervisor.detach()
-        proxyRuntimeSupervisor.detach()
+        upstreamRelaySupervisor.detachCompleted()
+        warpRuntimeSupervisor.detachCompleted()
+        amneziaWgRuntimeSupervisor.detachCompleted()
+        proxyRuntimeSupervisor.detachCompleted()
     }
 }

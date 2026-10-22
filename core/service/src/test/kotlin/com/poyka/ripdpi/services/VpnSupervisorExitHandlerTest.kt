@@ -90,7 +90,7 @@ class VpnSupervisorExitHandlerTest {
                 harness.statusUpdates,
             )
             assertEquals(1, harness.foreignRelayFailureCount)
-            assertEquals(listOf(true), harness.stopServiceArguments)
+            assertEquals(listOf(false), harness.stopServiceArguments)
         }
 
     @Test
@@ -103,7 +103,7 @@ class VpnSupervisorExitHandlerTest {
 
             assertEquals(ServiceStatus.Failed, harness.statusUpdates.single().first)
             assertTrue(harness.statusUpdates.single().second is FailureReason.NativeError)
-            assertEquals(listOf(true), harness.stopServiceArguments)
+            assertEquals(listOf(false), harness.stopServiceArguments)
         }
 
     @Test

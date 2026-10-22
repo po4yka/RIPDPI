@@ -25,7 +25,7 @@ internal class ProxySupervisorExitHandler(
         if (cause is SupervisorExitCause.Crash && cause.code == 0) {
             Logger.i { "Proxy exited cleanly" }
             proxyRuntimeSupervisor.detach()
-            stopSkippingRuntimeShutdown()
+            stopRemainingRuntimes()
             return
         }
 
@@ -54,7 +54,7 @@ internal class ProxySupervisorExitHandler(
 
         reportFailure(failureReason)
         proxyRuntimeSupervisor.detach()
-        stopSkippingRuntimeShutdown()
+        stopRemainingRuntimes()
     }
 
     suspend fun handleWarpExit(cause: SupervisorExitCause) {
@@ -87,7 +87,7 @@ internal class ProxySupervisorExitHandler(
 
         reportFailure(failureReason)
         warpRuntimeSupervisor.detach()
-        stopSkippingRuntimeShutdown()
+        stopRemainingRuntimes()
     }
 
     suspend fun handleRelayExit(cause: SupervisorExitCause) {
@@ -133,7 +133,7 @@ internal class ProxySupervisorExitHandler(
 
         reportFailure(failureReason)
         amneziaWgRuntimeSupervisor.detach()
-        stopSkippingRuntimeShutdown()
+        stopRemainingRuntimes()
     }
 
     private fun reportFailure(failureReason: FailureReason?) {
@@ -142,8 +142,8 @@ internal class ProxySupervisorExitHandler(
         }
     }
 
-    private fun stopSkippingRuntimeShutdown() {
-        host.serviceScope.launch(ioDispatcher) { stopService(true) }
+    private fun stopRemainingRuntimes() {
+        host.serviceScope.launch(ioDispatcher) { stopService(false) }
     }
 
     private fun logRelayExit(cause: SupervisorExitCause) {

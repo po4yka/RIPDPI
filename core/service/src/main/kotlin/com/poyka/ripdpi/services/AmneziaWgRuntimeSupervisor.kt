@@ -132,6 +132,10 @@ internal class AmneziaWgRuntimeSupervisor(
         failure?.let { throw it }
     }
 
+    fun detachCompleted() {
+        if (amneziaWgJob?.isCompleted == true) detach()
+    }
+
     fun detach() {
         exitReporting?.set(false)
         amneziaWgJob = null

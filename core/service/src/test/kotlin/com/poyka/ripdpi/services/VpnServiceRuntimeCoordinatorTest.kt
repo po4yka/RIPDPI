@@ -231,7 +231,7 @@ class VpnServiceRuntimeCoordinatorTest {
             assertNull(env.runtimeRegistry.current(Mode.VPN))
             assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
             assertTrue(env.tunnelProvider.session.closed)
-            assertEquals(0, env.factory.lastRuntime.stopCount)
+            assertEquals(1, env.factory.lastRuntime.stopCount)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
         }
 
