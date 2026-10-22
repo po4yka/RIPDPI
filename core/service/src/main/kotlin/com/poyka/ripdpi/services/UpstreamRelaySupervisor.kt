@@ -313,6 +313,10 @@ internal class UpstreamRelaySupervisor(
         outcome.getOrThrow()
     }
 
+    fun detachCompleted() {
+        if (activeSlot?.job?.isCompleted == true) detach()
+    }
+
     fun detach() {
         activeSlot?.shouldReportExit?.set(false)
         activeSlot = null

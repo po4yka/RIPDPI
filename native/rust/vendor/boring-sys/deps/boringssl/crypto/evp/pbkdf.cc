@@ -16,22 +16,29 @@
 
 #include <string.h>
 
+#include <openssl/err.h>
 #include <openssl/hmac.h>
 
 #include "../internal.h"
 
 
+using namespace bssl;
+
 int PKCS5_PBKDF2_HMAC(const char *password, size_t password_len,
                       const uint8_t *salt, size_t salt_len, uint32_t iterations,
                       const EVP_MD *digest, size_t key_len, uint8_t *out_key) {
   // See RFC 8018, section 5.2.
-  bssl::ScopedHMAC_CTX hctx;
+  ScopedHMAC_CTX hctx;
   if (!HMAC_Init_ex(hctx.get(), password, password_len, digest, nullptr)) {
     return 0;
   }
 
   uint32_t i = 1;
   size_t md_len = EVP_MD_size(digest);
+  if (key_len > ((uint64_t{1} << 32) - 1) * md_len) {
+    OPENSSL_PUT_ERROR(EVP, EVP_R_INVALID_SECRET_LENGTH);
+    return 0;
+  }
   while (key_len > 0) {
     size_t todo = md_len;
     if (todo > key_len) {
@@ -75,7 +82,7 @@ int PKCS5_PBKDF2_HMAC(const char *password, size_t password_len,
   // value of 0 is an error.
   //
   // Unfortunately not all consumers of PKCS5_PBKDF2_HMAC() check their return
-  // value, expecting it to succeed and unconditionally using |out_key|.  As a
+  // value, expecting it to succeed and unconditionally using `out_key`.  As a
   // precaution for such callsites in external code, the old behavior of
   // iterations < 1 being treated as iterations == 1 is preserved, but
   // additionally an error result is returned.

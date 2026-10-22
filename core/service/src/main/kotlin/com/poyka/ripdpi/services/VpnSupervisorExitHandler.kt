@@ -24,8 +24,8 @@ internal class VpnSupervisorExitHandler(
         }
         if (cause is SupervisorExitCause.Crash && cause.code == 0) {
             Logger.i { "VPN local proxy exited cleanly" }
-            proxyRuntimeStack.detachAll()
-            stopSkippingRuntimeShutdown()
+            proxyRuntimeStack.detachCompletedRuntimes()
+            stopRemainingRuntimes()
             return
         }
 
@@ -53,8 +53,8 @@ internal class VpnSupervisorExitHandler(
             }
 
         reportFailure(failureReason)
-        proxyRuntimeStack.detachAll()
-        stopSkippingRuntimeShutdown()
+        proxyRuntimeStack.detachCompletedRuntimes()
+        stopRemainingRuntimes()
     }
 
     suspend fun handleWarpExit(cause: SupervisorExitCause) {
@@ -87,7 +87,7 @@ internal class VpnSupervisorExitHandler(
 
         reportFailure(failureReason)
         warpRuntimeSupervisor.detach()
-        stopSkippingRuntimeShutdown()
+        stopRemainingRuntimes()
     }
 
     suspend fun handleAwgExit(cause: SupervisorExitCause) {
@@ -120,7 +120,7 @@ internal class VpnSupervisorExitHandler(
 
         reportFailure(failureReason)
         amneziaWgRuntimeSupervisor.detach()
-        stopSkippingRuntimeShutdown()
+        stopRemainingRuntimes()
     }
 
     suspend fun handleRelayExit(cause: SupervisorExitCause) {
@@ -154,7 +154,7 @@ internal class VpnSupervisorExitHandler(
         reportFailure(failureReason)
         markForeignRelayFailed()
         upstreamRelaySupervisor.detach()
-        stopSkippingRuntimeShutdown()
+        stopRemainingRuntimes()
     }
 
     private fun reportFailure(failureReason: FailureReason?) {
@@ -163,7 +163,7 @@ internal class VpnSupervisorExitHandler(
         }
     }
 
-    private fun stopSkippingRuntimeShutdown() {
-        host.serviceScope.launch(ioDispatcher) { stopService(true) }
+    private fun stopRemainingRuntimes() {
+        host.serviceScope.launch(ioDispatcher) { stopService(false) }
     }
 }

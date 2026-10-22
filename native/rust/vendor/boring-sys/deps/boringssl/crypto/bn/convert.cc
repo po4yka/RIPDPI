@@ -29,6 +29,8 @@
 #include "../fipsmodule/bn/internal.h"
 
 
+using namespace bssl;
+
 int BN_bn2cbb_padded(CBB *out, size_t len, const BIGNUM *in) {
   uint8_t *ptr;
   return CBB_add_space(out, &ptr, len) && BN_bn2bin_padded(ptr, len, in);
@@ -71,20 +73,20 @@ char *BN_bn2hex(const BIGNUM *bn) {
   return buf;
 }
 
-// decode_hex decodes |in_len| bytes of hex data from |in| and updates |bn|.
+// decode_hex decodes `in_len` bytes of hex data from `in` and updates `bn`.
 static int decode_hex(BIGNUM *bn, const char *in, int in_len) {
   if (in_len > INT_MAX / 4) {
     OPENSSL_PUT_ERROR(BN, BN_R_BIGNUM_TOO_LONG);
     return 0;
   }
-  // |in_len| is the number of hex digits.
+  // `in_len` is the number of hex digits.
   if (!bn_expand(bn, in_len * 4)) {
     return 0;
   }
 
   int i = 0;
   while (in_len > 0) {
-    // Decode one |BN_ULONG| at a time.
+    // Decode one `BN_ULONG` at a time.
     int todo = BN_BYTES * 2;
     if (todo > in_len) {
       todo = in_len;
@@ -95,7 +97,7 @@ static int decode_hex(BIGNUM *bn, const char *in, int in_len) {
     for (j = todo; j > 0; j--) {
       uint8_t hex = 0;
       if (!OPENSSL_fromxdigit(&hex, in[in_len - j])) {
-        // This shouldn't happen. The caller checks |OPENSSL_isxdigit|.
+        // This shouldn't happen. The caller checks `OPENSSL_isxdigit`.
         assert(0);
       }
       word = (word << 4) | hex;
@@ -109,12 +111,12 @@ static int decode_hex(BIGNUM *bn, const char *in, int in_len) {
   return 1;
 }
 
-// decode_dec decodes |in_len| bytes of decimal data from |in| and updates |bn|.
+// decode_dec decodes `in_len` bytes of decimal data from `in` and updates `bn`.
 static int decode_dec(BIGNUM *bn, const char *in, int in_len) {
   int i, j;
   BN_ULONG l = 0;
 
-  // Decode |BN_DEC_NUM| digits at a time.
+  // Decode `BN_DEC_NUM` digits at a time.
   j = BN_DEC_NUM - (in_len % BN_DEC_NUM);
   if (j == BN_DEC_NUM) {
     j = 0;
@@ -198,7 +200,7 @@ int BN_hex2bn(BIGNUM **outp, const char *in) {
 char *BN_bn2dec(const BIGNUM *a) {
   // It is easier to print strings little-endian, so we assemble it in reverse
   // and fix at the end.
-  bssl::ScopedCBB cbb;
+  ScopedCBB cbb;
   if (!CBB_init(cbb.get(), 16) || //
       !CBB_add_u8(cbb.get(), 0 /* trailing NUL */)) {
     return nullptr;
@@ -209,7 +211,7 @@ char *BN_bn2dec(const BIGNUM *a) {
       return nullptr;
     }
   } else {
-    bssl::UniquePtr<BIGNUM> copy(BN_dup(a));
+    UniquePtr<BIGNUM> copy(BN_dup(a));
     if (copy == nullptr) {
       return nullptr;
     }

@@ -70,10 +70,9 @@ Recommended opt-ins on a healthy 32 GB host:
 org.gradle.unsafe.isolated-projects=true
 ```
 
-On this Mac, the user-owned Gradle init script under `~/.gradle/init.d/`
-enforces a 5 GiB Gradle heap and 3 GiB Kotlin heap ceiling, even inside an
-already-held gate. The committed 6 GiB Gradle default therefore needs this
-local override; extra RAM does not authorize raising the machine limits:
+On this Mac, use a 5 GiB Gradle heap and 3 GiB Kotlin heap ceiling, including
+inside an already-held gate. The committed 6 GiB Gradle default needs this
+local override in the effective Gradle home:
 
 ```properties
 org.gradle.jvmargs=-Xmx5g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:SoftRefLRUPolicyMSPerMB=50 -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
@@ -133,16 +132,23 @@ export GRADLE_USER_HOME="$PWD/.gradle-home"
 
 Each home re-warms and retains its own cache, so account for that disk cost
 when creating worktrees. It also changes where Gradle reads user properties
-and init scripts: install the local overrides there and load the machine's
-existing guard with `--init-script "$HOME/.gradle/init.d/00-heavy-build-gate.gradle"`
-when using an isolated home on this Mac. Keep that user-owned guard as the
-source of truth rather than copying its body into the repository. Heavy builds
-still use the top-level gate below.
+and init scripts: install the local overrides there. If the host has a
+user-owned guard under `~/.gradle/init.d/`, load that existing script explicitly
+with `--init-script`. Do not assume that it exists. Heavy builds use the
+top-level gate below.
 
 ### Concurrency ceiling
 
+On this Mac, the owner has authorized one permanent extra slot reserved for
+RIPDPI. Use `build-gate --lane ripdpi -- <command>` and inspect it with
+`build-gate --lane ripdpi --status`. The default lane remains available to
+other projects. Each lane permits one heavy command; nested commands inherit
+the lane and cannot switch it. Keep the worker and heap limits below.
+This local tool setting does not change CI or require this option on other hosts.
+
 Run heavy local builds and compiler-backed tests across all worktrees through
-the same machine-wide gate: `build-gate -- <command>`. This includes Gradle,
+the machine-wide gate. Select `--lane ripdpi` on this Mac; use the
+default interface `build-gate -- <command>` on hosts without a reserved lane. This includes Gradle,
 Cargo/Rust compilation, `xcodebuild`, CMake builds, Ninja, and parallel Make.
 Inspect current slot capacity, holders, and queued commands with `build-gate --status`;
 use `build-gate --help` for the current interface. A full gate makes `--status`
@@ -164,11 +170,11 @@ Use the Gradle property for Android builds and `--jobs` for direct Cargo builds.
 ```sh
 # Local debug; use the per-user heap overrides described above.
 CMAKE_BUILD_PARALLEL_LEVEL=4 \
-  build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :app:assembleDebug --max-workers=4 -Pripdpi.nativeCpuBudget=4
+  build-gate --lane ripdpi -- env -u CARGO_BUILD_JOBS ./gradlew :app:assembleDebug --max-workers=4 -Pripdpi.nativeCpuBudget=4
 
 # Release/LTO: cap the combined native ABI budget at two.
 CMAKE_BUILD_PARALLEL_LEVEL=2 \
-  build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :app:assembleRelease --max-workers=4 -Pripdpi.nativeCpuBudget=2
+  build-gate --lane ripdpi -- env -u CARGO_BUILD_JOBS ./gradlew :app:assembleRelease --max-workers=4 -Pripdpi.nativeCpuBudget=2
 ```
 
 For direct Cargo commands, retain `--locked` whenever dependencies resolve and

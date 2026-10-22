@@ -19,10 +19,13 @@
 #include <openssl/mem.h>
 #include <algorithm>
 
+#include "../../mem_internal.h"
 #include "../aes/internal.h"
 #include "../service_indicator/internal.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 // Section references in this file refer to SP 800-90Ar1:
 // http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf
@@ -147,8 +150,7 @@ static int block_cipher_df(uint8_t *out, size_t out_len, const uint8_t *input,
 CTR_DRBG_STATE *CTR_DRBG_new(const uint8_t entropy[CTR_DRBG_ENTROPY_LEN],
                              const uint8_t *personalization,
                              size_t personalization_len) {
-  CTR_DRBG_STATE *drbg = reinterpret_cast<CTR_DRBG_STATE *>(
-      OPENSSL_malloc(sizeof(CTR_DRBG_STATE)));
+  CTR_DRBG_STATE *drbg = New<CTR_DRBG_STATE>();
   if (drbg == nullptr ||
       !CTR_DRBG_init(drbg, /*df=*/false, entropy, CTR_DRBG_ENTROPY_LEN,
                      /*nonce=*/nullptr, personalization, personalization_len)) {
@@ -163,8 +165,7 @@ CTR_DRBG_STATE *CTR_DRBG_new_df(const uint8_t *entropy, size_t entropy_len,
                                 const uint8_t nonce[CTR_DRBG_NONCE_LEN],
                                 const uint8_t *personalization,
                                 size_t personalization_len) {
-  CTR_DRBG_STATE *drbg = reinterpret_cast<CTR_DRBG_STATE *>(
-      OPENSSL_malloc(sizeof(CTR_DRBG_STATE)));
+  CTR_DRBG_STATE *drbg = New<CTR_DRBG_STATE>();
   if (drbg == nullptr ||
       !CTR_DRBG_init(drbg, /*df=*/true, entropy, entropy_len, nonce,
                      personalization, personalization_len)) {
@@ -175,11 +176,13 @@ CTR_DRBG_STATE *CTR_DRBG_new_df(const uint8_t *entropy, size_t entropy_len,
   return drbg;
 }
 
-void CTR_DRBG_free(CTR_DRBG_STATE *state) { OPENSSL_free(state); }
+void CTR_DRBG_free(CTR_DRBG_STATE *state) { Delete(state); }
 
-int CTR_DRBG_init(CTR_DRBG_STATE *drbg, int df, const uint8_t *entropy,
-                  size_t entropy_len, const uint8_t nonce[CTR_DRBG_NONCE_LEN],
-                  const uint8_t *personalization, size_t personalization_len) {
+int bssl::CTR_DRBG_init(CTR_DRBG_STATE *drbg, int df, const uint8_t *entropy,
+                        size_t entropy_len,
+                        const uint8_t nonce[CTR_DRBG_NONCE_LEN],
+                        const uint8_t *personalization,
+                        size_t personalization_len) {
   // Section 10.2.1.3.1 and 10.2.1.3.2
   if (personalization_len > CTR_DRBG_SEED_LEN ||
       (!df && entropy_len != CTR_DRBG_ENTROPY_LEN) ||
@@ -238,7 +241,7 @@ int CTR_DRBG_init(CTR_DRBG_STATE *drbg, int df, const uint8_t *entropy,
 static_assert(CTR_DRBG_SEED_LEN % AES_BLOCK_SIZE == 0,
               "not a multiple of AES block size");
 
-// ctr_inc adds |n| to the last four bytes of |drbg->counter|, treated as a
+// ctr_inc adds `n` to the last four bytes of `drbg->counter`, treated as a
 // big-endian number.
 static void ctr32_add(CTR_DRBG_STATE *drbg, uint32_t n) {
   uint32_t ctr = CRYPTO_load_u32_be(drbg->counter + 12);

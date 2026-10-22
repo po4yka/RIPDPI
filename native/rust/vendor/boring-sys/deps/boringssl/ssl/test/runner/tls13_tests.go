@@ -114,8 +114,9 @@ func addTLS13HandshakeTests() {
 				MissingKeyShare: true,
 			},
 		},
-		shouldFail:    true,
-		expectedError: ":MISSING_KEY_SHARE:",
+		shouldFail:         true,
+		expectedError:      ":MISSING_KEY_SHARE:",
+		expectedLocalError: "remote error: missing extension",
 	})
 
 	testCases = append(testCases, testCase{
@@ -261,7 +262,6 @@ func addTLS13HandshakeTests() {
 					CurveP384,
 					CurveP521,
 					CurveX25519,
-					CurveX25519Kyber768,
 					CurveX25519MLKEM768,
 					CurveMLKEM1024,
 				},
@@ -272,14 +272,12 @@ func addTLS13HandshakeTests() {
 			"-curves", strconv.Itoa(int(CurveP384)),
 			"-curves", strconv.Itoa(int(CurveP521)),
 			"-curves", strconv.Itoa(int(CurveX25519)),
-			"-curves", strconv.Itoa(int(CurveX25519Kyber768)),
 			"-curves", strconv.Itoa(int(CurveX25519MLKEM768)),
 			"-curves", strconv.Itoa(int(CurveMLKEM1024)),
 			"-key-shares", strconv.Itoa(int(CurveP256)),
 			"-key-shares", strconv.Itoa(int(CurveP384)),
 			"-key-shares", strconv.Itoa(int(CurveP521)),
 			"-key-shares", strconv.Itoa(int(CurveX25519)),
-			"-key-shares", strconv.Itoa(int(CurveX25519Kyber768)),
 			"-key-shares", strconv.Itoa(int(CurveX25519MLKEM768)),
 			"-key-shares", strconv.Itoa(int(CurveMLKEM1024)),
 		},
@@ -1220,7 +1218,7 @@ func addTLS13HandshakeTests() {
 		config: Config{
 			MaxVersion: VersionTLS13,
 			Bugs: ProtocolBugs{
-				AlwaysSelectPSKIdentity: true,
+				AlwaysSelectPSKIdentity: new(uint16(0)),
 			},
 		},
 		shouldFail:    true,
@@ -1231,8 +1229,11 @@ func addTLS13HandshakeTests() {
 		name: "InvalidPSKIdentity-TLS13",
 		config: Config{
 			MaxVersion: VersionTLS13,
+		},
+		resumeConfig: &Config{
+			MaxVersion: VersionTLS13,
 			Bugs: ProtocolBugs{
-				SelectPSKIdentityOnResume: 1,
+				AlwaysSelectPSKIdentity: new(uint16(1)),
 			},
 		},
 		resumeSession: true,
@@ -2308,6 +2309,22 @@ func addTLS13HandshakeTests() {
 			"-on-resume-early-write-after-message",
 			strconv.Itoa(int(typeEncryptedExtensions)),
 		},
+	})
+
+	testCases = append(testCases, testCase{
+		protocol: dtls,
+		testType: serverTest,
+		name:     "DTLS13-RejectLegacyCookie",
+		config: Config{
+			MinVersion: VersionTLS13,
+			MaxVersion: VersionTLS13,
+			Bugs: ProtocolBugs{
+				SendLegacyDTLSCookie: []byte("cookie"),
+			},
+		},
+		shouldFail:         true,
+		expectedError:      ":DECODE_ERROR:",
+		expectedLocalError: "remote error: illegal parameter",
 	})
 }
 

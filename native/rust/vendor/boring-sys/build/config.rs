@@ -21,6 +21,8 @@ pub(crate) struct Features {
     pub(crate) fips: bool,
     pub(crate) rpk: bool,
     pub(crate) underscore_wildcards: bool,
+    pub(crate) allow_crl_extensions_bad_version: bool,
+    pub(crate) relax_cert_validation: bool,
 }
 
 pub(crate) struct Env {
@@ -66,6 +68,12 @@ impl Config {
             .as_ref()
             .is_some_and(|path| path.join("src").exists());
 
+        // DEP_BORINGSSL_VERSION_MAJOR
+        println!(
+            "cargo:version_major={}",
+            env::var("CARGO_PKG_VERSION_MAJOR").unwrap_or_default()
+        );
+
         let config = Self {
             manifest_dir,
             out_dir,
@@ -102,7 +110,9 @@ impl Config {
             );
         }
 
-        let features_with_patches_enabled = self.features.rpk || self.features.underscore_wildcards;
+        let features_with_patches_enabled = self.features.rpk
+            || self.features.underscore_wildcards
+            || self.features.relax_cert_validation;
 
         let patches_required = features_with_patches_enabled && !self.env.assume_patched;
 
@@ -116,14 +126,12 @@ impl Config {
 
 impl Features {
     fn from_env() -> Self {
-        let fips = env::var_os("CARGO_FEATURE_FIPS").is_some();
-        let rpk = env::var_os("CARGO_FEATURE_RPK").is_some();
-        let underscore_wildcards = env::var_os("CARGO_FEATURE_UNDERSCORE_WILDCARDS").is_some();
-
         Self {
-            fips,
-            rpk,
-            underscore_wildcards,
+            fips: cfg!(feature = "fips"),
+            rpk: cfg!(feature = "rpk"),
+            underscore_wildcards: cfg!(feature = "underscore-wildcards"),
+            allow_crl_extensions_bad_version: cfg!(feature = "allow-crl-extensions-bad-version"),
+            relax_cert_validation: cfg!(feature = "relax-cert-validation"),
         }
     }
 

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.subscription
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -24,9 +25,11 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
     fun `confirmed ordinary import fetches and saves members before success`() =
         runTest {
             val fixture = fixture(2_000L)
-            val viewModel = viewModel(fixture)
+            val scheduled = mutableListOf<List<ProxyGroup>>()
+            val viewModel = viewModel(fixture, scheduleAutoUpdate = { scheduled.add(it) })
             viewModel.setRequest(server.url("/new-subscription").toString(), "New fleet", bootstrap = false)
             assertEquals(0, server.requestCount)
+            assertTrue(scheduled.isEmpty())
             server.enqueue(response(200, trojanPayload))
 
             viewModel.importedEvents.test {
@@ -35,7 +38,9 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
                 val group = fixture.repository.list().single { it.id == "imported" }
                 assertEquals(1, group.members.size)
                 assertEquals(2_000L, group.subscription?.lastUpdated)
-                assertFalse(group.subscription!!.autoUpdate)
+                assertTrue(group.subscription!!.autoUpdate)
+                assertEquals(fixture.repository.list(), scheduled.single())
+                assertTrue(subscriptionsDueForAutoUpdate(scheduled.single()).any { it.id == group.id })
                 expectNoEvents()
             }
             assertEquals(1, server.requestCount)
@@ -45,7 +50,8 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
     fun `failed initial fetch stays on screen and retry reuses the same group`() =
         runTest {
             val fixture = fixture(2_000L)
-            val viewModel = viewModel(fixture)
+            val scheduled = mutableListOf<List<ProxyGroup>>()
+            val viewModel = viewModel(fixture, scheduleAutoUpdate = { scheduled.add(it) })
             viewModel.setRequest(server.url("/new-subscription").toString(), "New fleet", bootstrap = false)
             server.enqueue(response(403))
 
@@ -56,12 +62,16 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
                 expectNoEvents()
                 val failed = fixture.repository.list().single { it.id == "imported" }
                 assertEquals(SubscriptionRefreshFailure.REVOKED, failed.subscription?.lastRefreshFailure)
+                assertEquals(fixture.repository.list(), scheduled.single())
+                assertFalse(subscriptionsDueForAutoUpdate(scheduled.single()).any { it.id == failed.id })
 
                 server.enqueue(response(200, trojanPayload))
                 viewModel.confirm()
                 awaitItem()
                 assertFalse(viewModel.uiState.value.importFailed)
                 assertEquals(2, fixture.repository.list().size)
+                assertEquals(2, scheduled.size)
+                assertTrue(subscriptionsDueForAutoUpdate(scheduled.last()).any { it.id == failed.id })
                 assertEquals(
                     1,
                     fixture.repository
@@ -106,6 +116,53 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
                 assertEquals(2_000L, group.subscription?.lastUpdated)
             }
             assertEquals(1, server.requestCount)
+        }
+
+    @Test
+    fun `reimport preserves an existing subscription auto-update opt-out`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            fixture.repository.updateSubscription("subscription-group") { it.copy(autoUpdate = false) }
+            val scheduled = mutableListOf<List<ProxyGroup>>()
+            val viewModel = viewModel(fixture, scheduleAutoUpdate = { scheduled.add(it) })
+            viewModel.setRequest(server.url("/subscription").toString(), "Existing fleet", bootstrap = false)
+            server.enqueue(response(200, trojanPayload))
+
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                awaitItem()
+                assertFalse(
+                    fixture.repository
+                        .list()
+                        .single()
+                        .subscription!!
+                        .autoUpdate,
+                )
+                assertEquals(fixture.repository.list(), scheduled.single())
+                assertTrue(subscriptionsDueForAutoUpdate(scheduled.single()).isEmpty())
+            }
+            assertEquals(1, server.requestCount)
+        }
+
+    @Test
+    fun `transient initial failure still schedules the saved subscription for retry`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            val scheduled = mutableListOf<List<ProxyGroup>>()
+            val viewModel = viewModel(fixture, scheduleAutoUpdate = { scheduled.add(it) })
+            viewModel.setRequest(server.url("/new-subscription").toString(), "New fleet", bootstrap = false)
+            server.enqueue(response(503))
+
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                viewModel.uiState.first { !it.importing }
+                assertTrue(viewModel.uiState.value.importFailed)
+                val imported = fixture.repository.list().single { it.id == "imported" }
+                assertEquals(SubscriptionRefreshFailure.SERVER_ERROR, imported.subscription?.lastRefreshFailure)
+                assertEquals(fixture.repository.list(), scheduled.single())
+                assertTrue(subscriptionsDueForAutoUpdate(scheduled.single()).any { it.id == imported.id })
+                expectNoEvents()
+            }
         }
 
     @Test
@@ -161,12 +218,15 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
             }
         }
 
-    private fun viewModel(fixture: Fixture) =
-        SubscriptionImportConfirmViewModel(
-            repository = fixture.repository,
-            groupIdFactory = { "imported" },
-            refreshSubscription = fixture.coordinator::refresh,
-        )
+    private fun viewModel(
+        fixture: Fixture,
+        scheduleAutoUpdate: (List<ProxyGroup>) -> Unit = {},
+    ) = SubscriptionImportConfirmViewModel(
+        repository = fixture.repository,
+        groupIdFactory = { "imported" },
+        refreshSubscription = fixture.coordinator::refresh,
+        scheduleAutoUpdate = scheduleAutoUpdate,
+    )
 
     private companion object {
         const val AwgPayload =

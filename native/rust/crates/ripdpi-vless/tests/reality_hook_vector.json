@@ -1,5 +1,5 @@
 {
-  "boring": "=5.1.0",
+  "boring": "=5.3.0",
   "tokio-boring": "=5.1.0",
   "fixedNowSecs": 1700000000,
   "shortIdHex": "abcd",

@@ -23,23 +23,25 @@
 #include <openssl/mem.h>
 
 #include "../../internal.h"
+#include "../../mem_internal.h"
 #include "internal.h"
 
 
-void bn_mont_ctx_init(BN_MONT_CTX *mont) {
+using namespace bssl;
+
+void bssl::bn_mont_ctx_init(BN_MONT_CTX *mont) {
   OPENSSL_memset(mont, 0, sizeof(BN_MONT_CTX));
   BN_init(&mont->RR);
   BN_init(&mont->N);
 }
 
-void bn_mont_ctx_cleanup(BN_MONT_CTX *mont) {
+void bssl::bn_mont_ctx_cleanup(BN_MONT_CTX *mont) {
   BN_free(&mont->RR);
   BN_free(&mont->N);
 }
 
-BN_MONT_CTX *BN_MONT_CTX_new(void) {
-  BN_MONT_CTX *ret =
-      reinterpret_cast<BN_MONT_CTX *>(OPENSSL_malloc(sizeof(BN_MONT_CTX)));
+BN_MONT_CTX *BN_MONT_CTX_new() {
+  BN_MONT_CTX *ret = New<BN_MONT_CTX>();
   if (ret == nullptr) {
     return nullptr;
   }
@@ -53,7 +55,7 @@ void BN_MONT_CTX_free(BN_MONT_CTX *mont) {
     return;
   }
   bn_mont_ctx_cleanup(mont);
-  OPENSSL_free(mont);
+  Delete(mont);
 }
 
 BN_MONT_CTX *BN_MONT_CTX_copy(BN_MONT_CTX *to, const BN_MONT_CTX *from) {
@@ -93,7 +95,7 @@ static int bn_mont_ctx_set_N_and_n0(BN_MONT_CTX *mont, const BIGNUM *mod) {
     OPENSSL_PUT_ERROR(BN, ERR_R_INTERNAL_ERROR);
     return 0;
   }
-  // |mont->N| is always stored minimally. Computing RR efficiently leaks the
+  // `mont->N` is always stored minimally. Computing RR efficiently leaks the
   // size of the modulus. While the modulus may be private in RSA (one of the
   // primes), their sizes are public, so this is fine.
   bn_set_minimal_width(&mont->N);
@@ -101,8 +103,8 @@ static int bn_mont_ctx_set_N_and_n0(BN_MONT_CTX *mont, const BIGNUM *mod) {
   // Find n0 such that n0 * N == -1 (mod r).
   //
   // Only certain BN_BITS2<=32 platforms actually make use of n0[1]. For the
-  // others, we could use a shorter R value and use faster |BN_ULONG|-based
-  // math instead of |uint64_t|-based math, which would be double-precision.
+  // others, we could use a shorter R value and use faster `BN_ULONG`-based
+  // math instead of `uint64_t`-based math, which would be double-precision.
   // However, currently only the assembler files know which is which.
   static_assert(BN_MONT_CTX_N0_LIMBS == 1 || BN_MONT_CTX_N0_LIMBS == 2,
                 "BN_MONT_CTX_N0_LIMBS value is invalid");
@@ -132,9 +134,9 @@ int BN_MONT_CTX_set(BN_MONT_CTX *mont, const BIGNUM *mod, BN_CTX *ctx) {
 
   // Save RR = R**2 (mod N). R is the smallest power of 2**BN_BITS2 such that R
   // > mod. Even though the assembly on some 32-bit platforms works with 64-bit
-  // values, using |BN_BITS2| here, rather than |BN_MONT_CTX_N0_LIMBS *
-  // BN_BITS2|, is correct because R**2 will still be a multiple of the latter
-  // as |BN_MONT_CTX_N0_LIMBS| is either one or two.
+  // values, using `BN_BITS2` here, rather than
+  // `BN_MONT_CTX_N0_LIMBS * BN_BITS2`, is correct because R**2 will still be a
+  // multiple of the latter as `BN_MONT_CTX_N0_LIMBS` is either one or two.
   unsigned lgBigR = mont->N.width * BN_BITS2;
   BN_zero(&mont->RR);
   int ok = BN_set_bit(&mont->RR, lgBigR * 2) &&
@@ -163,23 +165,21 @@ BN_MONT_CTX *BN_MONT_CTX_new_consttime(const BIGNUM *mod, BN_CTX *ctx) {
   return mont;
 }
 
-int BN_MONT_CTX_set_locked(BN_MONT_CTX **pmont, CRYPTO_MUTEX *lock,
-                           const BIGNUM *mod, BN_CTX *bn_ctx) {
-  CRYPTO_MUTEX_lock_read(lock);
-  BN_MONT_CTX *ctx = *pmont;
-  CRYPTO_MUTEX_unlock_read(lock);
+int bssl::BN_MONT_CTX_set_locked(UniquePtr<BN_MONT_CTX> *pmont, Mutex *lock,
+                                 const BIGNUM *mod, BN_CTX *bn_ctx) {
+  lock->LockRead();
+  BN_MONT_CTX *ctx = pmont->get();
+  lock->UnlockRead();
 
   if (ctx) {
     return 1;
   }
 
-  CRYPTO_MUTEX_lock_write(lock);
+  MutexWriteLock write_lock(lock);
   if (*pmont == nullptr) {
-    *pmont = BN_MONT_CTX_new_for_modulus(mod, bn_ctx);
+    pmont->reset(BN_MONT_CTX_new_for_modulus(mod, bn_ctx));
   }
-  const int ok = *pmont != nullptr;
-  CRYPTO_MUTEX_unlock_write(lock);
-  return ok;
+  return *pmont != nullptr;
 }
 
 int BN_to_montgomery(BIGNUM *ret, const BIGNUM *a, const BN_MONT_CTX *mont,
@@ -196,9 +196,9 @@ static int bn_from_montgomery_in_place(BN_ULONG *r, size_t num_r, BN_ULONG *a,
     return 0;
   }
 
-  // Add multiples of |n| to |r| until R = 2^(nl * BN_BITS2) divides it. On
-  // input, we had |r| < |n| * R, so now |r| < 2 * |n| * R. Note that |r|
-  // includes |carry| which is stored separately.
+  // Add multiples of `n` to `r` until R = 2^(nl * BN_BITS2) divides it. On
+  // input, we had `r` < `n` * R, so now `r` < 2 * `n` * R. Note that `r`
+  // includes `carry` which is stored separately.
   BN_ULONG n0 = mont->n0[0];
   BN_ULONG carry = 0;
   for (size_t i = 0; i < num_n; i++) {
@@ -206,11 +206,11 @@ static int bn_from_montgomery_in_place(BN_ULONG *r, size_t num_r, BN_ULONG *a,
     a[i + num_n] = CRYPTO_addc_w(a[i + num_n], v, carry, &carry);
   }
 
-  // Shift |num_n| words to divide by R. We have |a| < 2 * |n|. Note that |a|
-  // includes |carry| which is stored separately.
+  // Shift `num_n` words to divide by R. We have `a` < 2 * `n`. Note that `a`
+  // includes `carry` which is stored separately.
   a += num_n;
 
-  // |a| thus requires at most one additional subtraction |n| to be reduced.
+  // `a` thus requires at most one additional subtraction `n` to be reduced.
   bn_reduce_once(r, a, carry, n, num_n);
   return 1;
 }
@@ -240,7 +240,7 @@ static int BN_from_montgomery_word(BIGNUM *ret, BIGNUM *r,
 
 int BN_from_montgomery(BIGNUM *r, const BIGNUM *a, const BN_MONT_CTX *mont,
                        BN_CTX *ctx) {
-  bssl::BN_CTXScope scope(ctx);
+  BN_CTXScope scope(ctx);
   BIGNUM *t = BN_CTX_get(ctx);
   if (t == nullptr || !BN_copy(t, a)) {
     return 0;
@@ -249,9 +249,10 @@ int BN_from_montgomery(BIGNUM *r, const BIGNUM *a, const BN_MONT_CTX *mont,
   return BN_from_montgomery_word(r, t, mont);
 }
 
-int bn_one_to_montgomery(BIGNUM *r, const BN_MONT_CTX *mont, BN_CTX *ctx) {
-  // If the high bit of |n| is set, R = 2^(width*BN_BITS2) < 2 * |n|, so we
-  // compute R - |n| rather than perform Montgomery reduction.
+int bssl::bn_one_to_montgomery(BIGNUM *r, const BN_MONT_CTX *mont,
+                               BN_CTX *ctx) {
+  // If the high bit of `n` is set, R = 2^(width*BN_BITS2) < 2 * `n`, so we
+  // compute R - `n` rather than perform Montgomery reduction.
   const BIGNUM *n = &mont->N;
   if (n->width > 0 && (n->d[n->width - 1] >> (BN_BITS2 - 1)) != 0) {
     if (!bn_wexpand(r, n->width)) {
@@ -273,7 +274,7 @@ static int bn_mod_mul_montgomery_fallback(BIGNUM *r, const BIGNUM *a,
                                           const BIGNUM *b,
                                           const BN_MONT_CTX *mont,
                                           BN_CTX *ctx) {
-  bssl::BN_CTXScope scope(ctx);
+  BN_CTXScope scope(ctx);
   BIGNUM *tmp = BN_CTX_get(ctx);
   if (tmp == nullptr) {
     return 0;
@@ -305,14 +306,14 @@ int BN_mod_mul_montgomery(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
   }
 
 #if defined(OPENSSL_BN_ASM_MONT)
-  // |bn_mul_mont_words| requires at least 128 bits of limbs.
+  // `bn_mul_mont_words` requires at least 128 bits of limbs.
   int num = mont->N.width;
   if (num >= (128 / BN_BITS2) && a->width == num && b->width == num) {
     if (!bn_wexpand(r, num)) {
       return 0;
     }
-    // This bound is implied by |bn_mont_ctx_set_N_and_n0|. |bn_mul_mont_words|
-    // allocates |num| words on the stack, so |num| cannot be too large.
+    // This bound is implied by `bn_mont_ctx_set_N_and_n0`. `bn_mul_mont_words`
+    // allocates `num` words on the stack, so `num` cannot be too large.
     assert((size_t)num <= BN_MONTGOMERY_MAX_WORDS);
     bn_mul_mont_words(r->d, a->d, b->d, mont->N.d, mont->n0, num);
     r->neg = 0;
@@ -324,17 +325,18 @@ int BN_mod_mul_montgomery(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
   return bn_mod_mul_montgomery_fallback(r, a, b, mont, ctx);
 }
 
-int bn_less_than_montgomery_R(const BIGNUM *bn, const BN_MONT_CTX *mont) {
+int bssl::bn_less_than_montgomery_R(const BIGNUM *bn, const BN_MONT_CTX *mont) {
   return !BN_is_negative(bn) && bn_fits_in_words(bn, mont->N.width);
 }
 
-void bn_to_montgomery_small(BN_ULONG *r, const BN_ULONG *a, size_t num,
-                            const BN_MONT_CTX *mont) {
+void bssl::bn_to_montgomery_small(BN_ULONG *r, const BN_ULONG *a, size_t num,
+                                  const BN_MONT_CTX *mont) {
   bn_mod_mul_montgomery_small(r, a, mont->RR.d, num, mont);
 }
 
-void bn_from_montgomery_small(BN_ULONG *r, size_t num_r, const BN_ULONG *a,
-                              size_t num_a, const BN_MONT_CTX *mont) {
+void bssl::bn_from_montgomery_small(BN_ULONG *r, size_t num_r,
+                                    const BN_ULONG *a, size_t num_a,
+                                    const BN_MONT_CTX *mont) {
   if (num_r != (size_t)mont->N.width || num_r > BN_SMALL_MAX_WORDS ||
       num_a > 2 * num_r) {
     abort();
@@ -347,15 +349,15 @@ void bn_from_montgomery_small(BN_ULONG *r, size_t num_r, const BN_ULONG *a,
   OPENSSL_cleanse(tmp, 2 * num_r * sizeof(BN_ULONG));
 }
 
-void bn_mod_mul_montgomery_small(BN_ULONG *r, const BN_ULONG *a,
-                                 const BN_ULONG *b, size_t num,
-                                 const BN_MONT_CTX *mont) {
+void bssl::bn_mod_mul_montgomery_small(BN_ULONG *r, const BN_ULONG *a,
+                                       const BN_ULONG *b, size_t num,
+                                       const BN_MONT_CTX *mont) {
   if (num != (size_t)mont->N.width || num > BN_SMALL_MAX_WORDS) {
     abort();
   }
 
 #if defined(OPENSSL_BN_ASM_MONT)
-  // |bn_mul_mont_words| requires at least 128 bits of limbs.
+  // `bn_mul_mont_words` requires at least 128 bits of limbs.
   if (num >= (128 / BN_BITS2)) {
     bn_mul_mont_words(r, a, b, mont->N.d, mont->n0, num);
     return;
@@ -378,8 +380,9 @@ void bn_mod_mul_montgomery_small(BN_ULONG *r, const BN_ULONG *a,
 }
 
 #if defined(OPENSSL_BN_ASM_MONT) && defined(OPENSSL_X86_64)
-void bn_mul_mont_words(BN_ULONG *rp, const BN_ULONG *ap, const BN_ULONG *bp,
-                       const BN_ULONG *np, const BN_ULONG *n0, size_t num) {
+void bssl::bn_mul_mont_words(BN_ULONG *rp, const BN_ULONG *ap,
+                             const BN_ULONG *bp, const BN_ULONG *np,
+                             const BN_ULONG *n0, size_t num) {
   if (ap == bp && bn_sqr8x_mont_capable(num)) {
     bn_sqr8x_mont(rp, ap, bn_mulx_adx_capable(), np, n0, num);
   } else if (bn_mulx4x_mont_capable(num)) {
@@ -393,8 +396,9 @@ void bn_mul_mont_words(BN_ULONG *rp, const BN_ULONG *ap, const BN_ULONG *bp,
 #endif
 
 #if defined(OPENSSL_BN_ASM_MONT) && defined(OPENSSL_ARM)
-void bn_mul_mont_words(BN_ULONG *rp, const BN_ULONG *ap, const BN_ULONG *bp,
-                       const BN_ULONG *np, const BN_ULONG *n0, size_t num) {
+void bssl::bn_mul_mont_words(BN_ULONG *rp, const BN_ULONG *ap,
+                             const BN_ULONG *bp, const BN_ULONG *np,
+                             const BN_ULONG *n0, size_t num) {
   if (bn_mul8x_mont_neon_capable(num)) {
     bn_mul8x_mont_neon(rp, ap, bp, np, n0, num);
   } else {

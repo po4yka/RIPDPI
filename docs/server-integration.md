@@ -13,7 +13,7 @@ ripdpi://import?sub=<percent-encoded https subscription URL>
 ripdpi://import?url=<percent-encoded https config or bundle URL>
 ```
 
-- `sub=` enrolls a **subscription**: RIPDPI stores the URL, imports every profile it returns, and refreshes it in the background (rotation, new cohorts, and burned-IP replacements arrive automatically).
+- `sub=` enrolls a **subscription**: RIPDPI stores the URL, imports supported profiles after validation, and refreshes it in the background (rotation, new cohorts, and burned-IP replacements arrive automatically).
 - `url=` performs a **one-shot** import of a single remote config or bundle. It is stored as a bootstrap group and is *not* re-fetched by the auto-update worker.
 
 The target is percent-decoded and must be `https://`. Malformed or non-https input falls through to the normal import-error UX without crashing. The intent filter is handled by `ImportHandlerActivity`; the parsing contract lives in `RipDpiImportDeepLinkParser`.
@@ -37,10 +37,10 @@ The target is percent-decoded and must be `https://`. Malformed or non-https inp
 | Selector + urltest failover | no | yes | yes |
 | Background auto-update | no (single line) | yes (via subscription URL) | yes (via subscription URL) |
 | Hysteria salamander obfs / insecure | yes (`hysteria2://`) | yes | yes |
-| Hysteria port-hop | no | no | model-only bundle extension |
+| Hysteria port-hop | no | rejected | rejected |
 | AmneziaWG device-VPN | via `amneziawg://` only | no | yes |
 
-VLESS REALITY parameters round-trip in full from a `vless://…?security=reality&pbk=…&sid=…&sni=…&flow=…` link and from a sing-box `tls.reality` outbound. Hysteria2 salamander obfuscation and insecure TLS flags import from `hysteria2://`, Clash.Meta, sing-box, and RIPDPI bundles; port-hopping remains a model-only bundle extension. The AmneziaWG device-VPN is carried by `amneziawg://` or the RIPDPI bundle. See [Relay profile examples — Import Coverage vs Relay Settings](relay-profile-examples.md) for the per-protocol detail.
+VLESS REALITY parameters round-trip in full from a `vless://…?security=reality&pbk=…&sid=…&sni=…&flow=…` link and from a sing-box `tls.reality` outbound. Hysteria2 salamander obfuscation and insecure TLS flags import from `hysteria2://`, Clash.Meta, sing-box, and RIPDPI bundles; port-hopping is rejected for this recipient. The AmneziaWG device-VPN is carried by `amneziawg://` or the RIPDPI bundle. See [Relay profile examples — Import Coverage vs Relay Settings](relay-profile-examples.md) for the per-protocol detail.
 
 ## The RIPDPI bundle
 
@@ -59,13 +59,13 @@ The RIPDPI bundle is a normal sing-box JSON document with one additional top-lev
     ],
     "hysteria_extras": {
       "p2-hysteria2-<host>": { "obfs": { "type": "salamander", "password": "…" },
-                               "insecure": false, "port_hopping": { "ports": "20000-40000", "interval": "30s" } }
+                               "insecure": false }
     }
   }
 }
 ```
 
-`SingBoxSubscriptionParser` parses the standard outbounds first, then reads the `ripdpi` block when `schema_version == 1`. `amneziawg[]` entries become AmneziaWG profiles; `hysteria_extras` entries are matched to their Hysteria2 outbound by `tag` and carry the salamander obfs password onto that profile. An unknown `schema_version` is ignored — the sing-box outbounds still import. Plain sing-box clients ignore the `ripdpi` key, so the same bundle is safe to hand to any client.
+`SingBoxSubscriptionParser` parses the standard outbounds first, then reads the `ripdpi` block when `schema_version == 1`. `amneziawg[]` entries become AmneziaWG profiles; `hysteria_extras` entries are matched to their Hysteria2 outbound by `tag` and carry the salamander obfs password onto that profile. An unknown `schema_version` is ignored — the sing-box outbounds still import. Compatibility with other clients depends on their version and supported outbound types. Validate a bundle for its intended recipient; clients that ignore the `ripdpi` key cannot activate its AmneziaWG profiles.
 
 The deploy repository owns the **executable JSON Schema** `contract/ripdpi-bundle.schema.json` (prose companion: `docs/RIPDPI-BUNDLE.md`). A copy is vendored at `core/data/src/test/resources/contract/` and validated locally by `RipdpiBundleContractTest`. The repositories do not compare their copies in every CI run, so a release update must verify byte identity or run the cross-repository emit/validate/app-parse gate. `schema_version` stays `1`: post-1 fields are additive and optional. The parser surfaces them too:
 
@@ -82,9 +82,42 @@ The emitted bundle must not contain a usable AmneziaWG **device private key**. I
 
 ## After import
 
-- **Subscriptions auto-update.** A background worker refreshes enrolled subscription URLs, so credential rotation, new cohorts, and burned-IP replacement on the server propagate without re-importing.
+- **New subscriptions auto-update.** A background worker is scheduled after the first refresh attempt. Existing subscriptions keep their saved auto-update preference, including an opt-out. Terminal expiry or revocation stops refresh.
 - **One-shot (`url=`) imports do not refresh.** Re-import to pick up server changes.
 - **Failover is automatic.** The selector/urltest groups in the sing-box document let the client move between P0/P1/P2 as reachability changes.
+
+## Deployment protocol boundaries
+
+The recipient contract below was checked against `ripdpi-vpn-deploy`
+`794202c393648986ceea7afd7d022933fbe44dce`. The server's
+`ansible/role-tiers.yml` and `scripts/client_payload.py` define the scope.
+Import coverage does not prove a connection on an Android device.
+
+| Server surface | RIPDPI recipient boundary |
+| --- | --- |
+| VLESS REALITY + Vision | Export and import preserve UUID, public key, short ID, SNI, fingerprint and flow. Finalmask and Mux.Cool are rejected by the server exporter. |
+| VLESS XHTTP direct and alternate | The exporter permits `auto` and `stream-up` without tuning. Each endpoint retains its TLS identity. |
+| CDN-front XHTTP | The recipient exporter does not emit the CDN endpoint. A manual profile needs separate connection checks. |
+| Hysteria2 + Salamander | Single UDP port with the supported bandwidth profile. The exporter rejects port hopping, ECH and BBR resource profiles. |
+| AmneziaWG | Imported through `ripdpi.amneziawg`; activation requires a valid device key and an ABI-compatible parameter set. |
+| NaiveProxy | A native backend exists, but the recipient exporter and subscription parser do not provide a complete import path. |
+| Snell v4/v6 | Research only. Stored as an inactive raw profile by the parser; never a selectable relay. |
+| DNS-morph | No recipient export or app runtime kind. |
+| Hysteria realm | Topology metadata only; it does not enable a realm/STUN client. |
+| Probe matrix: VLESS XHTTP, Trojan TCP/TLS | Profile types exist, but these research listeners need separate profiles and connection checks. |
+| Probe matrix: Trojan XHTTP, MTProto, TLS control | Trojan XHTTP is rejected. MTProto and the TLS control listener are not VPN subscription profiles. |
+| Server WARP, split-hop, cascade, tailnet | Server egress, topology or management functions. Client compatibility depends on the public ingress protocol. |
+
+The importer resolves the outer selector and bounded nested groups. It rejects
+cycles, duplicate tags, missing references, ambiguous roots and incompatible
+probe policies. Supported candidates remain available in a mixed Snell bundle.
+A default that resolves only to unsupported candidates is rejected. An invalid
+relay selection cannot become an AWG-only success that deletes working relay
+members. A genuine AWG-only bundle can replace relay members.
+
+SHARE backups remove the entire subscription URL, bearer token and mirrors.
+A URL path or hostname can itself contain a credential. FULL backups retain
+these values and must be treated as credential-bearing exports.
 
 ## End-to-end flow
 
@@ -112,5 +145,5 @@ sequenceDiagram
 ## See also
 
 - [Relay profile examples](relay-profile-examples.md) — per-protocol import coverage and relay-config field reference.
-- `ripdpi-vpn-deploy` `docs/CLIENT-INTEGRATION.md` — the server-side counterpart (how operators produce and deliver these artifacts).
+- `ripdpi-vpn-deploy` `docs/reference/client-notes.md` — the server-side counterpart (how operators produce and deliver these artifacts).
 - `ripdpi-vpn-deploy` `docs/RIPDPI-BUNDLE.md` — authoritative bundle schema.

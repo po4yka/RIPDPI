@@ -24,7 +24,11 @@
 
 #include "internal.h"
 
-int asn1_generalizedtime_to_tm(struct tm *tm, const ASN1_GENERALIZEDTIME *d) {
+
+using namespace bssl;
+
+int bssl::asn1_generalizedtime_to_tm(struct tm *tm,
+                                     const ASN1_GENERALIZEDTIME *d) {
   if (d->type != V_ASN1_GENERALIZEDTIME) {
     return 0;
   }
@@ -36,8 +40,8 @@ int asn1_generalizedtime_to_tm(struct tm *tm, const ASN1_GENERALIZEDTIME *d) {
   return 1;
 }
 
-int asn1_parse_generalized_time(CBS *cbs, ASN1_GENERALIZEDTIME *out,
-                                CBS_ASN1_TAG tag) {
+int bssl::asn1_parse_generalized_time(CBS *cbs, ASN1_GENERALIZEDTIME *out,
+                                      CBS_ASN1_TAG tag) {
   tag = tag == 0 ? CBS_ASN1_GENERALIZEDTIME : tag;
   CBS child;
   if (!CBS_get_asn1(cbs, &child, tag) ||
@@ -103,7 +107,7 @@ ASN1_GENERALIZEDTIME *ASN1_GENERALIZEDTIME_adj(ASN1_GENERALIZEDTIME *s,
   int ret = snprintf(buf, sizeof(buf), "%04d%02d%02d%02d%02d%02dZ",
                      data.tm_year + 1900, data.tm_mon + 1, data.tm_mday,
                      data.tm_hour, data.tm_min, data.tm_sec);
-  // |snprintf| must write exactly 15 bytes (plus the NUL) to the buffer.
+  // `snprintf` must write exactly 15 bytes (plus the NUL) to the buffer.
   BSSL_CHECK(ret == static_cast<int>(sizeof(buf) - 1));
 
   int free_s = 0;

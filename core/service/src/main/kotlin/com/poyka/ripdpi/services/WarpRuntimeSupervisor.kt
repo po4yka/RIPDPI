@@ -130,6 +130,10 @@ internal class WarpRuntimeSupervisor(
         failure?.let { throw it }
     }
 
+    fun detachCompleted() {
+        if (warpJob?.isCompleted == true) detach()
+    }
+
     fun detach() {
         exitReporting?.set(false)
         warpJob = null

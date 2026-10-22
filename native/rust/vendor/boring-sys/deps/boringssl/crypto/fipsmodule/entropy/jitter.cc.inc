@@ -45,9 +45,9 @@ namespace entropy {
 namespace {
 
 #if defined(__x86_64__)
-static inline uint64_t GetTimestamp() { return _rdtsc(); }
+static uint64_t GetTimestamp() { return _rdtsc(); }
 #elif defined(__aarch64__)
-static inline uint64_t GetTimestamp() {
+static uint64_t GetTimestamp() {
   // Ideally this would use __arm_rsr64 from <arm_acle.h>. Clang has supported
   // it Clang 3.7 (2016), but GCC did not add it until GCC 14.1.0 (2024). See
   // https://crbug.com/440670941. When our minimum GCC is past that point,
@@ -57,7 +57,7 @@ static inline uint64_t GetTimestamp() {
   return ret;
 }
 #else
-static inline uint64_t GetTimestamp() {
+static uint64_t GetTimestamp() {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
   return ts.tv_sec * 1000000000ULL + ts.tv_nsec;
@@ -281,7 +281,7 @@ constexpr unsigned CritBinom(unsigned trials, double probability_s,
   return trials;
 }
 
-// ExpTaylor calculates e^x using the Taylor series: e^x = 1 + x + x²/2! +
+// ExpTaylor calculates eˣ using the Taylor series: eˣ = 1 + x + x²/2! +
 // x³/3! + ...
 constexpr double ExpTaylor(double x) {
   double sum = 1.0;

@@ -25,6 +25,8 @@
 #include "internal.h"
 
 
+using namespace bssl;
+
 static void *v2i_subject_alt(const X509V3_EXT_METHOD *method,
                              const X509V3_CTX *ctx,
                              const STACK_OF(CONF_VALUE) *nval);
@@ -43,7 +45,7 @@ static STACK_OF(CONF_VALUE) *i2v_GENERAL_NAMES_cb(
   return i2v_GENERAL_NAMES(method, reinterpret_cast<GENERAL_NAMES *>(ext), ret);
 }
 
-const X509V3_EXT_METHOD v3_subject_alt_name = {
+const X509V3_EXT_METHOD bssl::v3_subject_alt_name = {
     NID_subject_alt_name,
     0,
     ASN1_ITEM_ref(GENERAL_NAMES),
@@ -60,7 +62,7 @@ const X509V3_EXT_METHOD v3_subject_alt_name = {
     nullptr,
 };
 
-const X509V3_EXT_METHOD v3_issuer_alt_name = {
+const X509V3_EXT_METHOD bssl::v3_issuer_alt_name = {
     NID_issuer_alt_name,
     0,
     ASN1_ITEM_ref(GENERAL_NAMES),
@@ -77,7 +79,7 @@ const X509V3_EXT_METHOD v3_issuer_alt_name = {
     nullptr,
 };
 
-const X509V3_EXT_METHOD v3_certificate_issuer = {
+const X509V3_EXT_METHOD bssl::v3_certificate_issuer = {
     NID_certificate_issuer,
     0,
     ASN1_ITEM_ref(GENERAL_NAMES),
@@ -119,7 +121,7 @@ STACK_OF(CONF_VALUE) *i2v_GENERAL_NAME(const X509V3_EXT_METHOD *method,
                                        const GENERAL_NAME *gen,
                                        STACK_OF(CONF_VALUE) *ret) {
   // Note the error-handling for this function relies on there being at most
-  // one |X509V3_add_value| call. If there were two and the second failed, we
+  // one `X509V3_add_value` call. If there were two and the second failed, we
   // would need to sometimes free the first call's result.
   unsigned char *p;
   char oline[256], htmp[5];
@@ -323,7 +325,7 @@ static int copy_issuer(const X509V3_CTX *ctx, GENERAL_NAMES *gens) {
     if (!sk_GENERAL_NAME_push(gens, gen)) {
       goto err;
     }
-    // Ownership of |gen| has moved from |ialt| to |gens|.
+    // Ownership of `gen` has moved from `ialt` to `gens`.
     sk_GENERAL_NAME_set(ialt, j, nullptr);
   }
 
@@ -419,9 +421,9 @@ err:
   return 0;
 }
 
-GENERAL_NAMES *v2i_GENERAL_NAMES(const X509V3_EXT_METHOD *method,
-                                 const X509V3_CTX *ctx,
-                                 const STACK_OF(CONF_VALUE) *nval) {
+GENERAL_NAMES *bssl::v2i_GENERAL_NAMES(const X509V3_EXT_METHOD *method,
+                                       const X509V3_CTX *ctx,
+                                       const STACK_OF(CONF_VALUE) *nval) {
   GENERAL_NAMES *gens = sk_GENERAL_NAME_new_null();
   if (gens == nullptr) {
     return nullptr;
@@ -440,8 +442,9 @@ err:
   return nullptr;
 }
 
-GENERAL_NAME *v2i_GENERAL_NAME(const X509V3_EXT_METHOD *method,
-                               const X509V3_CTX *ctx, const CONF_VALUE *cnf) {
+GENERAL_NAME *bssl::v2i_GENERAL_NAME(const X509V3_EXT_METHOD *method,
+                                     const X509V3_CTX *ctx,
+                                     const CONF_VALUE *cnf) {
   return v2i_GENERAL_NAME_ex(nullptr, method, ctx, cnf, 0);
 }
 
@@ -531,10 +534,10 @@ err:
   return nullptr;
 }
 
-GENERAL_NAME *v2i_GENERAL_NAME_ex(GENERAL_NAME *out,
-                                  const X509V3_EXT_METHOD *method,
-                                  const X509V3_CTX *ctx, const CONF_VALUE *cnf,
-                                  int is_nc) {
+GENERAL_NAME *bssl::v2i_GENERAL_NAME_ex(GENERAL_NAME *out,
+                                        const X509V3_EXT_METHOD *method,
+                                        const X509V3_CTX *ctx,
+                                        const CONF_VALUE *cnf, int is_nc) {
   const char *name = cnf->name;
   const char *value = cnf->value;
   if (!value) {

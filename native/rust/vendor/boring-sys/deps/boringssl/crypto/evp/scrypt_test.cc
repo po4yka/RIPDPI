@@ -26,17 +26,6 @@
 #include "../test/test_util.h"
 
 
-static bool GetUint64(FileTest *t, uint64_t *out, const char *name) {
-  std::string str;
-  if (!t->GetAttribute(&str, name)) {
-    return false;
-  }
-
-  char *endptr;
-  *out = strtoull(str.data(), &endptr, 10);
-  return !str.empty() && *endptr == '\0';
-}
-
 TEST(ScryptTest, TestVectors) {
   FileTestGTest("crypto/evp/test/scrypt_tests.txt", [](FileTest *t) {
     std::vector<uint8_t> password, salt, key;
@@ -44,11 +33,11 @@ TEST(ScryptTest, TestVectors) {
     ASSERT_TRUE(t->GetBytes(&password, "Password"));
     ASSERT_TRUE(t->GetBytes(&salt, "Salt"));
     ASSERT_TRUE(t->GetBytes(&key, "Key"));
-    ASSERT_TRUE(GetUint64(t, &N, "N"));
-    ASSERT_TRUE(GetUint64(t, &r, "r"));
-    ASSERT_TRUE(GetUint64(t, &p, "p"));
+    ASSERT_TRUE(t->GetUint64(&N, "N"));
+    ASSERT_TRUE(t->GetUint64(&r, "r"));
+    ASSERT_TRUE(t->GetUint64(&p, "p"));
     if (t->HasAttribute("MaxMemory")) {
-      ASSERT_TRUE(GetUint64(t, &max_mem, "MaxMemory"));
+      ASSERT_TRUE(t->GetUint64(&max_mem, "MaxMemory"));
     }
 
     std::vector<uint8_t> result(key.size());
@@ -79,24 +68,31 @@ TEST(ScryptTest, InvalidParameters) {
   // p and r are non-zero.
   EXPECT_FALSE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 1024 /* N */, 0 /* r */,
                               1 /* p */, 0 /* max_mem */, key, sizeof(key)));
+  EXPECT_TRUE(ErrorsAreAndClear({{ERR_LIB_EVP, EVP_R_INVALID_PARAMETERS}}));
   EXPECT_FALSE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 1024 /* N */, 8 /* r */,
                               0 /* p */, 0 /* max_mem */, key, sizeof(key)));
+  EXPECT_TRUE(ErrorsAreAndClear({{ERR_LIB_EVP, EVP_R_INVALID_PARAMETERS}}));
 
   // N must be a power of 2 > 1.
   EXPECT_FALSE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 0 /* N */, 8 /* r */,
                               1 /* p */, 0 /* max_mem */, key, sizeof(key)));
+  EXPECT_TRUE(ErrorsAreAndClear({{ERR_LIB_EVP, EVP_R_INVALID_PARAMETERS}}));
   EXPECT_FALSE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 1 /* N */, 8 /* r */,
                               1 /* p */, 0 /* max_mem */, key, sizeof(key)));
+  EXPECT_TRUE(ErrorsAreAndClear({{ERR_LIB_EVP, EVP_R_INVALID_PARAMETERS}}));
   EXPECT_FALSE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 1023 /* N */, 8 /* r */,
                               1 /* p */, 0 /* max_mem */, key, sizeof(key)));
+  EXPECT_TRUE(ErrorsAreAndClear({{ERR_LIB_EVP, EVP_R_INVALID_PARAMETERS}}));
   EXPECT_TRUE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 1024 /* N */, 8 /* r */,
-                              1 /* p */, 0 /* max_mem */, key, sizeof(key)));
+                             1 /* p */, 0 /* max_mem */, key, sizeof(key)));
   EXPECT_FALSE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 1025 /* N */, 8 /* r */,
                               1 /* p */, 0 /* max_mem */, key, sizeof(key)));
+  EXPECT_TRUE(ErrorsAreAndClear({{ERR_LIB_EVP, EVP_R_INVALID_PARAMETERS}}));
 
   // N must be below 2^(128 * r / 8).
   EXPECT_FALSE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 65536 /* N */, 1 /* r */,
                               1 /* p */, 0 /* max_mem */, key, sizeof(key)));
+  EXPECT_TRUE(ErrorsAreAndClear({{ERR_LIB_EVP, EVP_R_INVALID_PARAMETERS}}));
   EXPECT_TRUE(EVP_PBE_scrypt(nullptr, 0, nullptr, 0, 32768 /* N */, 1 /* r */,
                              1 /* p */, 0 /* max_mem */, key, sizeof(key)));
 }

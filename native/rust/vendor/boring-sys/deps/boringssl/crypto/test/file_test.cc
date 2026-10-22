@@ -22,10 +22,12 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <openssl/base64.h>
 #include <openssl/err.h>
 #include <openssl/mem.h>
 
@@ -42,7 +44,7 @@ FileTest::FileTest(std::unique_ptr<FileTest::LineReader> reader,
 
 FileTest::~FileTest() {}
 
-// FindDelimiter returns a pointer to the first '=' or ':' in |str| or nullptr
+// FindDelimiter returns a pointer to the first '=' or ':' in `str` or nullptr
 // if there is none.
 static const char *FindDelimiter(const char *str) {
   while (*str) {
@@ -54,7 +56,7 @@ static const char *FindDelimiter(const char *str) {
   return nullptr;
 }
 
-// StripSpace returns a string containing up to |len| characters from |str| with
+// StripSpace returns a string containing up to `len` characters from `str` with
 // leading and trailing whitespace removed.
 static std::string StripSpace(const char *str, size_t len) {
   // Remove leading space.
@@ -97,7 +99,9 @@ FileTest::ReadResult FileTest::ReadNext() {
 
   ClearTest();
 
-  static const size_t kBufLen = 8192 * 4;
+  // We need a buffer that is large enough to hold SLH-DSA-SHAKE-256f
+  // test vectors.
+  static const size_t kBufLen = 8192 * 14;
   auto buf = std::make_unique<char[]>(kBufLen);
 
   bool in_instruction_block = false;
@@ -310,6 +314,35 @@ const std::string &FileTest::CurrentTestToString() const {
 bool FileTest::GetBytes(std::vector<uint8_t> *out, std::string_view key) {
   std::string value;
   return GetAttribute(&value, key) && ConvertToBytes(out, value);
+}
+
+bool FileTest::GetUint64(uint64_t *out, std::string_view key) {
+  std::string value;
+  if (!GetAttribute(&value, key)) {
+    return false;
+  }
+
+  char *endptr;
+  *out = strtoull(value.data(), &endptr, 10);
+  return !value.empty() && *endptr == '\0';
+}
+
+bool FileTest::GetBase64(std::vector<uint8_t> *out, std::string_view key) {
+  std::string value;
+  if (!GetAttribute(&value, key)) {
+    return false;
+  }
+  size_t max_decoded_length;
+  EVP_DecodedLength(&max_decoded_length, value.size());
+  out->resize(max_decoded_length);
+  size_t decoded_length;
+  if (!EVP_DecodeBase64(out->data(), &decoded_length, max_decoded_length,
+                        reinterpret_cast<const uint8_t *>(value.data()),
+                        value.size())) {
+    return false;
+  }
+  out->resize(decoded_length);
+  return true;
 }
 
 void FileTest::ClearTest() {

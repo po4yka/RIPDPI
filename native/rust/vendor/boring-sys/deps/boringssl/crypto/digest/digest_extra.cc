@@ -18,6 +18,7 @@
 
 #include <openssl/blake2.h>
 #include <openssl/bytestring.h>
+#include <openssl/evp_errors.h>
 #include <openssl/md4.h>
 #include <openssl/md5.h>
 #include <openssl/nid.h>
@@ -32,7 +33,7 @@
 
 struct nid_to_digest {
   int nid;
-  const EVP_MD *(*md_func)(void);
+  const EVP_MD *(*md_func)();
   const char *short_name;
   const char *long_name;
 };
@@ -47,10 +48,10 @@ static const struct nid_to_digest nid_to_digest_mapping[] = {
     {NID_sha512, EVP_sha512, SN_sha512, LN_sha512},
     {NID_sha512_256, EVP_sha512_256, SN_sha512_256, LN_sha512_256},
     {NID_md5_sha1, EVP_md5_sha1, SN_md5_sha1, LN_md5_sha1},
-    // As a remnant of signing |EVP_MD|s, OpenSSL returned the corresponding
+    // As a remnant of signing `EVP_MD`s, OpenSSL returned the corresponding
     // hash function when given a signature OID. To avoid unintended lax parsing
     // of hash OIDs, this is no longer supported for lookup by OID or NID.
-    // Node.js, however, exposes |EVP_get_digestbyname|'s full behavior to
+    // Node.js, however, exposes `EVP_get_digestbyname`'s full behavior to
     // consumers so we retain it there.
     {NID_undef, EVP_sha1, SN_dsaWithSHA, LN_dsaWithSHA},
     {NID_undef, EVP_sha1, SN_dsaWithSHA1, LN_dsaWithSHA1},
@@ -69,7 +70,7 @@ static const struct nid_to_digest nid_to_digest_mapping[] = {
 
 const EVP_MD *EVP_get_digestbynid(int nid) {
   if (nid == NID_undef) {
-    // Skip the |NID_undef| entries in |nid_to_digest_mapping|.
+    // Skip the `NID_undef` entries in `nid_to_digest_mapping`.
     return nullptr;
   }
 
@@ -116,7 +117,7 @@ static int cbs_to_digest_nid(const CBS *cbs) {
 const EVP_MD *EVP_get_digestbyobj(const ASN1_OBJECT *obj) {
   int nid = obj->nid;
   if (nid == NID_undef) {
-    // Handle objects with no saved NID. Note we don't use |OBJ_obj2nid| here to
+    // Handle objects with no saved NID. Note we don't use `OBJ_obj2nid` here to
     // avoid pulling in the OID table.
     CBS cbs;
     CBS_init(&cbs, OBJ_get0_data(obj), OBJ_length(obj));
@@ -219,6 +220,33 @@ const EVP_MD *EVP_get_digestbyname(const char *name) {
   return nullptr;
 }
 
+EVP_MD *EVP_MD_fetch(OSSL_LIB_CTX *libctx, const char *name,
+                     const char *propq) {
+  EVP_MD *ret = const_cast<EVP_MD *>(EVP_get_digestbyname(name));
+  if (ret == nullptr) {
+    OPENSSL_PUT_ERROR(EVP, EVP_R_UNSUPPORTED_ALGORITHM);
+  }
+  return ret;
+}
+
+int EVP_MD_up_ref(EVP_MD *md) { return 1; }
+
+void EVP_MD_free(EVP_MD *md) {}
+
+int EVP_Q_digest(OSSL_LIB_CTX *libctx, const char *name, const char *propq,
+                 const void *in, size_t in_len, uint8_t *out, size_t *out_len) {
+  const EVP_MD *md = EVP_MD_fetch(libctx, name, propq);
+  if (md == nullptr) {
+    return 0;
+  }
+  unsigned len_u;
+  if (!EVP_Digest(in, in_len, out, &len_u, md, nullptr)) {
+    return 0;
+  }
+  *out_len = len_u;
+  return 1;
+}
+
 static void blake2b256_init(EVP_MD_CTX *ctx) {
   BLAKE2B256_Init(reinterpret_cast<BLAKE2B_CTX *>(ctx->md_data));
 }
@@ -237,7 +265,7 @@ static const EVP_MD evp_md_blake2b256 = {
     BLAKE2B_CBLOCK,  sizeof(BLAKE2B_CTX),
 };
 
-const EVP_MD *EVP_blake2b256(void) { return &evp_md_blake2b256; }
+const EVP_MD *EVP_blake2b256() { return &evp_md_blake2b256; }
 
 static_assert(sizeof(BLAKE2B_CTX) <= EVP_MAX_MD_DATA_SIZE);
 
@@ -266,7 +294,7 @@ static const EVP_MD evp_md_md4 = {
     sizeof(MD4_CTX),
 };
 
-const EVP_MD *EVP_md4(void) { return &evp_md_md4; }
+const EVP_MD *EVP_md4() { return &evp_md_md4; }
 
 static_assert(sizeof(MD4_CTX) <= EVP_MAX_MD_DATA_SIZE);
 
@@ -289,7 +317,7 @@ static const EVP_MD evp_md_md5 = {
     md5_update, md5_final,         64, sizeof(MD5_CTX),
 };
 
-const EVP_MD *EVP_md5(void) { return &evp_md_md5; }
+const EVP_MD *EVP_md5() { return &evp_md_md5; }
 
 static_assert(sizeof(MD5_CTX) <= EVP_MAX_MD_DATA_SIZE);
 
@@ -328,6 +356,6 @@ const EVP_MD evp_md_md5_sha1 = {
     sizeof(MD5_SHA1_CTX),
 };
 
-const EVP_MD *EVP_md5_sha1(void) { return &evp_md_md5_sha1; }
+const EVP_MD *EVP_md5_sha1() { return &evp_md_md5_sha1; }
 
 static_assert(sizeof(MD5_SHA1_CTX) <= EVP_MAX_MD_DATA_SIZE);

@@ -23,8 +23,11 @@
 #include <openssl/mem.h>
 
 #include "../../internal.h"
+#include "../../mem_internal.h"
 #include "../service_indicator/internal.h"
 
+
+using namespace bssl;
 
 struct cmac_ctx_st {
   EVP_CIPHER_CTX cipher_ctx;
@@ -34,7 +37,7 @@ struct cmac_ctx_st {
   uint8_t k2[AES_BLOCK_SIZE];
   // Last (possibly partial) scratch
   uint8_t block[AES_BLOCK_SIZE];
-  // block_used contains the number of valid bytes in |block|.
+  // block_used contains the number of valid bytes in `block`.
   unsigned block_used;
 };
 
@@ -84,8 +87,8 @@ int AES_CMAC(uint8_t out[16], const uint8_t *key, size_t key_len,
   return ok;
 }
 
-CMAC_CTX *CMAC_CTX_new(void) {
-  CMAC_CTX *ctx = reinterpret_cast<CMAC_CTX *>(OPENSSL_malloc(sizeof(*ctx)));
+CMAC_CTX *CMAC_CTX_new() {
+  CMAC_CTX *ctx = New<CMAC_CTX>();
   if (ctx != nullptr) {
     CMAC_CTX_init(ctx);
   }
@@ -98,7 +101,7 @@ void CMAC_CTX_free(CMAC_CTX *ctx) {
   }
 
   CMAC_CTX_cleanup(ctx);
-  OPENSSL_free(ctx);
+  Delete(ctx);
 }
 
 int CMAC_CTX_copy(CMAC_CTX *out, const CMAC_CTX *in) {
@@ -112,14 +115,14 @@ int CMAC_CTX_copy(CMAC_CTX *out, const CMAC_CTX *in) {
   return 1;
 }
 
-// binary_field_mul_x_128 treats the 128 bits at |in| as an element of GF(2¹²⁸)
-// with a hard-coded reduction polynomial and sets |out| as x times the input.
+// binary_field_mul_x_128 treats the 128 bits at `in` as an element of GF(2¹²⁸)
+// with a hard-coded reduction polynomial and sets `out` as x times the input.
 //
 // See https://tools.ietf.org/html/rfc4493#section-2.3
 static void binary_field_mul_x_128(uint8_t out[16], const uint8_t in[16]) {
   unsigned i;
 
-  // Shift |in| to left, including carry.
+  // Shift `in` to left, including carry.
   for (i = 0; i < 15; i++) {
     out[i] = (in[i] << 1) | (in[i + 1] >> 7);
   }
@@ -129,14 +132,14 @@ static void binary_field_mul_x_128(uint8_t out[16], const uint8_t in[16]) {
   out[i] = (in[i] << 1) ^ ((0 - carry) & 0x87);
 }
 
-// binary_field_mul_x_64 behaves like |binary_field_mul_x_128| but acts on an
+// binary_field_mul_x_64 behaves like `binary_field_mul_x_128` but acts on an
 // element of GF(2⁶⁴).
 //
 // See https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38b.pdf
 static void binary_field_mul_x_64(uint8_t out[8], const uint8_t in[8]) {
   unsigned i;
 
-  // Shift |in| to left, including carry.
+  // Shift `in` to left, including carry.
   for (i = 0; i < 7; i++) {
     out[i] = (in[i] << 1) | (in[i + 1] >> 7);
   }
@@ -153,7 +156,7 @@ int CMAC_Init(CMAC_CTX *ctx, const void *key, size_t key_len,
   int ret = 0;
   uint8_t scratch[AES_BLOCK_SIZE];
 
-  // We have to avoid the underlying AES-CBC |EVP_CIPHER| services updating the
+  // We have to avoid the underlying AES-CBC `EVP_CIPHER` services updating the
   // indicator state, so we lock the state here.
   FIPS_service_indicator_lock_state();
 
@@ -193,7 +196,7 @@ int CMAC_Reset(CMAC_CTX *ctx) {
 int CMAC_Update(CMAC_CTX *ctx, const uint8_t *in, size_t in_len) {
   int ret = 0;
 
-  // We have to avoid the underlying AES-CBC |EVP_Cipher| services updating the
+  // We have to avoid the underlying AES-CBC `EVP_Cipher` services updating the
   // indicator state, so we lock the state here.
   FIPS_service_indicator_lock_state();
 
@@ -212,9 +215,9 @@ int CMAC_Update(CMAC_CTX *ctx, const uint8_t *in, size_t in_len) {
     in_len -= todo;
     ctx->block_used += todo;
 
-    // If |in_len| is zero then either |ctx->block_used| is less than
-    // |block_size|, in which case we can stop here, or |ctx->block_used| is
-    // exactly |block_size| but there's no more data to process. In the latter
+    // If `in_len` is zero then either `ctx->block_used` is less than
+    // `block_size`, in which case we can stop here, or `ctx->block_used` is
+    // exactly `block_size` but there's no more data to process. In the latter
     // case we don't want to process this block now because it might be the last
     // block and that block is treated specially.
     if (in_len == 0) {
@@ -239,7 +242,7 @@ int CMAC_Update(CMAC_CTX *ctx, const uint8_t *in, size_t in_len) {
   }
 
   OPENSSL_memcpy(ctx->block, in, in_len);
-  // |in_len| is bounded by |block_size|, which fits in |unsigned|.
+  // `in_len` is bounded by `block_size`, which fits in `unsigned`.
   static_assert(EVP_MAX_BLOCK_LENGTH < UINT_MAX,
                 "EVP_MAX_BLOCK_LENGTH is too large");
   ctx->block_used = (unsigned)in_len;
@@ -255,7 +258,7 @@ int CMAC_Final(CMAC_CTX *ctx, uint8_t *out, size_t *out_len) {
   size_t block_size = EVP_CIPHER_CTX_block_size(&ctx->cipher_ctx);
   assert(block_size <= AES_BLOCK_SIZE);
 
-  // We have to avoid the underlying AES-CBC |EVP_Cipher| services updating the
+  // We have to avoid the underlying AES-CBC `EVP_Cipher` services updating the
   // indicator state, so we lock the state here.
   FIPS_service_indicator_lock_state();
 

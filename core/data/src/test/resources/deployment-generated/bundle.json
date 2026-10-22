@@ -1,0 +1,212 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "https",
+        "tag": "remote",
+        "server": "1.1.1.1",
+        "detour": "select"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "p0-reality-upcloud-fixture",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "uuid": "11111111-2222-4333-8444-555555555555",
+      "tls": {
+        "enabled": true,
+        "server_name": "reality.example.test",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA",
+          "short_id": "0102030405060708"
+        }
+      },
+      "flow": "xtls-rprx-vision"
+    },
+    {
+      "type": "vless",
+      "tag": "p1-xhttp-upcloud-fixture",
+      "server": "203.0.113.10",
+      "server_port": 8443,
+      "uuid": "11111111-2222-4333-8444-555555555555",
+      "tls": {
+        "enabled": true,
+        "server_name": "direct.example.test",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "xhttp",
+        "host": "direct.example.test",
+        "path": "/fixture-sync",
+        "mode": "stream-up"
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "p1-xhttp-upcloud-fixture:alternate",
+      "server": "203.0.113.10",
+      "server_port": 2083,
+      "uuid": "11111111-2222-4333-8444-555555555555",
+      "tls": {
+        "enabled": true,
+        "server_name": "alternate.example.test",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "xhttp",
+        "host": "alternate.example.test",
+        "path": "/fixture-sync",
+        "mode": "stream-up"
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-upcloud-fixture",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "password": "fixture-device:synthetic-hysteria",
+      "tls": {
+        "enabled": true,
+        "server_name": "hysteria.example.test"
+      },
+      "up_mbps": 200,
+      "down_mbps": 100,
+      "obfs": {
+        "type": "salamander",
+        "password": "synthetic-salamander"
+      }
+    },
+    {
+      "type": "snell",
+      "tag": "p3-snell-v4-stream-fresh-upcloud-fixture",
+      "server": "203.0.113.10",
+      "server_port": 9443,
+      "version": 4,
+      "psk": "synthetic-snell-psk",
+      "userkey": "synthetic-snell-userkey",
+      "reuse": false,
+      "network": "tcp",
+      "obfs_mode": "none"
+    },
+    {
+      "type": "snell",
+      "tag": "p3-snell-v4-stream-reuse-upcloud-fixture",
+      "server": "203.0.113.10",
+      "server_port": 9443,
+      "version": 4,
+      "psk": "synthetic-snell-psk",
+      "userkey": "synthetic-snell-userkey",
+      "reuse": true,
+      "network": "tcp",
+      "obfs_mode": "none"
+    },
+    {
+      "type": "selector",
+      "tag": "snell-evaluation",
+      "outbounds": [
+        "p3-snell-v4-stream-fresh-upcloud-fixture",
+        "p3-snell-v4-stream-reuse-upcloud-fixture"
+      ],
+      "default": "p3-snell-v4-stream-fresh-upcloud-fixture",
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": [
+        "p0-reality-upcloud-fixture",
+        "p1-xhttp-upcloud-fixture",
+        "p1-xhttp-upcloud-fixture:alternate",
+        "p2-hysteria2-upcloud-fixture",
+        "auto",
+        "snell-evaluation"
+      ],
+      "default": "auto",
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "p0-reality-upcloud-fixture",
+        "p1-xhttp-upcloud-fixture",
+        "p1-xhttp-upcloud-fixture:alternate",
+        "p2-hysteria2-upcloud-fixture"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      }
+    ],
+    "final": "select",
+    "auto_detect_interface": true
+  },
+  "ripdpi": {
+    "schema_version": 1,
+    "amneziawg": [],
+    "hysteria_extras": {
+      "p2-hysteria2-upcloud-fixture": {
+        "insecure": false,
+        "obfs": {
+          "type": "salamander",
+          "password": "synthetic-salamander"
+        },
+        "salamander_upstream_tag": "v2.13.0"
+      }
+    },
+    "topology": {
+      "split_hop_egress": false,
+      "hysteria_realm": null
+    }
+  }
+}

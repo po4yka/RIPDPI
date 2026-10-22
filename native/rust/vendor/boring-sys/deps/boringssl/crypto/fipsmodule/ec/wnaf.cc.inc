@@ -29,13 +29,15 @@
 #include "internal.h"
 
 
+using namespace bssl;
+
 // This file implements the wNAF-based interleaving multi-exponentiation method
 // at:
 //   http://link.springer.com/chapter/10.1007%2F3-540-45537-X_13
 //   http://www.bmoeller.de/pdf/TI-01-08.multiexp.pdf
 
-void ec_compute_wNAF(const EC_GROUP *group, int8_t *out,
-                     const EC_SCALAR *scalar, size_t bits, int w) {
+void bssl::ec_compute_wNAF(const EC_GROUP *group, int8_t *out,
+                           const EC_SCALAR *scalar, size_t bits, int w) {
   // 'int8_t' can represent integers with absolute values less than 2^7.
   assert(0 < w && w <= 7);
   assert(bits != 0);
@@ -83,8 +85,8 @@ void ec_compute_wNAF(const EC_GROUP *group, int8_t *out,
 
     out[j] = digit;
 
-    // Incorporate the next bit. Previously, |window_val| <= |next_bit|, so if
-    // we shift and add at most one copy of |bit|, this will continue to hold
+    // Incorporate the next bit. Previously, `window_val` <= `next_bit`, so if
+    // we shift and add at most one copy of `bit`, this will continue to hold
     // afterwards.
     window_val >>= 1;
     window_val += bit * bn_is_bit_set_words(scalar->words, group->order.N.width,
@@ -96,7 +98,7 @@ void ec_compute_wNAF(const EC_GROUP *group, int8_t *out,
   assert(window_val == 0);
 }
 
-// compute_precomp sets |out[i]| to (2*i+1)*p, for i from 0 to |len|.
+// compute_precomp sets `out[i]` to (2*i+1)*p, for i from 0 to `len`.
 static void compute_precomp(const EC_GROUP *group, EC_JACOBIAN *out,
                             const EC_JACOBIAN *p, size_t len) {
   ec_GFp_simple_point_copy(&out[0], p);
@@ -118,20 +120,20 @@ static void lookup_precomp(const EC_GROUP *group, EC_JACOBIAN *out,
   }
 }
 
-// EC_WNAF_WINDOW_BITS is the window size to use for |ec_GFp_mont_mul_public|.
+// EC_WNAF_WINDOW_BITS is the window size to use for `ec_GFp_mont_mul_public`.
 #define EC_WNAF_WINDOW_BITS 4
 
-// EC_WNAF_TABLE_SIZE is the table size to use for |ec_GFp_mont_mul_public|.
+// EC_WNAF_TABLE_SIZE is the table size to use for `ec_GFp_mont_mul_public`.
 #define EC_WNAF_TABLE_SIZE (1 << (EC_WNAF_WINDOW_BITS - 1))
 
 // EC_WNAF_STACK is the number of points worth of data to stack-allocate and
 // avoid a malloc.
 #define EC_WNAF_STACK 3
 
-int ec_GFp_mont_mul_public_batch(const EC_GROUP *group, EC_JACOBIAN *r,
-                                 const EC_SCALAR *g_scalar,
-                                 const EC_JACOBIAN *points,
-                                 const EC_SCALAR *scalars, size_t num) {
+int bssl::ec_GFp_mont_mul_public_batch(const EC_GROUP *group, EC_JACOBIAN *r,
+                                       const EC_SCALAR *g_scalar,
+                                       const EC_JACOBIAN *points,
+                                       const EC_SCALAR *scalars, size_t num) {
   size_t bits = EC_GROUP_order_bits(group);
   size_t wNAF_len = bits + 1;
 

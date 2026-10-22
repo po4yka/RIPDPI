@@ -437,13 +437,22 @@ class SubscriptionRefreshCoordinator private constructor(
         singBox: SingBoxParseResult.Success?,
     ): RefreshOutcome.Updated? {
         val selector = SelectorUrltestGroupImport.import(body, groupId)
-        // A recognized sing-box document is one import unit. In particular, a rejected payload
-        // policy must not fall through to AWG-only persistence or another format's parser.
-        if (singBox != null && selector is SelectorUrltestImportResult.Error) return null
+        // A recognised bundle must not fall through to AWG-only success after
+        // its relay topology or payload policy fails: that would erase the last working members.
+        val rejectedTopology = singBox != null && selector is SelectorUrltestImportResult.Error
+        val members =
+            (selector as? SelectorUrltestImportResult.Success)
+                ?.let { it.group?.members ?: it.profiles }
+                .orEmpty()
+                .filterNot { it is ProxyProfile.RawConfig }
+        val hasRelayCandidates = singBox?.let { it.profiles.isNotEmpty() || it.skipped.isNotEmpty() } == true
+        if (rejectedTopology || (hasRelayCandidates && members.isEmpty())) {
+            return null
+        }
         var parsed =
-            if (selector is SelectorUrltestImportResult.Success && selector.profiles.isNotEmpty()) {
+            if (selector is SelectorUrltestImportResult.Success && members.isNotEmpty()) {
                 RefreshOutcome.Updated(
-                    selector.profiles,
+                    members,
                     selector.failoverPolicy.toSelectorFailover(),
                     cloudflareMemberIds = selector.cloudflareMemberIds,
                     isSelector = selector.group != null,
