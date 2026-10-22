@@ -26,5 +26,8 @@ tracing = { workspace = true }
 golden-test-support.workspace = true
 tracing-subscriber = { workspace = true }
 
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+jni = { workspace = true, features = ["invocation"] }
+
 [lints]
 workspace = true
