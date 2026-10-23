@@ -75,6 +75,44 @@ def inspect_elf(payload: bytes, abi: str) -> None:
         raise ValueError(f"ELF has no LOAD segments for {abi}")
 
 
+def inspect_go_version(payload: bytes, abi: str, expected: str) -> None:
+    """Read the Go 1.18+ inline version in the ELF .go.buildinfo section."""
+    wide = payload[4] == 2
+    table = struct.unpack_from("<Q" if wide else "<I", payload, 40 if wide else 32)[0]
+    size, count, names_index = struct.unpack_from("<HHH", payload, 58 if wide else 46)
+    if size < (64 if wide else 40) or not 0 < names_index < count or table + size * count > len(payload):
+        raise ValueError(f"invalid ELF section headers for {abi}")
+
+    def section(index: int) -> tuple[int, bytes]:
+        header = table + size * index
+        name = struct.unpack_from("<I", payload, header)[0]
+        offset, length = struct.unpack_from("<QQ" if wide else "<II", payload, header + (24 if wide else 16))
+        if offset + length > len(payload):
+            raise ValueError(f"invalid ELF section bounds for {abi}")
+        return name, payload[offset:offset + length]
+
+    _, names = section(names_index)
+    matches = []
+    for index in range(count):
+        header = table + size * index
+        name = struct.unpack_from("<I", payload, header)[0]
+        if name >= len(names):
+            raise ValueError(f"invalid ELF section name for {abi}")
+        if names[name:name + 14] == b".go.buildinfo\0":
+            matches.append(section(index)[1])
+    if len(matches) != 1:
+        raise ValueError(f"missing or duplicate Go build information for {abi}")
+    info = matches[0]
+    if len(info) < 33 or info[:14] != b"\xff Go buildinf:" or info[14:16] != bytes([8 if wide else 4, 2]):
+        raise ValueError(f"invalid Go build information for {abi}")
+    # Reviewed Go versions fit in a single-byte uvarint; reject other formats.
+    length = info[32]
+    if not 0 < length < 128 or 33 + length > len(info):
+        raise ValueError(f"invalid Go version length for {abi}")
+    if info[33:33 + length] != expected.encode("ascii"):
+        raise ValueError(f"embedded Go toolchain must be {expected} for {abi}")
+
+
 def inspect_api(classes: bytes) -> None:
     with zipfile.ZipFile(io.BytesIO(classes)) as jar:
         required = {"libXray/LibXray.class", "libXray/DialerController.class", "go/Seq.class"}
@@ -115,8 +153,8 @@ def verify(directory: Path, abis: str | None = None, release: bool = False) -> d
     for name, key in (("libxray.aar", "aarSha256"), ("build-go.mod", "goModSha256"), ("build-go.sum", "goSumSha256")):
         if digest(directory / name) != metadata.get(key):
             raise ValueError(f"artifact content digest mismatch: {name}")
-    if not re.fullmatch(r"go1\.[0-9]+(?:\.[0-9]+)?", metadata.get("goVersion", "")):
-        raise ValueError("missing Go toolchain provenance")
+    if metadata.get("goVersion") != patches["goVersion"]:
+        raise ValueError(f"Go toolchain must be {patches['goVersion']}")
     supported = set(properties["ripdpi.nativeAbis"].split(","))
     expected = set((abis or properties["ripdpi.nativeAbis"]).split(","))
     if not expected or not expected.issubset(supported) or (release and expected != supported):
@@ -136,7 +174,9 @@ def verify(directory: Path, abis: str | None = None, release: bool = False) -> d
         if sum(archive.getinfo(name).file_size for name in native.values()) > BUDGET:
             raise ValueError("native payload exceeds budget")
         for abi, name in native.items():
-            inspect_elf(archive.read(name), abi)
+            payload = archive.read(name)
+            inspect_elf(payload, abi)
+            inspect_go_version(payload, abi, patches["goVersion"])
         if archive.getinfo("classes.jar").file_size > 4 * 1024 * 1024:
             raise ValueError("unexpectedly large Java API")
         inspect_api(archive.read("classes.jar"))

@@ -1,6 +1,6 @@
 # Reproducible container lane for the libXray Android ABI packaging.
 # Builds the exact toolchain scripts/native/build-libxray.sh needs:
-#   Go 1.26 (libXray v26.x requires Go >= 1.26.2) + Android SDK + NDK + gomobile.
+#   Go 1.27.3 (certificate verifier security fix) + Android SDK + NDK + gomobile.
 # Matches RIPDPI gradle.properties: compileSdk=36, NDK=29.0.14206865.
 #
 # HOST ARCHITECTURE: build and run this image on x86_64. The Android NDK ships
@@ -15,7 +15,7 @@
 #   docker run --rm --platform linux/amd64 -v "$PWD":/work:ro -e RIPDPI_XRAY_AAR_DIR=/artifacts \
 #     ripdpi/libxray-build -c 'cd /work && bash scripts/native/build-libxray.sh \
 #       && bash scripts/native/verify-libxray-artifacts.sh'
-FROM golang:1.26-bookworm
+FROM golang:1.27.3-bookworm
 
 ARG ANDROID_CMDLINE_TOOLS_VERSION=11076708
 ARG ANDROID_PLATFORM=android-36
@@ -53,14 +53,14 @@ ENV ANDROID_NDK_HOME="${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" \
     ANDROID_NDK_ROOT="${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}"
 
 # gomobile toolchain, pinned to gradle/libs.versions.toml `gomobile`.
-# GOTOOLCHAIN=auto: fetch the exact Go a go.mod directive needs (libXray pins
-# go 1.26.2). Keep the public checksum database enabled.
+# Keep this version aligned with native/xray/patches/manifest.json.
+# Keep the public checksum database enabled.
 ARG GOMOBILE_VERSION=v0.0.0-20260529142300-ecb4cd65260a
-ENV GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOTOOLCHAIN=auto
+ENV GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOTOOLCHAIN=go1.27.3
 RUN retry go install golang.org/x/mobile/cmd/gomobile@${GOMOBILE_VERSION} \
     && retry go install golang.org/x/mobile/cmd/gobind@${GOMOBILE_VERSION}
 ENV PATH="/go/bin:${PATH}"
-RUN gomobile init
+# Do not run gomobile init: it can replace the pinned gobind.
 
 WORKDIR /work
 ENTRYPOINT ["/bin/bash"]

@@ -29,15 +29,21 @@ abis_csv="${abis_override:-$(read_property ripdpi.nativeAbis)}"
 for tool in go gomobile gobind git python3; do
     command -v "$tool" >/dev/null || { echo "Required tool unavailable: $tool" >&2; exit 69; }
 done
+go_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["goVersion"])' "$repo_root/native/xray/patches/manifest.json")"
+[[ "$(go env GOVERSION)" == "$go_version" ]] || {
+    echo "Go toolchain must be $go_version" >&2; exit 69;
+}
+# Prevent a module directive from silently switching the reviewed compiler.
+export GOTOOLCHAIN="$go_version"
 [[ "$(go env GOSUMDB)" != off ]] || { echo 'Go checksum verification must remain enabled.' >&2; exit 69; }
 ndk_home="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
 [[ -f "$ndk_home/source.properties" ]] || { echo 'ANDROID_NDK_HOME must identify the pinned NDK.' >&2; exit 69; }
 grep -Eq "^Pkg.Revision[[:space:]]*=[[:space:]]*$ndk_version$" "$ndk_home/source.properties" || {
     echo "NDK version must be $ndk_version" >&2; exit 69;
 }
-case "$(go env GOHOSTARCH)" in
-    amd64) ;;
-    *) echo 'Use an amd64 Go toolchain (Rosetta on Apple Silicon) for gomobile Android.' >&2; exit 69 ;;
+case "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" in
+    */amd64|darwin/arm64) ;;
+    *) echo 'Use an amd64 Go host, or arm64 macOS with the universal Android NDK.' >&2; exit 69 ;;
 esac
 for tool in gomobile gobind; do
     go version -m "$(command -v "$tool")" | grep -F "v$gomobile_ref" >/dev/null || {

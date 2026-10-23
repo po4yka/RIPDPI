@@ -13,13 +13,13 @@ runs:
     - name: Install pinned Go mobile toolchain
       shell: bash
       env:
-        GOTOOLCHAIN: go1.27.2
         GOSUMDB: sum.golang.org
         GOPROXY: https://proxy.golang.org,direct
         GOMAXPROCS: "1"
         GOFLAGS: -p=1
       run: |
         set -euo pipefail
+        export GOTOOLCHAIN="$(python3 -c 'import json; print(json.load(open("native/xray/patches/manifest.json"))["goVersion"])')"
         gomobile_version="$(python3 -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["gomobile"])')"
         export GOBIN="$RUNNER_TEMP/xray-go-bin"
         go install "golang.org/x/mobile/cmd/gomobile@v$gomobile_version"
