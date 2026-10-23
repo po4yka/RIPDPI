@@ -95,7 +95,7 @@ internal fun profileQualityLines(
 private fun qualityNumber(
     value: Double,
     locale: Locale,
-): String = NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 3 }.format(value)
+): String = NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = QualityFractionDigits }.format(value)
 
 private fun ProfileQualityReason.qualityLabel(): Int =
     when (this) {
@@ -122,3 +122,4 @@ private fun ProfileQualityDecisionReason.qualityLabel(): Int? =
 
 private const val BytesPerKibibyte = 1024.0
 private const val NanosPerSecond = 1_000_000_000.0
+private const val QualityFractionDigits = 3
