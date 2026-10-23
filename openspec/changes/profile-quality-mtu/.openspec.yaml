@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-23
+goal: TRN-1792759596946903 Select profiles using bounded transfer quality and
+  scoped MTU diagnostics

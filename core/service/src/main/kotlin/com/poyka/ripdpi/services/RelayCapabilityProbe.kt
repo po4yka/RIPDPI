@@ -282,6 +282,8 @@ internal class OkHttpRelayTcpProbe(
 internal fun consumeVerifiedPayload(
     response: Response,
     expected: PayloadProbeControl,
+    onBodyReadStarted: () -> Unit = {},
+    onBodyReadFinished: () -> Unit = {},
 ): Boolean {
     val identityEncoding = response.header("Content-Encoding")?.equals("identity", ignoreCase = true) != false
     val validHeaders =
@@ -296,9 +298,11 @@ internal fun consumeVerifiedPayload(
         while (received <= expected.expectedBytes) {
             val count = input.read(buffer, 0, minOf(buffer.size, expected.expectedBytes - received + 1))
             if (count == -1) break
+            if (received == 0 && count > 0) onBodyReadStarted()
             received += count
             digest.update(buffer, 0, count)
         }
+        onBodyReadFinished()
         received == expected.expectedBytes &&
             digest.digest().joinToString("") { "%02x".format(it) } == expected.sha256
     }

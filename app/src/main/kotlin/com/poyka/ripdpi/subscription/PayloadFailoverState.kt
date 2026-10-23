@@ -54,6 +54,8 @@ internal class PayloadFailoverState(
         successes.clear()
     }
 
+    fun inCooldown(now: Long): Boolean = now < cooldownUntil
+
     fun switched(now: Long) {
         cooldownUntil = now + policy.cooldownSeconds * MillisecondsPerSecond
         failures = 0

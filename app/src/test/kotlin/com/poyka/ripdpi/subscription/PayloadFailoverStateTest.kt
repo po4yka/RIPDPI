@@ -63,7 +63,7 @@ class PayloadFailoverStateTest {
 
 internal fun policy() =
     PayloadFailoverPolicy(
-        1,
+        2,
         "select",
         listOf(
             PayloadProbeControl("https://a.example.test/control", 32_768, "a".repeat(64)),
