@@ -123,12 +123,20 @@ def toolchains(root: Path) -> dict:
     return result
 
 
-def check_payload(apk: Path, xray: Path) -> None:
+def check_payload(apk: Path, xray: Path, *, producer_directory: bool = False) -> None:
     ordinary(apk)
     ordinary(xray, directory=True)
-    if {path.name for path in xray.iterdir()} != set(XRAY_FILES):
-        raise ValueError("unexpected or missing Xray producer files")
-    for name in XRAY_FILES:
+    names = {path.name for path in xray.iterdir()}
+    required = set(XRAY_FILES)
+    # gomobile's buildSrcJar writes this companion beside the AAR, and
+    # build-libxray.sh publishes the whole staging directory. It is not a
+    # runtime input or covered by libxray-artifact.json, so never copy it into
+    # the seal. The full producer verifier must already have passed in CI.
+    allowed = required | ({"libxray-sources.jar"} if producer_directory else set())
+    if not required.issubset(names) or not names.issubset(allowed):
+        raise ValueError("unexpected or missing Xray producer files: "
+                         f"missing={sorted(required - names)}, unexpected={sorted(names - allowed)}")
+    for name in names:
         ordinary(xray / name)
     producer = json.loads((xray / "libxray-artifact.json").read_text())
     for name, key in (("libxray.aar", "aarSha256"), ("build-go.mod", "goModSha256"), ("build-go.sum", "goSumSha256")):
@@ -165,7 +173,7 @@ def inventory(bundle: Path) -> dict[str, str]:
 def seal(bundle: Path, apk: Path, xray_artifacts: Path, root: Path = ROOT) -> dict:
     bundle, apk, xray_artifacts, root = map(Path, (bundle, apk, xray_artifacts, root))
     ordinary(bundle.parent, directory=True)
-    check_payload(apk, xray_artifacts)
+    check_payload(apk, xray_artifacts, producer_directory=True)
     revision = command(["git", "rev-parse", "HEAD"], root)
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise ValueError("unknown original build revision")

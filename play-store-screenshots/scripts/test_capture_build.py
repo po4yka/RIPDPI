@@ -55,6 +55,40 @@ class CaptureBuildTests(unittest.TestCase):
         for name in build.XRAY_FILES:
             self.assertEqual((result["xray"] / name).read_bytes(), (self.xray / name).read_bytes())
 
+    def test_gomobile_producer_companion_is_not_a_runtime_bundle_input(self):
+        # gomobile bind -o libxray.aar also emits libxray-sources.jar; the
+        # production script publishes the entire verified staging directory.
+        companion = self.xray / "libxray-sources.jar"
+        with zipfile.ZipFile(companion, "w") as archive:
+            archive.writestr("libXray/LibXray.java", "// synthetic source fixture")
+        result = self.seal()
+        self.assertEqual({path.name for path in result["xray"].iterdir()}, set(build.XRAY_FILES))
+        self.assertNotIn("xray/libxray-sources.jar", result["metadata"]["files"])
+        self.verify()
+
+    def test_unexpected_producer_companion_rejected(self):
+        (self.xray / "unexpected.jar").write_bytes(b"not an approved producer output")
+        with self.assertRaisesRegex(ValueError, "unexpected or missing Xray producer files"):
+            self.seal()
+        self.assertFalse(self.bundle.exists())
+
+    def test_producer_companion_must_be_regular_not_symlink_or_directory(self):
+        companion = self.xray / "libxray-sources.jar"
+        companion.symlink_to(self.apk)
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            self.seal()
+        companion.unlink()
+        companion.mkdir()
+        with self.assertRaisesRegex(ValueError, "missing regular file"):
+            self.seal()
+        self.assertFalse(self.bundle.exists())
+
+    def test_source_companion_still_rejected_in_sealed_bundle(self):
+        self.seal()
+        (self.bundle / "xray/libxray-sources.jar").write_bytes(b"not sealed")
+        with self.assertRaisesRegex(ValueError, "unexpected or missing capture build files"):
+            self.verify()
+
     def test_original_revision_must_match_trusted_run(self):
         self.seal()
         build.verify(self.bundle, self.root, expected_revision=self.revision)
