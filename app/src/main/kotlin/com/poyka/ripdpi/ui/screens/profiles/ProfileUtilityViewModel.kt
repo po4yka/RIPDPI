@@ -41,6 +41,7 @@ internal class ProfileUtilityViewModel
         private val selection: com.poyka.ripdpi.services.MeasuredProfileActivationCoordinator,
         private val native: CandidateRelayMeasurements,
         private val xray: CandidateXrayMeasurements,
+        quality: com.poyka.ripdpi.data.ProfileQualityStore,
     ) : ViewModel() {
         private val failure = MutableStateFlow<ProfileUtilityFailure?>(null)
         private val results = MutableStateFlow<Map<ProfileUtilityReference, ProfileMeasurementUiState>>(emptyMap())
@@ -66,7 +67,7 @@ internal class ProfileUtilityViewModel
                         }
                 }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CatalogObservation.Loading)
         private val cleanup = combine(native.cleanupPending, xray.cleanupPending) { n, x -> n || x }
-        private val command = combine(results, url, failure) { r, u, f -> CommandState(r, u, f) }
+        private val command = combine(results, url, failure, quality.state) { r, u, f, q -> CommandState(r, u, f, q) }
         val uiState =
             combine(
                 committedCatalog,
@@ -82,7 +83,7 @@ internal class ProfileUtilityViewModel
                         if (c != null &&
                             a != null
                         ) {
-                            profileUtilityItems(c, a.profileUtility, applications, work.results)
+                            profileUtilityItems(c, a.profileUtility, applications, work.results, work.quality)
                         } else {
                             persistentListOf()
                         },
@@ -305,5 +306,6 @@ internal class ProfileUtilityViewModel
             val results: Map<ProfileUtilityReference, ProfileMeasurementUiState>,
             val url: String,
             val failure: ProfileUtilityFailure?,
+            val quality: com.poyka.ripdpi.data.ProfileQualitySnapshot,
         )
     }

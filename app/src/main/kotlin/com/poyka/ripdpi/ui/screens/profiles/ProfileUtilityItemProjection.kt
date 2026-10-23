@@ -15,6 +15,9 @@ internal fun profileUtilityItems(
     utility: ProfileUtilityState,
     applications: Map<Mode, RuntimeConfigurationApplication>,
     measurements: Map<ProfileUtilityReference, ProfileMeasurementUiState>,
+    quality: com.poyka.ripdpi.data.ProfileQualitySnapshot =
+        com.poyka.ripdpi.data
+            .ProfileQualitySnapshot(),
 ): ImmutableList<ProfileUtilityItem> {
     if (!utility.catalogReady || catalog.generation != utility.catalogGeneration) return persistentListOf()
 
@@ -39,6 +42,7 @@ internal fun profileUtilityItems(
                 lastUsedAtMillis = recent?.appliedAtMillis,
                 recentSequence = recent?.sequence,
                 measurement = measurements[entry.reference] ?: ProfileMeasurementUiState.NotChecked,
+                quality = quality.forProfile(entry.reference),
             )
         }.toPersistentList()
 }

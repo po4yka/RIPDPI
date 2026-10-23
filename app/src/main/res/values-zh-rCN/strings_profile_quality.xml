@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">传输质量</string>
+    <string name="profile_quality_goodput">已验证有效速率：%1$s KiB/s</string>
+    <string name="profile_quality_transfer">已验证正文：%1$s 字节，用时 %2$s 秒</string>
+    <string name="profile_quality_baseline">基准请求：%1$d 毫秒</string>
+    <string name="profile_quality_loaded">正文传输期间的请求：%1$d 毫秒</string>
+    <string name="profile_quality_budget">正文预算：本轮预留 %1$d 字节；窗口内 %2$d / %3$d 字节</string>
+    <string name="profile_quality_limits">请求延迟不是 RTT。正文预算不含协议开销。测量仅描述此路径和来源。</string>
+    <string name="profile_quality_verified">测量完整</string>
+    <string name="profile_quality_no_overlap">部分结果：负载请求未完全处于正文传输期间。</string>
+    <string name="profile_quality_no_baseline">部分结果：基准请求不可用。</string>
+    <string name="profile_quality_no_loaded">部分结果：负载请求不可用。</string>
+    <string name="profile_quality_failed">无法验证传输。</string>
+    <string name="profile_quality_budget_exhausted">已推迟：流量预算已耗尽。</string>
+    <string name="profile_quality_budget_unavailable">已推迟：持久预算不可用。</string>
+    <string name="profile_quality_stale">已过期：网络或配置已变化。</string>
+    <string name="profile_quality_cleanup">已推迟：候选运行环境忙碌或等待清理。</string>
+    <string name="profile_quality_collecting">正在收集重复的质量测量。</string>
+    <string name="profile_quality_retained">保留当前选择；暂无确认的改善。</string>
+    <string name="profile_quality_promoted_goodput">选择器因更高的有效速率切换了配置。</string>
+    <string name="profile_quality_promoted_latency">选择器因更低的负载延迟切换了配置。</string>
+    <string name="profile_quality_cooldown">等待期内保留当前选择。</string>
+</resources>

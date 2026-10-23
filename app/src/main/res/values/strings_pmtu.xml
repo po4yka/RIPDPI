@@ -21,4 +21,11 @@
     <string name="diagnostics_pmtu_partial">Connection ended before observation completed</string>
     <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD measures outbound UDP payload bytes from this device to the selected server on this path. The ACK-confirmed value is a lower bound, not the exact path MTU. An ACK on the return path does not measure its PMTU. The configured ceiling and the interface MTU are separate values. A partial observation does not confirm a completed measurement.</string>
     <string name="diagnostics_pmtu_loss_caution">Probe loss can occur during size search. It does not establish a path black hole or a provider restriction. The peer can also limit packet size.</string>
+    <string name="diagnostics_pmtu_diagnosis">MTU diagnosis</string>
+    <string name="diagnostics_pmtu_confirmed">Confirmed outbound packet lower bound; not an exact PMTU or VPN setting.</string>
+    <string name="diagnostics_pmtu_diagnosis_partial">Partial search; no current packet-size advice.</string>
+    <string name="diagnostics_pmtu_historical">Historical measurement; rerun on the current network.</string>
+    <string name="diagnostics_pmtu_unavailable">No confirmed packet-size measurement.</string>
+    <string name="diagnostics_pmtu_ip_lower_bound">Minimum confirmed IP packet size</string>
+    <string name="diagnostics_pmtu_historical_payload">Historical ACK-confirmed UDP payload</string>
 </resources>

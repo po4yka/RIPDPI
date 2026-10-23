@@ -21,4 +21,11 @@
     <string name="diagnostics_pmtu_partial">Соединение завершилось до конца наблюдения</string>
     <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD измеряет исходящую UDP-нагрузку в байтах от этого устройства к выбранному серверу по этому пути. Значение, подтверждённое ACK, — нижняя граница, а не точный MTU пути. Возврат ACK не измеряет PMTU обратного пути. Заданный предел и MTU интерфейса — отдельные значения. Частичное наблюдение не подтверждает завершённое измерение.</string>
     <string name="diagnostics_pmtu_loss_caution">Потери проб возможны при поиске размера. Они не доказывают чёрную дыру на пути или ограничения провайдера. Размер пакета также может ограничивать удалённый узел.</string>
+    <string name="diagnostics_pmtu_diagnosis">Диагностика MTU</string>
+    <string name="diagnostics_pmtu_confirmed">Подтверждена нижняя граница исходящего пакета, а не точный PMTU или настройка VPN.</string>
+    <string name="diagnostics_pmtu_diagnosis_partial">Поиск не завершён; рекомендации по размеру пакета нет.</string>
+    <string name="diagnostics_pmtu_historical">Прошлое измерение; повторите проверку в текущей сети.</string>
+    <string name="diagnostics_pmtu_unavailable">Подтверждённого измерения размера пакета нет.</string>
+    <string name="diagnostics_pmtu_ip_lower_bound">Минимальный подтверждённый IP-пакет</string>
+    <string name="diagnostics_pmtu_historical_payload">Прошлая UDP-нагрузка, подтверждённая ACK</string>
 </resources>

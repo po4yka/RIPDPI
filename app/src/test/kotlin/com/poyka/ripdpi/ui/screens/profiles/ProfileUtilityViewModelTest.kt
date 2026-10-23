@@ -1000,6 +1000,8 @@ private class Fixture(
             ),
             controlledMeasurement,
             xrayProbe,
+            com.poyka.ripdpi.data
+                .ProfileQualityStore(),
         )
     private val viewModels = ViewModelStore().apply { put("profiles", vm) }
 

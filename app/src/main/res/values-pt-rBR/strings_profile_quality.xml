@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">Qualidade da transferência</string>
+    <string name="profile_quality_goodput">Vazão útil verificada: %1$s KiB/s</string>
+    <string name="profile_quality_transfer">Corpo verificado: %1$s bytes em %2$s s</string>
+    <string name="profile_quality_baseline">Requisição de referência: %1$d ms</string>
+    <string name="profile_quality_loaded">Requisição durante a transferência: %1$d ms</string>
+    <string name="profile_quality_budget">Orçamento do corpo: %1$d bytes reservados nesta rodada; %2$d / %3$d bytes no período</string>
+    <string name="profile_quality_limits">A latência da requisição não é RTT. O orçamento exclui a sobrecarga do protocolo. As medidas descrevem este caminho e origem.</string>
+    <string name="profile_quality_verified">Medição completa</string>
+    <string name="profile_quality_no_overlap">Parcial: a requisição sob carga não coube na transferência.</string>
+    <string name="profile_quality_no_baseline">Parcial: requisição de referência indisponível.</string>
+    <string name="profile_quality_no_loaded">Parcial: requisição sob carga indisponível.</string>
+    <string name="profile_quality_failed">Não foi possível verificar a transferência.</string>
+    <string name="profile_quality_budget_exhausted">Adiado: orçamento de tráfego esgotado.</string>
+    <string name="profile_quality_budget_unavailable">Adiado: orçamento persistente indisponível.</string>
+    <string name="profile_quality_stale">Desatualizado: rede ou configuração alterada.</string>
+    <string name="profile_quality_cleanup">Adiado: ambiente de teste ocupado ou limpeza pendente.</string>
+    <string name="profile_quality_collecting">Coletando medições repetidas de qualidade.</string>
+    <string name="profile_quality_retained">Seleção atual mantida; sem melhora confirmada.</string>
+    <string name="profile_quality_promoted_goodput">Seletor escolheu um perfil com maior vazão útil.</string>
+    <string name="profile_quality_promoted_latency">Seletor escolheu um perfil com menor latência sob carga.</string>
+    <string name="profile_quality_cooldown">Seleção atual mantida durante a espera.</string>
+</resources>

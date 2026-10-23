@@ -27,6 +27,7 @@ internal data class ProfileUtilityItem(
     val lastUsedAtMillis: Long?,
     val recentSequence: Long?,
     val measurement: ProfileMeasurementUiState,
+    val quality: ProfileQualityUiState? = null,
 )
 
 internal sealed interface ProfileMeasurementUiState {

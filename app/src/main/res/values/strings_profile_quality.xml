@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">Transfer quality</string>
+    <string name="profile_quality_goodput">Verified goodput: %1$s KiB/s</string>
+    <string name="profile_quality_transfer">Verified body: %1$s bytes in %2$s s</string>
+    <string name="profile_quality_baseline">Baseline request: %1$d ms</string>
+    <string name="profile_quality_loaded">Request during body transfer: %1$d ms</string>
+    <string name="profile_quality_budget">Body allowance: %1$d bytes reserved this pass; %2$d / %3$d bytes in the window</string>
+    <string name="profile_quality_limits">Request latency is not RTT. Body allowance excludes protocol overhead. Measurements describe this path and origin.</string>
+    <string name="profile_quality_verified">Complete measurement</string>
+    <string name="profile_quality_no_overlap">Partial: the loaded request did not fit inside the body transfer.</string>
+    <string name="profile_quality_no_baseline">Partial: baseline request unavailable.</string>
+    <string name="profile_quality_no_loaded">Partial: loaded request unavailable.</string>
+    <string name="profile_quality_failed">Transfer could not be verified.</string>
+    <string name="profile_quality_budget_exhausted">Deferred: traffic budget exhausted.</string>
+    <string name="profile_quality_budget_unavailable">Deferred: durable budget unavailable.</string>
+    <string name="profile_quality_stale">Stale: network or configuration changed.</string>
+    <string name="profile_quality_cleanup">Deferred: candidate runtime busy or cleanup pending.</string>
+    <string name="profile_quality_collecting">Collecting repeated quality evidence.</string>
+    <string name="profile_quality_retained">Current selection retained; no qualified improvement.</string>
+    <string name="profile_quality_promoted_goodput">Selector promoted a member for higher goodput.</string>
+    <string name="profile_quality_promoted_latency">Selector promoted a member for lower loaded latency.</string>
+    <string name="profile_quality_cooldown">Current selection retained during cooldown.</string>
+</resources>

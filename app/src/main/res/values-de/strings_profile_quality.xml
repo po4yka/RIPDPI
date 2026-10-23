@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">Übertragungsqualität</string>
+    <string name="profile_quality_goodput">Bestätigter Durchsatz: %1$s KiB/s</string>
+    <string name="profile_quality_transfer">Geprüfter Inhalt: %1$s Bytes in %2$s s</string>
+    <string name="profile_quality_baseline">Basisanfrage: %1$d ms</string>
+    <string name="profile_quality_loaded">Anfrage während der Übertragung: %1$d ms</string>
+    <string name="profile_quality_budget">Datenbudget: %1$d Bytes je Durchlauf reserviert; %2$d / %3$d Bytes im Zeitfenster</string>
+    <string name="profile_quality_limits">Anfragelatenz ist keine RTT. Das Budget schließt Protokollaufwand aus. Die Messwerte gelten für diesen Pfad und Ursprung.</string>
+    <string name="profile_quality_verified">Vollständige Messung</string>
+    <string name="profile_quality_no_overlap">Teilweise: Lastanfrage lag nicht vollständig in der Übertragung.</string>
+    <string name="profile_quality_no_baseline">Teilweise: Basisanfrage nicht verfügbar.</string>
+    <string name="profile_quality_no_loaded">Teilweise: Lastanfrage nicht verfügbar.</string>
+    <string name="profile_quality_failed">Übertragung konnte nicht bestätigt werden.</string>
+    <string name="profile_quality_budget_exhausted">Verschoben: Datenbudget aufgebraucht.</string>
+    <string name="profile_quality_budget_unavailable">Verschoben: dauerhaftes Budget nicht verfügbar.</string>
+    <string name="profile_quality_stale">Veraltet: Netzwerk oder Konfiguration geändert.</string>
+    <string name="profile_quality_cleanup">Verschoben: Testlaufzeit belegt oder Bereinigung ausstehend.</string>
+    <string name="profile_quality_collecting">Wiederholte Qualitätsmessungen werden gesammelt.</string>
+    <string name="profile_quality_retained">Aktuelle Auswahl beibehalten; keine bestätigte Verbesserung.</string>
+    <string name="profile_quality_promoted_goodput">Auswahl wegen höherem Durchsatz geändert.</string>
+    <string name="profile_quality_promoted_latency">Auswahl wegen niedrigerer Lastlatenz geändert.</string>
+    <string name="profile_quality_cooldown">Aktuelle Auswahl während der Wartezeit beibehalten.</string>
+</resources>
