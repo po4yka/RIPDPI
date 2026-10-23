@@ -2,6 +2,7 @@
 import copy
 import json
 import struct
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -89,6 +90,77 @@ class RelaySwitchTests(unittest.TestCase):
         with self.assertRaisesRegex(capture.RelayLayoutError, "lost its required top alignment"):
             device.verify_relay_sections()
         self.assertNotIn("relaySections", device.receipts)
+
+
+class LaunchReadinessTests(unittest.TestCase):
+    @patch.object(capture.time, "sleep")
+    def test_fresh_hierarchy_retry_preserves_invalid_response(self, _sleep):
+        device = capture.CaptureDevice("emulator-5556")
+        device.adb = Mock(side_effect=["ERROR: null root", "cat: missing", "dump complete", '<hierarchy/>'])
+        self.assertEqual(device.tree().tag, "hierarchy")
+        self.assertEqual(device.receipts["hierarchyRetries"][0]["rawResponse"], "cat: missing")
+        paths = [c.args[-1] for c in device.adb.call_args_list if c.args[:2] == ("exec-out", "cat")]
+        self.assertEqual(paths, [f"/sdcard/ripdpi-docs-{device.tree_nonce}-1.xml", f"/sdcard/ripdpi-docs-{device.tree_nonce}-2.xml"])
+        self.assertNotEqual(device.tree_nonce, capture.CaptureDevice("emulator-5556").tree_nonce)
+
+    @patch.object(capture.time, "sleep")
+    def test_missing_dump_file_retries_but_offline_transport_does_not(self, _sleep):
+        for stderr, retries in ((b"cat: dump: No such file or directory", True), (b"error: device offline", False)):
+            device = capture.CaptureDevice("emulator-5556")
+            error = subprocess.CalledProcessError(1, ["adb", "exec-out", "cat"], output=b"", stderr=stderr)
+            device.adb = Mock(side_effect=["ERROR: null root", error, "dump complete", '<hierarchy/>'])
+            if retries:
+                self.assertEqual(device.tree().tag, "hierarchy")
+                self.assertEqual(device.adb.call_count, 4)
+            else:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    device.tree()
+                self.assertEqual(device.adb.call_count, 2)
+            self.assertEqual(device.receipts["hierarchyRetries"][0]["stderr"], stderr.decode())
+
+    @patch.object(capture.time, "sleep")
+    def test_invalid_xml_never_becomes_accepted_ui(self, _sleep):
+        device = capture.CaptureDevice("emulator-5556")
+        device.adb = Mock(side_effect=["dump failed", "not xml"] * 3)
+        with self.assertRaisesRegex(RuntimeError, "Three fresh UI hierarchy"):
+            device.tree()
+        self.assertEqual(len(device.receipts["hierarchyRetries"]), 3)
+        self.assertEqual(device.adb.call_count, 6)
+
+    def test_migration_marker_must_be_in_enabled_components(self):
+        marker = "androidx.appcompat.app.AppLocalesMetadataHolderService"
+        self.assertFalse(capture.CaptureDevice.locale_migration_complete(marker))
+        self.assertFalse(capture.CaptureDevice.locale_migration_complete("disabledComponents:\n  " + marker))
+        self.assertFalse(capture.CaptureDevice.locale_migration_complete("enabledComponents:\n  Other\ndisabledComponents:\n  " + marker))
+        self.assertTrue(capture.CaptureDevice.locale_migration_complete("enabledComponents:\n  " + marker))
+
+    @patch.object(capture.time, "sleep")
+    def test_bootstrap_waits_for_migration_and_stable_home_without_vpn(self, _sleep):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(return_value=ElementTree.fromstring('<hierarchy><node resource-id="connection-actuator-button" /></hierarchy>'))
+        marker = "enabledComponents:\n  androidx.appcompat.app.AppLocalesMetadataHolderService"
+        packages = iter(["disabledComponents:", marker, marker, marker])
+        def adb(*args):
+            if args[:3] == ("shell", "dumpsys", "package"):
+                return next(packages)
+            return "Locales []"
+        device.adb = Mock(side_effect=adb)
+        device.tap = Mock()
+        device.initialize_calibration_app()
+        self.assertEqual(device.tree.call_count, 4)
+        device.tap.assert_not_called()
+        self.assertEqual(device.adb.call_args.args, ("shell", "am", "force-stop", capture.PACKAGE))
+        self.assertFalse(any("set-app-locales" in c.args or "enable" in c.args for c in device.adb.call_args_list))
+        self.assertTrue(device.receipts["calibrationInitialization"][-1]["localeMigrationComplete"])
+
+    @patch.object(capture.time, "sleep")
+    def test_missing_migration_marker_fails_after_bounded_bootstrap(self, _sleep):
+        device = capture.CaptureDevice("emulator-5556")
+        device.tree = Mock(return_value=ElementTree.fromstring('<hierarchy><node resource-id="connection-actuator-button" /></hierarchy>'))
+        device.adb = Mock(return_value="")
+        with self.assertRaisesRegex(RuntimeError, "locale migration did not settle"):
+            device.initialize_calibration_app()
+        self.assertEqual(device.tree.call_count, 30)
 
 
 class CalibrationTests(unittest.TestCase):

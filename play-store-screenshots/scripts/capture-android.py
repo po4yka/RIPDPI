@@ -13,6 +13,7 @@ import tempfile
 import hashlib
 import subprocess
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
@@ -59,6 +60,8 @@ class CaptureDevice:
             raise ValueError("Use a dedicated emulator. This command resets app state.")
         self.serial = serial
         self.receipts = {}
+        self.tree_sequence = 0
+        self.tree_nonce = uuid.uuid4().hex
 
     def adb(self, *args: str, raw: bool = False) -> bytes | str:
         return run(["adb", "-s", self.serial, *args], raw=raw)
@@ -69,8 +72,42 @@ class CaptureDevice:
             raise RuntimeError(f"The actual Android locale does not match {expected}. No frame was saved.")
 
     def tree(self) -> ElementTree.Element:
-        self.adb("shell", "uiautomator", "dump", "/sdcard/ripdpi-docs.xml")
-        return ElementTree.fromstring(self.adb("exec-out", "cat", "/sdcard/ripdpi-docs.xml"))
+        # uiautomator can return success while a recreating Activity has no idle
+        # hierarchy. Never read yesterday's dump or silently accept malformed XML.
+        for attempt in range(3):
+            self.tree_sequence += 1
+            path = f"/sdcard/ripdpi-docs-{self.tree_nonce}-{self.tree_sequence}.xml"
+            dump_output = self.adb("shell", "uiautomator", "dump", path)
+            try:
+                raw = self.adb("exec-out", "cat", path)
+            except subprocess.CalledProcessError as error:
+                decode = lambda value: value.decode(errors="replace") if isinstance(value, bytes) else (value or "")
+                stdout, stderr = decode(error.stdout), decode(error.stderr)
+                self.receipts.setdefault("hierarchyRetries", []).append({
+                    "attempt": attempt + 1, "path": path, "dumpOutput": dump_output,
+                    "rawResponse": stdout, "stderr": stderr, "returncode": error.returncode})
+                # A successful dump command can still fail to create a file when
+                # no idle hierarchy exists. Offline/transport errors are fatal.
+                if error.returncode != 1 or "No such file or directory" not in stdout + stderr:
+                    raise
+                if attempt == 2:
+                    raise RuntimeError("Three fresh UI hierarchy acquisitions failed; no frame accepted.") from error
+                time.sleep(1)
+                continue
+            try:
+                tree = ElementTree.fromstring(raw)
+                if tree.tag != "hierarchy":
+                    raise ElementTree.ParseError("Expected a UI hierarchy root")
+            except ElementTree.ParseError as error:
+                self.receipts.setdefault("hierarchyRetries", []).append({
+                    "attempt": attempt + 1, "path": path, "dumpOutput": dump_output,
+                    "rawResponse": raw, "error": str(error)})
+                if attempt == 2:
+                    raise RuntimeError("Three fresh UI hierarchy acquisitions failed; no frame accepted.") from error
+                time.sleep(1)
+            else:
+                return tree
+        raise AssertionError("Unreachable hierarchy retry state")
 
     @staticmethod
     def tag(tree: ElementTree.Element, name: str) -> ElementTree.Element | None:
@@ -99,9 +136,9 @@ class CaptureDevice:
         locale_state = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
         self.locale = re.search(r"\[([a-zA-Z-]+)\]", locale_state)[1]
         profile = display_profile(self.locale, name)
+        self.adb("shell", "am", "force-stop", PACKAGE)
         self.adb("shell", "wm", "density", str(profile["densityDpi"]) if profile["densityDpi"] != DENSITY_DPI else "reset")
         self.adb("shell", "settings", "put", "system", "font_scale", str(profile["fontScale"]))
-        self.adb("shell", "am", "force-stop", PACKAGE)
         args = ["shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity"]
         for suffix in ("ENABLED", "DISABLE_MOTION"):
             args.extend(("--ez", f"{PACKAGE}.automation.{suffix}", "true"))
@@ -434,6 +471,52 @@ class CaptureDevice:
             "requestedScrollPixels": offset, "observedScrollPixels": observed,
             "observedAtUtc": datetime.now(timezone.utc).isoformat()}
 
+    @staticmethod
+    def locale_migration_complete(package_state: str) -> bool:
+        enabled = False
+        for line in package_state.splitlines():
+            value = line.strip()
+            if value == "enabledComponents:":
+                enabled = True
+            elif enabled and value == "androidx.appcompat.app.AppLocalesMetadataHolderService":
+                return True
+            elif value.endswith(":"):
+                enabled = False
+        return False
+
+    def initialize_calibration_app(self) -> None:
+        """Let first-install AppCompat locale migration finish before shell locales.
+
+        Observe its enabled metadata component; never mutate that marker or the
+        app's secure-window policy. This does not start a VPN or claim a scan.
+        """
+        self.adb("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity",
+                 "--ez", f"{PACKAGE}.automation.ENABLED", "true",
+                 "--ez", f"{PACKAGE}.automation.RESET_STATE", "true",
+                 "--ez", f"{PACKAGE}.automation.DISABLE_MOTION", "true",
+                 "--es", f"{PACKAGE}.automation.START_ROUTE", "home",
+                 "--es", f"{PACKAGE}.automation.PERMISSION_PRESET", "granted",
+                 "--es", f"{PACKAGE}.automation.SERVICE_PRESET", "live",
+                 "--es", f"{PACKAGE}.automation.DATA_PRESET", "settings_ready")
+        previous = None
+        stable = 0
+        observations = []
+        self.receipts["calibrationInitialization"] = observations
+        for _ in range(30):
+            tree = self.tree()
+            home = self.tag(tree, "connection-actuator-button") is not None
+            migrated = self.locale_migration_complete(self.adb("shell", "dumpsys", "package", PACKAGE))
+            locale = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
+            observations.append({"homeReady": home, "localeMigrationComplete": migrated, "localeReadback": locale})
+            state = (home, migrated, locale)
+            stable = stable + 1 if state == previous else 1
+            if home and migrated and stable >= 3:
+                self.adb("shell", "am", "force-stop", PACKAGE)
+                return
+            previous = state
+            time.sleep(1)
+        raise RuntimeError("Initial Home and AppCompat locale migration did not settle before calibration.")
+
     def approve_vpn_consent(self) -> None:
         """Accept only Android's real VPN dialog on an explicitly disposable emulator."""
         self.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", "en")
@@ -585,6 +668,7 @@ def calibrate_relay_profiles(device: CaptureDevice, directory: Path, apk: Path,
     originals = {locale: dict(display_profile(locale, "relay")) for locale in LOCALES}
     try:
         for locale in LOCALES:
+            device.adb("shell", "am", "force-stop", PACKAGE)
             device.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", locale)
             device.verify_locale(locale)
             for density in RELAY_CALIBRATION_DENSITIES[locale]:
@@ -715,12 +799,14 @@ def main() -> None:
     device.clear_statusbar_demo()
     try:
         if args.calibrate_relay:
+            device.initialize_calibration_app()
             calibrate_relay_profiles(device, args.failure_diagnostics / "calibration", apk, revision, inputs)
             print("Calibration only: inspect proposed profiles and raw trials, then run fixed-profile capture.", flush=True)
             return
         first = True
         presentation_failures = []
         for locale in LOCALES:
+            device.adb("shell", "am", "force-stop", PACKAGE)
             device.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", locale)
             device.verify_locale(locale)
             for name, (route, source_name) in SCREENS.items():
