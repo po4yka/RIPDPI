@@ -68,6 +68,9 @@ boot a dedicated 1080×1800 / 360 dpi API 37 emulator, accept the normal Android
 VPN consent dialog, and capture real source frames. This is an explicit,
 resource-intensive refresh, not a nightly permission or automatic commit.
 The job has read-only repository permissions and does not publish to a store.
+It temporarily grants only the capture user access to the disposable runner’s
+`/dev/kvm`, records the original owner/mode before mutation, and restores and
+verifies them after emulator shutdown, including on failed capture runs.
 
 Only a successful full capture and source validation produces the
 `android-source-captures` artifact. The renderer consumes those exact frames and

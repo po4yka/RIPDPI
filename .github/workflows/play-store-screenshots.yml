@@ -12,6 +12,10 @@ on:
       - "play-store-screenshots/**"
       - "docs/screenshots/**"
       - ".github/workflows/play-store-screenshots.yml"
+      - "scripts/ci/capture_kvm_access.py"
+      - "scripts/ci/start-android-emulator.sh"
+      - "scripts/tests/test_capture_kvm_access.py"
+      - "scripts/tests/test_android_emulator_image.py"
   workflow_dispatch:
     inputs:
       recapture_android:
@@ -40,8 +44,11 @@ jobs:
       - name: Checkout exact requested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check hosted emulator acceleration
-        run: test -r /dev/kvm && test -w /dev/kvm
+      - name: Test temporary KVM access contract without device changes
+        run: python3 -m unittest scripts.tests.test_capture_kvm_access
+
+      - name: Grant capture user temporary KVM access
+        run: python3 scripts/ci/capture_kvm_access.py enable --state "$RUNNER_TEMP/capture-kvm-state.json"
 
       - uses: ./.github/actions/setup-android-rust
         with:
@@ -99,6 +106,10 @@ jobs:
         if: always()
         run: bash scripts/ci/stop-android-emulator.sh --avd store-source-capture
 
+      - name: Restore original KVM device access
+        if: always()
+        run: python3 scripts/ci/capture_kvm_access.py restore --state "$RUNNER_TEMP/capture-kvm-state.json"
+
       - name: Upload actual source captures and provenance
         if: success()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -122,6 +133,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test source freshness and disposable device contracts
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 -m unittest discover -s play-store-screenshots/scripts -p 'test_source_captures.py'
+          python3 -m unittest scripts.tests.test_capture_kvm_access scripts.tests.test_android_emulator_image
 
       - name: Restore newly captured Android frames
         if: needs.android-sources.result == 'success'
