@@ -1,13 +1,13 @@
 ---
 task_id: TRN-1792673614153980
 change: device-server-migration
-commit_sha: fc8005cb4c67ca78996b68ed9746154ebeedcb69
+commit_sha: 9137bec5f93d24547146e1a205e7d86c23fc23f0
 local: passed
 local_evidence: Integrated revision 39b0dafc passed 6462 unfiltered JVM tests with zero failures, errors or skips plus staticAnalysis and app/service lint. Subsequent generated-worker regression and complete worker suites passed 11 tests plus app lint, detekt and ktlint. Emulator-pool package identity tests passed all 34 cases.
-remote_ci: required
-remote_ci_evidence: null
-device: passed
-device_evidence: Owned API 37 arm64 16-KiB emulator imported the real HTTPS subscription, preserved received on failure, passed a real Hysteria2 full-body request, displayed New path tested and opened the explicit Android JSON share chooser. Server verification accepted both received and path-tested receipt HMACs and exact payload digests.
+remote_ci: passed
+remote_ci_evidence: PR 648 merged as 9137bec5f93d24547146e1a205e7d86c23fc23f0 after successful PR CI 39863950579. Exact main CI 39870281383 completed successfully with 47 successful jobs and 17 conditional skips; all six auxiliary push workflows passed.
+device: required
+device_evidence: Owned API 37 arm64 16-KiB emulator imported the real HTTPS subscription, preserved received on failure, passed a real Hysteria2 full-body request, displayed New path tested and opened the explicit Android JSON share chooser. Server verification accepted both receipt HMACs and exact payload digests. Real migration-path acceptance for Reality, XHTTP and active AmneziaWG, and physical-device acceptance, remain unobserved.
 artifact: passed
 artifact_evidence: Native-enabled fc8005cb arm64 debug APK assembled in 4m4s; native ELF and 16-KiB APK alignment checks passed. APK SHA256 c7b7e16feb60026e73145963d0c7e4632fc0443e87166ed55b53a115f3ce8883. Actual native traffic succeeded on the installed APK.
 deployment: not_applicable
@@ -86,11 +86,28 @@ emulator and peer were stopped, and their test certificate and authority keys
 were removed after verification; existing pool slots were preserved.
 Earlier received, connect-AWG and tested Compose renders also passed inspection.
 
+## Hosted integration
+
+[PR 648](https://github.com/po4yka/RIPDPI/pull/648) merged on
+2026-10-22 at 23:12:43 UTC as
+`9137bec5f93d24547146e1a205e7d86c23fc23f0`. Its exact head
+`8d7619375d87d999c6193d34f6b250153a2529d8` passed
+[PR CI](https://github.com/po4yka/RIPDPI/actions/runs/39863950579).
+
+[Main CI](https://github.com/po4yka/RIPDPI/actions/runs/39870281383)
+for that merge commit completed successfully at 23:54:55 UTC: 47 successful
+jobs and 17 conditional skips, with no failed jobs. This includes `ci-required`,
+all three GitHub/F-Droid/Play debug builds and full/simple release verification,
+and instrumentation on Android API 27, 33, 35, 36 and 37 (16-KiB image).
+CodeQL, Secret Scan, harness checks, fleet fixtures, locale parity and translation
+export also passed on the same commit. Conditional skips are not runtime evidence.
+
 ## Remaining scope
 
-Hosted CI for the current revision and subsequent main integration remain
-required. The task stays open until those results are observed. Actual emulator
-traffic acceptance covers Hysteria2; Reality, XHTTP and active AWG migration
-branches have automated probe coverage rather than physical-device acceptance.
+Source integration and its hosted gates are complete. The task stays in review,
+with its four-transport verification step open and no archive or completion claim.
+Actual emulator traffic acceptance covers Hysteria2; real migration-path
+acceptance for Reality, XHTTP and active AWG remains unobserved. Automated probe
+coverage and the hosted emulator matrix do not establish those three results.
 No production server migration, credential rotation or physical-device result
 is claimed. The feature adds no remote telemetry or implicit receipt upload.
