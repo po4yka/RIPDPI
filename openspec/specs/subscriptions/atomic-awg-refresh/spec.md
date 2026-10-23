@@ -7,7 +7,7 @@ Keep subscription-owned AWG credentials and the group generation bound to one cu
 
 ### Requirement: REQ-AWG-COMMIT — Commit accepted rotations with recoverable group publication
 
-Accepted refreshes SHALL validate immutable AWG and group after-images under one recovery owner before durable journal prepare. Replay MUST preserve these after-images and publish the complete group catalog to existing collectors. Partial application MUST retain recoverable intent and suppress utility readiness. Unreadable catalogs MUST block replay. Independent stores are not atomically visible.
+Accepted refreshes SHALL validate immutable AWG and group after-images under one recovery owner before durable journal prepare. Replay MUST preserve these after-images and publish the complete group catalog to existing collectors. Partial application MUST retain recoverable intent and suppress utility readiness. Unreadable catalogs MUST block replay. Independent stores are not atomically visible. Stable IDs, local private keys and unrelated groups MUST survive rotation.
 
 #### Scenario: Current response rotates a saved peer
 
