@@ -81,6 +81,7 @@ jobs:
           test -n "$serial"
           python3 play-store-screenshots/scripts/capture-android.py \
             --serial "$serial" --approve-vpn-consent \
+            --failure-diagnostics "$RUNNER_TEMP/capture-diagnostics" \
             --xray-artifacts "$GITHUB_WORKSPACE/native/xray/artifacts"
           python3 play-store-screenshots/scripts/validate-source-captures.py
 

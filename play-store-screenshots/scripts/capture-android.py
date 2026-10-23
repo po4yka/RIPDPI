@@ -82,12 +82,13 @@ class CaptureDevice:
         self.adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
         time.sleep(0.6)
 
-    def scroll(self, delta: int, *, x: int = 540) -> None:
+    def scroll(self, delta: int, *, x: int = 540, slop_pixels: int | None = None) -> int:
         density = int(re.findall(r"density: ([0-9]+)", self.adb("shell", "wm", "density"))[-1])
-        slop = round(density * 8 / 160)
+        slop = round(density * 8 / 160) if slop_pixels is None else slop_pixels
         step = max(-600, min(600, delta + (slop if delta > 0 else -slop)))
         self.adb("shell", "input", "swipe", str(x), "1450" if step > 0 else "750", str(x), str(1450 - step) if step > 0 else str(750 - step), "900")
         time.sleep(0.8)
+        return step
 
     def show_route(self, name: str, route: str, *, reset: bool = False) -> None:
         locale_state = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
@@ -257,23 +258,64 @@ class CaptureDevice:
         raise RuntimeError("The actual capture viewport is missing. No frame was saved.")
 
     def align(self, tag_name: str, top: int | None = None, attempts: int = 32) -> None:
+        previous = None
+        slop_pixels = None
+        observations = []
+        self.receipts.setdefault("alignment", {})[tag_name] = observations
         for _ in range(attempts):
             tree = self.tree()
             node = self.tag(tree, tag_name)
             if node is None:
                 self.scroll(500)
+                previous = None
+                slop_pixels = None
                 continue
             viewport = self.viewport_bounds(tree, node) if top is None else None
             target_top = top if top is not None else viewport[1] + 4
             delta = self.bounds(node)[1] - target_top
+            observations.append({"bounds": self.bounds(node), "viewport": viewport,
+                                 "targetTop": target_top, "delta": delta})
             if abs(delta) <= 4:
                 return
-            if viewport is None:
-                self.scroll(delta)
-            else:
+            if previous is not None:
+                old_delta, stroke, old_viewport = previous
+                movement = old_delta - delta
+                if old_viewport != viewport:
+                    slop_pixels = None
+                # Learn the device's actual touch threshold from geometry, not an
+                # assumed dp constant. Never relax the final alignment readback.
+                if (viewport is not None and old_viewport == viewport and isinstance(stroke, int) and abs(stroke) < 600
+                        and movement * stroke >= 0 and abs(movement) <= abs(stroke)):
+                    slop_pixels = min(200, abs(stroke) - abs(movement))
+            kwargs = {} if slop_pixels is None else {"slop_pixels": slop_pixels}
+            if viewport is not None:
                 # The editor's scroll padding is outside inputs, including the local port.
-                self.scroll(delta, x=viewport[0] + 8)
+                kwargs["x"] = viewport[0] + 8
+            stroke = self.scroll(delta, **kwargs)
+            observations[-1].update({"swipePixels": stroke if isinstance(stroke, int) else None,
+                                     "learnedSlopPixels": slop_pixels})
+            previous = (delta, stroke, viewport)
         raise RuntimeError(f"Could not align a complete capture section: {tag_name}")
+
+    def save_failure_diagnostics(self, directory: Path, error: Exception) -> None:
+        """Observe before cleanup changes density or recreates the activity."""
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "capture-state.json").write_text(json.dumps(
+            {"error": str(error), "runReceipts": self.receipts}, indent=2) + "\n")
+        commands = {
+            "frame-before-cleanup.png": ("exec-out", "screencap", "-p"),
+            "window-before-cleanup.txt": ("shell", "dumpsys", "window"),
+            "display-before-cleanup.txt": ("shell", "wm", "density"),
+        }
+        for name, command in commands.items():
+            try:
+                (directory / name).write_bytes(self.adb(*command, raw=True))
+            except Exception as diagnostic_error:
+                print(f"Could not collect {name}: {diagnostic_error}", flush=True)
+        try:
+            ElementTree.ElementTree(self.tree()).write(directory / "ui-before-cleanup.xml")
+        except Exception as diagnostic_error:
+            print(f"Could not collect pre-cleanup UI: {diagnostic_error}", flush=True)
 
     def focus_relay_bottom(self) -> None:
         previous_geometry = None
@@ -478,6 +520,7 @@ def main() -> None:
     parser.add_argument("--xray-artifacts", required=True, type=Path, help="Real producer artifacts; the release verifier must pass")
     parser.add_argument("--approve-vpn-consent", action="store_true",
                         help="Accept the normal Android VPN dialog on this disposable emulator")
+    parser.add_argument("--failure-diagnostics", type=Path, help="Keep raw partial frames and pre-cleanup failure evidence, never a source manifest")
     args = parser.parse_args()
     device = CaptureDevice(args.serial)
     device.adb("shell", "wm", "density", "reset")
@@ -538,6 +581,10 @@ def main() -> None:
                     **profile, "physicalDensityDpi": density_values[0], "screen": "1080x1800"}
                 device.verify_locale(locale)
                 path.write_bytes(device.adb("exec-out", "screencap", "-p", raw=True))
+                if args.failure_diagnostics:
+                    partial = args.failure_diagnostics / "partial-frames" / locale / f"{name}.png"
+                    partial.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(path, partial)
                 direct = ROOT / f"docs/screenshots/ui/{locale}/{name}.png"
                 direct.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, direct)
@@ -547,6 +594,13 @@ def main() -> None:
                 if name == "home":
                     device.disconnect_live()
         record_manifest(device, apk, xray_artifacts, revision, inputs)
+    except Exception as error:
+        if args.failure_diagnostics:
+            try:
+                device.save_failure_diagnostics(args.failure_diagnostics, error)
+            except Exception as diagnostic_error:
+                print(f"Could not save failure diagnostics: {diagnostic_error}", flush=True)
+        raise
     finally:
         device.clear_statusbar_demo()
         device.adb("shell", "wm", "density", "reset")
