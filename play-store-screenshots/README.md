@@ -83,6 +83,23 @@ files with their `source-capture.json` provenance. Then run the normal workflow
 with the input disabled to verify the committed files. Never repair freshness by
 editing hashes or reusing an unrelated APK.
 
+For layout diagnosis only, add `calibrate_relay=true`. This runs the finite,
+committed density candidates twice per accepted locale with unchanged physical
+pixels and font scales. Every trial retains raw PNG/XML/display evidence; the
+switch must be observed enabled and the preset, all transport sections and
+Advanced must be fully visible and stable at the exact required alignment.
+Calibration never writes source frames or a source manifest and never renders
+marketing assets. Review its proposed profiles and commit any validated profile
+changes before a separate, fixed-profile full capture.
+
+The build job preserves an `android-capture-build` artifact before starting the
+emulator. `reuse_capture_run` may name that completed trusted workflow-dispatch
+run to avoid rebuilding unchanged native code. Reuse rejects different build
+inputs, recipe, toolchains, original producer revision or artifact bytes; it
+never relabels the APK as built from a newer capture-tool commit. The source
+manifest records the original build and current capture revision separately.
+Only the Android job receives read-only Actions access to retrieve this artifact.
+
 The default PR and scheduled modes still fail closed on stale inputs; they never
 implicitly grant consent, run Android captures, or bless old screenshots. A failed
 render no longer reports retained committed files as successfully regenerated.

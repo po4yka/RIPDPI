@@ -83,6 +83,7 @@ class SourceCaptureTests(unittest.TestCase):
         device.tap = Mock()
         device.align = Mock()
         device.verify_relay_sections = Mock()
+        device.enable_relay_for_capture = Mock()
         device.show_relay_fields()
         device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
         device.locale = "zh-CN"
@@ -130,7 +131,7 @@ class SourceCaptureTests(unittest.TestCase):
             with self.subTest(bad=bad):
                 nodes = []
                 for index, name in enumerate(names):
-                    bounds = "[100,300][900,1500]"
+                    bounds = "[100,214][900,290]" if index == 5 else "[100,300][900,1500]"
                     if index == 6:
                         if bad == "missing":
                             continue
@@ -157,7 +158,7 @@ class SourceCaptureTests(unittest.TestCase):
                  ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
         names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
         def tree(offset=0, clipped=False):
-            nodes = [f'<node resource-id="{name}" bounds="[100,{200 if clipped and index == 5 else 300 + offset}][900,1500]" />'
+            nodes = [f'<node resource-id="{name}" bounds="[100,{(200 if clipped else 214) if index == 5 else 300 + offset}][900,1500]" />'
                      for index, name in enumerate(names)]
             return ElementTree.fromstring('<hierarchy><node scrollable="true" bounds="[45,210][1035,1665]">'
                                           + "".join(nodes) + '</node></hierarchy>')

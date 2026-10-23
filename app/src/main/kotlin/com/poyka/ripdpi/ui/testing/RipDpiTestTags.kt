@@ -142,6 +142,7 @@ internal object RipDpiTestTags {
     val profileSearchCancel: (String) -> String = { scope -> "$scope-cancel" }
 
     const val ConfigVpnProfilesMore = "config-vpn-profiles-more"
+    const val ModeEditorRelayEnabled = "mode-editor-relay-enabled"
     const val ModeEditorRelayProfileId = "mode-editor-relay-profile-id"
     val configVpnProfileRow: (String) -> String = { profileId -> "config-vpn-profile-row-${sanitize(profileId)}" }
     val configVpnProfileSelect: (String) -> String = { profileId -> "config-vpn-profile-select-${sanitize(profileId)}" }
