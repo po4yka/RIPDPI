@@ -347,8 +347,8 @@ func realityHTTPClient(t *testing.T, p *peer, network string, xmux map[string]an
 		}
 		ip := net.ParseIP(host).To4()
 		targetPort, err := strconv.Atoi(portText)
-		if ip == nil || err != nil || targetPort < 1 || targetPort > 65535 {
-			return nil, fmt.Errorf("DoH routing test requires a literal IPv4 destination")
+		if (ip == nil && host != "quality-a.example.test" && host != "quality-b.example.test") || err != nil || targetPort < 1 || targetPort > 65535 {
+			return nil, fmt.Errorf("routing fixture requires literal IPv4 or an owned quality origin")
 		}
 		conn, err := (&net.Dialer{Timeout: 2 * time.Second}).DialContext(ctx, "tcp4", fmt.Sprintf("127.0.0.1:%d", socksPort))
 		if err != nil {
@@ -373,7 +373,12 @@ func realityHTTPClient(t *testing.T, p *peer, network string, xmux map[string]an
 		if !bytes.Equal(greeting, []byte{5, 0}) {
 			return nil, fmt.Errorf("SOCKS greeting rejected")
 		}
-		if _, err := conn.Write([]byte{5, 1, 0, 1, ip[0], ip[1], ip[2], ip[3], byte(targetPort >> 8), byte(targetPort)}); err != nil {
+		address := append([]byte{5, 1, 0, 3, byte(len(host))}, []byte(host)...)
+		if ip != nil {
+			address = []byte{5, 1, 0, 1, ip[0], ip[1], ip[2], ip[3]}
+		}
+		address = append(address, byte(targetPort>>8), byte(targetPort))
+		if _, err := conn.Write(address); err != nil {
 			return nil, err
 		}
 		if _, err := readSocksAddress(conn); err != nil {
