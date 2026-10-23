@@ -31,6 +31,7 @@ import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
+import com.poyka.ripdpi.data.ProfileQualityStore
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.data.ResolverOverrideStore
@@ -179,6 +180,8 @@ class XrayProviderE2ETest {
 
     @Inject lateinit var utilityPersistence: PauseAuthorityPersistence
 
+    @Inject lateinit var utilityQuality: ProfileQualityStore
+
     @Inject lateinit var utilityCatalog: ProfileUtilityCatalogReader
 
     @Inject lateinit var utilityApplied: AppliedRuntimeConfigurationSource
@@ -186,6 +189,10 @@ class XrayProviderE2ETest {
     @Inject lateinit var utilityPause: TimedPauseController
 
     @Inject lateinit var utilityEpoch: CandidateRelayNetworkEpoch
+
+    @Inject lateinit var qualityXrayOwner: XrayRuntimeOwner
+
+    @Inject lateinit var qualityProtection: com.poyka.ripdpi.services.ActiveProtectSocketPathProvider
 
     @Inject lateinit var utilityNative: CandidateRelayMeasurements
 
@@ -395,6 +402,65 @@ class XrayProviderE2ETest {
     }
 
     @Test
+    fun realRealityQualityMeasuresAuthenticatedBodyAndConcurrentHeadBeforeRetirement() =
+        runBlocking {
+            kotlinx.coroutines.withTimeout(45_000L) {
+                val original = settings.snapshot()
+                val link =
+                    "vless://${manifest.getString("uuid")}@$fixtureHost:${manifest.getInt("tcpPort")}" +
+                        "?type=tcp&security=reality&sni=fixture.test&pbk=${manifest.getString("publicKey")}" +
+                        "&sid=ab12&fp=chrome&flow=xtls-rprx-vision"
+                val parsed = XrayImportParser().parse(link, XrayProviderBuildInfo.upstreamTag)
+                check(parsed is XrayImportParser.Result.Accepted)
+                val policy =
+                    com.poyka.ripdpi.data.PayloadFailoverPolicy(
+                        2,
+                        "select",
+                        listOf("quality-a.example.test", "quality-b.example.test").map { host ->
+                            com.poyka.ripdpi.data.PayloadProbeControl(
+                                "https://$host/quality-payload",
+                                manifest.getInt("qualityBytes"),
+                                manifest.getString("qualitySha256"),
+                            )
+                        },
+                        60,
+                        15,
+                        2,
+                        2,
+                        120,
+                        900,
+                        com.poyka.ripdpi.data
+                            .ProfileQualityPolicy(2_097_152, 16_777_216, 3_600, 20, 50),
+                    )
+                val probe =
+                    com.poyka.ripdpi.services.OwnedQualityProbeFactory.xray(
+                        qualityXrayOwner,
+                        qualityProtection,
+                        utilityNative::captureEnvironment,
+                        manifest.getString("qualityCertificate"),
+                    )
+                val before = readControl("receipts").getInt("count")
+                val directBefore = readControl("direct-receipts").getInt("count")
+                val result = probe.measurePayload(parsed.profile, policy)
+                assertTrue(
+                    "The actual native REALITY candidate must verify TLS payload",
+                    result is
+                        com.poyka.ripdpi.services.CandidateRelayMeasurement.Succeeded,
+                )
+                val measurement =
+                    requireNotNull((result as com.poyka.ripdpi.services.CandidateRelayMeasurement.Succeeded).quality)
+                assertTrue("The owned GET must overlap the complete authenticated HEAD", measurement.complete)
+                assertEquals(manifest.getInt("qualityBytes").toLong(), measurement.verifiedBytes)
+                assertTrue(measurement.goodputBytesPerSecond > 0)
+                assertEquals(before + 3, readControl("receipts").getInt("count"))
+                assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
+                assertFalse(qualityXrayOwner.isOccupied)
+                assertFalse(probe.cleanupPending.value)
+                assertEquals(original, settings.snapshot())
+            }
+        }
+
+    @Test
     fun profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck() =
         runBlocking {
             kotlinx.coroutines.withTimeout(90_000L) {
@@ -452,6 +518,7 @@ class XrayProviderE2ETest {
                                     utilityActivation,
                                     utilityNative,
                                     utilityXray,
+                                    utilityQuality,
                                 )
                             kotlinx.coroutines.withContext(Dispatchers.Main) { models.put("owned-xray-utility", vm) }
                             collector = observeUtility(vm, phase, reference)

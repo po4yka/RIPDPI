@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">Qualité du transfert</string>
+    <string name="profile_quality_goodput">Débit utile vérifié : %1$s Kio/s</string>
+    <string name="profile_quality_transfer">Corps vérifié : %1$s octets en %2$s s</string>
+    <string name="profile_quality_baseline">Requête de référence : %1$d ms</string>
+    <string name="profile_quality_loaded">Requête pendant le transfert : %1$d ms</string>
+    <string name="profile_quality_budget">Budget du corps : %1$d octets réservés par passage ; %2$d / %3$d octets sur la période</string>
+    <string name="profile_quality_limits">La latence de requête ne représente pas le RTT. Le budget exclut les surcoûts du protocole. Les mesures décrivent ce chemin et cette origine.</string>
+    <string name="profile_quality_verified">Mesure complète</string>
+    <string name="profile_quality_no_overlap">Partiel : la requête sous charge dépasse la durée du transfert.</string>
+    <string name="profile_quality_no_baseline">Partiel : requête de référence indisponible.</string>
+    <string name="profile_quality_no_loaded">Partiel : requête sous charge indisponible.</string>
+    <string name="profile_quality_failed">Le transfert ne peut pas être vérifié.</string>
+    <string name="profile_quality_budget_exhausted">Différé : budget de trafic épuisé.</string>
+    <string name="profile_quality_budget_unavailable">Différé : budget persistant indisponible.</string>
+    <string name="profile_quality_stale">Périmé : réseau ou configuration modifiés.</string>
+    <string name="profile_quality_cleanup">Différé : moteur de test occupé ou nettoyage en attente.</string>
+    <string name="profile_quality_collecting">Collecte de mesures de qualité répétées.</string>
+    <string name="profile_quality_retained">Sélection actuelle conservée ; aucune amélioration confirmée.</string>
+    <string name="profile_quality_promoted_goodput">Profil choisi pour son débit utile supérieur.</string>
+    <string name="profile_quality_promoted_latency">Profil choisi pour sa latence sous charge inférieure.</string>
+    <string name="profile_quality_cooldown">Sélection actuelle conservée pendant le délai.</string>
+</resources>

@@ -453,29 +453,57 @@ standalone YAML schema `2`. Additive changes stay covered by §7.
 
 ## Imported selector payload failover
 
-The optional `ripdpi.payload_failover` bundle extension is owned by
-`PayloadFailoverPolicy` and imported through `SelectorUrltestGroupImport` into
-`SelectorFailover.payloadPolicy`. Its required controls, timing bounds and
-strict unknown-field rejection never fall back to latency-only `urltest`
-semantics. The mirrored schema and actual deployer fixture live in
+The optional `ripdpi.payload_failover` extension accepts nested schema version 2
+only, imported atomically through `SelectorUrltestGroupImport` into
+`SelectorFailover.payloadPolicy`. Version 1 and malformed or unknown fields are
+rejected before any member mutation. The enclosing bundle schema is unchanged.
+The canonical producer schema and example are mirrored under
 `core/data/src/test/resources/contract/`.
 
-`CandidateRelayPayloadProbe` runs HTTPS GETs through each independent candidate's
-protected loopback SOCKS listener. One of two distinct normalized control origins
-must return HTTP 200, identity encoding, complete 32–64 KiB content and the exact
-SHA-256. The ordinary profile measurement remains a separate reachability use case.
+Each of the two distinct HTTPS origins supplies a 32 KiB–1 MiB body with an exact
+length and SHA-256. Existing candidate runtime owners verify the body through
+SOCKS without redirects, compression or direct fallback. Reality TCP uses the
+existing Xray owner; a busy or incompletely retired owner supplies unknown
+evidence. AWG remains outside automatic relay-member selection.
 
-`SelectorUrltestProber` requires consecutive active failures and candidate
-recoveries before switching. Each pass checks the active member first, then at
-most one reserve in rotating declared order; a recovering reserve stays selected
-for observation until it qualifies or fails. A healthy active member is retained
-regardless of latency. The whole pass has a deadline independent of group size;
-unobserved members do not count as failures. Switch cooldown, capped outage backoff, selection
-revision checks and policy/network scope invalidation bound retries and prevent
-stale changes. When every candidate fails, the encrypted selection remains;
-control failures alone do not identify censorship.
+Without optional `quality`, successful active payload health retains the member;
+consecutive failures and reserve recoveries use the existing thresholds,
+cooldown and capped outage backoff. With quality enabled, a pass measures the
+active member and one rotating reserve even when the active member is healthy.
+A baseline HEAD and a concurrent loaded HEAD use the same authenticated object.
+GET goodput counts verified body bytes over its monotonic first-body-byte-to-EOF interval, excluding
+startup and TLS setup. The loaded transaction must start and finish inside that
+interval; otherwise useful goodput remains partial and cannot authorize promotion.
+HTTP transaction latency is not RTT or an MTU measurement.
 
-This policy is supported by imported selector groups. The embedded Simple seed
-explicitly rejects it before any storage mutation because its initial-race runtime
-has a separate probe contract. Device and filtered-network acceptance remain
-separate from local fixture evidence.
+Quality promotion requires the same admitted origin index under the same frozen
+policy, complete observations and `recovery_threshold` consecutive wins. A reserve
+must either improve goodput by `minimum_gain_percent` while staying within
+`maximum_loaded_latency_increase_ms`, or reduce positive loaded latency by the
+percentage without regressing goodput. Existing selection CAS and cooldown remain
+the only activation authority. Partial evidence resets quality streaks, while
+independent verified GET outcomes retain ordinary health recovery.
+
+`ProfileQualityBudgetLedger` durably reserves `2 * sum(expected_bytes + 1)` before
+any quality network work. This covers the two candidates and both possible origins,
+including overrun-detection bytes. The configured pass/window caps bound application
+body allowances; they do not claim to account for TLS or IP wire bytes. Failed,
+cancelled and stale work is never refunded. Checked private preference commits,
+boot identity and elapsed time retain charges across restart, reimport, groups and
+network changes. Previous stricter policies constrain admission until their windows
+expire. Reboot conservatively rebases ages; corrupt state, unknown boot identity
+or persistence failure refuses work. Entries remain for the maximum 24-hour policy
+window and the journal is bounded at 4,096 entries.
+
+`ProfileQualityStore` exposes typed metrics, partial/unavailable reasons, global
+budget consumption and guarded decisions to the existing profile presentation.
+Policy, manual-selection and physical-network changes revoke displayed authority;
+URLs, digests, credentials and raw network identifiers are absent from this store.
+The pass deadline covers HTTP work and native readiness/cleanup. If all candidates
+fail or budget is unavailable, the current encrypted selection remains. Control
+failures alone do not identify censorship.
+
+The embedded Simple seed rejects the extension before storage mutation because its
+initial-race runtime has a separate probe contract. Real native/emulator and
+filtered-network acceptance are separate from local fixture evidence. PMTU remains
+a manual scoped QUIC diagnostic; quality selection never changes tunnel MTU.

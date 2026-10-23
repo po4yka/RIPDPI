@@ -21,4 +21,11 @@
     <string name="diagnostics_pmtu_partial">A conexão terminou antes de concluir a observação</string>
     <string name="diagnostics_pmtu_caution">O QUIC DPLPMTUD mede bytes de carga UDP enviados deste dispositivo ao servidor selecionado por este caminho. O valor confirmado por ACK é um limite inferior, não o MTU exato do caminho. O ACK de retorno não mede o PMTU do caminho inverso. O teto configurado e o MTU da interface são valores separados. Uma observação parcial não confirma uma medição completa.</string>
     <string name="diagnostics_pmtu_loss_caution">Pode haver perda de sondas na busca de tamanho. Isso não comprova um buraco negro no caminho nem uma restrição do provedor. O destino também pode limitar o tamanho dos pacotes.</string>
+    <string name="diagnostics_pmtu_diagnosis">Diagnóstico de MTU</string>
+    <string name="diagnostics_pmtu_confirmed">Limite inferior confirmado do pacote de saída; não é PMTU exato nem ajuste de VPN.</string>
+    <string name="diagnostics_pmtu_diagnosis_partial">Busca parcial; sem recomendação atual de tamanho.</string>
+    <string name="diagnostics_pmtu_historical">Medição anterior; repita na rede atual.</string>
+    <string name="diagnostics_pmtu_unavailable">Sem medição confirmada do tamanho do pacote.</string>
+    <string name="diagnostics_pmtu_ip_lower_bound">Tamanho mínimo confirmado do pacote IP</string>
+    <string name="diagnostics_pmtu_historical_payload">Carga UDP anterior confirmada por ACK</string>
 </resources>

@@ -31,6 +31,25 @@ class ProfileUtilityItemProjectionTest {
     private val references = listOf(native, xray, firstMember, secondMember)
 
     @Test
+    fun `quality budget joins only matching selector group`() {
+        val budget =
+            com.poyka.ripdpi.data.ProfileQualityBudget(
+                "first",
+                0,
+                8192,
+                8192,
+                5000,
+                com.poyka.ripdpi.data.ProfileQualityReason.BudgetExhausted,
+            )
+        val quality =
+            com.poyka.ripdpi.data
+                .ProfileQualitySnapshot(budgets = mapOf("first" to budget))
+        val items = profileUtilityItems(catalog(), state(), emptyMap(), emptyMap(), quality)
+        assertEquals(budget, items.single { it.reference == firstMember }.quality?.budget)
+        assertTrue(items.filter { it.reference != firstMember }.all { it.quality == null })
+    }
+
+    @Test
     fun `unready and mismatched generations expose no stale items`() {
         val utility = state(favorites = setOf(native), recents = listOf(recent(native, 1, 100)))
         val applications = mapOf(Mode.VPN to applied(nativeSelection()))

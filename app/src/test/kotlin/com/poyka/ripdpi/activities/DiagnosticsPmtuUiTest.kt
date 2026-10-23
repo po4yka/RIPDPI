@@ -52,7 +52,12 @@ class DiagnosticsPmtuUiTest {
             app.getString(R.string.diagnostics_pmtu_bytes, 1472),
             group.value(R.string.diagnostics_pmtu_ceiling),
         )
+        assertEquals(
+            app.getString(R.string.diagnostics_pmtu_bytes, 1448),
+            group.value(R.string.diagnostics_pmtu_ip_lower_bound),
+        )
         assertTrue(ui.details.isEmpty())
+        assertEquals(app.getString(R.string.diagnostics_pmtu_diagnosis), group.fields[1].label)
         assertTrue(group.stackedFields)
         assertFalse(group.toString().contains("2001:db8::42"))
     }
@@ -111,6 +116,12 @@ class DiagnosticsPmtuUiTest {
         assertEquals(app.getString(R.string.diagnostics_ip_missing), group.value(R.string.diagnostics_ip_status))
         assertEquals(app.getString(R.string.diagnostics_pmtu_ipv6), group.title)
         assertEquals("3", group.value(R.string.diagnostics_pmtu_lost))
+        assertEquals(
+            app.getString(R.string.diagnostics_pmtu_bytes, 1400),
+            group.value(R.string.diagnostics_pmtu_historical_payload),
+        )
+        assertFalse(group.fields.any { it.label == app.getString(R.string.diagnostics_pmtu_ip_lower_bound) })
+        assertTrue(group.fields.any { it.value == app.getString(R.string.diagnostics_pmtu_historical) })
         assertTrue(group.fields.any { it.value == app.getString(R.string.diagnostics_ip_network_changed) })
         assertTrue(group.fields.any { it.value == app.getString(R.string.diagnostics_pmtu_loss_caution) })
         assertTrue(

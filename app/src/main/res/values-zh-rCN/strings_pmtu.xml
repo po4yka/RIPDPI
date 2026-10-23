@@ -21,4 +21,11 @@
     <string name="diagnostics_pmtu_partial">连接在观测完成前结束</string>
     <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD 测量从此设备经此路径发往所选服务器的出站 UDP 载荷字节数。ACK 确认值是下限，并非精确的路径 MTU。返回的 ACK 不能测量反向路径的 PMTU。配置上限与接口 MTU 是不同的值。部分观测不能确认测量已完成。</string>
     <string name="diagnostics_pmtu_loss_caution">搜索大小时可能丢失探测包。这不能证明存在路径黑洞或运营商限制。对端也可能限制数据包大小。</string>
+    <string name="diagnostics_pmtu_diagnosis">MTU 诊断</string>
+    <string name="diagnostics_pmtu_confirmed">已确认出站数据包下限；并非精确 PMTU 或 VPN 设置。</string>
+    <string name="diagnostics_pmtu_diagnosis_partial">搜索未完成；暂无数据包大小建议。</string>
+    <string name="diagnostics_pmtu_historical">历史测量；请在当前网络重新检测。</string>
+    <string name="diagnostics_pmtu_unavailable">尚无已确认的数据包大小测量。</string>
+    <string name="diagnostics_pmtu_ip_lower_bound">已确认的最小 IP 数据包大小</string>
+    <string name="diagnostics_pmtu_historical_payload">历史 ACK 确认的 UDP 载荷</string>
 </resources>

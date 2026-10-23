@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">Качество передачи</string>
+    <string name="profile_quality_goodput">Подтверждённая скорость: %1$s КиБ/с</string>
+    <string name="profile_quality_transfer">Проверено: %1$s байт за %2$s с</string>
+    <string name="profile_quality_baseline">Базовый запрос: %1$d мс</string>
+    <string name="profile_quality_loaded">Запрос во время передачи: %1$d мс</string>
+    <string name="profile_quality_budget">Бюджет тела: %1$d байт зарезервировано за проход; %2$d / %3$d байт за период</string>
+    <string name="profile_quality_limits">Время запроса — не RTT. Бюджет не включает накладные расходы протокола. Измерения относятся к этому пути и источнику.</string>
+    <string name="profile_quality_verified">Полное измерение</string>
+    <string name="profile_quality_no_overlap">Частично: запрос под нагрузкой не уложился в передачу тела.</string>
+    <string name="profile_quality_no_baseline">Частично: базовый запрос недоступен.</string>
+    <string name="profile_quality_no_loaded">Частично: запрос под нагрузкой недоступен.</string>
+    <string name="profile_quality_failed">Передачу не удалось подтвердить.</string>
+    <string name="profile_quality_budget_exhausted">Отложено: бюджет трафика исчерпан.</string>
+    <string name="profile_quality_budget_unavailable">Отложено: сохранённый бюджет недоступен.</string>
+    <string name="profile_quality_stale">Устарело: сеть или конфигурация изменилась.</string>
+    <string name="profile_quality_cleanup">Отложено: среда проверки занята или ожидает очистки.</string>
+    <string name="profile_quality_collecting">Собираются повторные измерения качества.</string>
+    <string name="profile_quality_retained">Текущий выбор сохранён: подтверждённого улучшения нет.</string>
+    <string name="profile_quality_promoted_goodput">Селектор выбрал профиль с более высокой скоростью.</string>
+    <string name="profile_quality_promoted_latency">Селектор выбрал профиль с меньшей задержкой под нагрузкой.</string>
+    <string name="profile_quality_cooldown">Текущий выбор сохранён на время ожидания.</string>
+</resources>

@@ -3,8 +3,13 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.data.subscription.FailoverPolicy
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
+import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
+import com.poyka.ripdpi.serialization.RipDpiStrictJson
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,7 +24,7 @@ class PayloadFailoverImportTest {
         val policy = (imported.failoverPolicy as FailoverPolicy.Payload).policy
         val group = requireNotNull(imported.group)
         assertEquals(2, group.members.size)
-        assertEquals(32_768, policy.probes.first().expectedBytes)
+        assertEquals(262_144, policy.probes.first().expectedBytes)
         assertEquals(policy, group.failover!!.payloadPolicy)
         val decoded = Json.decodeFromString<ProxyGroup>(Json.encodeToString(group))
         assertEquals(policy, decoded.failover!!.payloadPolicy)
@@ -30,9 +35,9 @@ class PayloadFailoverImportTest {
         val source = fixture()
         val invalid =
             listOf(
-                source.replaceFirst("\"schema_version\": 1", "\"schema_version\": 2"),
-                source.replaceFirst("\"schema_version\": 1,", ""),
-                source.replace("\"expected_bytes\": 32768", "\"expected_bytes\": 0"),
+                source.replace("\"schema_version\": 2", "\"schema_version\": 1"),
+                source.replace("\"schema_version\": 2,", ""),
+                source.replace("\"expected_bytes\": 262144", "\"expected_bytes\": 0"),
                 source.replace("\"failure_threshold\": 2", "\"failure_threshold\": 1"),
                 source.replace("\"timeout_seconds\": 10", "\"timeout_seconds\": 31"),
                 source.replace("\"selector_tag\": \"select\"", "\"selector_tag\": \"missing\""),
@@ -45,6 +50,73 @@ class PayloadFailoverImportTest {
                 SelectorUrltestGroupImport.import(it, "fixture") is SelectorUrltestImportResult.Error,
             )
         }
+    }
+
+    @Test
+    fun `quality null missing fields unknown fields and incompatible budgets reject atomically`() {
+        val root =
+            RipDpiStrictJson.parseToJsonElement(fixture())
+                as JsonObject
+        val extension = root["ripdpi"] as JsonObject
+        val payload = extension["payload_failover"] as JsonObject
+        val quality = payload["quality"] as JsonObject
+        val invalid =
+            listOf(
+                JsonNull,
+                JsonObject(quality - "minimum_gain_percent"),
+                JsonObject(quality + ("unknown" to JsonPrimitive(1))),
+                JsonObject(quality + ("max_pass_bytes" to JsonPrimitive(65538))),
+                JsonObject(quality + ("max_window_bytes" to JsonPrimitive(65538))),
+                JsonObject(quality + ("window_seconds" to JsonPrimitive(30))),
+            )
+        invalid.forEach { value ->
+            val changed =
+                JsonObject(
+                    root + (
+                        "ripdpi" to
+                            JsonObject(
+                                extension + (
+                                    "payload_failover" to
+                                        JsonObject(payload + ("quality" to value))
+                                ),
+                            )
+                    ),
+                )
+            assertTrue(
+                SelectorUrltestGroupImport.import(changed.toString(), "fixture") is SelectorUrltestImportResult.Error,
+            )
+        }
+    }
+
+    @Test
+    fun `health-only schema two omits quality even with encode defaults and survives import`() {
+        val imported = SelectorUrltestGroupImport.import(fixture(), "fixture") as SelectorUrltestImportResult.Success
+        val policy = (imported.failoverPolicy as FailoverPolicy.Payload).policy.copy(quality = null)
+        val encoded = RipDpiEncodeDefaultsJson.encodeToString(policy)
+        assertTrue(!encoded.contains("quality"))
+        assertEquals(policy, RipDpiStrictJson.decodeFromString<PayloadFailoverPolicy>(encoded))
+        val root =
+            RipDpiStrictJson.parseToJsonElement(fixture())
+                as JsonObject
+        val extension = root["ripdpi"] as JsonObject
+        val changed =
+            JsonObject(
+                root + (
+                    "ripdpi" to
+                        JsonObject(
+                            extension + (
+                                "payload_failover" to
+                                    RipDpiStrictJson.parseToJsonElement(encoded)
+                            ),
+                        )
+                ),
+            )
+        val roundtrip =
+            SelectorUrltestGroupImport.import(
+                changed.toString(),
+                "fixture",
+            ) as SelectorUrltestImportResult.Success
+        assertEquals(policy, (roundtrip.failoverPolicy as FailoverPolicy.Payload).policy)
     }
 
     @Test

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">स्थानांतरण की गुणवत्ता</string>
+    <string name="profile_quality_goodput">पुष्ट उपयोगी गति: %1$s KiB/s</string>
+    <string name="profile_quality_transfer">पुष्ट डेटा: %2$s सेकंड में %1$s बाइट</string>
+    <string name="profile_quality_baseline">आधार अनुरोध: %1$d मिलीसेकंड</string>
+    <string name="profile_quality_loaded">डेटा भेजते समय अनुरोध: %1$d मिलीसेकंड</string>
+    <string name="profile_quality_budget">डेटा बजट: इस दौर में %1$d बाइट आरक्षित; अवधि में %2$d / %3$d बाइट</string>
+    <string name="profile_quality_limits">अनुरोध का विलंब RTT नहीं है। बजट में प्रोटोकॉल का अतिरिक्त डेटा शामिल नहीं है। मापन इस पथ और स्रोत के हैं।</string>
+    <string name="profile_quality_verified">पूरा मापन</string>
+    <string name="profile_quality_no_overlap">आंशिक: लोड वाला अनुरोध डेटा स्थानांतरण के भीतर पूरा नहीं हुआ।</string>
+    <string name="profile_quality_no_baseline">आंशिक: आधार अनुरोध उपलब्ध नहीं।</string>
+    <string name="profile_quality_no_loaded">आंशिक: लोड वाला अनुरोध उपलब्ध नहीं।</string>
+    <string name="profile_quality_failed">स्थानांतरण की पुष्टि नहीं हुई।</string>
+    <string name="profile_quality_budget_exhausted">स्थगित: ट्रैफ़िक बजट समाप्त।</string>
+    <string name="profile_quality_budget_unavailable">स्थगित: स्थायी बजट उपलब्ध नहीं।</string>
+    <string name="profile_quality_stale">पुराना: नेटवर्क या कॉन्फ़िगरेशन बदला है।</string>
+    <string name="profile_quality_cleanup">स्थगित: जाँच का रनटाइम व्यस्त है या सफ़ाई बाकी है।</string>
+    <string name="profile_quality_collecting">गुणवत्ता के बार-बार मापन एकत्र हो रहे हैं।</string>
+    <string name="profile_quality_retained">मौजूदा चयन बरकरार; पुष्ट सुधार नहीं मिला।</string>
+    <string name="profile_quality_promoted_goodput">चयनकर्ता ने अधिक उपयोगी गति वाला प्रोफ़ाइल चुना।</string>
+    <string name="profile_quality_promoted_latency">चयनकर्ता ने लोड में कम विलंब वाला प्रोफ़ाइल चुना।</string>
+    <string name="profile_quality_cooldown">प्रतीक्षा अवधि में मौजूदा चयन बरकरार।</string>
+</resources>

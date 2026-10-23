@@ -1,11 +1,14 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URI
 
 /** Explicit, bounded controls for payload-qualified automatic selector changes. */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PayloadFailoverPolicy(
     @SerialName("schema_version") val schemaVersion: Int,
@@ -17,16 +20,23 @@ data class PayloadFailoverPolicy(
     @SerialName("recovery_threshold") val recoveryThreshold: Int,
     @SerialName("cooldown_seconds") val cooldownSeconds: Int,
     @SerialName("max_backoff_seconds") val maxBackoffSeconds: Int,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val quality: ProfileQualityPolicy? = null,
 ) {
     init {
-        require(schemaVersion == 1 && selectorTag == "select")
+        require(schemaVersion == 2 && selectorTag == "select")
         require(probes.size == 2 && probes.map { it.origin() }.distinct().size == probes.size)
         require(intervalSeconds in MinIntervalSeconds..MaxTimingSeconds)
         require(timeoutSeconds in 1..MaxTimeoutSeconds && timeoutSeconds <= intervalSeconds)
         require(failureThreshold in MinThreshold..MaxThreshold && recoveryThreshold in MinThreshold..MaxThreshold)
         require(cooldownSeconds in MinIntervalSeconds..MaxTimingSeconds)
         require(maxBackoffSeconds in MinBackoffSeconds..MaxTimingSeconds && maxBackoffSeconds >= intervalSeconds)
+        quality?.let {
+            require(it.maxPassBytes >= reservedQualityPassBytes())
+            require(it.windowSeconds >= intervalSeconds)
+        }
     }
+
+    fun reservedQualityPassBytes(): Long = 2L * probes.sumOf { it.expectedBytes.toLong() + 1L }
 
     override fun toString() = "PayloadFailoverPolicy([REDACTED])"
 }
@@ -77,7 +87,7 @@ private const val MaxTimeoutSeconds = 30
 private const val MinThreshold = 2
 private const val MaxThreshold = 10
 private const val MinPayloadBytes = 32_768
-private const val MaxPayloadBytes = 65_536
+private const val MaxPayloadBytes = 1_048_576
 private const val MaxUrlLength = 2_048
 private const val MinUrlCharacter = 33
 private const val MaxUrlCharacter = 126

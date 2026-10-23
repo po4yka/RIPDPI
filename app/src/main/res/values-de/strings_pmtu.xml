@@ -21,4 +21,11 @@
     <string name="diagnostics_pmtu_partial">Verbindung vor Beobachtungsende beendet</string>
     <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD misst ausgehende UDP-Nutzlastbytes von diesem Gerät zum gewählten Server auf diesem Pfad. Der per ACK bestätigte Wert ist eine Untergrenze, keine exakte Pfad-MTU. Ein ACK auf dem Rückweg misst dessen PMTU nicht. Die konfigurierte Grenze und die Schnittstellen-MTU sind getrennte Werte. Eine Teilbeobachtung bestätigt keine vollständige Messung.</string>
     <string name="diagnostics_pmtu_loss_caution">Bei der Größensuche können Sonden verloren gehen. Dies belegt weder ein Pfad-Blackhole noch eine Anbieterbeschränkung. Auch die Gegenstelle kann die Paketgröße begrenzen.</string>
+    <string name="diagnostics_pmtu_diagnosis">MTU-Diagnose</string>
+    <string name="diagnostics_pmtu_confirmed">Bestätigte Untergrenze ausgehender Pakete; kein exakter PMTU- oder VPN-Wert.</string>
+    <string name="diagnostics_pmtu_diagnosis_partial">Unvollständige Suche; keine aktuelle Größenempfehlung.</string>
+    <string name="diagnostics_pmtu_historical">Frühere Messung; im aktuellen Netzwerk erneut prüfen.</string>
+    <string name="diagnostics_pmtu_unavailable">Keine bestätigte Messung der Paketgröße.</string>
+    <string name="diagnostics_pmtu_ip_lower_bound">Bestätigte Mindestgröße des IP-Pakets</string>
+    <string name="diagnostics_pmtu_historical_payload">Frühere ACK-bestätigte UDP-Nutzlast</string>
 </resources>

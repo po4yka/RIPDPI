@@ -41,15 +41,18 @@ const destination = "192.0.2.77:80"
 const ownedDNSName = "owned.test."
 
 type peerManifest struct {
-	Version     string `json:"version"`
-	RunID       string `json:"runId"`
-	TCPPort     int    `json:"tcpPort"`
-	XHTTPPort   int    `json:"xhttpPort"`
-	DirectPort  int    `json:"directPort"`
-	DNSPort     int    `json:"dnsPort,omitempty"`
-	DNSHTTPPort int    `json:"dnsHttpPort"`
-	PublicKey   string `json:"publicKey"`
-	UUID        string `json:"uuid"`
+	QualityBytes       int    `json:"qualityBytes"`
+	QualitySHA256      string `json:"qualitySha256"`
+	QualityCertificate string `json:"qualityCertificate"`
+	Version            string `json:"version"`
+	RunID              string `json:"runId"`
+	TCPPort            int    `json:"tcpPort"`
+	XHTTPPort          int    `json:"xhttpPort"`
+	DirectPort         int    `json:"directPort"`
+	DNSPort            int    `json:"dnsPort,omitempty"`
+	DNSHTTPPort        int    `json:"dnsHttpPort"`
+	PublicKey          string `json:"publicKey"`
+	UUID               string `json:"uuid"`
 }
 
 type peer struct {
@@ -207,6 +210,10 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 		PublicKey:   base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
 		UUID:        peerID,
 	}
+	qualityListener, err := p.startQualityOrigin(certificate)
+	if err != nil {
+		return nil, err
+	}
 	inbounds := []any{}
 	for _, network := range []string{"tcp", "xhttp"} {
 		port, flow := privateTCP.Addr().(*net.TCPAddr).Port, "xtls-rprx-vision"
@@ -234,11 +241,13 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 		"log": map[string]any{"loglevel": logLevel}, "inbounds": inbounds,
 		"outbounds": []any{
 			map[string]any{"tag": "deny", "protocol": "blackhole"},
+			map[string]any{"tag": "owned-quality", "protocol": "freedom", "settings": ownedRedirect("tcp", qualityListener.Addr().(*net.TCPAddr).AddrPort())},
 			map[string]any{"tag": "owned-echo", "protocol": "freedom", "settings": ownedRedirect("tcp", echoListener.Addr().(*net.TCPAddr).AddrPort())},
 			map[string]any{"tag": "owned-dns", "protocol": "freedom", "settings": ownedRedirect("udp", dnsListener.LocalAddr().(*net.UDPAddr).AddrPort())},
 			map[string]any{"tag": "owned-doh", "protocol": "freedom", "settings": ownedRedirect("tcp", dnsHTTPListener.Addr().(*net.TCPAddr).AddrPort())},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "domain": []string{"full:quality-a.example.test", "full:quality-b.example.test"}, "port": "443", "outboundTag": "owned-quality"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
 			// Host tests and the emulator alias reach only this owned HTTP port.
@@ -380,7 +389,7 @@ func decoyCertificate() (tls.Certificate, error) {
 		return tls.Certificate{}, err
 	}
 	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1), DNSNames: []string{serverName},
+		SerialNumber: big.NewInt(1), DNSNames: []string{serverName, "quality-a.example.test", "quality-b.example.test"},
 		NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour),
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}

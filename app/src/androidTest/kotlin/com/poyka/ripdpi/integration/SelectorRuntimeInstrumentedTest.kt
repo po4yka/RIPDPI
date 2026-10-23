@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
+import com.poyka.ripdpi.data.ProfileQualityStore
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -135,6 +136,8 @@ class SelectorRuntimeInstrumentedTest {
     @Inject lateinit var measurements: CandidateRelayMeasurements
 
     @Inject lateinit var xrayMeasurements: CandidateXrayMeasurements
+
+    @Inject lateinit var quality: ProfileQualityStore
 
     @Inject lateinit var selection: MeasuredProfileActivationCoordinator
 
@@ -593,6 +596,7 @@ class SelectorRuntimeInstrumentedTest {
             selection,
             measurements,
             xrayMeasurements,
+            quality,
         )
 
     private suspend fun verifyCandidate(truncated: Boolean) =
@@ -643,7 +647,7 @@ class SelectorRuntimeInstrumentedTest {
 }
 
 /** Records creation only; readiness, start, stop, telemetry and retirement all call real JNI. */
-private class ObservedNativeRelayBindings(
+internal class ObservedNativeRelayBindings(
     val native: RipDpiRelayBindings = RipDpiRelayNativeBindings(),
 ) : RipDpiRelayBindings by native {
     val handles = CopyOnWriteArrayList<Long>()
@@ -806,7 +810,7 @@ private class SharedCandidateHttpFixture(
 }
 
 /** Mirrors native/rust/crates/ripdpi-shadowsocks/src/{cipher,tcp}.rs SIP004 framing. */
-private class FixtureAead(
+internal class FixtureAead(
     salt: ByteArray,
 ) {
     private val key: ByteArray
@@ -865,6 +869,6 @@ private fun readHttpHeaders(input: DataInputStream): String {
     return bytes.toString("UTF-8")
 }
 
-private const val FixturePassword = "loopback-instrumented-only"
+internal const val FixturePassword = "loopback-instrumented-only"
 private const val FixturePath = "/selector/custom-health?contract=payload"
 private const val FixtureTimeoutMillis = 10_000

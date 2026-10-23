@@ -36,7 +36,7 @@ class SelectorPayloadQueueTest {
                                 null
                             } else {
                                 delay(10_000)
-                                10_000L
+                                MemberProbeResult(10_000L)
                             }
                         }
                     },
@@ -75,7 +75,7 @@ class SelectorPayloadQueueTest {
                     MemberLatencyProbe { member, _ ->
                         observed += member.id
                         if (member.id == "first-active") release.await()
-                        20L
+                        MemberProbeResult(20L)
                     },
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     { testScheduler.currentTime },
@@ -114,7 +114,7 @@ class SelectorPayloadQueueTest {
                     MemberLatencyProbe { member, _ ->
                         observed += member.id
                         delay(if (member.id.endsWith("reserve")) 10_000 else 29_000)
-                        if (member.id.endsWith("active")) null else 20L
+                        if (member.id.endsWith("active")) null else MemberProbeResult(20L)
                     },
                     SelectorProbeScopeProvider { selectorTestScope(it) },
                     { testScheduler.currentTime },

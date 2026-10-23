@@ -530,3 +530,11 @@ removes their authority for the current network, including persisted rows.
 Redacted export removes peer addresses and unknown nested evidence fields.
 Interface MTU remains a separate Android snapshot value. The active probe does
 not change VPN MTU or transport settings.
+
+The diagnosis derives a minimum outbound IP packet size only from validated,
+completed ACK-confirmed evidence in the current network scope: UDP payload plus
+28 bytes for IPv4 or 48 bytes for IPv6. Optional IP headers can only increase
+the actual packet size. This is a lower bound, not exact PMTU or a VPN MTU
+recommendation. Partial and failed searches give no numeric advice. Revoked
+network scope labels retained payload facts as historical and removes the
+derived current-network bound. The UI never changes the configured MTU.

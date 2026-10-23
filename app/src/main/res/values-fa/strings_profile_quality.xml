@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">کیفیت انتقال</string>
+    <string name="profile_quality_goodput">نرخ مفید تأییدشده: %1$s KiB/s</string>
+    <string name="profile_quality_transfer">بدنهٔ تأییدشده: %1$s بایت در %2$s ثانیه</string>
+    <string name="profile_quality_baseline">درخواست پایه: %1$d میلی‌ثانیه</string>
+    <string name="profile_quality_loaded">درخواست هنگام انتقال بدنه: %1$d میلی‌ثانیه</string>
+    <string name="profile_quality_budget">بودجهٔ بدنه: %1$d بایت رزرو در این دور؛ %2$d / %3$d بایت در بازه</string>
+    <string name="profile_quality_limits">تأخیر درخواست RTT نیست. بودجه شامل سربار پروتکل نمی‌شود. اندازه‌گیری‌ها مربوط به این مسیر و مبدأ هستند.</string>
+    <string name="profile_quality_verified">اندازه‌گیری کامل</string>
+    <string name="profile_quality_no_overlap">ناقص: درخواست زیر بار در بازهٔ انتقال بدنه جای نگرفت.</string>
+    <string name="profile_quality_no_baseline">ناقص: درخواست پایه در دسترس نیست.</string>
+    <string name="profile_quality_no_loaded">ناقص: درخواست زیر بار در دسترس نیست.</string>
+    <string name="profile_quality_failed">انتقال تأیید نشد.</string>
+    <string name="profile_quality_budget_exhausted">به تعویق افتاد: بودجهٔ ترافیک تمام شده است.</string>
+    <string name="profile_quality_budget_unavailable">به تعویق افتاد: بودجهٔ پایدار در دسترس نیست.</string>
+    <string name="profile_quality_stale">قدیمی: شبکه یا پیکربندی تغییر کرده است.</string>
+    <string name="profile_quality_cleanup">به تعویق افتاد: محیط بررسی مشغول است یا پاک‌سازی در انتظار است.</string>
+    <string name="profile_quality_collecting">در حال جمع‌آوری اندازه‌گیری‌های تکراری کیفیت.</string>
+    <string name="profile_quality_retained">انتخاب فعلی حفظ شد؛ بهبودی تأیید نشده است.</string>
+    <string name="profile_quality_promoted_goodput">انتخابگر نمایه‌ای با نرخ مفید بالاتر انتخاب کرد.</string>
+    <string name="profile_quality_promoted_latency">انتخابگر نمایه‌ای با تأخیر کمتر زیر بار انتخاب کرد.</string>
+    <string name="profile_quality_cooldown">انتخاب فعلی در دورهٔ انتظار حفظ شد.</string>
+</resources>

@@ -81,6 +81,7 @@ internal fun ProfileUtilityDetails(
         tag = ProfileUtilityTestTags.action(profile.reference, "details"),
     )
     if (expanded) {
+        profile.quality?.let { ProfileQualityDetails(it, locale) }
         profile.lastUsedAtMillis?.let {
             ProfileUtilityDate(stringResource(R.string.profile_utility_last_used, formatDate(it, locale)))
         }

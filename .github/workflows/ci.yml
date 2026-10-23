@@ -2376,6 +2376,12 @@ jobs:
               --require-test "com.poyka.ripdpi.integration.XrayRuntimeInstrumentedTest#$method" \
               --expected-count 1
           done
+          for method in healthySlowerNativeMemberLosesOnlyAfterSustainedVerifiedTransferAndAppliedAck nativeFastBodyReportsPartialLoadAndCancellationRetiresOwnedHandle; do
+            python3 scripts/ci/validate_android_junit_results.py \
+              app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+              --require-test "com.poyka.ripdpi.integration.ProfileQualityNativeTest#$method" \
+              --expected-count 1
+          done
 
       - name: Preserve GitHub Full instrumentation evidence on ${{ matrix.device }}
         run: |
@@ -2488,11 +2494,11 @@ jobs:
             --results app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
             --xray-port "$fixture_port" \
             --test-class com.poyka.ripdpi.e2e.XrayProviderE2ETest
-          for method in bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart wrongIdentityCannotReachPeerOrFallBackToDirect profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck peerLossAndRecoveryPreservesTunAndRejectsDirectBypass; do
+          for method in bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart wrongIdentityCannotReachPeerOrFallBackToDirect profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck realRealityQualityMeasuresAuthenticatedBodyAndConcurrentHeadBeforeRetirement peerLossAndRecoveryPreservesTunAndRejectsDirectBypass; do
             python3 scripts/ci/validate_android_junit_results.py \
               app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
               --require-test "com.poyka.ripdpi.e2e.XrayProviderE2ETest#$method" \
-              --expected-count 1 --expected-total-count 4 --forbid-skips
+              --expected-count 1 --expected-total-count 5 --forbid-skips
           done
           capture_xray_evidence
 

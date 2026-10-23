@@ -48,7 +48,7 @@ class SelectorUrltestProberTest {
                 prober(store) { _, _ ->
                     calls++
                     store.select("g", "edge")
-                    100L
+                    MemberProbeResult(100L)
                 }
 
             prober.runProbePass(group, "https://probe", 0)
@@ -98,7 +98,7 @@ class SelectorUrltestProberTest {
                     store,
                     MemberLatencyProbe { member, target ->
                         assertEquals(MemberProbeTarget.Payload(policy()), target)
-                        if (member.id == "reserve") 20L else null
+                        if (member.id == "reserve") MemberProbeResult(20L) else null
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { now },
@@ -127,7 +127,7 @@ class SelectorUrltestProberTest {
                     store,
                     MemberLatencyProbe { member, _ ->
                         if (changeDuringProbe) scope = scope.copy(underlayGeneration = scope.underlayGeneration!! + 1)
-                        if (member.id == "reserve") 20L else null
+                        if (member.id == "reserve") MemberProbeResult(20L) else null
                     },
                     SelectorProbeScopeProvider { scope },
                     { now },
@@ -160,7 +160,7 @@ class SelectorUrltestProberTest {
                     store,
                     MemberLatencyProbe { member, _ ->
                         calls++
-                        if (recovered && member.id == "reserve") 20L else null
+                        if (recovered && member.id == "reserve") MemberProbeResult(20L) else null
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { now },
@@ -204,7 +204,7 @@ class SelectorUrltestProberTest {
                             }
 
                             "reserve" -> {
-                                20L
+                                MemberProbeResult(20L)
                             }
 
                             else -> {
@@ -240,7 +240,7 @@ class SelectorUrltestProberTest {
                     store,
                     MemberLatencyProbe { member, _ ->
                         observed.add(member.id)
-                        if (member.id == "reserve") 20L else null
+                        if (member.id == "reserve") MemberProbeResult(20L) else null
                     },
                     SelectorProbeScopeProvider { selectorTestScope(group) },
                     { testScheduler.currentTime },
@@ -275,7 +275,7 @@ class SelectorUrltestProberTest {
                             }
 
                             "reserve" -> {
-                                20L
+                                MemberProbeResult(20L)
                             }
 
                             else -> {
@@ -315,7 +315,7 @@ class SelectorUrltestProberTest {
                             scope =
                                 scope.copy(environment = scope.environment.copy(featureFlags = mapOf("flag" to true)))
                         }
-                        if (profile.id == "fast") 1L else 100L
+                        MemberProbeResult(if (profile.id == "fast") 1L else 100L)
                     },
                     SelectorProbeScopeProvider { scope },
                 )
@@ -335,7 +335,7 @@ class SelectorUrltestProberTest {
                     store,
                     MemberLatencyProbe { profile, _ ->
                         if (profile.id == "fast") scope = scope.copy(underlayGeneration = 2L)
-                        if (profile.id == "fast") 1L else 100L
+                        MemberProbeResult(if (profile.id == "fast") 1L else 100L)
                     },
                     SelectorProbeScopeProvider { scope },
                 )
@@ -359,7 +359,7 @@ class SelectorUrltestProberTest {
                             scope =
                                 original.copy(networkEpoch = TestPhysicalNetworkEvidence().apply { change() }.capture())
                         }
-                        if (profile.id == "fast") 1L else 100L
+                        MemberProbeResult(if (profile.id == "fast") 1L else 100L)
                     },
                     SelectorProbeScopeProvider { scope },
                 )
@@ -379,7 +379,7 @@ class SelectorUrltestProberTest {
                     store,
                     MemberLatencyProbe { _, _ ->
                         current = null
-                        1L
+                        MemberProbeResult(1L)
                     },
                     SelectorProbeScopeProvider { current },
                 )
@@ -399,7 +399,7 @@ class SelectorUrltestProberTest {
                     store,
                     MemberLatencyProbe { profile, _ ->
                         scope = scope.copy(environment = scope.environment.copy(tlsProfile = "changed"))
-                        if (profile.id == "fast") 1L else 100L
+                        MemberProbeResult(if (profile.id == "fast") 1L else 100L)
                     },
                     SelectorProbeScopeProvider { scope },
                 )
@@ -700,6 +700,6 @@ class SelectorUrltestProberTest {
         override suspend fun measure(
             profile: ProxyProfile,
             target: MemberProbeTarget,
-        ): Long? = latencies[profile.id]
+        ): MemberProbeResult? = latencies[profile.id]?.let { MemberProbeResult(it) }
     }
 }

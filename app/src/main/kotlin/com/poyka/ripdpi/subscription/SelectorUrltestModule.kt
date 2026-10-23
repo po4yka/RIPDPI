@@ -12,6 +12,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import javax.inject.Singleton
 
 /** Hilt wiring for the urltest latency prober and its lifecycle coordinator. */
@@ -29,11 +31,16 @@ abstract class SelectorUrltestModule {
             selectionStore: SelectorSelectionStore,
             probe: MemberLatencyProbe,
             scopeProvider: CurrentSelectorProbeScopeProvider,
+            qualityStore: com.poyka.ripdpi.data.ProfileQualityStore,
+            budgetLedger: com.poyka.ripdpi.data.ProfileQualityBudgetLedger,
         ): SelectorUrltestProber =
             SelectorUrltestProber(
                 selectionStore = selectionStore,
                 probe = probe,
                 scopeProvider = scopeProvider,
+                monotonicMillis = android.os.SystemClock::elapsedRealtime,
+                qualityStore = qualityStore,
+                reserveBudget = budgetLedger::reserve,
             )
 
         @Provides
@@ -42,11 +49,22 @@ abstract class SelectorUrltestModule {
             @SelectorReloadScope scope: CoroutineScope,
             groupRepository: ProxyGroupRepository,
             prober: SelectorUrltestProber,
+            network: com.poyka.ripdpi.services.CandidateRelayNetworkEpoch,
+            settings: com.poyka.ripdpi.data.AppSettingsRepository,
+            service: com.poyka.ripdpi.data.ServiceStateStore,
+            activeGroup: com.poyka.ripdpi.data.selector.SelectorActiveGroupStore,
         ): SelectorUrltestCoordinator =
             SelectorUrltestCoordinator(
                 scope = scope,
                 groupRepository = groupRepository,
                 prober = prober,
+                scopeChanges =
+                    merge(
+                        network.changes.map { },
+                        settings.settings.map { },
+                        service.status.map { },
+                        activeGroup.choiceChanges.map { },
+                    ),
             )
 
         /** Adapts the urltest coordinator to the service-lifecycle multibinding. */
