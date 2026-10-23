@@ -22,6 +22,48 @@ capture_spec.loader.exec_module(capture)
 
 
 class SourceCaptureTests(unittest.TestCase):
+    @patch.object(capture.time, "sleep")
+    def test_normal_vpn_consent_accepts_only_android_dialog(self, _sleep):
+        device = capture.CaptureDevice("emulator-5556")
+        home = ElementTree.fromstring('<hierarchy><node resource-id="connection-actuator-button" /></hierarchy>')
+        dialog = ElementTree.fromstring('<hierarchy><node package="com.android.vpndialogs" resource-id="android:id/button1" clickable="true" /></hierarchy>')
+        rationale = ElementTree.fromstring('<hierarchy><node package="com.poyka.ripdpi" resource-id="vpn-permission-dialog-continue" /></hierarchy>')
+        device.tree = Mock(side_effect=[home, home, rationale, dialog])
+        device.tap = Mock()
+        device.adb = Mock(return_value="ACTIVATE_VPN: allow")
+        device.approve_vpn_consent()
+        self.assertEqual(device.tap.call_count, 3)
+        self.assertIn("Normal Android", device.receipts["vpnConsent"]["method"])
+        self.assertFalse(any("set" in call.args for call in device.adb.call_args_list))
+        launches = [call.args for call in device.adb.call_args_list if call.args[:3] == ("shell", "am", "start")]
+        self.assertEqual(len(launches), 2)
+        self.assertNotIn(f"{capture.PACKAGE}.automation.ENABLED", launches[-1])
+
+    @patch.object(capture.time, "sleep")
+    def test_normal_vpn_consent_rejects_lookalike_dialog(self, _sleep):
+        device = capture.CaptureDevice("emulator-5556")
+        home = ElementTree.fromstring('<hierarchy><node resource-id="connection-actuator-button" /></hierarchy>')
+        lookalike = ElementTree.fromstring('<hierarchy><node package="untrusted.app" resource-id="android:id/button1" clickable="true" /></hierarchy>')
+        device.tree = Mock(side_effect=[home, home] + [lookalike] * 30)
+        device.tap = Mock()
+        device.adb = Mock(return_value="")
+        with self.assertRaisesRegex(RuntimeError, "normal VPN consent dialog"):
+            device.approve_vpn_consent()
+        self.assertEqual(device.tap.call_count, 1)
+        self.assertNotIn("vpnConsent", device.receipts)
+
+    @patch.object(capture.time, "sleep")
+    def test_normal_vpn_consent_requires_observed_permission(self, _sleep):
+        device = capture.CaptureDevice("emulator-5556")
+        home = ElementTree.fromstring('<hierarchy><node resource-id="connection-actuator-button" /></hierarchy>')
+        dialog = ElementTree.fromstring('<hierarchy><node package="com.android.vpndialogs" resource-id="android:id/button1" clickable="true" /></hierarchy>')
+        device.tree = Mock(side_effect=[home, home, dialog])
+        device.tap = Mock()
+        device.adb = Mock(return_value="ACTIVATE_VPN: default")
+        with self.assertRaisesRegex(RuntimeError, "did not record"):
+            device.approve_vpn_consent()
+        self.assertNotIn("vpnConsent", device.receipts)
+
     def test_backup_focus_rejects_an_unobserved_scroll(self):
         device = capture.CaptureDevice("emulator-5556")
         device.locale = "fr"

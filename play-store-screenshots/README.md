@@ -60,6 +60,28 @@ Display-only frame retakes retain the original APK/build producer and the other 
 
 Generic user-visible section and built-in profile names are localized in the app. Protocol names and user-defined names remain unchanged. The seven artwork locales use their own Android frames. Hindi and Brazilian Portuguese README galleries retain an explicitly labelled English fallback.
 
+## Hosted source refresh
+
+Run **Play Store Screenshots** manually on the intended branch with
+`recapture_android=true` to build the current app and pinned native artifacts,
+boot a dedicated 1080×1800 / 360 dpi API 37 emulator, accept the normal Android
+VPN consent dialog, and capture real source frames. This is an explicit,
+resource-intensive refresh, not a nightly permission or automatic commit.
+The job has read-only repository permissions and does not publish to a store.
+
+Only a successful full capture and source validation produces the
+`android-source-captures` artifact. The renderer consumes those exact frames and
+produces the separate `play-store-screenshots` artifact. Download both artifacts
+from the same successful run, preserve their repository-relative paths, inspect
+all 42 source frames and 49 unique posters/banner assets, and commit the generated
+files with their `source-capture.json` provenance. Then run the normal workflow
+with the input disabled to verify the committed files. Never repair freshness by
+editing hashes or reusing an unrelated APK.
+
+The default PR and scheduled modes still fail closed on stale inputs; they never
+implicitly grant consent, run Android captures, or bless old screenshots. A failed
+render no longer reports retained committed files as successfully regenerated.
+
 ## Listing story
 
 | Asset | Message | Real visual source |

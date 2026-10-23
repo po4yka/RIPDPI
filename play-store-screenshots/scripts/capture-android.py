@@ -364,6 +364,63 @@ class CaptureDevice:
             "requestedScrollPixels": offset, "observedScrollPixels": observed,
             "observedAtUtc": datetime.now(timezone.utc).isoformat()}
 
+    def approve_vpn_consent(self) -> None:
+        """Accept only Android's real VPN dialog on an explicitly disposable emulator."""
+        self.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", "en")
+        self.adb("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity",
+                 "--ez", f"{PACKAGE}.automation.ENABLED", "true",
+                 "--ez", f"{PACKAGE}.automation.RESET_STATE", "true",
+                 "--ez", f"{PACKAGE}.automation.DISABLE_MOTION", "true",
+                 "--es", f"{PACKAGE}.automation.START_ROUTE", "home",
+                 "--es", f"{PACKAGE}.automation.PERMISSION_PRESET", "granted",
+                 "--es", f"{PACKAGE}.automation.SERVICE_PRESET", "live",
+                 "--es", f"{PACKAGE}.automation.DATA_PRESET", "settings_ready")
+        for _ in range(30):
+            if self.tag(self.tree(), "connection-actuator-button") is not None:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError("The settings seed did not finish before normal VPN consent.")
+        # The debug permission preset intentionally intercepts consent. Keep its
+        # persisted settings, but restart without automation for the real OS flow.
+        self.adb("shell", "am", "force-stop", PACKAGE)
+        self.adb("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity")
+        for _ in range(30):
+            button = self.tag(self.tree(), "connection-actuator-button")
+            if button is not None:
+                self.tap(button)
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError("The real Home connection control did not appear for VPN consent.")
+        rationale_accepted = False
+        for _ in range(30):
+            dialog = self.tree()
+            rationale = self.tag(dialog, "vpn-permission-dialog-continue")
+            if rationale is not None and rationale.get("package") == PACKAGE and not rationale_accepted:
+                self.tap(rationale)
+                rationale_accepted = True
+                time.sleep(1)
+                continue
+            button = next((node for node in dialog.iter("node")
+                           if node.get("package") == "com.android.vpndialogs"
+                           and node.get("resource-id") == "android:id/button1"
+                           and node.get("clickable") == "true"), None)
+            if button is not None:
+                self.tap(button)
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError("Android's normal VPN consent dialog did not appear; no permission was changed.")
+        for _ in range(10):
+            if "ACTIVATE_VPN: allow" in self.adb("shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"):
+                self.receipts["vpnConsent"] = {
+                    "method": "Normal Android VPN consent dialog accepted on disposable emulator",
+                    "observedAtUtc": datetime.now(timezone.utc).isoformat()}
+                return
+            time.sleep(1)
+        raise RuntimeError("Android did not record the normal VPN consent.")
+
     def clear_statusbar_demo(self) -> None:
         # Keep Android's current time and real service/network indicators.
         self.adb("shell", "am", "broadcast", "-a", "com.android.systemui.demo", "-e", "command", "exit")
@@ -419,10 +476,10 @@ def main() -> None:
     parser.add_argument("--serial", required=True, help="Dedicated 1080x1800, 360 dpi emulator; its app state is reset")
     parser.add_argument("--prebuilt-jni-libs", type=Path, help="Optional native outputs from the same source revision")
     parser.add_argument("--xray-artifacts", required=True, type=Path, help="Real producer artifacts; the release verifier must pass")
+    parser.add_argument("--approve-vpn-consent", action="store_true",
+                        help="Accept the normal Android VPN dialog on this disposable emulator")
     args = parser.parse_args()
     device = CaptureDevice(args.serial)
-    if "ACTIVATE_VPN: allow" not in device.adb("shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"):
-        parser.error("Grant actual Android VPN consent through the normal app before capture.")
     device.adb("shell", "wm", "density", "reset")
     device.adb("shell", "settings", "put", "system", "font_scale", "1.0")
     if device.adb("shell", "wm", "size") != "Physical size: 1080x1800" or device.adb("shell", "wm", "density") != "Physical density: 360":
@@ -435,7 +492,7 @@ def main() -> None:
                    cwd=ROOT, env={**os.environ, "RIPDPI_XRAY_AAR_DIR": str(xray_artifacts)}, check=True)
     revision = run(["git", "rev-parse", "HEAD"])
     inputs = input_hashes()
-    build_args = ["./gradlew", ":app:assembleGithubFullDebug", f"-Pripdpi.localNativeAbis={abi}",
+    build_args = ["./gradlew", ":app:assembleGithubFullDebug", f"-Pripdpi.nativeAbisOverride={abi}",
                   f"-Pripdpi.prebuiltXrayAarDir={xray_artifacts}"]
     if args.prebuilt_jni_libs:
         build_args.append(f"-Pripdpi.prebuiltJniLibsDir={args.prebuilt_jni_libs.resolve()}")
@@ -448,6 +505,10 @@ def main() -> None:
     package_state = device.adb("shell", "dumpsys", "package", PACKAGE)
     if not all(f"{permission}: granted=true" in package_state for permission in runtime_permissions(api)):
         raise RuntimeError("Required real Android runtime permissions were not granted.")
+    if "ACTIVATE_VPN: allow" not in device.adb("shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"):
+        if not args.approve_vpn_consent:
+            parser.error("Grant actual Android VPN consent through the normal app before capture, or explicitly use --approve-vpn-consent on a disposable emulator.")
+        device.approve_vpn_consent()
     device.receipts["permissions"] = {"api": api, "granted": list(runtime_permissions(api)),
                                       "observedAtUtc": datetime.now(timezone.utc).isoformat()}
     device.adb("shell", "cmd", "uimode", "night", "no")

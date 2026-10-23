@@ -13,6 +13,11 @@ on:
       - "docs/screenshots/**"
       - ".github/workflows/play-store-screenshots.yml"
   workflow_dispatch:
+    inputs:
+      recapture_android:
+        description: Build and capture real Android source frames on a disposable emulator
+        type: boolean
+        default: false
   schedule:
     # Daily at 04:41 UTC -- after the nightly Rust/CI bursts (02:00, 03:00) so
     # we don't compete for runner concurrency with `ci.yml` / `fuzz-nightly.yml`.
@@ -26,7 +31,88 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  android-sources:
+    name: Recapture real Android source frames
+    if: github.event_name == 'workflow_dispatch' && inputs.recapture_android
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout exact requested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check hosted emulator acceleration
+        run: test -r /dev/kvm && test -w /dev/kvm
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: screenshot-android
+          rust-cache-save: "false"
+
+      - uses: ./.github/actions/build-xray
+
+      - name: Build actual current app before booting emulator
+        run: >-
+          ./gradlew :app:assembleGithubFullDebug
+          -Pripdpi.nativeAbisOverride=x86_64
+          -Pripdpi.prebuiltXrayAarDir=${{ github.workspace }}/native/xray/artifacts
+          -Pripdpi.pluggableTransportAssetsMode=source
+          -Pripdpi.pluggableTransportAssetsStrictFailures=true
+
+      - name: Start disposable physical capture viewport
+        run: >-
+          bash scripts/ci/start-android-emulator.sh --fresh
+          --avd store-source-capture --api 37 --arch x86_64 --target google_apis
+          --screen-width 1080 --screen-height 1800 --screen-density 360
+          --ram 2048M --heap 512M --boot-timeout 600
+
+      - name: Capture actual app and observed measurements
+        run: |
+          set -euo pipefail
+          serial="$(adb devices | awk '/^emulator-.*device$/ {print $1}')"
+          test "$(printf '%s\n' "$serial" | wc -l)" -eq 1
+          test -n "$serial"
+          python3 play-store-screenshots/scripts/capture-android.py \
+            --serial "$serial" --approve-vpn-consent \
+            --xray-artifacts "$GITHUB_WORKSPACE/native/xray/artifacts"
+          python3 play-store-screenshots/scripts/validate-source-captures.py
+
+      - name: Collect failure diagnostics from the disposable emulator
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/capture-diagnostics"
+          timeout 20 adb logcat -d > "$RUNNER_TEMP/capture-diagnostics/logcat.txt" 2>&1 || true
+          timeout 20 adb shell uiautomator dump /sdcard/capture-failure.xml || true
+          timeout 20 adb pull /sdcard/capture-failure.xml "$RUNNER_TEMP/capture-diagnostics/ui.xml" || true
+          timeout 20 adb exec-out screencap -p > "$RUNNER_TEMP/capture-diagnostics/frame.png" || true
+          cp "$HOME/.android/store-source-capture/emulator.log" "$RUNNER_TEMP/capture-diagnostics/" || true
+
+      - name: Upload failed-run diagnostics (not publishable source captures)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-capture-failure-diagnostics
+          path: ${{ runner.temp }}/capture-diagnostics/**
+          retention-days: 7
+
+      - name: Stop owned capture emulator
+        if: always()
+        run: bash scripts/ci/stop-android-emulator.sh --avd store-source-capture
+
+      - name: Upload actual source captures and provenance
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-source-captures
+          path: |
+            play-store-screenshots/public/screenshots/**
+            docs/screenshots/ui/**
+          if-no-files-found: error
+          retention-days: 14
+
   capture:
+    needs: android-sources
+    if: always() && (needs.android-sources.result == 'success' || needs.android-sources.result == 'skipped')
     name: Capture marketing screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -36,6 +122,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore newly captured Android frames
+        if: needs.android-sources.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-source-captures
+          path: .
 
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -64,6 +157,7 @@ jobs:
           "$CHROME_PATH" --version
 
       - name: Regenerate marketing screenshots
+        id: regenerate
         run: bun run capture:prod
         env:
           # Headless Chromium needs a writable cache directory inside the
@@ -79,7 +173,9 @@ jobs:
           {
             echo "## Play Store screenshot drift"
             echo
-            if git diff --quiet -- docs/screenshots; then
+            if [ "${{ steps.regenerate.outcome }}" != "success" ]; then
+              echo "_Regeneration did not succeed. Existing files are not evidence of a successful capture or no drift._"
+            elif git diff --quiet -- docs/screenshots; then
               echo "_No drift -- regenerated assets match the committed copies._"
             else
               echo "Files that changed:"
@@ -93,7 +189,7 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload regenerated screenshots
-        if: always()
+        if: success()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: play-store-screenshots
