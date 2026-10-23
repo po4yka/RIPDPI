@@ -33,6 +33,7 @@ internal class ProfileMutationAfterImageWriter(
         val beforeWarp = (intent as? WarpUpsertIntent)?.let { stores.warpCredentials.load(it.profile.id) }
         val beforeProfile = (intent as? WarpUpsertIntent)?.let { stores.warpProfiles.load(it.profile.id) }
         val pending = intentProjection.pending(preparation.origin, preparation.expectedPauseAuthority, intent)
+        if (intent.affectsUtilityCatalog()) catalog.invalidate()
         journal.prepare(pending)
         val outcome =
             pauseAuthority.invalidateForMutation(
@@ -40,7 +41,6 @@ internal class ProfileMutationAfterImageWriter(
                 pending.mutationId,
                 checkNotNull(pending.expectedPauseAuthority),
             )
-        if (intent.affectsUtilityCatalog()) catalog.invalidate()
         if (intent.ownsProviderSelection(preparation.origin)) {
             val receipt = (outcome as? ProfileMutationOutcome.Reserved)?.receipt as? ProfileActivationReceipt
             if (receipt != null) replayWriter.replayOwned(intent, receipt)

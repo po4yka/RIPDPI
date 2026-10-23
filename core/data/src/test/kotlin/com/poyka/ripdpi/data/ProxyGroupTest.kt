@@ -174,7 +174,7 @@ class ProxyGroupTest {
 
     @Test
     fun `schema version is exposed and migration hook is identity for current version`() {
-        val payload = "{\"id\":\"x\"}"
+        val payload = "[]"
 
         assertEquals(payload, ProxyGroupSchema.migrate(payload, ProxyGroupSchema.SCHEMA_VERSION))
     }

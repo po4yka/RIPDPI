@@ -17,7 +17,7 @@ internal class ProfileMutationRuntime(
 
     val mutex = Mutex()
     val intentProjection = ProfileMutationIntentProjection()
-    val recoveryReader = ProfileMutationJournalRecoveryReader(journal)
+    val recoveryReader = ProfileMutationJournalRecoveryReader(journal, stores.groupCatalog)
     val replayWriter = ProfileMutationReplayWriter(stores, awgProfiles, awgCredentials, pauseAuthority)
     val catalog = ProfileUtilityCatalogPublisher(stores, pauseAuthority)
 

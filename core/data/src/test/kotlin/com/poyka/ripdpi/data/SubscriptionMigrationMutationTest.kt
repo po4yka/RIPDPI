@@ -25,6 +25,7 @@ class SubscriptionMigrationMutationTest {
             val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
             val awg = AwgProfileRepository(fixture.awgProfiles, fixture.awgCredentials, mutations)
             groups.add(original)
+            val original = groups.list().single()
             val source = awg.saveSubscriptionProfiles(listOf(sourceProfile)).single()
             val preparations = fixture.prepareAttempts
             var captured: ProxyGroup? = null
@@ -64,8 +65,9 @@ class SubscriptionMigrationMutationTest {
 
                 val recovered = awaitItem().single()
                 val preparedGroup = checkNotNull(captured)
+                assertNotEquals(original.ownershipGeneration, recovered.ownershipGeneration)
                 assertEquals(
-                    preparedGroup.copy(subscription = preparedGroup.subscription!!.copy(refreshRevision = 1)),
+                    preparedGroup.copy(ownershipGeneration = recovered.ownershipGeneration),
                     recovered,
                 )
                 val receipt = checkNotNull(recovered.subscription!!.migration)
@@ -91,6 +93,7 @@ class SubscriptionMigrationMutationTest {
             val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
             val awg = AwgProfileRepository(fixture.awgProfiles, fixture.awgCredentials, mutations)
             groups.add(original)
+            val original = groups.list().single()
             val source = awg.saveSubscriptionProfiles(listOf(sourceProfile)).single()
             val preparations = fixture.prepareAttempts
             val edited = original.copy(subscription = original.subscription!!.copy(link = "https://new.example/source"))
@@ -108,7 +111,9 @@ class SubscriptionMigrationMutationTest {
             assertEquals(preparations, fixture.prepareAttempts)
             assertEquals(listOf(source.id), fixture.awgProfiles.allProfiles().map { it.id })
             assertEquals(source, awg.load(source.id))
-            assertEquals(edited, groups.list().single())
+            val saved = groups.list().single()
+            assertEquals(edited.copy(ownershipGeneration = saved.ownershipGeneration), saved)
+            assertNotEquals(edited.ownershipGeneration, saved.ownershipGeneration)
             assertNull(
                 groups
                     .list()

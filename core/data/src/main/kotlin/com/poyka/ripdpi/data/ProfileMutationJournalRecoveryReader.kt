@@ -6,6 +6,7 @@ import kotlinx.serialization.SerializationException
 /** A corrupt intent cannot prove which stores committed; only explicit reset may discard it. */
 internal class ProfileMutationJournalRecoveryReader(
     private val journal: ProfileMutationJournal,
+    private val groups: ProxyGroupCatalog,
 ) {
     private val json = RipDpiContractJson
 
@@ -21,6 +22,30 @@ internal class ProfileMutationJournalRecoveryReader(
         if (intent.family != pending.family) {
             throw ProfileMutationJournalCorruptionException("Profile mutation journal family mismatch")
         }
+        return if (intent is SubscriptionRefreshIntent) {
+            readSubscription(pending, intent)
+        } else {
+            RecoverablePendingMutation(pending, intent)
+        }
+    }
+
+    private suspend fun readSubscription(
+        pending: PendingProfileMutation,
+        intent: SubscriptionRefreshIntent,
+    ): RecoverablePendingMutation {
+        groups.snapshot()
+        check(intent.ownershipVersion in 0..1) { "Unsupported subscription ownership version" }
+        if (intent.ownershipVersion == 0) {
+            val upgraded =
+                intent.copy(
+                    groups = intent.groups.map { it.withNewOwnershipGeneration() },
+                    ownershipVersion = 1,
+                )
+            val migrated = pending.copy(payload = json.encodeToString(ProfileMutationIntent.serializer(), upgraded))
+            journal.replace(pending.mutationId, migrated)
+            return RecoverablePendingMutation(migrated, upgraded)
+        }
+        check(intent.groups.all { it.ownershipGeneration.isNotBlank() }) { "Missing subscription ownership generation" }
         return RecoverablePendingMutation(pending, intent)
     }
 

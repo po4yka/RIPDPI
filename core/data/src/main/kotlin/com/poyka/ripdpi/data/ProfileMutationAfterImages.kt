@@ -98,7 +98,7 @@ internal class ProfileMutationReplayWriter(
                 // Recovery must not rotate credentials when the existing catalogue is unreadable.
                 stores.groupCatalog.snapshot()
                 intent.awgProfiles.forEach { replayAwgUpsert(it) }
-                stores.groupCatalog.replace(intent.groups)
+                stores.groupCatalog.replaceAfterImage(intent.groups)
             }
 
             is AwgUpsertIntent -> {

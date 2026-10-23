@@ -43,25 +43,18 @@ internal class SubscriptionRefreshMutations(
             recover()
             val current = groups.snapshot()
             if (current.singleOrNull { it.id == expected.id } != expected) return@withLock false
-            val subscription = expected.subscription ?: return@withLock false
-            require(subscription.refreshRevision in 0 until Long.MAX_VALUE) { "Subscription revision is exhausted" }
+            if (expected.subscription == null || expected.ownershipGeneration.isBlank()) return@withLock false
             val prepared = prepare()
             val replacement = prepared.replacement
-            require(replacement.id == expected.id)
-            val accepted =
-                replacement.copy(
-                    subscription =
-                        checkNotNull(replacement.subscription).copy(
-                            refreshRevision =
-                                subscription.refreshRevision + 1,
-                        ),
-                )
+            require(replacement.id == expected.id && replacement.subscription != null)
+            val accepted = replacement.withNewOwnershipGeneration()
             val intent =
                 SubscriptionRefreshIntent(
                     current.map { if (it.id == expected.id) accepted else it },
                     prepared.awgWrites.map { write ->
                         with(write.profile) { AwgUpsertIntent(id, name, requestJson, updatedAt, write.secrets) }
                     },
+                    ownershipVersion = 1,
                 )
             writer.executeRecovered(
                 ProfileMutationPreparation(ProfileMutationOrigin.SubscriptionRefresh, authority.reference()),
@@ -76,6 +69,7 @@ internal class SubscriptionRefreshMutations(
 internal data class SubscriptionRefreshIntent(
     val groups: List<ProxyGroup>,
     val awgProfiles: List<AwgUpsertIntent>,
+    val ownershipVersion: Int = 0,
 ) : ProfileMutationIntent {
     override val family: ProfileMutationFamily = ProfileMutationFamily.Subscription
 }

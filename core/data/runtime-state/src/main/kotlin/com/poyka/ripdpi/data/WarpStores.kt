@@ -448,40 +448,44 @@ class SharedPreferencesWarpEndpointStore
 internal class KeystoreEncryptedPreferences(
     private val preferences: SharedPreferences,
     private val keyAlias: String,
+    durableReads: Boolean = false,
 ) {
-    fun getString(key: String): String? {
-        val payload = preferences.getString(key, null) ?: return null
-        return runCatching { decrypt(payload) }.getOrNull()
-    }
+    private val durability = if (durableReads) ProfilePreferenceDurability.forPreferences(preferences) else null
 
-    fun getStringStrict(key: String): String? {
-        val payload = preferences.getString(key, null) ?: return null
-        return decrypt(payload)
-    }
+    fun <T> withDurableState(block: () -> T): T =
+        if (durability == null) block() else durability.access(preferences, block)
+
+    fun getString(key: String): String? =
+        withDurableState {
+            val payload = preferences.getString(key, null) ?: return@withDurableState null
+            runCatching { decrypt(payload) }.getOrNull()
+        }
+
+    fun getStringStrict(key: String): String? =
+        withDurableState {
+            val payload = preferences.getString(key, null) ?: return@withDurableState null
+            decrypt(payload)
+        }
 
     fun putString(
         key: String,
         value: String,
         configure: SharedPreferences.Editor.() -> Unit = {},
-    ) {
+    ) = withDurableState {
         val encrypted = encrypt(value)
         // Ciphertext, schema metadata and legacy-key removal share one durable write.
-        preferences
-            .edit()
-            .apply(configure)
-            .putString(key, encrypted)
-            .commitOrThrow()
+        commit(preferences.edit().apply(configure).putString(key, encrypted))
     }
 
-    fun remove(key: String) {
-        preferences.edit().remove(key).commitOrThrow()
-    }
+    fun remove(key: String) = withDurableState { commit(preferences.edit().remove(key)) }
 
-    fun clear() {
-        preferences.edit().clear().commitOrThrow()
-    }
+    fun clear() = withDurableState { commit(preferences.edit().clear()) }
 
-    fun keys(): Set<String> = preferences.all.keys
+    fun keys(): Set<String> = withDurableState { preferences.all.keys }
+
+    private fun commit(editor: SharedPreferences.Editor) {
+        if (durability == null) editor.commitOrThrow() else durability.commit(editor)
+    }
 
     private fun encrypt(value: String): String {
         val cipher = Cipher.getInstance(AesTransformation)

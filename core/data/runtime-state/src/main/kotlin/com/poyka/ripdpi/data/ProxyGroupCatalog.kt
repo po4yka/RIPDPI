@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.builtins.ListSerializer
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,8 +29,22 @@ class ProxyGroupCatalog
 
         fun groups(): Flow<List<ProxyGroup>> = state.filterNotNull()
 
+        suspend fun add(group: ProxyGroup) {
+            mutex.withLock {
+                writeGroups(readGroups().filterNot { it.id == group.id } + group.withNewOwnershipGeneration())
+            }
+        }
+
         suspend fun update(transform: (List<ProxyGroup>) -> List<ProxyGroup>) {
-            mutex.withLock { writeGroups(transform(readGroups())) }
+            mutex.withLock {
+                val current = readGroups()
+                val owners = current.associateBy(ProxyGroup::id)
+                writeGroups(
+                    transform(current).map { candidate ->
+                        candidate.ownedAfter(owners[candidate.id])
+                    },
+                )
+            }
         }
 
         suspend fun updateGroup(
@@ -39,13 +54,17 @@ class ProxyGroupCatalog
             mutex.withLock {
                 val groups = readGroups()
                 val current = groups.firstOrNull { it.id == id } ?: return@withLock null
-                val updated = transform(current)
+                val updated = transform(current).also { require(it.id == id) }.ownedAfter(current)
                 writeGroups(groups.map { if (it.id == id) updated else it })
                 updated
             }
 
-        /** Called only inside the recovery owner; successful replay also repairs existing observers. */
-        suspend fun replace(groups: List<ProxyGroup>) {
+        /** Restore/reset is a new ownership event even when the content is identical. */
+        suspend fun replace(groups: List<ProxyGroup>) =
+            replaceAfterImage(groups.map { it.withNewOwnershipGeneration() })
+
+        /** Journal replay preserves the captured generation; retries never create a new owner. */
+        suspend fun replaceAfterImage(groups: List<ProxyGroup>) {
             mutex.withLock {
                 if (state.value == null) readGroups()
                 writeGroups(groups)
@@ -61,3 +80,10 @@ class ProxyGroupCatalog
             state.value = ordered
         }
     }
+
+fun ProxyGroup.withNewOwnershipGeneration(): ProxyGroup = copy(ownershipGeneration = UUID.randomUUID().toString())
+
+private fun ProxyGroup.ownedAfter(current: ProxyGroup?): ProxyGroup {
+    val candidate = copy(ownershipGeneration = current?.ownershipGeneration.orEmpty())
+    return if (candidate == current) current else candidate.withNewOwnershipGeneration()
+}

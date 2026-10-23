@@ -8,8 +8,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -67,81 +65,73 @@ class EncryptedProfileMutationJournal
     constructor(
         @ApplicationContext context: Context,
     ) : ProfileMutationJournal {
-        private val mutex = Mutex()
         private val json = com.poyka.ripdpi.serialization.RipDpiContractJson
         private val blobStore =
             KeystoreEncryptedPreferences(
                 preferences = context.getSharedPreferences(JournalPreferencesName, Context.MODE_PRIVATE),
                 keyAlias = JournalKeyAlias,
+                durableReads = true,
             )
 
         override suspend fun prepare(mutation: PendingProfileMutation) =
-            mutex.withLock {
-                withContext(Dispatchers.IO) {
-                    check(blobStore.getStringStrict(PendingEntryKey) == null) { "Profile mutation recovery is pending" }
-                    blobStore.putString(
-                        PendingEntryKey,
-                        json.encodeToString(PendingProfileMutation.serializer(), mutation),
-                    )
-                }
+            access {
+                check(blobStore.getStringStrict(PendingEntryKey) == null) { "Profile mutation recovery is pending" }
+                blobStore.putString(
+                    PendingEntryKey,
+                    json.encodeToString(PendingProfileMutation.serializer(), mutation),
+                )
             }
 
         override suspend fun pending(): PendingProfileMutation? =
-            mutex.withLock {
-                withContext(Dispatchers.IO) {
-                    try {
-                        blobStore.getStringStrict(PendingEntryKey)?.let {
-                            decodePendingProfileMutation(it)
-                        }
-                    } catch (cancellation: CancellationException) {
-                        throw cancellation
-                    } catch (error: SerializationException) {
-                        throw unreadableMarker(error)
-                    } catch (error: GeneralSecurityException) {
-                        throw unreadableMarker(error)
-                    } catch (error: BufferUnderflowException) {
-                        throw unreadableMarker(error)
-                    } catch (error: NegativeArraySizeException) {
-                        throw unreadableMarker(error)
-                    } catch (error: IllegalArgumentException) {
-                        throw unreadableMarker(error)
+            access {
+                try {
+                    blobStore.getStringStrict(PendingEntryKey)?.let {
+                        decodePendingProfileMutation(it)
                     }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (error: SerializationException) {
+                    throw unreadableMarker(error)
+                } catch (error: GeneralSecurityException) {
+                    throw unreadableMarker(error)
+                } catch (error: BufferUnderflowException) {
+                    throw unreadableMarker(error)
+                } catch (error: NegativeArraySizeException) {
+                    throw unreadableMarker(error)
+                } catch (error: IllegalArgumentException) {
+                    throw unreadableMarker(error)
                 }
             }
 
         override suspend fun replace(
             expectedMutationId: String,
             mutation: PendingProfileMutation,
-        ) = mutex.withLock {
-            withContext(Dispatchers.IO) {
-                val pending =
-                    blobStore.getStringStrict(PendingEntryKey)?.let {
-                        decodePendingProfileMutation(it)
-                    }
-                check(pending?.mutationId == expectedMutationId) { "Profile mutation journal id changed" }
-                blobStore.putString(
-                    PendingEntryKey,
-                    json.encodeToString(PendingProfileMutation.serializer(), mutation),
-                )
-            }
+        ) = access {
+            val pending =
+                blobStore.getStringStrict(PendingEntryKey)?.let {
+                    decodePendingProfileMutation(it)
+                }
+            check(pending?.mutationId == expectedMutationId) { "Profile mutation journal id changed" }
+            blobStore.putString(
+                PendingEntryKey,
+                json.encodeToString(PendingProfileMutation.serializer(), mutation),
+            )
         }
 
         override suspend fun complete(mutationId: String) =
-            mutex.withLock {
-                withContext(Dispatchers.IO) {
-                    val pending =
-                        blobStore.getStringStrict(PendingEntryKey)?.let {
-                            decodePendingProfileMutation(it)
-                        } ?: return@withContext
-                    check(pending.mutationId == mutationId) { "Profile mutation journal id changed" }
-                    blobStore.remove(PendingEntryKey)
-                }
+            access {
+                val pending =
+                    blobStore.getStringStrict(PendingEntryKey)?.let {
+                        decodePendingProfileMutation(it)
+                    } ?: return@access
+                check(pending.mutationId == mutationId) { "Profile mutation journal id changed" }
+                blobStore.remove(PendingEntryKey)
             }
 
-        override suspend fun clearForReset() =
-            mutex.withLock {
-                withContext(Dispatchers.IO) { blobStore.clear() }
-            }
+        override suspend fun clearForReset() = access { blobStore.clear() }
+
+        private suspend fun <T> access(block: () -> T): T =
+            withContext(Dispatchers.IO) { blobStore.withDurableState(block) }
 
         private companion object {
             const val JournalPreferencesName = "profile_mutation_journal"

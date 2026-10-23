@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -11,8 +12,9 @@ class ProxyGroupOfflineReserveTest {
     fun `fresh repository restores complete reserve credentials and payload policy`() =
         runTest {
             val blobStore = FakeProxyGroupBlobStore()
-            val accepted = reserveGroup()
-            createRepository(blobStore).add(accepted)
+            val repository = createRepository(blobStore)
+            repository.add(reserveGroup())
+            val accepted = repository.list().single()
 
             val restarted = createRepository(blobStore)
 
@@ -33,8 +35,8 @@ class ProxyGroupOfflineReserveTest {
                     }
                 }
             val repository = createRepository(storage)
-            val accepted = reserveGroup()
-            repository.add(accepted)
+            repository.add(reserveGroup())
+            val accepted = repository.list().single()
             val acceptedBytes = durable.read()
             rejectWrites = true
 
@@ -51,13 +53,16 @@ class ProxyGroupOfflineReserveTest {
         runTest {
             val blobStore = FakeProxyGroupBlobStore()
             val repository = createRepository(blobStore)
-            val accepted = reserveGroup()
-            repository.add(accepted)
+            repository.add(reserveGroup())
+            val accepted = repository.list().single()
             val replacement = accepted.copy(members = accepted.members.takeLast(1))
 
             repository.update(replacement)
 
-            assertEquals(listOf(replacement), createRepository(blobStore).list())
+            val stored = repository.list().single()
+            assertNotEquals(accepted.ownershipGeneration, stored.ownershipGeneration)
+            assertEquals(replacement.copy(ownershipGeneration = stored.ownershipGeneration), stored)
+            assertEquals(listOf(stored), createRepository(blobStore).list())
         }
 
     private fun createRepository(storage: ProxyGroupBlobStore) =

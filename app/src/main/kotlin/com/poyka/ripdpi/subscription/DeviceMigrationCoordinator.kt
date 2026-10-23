@@ -190,7 +190,7 @@ class DeviceMigrationCoordinator internal constructor(
     }
 
     private fun ProxyGroup.matches(captured: CapturedTarget): Boolean =
-        subscription?.migration == captured.delivery && (
+        ownershipGeneration == captured.ownershipGeneration && subscription?.migration == captured.delivery && (
             captured.relay == null ||
                 members.singleOrNull { it.id == captured.target.profileId } == captured.relay
         )
@@ -242,6 +242,7 @@ class DeviceMigrationCoordinator internal constructor(
                         delivery,
                         target,
                         generation,
+                        group.ownershipGeneration,
                         awg = request,
                         fullFingerprint = request.migrationFingerprint(true),
                     )
@@ -255,6 +256,7 @@ class DeviceMigrationCoordinator internal constructor(
                         delivery,
                         target,
                         generation,
+                        group.ownershipGeneration,
                         relay = member,
                         fullFingerprint = member.migrationFingerprint(),
                     )
@@ -265,6 +267,7 @@ class DeviceMigrationCoordinator internal constructor(
         val delivery: MigrationDelivery,
         val target: MigrationTarget,
         val mutationGeneration: Long,
+        val ownershipGeneration: String,
         val relay: ProxyProfile? = null,
         val awg: AwgActivationRequest? = null,
         val fullFingerprint: String,
