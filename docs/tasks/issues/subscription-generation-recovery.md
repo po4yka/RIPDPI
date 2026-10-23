@@ -2,7 +2,7 @@
 id: DAT-1792728666702112
 title: Fence subscription ABA and recover every commit boundary
 kind: bug
-status: review
+status: done
 area: data
 priority: high
 owner: Subscription persistence owner
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: subscription-generation-recovery
 created: 2026-10-23
 updated: 2026-10-23
+closed_at: "2026-10-23T05:46:12Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Persisted group generations reject ABA; 40 fault-matrix cases and competing recovery edits pass. Local 4247 unit tests and static gates passed; PR 652 CI run 39903731858 and ci-required passed, including all Debug/Release channels and five Android API levels. Implementation merged to main at 31c8ea8250dce7374a27820d67ba39bb502b15f5.
 ---
 
 ## Goal

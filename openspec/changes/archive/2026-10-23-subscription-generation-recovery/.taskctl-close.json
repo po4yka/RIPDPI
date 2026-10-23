@@ -1,0 +1,11 @@
+{
+  "change": "subscription-generation-recovery",
+  "evidence_summary": "Persisted group generations reject ABA; 40 fault-matrix cases and competing recovery edits pass. Local 4247 unit tests and static gates passed; PR 652 CI run 39903731858 and ci-required passed, including all Debug/Release channels and five Android API levels. Implementation merged to main at 31c8ea8250dce7374a27820d67ba39bb502b15f5.",
+  "execution_sha256": "b5ba124e5ce397892ee020437d2dd3d32c7af1438eba1efa87955d8f9f1de357",
+  "issue_sha256": "020e0d00bdddd2c495f967ac4ac5d6a2ca9ac7512440831c1609f9486dccc126",
+  "outcome": "done",
+  "prepared_at": "2026-10-23T05:46:12Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1792728666702112"
+}
