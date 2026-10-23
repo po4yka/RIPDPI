@@ -301,58 +301,33 @@ class CaptureDevice:
         except Exception as diagnostic_error:
             print(f"Could not collect pre-cleanup UI: {diagnostic_error}", flush=True)
 
-    def focus_relay_bottom(self) -> None:
-        previous_geometry = None
-        stable_observations = 0
-        for attempt in range(8):
-            tree = self.tree()
-            tls = self.tag(tree, "mode-editor-relay-section-tls-transports")
-            advanced = self.tag(tree, "mode-editor-advanced")
-            if tls is None or advanced is None:
-                raise RuntimeError("The complete relay end sections are missing. No frame was saved.")
-            viewport = self.viewport_bounds(tree, advanced)
-            tls_bounds, advanced_bounds = self.bounds(tls), self.bounds(advanced)
-            preset = self.tag(tree, "mode-editor-relay-chip-ru-mobile-relay")
-            preset_bounds = self.bounds(preset) if preset is not None else []
-            geometry = (viewport, tls_bounds, advanced_bounds, preset_bounds)
-            stable_observations = stable_observations + 1 if geometry == previous_geometry else 0
-            if stable_observations >= 2:
-                def inside(bounds):
-                    return (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
-                            and viewport[1] <= bounds[1] < bounds[3] <= viewport[3])
-
-                preset_complete = preset is None or (len(preset_bounds) == 4
-                    and preset_bounds[0] < preset_bounds[2] and preset_bounds[1] < preset_bounds[3]
-                    and (preset_bounds[3] <= viewport[1] or inside(preset_bounds)))
-                if not inside(tls_bounds) or not inside(advanced_bounds) or not preset_complete:
-                    raise RuntimeError("The relay end contains a clipped section. No frame was saved.")
-                self.receipts["relayBottomFocus"] = {
-                    "viewportBounds": viewport, "tlsBounds": tls_bounds, "advancedBounds": advanced_bounds,
-                    "precedingPresetBounds": preset_bounds, "unchangedObservations": stable_observations,
-                    "scrollAttempts": attempt, "observedAtUtc": datetime.now(timezone.utc).isoformat(),
-                }
-                return
-            previous_geometry = geometry
-            self.scroll(600, x=viewport[0] + 8)
-        raise RuntimeError("The relay end did not settle within eight observations. No frame was saved.")
-
     def verify_relay_sections(self) -> None:
-        tree = self.tree()
         names = ["mode-editor-relay-section-" + section for section in
                  ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
-        names.append("mode-editor-advanced")
-        observed = {}
-        for name in names:
-            node = self.tag(tree, name)
-            if node is None:
-                raise RuntimeError(f"The complete relay section is missing: {name}")
-            bounds = self.bounds(node)
-            viewport = self.viewport_bounds(tree, node)
-            if not (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
-                    and viewport[1] <= bounds[1] < bounds[3] <= viewport[3]):
-                raise RuntimeError(f"The relay section is clipped: {name}")
-            observed[name] = {"bounds": bounds, "viewport": viewport}
-        self.receipts.setdefault("relaySections", {})[self.locale] = observed
+        names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
+        previous = None
+        stable = 0
+        for _ in range(8):
+            tree = self.tree()
+            observed = {}
+            for name in names:
+                node = self.tag(tree, name)
+                if node is None:
+                    raise RuntimeError(f"The complete relay section is missing: {name}")
+                bounds = self.bounds(node)
+                viewport = self.viewport_bounds(tree, node)
+                if not (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
+                        and viewport[1] <= bounds[1] < bounds[3] <= viewport[3]):
+                    raise RuntimeError(f"The relay section is clipped: {name}")
+                observed[name] = {"bounds": bounds, "viewport": viewport}
+            stable = stable + 1 if observed == previous else 1
+            if stable >= 3:
+                self.receipts.setdefault("relaySections", {})[self.locale] = {
+                    "unchangedObservations": stable, "sections": observed}
+                return
+            previous = observed
+            time.sleep(0.5)
+        raise RuntimeError("The complete relay sections did not settle within eight observations.")
 
     def show_relay_fields(self) -> None:
         self.tap(self.tag(self.tree(), "config-mode-proxy"))
@@ -365,9 +340,6 @@ class CaptureDevice:
                 if switch.get("checked") == "false":
                     self.tap(switch)
                 self.align("mode-editor-relay-chip-ru-mobile-relay")
-                if self.locale == "zh-CN":
-                    # Here the natural end shows TLS and Advanced whole, with presets above the header.
-                    self.focus_relay_bottom()
                 self.verify_relay_sections()
                 return
             self.scroll(550)

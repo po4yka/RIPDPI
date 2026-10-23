@@ -74,64 +74,6 @@ class SourceCaptureTests(unittest.TestCase):
             device.focus_backup()
         device.scroll.assert_called_once_with(12)
 
-    def test_relay_bottom_focus_waits_for_stable_complete_content(self):
-        def tree(at_end):
-            preset = '' if at_end else '<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="[136,214][546,290]" />'
-            tls_top, advanced_top = (221, 1521) if at_end else (303, 1603)
-            return ElementTree.fromstring(
-                '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
-                f'{preset}<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,{tls_top}][944,{tls_top + 396}]" />'
-                f'<node resource-id="mode-editor-advanced" bounds="[107,{advanced_top}][973,{advanced_top + 77}]" />'
-                '</node></hierarchy>')
-        device = capture.CaptureDevice("emulator-5556")
-        device.tree = Mock(side_effect=[tree(False), tree(True), tree(True), tree(True)])
-        device.scroll = Mock()
-        device.focus_relay_bottom()
-        self.assertEqual(device.tree.call_count, 4)
-        self.assertEqual(device.scroll.call_count, 3)
-        for call in device.scroll.call_args_list:
-            self.assertEqual(call.args, (600,))
-            self.assertEqual(call.kwargs, {"x": 70})
-
-    def test_relay_bottom_focus_rejects_stable_clipped_sections(self):
-        for preset, advanced in ((None, (1603, 1680)), ((180, 256), (1521, 1598))):
-            with self.subTest(preset=preset, advanced=advanced):
-                preset_xml = (f'<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="[136,{preset[0]}][546,{preset[1]}]" />'
-                              if preset else '')
-                device = capture.CaptureDevice("emulator-5556")
-                device.tree = Mock(return_value=ElementTree.fromstring(
-                    '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
-                    f'{preset_xml}<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
-                    f'<node resource-id="mode-editor-advanced" bounds="[107,{advanced[0]}][973,{advanced[1]}]" />'
-                    '</node></hierarchy>'))
-                device.scroll = Mock()
-                with self.assertRaisesRegex(RuntimeError, "clipped section"):
-                    device.focus_relay_bottom()
-
-    def test_relay_bottom_focus_has_a_bounded_wait(self):
-        device = capture.CaptureDevice("emulator-5556")
-        device.tree = Mock(side_effect=[ElementTree.fromstring(
-            '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
-            '<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
-            f'<node resource-id="mode-editor-advanced" bounds="[107,{1521 + offset}][973,{1598 + offset}]" />'
-            '</node></hierarchy>') for offset in range(8)])
-        device.scroll = Mock()
-        with self.assertRaisesRegex(RuntimeError, "eight observations"):
-            device.focus_relay_bottom()
-        self.assertEqual(device.tree.call_count, 8)
-
-    def test_relay_bottom_focus_rejects_a_present_preset_without_bounds(self):
-        device = capture.CaptureDevice("emulator-5556")
-        device.tree = Mock(return_value=ElementTree.fromstring(
-            '<hierarchy><node scrollable="true" bounds="[62,210][1018,1611]">'
-            '<node resource-id="mode-editor-relay-chip-ru-mobile-relay" />'
-            '<node resource-id="mode-editor-relay-section-tls-transports" bounds="[136,221][944,617]" />'
-            '<node resource-id="mode-editor-advanced" bounds="[107,1521][973,1598]" />'
-            '</node></hierarchy>'))
-        device.scroll = Mock()
-        with self.assertRaisesRegex(RuntimeError, "clipped section"):
-            device.focus_relay_bottom()
-
     def test_relay_frame_keeps_the_last_recommended_preset_whole(self):
         device = capture.CaptureDevice("emulator-5556")
         device.locale = "en"
@@ -141,13 +83,11 @@ class SourceCaptureTests(unittest.TestCase):
         device.tap = Mock()
         device.align = Mock()
         device.verify_relay_sections = Mock()
-        device.focus_relay_bottom = Mock()
         device.show_relay_fields()
         device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
-        device.focus_relay_bottom.assert_not_called()
         device.locale = "zh-CN"
         device.show_relay_fields()
-        device.focus_relay_bottom.assert_called_once_with()
+        self.assertEqual(device.verify_relay_sections.call_count, 2)
 
     def test_relay_alignment_swipes_outside_the_visible_port_field(self):
         def tree(chip_top):
@@ -177,21 +117,21 @@ class SourceCaptureTests(unittest.TestCase):
                 device.align("relay-section")
                 device.scroll.assert_called_once_with(262 - viewport_top - 4, x=8)
 
-    def test_only_english_relay_profile_changes(self):
+    def test_relay_profiles_preserve_real_frame_and_font_sizes(self):
         self.assertEqual(display_profile("en", "relay"), {"densityDpi": 271, "fontScale": 1.5})
         self.assertEqual(FRAME_SIZE, (1080, 1800))
-        self.assertEqual(display_profile("ru", "relay"), {"densityDpi": 260, "fontScale": 1.5})
+        self.assertEqual(display_profile("ru", "relay"), {"densityDpi": 253, "fontScale": 1.5})
 
     def test_relay_sections_require_complete_visible_bounds(self):
         names = ["mode-editor-relay-section-" + section for section in
                  ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
-        names.append("mode-editor-advanced")
+        names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
         for bad in (None, "missing", "clipped-top", "clipped-bottom", "clipped-side"):
             with self.subTest(bad=bad):
                 nodes = []
                 for index, name in enumerate(names):
                     bounds = "[100,300][900,1500]"
-                    if index == 5:
+                    if index == 6:
                         if bad == "missing":
                             continue
                         bounds = {"clipped-top": "[100,209][900,1500]",
@@ -208,7 +148,28 @@ class SourceCaptureTests(unittest.TestCase):
                         device.verify_relay_sections()
                 else:
                     device.verify_relay_sections()
-                    self.assertEqual(len(device.receipts["relaySections"]["en"]), 6)
+                    self.assertEqual(len(device.receipts["relaySections"]["en"]["sections"]), 7)
+                    self.assertEqual(device.receipts["relaySections"]["en"]["unchangedObservations"], 3)
+
+    @patch.object(capture.time, "sleep")
+    def test_relay_sections_reject_a_clipped_preset_and_unstable_layout(self, _sleep):
+        names = ["mode-editor-relay-section-" + section for section in
+                 ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
+        names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
+        def tree(offset=0, clipped=False):
+            nodes = [f'<node resource-id="{name}" bounds="[100,{200 if clipped and index == 5 else 300 + offset}][900,1500]" />'
+                     for index, name in enumerate(names)]
+            return ElementTree.fromstring('<hierarchy><node scrollable="true" bounds="[45,210][1035,1665]">'
+                                          + "".join(nodes) + '</node></hierarchy>')
+        device = capture.CaptureDevice("emulator-5556")
+        device.locale = "zh-CN"
+        device.tree = Mock(return_value=tree(clipped=True))
+        with self.assertRaisesRegex(RuntimeError, "clipped"):
+            device.verify_relay_sections()
+        device.tree = Mock(side_effect=[tree(offset=i) for i in range(8)])
+        with self.assertRaisesRegex(RuntimeError, "eight observations"):
+            device.verify_relay_sections()
+        self.assertNotIn("relaySections", device.receipts)
 
     def test_presentation_failures_are_collected_but_never_complete(self):
         device = Mock()
