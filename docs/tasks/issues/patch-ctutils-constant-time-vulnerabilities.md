@@ -17,7 +17,7 @@ spec_reason: dependency-only
 
 ## Goal
 
-Resolve the published ctutils constant-time advisory by updating only the native workspace and fuzz lock entries to 0.4.4. No runtime source, dependency requirements, toolchain pins, or policy exceptions change.
+Resolve the published ctutils constant-time advisory by updating the native workspace and fuzz lock entries to 0.4.4. Synchronize the stale fuzz lock with the dependency requirements already present in the owner manifests so that locked validation is possible. No runtime source, dependency requirements, features, vendor patches, toolchain pins, workflows, or policy exceptions change.
 
 ## Ownership and serialized paths
 
@@ -25,9 +25,10 @@ Dependency security maintenance owns `native/rust/Cargo.lock`, `native/rust/fuzz
 
 ## Acceptance criteria
 
-- Both lockfiles resolve ctutils 0.4.4 with the official archive checksum `12218662ccac37d9714f2191252553d67585b97df8c839cbe49e0bde278dc865`; every other package record is unchanged.
+- Both lockfiles resolve ctutils 0.4.4 with the official archive checksum `12218662ccac37d9714f2191252553d67585b97df8c839cbe49e0bde278dc865`. The native lock changes no other package record.
+- The fuzz lock additionally satisfies the existing boring 5.3.0, rustls 0.23.46, and yaml_serde 0.10.7 requirements. Its bounded synchronization replaces serde_yaml_ng/unsafe-libyaml with yaml_serde/libyaml-rs, updates boring/boring-sys and rustls, and updates the existing ripdpi-tunnel-config dependency edge. All other package records, registry sources, and Git revisions remain unchanged.
 - The pinned Rust 1.98.1 remains unchanged and satisfies ctutils's Rust 1.87 minimum. The existing optional subtle 2.6.1 resolution remains compatible.
-- Run targeted locked Cargo validation and relevant native tests; report blocked gates without weakening them.
+- Run targeted locked Cargo validation and relevant native tests, link all 18 instrumented fuzz binaries on the configured nightly, and obtain bounded packet/YAML runtime evidence with ASan and LSan preserved. Report blocked gates without weakening them.
 - Require independent diff review and successful required CI for the exact PR head before merge. Keep this task open until that evidence exists.
 
 ## Advisory sources
@@ -38,7 +39,9 @@ Dependency security maintenance owns `native/rust/Cargo.lock`, `native/rust/fuzz
 ## Verification evidence
 
 - Native `cargo update -p ctutils --precise 0.4.4` on pinned Rust 1.98.1 produces exactly the reviewed version/checksum-only lock change. Native `cargo tree --locked -i ctutils` passes.
-- `cargo test --locked -p ripdpi-shadowsocks` passes on Rust 1.98.1.
+- `cargo test --locked -p ripdpi-shadowsocks` passes on Rust 1.98.1 (81 tests). Supplemental `ripdpi-tunnel-config` tests pass on the same pin (33 unit and eight YAML compatibility tests).
 - `taskctl validate` passes; existing task records and generated board rows are preserved.
-- Fuzz `cargo metadata --locked` is blocked both before and after this patch by existing manifest/lock drift. Current manifests require boring 5.3.0, rustls 0.23.46 and yaml_serde 0.10.7, while the base fuzz lock still resolves older boring/rustls and serde_yaml_ng. This security patch does not silently include that unrelated resolver migration.
-- Full required CI, CodeQL, and merge approval remain pending. The fuzz validation step is not marked complete.
+- Original and ctutils-only fuzz locks both failed `cargo metadata --locked` because the existing manifests already require boring 5.3.0, rustls 0.23.46, and yaml_serde 0.10.7. The independently reviewed synchronization candidate now passes locked metadata; its SHA-256 is `5620999132d4dab0cc2f2153f47bcd55251374bf67af52e8c45a289677e53a5b`.
+- All 18 real fuzz binaries link successfully using the configured nightly, rustc `1.101.0-nightly (7189d39d9 2026-10-22)`, and cargo-fuzz 0.13.2. Because that cargo-fuzz version has no locked option, independently reviewed local-only instrumentation adds only `--locked` to child Cargo commands. Actual compiler fingerprints retain ASan, coverage, cfg(fuzzing), and debug assertions. No repository workflow or compiler feature was changed; the candidate lock hash remains unchanged.
+- Local packet smoke executes its two initial corpus runs, then exits 1 because LSan cannot attach to its own thread in this cloud execution environment (errno 1). A minimal ASan program reproduces the environment failure. The empty crash artifact does not establish a product defect. A single ordinary elevated execution attempt fails before starting the command because the execution wrapper cannot initialize; no security setting or sanitizer was changed, and no workaround was attempted. YAML fuzz runtime remains unexecuted under the same unresolved limitation. These runtime gates are not reported as passing.
+- The earlier minimal head `d0552d25e313bd0cb4cbcf62be85cdc2031f0023` passed all six workflows, including CI (46 successful jobs, 18 skipped), CodeQL, and L7 adversarial checks. Those results do not certify this synchronization. The new exact head needs fresh required CI and hosted runtime evidence without implicit lock drift; independent review and merge approval remain required. The execution record deliberately remains 2/4 complete.
