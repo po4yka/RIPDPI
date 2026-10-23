@@ -310,14 +310,27 @@ class CaptureDevice:
             node = self.tag(tree, tag_name)
             if node is None:
                 observations.append({"missing": True})
-                self.scroll(500)
+                intrinsic = self.receipts.get("relayIntrinsic", {}).get(getattr(self, "locale", ""), {})
+                if tag_name == "mode-editor-relay-chip-ru-mobile-relay" and "height" in intrinsic.get("mode-editor-advanced", {}):
+                    # Measurement deliberately ends below this known preset.
+                    self.scroll(-400, x=intrinsic["mode-editor-advanced"]["viewport"][0] + 8)
+                else:
+                    self.scroll(500)
                 continue
             viewport = self.viewport_bounds(tree, node) if top is None else None
             target_top = top if top is not None else viewport[1] + 4
-            delta = self.bounds(node)[1] - target_top
-            observations.append({"bounds": self.bounds(node), "viewport": viewport,
-                                 "targetTop": target_top, "delta": delta})
-            if abs(delta) <= 4:
+            bounds = self.bounds(node)
+            delta = bounds[1] - target_top
+            reference = self.receipts.get("relayIntrinsic", {}).get(getattr(self, "locale", ""), {}).get(tag_name, {})
+            expected_height = reference.get("height")
+            complete_height = expected_height is None or bounds[3] - bounds[1] >= expected_height
+            if viewport is not None and not complete_height and bounds[1] == viewport[1]:
+                # Clipped accessibility bounds hide how far the real top is above
+                # the viewport. Use its independently measured full height.
+                delta = -(expected_height - (bounds[3] - bounds[1]) + target_top - viewport[1])
+            observations.append({"bounds": bounds, "viewport": viewport,
+                                 "targetTop": target_top, "delta": delta, "expectedHeight": expected_height})
+            if abs(delta) <= 4 and complete_height:
                 return
             geometry = (self.bounds(node), viewport)
             unchanged = unchanged + 1 if geometry == previous_bounds else 0
@@ -353,6 +366,55 @@ class CaptureDevice:
         except Exception as diagnostic_error:
             print(f"Could not collect pre-cleanup UI: {diagnostic_error}", flush=True)
 
+    def measure_relay_intrinsic_sizes(self) -> None:
+        """Measure boundary controls fully inside the same real scroll viewport.
+
+        UIAutomator truncates bounds at clipping edges. Interior observations
+        provide independent full sizes before the final screenshot alignment.
+        """
+        measured = {}
+        self.receipts.setdefault("relayIntrinsic", {})[self.locale] = measured
+        for name in ("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"):
+            previous = None
+            stable = 0
+            observations = []
+            measured[name] = {"observations": observations}
+            for _ in range(24):
+                tree = self.tree()
+                node = self.tag(tree, name)
+                if node is None:
+                    viewport_node = next((n for n in tree.iter("node") if n.get("scrollable") == "true"), None)
+                    if viewport_node is None:
+                        raise RuntimeError("Missing real editor viewport during intrinsic measurement.")
+                    viewport = self.bounds(viewport_node)
+                    if len(viewport) != 4:
+                        raise RuntimeError("Invalid real editor viewport during intrinsic measurement.")
+                    observations.append({"missing": True, "viewport": viewport})
+                    self.scroll(400, x=viewport[0] + 8)
+                    previous, stable = None, 0
+                    continue
+                bounds = self.bounds(node)
+                viewport = self.viewport_bounds(tree, node)
+                observations.append({"bounds": bounds, "viewport": viewport})
+                if len(bounds) != 4:
+                    raise RuntimeError("Invalid control bounds during intrinsic measurement.")
+                interior = (viewport[0] + 4 <= bounds[0] < bounds[2] <= viewport[2] - 4
+                            and viewport[1] + 4 <= bounds[1] < bounds[3] <= viewport[3] - 4)
+                if interior:
+                    geometry = (bounds, viewport)
+                    stable = stable + 1 if geometry == previous else 1
+                    previous = geometry
+                    if stable >= 3:
+                        measured[name].update({"width": bounds[2] - bounds[0], "height": bounds[3] - bounds[1],
+                                               "bounds": bounds, "viewport": viewport, "unchangedObservations": stable})
+                        break
+                    time.sleep(0.5)
+                else:
+                    self.scroll(-250 if bounds[1] < viewport[1] + 4 else 250, x=viewport[0] + 8)
+                    previous, stable = None, 0
+            else:
+                raise RelayLayoutError(f"Could not measure complete interior control: {name}")
+
     def verify_relay_sections(self) -> None:
         names = ["mode-editor-relay-section-" + section for section in
                  ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
@@ -373,6 +435,14 @@ class CaptureDevice:
                     raise RelayLayoutError(f"The relay section is clipped: {name}")
                 if name == "mode-editor-relay-chip-ru-mobile-relay" and abs(bounds[1] - viewport[1] - 4) > 4:
                     raise RelayLayoutError("The complete relay preset lost its required top alignment.")
+                if name in ("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"):
+                    reference = self.receipts.get("relayIntrinsic", {}).get(self.locale, {}).get(name, {})
+                    if "width" not in reference or "height" not in reference:
+                        raise RuntimeError("Full interior relay control dimensions were not observed.")
+                    width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
+                    if not (reference["width"] <= width <= reference["width"] + 1
+                            and reference["height"] <= height <= reference["height"] + 1):
+                        raise RelayLayoutError(f"The relay control is truncated relative to its full interior size: {name}")
                 observed[name] = {"bounds": bounds, "viewport": viewport}
             stable = stable + 1 if observed == previous else 1
             if stable >= 3:
@@ -432,6 +502,7 @@ class CaptureDevice:
     def show_relay_fields(self) -> None:
         self.tap(self.tag(self.tree(), "config-mode-proxy"))
         self.enable_relay_for_capture()
+        self.measure_relay_intrinsic_sizes()
         self.align("mode-editor-relay-chip-ru-mobile-relay")
         self.verify_relay_sections()
 
@@ -651,7 +722,7 @@ RELAY_CALIBRATION_DENSITIES = {
     "en": (271, 270, 272, 269, 273),
     **{locale: (267, 268, 266, 269, 265, 270, 264, 271, 263, 262, 261, 260, 259, 258, 257, 256, 255, 254, 253)
        for locale in ("ru", "es", "de", "fr")},
-    "fa": (243, 244, 245, 246, 247, 248, 249, 250, 251, 252),
+    "fa": (243, 242, 241, 240, 244, 245, 246, 247, 248, 249, 250, 251, 252),
     "zh-CN": (252, 251, 250, 253, 254, 255, 249, 248),
 }
 
@@ -679,7 +750,7 @@ def calibrate_relay_profiles(device: CaptureDevice, directory: Path, apk: Path,
                 for repetition in range(2):
                     trial = {"locale": locale, "requestedProfile": profile, "repetition": repetition,
                              "observedAtUtc": datetime.now(timezone.utc).isoformat()}
-                    for key in ("alignment", "relaySections", "relaySwitch", "calibrationTrial"):
+                    for key in ("alignment", "relaySections", "relaySwitch", "relayIntrinsic", "calibrationTrial"):
                         device.receipts.pop(key, None)
                     trial_dir = directory / locale / f"{density}-{repetition}"
                     error = None

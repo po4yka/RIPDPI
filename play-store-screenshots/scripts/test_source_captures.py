@@ -84,6 +84,7 @@ class SourceCaptureTests(unittest.TestCase):
         device.align = Mock()
         device.verify_relay_sections = Mock()
         device.enable_relay_for_capture = Mock()
+        device.measure_relay_intrinsic_sizes = Mock()
         device.show_relay_fields()
         device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
         device.locale = "zh-CN"
@@ -141,6 +142,9 @@ class SourceCaptureTests(unittest.TestCase):
                     nodes.append(f'<node resource-id="{name}" bounds="{bounds}" />')
                 device = capture.CaptureDevice("emulator-5556")
                 device.locale = "en"
+                device.receipts["relayIntrinsic"] = {"en": {
+                    "mode-editor-relay-chip-ru-mobile-relay": {"width": 800, "height": 76},
+                    "mode-editor-advanced": {"width": 800, "height": 1200}}}
                 device.tree = Mock(return_value=ElementTree.fromstring(
                     '<hierarchy><node scrollable="true" bounds="[45,210][1035,1665]">'
                     + "".join(nodes) + '</node></hierarchy>'))
@@ -158,12 +162,15 @@ class SourceCaptureTests(unittest.TestCase):
                  ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
         names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
         def tree(offset=0, clipped=False):
-            nodes = [f'<node resource-id="{name}" bounds="[100,{(200 if clipped else 214) if index == 5 else 300 + offset}][900,1500]" />'
+            nodes = [f'<node resource-id="{name}" bounds="[100,{(200 if clipped else 214) if index == 5 else 300 + offset}][900,{1500 if index == 5 else 1500 + offset}]" />'
                      for index, name in enumerate(names)]
             return ElementTree.fromstring('<hierarchy><node scrollable="true" bounds="[45,210][1035,1665]">'
                                           + "".join(nodes) + '</node></hierarchy>')
         device = capture.CaptureDevice("emulator-5556")
         device.locale = "zh-CN"
+        device.receipts["relayIntrinsic"] = {"zh-CN": {
+            "mode-editor-relay-chip-ru-mobile-relay": {"width": 800, "height": 1286},
+            "mode-editor-advanced": {"width": 800, "height": 1200}}}
         device.tree = Mock(return_value=tree(clipped=True))
         with self.assertRaisesRegex(RuntimeError, "clipped"):
             device.verify_relay_sections()
