@@ -9,24 +9,34 @@ data class PmtuDiagnosis(
 
 /** Outbound packet lower bound only; never a tunnel setting or an exact path maximum. */
 fun PmtuProbeEvidence?.diagnosePmtu(networkScopeUnverified: Boolean = false): PmtuDiagnosis {
-    val evidence =
-        this?.validatedPmtuProbeEvidence()
-            ?: return PmtuDiagnosis(PmtuDiagnosisStatus.Unavailable)
-    if (networkScopeUnverified || evidence.reason == "network_scope_unverified") {
-        return PmtuDiagnosis(PmtuDiagnosisStatus.Historical)
-    }
-    val payload =
-        evidence.acknowledgedUdpPayloadLowerBoundBytes
-            ?: return PmtuDiagnosis(PmtuDiagnosisStatus.Unavailable)
-    if (evidence.status != PmtuProbeStatus.OBSERVED || !evidence.observationWindowComplete) {
-        return PmtuDiagnosis(PmtuDiagnosisStatus.Partial)
-    }
-    val headers =
-        when (evidence.addressFamily) {
-            PmtuAddressFamily.IPV4 -> Ipv4UdpHeaderBytes
-            PmtuAddressFamily.IPV6 -> Ipv6UdpHeaderBytes
+    val evidence = this?.validatedPmtuProbeEvidence()
+    val payload = evidence?.acknowledgedUdpPayloadLowerBoundBytes
+    return when {
+        evidence == null -> {
+            PmtuDiagnosis(PmtuDiagnosisStatus.Unavailable)
         }
-    return PmtuDiagnosis(PmtuDiagnosisStatus.ConfirmedLowerBound, payload + headers)
+
+        networkScopeUnverified || evidence.reason == "network_scope_unverified" -> {
+            PmtuDiagnosis(PmtuDiagnosisStatus.Historical)
+        }
+
+        payload == null -> {
+            PmtuDiagnosis(PmtuDiagnosisStatus.Unavailable)
+        }
+
+        evidence.status != PmtuProbeStatus.OBSERVED || !evidence.observationWindowComplete -> {
+            PmtuDiagnosis(PmtuDiagnosisStatus.Partial)
+        }
+
+        else -> {
+            val headers =
+                when (evidence.addressFamily) {
+                    PmtuAddressFamily.IPV4 -> Ipv4UdpHeaderBytes
+                    PmtuAddressFamily.IPV6 -> Ipv6UdpHeaderBytes
+                }
+            PmtuDiagnosis(PmtuDiagnosisStatus.ConfirmedLowerBound, payload + headers)
+        }
+    }
 }
 
 private const val Ipv4UdpHeaderBytes = 28
