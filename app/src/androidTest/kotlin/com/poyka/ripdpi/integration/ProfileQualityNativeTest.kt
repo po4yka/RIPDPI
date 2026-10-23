@@ -30,6 +30,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.CandidateHttpPayloadProbe
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
@@ -46,6 +47,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -202,11 +204,7 @@ class ProfileQualityNativeTest {
                                 assertTrue(origin.methods.count { it == "GET" } >= 4)
                                 assertTrue(origin.methods.count { it == "HEAD" } >= 8)
                             } finally {
-                                controller.stop()
-                                state.status.first { it.first == AppStatus.Halted }
-                                observed.assertRetiredSince(previous)
-                                groups.delete(mutations.captureMutation(ProfileMutationOrigin.ExplicitDeletion), id)
-                                settings.replace(original)
+                                cleanupGroup(id, original, observed, previous)
                             }
                         }
                     }
@@ -257,6 +255,32 @@ class ProfileQualityNativeTest {
                 }
             }
         }
+
+    private suspend fun cleanupGroup(
+        id: String,
+        original: AppSettings,
+        observed: ObservedNativeRelayBindings,
+        previous: Set<Long>,
+    ) = withContext(NonCancellable) {
+        try {
+            withTimeout(15_000) {
+                controller.stop()
+                state.status.first { it.first == AppStatus.Halted }
+            }
+        } finally {
+            try {
+                observed.assertRetiredSince(previous)
+            } finally {
+                try {
+                    withTimeout(10_000) {
+                        groups.delete(mutations.captureMutation(ProfileMutationOrigin.ExplicitDeletion), id)
+                    }
+                } finally {
+                    withTimeout(10_000) { settings.replace(original) }
+                }
+            }
+        }
+    }
 
     private suspend fun awaitApplied(
         groupId: String,
