@@ -31,6 +31,7 @@ import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
+import com.poyka.ripdpi.data.ProfileQualityStore
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.data.ResolverOverrideStore
@@ -178,6 +179,8 @@ class XrayProviderE2ETest {
     @Inject lateinit var utilityAuthority: PauseIntentAuthority
 
     @Inject lateinit var utilityPersistence: PauseAuthorityPersistence
+
+    @Inject lateinit var utilityQuality: ProfileQualityStore
 
     @Inject lateinit var utilityCatalog: ProfileUtilityCatalogReader
 
@@ -515,6 +518,7 @@ class XrayProviderE2ETest {
                                     utilityActivation,
                                     utilityNative,
                                     utilityXray,
+                                    utilityQuality,
                                 )
                             kotlinx.coroutines.withContext(Dispatchers.Main) { models.put("owned-xray-utility", vm) }
                             collector = observeUtility(vm, phase, reference)

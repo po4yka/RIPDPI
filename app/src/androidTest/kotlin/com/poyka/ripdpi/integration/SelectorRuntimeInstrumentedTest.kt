@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
+import com.poyka.ripdpi.data.ProfileQualityStore
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -135,6 +136,8 @@ class SelectorRuntimeInstrumentedTest {
     @Inject lateinit var measurements: CandidateRelayMeasurements
 
     @Inject lateinit var xrayMeasurements: CandidateXrayMeasurements
+
+    @Inject lateinit var quality: ProfileQualityStore
 
     @Inject lateinit var selection: MeasuredProfileActivationCoordinator
 
@@ -593,6 +596,7 @@ class SelectorRuntimeInstrumentedTest {
             selection,
             measurements,
             xrayMeasurements,
+            quality,
         )
 
     private suspend fun verifyCandidate(truncated: Boolean) =
