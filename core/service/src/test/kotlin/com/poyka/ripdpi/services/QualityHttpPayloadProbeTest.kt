@@ -177,24 +177,7 @@ private class QualitySocketFixture(
                 output.write(byteArrayOf(5, 0, 0, 1, 127, 0, 0, 1, 1, -69))
                 output.flush()
                 (serverTls.sslSocketFactory().createSocket(accepted, host, 443, true) as SSLSocket).use { tls ->
-                    tls.useClientMode = false
-                    tls.startHandshake()
-                    val reader = tls.inputStream.bufferedReader()
-                    val method = reader.readLine().substringBefore(' ')
-                    methods.add(method)
-                    while (!reader.readLine().isNullOrEmpty()) { /* Bounded test request headers. */ }
-                    get = method == "GET"
-                    if (!get && heads.incrementAndGet() > 1) {
-                        loadedHeadBeforeBody = bodyStarted.count != 0L
-                        Thread.sleep(loadedHeadDelayMillis)
-                    }
-                    val status = if (get) 200 else headStatus
-                    tls.outputStream.write(
-                        "HTTP/1.1 $status Result\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n"
-                            .toByteArray(),
-                    )
-                    tls.outputStream.flush()
-                    if (get) sendBody(tls)
+                    serveHttp(tls) { get = it }
                 }
             }
         } catch (_: java.io.IOException) {
@@ -206,6 +189,30 @@ private class QualitySocketFixture(
         } finally {
             if (get) bodyClosed.countDown()
         }
+    }
+
+    private fun serveHttp(
+        tls: SSLSocket,
+        requestParsed: (Boolean) -> Unit,
+    ) {
+        tls.useClientMode = false
+        tls.startHandshake()
+        val reader = tls.inputStream.bufferedReader()
+        val method = reader.readLine().substringBefore(' ')
+        methods.add(method)
+        while (!reader.readLine().isNullOrEmpty()) { /* Bounded test request headers. */ }
+        val get = method == "GET"
+        requestParsed(get)
+        if (!get && heads.incrementAndGet() > 1) {
+            loadedHeadBeforeBody = bodyStarted.count != 0L
+            Thread.sleep(loadedHeadDelayMillis)
+        }
+        val status = if (get) 200 else headStatus
+        tls.outputStream.write(
+            "HTTP/1.1 $status Result\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n".toByteArray(),
+        )
+        tls.outputStream.flush()
+        if (get) sendBody(tls)
     }
 
     private fun sendBody(tls: SSLSocket) {
