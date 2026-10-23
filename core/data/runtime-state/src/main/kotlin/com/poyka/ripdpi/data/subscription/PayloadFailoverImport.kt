@@ -23,7 +23,7 @@ internal object PayloadFailoverImport {
                 (extension["schema_version"] as? JsonPrimitive)?.intOrNull ==
                     SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION,
             )
-            val objectValue = value as? JsonObject ?: error("Payload policy must be an object")
+            val objectValue = requireNotNull(value as? JsonObject) { "Payload policy must be an object" }
             require("quality" !in objectValue || objectValue["quality"] is JsonObject)
             val policy = RipDpiStrictJson.decodeFromJsonElement<PayloadFailoverPolicy>(value)
             require(policy.selectorTag == selectorTag)
