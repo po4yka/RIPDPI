@@ -2,7 +2,7 @@
 id: TRN-1792759596946903
 title: Select profiles using bounded transfer quality and scoped MTU diagnostics
 kind: feature
-status: doing
+status: review
 area: transport
 priority: high
 owner: transport-audit
