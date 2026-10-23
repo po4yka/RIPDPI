@@ -72,7 +72,7 @@ DISPLAY_OVERRIDES = {
         "dns-settings": DNS_DISPLAY_PROFILES[locale],
     } for locale in LOCALES
 }
-DISPLAY_OVERRIDES["en"]["relay"] = {"densityDpi": 264, "fontScale": 1.5}
+DISPLAY_OVERRIDES["en"]["relay"] = {"densityDpi": 271, "fontScale": 1.5}
 DISPLAY_OVERRIDES["fa"]["relay"] = {"densityDpi": 250, "fontScale": 1.56}
 DISPLAY_OVERRIDES["zh-CN"]["relay"] = {"densityDpi": 255, "fontScale": 1.5294118}
 DNS_BOTTOM_FOCUS_PIXELS = {locale: 35 if locale in ("de", "fr", "fa", "zh-CN") else 45 for locale in LOCALES}

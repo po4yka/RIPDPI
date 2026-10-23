@@ -140,6 +140,7 @@ class SourceCaptureTests(unittest.TestCase):
             '<node checkable="true" clickable="true" checked="true" /></hierarchy>'))
         device.tap = Mock()
         device.align = Mock()
+        device.verify_relay_sections = Mock()
         device.focus_relay_bottom = Mock()
         device.show_relay_fields()
         device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
@@ -176,54 +177,64 @@ class SourceCaptureTests(unittest.TestCase):
                 device.align("relay-section")
                 device.scroll.assert_called_once_with(262 - viewport_top - 4, x=8)
 
-    def test_alignment_learns_actual_touch_threshold_in_both_directions(self):
-        for initial in (470, -470, 44, -44):
-            with self.subTest(initial=initial):
+    def test_only_english_relay_profile_changes(self):
+        self.assertEqual(display_profile("en", "relay"), {"densityDpi": 271, "fontScale": 1.5})
+        self.assertEqual(FRAME_SIZE, (1080, 1800))
+        self.assertEqual(display_profile("ru", "relay"), {"densityDpi": 260, "fontScale": 1.5})
+
+    def test_relay_sections_require_complete_visible_bounds(self):
+        names = ["mode-editor-relay-section-" + section for section in
+                 ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
+        names.append("mode-editor-advanced")
+        for bad in (None, "missing", "clipped-top", "clipped-bottom", "clipped-side"):
+            with self.subTest(bad=bad):
+                nodes = []
+                for index, name in enumerate(names):
+                    bounds = "[100,300][900,1500]"
+                    if index == 5:
+                        if bad == "missing":
+                            continue
+                        bounds = {"clipped-top": "[100,209][900,1500]",
+                                  "clipped-bottom": "[100,300][900,1666]",
+                                  "clipped-side": "[44,300][900,1500]"}.get(bad, bounds)
+                    nodes.append(f'<node resource-id="{name}" bounds="{bounds}" />')
                 device = capture.CaptureDevice("emulator-5556")
-                delta = initial
-                strokes = []
-                def tree():
-                    return ElementTree.fromstring(
-                        '<hierarchy><node scrollable="true" bounds="[45,900][1035,1630]">'
-                        f'<node resource-id="target" bounds="[100,{904 + delta}][900,{980 + delta}]" />'
-                        '</node></hierarchy>')
-                def scroll(request, *, x, slop_pixels=None):
-                    nonlocal delta
-                    stroke = max(-600, min(600, request + (1 if request > 0 else -1)
-                                           * (13 if slop_pixels is None else slop_pixels)))
-                    delta -= (1 if stroke > 0 else -1) * max(0, abs(stroke) - 57)
-                    strokes.append(stroke)
-                    return stroke
-                device.tree = tree
-                device.scroll = scroll
-                device.align("target")
-                self.assertLessEqual(abs(delta), 4)
-                self.assertEqual(len(strokes), 2)
-                self.assertEqual(device.receipts["alignment"]["target"][1]["learnedSlopPixels"], 57)
+                device.locale = "en"
+                device.tree = Mock(return_value=ElementTree.fromstring(
+                    '<hierarchy><node scrollable="true" bounds="[45,210][1035,1665]">'
+                    + "".join(nodes) + '</node></hierarchy>'))
+                if bad:
+                    with self.assertRaisesRegex(RuntimeError, "relay section"):
+                        device.verify_relay_sections()
+                else:
+                    device.verify_relay_sections()
+                    self.assertEqual(len(device.receipts["relaySections"]["en"]), 6)
 
-    def test_alignment_corrects_overshoot_without_relaxing_target(self):
-        def tree(delta):
-            return ElementTree.fromstring(
-                '<hierarchy><node scrollable="true" bounds="[45,900][1035,1630]">'
-                f'<node resource-id="target" bounds="[100,{904 + delta}][900,1100]" />'
-                '</node></hierarchy>')
-        device = capture.CaptureDevice("emulator-5556")
-        device.tree = Mock(side_effect=[tree(44), tree(-13), tree(0)])
-        device.scroll = Mock(side_effect=[57, -13])
-        device.align("target")
-        device.scroll.assert_any_call(-13, x=53, slop_pixels=0)
+    def test_presentation_failures_are_collected_but_never_complete(self):
+        device = Mock()
+        device.show_route.side_effect = RuntimeError("clipped section")
+        failures = []
+        for name in ("relay", "dns-settings", "strategies", "backup"):
+            self.assertFalse(capture.show_capture_route(device, "en", name, "route", reset=False,
+                                                       diagnostics=Path("debug"), failures=failures))
+        self.assertEqual(len(failures), 4)
+        self.assertEqual(device.save_failure_diagnostics.call_count, 4)
+        with self.assertRaisesRegex(RuntimeError, "no manifest written"):
+            capture.require_complete_capture(failures)
+        capture.require_complete_capture([])
 
-    def test_alignment_does_not_learn_from_a_clamped_stroke(self):
-        def tree(delta):
-            return ElementTree.fromstring(
-                '<hierarchy><node scrollable="true" bounds="[45,210][1035,1630]">'
-                f'<node resource-id="target" bounds="[100,{214 + delta}][900,1500]" />'
-                '</node></hierarchy>')
-        device = capture.CaptureDevice("emulator-5556")
-        device.tree = Mock(side_effect=[tree(800), tree(300), tree(0)])
-        device.scroll = Mock(side_effect=[600, 313])
-        device.align("target")
-        self.assertNotIn("slop_pixels", device.scroll.call_args_list[1].kwargs)
+    def test_live_and_infrastructure_errors_abort_instead_of_aggregating(self):
+        for name, error in (("home", RuntimeError("disconnect failed")),
+                            ("diagnostics", RuntimeError("scan failed")),
+                            ("relay", subprocess.CalledProcessError(1, "adb"))):
+            with self.subTest(name=name):
+                device = Mock()
+                device.show_route.side_effect = error
+                failures = []
+                with self.assertRaises(type(error)):
+                    capture.show_capture_route(device, "en", name, "route", reset=False,
+                                               diagnostics=None, failures=failures)
+                self.assertEqual(failures, [])
 
     def test_failure_diagnostics_preserve_original_observations_without_manifest(self):
         device = capture.CaptureDevice("emulator-5556")
@@ -238,31 +249,6 @@ class SourceCaptureTests(unittest.TestCase):
             self.assertEqual((path / "frame-before-cleanup.png").read_bytes(), b"raw observed bytes")
             self.assertFalse((path / "source-capture.json").exists())
         self.assertFalse(any("density" in call.args and "reset" in call.args for call in device.adb.call_args_list))
-
-    def test_alignment_does_not_accept_natural_scroll_end(self):
-        device = capture.CaptureDevice("emulator-5556")
-        device.tree = Mock(return_value=ElementTree.fromstring(
-            '<hierarchy><node scrollable="true" bounds="[45,210][1035,1630]">'
-            '<node resource-id="target" bounds="[100,258][900,334]" />'
-            '</node></hierarchy>'))
-        device.scroll = Mock(side_effect=lambda delta, **kwargs: delta + kwargs.get("slop_pixels", 13))
-        with self.assertRaisesRegex(RuntimeError, "Could not align"):
-            device.align("target", attempts=8)
-        self.assertEqual(device.scroll.call_count, 8)
-        self.assertTrue(all(call.kwargs.get("slop_pixels", 0) <= 200 for call in device.scroll.call_args_list))
-
-    def test_alignment_resets_learning_when_viewport_changes(self):
-        def tree(top, delta):
-            return ElementTree.fromstring(
-                f'<hierarchy><node scrollable="true" bounds="[45,{top}][1035,1630]">'
-                f'<node resource-id="target" bounds="[100,{top + 4 + delta}][900,900]" />'
-                '</node></hierarchy>')
-        device = capture.CaptureDevice("emulator-5556")
-        device.tree = Mock(side_effect=[tree(210, 44), tree(210, 44), tree(220, 44), tree(220, 0)])
-        device.scroll = Mock(side_effect=[57, 101, 57])
-        device.align("target")
-        self.assertEqual(device.scroll.call_args_list[1].kwargs["slop_pixels"], 57)
-        self.assertNotIn("slop_pixels", device.scroll.call_args_list[2].kwargs)
 
     def test_relay_alignment_rejects_a_missing_scroll_viewport(self):
         device = capture.CaptureDevice("emulator-5556")

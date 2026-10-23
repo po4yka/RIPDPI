@@ -82,9 +82,9 @@ class CaptureDevice:
         self.adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
         time.sleep(0.6)
 
-    def scroll(self, delta: int, *, x: int = 540, slop_pixels: int | None = None) -> int:
+    def scroll(self, delta: int, *, x: int = 540) -> int:
         density = int(re.findall(r"density: ([0-9]+)", self.adb("shell", "wm", "density"))[-1])
-        slop = round(density * 8 / 160) if slop_pixels is None else slop_pixels
+        slop = round(density * 8 / 160)
         step = max(-600, min(600, delta + (slop if delta > 0 else -slop)))
         self.adb("shell", "input", "swipe", str(x), "1450" if step > 0 else "750", str(x), str(1450 - step) if step > 0 else str(750 - step), "900")
         time.sleep(0.8)
@@ -258,8 +258,6 @@ class CaptureDevice:
         raise RuntimeError("The actual capture viewport is missing. No frame was saved.")
 
     def align(self, tag_name: str, top: int | None = None, attempts: int = 32) -> None:
-        previous = None
-        slop_pixels = None
         observations = []
         self.receipts.setdefault("alignment", {})[tag_name] = observations
         for _ in range(attempts):
@@ -267,8 +265,6 @@ class CaptureDevice:
             node = self.tag(tree, tag_name)
             if node is None:
                 self.scroll(500)
-                previous = None
-                slop_pixels = None
                 continue
             viewport = self.viewport_bounds(tree, node) if top is None else None
             target_top = top if top is not None else viewport[1] + 4
@@ -277,24 +273,12 @@ class CaptureDevice:
                                  "targetTop": target_top, "delta": delta})
             if abs(delta) <= 4:
                 return
-            if previous is not None:
-                old_delta, stroke, old_viewport = previous
-                movement = old_delta - delta
-                if old_viewport != viewport:
-                    slop_pixels = None
-                # Learn the device's actual touch threshold from geometry, not an
-                # assumed dp constant. Never relax the final alignment readback.
-                if (viewport is not None and old_viewport == viewport and isinstance(stroke, int) and abs(stroke) < 600
-                        and movement * stroke >= 0 and abs(movement) <= abs(stroke)):
-                    slop_pixels = min(200, abs(stroke) - abs(movement))
-            kwargs = {} if slop_pixels is None else {"slop_pixels": slop_pixels}
+            kwargs = {}
             if viewport is not None:
                 # The editor's scroll padding is outside inputs, including the local port.
                 kwargs["x"] = viewport[0] + 8
             stroke = self.scroll(delta, **kwargs)
-            observations[-1].update({"swipePixels": stroke if isinstance(stroke, int) else None,
-                                     "learnedSlopPixels": slop_pixels})
-            previous = (delta, stroke, viewport)
+            observations[-1]["swipePixels"] = stroke if isinstance(stroke, int) else None
         raise RuntimeError(f"Could not align a complete capture section: {tag_name}")
 
     def save_failure_diagnostics(self, directory: Path, error: Exception) -> None:
@@ -352,6 +336,24 @@ class CaptureDevice:
             self.scroll(600, x=viewport[0] + 8)
         raise RuntimeError("The relay end did not settle within eight observations. No frame was saved.")
 
+    def verify_relay_sections(self) -> None:
+        tree = self.tree()
+        names = ["mode-editor-relay-section-" + section for section in
+                 ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
+        names.append("mode-editor-advanced")
+        observed = {}
+        for name in names:
+            node = self.tag(tree, name)
+            if node is None:
+                raise RuntimeError(f"The complete relay section is missing: {name}")
+            bounds = self.bounds(node)
+            viewport = self.viewport_bounds(tree, node)
+            if not (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
+                    and viewport[1] <= bounds[1] < bounds[3] <= viewport[3]):
+                raise RuntimeError(f"The relay section is clipped: {name}")
+            observed[name] = {"bounds": bounds, "viewport": viewport}
+        self.receipts.setdefault("relaySections", {})[self.locale] = observed
+
     def show_relay_fields(self) -> None:
         self.tap(self.tag(self.tree(), "config-mode-proxy"))
         for _ in range(14):
@@ -366,6 +368,7 @@ class CaptureDevice:
                 if self.locale == "zh-CN":
                     # Here the natural end shows TLS and Advanced whole, with presets above the header.
                     self.focus_relay_bottom()
+                self.verify_relay_sections()
                 return
             self.scroll(550)
         raise RuntimeError("The relay editor switch is missing.")
@@ -513,6 +516,27 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
     MANIFEST.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
 
 
+def show_capture_route(device: CaptureDevice, locale: str, name: str, route: str, *,
+                       reset: bool, diagnostics: Path | None, failures: list[str]) -> bool:
+    try:
+        device.show_route(name, route, reset=reset)
+    except RuntimeError as error:
+        # Live connection/scan failures are not independent presentation failures.
+        if name in ("home", "diagnostics"):
+            raise
+        failures.append(f"{locale}/{name}: {error}")
+        if diagnostics:
+            device.save_failure_diagnostics(diagnostics / "routes" / locale / name, error)
+        print(f"Capture failed for {locale}/{name}: {error}", flush=True)
+        return False
+    return True
+
+
+def require_complete_capture(failures: list[str]) -> None:
+    if failures:
+        raise RuntimeError("Incomplete source capture; no manifest written: " + "; ".join(failures))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--serial", required=True, help="Dedicated 1080x1800, 360 dpi emulator; its app state is reset")
@@ -563,11 +587,14 @@ def main() -> None:
     device.clear_statusbar_demo()
     try:
         first = True
+        presentation_failures = []
         for locale in LOCALES:
             device.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", locale)
             device.verify_locale(locale)
             for name, (route, source_name) in SCREENS.items():
-                device.show_route(name, route, reset=first)
+                if not show_capture_route(device, locale, name, route, reset=first,
+                                          diagnostics=args.failure_diagnostics, failures=presentation_failures):
+                    continue
                 first = False
                 path = PROJECT / f"public/screenshots/{locale}/{source_name}.png"
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -593,6 +620,7 @@ def main() -> None:
                 print(f"Captured {locale}/{name}", flush=True)
                 if name == "home":
                     device.disconnect_live()
+        require_complete_capture(presentation_failures)
         record_manifest(device, apk, xray_artifacts, revision, inputs)
     except Exception as error:
         if args.failure_diagnostics:
