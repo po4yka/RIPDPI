@@ -53,3 +53,17 @@ Local verification: 65 capture/provenance/calibration tests, 16 workflow-path,
 KVM and emulator contract tests, actionlint and task contracts passed. The new
 Compose test requires hosted execution; no local Android result is claimed.
 Actual calibration, final visual review and exact-head CI remain pending.
+
+
+## Validated relay profiles
+
+Calibration run [39988504615](https://github.com/po4yka/RIPDPI/actions/runs/39988504615)
+used capture revision `94183121aad5f878bff67a8c3a6d3ee7b8300ec9` and the verified
+sealed APK from run 39976071820. All seven locales passed two independent trials:
+en 271 dpi, ru/es/de/fr 267 dpi, fa 241 dpi, zh-CN 251 dpi; physical pixels and
+font scales are unchanged. Full-interior measurements correctly rejected fa
+243/242 and zh-CN 252 rather than accepting clipped UIAutomator bounds.
+Independent full-size and phone-thumbnail review approved all 14 accepted raw
+frames and their matching XML/intrinsic receipts. These diagnostic frames are
+not published source assets. Full fixed-profile capture, review of all 42 source
+frames and 49 marketing outputs, and final exact-head CI remain pending.

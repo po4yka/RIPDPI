@@ -122,7 +122,14 @@ class SourceCaptureTests(unittest.TestCase):
     def test_relay_profiles_preserve_real_frame_and_font_sizes(self):
         self.assertEqual(display_profile("en", "relay"), {"densityDpi": 271, "fontScale": 1.5})
         self.assertEqual(FRAME_SIZE, (1080, 1800))
-        self.assertEqual(display_profile("ru", "relay"), {"densityDpi": 253, "fontScale": 1.5})
+        for locale in ("ru", "es", "de", "fr"):
+            with self.subTest(locale=locale):
+                self.assertEqual(display_profile(locale, "relay"),
+                                 {"densityDpi": 267, "fontScale": 1.5})
+        self.assertEqual(display_profile("fa", "relay"),
+                         {"densityDpi": 241, "fontScale": 1.56})
+        self.assertEqual(display_profile("zh-CN", "relay"),
+                         {"densityDpi": 251, "fontScale": 1.5294118})
 
     def test_relay_sections_require_complete_visible_bounds(self):
         names = ["mode-editor-relay-section-" + section for section in

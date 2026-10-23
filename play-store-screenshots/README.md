@@ -38,17 +38,17 @@ python3 scripts/capture-android.py \
 python3 scripts/validate-source-captures.py
 ```
 
-The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy configuration use that profile. Home uses 290 dpi and font scale 0.8 in all locales. Review each frame to confirm that the real strategy description and all measurement captions fit in the phone viewport. The relay picker uses 253 dpi / 1.5 by default, with localized overrides. DNS and backup profiles also depend on the locale. [The owning profile constants](scripts/source_captures.py) define these settings; the manifest records each frame's actual readback. Capture cleanup restores the base density and font scale on success and failure.
+The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy configuration use that profile. Home uses 290 dpi and font scale 0.8 in all locales. Review each frame to confirm that the real strategy description and all measurement captions fit in the phone viewport. The relay picker uses 267 dpi / 1.5 by default, with localized overrides. DNS and backup profiles also depend on the locale. [The owning profile constants](scripts/source_captures.py) define these settings; the manifest records each frame's actual readback. Capture cleanup restores the base density and font scale on success and failure.
 
 | Locale | Relay: dpi / font scale | DNS: dpi / font scale | Backup: dpi / font scale |
 |---|---|---|---|
 | en | 271 / 1.5 | 360 / 1 | 480 / 0.75 |
-| ru | 253 / 1.5 | 300 / 1.18 | 460 / 0.7826087 |
-| es | 253 / 1.5 | 290 / 1.24 | 460 / 0.7826087 |
-| de | 253 / 1.5 | 290 / 1.2 | 430 / 0.8372093 |
-| fr | 253 / 1.5 | 290 / 1.2 | 460 / 0.7826087 |
-| fa | 243 / 1.56 | 300 / 1 | 440 / 0.8181818 |
-| zh-CN | 249 / 1.5294118 | 360 / 0.8571429 | 500 / 0.72 |
+| ru | 267 / 1.5 | 300 / 1.18 | 460 / 0.7826087 |
+| es | 267 / 1.5 | 290 / 1.24 | 460 / 0.7826087 |
+| de | 267 / 1.5 | 290 / 1.2 | 430 / 0.8372093 |
+| fr | 267 / 1.5 | 290 / 1.2 | 460 / 0.7826087 |
+| fa | 241 / 1.56 | 300 / 1 | 440 / 0.8181818 |
+| zh-CN | 251 / 1.5294118 | 360 / 0.8571429 | 500 / 0.72 |
 
 Home capture requires at least two observed RTT samples. Home starts at the top of its content. The manifest records its observed native scroll offset, which must remain within four pixels of zero. DNS capture focuses the complete custom DoH form and IPv6 controls. Its prefilled values are not applied. Native scroll focus is recorded per locale. Backup capture scrolls French by 12 pixels and Chinese by 16 pixels to keep the restore card whole. The import button must move by the requested distance within four pixels; the manifest records the observed offset for every locale.
 
@@ -91,6 +91,15 @@ Advanced must be fully visible and stable at the exact required alignment.
 Calibration never writes source frames or a source manifest and never renders
 marketing assets. Review its proposed profiles and commit any validated profile
 changes before a separate, fixed-profile full capture.
+
+The fixed relay profiles above were selected by [real calibration run
+39988504615](https://github.com/po4yka/RIPDPI/actions/runs/39988504615): two
+independent passes per locale, followed by full-size and phone-thumbnail visual
+review of all 14 accepted frames. The guard compares the preset and Advanced
+against their empirically measured full interior dimensions, not merely the
+clipped bounds reported at a viewport edge. It rejected Persian 243/242 dpi and
+Chinese 252 dpi before selecting the complete 241/251 dpi profiles. Calibration
+evidence is not a replacement for the separate full capture and source manifest.
 
 The build job preserves an `android-capture-build` artifact before starting the
 emulator. `reuse_capture_run` may name that completed trusted workflow-dispatch
