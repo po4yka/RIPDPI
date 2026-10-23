@@ -2,7 +2,7 @@
 id: DAT-1792728666702112
 title: Fence subscription ABA and recover every commit boundary
 kind: bug
-status: doing
+status: review
 area: data
 priority: high
 owner: Subscription persistence owner
