@@ -2,7 +2,7 @@
 id: TRN-1792759596946903
 title: Select profiles using bounded transfer quality and scoped MTU diagnostics
 kind: feature
-status: review
+status: done
 area: transport
 priority: high
 owner: transport-audit
@@ -13,6 +13,9 @@ openspec_change: profile-quality-mtu
 created: 2026-10-23
 updated: 2026-10-23
 linked_task: "po4yka/ripdpi-vpn-deploy#OPS-1792759217301702"
+closed_at: "2026-10-23T17:51:15Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implemented and accepted on main 261f301910fafe5b40c724b35f65a87e669f3876: CI 39990623691 and ci-required passed; ten required native Shadowsocks quality executions and the API 35 REALITY quality case passed without skips. Full static, unit, Rust, ABI, Debug/Release, UI and locale gates passed. Independent local review completed; physical-device and production deployment acceptance are outside this client task."
 ---
 
 ## Goal
