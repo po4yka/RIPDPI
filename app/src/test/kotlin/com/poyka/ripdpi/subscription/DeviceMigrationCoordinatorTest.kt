@@ -20,6 +20,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -113,7 +114,16 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
             val fixture = fixture(1000)
             server.enqueue(response(200, payload()))
             fixture.coordinator.refresh(Group)
-            for (mode in listOf("failed", "cancelled", "network", "delivery", "profile", "catalog")) {
+            for (mode in listOf(
+                "failed",
+                "cancelled",
+                "network",
+                "delivery",
+                "profile",
+                "catalog",
+                "recreated",
+                "reverted",
+            )) {
                 val original = fixture.repository.list().single()
                 var epoch: DiagnosticsNetworkEpoch = Epoch(1)
                 var generation = 0L
@@ -140,6 +150,21 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
                                 fixture.repository.updateGroup(Group) { current ->
                                     current.copy(subscription = current.subscription!!.copy(migration = null))
                                 }
+                            }
+
+                            "recreated" -> {
+                                fixture.repository.delete(
+                                    com.poyka.ripdpi.data.testMutationPreparationSource().captureMutation(
+                                        com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion,
+                                    ),
+                                    Group,
+                                )
+                                fixture.repository.add(original)
+                            }
+
+                            "reverted" -> {
+                                fixture.repository.update(original.copy(name = "Temporary edit"))
+                                fixture.repository.update(original)
                             }
 
                             "profile" -> {
@@ -284,7 +309,7 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
             val group = repository.list().single()
             assertEquals("Edited during delivery", group.name)
             val subscription = checkNotNull(group.subscription)
-            assertEquals(0L, subscription.refreshRevision)
+            assertEquals(0L, subscription.lastUpdated)
             assertNull(subscription.migration)
             assertTrue(
                 fixture.awgRepository
@@ -327,7 +352,7 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
             val second = fixture.repository.list().single()
             val secondSubscription = checkNotNull(second.subscription)
             assertEquals(tested, secondSubscription.migration)
-            assertEquals(2L, secondSubscription.refreshRevision)
+            assertNotEquals(first.ownershipGeneration, second.ownershipGeneration)
             server.enqueue(response(200, trojanPayload))
             assertTrue(fixture.coordinator.refresh(Group) is SubscriptionRefreshResult.Updated)
             assertNull(

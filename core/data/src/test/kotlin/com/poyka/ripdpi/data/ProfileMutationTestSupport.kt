@@ -56,6 +56,8 @@ internal class ProfileMutationTestFixture(
     var failGroupRead = false
     var groupWriteAttempts = 0
     var groupClearAttempts = 0
+    var beforeGroupWrite: (() -> Unit)? = null
+    var afterGroupWrite: (() -> Unit)? = null
     val groupBlob =
         object : ProxyGroupBlobStore {
             private var encoded: String? = null
@@ -66,9 +68,11 @@ internal class ProfileMutationTestFixture(
             }
 
             override fun write(json: String) {
+                beforeGroupWrite?.invoke()
                 groupWriteAttempts++
                 check(!failGroupWrite)
                 encoded = json
+                afterGroupWrite?.invoke()
             }
 
             override fun clear() {
@@ -132,15 +136,31 @@ internal class ProfileMutationTestFixture(
             selectorChoice = selectorChoice,
         )
 
-    fun coordinator() =
-        ProfileMutationRecoveryCoordinator(
-            pauseAuthority = pauseAuthority,
-            mutationGeneration = mutationGeneration,
-            stores = stores,
-            awgProfiles = awgProfiles,
-            awgCredentials = awgCredentials,
-            journal = transactionJournal,
-        )
+    fun coordinator(
+        catalog: ProxyGroupCatalog = groupCatalog,
+        authority: PauseIntentAuthority = pauseAuthority,
+    ) = ProfileMutationRecoveryCoordinator(
+        pauseAuthority = authority,
+        mutationGeneration = mutationGeneration,
+        stores =
+            ProfileMutationStores(
+                stores.settings,
+                stores.relayProfiles,
+                stores.relayCredentials,
+                stores.warpProfiles,
+                stores.warpCredentials,
+                stores.warpEndpoints,
+                stores.xrayMetadata,
+                stores.xraySecrets,
+                stores.xraySelection,
+                stores.bootSession,
+                catalog,
+                stores.selectorChoice,
+            ),
+        awgProfiles = awgProfiles,
+        awgCredentials = awgCredentials,
+        journal = transactionJournal,
+    )
 }
 
 internal class InMemoryBootSessionStateStore : BootSessionStateStore {
@@ -170,6 +190,8 @@ internal class InMemoryProfileMutationJournal : ProfileMutationJournal {
     private var value: PendingProfileMutation? = null
     var pendingCorruptionFailuresRemaining = 0
     var beforeComplete: (() -> Unit)? = null
+    var afterComplete: (() -> Unit)? = null
+    var beforeReplace: (() -> Unit)? = null
     var beforeClear: (() -> Unit)? = null
     var clearFailure: Throwable? = null
 
@@ -190,6 +212,7 @@ internal class InMemoryProfileMutationJournal : ProfileMutationJournal {
         expectedMutationId: String,
         mutation: PendingProfileMutation,
     ) {
+        beforeReplace?.invoke()
         check(value?.mutationId == expectedMutationId)
         value = mutation
     }
@@ -198,6 +221,7 @@ internal class InMemoryProfileMutationJournal : ProfileMutationJournal {
         beforeComplete?.invoke()
         check(value?.mutationId == mutationId)
         value = null
+        afterComplete?.invoke()
     }
 
     override suspend fun clearForReset() {
@@ -374,6 +398,7 @@ internal class InMemoryAwgProfileDao : AwgProfileDao {
     var upsertAttempts = 0
 
     var beforeUpsert: (suspend () -> Unit)? = null
+    var afterUpsert: (suspend () -> Unit)? = null
 
     private val values = mutableMapOf<String, AwgProfileEntity>()
     private val state = MutableStateFlow<List<AwgProfileEntity>>(emptyList())
@@ -394,6 +419,7 @@ internal class InMemoryAwgProfileDao : AwgProfileDao {
         }
         values[profile.id] = profile
         state.value = values.values.toList()
+        afterUpsert?.invoke()
     }
 
     override suspend fun deleteProfile(profile: AwgProfileEntity) {
@@ -409,6 +435,7 @@ internal class InMemoryAwgProfileDao : AwgProfileDao {
 
 internal class InMemoryAwgCredentialStore : AwgCredentialStore {
     var saveAttempts = 0
+    var afterSave: (suspend () -> Unit)? = null
 
     private val values = mutableMapOf<String, AwgSecrets>()
 
@@ -420,6 +447,7 @@ internal class InMemoryAwgCredentialStore : AwgCredentialStore {
     ) {
         saveAttempts++
         values[profileId] = secrets
+        afterSave?.invoke()
     }
 
     override suspend fun clear(profileId: String) {

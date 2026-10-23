@@ -154,9 +154,13 @@ class OfflineReservePayloadIntegrationTest {
                     },
                 failover = SelectorFailover(policy.probes.first().url, 30, 0, policy),
             )
-        repository(file).add(accepted)
+        val owner = repository(file)
+        owner.add(accepted)
+        val stored = owner.list().single()
+        assertTrue(stored.ownershipGeneration.isNotBlank())
+        assertEquals(accepted.copy(ownershipGeneration = stored.ownershipGeneration), stored)
         val reloaded = repository(file).list().single()
-        assertEquals(accepted, reloaded)
+        assertEquals(stored, reloaded)
         return reloaded
     }
 

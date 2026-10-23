@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -22,12 +23,41 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SubscriptionRefreshMutationTest {
     @Test
+    fun `identical delete and recreate rejects the captured refresh before preparation`() =
+        runTest {
+            val fixture = ProfileMutationTestFixture()
+            val mutations = fixture.coordinator()
+            val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
+            groups.add(original)
+            val original = groups.list().single()
+            val captured = groups.list().single()
+            groups.delete(mutations.captureMutation(ProfileMutationOrigin.ExplicitDeletion), captured.id)
+            groups.add(captured)
+            val recreated = groups.list().single()
+            var preparations = 0
+
+            assertFalse(
+                mutations.commitSubscriptionRefresh(captured) {
+                    preparations++
+                    PreparedSubscriptionRefresh(replacement, listOf(rotation))
+                },
+            )
+
+            assertEquals(0, preparations)
+            assertEquals(recreated, groups.list().single())
+            assertEquals(0, fixture.prepareAttempts)
+            assertTrue(fixture.awgProfiles.allProfiles().isEmpty())
+            assertNull(fixture.awgCredentials.load(rotation.profile.id))
+        }
+
+    @Test
     fun `stale ownership rejects before preparing or journaling any AWG write`() =
         runTest {
             val fixture = ProfileMutationTestFixture()
             val mutations = fixture.coordinator()
             val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
             groups.add(original)
+            val original = groups.list().single()
             groups.update(original.copy(name = "Edited"))
             var preparations = 0
 
@@ -53,6 +83,7 @@ class SubscriptionRefreshMutationTest {
             val mutations = fixture.coordinator()
             val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
             groups.add(original)
+            val original = groups.list().single()
             val entered = CompletableDeferred<Unit>()
             val release = CompletableDeferred<Unit>()
             fixture.awgProfiles.beforeUpsert = {
@@ -66,7 +97,7 @@ class SubscriptionRefreshMutationTest {
                     ) { PreparedSubscriptionRefresh(replacement, listOf(rotation)) }
                 }
             entered.await()
-            val edit = launch { groups.update(accepted.copy(name = "Edited after rotation")) }
+            val edit = launch { groups.updateGroup(original.id) { it.copy(name = "Edited after rotation") } }
             runCurrent()
             assertFalse(edit.isCompleted)
             assertFalse(checkNotNull(fixture.pauseAuthority.states.value).profileUtility.catalogReady)
@@ -77,7 +108,12 @@ class SubscriptionRefreshMutationTest {
 
             assertEquals(rotation.profile, fixture.awgProfiles.getProfile(rotation.profile.id))
             assertEquals(rotation.secrets, fixture.awgCredentials.load(rotation.profile.id))
-            assertEquals(accepted.copy(name = "Edited after rotation"), groups.list().single())
+            val edited = groups.list().single()
+            assertEquals(
+                replacement.copy(name = "Edited after rotation", ownershipGeneration = edited.ownershipGeneration),
+                edited,
+            )
+            assertNotEquals(original.ownershipGeneration, edited.ownershipGeneration)
             assertNull(fixture.journal.pending())
         }
 
@@ -88,6 +124,7 @@ class SubscriptionRefreshMutationTest {
             val mutations = fixture.coordinator()
             val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
             groups.add(original)
+            val original = groups.list().single()
             groups.groups().test {
                 assertEquals(listOf(original), awaitItem())
                 fixture.failGroupWrite = true
@@ -105,6 +142,8 @@ class SubscriptionRefreshMutationTest {
                 expectNoEvents()
 
                 fixture.failGroupWrite = false
+                val accepted = pendingGroup(fixture)
+                assertNotEquals(original.ownershipGeneration, accepted.ownershipGeneration)
                 mutations.recover()
 
                 assertEquals(listOf(accepted), awaitItem())
@@ -124,6 +163,7 @@ class SubscriptionRefreshMutationTest {
             val mutations = fixture.coordinator()
             val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
             groups.add(original)
+            val original = groups.list().single()
             val entered = CompletableDeferred<Unit>()
             val release = CompletableDeferred<Unit>()
             fixture.awgProfiles.beforeUpsert = {
@@ -147,6 +187,8 @@ class SubscriptionRefreshMutationTest {
                 expectNoEvents()
 
                 fixture.awgProfiles.beforeUpsert = null
+                val accepted = pendingGroup(fixture)
+                assertNotEquals(original.ownershipGeneration, accepted.ownershipGeneration)
                 mutations.recover()
 
                 assertEquals(listOf(accepted), awaitItem())
@@ -159,29 +201,44 @@ class SubscriptionRefreshMutationTest {
         }
 
     @Test
-    fun `invalid or exhausted revision rejects before preparing any credential mutation`() =
+    fun `edit and revert rejects stale refresh but a no-op preserves ownership`() =
         runTest {
-            for (revision in listOf(-1L, Long.MAX_VALUE)) {
+            val fixture = ProfileMutationTestFixture()
+            val mutations = fixture.coordinator()
+            val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
+            groups.add(original)
+            val captured = groups.list().single()
+            assertEquals(captured, groups.updateGroup(captured.id) { it })
+            groups.update(captured.copy(name = "Temporary edit"))
+            groups.update(captured)
+            val reverted = groups.list().single()
+            assertEquals(captured.copy(ownershipGeneration = reverted.ownershipGeneration), reverted)
+            assertNotEquals(captured.ownershipGeneration, reverted.ownershipGeneration)
+            assertFalse(mutations.commitSubscriptionRefresh(captured) { error("Stale preparation") })
+            assertEquals(0, fixture.prepareAttempts)
+            assertTrue(fixture.awgProfiles.allProfiles().isEmpty())
+        }
+
+    @Test
+    fun `identical restore and compensation invalidate previously captured ownership`() =
+        runTest {
+            for (compensation in listOf(false, true)) {
                 val fixture = ProfileMutationTestFixture()
                 val mutations = fixture.coordinator()
                 val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
-                val current = original.copy(subscription = original.subscription!!.copy(refreshRevision = revision))
-                groups.add(current)
-                var preparations = 0
-                assertTrue(
-                    runCatching {
-                        mutations.commitSubscriptionRefresh(current) {
-                            preparations++
-                            PreparedSubscriptionRefresh(replacement, listOf(rotation))
-                        }
-                    }.exceptionOrNull() is IllegalArgumentException,
-                )
-                assertEquals(0, preparations)
-                assertEquals(0, fixture.prepareAttempts)
-                assertNull(fixture.journal.pending())
+                groups.add(original)
+                val captured = groups.list().single()
+                if (compensation) {
+                    groups.compensateReplacement(listOf(captured))
+                } else {
+                    mutations.runReset { receipt -> groups.replaceAll(receipt, listOf(captured)) }
+                }
+                val restored = groups.list().single()
+                assertEquals(captured.copy(ownershipGeneration = restored.ownershipGeneration), restored)
+                assertNotEquals(captured.ownershipGeneration, restored.ownershipGeneration)
+                assertFalse(mutations.commitSubscriptionRefresh(captured) { error("Stale preparation") })
                 assertTrue(fixture.awgProfiles.allProfiles().isEmpty())
-                assertNull(fixture.awgCredentials.load(rotation.profile.id))
-                assertEquals(current, groups.list().single())
+                assertEquals(restored, ProxyGroupCatalog(fixture.groupBlob).snapshot().single())
             }
         }
 
@@ -191,6 +248,7 @@ class SubscriptionRefreshMutationTest {
             val fixture = ProfileMutationTestFixture()
             val mutations = fixture.coordinator()
             SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations).add(original)
+            val original = fixture.groupCatalog.snapshot().single()
             val encoded = fixture.groupBlob.read()
             fixture.afterPrepare = { error("Interrupted after journal prepare") }
             assertTrue(
@@ -204,7 +262,7 @@ class SubscriptionRefreshMutationTest {
             val writes = fixture.groupWriteAttempts
             fixture.failGroupRead = true
             val coldCatalog = ProxyGroupCatalog(fixture.groupBlob)
-            val restarted = fixture.coordinatorWithCatalog(coldCatalog)
+            val restarted = fixture.coordinator(catalog = coldCatalog)
             val groups = SharedPreferencesProxyGroupRepository(coldCatalog, restarted)
             groups.groups().test {
                 expectNoEvents()
@@ -222,28 +280,13 @@ class SubscriptionRefreshMutationTest {
             }
         }
 
-    private fun ProfileMutationTestFixture.coordinatorWithCatalog(catalog: ProxyGroupCatalog) =
-        ProfileMutationRecoveryCoordinator(
-            ProfileMutationStores(
-                stores.settings,
-                stores.relayProfiles,
-                stores.relayCredentials,
-                stores.warpProfiles,
-                stores.warpCredentials,
-                stores.warpEndpoints,
-                stores.xrayMetadata,
-                stores.xraySecrets,
-                stores.xraySelection,
-                stores.bootSession,
-                catalog,
-                stores.selectorChoice,
-            ),
-            awgProfiles,
-            awgCredentials,
-            journal,
-            mutationGeneration,
-            pauseAuthority,
-        )
+    private suspend fun pendingGroup(fixture: ProfileMutationTestFixture): ProxyGroup =
+        (
+            com.poyka.ripdpi.serialization.RipDpiContractJson.decodeFromString(
+                ProfileMutationIntent.serializer(),
+                checkNotNull(fixture.journal.pending()).payload,
+            ) as SubscriptionRefreshIntent
+        ).groups.single()
 
     private val original =
         ProxyGroup(
@@ -255,7 +298,6 @@ class SubscriptionRefreshMutationTest {
             subscription = Subscription(link = "https://subscription.example/original"),
         )
     private val replacement = original.copy(subscription = original.subscription!!.copy(lastUpdated = 3_000L))
-    private val accepted = replacement.copy(subscription = replacement.subscription!!.copy(refreshRevision = 1))
     private val rotation =
         SubscriptionAwgWrite(
             AwgProfileEntity(

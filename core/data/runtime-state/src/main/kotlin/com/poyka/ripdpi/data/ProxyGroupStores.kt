@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import android.content.Context
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -11,6 +12,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,8 +64,6 @@ data class Subscription(
     val autoUpdate: Boolean = false,
     val autoUpdateDelay: Long = 0L,
     val lastUpdated: Long = 0L,
-    /** Monotonic accepted-refresh ownership, independent of wall-clock resolution. */
-    val refreshRevision: Long = 0L,
     val updateWhenConnectedOnly: Boolean = false,
     val forceResolve: Boolean = false,
     val deduplication: Boolean = false,
@@ -117,6 +117,8 @@ data class ProxyGroup(
     val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
     /** Explicit operator classification: these members cannot become new automatic probe winners. */
     val cloudflareMemberIds: Set<String> = emptySet(),
+    /** Local persisted ownership; only the catalogue assigns a new generation. */
+    val ownershipGeneration: String = "",
 )
 
 /**
@@ -400,30 +402,34 @@ private fun redactedPresence(secret: String?): String = if (secret == null) "nul
  * migrations before deserialization.
  */
 object ProxyGroupSchema {
-    /** Current persisted-schema version. Bump on any breaking shape change. */
-    const val SCHEMA_VERSION: Int = 1
+    const val SCHEMA_VERSION: Int = 2
 
-    /**
-     * Forward-migrates a raw JSON [json] payload written by [fromVersion] up to
-     * [SCHEMA_VERSION]. The current version is the identity transform; add
-     * `when` branches here as new versions are introduced.
-     */
+    /** Persist a one-way upgrade before any caller can capture its ownership generation. */
+    fun read(
+        json: String,
+        fromVersion: Int,
+        persist: (String) -> Unit,
+    ): String {
+        val migrated = migrate(json, fromVersion)
+        if (fromVersion != SCHEMA_VERSION) persist(migrated)
+        return migrated
+    }
+
     fun migrate(
         json: String,
         fromVersion: Int,
     ): String {
-        var payload = json
-        var version = fromVersion
-        while (version < SCHEMA_VERSION) {
-            payload =
-                when (version) {
-                    // Example for a future v1 -> v2 migration:
-                    // 1 -> migrateV1ToV2(payload)
-                    else -> payload
-                }
-            version += 1
+        require(fromVersion in 1..SCHEMA_VERSION) { "Unsupported group schema" }
+        val serializer = ListSerializer(ProxyGroup.serializer())
+        val groups = RipDpiJson.decodeFromString(serializer, json)
+        if (fromVersion == SCHEMA_VERSION) {
+            require(groups.all { it.ownershipGeneration.isNotBlank() }) { "Missing group ownership generation" }
+            return json
         }
-        return payload
+        return RipDpiJson.encodeToString(
+            serializer,
+            groups.map { it.withNewOwnershipGeneration() },
+        )
     }
 }
 
@@ -493,7 +499,7 @@ class SharedPreferencesProxyGroupRepository
         override suspend fun add(group: ProxyGroup) {
             val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.ImportOnly)
             intentPreparation.mutateCatalog(preparation) {
-                catalog.update { it.filterNot { saved -> saved.id == group.id } + group }
+                catalog.add(group)
             }
         }
 
@@ -574,15 +580,18 @@ class KeystoreProxyGroupBlobStore
             KeystoreEncryptedPreferences(
                 preferences = preferences,
                 keyAlias = GroupsKeyAlias,
+                durableReads = true,
             )
 
-        override fun read(): String? {
-            val version = preferences.getInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
-            // Unreadable sealed reserves are not an empty catalogue. In particular,
-            // never revive obsolete plaintext after authentication or decoding fails.
-            val raw = secure.getStringStrict(SealedGroupsKey) ?: migrateLegacyPlaintext() ?: return null
-            return ProxyGroupSchema.migrate(raw, version)
-        }
+        override fun read(): String? =
+            secure.withDurableState {
+                val version = preferences.getInt(SchemaVersionKey, 1)
+                // Unreadable sealed reserves are not an empty catalogue. In particular,
+                // never revive obsolete plaintext after authentication or decoding fails.
+                val raw =
+                    secure.getStringStrict(SealedGroupsKey) ?: migrateLegacyPlaintext() ?: return@withDurableState null
+                ProxyGroupSchema.read(raw, version, ::write)
+            }
 
         override fun write(json: String) {
             secure.putString(SealedGroupsKey, json) {
@@ -591,9 +600,7 @@ class KeystoreProxyGroupBlobStore
             }
         }
 
-        override fun clear() {
-            preferences.edit().clear().commitOrThrow()
-        }
+        override fun clear() = secure.clear()
 
         /**
          * One-time upgrade for a pre-encryption install: lifts the legacy plaintext

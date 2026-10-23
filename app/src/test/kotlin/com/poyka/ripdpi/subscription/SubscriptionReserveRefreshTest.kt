@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.data.ProfileMutationOrigin
+import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
@@ -66,10 +67,14 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
                         subscription = it.subscription!!.copy(link = server.url("/replacement").toString()),
                     )
                 }
-            boundary.beforeDelivery = { fixture.repository.update(replacement) }
+            var storedReplacement: ProxyGroup? = null
+            boundary.beforeDelivery = {
+                fixture.repository.update(replacement)
+                storedReplacement = fixture.repository.list().single()
+            }
 
             assertEquals(SubscriptionRefreshResult.Superseded, fixture.coordinator.refresh(replacement.id))
-            assertEquals(replacement, fixture.repository.list().single())
+            assertEquals(checkNotNull(storedReplacement), fixture.repository.list().single())
         }
 
     @Test
@@ -82,10 +87,14 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
                 fixture.repository.list().single().let {
                     it.copy(subscription = it.subscription!!.copy(link = server.url("/replacement").toString()))
                 }
-            boundary.beforeDelivery = { fixture.repository.update(replacement) }
+            var storedReplacement: ProxyGroup? = null
+            boundary.beforeDelivery = {
+                fixture.repository.update(replacement)
+                storedReplacement = fixture.repository.list().single()
+            }
 
             assertEquals(SubscriptionRefreshResult.Superseded, fixture.coordinator.refresh(replacement.id))
-            assertEquals(replacement, fixture.repository.list().single())
+            assertEquals(checkNotNull(storedReplacement), fixture.repository.list().single())
         }
 
     @Test
