@@ -2,7 +2,7 @@
 id: TRN-1792673614153980
 title: Export offline device migration receipts after exact new-path tests
 kind: feature
-status: doing
+status: review
 area: transport
 priority: high
 owner: "transport_audit: all client migration paths"
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: device-server-migration
 created: 2026-10-22
-updated: 2026-10-22
+updated: 2026-10-23
+status_detail: Source merged in PR 648 with exact main CI passed; real Reality, XHTTP and active AmneziaWG migration-path acceptance and physical-device acceptance remain unobserved.
 ---
 
 ## Goal
