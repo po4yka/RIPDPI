@@ -894,6 +894,7 @@ private class Fixture(
                 )
             },
             { httpClockNanos.get() },
+            { _: Long -> error("Profile utility must request generic reachability probes") },
             { _: PayloadProbeControl, _: Long -> error("Profile utility must request generic reachability probes") },
         ) as CandidateHttpPayloadProbe
     private val probeFixtures =
