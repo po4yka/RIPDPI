@@ -134,7 +134,7 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
                             30,
                             0,
                             PayloadFailoverPolicy(
-                                1,
+                                2,
                                 "select",
                                 listOf("control-a", "control-b").map {
                                     PayloadProbeControl("https://$it.example/payload", 32_768, "a".repeat(64))

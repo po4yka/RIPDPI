@@ -109,7 +109,7 @@ class OfflineReservePayloadIntegrationTest {
         val file = File(temporaryFolder.root, "saved-groups.json")
         val policy =
             PayloadFailoverPolicy(
-                schemaVersion = 1,
+                schemaVersion = 2,
                 selectorTag = "select",
                 probes =
                     listOf("control-a", "control-b").map {
@@ -214,7 +214,7 @@ class OfflineReservePayloadIntegrationTest {
                         RelayProbeEndpoint(member.server, member.serverPort),
                         payload.policy,
                     )
-                evidence.latencyMillis.takeIf { evidence.succeeded }
+                if (evidence.succeeded) MemberProbeResult(evidence.latencyMillis) else null
             },
             SelectorProbeScopeProvider { scope },
             monotonicMillis = { probeTimeMillis },

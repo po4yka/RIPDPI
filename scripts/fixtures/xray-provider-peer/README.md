@@ -28,3 +28,11 @@ Run the host checks with `go test -mod=readonly ./...` and
 `go test -race -mod=readonly ./...`. The pooled-client regression fixes XMUX to
 one connection to force reuse across stop; the client instance remains alive
 through rejection and recovery. No external server is required.
+
+The owned quality origin exposes one authenticated 262144-byte object at the two
+exact `quality-a.example.test` / `quality-b.example.test` routes. HEAD and GET
+share its Content-Length; GET sends one byte before a bounded 400 ms body delay
+so concurrent loaded-HEAD overlap is observable. The manifest carries only the
+public test certificate and digest. Android trust is injected by test fixtures;
+production trust validation is unchanged. All other destinations retain the
+default blackhole route.

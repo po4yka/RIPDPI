@@ -894,6 +894,7 @@ private class Fixture(
                 )
             },
             { httpClockNanos.get() },
+            { _: Long -> error("Profile utility must request generic reachability probes") },
             { _: PayloadProbeControl, _: Long -> error("Profile utility must request generic reachability probes") },
         ) as CandidateHttpPayloadProbe
     private val probeFixtures =
@@ -999,6 +1000,8 @@ private class Fixture(
             ),
             controlledMeasurement,
             xrayProbe,
+            com.poyka.ripdpi.data
+                .ProfileQualityStore(),
         )
     private val viewModels = ViewModelStore().apply { put("profiles", vm) }
 

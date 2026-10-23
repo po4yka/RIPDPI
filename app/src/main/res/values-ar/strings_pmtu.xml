@@ -21,4 +21,11 @@
     <string name="diagnostics_pmtu_partial">انتهى الاتصال قبل اكتمال المراقبة</string>
     <string name="diagnostics_pmtu_caution">يقيس QUIC DPLPMTUD بايتات حمولة UDP الصادرة من هذا الجهاز إلى الخادم المحدد عبر هذا المسار. القيمة المؤكدة بواسطة ACK هي حد أدنى وليست MTU الدقيقة للمسار. عودة ACK لا تقيس PMTU لمسار العودة. السقف المضبوط وMTU الواجهة قيمتان منفصلتان. لا تؤكد المراقبة الجزئية اكتمال القياس.</string>
     <string name="diagnostics_pmtu_loss_caution">قد تفقد المجسات أثناء البحث عن الحجم. لا يثبت ذلك وجود ثقب أسود في المسار أو قيود من المزود. قد تحد الوجهة أيضًا من حجم الحزم.</string>
+    <string name="diagnostics_pmtu_diagnosis">تشخيص MTU</string>
+    <string name="diagnostics_pmtu_confirmed">حد أدنى مؤكد للحزمة الصادرة؛ ليس PMTU دقيقًا أو إعداد VPN.</string>
+    <string name="diagnostics_pmtu_diagnosis_partial">بحث جزئي؛ لا توصية حالية بحجم الحزمة.</string>
+    <string name="diagnostics_pmtu_historical">قياس سابق؛ أعد الفحص على الشبكة الحالية.</string>
+    <string name="diagnostics_pmtu_unavailable">لا يوجد قياس مؤكد لحجم الحزمة.</string>
+    <string name="diagnostics_pmtu_ip_lower_bound">أدنى حجم مؤكد لحزمة IP</string>
+    <string name="diagnostics_pmtu_historical_payload">حمولة UDP سابقة مؤكدة بـ ACK</string>
 </resources>

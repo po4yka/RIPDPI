@@ -10,12 +10,12 @@
   "additionalProperties": true,
   "$defs": {
     "payload_failover": {
-      "description": "Opt-in useful-data verification for the matching RIPDPI selector runtime. Both control origins must be distinct after HTTPS authority normalization; timeout must not exceed interval and maximum backoff must not be shorter than interval. Producer and consumer enforce these semantic constraints.",
+      "description": "Version 2 opt-in useful-data verification and optional quality comparison in the existing RIPDPI selector. Both HTTPS origins must be distinct; timeout must not exceed interval and maximum backoff must not be shorter than interval. Quality window_seconds must cover interval_seconds, max_window_bytes must cover max_pass_bytes, and max_pass_bytes must cover twice the sum of both expected_bytes + 1 allowances. Producer and consumer enforce these semantic constraints.",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_version", "selector_tag", "probes", "interval_seconds", "timeout_seconds", "failure_threshold", "recovery_threshold", "cooldown_seconds", "max_backoff_seconds"],
       "properties": {
-        "schema_version": { "type": "integer", "const": 1 },
+        "schema_version": { "type": "integer", "const": 2 },
         "selector_tag": { "const": "select" },
         "probes": {
           "type": "array", "minItems": 2, "maxItems": 2,
@@ -24,7 +24,7 @@
             "required": ["url", "expected_bytes", "sha256"],
             "properties": {
               "url": { "type": "string", "minLength": 1, "maxLength": 2048, "pattern": "^https://[^\\s]+$" },
-              "expected_bytes": { "type": "integer", "minimum": 32768, "maximum": 65536 },
+              "expected_bytes": { "type": "integer", "minimum": 32768, "maximum": 1048576 },
               "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
             }
           }
@@ -34,7 +34,20 @@
         "failure_threshold": { "type": "integer", "minimum": 2, "maximum": 10 },
         "recovery_threshold": { "type": "integer", "minimum": 2, "maximum": 10 },
         "cooldown_seconds": { "type": "integer", "minimum": 30, "maximum": 3600 },
-        "max_backoff_seconds": { "type": "integer", "minimum": 60, "maximum": 3600 }
+        "max_backoff_seconds": { "type": "integer", "minimum": 60, "maximum": 3600 },
+        "quality": {
+          "description": "Optional verified goodput and loaded HEAD transaction-latency comparison. Budgets reserve application body-read allowances, including an oversize-detection byte, not encrypted wire bytes. HEAD uses the same admitted object and must complete during its actual GET body transfer to qualify as loaded latency. Existing recovery_threshold and cooldown_seconds govern quality promotion.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_pass_bytes", "max_window_bytes", "window_seconds", "minimum_gain_percent", "maximum_loaded_latency_increase_ms"],
+          "properties": {
+            "max_pass_bytes": { "type": "integer", "minimum": 65538, "maximum": 16777216 },
+            "max_window_bytes": { "type": "integer", "minimum": 65538, "maximum": 268435456 },
+            "window_seconds": { "type": "integer", "minimum": 60, "maximum": 86400 },
+            "minimum_gain_percent": { "type": "integer", "minimum": 5, "maximum": 100 },
+            "maximum_loaded_latency_increase_ms": { "type": "integer", "minimum": 0, "maximum": 2000 }
+          }
+        }
       }
     },
     "cohort_fingerprint": {

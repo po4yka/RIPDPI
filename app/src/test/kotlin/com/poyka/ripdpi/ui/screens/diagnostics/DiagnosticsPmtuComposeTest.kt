@@ -103,6 +103,8 @@ class DiagnosticsPmtuComposeTest {
         capture("$name-top")
         listOf(
             R.string.diagnostics_pmtu_lower_bound,
+            R.string.diagnostics_pmtu_ip_lower_bound,
+            R.string.diagnostics_pmtu_confirmed,
             R.string.diagnostics_pmtu_caution,
             R.string.diagnostics_pmtu_loss_caution,
         ).forEach { resource ->

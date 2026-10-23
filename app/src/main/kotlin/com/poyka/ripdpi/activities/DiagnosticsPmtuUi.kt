@@ -2,9 +2,11 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.PmtuAddressFamily
+import com.poyka.ripdpi.diagnostics.PmtuDiagnosisStatus
 import com.poyka.ripdpi.diagnostics.PmtuPathScope
 import com.poyka.ripdpi.diagnostics.PmtuProbeEvidence
 import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.diagnostics.diagnosePmtu
 import com.poyka.ripdpi.diagnostics.parsePmtuProbeEvidence
 import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.toImmutableList
@@ -47,10 +49,31 @@ private class PmtuFields(
         networkScopeUnverified: Boolean,
     ): List<DiagnosticsFieldUiModel> =
         buildList {
-            if (evidence == null) {
-                add(field(R.string.diagnostics_ip_status, strings.getString(R.string.diagnostics_ip_missing)))
-            } else {
-                addAll(observation(evidence))
+            val diagnosis = evidence.diagnosePmtu(networkScopeUnverified)
+            add(
+                field(
+                    R.string.diagnostics_ip_status,
+                    strings.getString(evidence?.status?.pmtuLabelResource() ?: R.string.diagnostics_ip_missing),
+                ),
+            )
+            add(
+                field(
+                    R.string.diagnostics_pmtu_diagnosis,
+                    strings.getString(
+                        when (diagnosis.status) {
+                            PmtuDiagnosisStatus.ConfirmedLowerBound -> R.string.diagnostics_pmtu_confirmed
+                            PmtuDiagnosisStatus.Partial -> R.string.diagnostics_pmtu_diagnosis_partial
+                            PmtuDiagnosisStatus.Historical -> R.string.diagnostics_pmtu_historical
+                            PmtuDiagnosisStatus.Unavailable -> R.string.diagnostics_pmtu_unavailable
+                        },
+                    ),
+                ),
+            )
+            diagnosis.minimumIpPacketBytes?.let {
+                add(field(R.string.diagnostics_pmtu_ip_lower_bound, bytes(it)))
+            }
+            if (evidence != null) {
+                addAll(observation(evidence, diagnosis.status == PmtuDiagnosisStatus.Historical))
                 addAll(counters(evidence))
             }
             if (networkScopeUnverified || evidence?.reason == "network_scope_unverified") {
@@ -60,10 +83,15 @@ private class PmtuFields(
             add(field(R.string.diagnostics_ip_limits, strings.getString(R.string.diagnostics_pmtu_loss_caution)))
         }
 
-    private fun observation(e: PmtuProbeEvidence): List<DiagnosticsFieldUiModel> =
+    private fun observation(
+        e: PmtuProbeEvidence,
+        historical: Boolean,
+    ): List<DiagnosticsFieldUiModel> =
         listOf(
-            field(R.string.diagnostics_ip_status, strings.getString(e.status.pmtuLabelResource())),
-            field(R.string.diagnostics_pmtu_lower_bound, bytes(e.acknowledgedUdpPayloadLowerBoundBytes)),
+            field(
+                if (historical) R.string.diagnostics_pmtu_historical_payload else R.string.diagnostics_pmtu_lower_bound,
+                bytes(e.acknowledgedUdpPayloadLowerBoundBytes),
+            ),
             field(R.string.diagnostics_pmtu_current, bytes(e.currentUdpPayloadBytes)),
             field(R.string.diagnostics_pmtu_ceiling, bytes(e.configuredUpperBoundUdpPayloadBytes)),
             field(R.string.diagnostics_pmtu_initial, bytes(e.initialUdpPayloadBytes)),

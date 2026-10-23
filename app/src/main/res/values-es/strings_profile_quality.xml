@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">Calidad de transferencia</string>
+    <string name="profile_quality_goodput">Velocidad verificada: %1$s KiB/s</string>
+    <string name="profile_quality_transfer">Cuerpo verificado: %1$s bytes en %2$s s</string>
+    <string name="profile_quality_baseline">Solicitud base: %1$d ms</string>
+    <string name="profile_quality_loaded">Solicitud durante la transferencia: %1$d ms</string>
+    <string name="profile_quality_budget">Presupuesto del cuerpo: %1$d bytes reservados por pasada; %2$d / %3$d bytes en el período</string>
+    <string name="profile_quality_limits">La latencia de solicitud no es RTT. El presupuesto excluye la sobrecarga del protocolo. Las medidas describen esta ruta y origen.</string>
+    <string name="profile_quality_verified">Medición completa</string>
+    <string name="profile_quality_no_overlap">Parcial: la solicitud con carga no quedó dentro de la transferencia.</string>
+    <string name="profile_quality_no_baseline">Parcial: solicitud base no disponible.</string>
+    <string name="profile_quality_no_loaded">Parcial: solicitud con carga no disponible.</string>
+    <string name="profile_quality_failed">No se pudo verificar la transferencia.</string>
+    <string name="profile_quality_budget_exhausted">Pospuesto: presupuesto de tráfico agotado.</string>
+    <string name="profile_quality_budget_unavailable">Pospuesto: presupuesto persistente no disponible.</string>
+    <string name="profile_quality_stale">Obsoleto: cambió la red o la configuración.</string>
+    <string name="profile_quality_cleanup">Pospuesto: entorno de prueba ocupado o limpieza pendiente.</string>
+    <string name="profile_quality_collecting">Recopilando mediciones repetidas de calidad.</string>
+    <string name="profile_quality_retained">Selección actual conservada; sin mejora confirmada.</string>
+    <string name="profile_quality_promoted_goodput">El selector eligió un perfil con mayor velocidad.</string>
+    <string name="profile_quality_promoted_latency">El selector eligió un perfil con menor latencia bajo carga.</string>
+    <string name="profile_quality_cooldown">Selección actual conservada durante la espera.</string>
+</resources>

@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.RipDpiXrayRuntime
 import com.poyka.ripdpi.core.StopCause
 import com.poyka.ripdpi.core.XrayProtectController
 import com.poyka.ripdpi.core.XrayRuntimeOwner
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.xray.XrayConfigRenderer
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProviderBuildInfo
@@ -54,6 +55,21 @@ class CandidateXrayPayloadProbe internal constructor(
     override suspend fun measure(
         profile: XrayProfile,
         url: String,
+    ): CandidateRelayMeasurement = measureUsing(profile, CandidateXrayHttpTimeoutMillis) { http.probe(it, url) }
+
+    suspend fun measurePayload(
+        profile: XrayProfile,
+        policy: PayloadFailoverPolicy,
+    ): CandidateRelayMeasurement =
+        measureUsing(
+            profile,
+            policy.probes.size * policy.timeoutSeconds * MillisecondsPerSecond * if (policy.quality == null) 1 else 2,
+        ) { http.probePayload(it, policy) }
+
+    private suspend fun measureUsing(
+        profile: XrayProfile,
+        deadlineMillis: Long,
+        probe: suspend (RelayProbeEndpoint) -> CandidateHttpPayloadEvidence,
     ): CandidateRelayMeasurement =
         mutex.withLock {
             if (!withContext(NonCancellable) { release() }) return@withLock CandidateRelayMeasurement.CleanupPending
@@ -89,8 +105,8 @@ class CandidateXrayPayloadProbe internal constructor(
                         stage = CandidateMeasurementStage.Http
                         val result =
                             withTimeoutOrNull(
-                                CandidateXrayHttpTimeoutMillis,
-                            ) { http.probe(RelayProbeEndpoint("127.0.0.1", port), url) }
+                                deadlineMillis,
+                            ) { probe(RelayProbeEndpoint("127.0.0.1", port)) }
                         when {
                             result == null -> {
                                 CandidateRelayMeasurement.TimedOut(stage)
@@ -108,6 +124,7 @@ class CandidateXrayPayloadProbe internal constructor(
                                 CandidateRelayMeasurement.Succeeded(
                                     result.latencyMillis,
                                     CandidateConfigurationProofs.xray(rendered.config.toString()),
+                                    result.quality,
                                 )
                             }
                         }
@@ -141,3 +158,5 @@ class CandidateXrayPayloadProbe internal constructor(
 private const val CandidateXrayReadyTimeoutMillis = 5_000L
 private const val CandidateXrayHttpTimeoutMillis = 15_000L
 private const val CandidateXrayStopTimeoutMillis = 5_000L
+
+private const val MillisecondsPerSecond = 1_000L

@@ -21,4 +21,11 @@
     <string name="diagnostics_pmtu_partial">अवलोकन पूरा होने से पहले कनेक्शन समाप्त हुआ</string>
     <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD इस पथ पर इस डिवाइस से चुने गए सर्वर तक जाने वाले UDP पेलोड बाइट मापता है। ACK से पुष्ट मान निचली सीमा है, सटीक पथ MTU नहीं। वापस आया ACK वापसी पथ का PMTU नहीं मापता। कॉन्फ़िगर की गई सीमा और इंटरफ़ेस MTU अलग मान हैं। आंशिक अवलोकन पूर्ण माप की पुष्टि नहीं करता।</string>
     <string name="diagnostics_pmtu_loss_caution">आकार खोज के दौरान प्रोब खो सकते हैं। इससे पथ ब्लैक होल या प्रदाता प्रतिबंध साबित नहीं होता। दूसरा छोर भी पैकेट आकार सीमित कर सकता है।</string>
+    <string name="diagnostics_pmtu_diagnosis">MTU निदान</string>
+    <string name="diagnostics_pmtu_confirmed">बाहर जाने वाले पैकेट की निचली सीमा पुष्ट है; यह सटीक PMTU या VPN सेटिंग नहीं है।</string>
+    <string name="diagnostics_pmtu_diagnosis_partial">अधूरी खोज; वर्तमान पैकेट आकार की कोई सलाह नहीं।</string>
+    <string name="diagnostics_pmtu_historical">पुराना मापन; मौजूदा नेटवर्क पर फिर जाँचें।</string>
+    <string name="diagnostics_pmtu_unavailable">पैकेट आकार का कोई पुष्ट मापन नहीं।</string>
+    <string name="diagnostics_pmtu_ip_lower_bound">IP पैकेट का पुष्ट न्यूनतम आकार</string>
+    <string name="diagnostics_pmtu_historical_payload">ACK से पुष्ट पुराना UDP पेलोड</string>
 </resources>

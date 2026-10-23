@@ -232,7 +232,7 @@ class BackupGroupRedactionTest {
             toleranceMs = 0,
             payloadPolicy =
                 PayloadFailoverPolicy(
-                    schemaVersion = 1,
+                    schemaVersion = 2,
                     selectorTag = "select",
                     probes =
                         listOf(

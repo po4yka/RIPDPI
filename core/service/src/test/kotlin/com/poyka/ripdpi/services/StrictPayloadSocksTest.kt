@@ -78,7 +78,7 @@ class StrictPayloadSocksTest {
             StrictPayloadSocksFixture(responses).use { fixture ->
                 val policy =
                     PayloadFailoverPolicy(
-                        1,
+                        2,
                         "select",
                         listOf(control(), control("control-b.example.test")),
                         60,

@@ -90,7 +90,8 @@ class CandidateRelayPayloadProbe internal constructor(
         measureUsing(
             profile,
             credentials,
-            policy.timeoutSeconds * policy.probes.size * MillisecondsPerSecond,
+            policy.timeoutSeconds * policy.probes.size * MillisecondsPerSecond *
+                if (policy.quality == null) 1 else 2,
         ) { endpoint ->
             httpProbe.probePayload(endpoint, policy)
         }
@@ -207,6 +208,7 @@ class CandidateRelayPayloadProbe internal constructor(
                             CandidateRelayMeasurement.Succeeded(
                                 result.latencyMillis,
                                 CandidateConfigurationProofs.relay(config),
+                                result.quality,
                             )
                         }
                     }

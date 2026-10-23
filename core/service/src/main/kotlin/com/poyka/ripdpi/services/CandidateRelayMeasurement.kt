@@ -4,6 +4,7 @@ sealed interface CandidateRelayMeasurement {
     data class Succeeded(
         val latencyMillis: Long,
         val configurationProof: CandidateConfigurationProof,
+        val quality: com.poyka.ripdpi.data.ProfileQualityMeasurement? = null,
     ) : CandidateRelayMeasurement {
         init {
             require(latencyMillis >= 0)

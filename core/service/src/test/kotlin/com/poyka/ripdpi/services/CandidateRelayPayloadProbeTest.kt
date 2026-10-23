@@ -106,7 +106,7 @@ class CandidateRelayPayloadProbeTest {
                     PayloadProbeControl("https://a.example.test/control", 32_768, "a".repeat(64)),
                     PayloadProbeControl("https://b.example.test/control", 32_768, "a".repeat(64)),
                 )
-            val policy = PayloadFailoverPolicy(1, "select", controls, 60, 10, 2, 2, 120, 900)
+            val policy = PayloadFailoverPolicy(2, "select", controls, 60, 10, 2, 2, 120, 900)
             for (kind in listOf(RelayKindVlessReality, RelayKindVless)) {
                 val runtime = FakeCandidateRuntime()
                 val observed = mutableListOf<String>()

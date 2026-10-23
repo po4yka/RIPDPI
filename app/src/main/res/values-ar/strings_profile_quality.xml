@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_quality_title">جودة النقل</string>
+    <string name="profile_quality_goodput">معدل النقل المؤكد: %1$s KiB/s</string>
+    <string name="profile_quality_transfer">المحتوى المؤكد: %1$s بايت خلال %2$s ث</string>
+    <string name="profile_quality_baseline">الطلب الأساسي: %1$d مللي ثانية</string>
+    <string name="profile_quality_loaded">الطلب أثناء النقل: %1$d مللي ثانية</string>
+    <string name="profile_quality_budget">ميزانية المحتوى: %1$d بايت محجوزة لهذه الجولة؛ %2$d / %3$d بايت في الفترة</string>
+    <string name="profile_quality_limits">زمن الطلب ليس RTT. الميزانية تستثني حمل البروتوكول الإضافي. القياسات تخص هذا المسار والمصدر.</string>
+    <string name="profile_quality_verified">قياس كامل</string>
+    <string name="profile_quality_no_overlap">جزئي: لم يقع طلب الحمل بالكامل ضمن نقل المحتوى.</string>
+    <string name="profile_quality_no_baseline">جزئي: الطلب الأساسي غير متاح.</string>
+    <string name="profile_quality_no_loaded">جزئي: طلب الحمل غير متاح.</string>
+    <string name="profile_quality_failed">تعذر تأكيد النقل.</string>
+    <string name="profile_quality_budget_exhausted">مؤجل: نفدت ميزانية البيانات.</string>
+    <string name="profile_quality_budget_unavailable">مؤجل: الميزانية الدائمة غير متاحة.</string>
+    <string name="profile_quality_stale">قديم: تغيرت الشبكة أو الإعدادات.</string>
+    <string name="profile_quality_cleanup">مؤجل: بيئة الاختبار مشغولة أو التنظيف قيد الانتظار.</string>
+    <string name="profile_quality_collecting">جارٍ جمع قياسات جودة متكررة.</string>
+    <string name="profile_quality_retained">تم الاحتفاظ بالاختيار الحالي؛ لا تحسن مؤكد.</string>
+    <string name="profile_quality_promoted_goodput">اختار المحدد ملفًا بمعدل نقل أعلى.</string>
+    <string name="profile_quality_promoted_latency">اختار المحدد ملفًا بزمن أقل تحت الحمل.</string>
+    <string name="profile_quality_cooldown">تم الاحتفاظ بالاختيار الحالي خلال فترة الانتظار.</string>
+</resources>

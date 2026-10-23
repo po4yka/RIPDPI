@@ -6,7 +6,9 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Singleton
@@ -28,6 +30,7 @@ class SelectorUrltestCoordinator(
     private val scope: CoroutineScope,
     private val groupRepository: ProxyGroupRepository,
     private val prober: SelectorUrltestProber,
+    private val scopeChanges: Flow<Unit> = emptyFlow(),
 ) {
     private val lock = Any()
     private var generation = 0L
@@ -45,6 +48,11 @@ class SelectorUrltestCoordinator(
                 scope.launch {
                     coroutineScope {
                         val watcherScope = this
+                        launch {
+                            scopeChanges.collect {
+                                groupRepository.list().forEach { prober.invalidateChangedQualityScope(it) }
+                            }
+                        }
                         groupRepository.groups().map(::urltestGroups).distinctUntilChanged().collect {
                             reconcile(it, observedGeneration, watcherScope)
                         }

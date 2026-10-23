@@ -132,18 +132,18 @@
       "hysteria_realm": null
     },
     "payload_failover": {
-      "schema_version": 1,
+      "schema_version": 2,
       "selector_tag": "select",
       "probes": [
         {
-          "url": "https://control-a.example.test/__throttle_probe?bytes=32768",
-          "expected_bytes": 32768,
-          "sha256": "80e00fc9e65a58c5ad59c399511a2ed5f27140f43e3b58f93c2f00a0c0df8816"
+          "url": "https://control-a.example.test/__throttle_probe?bytes=262144",
+          "expected_bytes": 262144,
+          "sha256": "b1882646e3ee80170bd9207304f77c71d388b0a786d53e5e7f4e16fb22e8b6dc"
         },
         {
-          "url": "https://control-b.example.test/__throttle_probe?bytes=32768",
-          "expected_bytes": 32768,
-          "sha256": "80e00fc9e65a58c5ad59c399511a2ed5f27140f43e3b58f93c2f00a0c0df8816"
+          "url": "https://control-b.example.test/__throttle_probe?bytes=262144",
+          "expected_bytes": 262144,
+          "sha256": "b1882646e3ee80170bd9207304f77c71d388b0a786d53e5e7f4e16fb22e8b6dc"
         }
       ],
       "interval_seconds": 60,
@@ -151,7 +151,14 @@
       "failure_threshold": 2,
       "recovery_threshold": 2,
       "cooldown_seconds": 120,
-      "max_backoff_seconds": 900
+      "max_backoff_seconds": 900,
+      "quality": {
+        "max_pass_bytes": 2097152,
+        "max_window_bytes": 16777216,
+        "window_seconds": 3600,
+        "minimum_gain_percent": 20,
+        "maximum_loaded_latency_increase_ms": 50
+      }
     }
   }
 }

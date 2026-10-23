@@ -26,7 +26,7 @@ func (r *requestReceipts) record(target, path string) {
 	label := "Unknown"
 	switch path {
 	case "/before-tcp", "/before-xhttp", "/after-tcp", "/after-xhttp",
-		"/wrong-identity", "/wrong-identity-direct", "/owned-tcp", "/owned-xhttp":
+		"/quality-payload", "/wrong-identity", "/wrong-identity-direct", "/owned-tcp", "/owned-xhttp":
 		label = path[1:]
 	}
 	r.mu.Lock()
