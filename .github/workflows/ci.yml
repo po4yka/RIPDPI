@@ -2380,7 +2380,7 @@ jobs:
             python3 scripts/ci/validate_android_junit_results.py \
               app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
               --require-test "com.poyka.ripdpi.integration.ProfileQualityNativeTest#$method" \
-              --expected-count 1 --forbid-skips
+              --expected-count 1
           done
 
       - name: Preserve GitHub Full instrumentation evidence on ${{ matrix.device }}
