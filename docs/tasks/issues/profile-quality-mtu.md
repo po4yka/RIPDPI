@@ -2,7 +2,7 @@
 id: TRN-1792759596946903
 title: Select profiles using bounded transfer quality and scoped MTU diagnostics
 kind: feature
-status: doing
+status: review
 area: transport
 priority: high
 owner: transport-audit
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: profile-quality-mtu
 created: 2026-10-23
-updated: 2026-10-23
+updated: 2026-10-24
 linked_task: "po4yka/ripdpi-vpn-deploy#OPS-1792759217301702"
 ---
 
