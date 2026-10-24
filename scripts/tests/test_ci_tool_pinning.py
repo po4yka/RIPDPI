@@ -9,19 +9,13 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CiToolPinningTest(unittest.TestCase):
-    def test_sccache_workflows_enable_persistent_backend_for_all_steps(self) -> None:
-        workflows = []
-        for path in sorted((ROOT / ".github/workflows").glob("*.yml")):
-            source = path.read_text(encoding="utf-8")
-            if "RUSTC_WRAPPER: sccache" not in source:
-                continue
-            workflows.append(path.name)
-            with self.subTest(workflow=path.name):
-                env = re.search(r"(?ms)^env:\n(.*?)(?=^\S|\Z)", source)
-                self.assertIsNotNone(env)
-                self.assertIn('  SCCACHE_GHA_ENABLED: "true"\n', env[1])
-                self.assertEqual(1, source.count("SCCACHE_GHA_ENABLED:"))
-        self.assertTrue(workflows, "No workflows use sccache")
+    def test_ci_does_not_wrap_rustc_with_sccache(self) -> None:
+        # The GHA sccache backend measured 0% hits while Swatinem/rust-cache
+        # already restores target/; it only added cache entries and latency.
+        paths = [*(ROOT / ".github/workflows").glob("*.yml"), *(ROOT / ".github/actions").glob("*/action.yml")]
+        for path in sorted(paths):
+            with self.subTest(path=path.name):
+                self.assertNotIn("sccache", path.read_text(encoding="utf-8").lower())
 
     def test_compose_reports_require_explicit_gradle_opt_in(self) -> None:
         source = (

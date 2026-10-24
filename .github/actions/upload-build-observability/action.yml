@@ -1,5 +1,5 @@
 name: Upload build observability
-description: Preserve Gradle profiles and final sccache statistics for a CI build lane.
+description: Preserve Gradle profiles for a CI build lane.
 
 inputs:
   artifact-name:
@@ -17,9 +17,6 @@ runs:
         mkdir -p "$output_dir"
         if [[ -d "$GITHUB_WORKSPACE/build/reports/profile" ]]; then
           cp -R "$GITHUB_WORKSPACE/build/reports/profile" "$output_dir/gradle-profile"
-        fi
-        if command -v sccache >/dev/null 2>&1; then
-          sccache --show-stats > "$output_dir/sccache-stats.txt" || true
         fi
 
     - name: Upload build observability

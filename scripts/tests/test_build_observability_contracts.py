@@ -81,11 +81,10 @@ class BuildObservabilityContractsTest(unittest.TestCase):
                 source = (ROOT / "scripts/ci" / script_name).read_text(encoding="utf-8")
                 self.assertIn("--profile", source)
 
-    def test_observability_action_captures_profiles_and_cache_stats(self) -> None:
+    def test_observability_action_captures_profiles(self) -> None:
         source = OBSERVABILITY_ACTION.read_text(encoding="utf-8")
 
         self.assertIn("build/reports/profile", source)
-        self.assertIn("sccache --show-stats", source)
         self.assertIn("name: Upload build observability\n      if: always()", source)
         self.assertIn("if-no-files-found: warn", source)
         self.assertIn("retention-days: 7", source)
