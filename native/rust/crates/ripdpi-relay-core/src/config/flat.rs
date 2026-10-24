@@ -243,6 +243,12 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub hysteria_pin_sha256: Option<String>,
     #[serde(default)]
+    pub hysteria_port_hop_ports: Option<String>,
+    #[serde(default)]
+    pub hysteria_port_hop_interval_millis: Option<u64>,
+    #[serde(default)]
+    pub hysteria_port_hop_interval_max_millis: Option<u64>,
+    #[serde(default)]
     pub tuic_uuid: Option<String>,
     #[serde(default)]
     pub tuic_password: Option<String>,
@@ -396,6 +402,23 @@ mod tests {
         assert_eq!(Some(pin.as_str()), hysteria.pin_sha256.as_deref());
         let round_trip = serde_json::to_value(&config).expect("serialize");
         assert_eq!(json!(pin), round_trip["hysteriaPinSha256"]);
+    }
+
+    #[test]
+    fn kotlin_hopping_fields_round_trip_through_backend_config() {
+        let mut object = relay_config_json_object();
+        object.insert("hysteriaPortHopPorts".to_string(), json!("20000-21000,22000"));
+        object.insert("hysteriaPortHopIntervalMillis".to_string(), json!(5000));
+        object.insert("hysteriaPortHopIntervalMaxMillis".to_string(), json!(15000));
+        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object)).expect("hopping wire");
+        let RelayBackendConfig::Hysteria2(hysteria) = &config.backend else { panic!("Hysteria config") };
+        assert_eq!(hysteria.port_hop_ports.as_deref(), Some("20000-21000,22000"));
+        assert_eq!(hysteria.port_hop_interval_millis, Some(5000));
+        assert_eq!(hysteria.port_hop_interval_max_millis, Some(15000));
+        let value = serde_json::to_value(config).expect("serialize");
+        assert_eq!(value["hysteriaPortHopPorts"], json!("20000-21000,22000"));
+        assert_eq!(value["hysteriaPortHopIntervalMillis"], json!(5000));
+        assert_eq!(value["hysteriaPortHopIntervalMaxMillis"], json!(15000));
     }
 
     #[test]
@@ -560,6 +583,7 @@ mod tests {
             salamander_key: Some(secret()),
             insecure: false,
             pin_sha256: None,
+            ..Hysteria2RelayConfig::default()
         });
         assert_debug_redacts(&TuicRelayConfig {
             uuid: Some(secret()),

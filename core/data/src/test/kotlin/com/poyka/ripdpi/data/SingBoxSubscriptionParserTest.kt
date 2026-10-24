@@ -349,7 +349,7 @@ class SingBoxSubscriptionParserTest {
     }
 
     @Test
-    fun `unsupported hysteria obfs and port hopping are typed skips`() {
+    fun `unsupported hysteria obfs is skipped while hopping is selectable`() {
         val json =
             """
             { "outbounds": [
@@ -361,9 +361,9 @@ class SingBoxSubscriptionParserTest {
 
         val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
 
-        assertTrue(parsed.profiles.isEmpty())
-        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, parsed.skipped[0].reason)
-        assertEquals(SingBoxSkipReason.UNSUPPORTED_PORT_HOPPING, parsed.skipped[1].reason)
+        val hopping = parsed.profiles.single() as ProxyProfile.Hysteria2
+        assertEquals(Hysteria2PortHopping("20000-30000"), hopping.portHopping)
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, parsed.skipped.single().reason)
     }
 
     @Test

@@ -1,5 +1,6 @@
 """Fail-closed driver contracts. These checks are not protocol acceptance evidence."""
 
+from contextlib import nullcontext
 import importlib.util
 import json
 import os
@@ -18,6 +19,7 @@ DIRECTORY = Path(__file__).resolve().parent
 sys.path.insert(0, str(DIRECTORY))
 catalog = importlib.import_module("catalog")
 hysteria = importlib.import_module("hysteria")
+hysteria_hopping = importlib.import_module("hysteria_hopping")
 
 SPEC = importlib.util.spec_from_file_location(
     "acceptance_peer_runner", DIRECTORY / "run.py"
@@ -76,6 +78,45 @@ class ExactExecutionTest(unittest.TestCase):
         for case in catalog.SCENARIOS.values():
             if case["tier"] == "independent-peer":
                 self.assertIn("pinned-peer-identity", case["checks"])
+
+
+class HoppingFailureEvidenceTest(unittest.TestCase):
+    def test_shared_hysteria_cases_use_the_verified_binary_pin(self):
+        for case in catalog.SCENARIOS.values():
+            if case["driver"] in ("hysteria2", "hysteria2-hopping"):
+                self.assertEqual(case["peer_identity"]["version"], hysteria.VERSION)
+        self.assertEqual(set(hysteria.DIGESTS), {"darwin-arm64", "linux-amd64", "linux-arm64"})
+        self.assertTrue(all(re.fullmatch(r"[a-f0-9]{64}", value) for value in hysteria.DIGESTS.values()))
+
+    def test_fragmented_udp_oracle_requires_every_distinct_packet(self):
+        payload = b"x" * 8208
+        expected = hysteria_hopping.expected_udp_hashes(payload)
+        self.assertEqual(len(expected), 60)
+        changed = hysteria_hopping.expected_udp_hashes(b"y" * 8208)
+        self.assertFalse(expected & changed)
+
+    def test_failed_rust_execution_keeps_receipts_and_failure(self):
+        case = catalog.SCENARIOS["independent-hysteria2-hopping-ipv4-plain-fixed"]
+        with tempfile.TemporaryDirectory() as directory:
+            args = unittest.mock.Mock(cache_dir=Path(directory), out_dir=Path(directory), run_id="failure-probe")
+            receipt = {"transport": "udp", "bytes": 2736, "sha256": "1" * 64}
+            peer = {
+                "env": {}, "receipts": [receipt],
+                "redirects": unittest.mock.Mock(receipts=[{"remote_port": 443, "local_port": 1234, "time": 1.0}]),
+                "wire_source": {"kind": "kotlin-serializer", "sha256": "2" * 64},
+            }
+            result = {"artifacts": [], "checks": []}
+            failure = subprocess.CalledProcessError(101, ["cargo", "test"])
+            with patch.object(runner, "checked", side_effect=[None, failure]), \
+                 patch.object(hysteria_hopping, "peer", return_value=nullcontext(peer)):
+                with self.assertRaises(subprocess.CalledProcessError) as caught:
+                    runner.execute(case, args, result)
+            self.assertIs(caught.exception, failure)
+            saved = json.loads((Path(directory) / "receipts.json").read_text())
+            self.assertEqual(saved["receipts"], [receipt])
+            self.assertEqual(saved["wire_source"], peer["wire_source"])
+            self.assertEqual(result["artifacts"], ["receipts.json"])
+            self.assertEqual(result["checks"], [])
 
 
 class PeerLifecycleTest(unittest.TestCase):
@@ -204,6 +245,54 @@ runner.main(['--prepare', '--scenario', 'native-tuic-tcp'])
         with self.assertRaises(OSError):
             socket.create_connection(tcp_address, timeout=0.2)
 
+    def test_redirects_preserve_each_physical_udp_path(self):
+        for family, host in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+            with self.subTest(host=host), socket.socket(family, socket.SOCK_DGRAM) as upstream:
+                upstream.bind((host, 0))
+                upstream.settimeout(2)
+                redirects = hysteria_hopping.Redirects((host, upstream.getsockname()[1]))
+                try:
+                    for port in redirects.ports:
+                        with socket.socket(family, socket.SOCK_DGRAM) as client:
+                            client.settimeout(2)
+                            client.sendto(b"physical-path", (host, port))
+                            data, source = upstream.recvfrom(1024)
+                            upstream.sendto(data, source)
+                            echoed, remote = client.recvfrom(1024)
+                            self.assertEqual(echoed, b"physical-path")
+                            self.assertEqual(remote[1], port)
+                    self.assertEqual(len(redirects.receipts), 3)
+                    self.assertFalse(redirects.errors)
+                finally:
+                    redirects.close()
+
+    def test_persistent_destination_keeps_one_connection(self):
+        sink = hysteria.Destinations(b"roundtrip", persistent=True)
+        try:
+            with socket.create_connection(sink.tcp.getsockname(), timeout=2) as client:
+                for _ in range(3):
+                    client.sendall(b"roundtrip")
+                    self.assertEqual(client.recv(9), b"roundtrip")
+            self.assertEqual(sink.tcp_connections, 1)
+            self.assertEqual(len(sink.receipts), 3)
+        finally:
+            sink.close()
+
+    def test_requested_kotlin_fixture_never_falls_back(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'RIPDPI_HYSTERIA_WIRE_FIXTURE_DIR': directory}):
+            with self.assertRaises(FileNotFoundError):
+                hysteria_hopping.fixture_input({'randomized': False})
+            path = Path(directory) / 'peer-flat-fixed.json'
+            path.write_text(json.dumps({'schemaVersion': 10, 'kind': 'hysteria2', 'hysteriaPortHopPorts': '1-65535', 'hysteriaPortHopIntervalMillis': 5000}))
+            with self.assertRaises(ValueError):
+                hysteria_hopping.fixture_input({'randomized': False})
+            path.write_text(json.dumps({'schemaVersion': 10, 'kind': 'hysteria2', 'hysteriaPortHopPorts': '42071,42073,42079', 'hysteriaPortHopIntervalMillis': 5000}))
+            fixture, ports, source = hysteria_hopping.fixture_input({'randomized': False})
+            self.assertEqual(fixture, path)
+            self.assertEqual(ports, [42071, 42073, 42079])
+            self.assertEqual(source['kind'], 'kotlin-serializer')
+            self.assertEqual(len(source['sha256']), 64)
+
     def test_missing_binary_never_downloads_at_runtime(self):
         with (
             tempfile.TemporaryDirectory() as directory,
@@ -219,7 +308,7 @@ runner.main(['--prepare', '--scenario', 'native-tuic-tcp'])
             tempfile.TemporaryDirectory() as directory,
             patch.object(hysteria, "asset", return_value="linux-arm64"),
         ):
-            (Path(directory) / "hysteria-v2.9.0-linux-arm64").write_bytes(b"tampered")
+            (Path(directory) / "hysteria-v2.13.0-linux-arm64").write_bytes(b"tampered")
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
                 hysteria.binary(Path(directory))
 

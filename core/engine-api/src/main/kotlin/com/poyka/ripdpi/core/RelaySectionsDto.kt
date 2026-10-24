@@ -146,6 +146,9 @@ data class RelayHysteria2Section(
     val hysteriaSalamanderKey: String?,
     val hysteriaInsecure: Boolean = false,
     val hysteriaPinSha256: String? = null,
+    val hysteriaPortHopPorts: String? = null,
+    val hysteriaPortHopIntervalMillis: Long? = null,
+    val hysteriaPortHopIntervalMaxMillis: Long? = null,
 )
 
 /** Mieru outbound endpoint, username/password credentials, transport protocol, multiplexing, and MTU. */

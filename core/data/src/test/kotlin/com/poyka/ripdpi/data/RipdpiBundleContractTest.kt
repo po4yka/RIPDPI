@@ -164,8 +164,8 @@ class RipdpiBundleContractTest {
         assertEquals("EXAMPLEsalamanderPassword", hy2.obfsPassword)
         assertEquals("v2.9.0", hy2.salamanderUpstreamTag)
         assertEquals(false, hy2.insecure)
-        assertEquals("20000:50000", hy2.portHopPorts)
-        assertEquals("30s", hy2.portHopInterval)
+        assertEquals("20000-50000", hy2.portHopping?.ports)
+        assertEquals(30000L, hy2.portHopping?.intervalMillis)
 
         // AWG entry with i-values; delivered fingerprint recomputes from its params.
         val awg = result.amneziaWgProfiles.single()
@@ -181,6 +181,26 @@ class RipdpiBundleContractTest {
         assertEquals(true, result.topology!!.splitHopEgress)
         assertEquals("realm-a", result.topology!!.hysteriaRealm)
         assertEquals(1_798_761_599_000L, result.tokenExpiresAtEpochMillis)
+    }
+
+    @Test
+    fun `producer hopping bundle imports its exact destination set and cadence`() {
+        val result =
+            SingBoxSubscriptionParser.parse(
+                resource("/contract/ripdpi-bundle.hysteria-port-hopping.json"),
+                "producer-hopping",
+            )
+        assertTrue("expected Success but got $result", result is SingBoxParseResult.Success)
+        val profile =
+            (result as SingBoxParseResult.Success)
+                .profiles
+                .filterIsInstance<ProxyProfile.Hysteria2>()
+                .single()
+        assertEquals(443, profile.serverPort)
+        assertEquals(Hysteria2PortHopping("20000-21000", 45_000L), profile.portHopping)
+        assertTrue(!profile.obfsPassword.isNullOrBlank())
+        assertEquals(false, profile.insecure)
+        assertTrue(!profile.serverName.isNullOrBlank())
     }
 
     // -------------------------------------------------------------------------

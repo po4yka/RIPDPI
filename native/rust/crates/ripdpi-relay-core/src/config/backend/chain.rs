@@ -190,6 +190,16 @@ pub struct ResolvedChainRelayHopConfig {
     #[serde(default)]
     pub hysteria_salamander_key: Option<String>,
     #[serde(default)]
+    pub hysteria_insecure: bool,
+    #[serde(default)]
+    pub hysteria_pin_sha256: Option<String>,
+    #[serde(default)]
+    pub hysteria_port_hop_ports: Option<String>,
+    #[serde(default)]
+    pub hysteria_port_hop_interval_millis: Option<u64>,
+    #[serde(default)]
+    pub hysteria_port_hop_interval_max_millis: Option<u64>,
+    #[serde(default)]
     pub anytls_password: Option<String>,
     #[serde(default)]
     pub tuic_uuid: Option<String>,
@@ -285,6 +295,11 @@ impl Default for ResolvedChainRelayHopConfig {
             vless_uuid: None,
             hysteria_password: None,
             hysteria_salamander_key: None,
+            hysteria_insecure: false,
+            hysteria_pin_sha256: None,
+            hysteria_port_hop_ports: None,
+            hysteria_port_hop_interval_millis: None,
+            hysteria_port_hop_interval_max_millis: None,
             anytls_password: None,
             tuic_uuid: None,
             tuic_password: None,

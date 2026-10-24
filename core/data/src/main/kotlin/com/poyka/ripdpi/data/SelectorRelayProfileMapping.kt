@@ -28,6 +28,7 @@ fun mapRelayProfile(
             server = endpoint.server,
             serverPort = endpoint.serverPort,
             serverName = endpoint.serverName,
+            hysteriaPortHopping = (profile as? ProxyProfile.Hysteria2)?.portHopping,
             securityLayer =
                 if (profile is ProxyProfile.Vless) {
                     RelaySecurityLayerTls

@@ -15,6 +15,7 @@ internal fun mergeRelayConfig(
         server = profile.server.ifBlank { config.server },
         serverPort = profile.serverPort,
         serverName = profile.serverName.ifBlank { config.serverName },
+        hysteriaPortHopping = profile.hysteriaPortHopping,
         realityPublicKey = profile.realityPublicKey.ifBlank { config.realityPublicKey },
         realityShortId = profile.realityShortId.ifBlank { config.realityShortId },
         vlessFlow = profile.vlessFlow,

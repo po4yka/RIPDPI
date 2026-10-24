@@ -61,6 +61,7 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             salamander_key: None,
             insecure: false,
             pin_sha256: None,
+            ..Hysteria2RelayConfig::default()
         }),
         "tuic_v5" => RelayBackendConfig::TuicV5(TuicRelayConfig {
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),

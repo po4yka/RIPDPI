@@ -1,5 +1,6 @@
 use std::io;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use bytes::{Bytes, BytesMut};
@@ -11,11 +12,18 @@ use crate::varint::{put_varint, read_varint};
 pub struct DuplexStream {
     send: quinn::SendStream,
     recv: quinn::RecvStream,
+    // A hopping stream owns its carrier schedule even if the handle is dropped.
+    // Scalar sessions retain their existing stream ownership behavior.
+    _client: Option<Arc<crate::client::ClientInner>>,
 }
 
 impl DuplexStream {
-    pub(crate) fn new(send: quinn::SendStream, recv: quinn::RecvStream) -> Self {
-        Self { send, recv }
+    pub(crate) fn new(
+        send: quinn::SendStream,
+        recv: quinn::RecvStream,
+        client: Option<Arc<crate::client::ClientInner>>,
+    ) -> Self {
+        Self { send, recv, _client: client }
     }
 }
 

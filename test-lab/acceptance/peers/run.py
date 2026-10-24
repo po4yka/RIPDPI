@@ -16,6 +16,7 @@ import time
 
 from catalog import SCENARIOS, UPSTREAM, EXTERNAL_BOUNDARIES
 import hysteria
+import hysteria_hopping
 import go_toolchain
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -154,7 +155,7 @@ def source_dir(case, args):
 
 def endpoint_case(case):
     return dict(
-        case, package="ripdpi-hysteria2", target="upstream_interop", ignored=True
+        case, package=case.get("package", "ripdpi-hysteria2"), target=case.get("target", "upstream_interop"), ignored=True
     )
 
 
@@ -163,7 +164,7 @@ def prepare(case, args):
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     if driver == "cargo":
         checked(cargo_command(case, True), RUST)
-    elif driver == "hysteria2":
+    elif driver in ("hysteria2", "hysteria2-hopping"):
         hysteria.binary(args.cache_dir, prepare=True)
         checked(cargo_command(endpoint_case(case), True), RUST)
     elif driver == "outbound":
@@ -264,6 +265,36 @@ def execute(case, args, result):
         result["peer_identity"]["compiler"] = identity
         with environment(go_env):
             oracle["run"]()
+    elif driver == "hysteria2-hopping":
+        checked(cargo_command(endpoint_case(case), True), RUST)
+        result["_peer_cleanup"] = {"passed": True}
+        with hysteria_hopping.peer(args.cache_dir, args.out_dir, args.run_id, result["_peer_cleanup"], case) as peer:
+            try:
+                checked(cargo_command(endpoint_case(case)), RUST, dict(os.environ, **peer["env"]), timeout=60)
+            finally:
+                paths = peer["redirects"].receipts
+                intervals = [b["time"] - a["time"] for a, b in zip(paths, paths[1:])]
+                (args.out_dir / "receipts.json").write_text(json.dumps({"run_id": args.run_id, "receipts": peer["receipts"], "paths": paths, "intervals": intervals, "wire_source": peer["wire_source"]}, indent=2) + "\n")
+                result["artifacts"].append("receipts.json")
+            receipts = peer["receipts"]
+            tcp_receipts = [item for item in receipts if item["transport"] == "tcp"]
+            udp_receipts = [item for item in receipts if item["transport"] == "udp"]
+            expected_udp = hysteria_hopping.expected_udp_hashes(peer["env"]["RIPDPI_HYSTERIA_PAYLOAD"].encode())
+            valid = not peer["errors"] and len(receipts) == 80 and len(tcp_receipts) == 20 and len(udp_receipts) == 60
+            valid = valid and all(item["sha256"] == peer["payload_sha256"] and item["bytes"] == 8208 for item in tcp_receipts)
+            valid = valid and all(item["bytes"] == 2736 for item in udp_receipts) and {item["sha256"] for item in udp_receipts} == expected_udp
+            paths = peer["redirects"].receipts
+            hopped = not peer["redirects"].errors and len(paths) >= 4 and all(a["local_port"] != b["local_port"] for a, b in zip(paths, paths[1:]))
+            hopped = hopped and all(a["remote_port"] != b["remote_port"] for a, b in zip(paths, paths[1:]))
+            cadence_max = 5.5 if case["randomized"] else 5.0
+            intervals = [b["time"] - a["time"] for a, b in zip(paths, paths[1:])]
+            hopped = hopped and all(4.8 <= value <= cadence_max + 1.0 for value in intervals)
+            connected = (args.out_dir / "peer.log").read_text().count('client connected') == 1 and peer["destinations"].tcp_connections == 1
+            for check, passed in (("destination-receipts", valid), ("physical-port-hops", hopped), ("single-authenticated-connection", connected)):
+                result["checks"].append({"id": check, "passed": passed})
+            result["peer_identity"]["sha256"] = peer["sha256"]
+            if not (valid and hopped and connected):
+                raise RuntimeError("Hysteria remote hopping acceptance receipts failed")
     elif driver == "hysteria2":
         # Compilation happens before starting a peer with a finite lifetime.
         checked(cargo_command(endpoint_case(case), True), RUST)

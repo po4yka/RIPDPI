@@ -22,6 +22,12 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         config.common.server_name.clone(),
     )
     .map_err(to_io_error)?;
+    client_config.port_hopping = ripdpi_hysteria2::PortHoppingConfig::from_wire(
+        hysteria.port_hop_ports.as_deref(),
+        hysteria.port_hop_interval_millis,
+        hysteria.port_hop_interval_max_millis,
+    )
+    .map_err(to_io_error)?;
     client_config.salamander_key = hysteria.salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
     client_config.insecure = hysteria.insecure;
     // Fail closed on a malformed pin: ignoring it would turn an `insecure`
@@ -75,6 +81,7 @@ mod tests {
                 salamander_key: None,
                 insecure: true,
                 pin_sha256,
+                ..Hysteria2RelayConfig::default()
             }),
         }
     }
@@ -86,6 +93,23 @@ mod tests {
             socket_protection: ripdpi_relay_tls_transports::SocketProtectionPolicy::Inactive,
             pool_config: RelayPoolConfig::default(),
             quic_migration: QuicMigrationTelemetryState::default(),
+        }
+    }
+
+    #[test]
+    fn build_rejects_invalid_hopping_before_any_network_access() {
+        for (ports, interval, maximum) in [
+            (Some("0"), None, None),
+            (Some("443,8443"), Some(4999), None),
+            (Some("443"), Some(10000), Some(5000)),
+            (None, Some(5000), None),
+        ] {
+            let mut config = hysteria_config(None);
+            let RelayBackendConfig::Hysteria2(hysteria) = &mut config.backend else { unreachable!() };
+            hysteria.port_hop_ports = ports.map(str::to_owned);
+            hysteria.port_hop_interval_millis = interval;
+            hysteria.port_hop_interval_max_millis = maximum;
+            assert!(build(&config, &build_context()).is_err());
         }
     }
 

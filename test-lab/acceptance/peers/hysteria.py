@@ -16,13 +16,13 @@ import threading
 import time
 import urllib.request
 
-VERSION = "app/v2.9.0"
-# GitHub release API asset digests, app/v2.9.0, retrieved 2026-10-08.
-# https://api.github.com/repos/HyNetworks/hysteria/releases/tags/app%2Fv2.9.0
+VERSION = "app/v2.13.0"
+# GitHub release API asset digests, app/v2.13.0, retrieved 2026-10-24.
+# https://api.github.com/repos/HyNetworks/hysteria/releases/tags/app%2Fv2.13.0
 DIGESTS = {
-    "darwin-arm64": "9e49645c7363bf630815d26e5d512a19f41c9d50624ca6960d2b48d95c33dcba",
-    "linux-amd64": "8225c8380f1ae8122921d4986c2b70976e9c6e6f87a977e7d0498a813f4f3e37",
-    "linux-arm64": "a3ccc0a3e791b85710ef63d22304a6f7dea210259be71bcd70cf9a210a385454",
+    "darwin-arm64": "c8c3589239ce4ecf335c07a3f6ec11b3ef8fbdfe9e5a5ea0ef8ba8ce50d2bb90",
+    "linux-amd64": "907ba8c9693edb104b20582681fb7dc15639d5b64a9cbb616a7b539190a86691",
+    "linux-arm64": "a68a61a84452ca250ce0368202521965ca9cc9d801a404f1dc9008ac6cf677a7",
 }
 
 
@@ -38,7 +38,7 @@ def asset():
 
 def binary(cache: Path, prepare=False):
     name = asset()
-    path = cache / f"hysteria-v2.9.0-{name}"
+    path = cache / f"hysteria-v2.13.0-{name}"
     if prepare and not path.exists():
         cache.mkdir(parents=True, exist_ok=True)
         url = f"https://github.com/HyNetworks/hysteria/releases/download/{VERSION}/hysteria-{name}"
@@ -95,8 +95,10 @@ def stop_group(process):
 class Destinations:
     """Record complete test payloads, then echo them through independent sockets."""
 
-    def __init__(self, payload):
+    def __init__(self, payload, *, persistent=False):
         self.payload = payload
+        self.persistent = persistent
+        self.tcp_connections = 0
         self.receipts = []
         self.errors = []
         self.stopped = threading.Event()
@@ -123,16 +125,24 @@ class Destinations:
                     sock.sendto(data, address)
                 else:
                     conn, _ = sock.accept()
+                    self.tcp_connections += 1
                     with conn:
-                        conn.settimeout(2)
+                        conn.settimeout(0.2)
                         data = b""
-                        while len(data) < len(self.payload):
-                            part = conn.recv(len(self.payload) - len(data))
+                        while not self.stopped.is_set():
+                            try:
+                                part = conn.recv(len(self.payload) - len(data))
+                            except socket.timeout:
+                                continue
                             if not part:
                                 break
                             data += part
-                        self.record(kind, data)
-                        conn.sendall(data)
+                            if len(data) == len(self.payload):
+                                self.record(kind, data)
+                                conn.sendall(data)
+                                data = b""
+                                if not self.persistent:
+                                    break
             except socket.timeout:
                 continue
             except OSError as error:
@@ -160,10 +170,18 @@ class Destinations:
 
 
 @contextmanager
-def peer(cache, out_dir, run_id, cleanup):
+def peer(cache, out_dir, run_id, cleanup, *, ipv6=False, salamander=False, persistent=False, payload_bytes=0):
     executable = binary(cache)
     payload = f"ripdpi-acceptance:{run_id}".encode()
-    destinations = Destinations(payload)
+    if not 0 <= payload_bytes <= 60_000:
+        raise ValueError("peer payload size exceeds the UDP test bound")
+    if payload_bytes:
+        payload = (payload * ((payload_bytes + len(payload) - 1) // len(payload)))[:payload_bytes]
+    destinations = Destinations(payload, persistent=persistent)
+    host = "::1" if ipv6 else "127.0.0.1"
+    family = socket.AF_INET6 if ipv6 else socket.AF_INET
+    def address(port):
+        return f"[{host}]:{port}" if ipv6 else f"{host}:{port}"
     cleanup["passed"] = False
     try:
         with tempfile.TemporaryDirectory(prefix="ripdpi-hysteria-peer-") as directory:
@@ -198,15 +216,17 @@ def peer(cache, out_dir, run_id, cleanup):
                 stderr=subprocess.DEVNULL,
                 timeout=30,
             )
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-                reservation.bind(("127.0.0.1", 0))
+            with socket.socket(family, socket.SOCK_DGRAM) as reservation:
+                reservation.bind((host, 0))
                 port = reservation.getsockname()[1]
             auth = secrets.token_hex(24)
+            obfs = secrets.token_hex(24) if salamander else ""
             config = private / "server.json"
             config.write_text(
                 json.dumps(
                     {
-                        "listen": f"127.0.0.1:{port}",
+                        "listen": address(port),
+                        **({"obfs": {"type": "salamander", "salamander": {"password": obfs}}} if salamander else {}),
                         "tls": {"cert": str(cert), "key": str(key)},
                         "auth": {"type": "password", "password": auth},
                         "disableUDP": False,
@@ -236,12 +256,15 @@ def peer(cache, out_dir, run_id, cleanup):
                             time.sleep(0.05)
                         yield {
                             "env": {
-                                "RIPDPI_HYSTERIA_ENDPOINT": f"127.0.0.1:{port}",
+                                "RIPDPI_HYSTERIA_ENDPOINT": address(port),
+                                "RIPDPI_HYSTERIA_SALAMANDER": obfs,
                                 "RIPDPI_HYSTERIA_AUTH": auth,
                                 "RIPDPI_HYSTERIA_TCP": f"127.0.0.1:{destinations.tcp.getsockname()[1]}",
                                 "RIPDPI_HYSTERIA_UDP": f"127.0.0.1:{destinations.udp.getsockname()[1]}",
                                 "RIPDPI_HYSTERIA_PAYLOAD": payload.decode(),
                             },
+                            "destinations": destinations,
+                            "server_address": (host, port),
                             "receipts": destinations.receipts,
                             "errors": destinations.errors,
                             "sha256": DIGESTS[asset()],

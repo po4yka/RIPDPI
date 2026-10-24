@@ -353,6 +353,19 @@ fn resolved_hop_hysteria2_factory(
     let mut config =
         ripdpi_hysteria2::Config::from_parts(password.clone(), &hop.server, hop.server_port, hop.server_name.clone())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))?;
+    config.port_hopping = ripdpi_hysteria2::PortHoppingConfig::from_wire(
+        hop.hysteria_port_hop_ports.as_deref(),
+        hop.hysteria_port_hop_interval_millis,
+        hop.hysteria_port_hop_interval_max_millis,
+    )
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    config.insecure = hop.hysteria_insecure;
+    config.pin_sha256 = hop
+        .hysteria_pin_sha256
+        .as_deref()
+        .map(ripdpi_hysteria2::parse_certificate_pin_sha256)
+        .transpose()
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     config.salamander_key = hop.hysteria_salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
     config.quic_bind_low_port = false;
     config.quic_migrate_after_handshake = false;
@@ -404,6 +417,43 @@ mod credential_tests {
 
     fn hop(kind: &str) -> ResolvedChainRelayHopConfig {
         ResolvedChainRelayHopConfig { kind: kind.to_string(), ..ResolvedChainRelayHopConfig::default() }
+    }
+
+    #[test]
+    fn chain_hysteria_json_preserves_policy_and_tls_into_factory() {
+        let wire = serde_json::json!({
+            "kind": "hysteria2", "server": "peer.example", "serverPort": 443,
+            "serverName": "peer.example", "tlsFingerprintProfile": "chrome_stable",
+            "hysteriaPassword": "fixture-auth", "hysteriaSalamanderKey": "fixture-obfs",
+            "hysteriaInsecure": true, "hysteriaPinSha256": "ab".repeat(32),
+            "hysteriaPortHopPorts": "443,5000-5002", "hysteriaPortHopIntervalMillis": 5000,
+            "hysteriaPortHopIntervalMaxMillis": 5500
+        });
+        let hop: ResolvedChainRelayHopConfig = serde_json::from_value(wire).expect("chain wire");
+        let factory = resolved_hop_hysteria2_factory(
+            &hop,
+            "entry",
+            SocketProtectionPolicy::Inactive,
+            QuicMigrationTelemetryState::default(),
+        )
+        .expect("chain factory");
+        let policy = factory.config.port_hopping.as_ref().expect("hopping policy");
+        assert_eq!(policy.ports(), &[443, 5000, 5001, 5002]);
+        assert!(policy.window().is_randomized());
+        assert!(factory.config.insecure);
+        assert_eq!(factory.config.pin_sha256, Some([0xab; 32]));
+        assert_eq!(factory.config.salamander_key.as_deref(), Some("fixture-obfs"));
+        let mut invalid = hop;
+        invalid.hysteria_port_hop_interval_max_millis = Some(4999);
+        assert!(
+            resolved_hop_hysteria2_factory(
+                &invalid,
+                "entry",
+                SocketProtectionPolicy::Inactive,
+                QuicMigrationTelemetryState::default()
+            )
+            .is_err()
+        );
     }
 
     #[test]
