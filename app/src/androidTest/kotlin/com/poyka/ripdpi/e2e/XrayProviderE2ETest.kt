@@ -45,6 +45,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
@@ -709,6 +710,7 @@ class XrayProviderE2ETest {
                     relayEnabled = true
                     relayKind = RelayKindHysteria2
                     relayProfileId = relayId
+                    tlsFingerprintProfile = TlsFingerprintProfileFirefoxStable
                 }
                 assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
             }
