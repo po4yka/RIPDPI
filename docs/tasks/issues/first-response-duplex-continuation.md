@@ -1,0 +1,33 @@
+---
+id: PRX-1792849175606125
+title: Forward request continuation during first-response observation
+kind: bug
+status: doing
+area: proxy
+priority: high
+owner: protocol-runtime
+parent: null
+blocked_by: []
+spec_mode: required
+openspec_change: first-response-duplex-continuation
+created: 2026-10-24
+updated: 2026-10-24
+---
+
+## Goal
+
+Complete uploads when the first-response observer is active, without losing response classification or replaying an unretained request body. This fixes the Hysteria upload blocker found by TST-1792776319490914.
+
+## Acceptance criteria
+
+- A real proxy completes a split-header 1 MiB POST with autolearn enabled and an origin that responds only after the complete body; byte count and digest match.
+- Client continuation uses bounded duplex forwarding with backpressure. Early responses, half-close and cancellation cannot deadlock or leak resources.
+- First-response classification, autolearn and exact response delivery remain active on portable and io_uring paths.
+- A flow cannot reconnect or replay after continuation handoff. Existing first-payload-only retries remain covered.
+- Regression, full affected native gates and rebuilt physical Hysteria upload pass. Hosted and device evidence remain separate until observed.
+
+## Ownership
+
+- Protocol worker owns the shared native proxy relay first-exchange, first-outbound, response, session, execution and stream-copy code and its focused runtime tests in an isolated worktree.
+- Security worker reviews cancellation, byte ownership, backpressure and replay safety independently. The coordinator owns this task, its OpenSpec records and integration.
+- Android acceptance worker alone owns the authorized device. No Hysteria protocol, HTTP fixture, timeout, dependency, schema or production credential change is planned.
