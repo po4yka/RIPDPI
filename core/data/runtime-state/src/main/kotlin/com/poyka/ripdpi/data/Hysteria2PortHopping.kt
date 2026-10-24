@@ -81,22 +81,28 @@ fun normalizeHysteria2HopPorts(raw: String): String {
 
 /** Parse Go duration units exactly; fractional milliseconds and overflow are never rounded. */
 fun parseHysteria2HopDuration(raw: String): Long {
-    require(raw.length in 1..MaximumHopDurationLength) { "Hysteria hopping duration has invalid length" }
+    require(
+        raw.length in 1..MaximumHopDurationBytes && raw.toByteArray(Charsets.UTF_8).size <= MaximumHopDurationBytes,
+    ) { "Hysteria hopping duration has invalid length" }
     var offset = 0
     var milliseconds = BigDecimal.ZERO
     for (component in DurationComponent.findAll(raw)) {
         require(component.range.first == offset) { "Hysteria hopping duration has invalid syntax" }
         val multiplier =
             when (component.groupValues[2]) {
-                "h" -> BigDecimal(3_600_000)
-                "m" -> BigDecimal(60_000)
-                "s" -> BigDecimal(1_000)
+                "h" -> MillisecondsPerHour
+                "m" -> MillisecondsPerMinute
+                "s" -> MillisecondsPerSecond
                 "ms" -> BigDecimal.ONE
                 "us", "µs", "μs" -> BigDecimal("0.001")
                 "ns" -> BigDecimal("0.000001")
                 else -> error("Unsupported duration unit")
             }
-        milliseconds += component.groupValues[1].toBigDecimal() * multiplier
+        val componentMillis = component.groupValues[1].toBigDecimal() * multiplier
+        require(componentMillis.stripTrailingZeros().scale() <= NanosecondFractionDigits) {
+            "Hysteria hopping components must use whole nanoseconds"
+        }
+        milliseconds += componentMillis
         offset = component.range.last + 1
     }
     require(offset == raw.length) { "Hysteria hopping duration has invalid syntax" }
@@ -116,7 +122,12 @@ const val Hysteria2DefaultHopIntervalMillis = 30_000L
 const val Hysteria2MinimumHopIntervalMillis = 5_000L
 const val Hysteria2MaximumHopIntervalMillis = 9_223_372_036_854L
 private const val Hysteria2MaximumHopPortsLength = 1_048_576
-private const val MaximumHopDurationLength = 128
+private const val MaximumHopDurationBytes = 128
+private const val NanosecondFractionDigits = 6
 private const val MaximumUdpPort = 65_535
 private val PortNumber = Regex("[0-9]{1,5}")
 private val DurationComponent = Regex("([0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h)")
+
+private val MillisecondsPerHour = BigDecimal(3_600_000)
+private val MillisecondsPerMinute = BigDecimal(60_000)
+private val MillisecondsPerSecond = BigDecimal(1_000)

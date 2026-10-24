@@ -567,7 +567,9 @@ private fun mapHysteria2(
 ): ProxyProfile {
     val hopping = singBoxHysteria2PortHopping(obj)
     val selectedPort = port ?: hopping?.firstPort
-    require(!obj.containsKey("server_port") || (port != null && port in 1..65535)) { "Hysteria server port is invalid" }
+    require(
+        !obj.containsKey("server_port") || (port != null && port in 1..MaxPort),
+    ) { "Hysteria server port is invalid" }
     val password = obj.string("password")
     val tls = obj["tls"] as? JsonObject
     val obfs = obj["obfs"] as? JsonObject

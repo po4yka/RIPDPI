@@ -14,9 +14,9 @@ internal data class Hysteria2UriAuthority(
 /** Normalize only the multi-port authority before Java URI parses the remaining URI components. */
 internal fun parseHysteria2UriAuthority(raw: String): Hysteria2UriAuthority {
     require(raw.length <= MaximumHysteriaUriLength) { "Hysteria URI exceeds the size limit" }
-    val schemeEnd = raw.indexOf("://")
+    val schemeEnd = raw.indexOf(SchemeSeparator)
     require(schemeEnd > 0) { "Hysteria URI requires an authority" }
-    val authorityStart = schemeEnd + 3
+    val authorityStart = schemeEnd + SchemeSeparator.length
     val authorityEnd = raw.indexOfAny(charArrayOf('/', '?', '#'), authorityStart).takeIf { it >= 0 } ?: raw.length
     val authority = raw.substring(authorityStart, authorityEnd)
     require(authority.count { it == '@' } == 1) { "Hysteria URI requires unambiguous authentication" }
@@ -74,6 +74,7 @@ private fun uriHopDuration(raw: String): Long =
     parseHysteria2HopDuration(if (raw.matches(WholeSeconds)) "${raw}s" else raw)
 
 private const val MaximumHysteriaUriLength = 2 * 1024 * 1024
+private const val SchemeSeparator = "://"
 private const val DefaultHysteriaPort = "443"
 private val HysteriaHopQueryNames = setOf("hopInterval", "minHopInterval", "maxHopInterval")
 private val WholeSeconds = Regex("[0-9]+")

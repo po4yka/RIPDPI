@@ -49,12 +49,14 @@ class Hysteria2PortHoppingTest {
             "1h2m3.004s" to 3_723_004L,
             "5000000us" to 5000L,
             "5000000000ns" to 5000L,
+            "5s500000ns500000ns" to 5001L,
             "9223372036854ms" to Hysteria2MaximumHopIntervalMillis,
         ).forEach { (raw, expected) -> assertEquals(raw, expected, parseHysteria2HopDuration(raw)) }
         listOf(
             "5",
             "4.999s",
             "5.0001s",
+            "5s0.5ns0.5ns999999ns",
             "9223372036855ms",
             "NaNs",
             "Infinitys",
@@ -65,6 +67,14 @@ class Hysteria2PortHoppingTest {
             "5s!",
         ).forEach {
             assertThrows(it, IllegalArgumentException::class.java) { parseHysteria2HopDuration(it) }
+        }
+    }
+
+    @Test
+    fun `duration size limit counts UTF-8 bytes for microsecond units`() {
+        assertEquals(5000L, parseHysteria2HopDuration("5s" + "0µs".repeat(31) + "0s"))
+        assertThrows(IllegalArgumentException::class.java) {
+            parseHysteria2HopDuration("5s" + "0µs".repeat(31) + "00s")
         }
     }
 

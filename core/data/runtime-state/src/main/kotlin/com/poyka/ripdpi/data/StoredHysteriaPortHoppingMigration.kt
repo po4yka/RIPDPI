@@ -28,8 +28,9 @@ fun migrateStoredHysteriaPortHopping(stored: String): String {
 
 /** Also used for explicit backup restore; it never mutates or reissues migration receipt authority. */
 fun migrateStoredHysteriaProfile(profile: JsonObject): JsonObject {
-    if (profile["type"]?.jsonPrimitive?.content != "hysteria2") return profile
-    if (LegacyHoppingFields.none(profile::containsKey)) return profile
+    if (profile["type"]?.jsonPrimitive?.content != "hysteria2" || LegacyHoppingFields.none(profile::containsKey)) {
+        return profile
+    }
     val ports = profile.legacyString("portHopPorts")
     val interval = profile.legacyString("portHopInterval")?.let(::parseHysteria2HopDuration)
     val legacy = hysteria2PortHopping(ports?.replace(':', '-'), interval)
