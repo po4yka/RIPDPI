@@ -15,8 +15,7 @@ use tokio::sync::Notify;
 use tokio::time::timeout;
 
 /// # Cancel safety
-/// Cancel-safe: cancellation drops the owned socket and its partial SOCKS exchange.
-// cancel-safe: no partially negotiated socket escapes on cancellation.
+/// cancel-safe: cancellation drops the owned socket and its partial SOCKS exchange.
 async fn socks_request(address: SocketAddr, command: u8, target: SocketAddr) -> Result<(TcpStream, SocketAddr)> {
     let mut stream = TcpStream::connect(address).await?;
     stream.write_all(&[5, 1, 0]).await?;
@@ -54,8 +53,7 @@ fn udp_frame(port: u16, payload: &[u8]) -> Vec<u8> {
 }
 
 /// # Cancel safety
-/// Cancel-safe: all client sockets are owned here and dropped on timeout; the owner stops the runtime.
-// cancel-safe: a failed exchange never reuses a partially consumed stream.
+/// cancel-safe: all client sockets are owned here and dropped on timeout; the owner stops the runtime.
 async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketAddr, TcpStream)> {
     ready.notified().await;
     let telemetry = runtime.telemetry();
@@ -125,8 +123,7 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketA
 }
 
 /// # Cancel safety
-/// Not cancel-safe: this test owns a runtime task and explicitly stops, aborts if needed, and joins it.
-// NOT cancel-safe: libtest owns this complete lifecycle; no select wraps the test.
+/// NOT cancel-safe: this test owns a runtime task and explicitly stops, aborts if needed, and joins it.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() -> Result<()> {
     let endpoint: SocketAddr = std::env::var("RIPDPI_AWG_INTEROP_ENDPOINT")

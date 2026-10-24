@@ -216,8 +216,10 @@ impl<S> WsCarrierSender<S>
 where
     S: futures::Sink<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin,
 {
-    // NOT cancel-safe: a dropped send may leave a buffered frame; a later send
-    // finishes it before sending a new frame.
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: a dropped send may leave a buffered frame; a later send
+    /// finishes it before sending a new frame.
     pub async fn send_datagram(&mut self, datagram: &[u8]) -> Result<(), WsCarrierError> {
         use futures::SinkExt;
         self.sink.send(frame_datagram(datagram)).await?;
@@ -229,7 +231,9 @@ impl<S> WsCarrierReceiver<S>
 where
     S: futures::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
 {
-    // cancel-safe: dropping a pending read preserves WebSocket framing state.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: dropping a pending read preserves WebSocket framing state.
     pub async fn recv_datagram(&mut self) -> Result<Vec<u8>, WsCarrierError> {
         use futures::StreamExt;
         match self.stream.next().await {
@@ -259,11 +263,14 @@ where
 
     /// Send one WireGuard UDP datagram across the carrier as a binary frame.
     ///
-    // cancel-safe: a cancelled `send` may leave a partially-buffered frame in
-    // the sink; the WebSocket message-boundary guarantee means a half-sent
-    // binary frame is never delivered as a truncated datagram — the peer
-    // either sees the whole frame or the stream errors/closes. The caller
-    // must not assume the datagram was delivered if the future is dropped.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a cancelled `send` may leave a partially-buffered frame in
+    /// the sink; the WebSocket message-boundary guarantee means a half-sent
+    /// binary frame is never delivered as a truncated datagram — the peer
+    /// either sees the whole frame or the stream errors/closes. The caller
+    /// must not assume the datagram was delivered if the future is dropped.
     pub async fn send_datagram(&mut self, datagram: &[u8]) -> Result<(), WsCarrierError> {
         use futures::SinkExt;
         self.stream.send(frame_datagram(datagram)).await?;
@@ -272,9 +279,12 @@ where
 
     /// Emit the AmneziaWG junk-packet prefix ahead of the real handshake.
     ///
-    // cancel-safe: each junk frame is sent independently; cancellation drops at
-    // most one in-flight junk frame, which is harmless (junk is discardable by
-    // definition). No real datagram is sent here.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: each junk frame is sent independently; cancellation drops at
+    /// most one in-flight junk frame, which is harmless (junk is discardable by
+    /// definition). No real datagram is sent here.
     pub async fn send_junk_prefix(&mut self, prefix: &JunkPrefix) -> Result<(), WsCarrierError> {
         use futures::SinkExt;
         for frame in prefix.generate() {
@@ -287,11 +297,14 @@ where
     ///
     /// Returns [`WsCarrierError::Closed`] when the peer closes the stream.
     ///
-    // cancel-safe: a cancelled `recv` drops the in-progress read of the next
-    // frame; because WebSocket frames are message-delimited, the next call
-    // resumes at the following frame boundary with no datagram split across
-    // the cancellation. No datagram is lost that the caller had already
-    // observed.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a cancelled `recv` drops the in-progress read of the next
+    /// frame; because WebSocket frames are message-delimited, the next call
+    /// resumes at the following frame boundary with no datagram split across
+    /// the cancellation. No datagram is lost that the caller had already
+    /// observed.
     pub async fn recv_datagram(&mut self) -> Result<Vec<u8>, WsCarrierError> {
         use futures::StreamExt;
         match self.stream.next().await {

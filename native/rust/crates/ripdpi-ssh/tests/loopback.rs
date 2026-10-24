@@ -259,13 +259,17 @@ impl russh::server::Server for EchoHandler {
 impl russh::server::Handler for EchoHandler {
     type Error = russh::Error;
 
-    // cancel-safe: no awaits; returns immediately.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: no awaits; returns immediately.
     async fn auth_password(&mut self, _user: &str, _password: &str) -> Result<Auth, russh::Error> {
         Ok(Auth::Accept)
     }
 
-    // cancel-safe: spawns a detached echo task and returns Ok(true) immediately;
-    // the spawned task is independent and its lifecycle is not observed.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: spawns a detached echo task and returns Ok(true) immediately;
+    /// the spawned task is independent and its lifecycle is not observed.
     async fn channel_open_direct_tcpip(
         &mut self,
         channel: Channel<Msg>,
@@ -301,8 +305,11 @@ impl russh::server::Handler for EchoHandler {
 
 /// Binds a `TcpListener` on `127.0.0.1:0`, spawns an `EchoHandler` russh
 /// server backed by `host_key`, and returns the assigned port.
-// cancel-safe: binds and spawns without shared mutable state; dropping before
-// await resolves leaves the runtime clean.
+///
+/// # Cancel safety
+///
+/// cancel-safe: binds and spawns without shared mutable state; dropping before
+/// await resolves leaves the runtime clean.
 async fn spawn_echo_server(host_key: PrivateKey) -> u16 {
     let server_config = Arc::new(russh::server::Config {
         keys: vec![host_key],

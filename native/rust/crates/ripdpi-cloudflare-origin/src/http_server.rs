@@ -124,8 +124,10 @@ impl OriginServer {
         empty_response(StatusCode::OK)
     }
 
-    // cancel-safe: cancellation during the scan leaves the map unchanged; insertion
-    // and timer registration complete without further awaits.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation during the scan leaves the map unchanged; insertion
+    /// and timer registration complete without further awaits.
     async fn session_for(&self, session_id: String) -> Option<Arc<SessionState>> {
         let mut sessions = self.sessions.lock().await;
         if let Some(session) = sessions.get(&session_id) {
@@ -171,7 +173,9 @@ impl OriginServer {
     }
 }
 
-// cancel-safe: the map entry stays unchanged until both locks are held.
+/// # Cancel safety
+///
+/// cancel-safe: the map entry stays unchanged until both locks are held.
 async fn expire_unstarted_session(
     sessions: &Mutex<HashMap<String, Arc<SessionState>>>,
     session_id: &str,
@@ -248,7 +252,9 @@ mod tests {
     }
 
     #[tokio::test]
-    // cancel-safe: the test owns its socket and channel resources.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns its socket and channel resources.
     async fn post_sender_closure_reaches_session_while_state_is_retained() {
         let session = new_session();
         let mut binding = session.binding.lock().await;
@@ -260,7 +266,9 @@ mod tests {
         assert!(receiver.recv().await.is_none());
     }
     #[tokio::test]
-    // cancel-safe: this test owns only in-memory session entries.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: this test owns only in-memory session entries.
     async fn pending_session_expires_without_removing_replacement_or_active_session() {
         let server = server();
         let first = server.session_for("one".to_owned()).await.expect("first session");
@@ -278,7 +286,9 @@ mod tests {
     }
 
     #[tokio::test]
-    // cancel-safe: this test owns only in-memory session entries.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: this test owns only in-memory session entries.
     async fn live_limit_rejects_new_ids_even_when_existing_sessions_started() {
         let server = server();
         for index in 0..MAX_LIVE_SESSIONS {

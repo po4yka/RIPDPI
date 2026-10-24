@@ -6,7 +6,9 @@ use super::hmac::{HMAC_LEN, ShadowTlsHmac};
 use super::stream::ShadowTlsStream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-// cancel-safe: the in-memory writer owns its half of the duplex stream.
+/// # Cancel safety
+///
+/// cancel-safe: the in-memory writer owns its half of the duplex stream.
 #[tokio::test]
 async fn truncated_tls_record_returns_unexpected_eof() {
     for bytes in [&[0x17, 0x03][..], &[0x17, 0x03, 0x03, 0, 10, 1, 2][..]] {
@@ -20,7 +22,9 @@ async fn truncated_tls_record_returns_unexpected_eof() {
     }
 }
 
-// cancel-safe: the in-memory writer owns its half of the duplex stream.
+/// # Cancel safety
+///
+/// cancel-safe: the in-memory writer owns its half of the duplex stream.
 #[tokio::test]
 async fn empty_tls_record_is_rejected_without_spinning() {
     let (mut peer, carrier) = tokio::io::duplex(64);
@@ -30,7 +34,9 @@ async fn empty_tls_record_is_rejected_without_spinning() {
     assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
 }
 
-// cancel-safe: the test owns its in-memory stream and does no partial write.
+/// # Cancel safety
+///
+/// cancel-safe: the test owns its in-memory stream and does no partial write.
 #[tokio::test]
 async fn clean_record_boundary_eof_stays_clean() {
     let (peer, carrier) = tokio::io::duplex(64);

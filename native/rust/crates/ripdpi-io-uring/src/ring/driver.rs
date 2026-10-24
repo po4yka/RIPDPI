@@ -84,7 +84,10 @@ impl IoUringDriver {
     /// to the driver until the CQE arrives, then returns in
     /// [`CompletionResult::into_buffer`]. A full or disconnected submission
     /// queue resolves immediately with `-EAGAIN` instead of blocking a caller.
-    // cancel-safe: synchronous; no await points.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: synchronous; no await points.
     pub fn recv_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
         self.registry.begin(token);
@@ -114,7 +117,10 @@ impl IoUringDriver {
     ///
     /// A full or disconnected submission queue resolves immediately with
     /// `-EAGAIN` instead of blocking a caller.
-    // cancel-safe: synchronous; no await points.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: synchronous; no await points.
     pub fn write(&self, fd: BorrowedFd<'_>, buf: Vec<u8>) -> CompletionFuture {
         let token = next_token();
         self.registry.begin(token);
@@ -139,7 +145,10 @@ impl IoUringDriver {
     /// until the CQE is reaped. The completed lease is returned through
     /// [`CompletionResult::into_buffer`]. Queue saturation resolves as
     /// `-EAGAIN` without blocking.
-    // cancel-safe: synchronous; no await points.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: synchronous; no await points.
     pub fn write_fixed(&self, fd: BorrowedFd<'_>, buffer: BufferHandle) -> CompletionFuture {
         let token = next_token();
         self.registry.begin(token);

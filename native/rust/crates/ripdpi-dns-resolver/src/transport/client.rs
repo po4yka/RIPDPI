@@ -162,7 +162,9 @@ mod tests {
     use ripdpi_tls_profiles::EchSetup;
 
     #[tokio::test]
-    // cancel-safe: cancellation drops the local request and fixture listener.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops the local request and fixture listener.
     async fn doh_client_does_not_follow_redirects() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 

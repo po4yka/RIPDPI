@@ -238,8 +238,7 @@ where
     /// ```
     ///
     /// # Cancel safety:
-    /// Not cancel-safe: a partial frame can be written. Drop the stream if cancelled.
-    // NOT cancel-safe: cancellation can leave a partial request on the stream.
+    /// NOT cancel-safe: a partial frame can be written. Drop the stream if cancelled.
     async fn request_header(&mut self, cmd: Socks5Command) -> Result<()> {
         let mut packet = [0u8; MAX_ADDR_LEN + 3];
         let padding; // maximum len of the headers sent
@@ -621,7 +620,9 @@ mod tests {
     use log::{LevelFilter, Log, Metadata, Record};
     use tokio::io::DuplexStream;
 
-    // cancel-safe: cancellation drops the local mock and protocol state.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops the local mock and protocol state.
     #[tokio::test(flavor = "current_thread")]
     async fn request_header_completes_short_writes() {
         let packet = [5, 1, 0, 1, 127, 0, 0, 1, 1, 187];
@@ -687,7 +688,9 @@ mod tests {
         ]
     }
 
-    // cancel-safe: cancellation drops both in-memory stream halves and leaves no shared protocol state.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops both in-memory stream halves and leaves no shared protocol state.
     #[tokio::test(flavor = "current_thread")]
     async fn socks5_domain_request_preserves_wire_target_without_logging_it() {
         reset_captured_logs();

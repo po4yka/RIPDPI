@@ -37,10 +37,6 @@ pub(super) fn default_bootstrap_ips() -> Vec<IpAddr> {
     DEFAULT_DOH_BOOTSTRAP_IPS.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect()
 }
 
-pub(super) fn default_bootstrap_strings() -> Vec<String> {
-    DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect()
-}
-
 pub(super) fn resolver_catalog_entry(resolver_id: &str) -> ResolverCatalogEntry {
     match resolver_id {
         "cloudflare" => ResolverCatalogEntry {

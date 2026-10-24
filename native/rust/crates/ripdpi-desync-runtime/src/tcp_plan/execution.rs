@@ -40,11 +40,6 @@ pub(crate) struct TcpPlanStrategyContext {
     pub(crate) tls_prelude_applied: bool,
 }
 
-#[cfg(test)]
-pub(crate) use fake_rst::execute_tcp_fakerst_step;
-#[cfg(test)]
-pub(crate) use ip_fragmentation::execute_tcp_ipfrag2_step;
-
 pub(crate) struct TcpPlanStepExecContext<'a> {
     pub(crate) writer: &'a mut TcpStream,
     pub(crate) config: &'a RuntimeConfig,

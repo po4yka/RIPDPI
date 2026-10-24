@@ -68,9 +68,9 @@ Putting fixtures in the wrong directory causes silent test skips or misleading p
 
 ## Structural Anti-Patterns
 
-**Helpers in TestDoubles.kt, not test classes.** Shared test utilities belong in `TestDoubles.kt` (or a dedicated test-support source set). Duplicating helper logic across test classes leads to drift and maintenance burden.
+**Reuse shared helpers.** Before writing a helper, look for one in the owning module's test sources (`TestDoubles.kt` in `:core:engine`). Duplicated helper logic across test classes drifts.
 
-**No reflection.** If a test needs reflection to access private members, the production code needs a better seam (interface, factory, or package-visible method). Reflection-based tests break silently on rename refactors.
+**No reflection.** Reflection-based tests break silently on rename refactors. Test through the public API; add a production seam only when a non-trivial behavior cannot be reached any other way, never only to test trivial wiring.
 
 **Unit test when possible.** Integration and E2E tests are slower, flakier, and harder to debug. Only escalate when the behavior genuinely requires real Android components or network I/O. Most business logic can be tested with Fakes at the unit level.
 

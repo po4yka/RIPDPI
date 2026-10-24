@@ -41,21 +41,23 @@ For explicitly authorized physical transport acceptance, use the direct adapter'
 
 Match verification to risk. For a local change, run the narrowest gate that exercises it (the module's unit tests, `cargo test -p <crate> --locked`). Widen to `staticAnalysis`, workspace-wide Rust checks, or device tests when the change crosses modules, touches a JNI/protobuf/wire/storage contract, service lifecycle, or build logic, or when the user asks for a specific gate. Run the exact gate the user requests and report its actual result; a blocked or skipped gate is reported as such, never replaced by a weaker claim. Batch related edits, then validate once. A passing check stays valid until its inputs change: rerun it only after a relevant edit, a rebase that brings new commits, or a new failure. Clean or force-rerun Gradle or Cargo outputs only after you observe a stale-output failure. The pre-commit hooks lint only the staged crates, and CI runs the workspace-wide gates.
 
-Work is done when the requested change is implemented, its relevant gate passes (or its failure is reported with output), and any finished atomic unit is committed on the job branch.
+Work is done when the requested change is implemented, its relevant gate passes (or its failure is reported with output), and any finished atomic unit is committed on the job branch. Then stop: do not rerun passing checks, widen the gate, or add tests, reviews, or cleanup that this file does not require. Report what you did not check and any remaining risk.
 
 ## Non-negotiable project rules
 
 - Never extend detekt, lint, LoC, or architecture-health baselines to hide a regression. Fix the underlying violation. Golden and performance baselines follow their explicit approval workflows and are not covered by this blanket prohibition.
 - The app must work fully on non-rooted devices. Root-only features are opt-in behind `root_mode_enabled` and degrade gracefully when root is unavailable.
 - Do not add a required backend service. Product features work offline and locally; external data is bundled or fetched from static user-visible sources, and user data leaves the device only through explicit export.
-- Define verifiable success criteria (the test, gate, or artifact that will prove the change) before implementing. Reproduce a defect, ideally as a failing test, before fixing it. Surface undocumented JNI, protobuf, schema, activation, or migration contracts instead of guessing them.
+- Define verifiable success criteria (the test, gate, or artifact that will prove the change) before implementing. Reproduce a defect before fixing it; when no existing test catches it, keep the reproduction as its regression test. Surface undocumented JNI, protobuf, schema, activation, or migration contracts instead of guessing them.
 - Add a test only for a behavior or regression that existing tests miss. Search the owning module's tests first and extend one when it fits; put the test in the module that owns the code. Assert observable results against independently derived values, not a copy of the implementation or a fake's recorded calls. Assert source text only for a repository-wide rule that no behavior test can reach (a forbidden API, a single owner, a layering boundary), never for local names or code shape. Temporary assertions and smoke scripts follow the same rule and are removed or turned into tests before commit. Do not add a production seam only to test trivial wiring.
 - Removing quality gates, custom detekt rules, lint checks, or security enforcement is out of scope unless the user explicitly requests it.
 - Never edit compiled `.so` files or generated JNI outputs. Change their Rust/Kotlin sources and rebuild.
 
 ## Change discipline
 
-Load the `ponytail` skill at the start of every task that writes, fixes, or refactors code, and follow it at the `full` level unless the user picks another. It decides how little to build; this file decides what must be verified, so required tests, gates, contracts, and safety rules stay in scope. Use `ponytail-review` for a lean-code review of a diff and `ponytail-audit` for a whole-repository audit; neither replaces the required `pr-reviewer` pass or the Rust diff gate in `llm-rust-prompts.md`. The skills are vendored from upstream; see `.agents/vendor/ponytail/README.md` for source, license, and updates.
+Load the `ponytail` skill at the start of every task that writes, fixes, or refactors code, and follow it at the `full` level unless the user picks another. It decides how little to build; this file decides what must be verified, so required tests, gates, contracts, and safety rules stay in scope. Use `ponytail-review` for a lean-code review of a diff and `ponytail-audit` for a whole-repository audit; neither replaces a required `pr-reviewer` pass (see Skills and subagents). Where Ponytail and this file differ, this file wins: an existing test that covers the behavior, or the gate above, meets Ponytail's "one small test or self-check", and a new test follows the test rule. The skills are vendored from upstream; see `.agents/vendor/ponytail/README.md` for source, license, and updates.
+
+Investigate in proportion to the task's uncertainty and impact. Locate code with a targeted `git grep -n` or a known path, then read only the range you need from a large file instead of printing whole files. Bound command output (`| head`, `--stat`, `-l`, or a log file plus `tail`). Reuse findings while their inputs are unchanged: do not reread an unedited file, repeat a search, or rerun `checkout-doctor` before you switch checkouts. Wait for a background command's completion notice instead of polling its log. Delegate only independent, substantial work, such as a broad audit or a long test run; give the delegate the findings you already have, and do not repeat its search afterward.
 
 ## Decision boundaries
 
@@ -140,7 +142,7 @@ Project skills live in `.agents/skills/` (Codex reads them there; `.claude/skill
 
 Subagents are defined in `.claude/agents/` (Claude Code) and `.codex/agents/` (Codex) under the same names. Delegate when isolation helps, and do small or local work directly:
 
-- Independent review of a non-trivial diff before committing: `pr-reviewer`; for unsafe Rust, JNI, or async changes add `unsafe-code-auditor`, `jni-bridge-verifier`, or `async-cancel-safety`.
+- Independent review before committing a substantial behavior change, a contract change, or a Rust diff that matches the gate in `llm-rust-prompts.md`: `pr-reviewer`; for unsafe Rust, JNI, or async changes add `unsafe-code-auditor`, `jni-bridge-verifier`, or `async-cancel-safety`. For a small or mechanical change, inspect your own diff instead.
 - Long test or benchmark runs and their triage: `rust-test-runner`, `android-test-runner`, `packet-smoke-debugger`, `perf-profiler`.
 - Baseline or fixture updates: `native-verifier` and `golden-blesser`, which write under isolation.
 

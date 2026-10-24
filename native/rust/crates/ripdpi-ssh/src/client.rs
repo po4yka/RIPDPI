@@ -90,9 +90,11 @@ struct SshHandler {
 impl Handler for SshHandler {
     type Error = russh::Error;
 
-    // cancel-safe: a single short lock acquisition with no `.await` held across
-    // it other than the lock itself; the future is dropped cleanly on cancel,
-    // leaving at most the shared `rejection` slot populated, which is harmless.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a single short lock acquisition with no `.await` held across
+    /// it other than the lock itself; the future is dropped cleanly on cancel,
+    /// leaving at most the shared `rejection` slot populated, which is harmless.
     async fn check_server_key(
         &mut self,
         server_public_key: &PublicKeyOrCertificate,
@@ -259,8 +261,11 @@ fn host_key_rejection(policy: &SshHostKeyPolicy) -> SshError {
 /// Resolve the best RSA signature hash the server advertises, falling back to
 /// `None` (legacy `ssh-rsa`/SHA-1) when the server sends no `server-sig-algs`
 /// extension.
-// cancel-safe: a single request/response on the live session; dropping it
-// leaves the session usable and returns no partial state.
+///
+/// # Cancel safety
+///
+/// cancel-safe: a single request/response on the live session; dropping it
+/// leaves the session usable and returns no partial state.
 async fn best_rsa_hash(handle: &client::Handle<SshHandler>) -> Option<HashAlg> {
     match handle.best_supported_rsa_hash().await {
         Ok(Some(hash)) => hash,

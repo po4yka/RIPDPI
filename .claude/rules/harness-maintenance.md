@@ -19,7 +19,7 @@ paths:
 
 # Harness maintenance
 
-Applies when editing agent instructions, skills, subagents, rules, hooks, or their CI. Validate every such change with `just harness-check`; the blocking `harness-validation` workflow runs the same checks.
+Applies when editing agent instructions, skills, subagents, rules, hooks, or their CI. Run `just harness-check` once after a batch of such changes; the blocking `harness-validation` workflow runs the same checks.
 
 The link audit checks source pointers in inline code and Markdown links across entry points, local skills and their Markdown references, rules, and Claude/Codex agents. File names, suffix paths, globs, and `...` must resolve to tracked files in the current checkout. Qualify symbols with `path:Symbol()` or `path#Symbol`; Rust, Kotlin, Python, and protobuf declaration checks require one matching file. Numeric `:line` and `#Lline` references must fit that file. Supported source extensions live in `scripts/ci/check_harness_links.py:_RE_SOURCE`. Code fences, template placeholders, external `../` paths, and vendored library examples are outside the source audit; use concrete local pointers for repository guidance. Source changes also trigger the CI audit; the pre-commit audit is blocking.
 

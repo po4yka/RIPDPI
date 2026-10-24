@@ -14,7 +14,9 @@ fn spec(policy: SocketProtectionPolicy) -> ClientSocketSpec {
     ClientSocketSpec { ipv6: false, bind_low_port: false, salamander_key: None, socket_protection: policy }
 }
 
-// cancel-safe: sends consume one whole datagram or report WouldBlock without partial state.
+/// # Cancel safety
+///
+/// cancel-safe: sends consume one whole datagram or report WouldBlock without partial state.
 async fn send(socket: &Arc<HoppingSocket>, payload: &[u8]) {
     let mut poller = socket.clone().create_io_poller();
     let transmit = quinn::udp::Transmit {
@@ -43,7 +45,9 @@ async fn send(socket: &Arc<HoppingSocket>, payload: &[u8]) {
     .unwrap();
 }
 
-// cancel-safe: poll_recv reports a consumed datagram in the same ready poll.
+/// # Cancel safety
+///
+/// cancel-safe: poll_recv reports a consumed datagram in the same ready poll.
 async fn receive(socket: &HoppingSocket) -> (Vec<u8>, SocketAddr) {
     let mut bytes = [0u8; 2048];
     let mut buffers = [io::IoSliceMut::new(&mut bytes)];
@@ -55,14 +59,18 @@ async fn receive(socket: &HoppingSocket) -> (Vec<u8>, SocketAddr) {
     (bytes[..meta[0].len].to_vec(), meta[0].addr)
 }
 
-// cancel-safe: the test owns the timer; rotation does not contain an await.
+/// # Cancel safety
+///
+/// cancel-safe: the test owns the timer; rotation does not contain an await.
 async fn expire_timer(socket: &HoppingSocket) -> io::Result<()> {
     socket.timer.lock().unwrap().as_mut().unwrap().as_mut().reset(Instant::now());
     tokio::time::sleep(Duration::from_millis(2)).await;
     poll_fn(|cx| Poll::Ready(socket.poll_hop(cx))).await
 }
 
-// cancel-safe: all socket owners are local; no test task is detached.
+/// # Cancel safety
+///
+/// cancel-safe: all socket owners are local; no test task is detached.
 #[tokio::test]
 async fn rotation_keeps_previous_receive_path_filters_sources_and_rebind_preserves_policy() {
     let peers = [UdpSocket::bind("127.0.0.1:0").await.unwrap(), UdpSocket::bind("127.0.0.1:0").await.unwrap()];
@@ -147,7 +155,9 @@ fn replacement_protection_failure_stops_before_socket_can_send() {
     assert_eq!(callback.0.lock().unwrap().len(), 2);
 }
 
-// cancel-safe: local adapter guard owns shutdown and no task is spawned.
+/// # Cancel safety
+///
+/// cancel-safe: local adapter guard owns shutdown and no task is spawned.
 #[tokio::test]
 async fn idle_writer_does_not_keep_retired_sockets_open() {
     let spec = spec(SocketProtectionPolicy::Inactive);
@@ -176,7 +186,9 @@ async fn idle_writer_does_not_keep_retired_sockets_open() {
     assert!(poll_fn(|cx| idle.as_mut().poll_writable(cx)).await.is_err());
 }
 
-// cancel-safe: adapter and both reference socket owners stay in this future.
+/// # Cancel safety
+///
+/// cancel-safe: adapter and both reference socket owners stay in this future.
 #[tokio::test]
 async fn adapter_preserves_gro_gso_and_fragmentation_capabilities_across_hops() {
     for salamander in [false, true] {
@@ -301,7 +313,9 @@ fn poll_byte(socket: &HoppingSocket) -> Poll<io::Result<u8>> {
     socket.poll_recv(&mut context, &mut buffers, &mut metadata).map(|result| result.map(|_| bytes[0]))
 }
 
-// cancel-safe: the probes complete each poll without a detached operation.
+/// # Cancel safety
+///
+/// cancel-safe: the probes complete each poll without a detached operation.
 #[tokio::test]
 async fn continuously_readable_previous_and_current_paths_both_receive() {
     let socket = receive_adapter();
@@ -312,7 +326,9 @@ async fn continuously_readable_previous_and_current_paths_both_receive() {
     }
 }
 
-// cancel-safe: all receive results and rebinds are synchronous probes.
+/// # Cancel safety
+///
+/// cancel-safe: all receive results and rebinds are synchronous probes.
 #[tokio::test]
 async fn previous_receive_error_is_retired_but_current_error_is_fatal() {
     let socket = receive_adapter();
@@ -325,7 +341,9 @@ async fn previous_receive_error_is_retired_but_current_error_is_fatal() {
     assert!(matches!(poll_byte(&socket), Poll::Ready(Err(error)) if error.kind() == io::ErrorKind::ConnectionReset));
 }
 
-// cancel-safe: the hook changes the path within the poll and owns no async work.
+/// # Cancel safety
+///
+/// cancel-safe: the hook changes the path within the poll and owns no async work.
 #[tokio::test]
 async fn current_snapshot_error_after_rebind_does_not_fail_the_new_current() {
     let socket = receive_adapter();
@@ -343,7 +361,9 @@ async fn current_snapshot_error_after_rebind_does_not_fail_the_new_current() {
     assert!(matches!(poll_byte(&socket), Poll::Ready(Ok(3))));
 }
 
-// cancel-safe: the hook changes the path within the poll and owns no async work.
+/// # Cancel safety
+///
+/// cancel-safe: the hook changes the path within the poll and owns no async work.
 #[tokio::test]
 async fn retired_snapshot_error_does_not_remove_the_new_previous() {
     let socket = receive_adapter();
@@ -364,7 +384,9 @@ async fn retired_snapshot_error_does_not_remove_the_new_previous() {
     assert!(matches!(poll_byte(&socket), Poll::Ready(Ok(3))));
 }
 
-// cancel-safe: stopping the local adapter drops all paths before the poll returns.
+/// # Cancel safety
+///
+/// cancel-safe: stopping the local adapter drops all paths before the poll returns.
 #[tokio::test]
 async fn stop_during_receive_never_returns_data_or_pending() {
     for result in [ReceiveResult::Data(1), ReceiveResult::Error, ReceiveResult::Pending] {

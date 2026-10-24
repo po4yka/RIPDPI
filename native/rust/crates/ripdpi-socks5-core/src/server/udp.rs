@@ -219,12 +219,17 @@ async fn handle_udp_responses(inbound: &UdpSocket, outbound: &UdpSocket) -> Resu
 /// DST.ADDR restricts its source IP. Each association has its own relay port,
 /// so clients sharing an IP remain separate. With DST.PORT=0, a sender from
 /// the same IP that knows the relay port can claim the association first.
-// NOT cancel-safe: cancellation drops the relay sockets and ends the association.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe: cancellation drops the relay sockets and ends the association.
 pub async fn transfer_udp(inbound: Socket, outbound: Socket, control_peer_ip: IpAddr, declared: &TargetAddr) -> Result<(), SocksServerError> {
     transfer_udp_with_source(inbound, outbound, UdpSourceConstraint::new(control_peer_ip, declared)).await
 }
 
-// NOT cancel-safe: cancellation drops the relay sockets and ends the association.
+/// # Cancel safety
+///
+/// NOT cancel-safe: cancellation drops the relay sockets and ends the association.
 async fn transfer_udp_with_source(inbound: Socket, outbound: Socket, source: UdpSourceConstraint) -> Result<(), SocksServerError> {
     let inbound = UdpSocket::from_std(inbound.into()).err_when("wrapping inbound socket")?;
     let outbound = UdpSocket::from_std(outbound.into()).err_when("wrapping outbound socket")?;
@@ -237,7 +242,9 @@ async fn transfer_udp_with_source(inbound: Socket, outbound: Socket, source: Udp
 mod udp_peer_tests {
     use super::*;
 
-    // cancel-safe: cancellation drops only local test sockets.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops only local test sockets.
     #[tokio::test(flavor = "current_thread")]
     async fn udp_association_ignores_other_ip_and_locks_first_valid_source() {
         let inbound = UdpSocket::from_std(udp_bind_random_port(None).unwrap().into()).unwrap();
@@ -287,7 +294,9 @@ mod udp_peer_tests {
         assert!(!source.allows(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2)), 1234)));
     }
 
-    // cancel-safe: cancellation drops only local test sockets.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops only local test sockets.
     #[tokio::test(flavor = "current_thread")]
     async fn declared_source_port_rejects_same_ip_before_pin_and_forward() {
         let inbound = UdpSocket::from_std(udp_bind_random_port(Some(IpAddr::V4(Ipv4Addr::LOCALHOST))).unwrap().into()).unwrap();

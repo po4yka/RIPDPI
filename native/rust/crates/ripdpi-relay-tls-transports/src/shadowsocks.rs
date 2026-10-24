@@ -117,13 +117,14 @@ impl RelaySession for ShadowsocksSession {
     type Error = io::Error;
 
     /// # Cancel safety:
-    /// Cancellation drops owned transport and stream state.
-    // cancel-safe: cancellation closes the owned connection or aborts its pumps.
+    /// cancel-safe: cancellation drops owned transport and stream state.
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
         connect_tcp(Arc::clone(&self.config), target).await
     }
 
-    // cancel-safe: a cancelled open drops its owned UDP socket before use.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a cancelled open drops its owned UDP socket before use.
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
         let config = Arc::clone(&self.config);
         let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
@@ -216,8 +217,7 @@ impl ShadowsocksUdpSession {
 }
 
 /// # Cancel safety:
-/// Cancellation drops owned transport and stream state.
-// cancel-safe: cancellation closes the owned connection or aborts its pumps.
+/// cancel-safe: cancellation drops owned transport and stream state.
 pub async fn connect_shadowsocks_tcp(
     factory: &ShadowsocksSessionFactory,
     target: &str,
@@ -226,8 +226,7 @@ pub async fn connect_shadowsocks_tcp(
 }
 
 /// # Cancel safety:
-/// Cancellation drops owned transport and stream state.
-// cancel-safe: cancellation closes the owned connection or aborts its pumps.
+/// cancel-safe: cancellation drops owned transport and stream state.
 pub async fn connect_shadowsocks_tcp_over<S>(
     factory: &ShadowsocksSessionFactory,
     transport: S,
@@ -244,17 +243,15 @@ pub fn shadowsocks_proxy_target(factory: &ShadowsocksSessionFactory) -> String {
 }
 
 /// # Cancel safety:
-/// Cancellation drops owned transport and stream state.
-// cancel-safe: cancellation closes the owned connection or aborts its pumps.
+/// cancel-safe: cancellation drops owned transport and stream state.
 async fn connect_tcp(config: Arc<ShadowsocksClientConfig>, target: &str) -> io::Result<ShadowsocksStream> {
     let socket = connect_server(&config).await?;
     connect_tcp_over_transport(config, socket, target).await
 }
 
 /// # Cancel safety:
-/// Cancel-safe: cancellation before the handoff drops the owned transport. There
+/// cancel-safe: cancellation before the handoff drops the owned transport. There
 /// are no await points after the pumps start; they own both stream directions.
-// cancel-safe: a partial initial write is discarded with the owned transport.
 async fn connect_tcp_over_transport<S>(
     config: Arc<ShadowsocksClientConfig>,
     mut transport: S,
@@ -395,7 +392,9 @@ async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStrea
     socket.connect(server_addr).await
 }
 
-// cancel-safe: cancellation drops the unconnected UDP socket.
+/// # Cancel safety
+///
+/// cancel-safe: cancellation drops the unconnected UDP socket.
 async fn bind_udp(bind_ip: Option<IpAddr>, server_addr: SocketAddr) -> io::Result<UdpSocket> {
     let ip = bind_ip.unwrap_or(match server_addr {
         SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
@@ -489,7 +488,9 @@ mod tests {
     use tokio::io::ReadBuf;
     use tokio::sync::Notify;
 
-    // cancel-safe: cancellation drops the unconnected UDP socket.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops the unconnected UDP socket.
     #[tokio::test]
     async fn udp_session_supports_ipv6_only_server_without_bind_ip() {
         let factory = ShadowsocksSessionFactory::new(
@@ -506,7 +507,9 @@ mod tests {
         assert!(datagram.socket.local_addr().unwrap().is_ipv6());
     }
 
-    // cancel-safe: cancellation drops the local streams; the test runtime owns the server task.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops the local streams; the test runtime owns the server task.
     #[tokio::test(flavor = "current_thread")]
     async fn client_can_send_before_server_response_salt() {
         let cipher = Cipher::AeadAes128Gcm;
@@ -546,7 +549,9 @@ mod tests {
         .expect("client-first protocols must not deadlock");
     }
 
-    // cancel-safe: cancellation drops local streams; the test runtime owns the server task.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops local streams; the test runtime owns the server task.
     #[tokio::test(flavor = "current_thread")]
     async fn client_half_close_preserves_server_response() {
         let cipher = Cipher::AeadAes128Gcm;
@@ -580,7 +585,9 @@ mod tests {
         .expect("half-closed exchange");
     }
 
-    // cancel-safe: the test owns its streams; cancellation drops the observer receiver.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns its streams; cancellation drops the observer receiver.
     #[tokio::test(flavor = "current_thread")]
     async fn full_application_drop_releases_transport_with_silent_peer() {
         struct ObservedTransport {
@@ -731,7 +738,10 @@ mod tests {
     }
 
     /// Explicit application shutdown reaches the carrier before teardown.
-    // cancel-safe: the test runtime owns and drops its transport tasks.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test runtime owns and drops its transport tasks.
     #[tokio::test]
     async fn app_shutdown_forwards_shutdown_to_server_before_teardown() {
         let cipher = Cipher::AeadAes128Gcm;

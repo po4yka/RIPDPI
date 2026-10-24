@@ -678,8 +678,7 @@ fn parse_interface_ipv6(value: &str) -> io::Result<Option<Ipv6Addr>> {
 }
 
 /// # Cancel safety
-/// Not cancel-safe: completion requires joining every child after aborting it.
-// NOT cancel-safe: only the non-cancelled runtime shutdown path awaits this helper.
+/// NOT cancel-safe: completion requires joining every child after aborting it.
 async fn shutdown_runtime_tasks(bus: &Bus, tasks: Vec<JoinHandle<()>>) {
     bus.shutdown();
     for task in tasks {

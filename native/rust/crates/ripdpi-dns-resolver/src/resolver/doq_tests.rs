@@ -7,7 +7,9 @@ use rustls::pki_types::PrivatePkcs8KeyDer;
 use super::EncryptedDnsResolver;
 use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport};
 
-// cancel-safe: both futures are joined in the test; dropping them releases their endpoints and streams.
+/// # Cancel safety
+///
+/// cancel-safe: both futures are joined in the test; dropping them releases their endpoints and streams.
 async fn exchange(response: Vec<u8>, trailing: &[u8]) -> (Vec<u8>, Result<Vec<u8>, EncryptedDnsError>) {
     let certificate = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
     let cert = certificate.cert.der().clone();

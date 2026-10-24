@@ -1534,7 +1534,9 @@ mod socks5_udp_adapter {
     use std::task::{Context, Poll};
     use tokio::net::UdpSocket as TokioUdpSocket;
 
-    // NOT cancel-safe: poll_recv surfaces one datagram per poll; test-only adapter.
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: poll_recv surfaces one datagram per poll; test-only adapter.
     #[derive(Debug)]
     pub(super) struct Socks5UdpAdapter {
         /// UDP socket connected to the SOCKS5 relay (127.0.0.1:<relay_port>).

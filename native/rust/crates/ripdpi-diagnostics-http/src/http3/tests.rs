@@ -71,7 +71,6 @@ impl Server {
 /// conditionally cancel-safe: accept, handshake, H3 accept/resolve, read/write,
 /// finish and closed awaits discard local partial frames on cancellation. The
 /// test owner closes the endpoint and drops the dedicated runtime.
-// cancel-safe: all server state is scoped to the test runtime.
 async fn serve(endpoint: &quinn::Endpoint, reply: Reply) {
     let Some(incoming) = endpoint.accept().await else {
         return;

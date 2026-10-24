@@ -10,7 +10,7 @@ use crate::url::parse_proxy_origin;
 pub(crate) fn validate_config(config: &MasqueConfig) -> io::Result<()> {
     if let Some(mode) = config.auth_mode.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
         match mode.to_ascii_lowercase().as_str() {
-            "bearer" | "token" | "preshared" | "privacy_pass" | "cloudflare_mtls" => {}
+            "bearer" | "preshared" | "privacy_pass" | "cloudflare_mtls" => {}
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,

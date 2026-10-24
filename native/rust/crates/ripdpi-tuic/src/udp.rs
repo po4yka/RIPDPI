@@ -196,8 +196,10 @@ enum ReassemblyResult {
     Rejected,
 }
 
-// NOT cancel-safe: maintains mutable partials map across multiple await points.
-// Cancellation mid-loop can leave reassembly state partially updated.
+/// # Cancel safety
+///
+/// NOT cancel-safe: maintains mutable partials map across multiple await points.
+/// Cancellation mid-loop can leave reassembly state partially updated.
 pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
     let mut partials: HashMap<(u16, u16), PartialPacket> = HashMap::new();
     let mut last_cleanup = Instant::now();
