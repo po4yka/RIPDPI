@@ -266,14 +266,22 @@ message AppSettings {
   bool warp_scanner_enabled = 145;
   int32 warp_scanner_parallelism = 146;
   int32 warp_scanner_max_rtt_ms = 147;
+  // Numeric header fields cannot be reinterpreted as the range-string contract.
+  reserved 152 to 155;
+  string warp_amnezia_wire_profile = 418;
+  string warp_amnezia_i1 = 419;
+  string warp_amnezia_i2 = 420;
+  string warp_amnezia_i3 = 421;
+  string warp_amnezia_i4 = 422;
+  string warp_amnezia_i5 = 423;
   bool warp_amnezia_enabled = 148;
   int32 warp_amnezia_jc = 149;
   int32 warp_amnezia_jmin = 150;
   int32 warp_amnezia_jmax = 151;
-  int64 warp_amnezia_h1 = 152;
-  int64 warp_amnezia_h2 = 153;
-  int64 warp_amnezia_h3 = 154;
-  int64 warp_amnezia_h4 = 155;
+  string warp_amnezia_h1 = 414;
+  string warp_amnezia_h2 = 415;
+  string warp_amnezia_h3 = 416;
+  string warp_amnezia_h4 = 417;
   int32 warp_amnezia_s1 = 156;
   int32 warp_amnezia_s2 = 157;
   int32 warp_amnezia_s3 = 158;

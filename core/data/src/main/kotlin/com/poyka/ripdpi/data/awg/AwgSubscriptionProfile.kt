@@ -54,5 +54,5 @@ fun WireGuardSubscriptionProfile.toAwgSubscriptionProfile(): AwgSubscriptionProf
 fun List<AwgSubscriptionProfile>.requireValidSubscriptionProfiles() {
     require(all { it.groupId.isNotBlank() && it.memberId.isNotBlank() }) { "AWG subscription identity is missing" }
     require(map { it.origin }.distinct().size == size) { "AWG subscription member identity is ambiguous" }
-    forEach { it.request.obfuscation.requireArm64Safe() }
+    forEach { it.request.obfuscation.requireSupportedProfile() }
 }

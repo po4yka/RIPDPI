@@ -10,7 +10,7 @@ import com.poyka.ripdpi.core.WarpEndpointProbeNativeResult
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
-import com.poyka.ripdpi.serialization.RipDpiNoExplicitNullsJson
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
@@ -80,10 +80,16 @@ class DefaultWarpEndpointProbe
                                 jc = settings.warpAmneziaJc,
                                 jmin = settings.warpAmneziaJmin,
                                 jmax = settings.warpAmneziaJmax,
-                                h1 = settings.warpAmneziaH1,
-                                h2 = settings.warpAmneziaH2,
-                                h3 = settings.warpAmneziaH3,
-                                h4 = settings.warpAmneziaH4,
+                                wireProfile = settings.warpAmneziaWireProfile,
+                                i1 = settings.warpAmneziaI1,
+                                i2 = settings.warpAmneziaI2,
+                                i3 = settings.warpAmneziaI3,
+                                i4 = settings.warpAmneziaI4,
+                                i5 = settings.warpAmneziaI5,
+                                h1 = settings.warpAmneziaH1.ifEmpty { "1" },
+                                h2 = settings.warpAmneziaH2.ifEmpty { "2" },
+                                h3 = settings.warpAmneziaH3.ifEmpty { "3" },
+                                h4 = settings.warpAmneziaH4.ifEmpty { "4" },
                                 s1 = settings.warpAmneziaS1,
                                 s2 = settings.warpAmneziaS2,
                                 s3 = settings.warpAmneziaS3,
@@ -166,6 +172,6 @@ class DefaultWarpEndpointProbe
 
         private companion object {
             val WarpProbeJson =
-                RipDpiNoExplicitNullsJson
+                RipDpiContractJson
         }
     }

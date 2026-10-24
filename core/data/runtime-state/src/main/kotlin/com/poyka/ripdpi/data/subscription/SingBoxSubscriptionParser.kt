@@ -15,7 +15,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.longOrNull
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -123,12 +122,11 @@ object SingBoxSubscriptionParser {
     val NON_PROFILE_OUTBOUND_TYPES: Set<String> = setOf("selector", "urltest", "direct", "block", "dns")
 
     /**
-     * The only `ripdpi.schema_version` this parser understands. Post-1 fields
-     * are additive and optional, so this stays 1; a future breaking change
-     * bumps it in lockstep with the server. Must equal `x-contract-version` in
+     * The only supported bundle version. Version 2 requires the named AWG wire
+     * profile and canonical string headers. It changes with the server contract. Must equal `x-contract-version` in
      * `contract/ripdpi-bundle.schema.json` — `RipdpiBundleContractTest` pins it.
      */
-    const val RIPDPI_SCHEMA_VERSION: Int = 1
+    const val RIPDPI_SCHEMA_VERSION: Int = 2
 
     /**
      * Parses [payload] into a [SingBoxParseResult]. Every produced
@@ -142,8 +140,7 @@ object SingBoxSubscriptionParser {
      * - `ripdpi.hysteria_extras` entries are matched by tag to already-parsed
      *   [ProxyProfile.Hysteria2] profiles and the salamander obfs password /
      *   insecure / port-hopping fields are merged onto those profiles.
-     * - An unknown or missing `schema_version` causes the `ripdpi` block to be
-     *   ignored (forward-compatible); standard outbounds are still imported.
+     * - An unknown or missing `schema_version` rejects the recognized bundle.
      */
     fun parse(
         payload: String,
@@ -182,6 +179,12 @@ object SingBoxSubscriptionParser {
         rootElement: JsonElement,
         groupId: String,
     ): SingBoxParseResult {
+        if (rootElement is JsonObject && "ripdpi" in rootElement) {
+            val extension = rootElement["ripdpi"] as? JsonObject
+            require(extension?.get("schema_version") == JsonPrimitive(RIPDPI_SCHEMA_VERSION)) {
+                "Unsupported RIPDPI bundle schema version"
+            }
+        }
         val routeResult =
             if (rootElement is JsonObject) {
                 SingBoxRouteRulesParser.parse(rootElement, groupId)
@@ -766,9 +769,16 @@ private fun mapRipdpiAwg(
 
     val mtu = obj.int("mtu")
 
+    val invalidWireField = invalidAwgWireField(obj)
+    if (invalidWireField != null) {
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, invalidWireField)
+        return null
+    }
+
     // AmneziaWG obfuscation parameters.
     val awg =
         AmneziaWgParameters(
+            wireProfile = requireNotNull(obj.string("wire_profile")),
             jc = obj.int("jc"),
             jmin = obj.int("jmin"),
             jmax = obj.int("jmax"),
@@ -776,17 +786,20 @@ private fun mapRipdpiAwg(
             s2 = obj.int("s2"),
             s3 = obj.int("s3"),
             s4 = obj.int("s4"),
-            h1 = obj.long("h1"),
-            h2 = obj.long("h2"),
-            h3 = obj.long("h3"),
-            h4 = obj.long("h4"),
+            h1 = obj.string("h1"),
+            h2 = obj.string("h2"),
+            h3 = obj.string("h3"),
+            h4 = obj.string("h4"),
             i1 = obj.string("i1"),
             i2 = obj.string("i2"),
             i3 = obj.string("i3"),
             i4 = obj.string("i4"),
             i5 = obj.string("i5"),
         )
-    runCatching { awg.requireArm64Safe() }.getOrElse { return null }
+    runCatching { awg.requireSupportedProfile() }.getOrElse {
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, "wire_profile")
+        return null
+    }
     if ("cohort_fingerprint" in obj && !matchesCohortFingerprint(obj["cohort_fingerprint"], awg)) {
         skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, "cohort_fingerprint")
         return null
@@ -879,11 +892,6 @@ private fun JsonObject.nestedString(
 private fun JsonObject.int(key: String): Int? {
     val primitive = this[key] as? JsonPrimitive ?: return null
     return primitive.intOrNull ?: primitive.contentOrNull?.toIntOrNull()
-}
-
-private fun JsonObject.long(key: String): Long? {
-    val primitive = this[key] as? JsonPrimitive ?: return null
-    return primitive.longOrNull ?: primitive.contentOrNull?.toLongOrNull()
 }
 
 private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.booleanOrNull

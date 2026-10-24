@@ -60,6 +60,7 @@ class AwgNativeInteropTest {
                 .put(
                     "amnezia",
                     JSONObject()
+                        .put("wireProfile", "awg-3.1-ranges-v1")
                         .put("jc", 4)
                         .put("jmin", 64)
                         .put("jmax", 96)
@@ -67,11 +68,15 @@ class AwgNativeInteropTest {
                         .put("s2", 12)
                         .put("s3", 0)
                         .put("s4", 0)
-                        .put("h1", 268435457)
-                        .put("h2", 268435458)
-                        .put("h3", 268435459)
-                        .put("h4", 268435460)
-                        .put("i1", "deadbeef"),
+                        .put("h1", "100-199")
+                        .put("h2", "200-299")
+                        .put("h3", "300-399")
+                        .put("h4", "400-499")
+                        .put("i1", "<b 0xf0f1><r 16><rd 8><rc 8><t>")
+                        .put("i2", "<b 0xf2>")
+                        .put("i3", "<b 0xf3>")
+                        .put("i4", "<b 0xf4>")
+                        .put("i5", "<b 0xf5>"),
                 )
         val bindings = RipDpiAmneziaWgNativeBindings()
         val protection = RecordingVpnService()

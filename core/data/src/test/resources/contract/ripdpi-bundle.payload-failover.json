@@ -107,7 +107,7 @@
     "auto_detect_interface": true
   },
   "ripdpi": {
-    "schema_version": 1,
+    "schema_version": 2,
     "amneziawg": [],
     "hysteria_extras": {
       "p2-hysteria2-upcloud-fixture": {

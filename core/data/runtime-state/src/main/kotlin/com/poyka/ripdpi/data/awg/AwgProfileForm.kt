@@ -25,6 +25,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class AwgProfileForm(
+    val wireProfile: String = "awg-3.1-ranges-v1",
     val server: String,
     val serverPort: Int,
     val interfacePrivateKey: String,
@@ -37,10 +38,10 @@ data class AwgProfileForm(
     val s2: Int = 0,
     val s3: Int = 0,
     val s4: Int = 0,
-    val h1: Long = 0L,
-    val h2: Long = 0L,
-    val h3: Long = 0L,
-    val h4: Long = 0L,
+    val h1: String = "1",
+    val h2: String = "2",
+    val h3: String = "3",
+    val h4: String = "4",
     val i1: String = "",
     val i2: String = "",
     val i3: String = "",

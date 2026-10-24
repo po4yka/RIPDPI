@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.uri
 
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgProfile
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import java.net.URI
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -17,14 +18,14 @@ import java.net.URLEncoder
  *
  * ```
  * amneziawg://<private-key>@<host>:<port>
- *   ?public_key=<key>
+ *   ?wire_profile=awg-3.1-ranges-v1&public_key=<key>
  *   &preshared_key=<key>
  *   &allowed_ips=<cidr,cidr>
  *   &dns=<ip,ip>
  *   &mtu=<n>
  *   &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=0&s4=0
- *   &h1=<n>&h2=<n>&h3=<n>&h4=<n>
- *   &i1=<hex>&i2=<hex>&i3=<hex>&i4=<hex>&i5=<hex>
+ *   &h1=<range>&h2=<range>&h3=<range>&h4=<range>
+ *   &i1=<program>&i2=<program>&i3=<program>&i4=<program>&i5=<program>
  *   #<name>
  * ```
  *
@@ -32,7 +33,7 @@ import java.net.URLEncoder
  * userinfo and query positions, so the URI is always structurally valid and
  * the round-trip is lossless. [decode] never throws: an unrecognised scheme, a
  * structurally broken URI, or a missing mandatory field yields `null`; a
- * malformed *optional* numeric param is simply dropped. A profile with non-zero
+ * malformed obfuscation field rejects the URI. A profile with non-zero
  * `s3` or `s4` is rejected for Android arm64 safety (amneziawg-go#110).
  */
 object AmneziaWgUriCodec {
@@ -41,7 +42,7 @@ object AmneziaWgUriCodec {
 
     /** Encodes [profile] into an `amneziawg://` share URI. */
     fun encode(profile: AmneziaWgProfile): String {
-        profile.awg.requireArm64Safe()
+        profile.awg.requireSupportedProfile()
         val query =
             (baseParams(profile) + awgParams(profile.awg))
                 .joinToString("&") { (key, value) -> "$key=${urlEncode(value)}" }
@@ -74,6 +75,7 @@ object AmneziaWgUriCodec {
     /** The AmneziaWG obfuscation query params, in declared order, omitting absent fields. */
     private fun awgParams(awg: AmneziaWgParameters): List<Pair<String, String>> =
         listOfNotNull(
+            "wire_profile" to awg.wireProfile,
             awg.jc?.let { "jc" to it.toString() },
             awg.jmin?.let { "jmin" to it.toString() },
             awg.jmax?.let { "jmax" to it.toString() },
@@ -100,8 +102,43 @@ object AmneziaWgUriCodec {
     fun decode(uri: String): AmneziaWgProfile? =
         extractMandatory(uri)?.let { mandatory ->
             val params = mandatory.params
+            if (params["wire_profile"] != AmneziaWgWireProfile.ID) return@let null
+            val allowed =
+                setOf(
+                    "wire_profile",
+                    "public_key",
+                    "preshared_key",
+                    "allowed_ips",
+                    "dns",
+                    "mtu",
+                    "jc",
+                    "jmin",
+                    "jmax",
+                    "s1",
+                    "s2",
+                    "s3",
+                    "s4",
+                    "h1",
+                    "h2",
+                    "h3",
+                    "h4",
+                    "i1",
+                    "i2",
+                    "i3",
+                    "i4",
+                    "i5",
+                )
+            if (params.keys.any { it !in allowed }) return@let null
+            if (listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").any { key ->
+                    key in params && params[key]?.toIntOrNull()?.let { it >= 0 } != true
+                }
+            ) {
+                return@let null
+            }
+            if (listOf("i1", "i2", "i3", "i4", "i5").any { it in params && params[it].isNullOrEmpty() }) return@let null
             val awg =
                 AmneziaWgParameters(
+                    wireProfile = requireNotNull(params["wire_profile"]),
                     jc = params["jc"]?.toIntOrNull(),
                     jmin = params["jmin"]?.toIntOrNull(),
                     jmax = params["jmax"]?.toIntOrNull(),
@@ -109,18 +146,18 @@ object AmneziaWgUriCodec {
                     s2 = params["s2"]?.toIntOrNull(),
                     s3 = params["s3"]?.toIntOrNull(),
                     s4 = params["s4"]?.toIntOrNull(),
-                    h1 = params["h1"]?.toLongOrNull(),
-                    h2 = params["h2"]?.toLongOrNull(),
-                    h3 = params["h3"]?.toLongOrNull(),
-                    h4 = params["h4"]?.toLongOrNull(),
-                    i1 = params["i1"]?.takeIf { it.isNotBlank() },
-                    i2 = params["i2"]?.takeIf { it.isNotBlank() },
-                    i3 = params["i3"]?.takeIf { it.isNotBlank() },
-                    i4 = params["i4"]?.takeIf { it.isNotBlank() },
-                    i5 = params["i5"]?.takeIf { it.isNotBlank() },
+                    h1 = params["h1"],
+                    h2 = params["h2"],
+                    h3 = params["h3"],
+                    h4 = params["h4"],
+                    i1 = params["i1"],
+                    i2 = params["i2"],
+                    i3 = params["i3"],
+                    i4 = params["i4"],
+                    i5 = params["i5"],
                 )
             runCatching {
-                awg.requireArm64Safe()
+                awg.requireSupportedProfile()
                 AmneziaWgProfile(
                     name = mandatory.name,
                     host = mandatory.host,

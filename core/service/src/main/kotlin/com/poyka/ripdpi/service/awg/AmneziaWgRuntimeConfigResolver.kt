@@ -85,11 +85,12 @@ private fun String.toCarrierKind(): RipDpiAmneziaWgCarrierKind =
 /**
  * Structural copy of the activation-request obfuscation knobs into the engine-api
  * wire DTO. Both sides mirror the Rust `AmneziaWgObfuscation` field-for-field, so
- * this stays a plain field map (including the additive `s3`/`s4` and the AWG-2.0
+ * this stays a plain field map (including the additive `s3`/`s4` and the AWG 3.1
  * `i1`..`i5` special-junk templates).
  */
 private fun com.poyka.ripdpi.data.awg.AwgActivationObfuscation.toObfuscationConfig(): RipDpiAmneziaWgObfuscationConfig =
     RipDpiAmneziaWgObfuscationConfig(
+        wireProfile = wireProfile,
         jc = jc,
         jmin = jmin,
         jmax = jmax,

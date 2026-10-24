@@ -17,19 +17,20 @@ internal data class NativeWarpManualEndpointConfig(
 
 @Serializable
 internal data class NativeWarpAmneziaConfig(
+    val wireProfile: String = "awg-3.1-ranges-v1",
     val enabled: Boolean = false,
     val jc: Int = 0,
     val jmin: Int = 0,
     val jmax: Int = 0,
-    val h1: Long = 0L,
-    val h2: Long = 0L,
-    val h3: Long = 0L,
-    val h4: Long = 0L,
+    val h1: String = "1",
+    val h2: String = "2",
+    val h3: String = "3",
+    val h4: String = "4",
     val s1: Int = 0,
     val s2: Int = 0,
     val s3: Int = 0,
     val s4: Int = 0,
-    // AmneziaWG 2.0 I1..I5 special-junk frames as hex strings. Empty = unset.
+    // AmneziaWG 3.1 I1..I5 signature programs. Empty = unset.
     val i1: String = "",
     val i2: String = "",
     val i3: String = "",
@@ -92,6 +93,7 @@ internal object WarpSectionCodec {
             amneziaPreset = value.amneziaPreset,
             amnezia =
                 RipDpiWarpAmneziaConfig(
+                    wireProfile = value.amnezia.wireProfile,
                     enabled = value.amnezia.enabled,
                     jc = value.amnezia.jc,
                     jmin = value.amnezia.jmin,
@@ -136,6 +138,7 @@ internal object WarpSectionCodec {
             amneziaPreset = value.amneziaPreset,
             amnezia =
                 NativeWarpAmneziaConfig(
+                    wireProfile = value.amnezia.wireProfile,
                     enabled = value.amnezia.enabled,
                     jc = value.amnezia.jc,
                     jmin = value.amnezia.jmin,

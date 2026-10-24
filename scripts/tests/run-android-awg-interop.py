@@ -18,10 +18,10 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[2]
 RUST = ROOT / "native/rust"
-PEER_COMMIT = "2e3f7d122ca8ef61e403fddc48a9db8fccd95dbf"
+PEER_COMMIT = "b5928efb6ca19f0153958460c3d141f04abc5c2e"
 METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreExchangesDualStackPayloads"
 PACKAGE = "com.poyka.ripdpi.testing.awginterop.test"
-GO_VERSION = "go1.27.1"
+GO_VERSION = "go1.27.3"
 
 
 def checked(command, *, cwd=ROOT, env=None, timeout=900):
@@ -62,7 +62,7 @@ def emulator_vpn_authorization(adb):
 
 def build(args):
     if not args.peer_source:
-        raise ValueError("--peer-source must name the canonical v0.2.12 Git checkout")
+        raise ValueError("--peer-source must name the canonical v3.1.20260828 Git checkout")
     revision = checked(["git", "-C", str(args.peer_source), "rev-parse", "HEAD"])
     if revision != PEER_COMMIT:
         raise ValueError("independent peer checkout is not the exact baseline commit")
@@ -78,13 +78,14 @@ def build(args):
         tar.extractall(peer_source, filter="data")
     peer = output / "peer"
     peer.mkdir()
-    shutil.copyfile(ROOT / "scripts/fixtures/amneziawg-peer/main.go", peer / "main.go")
+    for fixture in (ROOT / "scripts/fixtures/amneziawg-peer").glob("*.go"):
+        shutil.copyfile(fixture, peer / fixture.name)
     module = (peer_source / "go.mod").read_text()
     module = re.sub(r"^module\s+\S+", "module ripdpi.test/amneziawg-android-peer", module, count=1)
-    module += f"\nrequire github.com/amnezia-vpn/amneziawg-go v0.2.12\nreplace github.com/amnezia-vpn/amneziawg-go => {peer_source}\n"
+    module += f"\nrequire github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260828\nreplace github.com/amnezia-vpn/amneziawg-go/v3 => {peer_source}\n"
     (peer / "go.mod").write_text(module)
     shutil.copyfile(peer_source / "go.sum", peer / "go.sum")
-    go = ["mise", "exec", "go@1.27.1", "--", "go"]
+    go = ["mise", "exec", "go@1.27.3", "--", "go"]
     go_env = dict(os.environ, GOTOOLCHAIN="local", GOMAXPROCS="2")
     if not checked(go + ["version"], env=go_env).startswith(f"go version {GO_VERSION} "):
         raise ValueError("pinned Go compiler unavailable")
@@ -176,7 +177,7 @@ def device_cycles(args, adb, output):
     data = {"version": "android_awg_native_interop_v1", "nonce": args.nonce,
             "source_sha": json.loads((output / "identity.json").read_text())["source_sha"],
             "scope": "native_core", "device_class": "emulator", "abi": "arm64-v8a", "api": cycles[0]["api"],
-            "peer": {"version": "v0.2.12", "commit": PEER_COMMIT, "go": GO_VERSION}, "cycles": cycles,
+            "peer": {"version": "v3.1.20260828", "commit": PEER_COMMIT, "go": GO_VERSION}, "cycles": cycles,
             "artifacts": {"native_library": artifact(output / "libripdpi-amneziawg.so", output),
                           "test_apk": artifact(output / "test.apk", output), "peer_binary": artifact(output / "peer-binary", output)}}
     evidence = output / "evidence.json"

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.requireAmneziaWgArm64Safe
 import kotlinx.serialization.Serializable
 import java.net.URI
@@ -20,7 +21,7 @@ import java.util.Base64
  * path -- so no new `ProxyProfile` subtype is introduced.
  *
  * Native fields mirror `ResolvedRipDpiAmneziaWgConfig`, including
- * [presharedKey] / [persistentKeepalive] and AmneziaWG 2.0 special-junk frames.
+ * [presharedKey] / [persistentKeepalive] and AmneziaWG 3.1 signature programs.
  * [dnsServers] and [allowedIps] are owned by the Android VPN interface and
  * deliberately remain outside the native configuration.
  */
@@ -71,7 +72,7 @@ data class AwgActivationRequest(
 
 /** Rejects requests that cannot reach the owned AmneziaWG runtime. */
 fun AwgActivationRequest.requireRuntimeReady() {
-    obfuscation.requireArm64Safe()
+    obfuscation.requireSupportedProfile()
     require(privateKey.isWireGuardKey()) { "AmneziaWG interface private key is invalid" }
     require(peerPublicKey.isWireGuardKey()) { "AmneziaWG peer public key is invalid" }
     require(presharedKey.isEmpty() || presharedKey.isWireGuardKey()) { "AmneziaWG preshared key is invalid" }
@@ -153,13 +154,14 @@ private const val Ipv4OctetCount = 4
  * `RipDpiAmneziaWgObfuscationConfig` field set: `jc`/`jmin`/`jmax` size the junk
  * padding, `s1`..`s4` the per-message-type junk-size knobs (`s1`/`s2` the
  * handshake-init/response prefixes, `s3`/`s4` the AWG-2.x cookie/transport
- * padding), `h1`..`h4` the 64-bit magic headers, and `i1`..`i5` the optional
- * AWG-2.0 special-junk templates (empty = unused). All knobs carry through to
+ * padding), `h1`..`h4` the uint32 header ranges, and `i1`..`i5` the optional
+ * AWG 3.1 signature programs (empty = unused). All knobs carry through to
  * the native runtime; the additive `s3`/`s4` default to `0` and must remain
  * zero for Android arm64 safety (amneziawg-go#110).
  */
 @Serializable
 data class AwgActivationObfuscation(
+    val wireProfile: String = "awg-3.1-ranges-v1",
     val jc: Int = 0,
     val jmin: Int = 0,
     val jmax: Int = 0,
@@ -167,10 +169,10 @@ data class AwgActivationObfuscation(
     val s2: Int = 0,
     val s3: Int = 0,
     val s4: Int = 0,
-    val h1: Long = 0L,
-    val h2: Long = 0L,
-    val h3: Long = 0L,
-    val h4: Long = 0L,
+    val h1: String = "1",
+    val h2: String = "2",
+    val h3: String = "3",
+    val h4: String = "4",
     val i1: String = "",
     val i2: String = "",
     val i3: String = "",
@@ -178,7 +180,14 @@ data class AwgActivationObfuscation(
     val i5: String = "",
 ) {
     /** Rejects the known Android arm64 transport-drop configuration from amneziawg-go#110. */
-    fun requireArm64Safe() {
+    fun requireSupportedProfile() {
+        AmneziaWgWireProfile
+            .requireScalars(jc, jmin, jmax, s1, s2)
+        AmneziaWgWireProfile.requireValid(
+            wireProfile,
+            listOf(h1, h2, h3, h4),
+            listOf(i1, i2, i3, i4, i5),
+        )
         requireAmneziaWgArm64Safe(s3 = s3, s4 = s4)
     }
 }
@@ -188,7 +197,7 @@ data class AwgActivationObfuscation(
  * transport fields the form does not carry as first-class columns
  * ([interfaceAddressV4], [mtu], [persistentKeepalive]).
  *
- * The obfuscation group (including the AWG-2.0 `i1`..`i5` payloads and the full
+ * The obfuscation group (including the AWG 3.1 `i1`..`i5` programs and the full
  * `s1`..`s4` junk-size knobs), the identity + PSK fields, and the transport
  * carrier ([AwgProfileForm.carrier] / [AwgProfileForm.carrierWsUrl]) come
  * straight from [form]; `s3`/`s4` remain in the wire shape, but the service
@@ -225,6 +234,7 @@ fun AwgProfileForm.toActivationRequest(
         carrierWsUrl = carrierWsUrl,
         obfuscation =
             AwgActivationObfuscation(
+                wireProfile = wireProfile,
                 jc = jc,
                 jmin = jmin,
                 jmax = jmax,

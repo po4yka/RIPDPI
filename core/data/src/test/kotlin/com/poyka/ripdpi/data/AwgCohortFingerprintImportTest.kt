@@ -77,6 +77,32 @@ class AwgCohortFingerprintImportTest {
         }
     }
 
+    @Test
+    fun `v2 AWG wire fields reject legacy integers unsupported profiles and overlapping ranges`() {
+        val noFingerprint = valid - "cohort_fingerprint"
+        val invalid =
+            listOf(
+                JsonObject(noFingerprint - "wire_profile"),
+                JsonObject(noFingerprint + ("wire_profile" to JsonPrimitive("future"))),
+                JsonObject(noFingerprint + ("h1" to JsonPrimitive(1000))),
+                JsonObject(noFingerprint + ("h1" to JsonPrimitive("1000-2000"))),
+                JsonObject(noFingerprint + ("i1" to JsonPrimitive("deadbeef"))),
+                JsonObject(noFingerprint + ("disable_cookies" to JsonPrimitive(true))),
+                JsonObject(noFingerprint - "jc"),
+                JsonObject(noFingerprint + ("jc" to JsonPrimitive(Int.MAX_VALUE))),
+                JsonObject(noFingerprint + ("jc" to JsonPrimitive("4"))),
+                JsonObject(noFingerprint + ("jmin" to JsonPrimitive(-1))),
+                JsonObject(noFingerprint + ("jmax" to JsonPrimitive(1281))),
+                JsonObject(noFingerprint + ("i1" to JsonPrimitive(""))),
+                JsonObject(noFingerprint + ("s1" to JsonPrimitive(0)) + ("s2" to JsonPrimitive(56))),
+            )
+        invalid.forEach { entry ->
+            val parsed = parseEntries(entry, valid)
+            assertEquals(1, parsed.amneziaWgProfiles.size)
+            assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, parsed.skipped.single().reason)
+        }
+    }
+
     private fun withFingerprint(value: JsonElement): JsonObject = JsonObject(valid + ("cohort_fingerprint" to value))
 
     private fun parseEntries(vararg entries: JsonObject): SingBoxParseResult.Success =

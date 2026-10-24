@@ -30,10 +30,10 @@ class AwgCohortPresetApplyTest {
             jmax = 99,
             s1 = 99,
             s2 = 99,
-            h1 = 99L,
-            h2 = 99L,
-            h3 = 99L,
-            h4 = 99L,
+            h1 = "99",
+            h2 = "99",
+            h3 = "99",
+            h4 = "99",
             cohortId = "Custom",
         )
 
@@ -50,10 +50,10 @@ class AwgCohortPresetApplyTest {
         assertEquals(50, applied.jmax)
         assertEquals(0, applied.s1)
         assertEquals(0, applied.s2)
-        assertEquals(1L, applied.h1)
-        assertEquals(2L, applied.h2)
-        assertEquals(3L, applied.h3)
-        assertEquals(4L, applied.h4)
+        assertEquals("1", applied.h1)
+        assertEquals("2", applied.h2)
+        assertEquals("3", applied.h3)
+        assertEquals("4", applied.h4)
         assertEquals("rtk_south", applied.cohortId)
 
         // Server / port / keys untouched.

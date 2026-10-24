@@ -42,10 +42,10 @@ class AmneziaWgProfileScreenshotTest {
                 jmax = 80,
                 s1 = 15,
                 s2 = 36,
-                h1 = 1_148_874_316L,
-                h2 = 2_137_415_592L,
-                h3 = 1_293_416_021L,
-                h4 = 2_011_528_944L,
+                h1 = "1148874316",
+                h2 = "2137415592",
+                h3 = "1293416021",
+                h4 = "2011528944",
                 cohortId = COHORT_ID,
             )
         val rawText =

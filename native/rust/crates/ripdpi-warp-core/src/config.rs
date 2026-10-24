@@ -102,21 +102,22 @@ fn default_warp_persistent_keepalive() -> u16 {
 /// frames and the junk-shaping knobs are obfuscation parameters, not secrets,
 /// and stay visible.
 #[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WarpAmneziaConfig {
+    pub wire_profile: String,
     pub enabled: bool,
     pub jc: i32,
     pub jmin: i32,
     pub jmax: i32,
-    pub h1: i64,
-    pub h2: i64,
-    pub h3: i64,
-    pub h4: i64,
+    pub h1: String,
+    pub h2: String,
+    pub h3: String,
+    pub h4: String,
     pub s1: i32,
     pub s2: i32,
     pub s3: i32,
     pub s4: i32,
-    /// AmneziaWG 2.0 `I1..I5` special-junk frames as hex strings. Empty = unset.
+    /// AmneziaWG 3.1 `I1..I5` signature programs. Empty = unset.
     #[serde(default)]
     pub i1: String,
     #[serde(default)]
@@ -142,6 +143,7 @@ impl std::fmt::Debug for WarpAmneziaConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WarpAmneziaConfig")
             .field("enabled", &self.enabled)
+            .field("wire_profile", &self.wire_profile)
             .field("jc", &self.jc)
             .field("jmin", &self.jmin)
             .field("jmax", &self.jmax)
@@ -168,13 +170,14 @@ impl Default for WarpAmneziaConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            wire_profile: crate::awg_profile::WIRE_PROFILE.into(),
             jc: 0,
             jmin: 0,
             jmax: 0,
-            h1: 0,
-            h2: 0,
-            h3: 0,
-            h4: 0,
+            h1: "1".into(),
+            h2: "2".into(),
+            h3: "3".into(),
+            h4: "4".into(),
             s1: 0,
             s2: 0,
             s3: 0,
@@ -191,9 +194,9 @@ impl Default for WarpAmneziaConfig {
 }
 
 impl WarpAmneziaConfig {
-    /// The AWG 2.0 `I1..I5` special-junk frames as hex strings, in order, for
+    /// The AWG 3.1 `I1..I5` signature programs, in order, for
     /// feeding `AwgParams::from_config`.
-    pub fn special_junk_hex(&self) -> [&str; 5] {
+    pub fn signature_programs(&self) -> [&str; 5] {
         [&self.i1, &self.i2, &self.i3, &self.i4, &self.i5]
     }
 
@@ -363,7 +366,7 @@ mod tests {
         let cfg: WarpAmneziaConfig = serde_json::from_str(
             r#"{
             "enabled": false, "jc": 0, "jmin": 0, "jmax": 0,
-            "h1": 0, "h2": 0, "h3": 0, "h4": 0,
+            "wireProfile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4",
             "s1": 0, "s2": 0, "s3": 0, "s4": 0
         }"#,
         )
@@ -373,6 +376,20 @@ mod tests {
         assert_eq!(cfg.preshared_key_opt(), None);
         // The struct Default mirrors the serde default for both knobs.
         assert_eq!(WarpAmneziaConfig::default().persistent_keepalive, 25);
+    }
+
+    #[test]
+    fn amnezia_wire_contract_refuses_legacy_and_unknown_fields() {
+        let valid = serde_json::to_value(WarpAmneziaConfig::default()).unwrap();
+        let mut legacy_header = valid.clone();
+        legacy_header["h1"] = serde_json::json!(1);
+        assert!(serde_json::from_value::<WarpAmneziaConfig>(legacy_header).is_err());
+        let mut missing_profile = valid.clone();
+        missing_profile.as_object_mut().unwrap().remove("wireProfile");
+        assert!(serde_json::from_value::<WarpAmneziaConfig>(missing_profile).is_err());
+        let mut unsupported = valid;
+        unsupported["disableCookies"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<WarpAmneziaConfig>(unsupported).is_err());
     }
 
     #[test]

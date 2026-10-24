@@ -38,6 +38,8 @@
         "enabled": true,
         "server_name": "hy.fixture-host.example"
       },
+      "up_mbps": 200,
+      "down_mbps": 100,
       "obfs": {
         "type": "salamander",
         "password": "salamander-password-fixture"
@@ -86,8 +88,44 @@
     "auto_detect_interface": true
   },
   "ripdpi": {
-    "schema_version": 1,
-    "amneziawg": [],
+    "schema_version": 2,
+    "amneziawg": [
+      {
+        "tag": "p2-awg-laptop",
+        "address": [
+          "10.77.0.2/32",
+          "fd77::2/128"
+        ],
+        "dns": [
+          "1.1.1.1",
+          "1.0.0.1"
+        ],
+        "mtu": 1420,
+        "wire_profile": "awg-3.1-ranges-v1",
+        "jc": 4,
+        "jmin": 40,
+        "jmax": 70,
+        "s1": 50,
+        "s2": 100,
+        "h1": "100-199",
+        "h2": "200-299",
+        "h3": "300-399",
+        "h4": "400-499",
+        "i1": "<b 0xf0f1><r 16><rd 8><rc 8><t>",
+        "private_key_placeholder": true,
+        "peer": {
+          "public_key": "pOCSkrZRwni5dyxWn1+puxPZBrRqtoyd+dwrRAn4ogk=",
+          "preshared_key": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
+          "endpoint": "203.0.113.10:51820",
+          "allowed_ips": [
+            "0.0.0.0/0",
+            "::/0"
+          ],
+          "persistent_keepalive": 25
+        },
+        "cohort_fingerprint": "sha256:00a2c6fec797498e83e7e256668eb27a0f240282c7725653dc76ecc8784f33bf"
+      }
+    ],
     "hysteria_extras": {
       "p2-hysteria2-upcloud-prod": {
         "insecure": false,

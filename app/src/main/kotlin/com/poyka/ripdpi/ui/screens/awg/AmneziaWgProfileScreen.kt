@@ -358,14 +358,14 @@ private fun ObfuscationFields(
     val spacing = RipDpiThemeTokens.spacing
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         obfuscationFields.forEach { (field, labelRes) ->
-            // I1-I5 carry hex strings; Jc/Jmin/Jmax/S1-S4/H1-H4 are numeric.
-            val isHexField = field.name.startsWith("I")
+            // Headers accept ranges; signatures accept tag programs.
+            val isTextField = field.name.startsWith("I") || field.name.startsWith("H")
             PlainField(
                 field = field,
                 labelRes = labelRes,
                 editor = editor,
                 onFieldChanged = onFieldChanged,
-                keyboardType = if (isHexField) KeyboardType.Text else KeyboardType.Number,
+                keyboardType = if (isTextField) KeyboardType.Text else KeyboardType.Number,
                 enabled = !editor.obfuscationLocked,
             )
         }

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.awg
 
 import android.content.Context
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -10,7 +11,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.longOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +26,7 @@ private const val AwgCohortAssetPath = "awg-cohorts.json"
  */
 private val ALLOWED_PRESET_KEYS =
     setOf(
+        "wireProfile",
         "id",
         "displayNameKey",
         "descriptionKey",
@@ -51,6 +52,7 @@ private val ALLOWED_PRESET_KEYS =
 /** The set of preset keys that must be present and non-null. */
 private val REQUIRED_PRESET_KEYS =
     setOf(
+        "wireProfile",
         "id",
         "displayNameKey",
         "descriptionKey",
@@ -98,6 +100,7 @@ private val awgCohortStrictJson =
  */
 @Serializable
 data class AwgCohortPreset(
+    val wireProfile: String = "awg-3.1-ranges-v1",
     val id: String,
     @SerialName("displayNameKey") val displayNameKey: String,
     @SerialName("descriptionKey") val descriptionKey: String,
@@ -108,10 +111,10 @@ data class AwgCohortPreset(
     val s2: Int,
     val s3: Int? = null,
     val s4: Int? = null,
-    val h1: Long,
-    val h2: Long,
-    val h3: Long,
-    val h4: Long,
+    val h1: String,
+    val h2: String,
+    val h3: String,
+    val h4: String,
     val i1: String? = null,
     val i2: String? = null,
     val i3: String? = null,
@@ -146,11 +149,12 @@ data class AwgCohortCatalogData(
  * shows only "Custom" rather than crashing.
  */
 fun decodeAwgCohortCatalog(json: String): AwgCohortCatalogData {
+    if (AwgCohortCatalog.strictValidate(json).isNotEmpty()) return AwgCohortCatalogData(emptyList())
     val payload =
         runCatching {
             awgCohortCatalogJson.decodeFromString(AwgCohortCatalogPayload.serializer(), json)
         }.getOrNull() ?: return AwgCohortCatalogData(presets = emptyList())
-    return AwgCohortCatalogData(presets = payload.presets)
+    return AwgCohortCatalogData(payload.presets)
 }
 
 /**
@@ -162,6 +166,7 @@ fun applyCohortPreset(
     preset: AwgCohortPreset,
 ): AwgProfileForm =
     form.copy(
+        wireProfile = preset.wireProfile,
         jc = preset.jc,
         jmin = preset.jmin,
         jmax = preset.jmax,
@@ -324,16 +329,43 @@ class AwgCohortCatalog
                     // (v1.5 extension) but, when present, must still be integers.
                     listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").forEach { key ->
                         val primitive = obj[key] as? JsonPrimitive
-                        if (primitive != null && primitive.intOrNull == null) {
+                        if (key in obj && (primitive == null || primitive.isString || primitive.intOrNull == null)) {
                             errors += "preset '$label' field '$key' is not an integer"
                         }
                     }
                     listOf("h1", "h2", "h3", "h4").forEach { key ->
                         val primitive = obj[key] as? JsonPrimitive
-                        if (primitive != null && primitive.longOrNull == null) {
-                            errors += "preset '$label' field '$key' is not an integer"
+                        if (primitive != null &&
+                            (
+                                !primitive.isString ||
+                                    !AmneziaWgWireProfile.headerIsValid(primitive.content, key.last().digitToInt())
+                            )
+                        ) {
+                            errors += "preset '$label' field '$key' is not a canonical header range"
                         }
                     }
+                    if (obj["wireProfile"] != JsonPrimitive(AmneziaWgWireProfile.ID)) {
+                        errors += "preset '$label' has an unsupported wire profile"
+                    }
+                    listOf("i1", "i2", "i3", "i4", "i5").forEach { key ->
+                        if (key in obj) {
+                            val value = obj[key] as? JsonPrimitive
+                            if (value?.isString != true ||
+                                (value.content.isEmpty() || AmneziaWgWireProfile.signatureSize(value.content) == null)
+                            ) {
+                                errors += "preset '$label' field '$key' is not a signature program"
+                            }
+                        }
+                    }
+                    runCatching {
+                        val preset = awgCohortStrictJson.decodeFromJsonElement(AwgCohortPreset.serializer(), obj)
+                        AmneziaWgWireProfile.requireScalars(preset.jc, preset.jmin, preset.jmax, preset.s1, preset.s2)
+                        AmneziaWgWireProfile.requireValid(
+                            preset.wireProfile,
+                            listOf(preset.h1, preset.h2, preset.h3, preset.h4),
+                            listOf(preset.i1, preset.i2, preset.i3, preset.i4, preset.i5),
+                        )
+                    }.onFailure { errors += "preset '$label' has invalid wire parameters" }
                     listOf("s3", "s4").forEach { key ->
                         val value = (obj[key] as? JsonPrimitive)?.intOrNull
                         if (value != null && value != 0) {

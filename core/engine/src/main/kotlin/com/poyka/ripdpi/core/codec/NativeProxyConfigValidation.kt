@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.core.codec
 
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -118,7 +120,43 @@ internal object NativeProxyConfigValidation {
             "Grouped UI config JSON must include at least one nested section"
         }
         payload["destinationRouting"]?.let(::validateDestinationRoutingShape)
+        (payload["warp"] as? JsonObject)?.get("amnezia")?.let(::validateAmneziaShape)
     }
+
+    private fun validateAmneziaShape(element: JsonElement) {
+        val config = element.requireObject("warp.amnezia")
+        config.requireOnlyKeys("warp.amnezia", amneziaKeys)
+        require(config["wireProfile"] == JsonPrimitive(AmneziaWgWireProfile.ID)) {
+            "Unsupported AmneziaWG wire profile"
+        }
+        require(listOf("h1", "h2", "h3", "h4").all { (config[it] as? JsonPrimitive)?.isString == true }) {
+            "AmneziaWG headers require range strings"
+        }
+    }
+
+    private val amneziaKeys =
+        setOf(
+            "wireProfile",
+            "enabled",
+            "jc",
+            "jmin",
+            "jmax",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "i1",
+            "i2",
+            "i3",
+            "i4",
+            "i5",
+            "presharedKey",
+            "persistentKeepalive",
+        )
 
     private fun validateDestinationRoutingShape(element: JsonElement) {
         val policy = element.requireObject("destinationRouting")
@@ -189,6 +227,16 @@ internal object NativeProxyConfigValidation {
                     "Legacy strategy preset alias is not supported"
                 }
                 validateDestinationRouting(payload.destinationRouting)
+                if (payload.warp.enabled && payload.warp.amnezia.enabled) {
+                    val config = payload.warp.amnezia
+                    AmneziaWgWireProfile.requireValid(
+                        config.wireProfile,
+                        listOf(config.h1, config.h2, config.h3, config.h4),
+                        listOf(config.i1, config.i2, config.i3, config.i4, config.i5),
+                    )
+                    AmneziaWgWireProfile.requireScalars(config.jc, config.jmin, config.jmax, config.s1, config.s2)
+                    require(config.s3 == 0 && config.s4 == 0) { "AmneziaWG S3/S4 must remain zero" }
+                }
             }
         }
     }

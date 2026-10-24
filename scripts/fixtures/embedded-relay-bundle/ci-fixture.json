@@ -41,7 +41,7 @@
     }
   ],
   "ripdpi": {
-    "schema_version": 1,
+    "schema_version": 2,
     "amneziawg": [
       {
         "tag": "ci-awg-reserve",
@@ -59,10 +59,10 @@
         "jmax": 50,
         "s1": 0,
         "s2": 0,
-        "h1": 1,
-        "h2": 2,
-        "h3": 3,
-        "h4": 4,
+        "h1": "1",
+        "h2": "2",
+        "h3": "3",
+        "h4": "4",
         "private_key": "IWSnIWSnIWSnIWSnIWSnIWSnIWSnIWSnIWSnIWSnUbM=",
         "peer": {
           "public_key": "np6enp6enp6enp6enp6enp6enp6enp6enp6enp6enp4=",
@@ -73,7 +73,8 @@
             "::/0"
           ],
           "persistent_keepalive": 25
-        }
+        },
+        "wire_profile": "awg-3.1-ranges-v1"
       }
     ]
   }

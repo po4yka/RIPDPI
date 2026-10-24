@@ -73,6 +73,12 @@ _FIXTURE_UUID_RE = re.compile(
     r"^00000000-0000-0000-0000-000000000[0-9a-f]{3}$"
 )
 _FIXTURE_PUBLIC_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+_FIXTURE_SHORT_IDS = frozenset({"deadbeef00000001", "deadbeef00000002"})
+# Derived from the fixed byte patterns in frozen-secrets.yaml.
+_FIXTURE_AWG_KEYS = {
+    "public_key": "pOCSkrZRwni5dyxWn1+puxPZBrRqtoyd+dwrRAn4ogk=",
+    "preshared_key": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
+}
 _CREDENTIAL_FIELDS = frozenset(
     {
         "auth",
@@ -181,8 +187,11 @@ def _check_no_production_tokens(bundle: object, label: str) -> None:
             continue
         if key == "uuid":
             is_fixture = bool(_FIXTURE_UUID_RE.fullmatch(value))
+        elif key == "short_id":
+            is_fixture = value in _FIXTURE_SHORT_IDS
         else:
-            is_fixture = "fixture" in value.lower() or value == _FIXTURE_PUBLIC_KEY
+            is_fixture = ("fixture" in value.lower() or value == _FIXTURE_PUBLIC_KEY
+                          or value == _FIXTURE_AWG_KEYS.get(key))
         if not is_fixture:
             raise ValueError(
                 f"{label}: production-token shape detected at {path}; "

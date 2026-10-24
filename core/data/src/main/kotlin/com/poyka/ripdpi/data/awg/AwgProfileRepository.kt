@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.SubscriptionAwgWrite
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.flow.Flow
@@ -13,8 +14,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import java.util.UUID
@@ -60,9 +63,9 @@ data class SavedAwgProfile(
  * blob therefore carries no `privateKey`, `presharedKey`, or `profileId` -- the id
  * is authoritative on the row, and the secrets are authoritative in the keystore.
  *
- * The persisted blob is decoded with the tolerant [RipDpiContractJson] so a future
- * additive [AwgActivationRequest] field does not make old rows throw on decode;
- * encoding keeps [RipDpiEncodeDefaultsJson] (defaults written) for a stable blob.
+ * The stored obfuscation contract is checked before tolerant request decoding.
+ * Unsupported rows remain intact and are excluded from activation until refresh or
+ * reimport. Encoding uses [RipDpiEncodeDefaultsJson] for a stable blob.
  */
 @Singleton
 class AwgProfileRepository
@@ -76,7 +79,7 @@ class AwgProfileRepository
         private val decodeJson = RipDpiContractJson
         private val mutationMutex = Mutex()
 
-        /** Observes every saved profile, newest-updated first, each stamped with its stable id. */
+        /** Observes supported saved profiles, newest-updated first, each stamped with its stable id. */
         fun observeProfiles(): Flow<List<SavedAwgProfile>> =
             flow {
                 profileMutations.recover()
@@ -87,12 +90,12 @@ class AwgProfileRepository
         private suspend fun List<AwgProfileEntity>.toSavedProfiles(): List<SavedAwgProfile> {
             val profiles = ArrayList<SavedAwgProfile>(size)
             for (row in this) {
-                profiles.add(row.toSavedProfile())
+                row.toSavedProfile()?.let(profiles::add)
             }
             return profiles
         }
 
-        /** Loads a single saved profile by its stable [id], or `null` when none exists. */
+        /** Loads a supported saved profile by [id], or `null` when absent or incompatible. */
         suspend fun load(id: String): SavedAwgProfile? =
             mutationMutex.withLock {
                 profileMutations.recover()
@@ -164,7 +167,7 @@ class AwgProfileRepository
                         write.secrets,
                     )
                     profileMutations.readRecovered {
-                        val saved = checkNotNull(dao.getProfile(write.profile.id)).toSavedProfile()
+                        val saved = checkNotNull(checkNotNull(dao.getProfile(write.profile.id)).toSavedProfile())
                         check(saved == write.profile.toSavedProfile(write.secrets)) {
                             "Imported AWG profile changed before receipt capture"
                         }
@@ -184,7 +187,7 @@ class AwgProfileRepository
                 profileMutations.commitSubscriptionRefresh(expected) {
                     val writes = prepareSubscriptionWrites(profiles)
                     PreparedSubscriptionRefresh(
-                        prepareGroup(writes.map { it.profile.toSavedProfile(it.secrets) }),
+                        prepareGroup(writes.map { checkNotNull(it.profile.toSavedProfile(it.secrets)) }),
                         writes,
                     )
                 }
@@ -209,11 +212,21 @@ class AwgProfileRepository
             }
             val existingByOrigin = existingMembers.toMap()
             return profiles.map { profile ->
-                val existing = existingByOrigin[profile.origin]?.toSavedProfile()
-                val id = existing?.id ?: generateProfileId()
-                val previous = previousOrigins[profile.origin]?.let { existingByOrigin[it]?.toSavedProfile() }
+                val existingRow = existingByOrigin[profile.origin]
+                val existing = existingRow?.toSavedProfile()
+                val id = existingRow?.id ?: generateProfileId()
+                val previousRow = previousOrigins[profile.origin]?.let { existingByOrigin[it] }
+                val previous = previousRow?.toSavedProfile()
                 val request = mergeSubscriptionRequest(profile, existing?.request ?: previous?.request)
-                profileWrite(profile.name, request, id, profile.origin)
+                // A refreshed contract can replace a quarantined row without rotating its local key.
+                val keySource = existingRow ?: previousRow
+                val preserved =
+                    if (keySource != null && request.privateKey.isEmpty()) {
+                        request.copy(privateKey = secretsFor(keySource.id).privateKey)
+                    } else {
+                        request
+                    }
+                profileWrite(profile.name, preserved, id, profile.origin)
             }
         }
 
@@ -259,7 +272,7 @@ class AwgProfileRepository
             id: String,
             origin: JsonElement?,
         ): SubscriptionAwgWrite {
-            request.obfuscation.requireArm64Safe()
+            request.obfuscation.requireSupportedProfile()
             val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")
             val fields = encodeJson.encodeToJsonElement(sanitized).jsonObject.toMutableMap()
             if (origin != null) fields[SubscriptionOriginKey] = origin
@@ -291,11 +304,10 @@ class AwgProfileRepository
             }
         }
 
-        private suspend fun AwgProfileEntity.toSavedProfile(): SavedAwgProfile = toSavedProfile(secretsFor(id))
+        private suspend fun AwgProfileEntity.toSavedProfile(): SavedAwgProfile? = toSavedProfile(secretsFor(id))
 
-        private fun AwgProfileEntity.toSavedProfile(secrets: AwgSecrets): SavedAwgProfile {
-            // Decode tolerantly so an older blob with an additive field does not throw.
-            val decoded = decodeJson.decodeFromString<AwgActivationRequest>(requestJson)
+        private fun AwgProfileEntity.toSavedProfile(secrets: AwgSecrets): SavedAwgProfile? {
+            val decoded = supportedStoredRequest() ?: return null
             // Stamp the stable row id as the profileId and re-inject the sealed secrets so the
             // activation request is identical across re-connects and carries the opaque id.
             return SavedAwgProfile(
@@ -310,8 +322,52 @@ class AwgProfileRepository
             )
         }
 
+        /** Incompatible rows stay intact in Room and the keystore until refresh, reimport, or deletion. */
+        private fun AwgProfileEntity.supportedStoredRequest(): AwgActivationRequest? =
+            try {
+                val root = decodeJson.parseToJsonElement(requestJson) as? JsonObject
+                val obfuscation = root?.get("obfuscation") as? JsonObject
+                if (obfuscation == null || obfuscation.keys.any { it !in StoredObfuscationKeys } ||
+                    obfuscation["wireProfile"] !=
+                    JsonPrimitive(
+                        AmneziaWgWireProfile.ID,
+                    ) ||
+                    listOf("h1", "h2", "h3", "h4").any { (obfuscation[it] as? JsonPrimitive)?.isString != true }
+                ) {
+                    null
+                } else {
+                    decodeJson.decodeFromString<AwgActivationRequest>(requestJson).also {
+                        it.obfuscation.requireSupportedProfile()
+                    }
+                }
+            } catch (_: SerializationException) {
+                null
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+
         companion object {
             private const val SubscriptionOriginKey = "subscriptionOrigin"
+            private val StoredObfuscationKeys =
+                setOf(
+                    "wireProfile",
+                    "jc",
+                    "jmin",
+                    "jmax",
+                    "s1",
+                    "s2",
+                    "s3",
+                    "s4",
+                    "h1",
+                    "h2",
+                    "h3",
+                    "h4",
+                    "i1",
+                    "i2",
+                    "i3",
+                    "i4",
+                    "i5",
+                )
 
             /**
              * Mints an opaque, non-secret profile id. A random UUID, NOT derived from the

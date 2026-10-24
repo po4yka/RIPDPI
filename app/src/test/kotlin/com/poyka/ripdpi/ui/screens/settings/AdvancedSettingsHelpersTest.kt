@@ -6,6 +6,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AdvancedSettingsHelpersTest {
+    @Test
+    fun `warp form accepts header ranges and enforces scalar bounds`() {
+        assertTrue(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaH1, "100-199"))
+        assertTrue(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaH4, "4294967295"))
+        assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaH1, "199-100"))
+        assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaH1, "2"))
+        assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaJc, "129"))
+        assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS1, "1281"))
+        assertTrue(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS3, "0"))
+        assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS3, "1"))
+        assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS4, "-1"))
+    }
+
     // -- formatHttpFakeProfileLabel --
 
     @Test

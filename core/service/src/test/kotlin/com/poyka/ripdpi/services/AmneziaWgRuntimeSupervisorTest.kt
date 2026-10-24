@@ -95,7 +95,7 @@ class AmneziaWgRuntimeSupervisorTest {
             assertEquals(51820, started?.endpointPort)
             assertEquals(7, started?.amnezia?.s3)
             assertEquals(9, started?.amnezia?.s4)
-            assertEquals("deadbeef", started?.amnezia?.i1)
+            assertEquals("<b 0xdeadbeef>", started?.amnezia?.i1)
 
             supervisor.stop()
             advanceUntilIdle()
@@ -152,7 +152,7 @@ class AmneziaWgRuntimeSupervisorTest {
             endpointHost = "vpn.example.org",
             endpointPort = 51820,
             interfaceAddressV4 = "10.8.0.2/32",
-            obfuscation = AwgActivationObfuscation(jc = 4, s3 = 7, s4 = 9, i1 = "deadbeef"),
+            obfuscation = AwgActivationObfuscation(jc = 4, s3 = 7, s4 = 9, i1 = "<b 0xdeadbeef>"),
         )
 }
 

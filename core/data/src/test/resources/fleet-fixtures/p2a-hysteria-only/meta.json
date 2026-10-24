@@ -1,8 +1,8 @@
 {
   "scenario": "p2a-hysteria-only",
-  "description": "COHORTS=p2-udp: Hysteria2 with Salamander obfuscation; frozen secrets contain no AWG peer",
-  "deployer_git_sha": "ff0ae2198aa82648a03203a0ab52d5cdac485df3",
+  "description": "COHORTS=p2-udp: Hysteria2 with Salamander obfuscation; includes the separate synthetic AWG range profile",
+  "deployer_git_sha": "34c61b400998b5682056ac00e52cb016ae4ff228",
   "provenance": "emitted",
-  "generated_at": "2026-05-14T00:00:00Z",
-  "frozen_secret_set": "all passwords are fixed -fixture test values, never production tokens"
+  "generated_at": "2026-10-23T00:00:00Z",
+  "frozen_secret_set": "Fixed synthetic UUIDs, allowlisted short IDs and byte-pattern AWG keys; no production credentials"
 }

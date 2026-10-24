@@ -4,9 +4,9 @@ use std::time::Duration;
 use boringtun::noise::{Tunn, TunnResult};
 use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::UdpSocket;
-use tokio::time::{Instant, timeout};
+use tokio::time::{Instant, timeout, timeout_at};
 
-use crate::amneziawg::{AwgMacKeys, AwgWireCodec};
+use crate::amneziawg::{AwgMacKeys, AwgParamsError, AwgWireCodec, rand_u32};
 use crate::config::{ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpEndpointProbeResult, resolve_endpoint};
 use crate::platform::{WarpPlatform, protect_socket_if_configured};
 use crate::support::MAX_PACKET;
@@ -30,6 +30,8 @@ pub enum WarpProbeError {
     /// The configured AWG parameters are blocked by an active platform
     /// compatibility policy.
     Compatibility { s3: i32, s4: i32 },
+    /// The selected AWG wire profile has invalid or unsupported parameters.
+    InvalidAwgParameters(String),
     /// The WireGuard handshake initiation could not be produced.
     Handshake(String),
     /// A socket or datagram I/O operation failed.
@@ -46,6 +48,7 @@ impl std::fmt::Display for WarpProbeError {
             Self::Compatibility { s3, s4 } => {
                 write!(f, "AmneziaWG S3/S4 are incompatible with Android arm64 (S3={s3}, S4={s4})")
             }
+            Self::InvalidAwgParameters(detail) => write!(f, "invalid AmneziaWG parameters: {detail}"),
             Self::Handshake(detail) => write!(f, "WARP handshake initiation failed: {detail}"),
             Self::Io(error) => write!(f, "WARP probe I/O: {error}"),
             Self::Timeout => f.write_str("WARP endpoint probe timed out"),
@@ -57,7 +60,11 @@ impl std::error::Error for WarpProbeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Resolve(error) | Self::Io(error) => Some(error),
-            Self::InvalidKey(_) | Self::Compatibility { .. } | Self::Handshake(_) | Self::Timeout => None,
+            Self::InvalidKey(_)
+            | Self::Compatibility { .. }
+            | Self::InvalidAwgParameters(_)
+            | Self::Handshake(_)
+            | Self::Timeout => None,
         }
     }
 }
@@ -79,14 +86,12 @@ pub async fn probe_endpoint_with_platform(
     let local_public_key = boringtun::x25519::PublicKey::from(&private_key).to_bytes();
     let amnezia = build_authenticated_awg_codec(
         &request.amnezia,
-        &request.amnezia.special_junk_hex(),
+        &request.amnezia.signature_programs(),
         AwgMacKeys::new(local_public_key, peer_public_key),
     )
-    .map_err(|error| {
-        let crate::amneziawg::AwgParamsError::Arm64S34VersionFloor { s3, s4 } = error else {
-            unreachable!("AWG codec construction only propagates compatibility errors");
-        };
-        WarpProbeError::Compatibility { s3, s4 }
+    .map_err(|error| match error {
+        AwgParamsError::Arm64S34VersionFloor { s3, s4 } => WarpProbeError::Compatibility { s3, s4 },
+        other => WarpProbeError::InvalidAwgParameters(other.to_string()),
     })?;
     // Fail-closed on a malformed PSK rather than silently probing without it:
     // a probe that succeeds without the PSK the live tunnel will use is a false
@@ -112,10 +117,20 @@ pub async fn probe_endpoint_with_platform(
         _ => return Err(WarpProbeError::Handshake("handshake initiation did not produce a packet".to_owned())),
     };
     let started_at = std::time::Instant::now();
-    udp.send_to(&handshake, endpoint).await.map_err(WarpProbeError::Io)?;
+    let deadline = Instant::now() + Duration::from_millis(request.timeout_ms.max(250));
+    if let Some(codec) = amnezia.as_ref() {
+        for packet in codec.params().handshake_prelude(&mut rand_u32) {
+            timeout_at(deadline, udp.send_to(&packet, endpoint))
+                .await
+                .map_err(|_| WarpProbeError::Timeout)?
+                .map_err(WarpProbeError::Io)?;
+        }
+    }
+    timeout_at(deadline, udp.send_to(&handshake, endpoint))
+        .await
+        .map_err(|_| WarpProbeError::Timeout)?
+        .map_err(WarpProbeError::Io)?;
 
-    let timeout_ms = request.timeout_ms.max(250);
-    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
     let mut recv_buf = [0u8; MAX_PACKET];
     let mut decap_buf = [0u8; MAX_PACKET];
     loop {
@@ -248,5 +263,66 @@ mod tests {
             Err(WarpProbeError::InvalidKey("preshared key")) => {}
             other => panic!("short PSK must fail closed with InvalidKey(\"preshared key\"), got: {other:?}"),
         }
+    }
+    #[tokio::test]
+    async fn probe_rejects_invalid_profiles_without_panicking() {
+        for invalid in [
+            WarpAmneziaConfig { enabled: true, wire_profile: String::new(), ..Default::default() },
+            WarpAmneziaConfig { enabled: true, h1: "100-199".into(), h2: "150-200".into(), ..Default::default() },
+            WarpAmneziaConfig { enabled: true, i1: "deadbeef".into(), ..Default::default() },
+            WarpAmneziaConfig { enabled: true, jc: 129, ..Default::default() },
+        ] {
+            let mut request = request_with_psk("");
+            request.amnezia = invalid;
+            assert!(matches!(probe_endpoint(request).await, Err(WarpProbeError::InvalidAwgParameters(_))));
+        }
+    }
+
+    #[tokio::test]
+    async fn probe_sends_all_signature_slots_then_junk_then_range_handshake() {
+        let receiver = UdpSocket::bind("127.0.0.1:0").await.expect("listener");
+        let mut request = request_with_psk("");
+        request.endpoint.ipv4 = Some("127.0.0.1".into());
+        request.endpoint.port = i32::from(receiver.local_addr().expect("address").port());
+        request.amnezia = WarpAmneziaConfig {
+            enabled: true,
+            h1: "100-199".into(),
+            h2: "200-299".into(),
+            h3: "300-399".into(),
+            h4: "400-499".into(),
+            i1: "<b 0x01>".into(),
+            i2: "<b 0x02>".into(),
+            i3: "<b 0x03>".into(),
+            i4: "<b 0x04>".into(),
+            i5: "<b 0x05>".into(),
+            jc: 2,
+            jmin: 9,
+            jmax: 9,
+            ..Default::default()
+        };
+        let probe = tokio::spawn(probe_endpoint(request));
+        let mut buffer = [0u8; MAX_PACKET];
+        for expected in 1u8..=5 {
+            let (size, _) = timeout(Duration::from_secs(2), receiver.recv_from(&mut buffer))
+                .await
+                .expect("signature deadline")
+                .expect("signature datagram");
+            assert_eq!(&buffer[..size], &[expected]);
+        }
+        for _ in 0..2 {
+            let (size, _) = timeout(Duration::from_secs(2), receiver.recv_from(&mut buffer))
+                .await
+                .expect("junk deadline")
+                .expect("junk datagram");
+            assert_eq!(size, 9);
+        }
+        let (size, _) = timeout(Duration::from_secs(2), receiver.recv_from(&mut buffer))
+            .await
+            .expect("handshake deadline")
+            .expect("handshake datagram");
+        assert_eq!(size, 148);
+        let header = u32::from_le_bytes(buffer[..4].try_into().expect("header"));
+        assert!((100..=199).contains(&header));
+        assert!(matches!(probe.await.expect("probe must not panic"), Err(WarpProbeError::Timeout)));
     }
 }

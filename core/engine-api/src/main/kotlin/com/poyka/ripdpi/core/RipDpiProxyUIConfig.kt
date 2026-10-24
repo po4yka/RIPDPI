@@ -44,6 +44,7 @@ import com.poyka.ripdpi.data.WarpAmneziaPresetOff
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
 import com.poyka.ripdpi.data.WarpRouteModeOff
 import com.poyka.ripdpi.data.canonicalDefaultTcpChainSteps
+import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
 data class RipDpiListenConfig(
@@ -314,19 +315,33 @@ data class RipDpiWarpManualEndpointConfig(
 
 @Serializable
 data class RipDpiWarpAmneziaConfig(
+    @Required
+    val wireProfile: String = "awg-3.1-ranges-v1",
+    @Required
     val enabled: Boolean = false,
+    @Required
     val jc: Int = 0,
+    @Required
     val jmin: Int = 0,
+    @Required
     val jmax: Int = 0,
-    val h1: Long = 0L,
-    val h2: Long = 0L,
-    val h3: Long = 0L,
-    val h4: Long = 0L,
+    @Required
+    val h1: String = "1",
+    @Required
+    val h2: String = "2",
+    @Required
+    val h3: String = "3",
+    @Required
+    val h4: String = "4",
+    @Required
     val s1: Int = 0,
+    @Required
     val s2: Int = 0,
+    @Required
     val s3: Int = 0,
+    @Required
     val s4: Int = 0,
-    // AmneziaWG 2.0 I1..I5 special-junk frames as hex strings. Empty = unset.
+    // AmneziaWG 3.1 I1..I5 signature programs. Empty = unset.
     val i1: String = "",
     val i2: String = "",
     val i3: String = "",

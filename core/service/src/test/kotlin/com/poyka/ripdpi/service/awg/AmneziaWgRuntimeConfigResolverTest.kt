@@ -42,10 +42,10 @@ class AmneziaWgRuntimeConfigResolverTest {
                     s2 = 100,
                     s3 = 0,
                     s4 = 0,
-                    h1 = 1_000_000_001L,
-                    h4 = 1_000_000_004L,
-                    i1 = "deadbeef",
-                    i5 = "cafe",
+                    h1 = "1000000001",
+                    h4 = "1000000004",
+                    i1 = "<b 0xdeadbeef>",
+                    i5 = "<b 0xcafe>",
                 ),
         )
 
@@ -77,10 +77,10 @@ class AmneziaWgRuntimeConfigResolverTest {
         assertEquals(100, amnezia.s2)
         assertEquals(0, amnezia.s3)
         assertEquals(0, amnezia.s4)
-        assertEquals(1_000_000_001L, amnezia.h1)
-        assertEquals(1_000_000_004L, amnezia.h4)
-        assertEquals("deadbeef", amnezia.i1)
-        assertEquals("cafe", amnezia.i5)
+        assertEquals("1000000001", amnezia.h1)
+        assertEquals("1000000004", amnezia.h4)
+        assertEquals("<b 0xdeadbeef>", amnezia.i1)
+        assertEquals("<b 0xcafe>", amnezia.i5)
     }
 
     @Test

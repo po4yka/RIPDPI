@@ -115,7 +115,7 @@ class SubscriptionRefreshDeliveryTest : SubscriptionRefreshTestSupport() {
           {"type":"urltest","tag":"auto","url":"https://probe.example","interval":"10s"},
           {"type":"trojan","tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
           {"type":"trojan","tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
-          ],"ripdpi":{"schema_version":1,"cloudflare_outbound_tags":["edge"]}}"""
+          ],"ripdpi":{"schema_version":2,"cloudflare_outbound_tags":["edge"]}}"""
             val fixture = fixture(now = 3_000L)
             server.enqueue(response(200, payload))
             fixture.coordinator.refresh("subscription-group")
@@ -280,7 +280,7 @@ class SubscriptionRefreshDeliveryTest : SubscriptionRefreshTestSupport() {
                     .scheme("https")
                     .build()
             val payload = """{"outbounds":[{"type":"trojan","tag":"relay","server":"relay.example",
-            "server_port":443,"password":"fixture-password"}],"ripdpi":{"schema_version":1,
+            "server_port":443,"password":"fixture-password"}],"ripdpi":{"schema_version":2,
             "subscription_mirrors":[
             {"id":"cf","url":"$cloudflareUrl","token":"fixture-cf-token","transport":"cloudflare"},
             {"id":"direct","url":"$directUrl","token":"fixture-direct-token","transport":"direct"}]}}"""

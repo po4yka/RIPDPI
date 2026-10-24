@@ -45,7 +45,8 @@
       "transport": {
         "type": "xhttp",
         "host": "cdn.fixture-host.example",
-        "path": "/app-sync"
+        "path": "/app-sync",
+        "mode": "auto"
       }
     },
     {
@@ -91,7 +92,7 @@
     "auto_detect_interface": true
   },
   "ripdpi": {
-    "schema_version": 1,
+    "schema_version": 2,
     "amneziawg": [],
     "hysteria_extras": {},
     "topology": {

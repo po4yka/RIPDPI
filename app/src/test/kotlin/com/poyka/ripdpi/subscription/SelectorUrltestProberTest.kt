@@ -66,7 +66,7 @@ class SelectorUrltestProberTest {
             {"type":"urltest","tag":"auto","url":"https://probe.example","interval":"10s"},
             {"type":"trojan","tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
             {"type":"trojan","tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
-            ],"ripdpi":{"schema_version":1,"cloudflare_outbound_tags":["edge"]}}"""
+            ],"ripdpi":{"schema_version":2,"cloudflare_outbound_tags":["edge"]}}"""
             val parsed = SelectorUrltestGroupImport.import(payload, "g") as SelectorUrltestImportResult.Success
             val group = requireNotNull(parsed.group)
             val store = ProbeTestSelectionStore()

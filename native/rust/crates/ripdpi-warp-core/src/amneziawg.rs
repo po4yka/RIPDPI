@@ -26,15 +26,16 @@
 // `boringtun` is BSD-3-Clause; the AmneziaWG protocol delta ported from
 // `amnezia-vpn/amneziawg-go` (pin `v0.2.18`) is MIT. This file contains
 // only the AWG obfuscation delta (junk-packet sequencing, H1-H4 magic
-// header substitution, S1-S4 size padding, AWG 2.0 I1-I5 special junk
-// intervals). It does not vendor any Noise primitive, so no BSD-3 source
+// header substitution, S1-S4 size padding, AWG 3.1 I1-I5 signature
+// programs). It does not vendor any Noise primitive, so no BSD-3 source
 // is copied here; the dual SPDX header above records both licenses for the
 // crate as a whole, since the crate links `boringtun` (BSD-3) and ports
 // `amneziawg-go` semantics (MIT).
 //
 // # Reference
 //
-// Semantics mirror `amnezia-vpn/amneziawg-go` v0.2.18:
+// Handshake MAC and padding semantics use `amneziawg-go` v0.2.18.
+// Header ranges and signature programs use v3.1.20260828, implemented in awg_profile:
 //   * `device/peer.go`, `device/send.go` -- `junkPacketCount` (Jc) junk
 //     packets, each sized uniformly in `[Jmin, Jmax]`, sent before the
 //     real initiation.
@@ -43,13 +44,14 @@
 //     `TransportPacketMagicHeader` (H4) replace the WireGuard type bytes
 //     `0x01..0x04`; `S1..S4` random prefixes wrap the complete packet.
 //   * `device/device.go` -- AWG 2.0 `I1..I5` "special junk" intervals:
-//     fixed hex-encoded junk frames injected at the start of the flow.
+//     bounded signature programs generated before each handshake.
 //
 // Note: v0.2.18 fixed the pre-v0.2.18 bug where keepalive packets bypassed
 // `S4` padding. RIPDPI was never affected -- its uniform-codec design pads
 // *every* `WriteToNetwork` frame (keepalives included), so the unpadded
 // keepalive could not occur here regardless of the upstream pin.
 
+use crate::awg_profile::{HeaderRange, SignatureProgram, WIRE_PROFILE};
 use crate::config::WarpAmneziaConfig;
 use blake2::digest::consts::U16;
 use blake2::digest::{Digest, KeyInit as Blake2KeyInit, Mac};
@@ -72,7 +74,7 @@ const ARM64_S34_GUARD_REQUIRED: bool = true;
 /// transport (`0x04`).
 pub(crate) const WG_MESSAGE_TYPE_COUNT: usize = 4;
 
-/// Number of AWG 2.0 special-junk slots (`I1..I5`).
+/// Number of AWG signature slots (`I1..I5`).
 pub(crate) const SPECIAL_JUNK_SLOTS: usize = 5;
 
 /// Read random bytes from the OS CSPRNG into `buf`.
@@ -90,39 +92,63 @@ pub(crate) fn rand_u32() -> u32 {
 /// Errors produced while validating a [`WarpAmneziaConfig`] into [`AwgParams`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum AwgParamsError {
+    UnsupportedWireProfile,
+    ScalarOutOfRange {
+        name: &'static str,
+        value: i32,
+        limit: i32,
+    },
+    HandshakeSizeCollision,
     /// `jmin` exceeds `jmax`; the junk-packet size range would be empty.
-    JunkRangeInverted { jmin: u32, jmax: u32 },
-    /// A junk packet of the requested size would not fit inside a UDP
-    /// datagram alongside the rest of the WireGuard flow.
-    JunkSizeTooLarge { jmax: u32, limit: u32 },
+    JunkRangeInverted {
+        jmin: u32,
+        jmax: u32,
+    },
     /// A magic header value does not fit in the 4-byte WireGuard type field.
-    HeaderOutOfRange { index: usize, value: i64 },
+    HeaderOutOfRange {
+        index: usize,
+        value: String,
+    },
     /// Two message types were assigned the same magic header, which would
     /// make the receive-side classifier ambiguous.
-    HeaderCollision { a: usize, b: usize, value: u32 },
+    HeaderCollision {
+        a: usize,
+        b: usize,
+    },
     /// A size-padding value is larger than a single UDP datagram can carry.
-    PaddingTooLarge { index: usize, value: i64, limit: u32 },
+    PaddingTooLarge {
+        index: usize,
+        value: i64,
+        limit: u32,
+    },
     /// Non-zero S3/S4 are blocked on Android arm64 until a safe upstream floor
     /// is physically revalidated and coordinated with the deploy-side guard.
-    Arm64S34VersionFloor { s3: i32, s4: i32 },
-    /// A special-junk (`I1..I5`) hex string is malformed.
-    SpecialJunkNotHex { index: usize },
+    Arm64S34VersionFloor {
+        s3: i32,
+        s4: i32,
+    },
+    /// An `I1..I5` signature program is malformed or exceeds profile limits.
+    InvalidSignature {
+        index: usize,
+    },
 }
 
 impl std::fmt::Display for AwgParamsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::ScalarOutOfRange { name, value, limit } => {
+                write!(f, "AmneziaWG {name} ({value}) must be in 0..={limit}")
+            }
+            Self::HandshakeSizeCollision => write!(f, "AmneziaWG handshake packet sizes must differ"),
+            Self::UnsupportedWireProfile => write!(f, "Unsupported AmneziaWG wire profile"),
             Self::JunkRangeInverted { jmin, jmax } => {
                 write!(f, "AmneziaWG jmin ({jmin}) is greater than jmax ({jmax})")
-            }
-            Self::JunkSizeTooLarge { jmax, limit } => {
-                write!(f, "AmneziaWG jmax ({jmax}) exceeds the junk-packet size limit ({limit})")
             }
             Self::HeaderOutOfRange { index, value } => {
                 write!(f, "AmneziaWG h{} value ({value}) does not fit in a u32 header", index + 1)
             }
-            Self::HeaderCollision { a, b, value } => {
-                write!(f, "AmneziaWG h{} and h{} share the same magic header ({value})", a + 1, b + 1)
+            Self::HeaderCollision { a, b } => {
+                write!(f, "AmneziaWG h{} and h{} overlap", a + 1, b + 1)
             }
             Self::PaddingTooLarge { index, value, limit } => {
                 write!(f, "AmneziaWG s{} padding ({value}) exceeds the per-packet limit ({limit})", index + 1)
@@ -133,8 +159,8 @@ impl std::fmt::Display for AwgParamsError {
                     "AmneziaWG S3/S4 must remain zero on Android arm64 for reference semantics {AMNEZIAWG_UPSTREAM_SEMANTICS_VERSION} (got S3={s3}, S4={s4})"
                 )
             }
-            Self::SpecialJunkNotHex { index } => {
-                write!(f, "AmneziaWG i{} is not valid hex", index + 1)
+            Self::InvalidSignature { index } => {
+                write!(f, "AmneziaWG i{} is not a supported signature program", index + 1)
             }
         }
     }
@@ -166,90 +192,96 @@ pub(crate) struct AwgParams {
     /// `Jmax` -- inclusive upper bound on a junk packet's size in bytes.
     junk_packet_max_size: u32,
     /// `H1..H4` -- magic headers that replace WireGuard type bytes `0x01..0x04`.
-    magic_headers: [u32; WG_MESSAGE_TYPE_COUNT],
+    magic_headers: [HeaderRange; WG_MESSAGE_TYPE_COUNT],
     /// `S1..S4` -- bytes of random padding prefixed to each message type.
     size_padding: [u32; WG_MESSAGE_TYPE_COUNT],
-    /// `I1..I5` -- AWG 2.0 special-junk frames, already hex-decoded. An empty
-    /// `Vec` means that slot is unset.
-    special_junk: [Vec<u8>; SPECIAL_JUNK_SLOTS],
+    /// `I1..I5` compiled signature programs. `None` means the slot is unused.
+    special_junk: [Option<SignatureProgram>; SPECIAL_JUNK_SLOTS],
 }
 
 impl AwgParams {
     /// Validate a [`WarpAmneziaConfig`] into [`AwgParams`].
     ///
-    /// The `i1..i5` hex strings are optional and default to empty (`&[]`);
+    /// The `i1..i5` signature programs are optional and default to empty;
     /// the native WARP runtime config does not carry them, so callers pass
     /// them explicitly. Pass `&["", "", "", "", ""]` for "no special junk".
     #[cfg(test)]
-    pub(crate) fn from_config(cfg: &WarpAmneziaConfig, special_junk_hex: &[&str]) -> Result<Self, AwgParamsError> {
-        Self::from_config_for_platform(cfg, special_junk_hex, cfg!(all(target_os = "android", target_arch = "aarch64")))
+    pub(crate) fn from_config(cfg: &WarpAmneziaConfig, signature_programs: &[&str]) -> Result<Self, AwgParamsError> {
+        Self::from_config_for_platform(
+            cfg,
+            signature_programs,
+            cfg!(all(target_os = "android", target_arch = "aarch64")),
+        )
     }
 
     /// Platform-explicit validator used by the shared codec. Production passes
     /// the compile target; tests inject both sides of the policy gate.
     pub(crate) fn from_config_for_platform(
         cfg: &WarpAmneziaConfig,
-        special_junk_hex: &[&str],
+        signature_programs: &[&str],
         is_android_arm64: bool,
     ) -> Result<Self, AwgParamsError> {
+        if cfg.wire_profile != WIRE_PROFILE {
+            return Err(AwgParamsError::UnsupportedWireProfile);
+        }
         if ARM64_S34_GUARD_REQUIRED && is_android_arm64 && (cfg.s3 != 0 || cfg.s4 != 0) {
             return Err(AwgParamsError::Arm64S34VersionFloor { s3: cfg.s3, s4: cfg.s4 });
         }
-        let junk_packet_count = cfg.jc.max(0) as u32;
-        let junk_packet_min_size = cfg.jmin.max(0) as u32;
-        let junk_packet_max_size = cfg.jmax.max(0) as u32;
-
-        if junk_packet_count > 0 {
-            if junk_packet_min_size > junk_packet_max_size {
-                return Err(AwgParamsError::JunkRangeInverted {
-                    jmin: junk_packet_min_size,
-                    jmax: junk_packet_max_size,
-                });
-            }
-            if junk_packet_max_size > JUNK_PACKET_SIZE_LIMIT {
-                return Err(AwgParamsError::JunkSizeTooLarge {
-                    jmax: junk_packet_max_size,
-                    limit: JUNK_PACKET_SIZE_LIMIT,
-                });
+        for (name, value, limit) in [
+            ("jc", cfg.jc, 128),
+            ("jmin", cfg.jmin, JUNK_PACKET_SIZE_LIMIT as i32),
+            ("jmax", cfg.jmax, JUNK_PACKET_SIZE_LIMIT as i32),
+        ] {
+            if !(0..=limit).contains(&value) {
+                return Err(AwgParamsError::ScalarOutOfRange { name, value, limit });
             }
         }
-
-        let raw_headers = [cfg.h1, cfg.h2, cfg.h3, cfg.h4];
-        let mut magic_headers = [0u32; WG_MESSAGE_TYPE_COUNT];
-        for (index, raw) in raw_headers.iter().copied().enumerate() {
-            let value = u32::try_from(raw).map_err(|_| AwgParamsError::HeaderOutOfRange { index, value: raw })?;
-            magic_headers[index] = value;
+        let junk_packet_count = cfg.jc as u32;
+        let junk_packet_min_size = cfg.jmin as u32;
+        let junk_packet_max_size = cfg.jmax as u32;
+        if junk_packet_min_size > junk_packet_max_size {
+            return Err(AwgParamsError::JunkRangeInverted { jmin: junk_packet_min_size, jmax: junk_packet_max_size });
         }
-        // A zero means "use the standard WireGuard type". Reject collisions
-        // across those effective headers too: e.g. H1=2 collides with an
-        // unset H2 and makes receive-side classification ambiguous.
+        if 148_i64 + i64::from(cfg.s1) == 92_i64 + i64::from(cfg.s2) {
+            return Err(AwgParamsError::HandshakeSizeCollision);
+        }
+
+        let raw_headers = [&cfg.h1, &cfg.h2, &cfg.h3, &cfg.h4];
+        let mut magic_headers = [HeaderRange::parse("1").expect("constant header"); WG_MESSAGE_TYPE_COUNT];
+        for (index, raw) in raw_headers.into_iter().enumerate() {
+            magic_headers[index] = HeaderRange::parse(raw)
+                .ok_or_else(|| AwgParamsError::HeaderOutOfRange { index, value: raw.clone() })?;
+        }
         for a in 0..WG_MESSAGE_TYPE_COUNT {
             for b in (a + 1)..WG_MESSAGE_TYPE_COUNT {
-                let effective_a = if magic_headers[a] == 0 { (a + 1) as u32 } else { magic_headers[a] };
-                let effective_b = if magic_headers[b] == 0 { (b + 1) as u32 } else { magic_headers[b] };
-                if effective_a == effective_b {
-                    return Err(AwgParamsError::HeaderCollision { a, b, value: effective_a });
+                if magic_headers[a].overlaps(magic_headers[b]) {
+                    return Err(AwgParamsError::HeaderCollision { a, b });
                 }
+            }
+        }
+
+        for (index, range) in magic_headers.iter().enumerate() {
+            if !range.allowed_for_type((index + 1) as u32) {
+                return Err(AwgParamsError::HeaderOutOfRange { index, value: raw_headers[index].clone() });
             }
         }
 
         let raw_padding = [cfg.s1, cfg.s2, cfg.s3, cfg.s4];
         let mut size_padding = [0u32; WG_MESSAGE_TYPE_COUNT];
         for (index, raw) in raw_padding.iter().copied().enumerate() {
-            let value = raw.max(0) as u32;
-            if value > PADDING_SIZE_LIMIT {
+            if raw < 0 || raw as u32 > PADDING_SIZE_LIMIT {
                 return Err(AwgParamsError::PaddingTooLarge { index, value: raw as i64, limit: PADDING_SIZE_LIMIT });
             }
-            size_padding[index] = value;
+            size_padding[index] = raw as u32;
         }
 
-        let mut special_junk: [Vec<u8>; SPECIAL_JUNK_SLOTS] = Default::default();
-        for (index, hex) in special_junk_hex.iter().take(SPECIAL_JUNK_SLOTS).enumerate() {
-            let trimmed = hex.trim();
-            if trimmed.is_empty() {
+        let mut special_junk: [Option<SignatureProgram>; SPECIAL_JUNK_SLOTS] = Default::default();
+        for (index, program) in signature_programs.iter().take(SPECIAL_JUNK_SLOTS).enumerate() {
+            if program.is_empty() {
                 continue;
             }
-            special_junk[index] = decode_hex(trimmed).ok_or(AwgParamsError::SpecialJunkNotHex { index })?;
+            special_junk[index] =
+                Some(SignatureProgram::parse(program).ok_or(AwgParamsError::InvalidSignature { index })?);
         }
 
         Ok(Self {
@@ -270,7 +302,7 @@ impl AwgParams {
         self.junk_packet_count == 0
             && self.size_padding.iter().all(|&s| s == 0)
             && !self.headers_active()
-            && self.special_junk.iter().all(Vec::is_empty)
+            && self.special_junk.iter().all(Option::is_none)
     }
 
     /// `true` when at least one magic header is set. WireGuard type bytes are
@@ -278,14 +310,11 @@ impl AwgParams {
     /// `0x01..0x04` bytes untouched (preserving the byte-identity invariant
     /// for the headers-unset case).
     pub(crate) fn headers_active(&self) -> bool {
-        self.magic_headers.iter().any(|&h| h != 0)
+        self.magic_headers.iter().enumerate().any(|(index, h)| !h.is_singleton((index + 1) as u32))
     }
 
     fn wire_header(&self, index: usize) -> u32 {
-        match self.magic_headers[index] {
-            0 => (index + 1) as u32,
-            header => header,
-        }
+        self.magic_headers[index].sample()
     }
 
     /// Draw a junk-packet size uniformly from `[Jmin, Jmax]` using `rng`.
@@ -310,12 +339,10 @@ impl AwgParams {
         packets
     }
 
-    /// Build the AWG 2.0 special-junk (`I1..I5`) frames in slot order.
-    /// Unset slots are skipped. These are fixed, hex-decoded byte strings --
-    /// they are *not* randomized -- so the obfuscator emits them verbatim at
-    /// the start of the flow, matching `amneziawg-go` v0.2.18.
+    /// Generate `I1..I5` in slot order before each initiation, including retries.
+    /// Unset slots are skipped; random and timestamp tags are evaluated afresh.
     pub(crate) fn special_junk_packets(&self) -> Vec<Vec<u8>> {
-        self.special_junk.iter().filter(|frame| !frame.is_empty()).cloned().collect()
+        self.special_junk.iter().flatten().map(SignatureProgram::generate).collect()
     }
 
     /// The full pre-initiation prelude: special-junk frames (`I1..I5`)
@@ -493,8 +520,8 @@ impl AwgWireCodec {
             if !packet_size_matches(index, body.len()) || body.len() < 4 {
                 return false;
             }
-            u32::from_le_bytes(body[..4].try_into().expect("four-byte header checked"))
-                == self.params.wire_header(index)
+            self.params.magic_headers[index]
+                .contains(u32::from_le_bytes(body[..4].try_into().expect("four-byte header checked")))
         })
     }
 
@@ -683,22 +710,6 @@ fn build_cookie_reply(
     Some(packet)
 }
 
-/// Decode a lowercase/uppercase hex string into bytes. Returns `None` on any
-/// non-hex character or an odd length. Used for AWG 2.0 `I1..I5` frames.
-fn decode_hex(input: &str) -> Option<Vec<u8>> {
-    if !input.len().is_multiple_of(2) {
-        return None;
-    }
-    let mut out = Vec::with_capacity(input.len() / 2);
-    let bytes = input.as_bytes();
-    for pair in bytes.as_chunks::<2>().0 {
-        let hi = (pair[0] as char).to_digit(16)?;
-        let lo = (pair[1] as char).to_digit(16)?;
-        out.push(((hi << 4) | lo) as u8);
-    }
-    Some(out)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -720,10 +731,10 @@ mod tests {
             jc,
             jmin,
             jmax,
-            h1: h[0],
-            h2: h[1],
-            h3: h[2],
-            h4: h[3],
+            h1: (if h[0] == 0 { 1 } else { h[0] }).to_string(),
+            h2: (if h[1] == 0 { 2 } else { h[1] }).to_string(),
+            h3: (if h[2] == 0 { 3 } else { h[2] }).to_string(),
+            h4: (if h[3] == 0 { 4 } else { h[3] }).to_string(),
             s1: s[0],
             s2: s[1],
             s3: s[2],
@@ -734,20 +745,6 @@ mod tests {
 
     fn no_special() -> [&'static str; 5] {
         ["", "", "", "", ""]
-    }
-
-    // --- decode_hex ---------------------------------------------------------
-
-    #[test]
-    fn decode_hex_round_trips_lower_and_upper() {
-        assert_eq!(decode_hex("00ff10AB"), Some(vec![0x00, 0xFF, 0x10, 0xAB]));
-        assert_eq!(decode_hex(""), Some(vec![]));
-    }
-
-    #[test]
-    fn decode_hex_rejects_odd_length_and_non_hex() {
-        assert_eq!(decode_hex("abc"), None);
-        assert_eq!(decode_hex("zz"), None);
     }
 
     // --- AwgParams validation ----------------------------------------------
@@ -762,10 +759,9 @@ mod tests {
     }
 
     #[test]
-    fn from_config_allows_inverted_junk_range_when_count_is_zero() {
-        // No junk packets are emitted, so the (unused) range is not validated.
+    fn from_config_rejects_inverted_junk_range_even_when_count_is_zero() {
         let c = cfg(0, 100, 40, [0; 4], [0; 4]);
-        assert!(AwgParams::from_config(&c, &no_special()).is_ok());
+        assert!(matches!(AwgParams::from_config(&c, &no_special()), Err(AwgParamsError::JunkRangeInverted { .. })));
     }
 
     #[test]
@@ -773,8 +769,33 @@ mod tests {
         let c = cfg(1, 1, (JUNK_PACKET_SIZE_LIMIT + 1) as i32, [0; 4], [0; 4]);
         assert_eq!(
             AwgParams::from_config(&c, &no_special()),
-            Err(AwgParamsError::JunkSizeTooLarge { jmax: JUNK_PACKET_SIZE_LIMIT + 1, limit: JUNK_PACKET_SIZE_LIMIT }),
+            Err(AwgParamsError::ScalarOutOfRange {
+                name: "jmax",
+                value: JUNK_PACKET_SIZE_LIMIT as i32 + 1,
+                limit: 1280
+            }),
         );
+    }
+
+    #[test]
+    fn scalar_bounds_reject_before_allocating() {
+        for count in [-1, 129, i32::MAX] {
+            assert!(matches!(
+                AwgParams::from_config(&cfg(count, 0, 0, [0; 4], [0; 4]), &no_special()),
+                Err(AwgParamsError::ScalarOutOfRange { name: "jc", .. })
+            ));
+        }
+        for sizes in [(-1, 0), (0, -1), (1281, 1281)] {
+            assert!(AwgParams::from_config(&cfg(0, sizes.0, sizes.1, [0; 4], [0; 4]), &no_special()).is_err());
+        }
+        for padding in [[-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, -1]] {
+            assert!(AwgParams::from_config(&cfg(0, 0, 0, [0; 4], padding), &no_special()).is_err());
+        }
+        assert_eq!(
+            AwgParams::from_config(&cfg(0, 0, 0, [0; 4], [0, 56, 0, 0]), &no_special()),
+            Err(AwgParamsError::HandshakeSizeCollision)
+        );
+        assert!(AwgParams::from_config(&cfg(128, 1280, 1280, [0; 4], [1280, 1280, 0, 0]), &no_special()).is_ok());
     }
 
     #[test]
@@ -782,26 +803,20 @@ mod tests {
         let c = cfg(0, 0, 0, [i64::from(u32::MAX) + 1, 0, 0, 0], [0; 4]);
         assert_eq!(
             AwgParams::from_config(&c, &no_special()),
-            Err(AwgParamsError::HeaderOutOfRange { index: 0, value: i64::from(u32::MAX) + 1 }),
+            Err(AwgParamsError::HeaderOutOfRange { index: 0, value: (u64::from(u32::MAX) + 1).to_string() }),
         );
     }
 
     #[test]
     fn from_config_rejects_colliding_headers() {
         let c = cfg(0, 0, 0, [0x11_22_33_44, 0x11_22_33_44, 0, 0], [0; 4]);
-        assert_eq!(
-            AwgParams::from_config(&c, &no_special()),
-            Err(AwgParamsError::HeaderCollision { a: 0, b: 1, value: 0x11_22_33_44 }),
-        );
+        assert_eq!(AwgParams::from_config(&c, &no_special()), Err(AwgParamsError::HeaderCollision { a: 0, b: 1 }),);
     }
 
     #[test]
     fn from_config_rejects_custom_header_colliding_with_unset_standard_type() {
         let c = cfg(0, 0, 0, [2, 0, 0, 0], [0; 4]);
-        assert_eq!(
-            AwgParams::from_config(&c, &no_special()),
-            Err(AwgParamsError::HeaderCollision { a: 0, b: 1, value: 2 }),
-        );
+        assert_eq!(AwgParams::from_config(&c, &no_special()), Err(AwgParamsError::HeaderCollision { a: 0, b: 1 }),);
     }
 
     #[test]
@@ -862,7 +877,67 @@ mod tests {
     fn from_config_rejects_malformed_special_junk() {
         let c = cfg(0, 0, 0, [0; 4], [0; 4]);
         let err = AwgParams::from_config(&c, &["", "zz", "", "", ""]).unwrap_err();
-        assert_eq!(err, AwgParamsError::SpecialJunkNotHex { index: 1 });
+        assert_eq!(err, AwgParamsError::InvalidSignature { index: 1 });
+    }
+
+    #[test]
+    fn range_headers_change_per_packet_and_reject_outside_values() {
+        let config = WarpAmneziaConfig {
+            h1: "100-199".into(),
+            h2: "200-299".into(),
+            h3: "300-399".into(),
+            h4: "400-499".into(),
+            ..Default::default()
+        };
+        let codec = AwgWireCodec::new(AwgParams::from_config(&config, &no_special()).unwrap());
+        for (index, length) in [148, 92, 64, 100].into_iter().enumerate() {
+            let mut packet = vec![0; length];
+            packet[..4].copy_from_slice(&((index + 1) as u32).to_le_bytes());
+            let mut observed = std::collections::HashSet::new();
+            for _ in 0..128 {
+                let wire = codec.encode(&packet).unwrap();
+                let header = u32::from_le_bytes(wire[..4].try_into().unwrap());
+                observed.insert(header);
+                assert!(((index as u32 + 1) * 100..=(index as u32 + 1) * 100 + 99).contains(&header));
+                assert_eq!(codec.decode(&wire).unwrap(), packet);
+                let mut invalid = wire;
+                invalid[..4].copy_from_slice(&999u32.to_le_bytes());
+                assert!(codec.decode(&invalid).is_none());
+            }
+            assert!(observed.len() > 1);
+        }
+    }
+
+    #[test]
+    fn range_overlap_low_headers_and_wire_profile_are_rejected() {
+        let mut config = WarpAmneziaConfig { h1: "100-200".into(), h2: "200-300".into(), ..Default::default() };
+        assert!(matches!(AwgParams::from_config(&config, &no_special()), Err(AwgParamsError::HeaderCollision { .. })));
+        config.h2 = "201-300".into();
+        assert!(AwgParams::from_config(&config, &no_special()).is_ok());
+        for invalid in ["0", "0-100", "1-100"] {
+            config.h1 = invalid.into();
+            assert!(AwgParams::from_config(&config, &no_special()).is_err());
+        }
+        config = WarpAmneziaConfig::default();
+        config.wire_profile = "future-profile".into();
+        assert_eq!(AwgParams::from_config(&config, &no_special()), Err(AwgParamsError::UnsupportedWireProfile));
+    }
+
+    #[test]
+    fn signature_programs_are_fresh_and_ordered_before_junk_on_each_handshake() {
+        let config = cfg(1, 8, 8, [0; 4], [0; 4]);
+        let programs = ["<b 0x01><r 32>", "<rd 16>", "<rc 16>", "<t>", "<b 0x05>"];
+        let params = AwgParams::from_config(&config, &programs).unwrap();
+        let first = params.handshake_prelude(&mut || 0);
+        let second = params.handshake_prelude(&mut || 0);
+        assert_eq!(first.len(), 6);
+        assert_eq!(first[0][0], 1);
+        assert_ne!(first[0], second[0]);
+        assert!(first[1].iter().all(u8::is_ascii_digit));
+        assert!(first[2].iter().all(u8::is_ascii_alphabetic));
+        assert_eq!(first[3].len(), 4);
+        assert_eq!(first[4], [5]);
+        assert_eq!(first[5].len(), 8);
     }
 
     // --- passthrough / byte-identity ---------------------------------------
@@ -883,7 +958,7 @@ mod tests {
         assert!(!with_h.is_passthrough());
         let with_s = AwgParams::from_config(&cfg(0, 0, 0, [0; 4], [4, 0, 0, 0]), &no_special()).unwrap();
         assert!(!with_s.is_passthrough());
-        let with_i = AwgParams::from_config(&cfg(0, 0, 0, [0; 4], [0; 4]), &["dead", "", "", "", ""]).unwrap();
+        let with_i = AwgParams::from_config(&cfg(0, 0, 0, [0; 4], [0; 4]), &["<b 0xdead>", "", "", "", ""]).unwrap();
         assert!(!with_i.is_passthrough());
     }
 
@@ -1043,7 +1118,7 @@ mod tests {
     #[test]
     fn special_junk_packets_decodes_set_slots_in_order() {
         let c = cfg(0, 0, 0, [0; 4], [0; 4]);
-        let params = AwgParams::from_config(&c, &["dead", "", "beefcafe", "", "01"]).unwrap();
+        let params = AwgParams::from_config(&c, &["<b 0xdead>", "", "<b 0xbeefcafe>", "", "<b 0x01>"]).unwrap();
         let frames = params.special_junk_packets();
         assert_eq!(frames.len(), 3);
         assert_eq!(frames[0], vec![0xDE, 0xAD]);
@@ -1052,11 +1127,11 @@ mod tests {
     }
 
     #[test]
-    fn special_junk_frames_are_fixed_not_randomized() {
-        // The same hex always decodes to the same bytes -- I1..I5 are verbatim.
+    fn literal_signature_frames_are_fixed() {
+        // A literal byte tag generates the same bytes on every handshake.
         let c = cfg(0, 0, 0, [0; 4], [0; 4]);
-        let p1 = AwgParams::from_config(&c, &["a1b2c3", "", "", "", ""]).unwrap();
-        let p2 = AwgParams::from_config(&c, &["a1b2c3", "", "", "", ""]).unwrap();
+        let p1 = AwgParams::from_config(&c, &["<b 0xa1b2c3>", "", "", "", ""]).unwrap();
+        let p2 = AwgParams::from_config(&c, &["<b 0xa1b2c3>", "", "", "", ""]).unwrap();
         assert_eq!(p1.special_junk_packets(), p2.special_junk_packets());
         assert_eq!(p1.special_junk_packets()[0], vec![0xA1, 0xB2, 0xC3]);
     }
@@ -1066,7 +1141,7 @@ mod tests {
     #[test]
     fn handshake_prelude_emits_special_junk_then_random_junk() {
         let c = cfg(2, 8, 8, [0; 4], [0; 4]);
-        let params = AwgParams::from_config(&c, &["aaaa", "", "bb", "", ""]).unwrap();
+        let params = AwgParams::from_config(&c, &["<b 0xaaaa>", "", "<b 0xbb>", "", ""]).unwrap();
         let mut rng = seq_rng(vec![0, 0]);
         let prelude = params.handshake_prelude(&mut rng);
         // 2 special-junk frames + 2 random junk packets.
@@ -1100,6 +1175,15 @@ mod tests {
     /// proof at the data-plane level (no sockets, deterministic, in-process).
     #[test]
     fn obfuscated_handshake_completes_and_transports_a_packet() {
+        handshake_with_headers(false);
+    }
+
+    #[test]
+    fn ranged_handshake_completes_and_transports_a_packet() {
+        handshake_with_headers(true);
+    }
+
+    fn handshake_with_headers(ranges: bool) {
         use boringtun::noise::{Tunn, TunnResult};
         use boringtun::x25519::{PublicKey, StaticSecret};
 
@@ -1115,7 +1199,14 @@ mod tests {
         // Both peers share the same AmneziaWG obfuscation parameters (headers
         // + padding active, so the codec is NOT in passthrough).
         let headers = [0x10_00_00_01, 0x10_00_00_02, 0x10_00_00_03, 0x10_00_00_04];
-        let params = AwgParams::from_config(&cfg(0, 0, 0, headers, [8, 4, 6, 2]), &no_special()).unwrap();
+        let mut config = cfg(0, 0, 0, headers, [8, 4, 0, 0]);
+        if ranges {
+            config.h1 = "100-199".into();
+            config.h2 = "200-299".into();
+            config.h3 = "300-399".into();
+            config.h4 = "400-499".into();
+        }
+        let params = AwgParams::from_config(&config, &no_special()).unwrap();
         assert!(!params.is_passthrough(), "codec must be active for a meaningful test");
         let client_codec = AwgWireCodec::new_authenticated(
             params.clone(),
@@ -1140,7 +1231,8 @@ mod tests {
         let obf_init = client_codec.encode(&init).expect("client encodes initiation");
         assert_ne!(obf_init[..4], [1, 0, 0, 0], "type byte must be header-substituted on the wire");
         assert_eq!(obf_init.len(), HANDSHAKE_INIT_SIZE + 8, "S1 is a prefix without changing WG body size");
-        assert_eq!(u32::from_le_bytes(obf_init[8..12].try_into().unwrap()), headers[0] as u32);
+        let wire_header = u32::from_le_bytes(obf_init[8..12].try_into().unwrap());
+        assert!(HeaderRange::parse(&config.h1).unwrap().contains(wire_header));
         let mut corrupted_init = obf_init.clone();
         corrupted_init[20] ^= 1;
         assert!(server_codec.decode(&corrupted_init).is_none(), "AWG MAC1 must authenticate the wire header and body");
@@ -1274,6 +1366,15 @@ mod tests {
 
     #[test]
     fn cookie_challenge_round_trips_between_awg_and_boringtun_mac_domains() {
+        cookie_challenge_with_headers(false);
+    }
+
+    #[test]
+    fn ranged_cookie_challenge_preserves_mac_domains() {
+        cookie_challenge_with_headers(true);
+    }
+
+    fn cookie_challenge_with_headers(ranges: bool) {
         use boringtun::noise::rate_limiter::RateLimiter;
         use boringtun::noise::{Tunn, TunnResult};
         use boringtun::x25519::{PublicKey, StaticSecret};
@@ -1292,7 +1393,14 @@ mod tests {
         let mut server = Tunn::new(server_secret, client_public, None, None, 1, Some(limiter));
 
         let headers = [0x41_00_00_01, 0x41_00_00_02, 0x41_00_00_03, 0x41_00_00_04];
-        let params = AwgParams::from_config(&cfg(0, 0, 0, headers, [5, 7, 3, 0]), &no_special()).unwrap();
+        let mut config = cfg(0, 0, 0, headers, [5, 7, 3, 0]);
+        if ranges {
+            config.h1 = "100-199".into();
+            config.h2 = "200-299".into();
+            config.h3 = "300-399".into();
+            config.h4 = "400-499".into();
+        }
+        let params = AwgParams::from_config(&config, &no_special()).unwrap();
         let client_codec =
             AwgWireCodec::new_authenticated(params.clone(), AwgMacKeys::new(client_public_bytes, server_public_bytes));
         let server_codec =
@@ -1314,7 +1422,9 @@ mod tests {
         };
         assert_eq!(u32::from_le_bytes(vanilla_cookie[..4].try_into().unwrap()), 3);
         let wire_cookie = server_codec.encode(&vanilla_cookie).expect("translate cookie to AWG MAC1 domain");
-        assert_eq!(u32::from_le_bytes(wire_cookie[3..7].try_into().unwrap()), headers[2] as u32);
+        assert!(
+            HeaderRange::parse(&config.h3).unwrap().contains(u32::from_le_bytes(wire_cookie[3..7].try_into().unwrap()))
+        );
         let client_cookie = client_codec.decode(&wire_cookie).expect("translate cookie to boringtun MAC1 domain");
 
         let mut consume_cookie_buf = [0u8; 2048];
@@ -1349,7 +1459,7 @@ mod tests {
         let headers = [0xC0_FF_EE_01, 0xC0_FF_EE_02, 0xC0_FF_EE_03, 0xC0_FF_EE_04];
         let padding = [12, 0, 7, 3];
         let c = cfg(4, 32, 96, headers, padding);
-        let params = AwgParams::from_config(&c, &["deadbeef", "", "", "", "cafe"]).unwrap();
+        let params = AwgParams::from_config(&c, &["<b 0xdeadbeef>", "", "", "", "<b 0xcafe>"]).unwrap();
         assert!(!params.is_passthrough());
         let codec = AwgWireCodec::new(params);
 

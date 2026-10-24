@@ -90,6 +90,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Exercise the current materializer's private-file checks with synthetic input.
+# The tracked fixture stays ordinary repository data.
+private_frozen_secrets="$work_dir/frozen-secrets.yaml"
+cp "$frozen_secrets" "$private_frozen_secrets"
+chmod 600 "$private_frozen_secrets"
+frozen_secrets="$private_frozen_secrets"
+
 # The real emitter only sees these deterministic shims. Terraform output is
 # selected by provider name, SOPS always returns the frozen fixture payload,
 # and wg derives a fixed synthetic public key without inspecting a live key.

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -28,22 +29,33 @@ internal const val defaultAmneziaWgReadyTimeoutMs = 5_000L
  * `ripdpi-amneziawg-android`. `jc`/`jmin`/`jmax` size the junk-packet padding,
  * `s1`..`s4` the per-message-type junk-size knobs (`s1`/`s2` the
  * handshake-init/response prefixes, `s3`/`s4` the AWG-2.x cookie/transport
- * padding), `h1`..`h4` the magic header constants (64-bit, hence [Long]), and
+ * padding), `h1`..`h4` canonical unsigned header values or inclusive ranges, and
  * `i1`..`i5` the optional packet templates (empty string = unused).
  */
 @Serializable
 data class RipDpiAmneziaWgObfuscationConfig(
+    @Required
+    val wireProfile: String = "awg-3.1-ranges-v1",
+    @Required
     val jc: Int = 0,
+    @Required
     val jmin: Int = 0,
+    @Required
     val jmax: Int = 0,
+    @Required
     val s1: Int = 0,
+    @Required
     val s2: Int = 0,
     val s3: Int = 0,
     val s4: Int = 0,
-    val h1: Long = 0L,
-    val h2: Long = 0L,
-    val h3: Long = 0L,
-    val h4: Long = 0L,
+    @Required
+    val h1: String = "1",
+    @Required
+    val h2: String = "2",
+    @Required
+    val h3: String = "3",
+    @Required
+    val h4: String = "4",
     val i1: String = "",
     val i2: String = "",
     val i3: String = "",

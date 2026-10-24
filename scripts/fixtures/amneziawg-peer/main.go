@@ -1,4 +1,4 @@
-// Independent, rootless AmneziaWG peer. Every OS socket is IPv4 loopback.
+// Independent, rootless AmneziaWG peer. Loopback unless a private peer is explicitly selected.
 // Fixed keys are public test fixtures, never production credentials.
 package main
 
@@ -20,15 +20,37 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amnezia-vpn/amneziawg-go/conn"
-	"github.com/amnezia-vpn/amneziawg-go/device"
-	"github.com/amnezia-vpn/amneziawg-go/tun/netstack"
+	"github.com/amnezia-vpn/amneziawg-go/v3/conn"
+	"github.com/amnezia-vpn/amneziawg-go/v3/device"
+	"github.com/amnezia-vpn/amneziawg-go/v3/tun/netstack"
 	"golang.org/x/net/dns/dnsmessage"
 )
 
 type loopbackBind struct {
-	mu     sync.Mutex
-	socket *net.UDPConn
+	bindIP      netip.Addr
+	allowedPeer netip.Addr
+	mu          sync.Mutex
+	socket      *net.UDPConn
+	observation wireObservation
+}
+
+func newPeerBind() (*loopbackBind, error) {
+	localText, remoteText := os.Getenv("RIPDPI_AWG_BIND_IP"), os.Getenv("RIPDPI_AWG_PEER_IP")
+	if localText == "" && remoteText == "" {
+		return &loopbackBind{bindIP: netip.MustParseAddr("127.0.0.1")}, nil
+	}
+	local, localErr := netip.ParseAddr(localText)
+	remote, remoteErr := netip.ParseAddr(remoteText)
+	if localErr != nil || remoteErr != nil || !local.Is4() || !remote.Is4() || !local.IsPrivate() || !remote.IsPrivate() || local == remote {
+		return nil, errors.New("LAN fixture requires distinct private IPv4 bind and peer addresses")
+	}
+	return &loopbackBind{bindIP: local, allowedPeer: remote}, nil
+}
+func (b *loopbackBind) allows(address netip.Addr) bool {
+	if b.allowedPeer.IsValid() {
+		return address == b.allowedPeer
+	}
+	return address.Is4() && address.IsLoopback()
 }
 
 func (b *loopbackBind) Open(port uint16) ([]conn.ReceiveFunc, uint16, error) {
@@ -37,7 +59,7 @@ func (b *loopbackBind) Open(port uint16) ([]conn.ReceiveFunc, uint16, error) {
 	if b.socket != nil {
 		return nil, 0, conn.ErrBindAlreadyOpen
 	}
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: int(port)})
+	socket, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IP(b.bindIP.AsSlice()), Port: int(port)})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -47,9 +69,10 @@ func (b *loopbackBind) Open(port uint16) ([]conn.ReceiveFunc, uint16, error) {
 		if err != nil {
 			return 0, err
 		}
-		if !remote.Addr().IsLoopback() {
+		if !b.allows(remote.Addr()) {
 			return 0, errors.New("non-loopback peer")
 		}
+		b.observation.observe(packets[0][:size], true)
 		sizes[0] = size
 		endpoints[0] = &conn.StdNetEndpoint{AddrPort: remote}
 		return 1, nil
@@ -73,19 +96,19 @@ func (*loopbackBind) SetMark(mark uint32) error {
 	return nil
 }
 func (*loopbackBind) BatchSize() int { return 1 }
-func (*loopbackBind) ParseEndpoint(value string) (conn.Endpoint, error) {
+func (b *loopbackBind) ParseEndpoint(value string) (conn.Endpoint, error) {
 	addr, err := netip.ParseAddrPort(value)
 	if err != nil {
 		return nil, err
 	}
-	if !addr.Addr().Is4() || !addr.Addr().IsLoopback() {
+	if !b.allows(addr.Addr()) {
 		return nil, errors.New("endpoint must be IPv4 loopback")
 	}
 	return &conn.StdNetEndpoint{AddrPort: addr}, nil
 }
 func (b *loopbackBind) Send(packets [][]byte, endpoint conn.Endpoint) error {
 	target, ok := endpoint.(*conn.StdNetEndpoint)
-	if !ok || !target.AddrPort.Addr().IsLoopback() {
+	if !ok || !b.allows(target.AddrPort.Addr()) {
 		return errors.New("non-loopback send")
 	}
 	b.mu.Lock()
@@ -95,6 +118,7 @@ func (b *loopbackBind) Send(packets [][]byte, endpoint conn.Endpoint) error {
 		return net.ErrClosed
 	}
 	for _, packet := range packets {
+		b.observation.observe(packet, false)
 		n, err := socket.WriteToUDPAddrPort(packet, target.AddrPort)
 		if err != nil {
 			return err
@@ -233,19 +257,34 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	tun, network, err := netstack.CreateNetTUN([]netip.Addr{netip.MustParseAddr("10.77.0.1"), netip.MustParseAddr("fd77::1")}, nil, mtu)
+	addresses := []netip.Addr{netip.MustParseAddr("10.77.0.1"), netip.MustParseAddr("fd77::1")}
+	httpAcceptance := os.Getenv("RIPDPI_AWG_HTTP_ACCEPTANCE") == "1"
+	if httpAcceptance {
+		addresses = append(addresses, netip.MustParseAddr("192.0.2.77"))
+	}
+	tun, network, err := netstack.CreateNetTUN(addresses, nil, mtu)
 	if err != nil {
 		return err
 	}
-	bind := &loopbackBind{}
+	bind, err := newPeerBind()
+	if err != nil {
+		return err
+	}
 	peer := device.NewDevice(tun, bind, device.NewLogger(device.LogLevelSilent, ""))
 	defer peer.Close()
-	config := fmt.Sprintf("private_key=%s\nlisten_port=0\njc=4\njmin=64\njmax=96\ns1=8\ns2=12\nh1=268435457\nh2=268435458\nh3=268435459\nh4=268435460\npublic_key=%s\npreshared_key=%s\nallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)))
+	config := fmt.Sprintf("private_key=%s\nlisten_port=0\njc=4\njmin=64\njmax=96\ns1=8\ns2=12\nh1=100-199\nh2=200-299\nh3=300-399\nh4=400-499\ni1=<b 0xf0f1><r 16><rd 8><rc 8><t>\ni2=<b 0xf2>\ni3=<b 0xf3>\ni4=<b 0xf4>\ni5=<b 0xf5>\npublic_key=%s\npreshared_key=%s\nallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)))
 	if err = peer.IpcSet(config); err != nil {
 		return err
 	}
 	if err = peer.Up(); err != nil {
 		return err
+	}
+	if httpAcceptance {
+		endpoint, err := bind.address()
+		if err != nil {
+			return err
+		}
+		return runHTTPAcceptance(network, peer, bind, endpoint, base64.StdEncoding.EncodeToString(server.PublicKey().Bytes()))
 	}
 	tcp, err := network.ListenTCPAddrPort(netip.MustParseAddrPort("10.77.0.1:41001"))
 	if err != nil {
@@ -336,7 +375,7 @@ func run() error {
 					return fmt.Errorf("incomplete exchanges: %d/%d", completed, expected)
 				}
 			}
-			return nil
+			return bind.observation.finish(cycles)
 		case <-timer.C:
 			return errors.New("peer deadline exceeded")
 		}
