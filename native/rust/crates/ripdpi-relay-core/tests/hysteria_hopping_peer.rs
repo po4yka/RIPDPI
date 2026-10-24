@@ -130,7 +130,7 @@ async fn relay_json_preserves_tcp_and_udp_across_remote_hops() {
                 .expect("TCP echo deadline")
                 .expect("TCP echo");
             assert_eq!(echoed, payload);
-            // app/v2.9.0 limits UDP replies to a 4096-byte buffer including
+            // The pinned peer limits UDP replies to a 4096-byte buffer including
             // its header. Each packet still requires several QUIC fragments.
             for index in 0u16..3 {
                 packet[10..12].copy_from_slice(&round.to_be_bytes());

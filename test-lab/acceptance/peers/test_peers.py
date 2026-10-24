@@ -81,6 +81,20 @@ class ExactExecutionTest(unittest.TestCase):
 
 
 class HoppingFailureEvidenceTest(unittest.TestCase):
+    def test_shared_hysteria_cases_use_the_verified_binary_pin(self):
+        for case in catalog.SCENARIOS.values():
+            if case["driver"] in ("hysteria2", "hysteria2-hopping"):
+                self.assertEqual(case["peer_identity"]["version"], hysteria.VERSION)
+        self.assertEqual(set(hysteria.DIGESTS), {"darwin-arm64", "linux-amd64", "linux-arm64"})
+        self.assertTrue(all(re.fullmatch(r"[a-f0-9]{64}", value) for value in hysteria.DIGESTS.values()))
+
+    def test_fragmented_udp_oracle_requires_every_distinct_packet(self):
+        payload = b"x" * 8208
+        expected = hysteria_hopping.expected_udp_hashes(payload)
+        self.assertEqual(len(expected), 60)
+        changed = hysteria_hopping.expected_udp_hashes(b"y" * 8208)
+        self.assertFalse(expected & changed)
+
     def test_failed_rust_execution_keeps_receipts_and_failure(self):
         case = catalog.SCENARIOS["independent-hysteria2-hopping-ipv4-plain-fixed"]
         with tempfile.TemporaryDirectory() as directory:
@@ -294,7 +308,7 @@ runner.main(['--prepare', '--scenario', 'native-tuic-tcp'])
             tempfile.TemporaryDirectory() as directory,
             patch.object(hysteria, "asset", return_value="linux-arm64"),
         ):
-            (Path(directory) / "hysteria-v2.9.0-linux-arm64").write_bytes(b"tampered")
+            (Path(directory) / "hysteria-v2.13.0-linux-arm64").write_bytes(b"tampered")
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
                 hysteria.binary(Path(directory))
 

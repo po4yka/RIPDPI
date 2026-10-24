@@ -40,13 +40,17 @@ Native source implementation is present; task steps remain open until the combin
 
 Observed local checks on 2026-10-24:
 
-- `python3 -m unittest discover -s test-lab/acceptance/peers -p test_peers.py -q`: 22 tests passed. These verify the harness, not protocol acceptance.
+- `python3 -m unittest discover -s test-lab/acceptance/peers -p test_peers.py -q`: 25 tests passed. These verify the harness, not protocol acceptance.
 - `python3 -m unittest discover -s test-lab/acceptance/tests -q`: 38 tests passed.
 - Manifest generation and check passed; `lab.py validate` reports 50 scenarios and seven profiles.
 - Architecture health: zero new, worsened or stale indicators. Native architecture contracts: zero violations.
 - `actionlint .github/workflows/local-acceptance.yml`, Cargo locked-command check, task validation and strict OpenSpec validation passed.
 - Independent source review found a missing GRO receive capability. The adapter now preserves the initial receive capacity and tests plain/Salamander capabilities across rotations. The reviewer found no remaining source-level lock or lifetime defect in this slice; compilation and Linux execution remain required.
-- The pinned Hysteria app/v2.9.0 binary was prepared and its existing SHA-256 digest verified. No peer acceptance run has completed.
-- The native library test and first commit-hook Clippy attempt were cancelled while queued, before compilation, to leave one compiler command in the machine build gate. The next normal hook attempt reached compilation and failed with Clippy exit 101 on an owned manual-let-else lint; the source was corrected. Normal hooks are being retried. No native compile/test success, Kotlin gate, Linux hosted result or Android artifact is claimed.
+- Native source commit `c99ccfe107a1a355465048bf7cf54dba419a7fbf`: nine targeted socket tests passed, including fairness and rebind races. Normal commit hooks and workspace Clippy passed.
+- `cargo test --locked -p ripdpi-hysteria2 -p ripdpi-relay-core --jobs 4`: exit 0; Hysteria 105 unit and two loopback tests passed; relay 188 unit tests passed. Separately gated external-peer tests were not counted as acceptance in this command.
+- The initial app/v2.9.0 hopping matrix failed before the first hop. A direct fixed-port control sent an 8208-byte UDP payload to the destination but got no reply; the peer has a 4096-byte reply buffer including its header. A separate 2736-byte direct control also failed: peer QUIC debug showed only a trailing reply fragment was sent. Disabling peer PMTU discovery did not fix it.
+- The same direct 2736-byte control passed with app/v2.13.0 and default QUIC settings: complete TCP and UDP destination receipts matched, exit 0, cleanup passed. Upstream fix `7612ad1036957cde45d672bebb8b9ec9c2e9b2a7` corrects the QUIC size estimate. The test-peer pin now uses official release SHA-256 digests for all three supported platforms. This is not a native UDP fix.
+- The full eight-case matrix and three shared peer auth/TLS/payload cases still require terminal results with the new pin. Kotlin combined-tree gates, Linux hosted results and the Android artifact are not claimed here. All task steps remain open until combined acceptance.
+
 
 The PR hopping job requires all eight independent peer cases and exact execution of the Linux GRO capability test. It publishes metadata only. No production or private-data action occurred.

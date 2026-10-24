@@ -41,7 +41,14 @@ The independent peer cases in `test-lab/acceptance/peers/catalog.py` cover IPv4 
 IPv6, Salamander on and off, and fixed and randomized windows. They pass serialized
 native JSON through `RelayRuntime`, use persistent SOCKS TCP and UDP sessions, and
 record physical port changes and destination payload receipts. They use a pinned
-Hysteria release on loopback and do not establish Android or filtered-network acceptance.
+Hysteria app/v2.13.0 release on loopback and do not establish Android or filtered-network acceptance.
+Each round checks one 8208-byte TCP payload and three distinct 2736-byte UDP
+payloads. The UDP exchanges exercise fragmentation with the peer's default QUIC
+settings. The previous test peer, app/v2.9.0, lost full-size reply fragments due
+to its QUIC MTU size estimate. The same direct 2736-byte exchange fails with that
+peer and passes with 2.13.0. The peer's 4096-byte reply buffer, including the
+Hysteria header, still excludes a single 8208-byte UDP reply. This test-peer
+change does not alter the native dependency or production server pins.
 
 ## Known divergences from upstream
 

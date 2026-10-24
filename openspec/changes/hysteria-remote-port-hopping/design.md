@@ -18,6 +18,14 @@ Task `OUT-1792820412611017` implements the behavior in proposal.md. Current impo
 - Existing migration.rs source rebind must replace the adapter's underlying socket without replacing the adapter or losing the port policy. Rollback must preserve the same adapter and schedule. Test the combined flags explicitly.
 - Independent upstream acceptance uses local UDP forwarders with counters and retained mappings, in front of the pinned real peer. TCP stream and UDP session remain open across at least three scheduled hops. Receipts show local/remote port changes and destination payload; connection identity/authentication evidence excludes reconnect. Exercise fixed/random windows, Salamander, IPv4/IPv6 and prior-path delayed replies.
 
+The acceptance peer is the stable app/v2.13.0 release. It includes the upstream
+QUIC maximum-datagram-size fix and matches the public Hysteria version example
+in `po4yka/ripdpi-vpn-deploy` at `secrets/prod.secrets.example.yaml`. The previous
+app/v2.9.0 peer failed the same direct 2736-byte UDP reply even without hopping.
+Only the test binary pin changes; native dependencies and production pins do not.
+The matrix retains default peer QUIC settings, an 8208-byte TCP exchange and
+three distinct 2736-byte UDP exchanges per round, including fragmentation.
+
 ## Contracts and ownership
 
 - Kotlin lane owns runtime-state model/import/storage/validation, data selector mapping, service direct/chain resolution, engine-api flat/section/chain DTOs and codec tests; it also owns affected backup classification. It integrates the separate stored-health-policy prerequisite without replacing that work.

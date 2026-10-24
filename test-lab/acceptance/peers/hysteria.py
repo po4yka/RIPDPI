@@ -16,13 +16,13 @@ import threading
 import time
 import urllib.request
 
-VERSION = "app/v2.9.0"
-# GitHub release API asset digests, app/v2.9.0, retrieved 2026-10-08.
-# https://api.github.com/repos/HyNetworks/hysteria/releases/tags/app%2Fv2.9.0
+VERSION = "app/v2.13.0"
+# GitHub release API asset digests, app/v2.13.0, retrieved 2026-10-24.
+# https://api.github.com/repos/HyNetworks/hysteria/releases/tags/app%2Fv2.13.0
 DIGESTS = {
-    "darwin-arm64": "9e49645c7363bf630815d26e5d512a19f41c9d50624ca6960d2b48d95c33dcba",
-    "linux-amd64": "8225c8380f1ae8122921d4986c2b70976e9c6e6f87a977e7d0498a813f4f3e37",
-    "linux-arm64": "a3ccc0a3e791b85710ef63d22304a6f7dea210259be71bcd70cf9a210a385454",
+    "darwin-arm64": "c8c3589239ce4ecf335c07a3f6ec11b3ef8fbdfe9e5a5ea0ef8ba8ce50d2bb90",
+    "linux-amd64": "907ba8c9693edb104b20582681fb7dc15639d5b64a9cbb616a7b539190a86691",
+    "linux-arm64": "a68a61a84452ca250ce0368202521965ca9cc9d801a404f1dc9008ac6cf677a7",
 }
 
 
@@ -38,7 +38,7 @@ def asset():
 
 def binary(cache: Path, prepare=False):
     name = asset()
-    path = cache / f"hysteria-v2.9.0-{name}"
+    path = cache / f"hysteria-v2.13.0-{name}"
     if prepare and not path.exists():
         cache.mkdir(parents=True, exist_ok=True)
         url = f"https://github.com/HyNetworks/hysteria/releases/download/{VERSION}/hysteria-{name}"
