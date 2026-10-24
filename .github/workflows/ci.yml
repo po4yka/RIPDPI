@@ -1413,6 +1413,10 @@ jobs:
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # rust-native-packaging builds all four ABIs; this workspace-wide check
+    # covers one 64-bit and one 32-bit target.
+    env:
+      RIPDPI_CROSS_CHECK_TARGETS: aarch64-linux-android armv7-linux-androideabi
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -1421,15 +1425,11 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-cross-check
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
-          rust-targets: aarch64-linux-android armv7-linux-androideabi
+          rust-targets: ${{ env.RIPDPI_CROSS_CHECK_TARGETS }}
           setup-java: "false"
           setup-gradle: "false"
 
-      # rust-native-packaging builds all four ABIs; this workspace-wide check
-      # covers one 64-bit and one 32-bit target.
       - name: Run Android ABI cross-compilation checks
-        env:
-          RIPDPI_CROSS_CHECK_TARGETS: aarch64-linux-android armv7-linux-androideabi
         run: bash scripts/ci/run-rust-cross-check.sh
 
       - uses: ./.github/actions/upload-build-observability
