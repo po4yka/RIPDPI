@@ -20,9 +20,7 @@ import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
-import com.poyka.ripdpi.data.RelayVlessFlowVision
-import com.poyka.ripdpi.data.RelayVlessFlowVisionUdp443
-import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.relayKindSupportsUdpAssociation
 
 /**
  * Where a relay kind sources the connection parameters it needs to start.
@@ -80,8 +78,6 @@ internal data class RelayKindDescriptor(
     val label: String,
     /** The transport relays TCP `CONNECT` traffic. */
     val tcp: Boolean,
-    /** The transport relays UDP `ASSOCIATE` traffic. */
-    val udp: Boolean,
     /** Backend connections can be pooled and reused across SOCKS sessions. */
     val reusable: Boolean,
     /** The transport honours a relay `outbound_bind_ip`. */
@@ -92,7 +88,10 @@ internal data class RelayKindDescriptor(
     val finalmaskSupport: RelayFinalmaskSupport,
     /** Whether the kind resolves through referenced profiles or its inline settings. */
     val configBacking: RelayConfigBacking,
-)
+) {
+    /** UDP support comes from the shared data-layer capability contract. */
+    val udp: Boolean get() = relayKindSupportsUdpAssociation(kindId)
+}
 
 data class RelayTransportCapabilities(
     val tcpConnect: Boolean,
@@ -117,7 +116,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindOff,
             label = "Off",
             tcp = false,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = false,
             subprocessBacked = false,
@@ -128,7 +126,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindVless,
             label = "VLESS (TLS)",
             tcp = true,
-            udp = false,
             reusable = true,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -139,7 +136,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindVlessReality,
             label = "VLESS Reality",
             tcp = true,
-            udp = true,
             reusable = false,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -150,7 +146,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindHysteria2,
             label = "Hysteria2",
             tcp = true,
-            udp = true,
             reusable = true,
             supportsOutboundBindIp = false,
             subprocessBacked = false,
@@ -161,7 +156,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindChainRelay,
             label = "Chain relay",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -172,7 +166,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindMasque,
             label = "MASQUE",
             tcp = true,
-            udp = true,
             reusable = true,
             supportsOutboundBindIp = false,
             subprocessBacked = false,
@@ -183,7 +176,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindAnyTls,
             label = "AnyTLS",
             tcp = true,
-            udp = true,
             reusable = true,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -194,7 +186,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindCloudflareTunnel,
             label = "Cloudflare Tunnel",
             tcp = true,
-            udp = false,
             reusable = true,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -205,7 +196,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindTuicV5,
             label = "TUIC v5",
             tcp = true,
-            udp = true,
             reusable = true,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -216,7 +206,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindShadowTlsV3,
             label = "ShadowTLS v3",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -227,7 +216,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindTrojan,
             label = "Trojan",
             tcp = true,
-            udp = true,
             reusable = false,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -238,7 +226,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindShadowsocks,
             label = "Shadowsocks",
             tcp = true,
-            udp = true,
             reusable = false,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
@@ -249,7 +236,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindNaiveProxy,
             label = "NaiveProxy",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = true,
             subprocessBacked = true,
@@ -260,7 +246,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindTor,
             label = "Tor",
             tcp = true,
-            udp = false,
             reusable = true,
             supportsOutboundBindIp = false,
             subprocessBacked = false,
@@ -271,7 +256,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindGoogleAppsScript,
             label = "Google Apps Script",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = false,
             subprocessBacked = false,
@@ -282,7 +266,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindSnowflake,
             label = "Snowflake",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = false,
             subprocessBacked = true,
@@ -293,7 +276,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindWebTunnel,
             label = "WebTunnel",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = false,
             subprocessBacked = true,
@@ -304,7 +286,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindObfs4,
             label = "obfs4",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = false,
             subprocessBacked = true,
@@ -315,7 +296,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindMieru,
             label = "Mieru",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = false,
             subprocessBacked = false,
@@ -326,7 +306,6 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             kindId = RelayKindSsh,
             label = "SSH",
             tcp = true,
-            udp = false,
             reusable = false,
             supportsOutboundBindIp = false,
             subprocessBacked = false,
@@ -351,27 +330,3 @@ fun relayTransportCapabilities(kindId: String): RelayTransportCapabilities? =
             udpAssociate = descriptor.udp,
         )
     }
-
-/**
- * Whether one resolved profile can satisfy SOCKS5 UDP ASSOCIATE.
- *
- * The kind-level capability remains sourced from [RelayKindDescriptors]. VLESS
- * Reality adds its existing profile toggle and transport/flow sub-mode gates;
- * xHTTP and flow-less Reality therefore stay fail-closed without a second
- * capability table.
- */
-fun relayProfileSupportsUdpAssociation(
-    kindId: String,
-    udpEnabled: Boolean,
-    vlessTransport: String,
-    vlessFlow: String,
-): Boolean {
-    val profileSupportsUdp = udpEnabled && relayKindDescriptor(kindId)?.udp == true
-    val realitySubModeSupportsUdp =
-        kindId != RelayKindVlessReality ||
-            (
-                vlessTransport == RelayVlessTransportRealityTcp &&
-                    vlessFlow.trim() in setOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
-            )
-    return profileSupportsUdp && realitySubModeSupportsUdp
-}

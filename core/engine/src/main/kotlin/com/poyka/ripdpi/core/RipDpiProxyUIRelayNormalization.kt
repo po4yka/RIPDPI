@@ -3,15 +3,13 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.DefaultRelayLocalSocksHost
 import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
-import com.poyka.ripdpi.data.RelayKindHysteria2
-import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
-import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayKind
 import com.poyka.ripdpi.data.normalizeRelayStringList
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
+import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 
 internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
     val normalizedKind = normalizeRelayKind(config.kind)
@@ -57,10 +55,12 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         localSocksHost = config.localSocksHost.ifBlank { DefaultRelayLocalSocksHost },
         localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultRelayLocalSocksPort,
         udpEnabled =
-            when (normalizedKind) {
-                RelayKindHysteria2, RelayKindMasque, RelayKindTuicV5 -> config.udpEnabled
-                else -> false
-            },
+            relayProfileSupportsUdpAssociation(
+                normalizedKind,
+                config.udpEnabled,
+                config.vlessTransport,
+                config.vlessFlow,
+            ),
         tcpFallbackEnabled = normalizedKind != RelayKindShadowTlsV3 && config.tcpFallbackEnabled,
     )
 }

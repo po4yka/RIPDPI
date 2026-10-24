@@ -31,6 +31,7 @@ import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
 import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.isValidVlessUuid
+import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.data.validateRelayXhttpMode
 import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 import java.net.URI
@@ -139,10 +140,9 @@ internal fun validateTrojanRelayCredentials(
 }
 
 internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
-    // UDP ASSOCIATE support is a generic, relay_kind-keyed capability: the
-    // RelayKindDescriptor table is the source of truth, mirroring the Rust
-    // RelayTransportDescriptor `udp` flag. An unrecognised kind has no
-    // descriptor row and is treated as UDP-incapable, as before.
+    // The shared data-layer predicate applies native kind support, the explicit
+    // UDP toggle and the Reality transport/flow gates. Service descriptor UDP
+    // flags derive from the same kind predicate and remain checked against Rust.
     require(
         !config.udpEnabled ||
             relayProfileSupportsUdpAssociation(
