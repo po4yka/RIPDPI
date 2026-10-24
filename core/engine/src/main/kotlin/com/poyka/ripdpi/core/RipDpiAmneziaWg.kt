@@ -3,7 +3,7 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.serialization.RipDpiJson
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -173,7 +173,7 @@ class RipDpiAmneziaWgNativeBindings
         private external fun jniUnregisterReadinessListener(handle: Long)
     }
 
-private val amneziaWgJson = RipDpiJson
+private val amneziaWgJson = RipDpiContractJson
 
 /**
  * Coroutine-friendly owner of a single native AmneziaWG handle (see

@@ -307,6 +307,10 @@ func dnsHTTPRealityClient(t *testing.T, p *peer, network string) *http.Client {
 }
 
 func realityHTTPClient(t *testing.T, p *peer, network string, xmux map[string]any) *http.Client {
+	return configuredHTTPClient(t, p, network, xmux, nil, 0, peerID)
+}
+
+func configuredHTTPClient(t *testing.T, p *peer, network string, xmux, tlsSettings map[string]any, frontendPort int, identity string) *http.Client {
 	t.Helper()
 	// Match the existing exchange/exchangeDNS helpers, using the same real Xray
 	// instance loader and SOCKS reply parser while allowing DNS-message HTTP bodies.
@@ -320,18 +324,27 @@ func realityHTTPClient(t *testing.T, p *peer, network string, xmux map[string]an
 	if network == "xhttp" {
 		port, flow = p.manifest.XHTTPPort, ""
 	}
+	if frontendPort != 0 {
+		port = frontendPort
+	}
 	config := map[string]any{
 		"log":      map[string]any{"loglevel": "none"},
 		"inbounds": []any{map[string]any{"listen": "127.0.0.1", "port": socksPort, "protocol": "socks", "settings": map[string]any{"auth": "noauth"}}},
 		"outbounds": []any{map[string]any{
 			"protocol": "vless",
-			"settings": map[string]any{"vnext": []any{map[string]any{"address": "127.0.0.1", "port": port, "users": []any{map[string]any{"id": peerID, "flow": flow, "encryption": "none"}}}}},
+			"settings": map[string]any{"vnext": []any{map[string]any{"address": "127.0.0.1", "port": port, "users": []any{map[string]any{"id": identity, "flow": flow, "encryption": "none"}}}}},
 			"streamSettings": map[string]any{
 				"network": network, "security": "reality",
 				"realitySettings": map[string]any{"publicKey": p.manifest.PublicKey, "serverName": serverName, "shortId": "ab12", "fingerprint": "chrome"},
 				"xhttpSettings":   map[string]any{"path": "/owned-xhttp", "mode": "auto", "xmux": xmux},
 			},
 		}},
+	}
+	if tlsSettings != nil {
+		stream := config["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
+		delete(stream, "realitySettings")
+		stream["security"] = "tls"
+		stream["tlsSettings"] = tlsSettings
 	}
 	_ = reservation.Close()
 	instance, err := startInstance(config)

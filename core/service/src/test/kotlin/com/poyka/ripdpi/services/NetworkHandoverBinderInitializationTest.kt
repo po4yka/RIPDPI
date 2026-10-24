@@ -2,7 +2,6 @@ package com.poyka.ripdpi.services
 
 import android.Manifest
 import android.net.ConnectivityManager
-import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,7 +21,6 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowNetwork
-import java.net.InetAddress
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -43,10 +41,17 @@ class NetworkHandoverBinderInitializationTest {
             val manager = application.getSystemService(ConnectivityManager::class.java)
             val connectivity = shadowOf(manager)
             val physical = checkNotNull(manager.activeNetwork)
-            val capabilities = capabilities(vpn = false)
-            val links = LinkProperties().also { it.setDnsServers(listOf(InetAddress.getByName("192.0.2.53"))) }
+            val capabilities = physicalNetworkTestCapabilities(NetworkCapabilities.TRANSPORT_ETHERNET)
+            val links = physicalNetworkTestLinks()
             connectivity.setNetworkCapabilities(physical, capabilities)
             connectivity.setLinkProperties(physical, links)
+            val beforeObserver = connectivity.networkCallbacks.toSet()
+            val observer = PhysicalNetworkObserver(application)
+            val physicalCallback = (connectivity.networkCallbacks - beforeObserver).single()
+            physicalCallback.onAvailable(physical)
+            physicalCallback.onCapabilitiesChanged(physical, capabilities)
+            physicalCallback.onLinkPropertiesChanged(physical, links)
+            physicalCallback.onBlockedStatusChanged(physical, false)
             val authority = DirectDnsUnderlayAuthority()
             val service = Robolectric.buildService(RipDpiVpnService::class.java).get()
             val binder = VpnUnderlyingNetworkBinder(service, authority)
@@ -55,7 +60,7 @@ class NetworkHandoverBinderInitializationTest {
             val callback = (connectivity.networkCallbacks - callbacksBefore).single()
             val provider =
                 AndroidNetworkFingerprintProvider(
-                    DefaultAndroidNetworkSnapshotSource(application, authority),
+                    DefaultAndroidNetworkSnapshotSource(application, authority, observer),
                     NetworkFingerprintMapper(),
                 )
 

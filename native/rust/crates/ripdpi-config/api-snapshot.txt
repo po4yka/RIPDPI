@@ -417,6 +417,7 @@ impl core::default::Default for ripdpi_config::RuntimeAdaptiveSettings
 pub fn ripdpi_config::RuntimeAdaptiveSettings::default() -> Self
 pub struct ripdpi_config::RuntimeConfig
 pub ripdpi_config::RuntimeConfig::adaptive: ripdpi_config::RuntimeAdaptiveSettings
+pub ripdpi_config::RuntimeConfig::awg_dns_servers: alloc::vec::Vec<core::net::ip_addr::IpAddr>
 pub ripdpi_config::RuntimeConfig::destination_routing: ripdpi_config::DestinationRoutingPolicy
 pub ripdpi_config::RuntimeConfig::groups: alloc::vec::Vec<ripdpi_config::DesyncGroup>
 pub ripdpi_config::RuntimeConfig::host_autolearn: ripdpi_config::HostAutolearnSettings

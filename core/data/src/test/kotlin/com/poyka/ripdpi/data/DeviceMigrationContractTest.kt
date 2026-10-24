@@ -75,7 +75,7 @@ class DeviceMigrationContractTest {
     }
 
     @Test
-    fun `valid exact metadata survives parser and malformed metadata rejects whole bundle`() {
+    fun `v2 bundle preserves v1 migration metadata and rejects malformed metadata`() {
         val valid =
             JsonObject(
                 metadata +
@@ -86,6 +86,13 @@ class DeviceMigrationContractTest {
             )
         val success = SingBoxSubscriptionParser.parse(bundle(valid), "group") as SingBoxParseResult.Success
         assertEquals(listOf("green"), success.migration?.targetTags)
+        assertEquals(JsonPrimitive(1), valid["schema_version"])
+        assertTrue(
+            SingBoxSubscriptionParser.parse(
+                bundle(valid).replace("\"schema_version\":2", "\"schema_version\":1"),
+                "group",
+            ) is SingBoxParseResult.Error,
+        )
         val invalid =
             listOf(
                 JsonObject(valid - "receipt_key"),
@@ -117,7 +124,7 @@ class DeviceMigrationContractTest {
         }"""
         return """{
             "outbounds":[$outbound${if (duplicate) ",$outbound" else ""}],
-            "ripdpi":{"schema_version":1,"migration":$value}
+            "ripdpi":{"schema_version":2,"migration":$value}
         }"""
     }
 }

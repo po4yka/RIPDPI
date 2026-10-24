@@ -218,6 +218,7 @@ jobs:
             scripts.tests.test_build_observability_contracts \
             scripts.tests.test_check_ci_preflight \
             scripts.tests.test_ci_native_dependency_graph \
+            scripts.tests.test_rust_proxy_uring_gate \
             scripts.tests.test_native_size_policy \
             scripts.tests.test_prebuilt_android_instrumentation \
             scripts.tests.test_ci_tool_pinning \
@@ -1469,6 +1470,11 @@ jobs:
       - name: Run Rust workspace tests and architecture checks
         run: bash scripts/ci/run-rust-workspace-tests.sh
 
+      - name: Run Linux io_uring proxy runtime tests
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: bash scripts/ci/run-rust-proxy-uring-tests.sh
+
       # The network E2E and turmoil binaries reuse this job's compiled
       # workspace instead of rebuilding it in separate jobs. They still run
       # after an earlier suite fails, so each one reports its own result.
@@ -2350,6 +2356,7 @@ jobs:
           GOPROXY: https://proxy.golang.org,direct
           GOMAXPROCS: "2"
         run: |
+          python3 ../../ci/android_nginx_fixture.py --prepare-image
           go test -mod=readonly -p=2 ./...
           go build -mod=readonly -p=2 -o "$RUNNER_TEMP/xray-provider-peer" .
 
@@ -2398,13 +2405,22 @@ jobs:
             sleep 1
           done
           fixture_port="$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1]))["controlPort"]; assert isinstance(p,int) and 0<p<65536; print(p)' "$evidence_dir/peer-ready.json")"
+          xray_methods=(
+            bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart
+            wrongIdentityCannotReachPeerOrFallBackToDirect
+            profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck
+            realRealityQualityMeasuresAuthenticatedBodyAndConcurrentHeadBeforeRetirement
+            peerLossAndRecoveryPreservesTunAndRejectsDirectBypass
+          )
+          printf -v xray_selector 'com.poyka.ripdpi.e2e.XrayProviderE2ETest#%s,' "${xray_methods[@]}"
+          xray_selector="${xray_selector%,}"
           python3 scripts/ci/prebuilt_android_instrumentation.py run \
             --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
             --variant githubFullDebug --api ${{ matrix.api }} \
             --results app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
             --xray-port "$fixture_port" \
-            --test-class com.poyka.ripdpi.e2e.XrayProviderE2ETest
-          for method in bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart wrongIdentityCannotReachPeerOrFallBackToDirect profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck realRealityQualityMeasuresAuthenticatedBodyAndConcurrentHeadBeforeRetirement peerLossAndRecoveryPreservesTunAndRejectsDirectBypass; do
+            --test-class "$xray_selector"
+          for method in "${xray_methods[@]}"; do
             python3 scripts/ci/validate_android_junit_results.py \
               app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
               --require-test "com.poyka.ripdpi.e2e.XrayProviderE2ETest#$method" \

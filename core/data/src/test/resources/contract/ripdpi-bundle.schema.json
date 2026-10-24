@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vpn-deploy/ripdpi-bundle.schema.json",
   "title": "RIPDPI bundle `ripdpi` object schema",
-  "description": "Executable contract for the top-level `ripdpi` object that emit-bundle.sh appends to the sing-box document and the RIPDPI Android client parses (SingBoxSubscriptionParser). This file is the SINGLE SOURCE OF TRUTH: it is vendored byte-identical into the client repo at core/data/src/test/resources/contract/ripdpi-bundle.schema.json and validated by a contract test in BOTH CIs. Prose lives in docs/RIPDPI-BUNDLE.md but this file is authoritative. All fields added after schema_version 1 are OPTIONAL and additive: an old client ignores them, a new client reads them, so schema_version stays 1 (a bump would make old clients drop the whole block). Bump schema_version only for a breaking change, and update the client parser before the server emits the new version.",
+  "description": "Executable version 2 contract for the top-level ripdpi object. AWG entries require the awg-3.1-ranges-v1 wire profile, canonical header range strings and bounded signature programs. Version 1 is not supported. Keep the client vendored copy byte-identical and update producers and consumers together.",
   "$comment": "Canonical source: ripdpi-vpn-deploy/contract/ripdpi-bundle.schema.json — keep the client vendored copy byte-identical. The integer below is the cross-repo drift pin: both repos assert it equals their supported schema_version.",
-  "x-contract-version": 1,
+  "x-contract-version": 2,
   "type": "object",
   "required": ["schema_version", "amneziawg", "hysteria_extras"],
   "additionalProperties": true,
@@ -51,19 +51,20 @@
       }
     },
     "cohort_fingerprint": {
-      "description": "SHA-256 of the resolved AWG obfuscation parameter set. Canonical preimage (UTF-8, no trailing newline): 'jc=<jc>&jmin=<jmin>&jmax=<jmax>&s1=<s1>&s2=<s2>&h1=<h1>&h2=<h2>&h3=<h3>&h4=<h4>&i1=<i1>&i2=<i2>&i3=<i3>&i4=<i4>&i5=<i5>' where each value is its base-10 (jc..h4) or lowercase-hex (i1..i5) form, and an absent i-value renders as the empty string. The client recomputes this from the parsed params and compares; a mismatch means the bundle's params drifted from the cohort the fingerprint was minted for (show 'profile outdated, refresh subscription' instead of a silent handshake stall).",
+      "description": "SHA-256 of the resolved AWG obfuscation parameter set. Canonical preimage (UTF-8, no trailing newline): 'wire_profile=awg-3.1-ranges-v1&jc=<jc>&jmin=<jmin>&jmax=<jmax>&s1=<s1>&s2=<s2>&h1=<h1>&h2=<h2>&h3=<h3>&h4=<h4>&i1=<i1>&i2=<i2>&i3=<i3>&i4=<i4>&i5=<i5>' where each value is its base-10 scalar, canonical header range (h1..h4), or canonical tag program (i1..i5) form, and an absent i-value renders as the empty string. The client recomputes this from the parsed params and compares; a mismatch means the bundle's params drifted from the cohort the fingerprint was minted for (show 'profile outdated, refresh subscription' instead of a silent handshake stall).",
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "awg_entry": {
       "type": "object",
       "required": [
-        "tag", "address", "dns", "mtu",
+        "tag", "address", "dns", "mtu", "wire_profile",
         "jc", "jmin", "jmax", "s1", "s2", "h1", "h2", "h3", "h4",
         "private_key_placeholder", "peer"
       ],
       "additionalProperties": false,
       "properties": {
+        "wire_profile": { "const": "awg-3.1-ranges-v1" },
         "tag": { "type": "string", "minLength": 1 },
         "address": { "type": "array", "minItems": 2, "maxItems": 2, "prefixItems": [{"type": "string", "pattern": "^[0-9.]+/32$"}, {"type": "string", "pattern": "^[0-9a-f:]+/128$"}], "items": false },
         "dns": { "type": "array", "items": { "type": "string", "minLength": 1 } },
@@ -73,15 +74,15 @@
         "jmax": { "type": "integer", "minimum": 0, "maximum": 1280 },
         "s1": { "type": "integer", "minimum": 0, "maximum": 1280 },
         "s2": { "type": "integer", "minimum": 0, "maximum": 1280 },
-        "h1": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "h2": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "h3": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "h4": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "i1": { "type": "string", "pattern": "^[0-9a-f]+$" },
-        "i2": { "type": "string", "pattern": "^[0-9a-f]+$" },
-        "i3": { "type": "string", "pattern": "^[0-9a-f]+$" },
-        "i4": { "type": "string", "pattern": "^[0-9a-f]+$" },
-        "i5": { "type": "string", "pattern": "^[0-9a-f]+$" },
+        "h1": { "type": "string", "maxLength": 21, "pattern": "^(?:0|[1-9][0-9]{0,9})(?:-(?:0|[1-9][0-9]{0,9}))?(?![\\s\\S])" },
+        "h2": { "type": "string", "maxLength": 21, "pattern": "^(?:0|[1-9][0-9]{0,9})(?:-(?:0|[1-9][0-9]{0,9}))?(?![\\s\\S])" },
+        "h3": { "type": "string", "maxLength": 21, "pattern": "^(?:0|[1-9][0-9]{0,9})(?:-(?:0|[1-9][0-9]{0,9}))?(?![\\s\\S])" },
+        "h4": { "type": "string", "maxLength": 21, "pattern": "^(?:0|[1-9][0-9]{0,9})(?:-(?:0|[1-9][0-9]{0,9}))?(?![\\s\\S])" },
+        "i1": { "type": "string", "maxLength": 4096, "pattern": "^(?:<b 0x(?:[0-9a-f]{2})+>|<(?:r|rd|rc) [1-9][0-9]{0,3}>|<t>){1,64}(?![\\s\\S])" },
+        "i2": { "type": "string", "maxLength": 4096, "pattern": "^(?:<b 0x(?:[0-9a-f]{2})+>|<(?:r|rd|rc) [1-9][0-9]{0,3}>|<t>){1,64}(?![\\s\\S])" },
+        "i3": { "type": "string", "maxLength": 4096, "pattern": "^(?:<b 0x(?:[0-9a-f]{2})+>|<(?:r|rd|rc) [1-9][0-9]{0,3}>|<t>){1,64}(?![\\s\\S])" },
+        "i4": { "type": "string", "maxLength": 4096, "pattern": "^(?:<b 0x(?:[0-9a-f]{2})+>|<(?:r|rd|rc) [1-9][0-9]{0,3}>|<t>){1,64}(?![\\s\\S])" },
+        "i5": { "type": "string", "maxLength": 4096, "pattern": "^(?:<b 0x(?:[0-9a-f]{2})+>|<(?:r|rd|rc) [1-9][0-9]{0,3}>|<t>){1,64}(?![\\s\\S])" },
         "cohort_fingerprint": { "$ref": "#/$defs/cohort_fingerprint" },
         "private_key_placeholder": {
           "description": "Always true: the per-device WireGuard private key is never stored server-side. The client substitutes its locally-held key; see docs/RIPDPI-BUNDLE.md 'Private-key recovery flow' for what the client does when no local key is present.",
@@ -153,9 +154,9 @@
   },
   "properties": {
     "schema_version": {
-      "description": "Contract version of the ripdpi object. Currently 1. All post-1 fields are additive and optional, so this stays 1; the client rejects (ignores) a ripdpi block whose schema_version it does not recognise.",
+      "description": "Contract version 2 requires the named AWG wire profile. The client rejects other versions.",
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "amneziawg": {
       "description": "AWG device-VPN entries. Empty array when AmneziaWG is not enabled for the cohort.",

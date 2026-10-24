@@ -171,7 +171,7 @@ class Hysteria2HoppingImportTest {
         interval: String,
     ): String {
         val outbound = singBox("\"server_port\":443,$fields")
-        return """{"outbounds":[$outbound],"ripdpi":{"schema_version":1,""" +
+        return """{"outbounds":[$outbound],"ripdpi":{"schema_version":2,""" +
             """"hysteria_extras":{"hy":{"port_hopping":{"ports":"$ports","interval":"$interval"}}}}}"""
     }
 

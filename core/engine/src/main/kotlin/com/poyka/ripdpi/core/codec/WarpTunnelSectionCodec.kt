@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
 import com.poyka.ripdpi.core.RipDpiWsTunnelConfig
 import com.poyka.ripdpi.data.SecretString
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -17,19 +18,20 @@ internal data class NativeWarpManualEndpointConfig(
 
 @Serializable
 internal data class NativeWarpAmneziaConfig(
+    val wireProfile: String = "awg-3.1-ranges-v1",
     val enabled: Boolean = false,
     val jc: Int = 0,
     val jmin: Int = 0,
     val jmax: Int = 0,
-    val h1: Long = 0L,
-    val h2: Long = 0L,
-    val h3: Long = 0L,
-    val h4: Long = 0L,
+    val h1: String = "1",
+    val h2: String = "2",
+    val h3: String = "3",
+    val h4: String = "4",
     val s1: Int = 0,
     val s2: Int = 0,
     val s3: Int = 0,
     val s4: Int = 0,
-    // AmneziaWG 2.0 I1..I5 special-junk frames as hex strings. Empty = unset.
+    // AmneziaWG 3.1 I1..I5 signature programs. Empty = unset.
     val i1: String = "",
     val i2: String = "",
     val i3: String = "",
@@ -45,6 +47,8 @@ internal data class NativeWarpAmneziaConfig(
 
 @Serializable
 internal data class NativeWarpConfig(
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val awgDnsServers: List<String> = emptyList(),
     val enabled: Boolean = false,
     val routeMode: String = "off",
     val routeHosts: String = "",
@@ -74,6 +78,7 @@ internal data class NativeWsTunnelConfig(
 internal object WarpSectionCodec {
     fun toModel(value: NativeWarpConfig): RipDpiWarpConfig =
         RipDpiWarpConfig(
+            awgDnsServers = value.awgDnsServers.toList(),
             enabled = value.enabled,
             routeMode = value.routeMode,
             routeHosts = value.routeHosts,
@@ -92,6 +97,7 @@ internal object WarpSectionCodec {
             amneziaPreset = value.amneziaPreset,
             amnezia =
                 RipDpiWarpAmneziaConfig(
+                    wireProfile = value.amnezia.wireProfile,
                     enabled = value.amnezia.enabled,
                     jc = value.amnezia.jc,
                     jmin = value.amnezia.jmin,
@@ -118,6 +124,7 @@ internal object WarpSectionCodec {
 
     fun toNative(value: RipDpiWarpConfig): NativeWarpConfig =
         NativeWarpConfig(
+            awgDnsServers = value.awgDnsServers.toList(),
             enabled = value.enabled,
             routeMode = value.routeMode,
             routeHosts = value.routeHosts,
@@ -136,6 +143,7 @@ internal object WarpSectionCodec {
             amneziaPreset = value.amneziaPreset,
             amnezia =
                 NativeWarpAmneziaConfig(
+                    wireProfile = value.amnezia.wireProfile,
                     enabled = value.amnezia.enabled,
                     jc = value.amnezia.jc,
                     jmin = value.amnezia.jmin,

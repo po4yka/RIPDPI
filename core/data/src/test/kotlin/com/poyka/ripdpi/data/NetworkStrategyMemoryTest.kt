@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -85,6 +86,23 @@ class NetworkStrategyMemoryTest {
             )
         val fp2 = fp1.copy(wifi = WifiNetworkIdentityTuple(ssid = "OfficeWifi"))
         assertNotEquals(fp1.scopeKey(), fp2.scopeKey())
+    }
+
+    @Test
+    fun `physical callback signature changes neither stored fingerprint nor remembered scope`() {
+        val fingerprint = NetworkFingerprint("wifi", true, false, "system", listOf("192.0.2.53"))
+        val runtime = fingerprint.copy(directDnsUnderlayGeneration = 17L, physicalNetworkSignature = "physical-a")
+        val replacement = runtime.copy(physicalNetworkSignature = "physical-b")
+        assertNotEquals(runtime, replacement)
+        for (value in listOf(runtime, replacement)) {
+            assertEquals(fingerprint.scopeKey(), value.scopeKey())
+            assertEquals(fingerprint.canonicalParts(), value.canonicalParts())
+            assertEquals(fingerprint.summary(), value.summary())
+            assertEquals(
+                Json.encodeToString(NetworkFingerprint.serializer(), fingerprint),
+                Json.encodeToString(NetworkFingerprint.serializer(), value),
+            )
+        }
     }
 
     // -- NetworkFingerprint.summary --

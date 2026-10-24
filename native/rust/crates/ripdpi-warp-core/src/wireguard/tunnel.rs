@@ -19,21 +19,20 @@ use crate::virtual_iface::{Bus, Event};
 
 /// Build the AmneziaWG wire codec for a tunnel from its config.
 ///
-/// `special_junk_hex` carries the AWG 2.0 `I1..I5` fixed special-junk frames
-/// (hex strings). The native WARP runtime now sources them from the resolved
-/// config's own `i1..i5` fields (via [`WarpAmneziaConfig::special_junk_hex`]),
+/// `signature_programs` carries the AWG 3.1 `I1..I5` signature programs. The native WARP runtime now sources them from the resolved
+/// config's own `i1..i5` fields (via [`WarpAmneziaConfig::signature_programs`]),
 /// and a generic AmneziaWG profile maps its `AmneziaWgObfuscation` `I*` fields
 /// here; empty strings mean unset. Invalid active parameters and platform
 /// compatibility errors fail tunnel construction. Only an explicitly disabled
 /// config may select plain WireGuard.
 pub(crate) fn build_authenticated_awg_codec(
     cfg: &WarpAmneziaConfig,
-    special_junk_hex: &[&str],
+    signature_programs: &[&str],
     mac_keys: AwgMacKeys,
 ) -> Result<Option<AwgWireCodec>, AwgParamsError> {
     build_awg_codec_for_platform(
         cfg,
-        special_junk_hex,
+        signature_programs,
         cfg!(all(target_os = "android", target_arch = "aarch64")),
         Some(mac_keys),
     )
@@ -41,14 +40,14 @@ pub(crate) fn build_authenticated_awg_codec(
 
 fn build_awg_codec_for_platform(
     cfg: &WarpAmneziaConfig,
-    special_junk_hex: &[&str],
+    signature_programs: &[&str],
     is_android_arm64: bool,
     mac_keys: Option<AwgMacKeys>,
 ) -> Result<Option<AwgWireCodec>, AwgParamsError> {
     if !cfg.enabled {
         return Ok(None);
     }
-    let params = AwgParams::from_config_for_platform(cfg, special_junk_hex, is_android_arm64)?;
+    let params = AwgParams::from_config_for_platform(cfg, signature_programs, is_android_arm64)?;
     Ok(Some(match mac_keys {
         Some(mac_keys) => AwgWireCodec::new_authenticated(params, mac_keys),
         None => AwgWireCodec::new(params),
@@ -59,7 +58,7 @@ fn build_awg_codec_for_platform(
 ///
 /// Bundled into a struct (rather than positional arguments) because a generic
 /// AmneziaWG profile needs more knobs than WARP -- a preshared key, a
-/// configurable persistent-keepalive interval, and the AWG 2.0 `I1..I5`
+/// configurable persistent-keepalive interval, and the AWG 3.1 `I1..I5`
 /// special-junk frames -- and a 10-argument constructor trips
 /// `clippy::too_many_arguments`.
 pub(crate) struct WireGuardTunnelParams<'a> {
@@ -83,8 +82,8 @@ pub(crate) struct WireGuardTunnelParams<'a> {
     pub source_peer_ipv6: Option<Ipv6Addr>,
     /// AmneziaWG `Jc/Jmin/Jmax/H1..H4/S1..S4` obfuscation knobs.
     pub amnezia_cfg: &'a WarpAmneziaConfig,
-    /// AmneziaWG 2.0 `I1..I5` special-junk frames (hex). Empty strings = unset.
-    pub special_junk_hex: [&'a str; 5],
+    /// AmneziaWG 3.1 `I1..I5` signature programs. Empty strings = unset.
+    pub signature_programs: [&'a str; 5],
     /// Pre-built datagram transport. `None` is the default plain-UDP path: the
     /// tunnel binds + protects its own [`UdpSocket`](tokio::net::UdpSocket) via
     /// `bind_tunnel_socket`. `Some(carrier)` selects an already-connected
@@ -96,6 +95,7 @@ pub(crate) struct WireGuardTunnelParams<'a> {
 pub(crate) struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,
     carrier: WgCarrier,
+    outbound: tokio::sync::Mutex<()>,
     endpoint: SocketAddr,
     source_peer_ip: IpAddr,
     source_peer_ipv6: Option<Ipv6Addr>,
@@ -133,7 +133,7 @@ impl WireGuardTunnel {
             source_peer_ip,
             source_peer_ipv6,
             amnezia_cfg,
-            special_junk_hex,
+            signature_programs,
             carrier,
         } = params;
         let private_key = decode_key(private_key).context("invalid WireGuard private key")?;
@@ -161,12 +161,13 @@ impl WireGuardTunnel {
         };
         let amnezia = build_authenticated_awg_codec(
             amnezia_cfg,
-            &special_junk_hex,
+            &signature_programs,
             AwgMacKeys::new(local_public_key, peer_public_key),
         )?;
         Ok(Self {
             peer: tokio::sync::Mutex::new(peer),
             carrier,
+            outbound: tokio::sync::Mutex::new(()),
             endpoint,
             source_peer_ip,
             source_peer_ipv6,
@@ -176,19 +177,22 @@ impl WireGuardTunnel {
         })
     }
 
-    /// Emit the AmneziaWG handshake prelude -- AWG 2.0 special-junk frames
-    /// (`I1..I5`) followed by `Jc` random junk packets sized uniformly in
-    /// `[Jmin, Jmax]` -- before the first real WireGuard handshake
-    /// initiation, to defeat protocol fingerprinting. No-op when AWG
-    /// obfuscation is disabled or configured for passthrough.
-    pub(crate) async fn send_amnezia_junk(&self) {
-        let Some(codec) = &self.amnezia else {
-            return;
-        };
-        let mut rng = rand_u32;
-        for junk in codec.params().handshake_prelude(&mut rng) {
-            let _ = self.carrier.send_to(&junk, self.endpoint).await;
+    /// Send a complete initiation prelude under the same lock as its packet.
+    /// Retries, rekeys, and the first initiation all pass through this path.
+    async fn send_outbound_packet(&self, packet: &[u8]) -> io::Result<()> {
+        let _outbound = self.outbound.lock().await;
+        let payload = self
+            .encode_outbound_packet(packet)
+            .ok_or_else(|| io::Error::other("AmneziaWG packet authentication failed"))?;
+        if wireguard_message_type(packet) == Some(1)
+            && let Some(codec) = &self.amnezia
+        {
+            for junk in codec.params().handshake_prelude(&mut rand_u32) {
+                self.carrier.send_to(&junk, self.endpoint).await?;
+            }
         }
+        self.carrier.send_to(&payload, self.endpoint).await?;
+        Ok(())
     }
 
     /// Start a WireGuard handshake explicitly after the receive task is live.
@@ -202,17 +206,14 @@ impl WireGuardTunnel {
         let payload = {
             let mut peer = self.peer.lock().await;
             match peer.format_handshake_initiation(&mut send_buf, true) {
-                TunnResult::WriteToNetwork(packet) => self
-                    .encode_outbound_packet(packet)
-                    .ok_or_else(|| io::Error::other("AmneziaWG handshake packet authentication failed"))?,
+                TunnResult::WriteToNetwork(packet) => packet.to_vec(),
                 TunnResult::Err(error) => {
                     return Err(io::Error::other(format!("WireGuard handshake initiation failed: {error:?}")));
                 }
                 _ => return Err(io::Error::other("WireGuard handshake initiation produced no packet")),
             }
         };
-        self.carrier.send_to(&payload, self.endpoint).await?;
-        Ok(())
+        self.send_outbound_packet(&payload).await
     }
 
     pub(crate) fn is_handshake_established(&self) -> bool {
@@ -241,8 +242,8 @@ impl WireGuardTunnel {
     async fn send_tunn_result<'a>(&self, result: TunnResult<'a>) {
         match result {
             TunnResult::WriteToNetwork(packet) => {
-                if let Some(payload) = self.encode_outbound_packet(packet) {
-                    let _ = self.carrier.send_to(&payload, self.endpoint).await;
+                if let Err(error) = self.send_outbound_packet(packet).await {
+                    tracing::warn!("WARP tunnel send failed: {error}");
                 }
             }
             TunnResult::Done => {}
@@ -313,8 +314,8 @@ impl WireGuardTunnel {
             match result {
                 TunnResult::WriteToNetwork(packet) => {
                     self.handshake_readiness.observe_authenticated_packet(data);
-                    if let Some(payload) = self.encode_outbound_packet(packet) {
-                        let _ = self.carrier.send_to(&payload, self.endpoint).await;
+                    if let Err(error) = self.send_outbound_packet(packet).await {
+                        tracing::warn!("WARP tunnel send failed: {error}");
                     }
                 }
                 TunnResult::WriteToTunnelV4(packet, _) | TunnResult::WriteToTunnelV6(packet, _) => {
@@ -369,7 +370,7 @@ mod tests {
             source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
             source_peer_ipv6: None,
             amnezia_cfg: &amnezia,
-            special_junk_hex: ["", "", "", "", ""],
+            signature_programs: ["", "", "", "", ""],
             carrier: None,
         };
         let result = tokio::runtime::Builder::new_current_thread()
@@ -395,7 +396,8 @@ mod tests {
 
     #[test]
     fn invalid_active_awg_headers_fail_closed() {
-        let config = WarpAmneziaConfig { enabled: true, h1: 42, h2: 42, ..WarpAmneziaConfig::default() };
+        let config =
+            WarpAmneziaConfig { enabled: true, h1: "42".into(), h2: "42".into(), ..WarpAmneziaConfig::default() };
 
         let result = build_awg_codec_for_platform(&config, &[""; 5], false, None);
 
@@ -412,6 +414,76 @@ mod tests {
         let result = build_awg_codec_for_platform(&config, &[""; 5], true, None);
 
         assert!(matches!(result, Err(AwgParamsError::Arm64S34VersionFloor { s3: 1, s4: 0 })));
+    }
+
+    #[tokio::test]
+    async fn timer_retry_sends_fresh_signature_and_junk_before_each_initiation() {
+        let receiver = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let config = WarpAmneziaConfig {
+            enabled: true,
+            jc: 2,
+            jmin: 64,
+            jmax: 64,
+            h1: "100-199".into(),
+            h2: "200-299".into(),
+            h3: "300-399".into(),
+            h4: "400-499".into(),
+            i1: "<b 0xf0><r 16>".into(),
+            i2: "<b 0xf2>".into(),
+            ..Default::default()
+        };
+        let tunnel = std::sync::Arc::new(
+            WireGuardTunnel::new(
+                WireGuardTunnelParams {
+                    private_key: VALID_KEY_B64,
+                    peer_public_key: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+                    preshared_key: None,
+                    persistent_keepalive: None,
+                    endpoint: receiver.local_addr().unwrap(),
+                    reserved: [0; 3],
+                    source_peer_ip: "10.77.0.2".parse().unwrap(),
+                    source_peer_ipv6: None,
+                    amnezia_cfg: &config,
+                    signature_programs: config.signature_programs(),
+                    carrier: None,
+                },
+                &WarpPlatform::default(),
+            )
+            .await
+            .unwrap(),
+        );
+        tunnel.initiate_handshake().await.unwrap();
+        let routine = tokio::spawn({
+            let tunnel = tunnel.clone();
+            async move { tunnel.routine_task().await }
+        });
+        let mut signatures = Vec::new();
+        let result = tokio::time::timeout(Duration::from_secs(12), async {
+            for _ in 0..2 {
+                for slot in 0..5 {
+                    let mut buffer = [0; MAX_PACKET];
+                    let size = receiver.recv(&mut buffer).await.unwrap();
+                    match slot {
+                        0 => {
+                            assert_eq!(size, 17);
+                            assert_eq!(buffer[0], 0xf0);
+                            signatures.push(buffer[..size].to_vec());
+                        }
+                        1 => assert_eq!(&buffer[..size], &[0xf2]),
+                        2 | 3 => assert_eq!(size, 64),
+                        4 => {
+                            assert_eq!(size, 148);
+                            assert!((100..=199).contains(&wireguard_message_type(&buffer).unwrap()));
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+        })
+        .await;
+        routine.abort();
+        result.expect("initial handshake and timer retry");
+        assert_ne!(signatures[0], signatures[1]);
     }
 
     #[test]

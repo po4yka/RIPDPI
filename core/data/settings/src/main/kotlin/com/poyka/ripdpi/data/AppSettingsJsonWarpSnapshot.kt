@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.put
 
 internal data class AppSettingsWarpSnapshot(
@@ -26,10 +27,16 @@ internal data class AppSettingsWarpSnapshot(
     val warpAmneziaJc: Int = defaultSettings.warpAmneziaJc,
     val warpAmneziaJmin: Int = defaultSettings.warpAmneziaJmin,
     val warpAmneziaJmax: Int = defaultSettings.warpAmneziaJmax,
-    val warpAmneziaH1: Long = defaultSettings.warpAmneziaH1,
-    val warpAmneziaH2: Long = defaultSettings.warpAmneziaH2,
-    val warpAmneziaH3: Long = defaultSettings.warpAmneziaH3,
-    val warpAmneziaH4: Long = defaultSettings.warpAmneziaH4,
+    val warpAmneziaWireProfile: String = defaultSettings.warpAmneziaWireProfile,
+    val warpAmneziaI1: String = defaultSettings.warpAmneziaI1,
+    val warpAmneziaI2: String = defaultSettings.warpAmneziaI2,
+    val warpAmneziaI3: String = defaultSettings.warpAmneziaI3,
+    val warpAmneziaI4: String = defaultSettings.warpAmneziaI4,
+    val warpAmneziaI5: String = defaultSettings.warpAmneziaI5,
+    val warpAmneziaH1: String = defaultSettings.warpAmneziaH1,
+    val warpAmneziaH2: String = defaultSettings.warpAmneziaH2,
+    val warpAmneziaH3: String = defaultSettings.warpAmneziaH3,
+    val warpAmneziaH4: String = defaultSettings.warpAmneziaH4,
     val warpAmneziaS1: Int = defaultSettings.warpAmneziaS1,
     val warpAmneziaS2: Int = defaultSettings.warpAmneziaS2,
     val warpAmneziaS3: Int = defaultSettings.warpAmneziaS3,
@@ -59,6 +66,12 @@ internal fun JsonObjectBuilder.writeWarpSnapshot(snapshot: AppSettingsWarpSnapsh
     put("warpAmneziaJc", snapshot.warpAmneziaJc)
     put("warpAmneziaJmin", snapshot.warpAmneziaJmin)
     put("warpAmneziaJmax", snapshot.warpAmneziaJmax)
+    put("warpAmneziaWireProfile", snapshot.warpAmneziaWireProfile)
+    put("warpAmneziaI1", snapshot.warpAmneziaI1)
+    put("warpAmneziaI2", snapshot.warpAmneziaI2)
+    put("warpAmneziaI3", snapshot.warpAmneziaI3)
+    put("warpAmneziaI4", snapshot.warpAmneziaI4)
+    put("warpAmneziaI5", snapshot.warpAmneziaI5)
     put("warpAmneziaH1", snapshot.warpAmneziaH1)
     put("warpAmneziaH2", snapshot.warpAmneziaH2)
     put("warpAmneziaH3", snapshot.warpAmneziaH3)
@@ -93,13 +106,28 @@ internal fun JsonObject.readWarpSnapshot(defaults: AppSettingsWarpSnapshot): App
         warpAmneziaJc = intValue("warpAmneziaJc", defaults.warpAmneziaJc),
         warpAmneziaJmin = intValue("warpAmneziaJmin", defaults.warpAmneziaJmin),
         warpAmneziaJmax = intValue("warpAmneziaJmax", defaults.warpAmneziaJmax),
-        warpAmneziaH1 = longValue("warpAmneziaH1", defaults.warpAmneziaH1),
-        warpAmneziaH2 = longValue("warpAmneziaH2", defaults.warpAmneziaH2),
-        warpAmneziaH3 = longValue("warpAmneziaH3", defaults.warpAmneziaH3),
-        warpAmneziaH4 = longValue("warpAmneziaH4", defaults.warpAmneziaH4),
+        warpAmneziaWireProfile = awgStringValue("warpAmneziaWireProfile", ""),
+        warpAmneziaI1 = awgStringValue("warpAmneziaI1", defaults.warpAmneziaI1),
+        warpAmneziaI2 = awgStringValue("warpAmneziaI2", defaults.warpAmneziaI2),
+        warpAmneziaI3 = awgStringValue("warpAmneziaI3", defaults.warpAmneziaI3),
+        warpAmneziaI4 = awgStringValue("warpAmneziaI4", defaults.warpAmneziaI4),
+        warpAmneziaI5 = awgStringValue("warpAmneziaI5", defaults.warpAmneziaI5),
+        warpAmneziaH1 = awgStringValue("warpAmneziaH1", defaults.warpAmneziaH1),
+        warpAmneziaH2 = awgStringValue("warpAmneziaH2", defaults.warpAmneziaH2),
+        warpAmneziaH3 = awgStringValue("warpAmneziaH3", defaults.warpAmneziaH3),
+        warpAmneziaH4 = awgStringValue("warpAmneziaH4", defaults.warpAmneziaH4),
         warpAmneziaS1 = intValue("warpAmneziaS1", defaults.warpAmneziaS1),
         warpAmneziaS2 = intValue("warpAmneziaS2", defaults.warpAmneziaS2),
         warpAmneziaS3 = intValue("warpAmneziaS3", defaults.warpAmneziaS3),
         warpAmneziaS4 = intValue("warpAmneziaS4", defaults.warpAmneziaS4),
         warpAmneziaPreset = stringValue("warpAmneziaPreset", defaults.warpAmneziaPreset),
     )
+
+private fun JsonObject.awgStringValue(
+    key: String,
+    default: String,
+): String {
+    val value = this[key] ?: return default
+    require(value is JsonPrimitive && value.isString) { "AmneziaWG settings require string fields" }
+    return value.content
+}

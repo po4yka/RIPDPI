@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -39,7 +40,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-secret" }
               ],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "amneziawg": [
                   {
                     "tag": "p2-awg-moscow",
@@ -48,7 +49,7 @@ class SingBoxRipdpiExtensionParserTest {
                     "mtu": 1420,
                     "jc": 4, "jmin": 40, "jmax": 70,
                     "s1": 50, "s2": 100,
-                    "h1": 1, "h2": 2, "h3": 3, "h4": 4,
+                    "wire_profile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4",
                     "private_key_placeholder": true,
                     "peer": {
                       "public_key": "test-pub-key-base64==",
@@ -97,21 +98,21 @@ class SingBoxRipdpiExtensionParserTest {
         assertEquals(70, params.jmax)
         assertEquals(50, params.s1)
         assertEquals(100, params.s2)
-        assertEquals(1L, params.h1)
-        assertEquals(2L, params.h2)
-        assertEquals(3L, params.h3)
-        assertEquals(4L, params.h4)
+        assertEquals("1", params.h1)
+        assertEquals("2", params.h2)
+        assertEquals("3", params.h3)
+        assertEquals("4", params.h4)
         assertNull(params.i1)
     }
 
     @Test
-    fun `ripdpi amneziawg with optional i1 to i5 hex strings carries them onto params`() {
+    fun `ripdpi amneziawg with optional i1 to i5 programs carries them onto params`() {
         val json =
             """
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "amneziawg": [
                   {
                     "tag": "p2-awg-spb",
@@ -120,8 +121,8 @@ class SingBoxRipdpiExtensionParserTest {
                     "mtu": 1280,
                     "jc": 3, "jmin": 20, "jmax": 50,
                     "s1": 10, "s2": 20,
-                    "h1": 11, "h2": 22, "h3": 33, "h4": 44,
-                    "i1": "deadbeef", "i3": "cafebabe",
+                    "wire_profile": "awg-3.1-ranges-v1", "h1": "11", "h2": "22", "h3": "33", "h4": "44",
+                    "i1": "<b 0xdeadbeef>", "i3": "<b 0xcafebabe>",
                     "private_key_placeholder": true,
                     "peer": {
                       "public_key": "spb-pub-key==",
@@ -138,9 +139,9 @@ class SingBoxRipdpiExtensionParserTest {
         assertEquals(1, result.amneziaWgProfiles.size)
         val params = result.amneziaWgProfiles[0].awg
 
-        assertEquals("deadbeef", params.i1)
+        assertEquals("<b 0xdeadbeef>", params.i1)
         assertNull(params.i2)
-        assertEquals("cafebabe", params.i3)
+        assertEquals("<b 0xcafebabe>", params.i3)
         assertNull(params.i4)
         assertNull(params.i5)
     }
@@ -152,7 +153,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "amneziawg": [
                   {
                     "tag": "broken",
@@ -177,10 +178,13 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "amneziawg": [
                   {
                     "tag": "arm64-unsafe",
+                    "wire_profile": "awg-3.1-ranges-v1",
+                    "jc": 0, "jmin": 0, "jmax": 0, "s1": 0, "s2": 0,
+                    "h1": "1", "h2": "2", "h3": "3", "h4": "4",
                     "address": ["10.66.66.2/32", "fd77::2/128"],
                     "mtu": 1330,
                     "s3": 1,
@@ -199,7 +203,7 @@ class SingBoxRipdpiExtensionParserTest {
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
 
         assertTrue(result.amneziaWgProfiles.isEmpty())
-        assertTrue(result.skipped.isEmpty())
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, result.skipped.single().reason)
         val safe = success(SingBoxSubscriptionParser.parse(json.replace("\"s3\": 1", "\"s3\": 0"), groupId))
         assertEquals(1, safe.amneziaWgProfiles.size)
     }
@@ -218,7 +222,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-secret" }
               ],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "hysteria_extras": {
                   "hy2-main": {
                     "obfs": { "type": "salamander", "password": "my-salamander-key" },
@@ -254,7 +258,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-pass" }
               ],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "hysteria_extras": {
                   "hy2-node": {
                     "obfs": { "type": "unknown-future-type", "password": "irrelevant" }
@@ -280,7 +284,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-pass" }
               ],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "hysteria_extras": {
                   "hy2-other": {
                     "obfs": { "type": "salamander", "password": "key" }
@@ -330,7 +334,7 @@ class SingBoxRipdpiExtensionParserTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `unknown ripdpi schema_version ignores the ripdpi block but still imports sing-box outbounds`() {
+    fun `unknown and legacy bundle versions are recognized refusals`() {
         val json =
             """
             {
@@ -357,30 +361,19 @@ class SingBoxRipdpiExtensionParserTest {
             }
             """.trimIndent()
 
-        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
-
-        // Sing-box outbounds imported normally.
-        assertEquals(1, result.profiles.size)
-        assertTrue(result.profiles[0] is ProxyProfile.Trojan)
-
-        // RIPDPI block ignored.
-        assertTrue(result.amneziaWgProfiles.isEmpty())
-
-        // Additive metadata is absent when the block is ignored.
-        assertNull(result.topology)
-        assertNull(result.tokenExpiresAtEpochMillis)
-        val supported =
-            success(
+        for (version in listOf(1, 3, 99)) {
+            val result =
                 SingBoxSubscriptionParser.parse(
-                    json.replace("\"schema_version\": 99", "\"schema_version\": 1"),
+                    json.replace("\"schema_version\": 99", "\"schema_version\": $version"),
                     groupId,
-                ),
-            )
-        assertEquals(1, supported.amneziaWgProfiles.size)
+                )
+            assertTrue(result is SingBoxParseResult.Error)
+            assertTrue((result as SingBoxParseResult.Error).recognizedBundle)
+        }
     }
 
     // -------------------------------------------------------------------------
-    // Additive contract fields (schema_version stays 1)
+    // Versioned contract fields (schema_version 2)
     // -------------------------------------------------------------------------
 
     @Test
@@ -390,15 +383,15 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "amneziawg": [
                   {
                     "tag": "p2-awg-x",
                     "address": ["10.66.66.2/32", "fd77::2/128"],
                     "mtu": 1420,
                     "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100,
-                    "h1": 1, "h2": 2, "h3": 3, "h4": 4,
-                    "cohort_fingerprint": "sha256:7738f14d7036d6399f102b1f486127244c79606bc47eda66bdd378fd03306214",
+                    "wire_profile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4",
+                    "cohort_fingerprint": "sha256:49637303755f4b53700284c5fa62ff23497fb356f2345ff023f0cc3b13635f0b",
                     "private_key_placeholder": true,
                     "peer": { "public_key": "pub==", "endpoint": "10.0.0.1:51820" }
                   }
@@ -410,7 +403,7 @@ class SingBoxRipdpiExtensionParserTest {
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
         val awg = result.amneziaWgProfiles.single()
         assertEquals(
-            "sha256:7738f14d7036d6399f102b1f486127244c79606bc47eda66bdd378fd03306214",
+            "sha256:49637303755f4b53700284c5fa62ff23497fb356f2345ff023f0cc3b13635f0b",
             awg.cohortFingerprint,
         )
         // The recomputed fingerprint matches the server-stamped one byte-for-byte.
@@ -427,7 +420,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 8443, "password": "hy2-secret" }
               ],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "hysteria_extras": {
                   "hy2-main": {
                     "insecure": false,
@@ -451,7 +444,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "topology": { "split_hop_egress": true, "hysteria_realm": "realm-a" }
               }
             }
@@ -470,7 +463,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "expires": "2026-12-31T23:59:59Z"
               }
             }
@@ -487,7 +480,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "expires": "2026-12-31"
               }
             }
@@ -504,7 +497,7 @@ class SingBoxRipdpiExtensionParserTest {
             {
               "outbounds": [],
               "ripdpi": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "expires": "not-a-date"
               }
             }

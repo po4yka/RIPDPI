@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from execution import run_suite, source_identity, signal_group
+from execution import adapter_command, run_suite, source_identity, signal_group
 from verify_report import verify
 from contract import ContractError
 from test_contract import manifest
@@ -89,6 +89,26 @@ class ExecutionTests(unittest.TestCase):
             signal_group(789, 15)
             with self.assertRaises(PermissionError):
                 signal_group(123, 15)
+
+    def test_android_scenarios_share_one_private_installation_owner(self):
+        scenario = self.catalog["scenarios"][0]
+        for name in ("android-xray", "android-hysteria", "android-awg"):
+            command = adapter_command(
+                self.repo, scenario, "run-test", self.out / name, {}
+            )
+            path = command[command.index("--owned-installation") + 1]
+            self.assertEqual(str(self.out / "android-installation-owner.json"), path)
+        explicit = self.base / "previous-run-owner.json"
+        command = adapter_command(
+            self.repo,
+            scenario,
+            "run-test",
+            self.out / "android-xray",
+            {"owned_installation": explicit},
+        )
+        self.assertEqual(
+            str(explicit), command[command.index("--owned-installation") + 1]
+        )
 
     def test_valid_run(self):
         report = self.run_suite(self.executor)

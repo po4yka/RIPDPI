@@ -44,17 +44,38 @@ class AmneziaWgUriCodecTest {
                     s2 = 50,
                     s3 = 0,
                     s4 = 0,
-                    h1 = 1234567L,
-                    h2 = 2345678L,
-                    h3 = 3456789L,
-                    h4 = 4567890L,
-                    i1 = "deadbeef",
-                    i2 = "cafebabe",
-                    i3 = "0badf00d",
-                    i4 = "feedface",
-                    i5 = "8badf00d",
+                    h1 = "1234567",
+                    h2 = "2345678",
+                    h3 = "3456789",
+                    h4 = "4567890",
+                    i1 = "<b 0xdeadbeef>",
+                    i2 = "<b 0xcafebabe>",
+                    i3 = "<b 0x0badf00d>",
+                    i4 = "<b 0xfeedface>",
+                    i5 = "<b 0x8badf00d>",
                 ),
         )
+
+    @Test
+    fun `ranges and all signature tags survive URI round trip and invalid profile refuses`() {
+        val profile =
+            fullProfile().copy(
+                awg =
+                    AmneziaWgParameters(
+                        h1 = "100-199",
+                        h2 = "200-299",
+                        h3 = "300-399",
+                        h4 = "400-499",
+                        i1 = "<b 0x01><r 4><rd 2><rc 2><t>",
+                    ),
+            )
+        val uri = AmneziaWgUriCodec.encode(profile)
+        assertEquals(profile, AmneziaWgUriCodec.decode(uri))
+        assertNull(AmneziaWgUriCodec.decode(uri.replace("h1=100-199", "h1=199-299")))
+        assertNull(AmneziaWgUriCodec.decode(uri.replace("awg-3.1-ranges-v1", "future")))
+        assertNull(AmneziaWgUriCodec.decode(uri.replace("wire_profile=awg-3.1-ranges-v1&", "")))
+        assertNull(AmneziaWgUriCodec.decode(uri.replace("#", "&disable_cookies=true#")))
+    }
 
     @Test
     fun `encode produces an amneziawg scheme uri with host port and fragment`() {

@@ -15,8 +15,8 @@ use super::freeze::FreezeDetector;
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
 #[allow(clippy::too_many_arguments)]
 pub(super) fn copy_inbound_half(
-    mut reader: TcpStream,
-    mut writer: TcpStream,
+    reader: &mut TcpStream,
+    writer: &mut TcpStream,
     state: &RuntimeState,
     session: RelaySharedSession,
     remembered_host: Arc<Mutex<Option<String>>>,
@@ -34,21 +34,23 @@ pub(super) fn copy_inbound_half(
                     target,
                     &remembered_host,
                     rotation.as_ref(),
-                    &reader,
+                    reader,
                     io::Error::new(io::ErrorKind::UnexpectedEof, "upstream closed before first response"),
                 );
                 break;
             }
             Ok(n) => {
                 session.observe_inbound_payload(&buffer[..n]);
-                observe_rotation_inbound_chunk(
-                    state,
-                    target,
-                    &remembered_host,
-                    rotation.as_ref(),
-                    &reader,
-                    &buffer[..n],
-                );
+                if rotation.is_some() && session.rotation_eligible() {
+                    observe_rotation_inbound_chunk(
+                        state,
+                        target,
+                        &remembered_host,
+                        rotation.as_ref(),
+                        reader,
+                        &buffer[..n],
+                    );
+                }
                 writer.write_all(&buffer[..n])?;
                 detector.record_bytes(n);
                 if detector.check(Instant::now()) {
@@ -72,7 +74,7 @@ pub(super) fn copy_inbound_half(
                     target,
                     &remembered_host,
                     rotation.as_ref(),
-                    &reader,
+                    reader,
                     io::Error::new(err.kind(), err.to_string()),
                 );
                 return Err(err);
@@ -102,7 +104,7 @@ pub(super) fn flush_outbound_payload(
     let host = remembered.clone();
     drop(remembered);
     let peer_addr = writer.peer_addr()?;
-    let group = if let Some(rotation) = rotation {
+    let group = if let Some(rotation) = rotation.filter(|_| session.rotation_eligible()) {
         let mut rotation = rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?;
         let retrans_baseline =
             if is_new_round { relay_platform::relay_tcp_total_retransmissions(writer).ok().flatten() } else { None };

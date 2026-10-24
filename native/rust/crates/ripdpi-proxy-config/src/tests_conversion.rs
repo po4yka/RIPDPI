@@ -1001,3 +1001,36 @@ fn ui_payload_rejects_invalid_adaptive_fake_ttl_window() {
 
     assert!(err.to_string().contains("adaptive fake TTL window"));
 }
+
+#[test]
+fn active_awg_dns_snapshot_reaches_runtime_without_rewriting_destination_policy() {
+    let mut ui = minimal_ui();
+    ui.warp.enabled = true;
+    ui.warp.route_mode = "rules".into();
+    ui.warp.route_hosts = "__ripdpi_awg_all_traffic__".into();
+    ui.warp.awg_dns_servers = vec!["10.77.0.1".into(), "fd77::1".into()];
+    ui.warp.local_socks_port = 10809;
+    ui.destination_routing = destination_policy_with_digest(vec![ProxyUiDestinationRoutingRule {
+        action: ProxyUiDestinationRoutingAction::Direct,
+        network: ProxyUiDestinationRoutingNetwork::Both,
+        domains: Vec::new(),
+        ip_ranges: vec![ProxyUiDestinationIpMatcher {
+            kind: ProxyUiDestinationIpMatcherKind::Cidr,
+            value: "10.0.0.0/8".into(),
+        }],
+        destination_ports: Vec::new(),
+    }]);
+    let digest = ui.destination_routing.canonical_digest.clone();
+    let json = serde_json::to_string(&ui_payload(ui)).unwrap();
+    let payload = parse_proxy_config_json(&json).expect("valid active AWG envelope");
+    let config = runtime_config_from_payload(payload).expect("valid AWG runtime");
+    assert_eq!(
+        config.awg_dns_servers,
+        vec!["10.77.0.1".parse::<std::net::IpAddr>().unwrap(), "fd77::1".parse().unwrap()]
+    );
+    assert_eq!(config.destination_routing.canonical_digest, digest);
+    assert_eq!(config.destination_routing.rules.len(), 1);
+    assert!(
+        config.groups.iter().all(|group| group.policy.ext_socks.unwrap().addr == "127.0.0.1:10809".parse().unwrap())
+    );
+}

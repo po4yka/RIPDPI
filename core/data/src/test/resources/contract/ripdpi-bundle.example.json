@@ -1,6 +1,6 @@
 {
   "_comment": "Representative `ripdpi` object exercising every field including the additive ones (cohort_fingerprint, salamander_upstream_tag, topology, expires). Validated against ripdpi-bundle.schema.json by tests/unit/test_bundle_schema.py and, vendored, by the client RipdpiBundleContractTest. Values are illustrative placeholders; the AWG params and cohort_fingerprint match contract/cohort-fingerprint.golden.json (narrow-junk-sequential).",
-  "schema_version": 1,
+  "schema_version": 2,
   "amneziawg": [
     {
       "tag": "p2-awg-phone",
@@ -18,11 +18,11 @@
       "jmax": 50,
       "s1": 0,
       "s2": 0,
-      "h1": 1,
-      "h2": 2,
-      "h3": 3,
-      "h4": 4,
-      "cohort_fingerprint": "sha256:4edc275de5b78634c718569b8c6ab3ac3d87bc44afa83357b4e165e93dd3914b",
+      "h1": "1",
+      "h2": "2",
+      "h3": "3",
+      "h4": "4",
+      "cohort_fingerprint": "sha256:06f99aad446bb6c70131a6b62e39ae9ee5f2df9614651373f33d6ea3a209dd82",
       "private_key_placeholder": true,
       "peer": {
         "public_key": "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=",
@@ -33,7 +33,8 @@
           "::/0"
         ],
         "persistent_keepalive": 25
-      }
+      },
+      "wire_profile": "awg-3.1-ranges-v1"
     }
   ],
   "hysteria_extras": {

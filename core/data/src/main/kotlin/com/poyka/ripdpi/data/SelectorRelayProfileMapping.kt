@@ -14,13 +14,14 @@ fun mapRelayProfile(
     val relayKind = relayKindFor(profile)
     if (relayKind == null || !validateNativeRelayProfile(profile)) return null
     val endpoint = relayEndpoint(profile)
-    val udpEnabled = relayUdpEnabled(profile)
     val vlessTransport =
         if (profile.hasXhttpTransport()) {
             RelayVlessTransportXhttp
         } else {
             RelayVlessTransportRealityTcp
         }
+    val vlessFlow = profile.vlessFlow()
+    val udpEnabled = relayProfileSupportsUdpAssociation(relayKind, true, vlessTransport, vlessFlow)
     val relayProfile =
         RelayProfileRecord(
             id = profileId,
@@ -37,7 +38,7 @@ fun mapRelayProfile(
                 },
             realityPublicKey = if (profile is ProxyProfile.VlessReality) profile.realityPublicKey else "",
             realityShortId = if (profile is ProxyProfile.VlessReality) profile.realityShortId else "",
-            vlessFlow = profile.vlessFlow(),
+            vlessFlow = vlessFlow,
             vlessFingerprint = tlsFingerprintOverride ?: profile.vlessFingerprint(),
             vlessTransport = vlessTransport,
             xhttpPath = profile.vlessXhttpPath(),
@@ -109,17 +110,6 @@ private fun ProxyProfile.vlessXhttpMode(): String =
         is ProxyProfile.Vless -> xhttpMode
         is ProxyProfile.VlessReality -> xhttpMode
         else -> com.poyka.ripdpi.data.RelayXhttpModeAuto
-    }
-
-private fun relayUdpEnabled(profile: ProxyProfile): Boolean =
-    when (profile) {
-        is ProxyProfile.Ssh,
-        is ProxyProfile.Vless,
-        is ProxyProfile.VlessReality,
-        is ProxyProfile.Mieru,
-        -> false
-
-        else -> true
     }
 
 private fun relayEndpoint(profile: ProxyProfile): RelayActivationEndpoint =

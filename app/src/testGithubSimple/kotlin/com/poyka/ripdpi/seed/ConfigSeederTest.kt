@@ -93,10 +93,11 @@ private val FAKE_BUNDLE =
         { "type": "dns", "tag": "dns-out" }
       ],
       "ripdpi": {
-        "schema_version": 1,
+        "schema_version": 2,
         "amneziawg": [
           {
             "tag": "test-awg",
+            "wire_profile": "awg-3.1-ranges-v1",
             "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
             "address": ["10.8.0.2/32", "fd77::2/128"],
             "dns": ["1.1.1.1"],
@@ -112,10 +113,10 @@ private val FAKE_BUNDLE =
             "jmax": 70,
             "s1": 0,
             "s2": 0,
-            "h1": 1,
-            "h2": 2,
-            "h3": 3,
-            "h4": 4
+            "h1": "1",
+            "h2": "2",
+            "h3": "3",
+            "h4": "4"
           }
         ]
       },
@@ -221,10 +222,11 @@ private val MULTI_RELAY_BUNDLE =
           "url": "https://probe.example/generate_204" }
       ],
       "ripdpi": {
-        "schema_version": 1,
+        "schema_version": 2,
         "amneziawg": [
           {
             "tag": "test-awg",
+            "wire_profile": "awg-3.1-ranges-v1",
             "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA=",
             "address": ["10.8.0.2/32", "fd77::2/128"],
             "mtu": 1330,
@@ -234,7 +236,7 @@ private val MULTI_RELAY_BUNDLE =
               "allowed_ips": ["0.0.0.0/0"]
             },
             "jc": 4, "jmin": 40, "jmax": 70,
-            "s1": 0, "s2": 0, "h1": 1, "h2": 2, "h3": 3, "h4": 4
+            "s1": 0, "s2": 0, "h1": "1", "h2": "2", "h3": "3", "h4": "4"
           }
         ]
       }
@@ -617,8 +619,8 @@ class ConfigSeederTest {
             val seeder =
                 makeSeeder(
                     FAKE_BUNDLE.replace(
-                        "\"schema_version\": 1,",
-                        "\"schema_version\": 1, \"payload_failover\": {},",
+                        "\"schema_version\": 2,",
+                        "\"schema_version\": 2, \"payload_failover\": {},",
                     ),
                 )
             val failure = runCatching { seeder.seed() }.exceptionOrNull()

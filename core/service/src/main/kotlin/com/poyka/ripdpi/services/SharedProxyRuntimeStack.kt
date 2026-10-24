@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.core.withAwgEgressPort
 import com.poyka.ripdpi.core.withRelayRuntimeSelection
 import com.poyka.ripdpi.core.withUdpAssociateEnabled
+import com.poyka.ripdpi.core.withoutAwgDnsServers
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.service.awg.AmneziaWgLocalSocksPort
@@ -59,7 +60,7 @@ internal class SharedProxyRuntimeStack(
         onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
     ): ProxyRuntimeStartResult {
         val selectedRelay = capturedSelectorRelay(requestedSelection)
-        val awgRequest = proxyPreferences.awgConfigOrNull()
+        val awgRequest = proxyPreferences.awgConfigOrNull()?.let { it.copy(dnsServers = it.dnsServers.toList()) }
         check(selectedRelay == null || awgRequest == null) { "Selector selection conflicts with AWG" }
         val configuredEgressRequirements =
             EgressRequirements(
@@ -72,7 +73,10 @@ internal class SharedProxyRuntimeStack(
             "Initial relay plan requirements exceed the configured proxy capabilities"
         }
         var effectivePreferences =
-            proxyPreferences.withEgressRequirements(egressRequirements, configuredEgressRequirements)
+            proxyPreferences.withoutAwgDnsServers().withEgressRequirements(
+                egressRequirements,
+                configuredEgressRequirements,
+            )
         effectivePreferences = applyCapturedSelector(effectivePreferences, selectedRelay)
         if (awgRequest != null) {
             check(egressRequirements == configuredEgressRequirements) {
@@ -89,20 +93,23 @@ internal class SharedProxyRuntimeStack(
                     onSelected = onInitialRelaySelected,
                 )
             }
-            effectivePreferences = effectivePreferences.withAwgEgressPort(AmneziaWgLocalSocksPort)
+            effectivePreferences =
+                effectivePreferences.withAwgEgressPort(AmneziaWgLocalSocksPort, awgRequest.dnsServers)
         } else {
             effectivePreferences.relayConfigOrNull()?.let { relayConfig ->
                 // A fresh relay start clears any stale foreign-relay-failed signal from a
                 // previous session so this session does not begin in a Degraded state.
                 clearForeignRelayFailed()
                 if (relayRacePlan == null) {
-                    upstreamRelaySupervisor.start(
-                        config = relayConfig,
-                        inputs = relayInputs,
-                        expectedSelection = requestedSelection,
-                        requirements = egressRequirements,
-                        onUnexpectedExit = onRelayExit,
-                    )
+                    val started =
+                        upstreamRelaySupervisor.start(
+                            config = relayConfig,
+                            inputs = relayInputs,
+                            expectedSelection = requestedSelection,
+                            requirements = egressRequirements,
+                            onUnexpectedExit = onRelayExit,
+                        )
+                    effectivePreferences = applyStartedRelay(effectivePreferences, started)
                 } else {
                     val promoted =
                         upstreamRelaySupervisor.startRace(
@@ -112,7 +119,7 @@ internal class SharedProxyRuntimeStack(
                             onUnexpectedExit = onRelayExit,
                             onState = onInitialRelayRaceState,
                         )
-                    effectivePreferences = applyPromotedRelay(effectivePreferences, promoted)
+                    effectivePreferences = applyStartedRelay(effectivePreferences, promoted.toStartedRelay())
                     onInitialRelaySelected(promoted.result)
                 }
             }
@@ -188,33 +195,41 @@ internal class SharedProxyRuntimeStack(
             }
         }
 
-    private fun applyPromotedRelay(
+    private fun PromotedRelayRuntime.toStartedRelay(): StartedRelayRuntime =
+        StartedRelayRuntime(
+            kind = result.selectedCandidate.relayKind,
+            profileId = result.selectedCandidate.profileId,
+            udpEnabled = udpEnabled,
+            endpoint = endpoint,
+        )
+
+    private fun applyStartedRelay(
         preferences: RipDpiProxyPreferences,
-        promoted: PromotedRelayRuntime,
+        started: StartedRelayRuntime,
     ): RipDpiProxyPreferences {
         val effectivePreferences =
             relayRuntimeSelectionRenderer(
                 preferences,
                 RipDpiRelayConfig(
                     enabled = true,
-                    kind = promoted.result.selectedCandidate.relayKind,
-                    profileId = promoted.result.selectedCandidate.profileId,
-                    udpEnabled = promoted.udpEnabled,
+                    kind = started.kind,
+                    profileId = started.profileId,
+                    udpEnabled = started.udpEnabled,
                 ),
-                promoted.endpoint.host,
-                promoted.endpoint.port,
+                started.endpoint.host,
+                started.endpoint.port,
             )
         val renderedRelay = effectivePreferences.relayConfigOrNull()
         check(
             renderedRelay != null &&
                 renderedRelay.enabled &&
-                renderedRelay.kind == promoted.result.selectedCandidate.relayKind &&
-                renderedRelay.profileId == promoted.result.selectedCandidate.profileId &&
-                renderedRelay.udpEnabled == promoted.udpEnabled &&
-                renderedRelay.localSocksHost == promoted.endpoint.host &&
-                renderedRelay.localSocksPort == promoted.endpoint.port,
+                renderedRelay.kind == started.kind &&
+                renderedRelay.profileId == started.profileId &&
+                renderedRelay.udpEnabled == started.udpEnabled &&
+                renderedRelay.localSocksHost == started.endpoint.host &&
+                renderedRelay.localSocksPort == started.endpoint.port,
         ) {
-            "Promoted relay endpoint was not applied to proxy preferences"
+            "Started relay configuration was not applied to proxy preferences"
         }
         return effectivePreferences
     }

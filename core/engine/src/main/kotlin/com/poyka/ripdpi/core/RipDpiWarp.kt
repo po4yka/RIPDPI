@@ -3,7 +3,7 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.serialization.RipDpiJson
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -207,7 +207,7 @@ class RipDpiWarpNativeBindings
         private external fun jniProbeEndpoint(requestJson: String): String?
     }
 
-private val warpJson = RipDpiJson
+private val warpJson = RipDpiContractJson
 
 @Serializable
 private data class WarpRuntimeNativeConfig(

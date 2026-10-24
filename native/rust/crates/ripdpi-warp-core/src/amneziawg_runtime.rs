@@ -18,7 +18,7 @@
 //
 // The deltas a generic AmneziaWG peer needs over WARP are threaded through
 // [`crate::wireguard::WireGuardTunnelParams`]: an optional preshared key, a
-// configurable persistent-keepalive interval, and the AWG 2.0 `I1..I5`
+// configurable persistent-keepalive interval, and the AWG 3.1 `I1..I5`
 // special-junk frames.
 
 use std::io;
@@ -171,9 +171,10 @@ pub enum AmneziaWgCarrierKind {
 /// AWG-2.x `S3`/`S4` cookie/transport padding sizes (additive serde defaults of
 /// `0`, so a config that omits them deserializes cleanly and the native schema
 /// does not bump).
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AmneziaWgObfuscation {
+    pub wire_profile: String,
     pub jc: i32,
     pub jmin: i32,
     pub jmax: i32,
@@ -183,10 +184,10 @@ pub struct AmneziaWgObfuscation {
     pub s3: i32,
     #[serde(default)]
     pub s4: i32,
-    pub h1: i64,
-    pub h2: i64,
-    pub h3: i64,
-    pub h4: i64,
+    pub h1: String,
+    pub h2: String,
+    pub h3: String,
+    pub h4: String,
     #[serde(default)]
     pub i1: String,
     #[serde(default)]
@@ -199,25 +200,48 @@ pub struct AmneziaWgObfuscation {
     pub i5: String,
 }
 
+impl Default for AmneziaWgObfuscation {
+    fn default() -> Self {
+        Self {
+            wire_profile: crate::awg_profile::WIRE_PROFILE.into(),
+            jc: 0,
+            jmin: 0,
+            jmax: 0,
+            s1: 0,
+            s2: 0,
+            s3: 0,
+            s4: 0,
+            h1: "1".into(),
+            h2: "2".into(),
+            h3: "3".into(),
+            h4: "4".into(),
+            i1: String::new(),
+            i2: String::new(),
+            i3: String::new(),
+            i4: String::new(),
+            i5: String::new(),
+        }
+    }
+}
+
 impl AmneziaWgObfuscation {
     /// `true` when at least one obfuscation knob is set. When false the tunnel
     /// is wire-identical to upstream WireGuard (the codec runs in passthrough).
     ///
-    /// `jmin`/`jmax` are deliberately NOT consulted: junk packets are only
-    /// emitted when `jc > 0` (see [`crate::amneziawg::AwgParams::build_junk_packets`]
-    /// and `is_passthrough`), so a config with only `jmin`/`jmax` set is inert.
-    /// Do not add them here -- doing so would flip otherwise-passthrough tunnels
-    /// into "active" and build a codec for nothing.
+    /// Non-default size bounds also select validation, including when `jc` is zero.
     fn is_active(&self) -> bool {
-        self.jc != 0
+        self.wire_profile != crate::awg_profile::WIRE_PROFILE
+            || self.jc != 0
+            || self.jmin != 0
+            || self.jmax != 0
             || self.s1 != 0
             || self.s2 != 0
             || self.s3 != 0
             || self.s4 != 0
-            || self.h1 != 0
-            || self.h2 != 0
-            || self.h3 != 0
-            || self.h4 != 0
+            || self.h1 != "1"
+            || self.h2 != "2"
+            || self.h3 != "3"
+            || self.h4 != "4"
             || !self.i1.is_empty()
             || !self.i2.is_empty()
             || !self.i3.is_empty()
@@ -227,20 +251,21 @@ impl AmneziaWgObfuscation {
 
     /// Project onto the data-plane [`WarpAmneziaConfig`] consumed by the AWG
     /// wire codec. The full `S1..S4` junk-size knobs carry through (the 4-slot
-    /// `AwgWireCodec` raw-padding builder honors `s3`/`s4`). The AWG 2.0
+    /// `AwgWireCodec` raw-padding builder honors `s3`/`s4`). The AWG 3.1
     /// `I1..I5` special-junk frames are carried out-of-band via the tunnel's
-    /// `special_junk_hex` parameter (sourced from this profile's
+    /// `signature_programs` parameter (sourced from this profile's
     /// `AmneziaWgObfuscation` `i1..i5`), so they default to empty here.
     fn to_warp_amnezia(&self) -> WarpAmneziaConfig {
         WarpAmneziaConfig {
             enabled: self.is_active(),
+            wire_profile: self.wire_profile.clone(),
             jc: self.jc,
             jmin: self.jmin,
             jmax: self.jmax,
-            h1: self.h1,
-            h2: self.h2,
-            h3: self.h3,
-            h4: self.h4,
+            h1: self.h1.clone(),
+            h2: self.h2.clone(),
+            h3: self.h3.clone(),
+            h4: self.h4.clone(),
             s1: self.s1,
             s2: self.s2,
             s3: self.s3,
@@ -433,7 +458,7 @@ impl AmneziaWgRuntime {
                     source_peer_ip,
                     source_peer_ipv6,
                     amnezia_cfg: &amnezia_cfg,
-                    special_junk_hex: [
+                    signature_programs: [
                         self.config.amnezia.i1.as_str(),
                         self.config.amnezia.i2.as_str(),
                         self.config.amnezia.i3.as_str(),
@@ -503,7 +528,6 @@ impl AmneziaWgRuntime {
         // explicit handshake initiation. Readiness stays idle until boringtun
         // authenticates the peer's response; a bound local SOCKS port alone is
         // not evidence that the configured VPN is usable.
-        tunnel.send_amnezia_junk().await;
         if let Err(error) = tunnel.initiate_handshake().await {
             *self.last_error.lock().expect("last error") = Some(error.to_string());
             shutdown_runtime_tasks(&bus, tasks).await;
@@ -692,7 +716,7 @@ mod tests {
     use super::*;
 
     fn obf(jc: i32, s1: i32, h1: i64) -> AmneziaWgObfuscation {
-        AmneziaWgObfuscation { jc, s1, h1, ..Default::default() }
+        AmneziaWgObfuscation { jc, s1, h1: (if h1 == 0 { 1 } else { h1 }).to_string(), ..Default::default() }
     }
 
     #[test]
@@ -724,7 +748,7 @@ mod tests {
         assert!(obf(4, 0, 0).is_active());
         assert!(obf(0, 8, 0).is_active());
         assert!(obf(0, 0, 0x10_00_00_01).is_active());
-        let with_i = AmneziaWgObfuscation { i1: "deadbeef".to_string(), ..Default::default() };
+        let with_i = AmneziaWgObfuscation { i1: "<b 0xdeadbeef>".to_string(), ..Default::default() };
         assert!(with_i.is_active());
         // s3/s4 are real junk-size knobs (the codec's 4-slot raw-padding builder
         // honors them), so an s3/s4-only config must also count as active --
@@ -746,17 +770,17 @@ mod tests {
             s2: 12,
             s3: 16,
             s4: 20,
-            h1: 1,
-            h2: 2,
-            h3: 3,
-            h4: 4,
+            h1: "1".into(),
+            h2: "2".into(),
+            h3: "3".into(),
+            h4: "4".into(),
             ..Default::default()
         };
         let w = o.to_warp_amnezia();
         assert!(w.enabled);
         assert_eq!((w.jc, w.jmin, w.jmax), (4, 10, 50));
         assert_eq!((w.s1, w.s2, w.s3, w.s4), (8, 12, 16, 20));
-        assert_eq!((w.h1, w.h2, w.h3, w.h4), (1, 2, 3, 4));
+        assert_eq!((w.h1.as_str(), w.h2.as_str(), w.h3.as_str(), w.h4.as_str()), ("1", "2", "3", "4"));
     }
 
     #[test]
@@ -947,7 +971,7 @@ mod tests {
             "persistentKeepalive": 25,
             "amnezia": { "jc": 4, "jmin": 10, "jmax": 50, "s1": 8, "s2": 0,
                          "s3": 16, "s4": 20,
-                         "h1": 1, "h2": 2, "h3": 3, "h4": 4, "i1": "dead" },
+                         "wireProfile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4", "i1": "<b 0xdead>" },
             "localSocksHost": "127.0.0.1",
             "localSocksPort": 11090
         }"#;
@@ -957,7 +981,7 @@ mod tests {
         assert_eq!(cfg.persistent_keepalive, 25);
         assert_eq!(cfg.amnezia.jc, 4);
         assert_eq!((cfg.amnezia.s3, cfg.amnezia.s4), (16, 20));
-        assert_eq!(cfg.amnezia.i1, "dead");
+        assert_eq!(cfg.amnezia.i1, "<b 0xdead>");
         assert!(cfg.amnezia.is_active());
         // Re-serialize and re-parse to confirm camelCase symmetry.
         let s = serde_json::to_string(&cfg).expect("serialize");

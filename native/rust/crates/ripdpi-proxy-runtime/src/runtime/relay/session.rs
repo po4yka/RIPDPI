@@ -4,26 +4,82 @@ use std::io;
 
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 
+use super::pending_response::PendingFirstResponse;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::{RuntimeOutboundProgress, RuntimeRelayRotationSeed, RuntimeSessionState};
 
+#[derive(Clone, Copy, Default)]
+pub(super) enum FirstResponseOutcome {
+    #[default]
+    Unobserved,
+    Pending,
+    Accepted {
+        success_recorded: bool,
+    },
+    Rejected,
+}
+
+impl FirstResponseOutcome {
+    fn permits_success(self) -> bool {
+        matches!(self, Self::Unobserved | Self::Accepted { success_recorded: false })
+    }
+
+    fn permits_rotation(self) -> bool {
+        matches!(self, Self::Unobserved | Self::Accepted { .. })
+    }
+}
+
+#[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+#[derive(Default)]
+pub(super) struct CopyPathCounters {
+    pub(super) fixed_writes: std::sync::atomic::AtomicUsize,
+    pub(super) fallbacks: std::sync::atomic::AtomicUsize,
+}
+
 pub(super) struct RelaySession {
     state: RuntimeSessionState,
+    first_response: FirstResponseOutcome,
+    pending_response: Option<PendingFirstResponse>,
+    #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+    pub(super) copy_path: Arc<CopyPathCounters>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
 pub(super) struct FirstOutboundSession {
     state: RuntimeSessionState,
+    first_response: FirstResponseOutcome,
+    pending_response: Option<PendingFirstResponse>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
 impl FirstOutboundSession {
     pub(super) fn new() -> Self {
-        Self { state: RuntimeState::new_session_state(), lua_flow: None }
+        Self {
+            state: RuntimeState::new_session_state(),
+            first_response: FirstResponseOutcome::Unobserved,
+            pending_response: None,
+            lua_flow: None,
+        }
     }
 
     pub(super) fn into_relay_session(self) -> RelaySession {
-        RelaySession { state: self.state, lua_flow: self.lua_flow }
+        RelaySession {
+            state: self.state,
+            first_response: self.first_response,
+            pending_response: self.pending_response,
+            #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+            copy_path: Arc::default(),
+            lua_flow: self.lua_flow,
+        }
+    }
+
+    pub(super) fn defer_first_response(&mut self, pending: PendingFirstResponse) {
+        self.first_response = FirstResponseOutcome::Pending;
+        self.pending_response = Some(pending);
+    }
+
+    pub(super) fn reject_first_response(&mut self) {
+        self.first_response = FirstResponseOutcome::Rejected;
     }
 
     pub(super) fn observe_first_outbound_payload(&mut self, original_request: &[u8]) -> RuntimeOutboundProgress {
@@ -40,8 +96,22 @@ impl FirstOutboundSession {
 }
 
 impl RelaySession {
+    pub(super) fn take_pending_response(&mut self) -> Option<PendingFirstResponse> {
+        self.pending_response.take()
+    }
+
+    pub(super) fn permits_success(&self) -> bool {
+        self.first_response.permits_success()
+    }
+
     pub(super) fn into_shared(self) -> RelaySharedSession {
-        RelaySharedSession { state: Arc::new(Mutex::new(self.state)), lua_flow: self.lua_flow }
+        RelaySharedSession {
+            state: Arc::new(Mutex::new(self.state)),
+            first_response: Arc::new(Mutex::new(self.first_response)),
+            #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+            copy_path: self.copy_path,
+            lua_flow: self.lua_flow,
+        }
     }
 
     pub(super) fn has_inbound_payload(&self) -> bool {
@@ -49,12 +119,10 @@ impl RelaySession {
     }
 
     pub(super) fn rotation_controller(
-        &self,
         rotation_seed: Option<RuntimeRelayRotationSeed>,
     ) -> Option<Arc<Mutex<CircularTcpRotationController>>> {
-        if !self.has_inbound_payload() {
-            return None;
-        }
+        // Create the controller now, but do not use it until the shared session
+        // has an accepted response. A pending observer can activate it later.
         rotation_seed
             .and_then(|(group, policy)| CircularTcpRotationController::new(group, policy))
             .map(|controller| Arc::new(Mutex::new(controller)))
@@ -64,15 +132,44 @@ impl RelaySession {
 #[derive(Clone)]
 pub(super) struct RelaySharedSession {
     state: Arc<Mutex<RuntimeSessionState>>,
+    first_response: Arc<Mutex<FirstResponseOutcome>>,
+    #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+    pub(super) copy_path: Arc<CopyPathCounters>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
 impl RelaySharedSession {
     pub(super) fn snapshot(&self) -> io::Result<RelaySession> {
-        self.state
-            .lock()
-            .map_err(|_| io::Error::other("session mutex poisoned"))
-            .map(|state| RelaySession { state: state.clone(), lua_flow: self.lua_flow.clone() })
+        let first_response = *self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))?;
+        self.state.lock().map_err(|_| io::Error::other("session mutex poisoned")).map(|state| RelaySession {
+            state: state.clone(),
+            first_response,
+            pending_response: None,
+            #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+            copy_path: self.copy_path.clone(),
+            lua_flow: self.lua_flow.clone(),
+        })
+    }
+
+    pub(super) fn finish_first_response(&self, outcome: FirstResponseOutcome) -> io::Result<()> {
+        *self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))? = outcome;
+        Ok(())
+    }
+
+    pub(super) fn rotation_eligible(&self) -> bool {
+        self.first_response.lock().is_ok_and(|outcome| outcome.permits_rotation())
+            && self.state.lock().is_ok_and(|state| RuntimeState::session_has_inbound_payload(&state))
+    }
+
+    pub(super) fn observe_first_response_payload(&self, payload: &[u8]) -> io::Result<bool> {
+        let mut state = self.state.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
+        Ok(RuntimeState::observe_session_first_response_payload(&mut state, payload))
+    }
+
+    pub(super) fn observe_retry_response_payload(&self, payload: &[u8]) -> io::Result<()> {
+        let mut state = self.state.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
+        RuntimeState::observe_session_retry_response_payload(&mut state, payload);
+        Ok(())
     }
 
     pub(super) fn observe_inbound_payload(&self, payload: &[u8]) {

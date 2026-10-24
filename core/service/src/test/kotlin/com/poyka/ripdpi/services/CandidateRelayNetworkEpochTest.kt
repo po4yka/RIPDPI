@@ -186,6 +186,54 @@ class CandidateRelayNetworkEpochTest {
         assertNotEquals(repeated, checkNotNull(s.capture()))
     }
 
+    @Test fun `handover semantics ignore legacy duplicate callback epochs`() {
+        val observer = CandidatePhysicalNetworkObserver<String>(false)
+        val registration = observer.beginRegistration()
+        observer.available(registration, "only", false)
+        observer.capabilities(registration, "only", "physical", true)
+        observer.links(registration, "only", "route", true)
+        val selected = checkNotNull(observer.selectedSnapshot())
+        val probe = observer.capture()
+        observer.links(registration, "only", "route", true)
+        assertEquals(selected, observer.selectedSnapshot())
+        assertNotEquals(probe, observer.capture())
+        observer.available(registration, "other", false)
+        assertNull(observer.selectedSnapshot())
+    }
+
+    @Test fun `probe fallback cannot restore a lost selected handover path`() {
+        val observer = CandidatePhysicalNetworkObserver<String>(false)
+        val registration = observer.beginRegistration()
+        ready(observer, registration, "old")
+        val selected = checkNotNull(observer.selectedSnapshot())
+        observer.available(registration, "new", true)
+        assertNull(observer.selectedSnapshot())
+        observer.lost(registration, "new")
+        assertNotEquals(null, observer.capture())
+        assertNull(observer.selectedSnapshot())
+        observer.capabilities(registration, "old", "changed", true)
+        assertNull(observer.selectedSnapshot())
+        ready(observer, registration, "old")
+        assertEquals(selected, observer.selectedSnapshot())
+    }
+
+    @Test fun `old registration and unknown callbacks cannot select handover evidence`() {
+        val observer = CandidatePhysicalNetworkObserver<String>(false)
+        val old = observer.beginRegistration()
+        ready(observer, old, "old")
+        val current = observer.beginRegistration()
+        ready(observer, old, "old")
+        observer.capabilities(current, "unknown", "caps", true)
+        observer.links(current, "unknown", "links", true)
+        assertNull(observer.selectedSnapshot())
+        ready(observer, current, "current")
+        val selected = observer.selectedSnapshot()
+        observer.links(current, "unknown", "changed", true)
+        assertEquals(selected, observer.selectedSnapshot())
+        observer.endRegistration(current)
+        assertNull(observer.selectedSnapshot())
+    }
+
     private fun ready(
         s: CandidatePhysicalNetworkObserver<String>,
         r: Long,

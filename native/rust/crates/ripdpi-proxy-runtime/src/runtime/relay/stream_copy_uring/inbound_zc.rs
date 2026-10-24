@@ -35,8 +35,8 @@ use crate::runtime::types::RuntimeRelayTimeouts;
 /// done with the buffer the instant its one CQE arrives, making the
 /// return-to-pool unambiguously safe.
 pub(super) fn copy_inbound_zc(
-    mut reader: TcpStream,
-    mut writer: TcpStream,
+    reader: &mut TcpStream,
+    writer: &mut TcpStream,
     session: RelaySharedSession,
     peer_done: Arc<AtomicBool>,
     timeouts: RuntimeRelayTimeouts,
@@ -48,6 +48,8 @@ pub(super) fn copy_inbound_zc(
 
     loop {
         let Some(mut handle) = acquire_registered_buffer(uring) else {
+            #[cfg(test)]
+            session.copy_path.fallbacks.fetch_add(1, Ordering::Relaxed);
             return copy_inbound_fallback(reader, writer, session, peer_done, detector, freeze_detected);
         };
 
@@ -67,6 +69,8 @@ pub(super) fn copy_inbound_zc(
                 let handle = result.into_buffer().expect("fixed write completion must return its buffer lease");
 
                 if result_code < 0 {
+                    #[cfg(test)]
+                    session.copy_path.fallbacks.fetch_add(1, Ordering::Relaxed);
                     // The fixed-buffer write failed. The payload still lives in
                     // the registered buffer (`handle` is alive), so flush the
                     // remainder through the plain socket write rather than
@@ -74,12 +78,18 @@ pub(super) fn copy_inbound_zc(
                     // caller. Never proceed past a failed write.
                     writer.write_all(&handle[..])?;
                 } else {
+                    #[cfg(test)]
+                    if result_code > 0 {
+                        session.copy_path.fixed_writes.fetch_add(1, Ordering::Relaxed);
+                    }
                     // Positive result is the byte count the kernel accepted. A
                     // short write can happen on a partially-writable socket;
                     // flush whatever the kernel did not take from the same
                     // (still-valid) registered buffer.
                     let written = result_code as usize;
                     if written < n {
+                        #[cfg(test)]
+                        session.copy_path.fallbacks.fetch_add(1, Ordering::Relaxed);
                         writer.write_all(&handle[written..])?;
                     }
                 }

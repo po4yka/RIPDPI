@@ -47,7 +47,7 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
             server.enqueue(response(200, payload()))
             fixture.coordinator.refresh(Group)
             val before = fixture.repository.list().single()
-            val ambiguous = ClashJson.dropLast(1) + """, "ripdpi":{"schema_version":1,"migration":{}}}"""
+            val ambiguous = ClashJson.dropLast(1) + """, "ripdpi":{"schema_version":2,"migration":{}}}"""
             for (body in listOf(ambiguous, ambiguous.replace('"', '\''))) {
                 server.enqueue(response(200, body))
                 assertTrue(fixture.coordinator.refresh(Group) is SubscriptionRefreshResult.Failed)
@@ -365,8 +365,8 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
         }
 
     private fun awgPayload() =
-        """{"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
-          "tag":"green","private_key_placeholder":true,"address":["10.8.0.2/32","fd77::2/128"],"mtu":1330,"jc":4,
+        """{"outbounds":[],"ripdpi":{"schema_version":2,"amneziawg":[{
+          "tag":"green","private_key_placeholder":true,"wire_profile":"awg-3.1-ranges-v1","jmin":0,"jmax":0,"s1":0,"s2":0,"h1":"1","h2":"2","h3":"3","h4":"4","address":["10.8.0.2/32","fd77::2/128"],"mtu":1330,"jc":4,
           "peer":{"public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
           "endpoint":"192.0.2.20:443","preshared_key":"fixture-psk","allowed_ips":["0.0.0.0/0"]}
         }],"migration":{"schema_version":1,
@@ -407,7 +407,7 @@ class DeviceMigrationCoordinatorTest : SubscriptionRefreshTestSupport() {
         """ {
         "outbounds":[{"type":"hysteria2","tag":"green","server":"new.example",
           "server_port":443,"password":"fixture"}],
-        "ripdpi":{"schema_version":1,"migration":{"schema_version":1,
+        "ripdpi":{"schema_version":2,"migration":{"schema_version":1,
           "migration_id":"${identity.migrationId}","delivery_id":"${identity.deliveryId}",
           "target_tags":["green"],"receipt_key":"${identity.receiptKey}","awg_previous_tags":{}}}
     } """

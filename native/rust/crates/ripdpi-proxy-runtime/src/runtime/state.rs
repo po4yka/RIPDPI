@@ -131,6 +131,7 @@ pub(super) struct RuntimeState {
     response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     geo_matcher: Option<std::sync::Arc<dyn GeoMatcher + Send + Sync>>,
     destination_routing: DestinationRoutingEvaluator,
+    awg_dns_servers: Box<[IpAddr]>,
     services: ServicesStateHandle,
     /// Single decision boundary that proxy-runtime now composes through —
     /// see `ripdpi-runtime-decision-engine`. Today this engine delegates
@@ -332,6 +333,7 @@ impl RuntimeState {
             response_failure_evidence_settings,
             geo_matcher,
             destination_routing,
+            awg_dns_servers: config.awg_dns_servers.clone().into_boxed_slice(),
             services: handle,
             decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),

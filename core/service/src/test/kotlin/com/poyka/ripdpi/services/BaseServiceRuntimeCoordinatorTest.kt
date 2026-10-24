@@ -471,6 +471,37 @@ class ServiceRuntimeHandoverTest {
         }
 
     @Test
+    fun `distinct physical changes within cooldown apply while repeated applied signature is skipped`() =
+        runTest {
+            val initial = sampleFingerprint().copy(physicalNetworkSignature = "mtu-1500")
+            val firstChange = initial.copy(physicalNetworkSignature = "mtu-1400")
+            val secondChange = initial.copy(physicalNetworkSignature = "mtu-1300")
+            val env = newEnv(fingerprint = initial)
+            env.coordinator.start()
+            runCurrent()
+            var previous = initial
+            for ((current, expectedRestarts) in listOf(firstChange to 1, secondChange to 2, secondChange to 2)) {
+                assertEquals(initial.scopeKey(), current.scopeKey())
+                env.clock.now += 1_000L
+                env.handoverMonitor.emit(
+                    NetworkHandoverEvent(previous, current, "link_refresh", env.clock.nowMillis()),
+                )
+                runCurrent()
+                assertEquals(expectedRestarts, env.coordinator.restartCalls)
+                previous = current
+            }
+            assertEquals(2, env.handoverEvents.published.size)
+            assertEquals(
+                secondChange.physicalNetworkSignature,
+                (
+                    env.runtimeRegistry.current(
+                        Mode.Proxy,
+                    ) as ProxyRuntimeSession
+                ).lastSuccessfulHandoverPhysicalSignature,
+            )
+        }
+
+    @Test
     fun captivePortalHandoverIsDeferredWithoutRestart() =
         runTest {
             val initialFingerprint = sampleFingerprint()
@@ -817,8 +848,14 @@ class ServiceRuntimeHandoverTest {
     fun `new handover suppresses stale retry from older event`() =
         runTest {
             val initialFingerprint = sampleFingerprint()
-            val fingerprintA = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
-            val fingerprintB = sampleFingerprint(dnsServers = listOf("9.9.9.9"))
+            val fingerprintA =
+                sampleFingerprint(
+                    dnsServers = listOf("8.8.8.8"),
+                ).copy(physicalNetworkSignature = "physical-a")
+            val fingerprintB =
+                sampleFingerprint(
+                    dnsServers = listOf("9.9.9.9"),
+                ).copy(physicalNetworkSignature = "physical-b")
             val env =
                 newEnv(fingerprint = initialFingerprint).also {
                     it.coordinator.handoverFailuresRemaining = 1
@@ -837,6 +874,8 @@ class ServiceRuntimeHandoverTest {
             )
             runCurrent()
             assertEquals(1, env.coordinator.restartCalls)
+            val failedSession = env.runtimeRegistry.current(Mode.Proxy) as ProxyRuntimeSession
+            assertNull(failedSession.lastSuccessfulHandoverPhysicalSignature)
 
             env.handoverMonitor.emit(
                 NetworkHandoverEvent(
@@ -853,6 +892,15 @@ class ServiceRuntimeHandoverTest {
                 env.handoverEvents.published
                     .single()
                     .currentFingerprintHash,
+            )
+
+            assertEquals(
+                "physical-b",
+                (
+                    env.runtimeRegistry.current(
+                        Mode.Proxy,
+                    ) as ProxyRuntimeSession
+                ).lastSuccessfulHandoverPhysicalSignature,
             )
 
             advanceTimeBy(31_000L)

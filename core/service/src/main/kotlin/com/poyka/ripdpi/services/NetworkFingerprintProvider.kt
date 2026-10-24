@@ -3,7 +3,6 @@ package com.poyka.ripdpi.services
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
@@ -59,6 +58,7 @@ internal data class CapturedCellularIdentity(
 
 internal data class CapturedNetworkSnapshot(
     val directDnsUnderlayGeneration: Long? = null,
+    val physicalNetworkSignature: String? = null,
     val transports: Set<CapturedTransport>? = null,
     val networkValidated: Boolean = false,
     val captivePortalDetected: Boolean = false,
@@ -79,9 +79,8 @@ internal class DefaultAndroidNetworkSnapshotSource
     constructor(
         @param:ApplicationContext private val context: Context,
         private val underlayAuthority: DirectDnsUnderlayAuthority,
+        private val physicalNetworkObserver: PhysicalNetworkObserver,
     ) : AndroidNetworkSnapshotSource {
-        private val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         private val wifiManager =
             context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         private val telephonyManager =
@@ -89,32 +88,26 @@ internal class DefaultAndroidNetworkSnapshotSource
 
         @android.annotation.SuppressLint("MissingPermission")
         override fun capture(): CapturedNetworkSnapshot? {
-            val network = activeNetworkOrNull() ?: return null
-            val capabilities = connectivityManager.getNetworkCapabilities(network)
-            val linkProperties = connectivityManager.getLinkProperties(network)
-            val transports = capabilities?.let(::captureTransports)
+            val snapshot = physicalNetworkObserver.selectedPhysicalSnapshot() ?: return null
+            val network = snapshot.network
+            val capabilities = snapshot.capabilities
+            val linkProperties = snapshot.links
+            val transports = captureTransports(capabilities)
             return CapturedNetworkSnapshot(
                 directDnsUnderlayGeneration =
                     underlayAuthority.generationFor(network, capabilities, linkProperties),
+                physicalNetworkSignature = snapshot.semanticSignature,
                 transports = transports,
-                networkValidated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
+                networkValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
                 captivePortalDetected =
-                    capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
                 privateDnsServerName = resolvePrivateDnsServerName(linkProperties),
                 dnsServers = captureDnsServers(linkProperties),
                 wifi = captureWifiIdentity(transports, capabilities),
                 cellular = captureCellularIdentity(transports),
-                metered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false,
+                metered = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
             )
         }
-
-        @android.annotation.SuppressLint("MissingPermission")
-        private fun activeNetworkOrNull() =
-            if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
-                connectivityManager.activeNetwork
-            } else {
-                null
-            }
 
         private fun resolvePrivateDnsServerName(linkProperties: LinkProperties?): String? =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -248,6 +241,7 @@ internal class NetworkFingerprintMapper
                 cellular = resolveCellularIdentity(snapshot),
                 metered = snapshot.metered,
                 directDnsUnderlayGeneration = snapshot.directDnsUnderlayGeneration,
+                physicalNetworkSignature = snapshot.physicalNetworkSignature,
             )
 
         private fun resolveTransport(transports: Set<CapturedTransport>?): String =

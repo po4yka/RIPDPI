@@ -289,6 +289,31 @@ class SubprocessRelayComponentsTest {
     }
 
     @Test
+    fun `subprocess listener authorities preserve IPv4 hostname and IPv6 bound endpoints`() {
+        listOf("127.0.0.1", "localhost", "::1").forEach { host ->
+            val telemetry =
+                SubprocessRelayTelemetryProjector()
+                    .project(
+                        SubprocessRelayTelemetryInputs(
+                            config =
+                                sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
+                                    localSocksHost = host,
+                                    localSocksPort = 19_005,
+                                ),
+                            launchSpec = launchSpec(runtimeKind = RelayKindNaiveProxy),
+                            running = true,
+                            runtimeVersion = "naive 1.0",
+                            lastError = null,
+                            lastFailureClass = null,
+                            runtimeStateOverride = null,
+                        ),
+                    )
+
+            assertEquals(LocalProxyEndpoint(host, 19_005), resolveLocalProxyEndpoint(telemetry, authToken = null))
+        }
+    }
+
+    @Test
     fun `telemetry projector marks managed runtime failed from last error`() {
         val telemetry =
             SubprocessRelayTelemetryProjector()

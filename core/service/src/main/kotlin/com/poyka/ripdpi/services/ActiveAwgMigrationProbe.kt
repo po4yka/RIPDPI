@@ -26,7 +26,7 @@ class ActiveAwgMigrationProbe internal constructor(
         runtime: ActiveAwgRuntimeRegistry,
         http: CandidateHttpPayloadProbe,
         configuration: CandidateRelayProbeConfiguration,
-        network: CandidateRelayNetworkEpoch,
+        network: PhysicalNetworkObserver,
     ) : this(resolver, runtime, http, configuration::capture, network::capture)
 
     suspend fun measure(

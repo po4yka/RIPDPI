@@ -156,6 +156,7 @@ private fun RipDpiProxyUIPreferences.withProtocolConfig(
 private fun RipDpiProxyUIPreferences.withRuntimeConfig(
     protocolConfig: RipDpiProtocolConfig,
     relayConfig: RipDpiRelayConfig,
+    warpConfig: RipDpiWarpConfig = warp,
 ): RipDpiProxyUIPreferences =
     RipDpiProxyUIPreferences(
         listen = listen,
@@ -167,7 +168,7 @@ private fun RipDpiProxyUIPreferences.withRuntimeConfig(
         quic = quic,
         hosts = hosts,
         relay = relayConfig,
-        warp = warp,
+        warp = warpConfig,
         hostAutolearn = hostAutolearn,
         wsTunnel = wsTunnel,
         nativeLogLevel = nativeLogLevel,
@@ -232,7 +233,10 @@ fun RipDpiProxyPreferences.ownedRelayQuicMigrationConfig(): OwnedRelayQuicMigrat
  * the AWG loopback SOCKS inbound, so no new native config section is required. Non-UI
  * preferences are returned unchanged.
  */
-fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences =
+fun RipDpiProxyPreferences.withAwgEgressPort(
+    port: Int,
+    dnsServers: List<String>,
+): RipDpiProxyPreferences =
     when (this) {
         is RipDpiProxyUIPreferences -> {
             RipDpiProxyUIPreferences(
@@ -250,6 +254,7 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
                         enabled = true,
                         routeMode = WarpRouteModeRules,
                         routeHosts = AmneziaWgAllTrafficRouteHosts,
+                        awgDnsServers = dnsServers.toList(),
                         localSocksHost = "127.0.0.1",
                         localSocksPort = port,
                     ),
@@ -269,15 +274,37 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
         }
 
         is RipDpiProxyUiSessionPreferences -> {
-            copy(preferences = preferences.withAwgEgressPort(port) as RipDpiProxyUIPreferences)
+            copy(preferences = preferences.withAwgEgressPort(port, dnsServers) as RipDpiProxyUIPreferences)
         }
 
         is RipDpiProxyJsonPreferences -> {
-            withAwgEgressPort(port)
+            withAwgEgressPort(port, dnsServers)
         }
 
         is RipDpiProxyCmdPreferences,
         -> {
+            this
+        }
+    }
+
+/** Removes remembered resolver authority before runtime composition. */
+fun RipDpiProxyPreferences.withoutAwgDnsServers(): RipDpiProxyPreferences =
+    when (this) {
+        is RipDpiProxyUIPreferences -> {
+            withRuntimeConfig(protocols, relay, warp.copy(awgDnsServers = emptyList()))
+        }
+
+        is RipDpiProxyUiSessionPreferences -> {
+            copy(
+                preferences = preferences.withoutAwgDnsServers() as RipDpiProxyUIPreferences,
+            )
+        }
+
+        is RipDpiProxyJsonPreferences -> {
+            withoutAwgDnsServers()
+        }
+
+        is RipDpiProxyCmdPreferences -> {
             this
         }
     }
@@ -445,11 +472,18 @@ class RipDpiProxyJsonPreferences(
             awg = awg,
         )
 
-    internal fun withAwgEgressPort(port: Int): RipDpiProxyPreferences {
-        val routed =
-            decodeRipDpiProxyUiPreferences(toNativeConfigJson())
-                ?.withAwgEgressPort(port)
-                ?: return this
+    internal fun withAwgEgressPort(
+        port: Int,
+        dnsServers: List<String>,
+    ): RipDpiProxyPreferences = projectAwgRuntime { it.withAwgEgressPort(port, dnsServers) }
+
+    internal fun withoutAwgDnsServers(): RipDpiProxyPreferences = projectAwgRuntime { it.withoutAwgDnsServers() }
+
+    private fun projectAwgRuntime(
+        project: (RipDpiProxyUIPreferences) -> RipDpiProxyPreferences,
+    ): RipDpiProxyPreferences {
+        val decoded = decodeRipDpiProxyUiPreferences(toNativeConfigJson()) ?: return this
+        val routed = project(decoded)
         val withSessionOverrides =
             if (localListenPortOverride != null || localAuthToken != null) {
                 routed.withLocalProxySessionOverrides(

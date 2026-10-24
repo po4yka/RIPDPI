@@ -108,6 +108,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let inspect_first_response = needs_first_exchange(self.state)?;
 
         loop {
+            let _active_upstream = self.state.register_active_upstream_tcp_socket(&upstream)?;
             session_state = FirstOutboundSession::new();
             let tls_send_start = first_payload.is_tls.then(Instant::now);
             match execute_first_write(
@@ -156,6 +157,12 @@ impl<'a> FirstOutboundCoordinator<'a> {
                     tls_send_start,
                 },
             )? {
+                FirstResponseDecision::Continue(pending) => {
+                    // No route retry can run after this move. The outbound copy may
+                    // now commit continuation bytes that this coordinator cannot replay.
+                    session_state.defer_first_response(*pending);
+                    break;
+                }
                 FirstResponseDecision::Complete { recorded_success } => {
                     success_recorded = recorded_success;
                     break;
@@ -176,6 +183,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                         },
                     )?
                     else {
+                        session_state.reject_first_response();
                         break;
                     };
                     route = retry.route;

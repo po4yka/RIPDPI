@@ -21,6 +21,7 @@ pub(crate) struct SalamanderUdpSocket {
 
 impl SalamanderUdpSocket {
     pub(crate) fn new(socket: std::net::UdpSocket, key: Vec<u8>) -> io::Result<Self> {
+        socket.set_nonblocking(true)?;
         Ok(Self { io: tokio::net::UdpSocket::from_std(socket)?, codec: SalamanderCodec::new(key) })
     }
 }
@@ -155,6 +156,57 @@ impl SalamanderCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn blocking_udp_socket_round_trips_after_wrapping() {
+        tokio::time::timeout(std::time::Duration::from_secs(2), socket_round_trip(false))
+            .await
+            .expect("blocking input must support asynchronous datagrams");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn nonblocking_udp_socket_round_trips_after_wrapping() {
+        tokio::time::timeout(std::time::Duration::from_secs(2), socket_round_trip(true))
+            .await
+            .expect("nonblocking input must remain usable");
+    }
+
+    // cancel-safe: dropping this future closes only its owned loopback sockets.
+    async fn socket_round_trip(nonblocking: bool) {
+        let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("bind Salamander socket");
+        socket.set_nonblocking(nonblocking).expect("set explicit input mode");
+        let original_addr = socket.local_addr().expect("bound address");
+        let wrapped = Arc::new(SalamanderUdpSocket::new(socket, b"fixture-key".to_vec()).expect("wrap socket"));
+        assert_eq!(wrapped.local_addr().expect("wrapped address"), original_addr);
+        let peer = tokio::net::UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+        let peer_addr = peer.local_addr().expect("peer address");
+        let codec = SalamanderCodec::new(b"fixture-key".to_vec());
+        let mut poller = wrapped.clone().create_io_poller();
+        std::future::poll_fn(|cx| poller.as_mut().poll_writable(cx)).await.expect("socket writable");
+        wrapped
+            .try_send(&quinn::udp::Transmit {
+                destination: peer_addr,
+                ecn: None,
+                contents: b"request",
+                segment_size: None,
+                src_ip: None,
+            })
+            .expect("send through Salamander");
+        let mut wire = [0u8; 128];
+        let (received, source) = peer.recv_from(&mut wire).await.expect("receive encoded datagram");
+        assert_eq!(source, original_addr);
+        assert_eq!(codec.decode(&wire[..received]).expect("decode request"), b"request");
+        peer.send_to(&codec.encode(b"response"), source).await.expect("send encoded response");
+        let mut payload = [0u8; 128];
+        let mut meta = [quinn::udp::RecvMeta::default()];
+        let count = {
+            let mut bufs = [std::io::IoSliceMut::new(&mut payload)];
+            std::future::poll_fn(|cx| wrapped.poll_recv(cx, &mut bufs, &mut meta)).await.expect("receive response")
+        };
+        assert_eq!(count, 1);
+        assert_eq!(meta[0].addr, peer_addr);
+        assert_eq!(&payload[..meta[0].len], b"response");
+    }
 
     #[test]
     fn salamander_roundtrip() {

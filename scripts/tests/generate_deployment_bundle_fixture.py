@@ -21,7 +21,7 @@ BACKEND = args.backend.resolve()
 OUTPUT = Path(__file__).resolve().parents[2] / 'core/data/src/test/resources/deployment-generated'
 OUTPUT.mkdir(parents=True, exist_ok=True)
 sha = subprocess.check_output(['git', '-C', str(BACKEND), 'rev-parse', 'HEAD'], text=True).strip()
-expected_sha = '794202c393648986ceea7afd7d022933fbe44dce'
+expected_sha = '34c61b400998b5682056ac00e52cb016ae4ff228'
 assert sha == expected_sha, 'Backend revision changed; review fixture provenance before regeneration'
 dirty = subprocess.check_output(
     ['git', '-C', str(BACKEND), 'status', '--porcelain', '--untracked-files=no'], text=True)

@@ -7,23 +7,23 @@ import org.junit.Test
 class AmneziaWgParametersTest {
     @Test
     fun `arm64 safety treats absent and explicit zero S3-S4 as safe`() {
-        AmneziaWgParameters().requireArm64Safe()
-        AmneziaWgParameters(s3 = 0, s4 = 0).requireArm64Safe()
+        AmneziaWgParameters().requireSupportedProfile()
+        AmneziaWgParameters(s3 = 0, s4 = 0).requireSupportedProfile()
     }
 
     @Test
     fun `arm64 safety rejects either non-zero junk-size parameter`() {
         val s3Error =
             assertThrows(IllegalArgumentException::class.java) {
-                AmneziaWgParameters(s3 = 1, s4 = 0).requireArm64Safe()
+                AmneziaWgParameters(s3 = 1, s4 = 0).requireSupportedProfile()
             }
         val s4Error =
             assertThrows(IllegalArgumentException::class.java) {
-                AmneziaWgParameters(s3 = 0, s4 = 1).requireArm64Safe()
+                AmneziaWgParameters(s3 = 0, s4 = 1).requireSupportedProfile()
             }
         val bothError =
             assertThrows(IllegalArgumentException::class.java) {
-                AmneziaWgParameters(s3 = 1, s4 = 1).requireArm64Safe()
+                AmneziaWgParameters(s3 = 1, s4 = 1).requireSupportedProfile()
             }
 
         assertTrue(s3Error.message.orEmpty().contains("amneziawg-go#110"))
