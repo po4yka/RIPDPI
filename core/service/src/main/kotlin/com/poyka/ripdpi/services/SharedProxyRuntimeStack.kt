@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.core.withAwgEgressPort
 import com.poyka.ripdpi.core.withRelayRuntimeSelection
 import com.poyka.ripdpi.core.withUdpAssociateEnabled
+import com.poyka.ripdpi.core.withoutAwgDnsServers
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.service.awg.AmneziaWgLocalSocksPort
@@ -59,7 +60,7 @@ internal class SharedProxyRuntimeStack(
         onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
     ): ProxyRuntimeStartResult {
         val selectedRelay = capturedSelectorRelay(requestedSelection)
-        val awgRequest = proxyPreferences.awgConfigOrNull()
+        val awgRequest = proxyPreferences.awgConfigOrNull()?.let { it.copy(dnsServers = it.dnsServers.toList()) }
         check(selectedRelay == null || awgRequest == null) { "Selector selection conflicts with AWG" }
         val configuredEgressRequirements =
             EgressRequirements(
@@ -72,7 +73,10 @@ internal class SharedProxyRuntimeStack(
             "Initial relay plan requirements exceed the configured proxy capabilities"
         }
         var effectivePreferences =
-            proxyPreferences.withEgressRequirements(egressRequirements, configuredEgressRequirements)
+            proxyPreferences.withoutAwgDnsServers().withEgressRequirements(
+                egressRequirements,
+                configuredEgressRequirements,
+            )
         effectivePreferences = applyCapturedSelector(effectivePreferences, selectedRelay)
         if (awgRequest != null) {
             check(egressRequirements == configuredEgressRequirements) {
@@ -89,7 +93,8 @@ internal class SharedProxyRuntimeStack(
                     onSelected = onInitialRelaySelected,
                 )
             }
-            effectivePreferences = effectivePreferences.withAwgEgressPort(AmneziaWgLocalSocksPort)
+            effectivePreferences =
+                effectivePreferences.withAwgEgressPort(AmneziaWgLocalSocksPort, awgRequest.dnsServers)
         } else {
             effectivePreferences.relayConfigOrNull()?.let { relayConfig ->
                 // A fresh relay start clears any stale foreign-relay-failed signal from a

@@ -143,6 +143,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
 
     let mut config = RuntimeConfig {
         destination_routing: destination_routing::convert(destination_routing)?,
+        awg_dns_servers: warp::resolver_authority(&warp)?,
         ..RuntimeConfig::default()
     };
     config.process.geoip_db_path = normalized_optional_path(geoip_db_path);

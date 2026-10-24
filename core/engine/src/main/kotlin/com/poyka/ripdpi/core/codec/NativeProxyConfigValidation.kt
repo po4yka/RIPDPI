@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.core.codec
 
+import com.poyka.ripdpi.core.AmneziaWgAllTrafficRouteHosts
+import com.poyka.ripdpi.core.MaxValidPortNumber
+import com.poyka.ripdpi.data.awg.isAwgNumericAddress
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -7,6 +10,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import java.net.InetAddress
 
 /**
  * Rejects legacy proxy-config payloads that predate the grouped UI config shape.
@@ -227,6 +231,7 @@ internal object NativeProxyConfigValidation {
                     "Legacy strategy preset alias is not supported"
                 }
                 validateDestinationRouting(payload.destinationRouting)
+                validateAwgDnsAuthority(payload.warp)
                 if (payload.warp.enabled && payload.warp.amnezia.enabled) {
                     val config = payload.warp.amnezia
                     AmneziaWgWireProfile.requireValid(
@@ -239,6 +244,19 @@ internal object NativeProxyConfigValidation {
                 }
             }
         }
+    }
+
+    private fun validateAwgDnsAuthority(warp: NativeWarpConfig) {
+        if (warp.awgDnsServers.isEmpty()) return
+        require(warp.enabled && warp.routeMode == "rules" && warp.routeHosts == AmneziaWgAllTrafficRouteHosts) {
+            "AWG DNS authority requires the active standalone AWG route"
+        }
+        require(warp.awgDnsServers.all(::isAwgNumericAddress)) { "AWG DNS servers must be numeric addresses" }
+        require(
+            isAwgNumericAddress(warp.localSocksHost) &&
+                InetAddress.getByName(warp.localSocksHost).isLoopbackAddress &&
+                warp.localSocksPort in 1..MaxValidPortNumber,
+        ) { "AWG DNS authority requires a valid loopback upstream" }
     }
 
     private fun validateDestinationRouting(policy: NativeDestinationRoutingConfig) {

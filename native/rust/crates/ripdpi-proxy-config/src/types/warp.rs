@@ -105,6 +105,8 @@ fn default_warp_persistent_keepalive() -> u16 {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyUiWarpConfig {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub awg_dns_servers: Vec<String>,
     #[serde(default)]
     pub enabled: bool,
     #[serde(default = "default_warp_route_mode")]
@@ -134,6 +136,7 @@ pub struct ProxyUiWarpConfig {
 impl Default for ProxyUiWarpConfig {
     fn default() -> Self {
         Self {
+            awg_dns_servers: Vec::new(),
             enabled: false,
             route_mode: default_warp_route_mode(),
             route_hosts: String::new(),

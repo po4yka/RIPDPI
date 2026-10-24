@@ -44,6 +44,7 @@ import com.poyka.ripdpi.data.WarpAmneziaPresetOff
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
 import com.poyka.ripdpi.data.WarpRouteModeOff
 import com.poyka.ripdpi.data.canonicalDefaultTcpChainSteps
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
@@ -358,6 +359,9 @@ data class RipDpiWarpAmneziaConfig(
 
 @Serializable
 data class RipDpiWarpConfig(
+    /** Resolver authority captured from the active standalone AWG runtime request. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val awgDnsServers: List<String> = emptyList(),
     val enabled: Boolean = false,
     val routeMode: String = WarpRouteModeOff,
     val routeHosts: String = "",

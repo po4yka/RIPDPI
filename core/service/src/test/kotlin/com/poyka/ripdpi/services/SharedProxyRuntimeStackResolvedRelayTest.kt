@@ -5,6 +5,8 @@ import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.withAwgEgressPort
 import com.poyka.ripdpi.core.withRelayRuntimeSelection
 import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -97,6 +99,41 @@ class SharedProxyRuntimeStackResolvedRelayTest {
             fixture.stack.stop(skipRuntimeShutdown = false)
             assertEquals(1, fixture.relayFactory.lastRuntime.stopCount)
             assertFalse(fixture.stack.hasOwnedRuntime)
+        }
+
+    @Test
+    fun inactiveAwgClearsRememberedResolverAuthorityBeforeProxyStartup() =
+        runTest {
+            val fixture = createFixture(resolver = savedHysteriaResolver(udpEnabled = true))
+            val remembered =
+                RipDpiProxyJsonPreferences(
+                    RipDpiProxyUIPreferences()
+                        .withAwgEgressPort(
+                            10809,
+                            listOf("10.77.0.1", "fd77::1"),
+                        ).toNativeConfigJson(),
+                )
+            fixture.stack.start(
+                requestedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
+                relayInputs = testRelayResolutionInputs(),
+                requestedWarpReference =
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
+                proxyPreferences = remembered,
+                onRelayExit = {},
+                onWarpExit = {},
+                onAwgExit = {},
+                onProxyExit = {},
+            )
+            val actual = requireNotNull(fixture.proxyFactory.lastRuntime.lastPreferences)
+            assertTrue(
+                requireNotNull(
+                    decodeRipDpiProxyUiPreferences(actual.toNativeConfigJson()),
+                ).warp.awgDnsServers.isEmpty(),
+            )
+            fixture.stack.stop(skipRuntimeShutdown = false)
         }
 
     private fun TestScope.createFixture(

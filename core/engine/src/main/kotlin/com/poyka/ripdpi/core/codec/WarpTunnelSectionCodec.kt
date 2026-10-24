@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
 import com.poyka.ripdpi.core.RipDpiWsTunnelConfig
 import com.poyka.ripdpi.data.SecretString
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -46,6 +47,8 @@ internal data class NativeWarpAmneziaConfig(
 
 @Serializable
 internal data class NativeWarpConfig(
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val awgDnsServers: List<String> = emptyList(),
     val enabled: Boolean = false,
     val routeMode: String = "off",
     val routeHosts: String = "",
@@ -75,6 +78,7 @@ internal data class NativeWsTunnelConfig(
 internal object WarpSectionCodec {
     fun toModel(value: NativeWarpConfig): RipDpiWarpConfig =
         RipDpiWarpConfig(
+            awgDnsServers = value.awgDnsServers.toList(),
             enabled = value.enabled,
             routeMode = value.routeMode,
             routeHosts = value.routeHosts,
@@ -120,6 +124,7 @@ internal object WarpSectionCodec {
 
     fun toNative(value: RipDpiWarpConfig): NativeWarpConfig =
         NativeWarpConfig(
+            awgDnsServers = value.awgDnsServers.toList(),
             enabled = value.enabled,
             routeMode = value.routeMode,
             routeHosts = value.routeHosts,

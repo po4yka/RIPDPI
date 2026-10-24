@@ -203,6 +203,22 @@ that the session owns and that unauthenticated loopback clients can use.
 
 ---
 
+### Active AWG resolver authority
+
+`warp.awgDnsServers` is an additive runtime-only list of numeric resolver IPs.
+Kotlin omits the empty default with `@EncodeDefault(NEVER)`; Rust defaults an
+absent key to an empty list. This field is not an `AppSettings` preference.
+The service copies it from the same captured standalone AWG request that starts
+the tunnel and clears remembered authority before each runtime composition.
+A nonempty list requires the enabled AWG all-traffic marker and a valid numeric
+loopback SOCKS endpoint; malformed or inconsistent authority fails closed.
+
+The native proxy first evaluates the original ordered destination policy. An
+effective Block remains Block. Otherwise, TCP and UDP to exact captured resolver
+IPs on ports 53 and 853 use the AWG upstream. Other IPs and ports retain their
+original result. The persisted destination rules and canonical digest do not
+change. Physical acceptance must retain the default LAN Direct rules.
+
 ## 3. Rust config deserialization / defaulting rules
 
 Owner: `ripdpi-proxy-config` (entry points `parse_proxy_config_json`,

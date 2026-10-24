@@ -99,6 +99,7 @@ impl RuntimeState {
             response_failure_evidence_settings,
             geo_matcher,
             destination_routing,
+            awg_dns_servers: config.awg_dns_servers.clone().into_boxed_slice(),
             services: handle,
             decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),

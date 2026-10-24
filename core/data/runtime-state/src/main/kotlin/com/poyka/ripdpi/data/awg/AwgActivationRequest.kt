@@ -22,8 +22,8 @@ import java.util.Base64
  *
  * Native fields mirror `ResolvedRipDpiAmneziaWgConfig`, including
  * [presharedKey] / [persistentKeepalive] and AmneziaWG 3.1 signature programs.
- * [dnsServers] and [allowedIps] are owned by the Android VPN interface and
- * deliberately remain outside the native configuration.
+ * [allowedIps] belongs to the Android VPN interface. [dnsServers] also supplies
+ * scoped resolver routing to the native proxy while this AWG request is active.
  */
 @Serializable
 data class AwgActivationRequest(
@@ -35,7 +35,7 @@ data class AwgActivationRequest(
     val endpointPort: Int,
     val interfaceAddressV4: String,
     val interfaceAddressV6: String = "",
-    /** Android VPN interface DNS servers; these do not cross the native runtime boundary. */
+    /** Android VPN interface DNS servers and active AWG proxy resolver routes. */
     val dnsServers: List<String> = emptyList(),
     /** Android VPN interface routes; these do not cross the native runtime boundary. */
     val allowedIps: List<String> = listOf("0.0.0.0/0"),
@@ -117,6 +117,9 @@ private fun String.isCidr(
         prefix?.let { it in prefixRange && it.toString() == parts[1] } == true &&
         addressIsValid(parts[0])
 }
+
+/** Validates an AWG resolver literal without DNS resolution. */
+fun isAwgNumericAddress(address: String): Boolean = address.isIpv4Address() || address.isIpv6Address()
 
 private fun String.isIpv4Address(): Boolean {
     val octets = split('.')

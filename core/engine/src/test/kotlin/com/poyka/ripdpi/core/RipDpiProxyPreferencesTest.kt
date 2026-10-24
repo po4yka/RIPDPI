@@ -840,7 +840,7 @@ class RipDpiProxyPreferencesTest {
                     ),
             )
 
-        val routed = preferences.withAwgEgressPort(10809) as RipDpiProxyUIPreferences
+        val routed = preferences.withAwgEgressPort(10809, emptyList()) as RipDpiProxyUIPreferences
 
         assertNull(routed.awg)
         assertFalse(routed.relay.enabled)
@@ -879,7 +879,7 @@ class RipDpiProxyPreferencesTest {
 
         assertEquals(request, withLogContext.awgConfigOrNull())
 
-        val routed = withLogContext.withAwgEgressPort(10809)
+        val routed = withLogContext.withAwgEgressPort(10809, emptyList())
         val payload = routed.toNativeConfigJson().parseJsonObject()
         val relay = payload.objectAt("upstreamRelay")
         val warp = payload.objectAt("warp")
@@ -927,7 +927,7 @@ class RipDpiProxyPreferencesTest {
 
         assertEquals(request, preferences.awgConfigOrNull())
 
-        val routed = preferences.withAwgEgressPort(10809)
+        val routed = preferences.withAwgEgressPort(10809, emptyList())
         val payload = routed.toNativeConfigJson().parseJsonObject()
         val relay = payload.objectAt("upstreamRelay")
         val warp = payload.objectAt("warp")
