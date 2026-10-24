@@ -49,6 +49,115 @@ class EvidenceTests(unittest.TestCase):
             self.assertEqual("192.168.1.2", lan["RIPDPI_AWG_PEER_IP"])
             self.assertEqual(inherited, dict(runner.os.environ))
 
+    def test_logcat_scope_uses_both_exact_uids_and_device_time_without_tag_filter(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            listing = (
+                "package:com.poyka.ripdpi.baselineprofile uid:99999\n"
+                "package:com.poyka.ripdpi uid:10329\n"
+                "package:com.poyka.ripdpi.test uid:10348\n"
+            )
+            with patch.object(runner, "run", side_effect=["1792831184.218\n", listing]):
+                scope = runner.begin_logcat_scope(["adb", "-s", "owned"], out)
+            self.assertEqual("ready", scope["status"])
+            self.assertEqual({10329, 10348}, set(scope["package_uids"].values()))
+            with patch.object(runner, "run", return_value="") as capture:
+                runner.capture_scoped_logcat(["adb", "-s", "owned"], out, scope)
+            self.assertEqual("collected", scope["capture_status"])
+            self.assertEqual(
+                [
+                    "adb",
+                    "-s",
+                    "owned",
+                    "logcat",
+                    "-d",
+                    "-v",
+                    "threadtime",
+                    "--uid=10329,10348",
+                    "-T",
+                    "1792831184.218",
+                    "-m",
+                    "20000",
+                ],
+                capture.call_args.args[0],
+            )
+            self.assertEqual(15, capture.call_args.kwargs["timeout"])
+            self.assertEqual(out / "android-logcat.log", capture.call_args.args[1])
+            (out / "android-logcat.log").write_text(
+                "10-24 12:40:00.000 32100 32101 E AndroidRuntime: FATAL EXCEPTION: owned\n"
+                "10-24 12:40:00.001 32100 32101 E         : Failed to start VPN\n"
+            )
+            summary = runner.runtime_summary(
+                out, {"status": "passed", "logcat_scope": scope}
+            )
+            self.assertIn("process-crash", summary["diagnostic_codes"])
+            self.assertEqual("passed", summary["status"])
+
+    def test_logcat_unknown_scope_never_falls_back_to_unscoped_capture(self):
+        app = "package:com.poyka.ripdpi uid:10329\n"
+        test = "package:com.poyka.ripdpi.test uid:10348\n"
+        cases = (
+            [RuntimeError("private lookup")],
+            ["invalid-time"],
+            ["1792831184.218", RuntimeError("private uid")],
+            ["1792831184.218", app],
+            ["1792831184.218", app + test + test],
+            ["1792831184.218", app + test.replace("10348", "10329")],
+            ["1792831184.218", app.replace("10329", "0") + test],
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            for results in cases:
+                with (
+                    self.subTest(results=results),
+                    patch.object(runner, "run", side_effect=results),
+                ):
+                    scope = runner.begin_logcat_scope(["adb"], out)
+                self.assertEqual("unavailable", scope["status"])
+                with patch.object(runner, "run") as capture:
+                    runner.capture_scoped_logcat(["adb"], out, scope)
+                capture.assert_not_called()
+                self.assertNotIn("private", str(scope))
+
+    def test_logcat_capture_failure_is_bounded_metadata_and_preserves_verdict(self):
+        import json
+
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            scope = {
+                "status": "ready",
+                "capture_status": "pending",
+                "max_messages": 20000,
+                "since_device_epoch": "1792831184.218",
+                "package_uids": {
+                    "com.poyka.ripdpi": 10329,
+                    "com.poyka.ripdpi.test": 10348,
+                },
+            }
+            with patch.object(
+                runner, "run", side_effect=RuntimeError("private path token")
+            ):
+                runner.capture_scoped_logcat(["adb"], out, scope)
+            report = {"status": "passed", "logcat_scope": scope}
+            summary = runner.runtime_summary(out, report)
+            self.assertEqual("passed", summary["status"])
+            self.assertEqual("failed", summary["logcat_scope"]["capture_status"])
+            self.assertEqual(
+                "bounded-not-exhaustive", summary["logcat_scope"]["coverage"]
+            )
+            self.assertIn("logcat-capture-incomplete", summary["diagnostic_codes"])
+            public = json.dumps(summary)
+            for private in (
+                "private",
+                "10329",
+                "10348",
+                "1792831184",
+                "com.poyka.ripdpi",
+                temporary,
+            ):
+                self.assertNotIn(private, public)
+            self.assertEqual("capture-failed", scope["reason"])
+
     def test_main_requires_test_success_before_required_receipts(self):
         import json
         import subprocess
@@ -79,6 +188,8 @@ class EvidenceTests(unittest.TestCase):
                     "devices.log": "emulator-5554\tdevice\n",
                     "device-kind.log": "1",
                     "device-abi.log": "arm64-v8a",
+                    "logcat-boundary.log": "1792831184.218",
+                    "logcat-packages.log": "package:com.poyka.ripdpi uid:10329\npackage:com.poyka.ripdpi.test uid:10348\n",
                     "instrumentation-components.log": (
                         "instrumentation:com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner "
                         "(target=com.poyka.ripdpi)\n"
@@ -86,7 +197,10 @@ class EvidenceTests(unittest.TestCase):
                     "instrumentation.log": transcript(code=status),
                 }
 
+                process_calls = []
+
                 def process_output(_command, path, **_kwargs):
+                    process_calls.append(path.name)
                     value = outputs.get(path.name, "")
                     path.write_text(value)
                     return value
@@ -123,6 +237,15 @@ class EvidenceTests(unittest.TestCase):
                     self.assertEqual(1, runner.main())
                 report = json.loads((out / "result.json").read_text())
                 self.assertTrue(report["cleanup"]["passed"])
+                self.assertEqual("collected", report["logcat_scope"]["capture_status"])
+                self.assertLess(
+                    process_calls.index("install-test.log"),
+                    process_calls.index("logcat-boundary.log"),
+                )
+                self.assertLess(
+                    process_calls.index("logcat-boundary.log"),
+                    process_calls.index("instrumentation.log"),
+                )
                 self.assertEqual("failed", report["status"])
                 self.assertEqual(
                     transcript(code=status),

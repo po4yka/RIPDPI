@@ -118,6 +118,77 @@ def awg_peer_environment(host: str | None, peer: str | None) -> dict[str, str]:
     return env
 
 
+def begin_logcat_scope(adb: list[str], out: Path) -> dict:
+    scope = {
+        "status": "unavailable",
+        "capture_status": "skipped",
+        "reason": "boundary-unavailable",
+        "max_messages": 20_000,
+        "coverage": "bounded-not-exhaustive",
+    }
+    try:
+        boundary = run(
+            adb + ["shell", "date", "+%s.%3N"], out / "logcat-boundary.log", timeout=10
+        ).strip()
+    except Exception:
+        return scope
+    if not re.fullmatch(r"[0-9]{10}\.[0-9]{3}", boundary):
+        return dict(scope, reason="boundary-malformed")
+    try:
+        listing = run(
+            adb + ["shell", "pm", "list", "packages", "-U", PACKAGE],
+            out / "logcat-packages.log",
+            timeout=10,
+        )
+    except Exception:
+        return dict(scope, reason="uids-unavailable")
+    package_uids = {}
+    for package in (PACKAGE, PACKAGE + ".test"):
+        matches = re.findall(
+            r"^package:" + re.escape(package) + r" uid:([0-9]+)\r?$", listing, re.M
+        )
+        if len(matches) != 1 or not 0 < int(matches[0]) <= 2_147_483_647:
+            return dict(scope, reason="uids-malformed")
+        package_uids[package] = int(matches[0])
+    if len(set(package_uids.values())) != 2:
+        return dict(scope, reason="uids-malformed")
+    return dict(
+        scope,
+        status="ready",
+        capture_status="pending",
+        reason=None,
+        since_device_epoch=boundary,
+        package_uids=package_uids,
+    )
+
+
+def capture_scoped_logcat(adb: list[str], out: Path, scope: dict) -> None:
+    if scope.get("status") != "ready":
+        return
+    try:
+        run(
+            adb
+            + [
+                "logcat",
+                "-d",
+                "-v",
+                "threadtime",
+                "--uid="
+                + ",".join(str(value) for value in scope["package_uids"].values()),
+                "-T",
+                scope["since_device_epoch"],
+                "-m",
+                str(scope["max_messages"]),
+            ],
+            out / "android-logcat.log",
+            timeout=15,
+        )
+        scope["capture_status"] = "collected"
+    except Exception:
+        scope["capture_status"] = "failed"
+        scope["reason"] = "capture-failed"
+
+
 def digest(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
@@ -704,6 +775,22 @@ def runtime_summary(out: Path, report: dict) -> dict:
         "instrumentation_final_codes": [],
         "test_frames": [],
     }
+    if "logcat_scope" in report:
+        scope = report["logcat_scope"]
+        ready = scope.get("status") == "ready"
+        capture = scope.get("capture_status")
+        summary["logcat_scope"] = {
+            "status": "ready" if ready else "unavailable",
+            "capture_status": capture
+            if capture in ("pending", "collected", "failed", "skipped")
+            else "unknown",
+            "max_messages": 20_000,
+            "coverage": "bounded-not-exhaustive",
+        }
+        if not ready:
+            summary["diagnostic_codes"].append("logcat-scope-unavailable")
+        elif capture != "collected":
+            summary["diagnostic_codes"].append("logcat-capture-incomplete")
     signatures = {
         "disk-full": r"No space left on device",
         "dependency-resolution": r"Could not resolve |Could not download |failed to download|proxy.golang.org.*(?:timeout|refused)",
@@ -950,6 +1037,13 @@ def main() -> int:
         "artifacts": [],
         "peer_identity": {},
         "cleanup": {"passed": False},
+        "logcat_scope": {
+            "status": "unavailable",
+            "capture_status": "skipped",
+            "reason": "installation-incomplete",
+            "max_messages": 20_000,
+            "coverage": "bounded-not-exhaustive",
+        },
     }
     owned: list[OwnedProcess] = []
     installed = False
@@ -1036,6 +1130,7 @@ def main() -> int:
             installed = True
             if installation is not None:
                 installation.confirm(kind)
+        report["logcat_scope"] = begin_logcat_scope(adb, out)
         report["phase"] = "runner"
         components = command(
             adb + ["shell", "pm", "list", "instrumentation"],
@@ -1614,31 +1709,7 @@ def main() -> int:
     finally:
         cleanup_errors = []
         if installed:
-            try:
-                command(
-                    adb
-                    + [
-                        "logcat",
-                        "-d",
-                        "-s",
-                        "ripdpi-native:V",
-                        "ripdpi-tunnel-native:V",
-                        "AndroidRuntime:E",
-                        "DnsFailover:V",
-                        "XrayPeerRecovery:I",
-                        "XrayBuilderInputs:I",
-                        "VpnDnsRecovery:I",
-                        "NetworkHandover:I",
-                        "XrayNativeTrace:I",
-                        "XrayProtect:V",
-                        "GoLog:V",
-                        "*:S",
-                    ],
-                    "android-logcat.log",
-                    timeout=15,
-                )
-            except Exception:
-                pass  # Diagnostic collection does not change the test verdict.
+            capture_scoped_logcat(adb, out, report["logcat_scope"])
             for package in (test_package, PACKAGE):
                 try:
                     command(
