@@ -2,7 +2,7 @@
 id: RST-1792824527607819
 title: Fix crypto-bigint constant-time advisory
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Security release
@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-10-24
 updated: 2026-10-24
 spec_reason: dependency-only
+status_detail: Patched lock passed exact cargo-deny policy, source review, 35 SSH library tests, 7 loopback tests, and 3 independent upstream SSH cases; integration owner retains hosted CI and Android artifact acceptance.
 ---
 
 ## Goal
