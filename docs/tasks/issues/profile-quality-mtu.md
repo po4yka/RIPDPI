@@ -49,6 +49,9 @@ quality and explain scoped path-MTU evidence without introducing another selecto
 - Journal migration writer: a separate worktree owns only pending refresh journal
   recovery and dedicated upgrade/restart tests, using the transport-owned local
   health-policy migration helper. It does not modify wire import or native probes.
+- Storage migration writer: a separate worktree owns the production catalogue
+  schema/read boundary, local health-policy upgrade and their regression tests in
+  `core/data/runtime-state/`. This lane does not modify journal replay or closure.
 - Server writer: the linked deployment task owns the canonical bundle schema,
   policy validation, producer, controlled payload fixture and shared vectors.
 - Do not modify Cargo.lock, protobuf/JNI shapes or golden baselines without a
