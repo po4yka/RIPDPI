@@ -181,6 +181,18 @@ class RelayNativeConfigTest {
                 hysteriaPortHopIntervalMaxMillis = hopping.hysteriaPortHopIntervalMaxMillis,
             )
         File(directory, "flat.json").writeText(json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), flat))
+        val peerFixed =
+            flat.copy(
+                hysteriaPortHopPorts = "42071,42073,42079",
+                hysteriaPortHopIntervalMillis = 5000L,
+                hysteriaPortHopIntervalMaxMillis = null,
+            )
+        val peerRandom = peerFixed.copy(hysteriaPortHopIntervalMaxMillis = 5500L)
+        for ((name, config) in listOf("peer-flat-fixed" to peerFixed, "peer-flat-random" to peerRandom)) {
+            val peerWire = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config)
+            assertEquals(config, json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), peerWire))
+            File(directory, "$name.json").writeText(peerWire)
+        }
     }
 
     @Test
