@@ -56,6 +56,21 @@ def private_ipv4(value: str) -> str:
     return str(address)
 
 
+def owned_dns_outbound(manifest: dict) -> dict:
+    # Validate before creating files or starting any fixture process.
+    port = manifest.get("hysteriaSocksPort")
+    dns_port = manifest.get("dnsPort")
+    if any(
+        type(value) is not int or not 1 <= value <= 65535 for value in (port, dns_port)
+    ):
+        raise ValueError("owned Hysteria DNS requires valid SOCKS and DNS ports")
+    return {
+        "name": "owned_dns",
+        "type": "socks5",
+        "socks5": {"addr": f"127.0.0.1:{port}"},
+    }
+
+
 class UdpFlowLimitError(RuntimeError):
     """The owned gate has no capacity for another source socket."""
 
@@ -190,6 +205,7 @@ class HysteriaFixture:
         self.port = 0
 
     def start(self):
+        dns_outbound = owned_dns_outbound(self.manifest)
         verify_binary(self.executable)
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reserve:
@@ -204,11 +220,12 @@ class HysteriaFixture:
             "auth": {"type": "password", "password": self.password},
             "obfs": {"type": "salamander", "salamander": {"password": self.salamander}},
             "disableUDP": False,
+            "outbounds": [dns_outbound, {"name": "direct", "type": "direct"}],
             "acl": {
                 "inline": [
                     *owned_https_acl(self.manifest),
                     f"direct(192.0.2.77, tcp/{self.manifest['transportPort']}, 127.0.0.1)",
-                    f"direct(192.0.2.53, udp/{self.manifest['dnsPort']}, 127.0.0.1)",
+                    f"owned_dns(192.0.2.53, udp/{self.manifest['dnsPort']})",
                     "reject(all)",
                 ]
             },

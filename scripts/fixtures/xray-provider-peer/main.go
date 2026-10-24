@@ -56,6 +56,7 @@ type peerManifest struct {
 	DirectPort         int    `json:"directPort"`
 	DNSPort            int    `json:"dnsPort,omitempty"`
 	DNSHTTPPort        int    `json:"dnsHttpPort"`
+	HysteriaSOCKSPort  int    `json:"hysteriaSocksPort"`
 	PublicKey          string `json:"publicKey"`
 	UUID               string `json:"uuid"`
 }
@@ -216,24 +217,41 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 		return nil, err
 	}
 	defer privateXHTTP.Close()
+	// This host-only SOCKS ingress preserves the synthetic UDP destination until
+	// the exact owned DNS route below applies its finalRules redirect.
+	socksTCP, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	defer socksTCP.Close()
+	socksPort := socksTCP.Addr().(*net.TCPAddr).Port
+	socksUDP, err := net.ListenPacket("udp4", socksTCP.Addr().String())
+	if err != nil {
+		return nil, err
+	}
+	defer socksUDP.Close()
 	p.backends = []string{privateTCP.Addr().String(), privateXHTTP.Addr().String()}
 	p.manifest = peerManifest{
-		Version:       core.Version(),
-		RunID:         options.RunID,
-		TCPPort:       tcp.Addr().(*net.TCPAddr).Port,
-		XHTTPPort:     xhttp.Addr().(*net.TCPAddr).Port,
-		DirectPort:    directListener.Addr().(*net.TCPAddr).Port,
-		DNSPort:       dnsListener.LocalAddr().(*net.UDPAddr).Port,
-		DNSHTTPPort:   dnsHTTPListener.Addr().(*net.TCPAddr).Port,
-		TransportPort: echoListener.Addr().(*net.TCPAddr).Port,
-		PublicKey:     base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
-		UUID:          options.ClientID,
+		Version:           core.Version(),
+		RunID:             options.RunID,
+		TCPPort:           tcp.Addr().(*net.TCPAddr).Port,
+		XHTTPPort:         xhttp.Addr().(*net.TCPAddr).Port,
+		DirectPort:        directListener.Addr().(*net.TCPAddr).Port,
+		DNSPort:           dnsListener.LocalAddr().(*net.UDPAddr).Port,
+		DNSHTTPPort:       dnsHTTPListener.Addr().(*net.TCPAddr).Port,
+		HysteriaSOCKSPort: socksPort,
+		TransportPort:     echoListener.Addr().(*net.TCPAddr).Port,
+		PublicKey:         base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
+		UUID:              options.ClientID,
 	}
 	qualityListener, err := p.startQualityOrigin(certificate)
 	if err != nil {
 		return nil, err
 	}
-	inbounds := []any{}
+	inbounds := []any{map[string]any{
+		"tag": "hysteria-dns", "listen": "127.0.0.1", "port": socksPort, "protocol": "socks",
+		"settings": map[string]any{"auth": "noauth", "udp": true, "ip": "127.0.0.1"},
+	}}
 	for _, network := range []string{"tcp", "xhttp"} {
 		port, flow := privateTCP.Addr().(*net.TCPAddr).Port, "xtls-rprx-vision"
 		if network == "xhttp" {
@@ -277,6 +295,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			map[string]any{"tag": "owned-doh", "protocol": "freedom", "settings": ownedRedirect("tcp", dnsHTTPListener.Addr().(*net.TCPAddr).AddrPort())},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
+			map[string]any{"type": "field", "inboundTag": []string{"hysteria-dns"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": fmt.Sprint(p.manifest.DNSPort), "outboundTag": "owned-dns"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:quality-a.example.test", "full:quality-b.example.test"}, "port": fmt.Sprintf("443,%d", p.manifest.QualityPort), "outboundTag": "owned-quality"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
@@ -286,6 +305,8 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	}
 	_ = privateTCP.Close()
 	_ = privateXHTTP.Close()
+	_ = socksTCP.Close()
+	_ = socksUDP.Close()
 	instance, err := startInstance(config)
 	if err != nil {
 		return nil, err
