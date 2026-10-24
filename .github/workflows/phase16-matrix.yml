@@ -117,8 +117,14 @@ jobs:
       - name: Install packet smoke host tools
         if: matrix.executionKind != 'l7_adversarial_emulator' && contains(matrix.runsOnJson, 'ubuntu-latest')
         run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq cmake libclang-dev tcpdump tshark
+          # The runner image ships cmake; bounded timeouts turn the Azure mirror
+          # stalls (up to 10 minutes per package) into fast retries.
+          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30)
+          packages=(libclang-dev tcpdump tshark)
+          command -v cmake >/dev/null || packages+=(cmake)
+          command -v jq >/dev/null || packages+=(jq)
+          sudo apt-get "${apt_options[@]}" update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get "${apt_options[@]}" install -y --no-install-recommends "${packages[@]}"
           sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
 
       - name: Run Phase 16 matrix entry
