@@ -1,6 +1,6 @@
 ---
 name: kotlin-test-patterns
-description: "Kotlin/Compose/Hilt/coroutine test code patterns: fakes, MainDispatcherRule, Turbine, Roborazzi, golden-contract calls. Use when writing or fixing Kotlin test code. Not for the TDD workflow (use tdd)."
+description: "Kotlin/Compose/Hilt/coroutine test code patterns: fakes, MainDispatcherRule, Turbine, Roborazzi, golden-contract calls. Use when writing or fixing Kotlin test code. Not for the TDD workflow (use ripdpi-tdd)."
 ---
 
 # Kotlin Test Patterns -- RIPDPI
