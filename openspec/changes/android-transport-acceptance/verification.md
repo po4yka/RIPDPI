@@ -205,3 +205,36 @@ not reached, so Hysteria and this acceptance task remain incomplete.
 All four scenarios passed cleanup. Final inspection found no remaining app or
 test process, VPN service, active instrumentation, owned port reversal, peer
 process or nginx container. No external-network coverage is claimed.
+
+## Physical candidate 38e64afc
+
+The four scenarios and one bounded Hysteria repeat used clean source
+`38e64afcf9f097a60c8dd9146ed431c108fe35ef`. Genuine APK preparation passed
+in 5 minutes 51 seconds. Independently verified SHA-256 values:
+
+- App: `ec4c295d482e152dbb56044c244e93b1a8ba9d25bff47c02ede6f4c2d9c20079`
+- Test: `f53747dabdd8da79e5d8783933748fa8641895ad159d2bcaa7957bf13eeee426`
+
+P0/P1 passed in 144.340 seconds with eight independent payload receipts.
+Both protocols completed a 1 MiB download, 1 MiB upload, 60-second stream
+and 1 MiB recovery download. AWG passed in 82.160 seconds with A/AAAA DNS,
+five payload receipts, reconnect and final wire validation. Its two fresh
+handshakes and signature packets included all five tags; H4 validation saw
+100 values in each direction. Migration passed in 17.001 seconds with a
+path-tested replacement, 1 MiB reserve transfer, and separate 64 KiB readiness
+and 1 MiB replacement transfers.
+
+Hysteria failed in 31.996 seconds during the sleep/wake stream. Initial DNS,
+1 MiB download and 1 MiB upload passed. The log records a transport-switch
+restart before the stream failed. One unchanged repeat failed in 32.096
+seconds with two transport-switch events. Neither run reached automatic
+reserve DNS or explicit UDP recovery. These failures do not validate or
+invalidate the XUDP reply correction because no reserve carrier was reached.
+No additional unchanged repeats are planned.
+
+All five runs passed cleanup. Read-only inspection after the final run found
+no app or test process, app service, active instrumentation, port reversal
+or VPN. Sanitized before and after network snapshots both identify validated
+Wi-Fi as the default transport. This does not exclude a transient change
+during the run. Device settings were not changed. The scope remains local
+USB transport; external paths and Wi-Fi/cellular handover are unverified.

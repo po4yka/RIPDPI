@@ -133,7 +133,8 @@ hostname verification.
 `android-hysteria` additionally requires `--hysteria-binary` with the pinned
 v2.13.0 release artifact for the host. It checks certificate-pin rejection,
 Salamander, UDP DNS, payload digests, streaming across sleep/wake, a peer-scoped
-UDP block and manual selection of a previously saved TCP reserve. This proves
+UDP block and automatic selection of a previously saved TCP reserve through
+production probes and reload. It then checks explicit UDP recovery. This proves
 the named local device path; it does not prove a filtered/control-network
 comparison or Wi-Fi-to-cellular continuity.
 
