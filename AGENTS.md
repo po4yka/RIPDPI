@@ -52,7 +52,7 @@ Work is done when the requested change is implemented, its relevant gate passes 
 
 ## Change discipline
 
-Load the `ponytail` skill at the start of every task that writes, fixes, refactors, or reviews code, and follow it at the `full` level unless the user picks another. It decides how little to build; this file decides what must be verified, so required tests, gates, contracts, and safety rules stay in scope. Use `ponytail-review` for a lean-code review of a diff and `ponytail-audit` for a whole-repository audit; `pr-reviewer` stays the project-policy reviewer. The skills are vendored from upstream; see `.agents/vendor/ponytail/README.md` for source, license, and updates.
+Load the `ponytail` skill at the start of every task that writes, fixes, or refactors code, and follow it at the `full` level unless the user picks another. It decides how little to build; this file decides what must be verified, so required tests, gates, contracts, and safety rules stay in scope. Use `ponytail-review` for a lean-code review of a diff and `ponytail-audit` for a whole-repository audit; neither replaces the required `pr-reviewer` pass or the Rust diff gate in `llm-rust-prompts.md`. The skills are vendored from upstream; see `.agents/vendor/ponytail/README.md` for source, license, and updates.
 
 ## Decision boundaries
 

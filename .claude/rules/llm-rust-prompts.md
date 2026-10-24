@@ -18,7 +18,7 @@ LLM-generated Rust can pass build and test gates while still containing UB, dead
 6. **Do not delegate trait hierarchy design.** Write the trait + doc contract by hand, then delegate implementations. Strategic errors here are expensive to undo.
 7. **Do not delegate `unsafe` byte-buffer parsing without explicit alignment context.** Specify the source of bytes ("from network, alignment unknown" or "from `Vec<u8>`, 8-byte aligned"). See the `rust-unsafe` skill section on "Pointer reads from untrusted byte buffers".
 
-Give the delegate a concrete oracle (the failing test, compiler output, or gate command) and tell it to query rust-analyzer before it guesses a type, lifetime, or trait bound. Without a rust-analyzer server, `cargo doc --locked --no-deps` answers cross-crate signatures and `cargo expand -p <crate> <module>` answers macro questions.
+Give the delegate a concrete oracle (the failing test, compiler output, or gate command). Before you or a delegate guess a type, lifetime, or trait bound, query rust-analyzer. Without a rust-analyzer server, `cargo doc --locked --no-deps` answers cross-crate signatures and `cargo expand -p <crate> <module>` answers macro questions.
 
 ### Diff acceptance gate
 
@@ -36,7 +36,7 @@ Any AI-generated diff that touches **any** of the following requires a separate 
 
 ### CI infrastructure expectations
 
-- **Miri nightly** for every crate without `#![forbid(unsafe_code)]`; `scripts/ci/run-rust-miri.sh` tracks the covered set. LLM-generated `unsafe` has a materially higher UB rate here, so new `unsafe` needs a Miri-runnable test where the crate allows it.
+- **Miri nightly** for every crate without `#![forbid(unsafe_code)]`; `scripts/ci/run-rust-miri.sh` tracks the covered set and the triaged gap list. LLM-generated `unsafe` has a materially higher UB rate here than hand-written code.
 - **`clippy::pedantic` + selected nursery lints** for substantially AI-authored code, opted in **per crate** at the crate root, not as a workspace-wide group flip; `ripdpi-tor/src/lib.rs` is the maintained demonstration.
 
 ### Sentinel patterns for review attention

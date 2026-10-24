@@ -12,8 +12,8 @@
 set -uo pipefail
 
 [[ "${RIPDPI_RUST_HOOKS:-on}" == "off" ]] && exit 0
-# Stock macOS has no timeout(1); without it every Rust edit would report "command not found".
-command -v timeout >/dev/null || exit 0
+# Stock macOS has no timeout(1) and Homebrew coreutils names it gtimeout; without either, skip the check.
+timeout_cmd=$(command -v timeout || command -v gtimeout) || exit 0
 
 input=$(cat 2>/dev/null) || exit 0
 root=$(git -c core.fsmonitor=false rev-parse --show-toplevel 2>/dev/null || pwd)
@@ -38,7 +38,7 @@ ws="$root/native/rust"
 [[ ! -f "$ws/Cargo.toml" ]] && exit 0
 
 # Fast check (no codegen). Timeout 90s — agentic loop should not hang.
-log=$(cd "$ws" && timeout 90 cargo check -p "$crate" --locked --message-format=short 2>&1) || ec=$?
+log=$(cd "$ws" && "$timeout_cmd" 90 cargo check -p "$crate" --locked --message-format=short 2>&1) || ec=$?
 ec=${ec:-0}
 
 # 124 is a timeout (cold dependencies or a held build lock): compile progress, not a compile error.
