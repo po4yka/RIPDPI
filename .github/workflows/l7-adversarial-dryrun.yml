@@ -79,8 +79,13 @@ jobs:
 
       - name: Install raw packet capture tools
         run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake libclang-dev tcpdump tshark
+          # The runner image ships cmake; bounded timeouts turn the Azure mirror
+          # stalls (up to 10 minutes per package) into fast retries.
+          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30)
+          packages=(libclang-dev tcpdump tshark)
+          command -v cmake >/dev/null || packages+=(cmake)
+          sudo apt-get "${apt_options[@]}" update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get "${apt_options[@]}" install -y --no-install-recommends "${packages[@]}"
           sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
 
       - name: Run current-engine TLS packet gate
