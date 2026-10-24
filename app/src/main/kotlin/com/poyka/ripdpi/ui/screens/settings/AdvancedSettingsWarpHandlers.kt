@@ -66,25 +66,25 @@ internal val warpTextHandlers: Map<AdvancedTextSetting, WarpTextHandler> =
             },
         AdvancedTextSetting.WarpAmneziaH1 to
             { value, _ ->
-                if (AmneziaWgWireProfile.headerIsValid(value, 1)) {
+                if (AmneziaWgWireProfile.headerIsValid(value, AmneziaWgWireProfile.InitiationType)) {
                     updateValue("warpAmneziaH1", value) { setWarpAmneziaH1(value) }
                 }
             },
         AdvancedTextSetting.WarpAmneziaH2 to
             { value, _ ->
-                if (AmneziaWgWireProfile.headerIsValid(value, 2)) {
+                if (AmneziaWgWireProfile.headerIsValid(value, AmneziaWgWireProfile.ResponseType)) {
                     updateValue("warpAmneziaH2", value) { setWarpAmneziaH2(value) }
                 }
             },
         AdvancedTextSetting.WarpAmneziaH3 to
             { value, _ ->
-                if (AmneziaWgWireProfile.headerIsValid(value, 3)) {
+                if (AmneziaWgWireProfile.headerIsValid(value, AmneziaWgWireProfile.CookieType)) {
                     updateValue("warpAmneziaH3", value) { setWarpAmneziaH3(value) }
                 }
             },
         AdvancedTextSetting.WarpAmneziaH4 to
             { value, _ ->
-                if (AmneziaWgWireProfile.headerIsValid(value, 4)) {
+                if (AmneziaWgWireProfile.headerIsValid(value, AmneziaWgWireProfile.TransportType)) {
                     updateValue("warpAmneziaH4", value) { setWarpAmneziaH4(value) }
                 }
             },
@@ -129,25 +129,42 @@ internal fun warpAmneziaInputIsValid(
     value: String,
 ): Boolean =
     when (setting) {
-        AdvancedTextSetting.WarpAmneziaH1 -> AmneziaWgWireProfile.headerIsValid(value, 1)
+        AdvancedTextSetting.WarpAmneziaH1 -> {
+            AmneziaWgWireProfile.headerIsValid(value, AmneziaWgWireProfile.InitiationType)
+        }
 
-        AdvancedTextSetting.WarpAmneziaH2 -> AmneziaWgWireProfile.headerIsValid(value, 2)
+        AdvancedTextSetting.WarpAmneziaH2 -> {
+            AmneziaWgWireProfile.headerIsValid(value, AmneziaWgWireProfile.ResponseType)
+        }
 
-        AdvancedTextSetting.WarpAmneziaH3 -> AmneziaWgWireProfile.headerIsValid(value, 3)
+        AdvancedTextSetting.WarpAmneziaH3 -> {
+            AmneziaWgWireProfile.headerIsValid(value, AmneziaWgWireProfile.CookieType)
+        }
 
-        AdvancedTextSetting.WarpAmneziaH4 -> AmneziaWgWireProfile.headerIsValid(value, 4)
+        AdvancedTextSetting.WarpAmneziaH4 -> {
+            AmneziaWgWireProfile.headerIsValid(value, AmneziaWgWireProfile.TransportType)
+        }
 
-        AdvancedTextSetting.WarpAmneziaJc -> value.toIntOrNull()?.let { it in 0..128 } == true
+        AdvancedTextSetting.WarpAmneziaJc -> {
+            value.toIntOrNull()?.let { it in 0..AmneziaWgWireProfile.MaximumJunkPackets } ==
+                true
+        }
 
         AdvancedTextSetting.WarpAmneziaJmin,
         AdvancedTextSetting.WarpAmneziaJmax,
         AdvancedTextSetting.WarpAmneziaS1,
         AdvancedTextSetting.WarpAmneziaS2,
-        -> value.toIntOrNull()?.let { it in 0..1280 } == true
+        -> {
+            value.toIntOrNull()?.let { it in 0..AmneziaWgWireProfile.MaximumPacket } == true
+        }
 
         AdvancedTextSetting.WarpAmneziaS3,
         AdvancedTextSetting.WarpAmneziaS4,
-        -> value.toIntOrNull() == 0
+        -> {
+            value.toIntOrNull() == 0
+        }
 
-        else -> false
+        else -> {
+            false
+        }
     }

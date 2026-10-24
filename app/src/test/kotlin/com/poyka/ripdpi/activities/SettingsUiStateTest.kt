@@ -188,6 +188,7 @@ class SettingsUiStateTest {
             defaults
                 .toBuilder()
                 .setWarpEnabled(true)
+                .setWarpAmneziaWireProfile("awg-3.1-ranges-v1")
                 .setWarpAmneziaPreset(WarpAmneziaPresetBalanced)
                 .build()
                 .toUiState()
@@ -200,6 +201,7 @@ class SettingsUiStateTest {
             defaults
                 .toBuilder()
                 .setWarpEnabled(true)
+                .setWarpAmneziaWireProfile("awg-3.1-ranges-v1")
                 .setWarpAmneziaPreset(WarpAmneziaPresetCustom)
                 .setWarpAmneziaEnabled(true)
                 .setWarpAmneziaJc(4)

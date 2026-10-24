@@ -4,7 +4,12 @@ package com.poyka.ripdpi.data.wireguard
 object AmneziaWgWireProfile {
     const val ID: String = "awg-3.1-ranges-v1"
     private const val MaximumHeader = 0xFFFF_FFFFL
-    private const val MaximumPacket = 1280
+    const val MaximumPacket = 1280
+    const val MaximumJunkPackets = 128
+    const val InitiationType = 1
+    const val ResponseType = 2
+    const val CookieType = 3
+    const val TransportType = 4
     private const val MaximumProgramText = 4096
     private const val MaximumTags = 64
     private val Decimal = Regex("0|[1-9][0-9]*")
@@ -24,7 +29,7 @@ object AmneziaWgWireProfile {
         messageType: Int,
     ): Boolean =
         headerRange(value)?.let { range ->
-            range.first > 4 || (range.first == messageType.toLong() && range.last == range.first)
+            range.first > TransportType || (range.first == messageType.toLong() && range.last == range.first)
         } == true
 
     fun signatureSize(program: String): Int? {
@@ -63,7 +68,7 @@ object AmneziaWgWireProfile {
         s1: Int?,
         s2: Int?,
     ) {
-        require((jc ?: 0) in 0..128) { "AmneziaWG Jc must be in 0..128" }
+        require((jc ?: 0) in 0..MaximumJunkPackets) { "AmneziaWG Jc must be in 0..128" }
         require(listOf(jmin, jmax, s1, s2).all { (it ?: 0) in 0..MaximumPacket }) {
             "AmneziaWG packet sizes must be in 0..1280"
         }

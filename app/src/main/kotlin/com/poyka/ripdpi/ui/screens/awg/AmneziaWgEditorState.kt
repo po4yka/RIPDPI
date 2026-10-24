@@ -72,8 +72,8 @@ enum class AwgEditorField(
      */
     fun validate(raw: String): Any? =
         when (this) {
-            JC -> raw.toIntOrNull()?.takeIf { it in 0..128 }
-            JMIN, JMAX, S1, S2 -> raw.toIntOrNull()?.takeIf { it in 0..1280 }
+            JC -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumJunkPackets }
+            JMIN, JMAX, S1, S2 -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumPacket }
             S3, S4 -> raw.toIntOrNull()?.takeIf { it == 0 }
             H1, H2, H3, H4 -> raw.takeIf { AmneziaWgWireProfile.headerIsValid(it, name.last().digitToInt()) }
             I1, I2, I3, I4, I5 -> raw.takeIf { AmneziaWgWireProfile.signatureSize(it) != null }

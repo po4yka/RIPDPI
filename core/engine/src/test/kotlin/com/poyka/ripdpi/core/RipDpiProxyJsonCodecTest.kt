@@ -585,7 +585,7 @@ class RipDpiProxyJsonCodecTest {
         assertEquals("custom", warp?.amneziaPreset)
         assertEquals(true, warp?.amnezia?.enabled)
         assertEquals(5, warp?.amnezia?.jc)
-        assertEquals(24, warp?.amnezia?.s4)
+        assertEquals(0, warp?.amnezia?.s4)
         assertEquals("127.0.0.9", warp?.localSocksHost)
         assertEquals(12090, warp?.localSocksPort)
         assertEquals(true, wsTunnel?.enabled)
