@@ -20,10 +20,11 @@ default:
 checkout-doctor:
     python3 scripts/checkout_doctor.py {{quote(invocation_directory())}}
 
-# Install git hooks and dev tooling
+# Prepare a checkout or new worktree: pinned task tools, Rust-skill submodule, git hooks
 [group('setup')]
 setup:
     npm ci --prefix tools/tasking --ignore-scripts
+    git submodule update --init --depth 1 .agents/vendor/rust-skills
     lefthook install --force
 
 # Install the exact repository-pinned mdtask and OpenSpec versions

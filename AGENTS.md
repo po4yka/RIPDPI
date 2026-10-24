@@ -70,7 +70,7 @@ The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any 
 
 ## Worktree and commit workflow
 
-Every job or feature that changes files runs in a dedicated git worktree, never directly in the `main` checkout; other agents share that checkout. Read-only investigation may run anywhere. Every writer needs isolated ownership, and parallel writers use separate worktrees.
+Every job or feature that changes files runs in a dedicated git worktree, never directly in the `main` checkout; other agents share that checkout. Read-only investigation may run anywhere. Every writer needs isolated ownership, and parallel writers use separate worktrees. Prepare a new worktree once with `just setup` (the commit hooks need its task tools and Rust-skill submodule) and copy the ignored `local.properties` for Gradle.
 
 Each atomic unit is a self-contained Conventional Commit with an imperative subject under 72 characters. Preserve unrelated dirty state and stage only the task slice.
 
@@ -129,7 +129,7 @@ Use only `./taskctl` for task state, mdtask access, OpenSpec archival, validatio
 
 ## Skills and subagents
 
-Project skills live in `.agents/skills/` (Codex reads them there; `.claude/skills/` and `.github/skills/` are symlink mirrors). Rust engineering skills come from the pinned `.agents/vendor/rust-skills` submodule; initialize it with `git submodule update --init --depth 1 .agents/vendor/rust-skills` and never copy or fork its skill bodies.
+Project skills live in `.agents/skills/` (Codex reads them there; `.claude/skills/` and `.github/skills/` are symlink mirrors). Rust engineering skills come from the pinned `.agents/vendor/rust-skills` submodule (`just setup` initializes it); never copy or fork its skill bodies.
 
 Subagents are defined in `.claude/agents/` (Claude Code) and `.codex/agents/` (Codex) under the same names. Delegate when isolation helps, and do small or local work directly:
 
