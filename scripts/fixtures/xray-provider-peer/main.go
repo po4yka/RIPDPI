@@ -43,6 +43,7 @@ const destination = "192.0.2.77:80"
 const ownedDNSName = "owned.test."
 
 type peerManifest struct {
+	QualityPort        int    `json:"qualityPort"`
 	QualityBytes       int    `json:"qualityBytes"`
 	QualitySHA256      string `json:"qualitySha256"`
 	QualityCertificate string `json:"qualityCertificate"`
@@ -276,7 +277,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			map[string]any{"tag": "owned-doh", "protocol": "freedom", "settings": ownedRedirect("tcp", dnsHTTPListener.Addr().(*net.TCPAddr).AddrPort())},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
-			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:quality-a.example.test", "full:quality-b.example.test"}, "port": "443", "outboundTag": "owned-quality"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:quality-a.example.test", "full:quality-b.example.test"}, "port": fmt.Sprintf("443,%d", p.manifest.QualityPort), "outboundTag": "owned-quality"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
 			// Host tests and the emulator alias reach only this owned HTTP port.

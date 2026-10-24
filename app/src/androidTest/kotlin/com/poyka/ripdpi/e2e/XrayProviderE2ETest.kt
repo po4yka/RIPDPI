@@ -121,6 +121,14 @@ import javax.inject.Singleton
 @HiltAndroidTest
 @UninstallModules(VpnTunnelSessionProviderModule::class, XrayBridgeModule::class)
 class XrayProviderE2ETest {
+    @BindValue
+    @JvmField
+    val automaticPayloadHttp =
+        com.poyka.ripdpi.services.OwnedQualityProbeFactory.http(
+            { manifest.getString("qualityCertificate") },
+            { manifest.getInt("qualityPort") },
+        )
+
     // JUnit creates a fresh test instance, so each case has its own eight-event budget.
     @BindValue
     @JvmField
@@ -198,6 +206,14 @@ class XrayProviderE2ETest {
     @Inject lateinit var utilityCatalog: ProfileUtilityCatalogReader
 
     @Inject lateinit var utilityApplied: AppliedRuntimeConfigurationSource
+
+    @Inject lateinit var selectorGroups: com.poyka.ripdpi.data.ProxyGroupRepository
+
+    @Inject lateinit var selectorSelections: com.poyka.ripdpi.data.selector.SelectorSelectionStore
+
+    @Inject lateinit var selectorActive: com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
+
+    @Inject lateinit var selectorMutationStores: com.poyka.ripdpi.data.ProfileMutationStores
 
     @Inject lateinit var utilityPause: TimedPauseController
 
@@ -682,8 +698,23 @@ class XrayProviderE2ETest {
         val oldProfile = runBlocking { relayProfiles.load(relayId) }
         val oldCredentials = runBlocking { relayCredentials.load(relayId) }
         val transportPort = manifest.getInt("transportPort")
+        val automatic =
+            OwnedHysteriaSelector(
+                selectorGroups,
+                selectorSelections,
+                selectorActive,
+                utilityMutations,
+                selectorMutationStores,
+                utilityApplied,
+                manifest,
+                fixtureHost,
+                udpBridge?.port ?: manifest.getInt("hysteriaPort"),
+            )
 
-        fun startHysteria(pin: String) {
+        fun startHysteria(
+            pin: String,
+            automaticSelection: Boolean = false,
+        ) {
             runBlocking { controller.stop() }
             awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
             runBlocking {
@@ -714,11 +745,13 @@ class XrayProviderE2ETest {
                     relayProfileId = relayId
                     tlsFingerprintProfile = TlsFingerprintProfileFirefoxStable
                 }
+                if (automaticSelection) automatic.selectPrimaryBeforeStart()
                 assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
             }
             awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
         }
         try {
+            automatic.prepareStandalonePreflight()
             // Save and exercise the TCP reserve before the UDP path is disrupted.
             start("tcp", wrongIdentity = false)
             awaitOwnedPeerEcho("predelivered-reserve")
@@ -731,7 +764,9 @@ class XrayProviderE2ETest {
                 assertFalse(probe.transfer("download", "hysteria-wrong-pin", port = transportPort).getBoolean("ok"))
                 assertEquals(before, readControl("transport-receipts").getJSONArray("receipts").length())
             }
-            startHysteria(manifest.getString("hysteriaCertificatePin"))
+            val qualityBefore = completedQualityProbeCount()
+            startHysteria(manifest.getString("hysteriaCertificatePin"), automaticSelection = true)
+            val primaryApplied = automatic.awaitPrimary()
             bindTestProcessDnsProbeService(10_000).use { probe ->
                 assertTrue(probe.awaitVpnDefaultNetwork(10_000))
 
@@ -796,25 +831,15 @@ class XrayProviderE2ETest {
                         device.isScreenOn == wasAwake
                     }
                 }
+                awaitUntil(timeoutMs = 60_000) { completedQualityProbeCount() > qualityBefore }
+                assertEquals(primaryApplied.runtimeId, automatic.awaitPrimary().runtimeId)
                 readControl("peer/stop", "POST")
                 try {
                     assertFalse(
                         probe.transfer("download", "hysteria-udp-blocked", port = transportPort).getBoolean("ok"),
                     )
                     assertTrue(readControl("udp-receipts").getInt("dropped") > 0)
-                    // Select the already persisted reserve through the real controller.
-                    runBlocking {
-                        controller.stop()
-                        settings.update { relayEnabled = false }
-                        assertTrue(profiles.load(ProfileId) != null)
-                        selection.update(
-                            XrayProviderSelectionRecord(
-                                providerKind = XrayProviderSelectionRecord.ProviderKindXray,
-                                activeProfileId = ProfileId,
-                            ),
-                        )
-                        assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
-                    }
+                    automatic.awaitAutomaticReserve(primaryApplied)
                     awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
                     awaitOwnedPeerEcho("udp-blocked-tcp-reserve")
                     transfer("download", "tcp-reserve", port = 80)
@@ -822,21 +847,37 @@ class XrayProviderE2ETest {
                 } finally {
                     readControl("peer/start", "POST")
                 }
-            }
-            startHysteria(manifest.getString("hysteriaCertificatePin"))
-            bindTestProcessDnsProbeService(10_000).use { probe ->
+                // A separate explicit recovery phase begins only after automatic reserve proof is complete.
+                automatic.prepareStandalonePreflight()
+                startHysteria(manifest.getString("hysteriaCertificatePin"))
                 assertTrue(probe.awaitVpnDefaultNetwork(10_000))
-                assertTrue(probe.transfer("download", "hysteria-udp-recovered", port = transportPort).getBoolean("ok"))
+                transfer("download", "explicit-udp-recovered")
             }
             assertTrue(state.telemetry.value.tunnelStats.txPackets > 0)
             assertTrue(state.telemetry.value.tunnelStats.rxPackets > 0)
         } finally {
-            runBlocking {
-                controller.stop()
-                if (oldProfile == null) relayProfiles.clear(relayId) else relayProfiles.save(oldProfile)
-                if (oldCredentials == null) relayCredentials.clear(relayId) else relayCredentials.save(oldCredentials)
+            try {
+                runBlocking {
+                    controller.stop()
+                    awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
+                    if (oldProfile == null) relayProfiles.clear(relayId) else relayProfiles.save(oldProfile)
+                    if (oldCredentials ==
+                        null
+                    ) {
+                        relayCredentials.clear(relayId)
+                    } else {
+                        relayCredentials.save(oldCredentials)
+                    }
+                }
+            } finally {
+                automatic.close()
             }
         }
+    }
+
+    private fun completedQualityProbeCount(): Int {
+        val receipts = readControl("request-receipts").getJSONArray("receipts")
+        return (0 until receipts.length()).count { receipts.getJSONObject(it).getString("target") == "QualityComplete" }
     }
 
     @Test
@@ -1288,9 +1329,7 @@ class XrayProviderE2ETest {
             check(connection.responseCode == 200)
             connection.inputStream.use { stream ->
                 val body = stream.readBytes().decodeToString()
-                if (path ==
-                    "transport-receipts"
-                ) {
+                if (path in setOf("transport-receipts", "request-receipts")) {
                     JSONObject().put("receipts", org.json.JSONArray(body))
                 } else {
                     JSONObject(body)

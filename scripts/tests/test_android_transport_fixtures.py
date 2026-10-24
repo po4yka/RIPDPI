@@ -13,12 +13,24 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ci"))
-from android_hysteria_fixture import HysteriaFixture, UdpGate, prepare_binary
+from android_hysteria_fixture import HysteriaFixture, UdpGate, owned_https_acl, prepare_binary
 from android_udp_bridge import MAX_FLOWS
 from android_nginx_fixture import NginxFixture, configuration, private_host
 
 
 class FixtureTests(unittest.TestCase):
+    def test_owned_https_acl_allows_only_two_exact_domains_and_one_tcp_port(self):
+        self.assertEqual(
+            [
+                "direct(quality-a.example.test, tcp/49173, 127.0.0.1)",
+                "direct(quality-b.example.test, tcp/49173, 127.0.0.1)",
+            ],
+            owned_https_acl({"qualityPort": 49173}),
+        )
+        for port in (0, 65536, True, "443", "443), direct(all"):
+            with self.subTest(port=port), self.assertRaises(ValueError):
+                owned_https_acl({"qualityPort": port})
+
     def udp_clients(self, stack, count):
         upstream = stack.enter_context(socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
         upstream.bind(("127.0.0.1", 0))

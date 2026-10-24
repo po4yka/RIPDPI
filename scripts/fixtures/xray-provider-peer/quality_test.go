@@ -104,3 +104,78 @@ func verifyQualityRound(t *testing.T, p *peer, client *http.Client, late bool) {
 		t.Fatalf("observed overlap=%t, late control=%t", overlap, late)
 	}
 }
+
+func TestOwnedQualityPortAllowsOnlyExactControlNames(t *testing.T) {
+	p, err := startPeer(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.close()
+	if p.manifest.QualityPort < 1 || p.manifest.QualityPort > 65535 {
+		t.Fatal("invalid quality port")
+	}
+	der, err := base64.StdEncoding.DecodeString(p.manifest.QualityCertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(certificate)
+	for _, network := range []string{"tcp", "xhttp"} {
+		t.Run(network, func(t *testing.T) {
+			before := completedQualityReceipts(p)
+			client := realityHTTPClient(t, p, network, nil)
+			client.Timeout = 3 * time.Second
+			client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13}
+			for _, host := range []string{"quality-a.example.test", "quality-b.example.test"} {
+				response, err := client.Get(fmt.Sprintf("https://%s:%d/quality-payload", host, p.manifest.QualityPort))
+				if err != nil {
+					t.Fatal(err)
+				}
+				body, err := io.ReadAll(response.Body)
+				response.Body.Close()
+				if err != nil || response.StatusCode != 200 || len(body) != p.manifest.QualityBytes || fmt.Sprintf("%x", sha256.Sum256(body)) != p.manifest.QualitySHA256 {
+					t.Fatal("owned control body failed")
+				}
+			}
+			deadline := time.Now().Add(time.Second)
+			for completedQualityReceipts(p) != before+2 {
+				if time.Now().After(deadline) {
+					t.Fatalf("completed controls=%d, before=%d", completedQualityReceipts(p), before)
+				}
+				time.Sleep(time.Millisecond)
+			}
+			for _, authority := range []string{
+				fmt.Sprintf("sub.quality-a.example.test:%d", p.manifest.QualityPort),
+				fmt.Sprintf("unrelated.example.test:%d", p.manifest.QualityPort),
+				fmt.Sprintf("127.0.0.1:%d", p.manifest.QualityPort),
+				fmt.Sprintf("quality-a.example.test:%d", 1+p.manifest.QualityPort%65535),
+			} {
+				response, err := client.Get("https://" + authority + "/quality-payload")
+				if err == nil {
+					response.Body.Close()
+					t.Fatalf("unexpected control route: %s", authority)
+				}
+			}
+			if p.directCount.Load() != 0 {
+				t.Fatal("control escaped owned route")
+			}
+			if completedQualityReceipts(p) != before+2 {
+				t.Fatal("unowned destination reached the quality origin")
+			}
+		})
+	}
+}
+
+func completedQualityReceipts(p *peer) int {
+	completed := 0
+	for _, receipt := range p.requests.snapshot() {
+		if receipt.Target == "QualityComplete" {
+			completed++
+		}
+	}
+	return completed
+}

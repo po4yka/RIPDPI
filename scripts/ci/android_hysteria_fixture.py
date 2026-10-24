@@ -150,6 +150,16 @@ class UdpGate:
             raise RuntimeError("UDP gate failed") from self.error
 
 
+def owned_https_acl(manifest):
+    port = manifest["qualityPort"]
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ValueError("owned HTTPS port must be an integer in 1..65535")
+    return [
+        f"direct({host}, tcp/{port}, 127.0.0.1)"
+        for host in ("quality-a.example.test", "quality-b.example.test")
+    ]
+
+
 class HysteriaFixture:
     def __init__(
         self,
@@ -196,6 +206,7 @@ class HysteriaFixture:
             "disableUDP": False,
             "acl": {
                 "inline": [
+                    *owned_https_acl(self.manifest),
                     f"direct(192.0.2.77, tcp/{self.manifest['transportPort']}, 127.0.0.1)",
                     f"direct(192.0.2.53, udp/{self.manifest['dnsPort']}, 127.0.0.1)",
                     "reject(all)",
