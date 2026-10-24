@@ -49,6 +49,92 @@ class EvidenceTests(unittest.TestCase):
             self.assertEqual("192.168.1.2", lan["RIPDPI_AWG_PEER_IP"])
             self.assertEqual(inherited, dict(runner.os.environ))
 
+    def test_main_requires_test_success_before_required_receipts(self):
+        import json
+        import subprocess
+
+        for status in (-2, 0):
+            with (
+                tempfile.TemporaryDirectory() as temporary,
+                self.subTest(status=status),
+            ):
+                out = Path(temporary) / "result"
+                argv = [
+                    "runner",
+                    "--scenario",
+                    "android-xray",
+                    "--run-id",
+                    "owned-run",
+                    "--out-dir",
+                    str(out),
+                    "--serial",
+                    "emulator-5554",
+                    "--prepared-dir",
+                    temporary,
+                    "--xray-control-port",
+                    "41000",
+                ]
+                outputs = {
+                    "source.log": "a" * 40,
+                    "devices.log": "emulator-5554\tdevice\n",
+                    "device-kind.log": "1",
+                    "device-abi.log": "arm64-v8a",
+                    "instrumentation-components.log": (
+                        "instrumentation:com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner "
+                        "(target=com.poyka.ripdpi)\n"
+                    ),
+                    "instrumentation.log": transcript(code=status),
+                }
+
+                def process_output(_command, path, **_kwargs):
+                    value = outputs.get(path.name, "")
+                    path.write_text(value)
+                    return value
+
+                required_reads = []
+
+                def read_receipts(_host, _port, endpoint, *_args):
+                    if endpoint == "manifest":
+                        return {"runId": "owned-run", "version": "owned-version"}
+                    required_reads.append(endpoint)
+                    raise ValueError("required receipt is unavailable")
+
+                metadata = {
+                    "apks": {
+                        kind: {"path": "/owned/" + kind + ".apk", "sha256": "b" * 64}
+                        for kind in ("app", "test")
+                    }
+                }
+                with (
+                    patch.object(runner.sys, "argv", argv),
+                    patch.dict(runner.SCENARIOS, {"android-xray": [TEST]}),
+                    patch.object(runner, "source_fingerprint", return_value="c" * 64),
+                    patch.object(runner, "prepared", return_value=metadata),
+                    patch.object(runner, "run", side_effect=process_output),
+                    patch.object(runner, "fetch", side_effect=read_receipts),
+                    patch.object(runner.signal, "signal"),
+                    patch.object(
+                        runner.subprocess,
+                        "run",
+                        return_value=subprocess.CompletedProcess([], 1, "", ""),
+                    ),
+                    patch("builtins.print"),
+                ):
+                    self.assertEqual(1, runner.main())
+                report = json.loads((out / "result.json").read_text())
+                self.assertTrue(report["cleanup"]["passed"])
+                self.assertEqual("failed", report["status"])
+                self.assertEqual(
+                    transcript(code=status),
+                    (out / "test-1/instrumentation.log").read_text(),
+                )
+                if status == -2:
+                    self.assertEqual([], required_reads)
+                    self.assertIn("instrumentation failed or skipped", report["error"])
+                else:
+                    self.assertEqual(["receipts"], required_reads)
+                    self.assertEqual("required receipt is unavailable", report["error"])
+
     def test_owned_runner_preserves_unrelated_instrumentation(self):
         owned = "com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner"
         other = (

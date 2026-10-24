@@ -1489,6 +1489,7 @@ def main() -> int:
                 launch.extend(["-e", key, value])
             launch.append(component)
             output = run(launch, test_dir / "instrumentation.log", timeout=600)
+            parse_instrumentation(output, method)
             if protocol_scenario in (
                 "android-xray",
                 "android-transactions",
@@ -1553,7 +1554,6 @@ def main() -> int:
                     test_dir / "device-migration-receipt.json",
                 )
                 validate_migration_receipt(json.loads(raw), migration_identity)
-            parse_instrumentation(output, method)
             if protocol_scenario == "android-awg":
                 finished = fetch(receipt_host, receipt_port, "finish", "POST")
                 if (
