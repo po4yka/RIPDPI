@@ -4,11 +4,8 @@ mod launch;
 mod preparation;
 mod supervisor;
 mod tcp_launch;
-mod timeout;
 mod unavailable;
 mod warmup;
-
-use std::time::Duration;
 
 #[cfg(test)]
 pub(crate) use adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
@@ -23,14 +20,6 @@ pub(crate) use supervisor::{CandidateRuntimeLease, CandidateRuntimeSupervisor};
 pub(crate) use tcp_launch::probe_tcp_runtime_transport;
 pub use unavailable::UnavailableCandidateRuntimeLauncher;
 pub use warmup::run_candidate_warmup;
-
-/// Compute adaptive connect timeout based on observed control RTT.
-/// Uses max(MIN_ADAPTIVE_TIMEOUT, control_rtt * RTT_MULTIPLIER) capped at CONNECT_TIMEOUT.
-/// Currently a building block for future per-candidate timeout tuning.
-#[allow(dead_code)]
-pub fn adaptive_connect_timeout(control_rtt_ms: Option<u64>) -> Duration {
-    timeout::adaptive_connect_timeout(control_rtt_ms)
-}
 
 #[cfg(test)]
 mod tests {
