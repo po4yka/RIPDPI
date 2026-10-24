@@ -1361,43 +1361,6 @@ jobs:
       - name: Run cargo-deny advisories
         run: cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories
 
-  diagnostics-probes-facade:
-    needs: [change-routing, ci-preflight]
-    if: >-
-      !cancelled() &&
-      needs.ci-preflight.result == 'success' &&
-      github.event_name != 'schedule' &&
-      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
-        with:
-          toolchain: "1.98.1"
-
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-          shared-key: rust-host-check
-          save-if: false
-
-      # The compat-facade feature is default-on; the diagnostics-probes crate
-      # must compile with it OFF (root exports unconditional) and ON.
-      - name: Check ripdpi-diagnostics-probes (compat-facade OFF)
-        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --locked
-
-      - name: Check ripdpi-diagnostics-probes (compat-facade ON)
-        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
-
-      - uses: ./.github/actions/upload-build-observability
-        if: always()
-        with:
-          artifact-name: build-observability-diagnostics-probes
-
   rust-lint:
     needs: [change-routing, ci-preflight]
     if: >-
@@ -1406,7 +1369,7 @@ jobs:
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -1425,6 +1388,14 @@ jobs:
 
       - name: Run Rust lint checks
         run: bash scripts/ci/run-rust-lint.sh
+
+      # The compat-facade feature is default-on; the diagnostics-probes crate
+      # must compile with it OFF (root exports unconditional) and ON.
+      - name: Check ripdpi-diagnostics-probes (compat-facade OFF)
+        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --locked
+
+      - name: Check ripdpi-diagnostics-probes (compat-facade ON)
+        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1472,7 +1443,7 @@ jobs:
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -1495,6 +1466,14 @@ jobs:
 
       - name: Run Rust workspace tests and architecture checks
         run: bash scripts/ci/run-rust-workspace-tests.sh
+
+      # The network E2E and turmoil binaries reuse this job's compiled
+      # workspace instead of rebuilding it in separate jobs.
+      - name: Run repo-owned Rust network E2E
+        run: bash scripts/ci/run-rust-network-e2e.sh
+
+      - name: Run turmoil-backed deterministic network tests
+        run: bash scripts/ci/run-rust-turmoil-tests.sh
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1645,38 +1624,6 @@ jobs:
             **/build/reports/lint-results*.html
           retention-days: 7
 
-  rust-network-e2e:
-    needs: [change-routing, ci-preflight]
-    if: >-
-      !cancelled() &&
-      needs.ci-preflight.result == 'success' &&
-      github.event_name != 'schedule' &&
-      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
-        with:
-          toolchain: "1.98.1"
-
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-          shared-key: rust-host-test
-          save-if: false
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
-        with:
-          tool: cargo-nextest
-
-      - name: Run repo-owned Rust network E2E
-        run: bash scripts/ci/run-rust-network-e2e.sh
-
   relay-interoperability:
     needs: [change-routing, ci-preflight]
     if: >-
@@ -1772,37 +1719,6 @@ jobs:
           name: cli-packet-smoke
           path: build/packet-smoke/cli/**
           retention-days: 7
-
-  rust-turmoil:
-    needs: [change-routing, ci-preflight]
-    if: >-
-      !cancelled() &&
-      needs.ci-preflight.result == 'success' &&
-      github.event_name != 'schedule' &&
-      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
-        with:
-          toolchain: "1.98.1"
-
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-          shared-key: rust-host-test
-          save-if: false
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
-        with:
-          tool: cargo-nextest
-
-      - name: Run turmoil-backed deterministic network tests
-        run: bash scripts/ci/run-rust-turmoil-tests.sh
 
   kotlin-coverage:
     needs: [change-routing, ci-preflight]
@@ -3282,17 +3198,14 @@ jobs:
       - rust-miri
       - cargo-deny
       - cargo-deny-advisories
-      - diagnostics-probes-facade
       - rust-lint
       - rust-cross-check
       - rust-workspace-tests
       - rust-fuzz-smoke
       - runtime-api-snapshot
       - gradle-static-analysis
-      - rust-network-e2e
       - relay-interoperability
       - cli-packet-smoke
-      - rust-turmoil
       - kotlin-coverage
       - rust-coverage
       - rust-criterion-bench
@@ -3385,15 +3298,12 @@ jobs:
                       {
                           "rust-miri",
                           "cargo-deny",
-                          "diagnostics-probes-facade",
                           "rust-lint",
                           "rust-cross-check",
                           "rust-workspace-tests",
                           "rust-fuzz-smoke",
-                          "rust-network-e2e",
                           "relay-interoperability",
                           "cli-packet-smoke",
-                          "rust-turmoil",
                           "rust-loom",
                       }
                   )

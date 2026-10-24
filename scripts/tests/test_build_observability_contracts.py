@@ -51,7 +51,6 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             "build-android-tests": "build-observability-android-tests",
             "verify-roborazzi": "build-observability-roborazzi",
             "release-verification": "build-observability-release-${{ matrix.shard.id }}",
-            "diagnostics-probes-facade": "build-observability-diagnostics-probes",
             "rust-lint": "build-observability-rust-lint",
             "rust-cross-check": "build-observability-rust-cross-check",
             "rust-workspace-tests": "build-observability-rust-workspace-tests",
