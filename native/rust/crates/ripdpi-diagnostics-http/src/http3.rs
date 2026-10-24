@@ -75,7 +75,6 @@ fn elapsed(started: Instant) -> u64 {
 
 /// # Cancel safety:
 /// cancel-safe: sleep is the only await. Drop removes the timer; the borrowed flag is unchanged.
-// cancel-safe: timer and shared flag have no partially committed operation.
 async fn cancelled(cancel: &AtomicBool) {
     loop {
         // Acquire observes the owner's cancellation publication.
@@ -90,7 +89,6 @@ async fn cancelled(cancel: &AtomicBool) {
 /// conditionally cancel-safe: cancelling DNS sleep drops its receiver while the
 /// bounded resolver job continues. Cancelling attempt drops its owned resources
 /// and keeps committed evidence. The caller drops the dedicated Quinn runtime.
-// cancel-safe: no detached per-probe Tokio tasks or blocking Tokio worker jobs are created.
 async fn execute(
     config: &Http3ProbeConfig,
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
@@ -172,7 +170,6 @@ fn client_config(verifier: Option<&Arc<dyn ServerCertVerifier>>) -> Result<quinn
 /// finish, recv_response, recv_data and recv_trailers waits discard their local
 /// resources on cancellation. A partial GET may reach the peer; committed facts
 /// remain. The caller must drop the dedicated runtime to abort Quinn tasks.
-// cancel-safe: request progress is captured before waits and all I/O resources are owned locally.
 async fn attempt(
     config: &Http3ProbeConfig,
     verifier: Option<&Arc<dyn ServerCertVerifier>>,

@@ -54,7 +54,6 @@ fn bind(target: SocketAddr) -> SocketResult {
 /// queued/running platform callback can continue on the fixed worker. Its socket
 /// is then dropped without outbound use. A full queue is retried until the
 /// deadline. The caller owns the overall deadline.
-// cancel-safe: abandoning the receiver never creates outbound activity or another thread.
 pub(crate) async fn protected_socket(target: SocketAddr, deadline: Instant) -> SocketResult {
     let (sender, receiver) = mpsc::channel();
     let mut job = Job { target, deadline, result: sender };

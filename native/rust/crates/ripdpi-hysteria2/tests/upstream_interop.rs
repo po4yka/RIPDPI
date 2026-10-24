@@ -26,8 +26,7 @@ fn config() -> Config {
 }
 
 /// # Cancel safety:
-/// Dropping the test future drops the client, owned streams, and datagram session.
-// cancel-safe: all network resources belong to this future; no detached test workers.
+/// cancel-safe: dropping the test future drops the client, owned streams, and datagram session.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires the pinned local independent Hysteria peer"]
 async fn independent_peer_exchanges_tcp_and_udp() {
@@ -56,8 +55,7 @@ async fn independent_peer_exchanges_tcp_and_udp() {
 }
 
 /// # Cancel safety:
-/// Each connection is owned by the future and dropped on its deadline.
-// cancel-safe: cancellation does not reuse a partial connection.
+/// cancel-safe: each connection is owned by the future and dropped on its deadline.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires the pinned local independent Hysteria peer"]
 async fn independent_peer_rejects_wrong_auth() {
@@ -74,8 +72,7 @@ async fn independent_peer_rejects_wrong_auth() {
 }
 
 /// # Cancel safety:
-/// Each connection is owned by the future and dropped on its deadline.
-// cancel-safe: cancellation drops the QUIC handshake and does not retry it.
+/// cancel-safe: each connection is owned by the future and dropped on its deadline.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires the pinned local independent Hysteria peer"]
 async fn independent_peer_rejects_untrusted_certificate() {

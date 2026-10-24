@@ -32,7 +32,6 @@ impl Drop for AbortOnDrop {
 /// # Cancel safety:
 /// cancel-safe: DNS and handshake futures own their partial state. The hopping
 /// guard stops its timer and closes both paths if connect or H3 auth is cancelled.
-// cancel-safe: partially constructed endpoints and sockets belong to this future.
 pub async fn connect(config: &Config) -> Result<HysteriaClient> {
     if let Some(policy) = &config.port_hopping {
         policy.validate_deadline()?;

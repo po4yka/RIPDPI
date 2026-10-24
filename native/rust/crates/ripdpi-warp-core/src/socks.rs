@@ -12,9 +12,8 @@ use crate::support::{MAX_PACKET, to_io_error};
 use crate::virtual_iface::{Bus, Event};
 
 /// # Cancel safety
-/// Not cancel-safe for reuse: negotiation and forwarding consume stream bytes and pool entries.
+/// NOT cancel-safe: negotiation and forwarding consume stream bytes and pool entries.
 /// Terminal runtime shutdown may abort this handler while dropping its sockets and pools.
-// NOT cancel-safe: only the runtime's terminal shutdown aborts this owned session.
 pub(crate) async fn handle_socks_client(
     mut client: TcpStream,
     bus: Bus,
@@ -49,9 +48,8 @@ pub(crate) async fn handle_socks_client(
 }
 
 /// # Cancel safety
-/// Not cancel-safe for reuse: terminal runtime shutdown may abort this owned
+/// NOT cancel-safe: terminal runtime shutdown may abort this owned
 /// session, but ordinary success and errors both release its virtual port.
-// NOT cancel-safe: cancellation is permitted only while the whole runtime is discarded.
 async fn handle_tcp_connect(
     mut client: TcpStream,
     bus: Bus,
@@ -108,9 +106,8 @@ async fn handle_tcp_connect(
 }
 
 /// # Cancel safety
-/// Not cancel-safe for reuse: cancellation can precede association release. The runtime
+/// NOT cancel-safe: cancellation can precede association release. The runtime
 /// aborts this future only when all associated pools and interfaces are being discarded.
-// NOT cancel-safe: association teardown is owned by terminal runtime shutdown.
 async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<UdpAssociationPool>) -> io::Result<()> {
     let udp_socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).await?;
     let bind_addr = udp_socket.local_addr()?;
@@ -168,9 +165,8 @@ async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<Ud
     result
 }
 /// # Cancel safety
-/// Not cancel-safe: partial address bytes can be consumed. The owning session closes
+/// NOT cancel-safe: partial address bytes can be consumed. The owning session closes
 /// its stream on cancellation and never resumes negotiation on that stream.
-// NOT cancel-safe: callers must discard the partially consumed stream.
 async fn read_target(client: &mut TcpStream, address_type: u8) -> io::Result<SocketAddr> {
     let host = match address_type {
         0x01 => {
@@ -289,8 +285,7 @@ mod tests {
     use tokio::time::{Duration, timeout};
 
     /// # Cancel safety
-    /// Cancel-safe for this test: dropping the joined futures closes all sockets and discards the fresh pool.
-    // cancel-safe: the test owns and discards the entire association on timeout.
+    /// cancel-safe: dropping the joined futures closes all sockets and discards the fresh pool.
     async fn verify_udp_cleanup(malformed: bool) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("listener");
         let (client, server) =
@@ -328,24 +323,21 @@ mod tests {
     }
 
     /// # Cancel safety
-    /// Cancel-safe: helper owns all fresh resources.
-    // cancel-safe: no shared state outside this test.
+    /// cancel-safe: helper owns all fresh resources.
     #[tokio::test]
     async fn malformed_udp_datagram_releases_association_and_virtual_socket() {
         verify_udp_cleanup(true).await;
     }
 
     /// # Cancel safety
-    /// Cancel-safe: helper owns all fresh resources.
-    // cancel-safe: no shared state outside this test.
+    /// cancel-safe: helper owns all fresh resources.
     #[tokio::test]
     async fn closing_udp_control_releases_association_and_virtual_socket() {
         verify_udp_cleanup(false).await;
     }
 
     /// # Cancel safety
-    /// Cancel-safe for this test: all sockets and pools are fresh and dropped on timeout.
-    // cancel-safe: cancelled test discards the entire pool.
+    /// cancel-safe: all sockets and pools are fresh and dropped on timeout.
     #[tokio::test]
     async fn failed_tcp_reply_releases_port_and_virtual_socket() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("listener");

@@ -448,7 +448,9 @@ mod tests {
     }
 
     #[tokio::test]
-    // cancel-safe: test-owned H2 tasks and duplex streams close on runtime drop.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: test-owned H2 tasks and duplex streams close on runtime drop.
     async fn post_body_starts_before_server_response_in_both_modes() {
         for protocol_mode in [XhttpProtocolMode::StreamUp, XhttpProtocolMode::StreamOne] {
             let (client_io, server_io) = tokio::io::duplex(64 * 1024);

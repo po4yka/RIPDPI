@@ -50,13 +50,18 @@ pub struct MasqueH2ConnectUdpFixture {
 }
 
 impl MasqueH2ConnectUdpFixture {
-    // cancel-safe: no await points; the returned fixture owns its runtime thread.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: no await points; the returned fixture owns its runtime thread.
     pub async fn start() -> io::Result<Self> {
         Self::start_fixture(false)
     }
 
     /// Reject QUIC immediately for tests of HTTP/2 behavior, without an idle timeout.
-    // cancel-safe: no await points; the returned fixture owns its runtime thread.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: no await points; the returned fixture owns its runtime thread.
     pub async fn start_refusing_quic() -> io::Result<Self> {
         Self::start_fixture(true)
     }

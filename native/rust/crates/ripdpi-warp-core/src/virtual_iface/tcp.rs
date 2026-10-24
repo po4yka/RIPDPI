@@ -32,9 +32,8 @@ impl DynamicTcpInterface {
     }
 
     /// # Cancel safety
-    /// Not cancel-safe for continuation: interface polling consumes bus packets.
+    /// NOT cancel-safe: interface polling consumes bus packets.
     /// Terminal cancellation drops this interface and all owned virtual sockets.
-    // NOT cancel-safe: the runtime aborts only during complete interface teardown.
     pub(crate) async fn run(self) -> anyhow::Result<()> {
         let mut sockets = SocketSet::new([]);
         let mut device = VirtualIpDevice::new(PortProtocol::Tcp, self.bus.clone(), self.mtu);

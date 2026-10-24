@@ -217,7 +217,9 @@ mod tests {
     use crate::padding::PaddingDecoder;
 
     #[tokio::test]
-    // cancel-safe: the test owns its socket and channel resources.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns its socket and channel resources.
     async fn pending_inner_write_acknowledges_only_owned_input() {
         let (inner, mut peer) = tokio::io::duplex(1);
         let mut writer = NaivePaddingStream::new(inner);

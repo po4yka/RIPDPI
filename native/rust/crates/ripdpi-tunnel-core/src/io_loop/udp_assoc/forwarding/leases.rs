@@ -42,7 +42,9 @@ pub(in crate::io_loop::udp_assoc) fn lease_udp_mapping(
 mod tests {
     use super::*;
 
-    // cancel-safe: the only spawned task is aborted and joined before asserting the ownership bound.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the only spawned task is aborted and joined before asserting the ownership bound.
     #[tokio::test]
     async fn udp_attribution_ownership_stays_bounded_after_tuple_and_generation_churn() {
         let src: SocketAddr = "192.0.2.221:53191".parse().expect("source");
@@ -62,7 +64,9 @@ mod tests {
         assert!(retained <= 64, "one UDP association retained {retained} stale attribution tokens");
     }
 
-    // cancel-safe: the sole worker is aborted and joined, and owned registrations are released.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the sole worker is aborted and joined, and owned registrations are released.
     #[tokio::test]
     async fn udp_attribution_replaces_stale_generation_without_evicting_current_refresh() {
         let src: SocketAddr = "192.0.2.222:53192".parse().expect("source");
@@ -96,7 +100,9 @@ mod tests {
         );
     }
 
-    // cancel-safe: the sole worker is aborted and joined, and owned registrations are released.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the sole worker is aborted and joined, and owned registrations are released.
     #[tokio::test]
     async fn udp_attribution_capacity_evicts_oldest_registration_but_preserves_refreshed_tuple() {
         let src: SocketAddr = "192.0.2.223:53193".parse().expect("source");

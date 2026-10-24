@@ -62,7 +62,6 @@ impl Server {
 /// # Cancel safety:
 /// conditionally cancel-safe: accept, handshake, H3 setup and accept waits own local resources;
 /// the fixture closes its endpoint and drops its dedicated runtime on cancellation.
-// cancel-safe: no detached child connection tasks.
 async fn serve(endpoint: &quinn::Endpoint) {
     if let Some(incoming) = endpoint.accept().await
         && let Ok(connection) = incoming.await

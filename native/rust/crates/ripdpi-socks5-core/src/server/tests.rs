@@ -16,7 +16,9 @@ mod test {
         block_on(f);
     }
 
-    // cancel-safe: cancellation drops only the in-memory test streams.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops only the in-memory test streams.
     #[tokio::test(flavor = "current_thread")]
     async fn udp_associate_without_control_peer_sends_failure_reply() {
         let (mut client, server) = tokio::io::duplex(64);

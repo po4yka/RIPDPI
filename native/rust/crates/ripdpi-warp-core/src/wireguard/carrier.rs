@@ -65,8 +65,11 @@ impl WgCarrier {
     /// transport error is surfaced as an [`io::Error`] so the tunnel's existing
     /// `let _ = self.carrier.send_to(...)` call sites stay unchanged.
     ///
-    // NOT cancel-safe: the WS send can leave a buffered frame when cancelled.
-    // A subsequent send finishes it; the peer never sees a truncated datagram.
+    ///
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: the WS send can leave a buffered frame when cancelled.
+    /// A subsequent send finishes it; the peer never sees a truncated datagram.
     pub(crate) async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> io::Result<usize> {
         match self {
             Self::Udp(socket) => socket.send_to(buf, addr).await,
@@ -90,9 +93,12 @@ impl WgCarrier {
     /// truncating a WireGuard packet (the caller's `recv_buf` is `MAX_PACKET`,
     /// which bounds any valid WG datagram).
     ///
-    // cancel-safe: the UDP arm is a single `recv`; the WS arm delegates to
-    // `WsCarrier::recv_datagram`, which is cancel-safe (a dropped read resumes
-    // at the next frame boundary). The async mutex guard is released on drop.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the UDP arm is a single `recv`; the WS arm delegates to
+    /// `WsCarrier::recv_datagram`, which is cancel-safe (a dropped read resumes
+    /// at the next frame boundary). The async mutex guard is released on drop.
     pub(crate) async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
             Self::Udp(socket) => socket.recv(buf).await,
@@ -140,8 +146,11 @@ impl WgCarrier {
 /// 3. The upgraded stream is wrapped in a [`WsCarrier`] ready to frame WireGuard
 ///    datagrams.
 ///
-// cancel-safe: a dropped future drops the in-flight connect/handshake, closing
-// the carrier socket. No caller-visible state is published before the `Ok`.
+///
+/// # Cancel safety
+///
+/// cancel-safe: a dropped future drops the in-flight connect/handshake, closing
+/// the carrier socket. No caller-visible state is published before the `Ok`.
 pub(crate) async fn connect_ws_carrier<P>(request_url: &str, protector: &P) -> io::Result<WgCarrier>
 where
     P: CarrierSocketProtector + ?Sized,
@@ -198,7 +207,9 @@ mod tests {
     }
 
     #[tokio::test]
-    // cancel-safe: test-owned tasks and sockets are dropped with the test runtime.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: test-owned tasks and sockets are dropped with the test runtime.
     async fn ws_send_does_not_wait_for_pending_receive() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("loopback listener");
         let addr = listener.local_addr().expect("listener address");

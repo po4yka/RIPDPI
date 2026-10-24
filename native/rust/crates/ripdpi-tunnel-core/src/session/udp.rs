@@ -865,7 +865,10 @@ mod tests {
     ///
     /// The server task accepts one connection, echoes one bi-directional stream,
     /// then closes; the caller awaits the handle after the client finishes.
-    // cancel-safe: not applicable — test helper, not an async path.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: not applicable — test helper, not an async path.
     #[cfg(all(not(target_os = "android"), target_os = "macos"))]
     async fn spawn_quinn_echo_server(alpn: &[u8]) -> (SocketAddr, tokio::task::JoinHandle<()>) {
         use rcgen::generate_simple_self_signed;
@@ -918,7 +921,10 @@ mod tests {
     ///
     /// Returns `(proxy_addr, relay_addr, c2s_handle, s2c_handle)`.
     /// Abort both handles at teardown.
-    // cancel-safe: not applicable — test helper.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: not applicable — test helper.
     #[cfg(all(not(target_os = "android"), target_os = "macos"))]
     async fn spawn_socks5_forwarding_relay(
         server_addr: SocketAddr,
@@ -980,7 +986,6 @@ mod tests {
 
     /// Build a `quinn::ClientConfig` with `AcceptAnyCert`, a generous idle
     /// timeout, and keep-alive (robust under heavy parallel test load).
-    // cancel-safe: not applicable — synchronous.
     #[cfg(all(not(target_os = "android"), target_os = "macos"))]
     fn build_insecure_quinn_client_config(alpn: &[u8]) -> quinn::ClientConfig {
         let mut tls = rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
@@ -1009,7 +1014,10 @@ mod tests {
 
     /// Bind a quinn client `Endpoint` using a `Socks5QuicAdapter` socket
     /// already connected to `relay_addr`.
-    // cancel-safe: not applicable — async only for the UdpSocket bind.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: not applicable — async only for the UdpSocket bind.
     #[cfg(all(not(target_os = "android"), target_os = "macos"))]
     async fn build_quinn_client_endpoint(
         relay_addr: SocketAddr,
@@ -1042,7 +1050,10 @@ mod tests {
     /// ```
     ///
     /// Hermetic (all loopback), no external deps, < 10 s CI.
-    // cancel-safe: not applicable — #[tokio::test] drives to completion.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: not applicable — #[tokio::test] drives to completion.
     #[cfg(all(not(target_os = "android"), target_os = "macos"))]
     #[tokio::test(flavor = "multi_thread")]
     async fn quic_handshake_and_echo_round_trip_through_udp_session_relay() {
