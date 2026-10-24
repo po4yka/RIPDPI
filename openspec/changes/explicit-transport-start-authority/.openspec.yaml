@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-24
+goal: SVC-1792838679434393 Preserve captured authority for explicit transport
+  activation

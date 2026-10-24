@@ -217,18 +217,14 @@ internal class ServiceShellDelegate(
             }
 
             transportActivationStartAction -> {
-                val guard = acceptExplicitUserStart(explicitUserIntentGeneration, durableReference)
-                if (guard == null) {
-                    transportFailoverRequestId?.let(transportFailoverCommandHandler.reject)
-                    vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
-                } else {
-                    enqueueTransportFailoverRestart(
-                        transportFailoverRequestId,
-                        transportFailoverTarget,
-                        guard,
-                        vpnStartGeneration,
-                    )
-                }
+                enqueueExplicitTransportActivation(
+                    transportFailoverRequestId,
+                    transportFailoverTarget,
+                    explicitUserIntentGeneration,
+                    vpnStartGeneration,
+                    durableReference,
+                    activation,
+                )
                 android.app.Service.START_STICKY
             }
 
@@ -496,11 +492,29 @@ internal class ServiceShellDelegate(
         return serviceIntentArbiter.explicitUserStartGuard(generation, reference).takeIf { it.isCurrent() }
     }
 
+    private fun enqueueExplicitTransportActivation(
+        requestId: Long?,
+        target: TransportFailoverTarget?,
+        generation: Long?,
+        vpnStartGeneration: Long?,
+        durable: com.poyka.ripdpi.data.PauseAuthorityRef?,
+        activation: com.poyka.ripdpi.data.RuntimeAppliedIntent?,
+    ) {
+        val guard = acceptExplicitUserStart(generation, durable)
+        if (guard == null || activation == null) {
+            requestId?.let(transportFailoverCommandHandler.reject)
+            vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
+        } else {
+            enqueueTransportFailoverRestart(requestId, target, guard, vpnStartGeneration, activation)
+        }
+    }
+
     private fun enqueueTransportFailoverRestart(
         requestId: Long?,
         target: TransportFailoverTarget?,
         explicitGuard: ExplicitUserStartGuard? = null,
         vpnStartGeneration: Long? = null,
+        activation: com.poyka.ripdpi.data.RuntimeAppliedIntent? = null,
     ) {
         if (requestId == null || target == null) {
             requestId?.let(transportFailoverCommandHandler.reject)
@@ -523,8 +537,12 @@ internal class ServiceShellDelegate(
         }
         enqueue(
             block = {
-                if (explicitGuard == null || explicitGuard.isCurrent()) {
+                if (explicitGuard == null) {
                     apply(requestId, target)
+                } else if (explicitGuard.isCurrent() && activation != null) {
+                    withContext(RuntimeCommandStartAuthority(activation)) {
+                        runUnderIntentGuard(explicitGuard) { apply(requestId, target) }
+                    }
                 } else {
                     transportFailoverCommandHandler.reject(requestId)
                 }
