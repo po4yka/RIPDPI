@@ -123,3 +123,26 @@ The bounded failure collector passed 91 Python checks, including real HTTP
 timeout, size, redaction, redirect and proxy tests. Its runner regression confirms
 capture before peer teardown while preserving the failed instrumentation verdict.
 Physical capture remains pending on the next integrated candidate.
+
+Candidate `47f9c8f237d68fdc3db9348a6f65fe4be3470603` contains the automatic
+selector acceptance path and the Hysteria DNS fixture correction. The selector
+uses production probes, timers, selection and reload. Its separate explicit UDP
+recovery phase does not count as automatic return to UDP. Service tests passed
+(2300, no failures or skips), as did AndroidTest compilation, ktlint and Detekt.
+
+The pinned Hysteria server lost the UDP ACL address rewrite. A direct-loopback
+native control passed, while the synthetic rewrite failed; an IPv6 control
+confirmed that packets still reached the original address. The fixture now uses
+an exact UDP route through the existing Xray SOCKS ingress. The combined tree
+passed 209 Python tests, the complete normal Go suite, and the new DNS ingress
+race test. The native fixture driver executed one test with zero ignored tests:
+two valid DNS responses and exact receipts, wrong pin and destination rejection,
+and complete owned cleanup. Three other upstream tests were outside that run.
+
+The complete Go race suite is not green. Unchanged baseline `ad4379c1` reproduces
+both the upstream Vision checkptr failure in `vless/outbound.go:288` and the
+XHTTP race between `WaitReadCloser.Set` and `Read` in `splithttp/client.go:195/205`.
+The latter also appeared in the combined tree's new XHTTP quality-port race test.
+No dependency or race-detector setting was changed. The ordinary full Go suite
+passed; the new DNS ingress race test passed. These results do not establish
+physical automatic failover, which remains pending on this candidate.

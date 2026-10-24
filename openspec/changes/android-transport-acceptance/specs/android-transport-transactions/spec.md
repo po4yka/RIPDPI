@@ -37,6 +37,13 @@ Payload success MUST require byte counts and digest equality, not handshake or a
 - **AND** malformed queries and failures of the owned A/AAAA query remain errors
 - **AND** the owned IPv4 and IPv6 probes still require fresh matching peer receipts
 
+#### Scenario: Hysteria DNS mapping stays restricted
+
+- **WHEN** Hysteria forwards a query to the owned synthetic DNS address and port
+- **THEN** the local peer returns a valid owned response with the synthetic source address
+- **AND** other addresses, ports and protocols cannot reach the owned resolver
+- **AND** this restriction also applies after a valid packet in the same UDP session
+
 ### Requirement: REQ-ANDROID-RECOVERY — Restore traffic after transport failure
 
 The lane MUST exercise peer loss and recovery and automatic selection of a TCP
