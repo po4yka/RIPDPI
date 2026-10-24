@@ -1,6 +1,7 @@
 """Installation intent survives partial installation without claiming unrelated apps."""
 
 import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -58,6 +59,52 @@ class PackageAbsenceTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 self.owner().installed_digest(PACKAGES["app"])
             self.assertEqual(1, execute.call_count)
+
+    def test_randomized_android_package_path_is_hashed_without_rewriting(self):
+        path = "/data/app/~~random-token==/com.poyka.ripdpi-package-token==/base.apk"
+        payload = b"exact installed APK bytes"
+        with (
+            patch(
+                "android_owned_installation.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    [], 0, f"package:{path}\n", ""
+                ),
+            ),
+            patch("android_owned_installation.subprocess.Popen") as launch,
+        ):
+            launch.return_value.stdout = io.BytesIO(payload)
+            launch.return_value.wait.return_value = 0
+            launch.return_value.poll.return_value = 0
+            self.assertEqual(
+                hashlib.sha256(payload).hexdigest(),
+                self.owner().installed_digest(PACKAGES["app"]),
+            )
+            launch.assert_called_once_with(
+                ["adb", "-s", "owned", "exec-out", "cat", path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+
+    def test_unsafe_package_paths_remain_rejected(self):
+        for path in (
+            "/data/app/~~token/unsafe;command/base.apk",
+            "/sdcard/~~token/com.poyka.ripdpi/base.apk",
+        ):
+            with (
+                self.subTest(path=path),
+                patch(
+                    "android_owned_installation.subprocess.run",
+                    return_value=subprocess.CompletedProcess(
+                        [], 0, f"package:{path}\n", ""
+                    ),
+                ),
+                patch("android_owned_installation.subprocess.Popen") as launch,
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError, "one exact installed base APK"
+                ):
+                    self.owner().installed_digest(PACKAGES["app"])
+                launch.assert_not_called()
 
 
 class OwnershipTests(unittest.TestCase):

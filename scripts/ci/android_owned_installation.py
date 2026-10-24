@@ -59,7 +59,7 @@ class OwnedInstallation:
         if result.returncode != 0:
             raise RuntimeError("cannot inspect physical package installation")
         if len(paths) != 1 or not re.fullmatch(
-            r"/data/app/[A-Za-z0-9_=/+.-]+/base\.apk", paths[0]
+            r"/data/app/[A-Za-z0-9_=/+.~-]+/base\.apk", paths[0]
         ):
             raise RuntimeError(
                 "physical acceptance requires one exact installed base APK"
