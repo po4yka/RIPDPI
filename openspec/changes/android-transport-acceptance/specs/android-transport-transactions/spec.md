@@ -46,7 +46,15 @@ reserve after the active UDP transport fails, using observed application traffic
 
 - **WHEN** a routed fault blocks the active UDP transport after successful application traffic
 - **THEN** the client applies the selected TCP reserve and completes a new verified transaction
+- **AND** production probes, timers, selection and reload perform the switch without test selection or service restart after the fault
+- **AND** the applied reserve has an automatic selection, a newer revision and the same runtime owner
 - **AND** the failed endpoint cannot pass through a direct path or stale receipt
+
+#### Scenario: Explicit UDP recovery follows automatic reserve proof
+
+- **WHEN** automatic TCP reserve traffic has completed while the UDP gate remains closed
+- **THEN** the test can reopen the gate and explicitly restart Hysteria2 for a separate recovery transaction
+- **AND** this explicit phase does not count as automatic return to UDP
 
 ### Requirement: REQ-ANDROID-MIGRATION — Prove replacement-server traffic
 
@@ -76,6 +84,13 @@ handover, filtered-client or public-provider acceptance.
 - **WHEN** the selected owned emulator or authorized physical device, real native artifact or independent peer is unavailable
 - **THEN** the selected runtime scenario fails or reports blocked without a success receipt
 - **AND** existing unrelated devices, processes, credentials and worktrees remain unchanged
+
+#### Scenario: Failed instrumentation retains bounded diagnostics
+
+- **WHEN** a run-owned local peer is ready and instrumentation fails
+- **THEN** the runner captures allowlisted DNS and transport receipt fields before it stops that peer
+- **AND** each fixed loopback request has a two-second deadline and a 64 KiB response bound
+- **AND** capture failure does not replace the instrumentation verdict or establish acceptance
 
 #### Scenario: Local USB transport has a separate scope
 

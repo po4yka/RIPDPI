@@ -117,3 +117,9 @@ contract error: before the first owned query, the nil Go slice encoded as `null`
 The endpoint now always returns an array. The real UDP regression also queries
 the real HTTP handler before traffic, after background refusals, and after owned
 A/AAAA answers. It failed on the initial response before this correction.
+The corrected complete AWG peer suite passed with the race detector.
+
+The bounded failure collector passed 91 Python checks, including real HTTP
+timeout, size, redaction, redirect and proxy tests. Its runner regression confirms
+capture before peer teardown while preserving the failed instrumentation verdict.
+Physical capture remains pending on the next integrated candidate.

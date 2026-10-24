@@ -10,6 +10,7 @@ Complete authenticated Android transport payload and migration transactions with
 - This lane: scripts/fixtures/xray-provider-peer/**, scripts/ci/run-android-local-acceptance.py, scripts/tests/test_android_local_acceptance.py, test-lab/acceptance Android adapter/catalog/check files and their tests, generated manifest.json, this task and change.
 - Other owners: production AWG Rust/Kotlin and schema-v2 mirrors; independent AWG peer version; libXray build pins and managed artifacts. Coordinate their inputs without editing those files.
 - Coordinator: integration and shared CI workflows. No commit before independent review.
+- Protocol worker: automatic selector acceptance helper and core/service test-only HTTPS trust, with owned HTTPS peer routing. Security worker: exact Hysteria UDP fixture routing. Coordinator integrates shared Go/Python hunks serially after review. Android acceptance worker: bounded failure diagnostics and sole physical-device ownership.
 
 ## Execution
 
