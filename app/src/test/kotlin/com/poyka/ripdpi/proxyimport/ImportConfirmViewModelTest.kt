@@ -394,7 +394,7 @@ class ImportConfirmViewModelTest {
             assertEquals(ValidRealityPublicKey, settings.relayRealityPublicKey)
             assertEquals("abcd1234", settings.relayRealityShortId)
             assertEquals(RelayVlessTransportRealityTcp, settings.relayVlessTransport)
-            assertFalse(settings.relayUdpEnabled)
+            assertTrue(settings.relayUdpEnabled)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
             assertEquals("edge.example.com", relayProfile?.server)
             assertEquals(443, relayProfile?.serverPort)
@@ -402,7 +402,7 @@ class ImportConfirmViewModelTest {
             assertEquals(ValidRealityPublicKey, relayProfile?.realityPublicKey)
             assertEquals("abcd1234", relayProfile?.realityShortId)
             assertEquals(RelayVlessTransportRealityTcp, relayProfile?.vlessTransport)
-            assertFalse(relayProfile?.udpEnabled ?: true)
+            assertTrue(relayProfile?.udpEnabled == true)
             assertEquals("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", relayCredentials?.vlessUuid)
         }
 
