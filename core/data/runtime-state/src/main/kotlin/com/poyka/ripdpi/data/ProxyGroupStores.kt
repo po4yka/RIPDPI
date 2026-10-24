@@ -13,6 +13,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -411,7 +416,7 @@ object ProxyGroupSchema {
         persist: (String) -> Unit,
     ): String {
         val migrated = migrate(json, fromVersion)
-        if (fromVersion != SCHEMA_VERSION) persist(migrated)
+        if (fromVersion != SCHEMA_VERSION || migrated != json) persist(migrated)
         return migrated
     }
 
@@ -420,16 +425,23 @@ object ProxyGroupSchema {
         fromVersion: Int,
     ): String {
         require(fromVersion in 1..SCHEMA_VERSION) { "Unsupported group schema" }
+        // Stored policies must upgrade before the strict current model can decode the catalogue.
+        val migrated = migrateStoredHealthPolicy(json)
         val serializer = ListSerializer(ProxyGroup.serializer())
-        val groups = RipDpiJson.decodeFromString(serializer, json)
+        val groups = RipDpiJson.decodeFromString(serializer, migrated)
         if (fromVersion == SCHEMA_VERSION) {
             require(groups.all { it.ownershipGeneration.isNotBlank() }) { "Missing group ownership generation" }
-            return json
+            return migrated
         }
-        return RipDpiJson.encodeToString(
-            serializer,
-            groups.map { it.withNewOwnershipGeneration() },
-        )
+        // Complete validation precedes publication; retain unrelated raw fields during ownership upgrade.
+        return JsonArray(
+            RipDpiJson.parseToJsonElement(migrated).jsonArray.zip(groups) { element, group ->
+                val owner = group.withNewOwnershipGeneration().ownershipGeneration
+                JsonObject(
+                    element.jsonObject + ("ownershipGeneration" to JsonPrimitive(owner)),
+                )
+            },
+        ).toString()
     }
 }
 

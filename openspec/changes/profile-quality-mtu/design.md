@@ -137,7 +137,9 @@ and contract fixtures move to schema 2. Existing ordinary subscriptions remain
 valid, and schema-2 health-only use is not a compatibility path. No automatic
 rewriting of externally supplied policy or secret data occurs. The encrypted local
 catalogue upgrades previously accepted schema-1 health-only policies once, inside
-its existing mutex and checked durable-write boundary. It validates the complete
+its schema read boundary before typed decoding, for both stored group schema versions.
+The existing mutex and checked durable write cover the complete upgrade, including
+when the stored group schema is already current. It validates the complete
 catalogue before writing, preserves profiles, credentials and ownership generations,
 and adds no quality policy. Pending `subscription_refresh` journal after-images
 use the same health-only upgrade before typed replay; envelope, provenance,

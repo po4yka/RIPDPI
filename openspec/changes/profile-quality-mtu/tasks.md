@@ -1,5 +1,12 @@
 # TRN-1792759596946903
 
+## Ownership
+
+The storage migration writer owns `ProxyGroupStores.kt`, `ProxyGroupCatalog.kt`,
+`StoredHealthPolicyMigration.kt` and their catalogue upgrade regression tests in
+`core/data/runtime-state/`. This lane repairs the existing local upgrade contract;
+it does not change wire admission, native probes, journal replay or task closure.
+
 ## Execution
 
 - [ ] TRN-1792760231865743 Import schema v2 quality policy and persist the device-global byte budget #feature !high @item:TRN-1792759596946903
