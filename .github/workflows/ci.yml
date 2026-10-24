@@ -1368,8 +1368,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: diagnostics-probes-facade
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: rust-host-check
+          save-if: false
 
       # The compat-facade feature is default-on; the diagnostics-probes crate
       # must compile with it OFF (root exports unconditional) and ON.
@@ -1406,7 +1406,7 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-host
+          shared-key: rust-host-check
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run Rust lint checks
@@ -1466,7 +1466,7 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-host
+          shared-key: rust-host-test
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
@@ -1544,8 +1544,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-api-snapshot
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: rust-host-check
+          save-if: false
       - name: Install rustdoc JSON toolchain for cargo-public-api
         run: rustup toolchain install nightly --profile minimal --no-self-update
       - name: Install cargo-public-api
@@ -1644,8 +1644,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-network-e2e
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
@@ -1676,8 +1676,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: relay-interoperability
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
@@ -1726,6 +1726,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install CLI packet capture tools
         run: |
@@ -1764,8 +1766,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-turmoil
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
@@ -1904,7 +1906,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          prefix-key: criterion
+          shared-key: rust-criterion
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Restore criterion baseline from main
         if: github.event_name == 'pull_request'
@@ -2513,7 +2516,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          prefix-key: loom
+          shared-key: rust-loom
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run loom concurrency tests
         env:
@@ -2539,6 +2543,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Resolve soak profile
         id: soak-profile
@@ -2586,6 +2592,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Resolve load profile
         id: load-profile
@@ -3040,6 +3048,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install Linux TUN prerequisites
         run: |
@@ -3080,6 +3090,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install physical TUN prerequisites
         id: so_bind_prerequisites
@@ -3165,6 +3177,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Resolve soak profile
         id: tun-soak-profile
