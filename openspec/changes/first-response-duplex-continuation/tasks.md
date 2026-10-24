@@ -9,7 +9,7 @@ Complete uploads during first-response observation without replaying unretained 
 - Protocol worker: native/rust/crates/ripdpi-proxy-runtime/src/runtime/relay first_exchange.rs, failure_retry/first_outbound and response handling, session.rs, execution.rs, stream_copy and stream_copy_uring.rs, plus matching runtime tests.
 - Coordinator: this task, proposal, specs, design, verification and integration. Security worker: independent replay, byte-ownership and lifecycle review. Android acceptance worker: sole physical-device operations.
 - No changes to dependencies, public schemas, Hysteria protocol, fixtures or timeouts. Shared Cargo lock and serialized public contracts remain outside this change.
-- Coordinator owns the Linux CI integration for explicit io-uring feature tests. Protocol worker owns the matching runtime regression and evidence that the io_uring path actually ran without capability fallback.
+- Android acceptance worker owns the Linux CI integration in `.github/workflows/ci.yml`, its bounded runner script and matching script contract tests. Protocol worker owns the matching runtime regression and evidence that the io_uring path actually ran without capability fallback. The coordinator integrates both changes after independent review.
 
 ## Execution
 

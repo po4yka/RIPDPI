@@ -31,3 +31,4 @@ Complete uploads when the first-response observer is active, without losing resp
 - Protocol worker owns the shared native proxy relay first-exchange, first-outbound, response, session, execution and stream-copy code and its focused runtime tests in an isolated worktree.
 - Security worker reviews cancellation, byte ownership, backpressure and replay safety independently. The coordinator owns this task, its OpenSpec records and integration.
 - Android acceptance worker alone owns the authorized device. No Hysteria protocol, HTTP fixture, timeout, dependency, schema or production credential change is planned.
+- Android acceptance worker also owns the Linux io_uring test step in `.github/workflows/ci.yml` and its bounded runner script. Protocol worker owns the runtime tests that prove the real io_uring path ran. The coordinator integrates both changes after independent review.
