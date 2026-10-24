@@ -14,7 +14,8 @@ class Hysteria2HoppingImportTest {
     fun `singbox range list and randomized intervals preserve nominal port without widening destination set`() {
         val profile =
             singBoxProfile(
-                """"server_port":443,"server_ports":["5002:5005","5000:5003","8443"],"hop_interval":"5.001s","hop_interval_max":"15s",""",
+                """"server_port":443,"server_ports":["5002:5005","5000:5003","8443"],""" +
+                    """"hop_interval":"5.001s","hop_interval_max":"15s",""",
             )
         assertEquals(443, profile.serverPort)
         assertEquals(Hysteria2PortHopping("5000-5005,8443", 5001, 15000), profile.portHopping)
@@ -110,7 +111,8 @@ class Hysteria2HoppingImportTest {
     fun `URI safely parses percent encoded authentication IPv6 unions and exact interval extensions`() {
         val profile =
             ProxyUriCodec.parse(
-                "hysteria2://u%3Ap%40ss@[::1]:443,5000-5002/?sni=peer.example&minHopInterval=5.001s&maxHopInterval=10s#name%2520",
+                "hysteria2://u%3Ap%40ss@[::1]:443,5000-5002/?sni=peer.example&" +
+                    "minHopInterval=5.001s&maxHopInterval=10s#name%2520",
             ) as ProxyProfile.Hysteria2
         assertEquals("u:p@ss", profile.password)
         assertEquals("::1", profile.server)
@@ -159,15 +161,19 @@ class Hysteria2HoppingImportTest {
         ).profiles.single() as ProxyProfile.Hysteria2
 
     private fun singBox(fields: String) =
-        """{"type":"hysteria2","tag":"hy","server":"peer.example",$fields"password":"fixture","tls":{"server_name":"peer.example"},"obfs":{"type":"salamander","password":"fixture-obfs"}}"""
+        """{"type":"hysteria2","tag":"hy","server":"peer.example",$fields""" +
+            """"password":"fixture","tls":{"server_name":"peer.example"},""" +
+            """"obfs":{"type":"salamander","password":"fixture-obfs"}}"""
 
     private fun bundle(
         fields: String,
         ports: String,
         interval: String,
-    ) = """{"outbounds":[${singBox(
-        "\"server_port\":443,$fields",
-    )}],"ripdpi":{"schema_version":1,"hysteria_extras":{"hy":{"port_hopping":{"ports":"$ports","interval":"$interval"}}}}}"""
+    ): String {
+        val outbound = singBox("\"server_port\":443,$fields")
+        return """{"outbounds":[$outbound],"ripdpi":{"schema_version":1,""" +
+            """"hysteria_extras":{"hy":{"port_hopping":{"ports":"$ports","interval":"$interval"}}}}}"""
+    }
 
     private fun bundleProfile(
         fields: String,
@@ -182,5 +188,6 @@ class Hysteria2HoppingImportTest {
         ).profiles.single() as ProxyProfile.Hysteria2
 
     private fun clash(fields: String) =
-        "proxies:\n  - name: hy\n    type: hysteria2\n    server: peer.example\n    port: 443\n    password: fixture\n    $fields\n"
+        "proxies:\n  - name: hy\n    type: hysteria2\n    server: peer.example\n" +
+            "    port: 443\n    password: fixture\n    $fields\n"
 }

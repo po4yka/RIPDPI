@@ -52,10 +52,13 @@ fun migrateStoredHysteriaProfile(profile: JsonObject): JsonObject {
 }
 
 private fun JsonObject.legacyString(key: String): String? {
-    val value = get(key) ?: return null
-    if (value == JsonNull) return null
-    return requireNotNull((value as? JsonPrimitive)?.takeIf { it.isString }?.content) {
-        "Stored Hysteria hopping field must be a string"
+    val value = get(key)
+    return if (value == null || value == JsonNull) {
+        null
+    } else {
+        requireNotNull((value as? JsonPrimitive)?.takeIf { it.isString }?.content) {
+            "Stored Hysteria hopping field must be a string"
+        }
     }
 }
 
