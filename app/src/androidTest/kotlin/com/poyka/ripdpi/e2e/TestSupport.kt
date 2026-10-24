@@ -1594,6 +1594,32 @@ class TestProcessDnsProbeServiceHandle internal constructor(
 ) : Closeable {
     private val closed = AtomicBoolean(false)
 
+    fun transfer(
+        operation: String,
+        id: String,
+        size: Int = 1_048_576,
+        seconds: Int = 60,
+        port: Int = 80,
+    ): Bundle {
+        check(!closed.get())
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(TestNetworkProbeServiceDescriptor)
+            data.writeString(operation)
+            data.writeString(id)
+            data.writeInt(size)
+            data.writeInt(seconds)
+            data.writeInt(port)
+            check(binder.transact(TestNetworkProbeTransportTransactionCode, data, reply, 0))
+            reply.readException()
+            return requireNotNull(reply.readBundle(javaClass.classLoader))
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
+
     fun isVpnDefaultNetwork(): Boolean = transactForBoolean(TestNetworkProbeIsVpnTransactionCode)
 
     fun awaitVpnDefaultNetwork(timeoutMs: Long): Boolean {

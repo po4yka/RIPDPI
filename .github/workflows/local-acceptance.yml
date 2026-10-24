@@ -7,7 +7,10 @@ on:
       - "test-lab/lima/ripdpi-acceptance.yaml"
       - "scripts/ci/run-android-local-acceptance.py"
       - "scripts/fixtures/xray-provider-peer/**"
-      - "scripts/tests/test_android_local_acceptance.py"
+      - "scripts/ci/android_*_fixture.py"
+      - "scripts/ci/android_owned_installation.py"
+      - "scripts/ci/android_udp_bridge.py"
+      - "scripts/tests/test_android_*.py"
       - "native/rust/crates/ripdpi-hysteria2/tests/upstream_interop.rs"
       - ".github/workflows/local-acceptance.yml"
   workflow_dispatch:
@@ -39,7 +42,7 @@ jobs:
           python3 -m unittest discover -s test-lab/acceptance/tests -v
           python3 -m unittest discover -s test-lab/acceptance/vm/tests -v
           python3 -m unittest discover -s test-lab/acceptance/peers -p 'test_*.py' -v
-          python3 -m unittest scripts.tests.test_android_local_acceptance -v
+          python3 -m unittest scripts.tests.test_android_local_acceptance scripts.tests.test_android_owned_installation scripts.tests.test_android_transport_fixtures scripts.tests.test_android_migration_receipt scripts.tests.test_android_migration_fixture scripts.tests.test_android_udp_bridge -v
 
   routed:
     needs: contracts
@@ -116,6 +119,10 @@ jobs:
           -Pripdpi.nativeAbisOverride=x86_64
           -Pripdpi.pluggableTransportAssetsMode=source
           -Pripdpi.pluggableTransportAssetsStrictFailures=true
+      - name: Prepare pinned Android transport peers
+        run: |
+          python3 scripts/ci/android_nginx_fixture.py --prepare-image
+          python3 scripts/ci/android_hysteria_fixture.py --prepare-binary "$RUNNER_TEMP/hysteria-peer"
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -134,6 +141,7 @@ jobs:
           python3 test-lab/acceptance/lab.py run --profile android \
             --serial "$ACCEPTANCE_SERIAL" \
             --prepared-dir "$RUNNER_TEMP/android-preparation/android" \
+            --hysteria-binary "$RUNNER_TEMP/hysteria-peer" \
             --out-dir "$RUNNER_TEMP/android-acceptance"
       - name: Stop owned emulator
         if: always()

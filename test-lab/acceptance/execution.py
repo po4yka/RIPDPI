@@ -142,6 +142,10 @@ def adapter_command(
     allowed = {
         "android": [
             "serial",
+            "physical_host",
+            "physical_peer",
+            "owned_installation",
+            "hysteria_binary",
             "prepared_dir",
             "xray_artifact_dir",
             "fixture_host",
@@ -154,6 +158,17 @@ def adapter_command(
     for key in allowed[scenario["adapter"]]:
         if options.get(key) is not None:
             command.extend(["--" + key.replace("_", "-"), str(options[key])])
+    if scenario["adapter"] == "android" and not options.get("owned_installation"):
+        command.extend(
+            [
+                "--owned-installation",
+                str(out.parent / "android-installation-owner.json"),
+            ]
+        )
+    if scenario["adapter"] == "android" and options.get("physical_device"):
+        command.append("--physical-device")
+    if scenario["adapter"] == "android" and options.get("physical_adb_bridge"):
+        command.append("--physical-adb-bridge")
     return command
 
 

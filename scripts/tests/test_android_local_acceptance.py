@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import sys
 import unittest
+from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1] / "ci/run-android-local-acceptance.py"
 SPEC = importlib.util.spec_from_file_location("android_acceptance", SOURCE)
@@ -26,6 +27,64 @@ def transcript(code=0, final=-1, name="roundTrip"):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_usb_scope_requires_its_own_named_scenario_and_no_lan_addresses(self):
+        base = [
+            "runner",
+            "--run-id",
+            "usb-test",
+            "--out-dir",
+            "/tmp/owned",
+            "--serial",
+            "owned-device",
+            "--physical-device",
+        ]
+        valid = base + [
+            "--physical-adb-bridge",
+            "--scenario",
+            "android-usb-transactions",
+        ]
+        with patch.object(runner.sys, "argv", valid):
+            self.assertTrue(runner.arguments().physical_adb_bridge)
+        for extra in (
+            ["--physical-adb-bridge", "--scenario", "android-xray"],
+            ["--scenario", "android-usb-transactions"],
+            ["--scenario", "android-transactions"],
+            [
+                "--physical-adb-bridge",
+                "--scenario",
+                "android-usb-transactions",
+                "--physical-host",
+                "192.168.1.2",
+            ],
+        ):
+            with (
+                self.subTest(extra=extra),
+                patch.object(runner.sys, "argv", base + extra),
+                patch("sys.stderr"),
+            ):
+                with self.assertRaises(SystemExit):
+                    runner.arguments()
+
+    def test_usb_summary_excludes_direct_network_claims(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            report = {
+                "scenario_id": "android-usb-transactions",
+                "status": "passed",
+                "data_scope": "local-usb-transport",
+            }
+            summary = runner.runtime_summary(Path(temporary), report)
+            self.assertEqual("local-usb-transport", summary["data_scope"])
+            self.assertIn("underlying-network-bypass", summary["unverified_boundaries"])
+            self.assertIn("direct-device-lan-udp", summary["unverified_boundaries"])
+
+    def test_heavy_commands_use_the_machine_gate_on_macos(self):
+        with patch.object(runner.sys, "platform", "darwin"):
+            self.assertEqual(
+                ["build-gate", "--", "go", "test"], runner.heavy_command(["go", "test"])
+            )
+        with patch.object(runner.sys, "platform", "linux"):
+            self.assertEqual(["go", "test"], runner.heavy_command(["go", "test"]))
+
     def test_preparation_failure_summary_excludes_raw_output_and_secrets(self):
         import json
 
@@ -299,14 +358,26 @@ class EvidenceTests(unittest.TestCase):
         import contextlib
         import io
 
-        base = [str(SOURCE), "--scenario", "android-xray", "--run-id", "debug-test",
-                "--out-dir", "/tmp/unused-debug-test", "--serial", "emulator-5584"]
+        base = [
+            str(SOURCE),
+            "--scenario",
+            "android-xray",
+            "--run-id",
+            "debug-test",
+            "--out-dir",
+            "/tmp/unused-debug-test",
+            "--serial",
+            "emulator-5584",
+        ]
         with patch.object(sys, "argv", base):
             self.assertFalse(runner.arguments().xray_debug)
         with patch.object(sys, "argv", base + ["--xray-debug"]):
             self.assertTrue(runner.arguments().xray_debug)
         output = io.StringIO()
-        with patch.object(sys, "argv", [str(SOURCE), "--help"]), contextlib.redirect_stdout(output):
+        with (
+            patch.object(sys, "argv", [str(SOURCE), "--help"]),
+            contextlib.redirect_stdout(output),
+        ):
             with self.assertRaises(SystemExit) as result:
                 runner.arguments()
         self.assertEqual(0, result.exception.code)

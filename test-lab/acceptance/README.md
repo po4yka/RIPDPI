@@ -2,7 +2,7 @@
 
 This system runs local protocol and Android acceptance without rented VPN servers.
 It reuses the repository's independent peers, real Android TUN tests, and packet
-smoke tests. It does not replace external-provider or physical-device release gates.
+smoke tests. It does not replace external-provider or complete device release gates.
 
 ## Evidence levels
 
@@ -82,6 +82,66 @@ verified AAR lives outside the default directory. Prepared APK reuse requires
 matching source, working changes, ABI, and file hashes. Go/Xray and the Rust local
 network fixture are owned child processes. The default emulator path is
 `10.0.2.2`; the adapter also accepts explicit private fixture endpoints.
+
+### Owned physical transport runs
+
+The direct adapter accepts `--physical-device --serial "$ANDROID_SERIAL"` with
+`--physical-host "$FIXTURE_LAN_IP" --physical-peer "$DEVICE_LAN_IP"`. Both addresses
+must belong to the reachable private LAN. Data and the direct-bypass sentinel use
+that LAN; only the fixture control port uses a run-owned `adb reverse` mapping.
+The device lock serializes physical runs. No dedicated remote node is required.
+
+The first run requires both main and test application packages to be absent.
+Before installation, the adapter persists a private installation intent containing
+the serial, exact APK digests and verified signing identity. Reuse requires
+`--owned-installation` pointing to that run's `installation-owner.json`; this also
+reconciles an interruption between installation and confirmation. An unrelated
+existing application is rejected before mutation. The runner does not clear app
+data or uninstall packages, and does not claim recovery of arbitrary user state.
+
+Prepare with the direct adapter's `--prepare` option, then reuse the resulting
+directory with `--prepared-dir`. `android-transactions` runs REALITY/Vision and
+nginx TLS XHTTP through the real app and a separate test UID: owned UDP DNS,
+1 MiB download/upload, a checked 60-second stream, peer loss and recovery.
+The nginx image is pinned in `scripts/ci/android_nginx_fixture.py` and must be
+available locally. The test trusts only its ephemeral certificate and retains
+hostname verification.
+
+`android-hysteria` additionally requires `--hysteria-binary` with the pinned
+v2.13.0 release artifact for the host. It checks certificate-pin rejection,
+Salamander, UDP DNS, payload digests, streaming across sleep/wake, a peer-scoped
+UDP block and manual selection of a previously saved TCP reserve. This proves
+the named local device path; it does not prove a filtered/control-network
+comparison or Wi-Fi-to-cellular continuity.
+
+`android-awg` uses the saved-profile activator, the real VPN service and the native
+engine with an independent AmneziaWG Go peer. It checks range headers, special
+junk packets, UDP DNS, upload, download, a 60-second stream and a new handshake
+after a peer restart. The host accepts the run only after the independent peer
+confirms fresh handshake traffic and header variation in both directions.
+
+`android-migration` imports an initial old endpoint and reserve, proves the saved
+reserve works while the old endpoint is unavailable, and refreshes through a
+previously saved authenticated HTTPS mirror after the subscription origin fails.
+The new delivery removes the old member and adds a third endpoint with a new UUID
+and port. An unreachable replacement must leave the receipt at `received`. The
+successful candidate check must produce a fresh authenticated `path-tested`
+receipt and an independent destination receipt. A separate test UID then completes
+another full-TUN transfer after the old endpoint is stopped.
+
+### Local USB transport scope
+
+Use profile `android-usb` with `--physical-device --physical-adb-bridge` when the
+selected Android device and the Mac have no common LAN. These four separate
+scenarios use owned TCP reverse ports. The UDP scenarios use a test-only bridge
+that carries complete datagrams through an authenticated TCP connection. The app
+still uses its real VPN service and native protocol engine. A separate test UID
+must complete each payload, and the independent protocol peer must record it.
+
+This scope does not test direct device-to-LAN UDP, blocking of traffic on the
+underlying network, or Wi-Fi/cellular handover. The result and public summary
+mark these boundaries as unverified. The normal `android` and `full` profiles do
+not select the USB scenarios. Direct LAN checks keep their original assertions.
 
 ## Linux VM on a Mac
 

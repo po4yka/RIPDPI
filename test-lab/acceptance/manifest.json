@@ -34,8 +34,18 @@
       "independent-hysteria2-tls-rejection"
     ],
     "android": [
+      "android-awg",
+      "android-migration",
+      "android-hysteria",
+      "android-transactions",
       "android-xray",
       "android-network"
+    ],
+    "android-usb": [
+      "android-usb-transactions",
+      "android-usb-hysteria",
+      "android-usb-awg",
+      "android-usb-migration"
     ],
     "routed": [
       "routed-baseline-drop-recovery",
@@ -91,6 +101,10 @@
       "independent-hysteria2-tcp-udp",
       "independent-hysteria2-auth-rejection",
       "independent-hysteria2-tls-rejection",
+      "android-awg",
+      "android-migration",
+      "android-hysteria",
+      "android-transactions",
       "android-xray",
       "android-network",
       "routed-baseline-drop-recovery",
@@ -569,6 +583,62 @@
       ]
     },
     {
+      "id": "android-awg",
+      "adapter": "android",
+      "protocol": "amneziawg-3.1-tun",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "savedRangeProfileRoutesDnsDuplexStreamAndReconnectsThroughTun"
+      ]
+    },
+    {
+      "id": "android-migration",
+      "adapter": "android",
+      "protocol": "https-refresh-vless-migration",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "savedReserveAndIndependentRefreshProduceTestedMigrationReceipt"
+      ]
+    },
+    {
+      "id": "android-hysteria",
+      "adapter": "android",
+      "protocol": "hysteria2-salamander-tcp-reserve",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "hysteriaCompletesTransfersSleepWakeAndUdpFailureFallsBackToSavedTcp"
+      ]
+    },
+    {
+      "id": "android-transactions",
+      "adapter": "android",
+      "protocol": "vless-reality-nginx-tls-xhttp",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "nginxTlsAndRealityCompleteBoundedTransfersAndRecover"
+      ]
+    },
+    {
       "id": "android-xray",
       "adapter": "android",
       "protocol": "vless-reality-xhttp",
@@ -600,6 +670,62 @@
         "vpnServiceRoutesHostnameTrafficThroughEncryptedDnsWithoutRestartLoop",
         "vpnServiceEncryptedDnsFaultBreaksHostnameShellRoundTrip",
         "vpnServiceSurfacedFixtureFaultBreaksShellRoundTrip"
+      ]
+    },
+    {
+      "id": "android-usb-transactions",
+      "adapter": "android",
+      "protocol": "vless-reality-nginx-tls-xhttp",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "usbNginxTlsAndRealityCompleteBoundedTransfersAndRecover"
+      ]
+    },
+    {
+      "id": "android-usb-hysteria",
+      "adapter": "android",
+      "protocol": "hysteria2-salamander-tcp-reserve",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "usbHysteriaCompletesTransfersSleepWakeAndUdpFailureFallsBackToSavedTcp"
+      ]
+    },
+    {
+      "id": "android-usb-awg",
+      "adapter": "android",
+      "protocol": "amneziawg-3.1-tun",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "usbSavedRangeProfileRoutesDnsDuplexStreamAndReconnectsThroughTun"
+      ]
+    },
+    {
+      "id": "android-usb-migration",
+      "adapter": "android",
+      "protocol": "https-refresh-vless-migration",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "usbSavedReserveAndIndependentRefreshProduceTestedMigrationReceipt"
       ]
     },
     {

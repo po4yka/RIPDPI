@@ -2440,6 +2440,7 @@ jobs:
           GOPROXY: https://proxy.golang.org,direct
           GOMAXPROCS: "2"
         run: |
+          python3 ../../ci/android_nginx_fixture.py --prepare-image
           go test -mod=readonly -p=2 ./...
           go build -mod=readonly -p=2 -o "$RUNNER_TEMP/xray-provider-peer" .
 
