@@ -4,8 +4,12 @@
 //! frames preserve UDP datagram boundaries inside that reliable carrier; this
 //! module never opens a direct UDP socket.
 
+#[cfg(test)]
+mod source_authority_tests;
+
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
@@ -89,6 +93,7 @@ pub struct VlessXudpSession {
     reader_task: JoinHandle<()>,
     writer_task: JoinHandle<()>,
     global_id: [u8; 8],
+    initial_target: Arc<OnceLock<String>>,
     first_packet: bool,
     allow_udp_443: bool,
     queue_high_water_mark: usize,
@@ -143,7 +148,9 @@ impl VlessXudpSession {
         let (reader_abort_sender, reader_abort_receiver) = oneshot::channel();
         let writer_task =
             tokio::spawn(run_writer(writer, writer_receiver, write_timeout, liveness, reader_abort_receiver));
-        let reader_task = tokio::spawn(run_reader(reader, reader_sender, writer_task.abort_handle()));
+        let initial_target = Arc::new(OnceLock::new());
+        let reader_task =
+            tokio::spawn(run_reader(reader, reader_sender, writer_task.abort_handle(), Arc::clone(&initial_target)));
         reader_abort_sender
             .send(reader_task.abort_handle())
             .map_err(|_| io::Error::other("start XUDP carrier tasks"))?;
@@ -153,6 +160,7 @@ impl VlessXudpSession {
             reader_task,
             writer_task,
             global_id,
+            initial_target,
             first_packet: true,
             allow_udp_443,
             queue_high_water_mark: 0,
@@ -160,13 +168,13 @@ impl VlessXudpSession {
     }
 
     /// cancel-safe: cancellation while waiting for queue capacity sends
-    /// nothing. Once capacity is reserved, enqueueing the complete frame and
-    /// advancing `first_packet` happen without an await; the bounded writer
-    /// task then finishes the write even if the acknowledgement wait is
+    /// nothing. Once capacity is reserved, publishing initial source authority,
+    /// enqueueing the frame and advancing `first_packet` have no await. The
+    /// bounded writer task finishes the write even if the acknowledgement wait is
     /// cancelled. A timed-out write closes the carrier instead of reusing a
     /// possibly partial frame.
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
-        let (_, port) = parse_target(target).map_err(XudpError::into_input_error)?;
+        let (host, port) = parse_target(target).map_err(XudpError::into_input_error)?;
         if port == 443 && !self.allow_udp_443 {
             return Err(XudpError::Udp443NotAllowed.into_input_error());
         }
@@ -178,6 +186,12 @@ impl VlessXudpSession {
             .await
             .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "XUDP writer is closed"))?;
         let (completion, completed) = oneshot::channel();
+        if self.first_packet {
+            self.initial_target.get_or_init(|| {
+                let host = host.parse::<std::net::IpAddr>().map_or(host, |address| address.to_string());
+                format_target(&host, port)
+            });
+        }
         permit.send(WriteCommand { frame, completion });
         let queued = WRITER_CHANNEL_CAPACITY.saturating_sub(self.writer.capacity());
         self.queue_high_water_mark = self.queue_high_water_mark.max(queued);
@@ -394,7 +408,7 @@ enum DecodedFrame {
 /// NOT cancel-safe: `read_exact` may consume a frame prefix. This function is
 /// owned by the dedicated reader task and is never raced in `select!`; aborting
 /// the task also drops the carrier, so a partial frame is never reused.
-async fn read_frame<R>(reader: &mut R, last_target: &mut Option<String>) -> io::Result<DecodedFrame>
+async fn read_frame<R>(reader: &mut R, initial_target: &OnceLock<String>) -> io::Result<DecodedFrame>
 where
     R: AsyncRead + Unpin,
 {
@@ -426,10 +440,9 @@ where
                 if cursor != metadata.len() {
                     return Err(XudpError::TruncatedMetadata.into_data_error());
                 }
-                *last_target = Some(target.clone());
                 Some(target)
             } else {
-                last_target.clone()
+                None
             }
         }
         STATUS_KEEP_ALIVE => None,
@@ -446,17 +459,20 @@ where
         return Ok(DecodedFrame::KeepAlive);
     }
     validate_payload(&payload).map_err(XudpError::into_data_error)?;
-    let target = target.ok_or_else(|| XudpError::MissingSourceTarget.into_data_error())?;
+    // Omitted sources use the initial request, never another packet's explicit source.
+    let target = target
+        .or_else(|| initial_target.get().cloned())
+        .ok_or_else(|| XudpError::MissingSourceTarget.into_data_error())?;
     Ok(DecodedFrame::Datagram(target, payload))
 }
 
 #[cfg(test)]
-async fn read_datagram<R>(reader: &mut R, last_target: &mut Option<String>) -> io::Result<(String, Vec<u8>)>
+async fn read_datagram<R>(reader: &mut R, initial_target: &OnceLock<String>) -> io::Result<(String, Vec<u8>)>
 where
     R: AsyncRead + Unpin,
 {
     loop {
-        if let DecodedFrame::Datagram(target, payload) = read_frame(reader, last_target).await? {
+        if let DecodedFrame::Datagram(target, payload) = read_frame(reader, initial_target).await? {
             return Ok((target, payload));
         }
     }
@@ -471,12 +487,12 @@ async fn run_reader<R>(
     mut reader: R,
     sender: mpsc::Sender<io::Result<(String, Vec<u8>)>>,
     writer_abort: tokio::task::AbortHandle,
+    initial_target: Arc<OnceLock<String>>,
 ) where
     R: AsyncRead + Unpin,
 {
-    let mut last_target = None;
     loop {
-        match read_frame(&mut reader, &mut last_target).await {
+        match read_frame(&mut reader, &initial_target).await {
             Ok(DecodedFrame::KeepAlive) => {}
             Ok(DecodedFrame::Datagram(target, payload)) => {
                 if sender.send(Ok((target, payload))).await.is_err() {
@@ -498,7 +514,7 @@ mod tests {
     use super::*;
     use tokio::io::AsyncWriteExt;
 
-    fn keep_frame(target: Option<&str>, payload: &[u8]) -> Vec<u8> {
+    pub(super) fn keep_frame(target: Option<&str>, payload: &[u8]) -> Vec<u8> {
         let mut frame = vec![0_u8; 4];
         frame[2..4].copy_from_slice(&SESSION_ID.to_be_bytes());
         frame.push(STATUS_KEEP);
@@ -522,7 +538,7 @@ mod tests {
         frame
     }
 
-    async fn read_encoded_frame<R>(reader: &mut R) -> Vec<u8>
+    pub(super) async fn read_encoded_frame<R>(reader: &mut R) -> Vec<u8>
     where
         R: AsyncRead + Unpin,
     {
@@ -597,24 +613,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reader_preserves_and_updates_source_targets() {
+    async fn reader_uses_explicit_source_only_for_its_own_packet() {
         let mut bytes = keep_alive_frame();
         bytes.extend(keep_frame(Some("1.2.3.4:53"), b"one"));
         bytes.extend(keep_frame(None, b"two"));
         bytes.extend(keep_frame(Some("[2001:db8::1]:5353"), b"three"));
         let mut input = bytes.as_slice();
-        let mut last = None;
+        let initial = OnceLock::from("192.0.2.53:53".to_owned());
 
         assert_eq!(
-            read_datagram(&mut input, &mut last).await.expect("first"),
+            read_datagram(&mut input, &initial).await.expect("first"),
             ("1.2.3.4:53".to_owned(), b"one".to_vec())
         );
         assert_eq!(
-            read_datagram(&mut input, &mut last).await.expect("second"),
-            ("1.2.3.4:53".to_owned(), b"two".to_vec())
+            read_datagram(&mut input, &initial).await.expect("second"),
+            ("192.0.2.53:53".to_owned(), b"two".to_vec())
         );
         assert_eq!(
-            read_datagram(&mut input, &mut last).await.expect("third"),
+            read_datagram(&mut input, &initial).await.expect("third"),
             ("[2001:db8::1]:5353".to_owned(), b"three".to_vec()),
         );
     }
@@ -630,13 +646,15 @@ mod tests {
         ];
         for (frame, expected) in cases {
             let mut input = frame.as_slice();
-            let error = read_datagram(&mut input, &mut None).await.expect_err("malformed frame must fail");
+            let error = read_datagram(&mut input, &OnceLock::from("192.0.2.53:53".to_owned()))
+                .await
+                .expect_err("malformed frame must fail");
             assert!(error.to_string().contains(expected), "unexpected error class: {error}");
         }
 
         let missing_target = keep_frame(None, b"x");
         let mut input = missing_target.as_slice();
-        let error = read_datagram(&mut input, &mut None).await.expect_err("first downlink target is required");
+        let error = read_datagram(&mut input, &OnceLock::new()).await.expect_err("first downlink target is required");
         assert!(error.to_string().contains("source target"));
     }
 
@@ -645,14 +663,14 @@ mod tests {
         let truncated_metadata = [0, 7, 0, 0, STATUS_KEEP];
         let mut input = truncated_metadata.as_slice();
         assert_eq!(
-            read_datagram(&mut input, &mut None).await.expect_err("truncated metadata").kind(),
+            read_datagram(&mut input, &OnceLock::new()).await.expect_err("truncated metadata").kind(),
             io::ErrorKind::UnexpectedEof,
         );
 
         let frame = keep_frame(Some("1.2.3.4:53"), b"payload");
         let mut input = frame[..frame.len() - 1].as_ref();
         assert_eq!(
-            read_datagram(&mut input, &mut None).await.expect_err("truncated payload").kind(),
+            read_datagram(&mut input, &OnceLock::new()).await.expect_err("truncated payload").kind(),
             io::ErrorKind::UnexpectedEof,
         );
 
@@ -662,7 +680,10 @@ mod tests {
             .copy_from_slice(&u16::try_from(MAX_XUDP_PAYLOAD + 1).expect("oversized payload length").to_be_bytes());
         let mut input = oversized.as_slice();
         assert_eq!(
-            read_datagram(&mut input, &mut Some("1.2.3.4:53".to_owned())).await.expect_err("oversized payload").kind(),
+            read_datagram(&mut input, &OnceLock::from("1.2.3.4:53".to_owned()))
+                .await
+                .expect_err("oversized payload")
+                .kind(),
             io::ErrorKind::InvalidData,
         );
     }
@@ -671,6 +692,8 @@ mod tests {
     async fn cancelled_receive_keeps_partial_frame_in_reader_task() {
         let (stream, mut peer) = tokio::io::duplex(128);
         let mut session = VlessXudpSession::new(stream, false).expect("session");
+        session.send_to("example.com:53", b"query").await.expect("initial request");
+        let _ = read_encoded_frame(&mut peer).await;
         let frame = keep_frame(Some("example.com:53"), b"answer");
         peer.write_all(&frame[..5]).await.expect("partial frame");
         assert!(tokio::time::timeout(std::time::Duration::from_millis(10), session.recv_from()).await.is_err());
