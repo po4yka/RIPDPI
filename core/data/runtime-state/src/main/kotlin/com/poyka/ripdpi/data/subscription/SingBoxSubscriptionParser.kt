@@ -711,6 +711,27 @@ private fun parseRipdpiTopology(obj: JsonObject?): RipdpiTopology? {
     )
 }
 
+private fun awgParameters(obj: JsonObject): AmneziaWgParameters =
+    AmneziaWgParameters(
+        wireProfile = requireNotNull(obj.string("wire_profile")),
+        jc = obj.int("jc"),
+        jmin = obj.int("jmin"),
+        jmax = obj.int("jmax"),
+        s1 = obj.int("s1"),
+        s2 = obj.int("s2"),
+        s3 = obj.int("s3"),
+        s4 = obj.int("s4"),
+        h1 = obj.string("h1"),
+        h2 = obj.string("h2"),
+        h3 = obj.string("h3"),
+        h4 = obj.string("h4"),
+        i1 = obj.string("i1"),
+        i2 = obj.string("i2"),
+        i3 = obj.string("i3"),
+        i4 = obj.string("i4"),
+        i5 = obj.string("i5"),
+    )
+
 /**
  * Maps one entry from `ripdpi.amneziawg[]` to an [AmneziaWgSubscriptionProfile].
  *
@@ -776,26 +797,7 @@ private fun mapRipdpiAwg(
     }
 
     // AmneziaWG obfuscation parameters.
-    val awg =
-        AmneziaWgParameters(
-            wireProfile = requireNotNull(obj.string("wire_profile")),
-            jc = obj.int("jc"),
-            jmin = obj.int("jmin"),
-            jmax = obj.int("jmax"),
-            s1 = obj.int("s1"),
-            s2 = obj.int("s2"),
-            s3 = obj.int("s3"),
-            s4 = obj.int("s4"),
-            h1 = obj.string("h1"),
-            h2 = obj.string("h2"),
-            h3 = obj.string("h3"),
-            h4 = obj.string("h4"),
-            i1 = obj.string("i1"),
-            i2 = obj.string("i2"),
-            i3 = obj.string("i3"),
-            i4 = obj.string("i4"),
-            i5 = obj.string("i5"),
-        )
+    val awg = awgParameters(obj)
     runCatching { awg.requireSupportedProfile() }.getOrElse {
         skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, "wire_profile")
         return null

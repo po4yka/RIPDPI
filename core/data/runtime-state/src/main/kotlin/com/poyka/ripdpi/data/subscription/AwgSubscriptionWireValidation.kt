@@ -35,21 +35,22 @@ private val AwgWireKeys =
         "peer",
     )
 
-internal fun invalidAwgWireField(obj: JsonObject): String? {
-    obj.keys.firstOrNull { it !in AwgWireKeys }?.let { return it }
-    if ("private_key" in obj && (obj["private_key"] as? JsonPrimitive)?.isString != true) return "private_key"
-    if (obj["wire_profile"] !=
-        JsonPrimitive(AmneziaWgWireProfile.ID)
-    ) {
-        return "wire_profile"
+internal fun invalidAwgWireField(obj: JsonObject): String? =
+    obj.keys.firstOrNull { it !in AwgWireKeys } ?: when {
+        "private_key" in obj && (obj["private_key"] as? JsonPrimitive)?.isString != true -> "private_key"
+        obj["wire_profile"] != JsonPrimitive(AmneziaWgWireProfile.ID) -> "wire_profile"
+        else -> invalidAwgScalarField(obj) ?: invalidAwgStringField(obj)
     }
-    (listOf("jc", "jmin", "jmax", "s1", "s2") + listOf("s3", "s4").filter { it in obj }).forEach { key ->
-        val value = obj[key] as? JsonPrimitive ?: return key
-        if (value.isString || value.intOrNull == null) return key
+
+private fun invalidAwgScalarField(obj: JsonObject): String? =
+    (listOf("jc", "jmin", "jmax", "s1", "s2") + listOf("s3", "s4").filter { it in obj }).firstOrNull { key ->
+        val value = obj[key] as? JsonPrimitive
+        value == null || value.isString || value.intOrNull == null
     }
-    listOf("i1", "i2", "i3", "i4", "i5").filter { it in obj }.forEach { key ->
-        if ((obj[key] as? JsonPrimitive)?.contentOrNull.isNullOrEmpty()) return key
-    }
-    return (listOf("h1", "h2", "h3", "h4") + listOf("i1", "i2", "i3", "i4", "i5").filter { it in obj })
-        .firstOrNull { key -> (obj[key] as? JsonPrimitive)?.isString != true }
+
+private fun invalidAwgStringField(obj: JsonObject): String? {
+    val signatures = listOf("i1", "i2", "i3", "i4", "i5").filter { it in obj }
+    return signatures.firstOrNull { key -> (obj[key] as? JsonPrimitive)?.contentOrNull.isNullOrEmpty() }
+        ?: (listOf("h1", "h2", "h3", "h4") + signatures)
+            .firstOrNull { key -> (obj[key] as? JsonPrimitive)?.isString != true }
 }

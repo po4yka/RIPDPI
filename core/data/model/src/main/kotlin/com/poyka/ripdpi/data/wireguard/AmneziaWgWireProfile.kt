@@ -10,19 +10,22 @@ object AmneziaWgWireProfile {
     const val ResponseType = 2
     const val CookieType = 3
     const val TransportType = 4
+    private const val InitiationSize = 148
+    private const val ResponseSize = 92
+    private const val HeaderCount = 4
+    private const val SignatureSlots = 5
+    private const val TimestampBytes = 4
     private const val MaximumProgramText = 4096
     private const val MaximumTags = 64
     private val Decimal = Regex("0|[1-9][0-9]*")
     private val Literal = Regex("[0-9a-f]+")
 
-    fun headerRange(value: String): LongRange? {
-        val parts = value.split('-')
-        if (parts.size !in 1..2 || parts.any { !Decimal.matches(it) }) return null
-        val low = parts[0].toLongOrNull()?.takeIf { it <= MaximumHeader } ?: return null
-        val high = parts.last().toLongOrNull()?.takeIf { it <= MaximumHeader } ?: return null
-        if (parts.size == 2 && low >= high) return null
-        return low..high
-    }
+    fun headerRange(value: String): LongRange? =
+        value.split('-').takeIf { parts -> parts.size in 1..2 && parts.all { Decimal.matches(it) } }?.let { parts ->
+            val low = parts[0].toLongOrNull()?.takeIf { it <= MaximumHeader }
+            val high = parts.last().toLongOrNull()?.takeIf { it <= MaximumHeader }
+            if (low == null || high == null) null else (low..high).takeIf { parts.size == 1 || low < high }
+        }
 
     fun headerIsValid(
         value: String,
@@ -35,27 +38,40 @@ object AmneziaWgWireProfile {
     fun signatureSize(program: String): Int? {
         if (program.length > MaximumProgramText) return null
         var offset = 0
-        var size = 0
+        var size: Int? = 0
         var tags = 0
-        while (offset < program.length) {
-            if (program[offset] != '<' || tags == MaximumTags) return null
+        while (offset < program.length && size != null) {
             val end = program.indexOf('>', offset + 1)
-            if (end < 0) return null
-            val tagSize = tagSize(program.substring(offset + 1, end)) ?: return null
-            size += tagSize
-            if (size > MaximumPacket) return null
+            val nextSize =
+                if (program[offset] == '<' && tags < MaximumTags && end >= 0) {
+                    tagSize(program.substring(offset + 1, end))
+                } else {
+                    null
+                }
+            size = nextSize?.plus(size)?.takeIf { it <= MaximumPacket }
             offset = end + 1
             tags++
         }
         return size
     }
 
-    private fun tagSize(tag: String): Int? {
-        if (tag == "t") return 4
-        if (tag.startsWith("b 0x")) {
-            val hex = tag.removePrefix("b 0x")
-            return (hex.length / 2).takeIf { hex.length % 2 == 0 && Literal.matches(hex) }
+    private fun tagSize(tag: String): Int? =
+        when {
+            tag == "t" -> {
+                TimestampBytes
+            }
+
+            tag.startsWith("b 0x") -> {
+                val hex = tag.removePrefix("b 0x")
+                (hex.length / 2).takeIf { hex.length % 2 == 0 && Literal.matches(hex) }
+            }
+
+            else -> {
+                randomTagSize(tag)
+            }
         }
+
+    private fun randomTagSize(tag: String): Int? {
         val parts = tag.split(' ')
         if (parts.size != 2 || parts[0] !in setOf("r", "rd", "rc") || !Decimal.matches(parts[1])) return null
         return parts[1].toIntOrNull()?.takeIf { it in 1..MaximumPacket }
@@ -73,7 +89,9 @@ object AmneziaWgWireProfile {
             "AmneziaWG packet sizes must be in 0..1280"
         }
         require((jmin ?: 0) <= (jmax ?: 0)) { "AmneziaWG junk size range is inverted" }
-        require(148 + (s1 ?: 0) != 92 + (s2 ?: 0)) { "AmneziaWG handshake packet sizes must differ" }
+        require(
+            InitiationSize + (s1 ?: 0) != ResponseSize + (s2 ?: 0),
+        ) { "AmneziaWG handshake packet sizes must differ" }
     }
 
     fun requireValid(
@@ -82,7 +100,7 @@ object AmneziaWgWireProfile {
         signatures: List<String?>,
     ) {
         require(wireProfile == ID) { "Unsupported AmneziaWG wire profile" }
-        require(headers.size == 4 && signatures.size == 5) { "Incomplete AmneziaWG field set" }
+        require(headers.size == HeaderCount && signatures.size == SignatureSlots) { "Incomplete AmneziaWG field set" }
         val ranges =
             headers.mapIndexed { index, value ->
                 val header = value ?: (index + 1).toString()

@@ -153,8 +153,8 @@ fun decodeAwgCohortCatalog(json: String): AwgCohortCatalogData {
     val payload =
         runCatching {
             awgCohortCatalogJson.decodeFromString(AwgCohortCatalogPayload.serializer(), json)
-        }.getOrNull() ?: return AwgCohortCatalogData(presets = emptyList())
-    return AwgCohortCatalogData(payload.presets)
+        }.getOrNull()
+    return AwgCohortCatalogData(payload?.presets.orEmpty())
 }
 
 /**
@@ -311,71 +311,112 @@ class AwgCohortCatalog
                         }
                     val label = (obj["id"] as? JsonPrimitive)?.content ?: "index $index"
 
-                    // Unknown keys.
-                    obj.keys
-                        .filterNot { it in ALLOWED_PRESET_KEYS }
-                        .forEach { unknown ->
-                            errors += "preset '$label' has unknown key '$unknown'"
-                        }
-
-                    // Missing required fields.
-                    REQUIRED_PRESET_KEYS
-                        .filterNot { it in obj.keys }
-                        .forEach { missing ->
-                            errors += "preset '$label' is missing required field '$missing'"
-                        }
-
-                    // Numeric fields must actually be numbers. s3/s4 are optional
-                    // (v1.5 extension) but, when present, must still be integers.
-                    listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").forEach { key ->
-                        val primitive = obj[key] as? JsonPrimitive
-                        if (key in obj && (primitive == null || primitive.isString || primitive.intOrNull == null)) {
-                            errors += "preset '$label' field '$key' is not an integer"
-                        }
-                    }
-                    listOf("h1", "h2", "h3", "h4").forEach { key ->
-                        val primitive = obj[key] as? JsonPrimitive
-                        if (primitive != null &&
-                            (
-                                !primitive.isString ||
-                                    !AmneziaWgWireProfile.headerIsValid(primitive.content, key.last().digitToInt())
-                            )
-                        ) {
-                            errors += "preset '$label' field '$key' is not a canonical header range"
-                        }
-                    }
-                    if (obj["wireProfile"] != JsonPrimitive(AmneziaWgWireProfile.ID)) {
-                        errors += "preset '$label' has an unsupported wire profile"
-                    }
-                    listOf("i1", "i2", "i3", "i4", "i5").forEach { key ->
-                        if (key in obj) {
-                            val value = obj[key] as? JsonPrimitive
-                            if (value?.isString != true ||
-                                (value.content.isEmpty() || AmneziaWgWireProfile.signatureSize(value.content) == null)
-                            ) {
-                                errors += "preset '$label' field '$key' is not a signature program"
-                            }
-                        }
-                    }
-                    runCatching {
-                        val preset = awgCohortStrictJson.decodeFromJsonElement(AwgCohortPreset.serializer(), obj)
-                        AmneziaWgWireProfile.requireScalars(preset.jc, preset.jmin, preset.jmax, preset.s1, preset.s2)
-                        AmneziaWgWireProfile.requireValid(
-                            preset.wireProfile,
-                            listOf(preset.h1, preset.h2, preset.h3, preset.h4),
-                            listOf(preset.i1, preset.i2, preset.i3, preset.i4, preset.i5),
-                        )
-                    }.onFailure { errors += "preset '$label' has invalid wire parameters" }
-                    listOf("s3", "s4").forEach { key ->
-                        val value = (obj[key] as? JsonPrimitive)?.intOrNull
-                        if (value != null && value != 0) {
-                            errors +=
-                                "preset '$label' field '$key' must be 0 for Android arm64 safety " +
-                                "(amneziawg-go#110)"
-                        }
-                    }
+                    validatePresetKeys(obj, label, errors)
+                    validatePresetScalars(obj, label, errors)
+                    validatePresetHeaders(obj, label, errors)
+                    validatePresetSignatures(obj, label, errors)
+                    validatePresetWireProfile(obj, label, errors)
                 }
                 return errors
             }
+
+            private fun validatePresetKeys(
+                obj: JsonObject,
+                label: String,
+                errors: MutableList<String>,
+            ) {
+                // Unknown keys.
+                obj.keys
+                    .filterNot { it in ALLOWED_PRESET_KEYS }
+                    .forEach { unknown ->
+                        errors += "preset '$label' has unknown key '$unknown'"
+                    }
+
+                // Missing required fields.
+                REQUIRED_PRESET_KEYS
+                    .filterNot { it in obj.keys }
+                    .forEach { missing ->
+                        errors += "preset '$label' is missing required field '$missing'"
+                    }
+            }
+
+            private fun validatePresetScalars(
+                obj: JsonObject,
+                label: String,
+                errors: MutableList<String>,
+            ) {
+                // Numeric fields must actually be numbers. s3/s4 are optional
+                // (v1.5 extension) but, when present, must still be integers.
+                listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").forEach { key ->
+                    val primitive = obj[key] as? JsonPrimitive
+                    if (key in obj && !primitive.isInteger()) {
+                        errors += "preset '$label' field '$key' is not an integer"
+                    }
+                }
+            }
+
+            private fun validatePresetHeaders(
+                obj: JsonObject,
+                label: String,
+                errors: MutableList<String>,
+            ) {
+                listOf("h1", "h2", "h3", "h4").forEach { key ->
+                    val primitive = obj[key] as? JsonPrimitive
+                    if (primitive != null &&
+                        (
+                            !primitive.isString ||
+                                !AmneziaWgWireProfile.headerIsValid(primitive.content, key.last().digitToInt())
+                        )
+                    ) {
+                        errors += "preset '$label' field '$key' is not a canonical header range"
+                    }
+                }
+            }
+
+            private fun validatePresetSignatures(
+                obj: JsonObject,
+                label: String,
+                errors: MutableList<String>,
+            ) {
+                if (obj["wireProfile"] != JsonPrimitive(AmneziaWgWireProfile.ID)) {
+                    errors += "preset '$label' has an unsupported wire profile"
+                }
+                listOf("i1", "i2", "i3", "i4", "i5").forEach { key ->
+                    if (key in obj) {
+                        val value = obj[key] as? JsonPrimitive
+                        if (value?.isString != true ||
+                            (value.content.isEmpty() || AmneziaWgWireProfile.signatureSize(value.content) == null)
+                        ) {
+                            errors += "preset '$label' field '$key' is not a signature program"
+                        }
+                    }
+                }
+            }
+
+            private fun validatePresetWireProfile(
+                obj: JsonObject,
+                label: String,
+                errors: MutableList<String>,
+            ) {
+                runCatching {
+                    val preset = awgCohortStrictJson.decodeFromJsonElement(AwgCohortPreset.serializer(), obj)
+                    AmneziaWgWireProfile.requireScalars(preset.jc, preset.jmin, preset.jmax, preset.s1, preset.s2)
+                    AmneziaWgWireProfile.requireValid(
+                        preset.wireProfile,
+                        listOf(preset.h1, preset.h2, preset.h3, preset.h4),
+                        listOf(preset.i1, preset.i2, preset.i3, preset.i4, preset.i5),
+                    )
+                }.onFailure { errors += "preset '$label' has invalid wire parameters" }
+                listOf("s3", "s4").forEach { key ->
+                    val value = (obj[key] as? JsonPrimitive)?.intOrNull
+                    if (value != null && value != 0) {
+                        errors +=
+                            "preset '$label' field '$key' must be 0 for Android arm64 safety " +
+                            "(amneziawg-go#110)"
+                    }
+                }
+            }
+
+            private fun JsonPrimitive?.isInteger(): Boolean = this != null && !isString && intOrNull != null
         }
     }

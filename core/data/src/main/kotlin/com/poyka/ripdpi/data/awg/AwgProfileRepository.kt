@@ -322,18 +322,17 @@ class AwgProfileRepository
             )
         }
 
+        private fun JsonObject.hasSupportedStoredObfuscation(): Boolean =
+            keys.all { it in StoredObfuscationKeys } &&
+                this["wireProfile"] == JsonPrimitive(AmneziaWgWireProfile.ID) &&
+                listOf("h1", "h2", "h3", "h4").all { (this[it] as? JsonPrimitive)?.isString == true }
+
         /** Incompatible rows stay intact in Room and the keystore until refresh, reimport, or deletion. */
         private fun AwgProfileEntity.supportedStoredRequest(): AwgActivationRequest? =
             try {
                 val root = decodeJson.parseToJsonElement(requestJson) as? JsonObject
                 val obfuscation = root?.get("obfuscation") as? JsonObject
-                if (obfuscation == null || obfuscation.keys.any { it !in StoredObfuscationKeys } ||
-                    obfuscation["wireProfile"] !=
-                    JsonPrimitive(
-                        AmneziaWgWireProfile.ID,
-                    ) ||
-                    listOf("h1", "h2", "h3", "h4").any { (obfuscation[it] as? JsonPrimitive)?.isString != true }
-                ) {
+                if (obfuscation?.hasSupportedStoredObfuscation() != true) {
                     null
                 } else {
                     decodeJson.decodeFromString<AwgActivationRequest>(requestJson).also {
