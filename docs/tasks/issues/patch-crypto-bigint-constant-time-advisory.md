@@ -2,7 +2,7 @@
 id: RST-1792822623929592
 title: Patch crypto-bigint constant-time advisory
 kind: chore
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: primary
@@ -34,4 +34,4 @@ Primary owns native/rust/Cargo.lock and this task's records. Native hopping sour
 
 - PR #659 run 40068894755 reports RUSTSEC-2026-0387 for crypto-bigint 0.7.5. Base 261f3019 and source head fb6a4e616 have identical dependency inputs; the failure predates this source fix.
 - The official advisory specifies crypto-bigint 0.7.6 as patched. Its manifest requires ctutils 0.4.5. Pinned Rust 1.98.1 satisfies both package MSRVs.
-- Exact package update, locked metadata and reverse-dependency inspection passed. Full locked cargo-deny advisory, bans, licenses and sources checks passed. Independent source review found no actionable defect. Affected native consumer tests and terminal hosted checks remain required.
+- Exact package update, locked metadata and reverse-dependency inspection passed. Full locked cargo-deny advisory, bans, licenses and sources checks passed. Independent source review found no actionable defect. Affected native consumer tests and terminal main CI passed; exact jobs and source are recorded in the execution file.
