@@ -187,7 +187,7 @@ class RipdpiBundleContractTest {
     fun `hopping import vector preserves its exact destination set and cadence`() {
         val result =
             SingBoxSubscriptionParser.parse(
-                resource("/import-fixtures/ripdpi-bundle.hysteria-port-hopping.json"),
+                resource("/contract/ripdpi-bundle.hysteria-port-hopping.json"),
                 "hopping-import",
             )
         assertTrue("expected Success but got $result", result is SingBoxParseResult.Success)
