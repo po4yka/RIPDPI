@@ -65,7 +65,7 @@ handover, filtered-client or public-provider acceptance.
 
 #### Scenario: Missing runtime prerequisite
 
-- **WHEN** an owned emulator, real native artifact or independent peer is unavailable
+- **WHEN** the selected owned emulator or authorized physical device, real native artifact or independent peer is unavailable
 - **THEN** the selected runtime scenario fails or reports blocked without a success receipt
 - **AND** existing unrelated devices, processes, credentials and worktrees remain unchanged
 

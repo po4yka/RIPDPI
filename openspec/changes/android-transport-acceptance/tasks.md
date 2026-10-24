@@ -17,11 +17,11 @@ Complete authenticated Android transport payload and migration transactions with
 - [ ] TST-1792776459525304 Implement bounded download upload and sustained transactions for all four app VPN transports #feature !high @item:TST-1792776319490914
 - [ ] TST-1792776460035152 Verify peer recovery and UDP to TCP reserve traffic with routed faults #feature !high @item:TST-1792776319490914
 - [ ] TST-1792776460563922 Verify replacement server traffic before migration retirement #feature !high @item:TST-1792776319490914
-- [ ] TST-1792776461086297 Run complete source artifact and leased emulator acceptance gates #feature !high @item:TST-1792776319490914
+- [ ] TST-1792776461086297 Run complete source artifact and authorized physical USB acceptance gates #feature !high @item:TST-1792776319490914
 
 ## Verification
 
 - Python adapter and acceptance contract suites; pinned Go fixture tests.
 - Android test compilation and staticAnalysis through build-gate with at most four workers.
-- Complete selected scenarios through the AVD pool with genuine native artifacts, separate-UID traffic, peer receipts and cleanup.
+- Complete the four selected USB scenarios on the authorized physical device with genuine native artifacts, separate-UID traffic, peer receipts, observed sleep/wake and cleanup.
 - Generated manifest check, taskctl validate and exact-source artifact verification.
