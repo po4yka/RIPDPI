@@ -139,13 +139,37 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         cases = (
             ["scripts/ci/unclassified_new_check.py"],
             ["app/src/main/AndroidManifest.xml", "native/rust/Cargo.toml"],
-            ["docs/contributor/build-performance.md", ".github/workflows/ci.yml"],
+            ["docs/guide.md", "scripts/ci/unclassified_new_check.py"],
             ["../outside-repository-file"],
             ["/tmp/outside-repository-file"],
         )
         for paths in cases:
             with self.subTest(paths=paths):
                 self.assertEqual(ROUTE_FULL, classify_change_paths(paths))
+
+    def test_docs_and_openspec_do_not_widen_a_code_route(self) -> None:
+        cases = {
+            ROUTE_ANDROID: [
+                "app/src/main/kotlin/com/poyka/ripdpi/MainActivity.kt",
+                "docs/tasks/issues/example.md",
+                "openspec/changes/example/tasks.md",
+            ],
+            ROUTE_RUST_NATIVE: [
+                "native/rust/crates/ripdpi-packets/src/lib.rs",
+                "README.md",
+            ],
+            ROUTE_RELEASE_BUILD_LOGIC: [
+                "docs/contributor/build-performance.md",
+                ".github/workflows/ci.yml",
+            ],
+            ROUTE_DOCUMENTATION: [
+                "openspec/changes/example/proposal.md",
+                "docs/guide.md",
+            ],
+        }
+        for expected, paths in cases.items():
+            with self.subTest(route=expected):
+                self.assertEqual(expected, classify_change_paths(paths))
 
     def test_output_switches_preserve_full_ci_for_release_and_unknown_routes(
         self,
