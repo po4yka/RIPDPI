@@ -27,6 +27,29 @@ def transcript(code=0, final=-1, name="roundTrip"):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_owned_runner_preserves_unrelated_instrumentation(self):
+        owned = "com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner"
+        other = (
+            "com.poyka.ripdpi.baselineprofile/androidx.test.runner.AndroidJUnitRunner"
+        )
+        listing = (
+            f"instrumentation:{other} (target=com.poyka.ripdpi)\n"
+            f"instrumentation:{owned} (target=com.poyka.ripdpi)\n"
+        )
+        self.assertEqual(owned, runner.owned_instrumentation_component(listing))
+
+    def test_owned_runner_rejects_missing_wrong_target_or_ambiguous_components(self):
+        owned = "instrumentation:com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner"
+        for listing in (
+            "",
+            "instrumentation:other.test/OtherRunner (target=com.poyka.ripdpi)\n",
+            f"{owned} (target=other.app)\n",
+            f"{owned} (target=com.poyka.ripdpi)\n" * 2,
+        ):
+            with self.subTest(listing=listing):
+                with self.assertRaises(runner.Blocked):
+                    runner.owned_instrumentation_component(listing)
+
     def test_usb_scope_requires_its_own_named_scenario_and_no_lan_addresses(self):
         base = [
             "runner",

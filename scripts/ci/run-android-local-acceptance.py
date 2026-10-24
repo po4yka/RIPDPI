@@ -84,6 +84,21 @@ class Blocked(RuntimeError):
     """A required runtime prerequisite is absent."""
 
 
+def owned_instrumentation_component(components: str) -> str:
+    matches = re.findall(
+        r"^instrumentation:("
+        + re.escape(PACKAGE + ".test")
+        + r"/[A-Za-z0-9_.]+) \(target="
+        + re.escape(PACKAGE)
+        + r"\)\s*$",
+        components,
+        re.M,
+    )
+    if len(matches) != 1:
+        raise Blocked("expected exactly one installed RIPDPI test runner")
+    return matches[0]
+
+
 def heavy_command(command: list[str]) -> list[str]:
     # macOS uses the machine-wide memory gate. Hosted Linux jobs have isolated runners.
     return (["build-gate", "--"] if sys.platform == "darwin" else []) + command
@@ -1012,16 +1027,7 @@ def main() -> int:
             adb + ["shell", "pm", "list", "instrumentation"],
             "instrumentation-components.log",
         )
-        matches = re.findall(
-            r"^instrumentation:([A-Za-z0-9_.]+/[A-Za-z0-9_.]+) \(target="
-            + re.escape(PACKAGE)
-            + r"\)\s*$",
-            components,
-            re.M,
-        )
-        if len(matches) != 1:
-            raise Blocked("expected exactly one installed RIPDPI test runner")
-        component = matches[0]
+        component = owned_instrumentation_component(components)
         test_package = component.split("/", 1)[0]
         instrumentation = {
             "ripdpi.runNetworkTests": "true",
