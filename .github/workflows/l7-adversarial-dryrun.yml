@@ -81,7 +81,7 @@ jobs:
         run: |
           # The runner image ships cmake; bounded timeouts turn the Azure mirror
           # stalls (up to 10 minutes per package) into fast retries.
-          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30)
+          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
           packages=(libclang-dev tcpdump tshark)
           command -v cmake >/dev/null || packages+=(cmake)
           sudo apt-get "${apt_options[@]}" update
