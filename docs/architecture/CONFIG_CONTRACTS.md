@@ -131,6 +131,31 @@ consumed by Rust `serde` — the two serializers must agree on every key.
 - The config-translation JSON is covered by golden tests — treat a golden diff
   as a wire-contract change ([`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md)).
 
+### Resolved relay projection before proxy startup
+
+`SharedProxyRuntimeStack` must project the relay that actually became ready into
+the proxy envelope. `UpstreamRelaySupervisor.start` returns the resolved kind,
+profile ID, UDP policy, and bound SOCKS endpoint from that runtime slot. Normal
+startup and race promotion use the same renderer and check every projected field
+before starting the proxy. Global preferences and remembered JSON are not the
+authority for a saved profile's effective UDP policy or listener endpoint.
+
+The supervisor reads the listener after readiness inside its guarded cleanup
+path. Subprocess relays first confirm their SOCKS listener through the readiness
+probe, then report a valid URI authority, including brackets for IPv6. The parsed
+endpoint removes those brackets before the host enters proxy JSON. Missing or
+invalid listener telemetry must fail startup; it must not fall back to a requested
+port. A failed stop keeps the runtime owned for cleanup retry.
+
+Imported profile mapping and service admission share the VLESS sub-mode UDP
+predicate. Reality TCP with Vision or Vision UDP443 supports UDP; XHTTP, flowless
+Reality, plain TLS VLESS, SSH, and Mieru do not. A profile that lacks required UDP
+must still fail before the proxy starts. Engine normalization must retain the resolved
+UDP flag for every supported kind, including AnyTLS, Trojan, and Shadowsocks.
+Raw unsupported Reality sub-modes must remain ineligible before defaults apply.
+The native proxy's UDP requirement guard
+remains authoritative at the JSON boundary.
+
 ### System HTTP proxy service mode — listener fields
 
 The "System HTTP proxy service mode" feature adds two `listen`-section keys and
@@ -177,6 +202,22 @@ argument of `VpnTunnelSessionProvider.establish` stay available for a listener
 that the session owns and that unauthenticated loopback clients can use.
 
 ---
+
+### Active AWG resolver authority
+
+`warp.awgDnsServers` is an additive runtime-only list of numeric resolver IPs.
+Kotlin omits the empty default with `@EncodeDefault(NEVER)`; Rust defaults an
+absent key to an empty list. This field is not an `AppSettings` preference.
+The service copies it from the same captured standalone AWG request that starts
+the tunnel and clears remembered authority before each runtime composition.
+A nonempty list requires the enabled AWG all-traffic marker and a valid numeric
+loopback SOCKS endpoint; malformed or inconsistent authority fails closed.
+
+The native proxy first evaluates the original ordered destination policy. An
+effective Block remains Block. Otherwise, TCP and UDP to exact captured resolver
+IPs on ports 53 and 853 use the AWG upstream. Other IPs and ports retain their
+original result. The persisted destination rules and canonical digest do not
+change. Physical acceptance must retain the default LAN Direct rules.
 
 ## 3. Rust config deserialization / defaulting rules
 

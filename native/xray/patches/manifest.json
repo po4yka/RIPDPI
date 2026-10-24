@@ -10,5 +10,6 @@
     "xray-core-protect-errors.patch": "f05ca8aade87da818d8fcde1772b8e8da269902775a75675c692b50126678184"
   },
   "grpc": "1.79.3",
-  "grpcModuleSum": "h1:sybAEdRIEtvcD68Gx7dmnwjZKlyfuc61Dyo9pGXXkKE="
+  "grpcModuleSum": "h1:sybAEdRIEtvcD68Gx7dmnwjZKlyfuc61Dyo9pGXXkKE=",
+  "goVersion": "go1.27.3"
 }

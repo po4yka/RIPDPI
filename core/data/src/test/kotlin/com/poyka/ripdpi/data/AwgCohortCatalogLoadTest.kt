@@ -92,10 +92,10 @@ class AwgCohortCatalogLoadTest {
         assertEquals(0, rtk.s1)
         assertEquals(0, rtk.s2)
         // rtk_south pins H1..H4 = 1,2,3,4 and does NOT randomize.
-        assertEquals(1L, rtk.h1)
-        assertEquals(2L, rtk.h2)
-        assertEquals(3L, rtk.h3)
-        assertEquals(4L, rtk.h4)
+        assertEquals("1", rtk.h1)
+        assertEquals("2", rtk.h2)
+        assertEquals("3", rtk.h3)
+        assertEquals("4", rtk.h4)
         assertTrue(!rtk.randomizeHeaders)
     }
 
@@ -145,7 +145,7 @@ class AwgCohortCatalogLoadTest {
             { "presets": [
               { "id": "x", "displayNameKey": "awg_cohort_x_name", "descriptionKey": "awg_cohort_x_desc",
                 "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100,
-                "h1": 1, "h2": 2, "h3": 3, "h4": 4, "randomizeHeaders": false,
+                "wireProfile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4", "randomizeHeaders": false,
                 "bogusKey": 1 } ] }
             """.trimIndent()
 
@@ -160,7 +160,7 @@ class AwgCohortCatalogLoadTest {
             { "presets": [
               { "id": "x", "displayNameKey": "awg_cohort_x_name", "descriptionKey": "awg_cohort_x_desc",
                 "jmin": 40, "jmax": 70, "s1": 50, "s2": 100,
-                "h1": 1, "h2": 2, "h3": 3, "h4": 4, "randomizeHeaders": false } ] }
+                "wireProfile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4", "randomizeHeaders": false } ] }
             """.trimIndent()
 
         val errors = AwgCohortCatalog.strictValidate(missingJc)
@@ -181,8 +181,8 @@ class AwgCohortCatalogLoadTest {
             { "presets": [
               { "id": "ext", "displayNameKey": "awg_cohort_ext_name", "descriptionKey": "awg_cohort_ext_desc",
                 "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100, "s3": 0, "s4": 0,
-                "h1": 1, "h2": 2, "h3": 3, "h4": 4,
-                "i1": "deadbeef", "i2": "cafebabe", "i3": "0badf00d", "i4": "feedface", "i5": "8badf00d",
+                "wireProfile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4",
+                "i1": "<b 0xdeadbeef>", "i2": "<b 0xcafebabe>", "i3": "<b 0x0badf00d>", "i4": "<b 0xfeedface>", "i5": "<b 0x8badf00d>",
                 "randomizeHeaders": false } ] }
             """.trimIndent()
 
@@ -193,8 +193,8 @@ class AwgCohortCatalogLoadTest {
         val ext = catalog.find("ext")!!
         assertEquals(0, ext.s3)
         assertEquals(0, ext.s4)
-        assertEquals("deadbeef", ext.i1)
-        assertEquals("8badf00d", ext.i5)
+        assertEquals("<b 0xdeadbeef>", ext.i1)
+        assertEquals("<b 0x8badf00d>", ext.i5)
     }
 
     @Test
@@ -206,7 +206,7 @@ class AwgCohortCatalogLoadTest {
             { "presets": [
               { "id": "unsafe", "displayNameKey": "awg_cohort_unsafe_name", "descriptionKey": "awg_cohort_unsafe_desc",
                 "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100, "s3": $s3, "s4": $s4,
-                "h1": 1, "h2": 2, "h3": 3, "h4": 4, "randomizeHeaders": false } ] }
+                "wireProfile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4", "randomizeHeaders": false } ] }
             """.trimIndent()
 
         val s3Errors = AwgCohortCatalog.strictValidate(catalog(s3 = 1, s4 = 0))
@@ -237,12 +237,12 @@ class AwgCohortCatalogLoadTest {
                 s2 = 100,
                 s3 = 25,
                 s4 = 35,
-                h1 = 1,
-                h2 = 2,
-                h3 = 3,
-                h4 = 4,
-                i1 = "deadbeef",
-                i5 = "8badf00d",
+                h1 = "1",
+                h2 = "2",
+                h3 = "3",
+                h4 = "4",
+                i1 = "<b 0xdeadbeef>",
+                i5 = "<b 0x8badf00d>",
                 randomizeHeaders = false,
             )
 
@@ -250,9 +250,9 @@ class AwgCohortCatalogLoadTest {
 
         assertEquals(25, applied.s3)
         assertEquals(35, applied.s4)
-        assertEquals("deadbeef", applied.i1)
+        assertEquals("<b 0xdeadbeef>", applied.i1)
         assertEquals("", applied.i2)
-        assertEquals("8badf00d", applied.i5)
+        assertEquals("<b 0x8badf00d>", applied.i5)
         // Identity material is preserved.
         assertEquals("host.example.com", applied.server)
         assertEquals("ext", applied.cohortId)

@@ -49,6 +49,21 @@ class FleetFixturesHappyPathTest(unittest.TestCase):
         self.assertEqual(sorted(fixtures.REQUIRED_SCENARIOS), summary["scenarios"])
         self.assertEqual(fixtures.pinned_sha(), summary["deployerGitSha"])
 
+    def test_short_ids_accept_only_the_frozen_hex_values(self) -> None:
+        for value in ("deadbeef00000001", "deadbeef00000002"):
+            fixtures._check_no_production_tokens({"short_id": value}, "synthetic")
+        for value in ("deadbeef00000003", "0123456789abcdef", "00000000fixture"):
+            with self.assertRaisesRegex(ValueError, "production-token shape"):
+                fixtures._check_no_production_tokens({"short_id": value}, "synthetic")
+
+    def test_awg_keys_accept_only_the_frozen_field_values(self) -> None:
+        for key, value in fixtures._FIXTURE_AWG_KEYS.items():
+            fixtures._check_no_production_tokens({key: value}, "synthetic")
+            with self.assertRaisesRegex(ValueError, "production-token shape"):
+                fixtures._check_no_production_tokens({key: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="}, "synthetic")
+        with self.assertRaisesRegex(ValueError, "production-token shape"):
+            fixtures._check_no_production_tokens({"private_key": fixtures._FIXTURE_AWG_KEYS["public_key"]}, "synthetic")
+
     def test_main_against_repo_fixtures(self) -> None:
         self.assertEqual(fixtures.main([]), 0)
 

@@ -31,6 +31,13 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
+internal data class StartedRelayRuntime(
+    val kind: String,
+    val profileId: String,
+    val udpEnabled: Boolean,
+    val endpoint: LocalProxyEndpoint,
+)
+
 internal data class UpstreamRelayResolverDependencies(
     val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver =
         object : CloudflareMasqueGeohashResolver {
@@ -126,7 +133,7 @@ internal class UpstreamRelaySupervisor(
         inputs: RelayResolutionInputs,
         expectedSelection: RuntimeConfigurationSelection,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
-    ) {
+    ): StartedRelayRuntime {
         check(!hasOwnedRuntime) { "Relay runtime is already active" }
         val slot =
             startSlot(
@@ -138,6 +145,12 @@ internal class UpstreamRelaySupervisor(
                 onUnexpectedExit = onUnexpectedExit,
             )
         promoteSlot(slot)
+        return StartedRelayRuntime(
+            kind = checkNotNull(slot.consumedConfiguration.selection.relayKind),
+            profileId = checkNotNull(slot.consumedConfiguration.selection.profileId),
+            udpEnabled = slot.udpEnabled,
+            endpoint = checkNotNull(slot.endpoint),
+        )
     }
 
     suspend fun startRace(
@@ -242,9 +255,7 @@ internal class UpstreamRelaySupervisor(
         @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
-            if (localPortOverride != null) {
-                slot.endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
-            }
+            slot.endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
             return slot
         } catch (readinessError: CancellationException) {
             cleanupFailedStart(slot)

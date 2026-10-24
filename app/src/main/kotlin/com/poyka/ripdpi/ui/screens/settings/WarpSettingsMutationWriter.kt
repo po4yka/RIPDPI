@@ -36,6 +36,12 @@ internal class WarpSettingsMutationWriter(
         val normalized = normalizeWarpAmneziaPreset(value)
         val rawSettings =
             WarpAmneziaSettings(
+                wireProfile = "awg-3.1-ranges-v1",
+                i1 = uiState.warp.amneziaI1,
+                i2 = uiState.warp.amneziaI2,
+                i3 = uiState.warp.amneziaI3,
+                i4 = uiState.warp.amneziaI4,
+                i5 = uiState.warp.amneziaI5,
                 enabled = uiState.warp.amneziaEnabled,
                 jc = uiState.warp.amneziaJc,
                 jmin = uiState.warp.amneziaJmin,
@@ -61,6 +67,12 @@ internal class WarpSettingsMutationWriter(
             ).settings
 
         updateValue("warpAmneziaPreset", normalized) {
+            setWarpAmneziaWireProfile(resolved.wireProfile)
+            setWarpAmneziaI1(resolved.i1)
+            setWarpAmneziaI2(resolved.i2)
+            setWarpAmneziaI3(resolved.i3)
+            setWarpAmneziaI4(resolved.i4)
+            setWarpAmneziaI5(resolved.i5)
             setWarpAmneziaPreset(normalized)
             setWarpAmneziaEnabled(normalized != WarpAmneziaPresetOff)
             setWarpAmneziaJc(resolved.jc)

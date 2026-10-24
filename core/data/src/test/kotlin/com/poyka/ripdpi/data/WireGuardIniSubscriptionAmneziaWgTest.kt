@@ -35,7 +35,7 @@ class WireGuardIniSubscriptionAmneziaWgTest {
         H2 = 2345678
         H3 = 3456789
         H4 = 4567890
-        I1 = deadbeef
+        I1 = <b 0xdeadbeef>
 
         [Peer]
         PublicKey = YXdnLXBlZXItcHVibGljLWtleS1maXh0dXJlMDE=
@@ -72,9 +72,9 @@ class WireGuardIniSubscriptionAmneziaWgTest {
         assertEquals(70, awg.jmax)
         assertEquals(50, awg.s1)
         assertEquals(100, awg.s2)
-        assertEquals(1234567L, awg.h1)
-        assertEquals(4567890L, awg.h4)
-        assertEquals("deadbeef", awg.i1)
+        assertEquals("1234567", awg.h1)
+        assertEquals("4567890", awg.h4)
+        assertEquals("<b 0xdeadbeef>", awg.i1)
     }
 
     @Test

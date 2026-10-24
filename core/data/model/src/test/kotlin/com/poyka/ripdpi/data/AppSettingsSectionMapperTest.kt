@@ -92,7 +92,7 @@ class AppSettingsSectionMapperTest {
             sections.relay,
         )
         assertEquals(
-            WarpSettingsSection(warpEnabled = true, warpAmneziaJc = 4, warpAmneziaH1 = 123_456_789L),
+            WarpSettingsSection(warpEnabled = true, warpAmneziaJc = 4, warpAmneziaH1 = "123456789"),
             sections.warp,
         )
     }
@@ -167,7 +167,7 @@ class AppSettingsSectionMapperTest {
             .addAllRelayAppsScriptScriptIds(listOf("id-a", "id-b"))
             .setWarpEnabled(true)
             .setWarpAmneziaJc(4)
-            .setWarpAmneziaH1(123_456_789L)
+            .setWarpAmneziaH1("123456789")
             .setStrategyEvolution(true)
             .setEvolutionEpsilon(0.25)
             .setEvolutionExperimentTtlMs(45_000L)

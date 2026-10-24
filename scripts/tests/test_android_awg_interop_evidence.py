@@ -59,7 +59,7 @@ class EvidenceValidationTest(unittest.TestCase):
         self.evidence = {
             "version": VALIDATOR.VERSION, "nonce": self.nonce, "source_sha": self.sha,
             "scope": "native_core", "device_class": "emulator", "abi": "arm64-v8a", "api": 32,
-            "peer": {"version": "v0.2.12", "commit": VALIDATOR.PEER_COMMIT, "go": "go1.27.1"},
+            "peer": {"version": "v3.1.20260828", "commit": VALIDATOR.PEER_COMMIT, "go": "go1.27.3"},
             "artifacts": {name: self.artifact(name, b"unit fixture, not native code")
                           for name in ("native_library", "test_apk", "peer_binary")}, "cycles": [],
         }

@@ -24,7 +24,9 @@ internal fun parseMigrationMetadata(
 ): MigrationMetadata? {
     val extension = (root as? JsonObject)?.get("ripdpi") as? JsonObject
     val element = extension?.get("migration") ?: return null
-    require(extension["schema_version"] == JsonPrimitive(1)) { "unsupported migration extension" }
+    require(extension["schema_version"] == JsonPrimitive(SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION)) {
+        "unsupported migration extension"
+    }
     val obj = element as? JsonObject ?: error("invalid migration metadata")
     require(obj.keys == MigrationKeys && obj["schema_version"] == JsonPrimitive(1)) { "invalid migration metadata" }
     val metadata =

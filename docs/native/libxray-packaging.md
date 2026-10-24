@@ -57,13 +57,13 @@ A matching version label alone is insufficient.
 
 Run from the repository root. Install the SDK/NDK declared in
 `gradle.properties`, JDK tools including `javap`, Python 3.12+, Git, and an
-**amd64 Go host toolchain**. Set `ANDROID_SDK_ROOT` to that SDK installation.
+**amd64 or macOS arm64 Go host toolchain**. Set `ANDROID_SDK_ROOT` to that SDK installation.
 The current CI producer is `.github/actions/build-xray/action.yml`; it selects
-Go `go1.27.2` and installs the exact catalog versions of `gomobile` and `gobind`.
+Go `go1.27.3` from the patch manifest and installs the exact catalog versions of `gomobile` and `gobind`.
 The following bootstrap reads these values from their owners:
 
 ```sh
-export GOTOOLCHAIN="$(sed -n 's/^        GOTOOLCHAIN: //p' .github/actions/build-xray/action.yml)"
+export GOTOOLCHAIN="$(python3 -c 'import json; print(json.load(open("native/xray/patches/manifest.json"))["goVersion"])')"
 export GOSUMDB=sum.golang.org
 export GOPROXY=https://proxy.golang.org,direct
 export GOMAXPROCS=1 GOFLAGS=-p=1
@@ -112,19 +112,25 @@ set is not overwritten. Keep all four files together when reusing an artifact.
 
 ## Host architecture
 
-The builder checks `go env GOHOSTARCH` and requires `amd64` before invoking
-`gomobile bind`. On Apple Silicon, run the bootstrap with an actual amd64 Go
-installation under Rosetta, or use an amd64 Linux runner. A native arm64 Go
-installation remains unsupported for this producer. Verification runs on any
-host architecture with Python and JDK `javap`.
+The builder supports amd64 hosts and native arm64 macOS. The pinned gomobile
+selects the NDK `darwin-x86_64` directory on either macOS architecture; NDK 29
+contains a universal clang binary. Rosetta is not required on Apple Silicon.
+Linux arm64 remains unsupported by the pinned gomobile Android toolchain.
+Verification runs on any host architecture with Python and JDK `javap`.
 
-## Historical container lane
+## Container lane
 
-`scripts/native/libxray-build.Dockerfile` records the older Go 1.26 / SDK 36
-container procedure from 2026-05-30. It also runs `gomobile init`, which can
-replace the pinned `gobind`. It is not the current bootstrap procedure.
-Use the producer action and commands above; do not treat the historical
-container check as proof of the current patched artifact.
+`scripts/native/libxray-build.Dockerfile` pins Go 1.27.3 and preserves the
+pinned `gobind`. Its Go version must match `native/xray/patches/manifest.json`.
+The producer refuses a different active compiler before building.
+
+## Certificate verifier security update
+
+Go 1.27.3 fixes CVE-2026-111943 by rejecting chains that contain distrusted
+intermediate public keys. The existing Xray/libXray source pins and patches
+stay unchanged. Rebuild all artifacts: metadata and every ELF library must
+record the exact reviewed Go version. A matching metadata label alone fails
+if the embedded compiler differs.
 
 ## Verify (Python and JDK, no Go needed)
 

@@ -85,7 +85,7 @@ class AwgProfileRepositoryRoomTest {
             interfaceAddressV4 = "10.8.0.2/32",
             mtu = 1280,
             persistentKeepalive = 25,
-            obfuscation = AwgActivationObfuscation(jc = 4, jmax = 70, h1 = 1_000_000_001L, i1 = "deadbeef"),
+            obfuscation = AwgActivationObfuscation(jc = 4, jmax = 70, h1 = "1000000001", i1 = "<b 0xdeadbeef>"),
         )
 
     @Test
@@ -112,8 +112,33 @@ class AwgProfileRepositoryRoomTest {
             assertEquals(25, loaded.request.persistentKeepalive)
             assertEquals(4, loaded.request.obfuscation.jc)
             assertEquals(70, loaded.request.obfuscation.jmax)
-            assertEquals(1_000_000_001L, loaded.request.obfuscation.h1)
-            assertEquals("deadbeef", loaded.request.obfuscation.i1)
+            assertEquals("1000000001", loaded.request.obfuscation.h1)
+            assertEquals("<b 0xdeadbeef>", loaded.request.obfuscation.i1)
+        }
+
+    @Test
+    fun `numeric header rows are quarantined without stopping valid profile observations or erasing keys`() =
+        runTest {
+            val oldId = repository.save("old contract", sampleRequest())
+            val original = requireNotNull(dao.getProfile(oldId))
+            val oldBlob =
+                original.requestJson
+                    .replace("\"wireProfile\":\"awg-3.1-ranges-v1\",", "")
+                    .replace(Regex("\"h([1-4])\":\"([0-9]+)\""), "\"h$1\":$2")
+            val oldRow = original.copy(requestJson = oldBlob)
+            dao.upsertProfile(oldRow)
+            assertNull(repository.load(oldId))
+            repository.observeProfiles().test {
+                assertTrue(awaitItem().isEmpty())
+                val validId = repository.save("current contract", sampleRequest())
+                assertEquals(listOf(validId), awaitItem().map { it.id })
+                assertEquals(oldRow, dao.getProfile(oldId))
+                assertEquals("privkey==", credentialStore.load(oldId)?.privateKey)
+                assertEquals("psk==", credentialStore.load(oldId)?.presharedKey)
+                repository.save("reimported", sampleRequest(), existingId = oldId)
+                assertEquals(setOf(oldId, validId), awaitItem().map { it.id }.toSet())
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     @Test
@@ -305,6 +330,48 @@ class AwgProfileRepositoryRoomTest {
             val unrelated = incoming.copy(groupId = "other-subscription")
             val otherId = repository.saveSubscriptionProfiles(listOf(unrelated)).map { it.id }.single()
             assertEquals("", repository.load(otherId)!!.request.privateKey)
+        }
+
+    @Test
+    fun `migration from quarantined numeric headers preserves the device key without old wire parameters`() =
+        runTest {
+            val source = subscriptionProfile(request = sampleRequest().copy(privateKey = "local-key"))
+            val sourceId = repository.saveSubscriptionProfiles(listOf(source)).single().id
+            val original = requireNotNull(dao.getProfile(sourceId))
+            val oldRow =
+                original.copy(
+                    requestJson =
+                        original.requestJson
+                            .replace("\"wireProfile\":\"awg-3.1-ranges-v1\",", "")
+                            .replace(Regex("\"h([1-4])\":\"([0-9]+)\""), "\"h$1\":$2"),
+                )
+            dao.upsertProfile(oldRow)
+            val incoming =
+                source.copy(
+                    memberId = "tag:new",
+                    previousMemberId = source.memberId,
+                    request =
+                        source.request.copy(
+                            privateKey = "",
+                            obfuscation =
+                                AwgActivationObfuscation(
+                                    h1 = "100-199",
+                                    h2 = "200-299",
+                                    h3 = "300-399",
+                                    h4 = "400-499",
+                                    i1 = "<r 16>",
+                                ),
+                        ),
+                )
+            val replacement = repository.saveSubscriptionProfiles(listOf(incoming)).single()
+            assertTrue(replacement.id != sourceId)
+            assertEquals("local-key", replacement.request.privateKey)
+            assertEquals(incoming.request.obfuscation, replacement.request.obfuscation)
+            assertEquals(oldRow, dao.getProfile(sourceId))
+            assertEquals("local-key", credentialStore.load(sourceId)?.privateKey)
+            assertEquals("psk==", credentialStore.load(sourceId)?.presharedKey)
+            assertNull(repository.load(sourceId))
+            assertEquals(listOf(replacement.id), repository.observeProfiles().first().map { it.id })
         }
 
     @Test
@@ -614,8 +681,10 @@ class AwgProfileRepositoryRoomTest {
     ): SingBoxParseResult.Success =
         SingBoxSubscriptionParser.parse(
             """
-            {"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
-              "tag":"home","private_key_placeholder":true,"address":["10.8.0.2/32","fd00::2/128"],"mtu":1330,$interfacePolicy
+            {"outbounds":[],"ripdpi":{"schema_version":2,"amneziawg":[{
+              "tag":"home","wire_profile":"awg-3.1-ranges-v1",
+              "jc":0,"jmin":0,"jmax":0,"s1":0,"s2":0,
+              "h1":"1","h2":"2","h3":"3","h4":"4","private_key_placeholder":true,"address":["10.8.0.2/32","fd00::2/128"],"mtu":1330,$interfacePolicy
               "peer":{$peerPolicy"public_key":"peerpub==","endpoint":"vpn.example.com:51820"}
             }]}}
             """.trimIndent(),

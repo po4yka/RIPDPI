@@ -394,7 +394,7 @@ class ImportConfirmViewModelTest {
             assertEquals(ValidRealityPublicKey, settings.relayRealityPublicKey)
             assertEquals("abcd1234", settings.relayRealityShortId)
             assertEquals(RelayVlessTransportRealityTcp, settings.relayVlessTransport)
-            assertFalse(settings.relayUdpEnabled)
+            assertTrue(settings.relayUdpEnabled)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
             assertEquals("edge.example.com", relayProfile?.server)
             assertEquals(443, relayProfile?.serverPort)
@@ -402,7 +402,7 @@ class ImportConfirmViewModelTest {
             assertEquals(ValidRealityPublicKey, relayProfile?.realityPublicKey)
             assertEquals("abcd1234", relayProfile?.realityShortId)
             assertEquals(RelayVlessTransportRealityTcp, relayProfile?.vlessTransport)
-            assertFalse(relayProfile?.udpEnabled ?: true)
+            assertTrue(relayProfile?.udpEnabled == true)
             assertEquals("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", relayCredentials?.vlessUuid)
         }
 
@@ -701,7 +701,7 @@ class SubscriptionImportConfirmViewModelTest {
               {"type":"urltest","tag":"auto","url":"https://probe.example","interval":"10s"},
               {"type":"trojan","tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
               {"type":"trojan","tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
-              ],"ripdpi":{"schema_version":1,"cloudflare_outbound_tags":["edge"],
+              ],"ripdpi":{"schema_version":2,"cloudflare_outbound_tags":["edge"],
               "migration":{"schema_version":1,"migration_id":"11111111-1111-1111-1111-111111111111",
                 "delivery_id":"22222222-2222-2222-2222-222222222222","target_tags":["edge"],
                 "receipt_key":"${"a".repeat(64)}","awg_previous_tags":{}},
@@ -841,9 +841,9 @@ class SubscriptionImportConfirmViewModelTest {
                             {
                               "outbounds": [],
                               "ripdpi": {
-                                "schema_version": 1,
+                                "schema_version": 2,
                                 "amneziawg": [{
-                                  "tag": "bootstrap-awg",
+                                  "tag": "bootstrap-awg","wire_profile":"awg-3.1-ranges-v1","jc":0,"jmin":0,"jmax":0,"s1":0,"s2":0,"h1":"1","h2":"2","h3":"3","h4":"4",
                                   "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
                                   "address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,
                                   "peer": {

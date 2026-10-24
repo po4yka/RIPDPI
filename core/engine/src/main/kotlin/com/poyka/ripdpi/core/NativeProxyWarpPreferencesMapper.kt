@@ -25,6 +25,12 @@ internal fun buildWarpConfig(settings: AppSettings): RipDpiWarpConfig {
         amneziaPreset = warp.amneziaPreset,
         amnezia =
             RipDpiWarpAmneziaConfig(
+                wireProfile = warp.amnezia.wireProfile,
+                i1 = warp.amnezia.i1,
+                i2 = warp.amnezia.i2,
+                i3 = warp.amnezia.i3,
+                i4 = warp.amnezia.i4,
+                i5 = warp.amnezia.i5,
                 enabled = warp.amnezia.enabled,
                 jc = warp.amnezia.jc,
                 jmin = warp.amnezia.jmin,

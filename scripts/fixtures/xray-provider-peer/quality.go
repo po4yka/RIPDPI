@@ -27,6 +27,7 @@ func (p *peer) startQualityOrigin(certificate tls.Certificate) (net.Listener, er
 		return nil, err
 	}
 	body := qualityPayload()
+	p.manifest.QualityPort = listener.Addr().(*net.TCPAddr).Port
 	p.manifest.QualityBytes = len(body)
 	p.manifest.QualitySHA256 = fmt.Sprintf("%x", sha256.Sum256(body))
 	p.manifest.QualityCertificate = base64.StdEncoding.EncodeToString(certificate.Certificate[0])
@@ -48,8 +49,12 @@ func (p *peer) startQualityOrigin(certificate tls.Certificate) (net.Listener, er
 			if request.Method == http.MethodHead {
 				return
 			}
-			_, _ = w.Write(body[:1])
-			http.NewResponseController(w).Flush()
+			if written, err := w.Write(body[:1]); err != nil || written != 1 {
+				return
+			}
+			if err := http.NewResponseController(w).Flush(); err != nil {
+				return
+			}
 			timer := time.NewTimer(400 * time.Millisecond)
 			defer timer.Stop()
 			select {
@@ -57,7 +62,9 @@ func (p *peer) startQualityOrigin(certificate tls.Certificate) (net.Listener, er
 				return
 			case <-timer.C:
 			}
-			_, _ = w.Write(body[1:])
+			if written, err := w.Write(body[1:]); err == nil && written == len(body)-1 {
+				p.requests.record("QualityComplete", request.URL.Path)
+			}
 		}),
 	}
 	p.closers = append(p.closers, server)

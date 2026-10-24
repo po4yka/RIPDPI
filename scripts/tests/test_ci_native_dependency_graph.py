@@ -347,7 +347,8 @@ class NativeDependencyGraphTest(unittest.TestCase):
 
     def test_xray_action_builds_pinned_sources_without_checksum_bypass(self) -> None:
         action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
-        self.assertIn("GOTOOLCHAIN: go1.27.2", action)
+        self.assertIn('json.load(open("native/xray/patches/manifest.json"))["goVersion"]', action)
+        self.assertIn('export GOTOOLCHAIN=', action)
         self.assertIn("GOSUMDB: sum.golang.org", action)
         self.assertIn("gradle/libs.versions.toml", action)
         self.assertIn("ripdpi.nativeNdkVersion", action)

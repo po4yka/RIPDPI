@@ -182,6 +182,39 @@ mod tests {
 
     use super::DriverAbortGuard;
 
+    #[tokio::test(flavor = "current_thread")]
+    async fn salamander_endpoint_builds_and_rebinds_blocking_socket() {
+        let mut config =
+            crate::config::Config::from_parts("fixture-auth".into(), "127.0.0.1", 443, "fixture.example".into())
+                .expect("client config");
+        config.salamander_key = Some("fixture-key".into());
+        let socket_spec = super::ClientSocketSpec {
+            ipv6: false,
+            bind_low_port: false,
+            salamander_key: config.salamander_key.clone(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        };
+        let tls_config = super::build_tls_config(&config).expect("TLS config");
+        let server_addr = "127.0.0.1:443".parse().expect("server address");
+        let (endpoint, original_socket, hopping_socket) =
+            super::build_endpoint(&config, tls_config, socket_spec.clone(), server_addr)
+                .expect("initial Salamander endpoint");
+        assert!(hopping_socket.is_none());
+        let original_socket = original_socket.expect("non-hopping socket clone");
+        assert_eq!(
+            endpoint.local_addr().expect("initial endpoint address"),
+            original_socket.local_addr().expect("original socket address"),
+        );
+
+        let rebound_socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("bind replacement socket");
+        rebound_socket.set_nonblocking(false).expect("explicit blocking replacement");
+        let rebound_addr = rebound_socket.local_addr().expect("replacement address");
+        super::rebind_endpoint(&endpoint, &socket_spec, rebound_socket, None).expect("rebind Salamander endpoint");
+        assert_eq!(endpoint.local_addr().expect("rebound endpoint address"), rebound_addr);
+        endpoint.close(0u32.into(), b"test complete");
+        tokio::time::timeout(Duration::from_secs(2), endpoint.wait_idle()).await.expect("endpoint driver stops");
+    }
+
     struct DropNotice(Option<oneshot::Sender<()>>);
 
     impl Drop for DropNotice {

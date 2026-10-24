@@ -19,6 +19,7 @@ internal const val TestNetworkProbeDnsTransactionCode = IBinder.FIRST_CALL_TRANS
 internal const val TestNetworkProbeAwaitVpnTransactionCode = IBinder.FIRST_CALL_TRANSACTION + 1
 internal const val TestNetworkProbeIsVpnTransactionCode = IBinder.FIRST_CALL_TRANSACTION + 2
 internal const val TestNetworkProbeAwaitNonVpnTransactionCode = IBinder.FIRST_CALL_TRANSACTION + 3
+internal const val TestNetworkProbeTransportTransactionCode = IBinder.FIRST_CALL_TRANSACTION + 4
 private const val ExpectedProbeCallerPackage = "com.poyka.ripdpi"
 private const val DefaultNetworkPollIntervalMs = 25L
 private const val StableDefaultNetworkObservationMs = 100L
@@ -38,7 +39,8 @@ class TestNetworkProbeService : Service() {
                         code != TestNetworkProbeDnsTransactionCode &&
                             code != TestNetworkProbeAwaitVpnTransactionCode &&
                             code != TestNetworkProbeIsVpnTransactionCode &&
-                            code != TestNetworkProbeAwaitNonVpnTransactionCode
+                            code != TestNetworkProbeAwaitNonVpnTransactionCode &&
+                            code != TestNetworkProbeTransportTransactionCode
                     )
                 ) {
                     return super.onTransact(code, data, reply, flags)
@@ -48,6 +50,23 @@ class TestNetworkProbeService : Service() {
                 }
 
                 data.enforceInterface(TestNetworkProbeServiceDescriptor)
+                if (code == TestNetworkProbeTransportTransactionCode) {
+                    val operation = requireNotNull(data.readString())
+                    val id = requireNotNull(data.readString())
+                    val size = data.readInt()
+                    val seconds = data.readInt()
+                    val port = data.readInt()
+                    val identity = clearCallingIdentity()
+                    val result =
+                        try {
+                            transportTransaction(operation, id, size, seconds, port)
+                        } finally {
+                            restoreCallingIdentity(identity)
+                        }
+                    reply.writeNoException()
+                    reply.writeBundle(result)
+                    return true
+                }
                 if (code == TestNetworkProbeAwaitVpnTransactionCode) {
                     val timeoutMs = data.readInt()
                     reply.writeNoException()

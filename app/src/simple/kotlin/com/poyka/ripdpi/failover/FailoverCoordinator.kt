@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
@@ -46,7 +47,6 @@ import com.poyka.ripdpi.services.TransportFailoverApplyTracker
 import com.poyka.ripdpi.services.TransportFailoverTarget
 import com.poyka.ripdpi.services.TransportKindAmneziaWg
 import com.poyka.ripdpi.services.opaqueRelayProfileToken
-import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
 import dagger.Module

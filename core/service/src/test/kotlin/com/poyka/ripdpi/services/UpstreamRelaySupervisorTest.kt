@@ -55,6 +55,61 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpstreamRelaySupervisorTest {
     @Test
+    fun `normal start returns resolved identity and bound endpoint`() =
+        runTest {
+            val runtime = TestRelayRuntime().apply { telemetry = telemetry.copy(listenerAddress = "127.0.0.2:19005") }
+            val resolver =
+                TestUpstreamRelayRuntimeConfigResolver(
+                    sampleResolvedRelayConfig(RelayKindHysteria2, "saved-hysteria").copy(udpEnabled = true),
+                )
+            val supervisor = endpointSupervisor(runtime, resolver)
+
+            val started = supervisor.startEndpointFixture()
+
+            assertEquals(RelayKindHysteria2, started.kind)
+            assertEquals("saved-hysteria", started.profileId)
+            assertEquals(true, started.udpEnabled)
+            assertEquals(LocalProxyEndpoint("127.0.0.2", 19_005), started.endpoint)
+            supervisor.stop()
+        }
+
+    @Test
+    fun `normal start rejects missing or invalid bound endpoint and stops relay`() =
+        runTest {
+            listOf(null, "", ":19005", "127.0.0.1", "127.0.0.1:0", "127.0.0.1:65536").forEach { listener ->
+                val runtime = TestRelayRuntime().apply { telemetry = telemetry.copy(listenerAddress = listener) }
+                val supervisor = endpointSupervisor(runtime)
+
+                val failure = runCatching { supervisor.startEndpointFixture() }.exceptionOrNull()
+
+                assertTrue("listener=$listener failure=$failure", failure is SupervisorStartupFailureException)
+                assertEquals(1, runtime.stopCount)
+                assertFalse(supervisor.hasOwnedRuntime)
+            }
+        }
+
+    @Test
+    fun `invalid bound endpoint retains relay when cleanup fails`() =
+        runTest {
+            val runtime =
+                TestRelayRuntime().apply {
+                    telemetry = telemetry.copy(listenerAddress = null)
+                    stopFailure = IOException("stop failed")
+                }
+            val supervisor = endpointSupervisor(runtime)
+
+            val failure = runCatching { supervisor.startEndpointFixture() }.exceptionOrNull()
+
+            assertTrue(failure is RuntimeCleanupPendingException)
+            assertEquals(1, runtime.stopCount)
+            assertTrue(supervisor.hasOwnedRuntime)
+            runtime.stopFailure = null
+            supervisor.stop()
+            assertEquals(2, runtime.stopCount)
+            assertFalse(supervisor.hasOwnedRuntime)
+        }
+
+    @Test
     fun `readiness failure retains unpromoted relay after failed stop`() =
         runTest {
             val relayFactory =
@@ -1955,4 +2010,28 @@ class UpstreamRelaySupervisorTest {
 
             supervisor.stop()
         }
+
+    private fun TestScope.endpointSupervisor(
+        runtime: TestRelayRuntime,
+        resolver: UpstreamRelayRuntimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+    ): UpstreamRelaySupervisor =
+        UpstreamRelaySupervisor(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            relayFactory = TestRipDpiRelayFactory { runtime },
+            naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+            runtimeConfigResolver = resolver,
+            stopTimeoutMillis = 100L,
+        )
+
+    private suspend fun UpstreamRelaySupervisor.startEndpointFixture(): StartedRelayRuntime =
+        start(
+            expectedSelection =
+                com.poyka.ripdpi.data
+                    .RuntimeConfigurationSelection("native"),
+            inputs = testRelayResolutionInputs(),
+            requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+            config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "requested"),
+            onUnexpectedExit = {},
+        )
 }

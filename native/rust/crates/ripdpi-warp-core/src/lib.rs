@@ -2,6 +2,7 @@
 
 mod amneziawg;
 mod amneziawg_runtime;
+mod awg_profile;
 mod config;
 mod endpoint_probe;
 mod observe;

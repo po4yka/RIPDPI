@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.withRelayRuntimeSelection
@@ -73,6 +74,7 @@ class SharedProxyRuntimeStackTest {
                         },
                 )
             val selected = mutableListOf<InitialRelayRaceResult>()
+            val resolvers = mutableListOf("10.77.0.1", "fd77::1")
 
             fixture.stack.start(
                 requestedSelection =
@@ -82,15 +84,23 @@ class SharedProxyRuntimeStackTest {
                 requestedWarpReference =
                     com.poyka.ripdpi.service.warp
                         .RequestedWarpRuntimeReference("warp-test", 0L),
-                proxyPreferences = awgPreferences(),
+                proxyPreferences = awgPreferences(resolvers),
                 onRelayExit = {},
                 onWarpExit = {},
                 onAwgExit = {},
                 onProxyExit = {},
                 initialRelayRacePlan = awgPlan(),
-                onInitialRelaySelected = selected::add,
+                onInitialRelaySelected = {
+                    selected += it
+                    resolvers.clear()
+                },
             )
 
+            val actual = requireNotNull(fixture.proxyFactory.lastRuntime.lastPreferences)
+            assertEquals(
+                listOf("10.77.0.1", "fd77::1"),
+                requireNotNull(decodeRipDpiProxyUiPreferences(actual.toNativeConfigJson())).warp.awgDnsServers,
+            )
             assertEquals(1, fixture.proxyFactory.runtimes.size)
             assertEquals(0, fixture.awgFactory.lastRuntime.stopCount)
             assertEquals(AwgProfileId, selected.single().selectedCandidate.profileId)
@@ -577,12 +587,13 @@ class SharedProxyRuntimeStackTest {
             localAuthToken = TestLocalProxyAuth,
         )
 
-    private fun awgPreferences(): RipDpiProxyUIPreferences =
+    private fun awgPreferences(dnsServers: List<String> = emptyList()): RipDpiProxyUIPreferences =
         RipDpiProxyUIPreferences(
             protocols = RipDpiProtocolConfig(udpAssociateEnabled = false),
             awg =
                 AwgActivationRequest(
                     profileId = AwgProfileId,
+                    dnsServers = dnsServers,
                     privateKey = "privkey==",
                     peerPublicKey = "peerpub==",
                     endpointHost = "vpn.example.org",

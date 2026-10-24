@@ -215,8 +215,8 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
         jc: Int = 4,
     ): String =
         """
-        {"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
-          "tag":"fleet-awg","private_key_placeholder":true,"address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,"jc":$jc,
+        {"outbounds":[],"ripdpi":{"schema_version":2,"amneziawg":[{
+          "tag":"fleet-awg","wire_profile":"awg-3.1-ranges-v1","jmin":0,"jmax":0,"s1":0,"s2":0,"h1":"1","h2":"2","h3":"3","h4":"4","private_key_placeholder":true,"address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,"jc":$jc,
           "peer":{"public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
           "endpoint":"$endpoint","preshared_key":"$psk","allowed_ips":["0.0.0.0/0"]}
         }],"hysteria_extras":{}}}

@@ -168,7 +168,7 @@ class DeviceMigrationHysteriaUpgradeTest : SubscriptionRefreshTestSupport() {
         return """
             {"outbounds":[{"type":"hysteria2","tag":"green","server":"new.example",
             "server_port":443,"password":"fixture"}],
-            "ripdpi":{"schema_version":1$extras,"migration":{"schema_version":1,
+            "ripdpi":{"schema_version":2$extras,"migration":{"schema_version":1,
             "migration_id":"11111111-1111-1111-1111-111111111111",
             "delivery_id":"22222222-2222-2222-2222-222222222222",
             "target_tags":["green"],"receipt_key":"${"a".repeat(64)}","awg_previous_tags":{}}}}

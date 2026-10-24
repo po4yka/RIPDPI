@@ -10,6 +10,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -24,7 +26,44 @@ class RipDpiWarpLockingTest {
     @Test
     fun earlyExitClearsReadinessSignal() =
         runTest {
-            val warp = RipDpiWarp(FakeRipDpiWarpBindings())
+            val bindings =
+                object : RipDpiWarpBindings by FakeRipDpiWarpBindings() {
+                    override fun create(configJson: String): Long {
+                        val payload = Json.parseToJsonElement(configJson).jsonObject
+                        assertEquals(JsonPrimitive(1330), payload["mtu"])
+                        val manual = payload.getValue("manualEndpoint").jsonObject
+                        assertEquals(setOf("host", "ipv4", "ipv6", "port"), manual.keys)
+                        assertEquals(JsonPrimitive(2408), manual["port"])
+                        val obfuscation = payload.getValue("amnezia").jsonObject
+                        assertEquals(
+                            setOf(
+                                "wireProfile",
+                                "enabled",
+                                "jc",
+                                "jmin",
+                                "jmax",
+                                "h1",
+                                "h2",
+                                "h3",
+                                "h4",
+                                "s1",
+                                "s2",
+                                "s3",
+                                "s4",
+                                "i1",
+                                "i2",
+                                "i3",
+                                "i4",
+                                "i5",
+                                "presharedKey",
+                                "persistentKeepalive",
+                            ),
+                            obfuscation.keys,
+                        )
+                        return 1L
+                    }
+                }
+            val warp = RipDpiWarp(bindings)
 
             assertEquals(0, warp.start(testWarpConfig()))
             assertTrue(runCatching { warp.awaitReady() }.exceptionOrNull() is NativeError.NotRunning)

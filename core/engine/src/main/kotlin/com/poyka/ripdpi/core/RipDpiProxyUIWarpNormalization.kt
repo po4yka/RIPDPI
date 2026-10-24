@@ -3,11 +3,19 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.DefaultWarpLocalSocksPort
 import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
 import com.poyka.ripdpi.data.WarpAmneziaPresetOff
+import com.poyka.ripdpi.data.awg.isAwgNumericAddress
 import com.poyka.ripdpi.data.normalizeWarpEndpointSelectionMode
 import com.poyka.ripdpi.data.normalizeWarpRouteMode
 
-internal fun normalizeWarpConfig(config: RipDpiWarpConfig): RipDpiWarpConfig =
-    config.copy(
+internal fun normalizeWarpConfig(config: RipDpiWarpConfig): RipDpiWarpConfig {
+    require(
+        config.awgDnsServers.isEmpty() ||
+            (isAwgNumericAddress(config.localSocksHost) && config.localSocksPort in 1..MaxValidPortNumber),
+    ) {
+        "AWG DNS authority requires a valid numeric upstream"
+    }
+    return config.copy(
+        awgDnsServers = config.awgDnsServers.toList(),
         routeMode = normalizeWarpRouteMode(config.routeMode),
         routeHosts = config.routeHosts.trim(),
         endpointSelectionMode = normalizeWarpEndpointSelectionMode(config.endpointSelectionMode),
@@ -26,3 +34,4 @@ internal fun normalizeWarpConfig(config: RipDpiWarpConfig): RipDpiWarpConfig =
         localSocksHost = config.localSocksHost.ifBlank { "127.0.0.1" },
         localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultWarpLocalSocksPort,
     )
+}

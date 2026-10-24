@@ -1,8 +1,8 @@
 {
   "scenario": "multi-host-failover",
-  "description": "Two p0-minimal hosts, each with REALITY primary/fallback, selector + urltest",
-  "deployer_git_sha": "ff0ae2198aa82648a03203a0ab52d5cdac485df3",
+  "description": "Two p0-minimal hosts, each with REALITY primary, selector + urltest",
+  "deployer_git_sha": "34c61b400998b5682056ac00e52cb016ae4ff228",
   "provenance": "emitted",
-  "generated_at": "2026-05-14T00:00:00Z",
-  "frozen_secret_set": "all UUIDs/keys/passwords are fixed -fixture test values, never production tokens"
+  "generated_at": "2026-10-23T00:00:00Z",
+  "frozen_secret_set": "Fixed synthetic UUIDs, allowlisted short IDs and byte-pattern AWG keys; no production credentials"
 }

@@ -86,3 +86,80 @@ pub(crate) fn attach_all_traffic_upstream(
     }
     Ok(())
 }
+
+/// Accept resolver authority only for the standalone AWG loopback route.
+pub(crate) fn resolver_authority(warp: &ProxyUiWarpConfig) -> Result<Vec<IpAddr>, ProxyConfigError> {
+    if warp.awg_dns_servers.is_empty() {
+        return Ok(Vec::new());
+    }
+    let valid_upstream = warp.local_socks_host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+        && u16::try_from(warp.local_socks_port).is_ok_and(|port| port != 0);
+    if !warp.enabled
+        || warp.route_mode != WARP_ROUTE_MODE_RULES
+        || warp.route_hosts != AMNEZIAWG_ALL_TRAFFIC_ROUTE_HOSTS
+        || !valid_upstream
+    {
+        return Err(ProxyConfigError::InvalidConfig("AWG DNS authority requires an active loopback AWG route".into()));
+    }
+    warp.awg_dns_servers
+        .iter()
+        .map(|address| {
+            address
+                .parse::<IpAddr>()
+                .map_err(|_| ProxyConfigError::InvalidConfig("AWG DNS servers must be numeric addresses".into()))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod resolver_tests {
+    use super::*;
+
+    fn active() -> ProxyUiWarpConfig {
+        ProxyUiWarpConfig {
+            enabled: true,
+            route_mode: WARP_ROUTE_MODE_RULES.into(),
+            route_hosts: AMNEZIAWG_ALL_TRAFFIC_ROUTE_HOSTS.into(),
+            awg_dns_servers: vec!["10.77.0.1".into(), "fd77::1".into()],
+            ..ProxyUiWarpConfig::default()
+        }
+    }
+
+    #[test]
+    fn resolver_authority_requires_numeric_addresses_and_active_loopback_awg() {
+        assert_eq!(
+            resolver_authority(&active()).unwrap(),
+            vec!["10.77.0.1".parse::<IpAddr>().unwrap(), "fd77::1".parse().unwrap()]
+        );
+        assert!(resolver_authority(&ProxyUiWarpConfig::default()).unwrap().is_empty());
+        let invalid = [
+            ProxyUiWarpConfig { enabled: false, ..active() },
+            ProxyUiWarpConfig { route_mode: "off".into(), ..active() },
+            ProxyUiWarpConfig { route_hosts: "example.org".into(), ..active() },
+            ProxyUiWarpConfig { local_socks_host: "example.org".into(), ..active() },
+            ProxyUiWarpConfig { local_socks_host: "192.0.2.1".into(), ..active() },
+            ProxyUiWarpConfig { local_socks_port: 0, ..active() },
+            ProxyUiWarpConfig { local_socks_port: 65536, ..active() },
+        ];
+        for config in invalid {
+            assert!(resolver_authority(&config).is_err());
+        }
+        for address in ["resolver.example", "", "10.77.0.1/32", "[fd77::1]", "fd77::1%1", " 10.77.0.1", "999.1.1.1"] {
+            assert!(
+                resolver_authority(&ProxyUiWarpConfig { awg_dns_servers: vec![address.into()], ..active() }).is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn resolver_wire_field_is_absent_when_empty_and_round_trips_when_active() {
+        let empty: ProxyUiWarpConfig = serde_json::from_str("{}").unwrap();
+        assert!(empty.awg_dns_servers.is_empty());
+        assert!(serde_json::to_value(empty).unwrap().get("awgDnsServers").is_none());
+        let value = serde_json::to_value(active()).unwrap();
+        assert_eq!(serde_json::from_value::<ProxyUiWarpConfig>(value).unwrap(), active());
+        for value in [serde_json::json!(null), serde_json::json!("10.77.0.1"), serde_json::json!([42])] {
+            assert!(serde_json::from_value::<ProxyUiWarpConfig>(serde_json::json!({"awgDnsServers": value})).is_err());
+        }
+    }
+}

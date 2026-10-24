@@ -7,11 +7,9 @@ import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
 import com.poyka.ripdpi.data.awg.matchCohortForConf
 import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
-
-private const val FourByteUnsignedMax = 0xFFFF_FFFFL
-private val HexRegex = Regex("[0-9a-fA-F]+")
 
 /**
  * Every editable field of the AmneziaWG profile editor.
@@ -74,10 +72,11 @@ enum class AwgEditorField(
      */
     fun validate(raw: String): Any? =
         when (this) {
-            JC, JMIN, JMAX, S1, S2 -> raw.toIntOrNull()?.takeIf { it >= 0 }
+            JC -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumJunkPackets }
+            JMIN, JMAX, S1, S2 -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumPacket }
             S3, S4 -> raw.toIntOrNull()?.takeIf { it == 0 }
-            H1, H2, H3, H4 -> raw.toLongOrNull()?.takeIf { it in 0L..FourByteUnsignedMax }
-            I1, I2, I3, I4, I5 -> raw.takeIf { it.isNotEmpty() && HexRegex.matches(it) }?.lowercase()
+            H1, H2, H3, H4 -> raw.takeIf { AmneziaWgWireProfile.headerIsValid(it, name.last().digitToInt()) }
+            I1, I2, I3, I4, I5 -> raw.takeIf { AmneziaWgWireProfile.signatureSize(it) != null }
             else -> raw
         }
 }
@@ -181,9 +180,7 @@ data class AmneziaWgEditorState(
      * `Jmin > Jmax` range or an oversized junk/padding value must block
      * activation rather than silently ship a fragmenting profile.
      *
-     * The `Jmin <= Jmax` and `Jmax <= MTU` relationships are gated on `Jc > 0`
-     * (no junk packets are emitted when `Jc == 0`); the `S1..S4` size-padding is
-     * always checked because it applies to every WireGuard message type.
+     * The named wire profile bounds scalar values even when `Jc == 0`.
      */
     fun obfuscationConsistent(): Boolean {
         val mtu = effectiveMtu()
@@ -192,7 +189,17 @@ data class AmneziaWgEditorState(
         val junkSizeFitsMtu = !junkActive || form.jmax <= mtu
         val paddingFitsMtu = form.s1 <= mtu && form.s2 <= mtu && form.s3 <= mtu && form.s4 <= mtu
         val arm64Safe = form.s3 == 0 && form.s4 == 0
-        return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu && arm64Safe
+        val wireProfileValid =
+            runCatching {
+                AmneziaWgWireProfile.requireScalars(form.jc, form.jmin, form.jmax, form.s1, form.s2)
+                AmneziaWgWireProfile.requireValid(
+                    form.wireProfile,
+                    listOf(form.h1, form.h2, form.h3, form.h4),
+                    listOf(form.i1, form.i2, form.i3, form.i4, form.i5),
+                )
+            }.isSuccess
+        val fieldsValid = AwgEditorField.entries.filter { it.isObfuscation }.none(::hasFieldError)
+        return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu && arm64Safe && wireProfileValid && fieldsValid
     }
 
     /** Effective tunnel MTU, mirroring [toActivationRequest]'s fallback. */
@@ -253,6 +260,7 @@ data class AmneziaWgEditorState(
         val host = endpoint.substringBeforeLast(':', endpoint)
         val port = endpoint.substringAfterLast(':', "").toIntOrNull() ?: 0
         return form.copy(
+            wireProfile = awg.wireProfile,
             interfacePrivateKey = parsed.interfaceSection.privateKey,
             peerPublicKey = peer?.publicKey.orEmpty(),
             presharedKey = peer?.presharedKey.orEmpty(),
@@ -265,10 +273,10 @@ data class AmneziaWgEditorState(
             s2 = awg.s2 ?: 0,
             s3 = awg.s3 ?: 0,
             s4 = awg.s4 ?: 0,
-            h1 = awg.h1 ?: 0L,
-            h2 = awg.h2 ?: 0L,
-            h3 = awg.h3 ?: 0L,
-            h4 = awg.h4 ?: 0L,
+            h1 = awg.h1 ?: "1",
+            h2 = awg.h2 ?: "2",
+            h3 = awg.h3 ?: "3",
+            h4 = awg.h4 ?: "4",
             i1 = awg.i1.orEmpty(),
             i2 = awg.i2.orEmpty(),
             i3 = awg.i3.orEmpty(),
@@ -330,13 +338,13 @@ private fun AwgProfileForm.applyField(
 
         AwgEditorField.S4 -> copy(s4 = parsed as Int)
 
-        AwgEditorField.H1 -> copy(h1 = parsed as Long)
+        AwgEditorField.H1 -> copy(h1 = parsed as String)
 
-        AwgEditorField.H2 -> copy(h2 = parsed as Long)
+        AwgEditorField.H2 -> copy(h2 = parsed as String)
 
-        AwgEditorField.H3 -> copy(h3 = parsed as Long)
+        AwgEditorField.H3 -> copy(h3 = parsed as String)
 
-        AwgEditorField.H4 -> copy(h4 = parsed as Long)
+        AwgEditorField.H4 -> copy(h4 = parsed as String)
 
         AwgEditorField.I1 -> copy(i1 = parsed as String)
 
@@ -376,7 +384,7 @@ private fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =
         put(AwgEditorField.H2, h2.toString())
         put(AwgEditorField.H3, h3.toString())
         put(AwgEditorField.H4, h4.toString())
-        // I1..I5 are hex strings: only seed raw text when present so an empty
+        // I1..I5 are signature programs: only seed raw text when present so an empty
         // payload column does not flag a spurious field error in the editor.
         if (i1.isNotEmpty()) put(AwgEditorField.I1, i1)
         if (i2.isNotEmpty()) put(AwgEditorField.I2, i2)

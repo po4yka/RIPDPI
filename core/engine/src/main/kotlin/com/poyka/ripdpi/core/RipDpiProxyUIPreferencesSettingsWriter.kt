@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.normalizeRelayXhttpMode
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.proto.AppSettings
 
 fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings =
@@ -192,6 +193,19 @@ private fun AppSettings.Builder.applyRelayPreferences(preferences: RipDpiProxyUI
 
 private fun AppSettings.Builder.applyWarpPreferences(preferences: RipDpiProxyUIPreferences) {
     val warp = preferences.warp
+    AmneziaWgWireProfile.requireValid(
+        warp.amnezia.wireProfile,
+        listOf(warp.amnezia.h1, warp.amnezia.h2, warp.amnezia.h3, warp.amnezia.h4),
+        listOf(warp.amnezia.i1, warp.amnezia.i2, warp.amnezia.i3, warp.amnezia.i4, warp.amnezia.i5),
+    )
+    AmneziaWgWireProfile.requireScalars(
+        warp.amnezia.jc,
+        warp.amnezia.jmin,
+        warp.amnezia.jmax,
+        warp.amnezia.s1,
+        warp.amnezia.s2,
+    )
+    require(warp.amnezia.s3 == 0 && warp.amnezia.s4 == 0) { "AmneziaWG S3/S4 must remain zero" }
     setWarpEnabled(warp.enabled)
     setWarpRouteMode(warp.routeMode)
     setWarpRouteHosts(warp.routeHosts)
@@ -205,6 +219,12 @@ private fun AppSettings.Builder.applyWarpPreferences(preferences: RipDpiProxyUIP
     setWarpScannerParallelism(warp.scannerParallelism)
     setWarpScannerMaxRttMs(warp.scannerMaxRttMs)
     setWarpAmneziaPreset(warp.amneziaPreset)
+    setWarpAmneziaWireProfile(warp.amnezia.wireProfile)
+    setWarpAmneziaI1(warp.amnezia.i1)
+    setWarpAmneziaI2(warp.amnezia.i2)
+    setWarpAmneziaI3(warp.amnezia.i3)
+    setWarpAmneziaI4(warp.amnezia.i4)
+    setWarpAmneziaI5(warp.amnezia.i5)
     setWarpAmneziaEnabled(warp.amnezia.enabled)
     setWarpAmneziaJc(warp.amnezia.jc)
     setWarpAmneziaJmin(warp.amnezia.jmin)

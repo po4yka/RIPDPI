@@ -37,6 +37,8 @@ Local builds, unit tests, lint, formatting, and Cargo checks use disposable outp
 
 For local emulator tests, UI inspection, screenshots, or acceptance, use the command-scoped pool lease in [Local Android emulator pool](docs/contributor/android-emulator-pool.md). Reuse a compatible idle slot; hold its lock through all device operations. Temporary AVDs need a test-specific reason and owner cleanup. Use the documented cleanup command for authorized removal of idle devices. Preserve active, foreign, and Gradle managed devices. The detached `scripts/ci/start-android-emulator.sh --fresh` launcher is restricted to isolated CI runners.
 
+For explicitly authorized physical transport acceptance, use the direct adapter's exact serial, private LAN addresses, device lock, and fresh-install ownership receipt described in [local acceptance](test-lab/acceptance/README.md#owned-physical-transport-runs). Refuse unrelated installed applications before mutation. Loopback control forwarding cannot serve as evidence for a reachable direct-bypass sentinel. Keep installation receipts private and report local-device evidence separately from external-network coverage.
+
 Match verification to risk. For a local change, run the narrowest gate that exercises it (the module's unit tests, `cargo test -p <crate> --locked`). Widen to `staticAnalysis`, workspace-wide Rust checks, or device tests when the change crosses modules, touches a JNI/protobuf/wire/storage contract, service lifecycle, or build logic, or when the user asks for a specific gate. Run the exact gate the user requests and report its actual result; a blocked or skipped gate is reported as such, never replaced by a weaker claim.
 
 Work is done when the requested change is implemented, its relevant gate passes (or its failure is reported with output), and any finished atomic unit is committed on the job branch.
@@ -162,3 +164,5 @@ File-area rules live in `.claude/rules/`. Claude Code loads them automatically w
 ## Design sources
 
 For UI work use, in order, `DESIGN.md`, `docs/design-system.md`, the Compose theme implementation, and Roborazzi baselines. Implementation and verified baselines win when descriptive prose disagrees.
+
+The local USB transport scenarios are a separate acceptance scope. They use the real VPN and native engines with a test-only datagram bridge. Do not claim direct device-to-LAN UDP or underlying-network bypass acceptance from this scope.

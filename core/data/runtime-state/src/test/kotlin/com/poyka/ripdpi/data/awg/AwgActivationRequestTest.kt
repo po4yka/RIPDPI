@@ -91,12 +91,12 @@ class AwgActivationRequestTest {
             s2 = 100,
             s3 = 7,
             s4 = 9,
-            h1 = 1_000_000_001L,
-            h2 = 1_000_000_002L,
-            h3 = 1_000_000_003L,
-            h4 = 1_000_000_004L,
-            i1 = "deadbeef",
-            i5 = "cafe",
+            h1 = "1000000001",
+            h2 = "1000000002",
+            h3 = "1000000003",
+            h4 = "1000000004",
+            i1 = "<b 0xdeadbeef>",
+            i5 = "<b 0xcafe>",
             cohortId = "rtk_south",
         )
 
@@ -133,10 +133,10 @@ class AwgActivationRequestTest {
         assertEquals(100, obf.s2)
         assertEquals(7, obf.s3)
         assertEquals(9, obf.s4)
-        assertEquals(1_000_000_001L, obf.h1)
-        assertEquals(1_000_000_004L, obf.h4)
-        assertEquals("deadbeef", obf.i1)
-        assertEquals("cafe", obf.i5)
+        assertEquals("1000000001", obf.h1)
+        assertEquals("1000000004", obf.h4)
+        assertEquals("<b 0xdeadbeef>", obf.i1)
+        assertEquals("<b 0xcafe>", obf.i5)
     }
 
     @Test
@@ -171,22 +171,22 @@ class AwgActivationRequestTest {
 
     @Test
     fun `arm64 safety accepts zero s3 and s4`() {
-        AwgActivationObfuscation(s3 = 0, s4 = 0).requireArm64Safe()
+        AwgActivationObfuscation(s3 = 0, s4 = 0).requireSupportedProfile()
     }
 
     @Test
     fun `arm64 safety rejects non-zero s3 or s4 with the upstream issue`() {
         val s3Error =
             assertThrows(IllegalArgumentException::class.java) {
-                AwgActivationObfuscation(s3 = 1).requireArm64Safe()
+                AwgActivationObfuscation(s3 = 1).requireSupportedProfile()
             }
         val s4Error =
             assertThrows(IllegalArgumentException::class.java) {
-                AwgActivationObfuscation(s4 = 1).requireArm64Safe()
+                AwgActivationObfuscation(s4 = 1).requireSupportedProfile()
             }
         val bothError =
             assertThrows(IllegalArgumentException::class.java) {
-                AwgActivationObfuscation(s3 = 1, s4 = 1).requireArm64Safe()
+                AwgActivationObfuscation(s3 = 1, s4 = 1).requireSupportedProfile()
             }
 
         assertTrue(s3Error.message.orEmpty().contains("amneziawg-go#110"))

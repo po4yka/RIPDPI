@@ -13,7 +13,6 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -169,10 +168,11 @@ class RipdpiBundleContractTest {
 
         // AWG entry with i-values; delivered fingerprint recomputes from its params.
         val awg = result.amneziaWgProfiles.single()
-        assertEquals("deadbeef", awg.awg.i1)
-        assertEquals("cafebabe", awg.awg.i3)
+        assertEquals("<b 0xdeadbeef><r 4><rd 2><rc 2><t>", awg.awg.i1)
+        assertEquals("1000-1999", awg.awg.h1)
+        assertEquals("<b 0xcafebabe>", awg.awg.i3)
         assertEquals(
-            "sha256:5c6da6e7611473a17003b31df40ba2fba04fac5990dc1da2cb06608ecc45bd25",
+            "sha256:51912e328885b16e0c4053a7ed93f786996b98c75a4d4a151de370d08b5db57d",
             awg.cohortFingerprint,
         )
         assertEquals(awg.cohortFingerprint, awg.awg.cohortFingerprint())
@@ -210,7 +210,7 @@ class RipdpiBundleContractTest {
     // That intentional strict-server / lenient-client asymmetry is the contract.
     // -------------------------------------------------------------------------
     @Test
-    fun `parser handles every negative fixture leniently without throwing`() {
+    fun `parser rejects incompatible contracts and skips malformed entries without throwing`() {
         val dir = File(requireNotNull(javaClass.getResource(NEGATIVE_DIR)) { "missing $NEGATIVE_DIR" }.toURI())
         val files =
             requireNotNull(dir.listFiles { f -> f.name.startsWith("neg-") && f.name.endsWith(".json") })
@@ -219,17 +219,15 @@ class RipdpiBundleContractTest {
 
         for (f in files) {
             val result = SingBoxSubscriptionParser.parse(f.readText(), "neg")
-            assertTrue("${f.name}: expected Success (lenient) but got $result", result is SingBoxParseResult.Success)
-            result as SingBoxParseResult.Success
-            when (f.name) {
-                // Unrecognised / absent schema_version => whole ripdpi block ignored.
-                "neg-schema-version-2.json", "neg-missing-schema-version.json" -> {
-                    assertTrue("${f.name}: ripdpi block should be ignored", result.amneziaWgProfiles.isEmpty())
-                }
-
-                // A peer with no public key is unparseable => that AWG entry is skipped.
-                "neg-peer-missing-public-key.json" -> {
-                    assertTrue("${f.name}: malformed AWG entry should be skipped", result.amneziaWgProfiles.isEmpty())
+            if (f.name in setOf("neg-schema-version-3.json", "neg-missing-schema-version.json")) {
+                assertTrue("${f.name}: expected recognized refusal", result is SingBoxParseResult.Error)
+                assertTrue((result as SingBoxParseResult.Error).recognizedBundle)
+            } else {
+                assertTrue("${f.name}: expected Success but got $result", result is SingBoxParseResult.Success)
+                if (f.name in
+                    setOf("neg-peer-missing-public-key.json", "neg-awg-missing-h1.json", "neg-awg-unknown-field.json")
+                ) {
+                    assertTrue((result as SingBoxParseResult.Success).amneziaWgProfiles.isEmpty())
                 }
             }
         }
@@ -242,10 +240,10 @@ class RipdpiBundleContractTest {
             jmax = obj["jmax"]?.jsonPrimitive?.int,
             s1 = obj["s1"]?.jsonPrimitive?.int,
             s2 = obj["s2"]?.jsonPrimitive?.int,
-            h1 = obj["h1"]?.jsonPrimitive?.long,
-            h2 = obj["h2"]?.jsonPrimitive?.long,
-            h3 = obj["h3"]?.jsonPrimitive?.long,
-            h4 = obj["h4"]?.jsonPrimitive?.long,
+            h1 = obj["h1"]?.jsonPrimitive?.content,
+            h2 = obj["h2"]?.jsonPrimitive?.content,
+            h3 = obj["h3"]?.jsonPrimitive?.content,
+            h4 = obj["h4"]?.jsonPrimitive?.content,
             i1 = obj["i1"]?.jsonPrimitive?.content,
             i2 = obj["i2"]?.jsonPrimitive?.content,
             i3 = obj["i3"]?.jsonPrimitive?.content,

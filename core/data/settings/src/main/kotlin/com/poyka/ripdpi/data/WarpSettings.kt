@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.proto.AppSettings
 
 const val WarpRouteModeOff = "off"
@@ -44,14 +45,20 @@ data class WarpManualEndpoint(
 )
 
 data class WarpAmneziaSettings(
+    val wireProfile: String = AmneziaWgWireProfile.ID,
+    val i1: String = "",
+    val i2: String = "",
+    val i3: String = "",
+    val i4: String = "",
+    val i5: String = "",
     val enabled: Boolean = false,
     val jc: Int = 0,
     val jmin: Int = 0,
     val jmax: Int = 0,
-    val h1: Long = 0L,
-    val h2: Long = 0L,
-    val h3: Long = 0L,
-    val h4: Long = 0L,
+    val h1: String = "1",
+    val h2: String = "2",
+    val h3: String = "3",
+    val h4: String = "4",
     val s1: Int = 0,
     val s2: Int = 0,
     val s3: Int = 0,
@@ -138,22 +145,31 @@ private val builtInWarpPresetProfiles: Map<String, WarpAmneziaSettings> by lazy 
     }
 }
 
-private const val WarpAmneziaReservedS2Offset = 56
-private const val WarpAmneziaMaxJc = 10
-private const val WarpAmneziaMaxJmax = 1024
-private const val WarpAmneziaMaxPadding = 1280
-private const val WarpAmneziaMaxHeader = 0xffff_ffffL
-
 internal fun rawWarpAmneziaSettings(appSettings: AppSettings): WarpAmneziaSettings =
     WarpAmneziaSettings(
+        wireProfile =
+            appSettings.warpAmneziaWireProfile.ifEmpty {
+                if (appSettings.warpAmneziaEnabled ||
+                    appSettings.warpAmneziaPreset !in setOf("", WarpAmneziaPresetOff)
+                ) {
+                    ""
+                } else {
+                    AmneziaWgWireProfile.ID
+                }
+            },
+        i1 = appSettings.warpAmneziaI1,
+        i2 = appSettings.warpAmneziaI2,
+        i3 = appSettings.warpAmneziaI3,
+        i4 = appSettings.warpAmneziaI4,
+        i5 = appSettings.warpAmneziaI5,
         enabled = appSettings.warpAmneziaEnabled,
         jc = appSettings.warpAmneziaJc,
         jmin = appSettings.warpAmneziaJmin,
         jmax = appSettings.warpAmneziaJmax,
-        h1 = appSettings.warpAmneziaH1,
-        h2 = appSettings.warpAmneziaH2,
-        h3 = appSettings.warpAmneziaH3,
-        h4 = appSettings.warpAmneziaH4,
+        h1 = appSettings.warpAmneziaH1.ifEmpty { "1" },
+        h2 = appSettings.warpAmneziaH2.ifEmpty { "2" },
+        h3 = appSettings.warpAmneziaH3.ifEmpty { "3" },
+        h4 = appSettings.warpAmneziaH4.ifEmpty { "4" },
         s1 = appSettings.warpAmneziaS1,
         s2 = appSettings.warpAmneziaS2,
         s3 = appSettings.warpAmneziaS3,
@@ -168,12 +184,12 @@ internal fun inferWarpAmneziaPreset(
     val inferredPreset =
         builtInWarpPresetProfiles.entries
             .firstOrNull { (_, settings) ->
-                normalizeWarpAmneziaSettings(settings) == normalizeWarpAmneziaSettings(rawSettings)
+                settings == rawSettings
             }?.key
     return when {
         normalizedPreset != WarpAmneziaPresetOff || storedPreset.isNotBlank() -> normalizedPreset
+        rawSettings == WarpAmneziaSettings() -> WarpAmneziaPresetOff
         inferredPreset != null -> inferredPreset
-        normalizeWarpAmneziaSettings(rawSettings) == WarpAmneziaSettings() -> WarpAmneziaPresetOff
         else -> WarpAmneziaPresetCustom
     }
 }
@@ -196,7 +212,7 @@ fun resolveWarpAmneziaProfile(
         }
 
         WarpAmneziaPresetCustom -> {
-            WarpAmneziaPresetProfile(normalizedPreset, normalizeWarpAmneziaSettings(rawSettings))
+            WarpAmneziaPresetProfile(normalizedPreset, rawSettings)
         }
 
         else -> {
@@ -205,49 +221,25 @@ fun resolveWarpAmneziaProfile(
     }
 }
 
-fun normalizeWarpAmneziaSettings(settings: WarpAmneziaSettings): WarpAmneziaSettings {
-    val normalizedJmin = settings.jmin.coerceIn(0, WarpAmneziaMaxJmax)
-    val normalizedJmax = settings.jmax.coerceAtLeast(normalizedJmin)
-    val normalizedHeaders =
-        listOf(settings.h1, settings.h2, settings.h3, settings.h4)
-            .mapIndexed { index, value ->
-                value.takeIf { it in 1..WarpAmneziaMaxHeader } ?: (index + 1).toLong()
-            }.fold(mutableListOf<Long>()) { acc, value ->
-                var candidate = value
-                while (acc.contains(candidate)) {
-                    candidate = if (candidate == WarpAmneziaMaxHeader) 1L else candidate + 1L
-                }
-                acc += candidate
-                acc
-            }
-    val normalizedS1 = settings.s1.coerceIn(0, WarpAmneziaMaxPadding)
-    var normalizedS2 = settings.s2.coerceIn(0, WarpAmneziaMaxPadding)
-    if (normalizedS1 + WarpAmneziaReservedS2Offset == normalizedS2) {
-        normalizedS2 += if (normalizedS2 == WarpAmneziaMaxPadding) -1 else 1
-    }
-    return settings.copy(
-        enabled = settings.enabled,
-        jc = settings.jc.coerceIn(0, WarpAmneziaMaxJc),
-        jmin = normalizedJmin,
-        jmax = normalizedJmax.coerceAtMost(WarpAmneziaMaxJmax),
-        h1 = normalizedHeaders[0],
-        h2 = normalizedHeaders[1],
-        h3 = normalizedHeaders[2],
-        h4 = normalizedHeaders[3],
-        s1 = normalizedS1,
-        s2 = normalizedS2,
-        s3 = settings.s3.coerceIn(0, WarpAmneziaMaxPadding),
-        s4 = settings.s4.coerceIn(0, WarpAmneziaMaxPadding),
-    )
+fun WarpAmneziaSettings.requireSupportedProfile() {
+    AmneziaWgWireProfile.requireValid(wireProfile, listOf(h1, h2, h3, h4), listOf(i1, i2, i3, i4, i5))
+    AmneziaWgWireProfile.requireScalars(jc, jmin, jmax, s1, s2)
+    require(s3 == 0 && s4 == 0) { "AmneziaWG S3/S4 must remain zero" }
 }
 
 fun AppSettings.toWarpSettingsModel(): WarpSettingsModel =
     rawWarpAmneziaSettings(this).let { rawAmnezia ->
         val amneziaProfile =
-            resolveWarpAmneziaProfile(
-                inferWarpAmneziaPreset(warpAmneziaPreset, rawAmnezia),
-                rawAmnezia,
-            )
+            if (rawAmnezia.wireProfile !=
+                AmneziaWgWireProfile.ID
+            ) {
+                WarpAmneziaPresetProfile(WarpAmneziaPresetCustom, rawAmnezia)
+            } else {
+                resolveWarpAmneziaProfile(
+                    inferWarpAmneziaPreset(warpAmneziaPreset, rawAmnezia),
+                    rawAmnezia,
+                )
+            }
         WarpSettingsModel(
             enabled = warpEnabled,
             routeMode = normalizeWarpRouteMode(warpRouteMode),
