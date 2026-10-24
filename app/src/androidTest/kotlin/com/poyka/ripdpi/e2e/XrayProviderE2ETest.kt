@@ -768,15 +768,29 @@ class XrayProviderE2ETest {
                 val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 val wasAwake = device.isScreenOn
                 try {
+                    device.wakeUp()
+                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not wake before the stream" }) {
+                        device.isScreenOn
+                    }
                     val stream = executor.submit { transfer("stream", "sleep-wake") }
                     SystemClock.sleep(2_000)
+                    assertFalse("Stream ended before sleep", stream.isDone)
                     device.sleep()
+                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not turn off during the stream" }) {
+                        !device.isScreenOn
+                    }
                     SystemClock.sleep(2_000)
                     device.wakeUp()
+                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not wake during the stream" }) {
+                        device.isScreenOn
+                    }
                     stream.get(100, TimeUnit.SECONDS)
                 } finally {
                     executor.shutdownNow()
                     if (wasAwake) device.wakeUp() else device.sleep()
+                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Original screen state was not restored" }) {
+                        device.isScreenOn == wasAwake
+                    }
                 }
                 readControl("peer/stop", "POST")
                 try {
