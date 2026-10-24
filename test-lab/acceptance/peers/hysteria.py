@@ -95,8 +95,10 @@ def stop_group(process):
 class Destinations:
     """Record complete test payloads, then echo them through independent sockets."""
 
-    def __init__(self, payload):
+    def __init__(self, payload, *, persistent=False):
         self.payload = payload
+        self.persistent = persistent
+        self.tcp_connections = 0
         self.receipts = []
         self.errors = []
         self.stopped = threading.Event()
@@ -123,16 +125,24 @@ class Destinations:
                     sock.sendto(data, address)
                 else:
                     conn, _ = sock.accept()
+                    self.tcp_connections += 1
                     with conn:
-                        conn.settimeout(2)
+                        conn.settimeout(0.2)
                         data = b""
-                        while len(data) < len(self.payload):
-                            part = conn.recv(len(self.payload) - len(data))
+                        while not self.stopped.is_set():
+                            try:
+                                part = conn.recv(len(self.payload) - len(data))
+                            except socket.timeout:
+                                continue
                             if not part:
                                 break
                             data += part
-                        self.record(kind, data)
-                        conn.sendall(data)
+                            if len(data) == len(self.payload):
+                                self.record(kind, data)
+                                conn.sendall(data)
+                                data = b""
+                                if not self.persistent:
+                                    break
             except socket.timeout:
                 continue
             except OSError as error:
@@ -160,10 +170,18 @@ class Destinations:
 
 
 @contextmanager
-def peer(cache, out_dir, run_id, cleanup):
+def peer(cache, out_dir, run_id, cleanup, *, ipv6=False, salamander=False, persistent=False, payload_bytes=0):
     executable = binary(cache)
     payload = f"ripdpi-acceptance:{run_id}".encode()
-    destinations = Destinations(payload)
+    if not 0 <= payload_bytes <= 60_000:
+        raise ValueError("peer payload size exceeds the UDP test bound")
+    if payload_bytes:
+        payload *= (payload_bytes + len(payload) - 1) // len(payload)
+    destinations = Destinations(payload, persistent=persistent)
+    host = "::1" if ipv6 else "127.0.0.1"
+    family = socket.AF_INET6 if ipv6 else socket.AF_INET
+    def address(port):
+        return f"[{host}]:{port}" if ipv6 else f"{host}:{port}"
     cleanup["passed"] = False
     try:
         with tempfile.TemporaryDirectory(prefix="ripdpi-hysteria-peer-") as directory:
@@ -198,15 +216,17 @@ def peer(cache, out_dir, run_id, cleanup):
                 stderr=subprocess.DEVNULL,
                 timeout=30,
             )
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
-                reservation.bind(("127.0.0.1", 0))
+            with socket.socket(family, socket.SOCK_DGRAM) as reservation:
+                reservation.bind((host, 0))
                 port = reservation.getsockname()[1]
             auth = secrets.token_hex(24)
+            obfs = secrets.token_hex(24) if salamander else ""
             config = private / "server.json"
             config.write_text(
                 json.dumps(
                     {
-                        "listen": f"127.0.0.1:{port}",
+                        "listen": address(port),
+                        **({"obfs": {"type": "salamander", "salamander": {"password": obfs}}} if salamander else {}),
                         "tls": {"cert": str(cert), "key": str(key)},
                         "auth": {"type": "password", "password": auth},
                         "disableUDP": False,
@@ -236,12 +256,15 @@ def peer(cache, out_dir, run_id, cleanup):
                             time.sleep(0.05)
                         yield {
                             "env": {
-                                "RIPDPI_HYSTERIA_ENDPOINT": f"127.0.0.1:{port}",
+                                "RIPDPI_HYSTERIA_ENDPOINT": address(port),
+                                "RIPDPI_HYSTERIA_SALAMANDER": obfs,
                                 "RIPDPI_HYSTERIA_AUTH": auth,
                                 "RIPDPI_HYSTERIA_TCP": f"127.0.0.1:{destinations.tcp.getsockname()[1]}",
                                 "RIPDPI_HYSTERIA_UDP": f"127.0.0.1:{destinations.udp.getsockname()[1]}",
                                 "RIPDPI_HYSTERIA_PAYLOAD": payload.decode(),
                             },
+                            "destinations": destinations,
+                            "server_address": (host, port),
                             "receipts": destinations.receipts,
                             "errors": destinations.errors,
                             "sha256": DIGESTS[asset()],

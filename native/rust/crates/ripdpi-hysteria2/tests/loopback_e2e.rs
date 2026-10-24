@@ -30,3 +30,26 @@ async fn hysteria2_client_round_trips_through_loopback_after_auth() {
 
     server.shutdown().await;
 }
+
+/// # Cancel safety:
+/// cancel-safe: the test owns the stream and drops it on the outer deadline;
+/// read_exact and write_all are not retried after cancellation.
+#[tokio::test]
+async fn hopping_stream_keeps_carrier_after_client_handle_is_dropped() {
+    let server = Hysteria2Loopback::start().await.expect("start fixture");
+    tokio::time::timeout(std::time::Duration::from_secs(12), async {
+        let url = format!("hy2://test@127.0.0.1:{}/?sni=localhost&insecure=1&hopInterval=5s", server.port());
+        let config = ripdpi_hysteria2::Config::from_url(&url).expect("hopping config");
+        let client = ripdpi_hysteria2::connect(&config).await.expect("connect");
+        let mut stream = client.tcp_connect("127.0.0.1:9").await.expect("stream");
+        drop(client);
+        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+        stream.write_all(b"owned-hopping-stream").await.expect("write after hop");
+        let mut echoed = [0; 20];
+        stream.read_exact(&mut echoed).await.expect("read after hop");
+        assert_eq!(&echoed, b"owned-hopping-stream");
+    })
+    .await
+    .expect("owned stream deadline");
+    server.shutdown().await;
+}

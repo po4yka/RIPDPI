@@ -47,6 +47,18 @@ python3 test-lab/acceptance/lab.py run --profile native \
   --out-dir build/acceptance/native-run
 ```
 
+Use `--profile hysteria-hopping` for the eight independent Hysteria remote-port
+cases. They cover IPv4/IPv6, plain/Salamander and fixed/random intervals through
+serialized native JSON and the real SOCKS runtime. Physical UDP path receipts,
+one authenticated connection, persistent TCP/UDP payloads and cleanup are mandatory.
+The Linux PR job also checks the adapter's GRO receive-buffer capability.
+For direct Kotlin serializer input, set `RIPDPI_HYSTERIA_WIRE_FIXTURE_DIR` to the
+existing engine test's `build/reports/hysteria-hopping-wire` directory after
+`RelayNativeConfigTest` has generated `peer-flat-fixed.json` and
+`peer-flat-random.json`. The runner binds their three exact ports and keeps their
+policy values. Missing, malformed or conflicting fixtures fail the run; it does
+not fall back to a native specimen when a fixture directory was requested.
+
 Preparation is allowed to download pinned dependencies. Native runs disable
 Cargo/Go dependency resolution, but do not claim an OS-level egress firewall.
 Use the routed VM for observed network isolation. On a Mac with `build-gate`,

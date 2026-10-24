@@ -31,7 +31,25 @@
       "independent-awg-tcp-udp",
       "independent-hysteria2-tcp-udp",
       "independent-hysteria2-auth-rejection",
-      "independent-hysteria2-tls-rejection"
+      "independent-hysteria2-tls-rejection",
+      "independent-hysteria2-hopping-ipv4-plain-fixed",
+      "independent-hysteria2-hopping-ipv4-plain-random",
+      "independent-hysteria2-hopping-ipv4-salamander-fixed",
+      "independent-hysteria2-hopping-ipv4-salamander-random",
+      "independent-hysteria2-hopping-ipv6-plain-fixed",
+      "independent-hysteria2-hopping-ipv6-plain-random",
+      "independent-hysteria2-hopping-ipv6-salamander-fixed",
+      "independent-hysteria2-hopping-ipv6-salamander-random"
+    ],
+    "hysteria-hopping": [
+      "independent-hysteria2-hopping-ipv4-plain-fixed",
+      "independent-hysteria2-hopping-ipv4-plain-random",
+      "independent-hysteria2-hopping-ipv4-salamander-fixed",
+      "independent-hysteria2-hopping-ipv4-salamander-random",
+      "independent-hysteria2-hopping-ipv6-plain-fixed",
+      "independent-hysteria2-hopping-ipv6-plain-random",
+      "independent-hysteria2-hopping-ipv6-salamander-fixed",
+      "independent-hysteria2-hopping-ipv6-salamander-random"
     ],
     "android": [
       "android-xray",
@@ -91,6 +109,14 @@
       "independent-hysteria2-tcp-udp",
       "independent-hysteria2-auth-rejection",
       "independent-hysteria2-tls-rejection",
+      "independent-hysteria2-hopping-ipv4-plain-fixed",
+      "independent-hysteria2-hopping-ipv4-plain-random",
+      "independent-hysteria2-hopping-ipv4-salamander-fixed",
+      "independent-hysteria2-hopping-ipv4-salamander-random",
+      "independent-hysteria2-hopping-ipv6-plain-fixed",
+      "independent-hysteria2-hopping-ipv6-plain-random",
+      "independent-hysteria2-hopping-ipv6-salamander-fixed",
+      "independent-hysteria2-hopping-ipv6-salamander-random",
       "android-xray",
       "android-network",
       "routed-baseline-drop-recovery",
@@ -566,6 +592,150 @@
         "exact-test-executed",
         "pinned-peer-identity",
         "destination-receipts"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-hopping-ipv4-plain-fixed",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts",
+        "physical-port-hops",
+        "single-authenticated-connection"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-hopping-ipv4-plain-random",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts",
+        "physical-port-hops",
+        "single-authenticated-connection"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-hopping-ipv4-salamander-fixed",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts",
+        "physical-port-hops",
+        "single-authenticated-connection"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-hopping-ipv4-salamander-random",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts",
+        "physical-port-hops",
+        "single-authenticated-connection"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-hopping-ipv6-plain-fixed",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts",
+        "physical-port-hops",
+        "single-authenticated-connection"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-hopping-ipv6-plain-random",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts",
+        "physical-port-hops",
+        "single-authenticated-connection"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-hopping-ipv6-salamander-fixed",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts",
+        "physical-port-hops",
+        "single-authenticated-connection"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-hopping-ipv6-salamander-random",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts",
+        "physical-port-hops",
+        "single-authenticated-connection"
       ]
     },
     {
