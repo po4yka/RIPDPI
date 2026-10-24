@@ -65,12 +65,12 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.CandidateHttpPayloadProbe
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
 import com.poyka.ripdpi.services.CandidateRelayProbeEnvironment
 import com.poyka.ripdpi.services.ControlledRelayRuntime
 import com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry
 import com.poyka.ripdpi.services.MeasuredActivationRegistry
 import com.poyka.ripdpi.services.MeasuredProfileActivationCoordinator
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import com.poyka.ripdpi.services.ProfileUtilityProbeFixtures
 import com.poyka.ripdpi.services.ProxySessionSecretResolver
 import com.poyka.ripdpi.services.RelayProbeEndpoint
@@ -835,7 +835,7 @@ private class Fixture(
     val runtimeRegistry = DefaultServiceRuntimeRegistry()
     private val connectivity = shadowOf(disk.getSystemService(ConnectivityManager::class.java))
     private val previousCallbacks = connectivity.networkCallbacks.toSet()
-    val epoch = CandidateRelayNetworkEpoch(disk)
+    val epoch = PhysicalNetworkObserver(disk)
     private val physical = ShadowNetwork.newInstance(817)
     private val callback = (connectivity.networkCallbacks.toSet() - previousCallbacks).single()
 

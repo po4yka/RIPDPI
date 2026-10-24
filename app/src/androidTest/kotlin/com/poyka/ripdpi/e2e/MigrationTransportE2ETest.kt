@@ -22,7 +22,7 @@ import com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.SplitTunnelMode
@@ -89,7 +89,7 @@ class MigrationTransportE2ETest {
 
     @Inject lateinit var mutations: ProfileMutationRecoveryCoordinator
 
-    @Inject lateinit var epoch: CandidateRelayNetworkEpoch
+    @Inject lateinit var epoch: PhysicalNetworkObserver
 
     @Test
     fun savedReserveAndIndependentRefreshProduceTestedMigrationReceipt() {

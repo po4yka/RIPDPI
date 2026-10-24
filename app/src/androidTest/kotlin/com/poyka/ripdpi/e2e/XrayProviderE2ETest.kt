@@ -60,9 +60,9 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
 import com.poyka.ripdpi.services.CandidateXrayMeasurements
 import com.poyka.ripdpi.services.MeasuredProfileActivationCoordinator
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.SplitTunnelMode
@@ -217,7 +217,7 @@ class XrayProviderE2ETest {
 
     @Inject lateinit var utilityPause: TimedPauseController
 
-    @Inject lateinit var utilityEpoch: CandidateRelayNetworkEpoch
+    @Inject lateinit var utilityEpoch: PhysicalNetworkObserver
 
     @Inject lateinit var qualityXrayOwner: XrayRuntimeOwner
 

@@ -122,6 +122,7 @@ class VpnRuntimeSession(
     override var pendingNetworkHandoverClass: String? = null
     override var networkHandoverState: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
+    override var lastSuccessfulHandoverPhysicalSignature: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L
     var currentDns: ActiveDnsSettings? = null
     var currentDnsSignature: String? = null
@@ -175,6 +176,7 @@ class ProxyRuntimeSession(
     override var pendingNetworkHandoverClass: String? = null
     override var networkHandoverState: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
+    override var lastSuccessfulHandoverPhysicalSignature: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L
     var currentDestinationRoutingDigest: String? = null
 }

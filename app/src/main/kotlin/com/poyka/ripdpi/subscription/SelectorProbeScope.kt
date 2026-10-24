@@ -5,9 +5,9 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
 import com.poyka.ripdpi.services.CandidateRelayPayloadProbe
 import com.poyka.ripdpi.services.CandidateRelayProbeEnvironment
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,7 +38,7 @@ internal class CurrentSelectorProbeScopeProvider(
         groups: ProxyGroupRepository,
         network: NetworkFingerprintProvider,
         payloadProbe: CandidateRelayPayloadProbe,
-        networkEpoch: CandidateRelayNetworkEpoch,
+        networkEpoch: PhysicalNetworkObserver,
     ) : this(groups, network, payloadProbe::captureEnvironment, networkEpoch::capture)
 
     override suspend fun capture(group: ProxyGroup): SelectorProbeScope? {

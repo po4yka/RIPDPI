@@ -33,9 +33,9 @@ import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.CandidateHttpPayloadProbe
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
 import com.poyka.ripdpi.services.CandidateRelayPayloadProbe
 import com.poyka.ripdpi.services.OwnedQualityHttpsFixture
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.subscription.CurrentSelectorProbeScopeProvider
@@ -104,7 +104,7 @@ class ProfileQualityNativeTest {
 
     @Inject lateinit var coordinator: SelectorUrltestCoordinator
 
-    @Inject lateinit var networkEpoch: CandidateRelayNetworkEpoch
+    @Inject lateinit var networkEpoch: PhysicalNetworkObserver
 
     @Inject lateinit var recovery: ProfileMutationRecoveryAccess
 

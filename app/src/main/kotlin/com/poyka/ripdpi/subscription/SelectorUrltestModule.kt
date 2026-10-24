@@ -49,7 +49,7 @@ abstract class SelectorUrltestModule {
             @SelectorReloadScope scope: CoroutineScope,
             groupRepository: ProxyGroupRepository,
             prober: SelectorUrltestProber,
-            network: com.poyka.ripdpi.services.CandidateRelayNetworkEpoch,
+            network: com.poyka.ripdpi.services.PhysicalNetworkObserver,
             settings: com.poyka.ripdpi.data.AppSettingsRepository,
             service: com.poyka.ripdpi.data.ServiceStateStore,
             activeGroup: com.poyka.ripdpi.data.selector.SelectorActiveGroupStore,

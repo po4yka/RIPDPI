@@ -158,6 +158,16 @@ Owners: `services.network.*`; the flat `NetworkHandover{Monitor,Processor}`,
 
 - **`NetworkHandoverMonitor`** emits a `NetworkHandoverEvent` on a qualifying
   switch; **`NetworkHandoverProcessor`** reacts with a retry-backed restart.
+- `PhysicalNetworkObserver` owns the physical-network callback. Fingerprints,
+  handover events, and tunnel MTU use its selected, copied physical snapshot.
+  VPN-overlay updates do not select a path. Incomplete, blocked, lost, or
+  ambiguous legacy paths are unavailable. The runtime-only physical signature
+  does not change remembered-network keys or grant a direct-DNS lease.
+- Probe epochs retain conservative callback invalidation. Handover compares
+  selected physical semantics, including DNS, private DNS, routes, and MTU.
+  Tunnel overhead is subtracted from the physical MTU once. The ten-second
+  restart cooldown suppresses only an already applied scope and physical
+  signature; distinct physical changes remain actionable.
 
 ### 9. Diagnostics coordination
 

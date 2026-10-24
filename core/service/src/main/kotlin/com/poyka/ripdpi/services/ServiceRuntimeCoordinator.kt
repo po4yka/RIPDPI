@@ -52,6 +52,7 @@ internal interface HandoverAwareSession {
     var pendingNetworkHandoverClass: String?
     var networkHandoverState: String?
     var lastSuccessfulHandoverFingerprintHash: String?
+    var lastSuccessfulHandoverPhysicalSignature: String?
     var lastSuccessfulHandoverAt: Long
 }
 
