@@ -104,6 +104,20 @@ def heavy_command(command: list[str]) -> list[str]:
     return (["build-gate", "--"] if sys.platform == "darwin" else []) + command
 
 
+def awg_peer_environment(host: str | None, peer: str | None) -> dict[str, str]:
+    env = os.environ.copy()
+    env.update(
+        RIPDPI_AWG_HTTP_ACCEPTANCE="1",
+        RIPDPI_AWG_INTEROP_MTU="1330",
+        RIPDPI_AWG_INTEROP_CYCLES="1",
+    )
+    env.pop("RIPDPI_AWG_BIND_IP", None)
+    env.pop("RIPDPI_AWG_PEER_IP", None)
+    if host:
+        env.update(RIPDPI_AWG_BIND_IP=host, RIPDPI_AWG_PEER_IP=peer)
+    return env
+
+
 def digest(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
@@ -1326,15 +1340,7 @@ def main() -> int:
                 cwd=ROOT / "scripts/fixtures/amneziawg-peer",
                 timeout=1800,
             )
-            env = os.environ.copy()
-            env["RIPDPI_AWG_HTTP_ACCEPTANCE"] = "1"
-            env.pop("RIPDPI_AWG_BIND_IP", None)
-            env.pop("RIPDPI_AWG_PEER_IP", None)
-            if args.physical_host:
-                env.update(
-                    RIPDPI_AWG_BIND_IP=args.physical_host,
-                    RIPDPI_AWG_PEER_IP=args.physical_peer,
-                )
+            env = awg_peer_environment(args.physical_host, args.physical_peer)
             awg_peer = OwnedProcess([str(peer_binary)], out / "peer.log", env=env)
             owned.append(awg_peer)
             peer_manifest = wait_json(out / "peer.log", awg_peer)

@@ -27,6 +27,28 @@ def transcript(code=0, final=-1, name="roundTrip"):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_awg_peer_environment_pins_mtu_and_rejects_inherited_peer_scope(self):
+        inherited = {
+            "PATH": "/owned/bin",
+            "RIPDPI_AWG_INTEROP_MTU": "invalid",
+            "RIPDPI_AWG_INTEROP_CYCLES": "invalid",
+            "RIPDPI_AWG_HTTP_ACCEPTANCE": "0",
+            "RIPDPI_AWG_BIND_IP": "192.168.9.1",
+            "RIPDPI_AWG_PEER_IP": "192.168.9.2",
+        }
+        with patch.dict(runner.os.environ, inherited, clear=True):
+            local = runner.awg_peer_environment(None, None)
+            self.assertEqual("1330", local["RIPDPI_AWG_INTEROP_MTU"])
+            self.assertEqual("1", local["RIPDPI_AWG_INTEROP_CYCLES"])
+            self.assertEqual("1", local["RIPDPI_AWG_HTTP_ACCEPTANCE"])
+            self.assertEqual("/owned/bin", local["PATH"])
+            self.assertNotIn("RIPDPI_AWG_BIND_IP", local)
+            self.assertNotIn("RIPDPI_AWG_PEER_IP", local)
+            lan = runner.awg_peer_environment("192.168.1.1", "192.168.1.2")
+            self.assertEqual("192.168.1.1", lan["RIPDPI_AWG_BIND_IP"])
+            self.assertEqual("192.168.1.2", lan["RIPDPI_AWG_PEER_IP"])
+            self.assertEqual(inherited, dict(runner.os.environ))
+
     def test_owned_runner_preserves_unrelated_instrumentation(self):
         owned = "com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner"
         other = (
