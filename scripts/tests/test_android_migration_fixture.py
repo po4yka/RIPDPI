@@ -64,6 +64,7 @@ class AndroidMigrationFixtureTest(unittest.TestCase):
             headers = {} if authorization is None else {"Authorization": authorization}
             connection.request(method, path, headers=headers)
             response = connection.getresponse()
+            self.last_connection_header = response.getheader("Connection")
             return response.status, response.read()
         finally:
             connection.close()
@@ -90,6 +91,21 @@ class AndroidMigrationFixtureTest(unittest.TestCase):
             self.assertEqual(404, self.request(path)[0])
         self.assertTrue(all(receipt["sha256"] is None for receipt in self.fixture.receipts()))
         self.assertNotIn("secret", json.dumps(self.fixture.receipts()))
+
+    def test_closed_https_responses_allow_authenticated_mirror_without_origin_fallback(self):
+        self.assertEqual((200, self.payloads[0]), self.request("/subscription"))
+        self.assertEqual("close", self.last_connection_header)
+        self.request("/revision/next", method="POST", control=True)
+        self.request("/subscription/stop", method="POST", control=True)
+        self.assertEqual((200, self.payloads[1]), self.request(
+            "/mirror", authorization="Bearer " + self.fixture.mirror_token))
+        self.assertEqual("close", self.last_connection_header)
+        self.fixture.close()
+        receipts = json.loads((self.fixture.directory / "http-receipts.json").read_text())
+        self.assertEqual(["/subscription", "/mirror"], [receipt["path"] for receipt in receipts])
+        self.assertEqual([0, 1], [receipt["revision"] for receipt in receipts])
+        self.assertEqual([200, 200], [receipt["status"] for receipt in receipts])
+        self.assertTrue(all(receipt["authorized"] for receipt in receipts))
 
     def test_control_is_separate_and_cannot_serve_payloads(self):
         self.assertEqual(404, self.request("/subscription", control=True)[0])

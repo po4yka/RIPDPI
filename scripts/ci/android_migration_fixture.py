@@ -93,6 +93,8 @@ class MigrationFixture:
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(body)))
+                # This listener closes each response; clients must not pool the socket.
+                self.send_header("Connection", "close")
                 self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 self.wfile.write(body)
