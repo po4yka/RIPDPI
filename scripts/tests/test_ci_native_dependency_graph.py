@@ -472,7 +472,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
 
         release = job_source("release-verification")
         self.assertIn('setup-rust: "false"', release)
-        self.assertIn("setup-android-ndk: ${{ matrix.shard.id == 'github' }}", release)
+        self.assertIn("setup-android-ndk: ${{ matrix.shard.id == 'github-full' }}", release)
 
     def test_pt_producer_is_source_only_and_consumers_bind_manifest_digest(self) -> None:
         producer = job_source("pluggable-transport-assets")

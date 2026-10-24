@@ -110,21 +110,22 @@ class CiToolPinningTest(unittest.TestCase):
             "the CI fixture bundle must be committed next to the action that copies it",
         )
 
-        for job_name in (
-            "build-android-tests",
-            "verify-roborazzi",
-            "release-verification",
-            "android-instrumentation-apks",
+        secret_bundle = "${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}"
+        simple_shard_bundle = (
+            "${{ matrix.shard.experience == 'simple' && "
+            "secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}"
+        )
+        for job_name, expected in (
+            ("build-android-tests", secret_bundle),
+            ("verify-roborazzi", secret_bundle),
+            ("release-verification", simple_shard_bundle),
+            ("android-instrumentation-apks", secret_bundle),
         ):
             with self.subTest(job_name=job_name):
                 job = re.search(rf"(?ms)^  {job_name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)
                 self.assertIsNotNone(job)
                 assert job is not None
-                self.assertIn(
-                    "embedded-relay-bundle-base64: "
-                    "${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}",
-                    job.group(0),
-                )
+                self.assertIn(f"embedded-relay-bundle-base64: {expected}", job.group(0))
 
     def test_jni_symbol_guard_uses_shared_android_rust_setup(self) -> None:
         source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text(
@@ -218,17 +219,25 @@ class CiToolPinningTest(unittest.TestCase):
                 continue
             prefix = re.search(r"(?m)^          gradle-cache-key-prefix: (.+)$", job)
             prefix = prefix[1] if prefix else default_prefix
-            shard_ids = re.findall(r"(?m)^\s+- id: ([\w-]+)$", job) or [""]
-            for shard_id in shard_ids:
-                rendered = [
-                    key.replace("${{ inputs.gradle-cache-key-prefix }}", prefix).replace(
-                        "${{ matrix.shard.id }}", shard_id
-                    )
-                    for key in keys + restore_keys
-                ]
+            shards = [
+                dict(re.findall(r"(\w+): ([\w-]+)", entry))
+                for entry in re.findall(r"(?m)^\s+- \{ (id: .+) \}$", job)
+            ] + [
+                {"id": shard_id}
+                for shard_id in re.findall(r"(?m)^\s+- id: ([\w-]+)$", job)
+            ]
+            for shard in shards or [{}]:
+                rendered = []
+                for key in keys + restore_keys:
+                    key = key.replace("${{ inputs.gradle-cache-key-prefix }}", prefix)
+                    for field, value in shard.items():
+                        key = key.replace(f"${{{{ matrix.shard.{field} }}}}", value)
+                    rendered.append(key)
+                self.assertNotIn("${{ matrix.", rendered[0])
                 self.assertEqual(rendered[0], rendered[1])
                 self.assertEqual(rendered[2:4], rendered[4:6])
-                self.assertNotIn(rendered[0], namespaces, f"{name} shares a writer key")
+                owner = namespaces.get(rendered[0], (name, rendered))[0]
+                self.assertEqual(name, owner, f"{name} shares a writer key")
                 namespaces[rendered[0]] = (name, rendered)
         self.assertIn("kotlin-coverage", {owner for owner, _ in namespaces.values()})
         self.assertIn(
@@ -274,12 +283,30 @@ class CiToolPinningTest(unittest.TestCase):
                 ("ci.yml", "pluggable-transport-assets"): main_push,
                 ("ci.yml", "gradle-static-analysis"): main_push,
                 ("ci.yml", "build-android-debug"): main_push,
+                ("ci.yml", "release-verification"): (
+                    "${{ matrix.shard.experience != 'full' || "
+                    "github.event_name != 'push' || github.ref != 'refs/heads/main' }}"
+                ),
             },
             writers,
         )
+        # Pull requests can restore caches written on main, so a writer must
+        # never see the embedded relay bundle secret.
         for _, name in writers:
             with self.subTest(writer=name):
-                self.assertNotIn("embedded-relay-bundle-base64:", ci_jobs(ci)[name])
+                bundle = re.findall(
+                    r"(?m)^          embedded-relay-bundle-base64: (.+)$", ci_jobs(ci)[name]
+                )
+                if name == "release-verification":
+                    self.assertEqual(
+                        [
+                            "${{ matrix.shard.experience == 'simple' && "
+                            "secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}"
+                        ],
+                        bundle,
+                    )
+                else:
+                    self.assertEqual([], bundle)
 
 
 if __name__ == "__main__":
