@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-10-24
+goal: TRN-1792853642811403 Preserve XUDP source authority for reserve DNS replies

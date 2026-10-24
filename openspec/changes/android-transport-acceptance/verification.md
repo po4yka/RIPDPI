@@ -177,3 +177,31 @@ requirements, reject invalid packet sizes and exercise 512 transport counters
 around two fresh handshakes. The complete AWG fixture Go suite passed with the
 race detector. Independent review approved the correction. A new combined
 physical run remains required; no production AWG behavior changed in this fix.
+
+## Physical candidate 04d84253
+
+All four scenarios used clean source
+`04d842534bdb550a9f5477c3e528b68ee3f6ab3a`. Genuine APK preparation passed
+in 5 minutes 59 seconds. Independently verified SHA-256 values:
+
+- App: `c17f7b22a4a8c6400903c8fd2f2a67be08d59f1c027c13e917c501f6d655b237`
+- Test: `fc3de0236f504fdf138de832254495d6d6735b24702742998ebd20c98f00db74`
+
+P0/P1 passed in 143.426 seconds with eight independent receipts: each protocol
+completed 1 MiB download, 1 MiB upload, a 60-second stream and recovery.
+AWG passed in 81.091 seconds, including A/AAAA DNS, five payload receipts,
+peer-loss rejection, reconnect and final wire validation. The peer observed
+two fresh handshakes, all five signature tags in order, and 100 H4 values in
+each direction. Migration passed in 12.156 seconds with a path-tested device
+receipt, a 1 MiB reserve transfer, and separate 64 KiB readiness and 1 MiB
+replacement transfers.
+
+Hysteria proved the corrected 1 MiB upload, a 60-second stream with sleep/wake,
+automatic TCP reserve selection, echo and a 1 MiB reserve download. Its next
+DNS request reached the peer but the client rejected the source-free XUDP
+response. TRN-1792853642811403 owns that correction. Explicit UDP recovery was
+not reached, so Hysteria and this acceptance task remain incomplete.
+
+All four scenarios passed cleanup. Final inspection found no remaining app or
+test process, VPN service, active instrumentation, owned port reversal, peer
+process or nginx container. No external-network coverage is claimed.

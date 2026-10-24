@@ -60,7 +60,7 @@ bodies or emitting their contents in diagnostics.
 
 #### Scenario: Cancellation while waiting for the first response
 
-- **WHEN** the client closes or the owner stops the relay during first-response observation
+- **WHEN** the client resets the connection or the owner stops the relay during first-response observation
 - **THEN** both forwarding directions terminate through the existing lifecycle
 - **AND** no owned socket or worker survives cancellation
 
