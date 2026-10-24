@@ -37,7 +37,7 @@ Local builds, unit tests, lint, formatting, and Cargo checks use disposable outp
 
 For local emulator tests, UI inspection, screenshots, or acceptance, use the command-scoped pool lease in [Local Android emulator pool](docs/contributor/android-emulator-pool.md). Reuse a compatible idle slot; hold its lock through all device operations. Temporary AVDs need a test-specific reason and owner cleanup. Use the documented cleanup command for authorized removal of idle devices. Preserve active, foreign, and Gradle managed devices. The detached `scripts/ci/start-android-emulator.sh --fresh` launcher is restricted to isolated CI runners.
 
-Match verification to risk. For a local change, run the narrowest gate that exercises it (the module's unit tests, `cargo test -p <crate> --locked`). Widen to `staticAnalysis`, workspace-wide Rust checks, or device tests when the change crosses modules, touches a JNI/protobuf/wire/storage contract, service lifecycle, or build logic, or when the user asks for a specific gate. Run the exact gate the user requests and report its actual result; a blocked or skipped gate is reported as such, never replaced by a weaker claim.
+Match verification to risk. For a local change, run the narrowest gate that exercises it (the module's unit tests, `cargo test -p <crate> --locked`). Widen to `staticAnalysis`, workspace-wide Rust checks, or device tests when the change crosses modules, touches a JNI/protobuf/wire/storage contract, service lifecycle, or build logic, or when the user asks for a specific gate. Run the exact gate the user requests and report its actual result; a blocked or skipped gate is reported as such, never replaced by a weaker claim. Batch related edits, then validate once. A passing check stays valid until its inputs change: rerun it only after a relevant edit, a rebase that brings new commits, or a new failure. Clean or force-rerun Gradle or Cargo outputs only after you observe a stale-output failure. The pre-commit hooks lint only the staged crates, and CI runs the workspace-wide gates.
 
 Work is done when the requested change is implemented, its relevant gate passes (or its failure is reported with output), and any finished atomic unit is committed on the job branch.
 
@@ -82,7 +82,7 @@ Each atomic unit is a self-contained Conventional Commit with an imperative subj
 Integration to `main`, worktree removal, branch deletion, and push require explicit user authorization. Once authorized, use this sequence:
 
 1. In the job worktree, run `git fetch origin` and `git rebase origin/main`.
-2. Re-run combined-tree gates on the rebased job branch.
+2. If the rebase brought in new commits, re-run the affected gates on the rebased job branch.
 3. In the main checkout, run `git merge --ff-only <job-branch>`.
 4. Push only when separately authorized.
 5. Remove the worktree and branch only after successful integration and when authorized.
