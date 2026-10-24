@@ -2,7 +2,7 @@
 id: TRN-1792759596946903
 title: Select profiles using bounded transfer quality and scoped MTU diagnostics
 kind: feature
-status: review
+status: done
 area: transport
 priority: high
 owner: transport-audit
@@ -13,6 +13,9 @@ openspec_change: profile-quality-mtu
 created: 2026-10-23
 updated: 2026-10-24
 linked_task: "po4yka/ripdpi-vpn-deploy#OPS-1792759217301702"
+closed_at: "2026-10-24T11:19:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Merged quality source and production storage fix are included in e22c8d66d8fa0c9245eb5bf8ef802e24028d0f48; main CI 40085973754 passed. Verified exact-main artifacts contain ten native quality passes across five Android APIs and the API35 REALITY quality pass, with no required-test skips. Local, UI, PMTU and migration regressions passed; withdrawn PR658 was not used as closure evidence.
 ---
 
 ## Goal

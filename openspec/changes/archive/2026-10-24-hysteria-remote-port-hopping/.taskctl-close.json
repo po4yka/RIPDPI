@@ -1,0 +1,11 @@
+{
+  "change": "hysteria-remote-port-hopping",
+  "evidence_summary": "Source PR 661 merged as e22c8d66d8fa0c9245eb5bf8ef802e24028d0f48; main CI 40085973754 passed. Targeted Kotlin/native tests, full static analysis, eight real hopping peer cases, Linux GRO and four Android ABI builds passed. Artifact 12556472475 passed the canonical six-APK verifier. No physical-device or production acceptance is claimed.",
+  "execution_sha256": "748d66fa3514965f2d17271c9f1906e766162c1dc3945cf49f0a6d28c6b59058",
+  "issue_sha256": "57f0750b267af5589439e5c25cbc424fd3b49c2f120ef31876696d6ef5d241ce",
+  "outcome": "done",
+  "prepared_at": "2026-10-24T11:19:21Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1792820412611017"
+}
