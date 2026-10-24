@@ -107,10 +107,20 @@ def fixture_input(case):
     return path, ports, {'kind': 'kotlin-serializer', 'sha256': hashlib.sha256(raw).hexdigest()}
 
 
+def expected_udp_hashes(payload):
+    # The pinned peer has a 4096-byte UDP reply buffer, including its header.
+    # Three distinct 2736-byte packets retain 8208 bytes and QUIC fragmentation.
+    return {
+        hashlib.sha256(round_id.to_bytes(2, 'big') + packet_id.to_bytes(2, 'big') + payload[4:2736]).hexdigest()
+        for round_id in range(20)
+        for packet_id in range(3)
+    }
+
+
 @contextmanager
 def peer(cache, out_dir, run_id, cleanup, case):
     fixture, ports, wire_source = fixture_input(case)
-    with hysteria.peer(cache, out_dir, run_id, cleanup, ipv6=case['ipv6'], salamander=case['salamander'], persistent=True, payload_bytes=8192) as upstream:
+    with hysteria.peer(cache, out_dir, run_id, cleanup, ipv6=case['ipv6'], salamander=case['salamander'], persistent=True, payload_bytes=8208) as upstream:
         redirects = Redirects(upstream['server_address'], ports)
         try:
             env = dict(upstream['env'])

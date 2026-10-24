@@ -176,7 +176,7 @@ def peer(cache, out_dir, run_id, cleanup, *, ipv6=False, salamander=False, persi
     if not 0 <= payload_bytes <= 60_000:
         raise ValueError("peer payload size exceeds the UDP test bound")
     if payload_bytes:
-        payload *= (payload_bytes + len(payload) - 1) // len(payload)
+        payload = (payload * ((payload_bytes + len(payload) - 1) // len(payload)))[:payload_bytes]
     destinations = Destinations(payload, persistent=persistent)
     host = "::1" if ipv6 else "127.0.0.1"
     family = socket.AF_INET6 if ipv6 else socket.AF_INET

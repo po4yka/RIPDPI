@@ -52,6 +52,13 @@ cases. They cover IPv4/IPv6, plain/Salamander and fixed/random intervals through
 serialized native JSON and the real SOCKS runtime. Physical UDP path receipts,
 one authenticated connection, persistent TCP/UDP payloads and cleanup are mandatory.
 The Linux PR job also checks the adapter's GRO receive-buffer capability.
+Each round keeps one 8208-byte TCP exchange and three distinct 2736-byte UDP
+exchanges on the same sessions. All 80 destination receipts must match complete
+payload lengths and hashes. UDP packets exceed one QUIC datagram and test
+fragmentation in both directions. The pinned peer limits its UDP reply buffer,
+including the Hysteria header, to 4096 bytes. A single 8208-byte UDP echo reaches
+the destination but does not return through this peer; it is outside this matrix's
+packet-size contract.
 For direct Kotlin serializer input, set `RIPDPI_HYSTERIA_WIRE_FIXTURE_DIR` to the
 existing engine test's `build/reports/hysteria-hopping-wire` directory after
 `HysteriaHoppingWireTest` has generated `peer-flat-fixed.json` and

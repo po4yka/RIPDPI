@@ -1,5 +1,6 @@
 """Fail-closed driver contracts. These checks are not protocol acceptance evidence."""
 
+from contextlib import nullcontext
 import importlib.util
 import json
 import os
@@ -77,6 +78,31 @@ class ExactExecutionTest(unittest.TestCase):
         for case in catalog.SCENARIOS.values():
             if case["tier"] == "independent-peer":
                 self.assertIn("pinned-peer-identity", case["checks"])
+
+
+class HoppingFailureEvidenceTest(unittest.TestCase):
+    def test_failed_rust_execution_keeps_receipts_and_failure(self):
+        case = catalog.SCENARIOS["independent-hysteria2-hopping-ipv4-plain-fixed"]
+        with tempfile.TemporaryDirectory() as directory:
+            args = unittest.mock.Mock(cache_dir=Path(directory), out_dir=Path(directory), run_id="failure-probe")
+            receipt = {"transport": "udp", "bytes": 2736, "sha256": "1" * 64}
+            peer = {
+                "env": {}, "receipts": [receipt],
+                "redirects": unittest.mock.Mock(receipts=[{"remote_port": 443, "local_port": 1234, "time": 1.0}]),
+                "wire_source": {"kind": "kotlin-serializer", "sha256": "2" * 64},
+            }
+            result = {"artifacts": [], "checks": []}
+            failure = subprocess.CalledProcessError(101, ["cargo", "test"])
+            with patch.object(runner, "checked", side_effect=[None, failure]), \
+                 patch.object(hysteria_hopping, "peer", return_value=nullcontext(peer)):
+                with self.assertRaises(subprocess.CalledProcessError) as caught:
+                    runner.execute(case, args, result)
+            self.assertIs(caught.exception, failure)
+            saved = json.loads((Path(directory) / "receipts.json").read_text())
+            self.assertEqual(saved["receipts"], [receipt])
+            self.assertEqual(saved["wire_source"], peer["wire_source"])
+            self.assertEqual(result["artifacts"], ["receipts.json"])
+            self.assertEqual(result["checks"], [])
 
 
 class PeerLifecycleTest(unittest.TestCase):

@@ -114,13 +114,14 @@ async fn relay_json_preserves_tcp_and_udp_across_remote_hops() {
         let (udp_control, udp_relay) = socks(&listener, 3, "0.0.0.0:0".parse().unwrap()).await.expect("UDP ASSOCIATE");
         let udp = UdpSocket::bind("127.0.0.1:0").await.expect("UDP bind");
         let payload = required("RIPDPI_HYSTERIA_PAYLOAD").into_bytes();
+        assert_eq!(payload.len(), 8208, "fixed TCP and aggregate UDP payload size");
         let SocketAddr::V4(udp_target) = udp_target else { panic!("IPv4 destination") };
         let mut packet = vec![0, 0, 0, 1];
         packet.extend_from_slice(&udp_target.ip().octets());
         packet.extend_from_slice(&udp_target.port().to_be_bytes());
-        packet.extend_from_slice(&payload);
+        packet.extend_from_slice(&payload[..2736]);
         let mut tick = tokio::time::interval(Duration::from_secs(1));
-        for _ in 0..20 {
+        for round in 0u16..20 {
             tick.tick().await;
             tcp.write_all(&payload).await.expect("TCP uplink on same stream");
             let mut echoed = vec![0; payload.len()];
@@ -129,13 +130,19 @@ async fn relay_json_preserves_tcp_and_udp_across_remote_hops() {
                 .expect("TCP echo deadline")
                 .expect("TCP echo");
             assert_eq!(echoed, payload);
-            udp.send_to(&packet, udp_relay).await.expect("UDP uplink on same association");
-            let mut received = [0; 65535];
-            let (count, _) = tokio::time::timeout(Duration::from_secs(3), udp.recv_from(&mut received))
-                .await
-                .expect("UDP echo deadline")
-                .expect("UDP echo");
-            assert_eq!(&received[..count], packet.as_slice());
+            // app/v2.9.0 limits UDP replies to a 4096-byte buffer including
+            // its header. Each packet still requires several QUIC fragments.
+            for index in 0u16..3 {
+                packet[10..12].copy_from_slice(&round.to_be_bytes());
+                packet[12..14].copy_from_slice(&index.to_be_bytes());
+                udp.send_to(&packet, udp_relay).await.expect("UDP uplink on same association");
+                let mut received = [0; 65535];
+                let (count, _) = tokio::time::timeout(Duration::from_secs(3), udp.recv_from(&mut received))
+                    .await
+                    .expect("UDP echo deadline")
+                    .expect("UDP echo");
+                assert_eq!(&received[..count], packet.as_slice());
+            }
         }
         assert_eq!(runtime.telemetry().active_sessions, 2, "same SOCKS sessions remain active");
         // Keep both sessions alive through stop so shutdown must drain them.
