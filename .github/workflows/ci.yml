@@ -1392,9 +1392,11 @@ jobs:
       # The compat-facade feature is default-on; the diagnostics-probes crate
       # must compile with it OFF (root exports unconditional) and ON.
       - name: Check ripdpi-diagnostics-probes (compat-facade OFF)
+        if: ${{ !cancelled() }}
         run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --locked
 
       - name: Check ripdpi-diagnostics-probes (compat-facade ON)
+        if: ${{ !cancelled() }}
         run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
 
       - uses: ./.github/actions/upload-build-observability
@@ -1468,11 +1470,14 @@ jobs:
         run: bash scripts/ci/run-rust-workspace-tests.sh
 
       # The network E2E and turmoil binaries reuse this job's compiled
-      # workspace instead of rebuilding it in separate jobs.
+      # workspace instead of rebuilding it in separate jobs. They still run
+      # after an earlier suite fails, so each one reports its own result.
       - name: Run repo-owned Rust network E2E
+        if: ${{ !cancelled() }}
         run: bash scripts/ci/run-rust-network-e2e.sh
 
       - name: Run turmoil-backed deterministic network tests
+        if: ${{ !cancelled() }}
         run: bash scripts/ci/run-rust-turmoil-tests.sh
 
       - uses: ./.github/actions/upload-build-observability
