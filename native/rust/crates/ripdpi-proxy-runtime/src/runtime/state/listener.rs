@@ -24,7 +24,9 @@ impl ActiveSocketRegistry {
     fn shutdown_all(&self) {
         let state = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         for socket in state.sockets.values() {
-            let _ = socket.shutdown(std::net::Shutdown::Both);
+            // On macOS, Both can fail after peer FIN without stopping a blocked write.
+            let _ = socket.shutdown(std::net::Shutdown::Write);
+            let _ = socket.shutdown(std::net::Shutdown::Read);
         }
     }
 

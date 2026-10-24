@@ -1,12 +1,12 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
+use std::time::Instant;
 
 #[cfg(test)]
 use super::super::config::{
     FirstResponseSettings, first_response_timeout as projected_first_response_timeout,
     first_response_timeout_count_limit,
 };
-#[cfg(test)]
 use super::super::payload::RuntimeFirstResponseBoundaryTracker;
 
 use super::super::failure::RuntimeClassifiedFailure;
@@ -14,10 +14,45 @@ use super::super::routing::{classify_response_failure, note_block_signal_for_fai
 use super::super::state::RuntimeState;
 use super::platform as relay_platform;
 
+mod readiness;
+#[cfg(test)]
+mod tests;
+
+use readiness::{Readiness, wait_for_readiness};
+
 pub(super) enum FirstResponse {
     Forward(Vec<u8>, Option<u8>),
     Failure { failure: RuntimeClassifiedFailure, response_bytes: Option<Vec<u8>> },
     NoData,
+    Continuation(Box<FirstResponseReader>),
+}
+
+pub(super) struct FirstResponseReader {
+    collected: Vec<u8>,
+    chunk: Vec<u8>,
+    tls_partial: RuntimeFirstResponseBoundaryTracker,
+    timeout_count: i32,
+    observed_server_ttl: Option<u8>,
+    deadline: Option<Instant>,
+}
+
+impl FirstResponseReader {
+    pub(super) fn new(state: &RuntimeState, request: &[u8]) -> Self {
+        let tls_partial = state.relay_first_response_boundary_tracker(request);
+        let deadline = state.relay_first_response_timeout(&tls_partial).map(|timeout| Instant::now() + timeout);
+        Self {
+            collected: Vec::new(),
+            chunk: vec![0u8; state.relay_first_response_buffer_size()],
+            tls_partial,
+            timeout_count: 0,
+            observed_server_ttl: None,
+            deadline,
+        }
+    }
+
+    fn restart_deadline(&mut self, state: &RuntimeState) {
+        self.deadline = state.relay_first_response_timeout(&self.tls_partial).map(|timeout| Instant::now() + timeout);
+    }
 }
 
 pub(super) fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
@@ -30,25 +65,28 @@ pub(super) fn read_first_response(
     host: Option<&str>,
     upstream: &mut TcpStream,
     request: &[u8],
+    client: Option<&TcpStream>,
+    mut reader: FirstResponseReader,
 ) -> io::Result<FirstResponse> {
     let _ = relay_platform::enable_recv_ttl(upstream);
-    let mut collected = Vec::new();
-    let mut chunk = vec![0u8; state.relay_first_response_buffer_size()];
-    let mut tls_partial = state.relay_first_response_boundary_tracker(request);
-    let mut timeout_count = 0i32;
-    let mut observed_server_ttl: Option<u8> = None;
 
     loop {
-        let _ = upstream.set_read_timeout(state.relay_first_response_timeout(&tls_partial));
-        let read_result = if collected.is_empty() {
-            relay_platform::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
+        let readiness = wait_for_readiness(state, client, upstream, reader.deadline)?;
+        if readiness == Readiness::Client {
+            // The outbound copy remains the only owner of continuation bytes.
+            return Ok(FirstResponse::Continuation(Box::new(reader)));
+        }
+        let read_result = if readiness == Readiness::Timeout {
+            Err(io::Error::new(io::ErrorKind::TimedOut, "first response deadline"))
+        } else if reader.collected.is_empty() {
+            relay_platform::read_chunk_with_ttl(upstream, &mut reader.chunk).map(|(n, ttl)| {
                 if ttl.is_some() {
-                    observed_server_ttl = ttl;
+                    reader.observed_server_ttl = ttl;
                 }
                 n
             })
         } else {
-            upstream.read(&mut chunk)
+            upstream.read(&mut reader.chunk)
         };
         let result = match read_result {
             Ok(0) => Ok(FirstResponse::Failure {
@@ -56,28 +94,30 @@ pub(super) fn read_first_response(
                 response_bytes: None,
             }),
             Ok(n) => {
-                collected.extend_from_slice(&chunk[..n]);
-                tls_partial.observe(&chunk[..n]);
+                reader.collected.extend_from_slice(&reader.chunk[..n]);
+                reader.tls_partial.observe(&reader.chunk[..n]);
 
-                if tls_partial.waiting_for_tls_record() {
+                if reader.tls_partial.waiting_for_tls_record() {
+                    reader.restart_deadline(state);
                     continue;
                 }
 
-                if let Some(failure) = classify_response_failure(state, target, request, &collected, host) {
-                    Ok(FirstResponse::Failure { failure, response_bytes: Some(collected) })
+                if let Some(failure) = classify_response_failure(state, target, request, &reader.collected, host) {
+                    Ok(FirstResponse::Failure { failure, response_bytes: Some(reader.collected) })
                 } else {
-                    Ok(FirstResponse::Forward(collected, observed_server_ttl))
+                    Ok(FirstResponse::Forward(reader.collected, reader.observed_server_ttl))
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-                if tls_partial.waiting_for_tls_record() {
-                    timeout_count += 1;
-                    if timeout_count >= state.relay_first_response_timeout_count_limit() {
+                if reader.tls_partial.waiting_for_tls_record() {
+                    reader.timeout_count += 1;
+                    if reader.timeout_count >= state.relay_first_response_timeout_count_limit() {
                         Ok(FirstResponse::Failure {
                             failure: RuntimeState::classify_first_response_partial_tls_timeout(),
                             response_bytes: None,
                         })
                     } else {
+                        reader.restart_deadline(state);
                         continue;
                     }
                 } else if state.relay_first_response_reports_timeout_failure() {
@@ -113,7 +153,6 @@ pub(super) fn read_first_response(
             }
             Err(err) => Err(err),
         };
-        let _ = upstream.set_read_timeout(None);
         return result;
     }
 }

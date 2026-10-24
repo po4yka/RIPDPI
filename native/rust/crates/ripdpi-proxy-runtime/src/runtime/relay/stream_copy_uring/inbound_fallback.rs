@@ -10,8 +10,8 @@ use super::freeze_detector::FreezeDetector;
 
 /// Fallback: normal inbound copy when ZC buffers are exhausted.
 pub(super) fn copy_inbound_fallback(
-    mut reader: TcpStream,
-    mut writer: TcpStream,
+    reader: &mut TcpStream,
+    writer: &mut TcpStream,
     session: RelaySharedSession,
     peer_done: Arc<AtomicBool>,
     mut detector: FreezeDetector,
