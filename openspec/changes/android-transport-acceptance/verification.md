@@ -146,3 +146,34 @@ The latter also appeared in the combined tree's new XHTTP quality-port race test
 No dependency or race-detector setting was changed. The ordinary full Go suite
 passed; the new DNS ingress race test passed. These results do not establish
 physical automatic failover, which remains pending on this candidate.
+
+## Physical candidate 47f9c8f2 and observed blockers
+
+All four physical scenarios used source
+`47f9c8f237d68fdc3db9348a6f65fe4be3470603` and the same genuine APK pair:
+app SHA-256 `3b461a2619799e186da3fcf7bb7f683dde4861b3e24f85cdec7db472fe5a959e`
+and test SHA-256 `fb118446847ddf910d06e39326fc69d7eeed728d8d6c8edd89504ee47edd163e`.
+Preparation passed, and all four runs completed owned cleanup.
+
+- P0/P1 passed: REALITY and nginx TLS XHTTP each completed 1 MiB download,
+  1 MiB upload, a 60-second stream and a 1 MiB recovery transfer. The peer
+  recorded all eight transactions.
+- Migration passed: the reserve peer recorded a 1 MiB transfer; the replacement
+  peer recorded a 64 KiB readiness check and a separate complete 1 MiB transfer.
+- Hysteria passed its Android carrier check, owned DNS query and 1 MiB download,
+  then failed upload. The bounded collector retained DNS and download receipts
+  after the failure and before cleanup.
+  Automatic failover was not reached. A real-proxy reproduction identified the
+  first-response observer blocking body forwarding with autolearn enabled.
+  PRX-1792849175606125 owns that production correction and its acceptance.
+- AWG instrumentation passed IPv4 and IPv6 DNS, download, upload, a 60-second
+  stream, peer-loss rejection and recovery transfers. The scenario still failed
+  at peer finish because its wire observer treated an H4 packet counter as H1.
+  This is not a complete AWG acceptance result.
+
+The AWG observer now checks pinned packet sizes before header offsets. Regression
+tests reproduce counters 100 and 199 in each direction, preserve true H1 prelude
+requirements, reject invalid packet sizes and exercise 512 transport counters
+around two fresh handshakes. The complete AWG fixture Go suite passed with the
+race detector. Independent review approved the correction. A new combined
+physical run remains required; no production AWG behavior changed in this fix.
