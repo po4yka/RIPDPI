@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from android_nginx_fixture import NginxFixture
 from android_owned_installation import OwnedInstallation
 from android_hysteria_fixture import HysteriaFixture, verify_binary
+from android_peer_diagnostics import OwnedPeerDiagnostics
 
 ROOT = Path(__file__).resolve().parents[2]
 PREFIX = "com.poyka.ripdpi.e2e."
@@ -1046,6 +1047,7 @@ def main() -> int:
         },
     }
     owned: list[OwnedProcess] = []
+    peer_diagnostics = OwnedPeerDiagnostics()
     installed = False
     nginx = None
     hysteria = None
@@ -1226,6 +1228,7 @@ def main() -> int:
                 owned.append(child)
                 peer_ready = wait_json(ready, child)
                 receipt_port = peer_ready["controlPort"]
+                peer_diagnostics.register("main", receipt_port)
                 report["peer_identity"] = {
                     "implementation": "xray-core",
                     "version": peer_ready["version"],
@@ -1309,8 +1312,9 @@ def main() -> int:
 
                 if not owned:
                     raise Blocked("migration acceptance requires an owned local peer")
-                migration_peers = {
-                    name: start_migration_peer(
+                migration_peers = {}
+                for name in ("reserve", "replacement"):
+                    migration_peers[name] = start_migration_peer(
                         peer_binary,
                         out,
                         args.run_id,
@@ -1318,8 +1322,9 @@ def main() -> int:
                         owned,
                         args.physical_host if args.physical_device else None,
                     )
-                    for name in ("reserve", "replacement")
-                }
+                    peer_diagnostics.register(
+                        name, migration_peers[name]["controlPort"]
+                    )
                 if (
                     len(
                         {
@@ -1444,6 +1449,7 @@ def main() -> int:
                     "AWG peer did not start full TUN HTTP acceptance mode"
                 )
             receipt_port = peer_manifest["controlPort"]
+            peer_diagnostics.register("main", receipt_port)
             if args.physical_adb_bridge:
                 from android_udp_bridge import UdpBridge
 
@@ -1708,6 +1714,7 @@ def main() -> int:
         report["error_kind"] = type(error).__name__
     finally:
         cleanup_errors = []
+        report["peer_diagnostics"] = peer_diagnostics.capture(out)
         if installed:
             capture_scoped_logcat(adb, out, report["logcat_scope"])
             for package in (test_package, PACKAGE):
