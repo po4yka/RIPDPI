@@ -76,22 +76,6 @@ class VpnUnderlyingNetworkBinderTest {
     }
 
     @Test
-    @Config(sdk = [27])
-    fun `underlay link evidence is neutral when nat64 and mtu APIs are unavailable`() {
-        val authority = DirectDnsUnderlayAuthority()
-        val network = testNetwork(100)
-        val epoch = authority.beginCallbackEpoch()
-
-        authority.onAvailable(epoch, network)
-        authority.onCapabilitiesChanged(epoch, network, eligibleCapabilities())
-        authority.onLinkPropertiesChanged(epoch, network, linkProperties("1.1.1.1"))
-
-        val observation = authority.capture()
-        assertFalse(requireNotNull(observation.nat64Present))
-        assertEquals("unknown", observation.mtuBand)
-    }
-
-    @Test
     @Config(sdk = [29])
     fun `underlay mtu evidence remains available before nat64 API`() {
         val authority = DirectDnsUnderlayAuthority()

@@ -1,9 +1,5 @@
-package com.poyka.ripdpi.services
+package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.data.FailureReason
-import com.poyka.ripdpi.data.NativeError
-import com.poyka.ripdpi.data.classifyFailureReason
-import com.poyka.ripdpi.data.displayMessage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -67,6 +63,12 @@ class FailureReasonTest {
     @Test
     fun `classifyFailureReason maps IllegalStateException with VPN in proxy context to NativeError`() {
         val result = classifyFailureReason(IllegalStateException("VPN field not null"), isTunnelContext = false)
+        assertTrue(result is FailureReason.NativeError)
+    }
+
+    @Test
+    fun `classifyFailureReason maps IllegalStateException without tunnel keyword in tunnel context to NativeError`() {
+        val result = classifyFailureReason(IllegalStateException("something else"), isTunnelContext = true)
         assertTrue(result is FailureReason.NativeError)
     }
 

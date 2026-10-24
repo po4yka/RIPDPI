@@ -6,7 +6,7 @@ RIPDPI is an offline-first Android network-path diagnostics and performance tool
 
 ## Source of truth
 
-- At task start and after changing directories, run `just checkout-doctor` to discover the actual checkout root, branch, Git directories, usable registered worktrees, and Rust-skill submodule state. Use its current paths instead of remembered checkout names. It is read-only; exit 1 means inspect the reported issue before proceeding. For a Git directory without a justfile, invoke `scripts/checkout_doctor.py` from an available checkout with the directory as its argument (`--json` provides structured output).
+- At task start and when you switch checkouts, run `just checkout-doctor` to discover the actual checkout root, branch, Git directories, worktree problems, and Rust-skill submodule state. Use its current paths instead of remembered checkout names. It is read-only; exit 1 means inspect the reported issue before proceeding. For a Git directory without a justfile, invoke `scripts/checkout_doctor.py` from an available checkout with the directory as its argument (`--json` lists every worktree).
 - To locate guidance for a build, runtime, contract, UI, testing, release, or harness task, use the [task-based documentation index](docs/README.md#find-docs-by-task).
 - For cross-module or architecture work, start at `docs/architecture/ARCHITECTURE.md` and follow its links (`NATIVE_RUST.md`, `JNI_CONTRACT.md`, `CONFIG_CONTRACTS.md`, `DIAGNOSTICS_ARCHITECTURE.md`, `FEATURE_EXTENSION_GUIDE.md`) as the change requires.
 - Derive protocol and relay claims from current Kotlin/Rust registries, schemas, tests, and crate existence. Old plans, README prose, and rollout notes are not authoritative when code disagrees.
@@ -49,8 +49,13 @@ Work is done when the requested change is implemented, its relevant gate passes 
 - The app must work fully on non-rooted devices. Root-only features are opt-in behind `root_mode_enabled` and degrade gracefully when root is unavailable.
 - Do not add a required backend service. Product features work offline and locally; external data is bundled or fetched from static user-visible sources, and user data leaves the device only through explicit export.
 - Define verifiable success criteria (the test, gate, or artifact that will prove the change) before implementing. Reproduce a defect, ideally as a failing test, before fixing it. Surface undocumented JNI, protobuf, schema, activation, or migration contracts instead of guessing them.
+- Add a test only for a behavior or regression that existing tests miss. Search the owning module's tests first and extend one when it fits; put the test in the module that owns the code. Assert observable results against independently derived values, not a copy of the implementation or a fake's recorded calls. Assert source text only for a repository-wide rule that no behavior test can reach (a forbidden API, a single owner, a layering boundary), never for local names or code shape. Temporary assertions and smoke scripts follow the same rule and are removed or turned into tests before commit. Do not add a production seam only to test trivial wiring.
 - Removing quality gates, custom detekt rules, lint checks, or security enforcement is out of scope unless the user explicitly requests it.
 - Never edit compiled `.so` files or generated JNI outputs. Change their Rust/Kotlin sources and rebuild.
+
+## Change discipline
+
+Load the `ponytail` skill at the start of every task that writes, fixes, or refactors code, and follow it at the `full` level unless the user picks another. It decides how little to build; this file decides what must be verified, so required tests, gates, contracts, and safety rules stay in scope. Use `ponytail-review` for a lean-code review of a diff and `ponytail-audit` for a whole-repository audit; neither replaces the required `pr-reviewer` pass or the Rust diff gate in `llm-rust-prompts.md`. The skills are vendored from upstream; see `.agents/vendor/ponytail/README.md` for source, license, and updates.
 
 ## Decision boundaries
 
@@ -72,7 +77,7 @@ The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any 
 
 ## Worktree and commit workflow
 
-Every job or feature that changes files runs in a dedicated git worktree, never directly in the `main` checkout; other agents share that checkout. Read-only investigation may run anywhere. Every writer needs isolated ownership, and parallel writers use separate worktrees.
+Every job or feature that changes files runs in a dedicated git worktree, never directly in the `main` checkout; other agents share that checkout. Read-only investigation may run anywhere. Every writer needs isolated ownership, and parallel writers use separate worktrees. Prepare a new worktree once with `just setup` (the commit hooks need its task tools and Rust-skill submodule) and copy the ignored `local.properties` for Gradle.
 
 Each atomic unit is a self-contained Conventional Commit with an imperative subject under 72 characters. Preserve unrelated dirty state and stage only the task slice.
 
@@ -131,7 +136,7 @@ Use only `./taskctl` for task state, mdtask access, OpenSpec archival, validatio
 
 ## Skills and subagents
 
-Project skills live in `.agents/skills/` (Codex reads them there; `.claude/skills/` and `.github/skills/` are symlink mirrors). Rust engineering skills come from the pinned `.agents/vendor/rust-skills` submodule; initialize it with `git submodule update --init --depth 1 .agents/vendor/rust-skills` and never copy or fork its skill bodies.
+Project skills live in `.agents/skills/` (Codex reads them there; `.claude/skills/` and `.github/skills/` are symlink mirrors). Rust engineering skills come from the pinned `.agents/vendor/rust-skills` submodule (`just setup` initializes it); never copy or fork its skill bodies.
 
 Subagents are defined in `.claude/agents/` (Claude Code) and `.codex/agents/` (Codex) under the same names. Delegate when isolation helps, and do small or local work directly:
 
