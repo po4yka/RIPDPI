@@ -110,3 +110,10 @@ Physical IPv4 and IPv6 DNS acceptance still requires a new run.
 The same candidate passed physical migration with cleanup: independent mirror
 refresh, a replacement readiness receipt and a separate-UID 1 MiB replacement
 transfer completed. Final combined acceptance and hosted checks remain open.
+
+Candidate `ad4379c1672cfa62b5189aa62edaf8cbe47e0c5a` confirmed that background
+DNS no longer increments AWG fixture errors. It then exposed a receipt endpoint
+contract error: before the first owned query, the nil Go slice encoded as `null`.
+The endpoint now always returns an array. The real UDP regression also queries
+the real HTTP handler before traffic, after background refusals, and after owned
+A/AAAA answers. It failed on the initial response before this correction.

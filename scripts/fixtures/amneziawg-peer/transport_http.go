@@ -180,11 +180,7 @@ func runHTTPAcceptance(network *netstack.Net, device *device.Device, bind *loopb
 	mux.HandleFunc("GET /transport-receipts", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(receipts.transfers.snapshot())
 	})
-	mux.HandleFunc("GET /dns-receipts", func(w http.ResponseWriter, _ *http.Request) {
-		dns.mu.Lock()
-		defer dns.mu.Unlock()
-		_ = json.NewEncoder(w).Encode(map[string]any{"receipts": dns.items, "errors": dns.errors, "rejected": dns.rejected})
-	})
+	mux.HandleFunc("GET /dns-receipts", dns.serveReceipts)
 	for route, start := range map[string]bool{"/peer/stop": false, "/peer/start": true} {
 		mux.HandleFunc("POST "+route, func(w http.ResponseWriter, _ *http.Request) {
 			transitions.Lock()
@@ -260,6 +256,14 @@ type httpDNSReceipts struct {
 	items    []httpDNSReceipt
 	errors   int
 	rejected int
+}
+
+func (r *httpDNSReceipts) serveReceipts(w http.ResponseWriter, _ *http.Request) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"receipts": append([]httpDNSReceipt{}, r.items...), "errors": r.errors, "rejected": r.rejected,
+	})
 }
 
 func (r *httpDNSReceipts) serve(socket net.PacketConn) {

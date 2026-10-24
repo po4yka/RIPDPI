@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -29,6 +32,9 @@ func TestTransportDNSRefusesBackgroundAndRetainsOwnedReceipts(t *testing.T) {
 		t.Fatal(err)
 	}
 	receipts := &httpDNSReceipts{}
+	control := httptest.NewServer(http.HandlerFunc(receipts.serveReceipts))
+	t.Cleanup(control.Close)
+	assertDNSHTTPReceipts(t, control.URL, 0, 0)
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)
@@ -48,7 +54,7 @@ func TestTransportDNSRefusesBackgroundAndRetainsOwnedReceipts(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = client.Close() })
-	for _, query := range []struct {
+	for index, query := range []struct {
 		name string
 		kind dnsmessage.Type
 	}{
@@ -81,6 +87,7 @@ func TestTransportDNSRefusesBackgroundAndRetainsOwnedReceipts(t *testing.T) {
 			if answer.Header.RCode != dnsmessage.RCodeRefused || len(answer.Answers) != 0 {
 				t.Fatalf("background question was not refused: %+v", answer)
 			}
+			assertDNSHTTPReceipts(t, control.URL, 0, index+1)
 			continue
 		}
 		if answer.Header.RCode != dnsmessage.RCodeSuccess || len(answer.Answers) != 1 || answer.Answers[0].Header.Type != query.kind {
@@ -100,6 +107,7 @@ func TestTransportDNSRefusesBackgroundAndRetainsOwnedReceipts(t *testing.T) {
 		}
 	}
 	stop()
+	assertDNSHTTPReceipts(t, control.URL, 2, 3)
 	if receipts.errors != 0 || receipts.rejected != 3 || len(receipts.items) != 2 {
 		t.Fatalf("background questions changed acceptance evidence: errors=%d rejected=%d receipts=%v", receipts.errors, receipts.rejected, receipts.items)
 	}
@@ -107,6 +115,36 @@ func TestTransportDNSRefusesBackgroundAndRetainsOwnedReceipts(t *testing.T) {
 		if receipts.items[index] != (httpDNSReceipt{"acceptance.test.", uint16(kind)}) {
 			t.Fatalf("wrong acceptance receipt: %+v", receipts.items[index])
 		}
+	}
+}
+
+func assertDNSHTTPReceipts(t *testing.T, url string, count, rejected int) {
+	t.Helper()
+	client := &http.Client{Timeout: time.Second}
+	defer client.CloseIdleConnections()
+	deadline := time.Now().Add(time.Second)
+	for {
+		response, err := client.Get(url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var state struct {
+			Receipts []httpDNSReceipt `json:"receipts"`
+			Errors   int              `json:"errors"`
+			Rejected int              `json:"rejected"`
+		}
+		err = json.NewDecoder(response.Body).Decode(&state)
+		_ = response.Body.Close()
+		if err != nil || response.StatusCode != http.StatusOK || state.Receipts == nil || state.Errors != 0 {
+			t.Fatalf("invalid DNS receipt response: status=%d state=%+v error=%v", response.StatusCode, state, err)
+		}
+		if len(state.Receipts) == count && state.Rejected == rejected {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("DNS receipt state did not settle: %+v", state)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }
 
