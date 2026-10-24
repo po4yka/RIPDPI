@@ -61,7 +61,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install pinned emitter contract dependencies
-        run: python3 -m pip install jsonschema==4.26.0 PyYAML==6.0.3
+        run: python3 -m pip install jsonschema==4.26.0 PyYAML==6.0.3 cryptography==50.0.2
 
       - name: Run fleet-fixtures structural drift tests
         run: python3 -m unittest scripts.tests.test_fleet_fixtures
