@@ -29,6 +29,14 @@ Payload success MUST require byte counts and digest equality, not handshake or a
 - **THEN** a separate UID completes the required transactions and the destination records their identities
 - **AND** truncation, corruption, missing receipts or a stopped tunnel cause failure
 
+#### Scenario: Background DNS does not produce acceptance evidence
+
+- **WHEN** Android sends a valid DNS query for a name outside the owned acceptance domain
+- **THEN** the AWG peer returns DNS REFUSED without an upstream lookup or an acceptance receipt
+- **AND** it records only a rejection count, not the queried name
+- **AND** malformed queries and failures of the owned A/AAAA query remain errors
+- **AND** the owned IPv4 and IPv6 probes still require fresh matching peer receipts
+
 ### Requirement: REQ-ANDROID-RECOVERY — Restore traffic after transport failure
 
 The lane MUST exercise peer loss and recovery and automatic selection of a TCP
@@ -91,8 +99,15 @@ The old length-only frame format MUST NOT remain supported.
 - **THEN** each reply reaches only its original source with its original payload
 - **AND** independent host sockets retain the peer's source-flow distinction
 
+#### Scenario: Companion gate preserves the carrier budget
+
+- **WHEN** the carrier opens all 64 allowed flows through its UDP fault gate
+- **THEN** the gate admits every flow and existing flows continue to receive replies
+- **AND** a 65th source fails without allocating another upstream socket
+
 #### Scenario: Invalid or excessive flow
 
 - **WHEN** a frame has an invalid version, ID, size, or exceeds the flow bound
 - **THEN** the carrier fails without forwarding that frame
 - **AND** cleanup closes all owned flow sockets and workers
+- **AND** failed runs retain a fixed gate error category and resource closure state without raw exceptions or credentials

@@ -17,16 +17,18 @@ artifact hashes, test identities and cleanup.
 - Run an owned nginx process with a generated local certificate in front of a plaintext XHTTP backend. Pass explicit trust to the test profile; do not disable certificate validation.
 - Generate bounded payloads and verify length and SHA-256 at both client and destination. Keep the payload outside Binder result bundles and return only bounded measurements.
 - Use run-specific transaction IDs and endpoint-specific receipts. Prove baseline, interruption and recovery separately; do not infer application health from service state.
+- The AWG DNS fixture is a closed resolver for the owned acceptance domain. It returns REFUSED for valid background questions without forwarding them or recording their names. Rejection counts are separate from malformed-query and owned-probe errors; only successful owned A/AAAA replies create acceptance receipts.
 - Use a device-address-scoped UDP gate for the direct LAN failure boundary. Keep loopback control separate from the private LAN data path.
 - When there is no common LAN, use separate local USB scenarios with an authenticated test-only datagram bridge. Keep real VPN, native protocol and independent payload checks. Mark direct UDP, underlying-network bypass and network handover as unverified.
 - The USB carrier uses version 1 frames with a one-byte version, four-byte positive flow ID, and two-byte datagram length in network byte order. Both ends change together; no old frame mode remains. At most 64 flow IDs exist during a carrier lifetime of at most 600 seconds, with datagrams of 1 to 65,507 bytes. Android maps each loopback source to a stable ID; the host creates one connected UDP socket per ID only after authentication and a complete valid frame. Replies retain that ID. Unknown reply IDs fail. All sockets and workers belong to carrier cleanup.
+- The Hysteria fault gate imports the same host flow limit. The 65th source fails closed. Cleanup retains the worker error and writes only fixed error categories, counters and closure state, even when instrumentation failed before it could fetch receipts.
 - Exercise migration through the existing application entry point. Keep the old data listener unavailable from the first failure through saved-reserve traffic, independent HTTPS mirror refresh and replacement verification. Retire owned peer processes only after the authenticated receipt and separate-UID replacement transfer.
 - Consume the AWG owner's schema-v2 range/I-program fixtures and the security owner's verified libXray artifact. Their production files have separate owners.
 
 ## Contracts and ownership
 
 - Android instrumentation owns new transaction tests and the test-only separate-UID probe contract.
-- Go fixture changes stay under scripts/fixtures/xray-provider-peer. nginx discovery and owned lifecycle stay in the acceptance harness.
+- Go fixture changes stay under scripts/fixtures/xray-provider-peer and scripts/fixtures/amneziawg-peer. nginx discovery and owned lifecycle stay in the acceptance harness.
 - Adapter scenario/check catalogs and generated manifest have one writer in this lane. Regenerate the manifest through its generator.
 - No production persistence migration is introduced. Existing migration delivery, selection acknowledgement, native protection and no-bypass contracts remain unchanged.
 - Exact owned paths are recorded in the portfolio task before implementation.

@@ -183,7 +183,7 @@ func runHTTPAcceptance(network *netstack.Net, device *device.Device, bind *loopb
 	mux.HandleFunc("GET /dns-receipts", func(w http.ResponseWriter, _ *http.Request) {
 		dns.mu.Lock()
 		defer dns.mu.Unlock()
-		_ = json.NewEncoder(w).Encode(map[string]any{"receipts": dns.items, "errors": dns.errors})
+		_ = json.NewEncoder(w).Encode(map[string]any{"receipts": dns.items, "errors": dns.errors, "rejected": dns.rejected})
 	})
 	for route, start := range map[string]bool{"/peer/stop": false, "/peer/start": true} {
 		mux.HandleFunc("POST "+route, func(w http.ResponseWriter, _ *http.Request) {
@@ -256,9 +256,10 @@ type httpDNSReceipt struct {
 	Type  uint16 `json:"type"`
 }
 type httpDNSReceipts struct {
-	mu     sync.Mutex
-	items  []httpDNSReceipt
-	errors int
+	mu       sync.Mutex
+	items    []httpDNSReceipt
+	errors   int
+	rejected int
 }
 
 func (r *httpDNSReceipts) serve(socket net.PacketConn) {
@@ -279,42 +280,59 @@ func (r *httpDNSReceipts) serve(socket net.PacketConn) {
 		r.mu.Lock()
 		if err != nil {
 			r.errors++
-		} else {
+		} else if query.owned {
 			r.items = append(r.items, httpDNSReceipt{"acceptance.test.", uint16(query.kind)})
 			if len(r.items) > 128 {
 				r.items = append([]httpDNSReceipt{}, r.items[len(r.items)-128:]...)
 			}
+		} else {
+			r.rejected++
 		}
 		r.mu.Unlock()
 	}
 }
 
 type httpDNSAnswer struct {
-	body []byte
-	kind dnsmessage.Type
+	body  []byte
+	kind  dnsmessage.Type
+	owned bool
 }
 
 func dnsAcceptanceResponse(packet []byte) (httpDNSAnswer, error) {
-	var parser dnsmessage.Parser
-	header, err := parser.Start(packet)
-	if err != nil {
+	var message dnsmessage.Message
+	if err := message.Unpack(packet); err != nil {
 		return httpDNSAnswer{}, err
 	}
-	question, err := parser.Question()
-	if err != nil || question.Name.String() != "acceptance.test." {
+	header := message.Header
+	if header.Response || header.OpCode != 0 || header.RCode != dnsmessage.RCodeSuccess ||
+		header.Truncated || len(message.Questions) != 1 || len(message.Answers) != 0 || len(message.Authorities) != 0 ||
+		message.Questions[0].Class != dnsmessage.ClassINET {
 		return httpDNSAnswer{}, fmt.Errorf("invalid acceptance DNS question")
 	}
-	builder := dnsmessage.NewBuilder(nil, dnsmessage.Header{ID: header.ID, Response: true, Authoritative: true})
-	if err = builder.StartQuestions(); err != nil {
+	question := message.Questions[0]
+	owned := question.Name.String() == "acceptance.test."
+	code := dnsmessage.RCodeSuccess
+	if !owned {
+		code = dnsmessage.RCodeRefused
+	}
+	builder := dnsmessage.NewBuilder(nil, dnsmessage.Header{
+		ID: header.ID, Response: true, Authoritative: owned, RecursionDesired: header.RecursionDesired, RCode: code,
+	})
+	if err := builder.StartQuestions(); err != nil {
 		return httpDNSAnswer{}, err
 	}
-	if err = builder.Question(question); err != nil {
+	if err := builder.Question(question); err != nil {
 		return httpDNSAnswer{}, err
 	}
-	if err = builder.StartAnswers(); err != nil {
+	if !owned {
+		body, err := builder.Finish()
+		return httpDNSAnswer{body: body, kind: question.Type}, err
+	}
+	if err := builder.StartAnswers(); err != nil {
 		return httpDNSAnswer{}, err
 	}
 	record := dnsmessage.ResourceHeader{Name: question.Name, Class: dnsmessage.ClassINET, TTL: 1}
+	var err error
 	switch question.Type {
 	case dnsmessage.TypeA:
 		err = builder.AResource(record, dnsmessage.AResource{A: [4]byte{192, 0, 2, 77}})
@@ -327,5 +345,5 @@ func dnsAcceptanceResponse(packet []byte) (httpDNSAnswer, error) {
 		return httpDNSAnswer{}, err
 	}
 	body, err := builder.Finish()
-	return httpDNSAnswer{body, question.Type}, err
+	return httpDNSAnswer{body: body, kind: question.Type, owned: true}, err
 }

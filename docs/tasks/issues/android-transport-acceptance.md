@@ -41,3 +41,4 @@ with separate-UID traffic and destination receipts.
 - Xray security owner controls libXray compiler pins, packaging and managed artifacts. This lane consumes verified artifacts.
 - Coordinator owns scripts/ci/android_migration_fixture.py, scripts/tests/test_android_migration_fixture.py, scripts/ci/android_udp_bridge.py and scripts/tests/test_android_udp_bridge.py in its isolated worktree. This lane owns their runner integration and Android consumer.
 - Coordinator integrates branches and owns shared workflow changes. No worker commits before independent review.
+- For the current fixture corrections, the coordinator owns scripts/fixtures/amneziawg-peer/transport_http.go, transport_dns_test.go and this change's records. The security worker owns android_hysteria_fixture.py and its Python tests in its separate worktree; the Android acceptance worker alone owns device operations.

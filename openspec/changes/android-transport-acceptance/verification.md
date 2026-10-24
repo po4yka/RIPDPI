@@ -81,3 +81,32 @@ Observed local checks for the USB flow correction:
 
 The Android loopback and IPv6 DNS checks still require physical execution on the
 final combined candidate. These local results do not close the acceptance task.
+
+## Fixture corrections after candidate 818eeeba
+
+Candidate `818eeeba8569c0a4cc01d3486b81a0f1c643d55c` passed genuine native
+APK preparation and the physical Android bridge self-check. The subsequent
+Hysteria DNS assertion failed with 17 observed carrier flows. An independent
+real-socket reproduction showed that the fixture gate's old 16-source limit
+stopped forwarding for both the new source and existing sources. Cleanup closed
+the sockets and then propagated the worker error. The failed run did not retain
+that inner error, so its exact attribution remains supported by the reproduction.
+
+The gate now shares the carrier's 64-flow limit. Real-socket regressions cover all
+64 flows, reuse of the first flow after clients 17 and 64, refusal of client 65,
+resource closure, retained error causes, and redacted failure receipts. All 51
+fixture, bridge and runner tests passed. This does not establish a new physical
+Hysteria result.
+
+The AWG run reached the peer DNS through the tunnel but failed before its explicit
+probe because valid background Android questions incremented the fixture error
+count. The closed resolver now returns REFUSED for other names and records only
+a separate rejection count. Owned A/AAAA answers and receipts remain unchanged;
+malformed or unsupported owned queries remain errors. The new real-UDP regression
+failed before the change and passed after it. The complete AWG peer Go suite passed
+with the race detector, including error-counter and receipt-isolation checks.
+Physical IPv4 and IPv6 DNS acceptance still requires a new run.
+
+The same candidate passed physical migration with cleanup: independent mirror
+refresh, a replacement readiness receipt and a separate-UID 1 MiB replacement
+transfer completed. Final combined acceptance and hosted checks remain open.
