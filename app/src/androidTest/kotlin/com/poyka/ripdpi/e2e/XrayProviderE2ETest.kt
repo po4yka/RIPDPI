@@ -134,6 +134,14 @@ class XrayProviderE2ETest {
     @JvmField
     val vpnTunnelSessionProvider: VpnTunnelSessionProvider = ObservedVpnTunnelSessionProvider()
 
+    @BindValue
+    @JvmField
+    val fixtureTlsTrust = FixtureTlsTrust()
+
+    class FixtureTlsTrust {
+        @Volatile var includeFixtureRoot = true
+    }
+
     // Nested test modules keep the production lazy singleton construction timing.
     @Module
     @InstallIn(SingletonComponent::class)
@@ -149,8 +157,9 @@ class XrayProviderE2ETest {
         @Singleton
         fun provideXrayNativeBridge(
             @XrayDatDir datDir: String,
+            fixtureTlsTrust: FixtureTlsTrust,
         ): XrayNativeBridge {
-            val bridge = FixtureTrustXrayNativeBridge(XrayBridgeModule.provideXrayNativeBridge(datDir))
+            val bridge = FixtureTrustXrayNativeBridge(XrayBridgeModule.provideXrayNativeBridge(datDir), fixtureTlsTrust)
             return if (InstrumentationRegistry.getArguments().getString("ripdpi.xrayDebug") == "true") {
                 TracedXrayNativeBridge(bridge)
             } else {
@@ -339,6 +348,7 @@ class XrayProviderE2ETest {
                 settings.replace(previousSettings)
             }
         } finally {
+            fixtureTlsTrust.includeFixtureRoot = true
             diagnosticsScope.cancel()
             failureJob?.cancel()
             try {
@@ -635,27 +645,9 @@ class XrayProviderE2ETest {
             bindTestProcessDnsProbeService(10_000).use { probe ->
                 assertTrue("Probe UID must use the VPN default network", probe.awaitVpnDefaultNetwork(10_000))
 
-                fun transfer(
-                    operation: String,
-                    suffix: String,
-                ) {
-                    val id = "$network-$suffix-${SystemClock.elapsedRealtime()}"
-                    val result = probe.transfer(operation, id)
-                    assertTrue("Transfer failed: $result", result.getBoolean("ok"))
-                    assertTrue(result.getInt("uid") != Process.myUid())
-                    if (operation == "stream") assertTrue(result.getLong("elapsedMs") >= 59_000)
-                    awaitUntil {
-                        val receipts = readControl("transport-receipts").getJSONArray("receipts")
-                        (0 until receipts.length()).any { index ->
-                            val receipt = receipts.getJSONObject(index)
-                            receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
-                                receipt.getString("sha256") == result.getString("sha256")
-                        }
-                    }
-                }
-                transfer("download", "download")
-                transfer("upload", "upload")
-                transfer("stream", "stream")
+                assertTransportPayload(probe, network, "download", "download")
+                assertTransportPayload(probe, network, "upload", "upload")
+                assertTransportPayload(probe, network, "stream", "stream")
                 readControl("peer/stop", "POST")
                 try {
                     assertFalse(
@@ -670,13 +662,93 @@ class XrayProviderE2ETest {
                 }
                 awaitOwnedPeerEcho("$network-recovered")
                 assertOwnedDnsThroughProvider()
-                transfer("download", "recovered")
+                assertTransportPayload(probe, network, "download", "recovered")
                 assertEquals(0, readControl("direct-receipts").getInt("count"))
                 assertTrue(state.telemetry.value.tunnelStats.txPackets > 0)
                 assertTrue(state.telemetry.value.tunnelStats.rxPackets > 0)
             }
             runBlocking { controller.stop() }
             awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
+        }
+        exerciseTlsRejections()
+    }
+
+    private fun assertTransportPayload(
+        probe: TestProcessDnsProbeServiceHandle,
+        network: String,
+        operation: String,
+        suffix: String,
+    ) {
+        val id = "$network-$suffix-${SystemClock.elapsedRealtime()}"
+        val result = probe.transfer(operation, id)
+        assertTrue("Transfer failed: $result", result.getBoolean("ok"))
+        assertTrue(result.getInt("uid") != Process.myUid())
+        if (operation == "stream") assertTrue(result.getLong("elapsedMs") >= 59_000)
+        awaitUntil {
+            val receipts = readControl("transport-receipts").getJSONArray("receipts")
+            (0 until receipts.length()).any { index ->
+                val receipt = receipts.getJSONObject(index)
+                receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
+                    receipt.getString("sha256") == result.getString("sha256")
+            }
+        }
+    }
+
+    private fun exerciseTlsRejections() {
+        for (wrongIdentity in listOf(true, false)) {
+            val label = if (wrongIdentity) "wrong-identity" else "wrong-trust"
+            withTlsProbe(wrongIdentity = false, includeFixtureRoot = true) { probe ->
+                awaitOwnedPeerEcho("before-$label")
+                assertTransportPayload(probe, "xhttp-tls", "download", "before-$label")
+            }
+            val receiptsBefore = readControl("transport-receipts").getJSONArray("receipts").length()
+            val echoReceiptsBefore = readControl("receipts").getInt("count")
+            val directBefore = readControl("direct-receipts").getInt("count")
+            withTlsProbe(wrongIdentity, includeFixtureRoot = wrongIdentity) { probe ->
+                val expectedUid =
+                    InstrumentationRegistry
+                        .getInstrumentation()
+                        .context.applicationInfo.uid
+                assertTrue("Negative traffic must originate outside the app UID", expectedUid != Process.myUid())
+                val echo = exchange("xhttp-tls-$label")
+                assertEquals("Negative echo must use the separate test UID", expectedUid, echo.probeUid)
+                assertTrue("P1 $label must return no application response", echo.response.isNullOrEmpty())
+                val result = probe.transfer("download", "xhttp-tls-$label-${SystemClock.elapsedRealtime()}")
+                assertEquals("Negative traffic must use the separate test UID", expectedUid, result.getInt("uid"))
+                assertFalse("P1 $label must reject the payload: $result", result.getBoolean("ok"))
+            }
+            assertEquals(receiptsBefore, readControl("transport-receipts").getJSONArray("receipts").length())
+            assertEquals(echoReceiptsBefore, readControl("receipts").getInt("count"))
+            assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
+            withTlsProbe(wrongIdentity = false, includeFixtureRoot = true) { probe ->
+                awaitOwnedPeerEcho("after-$label")
+                assertTransportPayload(probe, "xhttp-tls", "download", "after-$label")
+            }
+        }
+    }
+
+    private fun withTlsProbe(
+        wrongIdentity: Boolean,
+        includeFixtureRoot: Boolean,
+        verify: (TestProcessDnsProbeServiceHandle) -> Unit,
+    ) {
+        check(state.status.value.first == AppStatus.Halted)
+        fixtureTlsTrust.includeFixtureRoot = includeFixtureRoot
+        try {
+            start("xhttp-tls", wrongIdentity)
+            bindTestProcessDnsProbeService(10_000).use { probe ->
+                assertTrue("Probe UID must use the VPN default network", probe.awaitVpnDefaultNetwork(10_000))
+                verify(probe)
+                assertTrue("Probe UID must retain the VPN default network", probe.isVpnDefaultNetwork())
+                assertEquals(AppStatus.Running, state.status.value.first)
+            }
+        } finally {
+            try {
+                runBlocking { controller.stop() }
+                awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
+            } finally {
+                fixtureTlsTrust.includeFixtureRoot = true
+            }
         }
     }
 
@@ -1340,14 +1412,16 @@ class XrayProviderE2ETest {
         }
     }
 
-    /** Trust only the ephemeral fixture certificate; the real native engine and protect path remain active. */
+    /** Choose fixture-only or strict system roots; the real native engine and protect path remain active. */
     private class FixtureTrustXrayNativeBridge(
         private val delegate: XrayNativeBridge,
+        private val fixtureTlsTrust: FixtureTlsTrust,
     ) : XrayNativeBridge by delegate {
         override fun start(jsonConfig: String): Int {
             val encoded =
                 InstrumentationRegistry.getArguments().getString("ripdpi.nginxCertificate")
                     ?: return delegate.start(jsonConfig)
+            val includeFixtureRoot = fixtureTlsTrust.includeFixtureRoot
             val config = JSONObject(jsonConfig)
             val outbounds = config.getJSONArray("outbounds")
             for (index in 0 until outbounds.length()) {
@@ -1355,8 +1429,12 @@ class XrayProviderE2ETest {
                 if (stream.optString("security") != "tls") continue
                 val tls = stream.getJSONObject("tlsSettings")
                 check(!tls.optBoolean("allowInsecure", false))
+                tls.put("disableSystemRoot", includeFixtureRoot)
+                if (!includeFixtureRoot) {
+                    tls.remove("certificates")
+                    continue
+                }
                 val pem = listOf("-----BEGIN CERTIFICATE-----") + encoded.chunked(64) + "-----END CERTIFICATE-----"
-                tls.put("disableSystemRoot", true)
                 tls.put(
                     "certificates",
                     org.json.JSONArray().put(
