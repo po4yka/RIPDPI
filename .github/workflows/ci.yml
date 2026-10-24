@@ -1431,10 +1431,15 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-cross-check
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          rust-targets: aarch64-linux-android armv7-linux-androideabi
           setup-java: "false"
           setup-gradle: "false"
 
+      # rust-native-packaging builds all four ABIs; this workspace-wide check
+      # covers one 64-bit and one 32-bit target.
       - name: Run Android ABI cross-compilation checks
+        env:
+          RIPDPI_CROSS_CHECK_TARGETS: aarch64-linux-android armv7-linux-androideabi
         run: bash scripts/ci/run-rust-cross-check.sh
 
       - uses: ./.github/actions/upload-build-observability
