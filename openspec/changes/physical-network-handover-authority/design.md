@@ -45,6 +45,9 @@ and readiness through CandidatePhysicalNetworkObserver.
   in ServiceRuntimeRegistry.kt and BaseServiceRuntimeCoordinatorTest.kt.
   Coordinator owns task/spec records and physical-device operations. Security
   worker performs independent read-only review. No concurrent shared writers.
+- Nine app production, JVM and instrumentation call sites receive import, type
+  and constructor rename-only edits. Their exact paths are in tasks.md. The
+  complete app JVM suite and instrumentation compilation cover the API rename.
 - No Rust crate, JNI, wire schema, golden, dependency or lease owner changes.
 
 ## Risks / Trade-offs

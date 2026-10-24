@@ -33,3 +33,18 @@ Use one selected physical network snapshot for handover, remembered-network capt
 - Protocol ownership also includes the narrow cooldown identity consumer in NetworkHandoverProcessor.kt, HandoverAwareSession in ServiceRuntimeCoordinator.kt, ServiceRuntimeRegistry.kt and BaseServiceRuntimeCoordinatorTest.kt. Cooldown timing and persisted scope hashing stay unchanged.
 - Rename the now-general CandidateRelayNetworkEpoch owner and file to PhysicalNetworkObserver with no alias. Protocol ownership includes rename-only call sites in AndroidRuntimeEvidenceModule.kt and ActiveAwgMigrationProbe.kt, plus existing owned consumers and service documentation.
 - No other runtime, native, DNS lease, storage or provider file is in scope.
+
+Protocol worker also owns import, type and constructor rename-only edits in:
+
+- app/src/main/kotlin/com/poyka/ripdpi/subscription/SelectorProbeScope.kt
+- app/src/main/kotlin/com/poyka/ripdpi/subscription/SelectorUrltestModule.kt
+- app/src/main/kotlin/com/poyka/ripdpi/subscription/DeviceMigrationCoordinator.kt
+- app/src/main/kotlin/com/poyka/ripdpi/ui/screens/profiles/ProfileUtilityMeasurementCoordinator.kt
+- app/src/test/kotlin/com/poyka/ripdpi/ui/screens/profiles/ProfileUtilityViewModelTest.kt
+- app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/XrayProviderE2ETest.kt
+- app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/MigrationTransportE2ETest.kt
+- app/src/androidTest/kotlin/com/poyka/ripdpi/integration/ProfileQualityNativeTest.kt
+- app/src/androidTest/kotlin/com/poyka/ripdpi/integration/SelectorRuntimeInstrumentedTest.kt
+
+These call sites keep their behavior and assertions unchanged. The complete
+app JVM suite and instrumentation compilation validate the renamed API.
