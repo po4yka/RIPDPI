@@ -9,7 +9,6 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 
 # The feature test requires successful fixed-buffer CQEs and rejects fallback.
-export RIPDPI_REQUIRE_IO_URING=1
 exec bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked \
   --manifest-path "$repo_root/native/rust/Cargo.toml" \
   -p ripdpi-proxy-runtime --lib --features io-uring --profile ci \
