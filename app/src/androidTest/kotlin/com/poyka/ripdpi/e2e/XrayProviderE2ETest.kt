@@ -683,8 +683,9 @@ class XrayProviderE2ETest {
         val transportPort = manifest.getInt("transportPort")
 
         fun startHysteria(pin: String) {
+            runBlocking { controller.stop() }
+            awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
             runBlocking {
-                controller.stop()
                 relayProfiles.save(
                     RelayProfileRecord(
                         id = relayId,
