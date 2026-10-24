@@ -13,6 +13,10 @@ and readiness through CandidatePhysicalNetworkObserver.
 
 ## Decisions
 
+- Rename the now-general process owner to PhysicalNetworkObserver and update
+  every active caller without an alias. It owns physical evidence rather than
+  a transport-specific feature. AndroidRuntimeEvidenceModule.kt and
+  ActiveAwgMigrationProbe.kt are rename-only call sites.
 - Extend the existing owner with copied selected capabilities and link data.
   Use its readiness checks and avoid another callback or preference ranking.
 - Keep diagnostic event epochs unchanged. Handover compares selected semantic

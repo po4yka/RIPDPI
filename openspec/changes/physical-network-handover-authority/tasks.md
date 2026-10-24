@@ -15,6 +15,10 @@ Protocol worker also owns the narrow cooldown consumer fix in
 NetworkHandoverProcessor.kt, HandoverAwareSession in ServiceRuntimeCoordinator.kt,
 ServiceRuntimeRegistry.kt and BaseServiceRuntimeCoordinatorTest.kt.
 
+The shared process owner is renamed from CandidateRelayNetworkEpoch to
+PhysicalNetworkObserver. Protocol also owns rename-only references in
+AndroidRuntimeEvidenceModule.kt and ActiveAwgMigrationProbe.kt.
+
 ## Execution
 
 ## Verification
