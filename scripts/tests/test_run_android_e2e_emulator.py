@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -260,6 +261,53 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
         self.assertIn("Preserve GitHub Simple instrumentation evidence", job)
         self.assertIn("Preserve JNI strategy instrumentation evidence", job)
         self.assertIn("${{ runner.temp }}/android-instrumented-results/", job)
+
+    def test_xray_peer_runs_exactly_the_complete_validated_fixture_suite(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Run real Xray provider TUN acceptance\n")
+        end = workflow.index("\n      - name: Capture Android instrumented-test emulator diagnostics", start)
+        step = workflow[start:end]
+        # Execute the selection and validation shell, replacing only its Python commands.
+        start = step.index("\n", step.index('          fixture_port="$(')) + 1
+        end = step.rindex("          capture_xray_evidence")
+        script = textwrap.dedent(step[start:end]).replace("${{ matrix.api }}", "35")
+        bin_dir = self.repo / "bin"
+        bin_dir.mkdir()
+        write_executable(bin_dir / "python3", f"#!{sys.executable}\n" + '''
+import json
+import os
+import sys
+with open(os.environ["INVOCATION_LOG"], "a") as output:
+    output.write(json.dumps(sys.argv[1:]) + "\\n")
+''')
+        log = self.repo / "xray-invocations.jsonl"
+        result = subprocess.run(
+            ["bash", "-euo", "pipefail", "-c", script],
+            env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}",
+                 "RUNNER_TEMP": str(self.runner_temp), "GITHUB_SHA": "a" * 40,
+                 "fixture_port": "1234", "INVOCATION_LOG": str(log)},
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        calls = [json.loads(line) for line in log.read_text().splitlines()]
+        self.assertEqual(6, len(calls))
+        expected = {
+            "bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart",
+            "wrongIdentityCannotReachPeerOrFallBackToDirect",
+            "profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck",
+            "realRealityQualityMeasuresAuthenticatedBodyAndConcurrentHeadBeforeRetirement",
+            "peerLossAndRecoveryPreservesTunAndRejectsDirectBypass",
+        }
+        expected = {f"com.poyka.ripdpi.e2e.XrayProviderE2ETest#{method}" for method in expected}
+        selected = calls[0][calls[0].index("--test-class") + 1].split(",")
+        required = [call[call.index("--require-test") + 1] for call in calls[1:]]
+        self.assertEqual(5, len(selected))
+        self.assertEqual(expected, set(selected))
+        self.assertEqual(selected, required)
+        for call in calls[1:]:
+            self.assertEqual("1", call[call.index("--expected-count") + 1])
+            self.assertEqual("5", call[call.index("--expected-total-count") + 1])
+            self.assertIn("--forbid-skips", call)
 
 
 if __name__ == "__main__":
