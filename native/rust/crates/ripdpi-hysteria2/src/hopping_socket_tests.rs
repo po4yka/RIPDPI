@@ -107,8 +107,8 @@ async fn rotation_keeps_previous_receive_path_filters_sources_and_rebind_preserv
     drop(stop);
     assert!(socket.local_addr().is_err());
     assert!(socket.timer.lock().unwrap().is_none());
-    std::net::UdpSocket::bind(first_local).expect("old path descriptor released");
-    std::net::UdpSocket::bind(second_local).expect("second path descriptor released");
+    UdpSocket::bind(first_local).await.expect("old path descriptor released");
+    UdpSocket::bind(second_local).await.expect("second path descriptor released");
 }
 
 struct RejectReplacement(Mutex<Vec<RawFd>>);
@@ -166,13 +166,13 @@ async fn idle_writer_does_not_keep_retired_sockets_open() {
     let mut idle = socket.clone().create_io_poller();
     poll_fn(|cx| idle.as_mut().poll_writable(cx)).await.unwrap();
     expire_timer(&socket).await.unwrap();
-    assert!(std::net::UdpSocket::bind(first).is_err(), "previous path stays open for delayed responses");
+    assert!(UdpSocket::bind(first).await.is_err(), "previous path stays open for delayed responses");
     expire_timer(&socket).await.unwrap();
-    std::net::UdpSocket::bind(first).expect("idle poller must release twice-retired socket");
+    UdpSocket::bind(first).await.expect("idle poller must release twice-retired socket");
     let current = socket.local_addr().unwrap();
     poll_fn(|cx| idle.as_mut().poll_writable(cx)).await.unwrap();
     drop(stop);
-    std::net::UdpSocket::bind(current).expect("stopped adapter releases socket despite retained poller");
+    UdpSocket::bind(current).await.expect("stopped adapter releases socket despite retained poller");
     assert!(poll_fn(|cx| idle.as_mut().poll_writable(cx)).await.is_err());
 }
 
