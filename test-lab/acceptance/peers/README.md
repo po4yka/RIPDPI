@@ -47,7 +47,7 @@ compiler fails closed; run preparation again to rebuild its identity record.
 
 ## Hysteria
 
-The peer is the unchanged Hysteria `app/v2.9.0` release binary. The catalog contains
+The peer is the unchanged Hysteria `app/v2.13.0` release binary. The catalog contains
 GitHub release asset SHA-256 values for Linux ARM64, Linux AMD64, and macOS ARM64.
 The adapter checks the digest on preparation and on every run. OpenSSL creates
 a one-day local certificate in a temporary private directory. The peer binds

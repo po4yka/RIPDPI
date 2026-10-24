@@ -273,18 +273,8 @@ sealed interface ProxyProfile {
          * CA chain and a matching pin, as upstream Hysteria2 does.
          */
         val pinSha256: String? = null,
-        /**
-         * Port-hopping range string (e.g. `"20000-40000"`). Carried from the
-         * RIPDPI extended bundle when present; wire-to-runtime mapping is
-         * best-effort / follow-up.
-         */
-        val portHopPorts: String? = null,
-        /**
-         * Port-hopping interval string (e.g. `"30s"`). Carried from the RIPDPI
-         * extended bundle when present; wire-to-runtime mapping is best-effort /
-         * follow-up.
-         */
-        val portHopInterval: String? = null,
+        /** Exact remote UDP destination set and fixed or randomized cadence. */
+        val portHopping: Hysteria2PortHopping? = null,
         /**
          * The upstream Hysteria2 release tag whose Salamander algorithm the
          * server runs (`ripdpi.hysteria_extras.<tag>.salamander_upstream_tag`,
@@ -426,7 +416,7 @@ object ProxyGroupSchema {
     ): String {
         require(fromVersion in 1..SCHEMA_VERSION) { "Unsupported group schema" }
         // Stored policies must upgrade before the strict current model can decode the catalogue.
-        val migrated = migrateStoredHealthPolicy(json)
+        val migrated = migrateStoredHysteriaPortHopping(migrateStoredHealthPolicy(json))
         val serializer = ListSerializer(ProxyGroup.serializer())
         val groups = RipDpiJson.decodeFromString(serializer, migrated)
         if (fromVersion == SCHEMA_VERSION) {

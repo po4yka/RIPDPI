@@ -67,6 +67,7 @@ def generate():
         )
     profiles = {
         "native": [r["id"] for r in rows if r["adapter"] == "peers"],
+        "hysteria-hopping": [r["id"] for r in rows if r["id"].startswith("independent-hysteria2-hopping-")],
         "android": [
             r["id"]
             for r in rows

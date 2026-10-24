@@ -8,6 +8,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
+use crate::hopping_socket::{HoppingSocket, StopHoppingOnDrop};
 use crate::migration::QuicMigration;
 use crate::tcp::{DuplexStream, build_tcp_request, read_tcp_response};
 use crate::tls_quic::{ClientSocketSpec, H3ConnectionGuard, authenticate_connection, build_endpoint, build_tls_config};
@@ -28,7 +29,14 @@ impl Drop for AbortOnDrop {
     }
 }
 
+/// # Cancel safety:
+/// cancel-safe: DNS and handshake futures own their partial state. The hopping
+/// guard stops its timer and closes both paths if connect or H3 auth is cancelled.
+// cancel-safe: partially constructed endpoints and sockets belong to this future.
 pub async fn connect(config: &Config) -> Result<HysteriaClient> {
+    if let Some(policy) = &config.port_hopping {
+        policy.validate_deadline()?;
+    }
     if config.insecure && config.pin_sha256.is_none() {
         tracing::warn!("hysteria2 session starting with certificate verification DISABLED (insecure=true profile)");
     }
@@ -48,7 +56,9 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         salamander_key: config.salamander_key.clone(),
         socket_protection: config.socket_protection,
     };
-    let (endpoint, current_socket) = build_endpoint(config, tls_config, socket_spec.clone())?;
+    let (endpoint, current_socket, hopping_socket) =
+        build_endpoint(config, tls_config, socket_spec.clone(), server_addr)?;
+    let hopping_stop = StopHoppingOnDrop::new(hopping_socket.clone());
     let connection = endpoint.connect(server_addr, &config.server_name)?.await?;
 
     let (udp_supported, h3_guard) = authenticate_connection(config, &connection).await?;
@@ -56,6 +66,7 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
     let udp_ready_at = tokio::time::Instant::now() + udp_auth_settle_grace(cfg!(target_os = "android"));
 
     let inner = Arc::new(ClientInner {
+        _hopping_stop: hopping_stop,
         endpoint,
         connection,
         _h3_guard: h3_guard,
@@ -67,6 +78,7 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         socket_spec,
         migrate_after_handshake: config.quic_migrate_after_handshake,
         migration: QuicMigration::new_not_attempted(current_socket),
+        hopping_socket,
     });
 
     let dispatch_guard = if udp_supported {
@@ -132,11 +144,13 @@ impl HysteriaClient {
             return Err(HysteriaError::TcpConnect(message));
         }
 
-        Ok(DuplexStream::new(send, recv))
+        Ok(DuplexStream::new(send, recv, self.inner.hopping_socket.as_ref().map(|_| Arc::clone(&self.inner))))
     }
 }
 
 pub(crate) struct ClientInner {
+    // Drop the schedule and carrier sockets before the rest of client state.
+    _hopping_stop: StopHoppingOnDrop,
     pub(crate) endpoint: quinn::Endpoint,
     pub(crate) connection: quinn::Connection,
     _h3_guard: H3ConnectionGuard,
@@ -148,6 +162,18 @@ pub(crate) struct ClientInner {
     pub(crate) socket_spec: ClientSocketSpec,
     pub(crate) migrate_after_handshake: bool,
     pub(crate) migration: QuicMigration,
+    pub(crate) hopping_socket: Option<Arc<HoppingSocket>>,
+}
+
+impl Drop for ClientInner {
+    fn drop(&mut self) {
+        // Close QUIC before releasing its carrier. Fields then drop normally;
+        // no detached task or endpoint driver can keep the hopping timer alive.
+        if self.hopping_socket.is_some() {
+            self.connection.close(0u32.into(), b"client closed");
+            self.endpoint.close(0u32.into(), b"client closed");
+        }
+    }
 }
 
 fn udp_auth_settle_grace(is_android: bool) -> Duration {

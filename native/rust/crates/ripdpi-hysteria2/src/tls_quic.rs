@@ -1,5 +1,6 @@
 use std::fmt;
 use std::io;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use http::Request;
@@ -8,6 +9,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
+use crate::hopping_socket::HoppingSocket;
 use crate::quic_transport::{self, QuicTransportConfig};
 use crate::salamander::SalamanderUdpSocket;
 
@@ -82,10 +84,22 @@ pub(crate) fn build_endpoint(
     config: &Config,
     tls_config: rustls::ClientConfig,
     socket_spec: ClientSocketSpec,
-) -> Result<(quinn::Endpoint, std::net::UdpSocket)> {
+    server_addr: SocketAddr,
+) -> Result<(quinn::Endpoint, Option<std::net::UdpSocket>, Option<Arc<HoppingSocket>>)> {
     let socket = build_client_udp_socket(&socket_spec)?;
-    let socket_clone = socket.try_clone()?;
-    let mut endpoint = if let Some(key) = config.salamander_key.as_ref() {
+    let socket_clone = if config.port_hopping.is_none() { Some(socket.try_clone()?) } else { None };
+    let mut hopping_socket = None;
+    let mut endpoint = if let Some(policy) = &config.port_hopping {
+        let wrapped = Arc::new(HoppingSocket::new(server_addr, policy.clone(), socket_spec, socket)?);
+        let endpoint = quinn::Endpoint::new_with_abstract_socket(
+            quinn::EndpointConfig::default(),
+            None,
+            wrapped.clone(),
+            Arc::new(quinn::TokioRuntime),
+        )?;
+        hopping_socket = Some(wrapped);
+        endpoint
+    } else if let Some(key) = config.salamander_key.as_ref() {
         let wrapped = SalamanderUdpSocket::new(socket, key.as_bytes().to_vec())?;
         quinn::Endpoint::new_with_abstract_socket(
             quinn::EndpointConfig::default(),
@@ -101,7 +115,7 @@ pub(crate) fn build_endpoint(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?,
     )));
-    Ok((endpoint, socket_clone))
+    Ok((endpoint, socket_clone, hopping_socket))
 }
 
 /// Bind a UDP socket for the Hysteria2 QUIC client.
@@ -123,7 +137,11 @@ pub(crate) fn rebind_endpoint(
     endpoint: &quinn::Endpoint,
     socket_spec: &ClientSocketSpec,
     socket: std::net::UdpSocket,
+    hopping_socket: Option<&HoppingSocket>,
 ) -> io::Result<()> {
+    if let Some(hopping) = hopping_socket {
+        return hopping.rebind(socket);
+    }
     if let Some(key) = socket_spec.salamander_key.as_ref() {
         endpoint.rebind_abstract(Arc::new(SalamanderUdpSocket::new(socket, key.as_bytes().to_vec())?))
     } else {

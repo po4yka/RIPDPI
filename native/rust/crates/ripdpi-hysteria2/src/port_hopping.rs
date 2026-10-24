@@ -1,22 +1,4 @@
-//! Randomized port-hopping interval window for the Hysteria2 outbound.
-//!
-//! Hysteria 2.8.0 replaced the single fixed `hopInterval` knob with a
-//! `minHopInterval` / `maxHopInterval` window so the per-session port-hopping
-//! cadence becomes unpredictable to interval-based DPI traffic classifiers.
-//! This module owns the runtime side of that feature:
-//!
-//! * [`PortHoppingWindow`] resolves the three [`Config`](crate::Config) knobs
-//!   (`hop_interval`, `min_hop_interval`, `max_hop_interval`) into a single
-//!   hopping policy.
-//! * [`PortHoppingWindow::next_interval`] draws the interval a session should
-//!   wait before its next port hop -- a uniform sample inside
-//!   `[min, max]` for a randomized window, or the fixed cadence otherwise.
-//! * [`HopIntervalTelemetry`] accumulates the intervals actually drawn for a
-//!   session so the distribution can be surfaced for verification.
-//!
-//! Backward compatibility: when neither `minHopInterval` nor `maxHopInterval`
-//! is configured the window degrades to the previous behavior -- a fixed
-//! `hopInterval` cadence, or no hopping at all when that is also unset.
+//! Fixed or randomized cadence sampling for validated Hysteria hopping policy.
 
 use std::time::Duration;
 
@@ -24,10 +6,8 @@ use rand::RngExt;
 
 /// The resolved port-hopping policy for a Hysteria2 outbound.
 ///
-/// Built from a [`Config`](crate::Config) via
-/// [`Config::port_hopping_window`](crate::Config::port_hopping_window). The
-/// three variants mirror the three reachable states of the Hysteria 2.8.0
-/// config surface.
+/// Returned by [`Config::port_hopping_window`](crate::Config::port_hopping_window)
+/// after validation by [`PortHoppingConfig`](crate::PortHoppingConfig).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PortHoppingWindow {
     /// Port hopping is off: no `hopInterval`, `minHopInterval`, or
@@ -38,7 +18,7 @@ pub enum PortHoppingWindow {
     Fixed(Duration),
     /// Randomized window per Hysteria 2.8.0: each hop waits a uniformly random
     /// duration inside the inclusive `[min, max]` range. `min <= max` always
-    /// holds because the constructor swaps reversed bounds.
+    /// holds because the validated policy rejects reversed bounds.
     Randomized {
         /// Inclusive lower bound of the hop-interval window.
         min: Duration,
@@ -48,38 +28,6 @@ pub enum PortHoppingWindow {
 }
 
 impl PortHoppingWindow {
-    /// Resolve the raw config knobs into a hopping policy.
-    ///
-    /// Precedence, matching Hysteria 2.8.0:
-    /// * if either window bound is set, the result is [`Randomized`] -- a
-    ///   missing bound falls back to the other bound, and a missing-both case
-    ///   cannot occur here. Reversed bounds (`min > max`) are swapped so the
-    ///   window is always well-ordered.
-    /// * else if `hop_interval` is set, the result is [`Fixed`].
-    /// * else the result is [`Disabled`].
-    ///
-    /// [`Randomized`]: PortHoppingWindow::Randomized
-    /// [`Fixed`]: PortHoppingWindow::Fixed
-    /// [`Disabled`]: PortHoppingWindow::Disabled
-    #[must_use]
-    pub fn resolve(
-        hop_interval: Option<Duration>,
-        min_hop_interval: Option<Duration>,
-        max_hop_interval: Option<Duration>,
-    ) -> Self {
-        match (min_hop_interval, max_hop_interval) {
-            (Some(min), Some(max)) => {
-                let (min, max) = if min <= max { (min, max) } else { (max, min) };
-                Self::Randomized { min, max }
-            }
-            (Some(bound), None) | (None, Some(bound)) => Self::Randomized { min: bound, max: bound },
-            (None, None) => match hop_interval {
-                Some(interval) => Self::Fixed(interval),
-                None => Self::Disabled,
-            },
-        }
-    }
-
     /// Whether this window randomizes the hop interval (Hysteria 2.8.0
     /// behavior) rather than using a fixed cadence or no hopping.
     #[must_use]
@@ -207,54 +155,6 @@ impl HopIntervalTelemetry {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn resolve_with_no_knobs_is_disabled() {
-        assert_eq!(PortHoppingWindow::resolve(None, None, None), PortHoppingWindow::Disabled);
-    }
-
-    #[test]
-    fn resolve_with_only_hop_interval_is_fixed_for_backward_compat() {
-        let window = PortHoppingWindow::resolve(Some(Duration::from_secs(30)), None, None);
-        assert_eq!(window, PortHoppingWindow::Fixed(Duration::from_secs(30)));
-        assert!(window.is_enabled());
-        assert!(!window.is_randomized());
-    }
-
-    #[test]
-    fn resolve_with_window_is_randomized() {
-        let window = PortHoppingWindow::resolve(
-            Some(Duration::from_secs(30)),
-            Some(Duration::from_secs(10)),
-            Some(Duration::from_secs(60)),
-        );
-        assert_eq!(
-            window,
-            PortHoppingWindow::Randomized { min: Duration::from_secs(10), max: Duration::from_secs(60) }
-        );
-        assert!(window.is_randomized());
-    }
-
-    #[test]
-    fn resolve_swaps_reversed_window_bounds() {
-        let window = PortHoppingWindow::resolve(None, Some(Duration::from_secs(60)), Some(Duration::from_secs(10)));
-        assert_eq!(
-            window,
-            PortHoppingWindow::Randomized { min: Duration::from_secs(10), max: Duration::from_secs(60) }
-        );
-    }
-
-    #[test]
-    fn resolve_with_single_window_bound_uses_it_for_both() {
-        assert_eq!(
-            PortHoppingWindow::resolve(None, Some(Duration::from_secs(15)), None),
-            PortHoppingWindow::Randomized { min: Duration::from_secs(15), max: Duration::from_secs(15) }
-        );
-        assert_eq!(
-            PortHoppingWindow::resolve(None, None, Some(Duration::from_secs(25))),
-            PortHoppingWindow::Randomized { min: Duration::from_secs(25), max: Duration::from_secs(25) }
-        );
-    }
 
     #[test]
     fn disabled_window_yields_no_interval() {

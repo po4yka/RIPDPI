@@ -11,7 +11,8 @@ on:
       - "scripts/ci/android_owned_installation.py"
       - "scripts/ci/android_udp_bridge.py"
       - "scripts/tests/test_android_*.py"
-      - "native/rust/crates/ripdpi-hysteria2/tests/upstream_interop.rs"
+      - "native/rust/crates/ripdpi-hysteria2/**"
+      - "native/rust/crates/ripdpi-relay-core/**"
       - ".github/workflows/local-acceptance.yml"
   workflow_dispatch:
     inputs:
@@ -99,6 +100,42 @@ jobs:
           path: |
             ${{ runner.temp }}/peer-acceptance/report.json
             ${{ runner.temp }}/peer-acceptance/report.xml
+          retention-days: 7
+
+  hysteria-hopping:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          setup-java: "false"
+          setup-gradle: "false"
+          skip-android-sdk-ndk: "true"
+          rust-targets: ""
+          rust-cache-shared-key: hysteria-hopping-peers
+      - name: Check Linux UDP GRO capabilities across hops
+        working-directory: native/rust
+        run: |
+          set -euo pipefail
+          cargo test --locked --jobs 4 -p ripdpi-hysteria2 --lib \
+            hopping_socket::tests::adapter_preserves_gro_gso_and_fragmentation_capabilities_across_hops \
+            -- --exact | tee "$RUNNER_TEMP/hopping-gro-test.log"
+          grep -F 'test hopping_socket::tests::adapter_preserves_gro_gso_and_fragmentation_capabilities_across_hops ... ok' "$RUNNER_TEMP/hopping-gro-test.log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/hopping-gro-test.log"
+      - name: Prepare pinned Hysteria peer and native relay test
+        run: python3 test-lab/acceptance/lab.py prepare --profile hysteria-hopping --out-dir "$RUNNER_TEMP/hopping-preparation"
+      - name: Run all eight remote hopping cases through RelayRuntime
+        run: python3 test-lab/acceptance/lab.py run --profile hysteria-hopping --out-dir "$RUNNER_TEMP/hopping-acceptance"
+      - name: Publish metadata only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hysteria-hopping-report
+          path: |
+            ${{ runner.temp }}/hopping-acceptance/report.json
+            ${{ runner.temp }}/hopping-acceptance/report.xml
           retention-days: 7
 
   android:

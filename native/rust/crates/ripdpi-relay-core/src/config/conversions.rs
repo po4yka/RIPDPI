@@ -25,6 +25,9 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 salamander_key: flat.hysteria_salamander_key,
                 insecure: flat.hysteria_insecure,
                 pin_sha256: flat.hysteria_pin_sha256,
+                port_hop_ports: flat.hysteria_port_hop_ports,
+                port_hop_interval_millis: flat.hysteria_port_hop_interval_millis,
+                port_hop_interval_max_millis: flat.hysteria_port_hop_interval_max_millis,
             }),
             "tuic_v5" => RelayBackendConfig::TuicV5(TuicRelayConfig {
                 uuid: flat.tuic_uuid,
@@ -232,6 +235,9 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             hysteria_salamander_key: None,
             hysteria_insecure: false,
             hysteria_pin_sha256: None,
+            hysteria_port_hop_ports: None,
+            hysteria_port_hop_interval_millis: None,
+            hysteria_port_hop_interval_max_millis: None,
             tuic_uuid: None,
             tuic_password: None,
             shadow_tls_password: None,
@@ -275,6 +281,9 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.hysteria_salamander_key = config.salamander_key.clone();
                 flat.hysteria_insecure = config.insecure;
                 flat.hysteria_pin_sha256 = config.pin_sha256.clone();
+                flat.hysteria_port_hop_ports = config.port_hop_ports.clone();
+                flat.hysteria_port_hop_interval_millis = config.port_hop_interval_millis;
+                flat.hysteria_port_hop_interval_max_millis = config.port_hop_interval_max_millis;
             }
             RelayBackendConfig::TuicV5(config) => {
                 flat.tuic_uuid = config.uuid.clone();

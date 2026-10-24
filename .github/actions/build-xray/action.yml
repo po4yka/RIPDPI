@@ -7,7 +7,6 @@ runs:
     - uses: ./.github/actions/setup-android-rust
       with:
         setup-rust: "false"
-        setup-sccache: "false"
         setup-gradle: "false"
 
     - name: Install pinned Go mobile toolchain

@@ -24,7 +24,7 @@ internal class ProfileMutationJournalRecoveryReader(
         if (pending.schemaVersion == 2 && (pending.origin == null || pending.expectedPauseAuthority == null)) {
             throw ProfileMutationJournalCorruptionException("Profile mutation provenance is missing")
         }
-        val migrated = migrateStoredPolicy(pending)
+        val migrated = migrateStoredProfiles(pending)
         val intent = decode(migrated)
         if (intent.family != pending.family) {
             throw ProfileMutationJournalCorruptionException("Profile mutation journal family mismatch")
@@ -58,12 +58,12 @@ internal class ProfileMutationJournalRecoveryReader(
     }
 
     /** Only encrypted local after-images qualify; external import keeps its strict current schema. */
-    private fun migrateStoredPolicy(pending: PendingProfileMutation): PendingProfileMutation {
+    private fun migrateStoredProfiles(pending: PendingProfileMutation): PendingProfileMutation {
         if (pending.family != ProfileMutationFamily.Subscription) return pending
         val payload = json.parseToJsonElement(pending.payload).jsonObject
         return if (payload["type"]?.jsonPrimitive?.content == "subscription_refresh") {
             val storedGroups = payload.getValue("groups").toString()
-            val migratedGroups = migrateStoredHealthPolicy(storedGroups)
+            val migratedGroups = migrateStoredHysteriaPortHopping(migrateStoredHealthPolicy(storedGroups))
             if (migratedGroups == storedGroups) {
                 pending
             } else {

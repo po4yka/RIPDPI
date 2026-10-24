@@ -213,7 +213,9 @@ object ProxyUriCodec {
     }
 
     private fun encodeHysteria2(profile: ProxyProfile.Hysteria2): String {
-        val base = userInfoUri("hysteria2", profile.password, profile.server, profile.serverPort, profile.displayName)
+        val ports = profile.portHopping?.ports ?: profile.serverPort.toString()
+        val auth = encodeQueryValue(profile.password).replace("+", "%20")
+        val base = "hysteria2://$auth@${bracketIpv6(profile.server)}:$ports#${encodeFragment(profile.displayName)}"
         val params =
             buildList {
                 profile.serverName?.let { add("sni=${encodeQueryValue(it)}") }
@@ -223,6 +225,14 @@ object ProxyUriCodec {
                 }
                 if (profile.insecure == true) add("insecure=1")
                 profile.pinSha256?.let { add("pinSHA256=$it") }
+                profile.portHopping?.let { hopping ->
+                    if (hopping.intervalMaxMillis == null) {
+                        add("hopInterval=${hopping.intervalMillis}ms")
+                    } else {
+                        add("minHopInterval=${hopping.intervalMillis}ms")
+                        add("maxHopInterval=${hopping.intervalMaxMillis}ms")
+                    }
+                }
             }
         if (params.isEmpty()) return base
         val hashIndex = base.indexOf('#')
@@ -513,7 +523,8 @@ object ProxyUriCodec {
 
     @Suppress("ReturnCount")
     private fun parseHysteria2(uri: String): ProxyProfile? {
-        val parsed = URI(uri)
+        val authority = parseHysteria2UriAuthority(uri)
+        val parsed = authority.uri
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
@@ -527,7 +538,7 @@ object ProxyUriCodec {
         val pinSha256 = rawPin?.let { normalizeHysteria2PinSha256(it) ?: return null }
         return ProxyProfile.Hysteria2(
             id = newId(),
-            displayName = displayName(parsed.fragment, host),
+            displayName = displayName(parsed.rawFragment, host),
             groupId = "",
             server = host,
             serverPort = port,
@@ -541,6 +552,7 @@ object ProxyUriCodec {
             // strict verification and an opaque handshake failure (P1-9).
             insecure = queryValue(rawQuery, "insecure")?.let { it == "1" || it.equals("true", ignoreCase = true) },
             pinSha256 = pinSha256,
+            portHopping = authority.portHopping,
         )
     }
 

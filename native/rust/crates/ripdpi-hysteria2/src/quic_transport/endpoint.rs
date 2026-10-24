@@ -174,7 +174,7 @@ mod tests {
 }
 
 #[cfg(test)]
-mod protect_tests {
+pub(crate) mod protect_tests {
     //! `build_client_udp_socket` must protect the QUIC carrier fd before the
     //! socket reaches `quinn` (vpnservice-protect-invariant.md). The protect
     //! callback registry is process-global, so these tests serialize on
@@ -194,7 +194,7 @@ mod protect_tests {
     // protected fds and the assertion checks membership (the carrier socket's own
     // fd is among them), never an exact call count. The guard never spans an
     // `.await`, so a std `Mutex` is correct here.
-    static PROTECT_TEST_LOCK: Mutex<()> = Mutex::new(());
+    pub(crate) static PROTECT_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     struct RecordingCallback {
         fds: Mutex<Vec<RawFd>>,

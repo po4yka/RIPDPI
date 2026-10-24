@@ -678,7 +678,8 @@ class ConfigSeederTest {
 
             val failure = runCatching { seeder.seed() }.exceptionOrNull()
 
-            assertTrue(failure is IllegalArgumentException)
+            assertTrue(failure is IllegalStateException)
+            assertEquals("Required embedded relay bundle is invalid", failure?.message)
             assertFalse(seeder.isSeeded())
             assertTrue(proxyGroupRepository.addedGroups.isEmpty())
             assertTrue(relayProfileStore.list().isEmpty())

@@ -223,10 +223,24 @@ for purpose, test in {
         ],
         "peer_identity": {
             "implementation": "HyNetworks/hysteria",
-            "version": "app/v2.9.0",
+            "version": "app/v2.13.0",
         },
         "tls_scope": "Explicit insecure mode for local payload/auth; separate default secure rejection. No trusted-CA acceptance claim.",
     }
+
+for ipv6 in (False, True):
+    for salamander in (False, True):
+        for randomized in (False, True):
+            name = f"independent-hysteria2-hopping-{'ipv6' if ipv6 else 'ipv4'}-{'salamander' if salamander else 'plain'}-{'random' if randomized else 'fixed'}"
+            SCENARIOS[name] = {
+                "protocol": "hysteria2", "tier": "independent-peer", "driver": "hysteria2-hopping",
+                "package": "ripdpi-relay-core", "target": "hysteria_hopping_peer",
+                "test": "relay_json_preserves_tcp_and_udp_across_remote_hops",
+                "ipv6": ipv6, "salamander": salamander, "randomized": randomized,
+                "checks": ["exact-test-executed", "pinned-peer-identity", "destination-receipts", "physical-port-hops", "single-authenticated-connection"],
+                "peer_identity": {"implementation": "HyNetworks/hysteria", "version": "app/v2.13.0"},
+                "tls_scope": "Explicit insecure mode on loopback; no trusted-CA acceptance claim.",
+            }
 
 EXTERNAL_BOUNDARIES = {
     "cloudflare_tunnel": "Local adapter checks do not test the Cloudflare network.",

@@ -69,7 +69,6 @@ sealed interface SingBoxParseResult {
 enum class SingBoxSkipReason {
     UNSUPPORTED_TRANSPORT,
     UNSUPPORTED_OBFUSCATION,
-    UNSUPPORTED_PORT_HOPPING,
     UNSUPPORTED_FINGERPRINT,
     INVALID_NETWORK_POLICY,
 }
@@ -337,13 +336,8 @@ private fun unsupportedHysteria2Option(
     label: String,
 ): SingBoxSkippedNode? {
     if (type != "hysteria2") return null
-    val hasPortHopping = obj["server_ports"] != null || obj["hop_interval"] != null || obj["hop_interval_max"] != null
     val obfsType = (obj["obfs"] as? JsonObject)?.string("type")?.lowercase()
     return when {
-        hasPortHopping -> {
-            SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_PORT_HOPPING, "server_ports")
-        }
-
         obfsType != null && obfsType != "salamander" -> {
             SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
         }
@@ -574,20 +568,26 @@ private fun mapHysteria2(
     port: Int?,
     name: String,
 ): ProxyProfile {
+    val hopping = singBoxHysteria2PortHopping(obj)
+    val selectedPort = port ?: hopping?.firstPort
+    require(
+        !obj.containsKey("server_port") || (port != null && port in 1..MaxPort),
+    ) { "Hysteria server port is invalid" }
     val password = obj.string("password")
     val tls = obj["tls"] as? JsonObject
     val obfs = obj["obfs"] as? JsonObject
-    return if (server != null && port != null && !password.isNullOrBlank()) {
+    return if (server != null && selectedPort != null && !password.isNullOrBlank()) {
         ProxyProfile.Hysteria2(
             id = newId(),
             displayName = name,
             groupId = groupId,
             server = server,
-            serverPort = port,
+            serverPort = selectedPort,
             password = password,
             serverName = tls?.string("server_name"),
             obfsPassword = obfs?.rawString("password"),
             insecure = (tls?.get("insecure") as? JsonPrimitive)?.booleanOrNull,
+            portHopping = hopping,
         )
     } else {
         rawConfig(name, groupId, obj)
@@ -854,6 +854,15 @@ private fun applyHysteriaExtras(
     hyExtras: JsonObject,
 ): List<ProxyProfile> {
     if (hyExtras.isEmpty()) return profiles
+    hyExtras.forEach { (tag, element) ->
+        val extras = requireNotNull(element as? JsonObject) { "Hysteria extras must be an object" }
+        if ("port_hopping" in extras) {
+            bundleHysteria2PortHopping(extras)
+            require(profiles.count { it is ProxyProfile.Hysteria2 && it.displayName == tag } == 1) {
+                "Hysteria hopping metadata has no unique supported outbound"
+            }
+        }
+    }
     return profiles.map { profile ->
         if (profile !is ProxyProfile.Hysteria2) return@map profile
         val extras = hyExtras[profile.displayName] as? JsonObject ?: return@map profile
@@ -861,15 +870,15 @@ private fun applyHysteriaExtras(
         val obfsType = obfsObj?.string("type")?.lowercase()
         val obfsPassword = if (obfsType == "salamander") obfsObj.string("password") else null
         val insecure = extras.bool("insecure")
-        val portHopObj = extras["port_hopping"] as? JsonObject
-        val portHopPorts = portHopObj?.string("ports")
-        val portHopInterval = portHopObj?.string("interval")
+        val hopping = bundleHysteria2PortHopping(extras)
+        require(hopping == null || profile.portHopping == null || hopping == profile.portHopping) {
+            "Hysteria hopping metadata conflicts with the outbound"
+        }
         val salamanderUpstreamTag = extras.string("salamander_upstream_tag")
         profile.copy(
             obfsPassword = obfsPassword ?: profile.obfsPassword,
             insecure = insecure ?: profile.insecure,
-            portHopPorts = portHopPorts ?: profile.portHopPorts,
-            portHopInterval = portHopInterval ?: profile.portHopInterval,
+            portHopping = hopping ?: profile.portHopping,
             salamanderUpstreamTag = salamanderUpstreamTag ?: profile.salamanderUpstreamTag,
         )
     }

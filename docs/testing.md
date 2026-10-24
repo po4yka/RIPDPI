@@ -809,13 +809,12 @@ PR CI includes:
 
 - `build-android-debug` / `build-android-tests` -- Android compilation and unit-test artifacts
 - `gradle-static-analysis` -- detekt + ktlint + Android lint
-- `rust-lint` -- Rust fmt/clippy and policy scanners
-- `rust-network-e2e` -- host-side proxy E2E against local fixture
+- `rust-lint` -- Rust fmt/clippy, policy scanners, and the `ripdpi-diagnostics-probes` compat-facade feature checks
+- `rust-workspace-tests` -- workspace nextest suite, then host-side proxy E2E against local fixture and deterministic turmoil fault-injection tests
 - `android-network-e2e` -- opt-in instrumentation E2E when its dispatch/label condition is satisfied
-- managed-device instrumentation -- flavor-qualified `:app` suites across the API 27 / 33 / 35 / 36 / 37 registry, with forced 16 KiB pages on API 37
+- managed-device instrumentation -- flavor-qualified `:app` suites on API 27 / 35 / 37 for pull requests and the full API 27 / 33 / 35 / 36 / 37 registry on main, with forced 16 KiB pages on API 37
 - `kotlin-coverage` -- JaCoCo coverage, routed for Android, release/build-logic, and unknown changes
 - `rust-coverage` -- Rust LLVM coverage, routed for native Rust, release/build-logic, and unknown changes
-- `rust-turmoil` -- deterministic fault-injection network tests
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)
 - `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
 - `fleet-fixtures` -- exact deploy checkout + real bundle emission + deploy validation + `*FleetCompat*` production-parser suite, on PRs touching the subscription/routing/AWG/relay models or the fleet fixtures

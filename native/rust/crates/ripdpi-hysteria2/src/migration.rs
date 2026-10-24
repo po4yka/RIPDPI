@@ -16,12 +16,12 @@ struct QuicMigrationState {
     reason: Option<String>,
     validated: bool,
     cooldown_until: Option<Instant>,
-    current_socket: std::net::UdpSocket,
+    current_socket: Option<std::net::UdpSocket>,
     previous_socket: Option<std::net::UdpSocket>,
 }
 
 impl QuicMigration {
-    pub(crate) fn new_not_attempted(current_socket: std::net::UdpSocket) -> Self {
+    pub(crate) fn new_not_attempted(current_socket: Option<std::net::UdpSocket>) -> Self {
         Self {
             state: Mutex::new(QuicMigrationState {
                 status: Some("not_attempted".to_string()),
@@ -95,12 +95,20 @@ impl ClientInner {
             return Ok(None);
         }
 
-        let old_socket = state.current_socket.try_clone()?;
+        let old_socket = if let Some(hopping) = &self.hopping_socket {
+            hopping.current_socket()?
+        } else {
+            state
+                .current_socket
+                .as_ref()
+                .ok_or_else(|| std::io::Error::other("missing QUIC migration socket"))?
+                .try_clone()?
+        };
         let new_socket = build_client_udp_socket(&self.socket_spec)?;
         let new_socket_clone = new_socket.try_clone()?;
-        match rebind_endpoint(&self.endpoint, &self.socket_spec, new_socket) {
+        match rebind_endpoint(&self.endpoint, &self.socket_spec, new_socket, self.hopping_socket.as_deref()) {
             Ok(()) => {
-                state.current_socket = new_socket_clone;
+                state.current_socket = self.hopping_socket.is_none().then_some(new_socket_clone);
                 state.status = Some("not_attempted".to_string());
                 state.reason = Some("path_challenge_pending".to_string());
                 state.previous_socket = Some(old_socket);
@@ -142,8 +150,8 @@ impl ClientInner {
         };
         let rollback_socket = previous_socket.try_clone()?;
         let replacement = previous_socket.try_clone()?;
-        rebind_endpoint(&self.endpoint, &self.socket_spec, rollback_socket)?;
-        state.current_socket = replacement;
+        rebind_endpoint(&self.endpoint, &self.socket_spec, rollback_socket, self.hopping_socket.as_deref())?;
+        state.current_socket = self.hopping_socket.is_none().then_some(replacement);
         state.previous_socket = None;
         state.status = Some("reverted".to_string());
         state.reason = Some(reason.to_string());

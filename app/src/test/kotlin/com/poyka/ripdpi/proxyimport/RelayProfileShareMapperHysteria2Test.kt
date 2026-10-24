@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.data.Hysteria2PortHopping
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,6 +22,7 @@ class RelayProfileShareMapperHysteria2Test {
                 server = "203.0.113.9",
                 serverName = "hy.example",
                 serverPort = 443,
+                hysteriaPortHopping = Hysteria2PortHopping("20000-21000", 5000, 15000),
             )
         val credentials =
             RelayCredentialRecord(
@@ -33,6 +36,9 @@ class RelayProfileShareMapperHysteria2Test {
         val shareable = RelayProfileShareMapper.toShareable(record, credentials)!!
         val profile = shareable.profile as ProxyProfile.Hysteria2
 
+        assertEquals(record.hysteriaPortHopping, profile.portHopping)
+        val reimported = ProxyUriCodec.parse(shareable.shareUri) as ProxyProfile.Hysteria2
+        assertEquals(record.hysteriaPortHopping, reimported.portHopping)
         assertEquals("hy.example", profile.serverName)
         assertEquals(obfsPasswordFixture, profile.obfsPassword)
         assertEquals(true, profile.insecure)

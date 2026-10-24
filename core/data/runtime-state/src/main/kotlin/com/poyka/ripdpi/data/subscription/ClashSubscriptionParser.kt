@@ -93,12 +93,6 @@ object ClashSubscriptionParser {
         return ClashSubscriptionResult(profiles = profiles, errors = errors)
     }
 
-    private fun failure(reason: String): ClashSubscriptionResult =
-        ClashSubscriptionResult(
-            profiles = emptyList(),
-            errors = listOf(SubscriptionParseError(nodeIndex = -1, reason = reason)),
-        )
-
     private fun mapNode(
         node: YamlMap,
         index: Int,
@@ -137,33 +131,7 @@ object ClashSubscriptionParser {
             }
 
             "hysteria2", "hy2" -> {
-                val obfsType = node.string("obfs")
-                require(obfsType == null || obfsType.equals("salamander", ignoreCase = true)) {
-                    "node $index hysteria2 uses unsupported obfs '$obfsType'"
-                }
-                // REL-3: `fingerprint` is the mihomo certificate pin (SHA-256 of the
-                // server certificate). Mihomo uses it instead of CA validation, so a
-                // pinned node becomes insecure + pin. A malformed pin rejects the
-                // node; dropping it would leave an accept-any-certificate profile.
-                val pinSha256 =
-                    node.string("fingerprint")?.takeIf { it.isNotBlank() }?.let { raw ->
-                        requireNotNull(normalizeHysteria2PinSha256(raw)) {
-                            "node $index hysteria2 fingerprint is not a SHA-256 certificate pin"
-                        }
-                    }
-                val skipCertVerify = node.string("skip-cert-verify")?.toBooleanStrictOrNull()
-                ProxyProfile.Hysteria2(
-                    id = newId(),
-                    displayName = name,
-                    groupId = groupId,
-                    server = node.requireString("server", index),
-                    serverPort = node.requirePort("port", index),
-                    password = node.requireString("password", index),
-                    serverName = node.string("sni") ?: node.string("servername"),
-                    obfsPassword = node.string("obfs-password"),
-                    insecure = if (pinSha256 != null) true else skipCertVerify,
-                    pinSha256 = pinSha256,
-                )
+                mapHysteria2Node(node, index, groupId, name)
             }
 
             "anytls" -> {
@@ -190,6 +158,49 @@ object ClashSubscriptionParser {
                 )
             }
         }
+    }
+
+    private fun mapHysteria2Node(
+        node: YamlMap,
+        index: Int,
+        groupId: String,
+        name: String,
+    ): ProxyProfile.Hysteria2 {
+        val hopping = clashHysteria2PortHopping(node)
+        val port =
+            if (node.entries.keys.any { it.content == "port" }) {
+                node.requirePort("port", index)
+            } else {
+                requireNotNull(hopping?.firstPort) { "Hysteria requires a port or hopping ports" }
+            }
+        val obfsType = node.string("obfs")
+        require(obfsType == null || obfsType.equals("salamander", ignoreCase = true)) {
+            "node $index hysteria2 uses unsupported obfs '$obfsType'"
+        }
+        // REL-3: `fingerprint` is the mihomo certificate pin (SHA-256 of the
+        // server certificate). Mihomo uses it instead of CA validation, so a
+        // pinned node becomes insecure + pin. A malformed pin rejects the
+        // node; dropping it would leave an accept-any-certificate profile.
+        val pinSha256 =
+            node.string("fingerprint")?.takeIf { it.isNotBlank() }?.let { raw ->
+                requireNotNull(normalizeHysteria2PinSha256(raw)) {
+                    "node $index hysteria2 fingerprint is not a SHA-256 certificate pin"
+                }
+            }
+        val skipCertVerify = node.string("skip-cert-verify")?.toBooleanStrictOrNull()
+        return ProxyProfile.Hysteria2(
+            id = newId(),
+            displayName = name,
+            groupId = groupId,
+            server = node.requireString("server", index),
+            serverPort = port,
+            password = node.requireString("password", index),
+            serverName = node.string("sni") ?: node.string("servername"),
+            obfsPassword = node.string("obfs-password"),
+            insecure = if (pinSha256 != null) true else skipCertVerify,
+            pinSha256 = pinSha256,
+            portHopping = hopping,
+        )
     }
 
     private fun mapVlessNode(
@@ -255,3 +266,9 @@ object ClashSubscriptionParser {
 
     private fun newId(): String = UUID.randomUUID().toString()
 }
+
+private fun failure(reason: String): ClashSubscriptionResult =
+    ClashSubscriptionResult(
+        profiles = emptyList(),
+        errors = listOf(SubscriptionParseError(nodeIndex = -1, reason = reason)),
+    )

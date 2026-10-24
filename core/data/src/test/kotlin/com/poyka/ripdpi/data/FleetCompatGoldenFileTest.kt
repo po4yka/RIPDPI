@@ -83,10 +83,14 @@ class FleetCompatGoldenFileTest {
     }
 
     @Test
-    fun `p2a hysteria port-hop bundle is rejected until native projection supports it`() {
+    fun `p2a hysteria port-hop bundle preserves the canonical destination set and cadence`() {
         val result = FleetCompatHarness.run("p2a-hysteria-port-hop")
         assertTrue(result.diff, result.matches)
-        assertTrue(result.importedProfiles.isEmpty())
+        val profile = result.importedProfiles.single() as ProxyProfile.Hysteria2
+        assertEquals(443, profile.serverPort)
+        assertEquals(Hysteria2PortHopping("20000-21000", 30_000L), profile.portHopping)
+        assertEquals("hop.fixture-host.example", profile.serverName)
+        assertEquals(profile.portHopping, checkNotNull(mapRelayProfile(profile)).profile.hysteriaPortHopping)
     }
 
     @Test

@@ -192,7 +192,7 @@ class RelayNativeConfigTest {
         // middle hop is reachable end-to-end: it serializes to a `chainHops`
         // array, deserializes back, folds into a 3-element section, and the wire
         // shape is idempotent across a full fold/unfold/re-encode cycle.
-        val config = threeHopChainRelayConfig()
+        val config = relayNativeThreeHopChainFixture()
 
         val encoded = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config)
         val wire = json.parseToJsonElement(encoded) as JsonObject
@@ -231,63 +231,6 @@ class RelayNativeConfigTest {
                 decoded.toSections().toResolvedConfig(),
             )
         assertEquals("3-hop wire object is stable across fold/unfold/re-encode", encoded, reEncoded)
-    }
-
-    private fun threeHopChainRelayConfig(): ResolvedRipDpiRelayConfig {
-        val entryHop =
-            ResolvedChainRelayHopConfig(
-                kind = "vless_reality",
-                profileId = "chain-entry-profile-id",
-                server = "entry.example",
-                serverPort = 443,
-                serverName = "entry-sni.example",
-                realityPublicKey = "entry-public-key",
-                realityShortId = "entry-short-id",
-                vlessUuid = "chain-entry-uuid",
-                tlsFingerprintProfile = "firefox_stable",
-            )
-        val middleHop =
-            ResolvedChainRelayHopConfig(
-                kind = "shadowsocks",
-                profileId = "chain-middle-profile-id",
-                server = "middle.example",
-                serverPort = 8388,
-                shadowsocksMethod = "aes-256-gcm",
-                shadowsocksPassword = placeholder(31),
-                tlsFingerprintProfile = "edge_stable",
-            )
-        val exitHop =
-            ResolvedChainRelayHopConfig(
-                kind = "masque",
-                profileId = "chain-exit-profile-id",
-                server = "exit.example",
-                masqueUrl = "https://masque.example/.well-known/masque/tcp/",
-                masqueUseHttp2Fallback = true,
-                masqueAuthMode = "bearer",
-                masqueAuthToken = placeholder(32),
-                tlsFingerprintProfile = "safari_stable",
-            )
-        // Seed the legacy scalar mirror to exactly what `toResolvedConfig` derives
-        // from hop[0] / hop[last], so the fold/unfold/re-encode cycle is a no-op.
-        return baseConfig("chain_relay").copy(
-            chainHops = listOf(entryHop, middleHop, exitHop),
-            chainEntry = entryHop,
-            chainEntryServer = entryHop.server,
-            chainEntryPort = entryHop.serverPort,
-            chainEntryServerName = entryHop.serverName,
-            chainEntryPublicKey = entryHop.realityPublicKey,
-            chainEntryShortId = entryHop.realityShortId,
-            chainEntryProfileId = entryHop.profileId,
-            chainEntryUuid = entryHop.vlessUuid,
-            chainExit = exitHop,
-            chainExitServer = exitHop.server,
-            chainExitPort = exitHop.serverPort,
-            chainExitServerName = exitHop.serverName,
-            chainExitPublicKey = exitHop.realityPublicKey,
-            chainExitShortId = exitHop.realityShortId,
-            chainExitProfileId = exitHop.profileId,
-            chainExitUuid = exitHop.vlessUuid,
-        )
     }
 
     @Test
@@ -336,7 +279,11 @@ class RelayNativeConfigTest {
     fun `minimal relay config omits defaulted keys from the wire object`() {
         // `encodeDefaults` is off, so a config left at its defaults emits only
         // the required keys -- the historical behaviour the Rust side relies on.
-        val encoded = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), baseConfig("vless_reality"))
+        val encoded =
+            json.encodeToString(
+                ResolvedRipDpiRelayConfig.serializer(),
+                relayNativeBaseFixture("vless_reality"),
+            )
         val wireObject = json.parseToJsonElement(encoded) as JsonObject
 
         assertEquals("only required keys are emitted at defaults", requiredWireKeys, wireObject.keys)
@@ -368,11 +315,11 @@ class RelayNativeConfigTest {
 
     /** VLESS Reality over the default direct-TCP transport. */
     private fun vlessRealityTcpConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("vless_reality").copy(vlessUuid = "vless-reality-uuid")
+        relayNativeBaseFixture("vless_reality").copy(vlessUuid = "vless-reality-uuid")
 
     /** VLESS Reality over the xHTTP transport, exercising the xHTTP fields. */
     private fun vlessXhttpConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("vless_reality").copy(
+        relayNativeBaseFixture("vless_reality").copy(
             vlessTransport = "xhttp",
             xhttpPath = "/xhttp/path",
             xhttpHost = "xhttp.host.example",
@@ -380,53 +327,56 @@ class RelayNativeConfigTest {
         )
 
     private fun masqueConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("masque").copy(
+        relayNativeBaseFixture("masque").copy(
             masqueCloudflareGeohashEnabled = true,
             masqueAuthMode = "token",
-            masqueAuthToken = placeholder(1),
+            masqueAuthToken = relayNativePlaceholder(1),
             masqueCloudflareGeohashHeader = "masque-geohash-header",
             masquePrivacyPassProviderUrl = "https://privacy-pass.example",
-            masquePrivacyPassProviderAuthToken = placeholder(2),
+            masquePrivacyPassProviderAuthToken = relayNativePlaceholder(2),
         )
 
     private fun tuicConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("tuic_v5").copy(
+        relayNativeBaseFixture("tuic_v5").copy(
             tuicZeroRtt = true,
             tuicCongestionControl = "cubic",
             tuicUuid = "tuic-uuid",
-            tuicPassword = placeholder(3),
+            tuicPassword = relayNativePlaceholder(3),
         )
 
     private fun hysteria2Config(): ResolvedRipDpiRelayConfig =
-        baseConfig("hysteria2").copy(
-            hysteriaPassword = placeholder(4),
+        relayNativeBaseFixture("hysteria2").copy(
+            hysteriaPassword = relayNativePlaceholder(4),
             hysteriaSalamanderKey = "hysteria-salamander-key",
             hysteriaInsecure = true,
             hysteriaPinSha256 = "ab".repeat(32),
+            hysteriaPortHopPorts = "5000-5010,8443",
+            hysteriaPortHopIntervalMillis = 5000,
+            hysteriaPortHopIntervalMaxMillis = 15000,
         )
 
     private fun anyTlsConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("anytls").copy(
-            anyTlsPassword = placeholder(11),
+        relayNativeBaseFixture("anytls").copy(
+            anyTlsPassword = relayNativePlaceholder(11),
             udpEnabled = true,
         )
 
     private fun trojanConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("trojan").copy(
-            trojanPassword = placeholder(5),
+        relayNativeBaseFixture("trojan").copy(
+            trojanPassword = relayNativePlaceholder(5),
             trojanRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntrojan-root\n-----END CERTIFICATE-----",
         )
 
     private fun shadowsocksConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("shadowsocks").copy(
+        relayNativeBaseFixture("shadowsocks").copy(
             shadowsocksMethod = "aes-256-gcm",
-            shadowsocksPassword = placeholder(6),
+            shadowsocksPassword = relayNativePlaceholder(6),
         )
 
     private fun shadowTlsConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("shadowtls_v3").copy(
+        relayNativeBaseFixture("shadowtls_v3").copy(
             shadowTlsInnerProfileId = "shadowtls-inner-profile-id",
-            shadowTlsPassword = placeholder(7),
+            shadowTlsPassword = relayNativePlaceholder(7),
             shadowTlsInner =
                 ResolvedShadowTlsInnerRelayConfig(
                     kind = "vless_reality",
@@ -443,7 +393,7 @@ class RelayNativeConfigTest {
         )
 
     private fun chainRelayConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("chain_relay").copy(
+        relayNativeBaseFixture("chain_relay").copy(
             chainEntry =
                 ResolvedChainRelayHopConfig(
                     kind = "vless_reality",
@@ -465,7 +415,7 @@ class RelayNativeConfigTest {
                     masqueUrl = "https://masque.example/.well-known/masque/tcp/",
                     masqueUseHttp2Fallback = true,
                     masqueAuthMode = "bearer",
-                    masqueAuthToken = placeholder(12),
+                    masqueAuthToken = relayNativePlaceholder(12),
                     tlsFingerprintProfile = "safari_stable",
                 ),
             chainExitProfileId = "chain-exit-profile-id",
@@ -473,16 +423,16 @@ class RelayNativeConfigTest {
         )
 
     private fun cloudflareTunnelConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("cloudflare_tunnel").copy(
+        relayNativeBaseFixture("cloudflare_tunnel").copy(
             cloudflareTunnelMode = "publish_managed",
             cloudflarePublishLocalOriginUrl = "http://origin.local",
             cloudflareCredentialsRef = "credentials-ref",
-            cloudflareTunnelToken = placeholder(7),
+            cloudflareTunnelToken = relayNativePlaceholder(7),
             cloudflareTunnelCredentialsJson = "{\"cloudflare\":\"credentials\"}",
         )
 
     private fun appsScriptConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("google_apps_script").copy(
+        relayNativeBaseFixture("google_apps_script").copy(
             appsScriptScriptIds = listOf("apps-script-id-a", "apps-script-id-b"),
             appsScriptGoogleIp = "10.1.2.3",
             appsScriptFrontDomain = "apps-script-front.example",
@@ -494,7 +444,7 @@ class RelayNativeConfigTest {
         )
 
     private fun finalmaskConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("vless_reality").copy(
+        relayNativeBaseFixture("vless_reality").copy(
             finalmask =
                 ResolvedRelayFinalmaskConfig(
                     type = "header_custom",
@@ -508,45 +458,10 @@ class RelayNativeConfigTest {
                 ),
         )
 
-    // All 25 required fields, each with a distinct value so a misrouted field
-    // in toSections/toResolvedConfig changes the round-tripped config.
-    private fun baseConfig(kind: String): ResolvedRipDpiRelayConfig =
-        ResolvedRipDpiRelayConfig(
-            enabled = true,
-            kind = kind,
-            profileId = "profile-id",
-            server = "server.example",
-            serverPort = 8443,
-            serverName = "server-name.example",
-            realityPublicKey = "reality-public-key",
-            realityShortId = "reality-short-id",
-            chainEntryServer = "chain-entry-server",
-            chainEntryPort = 1111,
-            chainEntryServerName = "chain-entry-server-name",
-            chainEntryPublicKey = "chain-entry-public-key",
-            chainEntryShortId = "chain-entry-short-id",
-            chainExitServer = "chain-exit-server",
-            chainExitPort = 2222,
-            chainExitServerName = "chain-exit-server-name",
-            chainExitPublicKey = "chain-exit-public-key",
-            chainExitShortId = "chain-exit-short-id",
-            masqueUrl = "https://masque.example",
-            masqueUseHttp2Fallback = true,
-            localSocksHost = "127.0.0.1",
-            localSocksPort = 1080,
-            udpEnabled = true,
-            tcpFallbackEnabled = true,
-            tlsFingerprintProfile = "chrome_stable",
-        )
-
-    // Distinct, non-literal values for `password` / `token` fields so the
-    // secret-scanner pre-commit hook is not tripped by fake test credentials.
-    private fun placeholder(slot: Int): String = "relay-fixture-placeholder-$slot"
-
     // Every defaulted field set to a non-default value so all wire keys
     // appear and every field exercises the section round-trip.
     private fun fullyPopulatedRelayConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("vless_reality")
+        relayNativeBaseFixture("vless_reality")
             .withTransportFixture()
             .withResolvedChainFixture()
             .withCredentialFixture()
@@ -603,7 +518,7 @@ class RelayNativeConfigTest {
                     masqueUrl = "https://masque.example/.well-known/masque/tcp/",
                     masqueUseHttp2Fallback = true,
                     masqueAuthMode = "bearer",
-                    masqueAuthToken = placeholder(12),
+                    masqueAuthToken = relayNativePlaceholder(12),
                     tlsFingerprintProfile = "safari_stable",
                 ),
             chainExitProfileId = "chain-exit-profile-id",
@@ -627,27 +542,30 @@ class RelayNativeConfigTest {
             vlessUuid = "vless-uuid",
             chainEntryUuid = "chain-entry-uuid",
             chainExitUuid = "chain-exit-uuid",
-            hysteriaPassword = placeholder(1),
+            hysteriaPassword = relayNativePlaceholder(1),
             hysteriaSalamanderKey = "hysteria-salamander-key",
             hysteriaInsecure = true,
             hysteriaPinSha256 = "ab".repeat(32),
-            anyTlsPassword = placeholder(11),
+            hysteriaPortHopPorts = "5000-5010,8443",
+            hysteriaPortHopIntervalMillis = 5000,
+            hysteriaPortHopIntervalMaxMillis = 15000,
+            anyTlsPassword = relayNativePlaceholder(11),
             tuicUuid = "tuic-uuid",
-            tuicPassword = placeholder(2),
-            shadowTlsPassword = placeholder(3),
+            tuicPassword = relayNativePlaceholder(2),
+            shadowTlsPassword = relayNativePlaceholder(3),
             shadowsocksMethod = "2022-blake3-aes-256-gcm",
-            shadowsocksPassword = placeholder(10),
+            shadowsocksPassword = relayNativePlaceholder(10),
             naiveUsername = "naive-username",
-            naivePassword = placeholder(4),
+            naivePassword = relayNativePlaceholder(4),
             masqueAuthMode = "token",
-            trojanPassword = placeholder(5),
-            masqueAuthToken = placeholder(6),
+            trojanPassword = relayNativePlaceholder(5),
+            masqueAuthToken = relayNativePlaceholder(6),
             masqueClientCertificateChainPem = "masque-cert-chain-pem",
             masqueClientPrivateKeyPem = "masque-private-key-pem",
             masqueCloudflareGeohashHeader = "masque-geohash-header",
             masquePrivacyPassProviderUrl = "https://privacy-pass.example",
-            masquePrivacyPassProviderAuthToken = placeholder(7),
-            cloudflareTunnelToken = placeholder(8),
+            masquePrivacyPassProviderAuthToken = relayNativePlaceholder(7),
+            cloudflareTunnelToken = relayNativePlaceholder(8),
             cloudflareTunnelCredentialsJson = "{\"cloudflare\":\"credentials\"}",
         )
 
@@ -740,6 +658,9 @@ class RelayNativeConfigTest {
                 "hysteriaSalamanderKey",
                 "hysteriaInsecure",
                 "hysteriaPinSha256",
+                "hysteriaPortHopPorts",
+                "hysteriaPortHopIntervalMillis",
+                "hysteriaPortHopIntervalMaxMillis",
                 "anytlsPassword",
                 "tuicUuid",
                 "tuicPassword",

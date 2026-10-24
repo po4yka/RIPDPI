@@ -128,6 +128,23 @@ class SelectorRelayProfileMappingTest {
         }
     }
 
+    @Test
+    fun `hysteria hopping is public profile configuration and affects selector identity`() {
+        val hopping = Hysteria2PortHopping("5000-5002", 5000, 15000)
+        val scalar = ProxyProfile.Hysteria2("hy", "hy", "group", "peer.example", 443, "fixture-password")
+        val configured = scalar.copy(portHopping = hopping)
+        val mapped = checkNotNull(mapRelayProfile(configured))
+        assertEquals(hopping, mapped.profile.hysteriaPortHopping)
+        assertEquals(checkNotNull(mapRelayProfile(scalar)).credentials, mapped.credentials)
+        assertNotEquals(checkNotNull(mapRelayProfile(scalar)).profile, mapped.profile)
+        val restored =
+            RipDpiEncodeDefaultsJson.decodeFromString(
+                RelayProfileRecord.serializer(),
+                RipDpiEncodeDefaultsJson.encodeToString(RelayProfileRecord.serializer(), mapped.profile),
+            )
+        assertEquals(mapped.profile, restored)
+    }
+
     private fun importedReality(flow: String): ProxyProfile.VlessReality {
         val source =
             """

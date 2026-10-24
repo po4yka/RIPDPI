@@ -74,10 +74,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Preserve compiler outputs between runners, including standalone Rust jobs.
-  SCCACHE_GHA_ENABLED: "true"
-
 concurrency:
   group: >-
     ${{ github.event_name == 'pull_request'
@@ -101,6 +97,7 @@ jobs:
       run_rust_coverage: ${{ steps.resolve.outputs.run_rust_coverage }}
       run_fixtures_ci: ${{ steps.resolve.outputs.run_fixtures_ci }}
       run_workflow_ci: ${{ steps.resolve.outputs.run_workflow_ci }}
+      instrumented_devices: ${{ steps.devices.outputs.instrumented_devices }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -129,6 +126,22 @@ jobs:
           python3 scripts/ci/resolve_change_routing.py \
             --paths-file "$paths_file" \
             --github-output "$GITHUB_OUTPUT"
+      # Pull requests cover the minimum SDK, API 35 (the only JNI strategy and
+      # Xray provider lanes), and the target SDK. Other events add API 33 and 36.
+      - id: devices
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          devices='[
+            {"device": "pixel6Api27Aosp", "api": 27, "system-image": "default", "pull_request": true},
+            {"device": "pixel6Api33Google", "api": 33, "system-image": "google_apis", "pull_request": false},
+            {"device": "pixel6Api35Google", "api": 35, "system-image": "google_apis", "pull_request": true},
+            {"device": "pixel6Api36Google", "api": 36, "system-image": "google_apis", "pull_request": false},
+            {"device": "pixel6Api37Google", "api": 37, "system-image": "google_apis_ps16k", "pull_request": true}
+          ]'
+          selected="$(jq -c --arg event "$EVENT_NAME" \
+            'map(select($event != "pull_request" or .pull_request) | del(.pull_request))' <<< "$devices")"
+          echo "instrumented_devices=$selected" >> "$GITHUB_OUTPUT"
 
   docs-only-gate:
     name: Documentation-only CI gate
@@ -429,8 +442,6 @@ jobs:
           gradle-cache-read-only: "true"
 
       - name: Build Rust native libraries + helper binaries for ${{ matrix.abi.name }}
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           ./gradlew \
             :core:engine:buildRustNativeLibs \
@@ -539,8 +550,6 @@ jobs:
           gradle-cache-read-only: "true"
 
       - name: Build Rust native libraries + helper binaries for x86_64
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           ./gradlew \
             :core:engine:buildRustNativeLibs \
@@ -655,7 +664,6 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: "false"
           gradle-cache-read-only: "true"
 
@@ -714,8 +722,6 @@ jobs:
           gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Build source-pinned pluggable transport assets
-        env:
-          RUSTC_WRAPPER: sccache
         run: >-
           ./gradlew :core:engine:buildPluggableTransportAssets
           --profile
@@ -779,9 +785,11 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: "false"
-          gradle-cache-read-only: "true"
+          # Each Full debug shard owns one namespace and never receives the
+          # embedded relay bundle secret, so main can publish its outputs.
+          gradle-cache-key-prefix: gradle-debug-${{ matrix.shard.id }}-build-cache
+          gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Download native shards
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -899,22 +907,11 @@ jobs:
           gradle-cache-read-only: "true"
           embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
 
-      - name: Run JVM unit tests
-        run: >-
-          ./gradlew testDebugUnitTest
-          -x :app:testFdroidFullDebugUnitTest
-          -x :app:testFdroidSimpleDebugUnitTest
-          -x :app:testGithubFullDebugUnitTest
-          -x :app:testGithubSimpleDebugUnitTest
-          -x :app:testPlayFullDebugUnitTest
-          -x :app:testPlaySimpleDebugUnitTest
-          --profile
-          -Pripdpi.skipNativeBuild=true
-
-      - name: Run app unit tests
+      # kotlin-coverage runs every :core:* and :app GithubFull unit test under
+      # JaCoCo; this lane adds only the Simple experience variant.
+      - name: Run Simple app unit tests
         run: >-
           ./gradlew
-          :app:testGithubFullDebugUnitTest
           :app:testGithubSimpleDebugUnitTest
           --profile
           -Pripdpi.skipNativeBuild=true
@@ -1051,27 +1048,32 @@ jobs:
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint, pluggable-transport-assets, xray-native]
     runs-on: ubuntu-latest
-    # Three two-build shards bound Kotlin heap use without serializing all six
-    # variants in one runner. Stop Gradle between variants and emit each build
-    # duration so shard sizing stays observable.
-    timeout-minutes: 90
+    # One release variant per shard keeps a single R8 build on the critical
+    # path and bounds Kotlin heap use. Emit each build duration so shard sizing
+    # stays observable.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         shard:
-          - { id: fdroid, tasks: ':app:assembleFdroidFullRelease,:app:assembleFdroidSimpleRelease' }
-          - { id: github, tasks: ':app:assembleGithubFullRelease,:app:assembleGithubSimpleRelease' }
-          - { id: play, tasks: ':app:assemblePlayFullRelease,:app:assemblePlaySimpleRelease' }
+          - { id: fdroid-full, store: fdroid, experience: full, task: ':app:assembleFdroidFullRelease' }
+          - { id: fdroid-simple, store: fdroid, experience: simple, task: ':app:assembleFdroidSimpleRelease' }
+          - { id: github-full, store: github, experience: full, task: ':app:assembleGithubFullRelease' }
+          - { id: github-simple, store: github, experience: simple, task: ':app:assembleGithubSimpleRelease' }
+          - { id: play-full, store: play, experience: full, task: ':app:assemblePlayFullRelease' }
+          - { id: play-simple, store: play, experience: simple, task: ':app:assemblePlaySimpleRelease' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-sccache: "false"
-          setup-android-ndk: ${{ matrix.shard.id == 'github' }}
-          gradle-cache-read-only: "true"
-          embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
+          setup-android-ndk: ${{ matrix.shard.id == 'github-full' }}
+          # Full shards never receive the embedded relay bundle secret, so they
+          # alone publish the store namespace that the Simple shard restores.
+          gradle-cache-key-prefix: gradle-release-${{ matrix.shard.store }}-build-cache
+          gradle-cache-read-only: ${{ matrix.shard.experience != 'full' || github.event_name != 'push' || github.ref != 'refs/heads/main' }}
+          embedded-relay-bundle-base64: ${{ matrix.shard.experience == 'simple' && secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}
 
       - name: Download native release shards
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1102,7 +1104,7 @@ jobs:
             "$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
 
       - name: Download native symbol sidecars
-        if: matrix.shard.id == 'github'
+        if: matrix.shard.id == 'github-full'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: native-symbols-*
@@ -1144,15 +1146,14 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
-          IFS=',' read -r -a release_tasks <<< "${{ matrix.shard.tasks }}"
-          for task in "${release_tasks[@]}"; do
-            started_at="$(date +%s)"
-            ./gradlew "$task" "${common_args[@]}" --profile
-            elapsed_seconds="$(( $(date +%s) - started_at ))"
-            printf '### %s release build\n\nDuration: %ss\n' "$task" "$elapsed_seconds" >> "$GITHUB_STEP_SUMMARY"
+          task="${{ matrix.shard.task }}"
+          started_at="$(date +%s)"
+          ./gradlew "$task" "${common_args[@]}" --profile
+          elapsed_seconds="$(( $(date +%s) - started_at ))"
+          printf '### %s release build\n\nDuration: %ss\n' "$task" "$elapsed_seconds" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ matrix.shard.id }}" == github-full ]]; then
+            # Release the R8 heap before the instrumentation build.
             ./gradlew --stop
-          done
-          if [[ "${{ matrix.shard.id }}" == github ]]; then
             ./gradlew :app:assembleGithubFullReleaseAndroidTest \
               -Pripdpi.testBuildType=release \
               "${common_args[@]}" \
@@ -1185,7 +1186,7 @@ jobs:
         run: python3 scripts/ci/verify_jni_readiness_mapping.py
 
       - name: Package deterministic release native symbols
-        if: matrix.shard.id == 'github'
+        if: matrix.shard.id == 'github-full'
         run: |
           set -euo pipefail
           symbols_root="$RUNNER_TEMP/release-symbol-inputs"
@@ -1217,7 +1218,7 @@ jobs:
           retention-days: 7
 
       - name: Upload release native symbols
-        if: matrix.shard.id == 'github'
+        if: matrix.shard.id == 'github-full'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-native-symbols
@@ -1360,51 +1361,6 @@ jobs:
       - name: Run cargo-deny advisories
         run: cargo deny --locked --manifest-path native/rust/Cargo.toml check advisories
 
-  diagnostics-probes-facade:
-    needs: [change-routing, ci-preflight]
-    if: >-
-      !cancelled() &&
-      needs.ci-preflight.result == 'success' &&
-      github.event_name != 'schedule' &&
-      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
-        with:
-          toolchain: "1.98.1"
-
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-          shared-key: diagnostics-probes-facade
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
-      # The compat-facade feature is default-on; the diagnostics-probes crate
-      # must compile with it OFF (root exports unconditional) and ON.
-      - name: Check ripdpi-diagnostics-probes (compat-facade OFF)
-        env:
-          RUSTC_WRAPPER: sccache
-        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --locked
-
-      - name: Check ripdpi-diagnostics-probes (compat-facade ON)
-        env:
-          RUSTC_WRAPPER: sccache
-        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
-
-      - uses: ./.github/actions/upload-build-observability
-        if: always()
-        with:
-          artifact-name: build-observability-diagnostics-probes
-
   rust-lint:
     needs: [change-routing, ci-preflight]
     if: >-
@@ -1413,7 +1369,7 @@ jobs:
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -1427,17 +1383,21 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-host
+          shared-key: rust-host-check
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
       - name: Run Rust lint checks
-        env:
-          RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-lint.sh
+
+      # The compat-facade feature is default-on; the diagnostics-probes crate
+      # must compile with it OFF (root exports unconditional) and ON.
+      - name: Check ripdpi-diagnostics-probes (compat-facade OFF)
+        if: ${{ !cancelled() }}
+        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --locked
+
+      - name: Check ripdpi-diagnostics-probes (compat-facade ON)
+        if: ${{ !cancelled() }}
+        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1453,6 +1413,10 @@ jobs:
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # rust-native-packaging builds all four ABIs; this workspace-wide check
+    # covers one 64-bit and one 32-bit target.
+    env:
+      RIPDPI_CROSS_CHECK_TARGETS: aarch64-linux-android armv7-linux-androideabi
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -1461,12 +1425,11 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-cross-check
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          rust-targets: ${{ env.RIPDPI_CROSS_CHECK_TARGETS }}
           setup-java: "false"
           setup-gradle: "false"
 
       - name: Run Android ABI cross-compilation checks
-        env:
-          RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-cross-check.sh
 
       - uses: ./.github/actions/upload-build-observability
@@ -1482,7 +1445,7 @@ jobs:
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -1495,12 +1458,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-host
+          shared-key: rust-host-test
           save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
@@ -1508,9 +1467,18 @@ jobs:
           tool: cargo-nextest
 
       - name: Run Rust workspace tests and architecture checks
-        env:
-          RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-workspace-tests.sh
+
+      # The network E2E and turmoil binaries reuse this job's compiled
+      # workspace instead of rebuilding it in separate jobs. They still run
+      # after an earlier suite fails, so each one reports its own result.
+      - name: Run repo-owned Rust network E2E
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci/run-rust-network-e2e.sh
+
+      - name: Run turmoil-backed deterministic network tests
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci/run-rust-turmoil-tests.sh
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1630,7 +1598,10 @@ jobs:
           rust-cache-save: "false"
           setup-rust: "false"
           setup-android-ndk: "false"
-          gradle-cache-read-only: "true"
+          # Lint and detekt outputs live in their own namespace; this job is its
+          # only writer and never receives the embedded relay bundle secret.
+          gradle-cache-key-prefix: gradle-lint-build-cache
+          gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Resolve release application IDs
         run: ./gradlew :app:writeReleaseIdentityManifest --profile
@@ -1658,38 +1629,6 @@ jobs:
             **/build/reports/lint-results*.html
           retention-days: 7
 
-  rust-network-e2e:
-    needs: [change-routing, ci-preflight]
-    if: >-
-      !cancelled() &&
-      needs.ci-preflight.result == 'success' &&
-      github.event_name != 'schedule' &&
-      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
-        with:
-          toolchain: "1.98.1"
-
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-          shared-key: rust-network-e2e
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
-        with:
-          tool: cargo-nextest
-
-      - name: Run repo-owned Rust network E2E
-        run: bash scripts/ci/run-rust-network-e2e.sh
-
   relay-interoperability:
     needs: [change-routing, ci-preflight]
     if: >-
@@ -1711,8 +1650,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: relay-interoperability
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
@@ -1761,11 +1700,18 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install CLI packet capture tools
         run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake libclang-dev tcpdump tshark
+          # The runner image ships cmake; bounded timeouts turn the Azure mirror
+          # stalls (up to 10 minutes per package) into fast retries.
+          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          packages=(libclang-dev tcpdump tshark)
+          command -v cmake >/dev/null || packages+=(cmake)
+          sudo apt-get "${apt_options[@]}" update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get "${apt_options[@]}" install -y --no-install-recommends "${packages[@]}"
           sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
 
       - name: Run CLI packet smoke matrix
@@ -1778,37 +1724,6 @@ jobs:
           name: cli-packet-smoke
           path: build/packet-smoke/cli/**
           retention-days: 7
-
-  rust-turmoil:
-    needs: [change-routing, ci-preflight]
-    if: >-
-      !cancelled() &&
-      needs.ci-preflight.result == 'success' &&
-      github.event_name != 'schedule' &&
-      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
-        with:
-          toolchain: "1.98.1"
-
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
-        with:
-          workspaces: native/rust -> target
-          cache-on-failure: true
-          shared-key: rust-turmoil
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
-        with:
-          tool: cargo-nextest
-
-      - name: Run turmoil-backed deterministic network tests
-        run: bash scripts/ci/run-rust-turmoil-tests.sh
 
   kotlin-coverage:
     needs: [change-routing, ci-preflight]
@@ -1834,14 +1749,15 @@ jobs:
           rust-targets: ""
           setup-rust: "false"
           setup-android-ndk: "false"
-          setup-sccache: "false"
           # Kotlin coverage owns the default Gradle build-cache namespace on main.
           # The transport producer writes to a separate namespace so it cannot
           # reserve the immutable SHA key before coverage fills this cache.
           gradle-cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Generate Kotlin coverage reports
-        run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
+      # coverageReport runs every :core:* and :app GithubFull unit test under
+      # JaCoCo, so it is also the only CI run of those tests.
+      - name: Run Kotlin unit tests with coverage
+        run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true --profile
 
       - name: Summarize Kotlin coverage
         run: |
@@ -1864,6 +1780,16 @@ jobs:
             app/build/reports/jacoco/
             core/**/build/reports/jacoco/
             ${{ runner.temp }}/kotlin-coverage-summary.md
+          retention-days: 7
+
+      - name: Upload Kotlin unit test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kotlin-unit-test-results
+          path: |
+            **/build/reports/tests/
+            **/build/golden-diffs/
           retention-days: 7
 
   rust-coverage:
@@ -1894,7 +1820,6 @@ jobs:
           setup-gradle: "false"
           skip-android-sdk-ndk: "true"
           setup-android-ndk: "false"
-          setup-sccache: "false"
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
@@ -1941,7 +1866,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          prefix-key: criterion
+          shared-key: rust-criterion
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Restore criterion baseline from main
         if: github.event_name == 'pull_request'
@@ -2161,8 +2087,6 @@ jobs:
             "system-images/android-34/aosp_atd/x86_64"
 
       - name: Run macrobenchmarks on managed device
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           ./gradlew :baselineprofile:pixel6Api34AtdDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=x86_64 \
@@ -2215,8 +2139,10 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: "false"
+          # Reuse the githubFullDebug outputs of build-android-debug. This job
+          # decodes the relay bundle secret, so it must stay read-only.
+          gradle-cache-key-prefix: gradle-debug-github-build-cache
           gradle-cache-read-only: "true"
           embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
 
@@ -2297,22 +2223,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - device: pixel6Api27Aosp
-            api: 27
-            system-image: default
-          - device: pixel6Api33Google
-            api: 33
-            system-image: google_apis
-          - device: pixel6Api35Google
-            api: 35
-            system-image: google_apis
-          - device: pixel6Api36Google
-            api: 36
-            system-image: google_apis
-          - device: pixel6Api37Google
-            api: 37
-            system-image: google_apis_ps16k
+        include: ${{ fromJSON(needs.change-routing.outputs.instrumented_devices) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -2321,7 +2232,6 @@ jobs:
           setup-java: "false"
           setup-gradle: "false"
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: "false"
 
       - name: Download instrumentation APK bundle
@@ -2564,7 +2474,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          prefix-key: loom
+          shared-key: rust-loom
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run loom concurrency tests
         env:
@@ -2590,6 +2501,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Resolve soak profile
         id: soak-profile
@@ -2637,6 +2550,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Resolve load profile
         id: load-profile
@@ -2684,7 +2599,6 @@ jobs:
           rust-targets: ""
           setup-rust: "false"
           setup-android-ndk: "false"
-          setup-sccache: "false"
           gradle-cache-read-only: "true"
 
       - name: Generate Kotlin coverage reports
@@ -2725,7 +2639,6 @@ jobs:
           setup-gradle: "false"
           skip-android-sdk-ndk: "true"
           setup-android-ndk: "false"
-          setup-sccache: "false"
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
@@ -3093,6 +3006,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install Linux TUN prerequisites
         run: |
@@ -3133,6 +3048,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Install physical TUN prerequisites
         id: so_bind_prerequisites
@@ -3218,6 +3135,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
 
       - name: Resolve soak profile
         id: tun-soak-profile
@@ -3294,17 +3213,14 @@ jobs:
       - rust-miri
       - cargo-deny
       - cargo-deny-advisories
-      - diagnostics-probes-facade
       - rust-lint
       - rust-cross-check
       - rust-workspace-tests
       - rust-fuzz-smoke
       - runtime-api-snapshot
       - gradle-static-analysis
-      - rust-network-e2e
       - relay-interoperability
       - cli-packet-smoke
-      - rust-turmoil
       - kotlin-coverage
       - rust-coverage
       - rust-criterion-bench
@@ -3397,15 +3313,12 @@ jobs:
                       {
                           "rust-miri",
                           "cargo-deny",
-                          "diagnostics-probes-facade",
                           "rust-lint",
                           "rust-cross-check",
                           "rust-workspace-tests",
                           "rust-fuzz-smoke",
-                          "rust-network-e2e",
                           "relay-interoperability",
                           "cli-packet-smoke",
-                          "rust-turmoil",
                           "rust-loom",
                       }
                   )
