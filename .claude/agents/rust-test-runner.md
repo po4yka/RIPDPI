@@ -14,8 +14,9 @@ Workspace manifest: `native/rust/Cargo.toml`. Nextest config: `native/rust/.conf
 
 ## Suite Selection
 
-Pick suites based on what changed:
-- **Any crate**: `scripts/ci/run-rust-workspace-tests.sh` (unit + arch contracts, excludes E2E/turmoil binaries)
+Pick the narrowest suite that covers what changed, and widen only when the request or the change needs it:
+- **One crate**: `cargo nextest run --locked --manifest-path native/rust/Cargo.toml -p <crate-name>` (see below)
+- **Changes that cross crates, or a shared or contract crate**: `scripts/ci/run-rust-workspace-tests.sh` (unit + arch contracts, excludes E2E/turmoil binaries)
 - **ripdpi-proxy-runtime network paths**: `scripts/ci/run-rust-network-e2e.sh` (proxy E2E via `local-network-fixture`)
 - **ripdpi-tunnel-core or ripdpi-dns-resolver**: `scripts/ci/run-rust-turmoil-tests.sh` (deterministic network sim)
 - **Concurrency / atomics / lock-free**: loom tests: `cd native/rust && cargo test --locked --features loom -- loom` (env: `LOOM_MAX_PREEMPTIONS=3`)

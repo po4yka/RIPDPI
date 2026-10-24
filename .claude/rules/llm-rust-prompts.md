@@ -12,7 +12,7 @@ LLM-generated Rust can pass build and test gates while still containing UB, dead
 
 1. **Pin versions in the prompt.** Quote each relevant package and version from the current `Cargo.lock`, never from a stored example or memory.
 2. **Specify runtime flavor.** `multi_thread(N)` vs `current_thread`. The cancel-safety rules differ.
-3. **Require cancel-safety annotation on every async fn.** Phrase as: "For each async fn you produce, prefix with `// cancel-safe: <reason>` or `// NOT cancel-safe: <reason>`." This walks every function. "Write cancel-safe code" alone is ignored.
+3. **Require a cancel-safety annotation on every async fn.** Phrase as: "Give each async fn you produce a `# Cancel safety:` rustdoc section that starts with `cancel-safe: <reason>` or `NOT cancel-safe: <reason>`." This walks every function, and it is the form the `async-cancel-safety` agent checks. "Write cancel-safe code" alone is ignored.
 4. **Require `// SAFETY:` blocks for every `unsafe` block.** List invariants per-pointer/per-fd, matching the format in the `rust-unsafe` skill.
 5. **Require a call-site usage example for non-trivial lifetime signatures.** Forces the model out of local optimization; surfaces lifetime laundering at write time.
 6. **Do not delegate trait hierarchy design.** Write the trait + doc contract by hand, then delegate implementations. Strategic errors here are expensive to undo.
