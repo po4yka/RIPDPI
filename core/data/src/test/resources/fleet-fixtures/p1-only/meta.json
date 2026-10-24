@@ -1,7 +1,7 @@
 {
   "scenario": "p1-only",
   "description": "COHORTS=p1-web: VLESS + xHTTP, plain TLS, single host",
-  "deployer_git_sha": "34c61b400998b5682056ac00e52cb016ae4ff228",
+  "deployer_git_sha": "0462413b9332830826bef68d849600d6adcbe8b0",
   "provenance": "emitted",
   "generated_at": "2026-10-23T00:00:00Z",
   "frozen_secret_set": "Fixed synthetic UUIDs, allowlisted short IDs and byte-pattern AWG keys; no production credentials"
