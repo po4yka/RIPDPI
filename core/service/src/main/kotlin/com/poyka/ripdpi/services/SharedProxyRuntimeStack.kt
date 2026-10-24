@@ -96,13 +96,15 @@ internal class SharedProxyRuntimeStack(
                 // previous session so this session does not begin in a Degraded state.
                 clearForeignRelayFailed()
                 if (relayRacePlan == null) {
-                    upstreamRelaySupervisor.start(
-                        config = relayConfig,
-                        inputs = relayInputs,
-                        expectedSelection = requestedSelection,
-                        requirements = egressRequirements,
-                        onUnexpectedExit = onRelayExit,
-                    )
+                    val started =
+                        upstreamRelaySupervisor.start(
+                            config = relayConfig,
+                            inputs = relayInputs,
+                            expectedSelection = requestedSelection,
+                            requirements = egressRequirements,
+                            onUnexpectedExit = onRelayExit,
+                        )
+                    effectivePreferences = applyStartedRelay(effectivePreferences, started)
                 } else {
                     val promoted =
                         upstreamRelaySupervisor.startRace(
@@ -112,7 +114,7 @@ internal class SharedProxyRuntimeStack(
                             onUnexpectedExit = onRelayExit,
                             onState = onInitialRelayRaceState,
                         )
-                    effectivePreferences = applyPromotedRelay(effectivePreferences, promoted)
+                    effectivePreferences = applyStartedRelay(effectivePreferences, promoted.toStartedRelay())
                     onInitialRelaySelected(promoted.result)
                 }
             }
@@ -188,33 +190,41 @@ internal class SharedProxyRuntimeStack(
             }
         }
 
-    private fun applyPromotedRelay(
+    private fun PromotedRelayRuntime.toStartedRelay(): StartedRelayRuntime =
+        StartedRelayRuntime(
+            kind = result.selectedCandidate.relayKind,
+            profileId = result.selectedCandidate.profileId,
+            udpEnabled = udpEnabled,
+            endpoint = endpoint,
+        )
+
+    private fun applyStartedRelay(
         preferences: RipDpiProxyPreferences,
-        promoted: PromotedRelayRuntime,
+        started: StartedRelayRuntime,
     ): RipDpiProxyPreferences {
         val effectivePreferences =
             relayRuntimeSelectionRenderer(
                 preferences,
                 RipDpiRelayConfig(
                     enabled = true,
-                    kind = promoted.result.selectedCandidate.relayKind,
-                    profileId = promoted.result.selectedCandidate.profileId,
-                    udpEnabled = promoted.udpEnabled,
+                    kind = started.kind,
+                    profileId = started.profileId,
+                    udpEnabled = started.udpEnabled,
                 ),
-                promoted.endpoint.host,
-                promoted.endpoint.port,
+                started.endpoint.host,
+                started.endpoint.port,
             )
         val renderedRelay = effectivePreferences.relayConfigOrNull()
         check(
             renderedRelay != null &&
                 renderedRelay.enabled &&
-                renderedRelay.kind == promoted.result.selectedCandidate.relayKind &&
-                renderedRelay.profileId == promoted.result.selectedCandidate.profileId &&
-                renderedRelay.udpEnabled == promoted.udpEnabled &&
-                renderedRelay.localSocksHost == promoted.endpoint.host &&
-                renderedRelay.localSocksPort == promoted.endpoint.port,
+                renderedRelay.kind == started.kind &&
+                renderedRelay.profileId == started.profileId &&
+                renderedRelay.udpEnabled == started.udpEnabled &&
+                renderedRelay.localSocksHost == started.endpoint.host &&
+                renderedRelay.localSocksPort == started.endpoint.port,
         ) {
-            "Promoted relay endpoint was not applied to proxy preferences"
+            "Started relay configuration was not applied to proxy preferences"
         }
         return effectivePreferences
     }

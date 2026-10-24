@@ -850,6 +850,7 @@ internal class TestRelayRuntime(
             source = "relay",
             state = "running",
             health = "healthy",
+            listenerAddress = "127.0.0.1:1080",
         )
     var lastConfig: ResolvedRipDpiRelayConfig? = null
         private set
