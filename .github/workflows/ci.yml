@@ -1042,26 +1042,32 @@ jobs:
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint, pluggable-transport-assets, xray-native]
     runs-on: ubuntu-latest
-    # Three two-build shards bound Kotlin heap use without serializing all six
-    # variants in one runner. Stop Gradle between variants and emit each build
-    # duration so shard sizing stays observable.
-    timeout-minutes: 90
+    # One release variant per shard keeps a single R8 build on the critical
+    # path and bounds Kotlin heap use. Emit each build duration so shard sizing
+    # stays observable.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         shard:
-          - { id: fdroid, tasks: ':app:assembleFdroidFullRelease,:app:assembleFdroidSimpleRelease' }
-          - { id: github, tasks: ':app:assembleGithubFullRelease,:app:assembleGithubSimpleRelease' }
-          - { id: play, tasks: ':app:assemblePlayFullRelease,:app:assemblePlaySimpleRelease' }
+          - { id: fdroid-full, store: fdroid, experience: full, task: ':app:assembleFdroidFullRelease' }
+          - { id: fdroid-simple, store: fdroid, experience: simple, task: ':app:assembleFdroidSimpleRelease' }
+          - { id: github-full, store: github, experience: full, task: ':app:assembleGithubFullRelease' }
+          - { id: github-simple, store: github, experience: simple, task: ':app:assembleGithubSimpleRelease' }
+          - { id: play-full, store: play, experience: full, task: ':app:assemblePlayFullRelease' }
+          - { id: play-simple, store: play, experience: simple, task: ':app:assemblePlaySimpleRelease' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-android-ndk: ${{ matrix.shard.id == 'github' }}
-          gradle-cache-read-only: "true"
-          embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
+          setup-android-ndk: ${{ matrix.shard.id == 'github-full' }}
+          # Full shards never receive the embedded relay bundle secret, so they
+          # alone publish the store namespace that the Simple shard restores.
+          gradle-cache-key-prefix: gradle-release-${{ matrix.shard.store }}-build-cache
+          gradle-cache-read-only: ${{ matrix.shard.experience != 'full' || github.event_name != 'push' || github.ref != 'refs/heads/main' }}
+          embedded-relay-bundle-base64: ${{ matrix.shard.experience == 'simple' && secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}
 
       - name: Download native release shards
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1092,7 +1098,7 @@ jobs:
             "$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
 
       - name: Download native symbol sidecars
-        if: matrix.shard.id == 'github'
+        if: matrix.shard.id == 'github-full'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: native-symbols-*
@@ -1134,15 +1140,14 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
-          IFS=',' read -r -a release_tasks <<< "${{ matrix.shard.tasks }}"
-          for task in "${release_tasks[@]}"; do
-            started_at="$(date +%s)"
-            ./gradlew "$task" "${common_args[@]}" --profile
-            elapsed_seconds="$(( $(date +%s) - started_at ))"
-            printf '### %s release build\n\nDuration: %ss\n' "$task" "$elapsed_seconds" >> "$GITHUB_STEP_SUMMARY"
+          task="${{ matrix.shard.task }}"
+          started_at="$(date +%s)"
+          ./gradlew "$task" "${common_args[@]}" --profile
+          elapsed_seconds="$(( $(date +%s) - started_at ))"
+          printf '### %s release build\n\nDuration: %ss\n' "$task" "$elapsed_seconds" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ matrix.shard.id }}" == github-full ]]; then
+            # Release the R8 heap before the instrumentation build.
             ./gradlew --stop
-          done
-          if [[ "${{ matrix.shard.id }}" == github ]]; then
             ./gradlew :app:assembleGithubFullReleaseAndroidTest \
               -Pripdpi.testBuildType=release \
               "${common_args[@]}" \
@@ -1175,7 +1180,7 @@ jobs:
         run: python3 scripts/ci/verify_jni_readiness_mapping.py
 
       - name: Package deterministic release native symbols
-        if: matrix.shard.id == 'github'
+        if: matrix.shard.id == 'github-full'
         run: |
           set -euo pipefail
           symbols_root="$RUNNER_TEMP/release-symbol-inputs"
@@ -1207,7 +1212,7 @@ jobs:
           retention-days: 7
 
       - name: Upload release native symbols
-        if: matrix.shard.id == 'github'
+        if: matrix.shard.id == 'github-full'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-native-symbols
