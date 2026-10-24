@@ -1547,8 +1547,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-host-check
-          save-if: false
+          shared-key: rust-api-snapshot
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install rustdoc JSON toolchain for cargo-public-api
         run: rustup toolchain install nightly --profile minimal --no-self-update
       - name: Install cargo-public-api
