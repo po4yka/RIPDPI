@@ -769,7 +769,10 @@ jobs:
         with:
           setup-rust: "false"
           setup-android-ndk: "false"
-          gradle-cache-read-only: "true"
+          # Each Full debug shard owns one namespace and never receives the
+          # embedded relay bundle secret, so main can publish its outputs.
+          gradle-cache-key-prefix: gradle-debug-${{ matrix.shard.id }}-build-cache
+          gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Download native shards
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1595,7 +1598,10 @@ jobs:
           rust-cache-save: "false"
           setup-rust: "false"
           setup-android-ndk: "false"
-          gradle-cache-read-only: "true"
+          # Lint and detekt outputs live in their own namespace; this job is its
+          # only writer and never receives the embedded relay bundle secret.
+          gradle-cache-key-prefix: gradle-lint-build-cache
+          gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Resolve release application IDs
         run: ./gradlew :app:writeReleaseIdentityManifest --profile
@@ -2180,6 +2186,9 @@ jobs:
         with:
           setup-rust: "false"
           setup-android-ndk: "false"
+          # Reuse the githubFullDebug outputs of build-android-debug. This job
+          # decodes the relay bundle secret, so it must stay read-only.
+          gradle-cache-key-prefix: gradle-debug-github-build-cache
           gradle-cache-read-only: "true"
           embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
 
