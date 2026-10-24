@@ -151,8 +151,16 @@ class NativeDependencyGraphTest(unittest.TestCase):
         self.assertIn("name: android-instrumentation-apks", source)
         self.assertEqual(4, source.count("prebuilt_android_instrumentation.py run"))
         self.assertEqual(4, source.count('--sha "$GITHUB_SHA"'))
-        for api in (27, 33, 35, 36, 37):
-            self.assertIn(f"api: {api}\n", source)
+        self.assertIn(
+            "include: ${{ fromJSON(needs.change-routing.outputs.instrumented_devices) }}",
+            source,
+        )
+        routing = job_source("change-routing")
+        for api, pull_request in ((27, "true"), (33, "false"), (35, "true"), (36, "false"), (37, "true")):
+            self.assertRegex(
+                routing,
+                rf'"api": {api}, "system-image": "[\w]+", "pull_request": {pull_request}\}}',
+            )
         producer = job_source("android-instrumentation-apks")
         self.assertNotIn("matrix:", producer)
         self.assertEqual(1, producer.count(":app:stageCiInstrumentationApks"))

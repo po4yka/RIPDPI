@@ -97,6 +97,7 @@ jobs:
       run_rust_coverage: ${{ steps.resolve.outputs.run_rust_coverage }}
       run_fixtures_ci: ${{ steps.resolve.outputs.run_fixtures_ci }}
       run_workflow_ci: ${{ steps.resolve.outputs.run_workflow_ci }}
+      instrumented_devices: ${{ steps.devices.outputs.instrumented_devices }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -125,6 +126,22 @@ jobs:
           python3 scripts/ci/resolve_change_routing.py \
             --paths-file "$paths_file" \
             --github-output "$GITHUB_OUTPUT"
+      # Pull requests cover the minimum SDK, API 35 (the only JNI strategy and
+      # Xray provider lanes), and the target SDK. Other events add API 33 and 36.
+      - id: devices
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          devices='[
+            {"device": "pixel6Api27Aosp", "api": 27, "system-image": "default", "pull_request": true},
+            {"device": "pixel6Api33Google", "api": 33, "system-image": "google_apis", "pull_request": false},
+            {"device": "pixel6Api35Google", "api": 35, "system-image": "google_apis", "pull_request": true},
+            {"device": "pixel6Api36Google", "api": 36, "system-image": "google_apis", "pull_request": false},
+            {"device": "pixel6Api37Google", "api": 37, "system-image": "google_apis_ps16k", "pull_request": true}
+          ]'
+          selected="$(jq -c --arg event "$EVENT_NAME" \
+            'map(select($event != "pull_request" or .pull_request) | del(.pull_request))' <<< "$devices")"
+          echo "instrumented_devices=$selected" >> "$GITHUB_OUTPUT"
 
   docs-only-gate:
     name: Documentation-only CI gate
@@ -2285,22 +2302,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - device: pixel6Api27Aosp
-            api: 27
-            system-image: default
-          - device: pixel6Api33Google
-            api: 33
-            system-image: google_apis
-          - device: pixel6Api35Google
-            api: 35
-            system-image: google_apis
-          - device: pixel6Api36Google
-            api: 36
-            system-image: google_apis
-          - device: pixel6Api37Google
-            api: 37
-            system-image: google_apis_ps16k
+        include: ${{ fromJSON(needs.change-routing.outputs.instrumented_devices) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
