@@ -11,6 +11,9 @@ sources and affected existing tests in its isolated worktree. Transient model
 metadata is permitted only for atomic selected semantic evidence. Coordinator
 owns planning records and integration and is the sole physical-device operator.
 Security worker performs independent read-only review. Other work is preserved.
+Protocol worker also owns the narrow cooldown consumer fix in
+NetworkHandoverProcessor.kt, HandoverAwareSession in ServiceRuntimeCoordinator.kt,
+ServiceRuntimeRegistry.kt and BaseServiceRuntimeCoordinatorTest.kt.
 
 ## Execution
 

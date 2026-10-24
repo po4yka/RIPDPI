@@ -21,7 +21,10 @@ and readiness through CandidatePhysicalNetworkObserver.
   semantic token to NetworkFingerprint. Exclude it from canonicalParts,
   summary and serialization. Never reuse directDnsUnderlayGeneration.
 - Remove the monitor's duplicate default-network callback and use the existing
-  physical change flow. Keep debounce and runtime restart policy unchanged.
+  physical change flow. Keep debounce, cooldown duration, retry and teardown
+  policy unchanged. Compare both the stored scope hash and the applied
+  transient physical signature for cooldown duplicate suppression. This
+  keeps a second genuine MTU or route change within ten seconds actionable.
 - Use the same physical snapshot for currentTunnelNetworkParameters. Preserve
   safe configured defaults when no physical snapshot is ready; never read the
   VPN overlay as fallback evidence.
@@ -33,6 +36,9 @@ and readiness through CandidatePhysicalNetworkObserver.
 - core:service owns the observer, capture, handover and builder consumers.
 - core:data:model may carry transient metadata only; storage is unchanged.
 - Protocol worker owns implementation and existing affected tests in isolation.
+  The narrow cooldown consumer fix also owns NetworkHandoverProcessor.kt,
+  HandoverAwareSession in ServiceRuntimeCoordinator.kt, runtime history fields
+  in ServiceRuntimeRegistry.kt and BaseServiceRuntimeCoordinatorTest.kt.
   Coordinator owns task/spec records and physical-device operations. Security
   worker performs independent read-only review. No concurrent shared writers.
 - No Rust crate, JNI, wire schema, golden, dependency or lease owner changes.

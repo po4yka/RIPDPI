@@ -30,4 +30,5 @@ Use one selected physical network snapshot for handover, remembered-network capt
 
 - Protocol worker owns the existing physical observer, fingerprint, handover and tunnel-parameter sources and their existing tests in its isolated worktree. Runtime-only model metadata is included only when needed for atomic handover capture.
 - Coordinator owns this task, OpenSpec artifacts and integration. Security worker owns independent read-only review. Coordinator alone operates the physical device.
+- Protocol ownership also includes the narrow cooldown identity consumer in NetworkHandoverProcessor.kt, HandoverAwareSession in ServiceRuntimeCoordinator.kt, ServiceRuntimeRegistry.kt and BaseServiceRuntimeCoordinatorTest.kt. Cooldown timing and persisted scope hashing stay unchanged.
 - No other runtime, native, DNS lease, storage or provider file is in scope.

@@ -30,6 +30,8 @@ The runtime MUST classify true selected transport changes as transport_switch.
 Selected DNS, private-DNS, route, MTU or link changes MUST remain observable as
 link_refresh when no stronger handover classification applies. Unrelated
 callbacks and repeated identical evidence MUST NOT trigger a handover.
+Cooldown duplicate suppression MUST compare the applied physical signature
+as well as the stored scope key without changing its ten-second duration.
 
 #### Scenario: Transport and link changes remain observable
 
@@ -41,6 +43,12 @@ callbacks and repeated identical evidence MUST NOT trigger a handover.
 - **WHEN** an unrelated callback advances the diagnostic probe epoch
 - **THEN** unchanged selected physical semantics emit no handover
 - **AND** existing probe token invalidation still detects the event
+
+#### Scenario: Two genuine link changes within the cooldown
+
+- **WHEN** two distinct selected MTU or route changes occur within ten seconds
+- **THEN** both changes can apply despite their equal stored scope keys
+- **AND** a repeated identical applied signature remains suppressed
 
 ### Requirement: REQ-PHYSICAL-UNAVAILABLE — Unavailable evidence
 
