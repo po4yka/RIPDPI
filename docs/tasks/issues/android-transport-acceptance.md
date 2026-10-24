@@ -32,6 +32,8 @@ with separate-UID traffic and destination receipts.
 - Wrong identity, bad trust, failed replacement, incomplete payload and missing receipts fail the selected scenario.
 - Exact source, native artifacts, executed tests and cleanup are verified. Physical sleep/wake is checked on the explicitly authorized device. Wi-Fi/cellular handover, filtered networks and public providers remain outside this local acceptance scope.
 
+- The USB carrier preserves concurrent native UDP flows with versioned IDs and bounded, authenticated host sockets.
+
 ## Ownership
 
 - Android transport acceptance owns app/src/androidTest/kotlin/com/poyka/ripdpi/e2e transport tests and separate-UID probes; scripts/fixtures/xray-provider-peer; scripts/ci/run-android-local-acceptance.py; test-lab/acceptance Android adapters and their tests; this task and change.

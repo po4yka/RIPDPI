@@ -9,18 +9,21 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
+import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 /** Test-only datagram transport over an owned USB TCP reverse port. */
-class TestUdpBridge private constructor(
+class TestUdpBridge internal constructor(
     controlPort: Int,
     token: String,
 ) : Closeable {
     private val stopped = AtomicBoolean(false)
     private val failure = AtomicReference<Throwable?>()
-    private val client = AtomicReference<InetSocketAddress?>()
+    private val flows = linkedMapOf<InetSocketAddress, Int>()
+    private val clients = mutableMapOf<Int, InetSocketAddress>()
+    private val expiresAt = System.nanoTime() + MaxLifetimeNanos
     private val loopback = InetAddress.getByName("127.0.0.1")
     private val udp = DatagramSocket(InetSocketAddress(loopback, 0)).apply { soTimeout = 1_000 }
     private val tcp = Socket()
@@ -63,6 +66,7 @@ class TestUdpBridge private constructor(
         val bytes = ByteArray(65_507)
         val output = tcp.getOutputStream()
         while (!stopped.get()) {
+            check(System.nanoTime() < expiresAt) { "Owned USB datagram lifetime exceeded" }
             val packet = DatagramPacket(bytes, bytes.size)
             try {
                 udp.receive(packet)
@@ -70,9 +74,25 @@ class TestUdpBridge private constructor(
                 continue
             }
             require(packet.length in 1..65_507 && packet.address.isLoopbackAddress)
-            // A stopped native session releases its socket before its replacement starts.
-            client.set(InetSocketAddress(packet.address, packet.port))
-            output.write(byteArrayOf((packet.length ushr 8).toByte(), packet.length.toByte()))
+            val source = InetSocketAddress(packet.address, packet.port)
+            val flowId =
+                synchronized(flows) {
+                    flows[source] ?: run {
+                        check(flows.size < MaxFlows) { "Owned USB datagram flow bound exceeded" }
+                        (flows.size + 1).also { id ->
+                            flows[source] = id
+                            clients[id] = source
+                        }
+                    }
+                }
+            output.write(
+                ByteBuffer
+                    .allocate(HeaderSize)
+                    .put(FrameVersion)
+                    .putInt(flowId)
+                    .putShort(packet.length.toShort())
+                    .array(),
+            )
             output.write(packet.data, packet.offset, packet.length)
             output.flush()
         }
@@ -84,8 +104,9 @@ class TestUdpBridge private constructor(
         fun readExact(size: Int): ByteArray {
             val bytes = ByteArray(size)
             var offset = 0
-            val deadline = System.nanoTime() + 120_000_000_000L
+            val deadline = minOf(expiresAt, System.nanoTime() + 120_000_000_000L)
             while (offset < size && !stopped.get()) {
+                check(System.nanoTime() < deadline) { "Owned USB datagram read deadline exceeded" }
                 try {
                     val count = input.read(bytes, offset, size - offset)
                     if (count < 0) throw EOFException("Owned USB datagram stream ended")
@@ -98,11 +119,13 @@ class TestUdpBridge private constructor(
             return bytes
         }
         while (!stopped.get()) {
-            val header = readExact(2)
-            val size = ((header[0].toInt() and 255) shl 8) or (header[1].toInt() and 255)
+            val header = ByteBuffer.wrap(readExact(HeaderSize))
+            require(header.get() == FrameVersion) { "Invalid owned USB datagram version" }
+            val flowId = header.int
+            val size = header.short.toInt() and 65_535
             require(size in 1..65_507)
+            val peer = synchronized(flows) { requireNotNull(clients[flowId]) { "Unknown owned USB datagram flow" } }
             val bytes = readExact(size)
-            val peer = requireNotNull(client.get())
             udp.send(DatagramPacket(bytes, bytes.size, peer))
         }
     }
@@ -117,6 +140,11 @@ class TestUdpBridge private constructor(
     }
 
     companion object {
+        private const val FrameVersion: Byte = 1
+        private const val HeaderSize = 7
+        private const val MaxFlows = 64
+        private const val MaxLifetimeNanos = 600_000_000_000L
+
         fun fromArguments(): TestUdpBridge? {
             val args = InstrumentationRegistry.getArguments()
             val port = args.getString("ripdpi.usbUdpBridgePort") ?: return null

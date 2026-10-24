@@ -75,3 +75,24 @@ handover, filtered-client or public-provider acceptance.
 - **THEN** a named USB scenario can use a test-only datagram bridge while retaining real VPN, native protocol and independent payload checks
 - **AND** its result marks direct device-to-LAN UDP, underlying-network bypass and Wi-Fi/cellular handover as unverified
 - **AND** the direct LAN scenarios retain their original assertions
+
+### Requirement: REQ-ANDROID-USB-FLOW — Preserve concurrent datagram flows
+
+The USB test carrier MUST assign a stable flow identity to each Android loopback
+source and preserve it in both directions. Each host flow MUST own a separate UDP
+socket to the pinned peer. Frames MUST carry an explicit version, flow ID, and
+bounded payload length. The carrier MUST authenticate before it allocates a flow,
+reject malformed frames and unknown reply IDs, and bound flow count and lifetime.
+The old length-only frame format MUST NOT remain supported.
+
+#### Scenario: Concurrent QUIC sessions receive their own replies
+
+- **WHEN** two native UDP sources send through one authenticated USB carrier and peer replies arrive in reverse order
+- **THEN** each reply reaches only its original source with its original payload
+- **AND** independent host sockets retain the peer's source-flow distinction
+
+#### Scenario: Invalid or excessive flow
+
+- **WHEN** a frame has an invalid version, ID, size, or exceeds the flow bound
+- **THEN** the carrier fails without forwarding that frame
+- **AND** cleanup closes all owned flow sockets and workers

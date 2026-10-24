@@ -673,6 +673,7 @@ class XrayProviderE2ETest {
     @Test
     fun usbHysteriaCompletesTransfersSleepWakeAndUdpFailureFallsBackToSavedTcp() {
         check(InstrumentationRegistry.getArguments().getString("ripdpi.usbDataScope") == "true")
+        assertUsbDatagramBridgeFlowIsolation()
         exerciseHysteriaTransactions()
     }
 

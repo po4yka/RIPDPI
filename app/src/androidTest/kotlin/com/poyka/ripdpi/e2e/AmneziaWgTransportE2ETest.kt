@@ -27,6 +27,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.net.HttpURLConnection
+import java.net.InetAddress
 import java.net.URI
 import java.util.Base64
 import javax.inject.Inject
@@ -178,14 +179,23 @@ class AmneziaWgTransportE2ETest {
                         }
                     }
                 }
-                val dns =
-                    testProcessDnsProbe(queryHost = "acceptance.test", serverHost = "10.77.0.1", timeoutMs = 5_000)
-                assertTrue("AWG DNS through TUN failed", dns.ok)
-                assertTrue(dns.probeUid != null && dns.probeUid != Process.myUid())
-                assertEquals(listOf("192.0.2.77"), dns.answers)
-                val dnsReceipt = JSONObject(control("dns-receipts"))
-                assertEquals(0, dnsReceipt.getInt("errors"))
-                assertTrue(dnsReceipt.getJSONArray("receipts").length() > 0)
+                for ((server, queryType, expected) in listOf(
+                    Triple("10.77.0.1", DnsQueryTypeA, "192.0.2.77"),
+                    Triple("fd77::1", DnsQueryTypeAaaa, "fd77::53"),
+                )) {
+                    val before = dnsReceiptCount(JSONObject(control("dns-receipts")), queryType)
+                    val dns =
+                        testProcessDnsProbe(
+                            queryHost = "acceptance.test",
+                            serverHost = server,
+                            queryType = queryType,
+                            timeoutMs = 5_000,
+                        )
+                    assertTrue("AWG DNS through TUN failed for $server", dns.ok)
+                    assertTrue(dns.probeUid != null && dns.probeUid != Process.myUid())
+                    assertEquals(listOf(InetAddress.getByName(expected)), dns.answers.map(InetAddress::getByName))
+                    awaitUntil { dnsReceiptCount(JSONObject(control("dns-receipts")), queryType) > before }
+                }
                 transfer("download", "download")
                 transfer("upload", "upload")
                 transfer("stream", "stream")
@@ -217,6 +227,18 @@ class AmneziaWgTransportE2ETest {
             } finally {
                 clearTestProbeNetworkEligibility()
             }
+        }
+    }
+
+    private fun dnsReceiptCount(
+        receipt: JSONObject,
+        queryType: Int,
+    ): Int {
+        assertEquals(0, receipt.getInt("errors"))
+        val items = receipt.getJSONArray("receipts")
+        return (0 until items.length()).count { index ->
+            val item = items.getJSONObject(index)
+            item.getString("query") == "acceptance.test." && item.getInt("type") == queryType
         }
     }
 }
