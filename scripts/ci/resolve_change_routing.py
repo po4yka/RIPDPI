@@ -2,7 +2,9 @@
 """Classify a CI change set conservatively for workflow routing.
 
 Every path must belong to one explicitly-maintained route.  A mixed, empty, or
-unknown change set is deliberately routed to the full CI matrix.
+unknown change set is deliberately routed to the full CI matrix.  Documentation
+and OpenSpec paths are validated by always-on gates, so they never widen the
+route of a change set that also touches code.
 """
 
 from __future__ import annotations
@@ -123,7 +125,7 @@ FAST_FIXTURE_FILES: Final = frozenset(
 
 
 def is_documentation_path(path: str) -> bool:
-    return path.startswith("docs/") or (
+    return path.startswith(("docs/", "openspec/")) or (
         path.startswith("README") and path.endswith(".md") and "/" not in path
     )
 
@@ -179,6 +181,10 @@ def classify_change_paths(paths: list[str]) -> str:
         return ROUTE_FULL
 
     routes = {route_for_path(path) for path in paths}
+    # task-contracts validates docs and OpenSpec on every run, so they only
+    # select the documentation route when nothing else changed.
+    if len(routes) > 1:
+        routes.discard(ROUTE_DOCUMENTATION)
     if None in routes or len(routes) != 1:
         return ROUTE_FULL
 
