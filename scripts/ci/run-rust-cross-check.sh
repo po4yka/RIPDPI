@@ -82,7 +82,14 @@ done
 # broken cross-compilation for ARM/i686 targets (u16/u32 type mismatch
 # in prebuilt sys.rs).  The crate is a Linux-only optional dependency
 # and is validated by the host-native workspace tests instead.
-for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
+# RIPDPI_CROSS_CHECK_TARGETS narrows the checked ABIs. CI checks one 64-bit
+# and one 32-bit ABI, because rust-native-packaging builds all four.
+read -r -a check_targets <<< "${RIPDPI_CROSS_CHECK_TARGETS:-aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android}"
+for target in "${check_targets[@]}"; do
+  if [[ -z "${CLANG_TARGETS[$target]+x}" ]]; then
+    echo "  unknown Android cross-check target: $target" >&2
+    exit 1
+  fi
   echo "  -> $target"
   clean_android_boring_sys_build_cache "${CARGO_TARGET_DIR:-$repo_root/native/rust/target}" "$target"
   cargo check --locked --manifest-path "$workspace_manifest" --workspace \
