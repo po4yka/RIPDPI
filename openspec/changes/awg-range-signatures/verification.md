@@ -74,3 +74,15 @@ The task stays in progress until the integrated source passes hosted checks
 and the acceptance owner records the final APK and physical ARM64 result.
 The physical scope uses a local USB peer path and no external VPN nodes.
 S3 and S4 remain zero. The guard for nonzero ARM64 padding is unchanged.
+
+## Producer mirror and client import fixtures
+
+Independent inventory found one client-only hopping import vector in the
+producer mirror. The vector now lives under `import-fixtures/` with unchanged
+bytes and import assertions. All 35 non-README producer files match exactly;
+no missing or client-only files remain in the mirror.
+
+`build-gate -- ./gradlew --no-daemon --max-workers=4 :core:data:testDebugUnitTest :core:data:ktlintCheck :core:data:detekt`
+passed in 1 minute 6 seconds with the configured JDK 21. The complete module
+suite passed 958 tests with zero failures, errors or skipped tests.
+Independent review approved the relocation and inventory.

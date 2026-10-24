@@ -32,3 +32,5 @@ Risk is high because this changes authenticated wire behavior and cross-module c
 - Client owner: AWG Rust codec, Kotlin models, import/export, activation, editor, mirrored contracts and related tests.
 - Integration owner: deployment schema, emitter, canonical fingerprint and goldens, PR integration and independent review.
 - The Xray security lane owns its verifier and harness. No shared files are edited concurrently.
+
+- Integration owner also owns separation of client-only import vectors from byte-identical producer contract mirrors, including their existing import tests.
