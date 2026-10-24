@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.subscription.SubscriptionMirror
 import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
+import com.poyka.ripdpi.data.subscription.migrationSha256
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import okhttp3.OkHttpClient
@@ -298,4 +299,67 @@ class SubscriptionRefreshDeliveryTest : SubscriptionRefreshTestSupport() {
             assertEquals("Bearer fixture-direct-token", refreshed.headers["Authorization"])
             assertEquals(2, server.requestCount)
         }
+
+    @Test
+    fun `owned migration payload refreshes through authenticated mirror before stopped original`() =
+        runTest {
+            val mirrorUrl =
+                server
+                    .url("/mirror")
+                    .newBuilder()
+                    .scheme("https")
+                    .build()
+                    .toString()
+            val updatedPayload = ownedMigrationPayload(mirrorUrl, updated = true)
+            server.enqueue(response(200, ownedMigrationPayload(mirrorUrl, updated = false)))
+            server.enqueue(response(200, updatedPayload))
+            server.enqueue(response(503))
+            val fixture = fixture(now = 3_000L, httpClient = localMirrorClient())
+            assertTrue(fixture.coordinator.refresh("subscription-group") is SubscriptionRefreshResult.Updated)
+            val imported = fixture.repository.list().single()
+            assertEquals(listOf("old", "reserve"), imported.members.map { it.displayName })
+
+            val result = fixture.coordinator.refresh("subscription-group")
+
+            assertTrue("Independent refresh result=$result", result is SubscriptionRefreshResult.Updated)
+            val updated = fixture.repository.list().single()
+            assertEquals(listOf("reserve", "replacement"), updated.members.map { it.displayName })
+            val delivery = requireNotNull(updated.subscription?.migration)
+            assertEquals(listOf("replacement"), delivery.metadata.targetTags)
+            assertEquals(migrationSha256(updatedPayload.toByteArray()), delivery.payloadSha256)
+            assertNull(delivery.pathTest)
+            assertEquals("/subscription", server.takeRequest().url.encodedPath)
+            val request = server.takeRequest()
+            assertEquals("/mirror", request.url.encodedPath)
+            assertEquals(listOf("Bearer ${"a".repeat(64)}"), request.headers.values("Authorization"))
+            assertEquals(2, server.requestCount)
+        }
+
+    /** Same fields and topology as the owned Android runner's two migration revisions. */
+    private fun ownedMigrationPayload(
+        mirrorUrl: String,
+        updated: Boolean,
+    ): String {
+        val tags = if (updated) listOf("reserve", "replacement") else listOf("old", "reserve")
+        val outbounds =
+            tags.joinToString { tag ->
+                val number = listOf("old", "reserve", "replacement").indexOf(tag) + 1
+                """{"type":"vless","tag":"$tag","server":"127.0.0.1","server_port":${4430 + number},
+                "uuid":"00000000-0000-0000-0000-00000000000$number","flow":"xtls-rprx-vision",
+                "tls":{"enabled":true,"server_name":"fixture.test","utls":{"enabled":true,"fingerprint":"chrome"},
+                "reality":{"enabled":true,"public_key":"${"A".repeat(43)}","short_id":"ab12"}}}"""
+            }
+        val migration =
+            if (updated) {
+                """, "migration":{"schema_version":1,"migration_id":"00000000-0000-0000-0000-000000000010",
+                "delivery_id":"00000000-0000-0000-0000-000000000011","receipt_key":"${"b".repeat(64)}",
+                "target_tags":["replacement"],"awg_previous_tags":{}}"""
+            } else {
+                ""
+            }
+        return """{"outbounds":[{"type":"selector","tag":"select",
+        "outbounds":["${tags[0]}","${tags[1]}"],"default":"${tags[0]}"},$outbounds],
+        "ripdpi":{"schema_version":2,"subscription_mirrors":[{"id":"independent","transport":"direct",
+        "url":"$mirrorUrl","token":"${"a".repeat(64)}"}]$migration}}"""
+    }
 }

@@ -249,19 +249,40 @@ class MigrationTransportE2ETest {
             transfer("saved-reserve", reservePort)
             control(controlPort, "revision/next", "POST")
             control(controlPort, "subscription/stop", "POST")
-            assertTrue(runBlocking { refresh.refresh(groupId) } is SubscriptionRefreshResult.Updated)
+            val refreshResult = runBlocking { refresh.refresh(groupId) }
+            val deliveryReceipts =
+                runCatching {
+                    val updates = JSONArray(control(controlPort, "receipts"))
+                    val summary =
+                        (0 until updates.length()).joinToString { index ->
+                            val receipt = updates.getJSONObject(index)
+                            val endpoint = if (receipt.getString("path") == "/mirror") "mirror" else "original"
+                            "$endpoint:${receipt.getInt("revision")}:${receipt.getInt("status")}:" +
+                                "authorized=${receipt.getBoolean("authorized")}"
+                        }
+                    updates to summary
+                }
+            val deliverySummary =
+                deliveryReceipts.fold(
+                    onSuccess = { it.second },
+                    onFailure = { "unavailable:${it.javaClass.simpleName}" },
+                )
+            assertTrue(
+                "Independent refresh result=$refreshResult delivery=[$deliverySummary]",
+                refreshResult is SubscriptionRefreshResult.Updated,
+            )
+            val updates = deliveryReceipts.getOrThrow().first
             val updated = runBlocking { groups.list().single { it.id == groupId } }
             assertFalse(updated.members.any { it.displayName == "old" })
             val replacement = updated.members.single { it.displayName == "replacement" }
             assertFalse(imported.members.any { it.id == replacement.id })
             val received = JSONObject(requireNotNull(runBlocking { migration.receipt(groupId) }))
             assertEquals("received", received.getString("state"))
-            val updates = JSONArray(control(controlPort, "receipts"))
             assertTrue(
                 (0 until updates.length()).any { index ->
                     val receipt = updates.getJSONObject(index)
                     receipt.getString("path") == "/mirror" && receipt.getInt("revision") == 1 &&
-                        receipt.getBoolean("authorized")
+                        receipt.getBoolean("authorized") && receipt.getInt("status") == 200
                 },
             )
             awaitUntil(timeoutMs = 30_000) { epoch.capture() != null }

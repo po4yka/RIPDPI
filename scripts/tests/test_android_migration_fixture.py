@@ -116,8 +116,16 @@ class AndroidMigrationFixtureTest(unittest.TestCase):
 
     def test_cleanup_closes_both_owned_listeners_and_is_idempotent(self):
         ports = self.fixture.port, self.fixture.control_port
+        self.request("/mirror", authorization="Bearer " + self.fixture.mirror_token)
+        self.request("/mirror?token=secret")
+        expected = self.fixture.receipts()
         self.fixture.close()
         self.fixture.close()
+        receipt_path = self.fixture.directory / "http-receipts.json"
+        self.assertEqual(expected, json.loads(receipt_path.read_text()))
+        self.assertEqual(0, receipt_path.stat().st_mode & 0o077)
+        self.assertNotIn(self.fixture.mirror_token, receipt_path.read_text())
+        self.assertNotIn("secret", receipt_path.read_text())
         for port in ports:
             with self.assertRaises(OSError):
                 socket.create_connection(("127.0.0.1", port), timeout=1)
@@ -134,6 +142,15 @@ class AndroidMigrationFixtureTest(unittest.TestCase):
             fixture.start()
         with self.assertRaises(OSError):
             socket.create_connection(("127.0.0.1", ports[0]), timeout=1)
+
+    def test_cleanup_does_not_write_to_an_existing_unowned_directory(self):
+        directory = self.root / "unowned"
+        directory.mkdir()
+        fixture = MODULE.MigrationFixture(directory, self.tls, lambda *_: ())
+        with self.assertRaises(FileExistsError):
+            fixture.start()
+        fixture.close()
+        self.assertEqual([], list(directory.iterdir()))
 
     def test_schema_and_size_admission(self):
         for value in (b"{}", b"[]", b'{"ripdpi":{"schema_version":true}}',

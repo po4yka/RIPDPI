@@ -6,6 +6,7 @@ import hashlib
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import secrets
 import ssl
@@ -47,6 +48,8 @@ class MigrationFixture:
         self._servers = []
         self._threads = []
         self._started = False
+        self._directory_owned = False
+        self._receipts_persisted = False
 
     def receipts(self) -> list[dict]:
         with self._lock:
@@ -57,6 +60,7 @@ class MigrationFixture:
             raise RuntimeError("migration fixture cannot restart")
         self._started = True
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=False)
+        self._directory_owned = True
         certificate = self.tls_directory / "certificate.pem"
         key = self.tls_directory / "private-key.pem"
         for path in (certificate, key):
@@ -175,12 +179,25 @@ class MigrationFixture:
             raise
 
     def close(self) -> None:
-        for server, thread in zip(self._servers, self._threads):
-            server.shutdown()
-            thread.join(timeout=5)
-            if thread.is_alive():
-                raise RuntimeError("migration listener did not stop")
-        for server in self._servers:
-            server.server_close()
-        self._servers.clear()
-        self._threads.clear()
+        try:
+            for server, thread in zip(self._servers, self._threads):
+                server.shutdown()
+                thread.join(timeout=5)
+                if thread.is_alive():
+                    raise RuntimeError("migration listener did not stop")
+        finally:
+            try:
+                for server in self._servers:
+                    server.server_close()
+            finally:
+                self._servers.clear()
+                self._threads.clear()
+                if self._directory_owned and not self._receipts_persisted:
+                    descriptor = os.open(
+                        self.directory / "http-receipts.json",
+                        os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                        0o600,
+                    )
+                    with os.fdopen(descriptor, "w") as stream:
+                        json.dump(self.receipts(), stream)
+                    self._receipts_persisted = True
