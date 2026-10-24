@@ -22,14 +22,16 @@ between headers and body. The shared first-exchange wait precedes duplex copying
 - Seal replay eligibility at handoff for every route, including SynData, TFO and alternate upstreams. Keep one outbound owner for desync, Lua, progress and backpressure.
 - Use explicit pending, accepted and rejected observation outcomes. Generic relay-result accounting must not promote a rejected response or duplicate accepted learning.
 - Finish pending observation in each inbound worker before it acquires the first registered copy buffer. Preserve io_uring completion and fallback ownership; errors and cancellation shut down the opposite half before join, while normal EOF keeps half-close semantics.
+- Explicit owner cancellation shuts down the write half and then the read half independently. A real macOS socket probe shows that combined shutdown after peer FIN can return ENOTCONN without releasing a blocked writer; write-half shutdown releases it. Apply this sequence to the active socket registry and equivalent explicit abort sites touched by this relay change. Keep normal FIN handling, the existing 3-second graceful drain and 1-second forced drain unchanged.
 
 ## Contracts and ownership
 
 - Protocol worker owns native/rust/crates/ripdpi-proxy-runtime/src/runtime/relay first-exchange, first-outbound, response, session, execution and stream-copy files, plus their focused runtime tests.
+- Protocol worker also owns native/rust/crates/ripdpi-proxy-runtime/src/runtime/state/listener.rs for the owner-cancellation correction. No desync writer, partial-send contract or cross-crate cancellation interface change is needed.
 - The coordinator owns this task and OpenSpec records. The security worker reviews byte ownership, replay safety and lifecycle independently before implementation and commit.
 - No Kotlin, JNI, protobuf, wire, persistence, lockfile, version catalog or credential change is planned. No compatibility path is added.
 - Android acceptance worker alone owns physical-device operations. The rebuilt Hysteria upload and automatic-recovery scenario remains a required integration gate.
-- The coordinator owns the required Linux CI command. Existing Linux workspace tests do not enable the optional io-uring feature. Add an explicit feature-enabled runtime gate and a regression that proves the io_uring path ran without capability fallback.
+- Android acceptance worker owns the required Linux CI command; the coordinator integrates it. Existing Linux workspace tests do not enable the optional io-uring feature. The explicit feature-enabled runtime gate must prove the io_uring path ran without capability fallback.
 
 ## Risks / Trade-offs
 

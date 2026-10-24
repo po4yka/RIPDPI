@@ -63,3 +63,10 @@ bodies or emitting their contents in diagnostics.
 - **WHEN** the client closes or the owner stops the relay during first-response observation
 - **THEN** both forwarding directions terminate through the existing lifecycle
 - **AND** no owned socket or worker survives cancellation
+
+#### Scenario: Owner stops an upload after an early response and peer FIN
+
+- **WHEN** the origin finishes its response but keeps its read half open without draining the upload, and the owner stops the proxy
+- **THEN** the blocked sender and both relay directions finish within the existing shutdown budget
+- **AND** real client-finished telemetry confirms handler completion before the test client or origin is closed
+- **AND** normal peer FIN without owner cancellation does not discard a valid remaining upload

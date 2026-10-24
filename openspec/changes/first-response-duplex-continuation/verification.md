@@ -27,3 +27,14 @@ deployment_evidence: No provider, host, credential or deployment action is inclu
 
 Physical acceptance and rebuilt artifact evidence map to
 `PRX-1792849486914254`; no execution step is complete yet.
+
+## Cancellation regression during implementation
+
+The real-socket early-response test receives the response while a large upload
+is backpressured. After explicit proxy stop, client-finished telemetry remains
+zero before fixture cleanup. This confirms an unfinished handler; it is not only
+an elapsed-time measurement issue. An independent macOS socket probe isolates
+combined shutdown after peer FIN: it returns ENOTCONN and does not release the
+blocked writer. Independent write-half shutdown releases the writer immediately,
+including after the read half was already shut down. The narrow registry and
+explicit-abort correction, its regression and full gates remain required.
