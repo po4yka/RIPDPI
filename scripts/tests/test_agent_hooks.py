@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / ".agents/hooks/pre_tool_policy.py"
 EXTRACTOR = ROOT / ".agents/hooks/extract_hook_paths.py"
+POSTEDIT = ROOT / ".claude/scripts/rust-postedit-check.sh"
 
 
 def run(script: Path, payload: dict[str, object]) -> subprocess.CompletedProcess[str]:
@@ -81,6 +84,21 @@ class HookPolicyTest(unittest.TestCase):
             result.stdout.splitlines(),
             ["native/rust/crates/one/src/lib.rs", "native/rust/crates/two/src/lib.rs"],
         )
+
+    def test_rust_postedit_check_reports_errors_but_not_timeouts(self) -> None:
+        rust_file = next((ROOT / "native/rust/crates").glob("*/src/lib.rs"))
+        payload = json.dumps({"tool_input": {"file_path": str(rust_file)}})
+        for exit_code, expected in ((124, 0), (101, 2)):
+            with tempfile.TemporaryDirectory() as fake_bin:
+                fake = Path(fake_bin) / "timeout"
+                fake.write_text(f"#!/bin/sh\necho '    Checking dependency'\nexit {exit_code}\n")
+                fake.chmod(0o755)
+                result = subprocess.run(
+                    ["bash", str(POSTEDIT)], input=payload, text=True, capture_output=True, check=False,
+                    cwd=ROOT, env={**os.environ, "PATH": f"{fake_bin}:{os.environ['PATH']}"},
+                )
+            self.assertEqual(result.returncode, expected, result.stderr)
+            self.assertEqual(bool(result.stderr), expected == 2)
 
     def test_committed_hook_manifests_cover_enforcement_events(self) -> None:
         # Claude Code edits arrive as Edit/Write; Codex edits arrive as apply_patch.
