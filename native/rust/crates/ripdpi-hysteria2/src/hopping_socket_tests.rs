@@ -206,3 +206,172 @@ async fn adapter_preserves_gro_gso_and_fragmentation_capabilities_across_hops() 
         socket.stop();
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+enum ReceiveResult {
+    Data(u8),
+    Error,
+    Pending,
+}
+
+struct ReceiveProbe {
+    io: Arc<dyn AsyncUdpSocket>,
+    result: ReceiveResult,
+    during_poll: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+}
+
+impl fmt::Debug for ReceiveProbe {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("ReceiveProbe").field("result", &self.result).finish_non_exhaustive()
+    }
+}
+
+impl AsyncUdpSocket for ReceiveProbe {
+    fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
+        self.io.clone().create_io_poller()
+    }
+
+    fn try_send(&self, transmit: &quinn::udp::Transmit<'_>) -> io::Result<()> {
+        self.io.try_send(transmit)
+    }
+
+    fn poll_recv(
+        &self,
+        _cx: &mut Context<'_>,
+        buffers: &mut [io::IoSliceMut<'_>],
+        metadata: &mut [quinn::udp::RecvMeta],
+    ) -> Poll<io::Result<usize>> {
+        let during_poll = self.during_poll.lock().unwrap().take();
+        if let Some(during_poll) = during_poll {
+            during_poll();
+        }
+        match self.result {
+            ReceiveResult::Data(byte) => {
+                buffers[0][0] = byte;
+                metadata[0] = quinn::udp::RecvMeta {
+                    addr: "127.0.0.1:443".parse().unwrap(),
+                    len: 1,
+                    stride: 1,
+                    ..Default::default()
+                };
+                Poll::Ready(Ok(1))
+            }
+            ReceiveResult::Error => Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "receive probe"))),
+            ReceiveResult::Pending => Poll::Pending,
+        }
+    }
+
+    fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.io.local_addr()
+    }
+
+    fn may_fragment(&self) -> bool {
+        self.io.may_fragment()
+    }
+}
+
+fn probe_path(result: ReceiveResult, during_poll: Option<Box<dyn FnOnce() + Send>>) -> Arc<PathSocket> {
+    let spec = spec(SocketProtectionPolicy::Inactive);
+    let path = wrap_socket(build_client_udp_socket(&spec).unwrap(), &spec).unwrap();
+    Arc::new(PathSocket {
+        io: Arc::new(ReceiveProbe { io: path.io.clone(), result, during_poll: Mutex::new(during_poll) }),
+        raw: path.raw.try_clone().unwrap(),
+    })
+}
+
+fn receive_adapter() -> Arc<HoppingSocket> {
+    let spec = spec(SocketProtectionPolicy::Inactive);
+    let policy = PortHoppingConfig::from_wire(Some("443,444"), Some(5000), None).unwrap().unwrap();
+    Arc::new(
+        HoppingSocket::new(
+            "127.0.0.1:443".parse().unwrap(),
+            policy,
+            spec.clone(),
+            build_client_udp_socket(&spec).unwrap(),
+        )
+        .unwrap(),
+    )
+}
+
+fn poll_byte(socket: &HoppingSocket) -> Poll<io::Result<u8>> {
+    let mut bytes = [0u8; 2048];
+    let mut buffers = [io::IoSliceMut::new(&mut bytes)];
+    let mut metadata = [quinn::udp::RecvMeta::default()];
+    let mut context = Context::from_waker(Waker::noop());
+    socket.poll_recv(&mut context, &mut buffers, &mut metadata).map(|result| result.map(|_| bytes[0]))
+}
+
+// cancel-safe: the probes complete each poll without a detached operation.
+#[tokio::test]
+async fn continuously_readable_previous_and_current_paths_both_receive() {
+    let socket = receive_adapter();
+    socket.replace_socket(probe_path(ReceiveResult::Data(1), None), false).unwrap();
+    socket.replace_socket(probe_path(ReceiveResult::Data(2), None), false).unwrap();
+    for expected in [2, 1, 2, 1, 2, 1] {
+        assert!(matches!(poll_byte(&socket), Poll::Ready(Ok(byte)) if byte == expected));
+    }
+}
+
+// cancel-safe: all receive results and rebinds are synchronous probes.
+#[tokio::test]
+async fn previous_receive_error_is_retired_but_current_error_is_fatal() {
+    let socket = receive_adapter();
+    socket.replace_socket(probe_path(ReceiveResult::Error, None), false).unwrap();
+    socket.replace_socket(probe_path(ReceiveResult::Data(2), None), false).unwrap();
+    socket.lock().unwrap().receive_previous_first = true;
+    assert!(matches!(poll_byte(&socket), Poll::Ready(Ok(2))));
+    assert!(socket.lock().unwrap().previous.is_none());
+    socket.replace_socket(probe_path(ReceiveResult::Error, None), false).unwrap();
+    assert!(matches!(poll_byte(&socket), Poll::Ready(Err(error)) if error.kind() == io::ErrorKind::ConnectionReset));
+}
+
+// cancel-safe: the hook changes the path within the poll and owns no async work.
+#[tokio::test]
+async fn current_snapshot_error_after_rebind_does_not_fail_the_new_current() {
+    let socket = receive_adapter();
+    let replacement = probe_path(ReceiveResult::Data(3), None);
+    let weak = Arc::downgrade(&socket);
+    let next = replacement.clone();
+    let failing = probe_path(
+        ReceiveResult::Error,
+        Some(Box::new(move || weak.upgrade().unwrap().replace_socket(next, false).unwrap())),
+    );
+    socket.replace_socket(failing, false).unwrap();
+    assert!(poll_byte(&socket).is_pending());
+    assert!(socket.lock().unwrap().previous.is_none());
+    assert!(Arc::ptr_eq(socket.lock().unwrap().current.as_ref().unwrap(), &replacement));
+    assert!(matches!(poll_byte(&socket), Poll::Ready(Ok(3))));
+}
+
+// cancel-safe: the hook changes the path within the poll and owns no async work.
+#[tokio::test]
+async fn retired_snapshot_error_does_not_remove_the_new_previous() {
+    let socket = receive_adapter();
+    let replacement = probe_path(ReceiveResult::Data(3), None);
+    let weak = Arc::downgrade(&socket);
+    let next = replacement.clone();
+    let failing = probe_path(
+        ReceiveResult::Error,
+        Some(Box::new(move || weak.upgrade().unwrap().replace_socket(next, false).unwrap())),
+    );
+    socket.replace_socket(failing, false).unwrap();
+    let retained = probe_path(ReceiveResult::Pending, None);
+    socket.replace_socket(retained.clone(), false).unwrap();
+    socket.lock().unwrap().receive_previous_first = true;
+    assert!(poll_byte(&socket).is_pending());
+    assert!(Arc::ptr_eq(socket.lock().unwrap().previous.as_ref().unwrap(), &retained));
+    assert!(Arc::ptr_eq(socket.lock().unwrap().current.as_ref().unwrap(), &replacement));
+    assert!(matches!(poll_byte(&socket), Poll::Ready(Ok(3))));
+}
+
+// cancel-safe: stopping the local adapter drops all paths before the poll returns.
+#[tokio::test]
+async fn stop_during_receive_never_returns_data_or_pending() {
+    for result in [ReceiveResult::Data(1), ReceiveResult::Error, ReceiveResult::Pending] {
+        let socket = receive_adapter();
+        let weak = Arc::downgrade(&socket);
+        let path = probe_path(result, Some(Box::new(move || weak.upgrade().unwrap().stop())));
+        socket.replace_socket(path, false).unwrap();
+        assert!(matches!(poll_byte(&socket), Poll::Ready(Err(error)) if error.kind() == io::ErrorKind::NotConnected));
+    }
+}

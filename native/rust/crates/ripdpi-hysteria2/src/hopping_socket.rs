@@ -57,6 +57,7 @@ struct State {
     previous: Option<Arc<PathSocket>>,
     remote_index: usize,
     generation: u64,
+    receive_previous_first: bool,
     receiver: Option<Waker>,
     writers: Vec<Weak<Mutex<WriterState>>>,
 }
@@ -88,6 +89,7 @@ impl HoppingSocket {
                 previous: None,
                 remote_index,
                 generation: 0,
+                receive_previous_first: false,
                 receiver: None,
                 writers: Vec::new(),
             }),
@@ -122,6 +124,7 @@ impl HoppingSocket {
                 state.remote_index = self.policy.next_index(state.remote_index, &mut rand::rng());
             }
             state.generation = state.generation.wrapping_add(1);
+            state.receive_previous_first = false;
             take_wakers(&mut state)
         };
         for waker in wakers {
@@ -158,6 +161,27 @@ impl HoppingSocket {
                 self.stop();
                 return Err(error);
             }
+        }
+        Ok(())
+    }
+
+    fn is_live_receive_path(&self, socket: &Arc<PathSocket>) -> io::Result<bool> {
+        let state = self.lock()?;
+        let current = state.current.as_ref().ok_or_else(stopped)?;
+        Ok(Arc::ptr_eq(current, socket)
+            || state.previous.as_ref().is_some_and(|previous| Arc::ptr_eq(previous, socket)))
+    }
+
+    fn handle_receive_error(&self, socket: &Arc<PathSocket>, error: io::Error) -> io::Result<()> {
+        let mut state = self.lock()?;
+        let current = state.current.as_ref().ok_or_else(stopped)?;
+        if Arc::ptr_eq(current, socket) {
+            return Err(error);
+        }
+        // A poll snapshot can change role during rebind. Retire only the exact
+        // obsolete socket; an already-retired snapshot must not clear its successor.
+        if state.previous.as_ref().is_some_and(|previous| Arc::ptr_eq(previous, socket)) {
+            state.previous = None;
         }
         Ok(())
     }
@@ -253,19 +277,37 @@ impl AsyncUdpSocket for HoppingSocket {
             return Poll::Ready(Err(io::Error::new(io::ErrorKind::InvalidInput, "missing Hysteria receive buffer")));
         }
         self.poll_hop(cx)?;
-        let (current, previous) = {
+        let paths = {
             let mut state = self.lock()?;
             state.receiver = Some(cx.waker().clone());
-            (state.current.clone().ok_or_else(stopped)?, state.previous.clone())
+            let current = Some(state.current.clone().ok_or_else(stopped)?);
+            let previous = state.previous.clone();
+            let paths = if state.receive_previous_first { [previous, current] } else { [current, previous] };
+            state.receive_previous_first = !state.receive_previous_first;
+            paths
         };
-        // Bound discarded traffic per poll so an unrelated sender cannot monopolize
-        // the endpoint driver. Poll both paths even when one has no pending data.
-        for socket in [previous, Some(current)].into_iter().flatten() {
+        // Alternate first choice so a continuously readable path cannot starve
+        // the other. Bound unrelated traffic on each path within one poll.
+        for socket in paths.into_iter().flatten() {
+            if !self.is_live_receive_path(&socket)? {
+                cx.waker().wake_by_ref();
+                continue;
+            }
             for attempt in 0..32 {
                 match socket.io.poll_recv(cx, &mut bufs[..1], &mut meta[..1]) {
                     Poll::Ready(Ok(0)) | Poll::Pending => break,
-                    Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                    Poll::Ready(Err(error)) => {
+                        self.handle_receive_error(&socket, error)?;
+                        // A rebind can install a new current path after the snapshot.
+                        // Request another poll even if neither saved path has data.
+                        cx.waker().wake_by_ref();
+                        break;
+                    }
                     Poll::Ready(Ok(_)) => {
+                        if !self.is_live_receive_path(&socket)? {
+                            cx.waker().wake_by_ref();
+                            break;
+                        }
                         if meta[0].addr.ip() == self.logical_peer.ip() && self.policy.contains_port(meta[0].addr.port())
                         {
                             meta[0].addr = self.logical_peer;
@@ -277,6 +319,9 @@ impl AsyncUdpSocket for HoppingSocket {
                     }
                 }
             }
+        }
+        if self.lock()?.current.is_none() {
+            return Poll::Ready(Err(stopped()));
         }
         Poll::Pending
     }

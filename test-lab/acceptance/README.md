@@ -54,7 +54,7 @@ one authenticated connection, persistent TCP/UDP payloads and cleanup are mandat
 The Linux PR job also checks the adapter's GRO receive-buffer capability.
 For direct Kotlin serializer input, set `RIPDPI_HYSTERIA_WIRE_FIXTURE_DIR` to the
 existing engine test's `build/reports/hysteria-hopping-wire` directory after
-`RelayNativeConfigTest` has generated `peer-flat-fixed.json` and
+`HysteriaHoppingWireTest` has generated `peer-flat-fixed.json` and
 `peer-flat-random.json`. The runner binds their three exact ports and keeps their
 policy values. Missing, malformed or conflicting fixtures fail the run; it does
 not fall back to a native specimen when a fixture directory was requested.
