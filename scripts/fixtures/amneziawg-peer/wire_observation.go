@@ -70,7 +70,10 @@ func (o *wireObservation) observe(packet []byte, inbound bool) {
 		}
 	}
 	for index, padding := range []int{8, 12, 0, 0} {
-		if len(packet) < padding+4 {
+		// Match the pinned peer's size checks before interpreting a header.
+		// A transport counter occupies the same offset as the padded H1 header.
+		size := padding + []int{148, 92, 64, 32}[index]
+		if (index < 3 && len(packet) != size) || (index == 3 && len(packet) < size) {
 			continue
 		}
 		header := binary.LittleEndian.Uint32(packet[padding : padding+4])
