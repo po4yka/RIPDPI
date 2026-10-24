@@ -74,10 +74,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Preserve compiler outputs between runners, including standalone Rust jobs.
-  SCCACHE_GHA_ENABLED: "true"
-
 concurrency:
   group: >-
     ${{ github.event_name == 'pull_request'
@@ -429,8 +425,6 @@ jobs:
           gradle-cache-read-only: "true"
 
       - name: Build Rust native libraries + helper binaries for ${{ matrix.abi.name }}
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           ./gradlew \
             :core:engine:buildRustNativeLibs \
@@ -539,8 +533,6 @@ jobs:
           gradle-cache-read-only: "true"
 
       - name: Build Rust native libraries + helper binaries for x86_64
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           ./gradlew \
             :core:engine:buildRustNativeLibs \
@@ -655,7 +647,6 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: "false"
           gradle-cache-read-only: "true"
 
@@ -714,8 +705,6 @@ jobs:
           gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Build source-pinned pluggable transport assets
-        env:
-          RUSTC_WRAPPER: sccache
         run: >-
           ./gradlew :core:engine:buildPluggableTransportAssets
           --profile
@@ -779,7 +768,6 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: "false"
           gradle-cache-read-only: "true"
 
@@ -1068,7 +1056,6 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: ${{ matrix.shard.id == 'github' }}
           gradle-cache-read-only: "true"
           embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
@@ -1384,20 +1371,12 @@ jobs:
           shared-key: diagnostics-probes-facade
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
       # The compat-facade feature is default-on; the diagnostics-probes crate
       # must compile with it OFF (root exports unconditional) and ON.
       - name: Check ripdpi-diagnostics-probes (compat-facade OFF)
-        env:
-          RUSTC_WRAPPER: sccache
         run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --locked
 
       - name: Check ripdpi-diagnostics-probes (compat-facade ON)
-        env:
-          RUSTC_WRAPPER: sccache
         run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
 
       - uses: ./.github/actions/upload-build-observability
@@ -1430,13 +1409,7 @@ jobs:
           shared-key: rust-host
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
       - name: Run Rust lint checks
-        env:
-          RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-lint.sh
 
       - uses: ./.github/actions/upload-build-observability
@@ -1465,8 +1438,6 @@ jobs:
           setup-gradle: "false"
 
       - name: Run Android ABI cross-compilation checks
-        env:
-          RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-cross-check.sh
 
       - uses: ./.github/actions/upload-build-observability
@@ -1498,18 +1469,12 @@ jobs:
           shared-key: rust-host
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
       - name: Install cargo-nextest
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-nextest
 
       - name: Run Rust workspace tests and architecture checks
-        env:
-          RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-workspace-tests.sh
 
       - uses: ./.github/actions/upload-build-observability
@@ -1834,7 +1799,6 @@ jobs:
           rust-targets: ""
           setup-rust: "false"
           setup-android-ndk: "false"
-          setup-sccache: "false"
           # Kotlin coverage owns the default Gradle build-cache namespace on main.
           # The transport producer writes to a separate namespace so it cannot
           # reserve the immutable SHA key before coverage fills this cache.
@@ -1894,7 +1858,6 @@ jobs:
           setup-gradle: "false"
           skip-android-sdk-ndk: "true"
           setup-android-ndk: "false"
-          setup-sccache: "false"
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
@@ -2161,8 +2124,6 @@ jobs:
             "system-images/android-34/aosp_atd/x86_64"
 
       - name: Run macrobenchmarks on managed device
-        env:
-          RUSTC_WRAPPER: sccache
         run: |
           ./gradlew :baselineprofile:pixel6Api34AtdDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=x86_64 \
@@ -2215,7 +2176,6 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: "false"
           gradle-cache-read-only: "true"
           embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
@@ -2321,7 +2281,6 @@ jobs:
           setup-java: "false"
           setup-gradle: "false"
           setup-rust: "false"
-          setup-sccache: "false"
           setup-android-ndk: "false"
 
       - name: Download instrumentation APK bundle
@@ -2674,7 +2633,6 @@ jobs:
           rust-targets: ""
           setup-rust: "false"
           setup-android-ndk: "false"
-          setup-sccache: "false"
           gradle-cache-read-only: "true"
 
       - name: Generate Kotlin coverage reports
@@ -2715,7 +2673,6 @@ jobs:
           setup-gradle: "false"
           skip-android-sdk-ndk: "true"
           setup-android-ndk: "false"
-          setup-sccache: "false"
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29

@@ -1,5 +1,5 @@
 name: Setup Android + Rust
-description: Shared setup for Java, Rust toolchain, Android SDK/NDK, sccache, and Gradle
+description: Shared setup for Java, Rust toolchain, Android SDK/NDK, and Gradle
 
 inputs:
   rust-components:
@@ -40,10 +40,6 @@ inputs:
     default: "true"
   setup-rust:
     description: Whether to install Rust, its cache, and targets
-    required: false
-    default: "true"
-  setup-sccache:
-    description: Whether to install sccache for Rust compilation
     required: false
     default: "true"
   setup-gradle:
@@ -182,11 +178,6 @@ runs:
         bash scripts/ci/android-sdk-install.sh
         "ndk/${{ steps.native-toolchain.outputs.ndk }}"
         "cmake/${{ steps.native-toolchain.outputs.cmake }}"
-
-    - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
-      if: inputs.setup-rust == 'true' && inputs.setup-sccache == 'true'
-      env:
-        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     - name: Configure shared Gradle build cache
       if: inputs.setup-gradle == 'true'

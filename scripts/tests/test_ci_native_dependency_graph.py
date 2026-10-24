@@ -468,15 +468,11 @@ class NativeDependencyGraphTest(unittest.TestCase):
             with self.subTest(job=job_name):
                 source = job_source(job_name)
                 self.assertIn('setup-rust: "false"', source)
-                self.assertIn('setup-sccache: "false"', source)
                 self.assertIn('setup-android-ndk: "false"', source)
-                self.assertNotIn("RUSTC_WRAPPER: sccache", source)
 
         release = job_source("release-verification")
         self.assertIn('setup-rust: "false"', release)
-        self.assertIn('setup-sccache: "false"', release)
         self.assertIn("setup-android-ndk: ${{ matrix.shard.id == 'github' }}", release)
-        self.assertNotIn("RUSTC_WRAPPER: sccache", release)
 
     def test_pt_producer_is_source_only_and_consumers_bind_manifest_digest(self) -> None:
         producer = job_source("pluggable-transport-assets")

@@ -12,10 +12,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Reuse the compiler cache populated by main CI.
-  SCCACHE_GHA_ENABLED: "true"
-
 concurrency:
   group: release-candidate-${{ inputs.release_tag }}
   cancel-in-progress: false
@@ -129,8 +125,6 @@ jobs:
           gradle-cache-read-only: "true"
 
       - name: Build source-pinned pluggable transport assets
-        env:
-          RUSTC_WRAPPER: sccache
         run: >-
           ./gradlew :core:engine:buildPluggableTransportAssets
           -Pripdpi.pluggableTransportAssetsMode=source
@@ -256,7 +250,6 @@ jobs:
 
       - name: Build signed release candidate once
         env:
-          RUSTC_WRAPPER: sccache
           RIPDPI_SIGNING_STORE_FILE: ${{ runner.temp }}/release.keystore
           RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

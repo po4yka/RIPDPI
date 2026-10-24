@@ -127,7 +127,6 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         source = SETUP_ACTION.read_text(encoding="utf-8")
         self.assertIn("setup-java:\n", source)
         self.assertIn("setup-rust:\n", source)
-        self.assertIn("setup-sccache:\n", source)
         self.assertIn("setup-android-ndk:\n", source)
         self.assertIn("if: inputs.setup-java == 'true'", source)
         self.assertIn("if: inputs.setup-rust == 'true'", source)
@@ -155,7 +154,6 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
                 job = workflow_job(CI_WORKFLOW.read_text(encoding="utf-8"), job_name)
                 self.assertIn('setup-rust: "false"', job)
                 self.assertIn('setup-android-ndk: "false"', job)
-                self.assertIn('setup-sccache: "false"', job)
                 self.assertIn("coverageReport -Pripdpi.skipNativeBuild=true", job)
 
     def test_pr_coverage_jobs_use_their_respective_change_route(self) -> None:
