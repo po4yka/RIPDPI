@@ -3,15 +3,46 @@
 ## Purpose
 Select usable encrypted relay paths using bounded authenticated payload transfers,
 while preserving network lifecycle ownership and avoiding unstable retry loops.
+Admit explicitly opted-in transfer-quality controls without weakening existing
+authenticated payload fallback or creating a second profile selector.
 
 ## Requirements
 
 ### Requirement: REQ-PAYLOAD-IMPORT — Admit the explicit policy
 
-The importer MUST validate and persist a versioned `ripdpi.payload_failover`
-extension bound to the imported selector. It MUST reject malformed supplied
-policies, unsupported versions, invalid bounds and controls with the same origin.
-Ordinary bundles without the extension SHALL retain their URL-test policy.
+The importer MUST validate and persist schema 2 of `ripdpi.payload_failover`,
+bound to the imported selector. It MUST reject unsupported versions, unknown
+fields, invalid bounds, selector mismatch and controls with the same origin
+before any profile mutation. Quality controls MUST meet the field and budget
+constraints below. Ordinary bundles without the extension SHALL retain URLTest
+behavior.
+
+#### Scenario: Coordinated schema-2 import
+
+- **WHEN** the producer emits a valid optional quality policy with two HTTPS controls
+- **THEN** the complete selector policy persists without dropping quality fields
+
+#### Scenario: Unsupported or undersized policy
+
+- **WHEN** schema 1, an unknown quality field or an insufficient pass budget is supplied
+- **THEN** import fails atomically, including any AWG entries in the same source
+
+#### Scenario: Quality is absent
+
+- **WHEN** a valid schema-2 payload policy has no quality object
+- **THEN** the policy SHALL retain payload-health fallback and SHALL NOT launch quality measurements
+
+#### Scenario: Bounded control objects
+
+- **WHEN** a schema-2 payload policy is admitted
+- **THEN** each control object MUST contain 32,768 through 1,048,576 bytes
+
+#### Scenario: Exact quality fields and byte capacity
+
+- **WHEN** a policy contains optional `quality`
+- **THEN** it MUST contain exactly `max_pass_bytes`, `max_window_bytes`, `window_seconds`, `minimum_gain_percent` and `maximum_loaded_latency_increase_ms`
+- **AND** pass capacity MUST cover twice the sum of both expected body sizes plus one overrun byte per body
+- **AND** window capacity MUST cover the pass, and the window MUST cover the policy interval
 
 #### Scenario: Coordinated bundle import
 

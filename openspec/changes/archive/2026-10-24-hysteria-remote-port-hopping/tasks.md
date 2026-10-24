@@ -10,10 +10,10 @@ Kotlin lane owns runtime-state/data/service/engine-api model, import, storage, a
 
 ## Execution
 
-- [ ] OUT-1792820587825821 Normalize standard Hysteria hopping imports and migrate persisted policy with boundary tests #feature !high @item:OUT-1792820412611017
-- [ ] OUT-1792820588684825 Preserve validated hopping policy through activation and direct or chain native JSON with contract tests #feature !high @item:OUT-1792820412611017
-- [ ] OUT-1792820589483909 Implement protected scheduled local and remote UDP rotation with lifecycle and Salamander tests #feature !high @item:OUT-1792820412611017
-- [ ] OUT-1792820590309126 Prove sustained TCP and UDP hopping with the pinned peer across address families and run combined gates #feature !high @item:OUT-1792820412611017
+- [x] OUT-1792820587825821 Normalize standard Hysteria hopping imports and migrate persisted policy with boundary tests #feature !high @item:OUT-1792820412611017
+- [x] OUT-1792820588684825 Preserve validated hopping policy through activation and direct or chain native JSON with contract tests #feature !high @item:OUT-1792820412611017
+- [x] OUT-1792820589483909 Implement protected scheduled local and remote UDP rotation with lifecycle and Salamander tests #feature !high @item:OUT-1792820412611017
+- [x] OUT-1792820590309126 Prove sustained TCP and UDP hopping with the pinned peer across address families and run combined gates #feature !high @item:OUT-1792820412611017
 
 ## Verification
 
