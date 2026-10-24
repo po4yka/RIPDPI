@@ -240,8 +240,8 @@ class SingBoxRipdpiExtensionParserTest {
         assertEquals("hy2-secret", hy2.password)
         assertEquals("my-salamander-key", hy2.obfsPassword)
         assertEquals(false, hy2.insecure)
-        assertEquals("20000-40000", hy2.portHopPorts)
-        assertEquals("30s", hy2.portHopInterval)
+        assertEquals("20000-40000", hy2.portHopping?.ports)
+        assertEquals(30000L, hy2.portHopping?.intervalMillis)
     }
 
     @Test
@@ -322,8 +322,7 @@ class SingBoxRipdpiExtensionParserTest {
         val hy2 = result.profiles[0] as ProxyProfile.Hysteria2
         assertNull(hy2.obfsPassword)
         assertNull(hy2.insecure)
-        assertNull(hy2.portHopPorts)
-        assertNull(hy2.portHopInterval)
+        assertNull(hy2.portHopping)
     }
 
     // -------------------------------------------------------------------------

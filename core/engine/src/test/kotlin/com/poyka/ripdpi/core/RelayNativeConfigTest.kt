@@ -10,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * Pins the [ResolvedRipDpiRelayConfig] wire contract and proves the
@@ -145,6 +146,41 @@ class RelayNativeConfigTest {
 
         assertTrue(encoded.contains("\"schemaVersion\":10"))
         assertEquals(config, decoded.toSections().toResolvedConfig())
+    }
+
+    @Test
+    fun `hopping chain entry survives JSON and section round trips`() {
+        val config = threeHopChainRelayConfig()
+        val hopping =
+            config.chainHops.first().copy(
+                kind = "hysteria2",
+                hysteriaPassword = placeholder(50),
+                hysteriaSalamanderKey = placeholder(51),
+                hysteriaInsecure = true,
+                hysteriaPinSha256 = "ab".repeat(32),
+                hysteriaPortHopPorts = "20000-21000",
+                hysteriaPortHopIntervalMillis = 5000L,
+                hysteriaPortHopIntervalMaxMillis = 15000L,
+            )
+        val expected = config.copy(chainHops = listOf(hopping) + config.chainHops.drop(1), chainEntry = hopping)
+        val wire = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), expected)
+        val decoded = json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), wire)
+        assertEquals(expected, decoded.toSections().toResolvedConfig())
+        assertEquals(hopping, decoded.chainHops.first())
+        val directory = File("build/reports/hysteria-hopping-wire").apply { mkdirs() }
+        File(directory, "chain.json").writeText(wire)
+        val flat =
+            baseConfig("hysteria2").copy(
+                tlsFingerprintProfile = hopping.tlsFingerprintProfile,
+                hysteriaPassword = hopping.hysteriaPassword,
+                hysteriaSalamanderKey = hopping.hysteriaSalamanderKey,
+                hysteriaInsecure = hopping.hysteriaInsecure,
+                hysteriaPinSha256 = hopping.hysteriaPinSha256,
+                hysteriaPortHopPorts = hopping.hysteriaPortHopPorts,
+                hysteriaPortHopIntervalMillis = hopping.hysteriaPortHopIntervalMillis,
+                hysteriaPortHopIntervalMaxMillis = hopping.hysteriaPortHopIntervalMaxMillis,
+            )
+        File(directory, "flat.json").writeText(json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), flat))
     }
 
     @Test
@@ -403,6 +439,9 @@ class RelayNativeConfigTest {
             hysteriaSalamanderKey = "hysteria-salamander-key",
             hysteriaInsecure = true,
             hysteriaPinSha256 = "ab".repeat(32),
+            hysteriaPortHopPorts = "5000-5010,8443",
+            hysteriaPortHopIntervalMillis = 5000,
+            hysteriaPortHopIntervalMaxMillis = 15000,
         )
 
     private fun anyTlsConfig(): ResolvedRipDpiRelayConfig =
@@ -631,6 +670,9 @@ class RelayNativeConfigTest {
             hysteriaSalamanderKey = "hysteria-salamander-key",
             hysteriaInsecure = true,
             hysteriaPinSha256 = "ab".repeat(32),
+            hysteriaPortHopPorts = "5000-5010,8443",
+            hysteriaPortHopIntervalMillis = 5000,
+            hysteriaPortHopIntervalMaxMillis = 15000,
             anyTlsPassword = placeholder(11),
             tuicUuid = "tuic-uuid",
             tuicPassword = placeholder(2),
@@ -740,6 +782,9 @@ class RelayNativeConfigTest {
                 "hysteriaSalamanderKey",
                 "hysteriaInsecure",
                 "hysteriaPinSha256",
+                "hysteriaPortHopPorts",
+                "hysteriaPortHopIntervalMillis",
+                "hysteriaPortHopIntervalMaxMillis",
                 "anytlsPassword",
                 "tuicUuid",
                 "tuicPassword",

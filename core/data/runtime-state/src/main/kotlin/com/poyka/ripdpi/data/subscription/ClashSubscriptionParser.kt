@@ -137,6 +137,13 @@ object ClashSubscriptionParser {
             }
 
             "hysteria2", "hy2" -> {
+                val hopping = clashHysteria2PortHopping(node)
+                val port =
+                    if (node.entries.keys.any { it.content == "port" }) {
+                        node.requirePort("port", index)
+                    } else {
+                        requireNotNull(hopping?.firstPort) { "Hysteria requires a port or hopping ports" }
+                    }
                 val obfsType = node.string("obfs")
                 require(obfsType == null || obfsType.equals("salamander", ignoreCase = true)) {
                     "node $index hysteria2 uses unsupported obfs '$obfsType'"
@@ -157,12 +164,13 @@ object ClashSubscriptionParser {
                     displayName = name,
                     groupId = groupId,
                     server = node.requireString("server", index),
-                    serverPort = node.requirePort("port", index),
+                    serverPort = port,
                     password = node.requireString("password", index),
                     serverName = node.string("sni") ?: node.string("servername"),
                     obfsPassword = node.string("obfs-password"),
                     insecure = if (pinSha256 != null) true else skipCertVerify,
                     pinSha256 = pinSha256,
+                    portHopping = hopping,
                 )
             }
 

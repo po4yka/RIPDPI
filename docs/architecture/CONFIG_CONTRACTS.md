@@ -404,6 +404,27 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   `RelayNativeConfigTest` (Kotlin `chainHops` 3-hop trip) and
   `ripdpi-relay-core::tests` (`chain_relay_three_hop_list_round_trips_through_flat_wire`,
   `chain_relay_wire_rejects_out_of_range_hop_count`).
+- Hysteria2 uses one validated `Hysteria2PortHopping` value across subscription
+  import, stored profiles, backup restore, selector projection, and activation.
+  Its ports are a canonical comma-separated set of single ports and hyphen
+  ranges. Cadence is exact whole milliseconds: minimum 5000, maximum
+  9223372036854, with an optional larger randomized maximum. The nominal
+  `serverPort` never expands a configured hopping destination set. The flat
+  relay and each chain hop carry `hysteriaPortHopPorts`,
+  `hysteriaPortHopIntervalMillis`, and `hysteriaPortHopIntervalMaxMillis`.
+  Chain entries also retain `hysteriaInsecure` and `hysteriaPinSha256`.
+  Without hopping all three fields are absent. A schema bump is not required
+  for these optional fields; Kotlin and Rust must be released together.
+  Stored legacy `portHopPorts` / `portHopInterval` values migrate before typed
+  group decode and must persist before exposure. Pending refresh journals and
+  explicit backups use the same conversion. Migration does not recreate
+  receipt authority; a changed content fingerprint requires refresh or reimport
+  of the delivery, followed by a new path check. This also applies to old
+  Hysteria profiles whose dormant hopping fields were null.
+  Sing-box uses `server_ports` and duration strings; Clash uses `ports` and
+  second-based `hop-interval`. Official Hysteria URI multiport authorities use
+  commas and hyphens. URI `hopInterval` or paired `minHopInterval` /
+  `maxHopInterval` are explicit application extensions for cadence.
 - Relay native runtime config also carries the additive `socketProtection` enum (`inactive` / `vpn_required`). It is runtime-owned rather than persisted profile state: the proxy service always writes `inactive`, the VPN service always writes `vpn_required`, and Rust defaults a missing field to `inactive`. Schema 10 retains this inert default; only TLS fingerprint identity became mandatory. Dialers must use the value as policy; callback presence is only lifecycle state and must never decide whether protection is required.
 - The **proxy native config** carries `schemaVersion` on every
   `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust

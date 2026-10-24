@@ -1,0 +1,116 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "https",
+        "tag": "remote",
+        "server": "1.1.1.1",
+        "detour": "select"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-upcloud-fixture",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "password": "fixture-device:synthetic-password",
+      "tls": {
+        "enabled": true,
+        "server_name": "owned.example.test"
+      },
+      "up_mbps": 200,
+      "down_mbps": 100,
+      "obfs": {
+        "type": "salamander",
+        "password": "synthetic-obfs-first"
+      },
+      "server_ports": [
+        "20000:21000"
+      ],
+      "hop_interval": "45s"
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": [
+        "p2-hysteria2-upcloud-fixture",
+        "auto"
+      ],
+      "default": "auto",
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "p2-hysteria2-upcloud-fixture"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      }
+    ],
+    "final": "select",
+    "auto_detect_interface": true
+  },
+  "ripdpi": {
+    "schema_version": 1,
+    "amneziawg": [],
+    "hysteria_extras": {
+      "p2-hysteria2-upcloud-fixture": {
+        "insecure": false,
+        "obfs": {
+          "type": "salamander",
+          "password": "synthetic-obfs-first"
+        },
+        "salamander_upstream_tag": "v2.13.0",
+        "port_hopping": {
+          "ports": "20000:21000",
+          "interval": "45s"
+        }
+      }
+    },
+    "topology": {
+      "split_hop_egress": false,
+      "hysteria_realm": null
+    }
+  }
+}
