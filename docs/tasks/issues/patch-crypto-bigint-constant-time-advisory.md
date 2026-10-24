@@ -2,7 +2,7 @@
 id: RST-1792822623929592
 title: Patch crypto-bigint constant-time advisory
 kind: chore
-status: review
+status: done
 area: rust-native
 priority: high
 owner: primary
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-24
 updated: 2026-10-24
 spec_reason: dependency-only
+closed_at: "2026-10-24T11:19:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: PR659 head fb4e8ba5539f43481ea1f504b71be7b2a9d3055d passed CI40069960190; merged main da73e19858b00d362d6f8eb41271e6e273b3b3cd passed CI40073180307. Full cargo-deny, 35 SSH unit tests, seven loopback tests and three independent upstream SSH cases passed with crypto-bigint0.7.6 and ctutils0.4.5. Lockfile remains unchanged in accepted main e22c8d66.
 ---
 
 ## Goal

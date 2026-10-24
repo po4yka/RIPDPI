@@ -2,7 +2,7 @@
 id: OUT-1792820412611017
 title: Implement Hysteria2 remote port hopping
 kind: feature
-status: review
+status: done
 area: outbound
 priority: high
 owner: Transport implementation
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: hysteria-remote-port-hopping
 created: 2026-10-24
 updated: 2026-10-24
+closed_at: "2026-10-24T11:19:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Source PR 661 merged as e22c8d66d8fa0c9245eb5bf8ef802e24028d0f48; main CI 40085973754 passed. Targeted Kotlin/native tests, full static analysis, eight real hopping peer cases, Linux GRO and four Android ABI builds passed. Artifact 12556472475 passed the canonical six-APK verifier. No physical-device or production acceptance is claimed.
 ---
 
 ## Goal

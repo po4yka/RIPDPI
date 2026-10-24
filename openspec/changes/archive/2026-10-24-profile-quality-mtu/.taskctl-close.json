@@ -1,0 +1,11 @@
+{
+  "change": "profile-quality-mtu",
+  "evidence_summary": "Merged quality source and production storage fix are included in e22c8d66d8fa0c9245eb5bf8ef802e24028d0f48; main CI 40085973754 passed. Verified exact-main artifacts contain ten native quality passes across five Android APIs and the API35 REALITY quality pass, with no required-test skips. Local, UI, PMTU and migration regressions passed; withdrawn PR658 was not used as closure evidence.",
+  "execution_sha256": "565ba60e825245fef4370377223e533e3e34bce0f95a251c4d1652bc5ae8e749",
+  "issue_sha256": "4a677e307360d1e6220b424435b30806a5d3642976e44efa74b56222f065e8b7",
+  "outcome": "done",
+  "prepared_at": "2026-10-24T11:19:21Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1792759596946903"
+}
