@@ -460,6 +460,14 @@ rejected before any member mutation. The enclosing bundle schema is unchanged.
 The canonical producer schema and example are mirrored under
 `core/data/src/test/resources/contract/`.
 
+Previously accepted local schema-1 health policies upgrade inside
+`ProxyGroupSchema.read`, before the strict current model decodes the catalogue.
+Both stored group schema versions use this boundary. The sealed store checks the
+complete catalogue and commits changed bytes before returning them, including
+when the outer group schema is already current. The upgrade preserves credentials,
+unrelated raw fields and current ownership generations. Failed writes publish no
+catalogue. This local upgrade does not admit schema 1 at the external import boundary.
+
 Each of the two distinct HTTPS origins supplies a 32 KiB–1 MiB body with an exact
 length and SHA-256. Existing candidate runtime owners verify the body through
 SOCKS without redirects, compression or direct fallback. Reality TCP uses the

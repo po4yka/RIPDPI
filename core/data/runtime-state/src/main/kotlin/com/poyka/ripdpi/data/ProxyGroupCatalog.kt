@@ -71,14 +71,8 @@ class ProxyGroupCatalog
             }
         }
 
-        private fun readGroups(): List<ProxyGroup> {
-            val stored = blobStore.read() ?: return emptyList()
-            val migrated = migrateStoredHealthPolicy(stored)
-            val groups = RipDpiJson.decodeFromString(serializer, migrated)
-            // Validate the entire catalogue before the checked durable write. Publication follows later.
-            if (migrated != stored) blobStore.write(migrated)
-            return groups
-        }
+        private fun readGroups(): List<ProxyGroup> =
+            blobStore.read()?.let { RipDpiJson.decodeFromString(serializer, it) } ?: emptyList()
 
         private fun writeGroups(groups: List<ProxyGroup>) {
             val ordered = groups.sortedBy(ProxyGroup::order)
