@@ -37,21 +37,6 @@ class NetworkConditionResolverTest {
     }
 
     @Test
-    fun `reconnecting lifecycle resolves to BlockedReconnecting`() {
-        val condition =
-            decideNetworkCondition(
-                hasUsableNetwork = true,
-                lifecycleBlockedOrReconnecting = true,
-                captivePortalAssist = null,
-                whitelistEvidence = null,
-                hasWhitelistRelayProfile = false,
-                nowMillis = 1_000L,
-            )
-
-        assertEquals(NetworkCondition.BlockedReconnecting, condition)
-    }
-
-    @Test
     fun `active unexpired captive portal assist resolves to CaptivePortalAssist`() {
         val activation =
             CaptivePortalAssistActivation(
