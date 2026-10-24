@@ -12,18 +12,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "ROOT=$(git -c core.fsmonitor=false rev-parse --show-toplevel 2>/dev/null || pwd); bash \"$ROOT/.claude/scripts/rust-postedit-check.sh\"",
-            "timeout": 120
-          }
-        ]
-      }
-    ],
     "SubagentStop": [
       {
         "hooks": [

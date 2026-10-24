@@ -209,7 +209,7 @@ harness-check:
     python3 scripts/ci/check_harness_policy.py
     python3 scripts/ci/check_harness_cargo_locked.py
     python3 scripts/tests/test_agent_hooks.py
-    python3 -m unittest scripts.tests.test_check_harness_cargo_locked scripts.tests.test_check_harness_links scripts.tests.test_check_harness_manifests scripts.tests.test_network_surface_scanner scripts.tests.test_checkout_doctor scripts.tests.test_cargo_guarded
+    python3 -m unittest scripts.tests.test_check_harness_cargo_locked scripts.tests.test_check_harness_links scripts.tests.test_check_harness_manifests scripts.tests.test_network_surface_scanner scripts.tests.test_checkout_doctor scripts.tests.test_cargo_guarded scripts.tests.test_staged_rust_crates
 
 # Regenerate the module dependency graph (docs/architecture/MODULE_GRAPH.md)
 [group('lint')]

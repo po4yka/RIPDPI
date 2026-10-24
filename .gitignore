@@ -69,9 +69,8 @@ docs/superpowers/
 
 # Local-only regulatory-framing review skill (Claude Code + Codex).
 # Reviews public *.md edits against the Russian regulatory regime around
-# VPN/circumvention advertising. Wired up via the PostToolUse hook in
-# .claude/settings.json. Local to each contributor's machine; never
-# committed.
+# VPN/circumvention advertising. Wired up through each contributor's local
+# settings; never committed.
 .claude/skills/legal-check/
 .codex/agents/legal-check.toml
 

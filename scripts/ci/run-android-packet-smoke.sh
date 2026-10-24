@@ -19,7 +19,6 @@ gradle_abi_override="${RIPDPI_LOCAL_NATIVE_ABI:-}"
 android_serial="${ANDROID_SERIAL:-}"
 app_package="com.poyka.ripdpi"
 debug_probe_component="com.poyka.ripdpi/.debug.DebugNetworkProbeReceiver"
-gradle_fresh_build_args=(--rerun-tasks --no-build-cache -Pkotlin.incremental=false)
 
 fixture_pid_file=""
 fixture_manifest=""
@@ -234,7 +233,7 @@ install_physical_indirect_builds() {
     install_log="$(mktemp)"
     set +e
     ANDROID_SERIAL="$android_serial" \
-    ./gradlew "${gradle_fresh_build_args[@]}" \
+    ./gradlew \
         :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest :app:installGithubFullDebug :app:installGithubFullDebugAndroidTest \
         "-Pripdpi.nativeAbisOverride=${gradle_abi}" >"$install_log" 2>&1
     status=$?
@@ -823,7 +822,7 @@ if [[ "$device_profile" == "physical_indirect" ]]; then
     require_run_as
 else
     ANDROID_SERIAL="$android_serial" \
-    ./gradlew "${gradle_fresh_build_args[@]}" \
+    ./gradlew \
         :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest "-Pripdpi.nativeAbisOverride=${gradle_abi}" >/dev/null
 fi
 

@@ -64,10 +64,14 @@ pre-commit:
       glob: "{native/rust/deny.toml,native/rust/advisory-waivers.toml,scripts/ci/check_rust_advisory_waivers.py,scripts/ci/test_rust_advisory_waivers.py}"
       run: python3 scripts/ci/check_rust_advisory_waivers.py && python3 -m unittest scripts.ci.test_rust_advisory_waivers
 
+    # Staged crates only; CI's workspace-wide clippy covers their dependents.
     rust-clippy:
       glob: "*.rs"
       root: "native/rust/"
-      run: bash ../../scripts/ci/cargo-guarded.sh cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings
+      run: |
+        packages=$(python3 ../../scripts/ci/staged_rust_crates.py {staged_files}) || exit 1
+        [ -n "$packages" ] || exit 0
+        bash ../../scripts/ci/cargo-guarded.sh cargo clippy --locked $packages --no-deps --all-targets -- -D warnings
 
     design-md:
       glob: "DESIGN.md"
