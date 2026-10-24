@@ -50,6 +50,10 @@ Work is done when the requested change is implemented, its relevant gate passes 
 - Removing quality gates, custom detekt rules, lint checks, or security enforcement is out of scope unless the user explicitly requests it.
 - Never edit compiled `.so` files or generated JNI outputs. Change their Rust/Kotlin sources and rebuild.
 
+## Change discipline
+
+Load the `ponytail` skill at the start of every task that writes, fixes, refactors, or reviews code, and follow it at the `full` level unless the user picks another. It decides how little to build; this file decides what must be verified, so required tests, gates, contracts, and safety rules stay in scope. Use `ponytail-review` for a lean-code review of a diff and `ponytail-audit` for a whole-repository audit; `pr-reviewer` stays the project-policy reviewer. The skills are vendored from upstream; see `.agents/vendor/ponytail/README.md` for source, license, and updates.
+
 ## Decision boundaries
 
 Proceed without asking for reversible, repository-local work: reading code, editing files in your worktree, running local builds and tests, and committing finished units on the job branch.

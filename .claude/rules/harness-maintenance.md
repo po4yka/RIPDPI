@@ -43,6 +43,7 @@ A library-reference skill can declare `<!-- harness-source-scope: external -->` 
 - Frontmatter keys must be valid Claude Code keys (CI-checked); `user-invocable` defaults to true and is spelled with a `c`.
 - Skills listed in `tools/tasking/generated-assets.lock.json` (`sdd`, `mdtask*`, `openspec-*`) are generated and hash-locked; change them only by regenerating through their owning tool.
 - Centralized Rust skills are symlinks into `.agents/vendor/rust-skills`; never copy or edit them here. Exposure is deliberate: every upstream skill is either symlinked or listed with its reason in `EXCLUDED_VENDOR_SKILLS` in `scripts/ci/check_harness_manifests.py`. After a submodule bump, decide for each new skill; re-expose an excluded one when the repository gains its surface.
+- Ponytail skills are verbatim upstream copies under `.agents/vendor/ponytail/`, exposed through the same symlink pattern; CI skips frontmatter and description-length checks for symlinked upstream skills. Never edit them here; update them as `.agents/vendor/ponytail/README.md` describes, and keep its `LICENSE`.
 
 ## Subagents
 
