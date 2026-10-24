@@ -131,7 +131,7 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
         "masque" => RelayBackendConfig::Masque(MasqueRelayConfig {
             url: "https://masque.example/".to_string(),
             use_http2_fallback: true,
-            auth_mode: Some("token".to_string()),
+            auth_mode: Some("bearer".to_string()),
             auth_token: Some("token".to_string()),
             ..MasqueRelayConfig::default()
         }),
