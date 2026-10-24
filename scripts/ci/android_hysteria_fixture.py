@@ -20,6 +20,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import urllib.request
 
+from android_udp_bridge import MAX_FLOWS
 
 HYSTERIA_DIGESTS = {
     (
@@ -55,6 +56,10 @@ def private_ipv4(value: str) -> str:
     return str(address)
 
 
+class UdpFlowLimitError(RuntimeError):
+    """The owned gate has no capacity for another source socket."""
+
+
 class UdpGate:
     def __init__(self, host: str, device: str, upstream: tuple[str, int]):
         self.device = private_ipv4(device)
@@ -70,6 +75,7 @@ class UdpGate:
         self.running.set()
         self.stopped = threading.Event()
         self.error: Exception | None = None
+        self.sockets_closed = False
         self.forwarded = 0
         self.dropped = 0
         self.thread = threading.Thread(
@@ -94,8 +100,8 @@ class UdpGate:
                             continue
                         connection = self.connections.get(source)
                         if connection is None:
-                            if len(self.connections) >= 16:
-                                raise RuntimeError(
+                            if len(self.connections) >= MAX_FLOWS:
+                                raise UdpFlowLimitError(
                                     "owned UDP client socket bound exceeded"
                                 )
                             connection = socket.socket(
@@ -115,6 +121,21 @@ class UdpGate:
         except Exception as error:
             self.error = error
 
+    def receipts(self):
+        return {
+            "forwarded": self.forwarded,
+            "dropped": self.dropped,
+            "flows": len(self.connections),
+            "flowLimit": MAX_FLOWS,
+            "errorCategory": (
+                "flow-limit"
+                if isinstance(self.error, UdpFlowLimitError)
+                else "worker-failed" if self.error is not None else None
+            ),
+            "workerAlive": self.thread.is_alive(),
+            "socketsClosed": self.sockets_closed,
+        }
+
     def close(self):
         self.stopped.set()
         self.thread.join(timeout=3)
@@ -124,6 +145,7 @@ class UdpGate:
         self.listener.close()
         for connection in self.connections.values():
             connection.close()
+        self.sockets_closed = True
         if self.error is not None:
             raise RuntimeError("UDP gate failed") from self.error
 
@@ -236,12 +258,7 @@ class HysteriaFixture:
                         ) as response:
                             self.send_json(json.load(response))
                     elif self.path == "/udp-receipts":
-                        self.send_json(
-                            {
-                                "forwarded": owner.gate.forwarded,
-                                "dropped": owner.gate.dropped,
-                            }
-                        )
+                        self.send_json(owner.gate.receipts())
                     else:
                         self.send_error(404)
 
@@ -291,6 +308,12 @@ class HysteriaFixture:
             gate, self.gate = self.gate, None
             try:
                 gate.close()
+            except Exception as error:
+                errors.append(error)
+            try:
+                (self.directory / "udp-receipts.json").write_text(
+                    json.dumps(gate.receipts(), indent=2) + "\n"
+                )
             except Exception as error:
                 errors.append(error)
         if self.process is not None:
