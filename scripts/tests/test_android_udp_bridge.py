@@ -5,6 +5,7 @@ import struct
 import threading
 import time
 import unittest
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "ci/android_udp_bridge.py"
@@ -132,6 +133,45 @@ class AndroidUdpBridgeTest(unittest.TestCase):
         self.assertEqual([], self.peer.received)
         with self.assertRaisesRegex(RuntimeError, "transport failed"):
             self.bridge.close()
+
+    def test_cleanup_after_peer_eof_retains_the_protocol_error(self):
+        connection_closed = threading.Event()
+        finish_close = threading.Event()
+        original_exit = socket.socket.__exit__
+        errors = []
+
+        def delayed_exit(connection, *arguments):
+            result = original_exit(connection, *arguments)
+            if connection is self.bridge._connection:
+                connection_closed.set()
+                finish_close.wait(timeout=3)
+            return result
+
+        def close_bridge():
+            try:
+                self.bridge.close()
+            except Exception as error:
+                errors.append(error)
+
+        closer = threading.Thread(target=close_bridge)
+        with mock.patch.object(socket.socket, "__exit__", delayed_exit):
+            connection = self.connect()
+            connection.sendall(b"\x00\x09short")
+            connection.shutdown(socket.SHUT_WR)
+            try:
+                self.assertEqual(b"", connection.recv(1))
+                self.assertTrue(connection_closed.wait(timeout=1))
+                closer.start()
+                self.assertTrue(self.bridge._stop.wait(timeout=1))
+            finally:
+                finish_close.set()
+                if closer.ident is not None:
+                    closer.join(timeout=3)
+        self.assertFalse(closer.is_alive())
+        self.assertEqual([], self.peer.received)
+        self.assertEqual(1, len(errors))
+        self.assertIsInstance(errors[0], RuntimeError)
+        self.assertIsInstance(errors[0].__cause__, ValueError)
 
     def test_above_wire_maximum_refuses_before_udp_send(self):
         connection = self.connect()

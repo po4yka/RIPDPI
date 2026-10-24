@@ -100,19 +100,25 @@ class UdpBridge:
                 except socket.timeout:
                     continue
                 with connection:
-                    with self._lock:
-                        self._connection = connection
-                    connection.settimeout(0.2)
-                    supplied = receive_exact(connection, 32, self._stop, time.monotonic() + 5)
-                    if supplied is None:
-                        continue
-                    if not hmac.compare_digest(supplied, bytes.fromhex(self.token)):
+                    try:
                         with self._lock:
-                            self._counts["unauthorized"] += 1
-                        continue
-                    with self._lock:
-                        self._counts["connections"] += 1
-                    self._exchange(connection)
+                            self._connection = connection
+                        connection.settimeout(0.2)
+                        supplied = receive_exact(connection, 32, self._stop, time.monotonic() + 5)
+                        if supplied is None:
+                            continue
+                        if not hmac.compare_digest(supplied, bytes.fromhex(self.token)):
+                            with self._lock:
+                                self._counts["unauthorized"] += 1
+                            continue
+                        with self._lock:
+                            self._counts["connections"] += 1
+                        self._exchange(connection)
+                    except Exception as error:
+                        # Save failure before EOF can trigger owner cleanup.
+                        if not self._stop.is_set():
+                            self._error = error
+                        return
         except Exception as error:
             if not self._stop.is_set():
                 self._error = error
