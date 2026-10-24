@@ -890,22 +890,11 @@ jobs:
           gradle-cache-read-only: "true"
           embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
 
-      - name: Run JVM unit tests
-        run: >-
-          ./gradlew testDebugUnitTest
-          -x :app:testFdroidFullDebugUnitTest
-          -x :app:testFdroidSimpleDebugUnitTest
-          -x :app:testGithubFullDebugUnitTest
-          -x :app:testGithubSimpleDebugUnitTest
-          -x :app:testPlayFullDebugUnitTest
-          -x :app:testPlaySimpleDebugUnitTest
-          --profile
-          -Pripdpi.skipNativeBuild=true
-
-      - name: Run app unit tests
+      # kotlin-coverage runs every :core:* and :app GithubFull unit test under
+      # JaCoCo; this lane adds only the Simple experience variant.
+      - name: Run Simple app unit tests
         run: >-
           ./gradlew
-          :app:testGithubFullDebugUnitTest
           :app:testGithubSimpleDebugUnitTest
           --profile
           -Pripdpi.skipNativeBuild=true
@@ -1822,8 +1811,10 @@ jobs:
           # reserve the immutable SHA key before coverage fills this cache.
           gradle-cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Generate Kotlin coverage reports
-        run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
+      # coverageReport runs every :core:* and :app GithubFull unit test under
+      # JaCoCo, so it is also the only CI run of those tests.
+      - name: Run Kotlin unit tests with coverage
+        run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true --profile
 
       - name: Summarize Kotlin coverage
         run: |
@@ -1846,6 +1837,16 @@ jobs:
             app/build/reports/jacoco/
             core/**/build/reports/jacoco/
             ${{ runner.temp }}/kotlin-coverage-summary.md
+          retention-days: 7
+
+      - name: Upload Kotlin unit test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kotlin-unit-test-results
+          path: |
+            **/build/reports/tests/
+            **/build/golden-diffs/
           retention-days: 7
 
   rust-coverage:
