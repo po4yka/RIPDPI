@@ -27,7 +27,7 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             "rust-native-x86_64": 1,
             "pluggable-transport-assets": 1,
             "build-android-debug": 1,
-            "build-android-tests": 2,
+            "build-android-tests": 1,
             "verify-roborazzi": 1,
             "release-verification": 1,
             "gradle-static-analysis": 2,
