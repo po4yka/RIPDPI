@@ -1,7 +1,7 @@
 {
   "scenario": "p2a-hysteria-port-hop",
   "description": "Hysteria2 with server_ports range + hop_interval, single host",
-  "deployer_git_sha": "34c61b400998b5682056ac00e52cb016ae4ff228",
+  "deployer_git_sha": "0462413b9332830826bef68d849600d6adcbe8b0",
   "provenance": "parser-reference",
   "reference_reason": "The pinned deployer has no deterministic synthetic cohort that emits Hysteria2 port-hopping metadata.",
   "generated_at": "2026-05-14T00:00:00Z",

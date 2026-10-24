@@ -4,8 +4,8 @@ change: awg-range-signatures
 commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
 local: passed
 local_evidence: Native tests, pinned upstream interoperability, 10238 JVM tests, staticAnalysis, and architecture checks passed.
-remote_ci: required
-remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+remote_ci: passed
+remote_ci_evidence: Client source 90ae34b62d0345fe5685d05389f878f24c033c30 passed 56 checks with 19 planned skips and no failures. Producer source 6bd33544f85a64a05eecffe212ce74995ac15b2a passed 99 checks with one neutral result and no failures. Producer main 0462413b9332830826bef68d849600d6adcbe8b0 has the same accepted tree. Client main b3bdf4263f934c6f8f899e3ca6967010c872f516 adds only a reviewed nfqws2 build compatibility change; protocol, application and instrumentation sources are unchanged.
 device: passed
 device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. AWG passed A/AAAA DNS, five payloads, peer loss and reconnect. Wire validation recorded two fresh handshakes and signature packets, all five tags and 100 H4 values in each direction.
 artifact: passed
@@ -70,22 +70,29 @@ checked-in synthetic CI bundle as its local embedded asset.
 
 ## Remaining acceptance
 
-The task stays in progress until the integrated source passes hosted checks
-and the acceptance owner records the final APK and physical ARM64 result.
+The integrated source passed hosted checks. The acceptance owner recorded the
+final APK pair and the physical ARM64 result below.
 The physical scope uses a local USB peer path and no external VPN nodes.
 S3 and S4 remain zero. The guard for nonzero ARM64 padding is unchanged.
 
-## Producer mirror and client import fixtures
+## Producer mirror and fixture provenance
 
-Independent inventory found one client-only hopping import vector in the
-producer mirror. The vector now lives under `import-fixtures/` with unchanged
-bytes and import assertions. All 35 non-README producer files match exactly;
-no missing or client-only files remain in the mirror.
+Producer main `0462413b9332830826bef68d849600d6adcbe8b0` owns all 36
+non-README contract files. The client mirror matches each file in both directions.
+The hopping vector is now canonical, and the existing import test reads it from
+`contract/`. The separate import-only copy was removed. This restoration passed
+the complete data module suite: 959 tests with no failures, errors or skips,
+plus ktlint and detekt on source `90ae34b62d0345fe5685d05389f878f24c033c30`.
 
-`build-gate -- ./gradlew --no-daemon --max-workers=4 :core:data:testDebugUnitTest :core:data:ktlintCheck :core:data:detekt`
-passed in 1 minute 6 seconds with the configured JDK 21. The complete module
-suite passed 958 tests with zero failures, errors or skipped tests.
-Independent review approved the relocation and inventory.
+Seven fleet bundles were emitted and validated from that exact clean producer
+main checkout with frozen synthetic inputs. All bundle and expected-profile
+bytes are unchanged. The pin and eight metadata records now use the producer
+main commit. The eighth port-hop scenario retains its explicit parser-reference
+status; it is not counted as emitted provenance.
+
+The final pin passed emitter regeneration and comparison, 28 Python provenance
+tests and all 13 FleetCompat JVM tests. The JVM suite had no failures, errors
+or skipped tests. Task contracts and strict OpenSpec validation also passed.
 
 ## Final physical candidate 47a5ee70
 
