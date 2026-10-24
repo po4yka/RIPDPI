@@ -12,7 +12,7 @@ The protocol runtime worker owns the exact source paths and adjacent tests liste
 
 - [x] RTE-1792840610583608 Project frozen active AWG resolver authority and apply scoped native DNS egress without bypassing effective Block #bug !high @item:RTE-1792840535644306
 - [x] RTE-1792840611038760 Verify codec validation, snapshot isolation, ordered policy boundaries and real upstream selection with complete affected gates #bug !high @item:RTE-1792840535644306
-- [ ] RTE-1792840611484317 Integrate reviewed source and prove unchanged private DNS fixture traffic through rebuilt Android AWG artifact #bug !high @item:RTE-1792840535644306
+- [x] RTE-1792840611484317 Integrate reviewed source and prove unchanged private DNS fixture traffic through rebuilt Android AWG artifact #bug !high @item:RTE-1792840535644306
 
 ## Verification
 

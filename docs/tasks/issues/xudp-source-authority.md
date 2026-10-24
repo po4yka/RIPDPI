@@ -2,7 +2,7 @@
 id: TRN-1792853642811403
 title: Preserve XUDP source authority for reserve DNS replies
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: UDP relay runtime
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: xudp-source-authority
 created: 2026-10-24
 updated: 2026-10-24
+status_detail: Implementation, independent review and physical automatic-reserve DNS plus recovery passed; final hosted acceptance remains open.
 ---
 
 ## Goal

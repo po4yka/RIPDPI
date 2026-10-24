@@ -12,4 +12,4 @@ Client owner: native warp core and interop fixtures; Kotlin AWG models, parsers,
 
 - [x] TRN-1792776231660643 Implement authenticated native range headers and bounded signature programs with upstream interoperability tests #feature !high @item:TRN-1792776081374051
 - [x] TRN-1792776232432318 Carry the versioned AWG profile through client import storage sharing and activation with complete caller tests #feature !high @item:TRN-1792776081374051
-- [ ] TRN-1792776233107642 Verify the coordinated contract with native Android source gates and retain physical acceptance as a separate requirement #feature !high @item:TRN-1792776081374051
+- [x] TRN-1792776233107642 Verify the coordinated contract with native Android source gates and retain physical acceptance as a separate requirement #feature !high @item:TRN-1792776081374051

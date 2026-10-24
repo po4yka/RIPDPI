@@ -2,7 +2,7 @@
 id: PRX-1792849175606125
 title: Forward request continuation during first-response observation
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: protocol-runtime
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: first-response-duplex-continuation
 created: 2026-10-24
 updated: 2026-10-24
+status_detail: Implementation, independent review and physical upload passed; the final execution step and hosted evidence remain open until CI passes on the published candidate.
 ---
 
 ## Goal

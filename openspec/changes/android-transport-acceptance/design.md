@@ -53,3 +53,14 @@ complete Android scenarios on a leased ARM64 emulator or the authorized physical
 task contracts and source identity on the integrated tree. Rollback reverts only the
 new test harness slice; existing scenarios and application state contracts remain.
 Physical and external acceptance stay open until those environments are exercised.
+
+## P1 TLS rejection coverage correction
+
+The shared transaction method currently exercises valid P1 and peer loss but
+not the P1 wrong-UUID and wrong-root cases required by REQ-ANDROID-P1-TLS.
+Add both phases to that same method so direct and USB entry points run them.
+Change only the UUID or test trust input, keep hostname verification and
+allowInsecure false, require failure from the separate UID, and require no new
+destination payload receipt. Fresh healthy controls before and after the
+negative phases must establish that the owned peer and valid profile work.
+This does not establish direct-underlay bypass behavior in the USB scope.

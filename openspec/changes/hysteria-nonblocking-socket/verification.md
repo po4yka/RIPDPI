@@ -1,15 +1,15 @@
 ---
 task_id: RST-1792838334204120
 change: hysteria-nonblocking-socket
-commit_sha: null
+commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
 local: passed
 local_evidence: Locked complete Hysteria crate tests passed 108 unit tests and 2 loopback tests; three existing external-peer tests require separate peer execution. All-targets Clippy with warnings denied, formatting, strict OpenSpec, and task validation passed.
 remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+device: passed
+device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. Hysteria completed real encrypted UDP startup, 1 MiB download/upload, a 60-second sleep/wake stream, automatic TCP reserve DNS/download and explicit UDP recovery.
+artifact: passed
+artifact_evidence: Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -43,3 +43,9 @@ build-gate -- bash -c 'cargo test --locked -p ripdpi-hysteria2 --jobs 4 && ../..
 The test command ran the full crate without a filter: 108 unit tests and two loopback integration tests passed, with zero failures. The three existing independent-peer tests remain opt-in and were not executed in this local gate. All three new socket and endpoint regressions passed. Clippy completed with warnings denied. Formatting, strict change validation, and task validation passed. Independent source review approved the one-line admission fix and real datagram/rebind coverage. The final native source uses the current port-hopping endpoint signatures.
 
 The integrated hosted checks, rebuilt Android artifact, and physical Hysteria transfer remain required. The portfolio task remains doing; the local result does not close its physical acceptance step.
+
+## Final physical candidate 47a5ee70
+
+All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. Hysteria completed real encrypted UDP startup, 1 MiB download/upload, a 60-second sleep/wake stream, automatic TCP reserve DNS/download and explicit UDP recovery.
+
+Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.

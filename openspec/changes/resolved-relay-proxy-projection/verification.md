@@ -1,15 +1,15 @@
 ---
 task_id: SVC-1792830780372912
 change: resolved-relay-proxy-projection
-commit_sha: null
+commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
 local: passed
 local_evidence: Complete service JVM suite passed 2288 tests with zero failures, errors, or skips after the shared UDP policy commit; service ktlintCheck and detekt passed. The shared policy commit passed complete data, runtime-state, engine, and service suites plus all four module static gates. Architecture and task validation passed.
 remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+device: passed
+device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. Production startup used the ready relay; Hysteria DNS, download, upload, sleep/wake and automatic TCP reserve passed.
+artifact: passed
+artifact_evidence: Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -52,3 +52,9 @@ build-gate -- env JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Con
 ```
 
 The combined service suite passed 2288 tests with zero failures, errors, or skips. The three coordinator regressions from the previous run now pass with their original assertions. No test was filtered or disabled. No native code or capability guard changed. The source reviews cover the final projection conversion and endpoint producers. Hosted, artifact, physical Hysteria, and physical migration acceptance remain required after integration, so the portfolio task remains doing.
+
+## Final physical candidate 47a5ee70
+
+All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. Production startup used the ready relay; Hysteria DNS, download, upload, sleep/wake and automatic TCP reserve passed.
+
+Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.

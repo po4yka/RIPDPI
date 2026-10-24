@@ -2,7 +2,7 @@
 id: RST-1792838334204120
 title: Admit Hysteria UDP sockets into the async runtime
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: protocol-runtime
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: hysteria-nonblocking-socket
 created: 2026-10-24
 updated: 2026-10-24
+status_detail: Reviewed source and exact 47a5ee708a497086eb29739ca17f35e164119846 genuine artifacts passed all four owned physical USB scenarios and cleanup. Final published hosted gates remain required before closure.
 ---
 
 ## Goal

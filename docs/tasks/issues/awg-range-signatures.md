@@ -2,7 +2,7 @@
 id: TRN-1792776081374051
 title: Support AWG 3.1 header ranges and signature packets
 kind: feature
-status: doing
+status: review
 area: transport
 priority: high
 owner: AWG client implementation
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: awg-range-signatures
 created: 2026-10-23
-updated: 2026-10-23
+updated: 2026-10-24
+status_detail: Reviewed source and exact 47a5ee708a497086eb29739ca17f35e164119846 genuine artifacts passed all four owned physical USB scenarios and cleanup. Final published hosted gates remain required before closure.
 ---
 
 ## Goal

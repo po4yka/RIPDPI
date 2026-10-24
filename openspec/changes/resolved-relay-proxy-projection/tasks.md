@@ -12,7 +12,7 @@ Own core/service startup supervisors, shared stack, their tests, and docs/archit
 
 - [x] SVC-1792830889982340 Capture resolved ready relay identity and endpoint for normal proxy startup #bug !high @item:SVC-1792830780372912
 - [x] SVC-1792830891083169 Verify normal and race projection admission and cleanup regressions #bug !high @item:SVC-1792830780372912
-- [ ] SVC-1792830892443639 Complete independent review and record integration acceptance evidence #bug !high @item:SVC-1792830780372912
+- [x] SVC-1792830892443639 Complete independent review and record integration acceptance evidence #bug !high @item:SVC-1792830780372912
 
 ## Verification
 

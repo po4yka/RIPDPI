@@ -1,15 +1,15 @@
 ---
 task_id: TRN-1792776081374051
 change: awg-range-signatures
-commit_sha: 540fbdb9e93cf957b9042a6bad510f2f3b28bb6b
+commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
 local: passed
 local_evidence: Native tests, pinned upstream interoperability, 10238 JVM tests, staticAnalysis, and architecture checks passed.
 remote_ci: required
-remote_ci_evidence: Hosted checks must run on the integrated source revision.
-device: required
-device_evidence: The acceptance owner will test the final APK on the connected ARM64 device through the local USB peer path.
-artifact: required
-artifact_evidence: The acceptance owner must record the final APK identity and build result.
+remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+device: passed
+device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. AWG passed A/AAAA DNS, five payloads, peer loss and reconnect. Wire validation recorded two fresh handshakes and signature packets, all five tags and 100 H4 values in each direction.
+artifact: passed
+artifact_evidence: Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
 deployment: not_applicable
 deployment_evidence: This client change does not deploy infrastructure.
 ---
@@ -86,3 +86,9 @@ no missing or client-only files remain in the mirror.
 passed in 1 minute 6 seconds with the configured JDK 21. The complete module
 suite passed 958 tests with zero failures, errors or skipped tests.
 Independent review approved the relocation and inventory.
+
+## Final physical candidate 47a5ee70
+
+All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. AWG passed A/AAAA DNS, five payloads, peer loss and reconnect. Wire validation recorded two fresh handshakes and signature packets, all five tags and 100 H4 values in each direction.
+
+Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.

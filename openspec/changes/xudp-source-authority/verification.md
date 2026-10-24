@@ -1,15 +1,15 @@
 ---
 task_id: TRN-1792853642811403
 change: xudp-source-authority
-commit_sha: 38e64afcf9f097a60c8dd9146ed431c108fe35ef
+commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
 local: passed
 local_evidence: All 128 VLESS unit tests passed, with two existing owner-profile integration tests ignored. Workspace all-target Clippy, format, architecture and API checks passed. Independent review approved the final implementation and cancellation boundaries. The integrated native tree matches reviewed author commit 189d39d1470b66d92ed4f40b4ea828357eae2412.
 remote_ci: required
-remote_ci_evidence: Hosted checks on corrected source remain required.
-device: required
-device_evidence: Two physical Hysteria runs at 38e64afcf9f097a60c8dd9146ed431c108fe35ef failed during the sleep/wake stream after transport-switch restarts. Both passed initial download and upload and cleanup. Neither reached reserve DNS or explicit UDP recovery. The earlier MissingSourceTarget failure belongs to source 04d842534bdb550a9f5477c3e528b68ee3f6ab3a.
+remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+device: passed
+device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. After automatic TCP reserve selection, DNS completed with a new owned peer receipt, a separate-UID 1 MiB download passed, and explicit UDP recovery passed.
 artifact: passed
-artifact_evidence: Genuine arm64-v8a preparation passed at clean source 38e64afcf9f097a60c8dd9146ed431c108fe35ef. Independently verified app SHA-256 ec4c295d482e152dbb56044c244e93b1a8ba9d25bff47c02ede6f4c2d9c20079 and test SHA-256 f53747dabdd8da79e5d8783933748fa8641895ad159d2bcaa7957bf13eeee426.
+artifact_evidence: Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
 deployment: not_applicable
 deployment_evidence: No provider, host, credential or deployment action is included.
 ---
@@ -41,3 +41,9 @@ The decode-time test publishes authority after the reader starts waiting.
 passed with 128 unit tests and no failed or ignored unit tests. Two existing
 integration tests require owner profiles and remain ignored. Full workspace
 Clippy passed with warnings denied. The normal commit hooks passed.
+
+## Final physical candidate 47a5ee70
+
+All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. After automatic TCP reserve selection, DNS completed with a new owned peer receipt, a separate-UID 1 MiB download passed, and explicit UDP recovery passed.
+
+Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.

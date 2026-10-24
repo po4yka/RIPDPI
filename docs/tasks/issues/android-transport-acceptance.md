@@ -2,7 +2,7 @@
 id: TST-1792776319490914
 title: Verify Android transport payloads and migration through real tunnels
 kind: feature
-status: doing
+status: review
 area: testing
 priority: high
 owner: Android transport acceptance
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: android-transport-acceptance
 created: 2026-10-23
-updated: 2026-10-23
+updated: 2026-10-24
+status_detail: Reviewed source and exact 47a5ee708a497086eb29739ca17f35e164119846 genuine artifacts passed all four owned physical USB scenarios and cleanup. Final published hosted gates remain required before closure.
 ---
 
 ## Goal
@@ -44,3 +45,12 @@ with separate-UID traffic and destination receipts.
 - For the current fixture corrections, the coordinator owns scripts/fixtures/amneziawg-peer/transport_http.go, transport_dns_test.go and this change's records. The Android acceptance worker owns the bounded peer diagnostic collector, its runner integration and tests, and alone owns device operations.
 - The protocol worker owns the automatic selector test, its helper, core/service test-only quality probe trust and its tests, plus owned HTTPS fixture routing. The security worker owns the Hysteria UDP fixture route correction and its tests. Their Go peer and Python fixture hunks are integrated serially in the coordinator worktree after review.
 - For the physical wire-observer defect, the security worker owns scripts/fixtures/amneziawg-peer/wire_observation.go and wire_observation_test.go in its isolated worktree. The coordinator owns these task and specification records. Production AWG code and I/J acceptance requirements stay outside this correction.
+
+- Protocol worker owns the missing Android P1 TLS rejection phases in
+  app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/XrayProviderE2ETest.kt in its
+  isolated worktree. Wrong UUID and untrusted TLS root must use the real
+  native provider and the existing owned nginx peer, with healthy controls
+  and no new payload receipt. Existing USB scope limits stay unchanged.
+  An adjacent test-only helper is permitted only if the existing file limit
+  requires it. Coordinator alone operates the physical device. No production
+  source, dependency, timeout, baseline or peer implementation change is owned.

@@ -1,15 +1,15 @@
 ---
 task_id: RTE-1792840535644306
 change: awg-profile-dns-routing
-commit_sha: null
+commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
 local: passed
 local_evidence: Full engine and service JVM suites, four-module Kotlin static gates, three native crate suites and all-target Clippy passed on the reviewed working tree based on f369f172b3e869bb6805c3224e95e49152ffc3c4.
 remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+device: passed
+device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. AWG passed fresh separate-UID A and AAAA DNS through the active profile and five payloads with unchanged private DNS fixture addresses and LAN policy.
+artifact: passed
+artifact_evidence: Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -47,3 +47,9 @@ objects remained semantically equal, and `awgDnsServers` was absent. These
 incidental generated changes were removed; no golden fixture or baseline changed.
 The initial compile/static failures were repaired in test setup and formatting;
 no check was suppressed. No separate pre-fix JVM/Rust failure is claimed.
+
+## Final physical candidate 47a5ee70
+
+All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. AWG passed fresh separate-UID A and AAAA DNS through the active profile and five payloads with unchanged private DNS fixture addresses and LAN policy.
+
+Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.

@@ -1,15 +1,15 @@
 ---
 task_id: TST-1792776319490914
 change: android-transport-acceptance
-commit_sha: null
-local: required
-local_evidence: null
+commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
+local: passed
+local_evidence: Harness source gates and independent review passed as recorded below. Final model, data, service and app JVM suites passed 6288 tests with no failures, errors or skips. AndroidTest Kotlin and Java compilation, app ktlint and detekt passed after the TLS negative checks.
 remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+device: passed
+device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. TLS XHTTP rejected wrong UUID and untrusted certificate with fresh separate-UID echo and transfer checks, no application response or new generic/completed/direct peer receipt, and four healthy 1 MiB controls. The full run recorded 12 positive payload receipts.
+artifact: passed
+artifact_evidence: Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -20,16 +20,16 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-ANDROID-P1-TLS | TST-1792776452973210 | Real nginx TLS peer and complete Android positive/negative tests | required |
-| REQ-ANDROID-TRANSACTION | TST-1792776459525304 | Four app VPN transports with payload digests and destination receipts | required |
-| REQ-ANDROID-RECOVERY | TST-1792776460035152 | Routed UDP failure, applied TCP reserve and completed traffic | required |
-| REQ-ANDROID-MIGRATION | TST-1792776460563922 | Replacement receipt before old peer retirement and negative replacement | required |
-| REQ-ANDROID-USB-FLOW | TST-1792776459525304 | Real concurrent flow and delayed reply tests, malformed/bound/cleanup tests, final Android Hysteria acceptance | required |
-| REQ-ANDROID-EVIDENCE | TST-1792776461086297 | Python/Go/Kotlin gates, verified artifacts, owned physical device, sleep/wake and cleanup | required |
+| REQ-ANDROID-P1-TLS | TST-1792776452973210 | Real nginx TLS peer and complete Android positive/negative tests | Passed |
+| REQ-ANDROID-TRANSACTION | TST-1792776459525304 | Four app VPN transports with payload digests and destination receipts | Passed |
+| REQ-ANDROID-RECOVERY | TST-1792776460035152 | Routed UDP failure, applied TCP reserve and completed traffic | Passed |
+| REQ-ANDROID-MIGRATION | TST-1792776460563922 | Replacement receipt before old peer retirement and negative replacement | Passed |
+| REQ-ANDROID-USB-FLOW | TST-1792776459525304 | Real concurrent flow and delayed reply tests, malformed/bound/cleanup tests, final Android Hysteria acceptance | Passed |
+| REQ-ANDROID-EVIDENCE | TST-1792776461086297 | Python/Go/Kotlin gates, verified artifacts, owned physical device, sleep/wake and cleanup | Passed |
 
 ## Intermediate integration checkpoint
 
-The task remains in progress. Device execution and hosted CI are pending.
+This historical checkpoint predates final device acceptance below. Hosted CI on the final published candidate remains required.
 
 Observed checks on the reviewed harness source:
 
@@ -238,3 +238,13 @@ or VPN. Sanitized before and after network snapshots both identify validated
 Wi-Fi as the default transport. This does not exclude a transient change
 during the run. Device settings were not changed. The scope remains local
 USB transport; external paths and Wi-Fi/cellular handover are unverified.
+
+## Final physical candidate 47a5ee70
+
+All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. TLS XHTTP rejected wrong UUID and untrusted certificate with fresh separate-UID echo and transfer checks, no application response or new generic/completed/direct peer receipt, and four healthy 1 MiB controls. The full run recorded 12 positive payload receipts.
+
+Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
+
+Candidate c51c45857d8c6c67c1a4937d2984c6b9ad89b371 first passed all four positive USB scenarios. Its P0/P1 method did not yet exercise the required TLS wrong-identity and wrong-trust branches. The final candidate adds both unconditional negative paths, fresh echo rejection and healthy controls. No earlier result is credited with these new checks.
+
+Final read-only inspection found no remaining app or test process, app service, active instrumentation, port reversal, VPN, owned peer process or nginx container. Foreign stopped containers were preserved. All scenario result files matched the source SHA and both APK hashes.
