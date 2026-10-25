@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_connection_actuator_confirmation_remaining">Confirm within %1$d s</string>
     <string name="history_events_jump_to_latest">Jump to latest</string>
 </resources>

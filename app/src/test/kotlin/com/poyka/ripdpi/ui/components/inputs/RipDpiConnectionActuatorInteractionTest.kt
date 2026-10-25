@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.components.inputs
 
-import android.content.Context
 import android.view.View
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -9,10 +8,10 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
@@ -20,8 +19,6 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
-import androidx.test.core.app.ApplicationProvider
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.ui.components.EnableKeyboardInput
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -84,22 +81,20 @@ class RipDpiConnectionActuatorInteractionTest {
     }
 
     @Test
-    fun `live connection needs confirmation and names the next action`() {
+    fun `live connection asks for confirmation and staying connected keeps it`() {
         var deactivations = 0
         composeRule.setActuator(
             state = actuatorState(HomeConnectionActuatorStatus.Degraded),
             onDeactivate = { deactivations++ },
         )
-        val confirm =
-            ApplicationProvider
-                .getApplicationContext<Context>()
-                .getString(R.string.home_connection_actuator_action_confirm_release)
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectStay).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertDoesNotExist()
+        composeRule.runOnIdle { assertEquals(0, deactivations) }
+
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
         composeRule.runOnIdle { assertEquals(0, deactivations) }
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
-            .assertTextEquals(confirm)
-            .performTouchInput { click() }
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).performClick()
         composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 
@@ -116,9 +111,8 @@ class RipDpiConnectionActuatorInteractionTest {
             ).performSemanticsAction(SemanticsActions.OnClick)
         composeRule.runOnIdle { assertEquals(0, deactivations) }
         composeRule
-            .onNodeWithTag(
-                RipDpiTestTags.ConnectionActuatorButton,
-            ).performSemanticsAction(SemanticsActions.OnClick)
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm)
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 
@@ -135,7 +129,7 @@ class RipDpiConnectionActuatorInteractionTest {
             .requestFocus()
             .performKeyInput { pressKey(Key.Enter) }
         composeRule.runOnIdle { assertEquals(0, deactivations) }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performKeyInput { pressKey(Key.Enter) }
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).performClick()
         composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 
@@ -234,20 +228,21 @@ class RipDpiConnectionActuatorInteractionTest {
     }
 
     @Test
-    fun `expired confirmation cannot disconnect on the next tap`() {
+    fun `disconnect confirmation has no time limit`() {
         var deactivations = 0
         composeRule.setActuator(
             state = actuatorState(HomeConnectionActuatorStatus.Locked),
             onDeactivate = { deactivations++ },
         )
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
-        composeRule.runOnIdle { ShadowSystemClock.advanceBy(Duration.ofMillis(4_001L)) }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
-        composeRule.runOnIdle { assertEquals(0, deactivations) }
+        composeRule.runOnIdle { ShadowSystemClock.advanceBy(Duration.ofMinutes(5)) }
+        composeRule.mainClock.advanceTimeBy(Duration.ofMinutes(5).toMillis())
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).performClick()
+        composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 
     @Test
-    fun `state transition clears a pending disconnect confirmation`() {
+    fun `a session that ends clears a pending disconnect confirmation`() {
         var deactivations = 0
         var state by mutableStateOf(actuatorState(HomeConnectionActuatorStatus.Locked))
         composeRule.setContent {
@@ -261,8 +256,10 @@ class RipDpiConnectionActuatorInteractionTest {
             }
         }
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
-        composeRule.runOnIdle { state = actuatorState(HomeConnectionActuatorStatus.Degraded) }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
+        composeRule.runOnIdle { state = actuatorState(HomeConnectionActuatorStatus.Open) }
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertDoesNotExist()
+        composeRule.runOnIdle { state = actuatorState(HomeConnectionActuatorStatus.Locked) }
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertDoesNotExist()
         composeRule.runOnIdle { assertEquals(0, deactivations) }
     }
 

@@ -2,20 +2,16 @@
 
 package com.poyka.ripdpi.ui.components.inputs
 
-import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,12 +24,11 @@ import androidx.compose.foundation.style.styleResolver
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,14 +46,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTag
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.feedback.RipDpiConfirmDisconnectDialog
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -71,12 +65,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.actuatorFault
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
-import kotlinx.coroutines.delay
 
-private const val DisconnectConfirmationMillis = 4_000L
-private const val CountdownFrameMillis = 50L
-private const val CountdownSecondMillis = 1_000L
-private val ConfirmationTrackHeight = 4.dp
 private const val StackedRouteFontScale = 1.5f
 private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
 
@@ -116,12 +105,9 @@ fun RipDpiConnectionActuator(
     val style = RipDpiThemeTokens.state.actuator.resolve(role = state.status.toThemeRole())
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
-    var armedAt by remember(state.status, state.isDeactivationAvailable, state.isActivationAvailable) {
-        mutableStateOf<Long?>(null)
-    }
-    val remainingMillis = rememberDisconnectConfirmationRemaining(armedAt) { armedAt = null }
-    val confirmLabel = stringResource(R.string.home_connection_actuator_action_confirm_release)
-    val actionLabel = if (armedAt != null) confirmLabel else resolved.actionLabel
+    // An untimed dialog guards against an accidental disconnect (WCAG 2.2.1: no time limit to confirm).
+    // Keyed on availability so a session that ends while the dialog is open does not reopen it later.
+    var confirmingDisconnect by rememberSaveable(state.isDeactivationAvailable) { mutableStateOf(false) }
 
     val enabled = state.isActivationAvailable || state.isDeactivationAvailable
     val performHaptic = rememberRipDpiHapticPerformer()
@@ -137,16 +123,19 @@ fun RipDpiConnectionActuator(
             }
 
             state.isDeactivationAvailable -> {
-                val now = SystemClock.elapsedRealtime()
-                val startedAt = armedAt
-                if (startedAt != null && now - startedAt < DisconnectConfirmationMillis) {
-                    armedAt = null
-                    onDeactivate()
-                } else {
-                    armedAt = now
-                }
+                confirmingDisconnect = true
             }
         }
+    }
+    if (confirmingDisconnect && state.isDeactivationAvailable) {
+        RipDpiConfirmDisconnectDialog(
+            sessionDuration = resolved.sessionDuration,
+            onDismiss = { confirmingDisconnect = false },
+            onConfirm = {
+                confirmingDisconnect = false
+                onDeactivate()
+            },
+        )
     }
 
     Column(modifier = modifier) {
@@ -160,13 +149,12 @@ fun RipDpiConnectionActuator(
         }
         Spacer(modifier = Modifier.height(spacing.md))
         RipDpiButton(
-            text = actionLabel,
+            text = resolved.actionLabel,
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .ripDpiTestTag(testTag)
-                    .then(rememberConnectionInputModifier(state, onAction))
-                    .semantics { if (armedAt != null) liveRegion = LiveRegionMode.Polite },
+                    .then(rememberConnectionInputModifier(state, onAction)),
             enabled = enabled,
             hapticFeedback = RipDpiHapticFeedback.None,
             variant = if (state.isActivationAvailable) RipDpiButtonVariant.Primary else RipDpiButtonVariant.Outline,
@@ -174,9 +162,6 @@ fun RipDpiConnectionActuator(
             visualStyle = visualStyle,
             onClick = onAction,
         )
-        if (remainingMillis > 0L) {
-            DisconnectConfirmationCountdown(remainingMillis = remainingMillis)
-        }
         AnimatedVisibility(
             visible = resolved.faultDetail.isNotEmpty(),
             enter = motion.sectionEnterTransition(),
@@ -188,75 +173,6 @@ fun RipDpiConnectionActuator(
                 stateStyle = style,
                 stateRole = state.status.toThemeRole(),
                 onCopy = onCopyFaultDetail,
-            )
-        }
-    }
-}
-
-@Composable
-private fun rememberDisconnectConfirmationRemaining(
-    armedAt: Long?,
-    onExpired: () -> Unit,
-): Long {
-    var remainingMillis by remember(armedAt) {
-        mutableLongStateOf(
-            armedAt?.let { (DisconnectConfirmationMillis - (SystemClock.elapsedRealtime() - it)).coerceAtLeast(0L) }
-                ?: 0L,
-        )
-    }
-    val updateMillis =
-        if (RipDpiThemeTokens.motion.allowsInfiniteMotion) CountdownFrameMillis else CountdownSecondMillis
-    LaunchedEffect(armedAt, updateMillis) {
-        val startedAt = armedAt ?: return@LaunchedEffect
-        while (true) {
-            remainingMillis =
-                (DisconnectConfirmationMillis - (SystemClock.elapsedRealtime() - startedAt)).coerceAtLeast(0L)
-            if (remainingMillis == 0L) {
-                onExpired()
-                break
-            }
-            // This is a real deadline, not animation duration. Static and reduced motion
-            // change the display cadence only; neither can shorten the confirmation window.
-            delay(minOf(remainingMillis, updateMillis))
-        }
-    }
-    return remainingMillis
-}
-
-@Composable
-private fun DisconnectConfirmationCountdown(remainingMillis: Long) {
-    val spacing = RipDpiThemeTokens.spacing
-    val remainingSeconds = ((remainingMillis + CountdownSecondMillis - 1L) / CountdownSecondMillis).toInt()
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
-        verticalArrangement = Arrangement.spacedBy(spacing.xs),
-    ) {
-        Text(
-            text = stringResource(R.string.home_connection_actuator_confirmation_remaining, remainingSeconds),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorConfirmationRemaining)
-                    .semantics { liveRegion = LiveRegionMode.Polite },
-            style = RipDpiThemeTokens.type.caption,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(ConfirmationTrackHeight)
-                    .clip(RipDpiThemeTokens.shapes.full)
-                    .background(RipDpiThemeTokens.colors.muted)
-                    // The readable seconds label owns announcements, not the visual frame updates.
-                    .clearAndSetSemantics { testTag = RipDpiTestTags.ConnectionActuatorConfirmationProgress },
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth(remainingMillis.toFloat() / DisconnectConfirmationMillis)
-                        .fillMaxHeight()
-                        .background(RipDpiThemeTokens.colors.foreground),
             )
         }
     }

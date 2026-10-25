@@ -3026,7 +3026,6 @@ fake_burst 3</string>
     <string name="vpn_confirm_disconnect_title">立即断开？</string>
     <string name="vpn_confirm_disconnect_session_format">当前会话 · %1$s</string>
     <string name="vpn_confirm_disconnect_body">断开连接将中断正在进行的下载并重置分析器状态。通话可能会被中断。</string>
-    <string name="vpn_confirm_disconnect_dont_ask">此配置不再询问</string>
     <string name="vpn_confirm_disconnect_stay">保持连接</string>
     <string name="vpn_confirm_disconnect_disconnect">断开</string>
     <string name="vpn_export_consent_title_format">导出 %1$s</string>

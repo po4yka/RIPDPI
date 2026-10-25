@@ -39,7 +39,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
@@ -49,6 +48,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiMotion
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -166,7 +166,7 @@ class ComposeStylesInstrumentedTest {
     }
 
     @Test
-    fun disconnectNeedsASecondActionBeforeItDispatches() {
+    fun disconnectNeedsConfirmationBeforeItDispatches() {
         var deactivations = 0
         composeRule.setContent {
             RipDpiTheme {
@@ -184,11 +184,8 @@ class ComposeStylesInstrumentedTest {
         }
         val action = composeRule.onNodeWithTag(Action)
         action.performClick()
-        action.assertTextContains(
-            composeRule.activity.getString(R.string.home_connection_actuator_action_confirm_release),
-        )
         composeRule.runOnIdle { assertEquals(0, deactivations) }
-        action.performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).performClick()
         composeRule.runOnIdle { assertEquals(1, deactivations) }
     }
 

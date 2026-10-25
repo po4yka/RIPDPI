@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_connection_actuator_confirmation_remaining">أكّد خلال %1$d ث</string>
     <string name="history_events_jump_to_latest">الانتقال إلى الأحدث</string>
 </resources>

@@ -1262,7 +1262,6 @@
     <string name="vpn_confirm_disconnect_title">अभी डिस्कनेक्ट करें?</string>
     <string name="vpn_confirm_disconnect_session_format">सक्रिय सत्र · %1$s</string>
     <string name="vpn_confirm_disconnect_body">डिस्कनेक्ट करने से कोई भी खुले डाउनलोड बंद हो जाएँगे और एनालाइज़र स्टेट रीसेट हो जाएगी। सक्रिय कॉल बाधित हो सकती हैं।</string>
-    <string name="vpn_confirm_disconnect_dont_ask">इस प्रोफ़ाइल के लिए दोबारा न पूछें</string>
     <string name="vpn_confirm_disconnect_stay">कनेक्टेड रहें</string>
     <string name="vpn_confirm_disconnect_disconnect">डिस्कनेक्ट करें</string>
     <string name="vpn_export_consent_title_format">%1$s निर्यात करें</string>

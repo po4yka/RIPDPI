@@ -347,6 +347,7 @@ internal fun buildConnectionActuatorUiState(
             hardKillSwitch.actionLabel.takeIf { hardKillSwitch.blocksDisconnect }
                 ?: actuatorActionLabel(status, isActivation, stringResolver),
         faultDetail = actuatorFaultDetail(status, runtime),
+        sessionDuration = formatHomeModeConnectionDuration(runtime.connectionDuration),
         stages = buildActuatorStages(status, warningStage, failedStage, stringResolver),
         activationEnabled = isActivation,
         deactivationEnabled = !isActivation && !hardKillSwitch.blocksDisconnect,

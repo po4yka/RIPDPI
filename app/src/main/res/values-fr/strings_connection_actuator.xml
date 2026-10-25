@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="home_connection_actuator_action_deactivate">Déconnecter</string>
-    <string name="home_connection_actuator_action_confirm_release">Confirmer la déconnexion</string>
     <string name="home_connection_actuator_fault_copy">Copier l\'erreur</string>
     <string name="home_connection_actuator_state_engaging">Connexion…</string>
     <string name="home_connection_actuator_state_fault">Échec de la connexion : %1$s</string>

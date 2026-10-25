@@ -330,7 +330,7 @@ private fun connectionActionLabel(
         },
     )
 
-private fun formatHomeModeConnectionDuration(duration: Duration): String {
+internal fun formatHomeModeConnectionDuration(duration: Duration): String {
     val totalSeconds = duration.inWholeSeconds.coerceAtLeast(0L)
     val hours = totalSeconds / SecondsPerHour
     val minutes = (totalSeconds % SecondsPerHour) / SecondsPerMinute

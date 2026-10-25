@@ -3097,7 +3097,6 @@ Fonte: %2$s</string>
     <string name="vpn_confirm_disconnect_title">Desconectar agora?</string>
     <string name="vpn_confirm_disconnect_session_format">Sessão ativa · %1$s</string>
     <string name="vpn_confirm_disconnect_body">Desconectar vai interromper downloads em andamento e redefinir o estado do analisador. Chamadas ativas podem ser interrompidas.</string>
-    <string name="vpn_confirm_disconnect_dont_ask">Não perguntar novamente para este perfil</string>
     <string name="vpn_confirm_disconnect_stay">Permanecer conectado</string>
     <string name="vpn_confirm_disconnect_disconnect">Desconectar</string>
     <string name="vpn_export_consent_title_format">Exportar %1$s</string>

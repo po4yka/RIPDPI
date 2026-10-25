@@ -219,10 +219,10 @@ class CaptureDevice:
             "contentScrollPixels": offset, "observedContentScrollPixels": observed})
 
     def disconnect_live(self) -> None:
-        button = self.tag(self.tree(), "connection-actuator-button")
-        # The connected actuator arms on the first click and confirms within 4 seconds.
-        self.tap(button)
-        self.tap(button)
+        # The connected actuator opens a confirmation dialog; its Disconnect action stops the session.
+        self.tap(self.tag(self.tree(), "connection-actuator-button"))
+        time.sleep(1)
+        self.tap(self.tag(self.tree(), "connection-actuator-disconnect-confirm"))
         for _ in range(30):
             if "ni{VPN CONNECTED extra: VPN:com.poyka.ripdpi}" not in self.adb("shell", "dumpsys", "connectivity"):
                 self.receipts["vpn"]["stoppedNormallyAtUtc"] = datetime.now(timezone.utc).isoformat()

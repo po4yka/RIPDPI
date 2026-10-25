@@ -11,7 +11,6 @@
     <string name="home_connection_actuator_state_fault">कनेक्शन विफल: %1$s</string>
     <string name="home_connection_actuator_action_activate">कनेक्ट करें</string>
     <string name="home_connection_actuator_action_deactivate">डिस्कनेक्ट करें</string>
-    <string name="home_connection_actuator_action_confirm_release">डिस्कनेक्ट की पुष्टि करें</string>
     <string name="home_connection_actuator_fault_copy">त्रुटि कॉपी करें</string>
     <string name="home_connection_stage_network">नेटवर्क</string>
     <string name="home_connection_stage_handshake">हैंडशेक</string>

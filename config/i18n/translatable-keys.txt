@@ -3006,10 +3006,8 @@ app:home_approach_title
 app:home_connection_actuator_action_activate
 app:home_connection_actuator_action_android_managed
 app:home_connection_actuator_action_cancel
-app:home_connection_actuator_action_confirm_release
 app:home_connection_actuator_action_deactivate
 app:home_connection_actuator_action_retry
-app:home_connection_actuator_confirmation_remaining
 app:home_connection_actuator_direct
 app:home_connection_actuator_fault_copy
 app:home_connection_actuator_relay
@@ -5157,7 +5155,6 @@ app:use_command_line_settings
 app:version
 app:vpn_confirm_disconnect_body
 app:vpn_confirm_disconnect_disconnect
-app:vpn_confirm_disconnect_dont_ask
 app:vpn_confirm_disconnect_session_format
 app:vpn_confirm_disconnect_stay
 app:vpn_confirm_disconnect_title

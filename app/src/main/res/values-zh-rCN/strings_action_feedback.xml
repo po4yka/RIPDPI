@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_connection_actuator_confirmation_remaining">请在 %1$d 秒内确认</string>
     <string name="history_events_jump_to_latest">跳转到最新</string>
 </resources>

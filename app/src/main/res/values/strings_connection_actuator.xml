@@ -11,7 +11,6 @@
     <string name="home_connection_actuator_state_fault">Connection failed: %1$s</string>
     <string name="home_connection_actuator_action_activate">Connect</string>
     <string name="home_connection_actuator_action_deactivate">Disconnect</string>
-    <string name="home_connection_actuator_action_confirm_release">Confirm disconnect</string>
     <string name="home_connection_actuator_fault_copy">Copy the error</string>
     <string name="home_connection_stage_network">Network</string>
     <string name="home_connection_stage_dns" translatable="false">DNS</string>

@@ -92,6 +92,8 @@ data class HomeConnectionActuatorUiState(
     /** The active bypass strategy (its step chain or profile name); blank hides the strategy panel. */
     val strategyLabel: String = "",
     val strategyFacets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
+    /** Elapsed time of the running session, shown when the user confirms a disconnect. */
+    val sessionDuration: String = "",
     val stages: ImmutableList<HomeConnectionActuatorStageUiState> = DefaultHomeConnectionActuatorStages,
     val activationEnabled: Boolean? = null,
     val deactivationEnabled: Boolean? = null,

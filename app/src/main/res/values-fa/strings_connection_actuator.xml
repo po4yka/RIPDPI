@@ -11,7 +11,6 @@
     <string name="home_connection_actuator_state_fault">اتصال ناموفق: %1$s</string>
     <string name="home_connection_actuator_action_activate">اتصال</string>
     <string name="home_connection_actuator_action_deactivate">قطع اتصال</string>
-    <string name="home_connection_actuator_action_confirm_release">تأیید قطع اتصال</string>
     <string name="home_connection_actuator_fault_copy">کپی کردن خطا</string>
     <string name="home_connection_stage_network">شبکه</string>
     <string name="home_connection_stage_handshake">دست‌دهی</string>

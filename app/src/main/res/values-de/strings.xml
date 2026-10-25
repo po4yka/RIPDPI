@@ -3029,7 +3029,6 @@ Quelle: %2$s</string>
     <string name="vpn_confirm_disconnect_title">Jetzt trennen?</string>
     <string name="vpn_confirm_disconnect_session_format">Aktive Sitzung · %1$s</string>
     <string name="vpn_confirm_disconnect_body">Beim Trennen werden laufende Downloads abgebrochen und der Analyzer zurückgesetzt. Aktive Anrufe können unterbrochen werden.</string>
-    <string name="vpn_confirm_disconnect_dont_ask">Für dieses Profil nicht mehr fragen</string>
     <string name="vpn_confirm_disconnect_stay">Verbunden bleiben</string>
     <string name="vpn_confirm_disconnect_disconnect">Trennen</string>
     <string name="vpn_export_consent_title_format">%1$s exportieren</string>

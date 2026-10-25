@@ -160,7 +160,7 @@ class RipDpiConnectionActuatorFeedbackTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertIsEnabled().performClick()
 
         assertEquals(1, cancellations)
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorConfirmationRemaining).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertDoesNotExist()
     }
 
     @Test

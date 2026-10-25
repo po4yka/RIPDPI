@@ -32,8 +32,8 @@ internal object RipDpiTestTags {
     const val BottomNavBar = "bottom-nav-bar"
     const val BottomNavIndicator = "bottom-nav-indicator"
 
-    const val ConnectionActuatorConfirmationProgress = "connection-actuator-confirmation-progress"
-    const val ConnectionActuatorConfirmationRemaining = "connection-actuator-confirmation-remaining"
+    const val ConnectionActuatorDisconnectConfirm = "connection-actuator-disconnect-confirm"
+    const val ConnectionActuatorDisconnectStay = "connection-actuator-disconnect-stay"
     const val HistoryEventsJumpToLatest = "history-events-jump-to-latest"
     const val DiagnosticsOutcomeTransition = "diagnostics-outcome-transition"
     const val ConnectionActuatorButton = "connection-actuator-button"

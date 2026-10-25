@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +13,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyDescendant
@@ -64,7 +64,7 @@ class ActionFeedbackInstrumentedTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun confirmationExpiresOnTheRealClockWithAnimationsDisabled() {
+    fun confirmationWaitsWithoutATimeLimitWithAnimationsDisabled() {
         var disconnects = 0
         compose.setContent {
             FeedbackTheme(RipDpiMotion(animationsEnabled = false)) {
@@ -76,23 +76,14 @@ class ActionFeedbackInstrumentedTest {
                 )
             }
         }
-        val button = compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
-        button.performClick()
-        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorConfirmationRemaining).assertIsDisplayed()
-        val initialTime = confirmationText()
-        compose.waitUntil(timeoutMillis = 2_500) { confirmationText() != initialTime }
+        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performClick()
+        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertIsDisplayed()
+        // Longer than the former 4 s window: the confirmation must still be there on the real clock.
+        SystemClock.sleep(6_000)
+        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertIsDisplayed()
         capture("confirmation-static")
-        compose.waitUntil(timeoutMillis = 6_000) {
-            compose
-                .onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorConfirmationRemaining)
-                .fetchSemanticsNodes()
-                .isEmpty()
-        }
         compose.runOnIdle { assertEquals(0, disconnects) }
-        button.performClick()
-        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorConfirmationRemaining).assertIsDisplayed()
-        compose.runOnIdle { assertEquals(0, disconnects) }
-        button.performClick()
+        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).performClick()
         compose.runOnIdle { assertEquals(1, disconnects) }
     }
 
@@ -211,12 +202,10 @@ class ActionFeedbackInstrumentedTest {
                 }
             }
         }
-        val button = compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
-        button.performClick()
-        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorConfirmationRemaining).assertIsDisplayed()
-        button.assertIsDisplayed()
+        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performClick()
+        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertIsDisplayed()
         capture("confirmation-font2-rtl-dark")
-        button.performClick()
+        compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).performClick()
         compose.runOnIdle { assertEquals(1, disconnects) }
     }
 
@@ -227,13 +216,6 @@ class ActionFeedbackInstrumentedTest {
         check(directory.mkdirs() || directory.isDirectory)
         assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(File(directory, "$name.png")))
     }
-
-    private fun confirmationText(): String =
-        compose
-            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorConfirmationRemaining)
-            .fetchSemanticsNode()
-            .config[SemanticsProperties.Text]
-            .joinToString { it.text }
 }
 
 @Composable

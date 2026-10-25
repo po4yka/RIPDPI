@@ -3034,7 +3034,6 @@ fakeddisorder endhost</string>
     <string name="vpn_confirm_disconnect_title">اکنون قطع شود؟</string>
     <string name="vpn_confirm_disconnect_session_format">نشست فعال · %1$s</string>
     <string name="vpn_confirm_disconnect_body">قطع اتصال دانلودهای در حال انجام را متوقف می‌کند و وضعیت تحلیلگر را بازنشانی می‌کند. تماس‌های فعال ممکن است قطع شوند.</string>
-    <string name="vpn_confirm_disconnect_dont_ask">برای این پروفایل دیگر نپرس</string>
     <string name="vpn_confirm_disconnect_stay">متصل بمان</string>
     <string name="vpn_confirm_disconnect_disconnect">قطع کن</string>
     <string name="vpn_export_consent_title_format">برون‌برد %1$s</string>

@@ -11,7 +11,6 @@
     <string name="home_connection_actuator_state_fault">连接失败：%1$s</string>
     <string name="home_connection_actuator_action_activate">连接</string>
     <string name="home_connection_actuator_action_deactivate">断开连接</string>
-    <string name="home_connection_actuator_action_confirm_release">确认断开连接</string>
     <string name="home_connection_actuator_fault_copy">复制错误信息</string>
     <string name="home_connection_stage_network">网络</string>
     <string name="home_connection_stage_handshake">握手</string>

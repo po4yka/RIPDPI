@@ -2913,7 +2913,6 @@ fakeddisorder endhost</string>
     <string name="vpn_confirm_disconnect_title">قطع الاتصال الآن؟</string>
     <string name="vpn_confirm_disconnect_session_format">جلسة نشطة · %1$s</string>
     <string name="vpn_confirm_disconnect_body">سيؤدي قطع الاتصال إلى إيقاف التنزيلات المفتوحة وإعادة ضبط حالة المحلل. قد تنقطع المكالمات النشطة.</string>
-    <string name="vpn_confirm_disconnect_dont_ask">عدم السؤال مجدداً لهذا الملف الشخصي</string>
     <string name="vpn_confirm_disconnect_stay">ابقَ متصلاً</string>
     <string name="vpn_confirm_disconnect_disconnect">قطع الاتصال</string>
     <string name="vpn_export_consent_title_format">تصدير %1$s</string>
