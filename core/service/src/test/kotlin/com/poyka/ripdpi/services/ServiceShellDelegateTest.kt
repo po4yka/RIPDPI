@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.testPauseAuthority
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -431,14 +432,17 @@ class ServiceShellStopOwnershipTest {
             val fixture = ShellCommandFixture(Mode.VPN)
             val stop = fixture.reserveStop()
 
-            var startCalls = 0
+            var uncapturedStarts = 0
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
                     serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
-                    onStart = { startCalls += 1 },
+                    // The production start rejects a command without RuntimeCommandStartAuthority.
+                    onStart = {
+                        if (currentCoroutineContext()[RuntimeCommandStartAuthority] == null) uncapturedStarts += 1
+                    },
                     onStop = { startId, _ -> stopIds += startId },
                     isStopAllowed = { false },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
@@ -455,7 +459,7 @@ class ServiceShellStopOwnershipTest {
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
-            assertEquals(1, startCalls)
+            assertEquals(0, uncapturedStarts)
             assertEquals(emptyList<Int?>(), stopIds)
         }
 
@@ -508,14 +512,16 @@ class ServiceShellStopOwnershipTest {
             val stop = fixture.reserveStop()
 
             var stopAllowed = true
-            var startCalls = 0
+            var uncapturedStarts = 0
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
                     serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
-                    onStart = { startCalls += 1 },
+                    onStart = {
+                        if (currentCoroutineContext()[RuntimeCommandStartAuthority] == null) uncapturedStarts += 1
+                    },
                     onStop = { startId, _ -> stopIds += startId },
                     isStopAllowed = { stopAllowed },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
@@ -533,7 +539,7 @@ class ServiceShellStopOwnershipTest {
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
-            assertEquals(1, startCalls)
+            assertEquals(0, uncapturedStarts)
             assertEquals(emptyList<Int?>(), stopIds)
         }
 

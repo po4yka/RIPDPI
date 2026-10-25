@@ -288,8 +288,8 @@ internal class ServiceShellDelegate(
             }
             android.app.Service.START_NOT_STICKY
         } else {
+            // A stop intent carries no start command, so it must not start a runtime.
             Logger.w { "Ignoring diagnostics stop for $serviceLabel service while disconnect is blocked" }
-            enqueue(cancellableByUserStop = true, block = onStart)
             android.app.Service.START_STICKY
         }
     }
@@ -354,8 +354,8 @@ internal class ServiceShellDelegate(
         durableReference: com.poyka.ripdpi.data.PauseAuthorityRef?,
     ): Int {
         if (!isStopAllowed(action)) {
+            // A stop intent carries no start command, so it must not start a runtime.
             Logger.w { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
-            enqueue(cancellableByUserStop = true, block = onStart)
             return android.app.Service.START_STICKY
         }
         val acceptedGuard =
