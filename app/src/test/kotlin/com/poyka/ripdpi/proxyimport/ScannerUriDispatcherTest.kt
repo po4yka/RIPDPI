@@ -86,4 +86,57 @@ class ScannerUriDispatcherTest {
         // https is explicitly not a proxy-node scheme.
         assertFalse(schemes.contains("https"))
     }
+
+    @Test
+    fun `https subscription qr payload resolves to a subscription request`() {
+        val result = ScannerUriDispatcher.dispatch("https://sub.example.com/s/token123")
+
+        assertTrue(result is ScannerScanResult.Subscription)
+        assertEquals("https://sub.example.com/s/token123", (result as ScannerScanResult.Subscription).request.url)
+    }
+
+    @Test
+    fun `ripdpi subscription deep link qr payload resolves to a subscription request`() {
+        val result = ScannerUriDispatcher.dispatch("ripdpi://import?sub=https%3A%2F%2Fsub.example.com%2Fs")
+
+        assertTrue(result is ScannerScanResult.Subscription)
+        assertEquals("https://sub.example.com/s", (result as ScannerScanResult.Subscription).request.url)
+    }
+
+    @Test
+    fun `amneziawg conf qr payload resolves to a conf import`() {
+        val result = ScannerUriDispatcher.dispatch(AwgConf)
+
+        assertTrue(result is ScannerScanResult.AmneziaWgConf)
+        assertEquals(AwgConf, (result as ScannerScanResult.AmneziaWgConf).conf)
+    }
+
+    @Test
+    fun `plain wireguard conf is invalid because the editor accepts only amneziawg`() {
+        val plain =
+            "[Interface]\nPrivateKey = privkey==\n\n[Peer]\nPublicKey = peerpub==\nEndpoint = vpn.example.com:51820"
+
+        assertTrue(ScannerUriDispatcher.dispatch(plain) is ScannerScanResult.Invalid)
+    }
+
+    private companion object {
+        val AwgConf =
+            """
+            [Interface]
+            PrivateKey = privkey==
+            Jc = 4
+            Jmin = 40
+            Jmax = 70
+            S1 = 50
+            S2 = 100
+            H1 = 1000000001
+            H2 = 1000000002
+            H3 = 1000000003
+            H4 = 1000000004
+
+            [Peer]
+            PublicKey = peerpub==
+            Endpoint = vpn.example.com:51820
+            """.trimIndent()
+    }
 }

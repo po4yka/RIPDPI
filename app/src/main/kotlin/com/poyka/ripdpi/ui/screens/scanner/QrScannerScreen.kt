@@ -33,7 +33,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
+import com.poyka.ripdpi.proxyimport.PendingSubscriptionImportRequest
 import com.poyka.ripdpi.proxyimport.ProxyImportRequest
+import com.poyka.ripdpi.proxyimport.ScannerScanResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -51,8 +53,9 @@ import kotlinx.coroutines.launch
  * QR scanner destination.
  *
  * A Compose screen wrapping a CameraX preview + ML Kit barcode analyzer ([QrCameraAnalyzer]).
- * On a successful decode of an allowlisted proxy URI the screen routes to the
- * profile-import confirmation destination via [onProfileScanned]. The camera-permission
+ * On a successful decode the screen routes by payload: a proxy URI to [onProfileScanned],
+ * a subscription link to [onSubscriptionScanned], and an AmneziaWG `.conf` to
+ * [onAmneziaWgConfScanned]. The camera-permission
  * flow degrades gracefully: a denied permission keeps the image-file-pick fallback
  * ([QrImageScanner]) available rather than bricking the screen. Invalid QR content shows
  * a redacted error (first 16 chars only); the full payload is never logged.
@@ -64,6 +67,8 @@ fun QrScannerRoute(
     sessionId: String,
     onBack: () -> Unit,
     onProfileScanned: (ProxyImportRequest.Profile) -> Unit,
+    onSubscriptionScanned: (PendingSubscriptionImportRequest) -> Unit,
+    onAmneziaWgConfScanned: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: QrScannerViewModel = hiltViewModel(),
 ) {
@@ -97,11 +102,14 @@ fun QrScannerRoute(
         requestCameraPermission = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
     )
 
-    LaunchedEffect(uiState.importRequest) {
-        val request = uiState.importRequest
-        if (request is ProxyImportRequest.Profile) {
-            viewModel.consumeImportRequest()
-            onProfileScanned(request)
+    LaunchedEffect(uiState.scanResult) {
+        val result = uiState.scanResult ?: return@LaunchedEffect
+        viewModel.consumeScanResult()
+        when (result) {
+            is ScannerScanResult.Profile -> onProfileScanned(result.request)
+            is ScannerScanResult.Subscription -> onSubscriptionScanned(result.request)
+            is ScannerScanResult.AmneziaWgConf -> onAmneziaWgConfScanned(result.conf)
+            is ScannerScanResult.Invalid -> Unit
         }
     }
 

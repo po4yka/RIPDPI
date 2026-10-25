@@ -51,9 +51,9 @@ class QrScannerViewModelTest {
 
         viewModel.onQrDecoded("vless://11111111-2222-3333-4444-555555555555@example.com:443#QR")
 
-        val request = viewModel.uiState.value.importRequest
-        assertTrue(request is ProxyImportRequest.Profile)
-        assertTrue((request as ProxyImportRequest.Profile).profile is ProxyProfile.Vless)
+        val result = viewModel.uiState.value.scanResult
+        assertTrue(result is ScannerScanResult.Profile)
+        assertTrue((result as ScannerScanResult.Profile).request.profile is ProxyProfile.Vless)
         assertNull(viewModel.uiState.value.decodeError)
     }
 
@@ -66,7 +66,7 @@ class QrScannerViewModelTest {
 
         // The error preview is capped at the first 16 characters of the payload.
         assertEquals("http://malicious", viewModel.uiState.value.decodeError)
-        assertNull(viewModel.uiState.value.importRequest)
+        assertNull(viewModel.uiState.value.scanResult)
     }
 
     @Test
@@ -76,18 +76,30 @@ class QrScannerViewModelTest {
 
         viewModel.onQrDecoded("trojan://secret@example.com:443#FromImage")
 
-        assertTrue(viewModel.uiState.value.importRequest is ProxyImportRequest.Profile)
+        assertTrue(viewModel.uiState.value.scanResult is ScannerScanResult.Profile)
     }
 
     @Test
-    fun `consuming the import request clears it`() {
+    fun `consuming the scan result clears it`() {
         val viewModel = QrScannerViewModel()
         viewModel.onCameraPermissionResult(granted = true)
         viewModel.onQrDecoded("trojan://secret@example.com:443#QR")
 
-        viewModel.consumeImportRequest()
+        viewModel.consumeScanResult()
 
-        assertNull(viewModel.uiState.value.importRequest)
+        assertNull(viewModel.uiState.value.scanResult)
+    }
+
+    @Test
+    fun `repeated frames of the same code import it once`() {
+        val viewModel = QrScannerViewModel()
+        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onQrDecoded("trojan://secret@example.com:443#QR")
+        viewModel.consumeScanResult()
+
+        viewModel.onQrDecoded("trojan://secret@example.com:443#QR")
+
+        assertNull(viewModel.uiState.value.scanResult)
     }
 
     @Test

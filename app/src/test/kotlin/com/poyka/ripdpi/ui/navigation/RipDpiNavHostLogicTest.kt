@@ -118,9 +118,11 @@ class RipDpiNavHostLogicTest {
     @Test
     fun `route registry and stable matchers cover every NavHost destination`() {
         val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
+        val importNavigationSource =
+            File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/ImportNavigation.kt").readText()
         val registeredDestinationTypes =
             Regex("""composable<Route\.([A-Za-z0-9_]+)>""")
-                .findAll(navHostSource)
+                .findAll(navHostSource + importNavigationSource)
                 .map { match -> match.groupValues[1] }
                 .toList()
         val registeredRouteTypes = Route.all.map { route -> route::class.java.simpleName }
@@ -408,10 +410,11 @@ private val ExpectedRootScreenTags: Map<String, String> =
         Route.OwnedStackBrowser().stableRoute to "owned_stack_browser-screen",
         Route.ProfileImportConfirm().stableRoute to "import/profile_confirm-screen",
         Route.SubscriptionImportConfirm().stableRoute to "import/subscription_confirm-screen",
+        Route.SubscriptionAdd.stableRoute to "import/subscription_add-screen",
         Route.SupportSettings().stableRoute to "support/settings-screen",
         Route.ProfileShare().stableRoute to "profile/share-screen",
         Route.QrScanner.stableRoute to "scanner-screen",
-        Route.AmneziaWgProfile.stableRoute to "profile/amneziawg-screen",
+        Route.AmneziaWgProfile().stableRoute to "profile/amneziawg-screen",
         Route.XrayImport.stableRoute to "xray/import-screen",
         Route.AnyTlsProfile.stableRoute to "profile/anytls-screen",
         Route.MieruProfile.stableRoute to "profile/mieru-screen",
@@ -487,11 +490,16 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
                 ReachabilityMechanism.ParentCallback,
                 ReachabilityMechanism.ImportIntent,
             ),
-        Route.SubscriptionImportConfirm().stableRoute to setOf(ReachabilityMechanism.ImportIntent),
+        Route.SubscriptionImportConfirm().stableRoute to
+            setOf(
+                ReachabilityMechanism.ParentCallback,
+                ReachabilityMechanism.ImportIntent,
+            ),
+        Route.SubscriptionAdd.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.SupportSettings().stableRoute to setOf(ReachabilityMechanism.ImportIntent),
         Route.ProfileShare().stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.QrScanner.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
-        Route.AmneziaWgProfile.stableRoute to
+        Route.AmneziaWgProfile().stableRoute to
             setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
         Route.XrayImport.stableRoute to
             setOf(

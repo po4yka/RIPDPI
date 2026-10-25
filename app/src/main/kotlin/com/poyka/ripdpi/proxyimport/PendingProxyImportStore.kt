@@ -36,6 +36,10 @@ internal class PendingProxyImportStore(
         data class Subscription(
             val value: PendingSubscriptionImportRequest,
         ) : Payload
+
+        data class AmneziaWgConf(
+            val value: String,
+        ) : Payload
     }
 
     private val lock = Any()
@@ -51,6 +55,15 @@ internal class PendingProxyImportStore(
     fun stageSubscription(request: PendingSubscriptionImportRequest): String? {
         if (!request.isBounded()) return null
         return stagePayload(Payload.Subscription(request))
+    }
+
+    /**
+     * Stages an AmneziaWG `.conf` text; it carries the private key, so it never rides a nav
+     * argument. Empty text is staged so the editor can report an unreadable file.
+     */
+    fun stageAmneziaWgConf(conf: String): String? {
+        if (conf.toByteArray(Charsets.UTF_8).size > MaxAmneziaWgConfBytes) return null
+        return stagePayload(Payload.AmneziaWgConf(conf))
     }
 
     private fun stagePayload(payload: Payload): String =
@@ -87,6 +100,15 @@ internal class PendingProxyImportStore(
         }
     }
 
+    fun claimAmneziaWgConf(token: String): String? {
+        if (!token.isOpaqueImportToken()) return null
+        return synchronized(lock) {
+            val now = nanoTime()
+            pruneExpired(now)
+            (entries.remove(token)?.payload as? Payload.AmneziaWgConf)?.value
+        }
+    }
+
     fun contains(token: String): Boolean {
         if (!token.isOpaqueImportToken()) return false
         return synchronized(lock) {
@@ -110,6 +132,7 @@ internal class PendingProxyImportStore(
         private const val DefaultTtlNanos = 5L * 60L * 1_000_000_000L
         private const val NanosPerMillisecond = 1_000_000L
         internal const val OpaqueTokenLength = 36
+        internal const val MaxAmneziaWgConfBytes = 64 * 1024
         private val processExpiryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         /** Single store shared by activities, navigation, and destination ViewModels. */
@@ -117,7 +140,7 @@ internal class PendingProxyImportStore(
     }
 }
 
-internal data class PendingSubscriptionImportRequest(
+data class PendingSubscriptionImportRequest(
     val url: String,
     val name: String,
     val bootstrap: Boolean,
@@ -126,6 +149,9 @@ internal data class PendingSubscriptionImportRequest(
         url.startsWith("https://", ignoreCase = true) &&
             url.toByteArray(Charsets.UTF_8).size in 1..MaxSubscriptionUrlBytes &&
             name.toByteArray(Charsets.UTF_8).size <= MaxSubscriptionNameBytes
+
+    // The URL usually carries the subscription access token.
+    override fun toString(): String = "PendingSubscriptionImportRequest(url=<redacted>, bootstrap=$bootstrap)"
 
     private companion object {
         const val MaxSubscriptionUrlBytes = 8 * 1024

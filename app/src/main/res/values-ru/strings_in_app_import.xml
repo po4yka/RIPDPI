@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_vpn_add_subscription">Подписка</string>
+    <string name="config_vpn_import_awg_conf">AmneziaWG из файла .conf</string>
+    <string name="subscription_add_url_label">Ссылка на подписку</string>
+    <string name="subscription_add_body">Вставьте ссылку https:// от вашего провайдера. Перед добавлением вы сможете проверить подписку.</string>
+    <string name="subscription_add_url_invalid">Введите корректную ссылку на подписку https://.</string>
+    <string name="subscription_add_continue">Продолжить</string>
+    <string name="awg_conf_import_failed_title">Конфигурация не импортирована</string>
+    <string name="awg_conf_import_failed_body">Текст не является корректным файлом AmneziaWG .conf. Обычные конфигурации WireGuard в этом редакторе не поддерживаются.</string>
+</resources>

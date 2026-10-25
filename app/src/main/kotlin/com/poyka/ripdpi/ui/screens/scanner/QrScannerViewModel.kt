@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.scanner
 
 import androidx.lifecycle.ViewModel
-import com.poyka.ripdpi.proxyimport.ProxyImportRequest
 import com.poyka.ripdpi.proxyimport.ScannerScanResult
 import com.poyka.ripdpi.proxyimport.ScannerUriDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,7 +26,8 @@ enum class ScannerCameraState {
 data class QrScannerUiState(
     val cameraState: ScannerCameraState = ScannerCameraState.REQUESTING_PERMISSION,
     val imageFallbackAvailable: Boolean = true,
-    val importRequest: ProxyImportRequest? = null,
+    /** A recognised payload awaiting navigation; never [ScannerScanResult.Invalid]. */
+    val scanResult: ScannerScanResult? = null,
     val decodeError: String? = null,
 )
 
@@ -48,6 +48,7 @@ class QrScannerViewModel
         private val _uiState = MutableStateFlow(QrScannerUiState())
         val uiState: StateFlow<QrScannerUiState> = _uiState.asStateFlow()
         private var cameraPermissionRequestSessionId: String? = null
+        private var lastImportedPayload: String? = null
 
         /** Requests camera permission at most once for each navigation session. */
         internal fun requestCameraPermissionOnce(
@@ -85,25 +86,31 @@ class QrScannerViewModel
 
         /**
          * Handles a QR payload decoded from either the camera analyzer or a picked image.
-         * On a valid allowlisted proxy URI the resulting [ProxyImportRequest] is exposed
-         * for the screen to navigate on; otherwise a redacted preview is surfaced as
-         * [QrScannerUiState.decodeError].
+         * A recognised proxy URI, subscription link, or AmneziaWG `.conf` is exposed as
+         * [QrScannerUiState.scanResult] for the screen to navigate on; otherwise a redacted
+         * preview is surfaced as [QrScannerUiState.decodeError].
          */
         fun onQrDecoded(payload: String) {
             when (val result = ScannerUriDispatcher.dispatch(payload)) {
-                is ScannerScanResult.Profile -> {
-                    _uiState.update { it.copy(importRequest = result.request, decodeError = null) }
+                is ScannerScanResult.Invalid -> {
+                    _uiState.update { it.copy(decodeError = result.redactedPreview, scanResult = null) }
                 }
 
-                is ScannerScanResult.Invalid -> {
-                    _uiState.update { it.copy(decodeError = result.redactedPreview, importRequest = null) }
+                is ScannerScanResult.Profile,
+                is ScannerScanResult.Subscription,
+                is ScannerScanResult.AmneziaWgConf,
+                -> {
+                    // The analyzer reports every frame that holds the code; import it once per scanner visit.
+                    if (payload == lastImportedPayload) return
+                    lastImportedPayload = payload
+                    _uiState.update { it.copy(scanResult = result, decodeError = null) }
                 }
             }
         }
 
-        /** Clears the pending import request once the screen has navigated on it. */
-        fun consumeImportRequest() {
-            _uiState.update { it.copy(importRequest = null) }
+        /** Clears the pending scan result once the screen has navigated on it. */
+        fun consumeScanResult() {
+            _uiState.update { it.copy(scanResult = null) }
         }
 
         /** Clears the decode error so the analyzer can resume scanning. */

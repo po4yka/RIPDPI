@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_vpn_add_subscription">اشتراک</string>
+    <string name="config_vpn_import_awg_conf">AmneziaWG از فایل ‎.conf</string>
+    <string name="subscription_add_url_label">پیوند اشتراک</string>
+    <string name="subscription_add_body">پیوند https:// ارائه‌دهندهٔ خود را بچسبانید. پیش از افزودن، اشتراک را بررسی می‌کنید.</string>
+    <string name="subscription_add_url_invalid">یک پیوند اشتراک https:// معتبر وارد کنید.</string>
+    <string name="subscription_add_continue">ادامه</string>
+    <string name="awg_conf_import_failed_title">پیکربندی وارد نشد</string>
+    <string name="awg_conf_import_failed_body">این متن یک فایل ‎.conf معتبر AmneziaWG نیست. این ویرایشگر از پیکربندی‌های سادهٔ WireGuard پشتیبانی نمی‌کند.</string>
+</resources>

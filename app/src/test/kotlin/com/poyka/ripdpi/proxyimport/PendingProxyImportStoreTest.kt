@@ -49,6 +49,24 @@ class PendingProxyImportStoreTest {
     }
 
     @Test
+    fun `amneziawg conf is claimed once and only by its own kind`() {
+        val store = PendingProxyImportStore()
+        val conf = "[Interface]\nPrivateKey = secret=="
+        val token = checkNotNull(store.stageAmneziaWgConf(conf))
+
+        assertNull(store.claim(token))
+        assertEquals(conf, store.claimAmneziaWgConf(checkNotNull(store.stageAmneziaWgConf(conf))))
+        assertNull(store.claimAmneziaWgConf(token))
+    }
+
+    @Test
+    fun `oversized amneziawg conf is not staged`() {
+        val store = PendingProxyImportStore()
+
+        assertNull(store.stageAmneziaWgConf("x".repeat(PendingProxyImportStore.MaxAmneziaWgConfBytes + 1)))
+    }
+
+    @Test
     fun `claim is one-shot`() {
         val store = PendingProxyImportStore()
         val profile = sshProfile()

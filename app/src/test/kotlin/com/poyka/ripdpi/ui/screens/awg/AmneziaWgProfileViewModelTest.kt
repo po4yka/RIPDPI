@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.UUID
 
 /**
  * Tests for [AmneziaWgProfileViewModel]: the AmneziaWG profile-editor backing ViewModel.
@@ -308,6 +310,34 @@ class AmneziaWgProfileViewModelTest {
         viewModel.onConfPasted("definitely not a wireguard config")
 
         assertEquals("keep.me", viewModel.uiState.value.editor.form.server)
+        assertTrue(viewModel.uiState.value.confImportFailed)
+        viewModel.onFieldChanged(AwgEditorField.SERVER, "edited")
+        assertFalse(viewModel.uiState.value.confImportFailed)
+    }
+
+    @Test
+    fun `a staged conf token prefills the editor once`() {
+        val viewModel = viewModel()
+        val store = PendingProxyImportStore()
+        val conf = "[Interface]\nPrivateKey = k==\nJc = 4\n\n[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820"
+        val token = checkNotNull(store.stageAmneziaWgConf(conf))
+
+        viewModel.onImportToken(token, store)
+        viewModel.onFieldChanged(AwgEditorField.SERVER, "edited")
+        viewModel.onImportToken(token, store)
+
+        assertEquals("edited", viewModel.uiState.value.editor.form.server)
+        assertEquals("k==", viewModel.uiState.value.editor.form.interfacePrivateKey)
+        assertFalse(viewModel.uiState.value.confImportFailed)
+    }
+
+    @Test
+    fun `a conf token lost with the process leaves the editor without a parse error`() {
+        val viewModel = viewModel()
+
+        viewModel.onImportToken(UUID.randomUUID().toString(), PendingProxyImportStore())
+
+        assertFalse(viewModel.uiState.value.confImportFailed)
     }
 
     @Test

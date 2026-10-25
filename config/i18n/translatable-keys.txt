@@ -288,6 +288,8 @@ app:awg_carrier_ws
 app:awg_cohort_custom
 app:awg_cohort_locked_hint
 app:awg_cohort_picker_label
+app:awg_conf_import_failed_body
+app:awg_conf_import_failed_title
 app:awg_connect_action
 app:awg_connect_error
 app:awg_connect_incomplete_hint
@@ -824,9 +826,11 @@ app:config_validation_fix
 app:config_vpn_add_profile_title
 app:config_vpn_add_server_paste
 app:config_vpn_add_server_scan
+app:config_vpn_add_subscription
 app:config_vpn_credentials_required
 app:config_vpn_credentials_summary
 app:config_vpn_credentials_title
+app:config_vpn_import_awg_conf
 app:config_vpn_profiles_empty_body
 app:config_vpn_profiles_empty_value
 app:config_vpn_profiles_more
@@ -4948,6 +4952,10 @@ app:strategy_tuner_result_detail_format
 app:strategy_tuner_run
 app:strategy_tuner_status_format
 app:strategy_tuner_strategy_unregistered
+app:subscription_add_body
+app:subscription_add_continue
+app:subscription_add_url_invalid
+app:subscription_add_url_label
 app:subscription_failover_active_server_label
 app:subscription_failover_detail_available_on_switch
 app:subscription_failover_detail_current_server

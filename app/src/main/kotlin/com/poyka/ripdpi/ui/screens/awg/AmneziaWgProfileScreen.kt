@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -63,8 +64,12 @@ fun AmneziaWgProfileRoute(
     viewModel: AmneziaWgProfileViewModel = hiltViewModel(),
     onRequestPrivateKeyReveal: (() -> Unit)? = null,
     onRequestPresharedKeyReveal: (() -> Unit)? = null,
+    importToken: String = "",
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(importToken) {
+        if (importToken.isNotEmpty()) viewModel.onImportToken(importToken)
+    }
     var consentRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     val consentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -117,8 +122,15 @@ internal fun AmneziaWgProfileScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         navigationContentDescription = stringResource(R.string.navigation_back),
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AmneziaWgProfile)),
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AmneziaWgProfile())),
     ) {
+        if (uiState.confImportFailed) {
+            WarningBanner(
+                title = stringResource(R.string.awg_conf_import_failed_title),
+                message = stringResource(R.string.awg_conf_import_failed_body),
+                testTag = RipDpiTestTags.AwgConfImportFailed,
+            )
+        }
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
         CarrierSection(uiState, onFieldChanged, onCarrierSelected)

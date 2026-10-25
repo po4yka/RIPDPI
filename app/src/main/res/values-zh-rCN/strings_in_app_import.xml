@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_vpn_add_subscription">订阅</string>
+    <string name="config_vpn_import_awg_conf">从 .conf 文件导入 AmneziaWG</string>
+    <string name="subscription_add_url_label">订阅链接</string>
+    <string name="subscription_add_body">粘贴服务商提供的 https:// 链接。RIPDPI 添加订阅前，您可以先查看。</string>
+    <string name="subscription_add_url_invalid">请输入有效的 https:// 订阅链接。</string>
+    <string name="subscription_add_continue">继续</string>
+    <string name="awg_conf_import_failed_title">配置未导入</string>
+    <string name="awg_conf_import_failed_body">该文本不是有效的 AmneziaWG .conf。此编辑器不支持普通 WireGuard 配置。</string>
+</resources>

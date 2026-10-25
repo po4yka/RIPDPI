@@ -43,6 +43,7 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.awg.rememberAwgConfFileImport
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -359,6 +360,7 @@ private fun VpnSimpleActions(
 @Composable
 private fun VpnAddProfileAction(onCreateProfile: (Route) -> Unit) {
     var showProfileMenu by rememberSaveable { mutableStateOf(false) }
+    val importAwgConfFile = rememberAwgConfFileImport(onCreateProfile)
     Box {
         RipDpiButton(
             text = stringResource(R.string.config_vpn_add_profile_title),
@@ -392,8 +394,20 @@ private fun VpnAddProfileAction(onCreateProfile: (Route) -> Unit) {
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.awg_editor_title),
                         icon = RipDpiIcons.Vpn,
-                        testTag = RipDpiTestTags.configVpnCreateProfile(Route.AmneziaWgProfile),
-                        onClick = { onCreateProfile(Route.AmneziaWgProfile) },
+                        testTag = RipDpiTestTags.configVpnCreateProfile(Route.AmneziaWgProfile()),
+                        onClick = { onCreateProfile(Route.AmneziaWgProfile()) },
+                    ),
+                    RipDpiContextMenuAction(
+                        label = stringResource(R.string.config_vpn_import_awg_conf),
+                        icon = RipDpiIcons.Vpn,
+                        testTag = RipDpiTestTags.ConfigVpnImportAwgConf,
+                        onClick = importAwgConfFile,
+                    ),
+                    RipDpiContextMenuAction(
+                        label = stringResource(R.string.config_vpn_add_subscription),
+                        icon = RipDpiIcons.Add,
+                        testTag = RipDpiTestTags.configVpnCreateProfile(Route.SubscriptionAdd),
+                        onClick = { onCreateProfile(Route.SubscriptionAdd) },
                     ),
                 ),
             onDismiss = { showProfileMenu = false },

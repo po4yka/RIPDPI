@@ -557,6 +557,15 @@ pages:
     description: |
       AmneziaWG profile settings state with endpoint, key, and obfuscation fields.
 
+  - id: subscription_add
+    title: "Add Subscription"
+    route: "import/subscription_add"
+    flow_from: null
+    expected_root: "import/subscription_add-screen"
+    state: "Subscription link entry"
+    description: |
+      Subscription link entry state with the https:// link field and the Continue action.
+
   - id: mieru_profile
     title: "Mieru Profile"
     route: "profile/mieru"

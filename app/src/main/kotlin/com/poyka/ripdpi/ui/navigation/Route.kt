@@ -392,9 +392,24 @@ sealed class Route {
     }
 
     @Serializable
-    data object AmneziaWgProfile : Route() {
+    data object SubscriptionAdd : Route() {
+        override val stableRoute = "import/subscription_add"
+        override val titleRes = R.string.import_subscription_confirm_title
+        override val icon: ImageVector? = null
+    }
+
+    /** [importToken] optionally names a staged `.conf` that prefills the editor. */
+    @Serializable
+    data class AmneziaWgProfile(
+        val importToken: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
         override val stableRoute = "profile/amneziawg"
+
+        @kotlinx.serialization.Transient
         override val titleRes = R.string.awg_editor_title
+
+        @kotlinx.serialization.Transient
         override val icon: ImageVector? = null
     }
 
@@ -501,10 +516,11 @@ sealed class Route {
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),
                     SubscriptionImportConfirm(),
+                    SubscriptionAdd,
                     SupportSettings(),
                     ProfileShare(),
                     QrScanner,
-                    AmneziaWgProfile,
+                    AmneziaWgProfile(),
                     XrayImport,
                     AnyTlsProfile,
                     MieruProfile,

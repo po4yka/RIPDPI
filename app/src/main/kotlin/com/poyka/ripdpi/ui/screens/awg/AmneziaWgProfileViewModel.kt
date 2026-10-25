@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.proxyimport.ClipboardReader
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
@@ -77,6 +78,8 @@ data class AmneziaWgProfileUiState(
      * when the service layer cannot reach readiness; the next edit or Connect tap clears it.
      */
     val activationStatus: AwgActivationStatus = AwgActivationStatus.Idle,
+    /** `true` after a pasted, picked, or scanned `.conf` failed to parse; the next edit clears it. */
+    val confImportFailed: Boolean = false,
 )
 
 /**
@@ -111,6 +114,7 @@ class AmneziaWgProfileViewModel
          * field is sufficient.
          */
         private var savedProfileId: String? = null
+        private var claimedImportToken: String? = null
         private var pendingConsent: Pair<String, AmneziaWgEditorState>? = null
         private val consentRequests = Channel<AwgVpnConsentRequest>(Channel.BUFFERED)
         val vpnConsentRequests = consentRequests.receiveAsFlow()
@@ -131,19 +135,7 @@ class AmneziaWgProfileViewModel
          * previous failure no longer describes the current form).
          */
         private inline fun mutateEditor(crossinline transform: (AmneziaWgEditorState) -> AmneziaWgEditorState) {
-            _uiState.update {
-                val nextEditor = transform(it.editor)
-                it.copy(
-                    editor = nextEditor,
-                    canActivate = nextEditor.isActivatable(),
-                    activationStatus =
-                        if (it.activationStatus == AwgActivationStatus.Failed) {
-                            AwgActivationStatus.Idle
-                        } else {
-                            it.activationStatus
-                        },
-                )
-            }
+            _uiState.update { it.withEditor(transform(it.editor)) }
         }
 
         /**
@@ -179,11 +171,30 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * Replaces the editor state from a pasted AmneziaWG `.conf`. Malformed input or a
-         * vanilla WireGuard config leaves the editor unchanged.
+         * Replaces the editor state from an AmneziaWG `.conf`. Malformed input or a vanilla
+         * WireGuard config leaves the editor unchanged and sets
+         * [AmneziaWgProfileUiState.confImportFailed].
          */
         fun onConfPasted(conf: String) {
-            mutateEditor { it.populateFromConf(conf, catalog) }
+            _uiState.update { state ->
+                val next = state.editor.populateFromConf(conf, catalog)
+                if (next === state.editor) state.copy(confImportFailed = true) else state.withEditor(next)
+            }
+        }
+
+        /**
+         * Prefills the editor from a `.conf` staged by the QR scanner or the file picker.
+         * The token is claimed once; a repeat call for the same token (screen recreation) is
+         * a no-op. A token lost with the process leaves the editor as is: there is nothing to
+         * report about the file itself.
+         */
+        internal fun onImportToken(
+            importToken: String,
+            pendingImports: PendingProxyImportStore = PendingProxyImportStore.process,
+        ) {
+            if (importToken == claimedImportToken) return
+            claimedImportToken = importToken
+            pendingImports.claimAmneziaWgConf(importToken)?.let(::onConfPasted)
         }
 
         /** Reads the clipboard only in response to the editor's explicit Paste action. */
@@ -279,6 +290,16 @@ class AmneziaWgProfileViewModel
             _uiState.update { it.copy(privateKeyRevealed = false, presharedKeyRevealed = false) }
         }
     }
+
+/** Replaces the editor and clears the stale failure flags that described the previous input. */
+private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState): AmneziaWgProfileUiState =
+    copy(
+        editor = nextEditor,
+        canActivate = nextEditor.isActivatable(),
+        confImportFailed = false,
+        activationStatus =
+            if (activationStatus == AwgActivationStatus.Failed) AwgActivationStatus.Idle else activationStatus,
+    )
 
 private fun buildCohortOptions(catalog: AwgCohortCatalogData): List<AwgCohortOption> =
     catalog.presets.map { AwgCohortOption(id = it.id, displayNameKey = it.displayNameKey) } +

@@ -37,10 +37,7 @@ import com.poyka.ripdpi.activities.PcapCaptureViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
-import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
-import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileRoute
-import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileRoute
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRoute
 import com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserRoute
 import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
@@ -61,15 +58,10 @@ import com.poyka.ripdpi.ui.screens.health.ConnectionHealthRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
-import com.poyka.ripdpi.ui.screens.mieru.MieruProfileRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
-import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmRoute
-import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRoute
-import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmRoute
 import com.poyka.ripdpi.ui.screens.routes.RoutesRoute
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorRoute
-import com.poyka.ripdpi.ui.screens.scanner.QrScannerRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.AssetProviderRoute
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
@@ -80,13 +72,10 @@ import com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
-import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusRoute
-import com.poyka.ripdpi.ui.screens.support.SupportSettingsRoute
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerRoute
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerTopBarAction
-import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.serialization.Serializable
@@ -858,93 +847,7 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     addImportRoutes(navController)
 }
 
-private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
-    composable<Route.ProfileImportConfirm> { backStackEntry ->
-        val route = backStackEntry.toRoute<Route.ProfileImportConfirm>()
-        ProfileImportConfirmRoute(
-            importToken = route.importToken,
-            onBack = { navController.popBackStack() },
-            onImported = { navController.navigateHome() },
-            onUnavailable = { navController.navigateHome() },
-        )
-    }
-    composable<Route.SubscriptionImportConfirm> { backStackEntry ->
-        val route = backStackEntry.toRoute<Route.SubscriptionImportConfirm>()
-        SubscriptionImportConfirmRoute(
-            importToken = route.importToken,
-            onBack = { navController.popBackStack() },
-            onImported = { navController.navigateHome() },
-            onUnavailable = { navController.navigateHome() },
-        )
-    }
-    composable<Route.SupportSettings> { backStackEntry ->
-        val route = backStackEntry.toRoute<Route.SupportSettings>()
-        SupportSettingsRoute(
-            packageJson = route.packageJson,
-            onBack = { navController.popBackStack() },
-            onApplied = { navController.navigateHome() },
-        )
-    }
-    composable<Route.ProfileShare> { backStackEntry ->
-        val route = backStackEntry.toRoute<Route.ProfileShare>()
-        ProfileShareRoute(
-            profileId = route.profileId,
-            onBack = { navController.popBackStack() },
-        )
-    }
-    composable<Route.QrScanner> { backStackEntry ->
-        QrScannerRoute(
-            sessionId = backStackEntry.id,
-            onBack = { navController.popBackStack() },
-            onProfileScanned = { request ->
-                navController.navigateProfileImport(request)
-            },
-        )
-    }
-    composable<Route.AmneziaWgProfile> {
-        AmneziaWgProfileRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.XrayImport> {
-        XrayProfileImportRoute(
-            onBack = { navController.popBackStack() },
-            onFinished = { navController.popBackStack() },
-        )
-    }
-    composable<Route.AnyTlsProfile> {
-        AnyTlsProfileRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.MieruProfile> {
-        MieruProfileRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.MieruProfileEdit> { entry ->
-        MieruProfileRoute(
-            onBack = { navController.popBackStack() },
-            profileId = entry.toRoute<Route.MieruProfileEdit>().profileId,
-        )
-    }
-    composable<Route.SshProfile> {
-        SshProfileRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.SshProfileEdit> { entry ->
-        SshProfileRoute(
-            onBack = { navController.popBackStack() },
-            profileId = entry.toRoute<Route.SshProfileEdit>().profileId,
-        )
-    }
-}
-
-/**
- * Routes to the single-profile import-confirmation destination for a clipboard- or
- * scanner-sourced [request], staging the credential-bearing profile outside saved state.
- */
-private fun NavHostController.navigateProfileImport(request: com.poyka.ripdpi.proxyimport.ProxyImportRequest.Profile) {
-    val importToken = PendingProxyImportStore.process.stage(request.profile)
-    navigate(Route.ProfileImportConfirm(importToken = importToken)) {
-        launchSingleTop = true
-    }
-}
-
-private fun NavHostController.navigateHome() {
+internal fun NavHostController.navigateHome() {
     navigateTopLevel(Route.Home)
 }
 
@@ -1034,7 +937,8 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.SupportSettings().stableRoute to { hasRoute<Route.SupportSettings>() },
         Route.ProfileShare().stableRoute to { hasRoute<Route.ProfileShare>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
-        Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
+        Route.AmneziaWgProfile().stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
+        Route.SubscriptionAdd.stableRoute to { hasRoute<Route.SubscriptionAdd>() },
         Route.XrayImport.stableRoute to { hasRoute<Route.XrayImport>() },
         Route.AnyTlsProfile.stableRoute to { hasRoute<Route.AnyTlsProfile>() },
         Route.MieruProfile.stableRoute to { hasRoute<Route.MieruProfile>() },

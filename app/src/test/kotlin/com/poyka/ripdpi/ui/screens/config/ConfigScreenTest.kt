@@ -296,7 +296,8 @@ class ConfigScreenTest {
                 Route.AnyTlsProfile,
                 Route.MieruProfile,
                 Route.SshProfile,
-                Route.AmneziaWgProfile,
+                Route.AmneziaWgProfile(),
+                Route.SubscriptionAdd,
             )
         editors.forEach { route ->
             composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).performScrollTo().performClick()

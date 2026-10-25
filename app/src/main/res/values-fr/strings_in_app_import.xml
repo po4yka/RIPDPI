@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_vpn_add_subscription">Abonnement</string>
+    <string name="config_vpn_import_awg_conf">AmneziaWG depuis un fichier .conf</string>
+    <string name="subscription_add_url_label">Lien d’abonnement</string>
+    <string name="subscription_add_body">Collez le lien https:// de votre fournisseur. Vous vérifiez l’abonnement avant que RIPDPI l’ajoute.</string>
+    <string name="subscription_add_url_invalid">Entrez un lien d’abonnement https:// valide.</string>
+    <string name="subscription_add_continue">Continuer</string>
+    <string name="awg_conf_import_failed_title">Configuration non importée</string>
+    <string name="awg_conf_import_failed_body">Le texte n’est pas un fichier .conf AmneziaWG valide. Cet éditeur ne prend pas en charge les configurations WireGuard standard.</string>
+</resources>
