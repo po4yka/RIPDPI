@@ -244,6 +244,29 @@ class ProxyUriCodecTest {
         assertTrue(!ProxyUriCodec.encode(parsed).contains("pinSHA256"))
     }
 
+    @Test
+    fun `shadowsocks plain userinfo is percent-decoded per SIP002`() {
+        // SIP022 example link: the base64 PSK is percent-encoded in plain-form userinfo.
+        val sip022FixtureLink =
+            "ss://2022-blake3-aes-256-gcm:" +
+                "YctPZ6U7xPPcU%2Bgp3u%2B0tx%2FtRizJN9K8y%2BuKlW2qjlI%3D@192.168.100.1:8888#Example3" // fixture
+        val sip022FixturePsk = "YctPZ6U7xPPcU+gp3u+0tx/tRizJN9K8y+uKlW2qjlI="
+
+        val parsed = ProxyUriCodec.parse(sip022FixtureLink) as ProxyProfile.Shadowsocks
+
+        assertEquals("2022-blake3-aes-256-gcm", parsed.method)
+        assertEquals(sip022FixturePsk, parsed.password)
+    }
+
+    @Test
+    fun `shadowsocks plain userinfo keeps a literal plus sign`() {
+        // RFC 3986 userinfo decoding: '+' is data, never a space.
+        val parsed =
+            ProxyUriCodec.parse("ss://aes-256-gcm:fixture+pass%20word@192.0.2.1:8388") as ProxyProfile.Shadowsocks
+
+        assertEquals("fixture+pass word", parsed.password)
+    }
+
     private companion object {
         val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
         val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")

@@ -418,6 +418,10 @@ object ProxyUriCodec {
     private fun percentDecode(value: String): String =
         runCatching { java.net.URLDecoder.decode(value, "UTF-8") }.getOrDefault(value)
 
+    /** RFC 3986 percent-decoding: '+' stays literal. Returns null for a malformed escape. */
+    private fun rfc3986PercentDecode(value: String): String? =
+        runCatching { java.net.URLDecoder.decode(value.replace("+", "%2B"), "UTF-8") }.getOrNull()
+
     private fun normalizeMieruProtocol(value: String?): String =
         when (value?.trim()?.lowercase()) {
             "udp" -> "udp"
@@ -452,16 +456,19 @@ object ProxyUriCodec {
         val (rawHost, port) = splitHostPort(hostPort) ?: return null
         val host = unbracketIpv6(rawHost)
 
+        val plainUserInfo = userInfoRaw.contains(':')
         val userInfo =
-            if (userInfoRaw.contains(':')) {
+            if (plainUserInfo) {
                 userInfoRaw
             } else {
                 decodeBase64(userInfoRaw) ?: return null
             }
         val methodSep = userInfo.indexOf(':')
         if (methodSep <= 0) return null
-        val method = userInfo.substring(0, methodSep)
-        val password = userInfo.substring(methodSep + 1)
+        // SIP002: plain-form method and password are percent-encoded (SIP022 keys carry %2B, %2F, %3D).
+        val decodePart: (String) -> String? = { if (plainUserInfo) rfc3986PercentDecode(it) else it }
+        val method = decodePart(userInfo.substring(0, methodSep)) ?: return null
+        val password = decodePart(userInfo.substring(methodSep + 1)) ?: return null
         if (!isSupportedShadowsocksMethod(method)) return null
         if (password.isEmpty()) return null
         // SIP003 `plugin=` (obfs-local / v2ray-plugin) needs an out-of-process
