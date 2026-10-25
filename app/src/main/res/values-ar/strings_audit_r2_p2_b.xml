@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">تشغيل سريع ومحدود. لمعرفة ما يحجب كل نطاق أيضًا، استخدم «فحص الاستراتيجية».</string>
+    <string name="blockcheck_vs_tuner">يجرّب كل الاستراتيجيات ويحدّد ما يحجب كل نطاق. لتشغيل سريع ومحدود، استخدم «ضبط الاستراتيجية».</string>
+</resources>

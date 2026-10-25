@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">Schneller, begrenzter Durchlauf. Um auch zu sehen, was jede Domain blockiert, nutzen Sie die Strategie-Probe.</string>
+    <string name="blockcheck_vs_tuner">Testet jede Strategie und findet, was jede Domain blockiert. Für einen schnellen, begrenzten Durchlauf nutzen Sie den Strategie-Tuner.</string>
+</resources>

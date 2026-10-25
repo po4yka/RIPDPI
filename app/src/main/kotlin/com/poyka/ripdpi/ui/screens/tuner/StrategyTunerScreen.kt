@@ -137,6 +137,11 @@ private fun StrategyTunerControls(
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
+            Text(
+                text = stringResource(R.string.strategy_tuner_vs_probe),
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
             RipDpiTextField(
                 value = state.domainsText,
                 onValueChange = onDomainsChanged,

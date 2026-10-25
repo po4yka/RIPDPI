@@ -79,13 +79,13 @@
     <string name="connection_health_home_subtitle">गंतव्य श्रेणी के अनुसार प्रति-रणनीति सफलता देखें।</string>
     <string name="title_strategy_tuner">रणनीति ट्यूनर</string>
     <string name="strategy_tuner_open_action">रणनीति ट्यूनर खोलें</string>
-    <string name="strategy_tuner_domains_label">अवरुद्ध डोमेन</string>
+    <string name="strategy_tuner_domains_label">परीक्षण डोमेन</string>
     <string name="strategy_tuner_status_format">%1$d/%2$d प्रोब</string>
-    <string name="strategy_tuner_run">स्वीप चलाएँ</string>
+    <string name="strategy_tuner_run">चलाएँ</string>
     <string name="strategy_tuner_cancel">रद्द करें</string>
     <string name="strategy_tuner_budget_title">स्वीप की सीमाएँ</string>
     <string name="strategy_tuner_budget_format">%1$d रणनीतियाँ x %2$d डोमेन, अधिकतम %3$d प्रोब, %4$d ms अंतराल।</string>
-    <string name="strategy_tuner_leaderboard_title">लीडरबोर्ड</string>
+    <string name="strategy_tuner_leaderboard_title">रैंक किए गए परिणाम</string>
     <string name="strategy_tuner_empty_results">अभी तक कोई रैंक की गई रणनीति नहीं</string>
     <string name="strategy_tuner_result_detail_format">%1$d/%2$d डोमेन OK • औसत %3$d ms</string>
     <string name="strategy_tuner_best_badge">सर्वश्रेष्ठ</string>
@@ -1417,7 +1417,7 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_medium">मध्यम</string>
     <string name="blockcheck_confidence_high">उच्च</string>
     <string name="blockcheck_results_title">रैंक किए गए परिणाम</string>
-    <string name="blockcheck_empty_results">अभी कोई परिणाम नहीं</string>
+    <string name="blockcheck_empty_results">अभी तक कोई रैंक की गई रणनीति नहीं</string>
     <string name="blockcheck_result_detail_format">%1$d/%2$d डोमेन OK • औसत %3$d ms</string>
     <string name="blockcheck_best_badge">सर्वश्रेष्ठ</string>
     <string name="blockcheck_apply_best">सर्वश्रेष्ठ लागू करें</string>

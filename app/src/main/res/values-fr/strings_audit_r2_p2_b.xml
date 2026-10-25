@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">Exécution rapide et limitée. Pour voir aussi ce qui bloque chaque domaine, utilisez Sonde de stratégie.</string>
+    <string name="blockcheck_vs_tuner">Essaie chaque stratégie et trouve ce qui bloque chaque domaine. Pour une exécution rapide et limitée, utilisez Réglage de stratégie.</string>
+</resources>

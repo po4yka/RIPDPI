@@ -472,6 +472,7 @@ app:blockcheck_section_title
 app:blockcheck_status_format
 app:blockcheck_try_recommended_strategy
 app:blockcheck_try_recommended_strategy_format
+app:blockcheck_vs_tuner
 app:bottom_nav_config_compact
 app:bottom_nav_config_maximum
 app:bottom_nav_diagnostics_compact
@@ -4972,6 +4973,7 @@ app:strategy_tuner_result_detail_format
 app:strategy_tuner_run
 app:strategy_tuner_status_format
 app:strategy_tuner_strategy_unregistered
+app:strategy_tuner_vs_probe
 app:subscription_add_body
 app:subscription_add_continue
 app:subscription_add_url_invalid

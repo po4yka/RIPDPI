@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">快速、有限的运行。要同时查看阻止每个域名的原因，请使用“策略探测”。</string>
+    <string name="blockcheck_vs_tuner">尝试所有策略，并找出阻止每个域名的原因。如需快速、有限的运行，请使用“策略调优”。</string>
+</resources>

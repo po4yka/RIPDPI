@@ -80,13 +80,13 @@
     <string name="connection_health_home_subtitle">Veja o sucesso por estratégia e classe de destino.</string>
     <string name="title_strategy_tuner">Ajuste de estratégias</string>
     <string name="strategy_tuner_open_action">Abrir ajuste de estratégias</string>
-    <string name="strategy_tuner_domains_label">Domínios bloqueados</string>
+    <string name="strategy_tuner_domains_label">Domínios de teste</string>
     <string name="strategy_tuner_status_format">%1$d/%2$d sondagens</string>
-    <string name="strategy_tuner_run">Executar varredura</string>
+    <string name="strategy_tuner_run">Executar</string>
     <string name="strategy_tuner_cancel">Cancelar</string>
     <string name="strategy_tuner_budget_title">Limites da varredura</string>
     <string name="strategy_tuner_budget_format">%1$d estratégias x %2$d domínios, máximo de %3$d sondagens, intervalo de %4$d ms.</string>
-    <string name="strategy_tuner_leaderboard_title">Classificação</string>
+    <string name="strategy_tuner_leaderboard_title">Resultados classificados</string>
     <string name="strategy_tuner_empty_results">Ainda sem estratégias classificadas</string>
     <string name="strategy_tuner_result_detail_format">%1$d/%2$d domínios OK • média de %3$d ms</string>
     <string name="strategy_tuner_best_badge">Melhor</string>
@@ -1421,7 +1421,7 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_medium">média</string>
     <string name="blockcheck_confidence_high">alta</string>
     <string name="blockcheck_results_title">Resultados classificados</string>
-    <string name="blockcheck_empty_results">Ainda sem resultados</string>
+    <string name="blockcheck_empty_results">Ainda sem estratégias classificadas</string>
     <string name="blockcheck_result_detail_format">%1$d/%2$d domínios OK • média de %3$d ms</string>
     <string name="blockcheck_best_badge">Melhor</string>
     <string name="blockcheck_apply_best">Aplicar melhor</string>

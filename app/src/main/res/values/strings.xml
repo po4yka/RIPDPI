@@ -80,13 +80,13 @@
     <string name="connection_health_home_subtitle">See per-strategy success by destination class.</string>
     <string name="title_strategy_tuner">Strategy tuner</string>
     <string name="strategy_tuner_open_action">Open strategy tuner</string>
-    <string name="strategy_tuner_domains_label">Blocked domains</string>
+    <string name="strategy_tuner_domains_label">Test domains</string>
     <string name="strategy_tuner_status_format">%1$d/%2$d probes</string>
-    <string name="strategy_tuner_run">Run sweep</string>
+    <string name="strategy_tuner_run">Run</string>
     <string name="strategy_tuner_cancel">Cancel</string>
     <string name="strategy_tuner_budget_title">Sweep limits</string>
     <string name="strategy_tuner_budget_format">%1$d strategies x %2$d domains, %3$d probes max, %4$d ms spacing.</string>
-    <string name="strategy_tuner_leaderboard_title">Leaderboard</string>
+    <string name="strategy_tuner_leaderboard_title">Ranked results</string>
     <string name="strategy_tuner_empty_results">No ranked strategies yet</string>
     <string name="strategy_tuner_result_detail_format">%1$d/%2$d domains OK • %3$d ms average</string>
     <string name="strategy_tuner_best_badge">Best</string>
@@ -1444,7 +1444,7 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_medium">medium</string>
     <string name="blockcheck_confidence_high">high</string>
     <string name="blockcheck_results_title">Ranked results</string>
-    <string name="blockcheck_empty_results">No results yet</string>
+    <string name="blockcheck_empty_results">No ranked strategies yet</string>
     <string name="blockcheck_result_detail_format">%1$d/%2$d domains OK • %3$d ms average</string>
     <string name="blockcheck_best_badge">Best</string>
     <string name="blockcheck_apply_best">Apply best</string>

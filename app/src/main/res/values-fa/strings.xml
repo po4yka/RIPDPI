@@ -78,13 +78,13 @@
     <string name="connection_health_home_subtitle">مشاهده موفقیت بر اساس راهبرد و کلاس مقصد.</string>
     <string name="title_strategy_tuner">تنظیم راهبرد</string>
     <string name="strategy_tuner_open_action">باز کردن تنظیم راهبرد</string>
-    <string name="strategy_tuner_domains_label">دامنه‌های مسدود</string>
+    <string name="strategy_tuner_domains_label">دامنه‌های آزمایش</string>
     <string name="strategy_tuner_status_format">%1$d/%2$d کاوش</string>
-    <string name="strategy_tuner_run">اجرای پویش</string>
+    <string name="strategy_tuner_run">اجرا</string>
     <string name="strategy_tuner_cancel">لغو</string>
     <string name="strategy_tuner_budget_title">محدودیت‌های پویش</string>
     <string name="strategy_tuner_budget_format">%1$d راهبرد x %2$d دامنه، حداکثر %3$d کاوش، فاصله %4$d ms.</string>
-    <string name="strategy_tuner_leaderboard_title">رتبه‌بندی</string>
+    <string name="strategy_tuner_leaderboard_title">نتایج رتبه‌بندی‌شده</string>
     <string name="strategy_tuner_empty_results">هنوز راهبردی رتبه‌بندی نشده</string>
     <string name="strategy_tuner_result_detail_format">%1$d/%2$d دامنه موفق • میانگین %3$d ms</string>
     <string name="strategy_tuner_best_badge">بهترین</string>
@@ -1419,7 +1419,7 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_medium">متوسط</string>
     <string name="blockcheck_confidence_high">زیاد</string>
     <string name="blockcheck_results_title">نتایج رتبه‌بندی‌شده</string>
-    <string name="blockcheck_empty_results">هنوز نتیجه‌ای وجود ندارد</string>
+    <string name="blockcheck_empty_results">هنوز راهبردی رتبه‌بندی نشده</string>
     <string name="blockcheck_result_detail_format">%1$d/%2$d دامنه موفق • به‌طور میانگین %3$d میلی‌ثانیه</string>
     <string name="blockcheck_best_badge">بهترین</string>
     <string name="blockcheck_apply_best">اعمال بهترین</string>

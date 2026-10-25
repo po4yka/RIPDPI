@@ -79,13 +79,13 @@
     <string name="connection_health_home_subtitle">Открыть успех стратегий по классам назначений.</string>
     <string name="title_strategy_tuner">Подбор стратегии</string>
     <string name="strategy_tuner_open_action">Открыть подбор стратегии</string>
-    <string name="strategy_tuner_domains_label">Заблокированные домены</string>
+    <string name="strategy_tuner_domains_label">Тестовые домены</string>
     <string name="strategy_tuner_status_format">%1$d/%2$d проб</string>
     <string name="strategy_tuner_run">Запустить</string>
     <string name="strategy_tuner_cancel">Отмена</string>
     <string name="strategy_tuner_budget_title">Ограничения проверки</string>
     <string name="strategy_tuner_budget_format">%1$d стратегии x %2$d домена, максимум %3$d проб, пауза %4$d мс.</string>
-    <string name="strategy_tuner_leaderboard_title">Рейтинг</string>
+    <string name="strategy_tuner_leaderboard_title">Ранжированные результаты</string>
     <string name="strategy_tuner_empty_results">Пока нет рейтинга стратегий</string>
     <string name="strategy_tuner_result_detail_format">%1$d/%2$d доменов OK • в среднем %3$d мс</string>
     <string name="strategy_tuner_best_badge">Лучшая</string>
@@ -2049,7 +2049,7 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_medium">средняя</string>
     <string name="blockcheck_confidence_high">высокая</string>
     <string name="blockcheck_domains_label">Тестовые домены</string>
-    <string name="blockcheck_empty_results">Пока нет результатов</string>
+    <string name="blockcheck_empty_results">Пока нет рейтинга стратегий</string>
     <string name="blockcheck_entry_body">Запустите зондирование стратегий, просмотрите ранжированные результаты и примените самую сильную стратегию для этой сети.</string>
     <string name="blockcheck_entry_title">Зондирование стратегий</string>
     <string name="blockcheck_export_title">Экспорт отчёта зондирования стратегий</string>
