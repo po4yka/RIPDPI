@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.platform.TimestampDateTimeSeconds
+import com.poyka.ripdpi.platform.dateTimeSecondsSkeleton
 import com.poyka.ripdpi.platform.localizedTimestamp
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementFreshness
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
@@ -28,7 +28,8 @@ internal fun MeasurementCaption(text: String) {
 }
 
 @Composable
-internal fun measurementTimestamp(timestamp: Long): String = localizedTimestamp(timestamp, TimestampDateTimeSeconds)
+internal fun measurementTimestamp(timestamp: Long): String =
+    localizedTimestamp(timestamp, dateTimeSecondsSkeleton(timestamp, nowMillis = System.currentTimeMillis()))
 
 @Composable
 internal fun measurementNow(source: RuntimeMeasurementSource?): Long {

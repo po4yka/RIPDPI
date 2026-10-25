@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 import javax.inject.Inject
@@ -17,9 +18,20 @@ import javax.inject.Inject
 internal const val TimestampDateTime = "MMMdjmm"
 internal const val TimestampDateTimeSeconds = "MMMdjmmss"
 internal const val TimestampYearDateTime = "yMMMdjmm"
+internal const val TimestampYearDateTimeSeconds = "yMMMdjmmss"
 internal const val TimestampTime = "jmm"
 internal const val TimestampTimeSeconds = "jmmss"
 internal const val TimestampTimeMillis = "jmmssSSS"
+
+/** [TimestampDateTimeSeconds], with the year added when [timestampMillis] is not in the current year of [zoneId]. */
+internal fun dateTimeSecondsSkeleton(
+    timestampMillis: Long,
+    nowMillis: Long,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+): String {
+    fun year(millis: Long): Int = Instant.ofEpochMilli(millis).atZone(zoneId).year
+    return if (year(timestampMillis) == year(nowMillis)) TimestampDateTimeSeconds else TimestampYearDateTimeSeconds
+}
 
 /** Formats a user-visible timestamp in the field order and hour cycle of [locale] and the device clock. */
 internal fun formatLocalizedTimestamp(

@@ -48,6 +48,7 @@ class LocalizedTimestampsTest {
                 TimestampDateTime,
                 TimestampDateTimeSeconds,
                 TimestampYearDateTime,
+                TimestampYearDateTimeSeconds,
                 TimestampTime,
                 TimestampTimeSeconds,
                 TimestampTimeMillis,
@@ -61,6 +62,20 @@ class LocalizedTimestampsTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `date and time with seconds omit the year only within the current year`() {
+        fun formatAt(now: String): String =
+            format(
+                Locale.US,
+                is24Hour = false,
+                skeleton = dateTimeSecondsSkeleton(timestamp, Instant.parse(now).toEpochMilli(), utc),
+            )
+
+        assertEquals("Oct 25, 1:38:50 PM", formatAt(now = "2026-12-31T23:59:59Z"))
+        // CLDR en-US "MMM d, y, h:mm:ss a".
+        assertEquals("Oct 25, 2026, 1:38:50 PM", formatAt(now = "2027-01-01T00:00:00Z"))
     }
 
     @Test
