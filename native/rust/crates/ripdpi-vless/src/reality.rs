@@ -249,8 +249,17 @@ where
 /// next group of the other kind, so this list yields exactly those two shares;
 /// the separate X25519 share is the one the REALITY seal is derived from.
 fn reality_curves_list(curves: &str) -> String {
-    let rest = curves.split(':').filter(|group| !matches!(*group, "X25519MLKEM768" | "X25519"));
+    let rest = curves.split(':').filter(|group| !matches!(*group, "" | "X25519MLKEM768" | "X25519"));
     ["X25519MLKEM768", "X25519"].into_iter().chain(rest).collect::<Vec<_>>().join(":")
+}
+
+/// Warns once per process that an explicit KEM group override without
+/// X25519MLKEM768 was extended, so the override does not change silently.
+fn warn_kem_override_without_hybrid() {
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    WARNED.call_once(|| {
+        tracing::warn!("REALITY KEM group override lacks X25519MLKEM768; the hybrid share REALITY requires was added");
+    });
 }
 
 /// # Cancel safety
@@ -291,8 +300,14 @@ where
     // list, with the hybrid prefix REALITY requires (applied AFTER profile
     // resolution, BEFORE `.build()`).
     let base_curves = match config.kem_groups.as_deref() {
-        Some(kem_groups) => ripdpi_tls_profiles::normalize_kem_groups(kem_groups)
-            .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?,
+        Some(kem_groups) => {
+            let curves = ripdpi_tls_profiles::normalize_kem_groups(kem_groups)
+                .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?;
+            if !curves.split(':').any(|group| group == "X25519MLKEM768") {
+                warn_kem_override_without_hybrid();
+            }
+            curves
+        }
         None => ripdpi_tls_profiles::selected_profile_config(profile_name).curves.to_owned(),
     };
     builder
@@ -532,8 +547,9 @@ mod tests {
     }
 
     /// Runs one REALITY handshake against a fixture server and reads its
-    /// two-byte reply.
-    async fn connect_to_fixture(certificate: FixtureCertificate) -> io::Result<[u8; 2]> {
+    /// two-byte reply. It sets an explicit X25519-only KEM override, which
+    /// the client must still extend with the hybrid share the server requires.
+    async fn connect_to_fixture_with_x25519_override(certificate: FixtureCertificate) -> io::Result<[u8; 2]> {
         connect_to_fixture_with(certificate, "chrome_stable", Some(vec!["X25519".to_string()])).await
     }
 
@@ -588,10 +604,17 @@ mod tests {
 
     #[tokio::test]
     async fn reality_tls_accepts_server_that_proves_the_auth_key() {
-        let response = connect_to_fixture(FixtureCertificate::RealityAuth(REALITY_SERVER_SECRET))
+        let response = connect_to_fixture_with_x25519_override(FixtureCertificate::RealityAuth(REALITY_SERVER_SECRET))
             .await
             .expect("a REALITY server with the configured key must be accepted");
         assert_eq!(response, *b"ok");
+    }
+
+    #[test]
+    fn reality_curves_list_puts_the_hybrid_pair_first_without_empty_groups() {
+        assert_eq!(super::reality_curves_list("X25519:P-256:"), "X25519MLKEM768:X25519:P-256");
+        assert_eq!(super::reality_curves_list(""), "X25519MLKEM768:X25519");
+        assert_eq!(super::reality_curves_list("P-256::X25519MLKEM768"), "X25519MLKEM768:X25519:P-256");
     }
 
     #[tokio::test]
@@ -609,7 +632,7 @@ mod tests {
 
     #[tokio::test]
     async fn reality_tls_rejects_server_with_plain_certificate() {
-        let error = connect_to_fixture(FixtureCertificate::PlainSelfSigned)
+        let error = connect_to_fixture_with_x25519_override(FixtureCertificate::PlainSelfSigned)
             .await
             .expect_err("a TLS server without the REALITY key must be rejected");
         assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{error}");
@@ -617,7 +640,7 @@ mod tests {
 
     #[tokio::test]
     async fn reality_tls_rejects_server_with_another_reality_key() {
-        let error = connect_to_fixture(FixtureCertificate::RealityAuth([0x24; 32]))
+        let error = connect_to_fixture_with_x25519_override(FixtureCertificate::RealityAuth([0x24; 32]))
             .await
             .expect_err("a REALITY server with a different private key must be rejected");
         assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{error}");
