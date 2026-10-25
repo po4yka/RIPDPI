@@ -110,7 +110,7 @@ class TransportPolicyTest {
     @Test
     fun `serialized envelope contains version field`() {
         val envelope = TransportPolicyEnvelope()
-        val json = Json { encodeDefaults = true }.encodeToString(envelope)
+        val json = encodeDefaultsJson.encodeToString(envelope)
         assertEquals(true, json.contains("\"version\""))
     }
 
@@ -211,3 +211,5 @@ class TransportPolicyTest {
         assertEquals("none", describeOutcome(DirectModeOutcome.NO_DIRECT_SOLUTION))
     }
 }
+
+private val encodeDefaultsJson = Json { encodeDefaults = true }

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService
 import com.poyka.ripdpi.ui.components.export.ExportPreviewPresentation
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -26,6 +27,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.OutputStream
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ExportPreviewViewModelTest {
     @get:Rule val mainDispatcherRule = MainDispatcherRule()
 

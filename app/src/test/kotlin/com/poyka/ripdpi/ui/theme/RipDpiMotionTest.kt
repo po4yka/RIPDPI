@@ -89,7 +89,7 @@ class RipDpiMotionTest {
      */
     @Test
     fun `no raw tween or spring or cubicBezier literals outside ui-theme`() {
-        val moduleRoot = File(System.getProperty("user.dir"))
+        val moduleRoot = File(checkNotNull(System.getProperty("user.dir")))
         val uiRoot = File(moduleRoot, "src/main/kotlin/com/poyka/ripdpi/ui")
         check(uiRoot.isDirectory) { "ui root not found: $uiRoot" }
 
@@ -150,7 +150,7 @@ class RipDpiMotionTest {
      */
     @Test
     fun `no raw Color hex literals outside ui-theme`() {
-        val moduleRoot = File(System.getProperty("user.dir"))
+        val moduleRoot = File(checkNotNull(System.getProperty("user.dir")))
         val uiRoot = File(moduleRoot, "src/main/kotlin/com/poyka/ripdpi/ui")
         check(uiRoot.isDirectory) { "ui root not found: $uiRoot" }
         val sentinel = Regex("""Color\s*\(\s*0[xX][0-9a-fA-F]+""")
@@ -193,7 +193,7 @@ class RipDpiMotionTest {
      */
     @Test
     fun `no direct MaterialTheme colorScheme reads outside ui-theme`() {
-        val moduleRoot = File(System.getProperty("user.dir"))
+        val moduleRoot = File(checkNotNull(System.getProperty("user.dir")))
         val uiRoot = File(moduleRoot, "src/main/kotlin/com/poyka/ripdpi/ui")
         check(uiRoot.isDirectory) { "ui root not found: $uiRoot" }
         // Match `MaterialTheme.colorScheme.<anything>` outside theme files.

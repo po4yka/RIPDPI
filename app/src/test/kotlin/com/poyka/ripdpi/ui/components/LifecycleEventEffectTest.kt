@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
@@ -10,6 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class LifecycleEventEffectTest {
     @Test
     fun `shared flow events remain queued without a UI collector`() =

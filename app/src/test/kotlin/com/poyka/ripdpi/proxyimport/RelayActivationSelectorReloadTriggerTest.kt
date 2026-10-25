@@ -559,7 +559,7 @@ class RelayActivationSelectorReloadTriggerTest {
         ): SelectorReloadRequest {
             selections.select(groupId, memberId)
             val receipt =
-                selections.manualReceipt(groupId) as? ProfileActivationReceipt
+                selections.manualReceipt(groupId)
                     ?: error("Manual choice did not publish a typed reservation")
             assertTrue(authority.isCurrent(receipt))
             assertEquals(RuntimeActivationPhase.Unbound, authority.snapshotAuthority().command!!.phase)

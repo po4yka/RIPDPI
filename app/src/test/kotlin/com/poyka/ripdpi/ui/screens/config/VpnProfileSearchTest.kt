@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.activity.ComponentDialog
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -160,7 +161,9 @@ class VpnProfileSearchTest {
         composeRule.setContent { Content(profiles) }
         open()
         query("ssh")
-        composeRule.runOnIdle { ShadowDialog.getLatestDialog().onBackPressed() }
+        composeRule.runOnIdle {
+            (ShadowDialog.getLatestDialog() as ComponentDialog).onBackPressedDispatcher.onBackPressed()
+        }
         composeRule.onNodeWithTag(RipDpiTestTags.RelayProfileSearchSheet).assertDoesNotExist()
         assertNoActions()
     }

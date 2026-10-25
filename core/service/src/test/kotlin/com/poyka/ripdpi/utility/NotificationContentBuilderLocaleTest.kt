@@ -51,15 +51,13 @@ class NotificationContentBuilderLocaleTest {
         val configuration = Configuration(application.resources.configuration)
         try {
             Locale.setDefault(Locale.ENGLISH)
-            configuration.setLocale(Locale.forLanguageTag("es"))
-            application.resources.updateConfiguration(configuration, application.resources.displayMetrics)
+            RuntimeEnvironment.setQualifiers("+es")
             assertEquals(
                 "↑ 1,5 MB  ↓ 1,5 GB  |  01:01:01",
                 NotificationContentBuilder.buildContentText(application, 1_500_000L, 1_500_000_000L, 3_661_000L),
             )
 
-            configuration.setLocale(Locale.ENGLISH)
-            application.resources.updateConfiguration(configuration, application.resources.displayMetrics)
+            RuntimeEnvironment.setQualifiers("+en")
             assertEquals(
                 "↑ 1.5 MB  ↓ 1.5 GB  |  01:01:01",
                 NotificationContentBuilder.buildContentText(application, 1_500_000L, 1_500_000_000L, 3_661_000L),

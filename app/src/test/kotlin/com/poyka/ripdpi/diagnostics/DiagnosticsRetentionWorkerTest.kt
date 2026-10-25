@@ -27,7 +27,7 @@ class DiagnosticsRetentionWorkerTest {
             val cacheDir = Files.createTempDirectory("pcap-periodic-retention").toFile()
             val pcap =
                 cacheDir.resolve("files/pcap/0000000000000001-1-00.pcap").apply {
-                    parentFile.mkdirs()
+                    parentFile?.mkdirs()
                     writeText("expired")
                     setLastModified(now - 24L * 60L * 60L * 1_000L - 1L)
                 }

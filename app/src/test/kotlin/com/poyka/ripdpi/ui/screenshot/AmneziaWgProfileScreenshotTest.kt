@@ -66,10 +66,10 @@ class AmneziaWgProfileScreenshotTest {
                 AwgEditorField.JMAX to form.jmax.toString(),
                 AwgEditorField.S1 to form.s1.toString(),
                 AwgEditorField.S2 to form.s2.toString(),
-                AwgEditorField.H1 to form.h1.toString(),
-                AwgEditorField.H2 to form.h2.toString(),
-                AwgEditorField.H3 to form.h3.toString(),
-                AwgEditorField.H4 to form.h4.toString(),
+                AwgEditorField.H1 to form.h1,
+                AwgEditorField.H2 to form.h2,
+                AwgEditorField.H3 to form.h3,
+                AwgEditorField.H4 to form.h4,
             )
         val editor =
             AmneziaWgEditorState(

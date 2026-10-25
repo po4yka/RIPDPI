@@ -53,7 +53,7 @@ class SharedProxySelectorRuntimeStackTest {
             assertEquals(1, fixture.relayFactory.runtimes.size)
             val proof = checkNotNull(result.consumedUpstreams.single().measuredInputProof)
             val expected =
-                (resolver as DefaultUpstreamRelayRuntimeConfigResolver).resolveTransient(
+                resolver.resolveTransient(
                     profile,
                     secret,
                     testRelayResolutionInputs().quic,

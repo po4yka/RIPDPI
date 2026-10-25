@@ -106,8 +106,7 @@ class DiagnosticsUiCoreSupportTest {
             "fa" to "اکتبر 10, 00:00",
             "en" to "Oct 10, 00:00",
         ).forEach { (tag, expected) ->
-            configuration.setLocale(Locale.forLanguageTag(tag))
-            application.resources.updateConfiguration(configuration, application.resources.displayMetrics)
+            RuntimeEnvironment.setQualifiers("+$tag")
             assertEquals(expected, support.formatTimestamp(1_791_590_400_000L))
         }
         assertEquals("1.5 KB", support.formatBytes(1_500L))

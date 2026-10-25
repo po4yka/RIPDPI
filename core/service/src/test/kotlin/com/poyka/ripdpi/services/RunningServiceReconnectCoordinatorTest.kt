@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationAttempt
 import com.poyka.ripdpi.data.RuntimeConfigurationDns
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
@@ -19,6 +20,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class RunningServiceReconnectCoordinatorTest {
     @Test fun `confirmation from replaced runtime or mode cannot stop current service`() =
         runTest {

@@ -29,6 +29,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -253,7 +254,16 @@ class DiagnosticsPersianStrategyRenderTest {
         // but draws at layout.size.width. At Int.MAX_VALUE, Float line positions round to 128 px.
         // Recreate the same paragraph at its actual drawing width to retain precise glyph bounds.
         val finite =
-            TextMeasurer(input.fontFamilyResolver, input.density, input.layoutDirection).measure(
+            TextMeasurer(
+                input.fontFamilyResolver,
+                LocaleList(
+                    android.os.LocaleList
+                        .getDefault()
+                        .toLanguageTags(),
+                ),
+                input.density,
+                input.layoutDirection,
+            ).measure(
                 text = input.text,
                 style = input.style,
                 overflow = input.overflow,

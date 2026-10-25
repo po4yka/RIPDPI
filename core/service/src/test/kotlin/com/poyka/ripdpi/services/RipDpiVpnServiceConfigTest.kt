@@ -350,11 +350,7 @@ class RipDpiVpnServiceConfigTest {
                 ipv6Enabled = false,
             )
         assertNull(plainConfig.splitDnsPolicy)
-        val encoded =
-            Json {
-                encodeDefaults = true
-                explicitNulls = true
-            }.encodeToString(plainConfig)
+        val encoded = explicitNullsJson.encodeToString(plainConfig)
         assertTrue(encoded.contains("\"splitDnsPolicy\":null"))
     }
 
@@ -465,3 +461,9 @@ class RipDpiVpnServiceConfigTest {
                 .invoke(capabilities, capability)
         }
 }
+
+private val explicitNullsJson =
+    Json {
+        encodeDefaults = true
+        explicitNulls = true
+    }

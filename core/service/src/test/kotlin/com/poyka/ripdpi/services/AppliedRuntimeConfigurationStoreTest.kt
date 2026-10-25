@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationPendingStatus
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.testPauseAuthority
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -22,6 +23,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AppliedRuntimeConfigurationStoreTest {
     private val factory = RuntimeConfigurationIdentityFactory()
     private val selection =
