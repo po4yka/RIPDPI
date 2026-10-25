@@ -45,6 +45,28 @@ async fn clean_record_boundary_eof_stays_clean() {
     assert_eq!(stream.read(&mut [0u8; 1]).await.unwrap(), 0);
 }
 
+/// A VLESS request header is written with `write_all` and no flush. Server-
+/// first protocols (SMTP, IMAP) send nothing more, so the frame must reach
+/// the carrier on the write itself.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the test owns both in-memory halves and bounds the read.
+#[tokio::test]
+async fn write_reaches_the_carrier_without_flush() {
+    let (mut peer, carrier) = tokio::io::duplex(1024);
+    let mut stream = ShadowTlsStream::new(carrier, ShadowTlsHmac::new(b"secret"), ShadowTlsHmac::new(b"secret"), None);
+    stream.write_all(b"vless request").await.expect("write");
+
+    let mut header = [0u8; TLS_HEADER_LEN];
+    tokio::time::timeout(std::time::Duration::from_secs(1), peer.read_exact(&mut header))
+        .await
+        .expect("the frame must leave without a flush")
+        .expect("read frame header");
+    assert_eq!(header[0], TLS_APPLICATION_DATA);
+    assert_eq!(usize::from(u16::from_be_bytes([header[3], header[4]])), HMAC_LEN + b"vless request".len());
+}
+
 #[test]
 fn client_hello_modification_signs_session_id() {
     let original = sample_client_hello();

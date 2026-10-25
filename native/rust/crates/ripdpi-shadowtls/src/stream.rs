@@ -50,6 +50,36 @@ impl<S> ShadowTlsStream<S> {
     }
 }
 
+impl<S> ShadowTlsStream<S>
+where
+    S: AsyncWrite + Unpin,
+{
+    /// Writes the rest of the pending outbound frame to the carrier.
+    fn poll_drain_write_frame(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        while self.write_frame_offset < self.write_frame.len() {
+            let write_result = {
+                let frame = &self.write_frame[self.write_frame_offset..];
+                Pin::new(&mut self.stream).poll_write(cx, frame)
+            };
+            match write_result {
+                Poll::Ready(Ok(0)) => {
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "ShadowTLS failed to flush pending frame",
+                    )));
+                }
+                Poll::Ready(Ok(written)) => self.write_frame_offset += written,
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+
+        self.write_frame.clear();
+        self.write_frame_offset = 0;
+        Poll::Ready(Ok(()))
+    }
+}
+
 impl<S> AsyncRead for ShadowTlsStream<S>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -158,59 +188,29 @@ where
 {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         let this = self.as_mut().get_mut();
-
-        while this.write_frame_offset < this.write_frame.len() {
-            let write_result = {
-                let frame = &this.write_frame[this.write_frame_offset..];
-                Pin::new(&mut this.stream).poll_write(cx, frame)
-            };
-            match write_result {
-                Poll::Ready(Ok(0)) => {
-                    return Poll::Ready(Err(io::Error::new(
-                        io::ErrorKind::WriteZero,
-                        "ShadowTLS failed to flush pending frame",
-                    )));
-                }
-                Poll::Ready(Ok(written)) => this.write_frame_offset += written,
-                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
-                Poll::Pending => return Poll::Pending,
-            }
+        match this.poll_drain_write_frame(cx) {
+            Poll::Ready(Ok(())) => {}
+            Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+            Poll::Pending => return Poll::Pending,
         }
-
-        this.write_frame.clear();
-        this.write_frame_offset = 0;
 
         let write_len = buf.len().min(MAX_WRITE_PAYLOAD_LEN);
         let payload = &buf[..write_len];
-        let frame = frame_payload(&mut this.write_hmac, payload)?;
-        this.write_frame = frame;
+        this.write_frame = frame_payload(&mut this.write_hmac, payload)?;
+        // Write through: callers (the VLESS request header) may never flush,
+        // and a server-first peer then waits forever. The payload is already
+        // accepted, so a Pending or error leaves the rest of the frame for the
+        // next write, flush or shutdown to send or report.
+        let _ = this.poll_drain_write_frame(cx);
         Poll::Ready(Ok(write_len))
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let this = self.as_mut().get_mut();
-
-        while this.write_frame_offset < this.write_frame.len() {
-            let write_result = {
-                let frame = &this.write_frame[this.write_frame_offset..];
-                Pin::new(&mut this.stream).poll_write(cx, frame)
-            };
-            match write_result {
-                Poll::Ready(Ok(0)) => {
-                    return Poll::Ready(Err(io::Error::new(
-                        io::ErrorKind::WriteZero,
-                        "ShadowTLS failed to flush pending frame",
-                    )));
-                }
-                Poll::Ready(Ok(written)) => this.write_frame_offset += written,
-                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
-                Poll::Pending => return Poll::Pending,
-            }
+        match this.poll_drain_write_frame(cx) {
+            Poll::Ready(Ok(())) => Pin::new(&mut this.stream).poll_flush(cx),
+            other => other,
         }
-
-        this.write_frame.clear();
-        this.write_frame_offset = 0;
-        Pin::new(&mut this.stream).poll_flush(cx)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
