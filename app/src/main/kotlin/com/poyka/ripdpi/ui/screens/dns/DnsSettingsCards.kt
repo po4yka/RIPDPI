@@ -241,16 +241,17 @@ internal fun DnsOptionCard(
                     style = type.body,
                     color = colors.mutedForeground,
                 )
-            }
-        }
-        if (badges.isNotEmpty()) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                badges.forEach { badge ->
-                    DnsBadge(text = badge)
+                // Badges belong to the text column so they never wrap under the radio and icon.
+                if (badges.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                    ) {
+                        badges.forEach { badge ->
+                            DnsBadge(text = badge)
+                        }
+                    }
                 }
             }
         }
