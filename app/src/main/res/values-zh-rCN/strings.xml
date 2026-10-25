@@ -539,7 +539,7 @@
     <string name="config_cli_banner_body">以下参数优先于本页面的可视化控件。</string>
     <string name="config_default_ttl_helper">留空以使用引擎默认值。</string>
     <string name="config_dns_helper">用于本地 VPN 路由。</string>
-    <string name="config_editor_body">正在编辑 %1$s。修改会立即校验并存储于本设备。</string>
+    <string name="config_editor_body">正在编辑 %1$s。点按“保存”后，修改会存储在本设备上。</string>
     <string name="config_error_invalid_dns">请输入有效的非本地 DNS 地址。</string>
     <string name="config_error_ipv6_dns_requires_ipv6">请开启 IPv6 以使用 IPv6 DNS 地址。</string>
     <string name="config_error_out_of_range">数值超出允许范围。</string>
@@ -1671,7 +1671,7 @@ fake_burst 3</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
     <string name="config_preset_custom_body">用于手动 DNS、代理端点、引擎数值和可选命令行覆盖的配置档。</string>
     <string name="config_preset_recommended_body">适用于大多数网络的推荐配置档。保留本地 VPN 路径和安全的 RIPDPI 调校。</string>
-    <string name="config_relay_body">将代理流量通过本地中继运行时路由。密钥保留在 keystore 支持的凭据存储中。</string>
+    <string name="config_relay_body">将代理流量通过远程中继服务器发送。密钥保留在本设备上由 keystore 支持的凭据存储中。</string>
     <string name="config_relay_chain_entry_short_id">入口跳短 ID</string>
     <string name="config_relay_chain_exit_public_key">出口跳公钥</string>
     <string name="config_relay_chain_exit_uuid">出口跳 UUID</string>

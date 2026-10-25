@@ -667,12 +667,12 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_editor_title">تعديل الملف الشخصي</string>
-    <string name="config_editor_body">تعديل %1$s. تُتحقَّق التغييرات فوراً وتُخزَّن على هذا الجهاز.</string>
+    <string name="config_editor_body">تعديل %1$s. تُحفَظ التغييرات على هذا الجهاز عند النقر على «حفظ».</string>
     <string name="config_dns_helper">يُستخدم لمسار VPN المحلي.</string>
     <string name="config_dns_disabled_helper">يُطبَّق تجاوز DNS فقط في وضع VPN المحلي.</string>
     <string name="config_proxy_helper">العنوان الذي يرتبط به مستمع الوكيل المحلي.</string>
     <string name="config_relay_title">بروتوكول الترحيل الصادر</string>
-    <string name="config_relay_body">وجّه حركة البيانات عبر بيئة تشغيل ترحيل محلية. تبقى الأسرار في مخزن بيانات الاعتماد المدعوم بـ Android Keystore.</string>
+    <string name="config_relay_body">أرسل حركة البيانات عبر خادم ترحيل بعيد. تبقى الأسرار في مخزن بيانات الاعتماد المدعوم بـ Android Keystore على هذا الجهاز.</string>
     <string name="config_relay_enable">تفعيل الترحيل الصاعد</string>
     <string name="config_relay_profile_id">معرّف الملف الشخصي</string>
     <string name="config_relay_profile_id_helper">يُستخدم لربط بيانات الاعتماد الآمنة بملف الترحيل المحفوظ.</string>

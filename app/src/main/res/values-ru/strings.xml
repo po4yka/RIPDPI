@@ -524,7 +524,7 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_editor_title">Редактировать профиль</string>
-    <string name="config_editor_body">Редактирование %1$s. Изменения проверяются немедленно и сохраняются на этом устройстве.</string>
+    <string name="config_editor_body">Редактирование %1$s. Изменения сохраняются на этом устройстве, когда вы нажимаете «Сохранить».</string>
     <string name="config_dns_helper">Используется для локального VPN-маршрута.</string>
     <string name="config_dns_disabled_helper">Переопределение DNS применяется только в локальном режиме VPN.</string>
     <string name="config_listen_address_summary">Адрес привязки локального прокси</string>
@@ -2079,7 +2079,7 @@ fakeddisorder endhost</string>
     <string name="config_local_bypass_turn_on">Включить</string>
     <string name="config_local_bypass_turn_off">Выключить</string>
     <string name="config_local_bypass_retest_strategies">Открыть Диагностику для повторной проверки</string>
-    <string name="config_relay_body">Направлять прокси-трафик через локальную среду выполнения реле. Секреты остаются в защищённом хранилище, поддерживаемом keystore.</string>
+    <string name="config_relay_body">Направлять прокси-трафик через удалённый сервер реле. Секреты остаются в защищённом хранилище на основе keystore на этом устройстве.</string>
     <string name="config_relay_chain_entry_port">Порт входного узла</string>
     <string name="config_relay_chain_entry_public_key">Публичный ключ входного узла</string>
     <string name="config_relay_chain_entry_server">Сервер входного узла</string>

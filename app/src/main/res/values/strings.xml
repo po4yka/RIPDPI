@@ -681,12 +681,12 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_editor_title">Edit profile</string>
-    <string name="config_editor_body">Editing %1$s. Changes validate immediately and are stored on this device.</string>
+    <string name="config_editor_body">Editing %1$s. Changes are saved on this device when you tap Save.</string>
     <string name="config_dns_helper">Used for the local VPN route.</string>
     <string name="config_dns_disabled_helper">DNS override is only applied in local VPN mode.</string>
     <string name="config_proxy_helper">Where the local proxy listener binds.</string>
     <string name="config_relay_title">Outbound relay protocol</string>
-    <string name="config_relay_body">Route proxied traffic through a local relay runtime. Secrets stay in the keystore-backed credential store.</string>
+    <string name="config_relay_body">Send proxied traffic through a remote relay server. Secrets stay in the keystore-backed credential store on this device.</string>
     <string name="config_relay_enable">Enable upstream relay</string>
     <string name="config_relay_profile_id">Profile ID</string>
     <string name="config_relay_profile_id_helper">Used to bind secure credentials to the saved relay profile.</string>

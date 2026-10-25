@@ -64,7 +64,7 @@
     <string name="config_chain_editor_helper_full">Der HTTPS-Abschnitt unten kann einzelne tlsrec- und randomisierte tlsrandrec-Schritte visuell erstellen, während die Karten Hostfake und Fake-Approximation hostnamenspezifische Fake-Chunks und Approximationen im Stil von Neuübertragungen erläutern. Linux-/Android-spezifische Approximationen sind als fakedsplit host+1 und fakeddisorder endhost für HTTP- oder TLS-SNI-nahe Nutzlasten verfügbar.</string>
     <string name="config_command_line_caption">Rohe RIPDPI-Flags gegenüber dem visuellen Editor bevorzugen.</string>
     <string name="config_dns_disabled_helper">DNS-Override wird nur im lokalen VPN-Modus angewendet.</string>
-    <string name="config_editor_body">%1$s wird bearbeitet. Änderungen werden sofort validiert und auf diesem Gerät gespeichert.</string>
+    <string name="config_editor_body">%1$s wird bearbeitet. Änderungen werden auf diesem Gerät gespeichert, wenn Sie auf Speichern tippen.</string>
     <string name="config_error_invalid_marker">Gültigen Markerausdruck eingeben.</string>
     <string name="config_error_unsupported">Diese Option wird im aktuellen Build nicht unterstützt.</string>
     <string name="config_max_connections_helper">Obergrenze für gleichzeitige lokale Sitzungen.</string>
@@ -1156,7 +1156,7 @@ fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
     <string name="config_preset_proxy_title">Profil für Local bypass</string>
-    <string name="config_relay_body">Leitet Proxy-Verkehr über eine lokale Relay-Laufzeit. Geheimnisse bleiben im Keystore-basierten Anmeldeinformationsspeicher.</string>
+    <string name="config_relay_body">Leitet Proxy-Verkehr über einen Remote-Relay-Server. Geheimnisse bleiben im Keystore-basierten Anmeldeinformationsspeicher auf diesem Gerät.</string>
     <string name="config_relay_chain_entry_sni">Servername des Eingangs-Hops</string>
     <string name="config_relay_chain_exit_short_id">Kurz-ID des Ausgangs-Hops</string>
     <string name="config_relay_credentials_title">Relay-Anmeldedaten fehlen</string>

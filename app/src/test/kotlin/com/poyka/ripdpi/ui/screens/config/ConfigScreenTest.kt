@@ -500,6 +500,19 @@ class ConfigScreenTest {
     }
 
     @Test
+    fun `relay profile ID is hidden while the relay is off`() {
+        val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(relayEnabled = false)
+        composeRule.setContent {
+            RipDpiTheme {
+                ModeEditorRelaySection(draft, configUiState(), NoOpModeEditorActions)
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorRelayEnabled).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorRelayProfileId).assertDoesNotExist()
+    }
+
+    @Test
     fun `saved relay profile ID is read only in mode editor`() {
         val draft =
             AppSettingsSerializer.defaultValue.toConfigDraft().copy(

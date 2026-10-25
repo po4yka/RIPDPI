@@ -64,7 +64,7 @@
     <string name="config_chain_editor_helper_full">La section HTTPS ci-dessous peut composer visuellement des étapes tlsrec simples et tlsrandrec randomisées, tandis que les cartes Hostfake et fake approximation expliquent les faux segments ciblés sur le nom d\'hôte et les approximations de type retransmission. Des approximations exclusives à Linux/Android sont disponibles sous la forme fakedsplit host+1 et fakeddisorder endhost pour les charges utiles HTTP ou adjacentes au SNI TLS.</string>
     <string name="config_command_line_caption">Préférer les drapeaux RIPDPI bruts à l\'éditeur visuel.</string>
     <string name="config_dns_disabled_helper">Le remplacement DNS n\'est appliqué qu\'en mode VPN local.</string>
-    <string name="config_editor_body">Modification de %1$s. Les changements sont validés immédiatement et stockés sur cet appareil.</string>
+    <string name="config_editor_body">Modification de %1$s. Les changements sont enregistrés sur cet appareil lorsque vous appuyez sur Enregistrer.</string>
     <string name="config_error_invalid_marker">Saisissez une expression de marqueur valide.</string>
     <string name="config_error_unsupported">Cette option n\'est pas prise en charge dans la version actuelle.</string>
     <string name="config_max_connections_helper">Limite supérieure des sessions locales simultanées.</string>
@@ -1156,7 +1156,7 @@ fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
     <string name="config_preset_proxy_title">Profil de contournement local</string>
-    <string name="config_relay_body">Acheminer le trafic proxifié via un relais local en exécution. Les secrets restent dans le magasin d\'identifiants adossé au keystore.</string>
+    <string name="config_relay_body">Faire passer le trafic proxifié par un serveur relais distant. Les secrets restent dans le magasin d\'identifiants adossé au keystore de cet appareil.</string>
     <string name="config_relay_chain_entry_sni">Nom de serveur du saut d\'entrée</string>
     <string name="config_relay_chain_exit_short_id">ID court du saut de sortie</string>
     <string name="config_relay_credentials_title">Identifiants de relais manquants</string>

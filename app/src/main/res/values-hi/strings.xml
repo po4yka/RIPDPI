@@ -669,12 +669,12 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_editor_title">प्रोफ़ाइल संपादित करें</string>
-    <string name="config_editor_body">%1$s संपादित किया जा रहा है। परिवर्तन तुरंत मान्य होते हैं और इस डिवाइस पर संग्रहीत किए जाते हैं।</string>
+    <string name="config_editor_body">%1$s संपादित किया जा रहा है। सहेजें पर टैप करने पर परिवर्तन इस डिवाइस पर सहेजे जाते हैं।</string>
     <string name="config_dns_helper">लोकल VPN रूट के लिए उपयोग किया जाता है।</string>
     <string name="config_dns_disabled_helper">DNS ओवरराइड केवल लोकल VPN मोड में लागू होता है।</string>
     <string name="config_proxy_helper">जहाँ लोकल प्रॉक्सी श्रोता बाइंड होता है।</string>
     <string name="config_relay_title">आउटबाउंड रिले प्रोटोकॉल</string>
-    <string name="config_relay_body">प्रॉक्सी किए गए ट्रैफ़िक को लोकल रिले रनटाइम के माध्यम से रूट करें। सीक्रेट keystore-समर्थित क्रेडेंशियल स्टोर में रहते हैं।</string>
+    <string name="config_relay_body">प्रॉक्सी किए गए ट्रैफ़िक को रिमोट रिले सर्वर के माध्यम से भेजें। सीक्रेट इस डिवाइस पर keystore-समर्थित क्रेडेंशियल स्टोर में रहते हैं।</string>
     <string name="config_relay_enable">अपस्ट्रीम रिले सक्षम करें</string>
     <string name="config_relay_profile_id">प्रोफ़ाइल ID</string>
     <string name="config_relay_profile_id_helper">सहेजी गई रिले प्रोफ़ाइल से सुरक्षित क्रेडेंशियल बाइंड करने के लिए उपयोग किया जाता है।</string>

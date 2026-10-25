@@ -64,7 +64,7 @@
     <string name="config_chain_editor_helper_full">La sección HTTPS de abajo puede crear visualmente pasos únicos tlsrec y pasos tlsrandrec aleatorizados, mientras que las tarjetas de Hostfake y de aproximaciones fake explican fragmentos fake dirigidos al nombre de host y aproximaciones tipo retransmisión. Las aproximaciones exclusivas de Linux/Android están disponibles como fakedsplit host+1 y fakeddisorder endhost para cargas útiles HTTP o adyacentes al SNI TLS.</string>
     <string name="config_command_line_caption">Prefiere los flags sin procesar de RIPDPI sobre el editor visual.</string>
     <string name="config_dns_disabled_helper">La anulación de DNS solo se aplica en modo VPN local.</string>
-    <string name="config_editor_body">Editando %1$s. Los cambios se validan inmediatamente y se almacenan en este dispositivo.</string>
+    <string name="config_editor_body">Editando %1$s. Los cambios se guardan en este dispositivo al tocar Guardar.</string>
     <string name="config_error_invalid_marker">Introduce una expresión de marcador válida.</string>
     <string name="config_error_unsupported">Esta opción no es compatible con la compilación actual.</string>
     <string name="config_max_connections_helper">Límite superior de sesiones locales concurrentes.</string>
@@ -1156,7 +1156,7 @@ fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
     <string name="config_preset_proxy_title">Perfil de bypass local</string>
-    <string name="config_relay_body">Encamina el tráfico proxificado a través de un runtime de relay local. Los secretos permanecen en el almacén de credenciales respaldado por el keystore.</string>
+    <string name="config_relay_body">Envía el tráfico proxificado a través de un servidor de relay remoto. Los secretos permanecen en el almacén de credenciales respaldado por el keystore de este dispositivo.</string>
     <string name="config_relay_chain_entry_sni">Nombre del servidor del salto de entrada</string>
     <string name="config_relay_chain_exit_short_id">ID corto del salto de salida</string>
     <string name="config_relay_credentials_title">Faltan credenciales de relay</string>

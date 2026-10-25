@@ -671,12 +671,12 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_editor_title">ویرایش نمایه</string>
-    <string name="config_editor_body">در حال ویرایش %1$s. تغییرات بلافاصله اعتبارسنجی می‌شوند و در این دستگاه ذخیره می‌شوند.</string>
+    <string name="config_editor_body">در حال ویرایش %1$s. تغییرات با زدن «ذخیره» در این دستگاه ذخیره می‌شوند.</string>
     <string name="config_dns_helper">برای مسیر VPN محلی استفاده می‌شود.</string>
     <string name="config_dns_disabled_helper">جایگزینی DNS فقط در حالت VPN محلی اعمال می‌شود.</string>
     <string name="config_proxy_helper">جایی که شنوندهٔ پراکسی محلی متصل می‌شود.</string>
     <string name="config_relay_title">پروتکل رلهٔ خروجی</string>
-    <string name="config_relay_body">ترافیک پراکسی‌شده را از طریق یک زمان اجرای رلهٔ محلی هدایت کنید. اسرار در ذخیرهٔ اعتبارنامهٔ پشتیبانی‌شده توسط keystore باقی می‌مانند.</string>
+    <string name="config_relay_body">ترافیک پراکسی‌شده را از طریق یک سرور رلهٔ دور ارسال کنید. اسرار در ذخیرهٔ اعتبارنامهٔ پشتیبانی‌شده توسط keystore در این دستگاه باقی می‌مانند.</string>
     <string name="config_relay_enable">فعال‌سازی رلهٔ بالادست</string>
     <string name="config_relay_profile_id">شناسهٔ پروفایل</string>
     <string name="config_relay_profile_id_helper">برای اتصال اعتبارنامه‌های امن به پروفایل رلهٔ ذخیره‌شده استفاده می‌شود.</string>
