@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_listener_section">लोकल लिसनर</string>
+    <string name="routes_delete_confirm_title">यह नियम हटाएँ?</string>
+    <string name="routes_delete_confirm_body">ट्रैफ़िक अब इस नियम का पालन नहीं करेगा। इसे पूर्ववत नहीं किया जा सकता।</string>
 </resources>

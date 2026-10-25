@@ -4457,6 +4457,8 @@ app:route_state_needs_setup
 app:route_state_restricted
 app:route_state_selected
 app:routes_add_rule
+app:routes_delete_confirm_body
+app:routes_delete_confirm_title
 app:routes_empty_body
 app:routes_empty_title
 app:routes_move_down

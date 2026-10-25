@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_listener_section">Local listener</string>
+    <string name="routes_delete_confirm_title">Delete this rule?</string>
+    <string name="routes_delete_confirm_body">Traffic will no longer follow this rule. You cannot undo this.</string>
 </resources>

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_listener_section">Локальное прослушивание</string>
+    <string name="routes_delete_confirm_title">Удалить это правило?</string>
+    <string name="routes_delete_confirm_body">Трафик перестанет следовать этому правилу. Это действие нельзя отменить.</string>
 </resources>

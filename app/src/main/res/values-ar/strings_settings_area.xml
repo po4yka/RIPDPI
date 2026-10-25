@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_listener_section">المستمع المحلي</string>
+    <string name="routes_delete_confirm_title">حذف هذه القاعدة؟</string>
+    <string name="routes_delete_confirm_body">لن تتبع حركة المرور هذه القاعدة بعد الآن. لا يمكن التراجع عن ذلك.</string>
 </resources>

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_listener_section">Écoute locale</string>
+    <string name="routes_delete_confirm_title">Supprimer cette règle ?</string>
+    <string name="routes_delete_confirm_body">Le trafic ne suivra plus cette règle. Cette action est irréversible.</string>
 </resources>

@@ -12,6 +12,7 @@ private const val SecondaryPressedLerp = 0.5f
 private const val DestructivePressedLerp = 0.3f
 private const val IconButtonPressedLerp = 0.25f
 private const val LoadingContentAlpha = 0.92f
+private const val DisabledIconContentAlpha = 0.38f
 
 @Immutable
 data class RipDpiButtonStateTokens(
@@ -161,7 +162,7 @@ data class RipDpiIconButtonStateTokens(
         val interactive = enabled && !loading
         return RipDpiIconButtonStateStyle(
             container = resolveIconButtonContainer(role, interactive, selected, isPressed),
-            content = resolveIconButtonContent(role, interactive),
+            content = resolveIconButtonContent(role, enabled, interactive),
             border =
                 if (isFocused) {
                     if (role == RipDpiIconButtonStateRole.Filled) colors.background else colors.foreground
@@ -205,11 +206,14 @@ data class RipDpiIconButtonStateTokens(
         }
     }
 
+    // Disabled uses the standard disabled alpha: muted gray at full alpha read as enabled next to live arrows.
     private fun resolveIconButtonContent(
         role: RipDpiIconButtonStateRole,
+        enabled: Boolean,
         interactive: Boolean,
     ): Color =
         when {
+            !enabled -> colors.foreground.copy(alpha = DisabledIconContentAlpha)
             !interactive -> colors.mutedForeground
             role == RipDpiIconButtonStateRole.Filled -> colors.background
             role == RipDpiIconButtonStateRole.Destructive -> colors.destructive

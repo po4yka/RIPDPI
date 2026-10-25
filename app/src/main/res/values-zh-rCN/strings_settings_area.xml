@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_listener_section">本地监听</string>
+    <string name="routes_delete_confirm_title">删除此规则？</string>
+    <string name="routes_delete_confirm_body">流量将不再遵循此规则。此操作无法撤销。</string>
 </resources>

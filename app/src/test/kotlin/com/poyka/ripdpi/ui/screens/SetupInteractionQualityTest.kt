@@ -87,6 +87,32 @@ class SetupInteractionQualityTest {
     }
 
     @Test
+    fun `routing rule delete waits for confirmation`() {
+        val deleted = mutableListOf<RuleEntity>()
+        val rule = RuleEntity(id = 7, name = "Video")
+        composeRule.setContent {
+            RipDpiTheme {
+                RoutesScreen(
+                    state = RoutesUiState(rows = persistentListOf(RuleRow(rule, "Proxy"))),
+                    onBack = {},
+                    onAddRule = {},
+                    onEditRule = {},
+                    onToggleEnabled = {},
+                    onDelete = { deleted += it },
+                    onReorder = {},
+                )
+            }
+        }
+        val deleteLabel = text(R.string.rule_editor_delete)
+        composeRule.onNode(hasContentDescription(deleteLabel)).performClick()
+        composeRule.onNodeWithText(text(R.string.routes_delete_confirm_title)).assertExists()
+        assertEquals(emptyList<RuleEntity>(), deleted)
+
+        composeRule.onNodeWithText(deleteLabel).performClick()
+        composeRule.runOnIdle { assertEquals(listOf(rule), deleted) }
+    }
+
+    @Test
     fun `capability information has no action`() {
         val capability = XrayCapability.entries.first()
         composeRule.setContent {

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_listener_section">Lokaler Listener</string>
+    <string name="routes_delete_confirm_title">Diese Regel löschen?</string>
+    <string name="routes_delete_confirm_body">Der Datenverkehr folgt dieser Regel dann nicht mehr. Dies kann nicht rückgängig gemacht werden.</string>
 </resources>

@@ -36,6 +36,10 @@ import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
@@ -88,6 +92,7 @@ internal fun RoutesScreen(
 ) {
     // Local working order so a hand-rolled drag can reorder optimistically before persisting.
     var localRows by remember(state.rows) { mutableStateOf(state.rows) }
+    var pendingDelete by remember { mutableStateOf<RuleEntity?>(null) }
     val rollbackToPersistedRows by rememberUpdatedState { localRows = state.rows }
 
     // Roll the optimistic order back to the persisted state when a reorder write fails.
@@ -105,6 +110,28 @@ internal fun RoutesScreen(
         mutable.add(to, item)
         localRows = mutable.toImmutableList()
         onReorder(mutable.map { it.rule.id })
+    }
+
+    pendingDelete?.let { rule ->
+        RipDpiDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = stringResource(R.string.routes_delete_confirm_title),
+            dismissAction =
+                RipDpiDialogAction(label = stringResource(android.R.string.cancel), onClick = { pendingDelete = null }),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.rule_editor_delete),
+                    onClick = {
+                        pendingDelete = null
+                        onDelete(rule)
+                    },
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.routes_delete_confirm_body),
+                    tone = RipDpiDialogTone.Destructive,
+                ),
+        )
     }
 
     RipDpiSettingsScaffold(
@@ -141,7 +168,7 @@ internal fun RoutesScreen(
                     count = localRows.size,
                     onEdit = { onEditRule(row.rule.id) },
                     onToggleEnabled = { onToggleEnabled(row.rule) },
-                    onDelete = { onDelete(row.rule) },
+                    onDelete = { pendingDelete = row.rule },
                     onMoveUp = { move(index, index - 1) },
                     onMoveDown = { move(index, index + 1) },
                     onDragBy = { delta -> move(index, index + delta) },

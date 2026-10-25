@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_listener_section">شنونده محلی</string>
+    <string name="routes_delete_confirm_title">این قانون حذف شود؟</string>
+    <string name="routes_delete_confirm_body">ترافیک دیگر از این قانون پیروی نمی‌کند. این کار برگشت‌پذیر نیست.</string>
 </resources>

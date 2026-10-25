@@ -176,6 +176,7 @@ class RipDpiStateTokensTest {
                 isFocused = false,
             )
 
-        assertEquals(LightRipDpiExtendedColors.mutedForeground, disabled.content)
+        // Material disabled content: the foreground at 38% alpha, clearly weaker than any enabled tint.
+        assertEquals(LightRipDpiExtendedColors.foreground.copy(alpha = 0.38f), disabled.content)
     }
 }
