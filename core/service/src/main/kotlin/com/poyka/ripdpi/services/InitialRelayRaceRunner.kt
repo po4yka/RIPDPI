@@ -376,7 +376,7 @@ internal data class RelayRuntimeSlot(
     val udpEnabled: Boolean,
     val localNetworkDependent: Boolean,
     val consumedConfiguration: ConsumedUpstreamConfiguration,
-    var endpoint: LocalProxyEndpoint? = null,
+    @Volatile var endpoint: LocalProxyEndpoint? = null,
     /** Session credentials the native relay listener requires; `null` for helper and subprocess relays. */
     val listenerCredentials: com.poyka.ripdpi.core.LocalSocksCredentials? = null,
 )

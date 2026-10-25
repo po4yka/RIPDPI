@@ -93,6 +93,23 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `relay that exits on its own releases its listener credentials`() =
+        runTest {
+            val runtime = TestRelayRuntime().apply { telemetry = telemetry.copy(listenerAddress = "127.0.0.2:19006") }
+            val supervisor = endpointSupervisor(runtime)
+            supervisor.startEndpointFixture()
+            assertTrue(LocalSocksCredentialRegistry.lookup("127.0.0.2", 19_006) != null)
+
+            runtime.complete(1)
+            runCurrent()
+            advanceUntilIdle()
+
+            // A later helper relay on the same port must not be probed with this stale pair.
+            assertNull(LocalSocksCredentialRegistry.lookup("127.0.0.2", 19_006))
+            supervisor.stop()
+        }
+
+    @Test
     fun `normal start rejects missing or invalid bound endpoint and stops relay`() =
         runTest {
             listOf(null, "", ":19005", "127.0.0.1", "127.0.0.1:0", "127.0.0.1:65536").forEach { listener ->

@@ -252,6 +252,8 @@ internal class UpstreamRelaySupervisor(
             )
 
         job.invokeOnCompletion {
+            // A listener that exited on its own no longer owns its port; drop its credentials now.
+            slot.releaseListenerCredentials()
             scope.launch(dispatcher) {
                 if (activeSlot !== slot) {
                     return@launch
@@ -272,6 +274,8 @@ internal class UpstreamRelaySupervisor(
                     LocalSocksCredentialRegistry.register(endpoint.host, endpoint.port, credentials)
                     endpoint.copy(username = credentials.username, password = credentials.password)
                 } ?: endpoint
+            // The completion handler may have run before the endpoint existed.
+            if (job.isCompleted) slot.releaseListenerCredentials()
             return slot
         } catch (readinessError: CancellationException) {
             cleanupFailedStart(slot)
