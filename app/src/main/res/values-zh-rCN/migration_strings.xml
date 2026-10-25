@@ -5,10 +5,10 @@
     <string name="migration_received">已收到替换配置；路径未测试</string>
     <string name="migration_privacy">回执会保留在此设备上，直到您主动分享。测试仅验证一条路径，并非所有应用。</string>
     <string name="migration_url">HTTP(S) 测试网址</string>
-    <string name="migration_awg_help">使用 AmneziaWG 时，请先连接导入的替换配置。</string>
+    <string name="migration_awg_help">使用 AmneziaWG 时，请先连接导入的替换配置文件。</string>
     <string name="migration_check_awg">测试 AmneziaWG 路径 %1$d</string>
     <string name="migration_check_relay">测试中继路径 %1$d</string>
-    <string name="migration_connect_awg">请连接准确的 AmneziaWG 替换配置，然后重试。</string>
+    <string name="migration_connect_awg">请连接准确的 AmneziaWG 替换配置文件，然后重试。</string>
     <string name="migration_changed">交付内容、配置或网络已更改。请重新测试。</string>
     <string name="migration_invalid">请输入有效的 HTTP(S) 网址，并使用当前迁移目标。</string>
     <string name="migration_failed">路径测试失败。未记录测试成功回执。</string>

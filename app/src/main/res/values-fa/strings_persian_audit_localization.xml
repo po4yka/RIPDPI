@@ -3,9 +3,9 @@
     <!-- AI-authored translations. Native-speaker review is pending. -->
     <string name="home_generated_analysis_complete">تحلیل کامل شد</string>
     <string name="home_generated_analysis_applied">تحلیل کامل شد و تنظیمات اعمال شد</string>
-    <string name="home_generated_dns_applied_failed">تنظیمات DNS اعمال شد، اما همهٔ راهبردهای دور زدن ناموفق بودند</string>
-    <string name="home_generated_all_failed">همهٔ راهبردهای دور زدن در این شبکه ناموفق بودند</string>
-    <string name="home_generated_dns_needs_evidence">تنظیمات DNS اعمال شد، اما راهبرد دور زدن به شواهد بیشتری نیاز دارد</string>
+    <string name="home_generated_dns_applied_failed">تنظیمات DNS اعمال شد، اما همهٔ راهبردهای عبور ناموفق بودند</string>
+    <string name="home_generated_all_failed">همهٔ راهبردهای عبور در این شبکه ناموفق بودند</string>
+    <string name="home_generated_dns_needs_evidence">تنظیمات DNS اعمال شد، اما راهبرد عبور به شواهد بیشتری نیاز دارد</string>
     <string name="home_generated_dns_applied">تنظیمات DNS اعمال شد</string>
     <string name="home_generated_dns_only">تحلیل کامل شد، اما فقط شواهد DNS در دسترس بود</string>
     <string name="home_generated_dns_fallback">تحلیل با DNS جایگزین کامل شد</string>
@@ -140,12 +140,12 @@
     <string name="home_generated_progress_service">سرویس %1$s</string>
     <string name="home_generated_progress_reachability">دسترسی‌پذیری %1$s</string>
     <string name="home_generated_progress_throughput">توان عملیاتی %1$s</string>
-    <string name="home_generated_progress_circumvention">دور زدن %1$s</string>
+    <string name="home_generated_progress_circumvention">عبور %1$s</string>
     <string name="home_generated_check_geoip">بررسی موقعیت جغرافیایی IP...</string>
     <string name="home_generated_check_direct">بررسی انتقال VPN و برنامه‌های نصب‌شده...</string>
     <string name="home_generated_check_indirect">بررسی رابط‌های شبکه و DNS...</string>
     <string name="home_generated_check_location">بررسی نشانه‌های شبکهٔ همراه...</string>
-    <string name="home_generated_check_bypass">بررسی دور زدن پراکسی...</string>
+    <string name="home_generated_check_bypass">بررسی عبور پراکسی...</string>
     <string name="home_generated_check_dns">بررسی احتمال نشت DNS...</string>
     <string name="home_generated_check_webrtc">بررسی احتمال افشای WebRTC...</string>
     <string name="home_generated_check_tls">بررسی نمایهٔ اثر انگشت TLS...</string>

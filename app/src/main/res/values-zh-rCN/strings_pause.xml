@@ -6,7 +6,7 @@
     <string name="pause_resuming">正在恢复连接…</string>
     <string name="pause_cleanup_pending">资源清理尚未完成，暂停尚未确认。</string>
     <string name="pause_deferred">恢复连接需要处理</string>
-    <string name="pause_saved_settings">此模式将使用当前保存的设置恢复。编辑设置会保留暂停；启动、停止、激活或删除配置会取消暂停。</string>
+    <string name="pause_saved_settings">此模式将使用当前保存的设置恢复。编辑设置会保留暂停；启动、停止、激活或删除配置文件会取消暂停。</string>
     <string name="pause_remaining">剩余分钟数：%1$s</string>
     <string name="pause_resume_now">立即恢复</string>
     <string name="pause_stop">停止并取消恢复</string>

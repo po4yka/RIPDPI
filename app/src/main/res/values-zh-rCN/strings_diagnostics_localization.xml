@@ -14,11 +14,11 @@
     <string name="diagnostics_signature_fake_tls_sni">伪造 TLS SNI</string>
     <string name="diagnostics_signature_fake_tls_mods">伪造 TLS 修改</string>
     <string name="diagnostics_signature_fake_tls_size">伪造 TLS 大小</string>
-    <string name="diagnostics_signature_http_fake_profile">伪造 HTTP 配置</string>
-    <string name="diagnostics_signature_tls_fake_profile">伪造 TLS 配置</string>
-    <string name="diagnostics_signature_udp_fake_profile">伪造 UDP 配置</string>
+    <string name="diagnostics_signature_http_fake_profile">伪造 HTTP 配置文件</string>
+    <string name="diagnostics_signature_tls_fake_profile">伪造 TLS 配置文件</string>
+    <string name="diagnostics_signature_udp_fake_profile">伪造 UDP 配置文件</string>
     <string name="diagnostics_signature_fake_payload_source">伪造数据来源</string>
-    <string name="diagnostics_signature_quic_fake_profile">伪造 QUIC 配置</string>
+    <string name="diagnostics_signature_quic_fake_profile">伪造 QUIC 配置文件</string>
     <string name="diagnostics_signature_quic_fake_host">伪造 QUIC 主机</string>
     <string name="diagnostics_signature_original_clienthello">原始 ClientHello</string>
     <string name="diagnostics_signature_custom_adaptive_ttl">自定义自适应 TTL</string>

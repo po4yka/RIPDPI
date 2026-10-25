@@ -735,10 +735,10 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="title_connection_health">Verbindungszustand</string>
     <string name="title_subscription_failover">Abonnementserver</string>
     <string name="connection_health_open_action">Verbindungszustand öffnen</string>
-    <string name="connection_health_summary_title">Verbindungsmesswerte</string>
+    <string name="connection_health_summary_title">Verbindungsmessungen</string>
     <string name="connection_health_quality_format">Geschätzter Verlust: %1$s%% · RTT p50 %2$d ms.</string>
     <string name="connection_health_quality_loss_format">Geschätzter Verlust: %1$s%%.</string>
-    <string name="connection_health_quality_waiting">Warten auf Qualitätsmesswerte.</string>
+    <string name="connection_health_quality_waiting">Warten auf Qualitätsmessungen.</string>
     <string name="connection_health_empty_title">Warte auf klassifizierten Datenverkehr</string>
     <string name="connection_health_empty_body">Raten erscheinen nach VK-, YouTube-, Telegram- oder generischem TLS-Verkehr in der aktiven Sitzung.</string>
     <string name="subscription_failover_summary_title">Live-Serverstatus</string>
@@ -1022,7 +1022,7 @@ fakeddisorder endhost</string>
         <item quantity="one">, %d fehlgeschlagen</item>
         <item quantity="other">, %d fehlgeschlagen</item>
     </plurals>
-    <string name="strategy_config_editor_label">Umgehungsstrategie</string>
+    <string name="strategy_config_editor_label">Bypass-Strategie</string>
     <string name="strategy_config_import_empty">Die ausgewählte Datei ist leer.</string>
     <string name="strategy_config_imported_title">Konfiguration importiert</string>
     <string name="strategy_config_lua_function_placeholder">nach Laden automatisch erkannt</string>
@@ -1204,7 +1204,7 @@ fake_burst 3</string>
     <string name="detection_resistance_section_body">Entropie-Shaping, adaptive Exploration und QUIC-Pfadverhalten anpassen, um Fingerprinting und Klassifizierer-Konfidenz in feindlichen Netzwerken zu reduzieren.</string>
     <string name="detection_resistance_strategy_evolution_title">Strategie-Evolution</string>
     <string name="detection_resistance_summary_off">Aus</string>
-    <string name="detection_resistance_tls_fingerprint_body">Gilt für HTTPS- und TLS-Verbindungen, die die App selbst initiiert, einschließlich Provisionierung, Katalogaktualisierung, Onboarding-Prüfungen, Diagnostik-Metadaten-Lookups und dem integrierten RIPDPI-Browser. Android 17 oder neuer ist für Plattform-ECH in diesem Browserpfad mit eigenem Stack erforderlich.</string>
+    <string name="detection_resistance_tls_fingerprint_body">Gilt für HTTPS- und TLS-Verbindungen, die die App selbst initiiert, einschließlich Provisionierung, Katalogaktualisierung, Onboarding-Prüfungen, Diagnose-Metadaten-Lookups und dem integrierten RIPDPI-Browser. Android 17 oder neuer ist für Plattform-ECH in diesem Browserpfad mit eigenem Stack erforderlich.</string>
     <string name="detection_status_ok">OK</string>
     <string name="diagnostics_action_audit_unavailable">Automatisches Audit nicht verfügbar</string>
     <string name="diagnostics_action_start_audit">Automatisches Audit starten</string>
@@ -1217,7 +1217,7 @@ fake_burst 3</string>
     <string name="diagnostics_autolearn_host_blocked">Blockierter Host erkannt</string>
     <string name="diagnostics_body_degraded">Aktuelle Ereignisse oder Scan-Ergebnisse deuten auf Verschlechterung, Fehler oder Transportinstabilität hin.</string>
     <string name="diagnostics_current_match">Aktuelle Übereinstimmung</string>
-    <string name="diagnostics_error_hidden_probe_running">Automatische Probe läuft bereits. Warten Sie auf deren Abschluss, bevor Sie einen weiteren Diagnostiklauf starten.</string>
+    <string name="diagnostics_error_hidden_probe_running">Automatische Probe läuft bereits. Warten Sie auf deren Abschluss, bevor Sie einen weiteren Diagnoselauf starten.</string>
     <string name="diagnostics_error_timeout">Zeitüberschreitung der Verbindung</string>
     <string name="diagnostics_family_adaptation">Adaption</string>
     <string name="diagnostics_family_network_full">Netzwerk vollständig</string>
@@ -1242,7 +1242,7 @@ fake_burst 3</string>
     <string name="diagnostics_field_wifi_standard">Wi-Fi-Standard</string>
     <string name="diagnostics_headline_healthy">Aktuelle Telemetrie wirkt stabil</string>
     <string name="diagnostics_health_attention">Aufmerksamkeit</string>
-    <string name="diagnostics_hidden_probe_canceled_summary">Automatische Hintergrund-Probe abgebrochen, um manuelle Diagnostik zu starten</string>
+    <string name="diagnostics_hidden_probe_canceled_summary">Automatische Hintergrund-Probe abgebrochen, um manuelle Diagnose zu starten</string>
     <string name="diagnostics_hidden_probe_wait_action">Warten</string>
     <string name="diagnostics_live_body_waiting">Der kontinuierliche Monitor wartet auf eine aktive RIPDPI-Sitzung.</string>
     <string name="diagnostics_live_feed_quiet">Laufzeit-Feed ist ruhig</string>
@@ -1280,17 +1280,17 @@ fake_burst 3</string>
     <string name="diagnostics_remembered_networks_section">Gemerkte Netzwerke</string>
     <string name="diagnostics_save_archive_body">Speichern Sie %1$s lokal. Das Archiv enthält Rohdaten des Berichts, Laufzeitkonfiguration, Herkunfts-, Vollständigkeits- und Integritätsmetadaten sowie, sofern verfügbar, ein auf die App beschränktes Logcat. Paketmitschnitte werden nicht eingebettet; exportieren Sie sie separat über die Werkzeuge zur Paketerfassung.</string>
     <string name="diagnostics_scan_automatic_probing">Automatische Probe</string>
-    <string name="diagnostics_scan_launch_unknown">Gespeicherte Diagnostik</string>
+    <string name="diagnostics_scan_launch_unknown">Gespeicherte Diagnose</string>
     <string name="diagnostics_scan_metadata_previous_fingerprint">Vorheriger Fingerabdruck</string>
     <string name="diagnostics_scan_raw_only_format">%1$s erfordert eine direkte Netzwerkprüfung, da isolierte temporäre Strategietests gestartet werden.</string>
     <string name="diagnostics_scan_in_path_service_halted">Starte den RIPDPI-Dienst, bevor du In-Path-Diagnosen ausführst.</string>
     <string name="diagnostics_scan_trigger_unknown">Unbekannter Auslöser</string>
     <string name="diagnostics_search_placeholder">Sitzungen suchen</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>
-    <string name="diagnostics_sensitive_profile_consent_title">Sensible Diagnostik prüfen</string>
-    <string name="diagnostics_share_archive_chooser">Diagnostik-Archiv teilen</string>
+    <string name="diagnostics_sensitive_profile_consent_title">Sensible Diagnose prüfen</string>
+    <string name="diagnostics_share_archive_chooser">Diagnose-Archiv teilen</string>
     <string name="diagnostics_share_metric_network">Netzwerk</string>
-    <string name="diagnostics_share_summary_body">Erstellen Sie ein knappes Vorfallsbriefing aus der letzten oder ausgewählten Diagnostik-Sitzung und versenden Sie es über das Android-Teilen-Menü.</string>
+    <string name="diagnostics_share_summary_body">Erstellen Sie ein knappes Vorfallsbriefing aus der letzten oder ausgewählten Diagnose-Sitzung und versenden Sie es über das Android-Teilen-Menü.</string>
     <string name="diagnostics_snackbar_dns_recommendation_generic">DNS-Antworten sahen in diesem Netzwerk anders aus. Öffnen Sie die DNS-Einstellungen und probieren Sie einen sicheren Resolver.</string>
     <string name="diagnostics_source_automatic_probing_manual">Automatische Probe (manuell)</string>
     <string name="diagnostics_sparkline_rx_bytes">RX-Bytes</string>
@@ -1333,11 +1333,11 @@ fake_burst 3</string>
     <string name="history_connection_remembered_policy_source">Quelle</string>
     <string name="history_diagnostics_empty_body">Prüfen Sie Ihr Netzwerk, um die Ergebnisse hier zu speichern.</string>
     <string name="history_events_section">Ereignisse</string>
-    <string name="home_approach_cta">Diagnostik öffnen und Ansatz-Analytik prüfen</string>
+    <string name="home_approach_cta">Diagnose öffnen und Ansatz-Analytik prüfen</string>
     <string name="home_control_plane_health_title">Status der Steuerungsebene muss überprüft werden</string>
     <string name="home_control_plane_host_packs_label">Host-Pakete</string>
     <string name="home_control_plane_strategy_pack_security_rejected">Der neueste Katalog hat erforderliche Sicherheitsmetadaten-Prüfungen nicht bestanden.</string>
-    <string name="home_diagnostics_analysis_body">Führt das vollständige integrierte Diagnostik-Audit aus. Es kann verifizierte Bypass-Lanes, DNS-Pfadänderungen und unterstützte WARP-Routing-Optionen aus dem funktionierenden Pfad anwenden.</string>
+    <string name="home_diagnostics_analysis_body">Führt das vollständige integrierte Diagnose-Audit aus. Es kann verifizierte Bypass-Lanes, DNS-Pfadänderungen und unterstützte WARP-Routing-Optionen aus dem funktionierenden Pfad anwenden.</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
     <string name="home_diagnostics_command_line_blocked">Deaktivieren Sie die Befehlszeileneinstellungen, bevor Sie das vollständige Audit ausführen.</string>
     <string name="home_diagnostics_detection_not_detected">Keine Erkennungssignale beobachtet</string>
@@ -1345,7 +1345,7 @@ fake_burst 3</string>
     <string name="home_diagnostics_dns_section">DNS-Resolver</string>
     <string name="home_diagnostics_network_captive_portal">Captive Portal</string>
     <string name="home_diagnostics_network_section">In diesem Netzwerk</string>
-    <string name="home_diagnostics_open_diagnostics_action">Diagnostik öffnen</string>
+    <string name="home_diagnostics_open_diagnostics_action">Diagnose öffnen</string>
     <string name="home_diagnostics_quick_scan_body">Nur Strategie-Probe, ~90 Sekunden</string>
     <string name="home_diagnostics_regression_summary">Neu fehlgeschlagen: %1$d, neu wiederhergestellt: %2$d, unverändert: %3$d.</string>
     <string name="home_diagnostics_run_analysis_first">Führen Sie zuerst eine vollständige Analyse aus.</string>
@@ -1365,7 +1365,7 @@ fake_burst 3</string>
     <string name="home_remediation_command_line_step_retry">Zur Startseite zurückkehren und die vollständige Analyse erneut ausführen.</string>
     <string name="home_remediation_no_actionable_title">Letzte Analyse prüfen</string>
     <string name="home_remediation_no_hint_title">Noch kein zuverlässiger Relay-Hinweis</string>
-    <string name="home_remediation_owned_stack_summary">Die Startseiten-Analyse fand ein Ergebnis, das nur mit eigenem Stack funktioniert. Öffnen Sie die Diagnostik und starten Sie die Autorität über den RIPDPI-Browserpfad.</string>
+    <string name="home_remediation_owned_stack_summary">Die Startseiten-Analyse fand ein Ergebnis, das nur mit eigenem Stack funktioniert. Öffnen Sie die Diagnose und starten Sie die Autorität über den RIPDPI-Browserpfad.</string>
     <string name="home_remediation_quic_relay_summary">Die Startseiten-Analyse fand gespeicherte QUIC/UDP-Relay-Fähigkeit. Öffnen Sie den Profil-Editor und wechseln Sie zu einer QUIC-lastigen Relay-Voreinstellung, statt einen weiteren direkten Versuch.</string>
     <string name="home_remediation_review_title">Fehlgeschlagene Phasen prüfen</string>
     <string name="home_route_local">Auf Gerät</string>
@@ -1522,7 +1522,7 @@ Quelle: %2$s</string>
     <string name="settings_support_debug_bundle_body">Aktuelle Protokolle und Diagnosedaten als ZIP-Datei für den Support teilen. Paketmitschnitte sind nicht enthalten.</string>
     <string name="settings_tethering_dns_warning_body">Wenn Tethering aktiv ist, führt Android einen lokalen DNS-Server aus, der das VPN umgeht. Apps können dies nutzen, um Tracking-Beacons außerhalb des Tunnels zu senden.</string>
     <string name="settings_vpn_flag_warning_title">VPN-Flag ist sichtbar</string>
-    <string name="shortcut_diagnostics">Diagnostik ausführen</string>
+    <string name="shortcut_diagnostics">Diagnose ausführen</string>
     <string name="shortcut_quick_connect_short">Verbinden</string>
     <plurals name="stage_passed_count">
         <item quantity="one">%d bestanden</item>
@@ -1553,7 +1553,7 @@ Quelle: %2$s</string>
     <string name="tcp_flag_orig_clear_title">Originalpaket: Flags löschen</string>
     <string name="title_app_icon">App-Symbol</string>
     <string name="title_dns_settings">DNS-Einstellungen</string>
-    <string name="title_shared_diagnostic_result">Geteilte Diagnostik</string>
+    <string name="title_shared_diagnostic_result">Geteilte Diagnose</string>
     <string name="tls_fake_profile_scope_hostfake">Der aktuelle HTTPS-Verkehr verwendet Hostfake-Chunks anstelle eines vollständigen Fake-ClientHello.</string>
     <string name="udp_fake_profile_body">Basis-Nutzlast für generischen UDP-fake_burst-Verkehr. QUIC-Initial-Fake-Nutzlasten werden weiterhin separat unten gesteuert.</string>
     <string name="udp_fake_profile_scope_ready">Bereit, sobald die UDP-Chain fake_burst für generischen UDP-Verkehr hinzufügt.</string>
@@ -1749,7 +1749,7 @@ Quelle: %2$s</string>
     <string name="diagnostics_metric_rtt_band">RTT-Band</string>
     <string name="diagnostics_metric_telemetry_error">Telemetrie-Fehler</string>
     <string name="diagnostics_network_details_section">Netzwerkdetails</string>
-    <string name="diagnostics_open_history_title">Persistente Historie aus Diagnose verschoben</string>
+    <string name="diagnostics_open_history_title">Persistenter Verlauf aus Diagnose verschoben</string>
     <string name="diagnostics_overview_section">Übersicht</string>
     <string name="diagnostics_phase_tg">TG</string>
     <string name="diagnostics_probe_manual_apply_title">So verwenden Sie dieses Ergebnis</string>
@@ -1846,7 +1846,7 @@ Quelle: %2$s</string>
     <string name="home_diagnostics_stage_status_passed">Bestanden</string>
     <string name="home_diagnostics_stage_results_label">Stufenergebnisse</string>
     <string name="home_diagnostics_verified_vpn_body">Starten Sie das VPN mit dem zuletzt angewendeten Audit-Ergebnis und verifizieren Sie den Netzwerkzugriff im Betrieb.</string>
-    <string name="home_history_body">Die Historie bewahrt langlebige Verbindungssitzungen, abgetastete Laufzeitdiagnosen und native Fehler außerhalb der Live-Diagnosetools auf.</string>
+    <string name="home_history_body">Der Verlauf bewahrt langlebige Verbindungssitzungen, abgetastete Laufzeitdiagnosen und native Fehler außerhalb der Live-Diagnosetools auf.</string>
     <string name="home_mode_card_connecting">Wird gestartet...</string>
     <string name="home_mode_card_remote_server_unknown">Server nicht konfiguriert</string>
     <string name="home_mode_diagnostic_scan">Diagnose-Scan</string>
@@ -2058,8 +2058,8 @@ Quelle: %2$s</string>
     <string name="settings_biometric_pin_required_title">Backup-PIN erforderlich</string>
     <string name="settings_community_api_url_label">Community-API-URL</string>
     <string name="settings_connectivity_section">Verbindung</string>
-    <string name="settings_diagnostics_export_history_title">Historie in Diagnose-Archive einschließen</string>
-    <string name="settings_diagnostics_retention_title">Aufbewahrungsdauer der Historie (Tage)</string>
+    <string name="settings_diagnostics_export_history_title">Verlauf in Diagnose-Archive einschließen</string>
+    <string name="settings_diagnostics_retention_title">Aufbewahrungsdauer des Verlaufs (Tage)</string>
     <string name="settings_full_tunnel_body">Gesamten Datenverkehr ohne App-Ausschlüsse durch das VPN leiten. Verhindert, dass Spyware-Module Datenverkehr direkt senden, aber russische Apps können das VPN erkennen.</string>
     <string name="settings_language_title">Sprache</string>
     <string name="settings_permission_status_granted">Erteilt</string>
@@ -2237,7 +2237,7 @@ Quelle: %2$s</string>
     <string name="config_local_bypass_precedence_cli_value">Befehlszeilen-Overrides</string>
     <string name="config_local_bypass_turn_on">Einschalten</string>
     <string name="config_local_bypass_turn_off">Ausschalten</string>
-    <string name="config_local_bypass_retest_strategies">Diagnostik zum erneuten Testen öffnen</string>
+    <string name="config_local_bypass_retest_strategies">Diagnose zum erneuten Testen öffnen</string>
     <string name="config_network_section">Netzwerk</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
@@ -2495,7 +2495,7 @@ Quelle: %2$s</string>
     <string name="http_fake_profile_scope_hostfake">Aktueller HTTP-Verkehr verwendet Hostfake-Chunks anstelle einer vollständigen Fake-Payload.</string>
     <string name="language_name_de">Deutsch</string>
     <string name="language_name_ru">Русский</string>
-    <string name="logs_active_session_body">Zeigen Sie die aktuelle Verbindungs- oder Diagnosesitzung zuerst an und blenden Sie ältere persistierte Historie aus.</string>
+    <string name="logs_active_session_body">Zeigen Sie die aktuelle Verbindungs- oder Diagnosesitzung zuerst an und blenden Sie älteren persistierten Verlauf aus.</string>
     <string name="logs_failed">Logs konnten nicht gesammelt werden</string>
     <string name="logs_filters_summary_compact">Subsysteme: %1$d • Schweregrade: %2$d</string>
     <string name="logs_overview_section">Diagnose</string>
@@ -2967,7 +2967,7 @@ Quelle: %2$s</string>
     <string name="vpn_pcap_viewer_hex_label">HEX-DUMP</string>
     <string name="vpn_confirm_disconnect_title">Jetzt trennen?</string>
     <string name="vpn_confirm_disconnect_session_format">Aktive Sitzung · %1$s</string>
-    <string name="vpn_confirm_disconnect_body">Apps verlieren die Umgehung, bis Sie sich wieder verbinden. Aktive Anrufe und Downloads können abbrechen.</string>
+    <string name="vpn_confirm_disconnect_body">Apps verlieren den Bypass, bis Sie sich wieder verbinden. Aktive Anrufe und Downloads können abbrechen.</string>
     <string name="vpn_confirm_disconnect_stay">Verbunden bleiben</string>
     <string name="vpn_confirm_disconnect_disconnect">Trennen</string>
     <string name="vpn_export_consent_title_format">%1$s exportieren</string>
@@ -3238,7 +3238,7 @@ Quelle: %2$s</string>
     <string name="asset_provider_exit_pending_title">Asset-Anbieter wird verlassen</string>
     <string name="asset_provider_exit_pending_body">RIPDPI bricht einen aktiven Asset-Vorgang ab, speichert die Anbieter-Einstellungen und kehrt anschließend zurück.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russland)</string>
-    <string name="asset_provider_runetfreedom_desc">De-facto-Regelsatz zur Umgehung für RU; aktueller als antizapret für v2ray/xray-geoip/geosite-Tags.</string>
+    <string name="asset_provider_runetfreedom_desc">De-facto-Bypass-Regelsatz für RU; aktueller als antizapret für v2ray/xray-geoip/geosite-Tags.</string>
     <string name="asset_provider_updated_today">Heute aktualisiert</string>
     <string name="asset_provider_updated_never">Nie aktualisiert</string>
     <!-- Backup &amp; Restore -->

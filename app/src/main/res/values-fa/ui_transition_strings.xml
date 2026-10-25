@@ -4,7 +4,7 @@
     <string name="runtime_config_preview_saved">ذخیره‌شده برای اتصال مجدد</string>
     <string name="runtime_config_preview_route">مسیر</string>
     <string name="runtime_config_preview_dns">DNS</string>
-    <string name="runtime_config_preview_strategy">راهبرد دور زدن TCP</string>
+    <string name="runtime_config_preview_strategy">راهبرد عبور TCP</string>
     <string name="runtime_config_preview_route_unresolved">هنگام اتصال مجدد تعیین می‌شود</string>
     <string name="runtime_config_preview_note">این خلاصه‌ای ناقص از تنظیمات ذخیره‌شده است. نمایه‌ها و مسیرها هنگام اتصال مجدد تعیین می‌شوند. سایر تغییرات ذخیره‌شده نیز ممکن است اعمال شوند. مقادیر نهایی پس از اتصال مجدد تأیید می‌شوند.</string>
     <string name="runtime_config_preview_unavailable">در دسترس نیست</string>

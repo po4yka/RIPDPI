@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config_saved_profile_title">已保存的配置</string>
-    <string name="config_profile_change">更改配置</string>
-    <string name="config_profile_choices">配置选项</string>
+    <string name="config_saved_profile_title">已保存的配置文件</string>
+    <string name="config_profile_change">更改配置文件</string>
+    <string name="config_profile_choices">配置文件选项</string>
     <string name="config_connection_scope_vpn">流量：选定使用本地 VPN 的应用</string>
     <string name="config_connection_scope_proxy">流量：配置为使用此代理的应用</string>
     <string name="config_connection_path_direct">路径：直接连接</string>
-    <string name="config_connection_path_relay">路径：服务器配置 %1$s</string>
+    <string name="config_connection_path_relay">路径：服务器配置文件 %1$s</string>
     <string name="config_connection_start">连接</string>
     <string name="config_connection_stop">断开连接</string>
     <string name="config_connection_details">配置详情</string>

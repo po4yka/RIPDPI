@@ -24,6 +24,6 @@
     <string name="logs_actions_title">عملیات گزارش</string>
     <string name="config_scope_device">VPN محلی</string>
     <string name="config_scope_proxy">پراکسی محلی</string>
-    <string name="config_section_bypass_settings">تنظیمات دور زدن</string>
+    <string name="config_section_bypass_settings">تنظیمات عبور</string>
     <string name="config_section_server_settings">تنظیمات سرور</string>
 </resources>

@@ -43,7 +43,7 @@
         <item quantity="other">请在 %1$d 秒后重试。</item>
     </plurals>
     <plurals name="subscription_status_profiles_format">
-        <item quantity="other">已分配 %1$d 个配置</item>
+        <item quantity="other">已分配 %1$d 个配置文件</item>
     </plurals>
     <plurals name="domain_bypass_clean_count">
         <item quantity="other">%1$d 个有效条目</item>
@@ -88,7 +88,7 @@
     <string name="detection_tun_probe_mode_strict_same_path">严格同一路径</string>
     <string name="detection_tun_probe_mode_curl_compatible">兼容 curl</string>
     <string name="diagnostics_scan_status_ready">可以开始检查</string>
-    <string name="settings_profiles_body">已保存的连接配置：检查并选择要使用的配置。</string>
+    <string name="settings_profiles_body">已保存的连接配置文件：检查并选择要使用的配置文件。</string>
     <string name="settings_advanced_group_title">路由、绕过和高级设置</string>
     <string name="runtime_config_unknown_body">当前连接尚未确认正在使用哪些设置。断开并重新连接即可应用已保存的设置。</string>
 </resources>

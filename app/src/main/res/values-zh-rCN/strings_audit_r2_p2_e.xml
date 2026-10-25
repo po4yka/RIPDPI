@@ -58,7 +58,7 @@
         <item quantity="other">已保存 %1$d 个域名</item>
     </plurals>
     <plurals name="backup_import_shareable_body">
-        <item quantity="other">由于已移除凭据，%1$d 个配置无法恢复。组、路由和设置仍可恢复。</item>
+        <item quantity="other">由于已移除凭据，%1$d 个配置文件无法恢复。组、路由和设置仍可恢复。</item>
     </plurals>
     <plurals name="detection_probe_outcome_format">
         <item quantity="other">探针结果：暴露 %1$d/%2$d 个信号</item>
