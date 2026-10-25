@@ -17,7 +17,7 @@
     <string name="home">الحالة</string>
     <string name="config">الاتصال</string>
     <string name="settings">الإعدادات</string>
-    <string name="diagnostics">التشخيص</string>
+    <string name="diagnostics">التشخيصات</string>
     <string name="bottom_nav_home_compact">حالة</string>
     <string name="bottom_nav_config_compact">اتصال</string>
     <string name="bottom_nav_diagnostics_compact">فحص</string>
@@ -374,7 +374,7 @@
     <string name="diagnostics_overview_automatic_probe_title">اكتمل الفحص التلقائي المخفي</string>
     <string name="diagnostics_overview_automatic_probe_detail_format">اكتمل %1$s</string>
     <string name="diagnostics_overview_automatic_probe_detail_handover_format">اكتمل %1$s • %2$s</string>
-    <string name="diagnostics_overview_run_scan_action">تشغيل الفحص</string>
+    <string name="diagnostics_overview_run_scan_action">فحص الشبكة</string>
     <string name="diagnostics_share_summary_title">مشاركة ملخص قابل للقراءة</string>
     <string name="diagnostics_share_summary_body">إنشاء تقرير موجز عن الحادثة من أحدث جلسة تشخيص أو الجلسة المحددة، وإرساله عبر قائمة المشاركة في Android.</string>
     <string name="diagnostics_share_summary_action">مشاركة الملخص</string>
@@ -596,7 +596,7 @@
     <string name="home_mode_card_diagnostic_status_review">مراجعة أحدث تدقيق</string>
     <string name="home_mode_card_enable">تفعيل</string>
     <string name="home_mode_card_disable">تعطيل</string>
-    <string name="home_mode_card_run_scan">تشغيل الفحص</string>
+    <string name="home_mode_card_run_scan">فحص الشبكة</string>
     <string name="home_mode_card_configure">ضبط</string>
     <string name="home_route_local">على الجهاز</string>
     <string name="config_overview_title">الملف الشخصي</string>
@@ -1543,7 +1543,7 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">محلِّل عام يُركِّز على حجب الإعلانات وأدوات التتبُّع.</string>
     <string name="dns_resolver_catalog_generic_body">DNS مشفّر عبر HTTPS.</string>
-    <string name="title_app_customization">تخصيص التطبيق</string>
+    <string name="title_app_customization">أيقونة التطبيق</string>
     <string name="save_logs">حفظ السجلات</string>
     <string name="logs_clear">مسح</string>
     <string name="logs_overview_section">التشخيصات</string>

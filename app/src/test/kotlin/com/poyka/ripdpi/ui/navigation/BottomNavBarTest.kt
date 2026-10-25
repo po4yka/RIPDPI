@@ -73,9 +73,9 @@ class BottomNavBarTest {
         }
 
         mapOf(
-            1f to listOf("Status", "Connection", "Diagnose", "Settings"),
-            1.5f to listOf("Status", "Connection", "Diagnose", "Settings"),
-            2f to listOf("Status", "Connection", "Diagnose", "Settings"),
+            1f to listOf("Status", "Connection", "Diagnostics", "Settings"),
+            1.5f to listOf("Status", "Connection", "Diagnostics", "Settings"),
+            2f to listOf("Status", "Connection", "Diagnostics", "Settings"),
         ).forEach { (scale, expectedLabels) ->
             assertBottomNavAtScale(fontScale, scale, expectedLabels)
         }
@@ -104,7 +104,7 @@ class BottomNavBarTest {
     }
 
     private fun assertFullAccessibilityNames() {
-        Route.topLevel.zip(listOf("Status", "Connection", "Diagnose", "Settings")).forEach { (route, label) ->
+        Route.topLevel.zip(listOf("Status", "Connection", "Diagnostics", "Settings")).forEach { (route, label) ->
             composeRule
                 .onAllNodesWithContentDescription(label, useUnmergedTree = true)
                 .assertCountEquals(1)

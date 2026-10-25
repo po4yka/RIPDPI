@@ -111,8 +111,8 @@
     <string name="diagnostics_history_section">历史</string>
 
     <string name="diagnostics_status_running">运行中</string>
-    <string name="diagnostics_action_raw">扫描直连网络</string>
-    <string name="diagnostics_action_in_path">扫描活动连接</string>
+    <string name="diagnostics_action_raw">检查直连网络</string>
+    <string name="diagnostics_action_in_path">检查活动连接</string>
     <string name="diagnostics_action_cancel">取消当前扫描</string>
     <string name="diagnostics_profiles_title">活动配置文件</string>
     <string name="diagnostics_profiles_body">选择诊断应验证当前路径，还是运行返回手动建议的隔离策略试验。</string>
@@ -377,7 +377,7 @@
     <string name="diagnostics_overview_automatic_probe_title">隐藏的自动探测已完成</string>
     <string name="diagnostics_overview_automatic_probe_detail_format">完成于 %1$s</string>
     <string name="diagnostics_overview_automatic_probe_detail_handover_format">完成于 %1$s • %2$s</string>
-    <string name="diagnostics_overview_run_scan_action">运行扫描</string>
+    <string name="diagnostics_overview_run_scan_action">检查网络</string>
     <string name="diagnostics_share_summary_title">共享可读摘要</string>
     <string name="diagnostics_share_summary_body">根据最新或选定的诊断会话构建简明的事件简报，并通过 Android 共享面板发送。</string>
     <string name="diagnostics_share_summary_action">共享摘要</string>
@@ -2419,7 +2419,7 @@ fake_burst 3</string>
     <string name="home_connection_actuator_state_vpn_unavailable">本地进程正在运行；VPN 连接不可用</string>
     <string name="home_mode_card_diagnostic_status_complete_format">已完成 %1$d/%2$d 个阶段</string>
     <string name="home_mode_card_disable">禁用</string>
-    <string name="home_mode_card_run_scan">运行扫描</string>
+    <string name="home_mode_card_run_scan">检查网络</string>
     <string name="home_mode_diagnostic_scan">诊断扫描</string>
     <string name="home_mode_vpn">本地 VPN</string>
     <string name="home_quality_offline">离线</string>
@@ -2655,7 +2655,7 @@ fake_burst 3</string>
     <string name="tcp_flag_card_dsl_only">此链形态无法通过主步骤 TCP 标志卡片编辑。请使用链 DSL 更改标志掩码。</string>
     <string name="tcp_flag_card_step_label">主步骤</string>
     <string name="tcp_flag_orig_clear_title">原始数据包:清除标志</string>
-    <string name="title_app_customization">应用自定义</string>
+    <string name="title_app_customization">应用图标</string>
     <string name="title_data_transparency">数据透明度</string>
     <string name="title_mode_editor">配置档编辑器</string>
     <string name="title_strategy_config">策略配置</string>
@@ -3012,7 +3012,7 @@ fake_burst 3</string>
     <string name="vpn_confirm_disconnect_session_format">当前会话 · %1$s</string>
     <string name="vpn_confirm_disconnect_body">断开连接将中断正在进行的下载并重置分析器状态。通话可能会被中断。</string>
     <string name="vpn_confirm_disconnect_stay">保持连接</string>
-    <string name="vpn_confirm_disconnect_disconnect">断开</string>
+    <string name="vpn_confirm_disconnect_disconnect">断开连接</string>
     <string name="vpn_export_consent_title_format">导出 %1$s</string>
     <string name="vpn_export_consent_redact_label">将端点 IP 隐去为 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">取消</string>

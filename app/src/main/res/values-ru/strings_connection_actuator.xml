@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_connection_actuator_action_activate">Подключиться</string>
-    <string name="home_connection_actuator_action_deactivate">Отключиться</string>
+    <string name="home_connection_actuator_action_activate">Подключить</string>
+    <string name="home_connection_actuator_action_deactivate">Отключить</string>
     <string name="home_connection_actuator_fault_copy">Скопировать ошибку</string>
     <string name="home_connection_actuator_direct">Напрямую</string>
     <string name="home_connection_actuator_relay">Реле</string>

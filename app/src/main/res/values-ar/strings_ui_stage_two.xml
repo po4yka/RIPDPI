@@ -23,8 +23,8 @@
     <string name="diagnostics_outcome_coverage_format">اكتملت %1$d من %2$d مراحل؛ فشلت %3$d مراحل</string>
     <string name="diagnostics_outcome_historical">أدلة محفوظة؛ تطابقها مع الشبكة الحالية غير معروف</string>
     <string name="logs_actions_title">إجراءات السجل</string>
-    <string name="config_scope_device">تطبيقات الجهاز</string>
-    <string name="config_scope_proxy">التطبيقات المضبوطة لاستخدام الوكيل</string>
+    <string name="config_scope_device">VPN محلي</string>
+    <string name="config_scope_proxy">وكيل محلي</string>
     <string name="config_section_bypass_settings">إعدادات التجاوز</string>
     <string name="config_section_server_settings">إعدادات الخادم</string>
 </resources>

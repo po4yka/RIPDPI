@@ -102,7 +102,7 @@
     <string name="history_title">История</string>
     <string name="diagnostics_overview_section">Обзор</string>
     <string name="diagnostics_dashboard_section">Панель</string>
-    <string name="diagnostics_overview_run_scan_action">Запустить проверку</string>
+    <string name="diagnostics_overview_run_scan_action">Проверить сеть</string>
     <string name="diagnostics_scan_section">Сканирование</string>
     <string name="diagnostics_tools_section">Инструменты</string>
     <string name="diagnostics_approaches_title">Подходы</string>
@@ -1133,7 +1133,7 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">Публичный резолвер с упором на блокировку рекламы и трекеров.</string>
     <string name="dns_resolver_catalog_generic_body">Шифрованный DNS поверх HTTPS.</string>
-    <string name="title_app_customization">Персонализация приложения</string>
+    <string name="title_app_customization">Значок приложения</string>
     <string name="save_logs">Сохранить логи</string>
     <string name="logs_clear">Очистить</string>
     <string name="logs_overview_section">Диагностика</string>
@@ -2300,7 +2300,7 @@ fakeddisorder endhost</string>
     <string name="home_mode_card_remote_relay_disabled">Реле отключено</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
     <string name="home_mode_card_remote_server_unknown">Сервер не настроен</string>
-    <string name="home_mode_card_run_scan">Запустить сканирование</string>
+    <string name="home_mode_card_run_scan">Проверить сеть</string>
     <string name="home_mode_card_status_active">Активно</string>
     <string name="home_mode_card_status_busy">Занято</string>
     <string name="home_mode_card_status_inactive">Неактивно</string>

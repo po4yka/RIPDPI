@@ -1058,7 +1058,7 @@ fakeddisorder endhost</string>
     <string name="strategy_pack_verification_failed_status_body">RIPDPI lehnte den heruntergeladenen Strategie-Paket-Katalog ab, weil die Verifizierung von Prüfsumme, Signatur oder Signierungsschlüssel fehlschlug.</string>
     <string name="tcp_flag_card_runtime_default">Kernel-Standardwerte</string>
     <string name="tcp_flag_fake_set_title">Fake-Paket: Flags setzen</string>
-    <string name="title_app_customization">App-Anpassung</string>
+    <string name="title_app_customization">App-Symbol</string>
     <string name="title_detection_check">Erkennungsprüfung</string>
     <string name="title_detection_settings">Erkennungseinstellungen</string>
     <string name="detection_dns_provider_label">DNS-Anbieter</string>
@@ -1275,7 +1275,7 @@ fake_burst 3</string>
     <string name="diagnostics_metric_strategy">Strategie</string>
     <string name="diagnostics_metric_winning_strategy">Gewinnende Strategie</string>
     <string name="diagnostics_open_history_body">Verwenden Sie den dedizierten Verlauf-Bildschirm für gespeicherte Verbindungssitzungen, frühere Scans und den dauerhaften Ereignis-Feed.</string>
-    <string name="diagnostics_overview_run_scan_action">Scan ausführen</string>
+    <string name="diagnostics_overview_run_scan_action">Netz prüfen</string>
     <string name="diagnostics_probe_manual_apply_body">Automatische Probe ändert Ihre RIPDPI-Einstellungen nicht. Prüfen Sie die unten empfohlene Strategie und kopieren Sie die gewünschten Teile manuell in Ihr normales Profil.</string>
     <string name="diagnostics_probe_progress_title">Strategien werden getestet</string>
     <string name="diagnostics_probe_short_circuit_recommendation_title">Resolver-Empfehlung</string>
@@ -2503,7 +2503,7 @@ Quelle: %2$s</string>
     <string name="home_history_cta">Verlauf öffnen</string>
     <string name="home_mode_card_diagnostic_empty">Noch keine Analyse</string>
     <string name="home_mode_card_diagnostic_status_stale">Netzwerk geändert - Scan erneut ausführen</string>
-    <string name="home_mode_card_run_scan">Scan ausführen</string>
+    <string name="home_mode_card_run_scan">Netz prüfen</string>
     <string name="home_mode_local_dpi_bypass">Lokaler Bypass</string>
     <string name="home_permission_issue_with_retry">%1$s Verwenden Sie die Verbindungsschaltfläche, um den Berechtigungsablauf fortzusetzen.</string>
     <string name="home_quality_offline">Offline</string>

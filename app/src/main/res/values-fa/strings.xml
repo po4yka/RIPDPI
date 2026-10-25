@@ -111,8 +111,8 @@
     <string name="diagnostics_history_section">تاریخچه</string>
 
     <string name="diagnostics_status_running">در حال اجرا</string>
-    <string name="diagnostics_action_raw">اسکن شبکه مستقیم</string>
-    <string name="diagnostics_action_in_path">اسکن اتصال فعال</string>
+    <string name="diagnostics_action_raw">بررسی شبکه مستقیم</string>
+    <string name="diagnostics_action_in_path">بررسی اتصال فعال</string>
     <string name="diagnostics_action_cancel">لغو پویش فعال</string>
     <string name="diagnostics_profiles_title">پروفایل فعال</string>
     <string name="diagnostics_profiles_body">انتخاب کنید که تشخیص باید مسیر فعلی را اعتبارسنجی کند یا آزمایش‌های جداگانهٔ راهبرد را اجرا کند که یک توصیهٔ دستی برمی‌گرداند.</string>
@@ -378,7 +378,7 @@
     <string name="diagnostics_overview_automatic_probe_title">کاوش خودکار پنهان به پایان رسید</string>
     <string name="diagnostics_overview_automatic_probe_detail_format">تکمیل‌شده در %1$s</string>
     <string name="diagnostics_overview_automatic_probe_detail_handover_format">تکمیل‌شده در %1$s • %2$s</string>
-    <string name="diagnostics_overview_run_scan_action">اجرای پویش</string>
+    <string name="diagnostics_overview_run_scan_action">بررسی شبکه</string>
     <string name="diagnostics_share_summary_title">اشتراک‌گذاری خلاصهٔ خوانا</string>
     <string name="diagnostics_share_summary_body">یک گزارش کوتاه حادثه از آخرین یا نشست تشخیصی انتخاب‌شده بسازید و آن را از طریق صفحهٔ اشتراک‌گذاری اندروید ارسال کنید.</string>
     <string name="diagnostics_share_summary_action">اشتراک‌گذاری خلاصه</string>
@@ -600,7 +600,7 @@
     <string name="home_mode_card_diagnostic_status_review">بررسی آخرین حسابرسی</string>
     <string name="home_mode_card_enable">فعال‌سازی</string>
     <string name="home_mode_card_disable">غیرفعال‌سازی</string>
-    <string name="home_mode_card_run_scan">اجرای پویش</string>
+    <string name="home_mode_card_run_scan">بررسی شبکه</string>
     <string name="home_mode_card_configure">پیکربندی</string>
     <string name="home_route_local">روی دستگاه</string>
     <string name="config_overview_title">نمایه</string>
@@ -2682,7 +2682,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_card_runtime_default">پیش‌فرض‌های هسته</string>
     <string name="tcp_flag_card_title">ساخت پرچم TCP</string>
     <string name="tcp_flag_orig_clear_title">بسته اصلی: پاک کردن پرچم‌ها</string>
-    <string name="title_app_customization">شخصی‌سازی برنامه</string>
+    <string name="title_app_customization">آیکن برنامه</string>
     <string name="title_data_transparency">شفافیت داده</string>
     <string name="title_shared_diagnostic_result">تشخیص اشتراک‌گذاری‌شده</string>
     <string name="warp_account_kind_body">نوع هویت WARP فعال. Consumer Free، WARP+ و Zero Trust از مسیرهای ثبت‌نام متفاوتی استفاده می‌کنند.</string>
@@ -3020,7 +3020,7 @@ fakeddisorder endhost</string>
     <string name="vpn_confirm_disconnect_session_format">نشست فعال · %1$s</string>
     <string name="vpn_confirm_disconnect_body">قطع اتصال دانلودهای در حال انجام را متوقف می‌کند و وضعیت تحلیلگر را بازنشانی می‌کند. تماس‌های فعال ممکن است قطع شوند.</string>
     <string name="vpn_confirm_disconnect_stay">متصل بمان</string>
-    <string name="vpn_confirm_disconnect_disconnect">قطع کن</string>
+    <string name="vpn_confirm_disconnect_disconnect">قطع اتصال</string>
     <string name="vpn_export_consent_title_format">برون‌برد %1$s</string>
     <string name="vpn_export_consent_redact_label">پوشاندن IPها به ۰.۰.۰.۰</string>
     <string name="vpn_export_consent_cancel">انصراف</string>

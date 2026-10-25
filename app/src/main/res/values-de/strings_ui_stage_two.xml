@@ -23,8 +23,8 @@
     <string name="diagnostics_outcome_coverage_format">%1$d von %2$d Phasen abgeschlossen; %3$d fehlgeschlagen</string>
     <string name="diagnostics_outcome_historical">Gespeicherte Daten; Übereinstimmung mit aktuellem Netzwerk unbekannt</string>
     <string name="logs_actions_title">Protokollaktionen</string>
-    <string name="config_scope_device">Geräte-Apps</string>
-    <string name="config_scope_proxy">Apps mit Proxy-Einstellung</string>
+    <string name="config_scope_device">Lokales VPN</string>
+    <string name="config_scope_proxy">Lokaler Proxy</string>
     <string name="config_section_bypass_settings">Umgehungseinstellungen</string>
     <string name="config_section_server_settings">Servereinstellungen</string>
 </resources>

@@ -16,7 +16,7 @@
     <string name="home">स्थिति</string>
     <string name="config">कनेक्शन</string>
     <string name="settings">सेटिंग्स</string>
-    <string name="diagnostics">जाँच करें</string>
+    <string name="diagnostics">जाँच</string>
     <string name="bottom_nav_home_compact">स्थिति</string>
     <string name="bottom_nav_config_compact">कनेक्ट</string>
     <string name="bottom_nav_diagnostics_compact">जाँच</string>
@@ -110,8 +110,8 @@
     <string name="diagnostics_approaches_signature_title">कॉन्फ़िगरेशन हस्ताक्षर</string>
     <string name="diagnostics_history_section">इतिहास</string>
     <string name="diagnostics_status_running">चल रहा है</string>
-    <string name="diagnostics_action_raw">सीधा नेटवर्क स्कैन करें</string>
-    <string name="diagnostics_action_in_path">सक्रिय कनेक्शन स्कैन करें</string>
+    <string name="diagnostics_action_raw">सीधा नेटवर्क जाँचें</string>
+    <string name="diagnostics_action_in_path">सक्रिय कनेक्शन जाँचें</string>
     <string name="diagnostics_action_cancel">सक्रिय स्कैन रद्द करें</string>
     <string name="diagnostics_profiles_title">सक्रिय प्रोफ़ाइल</string>
     <string name="diagnostics_profiles_body">चुनें कि जाँच वर्तमान पथ को सत्यापित करे या अलग रणनीति परीक्षण चलाकर मैन्युअल अनुशंसा दे।</string>
@@ -377,7 +377,7 @@
     <string name="diagnostics_overview_automatic_probe_title">छिपी हुई स्वचालित प्रोबिंग पूरी हुई</string>
     <string name="diagnostics_overview_automatic_probe_detail_format">%1$s पर पूरा हुआ</string>
     <string name="diagnostics_overview_automatic_probe_detail_handover_format">%1$s पर पूरा हुआ • %2$s</string>
-    <string name="diagnostics_overview_run_scan_action">स्कैन चलाएँ</string>
+    <string name="diagnostics_overview_run_scan_action">नेटवर्क जाँचें</string>
     <string name="diagnostics_share_summary_title">पठनीय सारांश साझा करें</string>
     <string name="diagnostics_share_summary_body">नवीनतम या चयनित डायग्नोस्टिक्स सत्र से एक संक्षिप्त घटना विवरण बनाएँ और इसे Android शेयर शीट के माध्यम से भेजें।</string>
     <string name="diagnostics_share_summary_action">सारांश साझा करें</string>
@@ -598,7 +598,7 @@
     <string name="home_mode_card_diagnostic_status_review">नवीनतम ऑडिट देखें</string>
     <string name="home_mode_card_enable">सक्षम करें</string>
     <string name="home_mode_card_disable">अक्षम करें</string>
-    <string name="home_mode_card_run_scan">स्कैन चलाएँ</string>
+    <string name="home_mode_card_run_scan">नेटवर्क जाँचें</string>
     <string name="home_mode_card_configure">कॉन्फ़िगर करें</string>
     <string name="home_route_local">डिवाइस पर</string>
     <string name="config_overview_title">प्रोफ़ाइल</string>
@@ -1545,7 +1545,7 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">विज्ञापन और ट्रैकर अवरोधन पर ज़ोर देने वाला सार्वजनिक रिज़ॉल्वर।</string>
     <string name="dns_resolver_catalog_generic_body">DNS over HTTPS के माध्यम से एन्क्रिप्टेड।</string>
-    <string name="title_app_customization">ऐप कस्टमाइज़ेशन</string>
+    <string name="title_app_customization">ऐप आइकन</string>
     <string name="save_logs">लॉग सहेजें</string>
     <string name="logs_clear">साफ़ करें</string>
     <string name="logs_overview_section">डायग्नोस्टिक्स</string>
@@ -1656,8 +1656,8 @@ fakeddisorder endhost</string>
     <string name="onboarding_chip_no_cloud_sync">कोई क्लाउड सिंक नहीं</string>
     <string name="onboarding_guarantee_header_privacy">गोपनीयता</string>
     <string name="onboarding_guarantee_header_local">आपके डिवाइस पर</string>
-    <string name="onboarding_chip_local_vpn">स्थानीय VPN</string>
-    <string name="onboarding_chip_local_proxy">स्थानीय प्रॉक्सी</string>
+    <string name="onboarding_chip_local_vpn">लोकल VPN</string>
+    <string name="onboarding_chip_local_proxy">लोकल प्रॉक्सी</string>
     <string name="onboarding_chip_local_config">स्थानीय कॉन्फ़िग</string>
     <string name="onboarding_skip_setup">सेटअप छोड़ें</string>
     <string name="onboarding_use_recommended">अनुशंसित का उपयोग करें</string>

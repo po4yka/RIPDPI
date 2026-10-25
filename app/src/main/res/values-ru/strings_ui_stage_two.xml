@@ -23,8 +23,8 @@
     <string name="diagnostics_outcome_coverage_format">Завершено этапов: %1$d из %2$d; с ошибкой: %3$d</string>
     <string name="diagnostics_outcome_historical">Сохранённые данные; соответствие текущей сети неизвестно</string>
     <string name="logs_actions_title">Действия с журналом</string>
-    <string name="config_scope_device">Приложения устройства</string>
-    <string name="config_scope_proxy">Приложения с прокси</string>
+    <string name="config_scope_device">Локальный VPN</string>
+    <string name="config_scope_proxy">Локальный прокси</string>
     <string name="config_section_bypass_settings">Настройки обхода</string>
     <string name="config_section_server_settings">Настройки сервера</string>
 </resources>

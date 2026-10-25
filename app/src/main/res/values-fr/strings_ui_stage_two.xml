@@ -23,8 +23,8 @@
     <string name="diagnostics_outcome_coverage_format">%1$d étapes sur %2$d terminées ; %3$d en échec</string>
     <string name="diagnostics_outcome_historical">Données enregistrées ; correspondance avec le réseau actuel inconnue</string>
     <string name="logs_actions_title">Actions du journal</string>
-    <string name="config_scope_device">Applications de l’appareil</string>
-    <string name="config_scope_proxy">Applications configurées pour le proxy</string>
+    <string name="config_scope_device">VPN local</string>
+    <string name="config_scope_proxy">Proxy local</string>
     <string name="config_section_bypass_settings">Paramètres de contournement</string>
     <string name="config_section_server_settings">Paramètres du serveur</string>
 </resources>

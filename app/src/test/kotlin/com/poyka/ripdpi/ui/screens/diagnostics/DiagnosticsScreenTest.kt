@@ -677,8 +677,7 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onAllNodesWithText("Run scan").assertCountEquals(1)
-        composeRule.onAllNodesWithText("Check network").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Check network").assertCountEquals(1)
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply).assertDoesNotExist()
     }
 

@@ -68,7 +68,7 @@ class DiagnosticsOutcomeTest {
 
     @Test
     fun `technical disclosure keeps advanced persona label and callback aligned`() {
-        assertPrimaryOperation("advanced", "Run scan")
+        assertPrimaryOperation("advanced", "Check network")
     }
 
     private fun assertPrimaryOperation(

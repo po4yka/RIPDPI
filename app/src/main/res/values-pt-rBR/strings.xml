@@ -111,8 +111,8 @@
     <string name="diagnostics_approaches_signature_title">Assinatura de configuração</string>
     <string name="diagnostics_history_section">Histórico</string>
     <string name="diagnostics_status_running">Em execução</string>
-    <string name="diagnostics_action_raw">Analisar rede direta</string>
-    <string name="diagnostics_action_in_path">Analisar conexão ativa</string>
+    <string name="diagnostics_action_raw">Verificar rede direta</string>
+    <string name="diagnostics_action_in_path">Verificar conexão ativa</string>
     <string name="diagnostics_action_cancel">Cancelar varredura ativa</string>
     <string name="diagnostics_profiles_title">Perfil ativo</string>
     <string name="diagnostics_profiles_body">Escolha se o Diagnóstico deve validar o caminho atual ou executar testes isolados de estratégias que retornam uma recomendação manual.</string>
@@ -378,7 +378,7 @@
     <string name="diagnostics_overview_automatic_probe_title">A sondagem automática oculta terminou</string>
     <string name="diagnostics_overview_automatic_probe_detail_format">Concluída %1$s</string>
     <string name="diagnostics_overview_automatic_probe_detail_handover_format">Concluída %1$s • %2$s</string>
-    <string name="diagnostics_overview_run_scan_action">Executar varredura</string>
+    <string name="diagnostics_overview_run_scan_action">Verificar rede</string>
     <string name="diagnostics_share_summary_title">Compartilhar resumo legível</string>
     <string name="diagnostics_share_summary_body">Monte um relatório conciso do incidente a partir da sessão de diagnóstico mais recente ou selecionada e envie-o pela folha de compartilhamento do Android.</string>
     <string name="diagnostics_share_summary_action">Compartilhar resumo</string>
@@ -600,7 +600,7 @@
     <string name="home_mode_card_diagnostic_status_review">Revise a auditoria mais recente</string>
     <string name="home_mode_card_enable">Ativar</string>
     <string name="home_mode_card_disable">Desativar</string>
-    <string name="home_mode_card_run_scan">Executar Varredura</string>
+    <string name="home_mode_card_run_scan">Verificar rede</string>
     <string name="home_mode_card_configure">Configurar</string>
     <string name="home_route_local">No aparelho</string>
     <string name="config_overview_title">Perfil</string>
@@ -1549,7 +1549,7 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">Resolvedor público que prioriza o bloqueio de anúncios e rastreadores.</string>
     <string name="dns_resolver_catalog_generic_body">DNS criptografado sobre HTTPS.</string>
-    <string name="title_app_customization">Personalização do app</string>
+    <string name="title_app_customization">Ícone do app</string>
     <string name="save_logs">Salvar logs</string>
     <string name="logs_clear">Limpar</string>
     <string name="logs_overview_section">Diagnósticos</string>
