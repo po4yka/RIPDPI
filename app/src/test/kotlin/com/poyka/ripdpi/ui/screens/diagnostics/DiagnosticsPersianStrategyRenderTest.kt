@@ -202,10 +202,18 @@ class DiagnosticsPersianStrategyRenderTest {
         metrics.forEachIndexed { index, metric ->
             row.performScrollToIndex(index)
             assertText(metric.label.uppercase(), tag)
-            assertText(metric.value, tag)
+            assertText(persianDigits(metric.value), tag)
             capture("$imageName-metric-$index", tag)
         }
     }
+
+    // A plain integer metric is shown with Persian digits (U+06F0..U+06F9) in this locale.
+    private fun persianDigits(value: String): String =
+        if (value.isNotEmpty() && value.all { it in '0'..'9' }) {
+            value.map { '\u06F0' + (it - '0') }.joinToString("")
+        } else {
+            value
+        }
 
     private fun assertText(
         text: String,

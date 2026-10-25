@@ -30,6 +30,7 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.localizedDigits
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -271,7 +272,7 @@ private fun RipDpiDegradationMetricChip(metric: RipDpiDegradationMetric) {
                 color = colors.mutedForeground,
             )
             Text(
-                text = metric.value,
+                text = localizedDigits(metric.value),
                 modifier = Modifier.width(IntrinsicSize.Max),
                 style = type.monoSmall,
                 color = colors.foreground,

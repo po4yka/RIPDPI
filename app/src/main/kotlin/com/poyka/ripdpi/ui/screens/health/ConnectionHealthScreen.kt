@@ -24,6 +24,7 @@ import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.RipDpiCompactMetrics
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
+import com.poyka.ripdpi.ui.components.localizedInteger
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -195,9 +196,9 @@ private fun ConnectionHealthRow(row: ConnectionHealthRowUiState) {
         RipDpiCompactMetrics(
             metrics =
                 persistentListOf(
-                    stringResource(R.string.connection_health_successes) to row.successCount.toString(),
-                    stringResource(R.string.connection_health_failures) to row.failureCount.toString(),
-                    stringResource(R.string.connection_health_samples) to row.totalCount.toString(),
+                    stringResource(R.string.connection_health_successes) to localizedInteger(row.successCount),
+                    stringResource(R.string.connection_health_failures) to localizedInteger(row.failureCount),
+                    stringResource(R.string.connection_health_samples) to localizedInteger(row.totalCount),
                 ),
         )
     }

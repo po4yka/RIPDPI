@@ -23,6 +23,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.localizedDigits
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -286,7 +287,7 @@ private fun ProfileVariantMetricStrip(
                     color = colors.mutedForeground,
                 )
                 Text(
-                    text = metric.value,
+                    text = localizedDigits(metric.value),
                     style = type.monoValue,
                     color =
                         if (metric.isPositive) colors.success else colors.foreground,

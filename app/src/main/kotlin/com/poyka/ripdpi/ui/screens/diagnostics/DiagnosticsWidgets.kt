@@ -68,6 +68,8 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
+import com.poyka.ripdpi.ui.components.localizedDigits
+import com.poyka.ripdpi.ui.components.localizedInteger
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
@@ -201,7 +203,7 @@ private fun CollapsibleCountBadge(count: Int) {
     val colors = RipDpiThemeTokens.colors
     Surface(color = colors.inputBackground, shape = RipDpiThemeTokens.shapes.full) {
         Text(
-            text = count.toString(),
+            text = localizedInteger(count.toLong()),
             modifier = Modifier.width(IntrinsicSize.Max).padding(horizontal = 8.dp, vertical = 2.dp),
             style = RipDpiThemeTokens.type.smallLabel,
             color = colors.mutedForeground,
@@ -245,7 +247,7 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
                 color = contentColor.copy(alpha = 0.75f),
             )
             Text(
-                text = metric.value,
+                text = localizedDigits(metric.value),
                 style = RipDpiThemeTokens.type.monoValue,
                 color = contentColor,
             )
@@ -298,7 +300,7 @@ private fun OverviewStatTile(
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             Text(
-                text = metric.value,
+                text = localizedDigits(metric.value),
                 style = type.screenTitle,
                 color = contentColor,
                 modifier = Modifier.fillMaxWidth(),
