@@ -737,7 +737,7 @@ Status:
 - use `RipDpiDashboardScaffold`
 - present a calm status header, three mode cards, and a single collapsible `Setup health` row instead of permanent warning banners
 - keep the three `HomeModeCard` entries as the primary surface for Diagnose, Local bypass, and VPN; each card carries state, one primary action, configuration affordance, and inline disabled reason when gated
-- show lockdown guidance only while VPN is active; idle state must not carry a permanent lockdown or setup warning banner
+- show lockdown guidance whenever the configured path is the VPN, including idle, connecting, and a tunnel that just failed, because those are the states where the user can still act on it; show it as an item in the shared advisory card, never as a standalone permanent banner, and not at all for a proxy-only path
 - reserve accent and status color for live connection, setup health, diagnostics verdicts, and recommendation state
 
 Settings and advanced settings:
@@ -828,7 +828,7 @@ Status:
 - build the dashboard from three `HomeModeCard` entries — Diagnose, Local bypass, and VPN — as the primary contract; each card owns its own title, summary, status, one primary action, configuration affordance, and inline "why disabled" text when gated
 - keep the existing three-card `HomeModeCard` implementation contract intact while the tab is user-facing Status
 - replace permanent warning, permission, and degradation banners with a single collapsible `Setup health` row that summarizes setup issues and expands to recovery actions
-- show lockdown guidance only when VPN is active; do not show a permanent lockdown banner in idle state
+- show lockdown guidance while the configured path is the VPN, including idle, as an advisory-card item rather than a standalone permanent banner
 - keep the connection actuator or equivalent enable control inside the relevant mode card; do not reintroduce a large circular VPN power button
 - keep the default order: calm status header, collapsible `Setup health` row when applicable, the three mode cards, optional diagnostic PCAP toggle, then the Home diagnostic bottom-sheet host
 - keep diagnostic detail in Home bottom sheets or the Diagnose screen rather than recreating an inline diagnostics card stack
