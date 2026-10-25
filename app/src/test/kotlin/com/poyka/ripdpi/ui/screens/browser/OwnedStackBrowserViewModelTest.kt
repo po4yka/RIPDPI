@@ -11,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
 import java.net.URI
+import java.security.GeneralSecurityException
 
 class OwnedStackBrowserViewModelTest {
     @get:Rule
@@ -37,6 +38,22 @@ class OwnedStackBrowserViewModelTest {
     }
 
     @Test
+    fun `decode and security failures from fetch show the localized failure`() {
+        listOf(
+            IllegalArgumentException("unexpected response JSON"),
+            SecurityException("permission denied"),
+            GeneralSecurityException("bad certificate"),
+        ).forEach { failure ->
+            val service = RejectingBrowserService(fetchFailure = failure)
+            val viewModel = OwnedStackBrowserViewModel(service, FallbackStringResolver)
+
+            viewModel.load("https://example.com")
+
+            assertEquals(FallbackMessage, viewModel.uiState.value.errorMessage)
+        }
+    }
+
+    @Test
     fun `malformed input shows the localized failure instead of crashing`() {
         val viewModel = OwnedStackBrowserViewModel(RejectingBrowserService(), FallbackStringResolver)
 
@@ -51,7 +68,9 @@ class OwnedStackBrowserViewModelTest {
      * Throws the exception types that the production validator throws; OwnedStackBrowserServiceTest in
      * core/service pins those types against normalizeOwnedStackBrowserUrl.
      */
-    private class RejectingBrowserService : OwnedStackBrowserService {
+    private class RejectingBrowserService(
+        private val fetchFailure: Exception = IOException("TLS handshake failed: raw engine text"),
+    ) : OwnedStackBrowserService {
         override fun currentSupport(): OwnedStackBrowserSupport =
             OwnedStackBrowserSupport(platformHttpEngineAvailable = false, android17EchEligible = false)
 
@@ -63,7 +82,7 @@ class OwnedStackBrowserViewModelTest {
 
         override suspend fun fetch(rawUrl: String): OwnedStackBrowserPage {
             normalizeUrl(rawUrl)
-            throw IOException("TLS handshake failed: raw engine text")
+            throw fetchFailure
         }
     }
 

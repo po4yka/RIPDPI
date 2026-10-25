@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.URISyntaxException
+import java.security.GeneralSecurityException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -91,6 +92,13 @@ class OwnedStackBrowserViewModel
                 } catch (error: CancellationException) {
                     throw error
                 } catch (_: IOException) {
+                    showRequestFailed()
+                } catch (_: IllegalArgumentException) {
+                    // Includes SerializationException from decoding the response.
+                    showRequestFailed()
+                } catch (_: SecurityException) {
+                    showRequestFailed()
+                } catch (_: GeneralSecurityException) {
                     showRequestFailed()
                 }
             }
