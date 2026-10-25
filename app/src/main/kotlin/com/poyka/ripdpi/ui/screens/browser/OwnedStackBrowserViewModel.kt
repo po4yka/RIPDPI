@@ -59,6 +59,18 @@ class OwnedStackBrowserViewModel
         }
 
         fun load(rawUrl: String) {
+            // Validate first: the service rejects input with IllegalArgumentException (blank, non-HTTPS,
+            // no host) or URISyntaxException (malformed), and its texts are not localized.
+            val url =
+                try {
+                    browserService.normalizeUrl(rawUrl)
+                } catch (_: IllegalArgumentException) {
+                    showRequestFailed()
+                    return
+                } catch (_: URISyntaxException) {
+                    showRequestFailed()
+                    return
+                }
             viewModelScope.launch {
                 _uiState.update { state ->
                     state.copy(
@@ -67,7 +79,7 @@ class OwnedStackBrowserViewModel
                     )
                 }
                 try {
-                    val page = browserService.fetch(rawUrl)
+                    val page = browserService.fetch(url)
                     _uiState.update { state ->
                         state.copy(
                             inputUrl = page.finalUrl,
@@ -78,22 +90,17 @@ class OwnedStackBrowserViewModel
                     }
                 } catch (error: CancellationException) {
                     throw error
-                } catch (error: IOException) {
-                    showError(error.message)
-                } catch (error: IllegalArgumentException) {
-                    // URL validation rejects blank, non-HTTPS and host-less input with a user-facing message.
-                    showError(error.message)
-                } catch (_: URISyntaxException) {
-                    showError(null)
+                } catch (_: IOException) {
+                    showRequestFailed()
                 }
             }
         }
 
-        private fun showError(message: String?) {
+        private fun showRequestFailed() {
             _uiState.update { state ->
                 state.copy(
                     isLoading = false,
-                    errorMessage = message ?: stringResolver.getString(R.string.owned_stack_browser_request_failed),
+                    errorMessage = stringResolver.getString(R.string.owned_stack_browser_request_failed),
                 )
             }
         }

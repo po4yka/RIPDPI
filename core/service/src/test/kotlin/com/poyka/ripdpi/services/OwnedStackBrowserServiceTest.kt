@@ -14,16 +14,30 @@ import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.net.ConnectException
 import java.net.URI
+import java.net.URISyntaxException
 import java.security.cert.CertificateException
 import javax.inject.Provider
 import javax.net.ssl.SSLHandshakeException
 
 class OwnedStackBrowserServiceTest {
+    @Test
+    fun `url validation throws only the exception types the browser ViewModel catches`() {
+        // OwnedStackBrowserViewModel maps exactly these two types to a localized error.
+        listOf("", "   ", "http://example.com", "ftp://example.com", "https:///path").forEach { input ->
+            assertThrows(IllegalArgumentException::class.java) { normalizeOwnedStackBrowserUrl(input) }
+        }
+        listOf("foo bar", "https://exa mple.com").forEach { input ->
+            assertThrows(URISyntaxException::class.java) { normalizeOwnedStackBrowserUrl(input) }
+        }
+        assertEquals("https://example.com", normalizeOwnedStackBrowserUrl(" example.com "))
+    }
+
     @Test
     fun `secure client uses platform path when confirmed ECH-capable authority is cached`() =
         runTest {

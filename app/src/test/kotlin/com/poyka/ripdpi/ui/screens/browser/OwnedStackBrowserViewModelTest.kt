@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
+import java.io.IOException
 import java.net.URI
 
 class OwnedStackBrowserViewModelTest {
@@ -16,18 +17,27 @@ class OwnedStackBrowserViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `non-https input shows the validation message instead of crashing`() {
+    fun `non-https input shows the localized failure instead of crashing`() {
         val viewModel = OwnedStackBrowserViewModel(RejectingBrowserService(), FallbackStringResolver)
 
         viewModel.load("http://example.com")
 
         val state = viewModel.uiState.value
         assertFalse(state.isLoading)
-        assertEquals(HttpsOnlyMessage, state.errorMessage)
+        assertEquals(FallbackMessage, state.errorMessage)
     }
 
     @Test
-    fun `malformed input shows the generic failure instead of crashing`() {
+    fun `fetch failure shows the localized failure, not the exception text`() {
+        val viewModel = OwnedStackBrowserViewModel(RejectingBrowserService(), FallbackStringResolver)
+
+        viewModel.load("https://example.com")
+
+        assertEquals(FallbackMessage, viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `malformed input shows the localized failure instead of crashing`() {
         val viewModel = OwnedStackBrowserViewModel(RejectingBrowserService(), FallbackStringResolver)
 
         viewModel.initialize("https://foo bar")
@@ -37,7 +47,10 @@ class OwnedStackBrowserViewModelTest {
         assertEquals(FallbackMessage, state.errorMessage)
     }
 
-    /** Validates like the production service: [URI] parse first, then an HTTPS-only `require`. */
+    /**
+     * Throws the exception types that the production validator throws; OwnedStackBrowserServiceTest in
+     * core/service pins those types against normalizeOwnedStackBrowserUrl.
+     */
     private class RejectingBrowserService : OwnedStackBrowserService {
         override fun currentSupport(): OwnedStackBrowserSupport =
             OwnedStackBrowserSupport(platformHttpEngineAvailable = false, android17EchEligible = false)
@@ -50,7 +63,7 @@ class OwnedStackBrowserViewModelTest {
 
         override suspend fun fetch(rawUrl: String): OwnedStackBrowserPage {
             normalizeUrl(rawUrl)
-            error("network fetch is out of scope for this test")
+            throw IOException("TLS handshake failed: raw engine text")
         }
     }
 
