@@ -299,10 +299,12 @@ mod tests {
         assert_eq!(encode_table_digest(&empty), "bf89940defc58da3feb19fcc3eaec20ac80d78d367f796f7d33d7a298210ff7e");
     }
 
-    /// Xray's server reads the uplink with `decodeBytes`: it keeps only hint
-    /// bytes and maps each sorted 4-tuple through its own decode table.
+    /// Self round-trip: decodes the uplink with Xray's `decodeBytes` rule
+    /// (sorted 4-tuples), but with a map built from this client's own table.
+    /// `table_matches_xray_for_the_same_password` proves that table equals
+    /// Xray's.
     #[test]
-    fn uplink_decodes_with_xray_server_rule() {
+    fn uplink_round_trips_through_its_own_table() {
         let table = Arc::new(SudokuTable::new("fixture-seed").expect("table"));
         let mut server_decode = std::collections::HashMap::new();
         for (value, encodings) in table.encode.iter().enumerate() {
