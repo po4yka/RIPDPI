@@ -88,6 +88,13 @@ where
     }));
 }
 
+/// Keep only the kind of a carrier error. Its text can name the carrier host,
+/// for example a TLS certificate name error, and it reaches `last_error`,
+/// logs and the Kotlin side (network-fingerprint-privacy).
+fn redacted_carrier_error(context: &str, error: &io::Error) -> io::Error {
+    io::Error::new(error.kind(), format!("{context} ({})", error.kind()))
+}
+
 fn interface_failure(protocol: &str, error: &anyhow::Error) -> String {
     let message = format!("AmneziaWG {protocol} virtual interface stopped: {error}");
     tracing::warn!("{message}");
@@ -541,7 +548,8 @@ impl AmneziaWgRuntime {
             let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
             spawn_supervised(&mut tasks, &failure_tx, "carrier receive", async move {
                 // A closed or broken carrier fails the runtime so its supervisor restarts it.
-                let message = format!("AmneziaWG carrier stopped: {}", tunnel.consume_task(bus).await);
+                let error = tunnel.consume_task(bus).await;
+                let message = redacted_carrier_error("AmneziaWG carrier stopped", &error).to_string();
                 tracing::warn!("{message}");
                 Some(message)
             });
@@ -783,6 +791,7 @@ impl AmneziaWgRuntime {
                     }
                     Err(error) => {
                         self.record_ws_carrier_handshake_failure();
+                        let error = redacted_carrier_error("AmneziaWG WS carrier connect failed", &error);
                         *self.last_error.lock().expect("last error") = Some(error.to_string());
                         Err(error)
                     }
@@ -1071,6 +1080,20 @@ mod tests {
             [Some("AmneziaWG test task stopped".to_string()), Some("specific failure".to_string())],
             "a panic must reach the failure channel like a returned failure"
         );
+    }
+
+    #[test]
+    fn carrier_errors_keep_their_kind_but_not_the_carrier_host() {
+        let detailed = io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+            "carrier WSS TLS handshake failed: certificate not valid for name \"carrier.example.org\"",
+        );
+
+        let redacted = redacted_carrier_error("AmneziaWG WS carrier connect failed", &detailed);
+
+        assert_eq!(redacted.kind(), io::ErrorKind::ConnectionRefused);
+        assert!(!redacted.to_string().contains("carrier.example.org"), "carrier host leaked: {redacted}");
+        assert!(redacted.to_string().starts_with("AmneziaWG WS carrier connect failed"));
     }
 
     #[tokio::test]
