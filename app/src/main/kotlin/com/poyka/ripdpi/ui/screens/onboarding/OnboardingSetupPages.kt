@@ -430,10 +430,9 @@ private fun OnboardingChecklistRow(
         OnboardingChecklistMarker(status = status, stepNumber = stepNumber)
         Text(
             text = label,
-            style = type.bodyEmphasis,
+            style = if (status == OnboardingRowStatus.Pending) type.body else type.bodyEmphasis,
             color =
                 when (status) {
-                    OnboardingRowStatus.Pending -> colors.mutedForeground
                     OnboardingRowStatus.Failed -> colors.destructive
                     else -> colors.foreground
                 },
@@ -524,7 +523,7 @@ private fun OnboardingChecklistMarker(
     Box(
         modifier =
             modifier
-                .size(components.feedback.decorativeBadgeSize)
+                .size(RipDpiThemeTokens.spacing.xxxl)
                 .clip(CircleShape),
         contentAlignment = Alignment.Center,
     ) {
@@ -565,8 +564,8 @@ private fun OnboardingChecklistMarker(
                 ) {
                     Text(
                         text = stepNumber.toString(),
-                        style = type.smallLabel,
-                        color = colors.mutedForeground,
+                        style = type.body,
+                        color = colors.foreground,
                     )
                 }
             }
