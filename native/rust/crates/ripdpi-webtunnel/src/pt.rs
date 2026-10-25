@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
 use std::env;
 use std::fmt;
+use std::future::Future;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -39,8 +41,8 @@ const BRIDGE_CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 /// bridge; a connection past this cap is closed at once instead of costing a
 /// thread or task.
 const MAX_CONCURRENT_CONNECTIONS: usize = 128;
-/// After one direction of a relay ends, the other must finish within this,
-/// so a half-closed flow cannot hold its sockets forever.
+/// After one direction of a relay ends, the other ends once it moves no byte
+/// for this long, so a half-closed flow cannot hold its sockets forever.
 const HALF_CLOSE_DRAIN_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -376,35 +378,65 @@ async fn connect_and_relay_async(stream: TcpStream, bridge: &WebTunnelBridgeConf
 
 /// Copies both directions until both end. Each direction moves data as soon
 /// as it arrives, and EOF on one side shuts down the write half of the other.
-/// Once one direction has ended, the other must end within `drain`.
+/// Once one direction has ended, the other ends if it moves no byte for
+/// `drain`; a busy one-way transfer after a half-close keeps going.
 ///
 /// # Cancel safety
 ///
 /// cancel-safe: the future owns both streams; dropping it closes them.
 async fn relay_streams<A, B>(client: A, bridge: B, drain: Duration) -> io::Result<()>
 where
-    A: AsyncRead + AsyncWrite + Unpin,
-    B: AsyncRead + AsyncWrite + Unpin,
+    A: AsyncRead + AsyncWrite + Unpin + Send,
+    B: AsyncRead + AsyncWrite + Unpin + Send,
 {
-    use tokio::io::AsyncWriteExt;
-
     let (mut client_read, mut client_write) = tokio::io::split(client);
     let (mut bridge_read, mut bridge_write) = tokio::io::split(bridge);
-    let upload = async {
-        tokio::io::copy(&mut client_read, &mut bridge_write).await?;
-        bridge_write.shutdown().await
-    };
-    let download = async {
-        tokio::io::copy(&mut bridge_read, &mut client_write).await?;
-        client_write.shutdown().await
-    };
+    let progress = AtomicU64::new(0);
+    let upload = copy_then_shutdown(&mut client_read, &mut bridge_write, &progress);
+    let download = copy_then_shutdown(&mut bridge_read, &mut client_write, &progress);
     tokio::pin!(upload, download);
-    // The first direction to end starts the drain deadline of the other.
-    let rest = tokio::select! {
-        ended = &mut upload => { ended?; tokio::time::timeout(drain, &mut download).await }
-        ended = &mut download => { ended?; tokio::time::timeout(drain, &mut upload).await }
+    let mut rest: Pin<&mut (dyn Future<Output = io::Result<()>> + Send)> = tokio::select! {
+        ended = &mut upload => { ended?; download }
+        ended = &mut download => { ended?; upload }
     };
-    rest.map_err(|_elapsed| io::Error::new(io::ErrorKind::TimedOut, "WebTunnel half-closed relay drain timed out"))?
+    loop {
+        // Ordering: the counter is a progress hint read by this task only.
+        let before = progress.load(Ordering::Relaxed);
+        match tokio::time::timeout(drain, &mut rest).await {
+            Ok(result) => return result,
+            Err(_elapsed) if progress.load(Ordering::Relaxed) == before => {
+                return Err(io::Error::new(io::ErrorKind::TimedOut, "WebTunnel half-closed relay went idle"));
+            }
+            Err(_elapsed) => {}
+        }
+    }
+}
+
+/// Copies `reader` to `writer`, counts each chunk in `progress`, then shuts
+/// down `writer`.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe: a chunk read but not yet written is lost on drop; the
+/// relay drops it only to close the whole flow.
+async fn copy_then_shutdown<R, W>(reader: &mut R, writer: &mut W, progress: &AtomicU64) -> io::Result<()>
+where
+    R: AsyncRead + Unpin + Send,
+    W: AsyncWrite + Unpin + Send,
+{
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let mut buffer = vec![0_u8; 16 * 1024];
+    loop {
+        let read = reader.read(&mut buffer).await?;
+        if read == 0 {
+            break;
+        }
+        writer.write_all(&buffer[..read]).await?;
+        // Ordering: see `relay_streams`.
+        progress.fetch_add(1, Ordering::Relaxed);
+    }
+    writer.shutdown().await
 }
 
 fn read_socks5_request<S: Read + Write>(stream: &mut S) -> io::Result<SocksConnectRequest> {
@@ -673,6 +705,47 @@ mod tests {
             // The bridge stays open and silent.
             let ended = tokio::time::timeout(Duration::from_secs(3), relay).await;
             assert!(ended.is_ok(), "a half-closed relay must end after the drain deadline");
+            drop(bridge);
+        });
+    }
+
+    /// After a half-close the remaining direction may keep moving data for
+    /// longer than the drain window: the window is an idle bound, not a fixed
+    /// deadline from the first EOF.
+    #[test]
+    fn half_closed_relay_keeps_a_busy_direction_past_the_drain_window() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let runtime = pt_runtime().expect("PT runtime");
+        runtime.block_on(async {
+            let (relay_app_side, mut app) = tokio::io::duplex(1024);
+            let (relay_bridge_side, mut bridge) = tokio::io::duplex(1024);
+            let relay = tokio::spawn(relay_streams(relay_app_side, relay_bridge_side, Duration::from_millis(300)));
+
+            app.shutdown().await.expect("app EOF");
+            let mut byte = [0_u8; 1];
+            assert_eq!(bridge.read(&mut byte).await.expect("bridge sees EOF"), 0);
+
+            // A one-way download that lasts 1.2 s, one byte every 100 ms.
+            for index in 0..12_u8 {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                bridge.write_all(&[index]).await.expect("bridge writes during the drain");
+            }
+            let mut received = Vec::new();
+            let mut buffer = [0_u8; 64];
+            while received.len() < 12 {
+                let read = tokio::time::timeout(Duration::from_secs(1), app.read(&mut buffer))
+                    .await
+                    .expect("download bytes keep arriving")
+                    .expect("read download");
+                assert_ne!(read, 0, "relay cut a busy direction after {} bytes", received.len());
+                received.extend_from_slice(&buffer[..read]);
+            }
+            assert_eq!(received, (0..12_u8).collect::<Vec<_>>());
+
+            // Once the bridge goes silent, the idle bound still ends the relay.
+            let ended = tokio::time::timeout(Duration::from_secs(3), relay).await;
+            assert!(ended.is_ok(), "an idle half-closed relay must end");
             drop(bridge);
         });
     }
