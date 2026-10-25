@@ -27,6 +27,7 @@ import com.poyka.ripdpi.data.isRuntimeUsableDirectPolicy
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.lua.LuaAssetManager
+import com.poyka.ripdpi.services.lua.relativizeLuaScriptPaths
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -178,8 +179,14 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         LuaAssetManager.ensureExtracted(context).toAbsolutePath().toString()
                     }
                 }
+            val jailedYaml =
+                if (yaml != null && luaScriptBaseDir != null) {
+                    withContext(Dispatchers.IO) { relativizeLuaScriptPaths(yaml, luaScriptBaseDir) }
+                } else {
+                    yaml
+                }
             return (runtimeContext ?: RipDpiRuntimeContext()).copy(
-                strategyChainYaml = yaml,
+                strategyChainYaml = jailedYaml,
                 luaScriptBaseDir = luaScriptBaseDir,
             )
         }
