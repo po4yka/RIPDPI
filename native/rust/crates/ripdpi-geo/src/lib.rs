@@ -276,6 +276,8 @@ pub enum GeositeParseError {
     UnsupportedSingGeositeVersion(u8),
     #[error("unsupported sing-box geosite rule type {0}")]
     UnsupportedSingGeositeRuleType(u8),
+    #[error("sing-box geosite entry {0} does not start where the previous entry ends")]
+    NonContiguousSingGeositeEntry(String),
 }
 
 fn load_databases(paths: &GeoRuntimePaths) -> Result<LoadedDatabases, GeoRuntimeError> {
@@ -415,10 +417,14 @@ fn parse_sing_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<Geosit
         let item_count = cursor.varint()?;
         index.push((code, offset, item_count));
     }
-    let content = cursor.remaining();
+    // sing-geosite writes the items in index order with no gaps. Requiring that layout means each
+    // item is read once, so aliased offsets cannot expand a small file into billions of rules.
+    let mut items = ProtoCursor::new(cursor.remaining());
     let mut categories = HashMap::new();
     for (code, offset, item_count) in index {
-        let mut items = ProtoCursor::new(content.get(offset..).ok_or(GeositeParseError::UnexpectedEof)?);
+        if offset != items.offset {
+            return Err(GeositeParseError::NonContiguousSingGeositeEntry(code));
+        }
         let mut rules = Vec::new();
         for _ in 0..item_count {
             let kind = match items.byte()? {
@@ -708,6 +714,16 @@ mod tests {
         let mut truncated = sing_geosite_catalog(&[("ru", &[(0, "example.ru")])]);
         truncated.pop();
         assert_eq!(Err(GeositeParseError::UnexpectedEof), parse_geosite_catalog(&truncated).map(|_| ()));
+        let mut aliased = vec![0, 2];
+        for code in ["a", "b"] {
+            // Both entries claim the same items at offset 0.
+            aliased.extend_from_slice(&[1, code.as_bytes()[0], 0, 1]);
+        }
+        aliased.extend_from_slice(&[0, 1, b'x']);
+        assert_eq!(
+            Err(GeositeParseError::NonContiguousSingGeositeEntry("b".to_owned())),
+            parse_geosite_catalog(&aliased).map(|_| ())
+        );
         let unknown = sing_geosite_catalog(&[("ru", &[(9, "example.ru")])]);
         assert_eq!(
             Err(GeositeParseError::UnsupportedSingGeositeRuleType(9)),
