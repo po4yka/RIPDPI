@@ -80,7 +80,7 @@ internal fun SettingsConnectivitySection(
             )
             SettingsRow(
                 title = stringResource(R.string.profile_utility_title),
-                subtitle = stringResource(R.string.profile_utility_disclosure),
+                subtitle = stringResource(R.string.settings_profiles_body),
                 showChevron = true,
                 onClick = actions.onOpenProfileUtility,
                 showDivider = true,
@@ -122,6 +122,7 @@ private fun SettingsAdvancedConnectivitySection(
     AdvancedSection(
         initiallyExpanded = uiState.uiPersona == "advanced",
         testTag = RipDpiTestTags.SettingsAdvancedConnectivity,
+        title = stringResource(R.string.settings_advanced_group_title),
     ) {
         SettingsRow(
             title = stringResource(R.string.title_advanced_settings),

@@ -66,7 +66,10 @@ internal fun DiagnosticsOutcomeCard(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        DiagnosticsOutcomeMetadata(outcome)
+        // Without a check, every metadata line would only say "unknown".
+        if (outcome.source != DiagnosticsOutcomeSource.Empty) {
+            DiagnosticsOutcomeMetadata(outcome)
+        }
         if (outcome.source == DiagnosticsOutcomeSource.CompositeAudit &&
             homeDiagnostics.verifiedVpnAction.label.isNotBlank()
         ) {

@@ -1543,7 +1543,7 @@ Origen: %2$s</string>
     <string name="settings_permissions_section">Permisos</string>
     <string name="settings_reset_body">Restaurar todos los ajustes a sus valores predeterminados.</string>
     <string name="settings_security_section">Privacidad</string>
-    <string name="settings_support_debug_bundle_body">Crea un archivo ZIP de diagnóstico con el logcat limitado a la app, información de depuración reciente, metadatos del archivo, notas de completitud y hashes de integridad; después, envíalo mediante la hoja para compartir de Android tras elegir un destinatario. Las capturas de paquetes no se incluyen.</string>
+    <string name="settings_support_debug_bundle_body">Comparte registros recientes y datos de diagnóstico en un archivo ZIP para soporte. No incluye capturas de paquetes.</string>
     <string name="settings_tethering_dns_warning_body">Cuando el anclaje a red está activo, Android ejecuta un servidor DNS local que evita la VPN. Las apps pueden usarlo para enviar balizas de rastreo fuera del túnel.</string>
     <string name="settings_vpn_flag_warning_title">El indicador de VPN es visible</string>
     <string name="shortcut_diagnostics">Ejecutar diagnóstico</string>

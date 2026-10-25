@@ -141,4 +141,8 @@
     <string name="detection_tun_probe_mode_auto">Automatique</string>
     <string name="detection_tun_probe_mode_strict_same_path">Même chemin strict</string>
     <string name="detection_tun_probe_mode_curl_compatible">Compatible curl</string>
+    <string name="diagnostics_scan_status_ready">Prêt pour la vérification</string>
+    <string name="settings_profiles_body">Profils de connexion enregistrés : vérifiez-les et choisissez celui à utiliser.</string>
+    <string name="settings_advanced_group_title">Routage, contournement et paramètres avancés</string>
+    <string name="runtime_config_unknown_body">La connexion en cours n’a pas confirmé les paramètres qu’elle utilise. Déconnectez-vous puis reconnectez-vous pour appliquer vos paramètres enregistrés.</string>
 </resources>

@@ -2132,7 +2132,7 @@ Fonte: %2$s</string>
     <string name="settings_customization_body">Opções de ícone do app, forma adaptativa e ícone temático.</string>
     <string name="settings_support_section">Suporte</string>
     <string name="settings_support_debug_bundle_title">Compartilhar pacote de suporte</string>
-    <string name="settings_support_debug_bundle_body">Gera um ZIP de diagnóstico com logcat escopado ao app, informações de depuração recentes, metadados do arquivo, notas de completude e hashes de integridade, e depois o envia pelo menu de compartilhamento do Android após você escolher um destinatário. Captações de pacotes não são incorporadas.</string>
+    <string name="settings_support_debug_bundle_body">Compartilhe logs recentes e diagnósticos em um arquivo ZIP para o suporte. Capturas de pacotes não são incluídas.</string>
     <string name="settings_about_body">Versão, créditos e documentação do projeto.</string>
     <string name="settings_manage_action">Gerenciar</string>
     <string name="customization_current_icon_caption">Ícone atual</string>

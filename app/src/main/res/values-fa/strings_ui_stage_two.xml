@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">تحلیل شبکه</string>
     <string name="diagnostics_outcome_source_session">بررسی ذخیره‌شده</string>
     <string name="diagnostics_outcome_source_active">بررسی در حال انجام است</string>
-    <string name="diagnostics_outcome_source_empty">بررسی تکمیل‌شده‌ای وجود ندارد</string>
+    <string name="diagnostics_outcome_source_empty">آخرین نتیجه</string>
     <string name="diagnostics_outcome_time_format">زمان اندازه‌گیری: %1$s</string>
     <string name="diagnostics_outcome_time_unknown">زمان اندازه‌گیری نامشخص است</string>
     <string name="diagnostics_outcome_confidence_unknown">میزان اطمینان نامشخص است</string>

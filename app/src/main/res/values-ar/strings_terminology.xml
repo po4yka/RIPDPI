@@ -222,4 +222,8 @@
     <string name="detection_tun_probe_mode_auto">تلقائي</string>
     <string name="detection_tun_probe_mode_strict_same_path">المسار نفسه بدقة</string>
     <string name="detection_tun_probe_mode_curl_compatible">متوافق مع curl</string>
+    <string name="diagnostics_scan_status_ready">جاهز للفحص</string>
+    <string name="settings_profiles_body">ملفات الاتصال المحفوظة: افحصها واختر الملف الذي تريد استخدامه.</string>
+    <string name="settings_advanced_group_title">التوجيه والتجاوز والإعدادات المتقدمة</string>
+    <string name="runtime_config_unknown_body">لم يؤكد الاتصال الحالي الإعدادات التي يستخدمها. اقطع الاتصال ثم اتصل مجددًا لتطبيق إعداداتك المحفوظة.</string>
 </resources>

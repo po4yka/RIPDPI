@@ -114,4 +114,8 @@
     <string name="detection_tun_probe_mode_auto">Automatic</string>
     <string name="detection_tun_probe_mode_strict_same_path">Strict same path</string>
     <string name="detection_tun_probe_mode_curl_compatible">curl-compatible</string>
+    <string name="diagnostics_scan_status_ready">Ready to check</string>
+    <string name="settings_profiles_body">Saved connection profiles: check them and choose which one to use.</string>
+    <string name="settings_advanced_group_title">Routing, bypass, and advanced settings</string>
+    <string name="runtime_config_unknown_body">The running connection has not confirmed which settings it uses. Disconnect and connect again to apply your saved settings.</string>
 </resources>

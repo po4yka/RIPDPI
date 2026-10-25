@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">تحليل الشبكة</string>
     <string name="diagnostics_outcome_source_session">فحص محفوظ</string>
     <string name="diagnostics_outcome_source_active">الفحص جارٍ</string>
-    <string name="diagnostics_outcome_source_empty">لا يوجد فحص مكتمل</string>
+    <string name="diagnostics_outcome_source_empty">أحدث نتيجة</string>
     <string name="diagnostics_outcome_time_format">وقت القياس: %1$s</string>
     <string name="diagnostics_outcome_time_unknown">وقت القياس غير معروف</string>
     <string name="diagnostics_outcome_confidence_unknown">مستوى الثقة غير معروف</string>

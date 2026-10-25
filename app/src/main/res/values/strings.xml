@@ -2168,7 +2168,7 @@ Source: %2$s</string>
     <string name="settings_customization_body">App icon, adaptive shape, and themed icon options.</string>
     <string name="settings_support_section">Support</string>
     <string name="settings_support_debug_bundle_title">Share support bundle</string>
-    <string name="settings_support_debug_bundle_body">Build a diagnostics ZIP with app-scoped logcat, recent debug information, archive metadata, completeness notes, and integrity hashes, then send it through the Android share sheet after you choose a recipient. Packet captures are not embedded.</string>
+    <string name="settings_support_debug_bundle_body">Share recent logs and diagnostics as a ZIP file for support. Packet captures are not included.</string>
     <string name="settings_about_body">Version, credits, and project documentation.</string>
     <string name="settings_manage_action">Manage</string>
     <string name="customization_current_icon_caption">Current icon</string>

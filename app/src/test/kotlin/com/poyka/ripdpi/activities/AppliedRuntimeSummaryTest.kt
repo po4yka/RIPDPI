@@ -93,6 +93,38 @@ class AppliedRuntimeSummaryTest {
         org.junit.Assert.assertNull(buildAppliedConfigurationUiState(applying, strings).confirmation)
     }
 
+    @Test fun `unconfirmed configuration explains itself without showing the panel while stopped`() {
+        val running =
+            MainUiInputs(
+                com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+                com.poyka.ripdpi.data.AppStatus.Running to Mode.VPN,
+                ConnectionRuntimeState(),
+                com.poyka.ripdpi.data
+                    .ServiceTelemetrySnapshot(),
+                PermissionRuntimeState(),
+                com.poyka.ripdpi.services
+                    .AndroidHardKillSwitchSnapshot(),
+                emptyList(),
+                HostPackCatalogUiState(),
+                com.poyka.ripdpi.data
+                    .StrategyPackRuntimeState(),
+                null,
+            )
+        val strings = AndroidStringResolver(RuntimeEnvironment.getApplication())
+
+        val view = buildAppliedConfigurationUiState(running, strings)
+        val halted =
+            buildAppliedConfigurationUiState(
+                running.copy(statusAndMode = com.poyka.ripdpi.data.AppStatus.Halted to Mode.VPN),
+                strings,
+            )
+
+        org.junit.Assert.assertEquals("Configuration unconfirmed", view.status)
+        assertTrue(view.visible)
+        assertTrue(view.message.orEmpty().startsWith("The running connection has not confirmed"))
+        assertFalse(halted.visible)
+    }
+
     @Test
     fun `DoT and custom strategy are factual and unrecognized transport never leaks raw input`() {
         val selection =

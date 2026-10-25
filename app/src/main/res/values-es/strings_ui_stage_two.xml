@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">Análisis de red</string>
     <string name="diagnostics_outcome_source_session">Comprobación guardada</string>
     <string name="diagnostics_outcome_source_active">Comprobación en curso</string>
-    <string name="diagnostics_outcome_source_empty">No hay comprobaciones completadas</string>
+    <string name="diagnostics_outcome_source_empty">Último resultado</string>
     <string name="diagnostics_outcome_time_format">Medición: %1$s</string>
     <string name="diagnostics_outcome_time_unknown">Hora de medición desconocida</string>
     <string name="diagnostics_outcome_confidence_unknown">Confianza desconocida</string>

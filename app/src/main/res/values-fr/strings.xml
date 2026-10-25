@@ -1543,7 +1543,7 @@ Source : %2$s</string>
     <string name="settings_permissions_section">Autorisations</string>
     <string name="settings_reset_body">Restaurer tous les paramètres à leurs valeurs par défaut.</string>
     <string name="settings_security_section">Confidentialité</string>
-    <string name="settings_support_debug_bundle_body">Créez une archive ZIP de diagnostic contenant le logcat limité à l’application, les informations de débogage récentes, les métadonnées de l’archive, les notes d’exhaustivité et les empreintes d’intégrité, puis envoyez-la depuis la feuille de partage Android après avoir choisi un destinataire. Les captures de paquets ne sont pas intégrées.</string>
+    <string name="settings_support_debug_bundle_body">Partagez les journaux récents et les diagnostics dans un fichier ZIP pour l’assistance. Les captures de paquets ne sont pas incluses.</string>
     <string name="settings_tethering_dns_warning_body">Quand le partage de connexion est actif, Android exécute un serveur DNS local qui contourne le VPN. Des applications peuvent l\'utiliser pour envoyer des balises de suivi hors du tunnel.</string>
     <string name="settings_vpn_flag_warning_title">L\'indicateur VPN est visible</string>
     <string name="shortcut_diagnostics">Lancer les diagnostics</string>

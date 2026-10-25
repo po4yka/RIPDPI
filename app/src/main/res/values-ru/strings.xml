@@ -1583,7 +1583,7 @@ fakeddisorder endhost</string>
     <string name="settings_customization_body">Значок приложения, адаптивная форма и параметры тематического значка.</string>
     <string name="settings_support_section">Поддержка</string>
     <string name="settings_support_debug_bundle_title">Поделиться пакетом поддержки</string>
-    <string name="settings_support_debug_bundle_body">Создать диагностический ZIP с logcat приложения, недавней отладочной информацией, метаданными архива, примечаниями о полноте и хешами целостности, а затем после выбора получателя отправить его через системное меню «Поделиться» Android. Захваты пакетов не встраиваются.</string>
+    <string name="settings_support_debug_bundle_body">Отправьте недавние журналы и данные диагностики в ZIP-файле для поддержки. Захваты пакетов не включаются.</string>
     <string name="settings_about_body">Версия, авторы и документация проекта.</string>
     <string name="settings_manage_action">Управление</string>
     <string name="customization_current_icon_caption">Текущий значок</string>

@@ -10,7 +10,6 @@
     <string name="diagnostics_scope_direct_result">请求范围：不经过活动 RIPDPI 连接的底层网络。策略试验可能使用临时候选配置；这不能证明活动 VPN 连接可用。</string>
     <string name="diagnostics_scope_strategy_format">%1$s · 仅直连网络</string>
     <string name="diagnostics_scope_strategy_blocked_format">%1$s · 仅直连网络 · 命令行模式下不可用</string>
-    <string name="diagnostics_scope_connectivity">连接配置</string>
     <string name="diagnostics_scope_active_vpn_label">活动 VPN 路径</string>
     <string name="diagnostics_scope_active_proxy_label">活动代理路径</string>
     <string name="diagnostics_scope_active_vpn_description">测试正在运行的 RIPDPI VPN 路径。启动时必须能观察到活动 VPN 路由；结果仅涵盖已测试的目标，不代表每个应用。</string>

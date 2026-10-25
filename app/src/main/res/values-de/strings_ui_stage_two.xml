@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">Netzwerkanalyse</string>
     <string name="diagnostics_outcome_source_session">Gespeicherte Prüfung</string>
     <string name="diagnostics_outcome_source_active">Prüfung läuft</string>
-    <string name="diagnostics_outcome_source_empty">Keine abgeschlossene Prüfung</string>
+    <string name="diagnostics_outcome_source_empty">Letztes Ergebnis</string>
     <string name="diagnostics_outcome_time_format">Messzeit: %1$s</string>
     <string name="diagnostics_outcome_time_unknown">Messzeit unbekannt</string>
     <string name="diagnostics_outcome_confidence_unknown">Vertrauensniveau unbekannt</string>

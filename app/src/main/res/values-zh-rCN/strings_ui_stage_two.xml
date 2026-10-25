@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">网络分析</string>
     <string name="diagnostics_outcome_source_session">已保存的检查</string>
     <string name="diagnostics_outcome_source_active">正在检查</string>
-    <string name="diagnostics_outcome_source_empty">尚无已完成的检查</string>
+    <string name="diagnostics_outcome_source_empty">最新结果</string>
     <string name="diagnostics_outcome_time_format">测量时间：%1$s</string>
     <string name="diagnostics_outcome_time_unknown">测量时间未知</string>
     <string name="diagnostics_outcome_confidence_unknown">置信度未知</string>

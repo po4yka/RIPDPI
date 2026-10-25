@@ -114,4 +114,8 @@
     <string name="detection_tun_probe_mode_auto">स्वचालित</string>
     <string name="detection_tun_probe_mode_strict_same_path">सख़्ती से वही पथ</string>
     <string name="detection_tun_probe_mode_curl_compatible">curl-संगत</string>
+    <string name="diagnostics_scan_status_ready">जाँच के लिए तैयार</string>
+    <string name="settings_profiles_body">सहेजी गई कनेक्शन प्रोफ़ाइलें: इन्हें जाँचें और उपयोग के लिए एक चुनें।</string>
+    <string name="settings_advanced_group_title">रूटिंग, बायपास और उन्नत सेटिंग</string>
+    <string name="runtime_config_unknown_body">चल रहे कनेक्शन ने पुष्टि नहीं की है कि वह कौन-सी सेटिंग उपयोग कर रहा है। सहेजी गई सेटिंग लागू करने के लिए डिस्कनेक्ट करके फिर से कनेक्ट करें।</string>
 </resources>

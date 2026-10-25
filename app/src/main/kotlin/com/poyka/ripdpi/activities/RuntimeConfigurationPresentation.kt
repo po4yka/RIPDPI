@@ -56,7 +56,12 @@ internal fun buildAppliedConfigurationUiState(
         previous = application !is RuntimeConfigurationApplication.Applied && confirmed != null,
         pending = pending,
         reconnecting = reconnecting,
-        message = message,
+        // The unknown state needs its meaning and next step; it never makes the panel visible by itself.
+        message =
+            message
+                ?: strings.getString(R.string.runtime_config_unknown_body).takeIf {
+                    statusKey == R.string.runtime_config_unknown
+                },
         confirmation = application.reconnectConfirmation(mode, status, pending, reconnecting),
         reconnectSettingsIdentity = inputs.reconnectSettingsIdentity,
         reconnectComparison = confirmed?.let { buildReconnectComparison(it, inputs.settings, strings) },

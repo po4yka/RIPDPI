@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">Network audit</string>
     <string name="diagnostics_outcome_source_session">Saved scan</string>
     <string name="diagnostics_outcome_source_active">Check in progress</string>
-    <string name="diagnostics_outcome_source_empty">No completed check</string>
+    <string name="diagnostics_outcome_source_empty">Latest result</string>
     <string name="diagnostics_outcome_time_format">Measured: %1$s</string>
     <string name="diagnostics_outcome_time_unknown">Measurement time unknown</string>
     <string name="diagnostics_outcome_confidence_unknown">Confidence unknown</string>

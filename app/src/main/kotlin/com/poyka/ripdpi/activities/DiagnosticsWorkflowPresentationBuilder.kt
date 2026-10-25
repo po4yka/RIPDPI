@@ -144,7 +144,7 @@ internal fun DiagnosticsUiFactorySupport.buildWorkflowPresentation(
 
             else -> {
                 WorkflowStatus(
-                    title = context.getString(R.string.diagnostics_profile_connectivity_title),
+                    title = context.getString(R.string.diagnostics_scan_status_ready),
                     body = context.getString(R.string.diagnostics_profile_connectivity_body),
                     tone = DiagnosticsTone.Neutral,
                 )

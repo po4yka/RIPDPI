@@ -292,7 +292,7 @@
     <string name="settings_customization_body">ऐप आइकन, अनुकूली आकार, और थीम वाले आइकन विकल्प।</string>
     <string name="settings_support_section">सहायता</string>
     <string name="settings_support_debug_bundle_title">सहायता बंडल साझा करें</string>
-    <string name="settings_support_debug_bundle_body">ऐप तक सीमित logcat, हाल की डीबग जानकारी, संग्रह मेटाडेटा, पूर्णता संबंधी नोट्स और अखंडता हैश वाला डायग्नोस्टिक्स ZIP बनाएँ। प्राप्तकर्ता चुनने के बाद इसे Android शेयर शीट के माध्यम से भेजें। पैकेट कैप्चर इसमें एम्बेड नहीं किए जाते।</string>
+    <string name="settings_support_debug_bundle_body">सहायता के लिए हाल के लॉग और निदान जानकारी ZIP फ़ाइल में साझा करें। पैकेट कैप्चर शामिल नहीं होते।</string>
     <string name="settings_about_body">संस्करण, क्रेडिट, और प्रोजेक्ट दस्तावेज़ीकरण।</string>
     <string name="settings_manage_action">प्रबंधित करें</string>
     <string name="customization_current_icon_caption">वर्तमान आइकन</string>

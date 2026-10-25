@@ -114,4 +114,8 @@
     <string name="detection_tun_probe_mode_auto">Automatisch</string>
     <string name="detection_tun_probe_mode_strict_same_path">Strikt gleicher Pfad</string>
     <string name="detection_tun_probe_mode_curl_compatible">curl-kompatibel</string>
+    <string name="diagnostics_scan_status_ready">Bereit zur Prüfung</string>
+    <string name="settings_profiles_body">Gespeicherte Verbindungsprofile: prüfen und das gewünschte auswählen.</string>
+    <string name="settings_advanced_group_title">Routing, Bypass und erweiterte Einstellungen</string>
+    <string name="runtime_config_unknown_body">Die aktive Verbindung hat nicht bestätigt, welche Einstellungen sie verwendet. Trenne die Verbindung und verbinde neu, um die gespeicherten Einstellungen anzuwenden.</string>
 </resources>

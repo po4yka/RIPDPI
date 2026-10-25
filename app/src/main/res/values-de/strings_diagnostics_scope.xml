@@ -10,7 +10,6 @@
     <string name="diagnostics_scope_direct_result">Angeforderter Bereich: das zugrunde liegende Netzwerk ohne aktive RIPDPI-Verbindung. Strategietests können temporäre Kandidaten verwenden; dies belegt keine aktive VPN-Verbindung.</string>
     <string name="diagnostics_scope_strategy_format">%1$s · nur direktes Netzwerk</string>
     <string name="diagnostics_scope_strategy_blocked_format">%1$s · nur direktes Netzwerk · im Befehlszeilenmodus nicht verfügbar</string>
-    <string name="diagnostics_scope_connectivity">Verbindungsprofil</string>
     <string name="diagnostics_scope_active_vpn_label">Aktiver VPN-Pfad</string>
     <string name="diagnostics_scope_active_proxy_label">Aktiver Proxy-Pfad</string>
     <string name="diagnostics_scope_active_vpn_description">Prüft den laufenden RIPDPI-VPN-Pfad. Die aktive VPN-Route muss beim Start beobachtbar sein; Ergebnisse gelten für geprüfte Ziele, nicht für jede App.</string>

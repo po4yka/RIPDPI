@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">नेटवर्क विश्लेषण</string>
     <string name="diagnostics_outcome_source_session">सहेजी गई जाँच</string>
     <string name="diagnostics_outcome_source_active">जाँच जारी है</string>
-    <string name="diagnostics_outcome_source_empty">कोई जाँच पूरी नहीं हुई</string>
+    <string name="diagnostics_outcome_source_empty">नवीनतम परिणाम</string>
     <string name="diagnostics_outcome_time_format">मापने का समय: %1$s</string>
     <string name="diagnostics_outcome_time_unknown">मापने का समय अज्ञात है</string>
     <string name="diagnostics_outcome_confidence_unknown">विश्वसनीयता अज्ञात है</string>

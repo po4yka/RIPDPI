@@ -403,11 +403,8 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
             )
         }
 
-        ScanKind.CONNECTIVITY -> {
-            context.getString(R.string.diagnostics_scope_connectivity)
-        }
-
-        null -> {
+        // The card title already names the connectivity profile.
+        ScanKind.CONNECTIVITY, null -> {
             null
         }
     }

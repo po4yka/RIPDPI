@@ -168,4 +168,8 @@
     <string name="detection_tun_probe_mode_auto">Автоматически</string>
     <string name="detection_tun_probe_mode_strict_same_path">Строго тот же путь</string>
     <string name="detection_tun_probe_mode_curl_compatible">Совместимо с curl</string>
+    <string name="diagnostics_scan_status_ready">Готово к проверке</string>
+    <string name="settings_profiles_body">Сохранённые профили подключения: проверьте их и выберите нужный.</string>
+    <string name="settings_advanced_group_title">Маршрутизация, обход и расширенные настройки</string>
+    <string name="runtime_config_unknown_body">Текущее подключение не подтвердило, какие настройки оно использует. Переподключитесь, чтобы применить сохранённые настройки.</string>
 </resources>

@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">Analyse du réseau</string>
     <string name="diagnostics_outcome_source_session">Vérification enregistrée</string>
     <string name="diagnostics_outcome_source_active">Vérification en cours</string>
-    <string name="diagnostics_outcome_source_empty">Aucune vérification terminée</string>
+    <string name="diagnostics_outcome_source_empty">Dernier résultat</string>
     <string name="diagnostics_outcome_time_format">Mesure : %1$s</string>
     <string name="diagnostics_outcome_time_unknown">Heure de mesure inconnue</string>
     <string name="diagnostics_outcome_confidence_unknown">Niveau de confiance inconnu</string>

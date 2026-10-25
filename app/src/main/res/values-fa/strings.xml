@@ -2206,7 +2206,7 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_vpn_optional">فقط زمانی لازم است که بخواهید RIPDPI را در حالت VPN محلی اجرا کنید.</string>
     <string name="settings_reset_confirm">بازنشانی</string>
     <string name="settings_reset_title">بازنشانی تمام تنظیمات</string>
-    <string name="settings_support_debug_bundle_body">یک فایل ZIP تشخیصی با logcat محدود به برنامه، اطلاعات تازهٔ اشکال‌زدایی، فرادادهٔ آرشیو، یادداشت‌های کامل‌بودن، و هش‌های یکپارچگی بسازید، سپس پس از انتخاب گیرنده آن را از طریق برگهٔ اشتراک Android ارسال کنید. ضبط‌های بسته در آن قرار نمی‌گیرند.</string>
+    <string name="settings_support_debug_bundle_body">گزارش‌های اخیر و داده‌های عیب‌یابی را در یک فایل ZIP برای پشتیبانی به اشتراک بگذارید. ضبط بسته‌ها شامل نمی‌شود.</string>
     <string name="settings_tethering_dns_warning_body">وقتی tethering فعال است، Android یک سرور DNS محلی اجرا می‌کند که VPN را دور می‌زند. برنامه‌ها ممکن است از آن برای ارسال beaconهای ردیابی خارج از تونل استفاده کنند.</string>
     <string name="settings_theme_helper">رابط بلافاصله پس از تغییر این تنظیم به‌روزرسانی می‌شود.</string>
     <string name="settings_warning_backup_pin_body">یک PIN بازگشتی چهار رقمی تنظیم کنید تا اگر بیومتریک در دسترس نبود همچنان بتوانید قفل RIPDPI را باز کنید.</string>

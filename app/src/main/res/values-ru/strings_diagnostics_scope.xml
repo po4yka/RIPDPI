@@ -10,7 +10,6 @@
     <string name="diagnostics_scope_direct_result">Запрошенная область: исходная сеть без активного соединения RIPDPI. Испытания стратегий могут использовать временные конфигурации; это не подтверждает доступность через активный VPN.</string>
     <string name="diagnostics_scope_strategy_format">%1$s · только напрямую через сеть</string>
     <string name="diagnostics_scope_strategy_blocked_format">%1$s · только напрямую через сеть · недоступно в режиме командной строки</string>
-    <string name="diagnostics_scope_connectivity">Профиль проверки соединения</string>
     <string name="diagnostics_scope_active_vpn_label">Путь активного VPN</string>
     <string name="diagnostics_scope_active_proxy_label">Путь активного прокси</string>
     <string name="diagnostics_scope_active_vpn_description">Проверяет путь работающего VPN RIPDPI. При запуске должен наблюдаться активный маршрут VPN; результаты относятся к проверенным адресам, а не ко всем приложениям.</string>

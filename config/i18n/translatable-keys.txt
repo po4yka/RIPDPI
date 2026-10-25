@@ -2348,6 +2348,7 @@ app:diagnostics_scan_policy_notice
 app:diagnostics_scan_raw_only_format
 app:diagnostics_scan_raw_path_format
 app:diagnostics_scan_section
+app:diagnostics_scan_status_ready
 app:diagnostics_scan_termination_deadline_exceeded
 app:diagnostics_scan_termination_engine_error
 app:diagnostics_scan_termination_network_unavailable
@@ -2365,7 +2366,6 @@ app:diagnostics_scope_active_proxy_description
 app:diagnostics_scope_active_proxy_label
 app:diagnostics_scope_active_vpn_description
 app:diagnostics_scope_active_vpn_label
-app:diagnostics_scope_connectivity
 app:diagnostics_scope_direct_description
 app:diagnostics_scope_direct_label
 app:diagnostics_scope_direct_result
@@ -4560,6 +4560,7 @@ app:runtime_config_stop_timeout
 app:runtime_config_superseded
 app:runtime_config_title
 app:runtime_config_unknown
+app:runtime_config_unknown_body
 app:save_logs
 app:scanner_invalid_qr_body
 app:scanner_invalid_qr_title
@@ -4586,6 +4587,7 @@ app:service_mode_xray_vpn_title
 app:settings
 app:settings_about_body
 app:settings_advanced_body
+app:settings_advanced_group_title
 app:settings_appearance_section
 app:settings_append_http_proxy_body
 app:settings_append_http_proxy_title
@@ -4692,6 +4694,7 @@ app:settings_permissions_vpn_needed
 app:settings_permissions_vpn_optional
 app:settings_persona_body
 app:settings_persona_title
+app:settings_profiles_body
 app:settings_proxy_allow_lan_body
 app:settings_proxy_allow_lan_title
 app:settings_proxy_allow_lan_warn_confirm

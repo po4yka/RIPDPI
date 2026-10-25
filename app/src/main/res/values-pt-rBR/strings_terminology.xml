@@ -141,4 +141,8 @@
     <string name="detection_tun_probe_mode_auto">Automático</string>
     <string name="detection_tun_probe_mode_strict_same_path">Mesmo caminho estrito</string>
     <string name="detection_tun_probe_mode_curl_compatible">Compatível com curl</string>
+    <string name="diagnostics_scan_status_ready">Pronto para verificar</string>
+    <string name="settings_profiles_body">Perfis de conexão salvos: verifique-os e escolha qual usar.</string>
+    <string name="settings_advanced_group_title">Roteamento, desvio e configurações avançadas</string>
+    <string name="runtime_config_unknown_body">A conexão ativa não confirmou quais configurações usa. Desconecte e conecte de novo para aplicar as configurações salvas.</string>
 </resources>

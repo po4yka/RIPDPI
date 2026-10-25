@@ -2071,7 +2071,7 @@ fakeddisorder endhost</string>
     <string name="settings_customization_body">خيارات أيقونة التطبيق والشكل التكيفي والأيقونة ذات السمة.</string>
     <string name="settings_support_section">الدعم</string>
     <string name="settings_support_debug_bundle_title">مشاركة حزمة الدعم</string>
-    <string name="settings_support_debug_bundle_body">أنشئ ملف ZIP للتشخيصات يحتوي على logcat الخاص بالتطبيق، ومعلومات تصحيح حديثة، وبيانات وصف الأرشيف، وملاحظات الاكتمال، وبصمات السلامة، ثم أرسله عبر ورقة المشاركة في Android بعد اختيار المستلم. لا يتم تضمين التقاطات الحزم.</string>
+    <string name="settings_support_debug_bundle_body">شارك السجلات الحديثة وبيانات التشخيص في ملف ZIP للدعم. لا تُضمَّن التقاطات الحزم.</string>
     <string name="settings_about_body">الإصدار والتقدير وتوثيق المشروع.</string>
     <string name="settings_manage_action">إدارة</string>
     <string name="customization_current_icon_caption">الأيقونة الحالية</string>

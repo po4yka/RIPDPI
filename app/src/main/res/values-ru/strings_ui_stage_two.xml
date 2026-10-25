@@ -14,7 +14,7 @@
     <string name="diagnostics_outcome_source_audit">Анализ сети</string>
     <string name="diagnostics_outcome_source_session">Сохранённая проверка</string>
     <string name="diagnostics_outcome_source_active">Проверка выполняется</string>
-    <string name="diagnostics_outcome_source_empty">Нет завершённой проверки</string>
+    <string name="diagnostics_outcome_source_empty">Последний результат</string>
     <string name="diagnostics_outcome_time_format">Время измерения: %1$s</string>
     <string name="diagnostics_outcome_time_unknown">Время измерения неизвестно</string>
     <string name="diagnostics_outcome_confidence_unknown">Достоверность неизвестна</string>

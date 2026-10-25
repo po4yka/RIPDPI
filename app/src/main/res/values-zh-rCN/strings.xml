@@ -2615,7 +2615,7 @@ fake_burst 3</string>
     <string name="settings_permissions_vpn_optional">仅当您希望以本地 VPN 模式运行 RIPDPI 时才需要。</string>
     <string name="settings_reset_dialog_body">这将把所有设置恢复为默认值。您的连接将被停止,所有自定义都会丢失。</string>
     <string name="settings_seqovl_unsupported_reason">序列重叠需要原始套接字访问权限,本设备不可用。请在设置中启用 Root 模式以使用此功能。</string>
-    <string name="settings_support_debug_bundle_body">创建一个诊断 ZIP，其中包含仅限本应用的 logcat、近期调试信息、归档元数据、完备性说明和完整性哈希。选择接收方后，通过 Android 分享面板发送。数据包捕获不会嵌入其中。</string>
+    <string name="settings_support_debug_bundle_body">将最近的日志和诊断信息打包为 ZIP 文件分享给支持人员。不包含数据包捕获。</string>
     <string name="settings_telemetry_salt_reset_body">重置用于哈希网络指纹的每次安装盐值。之前记录的哈希将无法再与未来会话关联。</string>
     <string name="settings_theme_helper">切换此偏好后界面会立即更新。</string>
     <string name="settings_warning_backup_pin_title">建议设置备用 PIN</string>

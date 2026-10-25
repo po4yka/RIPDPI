@@ -14,11 +14,12 @@ fun AdvancedSection(
     modifier: Modifier = Modifier,
     initiallyExpanded: Boolean = false,
     testTag: String? = null,
+    title: String = stringResource(R.string.persona_advanced),
     content: @Composable () -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
     RipDpiAccordion(
-        title = stringResource(R.string.persona_advanced),
+        title = title,
         expanded = expanded,
         onExpandedChange = { expanded = it },
         modifier = modifier,

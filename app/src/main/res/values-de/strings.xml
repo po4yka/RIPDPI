@@ -1543,7 +1543,7 @@ Quelle: %2$s</string>
     <string name="settings_permissions_section">Berechtigungen</string>
     <string name="settings_reset_body">Alle Einstellungen auf ihre Standardwerte zurücksetzen.</string>
     <string name="settings_security_section">Datenschutz</string>
-    <string name="settings_support_debug_bundle_body">Erstellen Sie eine Diagnose-ZIP mit einem auf die App beschränkten Logcat, aktuellen Debug-Informationen, Archivmetadaten, Vollständigkeitshinweisen und Integritäts-Hashes. Wählen Sie anschließend einen Empfänger und senden Sie sie über das Android-Teilen-Menü. Paketmitschnitte werden nicht eingebettet.</string>
+    <string name="settings_support_debug_bundle_body">Aktuelle Protokolle und Diagnosedaten als ZIP-Datei für den Support teilen. Paketmitschnitte sind nicht enthalten.</string>
     <string name="settings_tethering_dns_warning_body">Wenn Tethering aktiv ist, führt Android einen lokalen DNS-Server aus, der das VPN umgeht. Apps können dies nutzen, um Tracking-Beacons außerhalb des Tunnels zu senden.</string>
     <string name="settings_vpn_flag_warning_title">VPN-Flag ist sichtbar</string>
     <string name="shortcut_diagnostics">Diagnostik ausführen</string>
