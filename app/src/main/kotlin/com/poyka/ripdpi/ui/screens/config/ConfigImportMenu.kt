@@ -45,7 +45,8 @@ fun ConfigImportMenu(
     Box(modifier = modifier) {
         RipDpiIconButton(
             icon = RipDpiIcons.Overflow,
-            contentDescription = stringResource(R.string.import_clipboard_action),
+            // The button opens the menu; the import action belongs to the menu item.
+            contentDescription = stringResource(R.string.config_overflow_more_options),
             onClick = { expanded = true },
             style = RipDpiIconButtonStyle.Ghost,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigOverflowMenuButton),

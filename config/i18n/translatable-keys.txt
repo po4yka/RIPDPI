@@ -648,6 +648,7 @@ app:config_max_connections_helper
 app:config_mode_section
 app:config_mode_summary
 app:config_network_section
+app:config_overflow_more_options
 app:config_overrides_section
 app:config_overview_title
 app:config_placeholder_chain_dsl

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -62,7 +63,12 @@ class ConfigImportMenuTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigOverflowMenuButton).performClick()
+        // The overflow button only opens the menu, so it must not announce the import action.
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigOverflowMenuButton)
+            .assertContentDescriptionEquals("More options")
+            .performClick()
+        composeRule.runOnIdle { assertEquals(0, importRequests) }
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigImportClipboardMenuItem).performClick()
 
         composeRule.runOnIdle {
