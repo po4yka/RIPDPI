@@ -14,7 +14,8 @@ const STREAM_BUFFER_SIZE: usize = 16 * 1024;
 const VLESS_HEADER_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Reads the VLESS header, checks the UUID, then relays to the target.
-/// `on_authenticated` runs once the UUID matches.
+/// `on_authenticated` runs once the UUID matches; when it returns false (the
+/// session was evicted first) the session ends before it connects upstream.
 ///
 /// # Cancel safety
 ///
@@ -26,7 +27,7 @@ pub(crate) async fn run_session(
     outbound_tx: mpsc::Sender<io::Result<Bytes>>,
     expected_uuid: [u8; 16],
     protect_path: Option<&str>,
-    on_authenticated: impl FnOnce(),
+    on_authenticated: impl FnOnce() -> bool,
 ) -> io::Result<()> {
     let (decoded, buffered_payload) = read_request_header_with_timeout(&mut inbound_rx, VLESS_HEADER_TIMEOUT).await?;
     if decoded.uuid != expected_uuid {
@@ -35,7 +36,12 @@ pub(crate) async fn run_session(
             "VLESS UUID does not match configured tunnel identity",
         ));
     }
-    on_authenticated();
+    if !on_authenticated() {
+        return Err(io::Error::new(
+            io::ErrorKind::ConnectionAborted,
+            "xHTTP session was evicted before authentication",
+        ));
+    }
 
     let upstream = ripdpi_subprocess_protect::protected_tcp_connect(decoded.target.as_str(), protect_path)
         .await

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::io;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
@@ -29,13 +29,44 @@ const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|cloudflare-origin|";
 const SESSION_ATTACH_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_LIVE_SESSIONS: usize = 1_024;
 
+/// Session authentication states. Authentication and eviction both move a
+/// session out of `AUTH_PENDING` with one compare-exchange, so exactly one of
+/// them wins: an authenticated session is never evicted, and an evicted
+/// session can never authenticate.
+const AUTH_PENDING: u8 = 0;
+const AUTH_DONE: u8 = 1;
+const AUTH_EVICTED: u8 = 2;
+
+// Lock order: sessions -> binding. No code holds a binding lock while it
+// waits for the sessions lock.
+
 struct SessionState {
     outbound_tx: mpsc::Sender<io::Result<Bytes>>,
     binding: Mutex<SessionBindingState>,
     /// Creation order, so a full table evicts the oldest pre-auth session.
     seq: u64,
-    /// Set once the VLESS header carried the configured UUID.
-    authenticated: Arc<AtomicBool>,
+    /// One of `AUTH_PENDING`, `AUTH_DONE` or `AUTH_EVICTED`.
+    auth: AtomicU8,
+}
+
+impl SessionState {
+    /// Marks the session authenticated. Returns false if it was evicted first.
+    fn authenticate(&self) -> bool {
+        // Ordering: AcqRel pairs with `evict`, so the two transitions agree;
+        // the state guards no other memory.
+        self.auth.compare_exchange(AUTH_PENDING, AUTH_DONE, Ordering::AcqRel, Ordering::Acquire).is_ok()
+    }
+
+    /// Marks the session evicted. Returns false if it authenticated first.
+    fn evict(&self) -> bool {
+        // Ordering: see `authenticate`.
+        self.auth.compare_exchange(AUTH_PENDING, AUTH_EVICTED, Ordering::AcqRel, Ordering::Acquire).is_ok()
+    }
+
+    fn is_pending(&self) -> bool {
+        // Ordering: a hint for candidate selection; `evict` decides.
+        self.auth.load(Ordering::Acquire) == AUTH_PENDING
+    }
 }
 
 struct SessionBindingState {
@@ -171,30 +202,32 @@ impl OriginServer {
         Some(session)
     }
 
+    /// Starts the session task once both GET and POST are attached.
+    ///
+    /// The task is spawned and its abort handle stored while the binding lock
+    /// is held, so an eviction (which takes the binding lock after the sessions
+    /// lock) always finds the handle of a started session.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the only await is the binding lock; spawning and storing
+    /// the handle happen with no await in between.
     async fn maybe_start_session(&self, session_id: String, session: Arc<SessionState>) {
-        let inbound_rx = {
-            let mut binding = session.binding.lock().await;
-            if !(binding.get_attached && binding.post_attached) || binding.started {
-                return;
-            }
-            binding.started = true;
-            binding.inbound_rx.take()
-        };
-        let Some(inbound_rx) = inbound_rx else {
+        let mut binding = session.binding.lock().await;
+        if !(binding.get_attached && binding.post_attached) || binding.started {
+            return;
+        }
+        binding.started = true;
+        let Some(inbound_rx) = binding.inbound_rx.take() else {
             return;
         };
         let expected_uuid = self.config.uuid;
         let protect_path = self.config.protect_path.clone();
         let sessions = Arc::clone(&self.sessions);
         let outbound_tx = session.outbound_tx.clone();
-        let authenticated = Arc::clone(&session.authenticated);
         let weak = Arc::downgrade(&session);
         let task = tokio::spawn(async move {
-            let on_authenticated = || {
-                // Ordering: a standalone flag read by the eviction scan under
-                // the sessions lock; it publishes no other memory.
-                authenticated.store(true, Ordering::Relaxed);
-            };
+            let on_authenticated = || weak.upgrade().is_some_and(|session| session.authenticate());
             let result =
                 run_session(inbound_rx, outbound_tx, expected_uuid, protect_path.as_deref(), on_authenticated).await;
             if let Err(error) = result {
@@ -202,26 +235,33 @@ impl OriginServer {
             }
             remove_if_current(&sessions, &session_id, &weak).await;
         });
-        session.binding.lock().await.task = Some(task.abort_handle());
+        binding.task = Some(task.abort_handle());
     }
 }
 
 /// Removes the oldest session that has not authenticated and aborts its task.
 /// Returns false when every session has authenticated.
 ///
+/// The caller holds the sessions lock. A session that authenticates during
+/// the scan wins its compare-exchange, so it is skipped, not evicted.
+///
 /// # Cancel safety
 ///
-/// cancel-safe: the entry is removed with no await in between; a cancel while
-/// waiting for its binding lock only skips the abort, and the session then
-/// ends at its own header or attach deadline.
+/// cancel-safe: the state change and the map removal happen with no await in
+/// between. A cancel while waiting for the binding lock only skips the abort;
+/// the session is already `AUTH_EVICTED`, so it can never authenticate and
+/// ends at its own header deadline.
 async fn evict_oldest_unauthenticated(sessions: &mut HashMap<String, Arc<SessionState>>) -> bool {
-    // Ordering: see `maybe_start_session`; the flag guards no other memory.
-    let oldest = sessions
+    let mut candidates: Vec<(u64, String)> = sessions
         .iter()
-        .filter(|(_, session)| !session.authenticated.load(Ordering::Relaxed))
-        .min_by_key(|(_, session)| session.seq)
-        .map(|(id, _)| id.clone());
-    let Some(evicted) = oldest.and_then(|id| sessions.remove(&id)) else {
+        .filter(|(_, session)| session.is_pending())
+        .map(|(id, session)| (session.seq, id.clone()))
+        .collect();
+    candidates.sort_unstable();
+    let Some(evicted) = candidates.into_iter().find_map(|(_, id)| {
+        let won = sessions.get(&id).is_some_and(|session| session.evict());
+        if won { sessions.remove(&id) } else { None }
+    }) else {
         return false;
     };
     if let Some(task) = evicted.binding.lock().await.task.take() {
@@ -285,7 +325,7 @@ fn new_session(seq: u64) -> Arc<SessionState> {
             task: None,
         }),
         seq,
-        authenticated: Arc::new(AtomicBool::new(false)),
+        auth: AtomicU8::new(AUTH_PENDING),
     })
 }
 
@@ -395,11 +435,36 @@ mod tests {
         let server = server();
         for index in 0..MAX_LIVE_SESSIONS {
             let session = server.session_for(format!("session-{index}")).await.expect("session");
-            session.authenticated.store(true, std::sync::atomic::Ordering::Relaxed);
+            assert!(session.authenticate());
         }
 
         assert!(server.session_for("overflow".to_owned()).await.is_none());
         assert!(server.session_for("session-0".to_owned()).await.is_some());
         assert_eq!(server.sessions.lock().await.len(), MAX_LIVE_SESSIONS);
+    }
+
+    #[tokio::test]
+    /// # Cancel safety
+    ///
+    /// cancel-safe: this test owns only in-memory session entries.
+    async fn authentication_and_eviction_never_both_win() {
+        let server = server();
+        let mut first_two = Vec::new();
+        for index in 0..MAX_LIVE_SESSIONS {
+            let session = server.session_for(format!("session-{index}")).await.expect("session");
+            if index < 2 {
+                first_two.push(session);
+            }
+        }
+        // The oldest session authenticates just before the table fills up.
+        assert!(first_two[0].authenticate());
+
+        assert!(server.session_for("newcomer".to_owned()).await.is_some());
+
+        let sessions = server.sessions.lock().await;
+        assert!(sessions.contains_key("session-0"), "an authenticated session must not be evicted");
+        assert!(!sessions.contains_key("session-1"), "the oldest pending session is evicted instead");
+        drop(sessions);
+        assert!(!first_two[1].authenticate(), "an evicted session must not authenticate later");
     }
 }
