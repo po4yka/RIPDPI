@@ -14,7 +14,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -76,9 +75,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.coroutines.flow.Flow
 
-// Fraction of the page viewport reserved BELOW the guarantee grid in the SpaceBetween info
-// layout. Larger value lifts the grid toward the body, shrinking the body->grid empty band.
-private const val guaranteeGridBottomInsetFraction = 0.12f
 private const val AccessibilityOnboardingFontScale = 1.5f
 private val OnboardingHeaderBadgeSize = 56.dp
 private val OnboardingHeaderIconSize = 28.dp
@@ -551,50 +547,34 @@ private fun OnboardingInfoPageScene(
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        // Captured here so it stays reachable inside the nested Column lambdas — Compose's
-        // @LayoutScopeMarker hides the outer BoxWithConstraints receiver from inner layout scopes.
-        val gridBottomInset =
-            if (LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale) {
-                0.dp
-            } else {
-                maxHeight * guaranteeGridBottomInsetFraction
-            }
-        // Two-zone layout: the header anchors the top and the guarantee grid is pushed toward the
-        // CTA by SpaceBetween. heightIn(min = maxHeight) keeps the column at least one viewport
-        // tall so SpaceBetween has room to distribute, while verticalScroll preserves large-font /
-        // a11y reflow on short viewports.
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = maxHeight)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = introLayout.bodyHorizontalPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            OnboardingPageHeader(
-                icon = pageModel.icon,
-                titleRes = pageModel.titleRes,
-                subtitleRes = pageModel.descriptionRes,
-            )
-            OnboardingGuaranteeGrid(
-                modifier = Modifier.padding(bottom = gridBottomInset),
-                privacyLabels =
-                    listOf(
-                        R.string.onboarding_chip_no_account,
-                        R.string.onboarding_chip_no_telemetry,
-                        R.string.onboarding_chip_no_cloud_sync,
-                    ),
-                localLabels =
-                    listOf(
-                        R.string.onboarding_chip_local_vpn,
-                        R.string.onboarding_chip_local_proxy,
-                        R.string.onboarding_chip_local_config,
-                    ),
-            )
-        }
+    Column(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = introLayout.bodyHorizontalPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
+    ) {
+        OnboardingPageHeader(
+            icon = pageModel.icon,
+            titleRes = pageModel.titleRes,
+            subtitleRes = pageModel.descriptionRes,
+        )
+        OnboardingGuaranteeGrid(
+            privacyLabels =
+                listOf(
+                    R.string.onboarding_chip_no_account,
+                    R.string.onboarding_chip_no_telemetry,
+                    R.string.onboarding_chip_no_cloud_sync,
+                ),
+            localLabels =
+                listOf(
+                    R.string.onboarding_chip_local_vpn,
+                    R.string.onboarding_chip_local_proxy,
+                    R.string.onboarding_chip_local_config,
+                ),
+        )
     }
 }
 

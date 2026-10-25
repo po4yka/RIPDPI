@@ -337,7 +337,7 @@
     <string name="notice_pin_key_lost_title">Code PIN de secours réinitialisé</string>
     <string name="notice_strategy_packs_refreshed_message">RIPDPI a téléchargé, vérifié et activé le dernier catalogue de packs de stratégies autorisé pour cet appareil.</string>
     <string name="onboarding_bypass_modes_title">VPN ou proxy — votre choix</string>
-    <string name="onboarding_local_first_body">RIPDPI fonctionne localement sur votre appareil. Pas de compte, pas de télémétrie, pas de synchronisation cloud.</string>
+    <string name="onboarding_local_first_body">Tout fonctionne sur votre appareil.</string>
     <string name="onboarding_permission_title">Un VPN local, pas distant</string>
     <string name="onboarding_setup_dns_google_body">DNS fiable par Google.</string>
     <string name="onboarding_setup_finish">Terminer</string>

@@ -337,7 +337,7 @@
     <string name="notice_pin_key_lost_title">Backup-PIN zurückgesetzt</string>
     <string name="notice_strategy_packs_refreshed_message">RIPDPI hat den neuesten für dieses Gerät zugelassenen Strategie-Paket-Katalog heruntergeladen, verifiziert und aktiviert.</string>
     <string name="onboarding_bypass_modes_title">VPN oder Proxy — Ihre Wahl</string>
-    <string name="onboarding_local_first_body">RIPDPI läuft lokal auf Ihrem Gerät. Keine Konten, keine Telemetrie, keine Cloud-Synchronisierung.</string>
+    <string name="onboarding_local_first_body">Alles läuft auf Ihrem Gerät.</string>
     <string name="onboarding_permission_title">Ein lokales VPN, kein entferntes</string>
     <string name="onboarding_setup_dns_google_body">Zuverlässiges DNS von Google.</string>
     <string name="onboarding_setup_finish">Fertigstellen</string>

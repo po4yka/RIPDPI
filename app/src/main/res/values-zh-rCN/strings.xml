@@ -832,7 +832,7 @@
     <string name="notice_strategy_pack_refresh_failed_message">RIPDPI 无法刷新最新的策略包目录。当前策略快照仍保持活动。</string>
     <string name="notice_telemetry_salt_reset_message">下次连接时将生成新的盐值。之前记录的指纹哈希将无法再被关联。</string>
     <string name="onboarding_continue">继续</string>
-    <string name="onboarding_local_first_body">RIPDPI 在你的设备上本地运行。无账号、无遥测、无云同步。</string>
+    <string name="onboarding_local_first_body">一切都在你的设备上运行。</string>
     <string name="onboarding_permission_body">Android 需要 VPN 权限才能将流量路由经过应用。RIPDPI 使用本地隧道，但 DNS 和连接检查可能会联系你选择的提供方或测试端点。</string>
     <string name="onboarding_setup_dns_adguard_body">带广告和追踪器过滤的 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system_body">原样使用你网络的 DNS 服务器。</string>

@@ -1174,7 +1174,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_continue">Продолжить</string>
     <string name="onboarding_get_started">Начать</string>
     <string name="onboarding_local_first_title">Конфиденциально по умолчанию</string>
-    <string name="onboarding_local_first_body">RIPDPI работает локально на вашем устройстве. Без аккаунтов, без телеметрии, без облачной синхронизации.</string>
+    <string name="onboarding_local_first_body">Всё работает на вашем устройстве.</string>
     <string name="onboarding_permission_title">Разрешение локального VPN</string>
     <string name="onboarding_permission_body">Android запросит разрешение VPN, чтобы направлять трафик через приложение. RIPDPI использует локальный туннель, а DNS и проверки подключения могут обращаться к выбранному провайдеру или тестовой точке.</string>
     <string name="onboarding_modes_title">Выберите режим</string>

@@ -1605,7 +1605,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_finish">समाप्त करें</string>
 
     <string name="onboarding_local_first_title">डिज़ाइन से ही निजी</string>
-    <string name="onboarding_local_first_body">RIPDPI आपके डिवाइस पर स्थानीय रूप से चलता है। कोई अकाउंट नहीं, कोई टेलीमेट्री नहीं, कोई क्लाउड सिंक नहीं।</string>
+    <string name="onboarding_local_first_body">सब कुछ आपके डिवाइस पर चलता है।</string>
     <string name="onboarding_permission_title">एक स्थानीय VPN, रिमोट नहीं</string>
     <string name="onboarding_permission_body">ट्रैफ़िक को ऐप के ज़रिए रूट करने के लिए Android को VPN अनुमति की ज़रूरत होती है। RIPDPI एक स्थानीय टनल का उपयोग करता है, जबकि DNS और कनेक्टिविटी जाँच आपके चुने हुए प्रदाता या टेस्ट एंडपॉइंट से संपर्क कर सकती हैं।</string>
     <string name="onboarding_modes_title">प्रीसेट या पूरा नियंत्रण</string>

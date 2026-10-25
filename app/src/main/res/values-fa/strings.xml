@@ -2108,7 +2108,7 @@ fakeddisorder endhost</string>
     <string name="notice_strategy_packs_refreshed_title">بسته‌های استراتژی به‌روزرسانی شدند</string>
     <string name="onboarding_bypass_modes_body">ترافیک را برای پوشش کامل از طریق یک VPN محلی مسیریابی کنید، یا برای کنترل دقیق از یک proxy محلی استفاده کنید. در هر زمان جابجا شوید.</string>
     <string name="onboarding_diagnostics_body">بدون خروج از برنامه، اختلال DPI را شناسایی کنید و سلامت شبکه خود را تحلیل کنید.</string>
-    <string name="onboarding_local_first_body">RIPDPI به‌صورت محلی روی دستگاه شما اجرا می‌شود. بدون حساب کاربری، بدون تله‌متری، بدون همگام‌سازی ابری.</string>
+    <string name="onboarding_local_first_body">همه‌چیز روی دستگاه شما اجرا می‌شود.</string>
     <string name="onboarding_modes_title">پیش‌تنظیم‌ها یا کنترل کامل</string>
     <string name="onboarding_privacy_body">بدون تله‌متری، بدون ردیابی، بدون حساب کاربری. تنظیمات و سابقهٔ عیب‌یابی روی دستگاه شما می‌مانند مگر اینکه آن‌ها را صریحاً صادر کنید.</string>
     <string name="onboarding_setup_dns_cloudflare_body">حل‌کننده DNS سریع و همه‌منظوره.</string>

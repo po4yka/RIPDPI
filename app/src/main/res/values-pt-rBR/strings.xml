@@ -1609,7 +1609,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_finish">Concluir</string>
 
     <string name="onboarding_local_first_title">Privado por design</string>
-    <string name="onboarding_local_first_body">O RIPDPI funciona localmente no seu dispositivo. Sem contas, sem telemetria, sem sincronização na nuvem.</string>
+    <string name="onboarding_local_first_body">Tudo é executado no seu dispositivo.</string>
     <string name="onboarding_permission_title">Uma VPN local, não remota</string>
     <string name="onboarding_permission_body">O Android exige permissão de VPN para rotear o tráfego pelo app. O RIPDPI usa um túnel local, enquanto as verificações de DNS e conectividade podem contatar o provedor ou o endpoint de teste que você escolher.</string>
     <string name="onboarding_modes_title">Predefinições ou controle total</string>
