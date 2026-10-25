@@ -7,6 +7,7 @@ use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;
 
+use crate::detect_default_ttl;
 use crate::linux::raw_packet::fake_tcp::mutate_fake_timestamp;
 use crate::linux::raw_packet::packet_builder::{
     apply_tcp_flag_overrides_to_packet, build_error_to_io, build_tcp_segment_packet, fragment_identification,
@@ -30,7 +31,7 @@ pub fn send_fake_rst(
 ) -> io::Result<()> {
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
-    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
+    let ttl = fake_rst_ttl(get_stream_ttl(stream)?, default_ttl)?;
     let fd = stream.as_raw_fd();
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
@@ -56,6 +57,20 @@ pub fn send_fake_rst(
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
     let _ = disable_tcp_repair(fd);
     result
+}
+
+/// The RST carries the exact live sequence numbers, so a copy that reaches
+/// the server resets the connection. Refuse unless the caller lowered the
+/// socket TTL below the default.
+fn fake_rst_ttl(socket_ttl: u8, default_ttl: u8) -> io::Result<u8> {
+    let default_ttl = if default_ttl != 0 { default_ttl } else { detect_default_ttl().unwrap_or(64) };
+    if socket_ttl >= default_ttl {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "fake RST needs a socket TTL below the default; refusing a reset that would reach the server",
+        ));
+    }
+    Ok(socket_ttl)
 }
 
 #[allow(clippy::too_many_arguments)]

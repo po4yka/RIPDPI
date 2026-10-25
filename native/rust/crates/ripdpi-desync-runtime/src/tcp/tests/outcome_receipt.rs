@@ -21,6 +21,8 @@ type FaultQueue = Mutex<VecDeque<FaultSpec>>;
 #[derive(Default)]
 struct ReceiptTestPlatform {
     faults: FaultQueue,
+    /// The socket TTL seen by each fake RST send.
+    fake_rst_ttls: Mutex<Vec<u32>>,
 }
 
 impl TcpPlatformCapabilities for ReceiptTestPlatform {
@@ -65,12 +67,13 @@ impl TcpSocketOptions for ReceiptTestPlatform {
 impl TcpFakeSender for ReceiptTestPlatform {
     fn send_fake_rst(
         &self,
-        _stream: &TcpStream,
+        stream: &TcpStream,
         _default_ttl: u8,
         _protect_path: Option<&str>,
         _flags: TcpFlagOverrides,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
+        self.fake_rst_ttls.lock().expect("fake rst ttl log").push(stream.ttl().expect("read socket ttl"));
         Err(io::Error::new(io::ErrorKind::Unsupported, "fake rst unsupported in receipt test"))
     }
 
@@ -1046,6 +1049,58 @@ fn ipfrag2_special_plan_receipt_records_effective_fallback_family() {
     assert_eq!(outcome.execution_receipt.fallback_reason, Some(TcpFallbackReason::StrategyFamilyFallback));
     assert_eq!(outcome.execution_receipt.payload_bytes_committed, payload.len());
 
+    let mut buf = vec![0u8; payload.len()];
+    server.read_exact(&mut buf).expect("read relayed payload");
+    assert_eq!(&buf, payload);
+}
+
+#[test]
+fn flagged_fake_rst_lowers_the_socket_ttl_around_the_reset() {
+    let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
+    let mut group = test_group();
+    group.actions.ttl = Some(5);
+    let plain = TcpChainStep::new(TcpChainStepKind::FakeRst, OffsetExpr::host(1));
+    // Fake flag overrides route the step to the plan executor.
+    group.actions.tcp_chain.push(TcpChainStep::from_typed_step(ripdpi_config::TcpTypedChainStep::FakeRst {
+        common: plain.typed_step().common(),
+        fake_flags: ripdpi_config::TcpFlagOverrides { set: Some(0x08), unset: None },
+    }));
+    let (mut client, mut server) = connected_pair();
+    let default_ttl = client.ttl().expect("read default ttl");
+    let progress = OutboundProgress {
+        round: 1,
+        payload_size: payload.len(),
+        stream_start: 0,
+        stream_end: payload.len().saturating_sub(1),
+    };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+    let platform = ReceiptTestPlatform::default();
+
+    send_prepared_with_group(
+        &mut client,
+        &platform,
+        &RuntimeConfig::default(),
+        &group,
+        payload,
+        progress,
+        context,
+        None,
+        None,
+        &default_ttl_unavailable(),
+        None,
+    )
+    .expect("fakerst step writes the payload");
+
+    assert_eq!(*platform.fake_rst_ttls.lock().expect("fake rst ttl log"), vec![5]);
+    assert_eq!(client.ttl().expect("read restored ttl"), default_ttl);
     let mut buf = vec![0u8; payload.len()];
     server.read_exact(&mut buf).expect("read relayed payload");
     assert_eq!(&buf, payload);

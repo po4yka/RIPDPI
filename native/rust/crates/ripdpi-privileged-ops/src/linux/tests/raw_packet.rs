@@ -384,3 +384,13 @@ fn raw_ipv6_sends_accept_a_target_with_a_transport_port() {
     raw_packet::send_raw_packets_with_delay(target, [packet.as_slice(), packet.as_slice()], None, 1)
         .expect("delayed raw IPv6 send to port 443");
 }
+
+#[test]
+fn send_fake_rst_refuses_a_socket_at_the_default_ttl() {
+    let (client, _server) = connected_pair();
+    client.set_ttl(64).expect("set default TTL");
+
+    let err = raw_packet::send_fake_rst(&client, 64, None, TcpFlagOverrides::default(), None)
+        .expect_err("an exact-sequence RST at the default TTL would reset the real connection");
+    assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+}
