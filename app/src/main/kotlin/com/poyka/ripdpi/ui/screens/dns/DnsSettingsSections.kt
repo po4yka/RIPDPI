@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.dns
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -197,7 +196,6 @@ internal fun DnsCustomResolverSettingsSection(
     onSavePlainDns: (String) -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -207,7 +205,7 @@ internal fun DnsCustomResolverSettingsSection(
             style = type.body,
             color = colors.mutedForeground,
         )
-        RipDpiCard(modifier = Modifier.animateContentSize(animationSpec = motion.stateTween())) {
+        RipDpiCard(animateContentSize = true) {
             when (uiState.dns.dnsMode) {
                 DnsModePlainUdp -> {
                     PlainDnsEditor(

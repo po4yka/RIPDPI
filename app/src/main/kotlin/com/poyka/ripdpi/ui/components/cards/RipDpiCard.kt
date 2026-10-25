@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.ui.components.cards
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,6 +45,7 @@ fun RipDpiCard(
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     paddingValues: PaddingValues = PaddingValues(RipDpiThemeTokens.layout.cardPadding),
+    animateContentSize: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     RipDpiCard(
@@ -52,6 +54,7 @@ fun RipDpiCard(
         enabled = enabled,
         onClick = onClick,
         paddingValues = paddingValues,
+        animateContentSize = animateContentSize,
         content = content,
         visualStyle = CommonStyle,
     )
@@ -65,6 +68,9 @@ fun RipDpiCard(
     onClick: (() -> Unit)? = null,
     paddingValues: PaddingValues = PaddingValues(RipDpiThemeTokens.layout.cardPadding),
     visualStyle: CommonStyle = CommonStyle,
+    // Animate size changes inside the card. A caller's animateContentSize() clips to the
+    // rectangular bounds and cuts the rounded shadow into a square band.
+    animateContentSize: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -88,6 +94,12 @@ fun RipDpiCard(
             .ripDpiStyleSurface(styleResolver, shape, clip = true)
             .alpha(if (enabled) 1f else disabledAlpha)
             .then(
+                if (animateContentSize) {
+                    Modifier.animateContentSize(animationSpec = RipDpiThemeTokens.motion.stateTween())
+                } else {
+                    Modifier
+                },
+            ).then(
                 if (onClick != null) {
                     Modifier.ripDpiClickable(
                         enabled = enabled,

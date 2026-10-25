@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.dns
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +46,6 @@ internal fun DnsActiveConfigurationCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val motion = RipDpiThemeTokens.motion
     val title =
         selectedResolver?.let { it.title ?: it.titleRes?.let { res -> stringResource(res) } }
             ?: if (uiState.dns.dnsMode == DnsModeEncrypted) {
@@ -78,10 +76,7 @@ internal fun DnsActiveConfigurationCard(
 
     RipDpiCard(
         variant = if (uiState.dns.dnsMode == DnsModeEncrypted) RipDpiCardVariant.Elevated else RipDpiCardVariant.Tonal,
-        modifier =
-            Modifier.animateContentSize(
-                animationSpec = motion.stateTween(),
-            ),
+        animateContentSize = true,
     ) {
         Text(
             text = stringResource(R.string.dns_active_section_title),
@@ -212,7 +207,6 @@ internal fun DnsOptionCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val motion = RipDpiThemeTokens.motion
 
     RipDpiCard(
         variant = if (selected) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
@@ -222,9 +216,8 @@ internal fun DnsOptionCard(
                 .semantics {
                     contentDescription = title
                     this.selected = selected
-                }.animateContentSize(
-                    animationSpec = motion.stateTween(),
-                ).ripDpiTestTag(testTag),
+                }.ripDpiTestTag(testTag),
+        animateContentSize = true,
     ) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
@@ -345,7 +338,6 @@ internal fun DnsResolverCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val motion = RipDpiThemeTokens.motion
     val resolverTitle = resolver.title ?: resolver.titleRes?.let { stringResource(it) } ?: ""
     val resolverBody = resolver.description ?: resolver.descriptionRes?.let { stringResource(it) } ?: ""
     RipDpiCard(
@@ -354,9 +346,8 @@ internal fun DnsResolverCard(
         modifier =
             Modifier
                 .semantics { contentDescription = resolverTitle }
-                .animateContentSize(
-                    animationSpec = motion.stateTween(),
-                ).ripDpiTestTag(RipDpiTestTags.dnsResolver(resolver.providerId)),
+                .ripDpiTestTag(RipDpiTestTags.dnsResolver(resolver.providerId)),
+        animateContentSize = true,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
