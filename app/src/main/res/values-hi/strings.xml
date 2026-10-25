@@ -522,7 +522,6 @@
     <string name="home_diagnostics_detection_needs_review">पहचान परिणामों की समीक्षा आवश्यक है</string>
     <string name="home_diagnostics_detection_not_detected">कोई पहचान संकेत नहीं देखा गया</string>
     <string name="home_diagnostics_vpn_detectors_title">VPN पहचानने वाले ऐप्स</string>
-    <string name="home_diagnostics_vpn_detectors_summary">%1$d इंस्टॉल किए गए ऐप्स ज्ञात VPN डिटेक्टर हैं.</string>
     <string name="home_diagnostics_pcap_toggle">पैकेट कैप्चर करें (उन्नत)</string>
     <string name="home_diagnostics_pcap_helper">Root की आवश्यकता है। यह इस रन के कच्चे पैकेट बाइट एक अलग स्थानीय PCAP फ़ाइल में कैप्चर करता है; रिडैक्ट किए गए डायग्नोस्टिक्स संग्रह पैकेट कैप्चर एम्बेड नहीं करते।</string>
     <string name="diagnostics_pcap_card_title">पैकेट कैप्चर</string>
@@ -859,7 +858,6 @@
     <string name="network_strategy_memory_section_title">नेटवर्क रणनीति मेमोरी</string>
     <string name="network_strategy_memory_enabled_title">प्रति नेटवर्क नीति याद रखें</string>
     <string name="network_strategy_memory_enabled_body">मौजूदा नेटवर्क फ़िंगरप्रिंट के लिए एक मान्य रूटिंग नीति संग्रहीत करें और भविष्य की शुरुआतों पर उसका पुनः उपयोग करें।</string>
-    <string name="network_strategy_memory_count_summary">%1$d याद किए गए नेटवर्क स्थानीय रूप से संग्रहीत।</string>
     <string name="network_strategy_memory_clear_action">याद किए गए नेटवर्क साफ़ करें</string>
     <string name="network_strategy_memory_helper">केवल मान्य नेटवर्क मिलान स्वतः लागू होते हैं। कच्चे SSID, BSSID और कैरियर पहचानकर्ता संग्रहण से बाहर रहते हैं।</string>
     <string name="network_strategy_memory_inspect_title">याद किए गए नेटवर्क</string>
@@ -867,12 +865,10 @@
     <string name="remembered_networks_intro_title">गोपनीयता-सुरक्षित लेबल</string>
     <string name="remembered_networks_intro_body">प्रत्येक नेटवर्क की पहचान केवल एकतरफ़ा स्कोप हैश से होती है। कच्चा SSID, BSSID, कैरियर और IP पते कभी संग्रहीत या दिखाए नहीं जाते।</string>
     <string name="remembered_networks_header_helper">किसी प्रविष्टि को हटाने से इस डिवाइस से उसकी संग्रहीत नीति और DNS शिक्षण स्थायी रूप से मिट जाते हैं।</string>
-    <string name="remembered_networks_count_summary">%1$d याद किए गए नेटवर्क</string>
     <string name="remembered_networks_clear_all_action">सभी साफ़ करें</string>
     <string name="remembered_networks_empty_title">कोई याद किया गया नेटवर्क नहीं</string>
     <string name="remembered_networks_empty_body">जब ऐप किसी नेटवर्क के लिए कोई काम करने वाली रणनीति सीख लेता है, तो मान्य की गई नीतियाँ यहाँ दिखती हैं।</string>
     <string name="remembered_networks_scope_label">स्कोप %1$s</string>
-    <string name="remembered_networks_dns_servers">%1$d DNS सर्वर</string>
     <string name="remembered_networks_private_dns_label">Private DNS: %1$s</string>
     <string name="remembered_networks_strategy_label">रणनीति: %1$s</string>
     <string name="remembered_networks_outcomes">%1$d ठीक · %2$d विफल</string>
@@ -936,7 +932,6 @@
     <string name="adaptive_fallback_cache_summary">%1$d सेकंड · IPv4 /%2$d</string>
     <string name="adaptive_fallback_badge_enabled">सक्षम</string>
     <string name="adaptive_fallback_badge_disabled">अक्षम</string>
-    <string name="adaptive_fallback_badge_triggers">%1$d ट्रिगर</string>
     <string name="adaptive_fallback_badge_auto_sort">स्वतः-क्रमबद्ध</string>
     <string name="adaptive_fallback_no_triggers_summary">कोई ट्रिगर चयनित नहीं।</string>
     <string name="ws_tunnel_section_title">WebSocket टनल</string>
@@ -1008,13 +1003,11 @@
     <string name="activation_window_scope_filtered">केवल सहेजी गई श्रेणियों के भीतर के आउटबाउंड चंक ही समूह-व्यापी बायपास रणनीति, fake transport, TLS prelude, और UDP fake bursts का उपयोग कर सकते हैं।</string>
     <string name="activation_window_scope_open">हर आउटबाउंड चंक सक्रिय बायपास रणनीति समूह का उपयोग कर सकता है।</string>
     <string name="activation_window_step_filters_none">chain DSL में कोई चरण-स्थानीय when_round, when_size, या when_stream नियम सहेजे नहीं गए हैं।</string>
-    <string name="activation_window_step_filters_present">chain DSL के %1$d चरण नियम समूह विंडो के ऊपर अब भी अपने स्वयं के सक्रियण फ़िल्टर जोड़ते हैं।</string>
     <string name="activation_window_badge_default">डिफ़ॉल्ट</string>
     <string name="activation_window_badge_custom">कस्टम विंडो</string>
     <string name="activation_window_badge_round">राउंड गेटेड</string>
     <string name="activation_window_badge_payload">पेलोड गेटेड</string>
     <string name="activation_window_badge_stream">स्ट्रीम गेटेड</string>
-    <string name="activation_window_badge_step_filters">%1$d चरण नियम</string>
     <string name="activation_window_reset_action">विंडो रीसेट करें</string>
     <string name="activation_window_range_status_open">खुला</string>
     <string name="activation_window_range_status_scoped">दायरे में</string>
@@ -1871,14 +1864,12 @@ fakeddisorder endhost</string>
     <string name="subscription_status_empty_body">आयातित सदस्यता का विवरण यहाँ दिखाई देगा।</string>
     <string name="subscription_status_reveal_secrets">सदस्यता के गुप्त मान दिखाएँ</string>
     <string name="subscription_status_hide_secrets">सदस्यता के गुप्त मान छिपाएँ</string>
-    <string name="subscription_status_profiles_format">%1$d असाइन की गई प्रोफ़ाइल</string>
     <string name="subscription_status_last_refresh_format">अंतिम रीफ़्रेश: %1$s</string>
     <string name="subscription_status_token_expiry_format">टोकन समाप्ति: %1$s</string>
     <string name="subscription_status_credential_expiry_format">क्रेडेंशियल समाप्ति: %1$s</string>
     <string name="subscription_status_replacement_help">सहेजी गई प्रोफ़ाइल उपयोग योग्य रहेंगी। अपडेट फिर से शुरू करने के लिए नई सदस्यता लिंक आयात करें।</string>
     <string name="subscription_status_refresh_action">अभी रीफ़्रेश करें</string>
     <string name="subscription_status_active">सक्रिय</string>
-    <string name="subscription_status_expiring_days">%1$d दिनों में समाप्त होगी</string>
     <string name="subscription_status_expired">समाप्त</string>
     <string name="subscription_status_invalidated">समाप्त या निरस्त</string>
     <string name="subscription_status_unknown">समाप्ति नहीं दी गई</string>
@@ -1889,7 +1880,6 @@ fakeddisorder endhost</string>
     <string name="subscription_status_token_format">टोकन: %1$s</string>
     <string name="subscription_home_multiple_title">%1$d सदस्यताओं पर ध्यान देना आवश्यक है</string>
     <string name="subscription_home_expiring_title">सदस्यता जल्द समाप्त होगी</string>
-    <string name="subscription_home_expiring_body">%1$s %2$d दिनों में समाप्त होगी। इसे रीफ़्रेश करें या नई लिंक तैयार रखें।</string>
     <string name="subscription_home_expired_title">सदस्यता समाप्त हो गई</string>
     <string name="subscription_home_expired_body">%1$s अब रीफ़्रेश नहीं हो सकती। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
     <string name="subscription_home_invalidated_title">सदस्यता उपलब्ध नहीं है</string>

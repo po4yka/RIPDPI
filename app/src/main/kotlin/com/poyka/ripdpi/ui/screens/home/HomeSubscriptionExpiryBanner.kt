@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.subscription.SubscriptionExpiryStatus
@@ -33,11 +34,8 @@ internal fun subscriptionExpiryAdvisory(
     val message =
         when (item.status) {
             SubscriptionExpiryStatus.EXPIRING -> {
-                stringResource(
-                    R.string.subscription_home_expiring_body,
-                    item.groupName,
-                    item.daysRemaining ?: 0L,
-                )
+                val days = (item.daysRemaining ?: 0L).toInt()
+                pluralStringResource(R.plurals.subscription_home_expiring_body, days, item.groupName, days)
             }
 
             SubscriptionExpiryStatus.EXPIRED -> {

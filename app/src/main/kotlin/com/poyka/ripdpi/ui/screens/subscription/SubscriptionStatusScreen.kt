@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -133,7 +134,7 @@ private fun SubscriptionStatusCard(
         Text(item.groupName, style = RipDpiThemeTokens.type.sectionTitle)
         Text(statusText(item), style = RipDpiThemeTokens.type.body)
         Text(
-            stringResource(R.string.subscription_status_profiles_format, item.memberCount),
+            pluralStringResource(R.plurals.subscription_status_profiles_format, item.memberCount, item.memberCount),
             style = RipDpiThemeTokens.type.body,
         )
         Text(
@@ -218,7 +219,9 @@ private fun statusText(item: SubscriptionExpiryItemUiState): String =
         }
 
         SubscriptionExpiryStatus.EXPIRING -> {
-            stringResource(R.string.subscription_status_expiring_days, item.daysRemaining ?: 0L)
+            (item.daysRemaining ?: 0L).toInt().let { days ->
+                pluralStringResource(R.plurals.subscription_status_expiring_days, days, days)
+            }
         }
 
         SubscriptionExpiryStatus.EXPIRED -> {

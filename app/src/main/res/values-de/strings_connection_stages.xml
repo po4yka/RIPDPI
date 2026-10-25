@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="diagnostics_stages_show">Verbindungsphasen anzeigen (%1$d Pfade)</string>
-    <string name="diagnostics_stages_hide">Phasen ausblenden (%1$d Pfade)</string>
     <string name="diagnostics_stages_legend">Unbekannt: keine Daten. Nicht erreicht: Versuch endete vorher. Nicht anwendbar: dieser Pfad nutzt die Phase nicht. Beobachtet und teilweise bedeuten keinen Erfolg.</string>
     <string name="diagnostics_stages_attempt">%1$s · Versuch %2$d</string>
     <string name="diagnostics_stages_state">%1$s — %2$s</string>

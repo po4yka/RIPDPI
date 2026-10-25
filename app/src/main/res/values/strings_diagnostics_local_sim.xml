@@ -7,7 +7,6 @@
     <string name="diagnostics_local_evidence">Evidence</string>
     <string name="diagnostics_local_not_collected">Not collected in this snapshot</string>
     <string name="diagnostics_local_unknown">Unknown</string>
-    <string name="diagnostics_local_overview">%1$s · %2$d conditions to review</string>
     <string name="diagnostics_local_captured">Captured at</string>
     <string name="diagnostics_local_transport">Active Android network</string>
     <string name="diagnostics_local_airplane">Airplane mode</string>

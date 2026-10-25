@@ -16,7 +16,6 @@ app:activation_window_badge_custom
 app:activation_window_badge_default
 app:activation_window_badge_payload
 app:activation_window_badge_round
-app:activation_window_badge_step_filters
 app:activation_window_badge_stream
 app:activation_window_cli_body
 app:activation_window_cli_title
@@ -53,7 +52,6 @@ app:activation_window_section_body
 app:activation_window_section_title
 app:activation_window_step_filters_label
 app:activation_window_step_filters_none
-app:activation_window_step_filters_present
 app:activation_window_step_only_body
 app:activation_window_step_only_title
 app:activation_window_stream_body
@@ -126,7 +124,6 @@ app:adaptive_fallback_auto_sort_title
 app:adaptive_fallback_badge_auto_sort
 app:adaptive_fallback_badge_disabled
 app:adaptive_fallback_badge_enabled
-app:adaptive_fallback_badge_triggers
 app:adaptive_fallback_cache_prefix_body
 app:adaptive_fallback_cache_prefix_title
 app:adaptive_fallback_cache_summary
@@ -279,7 +276,6 @@ app:asset_provider_section_title
 app:asset_provider_soffchen_desc
 app:asset_provider_soffchen_label
 app:asset_provider_updated_body
-app:asset_provider_updated_days_ago
 app:asset_provider_updated_never
 app:asset_provider_updated_title
 app:asset_provider_updated_today
@@ -409,7 +405,6 @@ app:biometric_prompt_pin_body
 app:biometric_prompt_pin_error
 app:biometric_prompt_pin_helper
 app:biometric_prompt_pin_label
-app:biometric_prompt_pin_lockout_body
 app:biometric_prompt_pin_lockout_title
 app:biometric_prompt_pin_placeholder
 app:biometric_prompt_pin_title
@@ -1019,7 +1014,6 @@ app:detection_community_detected_pct
 app:detection_community_error
 app:detection_community_loading
 app:detection_community_local_title
-app:detection_community_reports
 app:detection_community_retry
 app:detection_community_title
 app:detection_debug_diagnostics_label
@@ -1808,7 +1802,6 @@ app:diagnostics_ipv4_whitelist_cached_provider
 app:diagnostics_ipv4_whitelist_caching
 app:diagnostics_ipv4_whitelist_check_cached
 app:diagnostics_ipv4_whitelist_check_failed
-app:diagnostics_ipv4_whitelist_checked_complete
 app:diagnostics_ipv4_whitelist_checked_progress
 app:diagnostics_ipv4_whitelist_csv_title
 app:diagnostics_ipv4_whitelist_fetching
@@ -1877,7 +1870,6 @@ app:diagnostics_local_metered
 app:diagnostics_local_mobile_data
 app:diagnostics_local_no_conditions
 app:diagnostics_local_not_collected
-app:diagnostics_local_overview
 app:diagnostics_local_power_save
 app:diagnostics_local_review
 app:diagnostics_local_review_item
@@ -2156,7 +2148,6 @@ app:diagnostics_profile_connectivity_badge
 app:diagnostics_profile_connectivity_body
 app:diagnostics_profile_connectivity_running_body
 app:diagnostics_profile_connectivity_title
-app:diagnostics_profile_curated_packs_included
 app:diagnostics_profile_desc_adaptation
 app:diagnostics_profile_desc_messaging
 app:diagnostics_profile_desc_network_full
@@ -2552,7 +2543,6 @@ app:diagnostics_stages_elapsed
 app:diagnostics_stages_failed
 app:diagnostics_stages_first_byte
 app:diagnostics_stages_headers
-app:diagnostics_stages_hide
 app:diagnostics_stages_http_status
 app:diagnostics_stages_lane_bootstrap
 app:diagnostics_stages_lane_dns_encrypted
@@ -2576,7 +2566,6 @@ app:diagnostics_stages_partial
 app:diagnostics_stages_proxy
 app:diagnostics_stages_quic_response
 app:diagnostics_stages_running
-app:diagnostics_stages_show
 app:diagnostics_stages_state
 app:diagnostics_stages_succeeded
 app:diagnostics_stages_tcp
@@ -2854,7 +2843,6 @@ app:dns_resolvers_section
 app:dns_save_in_progress
 app:dns_selected_badge
 app:dns_unknown_provider
-app:domain_bypass_clean_count
 app:domain_bypass_cleared
 app:domain_bypass_clipboard_empty
 app:domain_bypass_copied
@@ -3180,7 +3168,6 @@ app:home_diagnostics_verification_incomplete
 app:home_diagnostics_verified_sheet_title
 app:home_diagnostics_verified_vpn_body
 app:home_diagnostics_verifying
-app:home_diagnostics_vpn_detectors_summary
 app:home_diagnostics_vpn_detectors_title
 app:home_diagnostics_vpn_failed_to_start
 app:home_diagnostics_vpn_permission_required_headline
@@ -3495,8 +3482,6 @@ app:host_pack_apply_dialog_title
 app:host_pack_apply_dismiss
 app:host_pack_apply_merge
 app:host_pack_apply_replace
-app:host_pack_apply_summary
-app:host_pack_apply_summary_hosts_only
 app:host_pack_badge_bundled
 app:host_pack_badge_checksum_verified
 app:host_pack_badge_downloaded
@@ -3511,14 +3496,12 @@ app:host_pack_download_failed_status_body
 app:host_pack_download_failed_status_title
 app:host_pack_downloaded_status_body
 app:host_pack_downloaded_status_title
-app:host_pack_hosts_badge
 app:host_pack_invalid_snapshot_status_body
 app:host_pack_invalid_snapshot_status_title
 app:host_pack_last_fetch_label
 app:host_pack_last_fetch_never
 app:host_pack_last_refresh_attempt_label
 app:host_pack_last_refresh_attempt_never
-app:host_pack_packs_badge
 app:host_pack_preset_body
 app:host_pack_presets_body
 app:host_pack_presets_title
@@ -3691,7 +3674,6 @@ app:migration_url
 app:mode_setting
 app:navigation_back
 app:network_strategy_memory_clear_action
-app:network_strategy_memory_count_summary
 app:network_strategy_memory_enabled_body
 app:network_strategy_memory_enabled_title
 app:network_strategy_memory_helper
@@ -4126,13 +4108,11 @@ app:remembered_networks_clear_confirm_body
 app:remembered_networks_clear_confirm_confirm
 app:remembered_networks_clear_confirm_dismiss
 app:remembered_networks_clear_confirm_title
-app:remembered_networks_count_summary
 app:remembered_networks_delete_action
 app:remembered_networks_delete_confirm_body
 app:remembered_networks_delete_confirm_confirm
 app:remembered_networks_delete_confirm_dismiss
 app:remembered_networks_delete_confirm_title
-app:remembered_networks_dns_servers
 app:remembered_networks_empty_body
 app:remembered_networks_empty_title
 app:remembered_networks_header_helper
@@ -4768,7 +4748,6 @@ app:shared_diagnostic_dpi_possible
 app:shared_diagnostic_dpi_probably
 app:shared_diagnostic_dpi_unlikely
 app:shared_diagnostic_endpoint_label
-app:shared_diagnostic_endpoints_count
 app:shared_diagnostic_invalid_link_message
 app:shared_diagnostic_open_error_title
 app:shared_diagnostic_result_snapshot_title
@@ -4988,7 +4967,6 @@ app:subscription_failover_using_backup_path_for
 app:subscription_failover_using_backup_path_reason
 app:subscription_home_expired_body
 app:subscription_home_expired_title
-app:subscription_home_expiring_body
 app:subscription_home_expiring_title
 app:subscription_home_invalidated_body
 app:subscription_home_invalidated_title
@@ -5009,11 +4987,9 @@ app:subscription_status_credential_expiry_format
 app:subscription_status_empty_body
 app:subscription_status_empty_title
 app:subscription_status_expired
-app:subscription_status_expiring_days
 app:subscription_status_hide_secrets
 app:subscription_status_invalidated
 app:subscription_status_last_refresh_format
-app:subscription_status_profiles_format
 app:subscription_status_refresh_action
 app:subscription_status_refresh_failed
 app:subscription_status_refresh_format
@@ -5167,7 +5143,6 @@ app:vpn_disconnect
 app:vpn_disconnected
 app:vpn_export_consent_cancel
 app:vpn_export_consent_confirm
-app:vpn_export_consent_meta_format
 app:vpn_export_consent_redact_label
 app:vpn_export_consent_title_format
 app:vpn_handshake_timeline_first_packet_label
@@ -5189,9 +5164,7 @@ app:vpn_latency_graph_p95_format
 app:vpn_latency_graph_p99_default
 app:vpn_latency_graph_spikes_default
 app:vpn_latency_graph_title
-app:vpn_pcap_capture_drops_format
 app:vpn_pcap_capture_list_empty
-app:vpn_pcap_capture_meta_format
 app:vpn_pcap_loading
 app:vpn_pcap_no_packets
 app:vpn_pcap_read_failed
@@ -5229,7 +5202,6 @@ app:vpn_replay_failure_header_format
 app:vpn_replay_failure_recommendation_title
 app:vpn_replay_failure_replay
 app:vpn_replay_history_empty
-app:vpn_replay_history_row_format
 app:vpn_replay_history_title
 app:vpn_replay_history_verdict_cancelled
 app:vpn_replay_history_verdict_failure

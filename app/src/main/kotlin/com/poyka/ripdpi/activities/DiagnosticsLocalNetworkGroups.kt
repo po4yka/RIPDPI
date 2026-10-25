@@ -10,11 +10,9 @@ internal fun DiagnosticsUiFactorySupport.localNetworkOverview(local: LocalNetwor
     if (local == null) {
         context.getString(R.string.diagnostics_local_not_collected)
     } else {
-        context.getString(
-            R.string.diagnostics_local_overview,
-            localValue(local.transport),
-            local.localConstraintCodes().size,
-        )
+        local.localConstraintCodes().size.let { count ->
+            context.getQuantityString(R.plurals.diagnostics_local_overview, count, localValue(local.transport), count)
+        }
     }
 
 internal fun DiagnosticsUiFactorySupport.toLocalNetworkGroups(

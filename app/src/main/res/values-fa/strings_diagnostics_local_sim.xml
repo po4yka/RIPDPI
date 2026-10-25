@@ -7,7 +7,6 @@
     <string name="diagnostics_local_evidence">شواهد</string>
     <string name="diagnostics_local_not_collected">در این ثبت جمع‌آوری نشده</string>
     <string name="diagnostics_local_unknown">نامشخص</string>
-    <string name="diagnostics_local_overview">%1$s · %2$d مورد برای بررسی</string>
     <string name="diagnostics_local_captured">زمان ثبت</string>
     <string name="diagnostics_local_transport">شبکهٔ فعال اندروید</string>
     <string name="diagnostics_local_airplane">حالت هواپیما</string>

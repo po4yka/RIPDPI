@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="network_strategy_memory_count_summary">
+        <item quantity="other">本地存储了 %1$d 个已记住的网络。</item>
+    </plurals>
+    <plurals name="remembered_networks_count_summary">
+        <item quantity="other">%1$d 个已记住的网络</item>
+    </plurals>
+    <plurals name="remembered_networks_dns_servers">
+        <item quantity="other">%1$d 个 DNS 服务器</item>
+    </plurals>
+    <plurals name="detection_community_reports">
+        <item quantity="other">已记录 %1$d 次检查</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_meta_format">
+        <item quantity="other">%1$s · %2$d 个数据包</item>
+    </plurals>
+    <plurals name="vpn_export_consent_meta_format">
+        <item quantity="other">%1$s · %2$d 个数据包</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_drops_format">
+        <item quantity="other">高负载下丢弃了 %1$d 个数据包</item>
+    </plurals>
+    <plurals name="host_pack_hosts_count">
+        <item quantity="other">%1$d 个主机</item>
+    </plurals>
+    <plurals name="host_pack_apply_summary">
+        <item quantity="other">%1$d 个主机 · %2$s</item>
+    </plurals>
+    <plurals name="host_pack_packs_badge">
+        <item quantity="other">%1$d 个包</item>
+    </plurals>
+    <plurals name="subscription_status_expiring_days">
+        <item quantity="other">将在 %1$d 天后到期</item>
+    </plurals>
+    <plurals name="subscription_home_expiring_body">
+        <item quantity="other">%1$s 将在 %2$d 天后到期。请更新或准备新的订阅链接。</item>
+    </plurals>
+    <plurals name="asset_provider_updated_days_ago">
+        <item quantity="other">%1$d 天前更新</item>
+    </plurals>
+    <plurals name="biometric_prompt_pin_lockout_body">
+        <item quantity="other">请在 %1$d 秒后重试。</item>
+    </plurals>
+    <plurals name="subscription_status_profiles_format">
+        <item quantity="other">已分配 %1$d 个配置</item>
+    </plurals>
+    <plurals name="domain_bypass_clean_count">
+        <item quantity="other">%1$d 个有效条目</item>
+    </plurals>
+    <plurals name="shared_diagnostic_endpoints_count">
+        <item quantity="other">%1$d 个端点</item>
+    </plurals>
+    <plurals name="vpn_replay_history_row_format">
+        <item quantity="other">%1$s · %2$d 个事件</item>
+    </plurals>
+    <plurals name="adaptive_fallback_badge_triggers">
+        <item quantity="other">%1$d 个触发器</item>
+    </plurals>
+    <plurals name="activation_window_badge_step_filters">
+        <item quantity="other">%1$d 条步骤规则</item>
+    </plurals>
+    <plurals name="activation_window_step_filters_present">
+        <item quantity="other">链 DSL 中的 %1$d 条步骤规则仍在组窗口之上添加各自的激活过滤器。</item>
+    </plurals>
+    <plurals name="home_diagnostics_vpn_detectors_summary">
+        <item quantity="other">%1$d 个已安装应用属于已知 VPN 检测应用。</item>
+    </plurals>
+    <plurals name="diagnostics_stages_show">
+        <item quantity="other">显示连接阶段（%1$d 条路径）</item>
+    </plurals>
+    <plurals name="diagnostics_stages_hide">
+        <item quantity="other">隐藏连接阶段（%1$d 条路径）</item>
+    </plurals>
+    <plurals name="diagnostics_profile_curated_packs_included">
+        <item quantity="other">已包含 %1$d 个精选包。</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_complete">
+        <item quantity="other">已检查 %1$d 个缓存的子网。</item>
+    </plurals>
+    <plurals name="diagnostics_local_overview">
+        <item quantity="other">%1$s · %2$d 项条件需检查</item>
+    </plurals>
+</resources>

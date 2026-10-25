@@ -152,7 +152,7 @@ internal fun List<WhitelistedSubnetResult>.toIpv4WhitelistUiModel(
     stringResolver: StringResolver,
     state: DiagnosticsIpv4WhitelistState = DiagnosticsIpv4WhitelistState.Complete,
     summary: String =
-        stringResolver.getString(R.string.diagnostics_ipv4_whitelist_checked_complete, size),
+        stringResolver.getQuantityString(R.plurals.diagnostics_ipv4_whitelist_checked_complete, size, size),
 ): DiagnosticsIpv4WhitelistToolUiModel {
     val whitelisted = count(WhitelistedSubnetResult::whitelisted)
     return DiagnosticsIpv4WhitelistToolUiModel(

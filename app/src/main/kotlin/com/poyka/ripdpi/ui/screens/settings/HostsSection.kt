@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
@@ -235,7 +236,11 @@ private fun rememberHostPackCatalogMetadata(hostPackCatalog: HostPackCatalogUiSt
 private fun hostPackCatalogBadges(hostPackCatalog: HostPackCatalogUiState): List<Pair<String, SummaryCapsuleTone>> =
     listOf(
         hostPackCatalogSourceBadge(hostPackCatalog),
-        stringResource(R.string.host_pack_packs_badge, hostPackCatalog.snapshot.packs.size) to
+        pluralStringResource(
+            R.plurals.host_pack_packs_badge,
+            hostPackCatalog.snapshot.packs.size,
+            hostPackCatalog.snapshot.packs.size,
+        ) to
             SummaryCapsuleTone.Neutral,
         hostPackCatalogFreshnessBadge(hostPackCatalog),
     )
@@ -349,10 +354,9 @@ internal fun HostPackPresetCard(
         description = description,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.hostPackPreset(preset.id)),
         badgeText =
-            stringResource(
-                R.string.host_pack_hosts_badge,
-                preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size,
-            ),
+            (preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size).let { hostCount ->
+                pluralStringResource(R.plurals.host_pack_hosts_count, hostCount, hostCount)
+            },
         selected = selected,
         enabled = enabled,
         onClick = onClick,
@@ -464,9 +468,9 @@ private fun hostPackApplySummary(preset: HostPackPreset): String {
     val sourceSummary = hostPackSourceSummary(preset)
     val hostCount = preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size
     return if (sourceSummary.isBlank()) {
-        stringResource(R.string.host_pack_apply_summary_hosts_only, hostCount)
+        pluralStringResource(R.plurals.host_pack_hosts_count, hostCount, hostCount)
     } else {
-        stringResource(R.string.host_pack_apply_summary, hostCount, sourceSummary)
+        pluralStringResource(R.plurals.host_pack_apply_summary, hostCount, hostCount, sourceSummary)
     }
 }
 

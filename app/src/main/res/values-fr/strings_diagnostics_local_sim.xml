@@ -7,7 +7,6 @@
     <string name="diagnostics_local_evidence">Données</string>
     <string name="diagnostics_local_not_collected">Non recueillies dans cet instantané</string>
     <string name="diagnostics_local_unknown">Inconnu</string>
-    <string name="diagnostics_local_overview">%1$s · %2$d conditions à vérifier</string>
     <string name="diagnostics_local_captured">Capturé le</string>
     <string name="diagnostics_local_transport">Réseau Android actif</string>
     <string name="diagnostics_local_airplane">Mode avion</string>

@@ -62,9 +62,9 @@ class DiagnosticsConnectionStageComposeTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsConnectionStageLanes).assertDoesNotExist()
         assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_transfer_scope_unverified)))
         capture("connection-stages-collapsed-unverified")
-        composeRule.onNodeWithText(text(R.string.diagnostics_stages_show, 2)).performScrollTo().performClick()
+        composeRule.onNodeWithText(pluralText(R.plurals.diagnostics_stages_show, 2)).performScrollTo().performClick()
         verifyExpanded("connection-stages")
-        composeRule.onNodeWithText(text(R.string.diagnostics_stages_hide, 2)).performScrollTo().performClick()
+        composeRule.onNodeWithText(pluralText(R.plurals.diagnostics_stages_hide, 2)).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsConnectionStageLanes).assertDoesNotExist()
     }
 
@@ -89,7 +89,7 @@ class DiagnosticsConnectionStageComposeTest {
     }
 
     private fun verifyExpanded(name: String) {
-        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_stages_hide, 2)))
+        assertComplete(composeRule.onNodeWithText(pluralText(R.plurals.diagnostics_stages_hide, 2)))
         assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_stages_legend)))
         capture("$name-overview")
         assertComplete(
@@ -190,6 +190,11 @@ class DiagnosticsConnectionStageComposeTest {
             )
         }
     }
+
+    private fun pluralText(
+        id: Int,
+        count: Int,
+    ): String = RuntimeEnvironment.getApplication().resources.getQuantityString(id, count, count)
 
     private fun text(
         id: Int,

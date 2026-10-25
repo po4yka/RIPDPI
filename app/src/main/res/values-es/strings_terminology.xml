@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="network_strategy_memory_count_summary">
+        <item quantity="one">%1$d red recordada almacenada localmente.</item>
+        <item quantity="many">%1$d redes recordadas almacenadas localmente.</item>
+        <item quantity="other">%1$d redes recordadas almacenadas localmente.</item>
+    </plurals>
+    <plurals name="remembered_networks_count_summary">
+        <item quantity="one">%1$d red recordada</item>
+        <item quantity="many">%1$d redes recordadas</item>
+        <item quantity="other">%1$d redes recordadas</item>
+    </plurals>
+    <plurals name="remembered_networks_dns_servers">
+        <item quantity="one">%1$d servidor DNS</item>
+        <item quantity="many">%1$d servidores DNS</item>
+        <item quantity="other">%1$d servidores DNS</item>
+    </plurals>
+    <plurals name="detection_community_reports">
+        <item quantity="one">%1$d comprobación registrada</item>
+        <item quantity="many">%1$d comprobaciones registradas</item>
+        <item quantity="other">%1$d comprobaciones registradas</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_meta_format">
+        <item quantity="one">%1$s · %2$d paquete</item>
+        <item quantity="many">%1$s · %2$d paquetes</item>
+        <item quantity="other">%1$s · %2$d paquetes</item>
+    </plurals>
+    <plurals name="vpn_export_consent_meta_format">
+        <item quantity="one">%1$s · %2$d paquete</item>
+        <item quantity="many">%1$s · %2$d paquetes</item>
+        <item quantity="other">%1$s · %2$d paquetes</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_drops_format">
+        <item quantity="one">%1$d paquete descartado bajo carga</item>
+        <item quantity="many">%1$d paquetes descartados bajo carga</item>
+        <item quantity="other">%1$d paquetes descartados bajo carga</item>
+    </plurals>
+    <plurals name="host_pack_hosts_count">
+        <item quantity="one">%1$d host</item>
+        <item quantity="many">%1$d hosts</item>
+        <item quantity="other">%1$d hosts</item>
+    </plurals>
+    <plurals name="host_pack_apply_summary">
+        <item quantity="one">%1$d host · %2$s</item>
+        <item quantity="many">%1$d hosts · %2$s</item>
+        <item quantity="other">%1$d hosts · %2$s</item>
+    </plurals>
+    <plurals name="host_pack_packs_badge">
+        <item quantity="one">%1$d pack</item>
+        <item quantity="many">%1$d packs</item>
+        <item quantity="other">%1$d packs</item>
+    </plurals>
+    <plurals name="subscription_status_expiring_days">
+        <item quantity="one">Caduca en %1$d día</item>
+        <item quantity="many">Caduca en %1$d días</item>
+        <item quantity="other">Caduca en %1$d días</item>
+    </plurals>
+    <plurals name="subscription_home_expiring_body">
+        <item quantity="one">%1$s caduca en %2$d día. Actualízala o prepara un enlace de reemplazo.</item>
+        <item quantity="many">%1$s caduca en %2$d días. Actualízala o prepara un enlace de reemplazo.</item>
+        <item quantity="other">%1$s caduca en %2$d días. Actualízala o prepara un enlace de reemplazo.</item>
+    </plurals>
+    <plurals name="asset_provider_updated_days_ago">
+        <item quantity="one">Actualizado hace %1$d día</item>
+        <item quantity="many">Actualizado hace %1$d días</item>
+        <item quantity="other">Actualizado hace %1$d días</item>
+    </plurals>
+    <plurals name="biometric_prompt_pin_lockout_body">
+        <item quantity="one">Vuelve a intentarlo en %1$d segundo.</item>
+        <item quantity="many">Vuelve a intentarlo en %1$d segundos.</item>
+        <item quantity="other">Vuelve a intentarlo en %1$d segundos.</item>
+    </plurals>
+    <plurals name="subscription_status_profiles_format">
+        <item quantity="one">%1$d perfil asignado</item>
+        <item quantity="many">%1$d perfiles asignados</item>
+        <item quantity="other">%1$d perfiles asignados</item>
+    </plurals>
+    <plurals name="domain_bypass_clean_count">
+        <item quantity="one">%1$d entrada válida</item>
+        <item quantity="many">%1$d entradas válidas</item>
+        <item quantity="other">%1$d entradas válidas</item>
+    </plurals>
+    <plurals name="shared_diagnostic_endpoints_count">
+        <item quantity="one">%1$d endpoint</item>
+        <item quantity="many">%1$d endpoints</item>
+        <item quantity="other">%1$d endpoints</item>
+    </plurals>
+    <plurals name="vpn_replay_history_row_format">
+        <item quantity="one">%1$s · %2$d evento</item>
+        <item quantity="many">%1$s · %2$d eventos</item>
+        <item quantity="other">%1$s · %2$d eventos</item>
+    </plurals>
+    <plurals name="adaptive_fallback_badge_triggers">
+        <item quantity="one">%1$d disparador</item>
+        <item quantity="many">%1$d disparadores</item>
+        <item quantity="other">%1$d disparadores</item>
+    </plurals>
+    <plurals name="activation_window_badge_step_filters">
+        <item quantity="one">%1$d regla de paso</item>
+        <item quantity="many">%1$d reglas de paso</item>
+        <item quantity="other">%1$d reglas de paso</item>
+    </plurals>
+    <plurals name="activation_window_step_filters_present">
+        <item quantity="one">%1$d regla de paso en el DSL de la cadena sigue añadiendo su propio filtro de activación sobre la ventana del grupo.</item>
+        <item quantity="many">%1$d reglas de paso en el DSL de la cadena siguen añadiendo sus propios filtros de activación sobre la ventana del grupo.</item>
+        <item quantity="other">%1$d reglas de paso en el DSL de la cadena siguen añadiendo sus propios filtros de activación sobre la ventana del grupo.</item>
+    </plurals>
+    <plurals name="home_diagnostics_vpn_detectors_summary">
+        <item quantity="one">%1$d app instalada es un detector conocido de VPN.</item>
+        <item quantity="many">%1$d apps instaladas son detectores conocidos de VPN.</item>
+        <item quantity="other">%1$d apps instaladas son detectores conocidos de VPN.</item>
+    </plurals>
+    <plurals name="diagnostics_stages_show">
+        <item quantity="one">Ver etapas de conexión (%1$d ruta)</item>
+        <item quantity="many">Ver etapas de conexión (%1$d rutas)</item>
+        <item quantity="other">Ver etapas de conexión (%1$d rutas)</item>
+    </plurals>
+    <plurals name="diagnostics_stages_hide">
+        <item quantity="one">Ocultar etapas (%1$d ruta)</item>
+        <item quantity="many">Ocultar etapas (%1$d rutas)</item>
+        <item quantity="other">Ocultar etapas (%1$d rutas)</item>
+    </plurals>
+    <plurals name="diagnostics_profile_curated_packs_included">
+        <item quantity="one">%1$d paquete seleccionado incluido.</item>
+        <item quantity="many">%1$d paquetes seleccionados incluidos.</item>
+        <item quantity="other">%1$d paquetes seleccionados incluidos.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_complete">
+        <item quantity="one">Se comprobó %1$d subred en caché.</item>
+        <item quantity="many">Se comprobaron %1$d subredes en caché.</item>
+        <item quantity="other">Se comprobaron %1$d subredes en caché.</item>
+    </plurals>
+    <plurals name="diagnostics_local_overview">
+        <item quantity="one">%1$s · %2$d condición que revisar</item>
+        <item quantity="many">%1$s · %2$d condiciones que revisar</item>
+        <item quantity="other">%1$s · %2$d condiciones que revisar</item>
+    </plurals>
+</resources>

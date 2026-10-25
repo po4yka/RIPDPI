@@ -524,7 +524,6 @@
     <string name="home_diagnostics_detection_needs_review">نتایج تشخیص نیاز به بررسی دارد</string>
     <string name="home_diagnostics_detection_not_detected">هیچ سیگنال تشخیصی مشاهده نشد</string>
     <string name="home_diagnostics_vpn_detectors_title">برنامه‌هایی که VPN را تشخیص می‌دهند</string>
-    <string name="home_diagnostics_vpn_detectors_summary">%1$d برنامهٔ نصب‌شده شناخته‌شده به‌عنوان تشخیص‌دهندهٔ VPN.</string>
     <string name="home_diagnostics_pcap_toggle">ضبط بسته‌ها (پیشرفته)</string>
     <string name="home_diagnostics_pcap_helper">به root نیاز دارد. بایت‌های خام بسته را برای این اجرا در یک فایل PCAP محلی جداگانه ضبط می‌کند؛ آرشیوهای تشخیصی ویرایش‌شده ضبط‌های بسته را در خود قرار نمی‌دهند.</string>
     <string name="diagnostics_pcap_card_title">ضبط بسته</string>
@@ -861,7 +860,6 @@
     <string name="network_strategy_memory_section_title">حافظهٔ راهبرد شبکه</string>
     <string name="network_strategy_memory_enabled_title">به یاد سپردن سیاست به ازای هر شبکه</string>
     <string name="network_strategy_memory_enabled_body">یک سیاست مسیریابی اعتبارسنجی‌شده برای اثر انگشت شبکهٔ فعلی ذخیره کنید و آن را در شروع‌های آینده دوباره استفاده کنید.</string>
-    <string name="network_strategy_memory_count_summary">%1$d شبکهٔ به‌خاطر سپرده‌شده به‌صورت محلی ذخیره شده‌اند.</string>
     <string name="network_strategy_memory_clear_action">پاک کردن شبکه‌های به‌خاطر سپرده‌شده</string>
     <string name="network_strategy_memory_helper">فقط تطابق‌های اعتبارسنجی‌شدهٔ شبکه به‌صورت خودکار اعمال می‌شوند. SSID خام، BSSID و شناسه‌های اپراتور خارج از ذخیره‌سازی باقی می‌مانند.</string>
     <string name="network_strategy_memory_inspect_title">شبکه‌های به‌خاطر‌سپرده</string>
@@ -869,12 +867,10 @@
     <string name="remembered_networks_intro_title">برچسب‌های حافظ حریم خصوصی</string>
     <string name="remembered_networks_intro_body">هر شبکه تنها با یک درهم‌سازی یک‌طرفهٔ دامنه شناسایی می‌شود. SSID، BSSID، اپراتور و نشانی‌های IP خام هرگز ذخیره یا نمایش داده نمی‌شوند.</string>
     <string name="remembered_networks_header_helper">حذف یک ورودی، سیاست ذخیره‌شده و یادگیری DNS آن را برای همیشه از این دستگاه پاک می‌کند.</string>
-    <string name="remembered_networks_count_summary">%1$d شبکهٔ به‌خاطر‌سپرده</string>
     <string name="remembered_networks_clear_all_action">پاک کردن همه</string>
     <string name="remembered_networks_empty_title">هیچ شبکهٔ به‌خاطر‌سپرده‌ای نیست</string>
     <string name="remembered_networks_empty_body">سیاست‌های اعتبارسنجی‌شده زمانی اینجا ظاهر می‌شوند که برنامه راهبردی کارآمد برای یک شبکه یاد بگیرد.</string>
     <string name="remembered_networks_scope_label">دامنه %1$s</string>
-    <string name="remembered_networks_dns_servers">%1$d سرور DNS</string>
     <string name="remembered_networks_private_dns_label">DNS خصوصی: %1$s</string>
     <string name="remembered_networks_strategy_label">راهبرد: %1$s</string>
     <string name="remembered_networks_outcomes">%1$d موفق · %2$d ناموفق</string>
@@ -938,7 +934,6 @@
     <string name="adaptive_fallback_cache_summary">%1$d ثانیه · IPv4 /%2$d</string>
     <string name="adaptive_fallback_badge_enabled">فعال</string>
     <string name="adaptive_fallback_badge_disabled">غیرفعال</string>
-    <string name="adaptive_fallback_badge_triggers">%1$d محرک</string>
     <string name="adaptive_fallback_badge_auto_sort">مرتب‌سازی خودکار</string>
     <string name="adaptive_fallback_no_triggers_summary">هیچ محرکی انتخاب نشده.</string>
     <string name="ws_tunnel_section_title">تونل WebSocket</string>
@@ -1010,13 +1005,11 @@
     <string name="activation_window_scope_filtered">فقط تکه‌های خروجی درون محدوده‌های ذخیره‌شده می‌توانند از راهبرد عبور گروه‌محور، حمل‌و‌نقل fake، پیش‌درآمد TLS، و انفجارهای fake UDP استفاده کنند.</string>
     <string name="activation_window_scope_open">هر تکهٔ خروجی می‌تواند از گروه راهبرد عبور فعال استفاده کند.</string>
     <string name="activation_window_step_filters_none">هیچ قانون محلی when_round، when_size، یا when_stream در زنجیرهٔ DSL ذخیره نشده است.</string>
-    <string name="activation_window_step_filters_present">%1$d قانون مرحله در زنجیرهٔ DSL هنوز فیلترهای فعال‌سازی خود را در بالای پنجرهٔ گروه اضافه می‌کنند.</string>
     <string name="activation_window_badge_default">پیش‌فرض</string>
     <string name="activation_window_badge_custom">پنجرهٔ سفارشی</string>
     <string name="activation_window_badge_round">دور محدود</string>
     <string name="activation_window_badge_payload">بار محدود</string>
     <string name="activation_window_badge_stream">جریان محدود</string>
-    <string name="activation_window_badge_step_filters">%1$d قانون مرحله</string>
     <string name="activation_window_reset_action">بازنشانی پنجره</string>
     <string name="activation_window_range_status_open">باز</string>
     <string name="activation_window_range_status_scoped">محدودشده</string>
@@ -1509,7 +1502,6 @@ fakeddisorder endhost</string>
     <string name="detection_check_subtitle">بررسی کنید پیکربندی VPN/پروکسی شما چقدر قابل‌مشاهده است</string>
     <string name="detection_check_verdict_not_detected">شناسایی نشد</string>
     <string name="detection_community_error">بارگیری آمار جامعه ممکن نشد</string>
-    <string name="detection_community_reports">%d بررسی ثبت‌شده</string>
     <string name="detection_empty_history">هنوز بررسی‌ای انجام نشده</string>
     <string name="detection_finding_ok">مناسب</string>
     <string name="detection_methodology_info">اطلاعات روش‌شناسی</string>
@@ -1640,12 +1632,10 @@ fakeddisorder endhost</string>
     <string name="fake_order_card_step_label">گام اصلی</string>
     <string name="host_pack_apply_confirm">اعمال پک</string>
     <string name="host_pack_apply_dismiss">انصراف</string>
-    <string name="host_pack_apply_summary_hosts_only">%1$d میزبان</string>
     <string name="host_pack_badge_checksum_verified">SHA-256 تأیید شد</string>
     <string name="host_pack_bundled_status_body">RIPDPI از عکس‌فوری host-pack منتخب همراه برنامه استفاده می‌کند. بازخوانی آخرین geosite.dat را دانلود می‌کند، چک‌سام SHA-256 آن را تأیید می‌کند و تنها پس از آن کش روی دستگاه را جایگزین می‌کند.</string>
     <string name="host_pack_degraded_status_body_unreadable">RIPDPI نتوانست عکس‌فوری کش host-pack منتخب را روی این دستگاه بخواند، بنابراین به عکس‌فوری همراه برنامه بازگشت.</string>
     <string name="host_pack_download_failed_status_title">آخرین بازخوانی نتوانست دانلود کند</string>
-    <string name="host_pack_hosts_badge">%1$d میزبان</string>
     <string name="host_pack_last_fetch_label">آخرین واکشی تأییدشده</string>
     <string name="host_pack_last_refresh_attempt_never">هنوز تلاشی انجام نشده</string>
     <string name="host_pack_presets_body">یک لیست سرویس آماده برای برنامه‌های رایج با مشکلات اتصال انتخاب کنید. بازخوانی می‌تواند عکس‌فوری جدیدتر geosite را دانلود کند، در حالی که اعمال پک انتخاب‌شده را در فهرست سیاه یا سفید زیر می‌نویسد.</string>
@@ -2061,14 +2051,12 @@ fakeddisorder endhost</string>
     <string name="fake_order_card_title">ترتیب fake</string>
     <string name="host_pack_apply_dialog_message">انتخاب کنید این فهرست میزبان گزینش‌شده به کجا برود. فقط فیلد متنی انتخاب‌شده تغییر می‌کند.</string>
     <string name="host_pack_apply_merge">ادغام</string>
-    <string name="host_pack_apply_summary">%1$d میزبان · %2$s</string>
     <string name="host_pack_badge_downloaded">دانلودشده</string>
     <string name="host_pack_bundled_status_title">استفاده از snapshot همراه</string>
     <string name="host_pack_degraded_status_title">snapshot کش‌شده دور انداخته شد</string>
     <string name="host_pack_downloaded_status_body">بسته‌های میزبان گزینش‌شده فعلی از یک دانلود geosite.dat با چک‌سام تأییدشده که روی این دستگاه ذخیره شده، آمده‌اند.</string>
     <string name="host_pack_invalid_snapshot_status_body">RIPDPI دانلود را تأیید کرد، اما snapshot راه‌دور geosite به یک کاتالوگ کامل بسته میزبان گزینش‌شده تبدیل نشد. snapshot فعلی فعال باقی ماند.</string>
     <string name="host_pack_last_fetch_never">هنوز دریافت نشده</string>
-    <string name="host_pack_packs_badge">%1$d بسته</string>
     <string name="host_pack_presets_title">بسته‌های میزبان گزینش‌شده</string>
     <string name="host_pack_refresh_source_hint">منبع: مخزن geosite در raw.githubusercontent.com انتشار release/geosite.dat به‌علاوه فایل SHA-256 منتشرشده آن.</string>
     <string name="host_pack_semantics_note">فیلترهای میزبان RIPDPI با پسوند تطبیق می‌دهند. ورودی‌های full: geosite تبدیل‌شده بنابراین بر میزبان دقیق و زیردامنه‌های آن اعمال می‌شوند.</string>
@@ -2321,7 +2309,6 @@ fakeddisorder endhost</string>
     <string name="biometric_dialog_title">بازگشایی RIPDPI</string>
     <string name="biometric_prompt_no_pin_body">در حال حاضر فقط احراز هویت بیومتریک برای این دستگاه پیکربندی شده است.</string>
     <string name="biometric_prompt_pin_error">PIN پشتیبان مطابقت ندارد.</string>
-    <string name="biometric_prompt_pin_lockout_body">پس از %1$d ثانیه دوباره تلاش کنید.</string>
     <string name="biometric_prompt_pin_title">PIN پشتیبان را وارد کنید</string>
     <string name="biometric_prompt_use_pin">استفاده از PIN پشتیبان</string>
     <string name="bye_dpi_proxy_ip_setting">نشانی شنونده</string>
@@ -3035,7 +3022,6 @@ fakeddisorder endhost</string>
     <string name="vpn_confirm_disconnect_stay">متصل بمان</string>
     <string name="vpn_confirm_disconnect_disconnect">قطع کن</string>
     <string name="vpn_export_consent_title_format">برون‌برد %1$s</string>
-    <string name="vpn_export_consent_meta_format">%1$s · %2$d بسته</string>
     <string name="vpn_export_consent_redact_label">پوشاندن IPها به ۰.۰.۰.۰</string>
     <string name="vpn_export_consent_cancel">انصراف</string>
     <string name="vpn_export_consent_confirm">برون‌برد</string>
@@ -3052,7 +3038,6 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_save_to_archive">ذخیره در بایگانی عیب‌یابی</string>
     <string name="vpn_replay_history_title">بازپخش‌های قبلی</string>
     <string name="vpn_replay_history_empty">هنوز بازپخشی وجود ندارد</string>
-    <string name="vpn_replay_history_row_format">%1$s · %2$d رویداد</string>
     <string name="vpn_replay_history_verdict_success">موفق</string>
     <string name="vpn_replay_history_verdict_failure">ناموفق</string>
     <string name="vpn_replay_history_verdict_cancelled">لغو شد</string>
@@ -3082,8 +3067,6 @@ fakeddisorder endhost</string>
     <string name="vpn_pcap_read_failed">خواندن داده‌های PCAP ممکن نشد.</string>
     <string name="vpn_pcap_truncated">۲۰۰۰ بستهٔ نخست نمایش داده می‌شوند.</string>
     <string name="vpn_pcap_no_packets">این ضبط هیچ بسته‌ای ندارد.</string>
-    <string name="vpn_pcap_capture_meta_format">%1$d کیبی · %2$d بسته</string>
-    <string name="vpn_pcap_capture_drops_format">%1$d بسته زیر بار از دست رفت</string>
 
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">توسعه‌دهنده</string>
@@ -3178,7 +3161,6 @@ fakeddisorder endhost</string>
     <string name="domain_bypass_intro_body">دامنه‌های فهرست‌شده در اینجا بدون عبور از پراکسی مستقیم وصل می‌شوند. هر خط یک مورد. دامنه ساده (example.com)، پسوند (.example.com) و پیشوندهای domain:، domain_suffix: و domain_regex: پذیرفته می‌شوند.</string>
     <string name="domain_bypass_editor_label">دامنه‌ها (هر خط یک مورد)</string>
     <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
-    <string name="domain_bypass_clean_count">%1$d مورد معتبر</string>
     <string name="domain_bypass_errors_title">%1$d خط نامعتبر</string>
     <string name="domain_bypass_error_line">خط %1$d: %2$s</string>
     <string name="domain_bypass_paste">چسباندن</string>
@@ -3310,7 +3292,6 @@ fakeddisorder endhost</string>
     <string name="asset_provider_exit_pending_body">RIPDPI هر عملیات فعال دارایی را لغو می‌کند، تنظیمات ارائه‌دهنده را ذخیره می‌کند و سپس بازمی‌گردد.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسیه)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعه قوانین عبور پیش‌فرض برای روسیه؛ به‌روزتر از antizapret برای تگ‌های geoip/geosite در v2ray/xray.</string>
-    <string name="asset_provider_updated_days_ago">%1$d روز پیش به‌روزرسانی شد</string>
     <string name="asset_provider_updated_today">امروز به‌روزرسانی شد</string>
     <string name="asset_provider_updated_never">هرگز به‌روزرسانی نشده</string>
     <!-- Backup &amp; Restore -->
@@ -3580,7 +3561,6 @@ fakeddisorder endhost</string>
     <string name="rkn_self_info_source">منبع</string>
     <string name="shared_diagnostic_screen_title">تشخیص هم‌رسانی‌شده</string>
     <string name="shared_diagnostic_result_snapshot_title">عکس فوری نتیجه</string>
-    <string name="shared_diagnostic_endpoints_count">%1$d نقطه پایانی</string>
     <string name="shared_diagnostic_endpoint_label">نقطه پایانی %1$d</string>
     <string name="shared_diagnostic_alive_prefix">فعال: %1$s</string>
     <string name="shared_diagnostic_open_error_title">باز کردن تشخیص هم‌رسانی‌شده ممکن نیست</string>
@@ -3890,7 +3870,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_ipv4_whitelist_caching">در حال ذخیره در حافظهٔ نهان...</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">بررسی حافظهٔ نهان</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">بررسی زیرشبکه ناموفق بود.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_complete">%1$d زیرشبکهٔ ذخیره‌شده بررسی شد.</string>
     <string name="diagnostics_ipv4_whitelist_checked_progress">%1$d/%2$d زیرشبکهٔ ذخیره‌شده بررسی شد.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">زیرشبکه‌های فهرست سفید IPv4.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">در حال دریافت پیشوندهای اعلام‌شدهٔ IPv4...</string>
@@ -3910,7 +3889,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_overview_policy_failures">شکست‌ها %1$d</string>
     <string name="diagnostics_overview_policy_success">موفقیت %1$d</string>
     <string name="diagnostics_overview_policy_validated">تأییدشده %1$s</string>
-    <string name="diagnostics_profile_curated_packs_included">%1$d بستهٔ گزینش‌شده گنجانده شد.</string>
     <string name="diagnostics_profile_manual_run_only">فقط اجرای دستی.</string>
     <string name="diagnostics_pt_complete">دسترس‌پذیری نقاط پایانی obfs4، Snowflake و meek بررسی شد.</string>
     <string name="diagnostics_pt_failed">بررسی دسترس‌پذیری PT ناموفق بود.</string>
@@ -4108,14 +4086,12 @@ fakeddisorder endhost</string>
     <string name="subscription_status_empty_body">جزئیات اشتراک‌های واردشده اینجا نمایش داده می‌شود.</string>
     <string name="subscription_status_reveal_secrets">نمایش اطلاعات محرمانه اشتراک</string>
     <string name="subscription_status_hide_secrets">پنهان کردن اطلاعات محرمانه اشتراک</string>
-    <string name="subscription_status_profiles_format">%1$d نمایه اختصاص‌یافته</string>
     <string name="subscription_status_last_refresh_format">آخرین به‌روزرسانی: %1$s</string>
     <string name="subscription_status_token_expiry_format">انقضای توکن: %1$s</string>
     <string name="subscription_status_credential_expiry_format">انقضای اعتبارنامه: %1$s</string>
     <string name="subscription_status_replacement_help">نمایه‌های ذخیره‌شده قابل استفاده می‌مانند. برای ادامه به‌روزرسانی‌ها پیوند جایگزین وارد کنید.</string>
     <string name="subscription_status_refresh_action">اکنون به‌روزرسانی شود</string>
     <string name="subscription_status_active">فعال</string>
-    <string name="subscription_status_expiring_days">تا %1$d روز دیگر منقضی می‌شود</string>
     <string name="subscription_status_expired">منقضی‌شده</string>
     <string name="subscription_status_invalidated">منقضی یا لغوشده</string>
     <string name="subscription_status_unknown">زمان انقضا مشخص نیست</string>
@@ -4126,7 +4102,6 @@ fakeddisorder endhost</string>
     <string name="subscription_status_token_format">توکن: %1$s</string>
     <string name="subscription_home_multiple_title">%1$d اشتراک نیاز به توجه دارد</string>
     <string name="subscription_home_expiring_title">اشتراک به‌زودی منقضی می‌شود</string>
-    <string name="subscription_home_expiring_body">%1$s تا %2$d روز دیگر منقضی می‌شود. آن را به‌روزرسانی یا پیوند جایگزین آماده کنید.</string>
     <string name="subscription_home_expired_title">اشتراک منقضی شد</string>
     <string name="subscription_home_expired_body">%1$s دیگر به‌روزرسانی نمی‌شود. نمایه‌های موجود همچنان در دسترس‌اند.</string>
     <string name="subscription_home_invalidated_title">اشتراک در دسترس نیست</string>

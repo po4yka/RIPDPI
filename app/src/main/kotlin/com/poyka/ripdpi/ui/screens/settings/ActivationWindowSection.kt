@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -175,8 +176,9 @@ private fun activationWindowScopeSummary(uiState: SettingsUiState): String =
 @Composable
 private fun activationWindowStepFilterSummary(uiState: SettingsUiState): String =
     if (uiState.desync.hasStepActivationFilters) {
-        stringResource(
-            R.string.activation_window_step_filters_present,
+        pluralStringResource(
+            R.plurals.activation_window_step_filters_present,
+            uiState.desync.stepActivationFilterCount,
             uiState.desync.stepActivationFilterCount,
         )
     } else {
@@ -198,8 +200,9 @@ private fun activationWindowBadges(uiState: SettingsUiState): List<Pair<String, 
         }
         if (uiState.desync.hasStepActivationFilters) {
             add(
-                stringResource(
-                    R.string.activation_window_badge_step_filters,
+                pluralStringResource(
+                    R.plurals.activation_window_badge_step_filters,
+                    uiState.desync.stepActivationFilterCount,
                     uiState.desync.stepActivationFilterCount,
                 ) to SummaryCapsuleTone.Info,
             )

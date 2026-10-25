@@ -7,7 +7,6 @@
     <string name="diagnostics_local_evidence">证据</string>
     <string name="diagnostics_local_not_collected">此快照未收集</string>
     <string name="diagnostics_local_unknown">未知</string>
-    <string name="diagnostics_local_overview">%1$s · %2$d 项条件需检查</string>
     <string name="diagnostics_local_captured">采集时间</string>
     <string name="diagnostics_local_transport">Android 活动网络</string>
     <string name="diagnostics_local_airplane">飞行模式</string>

@@ -41,7 +41,6 @@
     <string name="detection_check_category_rtt_triangulation">RTT-триангуляция</string>
     <string name="detection_community_title">Сообщество</string>
     <string name="detection_community_local_title">Ваша статистика</string>
-    <string name="detection_community_reports">%d проверок записано</string>
     <string name="detection_community_avg_score">Средняя оценка скрытности: %d/100</string>
     <string name="detection_community_detected_pct">%d%% проверок обнаружены</string>
     <string name="detection_community_loading">Загружаем статистику сообщества…</string>

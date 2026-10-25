@@ -274,7 +274,6 @@
     <string name="home_diagnostics_share_failed">Échec du partage des journaux et résultats d\'analyse.</string>
     <string name="home_diagnostics_copy_support_code">Copier pour l\'assistance</string>
     <string name="home_diagnostics_title">Auditer ce réseau et préparer un lancement vérifié</string>
-    <string name="home_diagnostics_vpn_detectors_summary">%1$d applications installées sont des détecteurs de VPN connus.</string>
     <string name="home_history_title">Examiner les sessions enregistrées et les échecs</string>
     <string name="home_mode_card_diagnostic_status_actionable">Recommandation prête</string>
     <string name="home_mode_card_disable">Désactiver</string>
@@ -305,7 +304,6 @@
     <string name="host_autolearn_reset_hint_waiting">Rien n\'est encore stocké. RIPDPI écrit le fichier d\'hôtes appris après avoir réussi à apprendre un hôte.</string>
     <string name="host_autolearn_store_present_summary">Les routes d\'hôtes stockées sont disponibles sur cet appareil.</string>
     <string name="host_pack_apply_dialog_title">Appliquer le pack %1$s</string>
-    <string name="host_pack_apply_summary_hosts_only">%1$d hôtes</string>
     <string name="host_pack_bundled_status_body">RIPDPI utilise l\'instantané du pack d\'hôtes sélectionné fourni avec l\'application. L\'actualisation télécharge le dernier geosite.dat, vérifie sa somme SHA-256, et ne remplace qu\'ensuite le cache local.</string>
     <string name="host_pack_download_failed_status_body">RIPDPI n\'a pas pu récupérer les derniers fichiers source du pack d\'hôtes. L\'instantané actuel du pack d\'hôtes reste actif.</string>
     <string name="host_pack_invalid_snapshot_status_body">RIPDPI a vérifié le téléchargement, mais l\'instantané geosite distant n\'a pas pu former un catalogue de pack d\'hôtes complet et sélectionné. L\'instantané actuel est resté actif.</string>
@@ -326,7 +324,6 @@
     <string name="logs_severity_info">INFO</string>
     <string name="logs_stream_section">Flux de journaux</string>
     <string name="logs_subsystem_tunnel">TUNNEL</string>
-    <string name="network_strategy_memory_count_summary">%1$d réseaux mémorisés stockés localement.</string>
     <string name="notice_activation_window_reset_message">RIPDPI cessera de filtrer le groupe stratégie de contournement actif par cycle, taille de charge utile ou position d\'octet de flux au prochain démarrage.</string>
     <string name="notice_adaptive_ttl_reset_next_start_message">RIPDPI reviendra à un faux TTL fixe pour le groupe actif après le prochain redémarrage ou la prochaine reconnexion.</string>
     <string name="notice_fake_payload_reset_next_start_title">Préréglages de charges utiles factices réinitialisés au prochain démarrage</string>
@@ -539,7 +536,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="advanced_settings_error_oob_data">Les données OOB doivent être vides ou un seul caractère.</string>
     <string name="biometric_dialog_subtitle">Confirmez votre identité</string>
     <string name="biometric_prompt_no_pin_title">PIN de secours indisponible</string>
-    <string name="biometric_prompt_pin_lockout_body">Réessayez dans %1$d secondes.</string>
     <string name="biometric_prompt_use_biometric">Retour à la biométrie</string>
     <string name="block_signal_quic_breakage">Rupture QUIC</string>
     <string name="blockcheck_apply_best">Appliquer le meilleur</string>
@@ -894,7 +890,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="host_pack_bundled_status_title">Utilisation de l\'instantané intégré</string>
     <string name="host_pack_download_failed_status_title">La dernière actualisation n\'a pas pu être téléchargée</string>
     <string name="host_pack_invalid_snapshot_status_title">La dernière actualisation a produit un instantané invalide</string>
-    <string name="host_pack_packs_badge">%1$d packs</string>
     <string name="host_pack_refresh_in_progress">Récupération de la dernière liste</string>
     <string name="host_pack_snapshot_built_label">Instantané construit</string>
     <string name="host_pack_verification_failed_status_title">Échec de vérification de la dernière actualisation</string>
@@ -1093,7 +1088,6 @@ fakeddisorder endhost</string>
     <string name="about_category">À propos</string>
     <string name="about_package_name">Paquet</string>
     <string name="action_show_less">Afficher moins</string>
-    <string name="activation_window_badge_step_filters">%1$d règles d\'étape</string>
     <string name="activation_window_custom_title">Fenêtre personnalisée enregistrée</string>
     <string name="activation_window_group_disabled_body">Une fenêtre d’activation personnalisée est enregistrée, mais aucun groupe de stratégie de contournement actif ne l’utilise tant que la stratégie de contournement à l’échelle du groupe n’est pas réactivée.</string>
     <string name="activation_window_payload_card_title">Taille de charge utile</string>
@@ -1115,7 +1109,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_summary_label_window">Fenêtre de TTL</string>
     <string name="adaptive_fake_ttl_summary_window_value">TTL %1$d-%2$d</string>
     <string name="adaptive_fallback_auto_sort_body">Quand un groupe ultérieur continue de gagner pour les mêmes destinations, déplacez-le plus tôt dans l\'ordre adaptatif pour une récupération plus rapide.</string>
-    <string name="adaptive_fallback_badge_triggers">%1$d déclencheurs</string>
     <string name="adaptive_fallback_cache_ttl_title">TTL du cache adaptatif (secondes)</string>
     <string name="adaptive_fallback_disabled_title">Repli adaptatif désactivé</string>
     <string name="adaptive_fallback_no_triggers_summary">Aucun déclencheur sélectionné.</string>
@@ -1218,7 +1211,6 @@ fake_burst 3</string>
     <string name="detection_check_copy">Copier</string>
     <string name="detection_check_stop">Arrêter</string>
     <string name="detection_community_avg_score">Score moyen de furtivité : %d/100</string>
-    <string name="detection_community_reports">%d vérifications enregistrées</string>
     <string name="detection_finding_detected">Détecté</string>
     <string name="detection_onboarding_allow">Autoriser</string>
     <string name="detection_permission_rationale">Android classe ces autorisations comme localisation, car l’identité Wi-Fi et cellulaire peut indiquer où vous êtes. RIPDPI ne les utilise pas pour le suivi; les vérifications les utilisent seulement pour distinguer le comportement réseau, les identifiants bruts ne sont pas stockés et les exports de diagnostic les masquent.</string>
@@ -1948,12 +1940,10 @@ Source : %2$s</string>
     <string name="remembered_networks_intro_title">Étiquettes respectueuses de la vie privée</string>
     <string name="remembered_networks_intro_body">Chaque réseau est identifié uniquement par un hachage de portée à sens unique. Les SSID, BSSID, opérateur et adresses IP bruts ne sont jamais stockés ni affichés.</string>
     <string name="remembered_networks_header_helper">Supprimer une entrée efface définitivement sa règle stockée et l\'apprentissage DNS de cet appareil.</string>
-    <string name="remembered_networks_count_summary">%1$d réseaux mémorisés</string>
     <string name="remembered_networks_clear_all_action">Tout effacer</string>
     <string name="remembered_networks_empty_title">Aucun réseau mémorisé</string>
     <string name="remembered_networks_empty_body">Les règles validées apparaissent ici une fois que l\'application a appris une stratégie efficace pour un réseau.</string>
     <string name="remembered_networks_scope_label">Portée %1$s</string>
-    <string name="remembered_networks_dns_servers">%1$d serveurs DNS</string>
     <string name="remembered_networks_private_dns_label">DNS privé : %1$s</string>
     <string name="remembered_networks_strategy_label">Stratégie : %1$s</string>
     <string name="remembered_networks_outcomes">%1$d réussites · %2$d échecs</string>
@@ -2196,7 +2186,6 @@ Source : %2$s</string>
     <string name="activation_window_reset_action">Réinitialiser la fenêtre</string>
     <string name="activation_window_round_effect">Seules les rondes de charge utile sortante sélectionnées peuvent activer l\'ensemble du groupe stratégie de contournement.</string>
     <string name="activation_window_scope_open">Chaque fragment sortant peut utiliser le groupe stratégie de contournement actif.</string>
-    <string name="activation_window_step_filters_present">%1$d règles d\'étape dans la DSL de la chaîne ajoutent encore leurs propres filtres d\'activation par-dessus la fenêtre de groupe.</string>
     <string name="activation_window_stream_effect">Seuls les fragments sortants qui touchent ces positions d\'octets cumulés peuvent activer l\'ensemble du groupe stratégie de contournement.</string>
     <string name="adaptive_fake_ttl_badge_custom">Adaptatif personnalisé</string>
     <string name="adaptive_fake_ttl_badge_runtime_learned">Appris à l\'exécution</string>
@@ -2537,10 +2526,8 @@ Source : %2$s</string>
     <string name="host_autolearn_reset_hint_running">Effacer le fichier stocké ne change pas la session active jusqu\'au redémarrage de RIPDPI.</string>
     <string name="host_autolearn_store_body">Un stockage d\'hôtes appris est déjà présent sur cet appareil. Effacez-le si vous voulez que RIPDPI reconstruise les préférences d\'hôtes à partir de zéro.</string>
     <string name="host_pack_apply_dialog_message">Choisissez où cette liste d\'hôtes organisée doit aller. Seul le champ de texte sélectionné change.</string>
-    <string name="host_pack_apply_summary">%1$d hôtes · %2$s</string>
     <string name="host_pack_badge_offline_snapshot">Instantané hors ligne</string>
     <string name="host_pack_degraded_status_title">L\'instantané en cache a été ignoré</string>
-    <string name="host_pack_hosts_badge">%1$d hôtes</string>
     <string name="host_pack_last_refresh_attempt_label">Dernière tentative d\'actualisation</string>
     <string name="host_pack_presets_title">Paquets d\'hôtes organisés</string>
     <string name="host_pack_refresh_status_title">Actualisation des paquets d\'hôtes organisés</string>
@@ -3030,7 +3017,6 @@ Source : %2$s</string>
     <string name="vpn_confirm_disconnect_stay">Rester connecté</string>
     <string name="vpn_confirm_disconnect_disconnect">Déconnecter</string>
     <string name="vpn_export_consent_title_format">Exporter %1$s</string>
-    <string name="vpn_export_consent_meta_format">%1$s · %2$d paquets</string>
     <string name="vpn_export_consent_redact_label">Masquer les IP de destination en 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Annuler</string>
     <string name="vpn_export_consent_confirm">Exporter</string>
@@ -3047,7 +3033,6 @@ Source : %2$s</string>
     <string name="vpn_replay_save_to_archive">Enregistrer dans l\'archive de diagnostic</string>
     <string name="vpn_replay_history_title">Rejeux passés</string>
     <string name="vpn_replay_history_empty">Aucun rejeu pour le moment</string>
-    <string name="vpn_replay_history_row_format">%1$s · %2$d événements</string>
     <string name="vpn_replay_history_verdict_success">Succès</string>
     <string name="vpn_replay_history_verdict_failure">Échec</string>
     <string name="vpn_replay_history_verdict_cancelled">Annulé</string>
@@ -3077,8 +3062,6 @@ Source : %2$s</string>
     <string name="vpn_pcap_read_failed">Impossible de lire les données PCAP.</string>
     <string name="vpn_pcap_truncated">Affichage des 2 000 premiers paquets.</string>
     <string name="vpn_pcap_no_packets">Cette capture ne contient aucun paquet.</string>
-    <string name="vpn_pcap_capture_meta_format">%1$d Kio · %2$d paquets</string>
-    <string name="vpn_pcap_capture_drops_format">%1$d paquets perdus sous charge</string>
 
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Développeur</string>
@@ -3173,7 +3156,6 @@ Source : %2$s</string>
     <string name="domain_bypass_intro_body">Les domaines listés ici se connectent directement sans passer par le proxy. Un par ligne. Accepte les domaines simples (example.com), les suffixes (.example.com) et les préfixes domain:, domain_suffix: et domain_regex:.</string>
     <string name="domain_bypass_editor_label">Domaines (un par ligne)</string>
     <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
-    <string name="domain_bypass_clean_count">%1$d entrées valides</string>
     <string name="domain_bypass_errors_title">%1$d ligne(s) non valide(s)</string>
     <string name="domain_bypass_error_line">Ligne %1$d : %2$s</string>
     <string name="domain_bypass_paste">Coller</string>
@@ -3305,7 +3287,6 @@ Source : %2$s</string>
     <string name="asset_provider_exit_pending_body">RIPDPI annule toute opération active sur les ressources, enregistre les réglages du fournisseur, puis revient en arrière.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russie)</string>
     <string name="asset_provider_runetfreedom_desc">Jeu de règles de contournement de facto pour la RU ; plus à jour qu\'antizapret pour les tags geoip/geosite v2ray/xray.</string>
-    <string name="asset_provider_updated_days_ago">Mis à jour il y a %1$d jours</string>
     <string name="asset_provider_updated_today">Mis à jour aujourd\'hui</string>
     <string name="asset_provider_updated_never">Jamais mis à jour</string>
     <!-- Backup &amp; Restore -->
@@ -3575,7 +3556,6 @@ Source : %2$s</string>
     <string name="rkn_self_info_source">Source</string>
     <string name="shared_diagnostic_screen_title">Diagnostic partagé</string>
     <string name="shared_diagnostic_result_snapshot_title">Instantané du résultat</string>
-    <string name="shared_diagnostic_endpoints_count">%1$d points de terminaison</string>
     <string name="shared_diagnostic_endpoint_label">Point de terminaison %1$d</string>
     <string name="shared_diagnostic_alive_prefix">Actif : %1$s</string>
     <string name="shared_diagnostic_open_error_title">Impossible d\'ouvrir le diagnostic partagé</string>
@@ -3885,7 +3865,6 @@ Source : %2$s</string>
     <string name="diagnostics_ipv4_whitelist_caching">Mise en cache…</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">Vérifier le cache</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">La vérification des sous-réseaux a échoué.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_complete">%1$d sous-réseaux mis en cache vérifiés.</string>
     <string name="diagnostics_ipv4_whitelist_checked_progress">%1$d/%2$d sous-réseaux mis en cache vérifiés.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">Sous-réseaux en liste blanche IPv4.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">Récupération des préfixes IPv4 annoncés…</string>
@@ -3905,7 +3884,6 @@ Source : %2$s</string>
     <string name="diagnostics_overview_policy_failures">Échecs %1$d</string>
     <string name="diagnostics_overview_policy_success">Réussites %1$d</string>
     <string name="diagnostics_overview_policy_validated">Validé %1$s</string>
-    <string name="diagnostics_profile_curated_packs_included">%1$d packs sélectionnés inclus.</string>
     <string name="diagnostics_profile_manual_run_only">Exécution manuelle uniquement.</string>
     <string name="diagnostics_pt_complete">Accessibilité des points de terminaison obfs4, Snowflake et meek vérifiée.</string>
     <string name="diagnostics_pt_failed">La vérification d\'accessibilité PT a échoué.</string>
@@ -4103,14 +4081,12 @@ Source : %2$s</string>
     <string name="subscription_status_empty_body">Les détails des abonnements importés apparaîtront ici.</string>
     <string name="subscription_status_reveal_secrets">Afficher les secrets de l’abonnement</string>
     <string name="subscription_status_hide_secrets">Masquer les secrets de l’abonnement</string>
-    <string name="subscription_status_profiles_format">%1$d profils attribués</string>
     <string name="subscription_status_last_refresh_format">Dernière actualisation : %1$s</string>
     <string name="subscription_status_token_expiry_format">Expiration du jeton : %1$s</string>
     <string name="subscription_status_credential_expiry_format">Expiration des identifiants : %1$s</string>
     <string name="subscription_status_replacement_help">Les profils enregistrés restent utilisables. Importez un nouveau lien pour reprendre les actualisations.</string>
     <string name="subscription_status_refresh_action">Actualiser maintenant</string>
     <string name="subscription_status_active">Actif</string>
-    <string name="subscription_status_expiring_days">Expire dans %1$d jours</string>
     <string name="subscription_status_expired">Expiré</string>
     <string name="subscription_status_invalidated">Expiré ou révoqué</string>
     <string name="subscription_status_unknown">Aucune expiration indiquée</string>
@@ -4121,7 +4097,6 @@ Source : %2$s</string>
     <string name="subscription_status_token_format">Jeton : %1$s</string>
     <string name="subscription_home_multiple_title">%1$d abonnements nécessitent votre attention</string>
     <string name="subscription_home_expiring_title">L’abonnement expire bientôt</string>
-    <string name="subscription_home_expiring_body">%1$s expire dans %2$d jours. Actualisez-le ou préparez un nouveau lien.</string>
     <string name="subscription_home_expired_title">Abonnement expiré</string>
     <string name="subscription_home_expired_body">%1$s ne peut plus être actualisé. Les profils existants restent disponibles.</string>
     <string name="subscription_home_invalidated_title">Abonnement indisponible</string>

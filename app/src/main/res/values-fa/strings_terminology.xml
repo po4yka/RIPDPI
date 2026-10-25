@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="network_strategy_memory_count_summary">
+        <item quantity="one">%1$d شبکهٔ به‌خاطر سپرده‌شده به‌صورت محلی ذخیره شده است.</item>
+        <item quantity="other">%1$d شبکهٔ به‌خاطر سپرده‌شده به‌صورت محلی ذخیره شده‌اند.</item>
+    </plurals>
+    <plurals name="remembered_networks_count_summary">
+        <item quantity="one">%1$d شبکهٔ به‌خاطر‌سپرده</item>
+        <item quantity="other">%1$d شبکهٔ به‌خاطر‌سپرده</item>
+    </plurals>
+    <plurals name="remembered_networks_dns_servers">
+        <item quantity="one">%1$d سرور DNS</item>
+        <item quantity="other">%1$d سرور DNS</item>
+    </plurals>
+    <plurals name="detection_community_reports">
+        <item quantity="one">%1$d بررسی ثبت‌شده</item>
+        <item quantity="other">%1$d بررسی ثبت‌شده</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_meta_format">
+        <item quantity="one">%1$s · %2$d بسته</item>
+        <item quantity="other">%1$s · %2$d بسته</item>
+    </plurals>
+    <plurals name="vpn_export_consent_meta_format">
+        <item quantity="one">%1$s · %2$d بسته</item>
+        <item quantity="other">%1$s · %2$d بسته</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_drops_format">
+        <item quantity="one">%1$d بسته زیر بار از دست رفت</item>
+        <item quantity="other">%1$d بسته زیر بار از دست رفت</item>
+    </plurals>
+    <plurals name="host_pack_hosts_count">
+        <item quantity="one">%1$d میزبان</item>
+        <item quantity="other">%1$d میزبان</item>
+    </plurals>
+    <plurals name="host_pack_apply_summary">
+        <item quantity="one">%1$d میزبان · %2$s</item>
+        <item quantity="other">%1$d میزبان · %2$s</item>
+    </plurals>
+    <plurals name="host_pack_packs_badge">
+        <item quantity="one">%1$d بسته</item>
+        <item quantity="other">%1$d بسته</item>
+    </plurals>
+    <plurals name="subscription_status_expiring_days">
+        <item quantity="one">تا %1$d روز دیگر منقضی می‌شود</item>
+        <item quantity="other">تا %1$d روز دیگر منقضی می‌شود</item>
+    </plurals>
+    <plurals name="subscription_home_expiring_body">
+        <item quantity="one">%1$s تا %2$d روز دیگر منقضی می‌شود. آن را به‌روزرسانی یا پیوند جایگزین آماده کنید.</item>
+        <item quantity="other">%1$s تا %2$d روز دیگر منقضی می‌شود. آن را به‌روزرسانی یا پیوند جایگزین آماده کنید.</item>
+    </plurals>
+    <plurals name="asset_provider_updated_days_ago">
+        <item quantity="one">%1$d روز پیش به‌روزرسانی شد</item>
+        <item quantity="other">%1$d روز پیش به‌روزرسانی شد</item>
+    </plurals>
+    <plurals name="biometric_prompt_pin_lockout_body">
+        <item quantity="one">پس از %1$d ثانیه دوباره تلاش کنید.</item>
+        <item quantity="other">پس از %1$d ثانیه دوباره تلاش کنید.</item>
+    </plurals>
+    <plurals name="subscription_status_profiles_format">
+        <item quantity="one">%1$d نمایه اختصاص‌یافته</item>
+        <item quantity="other">%1$d نمایه اختصاص‌یافته</item>
+    </plurals>
+    <plurals name="domain_bypass_clean_count">
+        <item quantity="one">%1$d مورد معتبر</item>
+        <item quantity="other">%1$d مورد معتبر</item>
+    </plurals>
+    <plurals name="shared_diagnostic_endpoints_count">
+        <item quantity="one">%1$d نقطه پایانی</item>
+        <item quantity="other">%1$d نقطه پایانی</item>
+    </plurals>
+    <plurals name="vpn_replay_history_row_format">
+        <item quantity="one">%1$s · %2$d رویداد</item>
+        <item quantity="other">%1$s · %2$d رویداد</item>
+    </plurals>
+    <plurals name="adaptive_fallback_badge_triggers">
+        <item quantity="one">%1$d محرک</item>
+        <item quantity="other">%1$d محرک</item>
+    </plurals>
+    <plurals name="activation_window_badge_step_filters">
+        <item quantity="one">%1$d قانون مرحله</item>
+        <item quantity="other">%1$d قانون مرحله</item>
+    </plurals>
+    <plurals name="activation_window_step_filters_present">
+        <item quantity="one">%1$d قانون مرحله در زنجیرهٔ DSL هنوز فیلتر فعال‌سازی خود را در بالای پنجرهٔ گروه اضافه می‌کند.</item>
+        <item quantity="other">%1$d قانون مرحله در زنجیرهٔ DSL هنوز فیلترهای فعال‌سازی خود را در بالای پنجرهٔ گروه اضافه می‌کنند.</item>
+    </plurals>
+    <plurals name="home_diagnostics_vpn_detectors_summary">
+        <item quantity="one">%1$d برنامهٔ نصب‌شده شناخته‌شده به‌عنوان تشخیص‌دهندهٔ VPN.</item>
+        <item quantity="other">%1$d برنامهٔ نصب‌شده شناخته‌شده به‌عنوان تشخیص‌دهندهٔ VPN.</item>
+    </plurals>
+    <plurals name="diagnostics_stages_show">
+        <item quantity="one">نمایش مراحل اتصال (%1$d مسیر)</item>
+        <item quantity="other">نمایش مراحل اتصال (%1$d مسیر)</item>
+    </plurals>
+    <plurals name="diagnostics_stages_hide">
+        <item quantity="one">پنهان کردن مراحل (%1$d مسیر)</item>
+        <item quantity="other">پنهان کردن مراحل (%1$d مسیر)</item>
+    </plurals>
+    <plurals name="diagnostics_profile_curated_packs_included">
+        <item quantity="one">%1$d بستهٔ گزینش‌شده گنجانده شد.</item>
+        <item quantity="other">%1$d بستهٔ گزینش‌شده گنجانده شد.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_complete">
+        <item quantity="one">%1$d زیرشبکهٔ ذخیره‌شده بررسی شد.</item>
+        <item quantity="other">%1$d زیرشبکهٔ ذخیره‌شده بررسی شد.</item>
+    </plurals>
+    <plurals name="diagnostics_local_overview">
+        <item quantity="one">%1$s · %2$d مورد برای بررسی</item>
+        <item quantity="other">%1$s · %2$d مورد برای بررسی</item>
+    </plurals>
+</resources>

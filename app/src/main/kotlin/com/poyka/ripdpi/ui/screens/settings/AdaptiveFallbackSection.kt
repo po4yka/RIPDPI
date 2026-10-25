@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -215,8 +216,9 @@ private fun adaptiveFallbackBadges(uiState: SettingsUiState): List<Pair<String, 
     buildList {
         add(adaptiveFallbackEnabledBadge(uiState))
         add(
-            stringResource(
-                R.string.adaptive_fallback_badge_triggers,
+            pluralStringResource(
+                R.plurals.adaptive_fallback_badge_triggers,
+                uiState.adaptiveFallback.triggerCount,
                 uiState.adaptiveFallback.triggerCount,
             ) to SummaryCapsuleTone.Info,
         )

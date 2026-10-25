@@ -72,6 +72,23 @@ class AndroidStringResolverLocaleTest {
     }
 
     @Test
+    fun `count labels agree with their number in English and Russian`() {
+        createActivity()
+        val resolver = AndroidStringResolver(englishContext(RuntimeEnvironment.getApplication()))
+
+        fun networks(count: Int) = resolver.getQuantityString(R.plurals.remembered_networks_count_summary, count, count)
+
+        selectLanguage("en")
+        assertEquals("1 remembered network", networks(1))
+        assertEquals("2 remembered networks", networks(2))
+        selectLanguage("ru")
+        assertEquals("1 запомненная сеть", networks(1))
+        assertEquals("3 запомненные сети", networks(3))
+        assertEquals("5 запомненных сетей", networks(5))
+        assertEquals("21 запомненная сеть", networks(21))
+    }
+
+    @Test
     fun `diagnostics numbers use selected Spanish on English system and follow language switch`() {
         createActivity()
         selectLanguage("es")

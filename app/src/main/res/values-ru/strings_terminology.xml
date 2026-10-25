@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="network_strategy_memory_count_summary">
+        <item quantity="one">%1$d запомненная сеть хранится локально.</item>
+        <item quantity="few">%1$d запомненные сети хранятся локально.</item>
+        <item quantity="many">%1$d запомненных сетей хранятся локально.</item>
+        <item quantity="other">%1$d запомненные сети хранятся локально.</item>
+    </plurals>
+    <plurals name="remembered_networks_count_summary">
+        <item quantity="one">%1$d запомненная сеть</item>
+        <item quantity="few">%1$d запомненные сети</item>
+        <item quantity="many">%1$d запомненных сетей</item>
+        <item quantity="other">%1$d запомненные сети</item>
+    </plurals>
+    <plurals name="remembered_networks_dns_servers">
+        <item quantity="one">%1$d DNS-сервер</item>
+        <item quantity="few">%1$d DNS-сервера</item>
+        <item quantity="many">%1$d DNS-серверов</item>
+        <item quantity="other">%1$d DNS-сервера</item>
+    </plurals>
+    <plurals name="detection_community_reports">
+        <item quantity="one">%1$d проверка записана</item>
+        <item quantity="few">%1$d проверки записаны</item>
+        <item quantity="many">%1$d проверок записано</item>
+        <item quantity="other">%1$d проверки записаны</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_meta_format">
+        <item quantity="one">%1$s · %2$d пакет</item>
+        <item quantity="few">%1$s · %2$d пакета</item>
+        <item quantity="many">%1$s · %2$d пакетов</item>
+        <item quantity="other">%1$s · %2$d пакета</item>
+    </plurals>
+    <plurals name="vpn_export_consent_meta_format">
+        <item quantity="one">%1$s · %2$d пакет</item>
+        <item quantity="few">%1$s · %2$d пакета</item>
+        <item quantity="many">%1$s · %2$d пакетов</item>
+        <item quantity="other">%1$s · %2$d пакета</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_drops_format">
+        <item quantity="one">%1$d пакет потерян под нагрузкой</item>
+        <item quantity="few">%1$d пакета потеряно под нагрузкой</item>
+        <item quantity="many">%1$d пакетов потеряно под нагрузкой</item>
+        <item quantity="other">%1$d пакета потеряно под нагрузкой</item>
+    </plurals>
+    <plurals name="host_pack_hosts_count">
+        <item quantity="one">%1$d хост</item>
+        <item quantity="few">%1$d хоста</item>
+        <item quantity="many">%1$d хостов</item>
+        <item quantity="other">%1$d хоста</item>
+    </plurals>
+    <plurals name="host_pack_apply_summary">
+        <item quantity="one">%1$d хост · %2$s</item>
+        <item quantity="few">%1$d хоста · %2$s</item>
+        <item quantity="many">%1$d хостов · %2$s</item>
+        <item quantity="other">%1$d хоста · %2$s</item>
+    </plurals>
+    <plurals name="host_pack_packs_badge">
+        <item quantity="one">%1$d набор</item>
+        <item quantity="few">%1$d набора</item>
+        <item quantity="many">%1$d наборов</item>
+        <item quantity="other">%1$d набора</item>
+    </plurals>
+    <plurals name="subscription_status_expiring_days">
+        <item quantity="one">Истекает через %1$d день</item>
+        <item quantity="few">Истекает через %1$d дня</item>
+        <item quantity="many">Истекает через %1$d дней</item>
+        <item quantity="other">Истекает через %1$d дня</item>
+    </plurals>
+    <plurals name="subscription_home_expiring_body">
+        <item quantity="one">%1$s истекает через %2$d день. Обновите её или подготовьте новую ссылку.</item>
+        <item quantity="few">%1$s истекает через %2$d дня. Обновите её или подготовьте новую ссылку.</item>
+        <item quantity="many">%1$s истекает через %2$d дней. Обновите её или подготовьте новую ссылку.</item>
+        <item quantity="other">%1$s истекает через %2$d дня. Обновите её или подготовьте новую ссылку.</item>
+    </plurals>
+    <plurals name="asset_provider_updated_days_ago">
+        <item quantity="one">Обновлено %1$d день назад</item>
+        <item quantity="few">Обновлено %1$d дня назад</item>
+        <item quantity="many">Обновлено %1$d дней назад</item>
+        <item quantity="other">Обновлено %1$d дня назад</item>
+    </plurals>
+    <plurals name="biometric_prompt_pin_lockout_body">
+        <item quantity="one">Повторите через %1$d секунду.</item>
+        <item quantity="few">Повторите через %1$d секунды.</item>
+        <item quantity="many">Повторите через %1$d секунд.</item>
+        <item quantity="other">Повторите через %1$d секунды.</item>
+    </plurals>
+    <plurals name="subscription_status_profiles_format">
+        <item quantity="one">%1$d назначенный профиль</item>
+        <item quantity="few">%1$d назначенных профиля</item>
+        <item quantity="many">%1$d назначенных профилей</item>
+        <item quantity="other">%1$d назначенных профиля</item>
+    </plurals>
+    <plurals name="domain_bypass_clean_count">
+        <item quantity="one">%1$d допустимая запись</item>
+        <item quantity="few">%1$d допустимые записи</item>
+        <item quantity="many">%1$d допустимых записей</item>
+        <item quantity="other">%1$d допустимые записи</item>
+    </plurals>
+    <plurals name="shared_diagnostic_endpoints_count">
+        <item quantity="one">%1$d точка</item>
+        <item quantity="few">%1$d точки</item>
+        <item quantity="many">%1$d точек</item>
+        <item quantity="other">%1$d точки</item>
+    </plurals>
+    <plurals name="vpn_replay_history_row_format">
+        <item quantity="one">%1$s · %2$d событие</item>
+        <item quantity="few">%1$s · %2$d события</item>
+        <item quantity="many">%1$s · %2$d событий</item>
+        <item quantity="other">%1$s · %2$d события</item>
+    </plurals>
+    <plurals name="adaptive_fallback_badge_triggers">
+        <item quantity="one">%1$d триггер</item>
+        <item quantity="few">%1$d триггера</item>
+        <item quantity="many">%1$d триггеров</item>
+        <item quantity="other">%1$d триггера</item>
+    </plurals>
+    <plurals name="activation_window_badge_step_filters">
+        <item quantity="one">%1$d правило шага</item>
+        <item quantity="few">%1$d правила шагов</item>
+        <item quantity="many">%1$d правил шагов</item>
+        <item quantity="other">%1$d правила шагов</item>
+    </plurals>
+    <plurals name="activation_window_step_filters_present">
+        <item quantity="one">%1$d правило шага в DSL цепочки ещё добавляет собственный фильтр активации поверх группового окна.</item>
+        <item quantity="few">%1$d правила шагов в DSL цепочки ещё добавляют собственные фильтры активации поверх группового окна.</item>
+        <item quantity="many">%1$d правил шагов в DSL цепочки ещё добавляют собственные фильтры активации поверх группового окна.</item>
+        <item quantity="other">%1$d правила шагов в DSL цепочки ещё добавляют собственные фильтры активации поверх группового окна.</item>
+    </plurals>
+    <plurals name="home_diagnostics_vpn_detectors_summary">
+        <item quantity="one">%1$d установленное приложение известно как детектор VPN.</item>
+        <item quantity="few">%1$d установленных приложения известны как детекторы VPN.</item>
+        <item quantity="many">%1$d установленных приложений известны как детекторы VPN.</item>
+        <item quantity="other">%1$d установленных приложения известны как детекторы VPN.</item>
+    </plurals>
+    <plurals name="diagnostics_stages_show">
+        <item quantity="one">Стадии соединения (%1$d путь)</item>
+        <item quantity="few">Стадии соединения (%1$d пути)</item>
+        <item quantity="many">Стадии соединения (%1$d путей)</item>
+        <item quantity="other">Стадии соединения (%1$d пути)</item>
+    </plurals>
+    <plurals name="diagnostics_stages_hide">
+        <item quantity="one">Скрыть стадии (%1$d путь)</item>
+        <item quantity="few">Скрыть стадии (%1$d пути)</item>
+        <item quantity="many">Скрыть стадии (%1$d путей)</item>
+        <item quantity="other">Скрыть стадии (%1$d пути)</item>
+    </plurals>
+    <plurals name="diagnostics_profile_curated_packs_included">
+        <item quantity="one">Включён %1$d отобранный набор.</item>
+        <item quantity="few">Включено %1$d отобранных набора.</item>
+        <item quantity="many">Включено %1$d отобранных наборов.</item>
+        <item quantity="other">Включено %1$d отобранных набора.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_complete">
+        <item quantity="one">Проверена %1$d подсеть из кэша.</item>
+        <item quantity="few">Проверены %1$d подсети из кэша.</item>
+        <item quantity="many">Проверено %1$d подсетей из кэша.</item>
+        <item quantity="other">Проверены %1$d подсети из кэша.</item>
+    </plurals>
+    <plurals name="diagnostics_local_overview">
+        <item quantity="one">%1$s · %2$d условие для проверки</item>
+        <item quantity="few">%1$s · %2$d условия для проверки</item>
+        <item quantity="many">%1$s · %2$d условий для проверки</item>
+        <item quantity="other">%1$s · %2$d условия для проверки</item>
+    </plurals>
+</resources>

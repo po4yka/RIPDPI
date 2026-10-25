@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsConnectionLaneUiModel
@@ -45,8 +46,9 @@ internal fun DiagnosticsConnectionStageCard(
     ) {
         RipDpiButton(
             text =
-                stringResource(
-                    if (expanded) R.string.diagnostics_stages_hide else R.string.diagnostics_stages_show,
+                pluralStringResource(
+                    if (expanded) R.plurals.diagnostics_stages_hide else R.plurals.diagnostics_stages_show,
+                    scale.lanes.size,
                     scale.lanes.size,
                 ),
             onClick = { expanded = !expanded },

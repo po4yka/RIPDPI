@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -669,8 +670,9 @@ internal fun LazyListScope.networkStrategyMemorySection(
                 )
                 Text(
                     text =
-                        stringResource(
-                            R.string.network_strategy_memory_count_summary,
+                        pluralStringResource(
+                            R.plurals.network_strategy_memory_count_summary,
+                            uiState.autolearn.rememberedNetworkCount,
                             uiState.autolearn.rememberedNetworkCount,
                         ),
                     style = RipDpiThemeTokens.type.caption,

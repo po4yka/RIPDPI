@@ -471,7 +471,6 @@
     <string name="about_credits_title">致谢</string>
     <string name="about_project_section">项目</string>
     <string name="activation_window_badge_custom">自定义窗口</string>
-    <string name="activation_window_badge_step_filters">%1$d 条步骤规则</string>
     <string name="activation_window_custom_body">RIPDPI 会先按以下范围对整个活动 绕过策略 组进行门控,然后再发出 fake、split、TLS 前导或 UDP fake-burst 行为。</string>
     <string name="activation_window_field_from">起始</string>
     <string name="activation_window_group_off_body">当前没有活动的 绕过策略 链使用组激活窗口。你仍然可以为下一次启用组级 绕过策略 时预先配置。</string>
@@ -757,7 +756,6 @@
     <string name="host_autolearn_runtime_summary">当前会话:已学习 %1$d · 已惩罚 %2$d · 已阻止 %3$d</string>
     <string name="host_autolearn_store_title">存储的路由可用</string>
     <string name="host_pack_apply_dialog_title">应用 %1$s 主机包</string>
-    <string name="host_pack_apply_summary_hosts_only">%1$d 个主机</string>
     <string name="host_pack_badge_downloaded">已下载</string>
     <string name="host_pack_degraded_status_body_incompatible">RIPDPI 无法在本设备上使用缓存的控制面快照,因此回退到了应用附带的内置快照。</string>
     <string name="host_pack_download_failed_status_title">上次刷新无法下载</string>
@@ -785,12 +783,10 @@
     <string name="remembered_networks_intro_title">保护隐私的标签</string>
     <string name="remembered_networks_intro_body">每个网络仅通过单向作用域哈希进行标识。原始 SSID、BSSID、运营商和 IP 地址绝不会被存储或显示。</string>
     <string name="remembered_networks_header_helper">移除某一条目会从本设备永久清除其存储的策略和 DNS 学习记录。</string>
-    <string name="remembered_networks_count_summary">%1$d 个已记住的网络</string>
     <string name="remembered_networks_clear_all_action">全部清除</string>
     <string name="remembered_networks_empty_title">没有已记住的网络</string>
     <string name="remembered_networks_empty_body">当应用为某个网络学到可用策略后，已验证的策略会显示在此处。</string>
     <string name="remembered_networks_scope_label">作用域 %1$s</string>
-    <string name="remembered_networks_dns_servers">%1$d 个 DNS 服务器</string>
     <string name="remembered_networks_private_dns_label">私人 DNS：%1$s</string>
     <string name="remembered_networks_strategy_label">策略：%1$s</string>
     <string name="remembered_networks_outcomes">%1$d 成功 · %2$d 失败</string>
@@ -1052,7 +1048,6 @@ fakeddisorder endhost</string>
     <string name="activation_window_round_body">基于 1 的出站载荷分片编号。</string>
     <string name="activation_window_scope_filtered">只有保存范围内的出站分片可以使用组级 绕过策略、伪造传输、TLS 前置和 UDP 伪造突发。</string>
     <string name="activation_window_section_body">通过出站轮次、载荷大小和累计流字节位置对整个激活的 绕过策略 组进行门控。将字段留空可保持该维度无限制。每个步骤的过滤器仍属于链 DSL,通过 when_round、when_size 和 when_stream 设置。</string>
-    <string name="activation_window_step_filters_present">链 DSL 中的 %1$d 条步骤规则仍在组窗口之上添加各自的激活过滤器。</string>
     <string name="activation_window_stream_card_title">流字节位置</string>
     <string name="adaptive_fake_ttl_adaptive_title">自适应伪造 TTL 已就绪</string>
     <string name="adaptive_fake_ttl_badge_fake">伪造</string>
@@ -1311,7 +1306,6 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_regression_recovered_label">新近恢复</string>
     <string name="home_diagnostics_routing_sanity_summary">在 %2$d 个条目中已配置 %1$d 个已知 VPN 检测应用。</string>
     <string name="home_diagnostics_stage_recommendation_marker">活动建议</string>
-    <string name="home_diagnostics_vpn_detectors_summary">%1$d 个已安装应用属于已知 VPN 检测应用。</string>
     <string name="home_history_title">查看已保存的会话和失败记录</string>
     <string name="home_mode_card_diagnostic_empty">暂无分析</string>
     <string name="home_mode_card_diagnostic_status_review">查看最新审计</string>
@@ -1342,7 +1336,6 @@ fakeddisorder endhost</string>
     <string name="host_autolearn_section_title">主机学习</string>
     <string name="host_pack_action_title">应用模式</string>
     <string name="host_pack_apply_dismiss">取消</string>
-    <string name="host_pack_apply_summary">%1$d 个主机 · %2$s</string>
     <string name="host_pack_badge_offline_snapshot">离线快照</string>
     <string name="host_pack_degraded_status_body_unreadable">RIPDPI 无法读取此设备上缓存的精选主机包快照,因此回退到随应用附带的内置快照。</string>
     <string name="host_pack_downloaded_status_body">当前精选主机包来自存储在此设备上经校验和验证的 geosite.dat 下载。</string>
@@ -1363,7 +1356,6 @@ fakeddisorder endhost</string>
     <string name="logs_severity_warn">WARN</string>
     <string name="logs_stream_title">最近条目</string>
     <string name="logs_subsystem_tunnel">TUNNEL</string>
-    <string name="network_strategy_memory_count_summary">本地存储了 %1$d 个已记住的网络。</string>
     <string name="network_strategy_memory_section_title">网络策略记忆</string>
     <string name="notice_activation_window_reset_title">激活窗口已重置</string>
     <string name="notice_adaptive_ttl_reset_title">自适应伪造 TTL 已重置</string>
@@ -1608,7 +1600,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="adaptive_fake_ttl_summary_mode_fixed">固定 TTL</string>
     <string name="adaptive_fake_ttl_targets_fake">Fake 数据包</string>
     <string name="adaptive_fallback_auto_sort_title">优先选择更好的回退路由</string>
-    <string name="adaptive_fallback_badge_triggers">%1$d 个触发器</string>
     <string name="adaptive_fallback_cache_ttl_body">在当前网络指纹下,一条已学习的目标-分组映射保持可复用的时长。</string>
     <string name="adaptive_fallback_connect_failure_title">连接失败</string>
     <string name="adaptive_fallback_enabled_title">启用按目标自适应回退</string>
@@ -1761,7 +1752,6 @@ fake_burst 3</string>
     <string name="detection_check_share">分享</string>
     <string name="detection_check_verdict_detected">已检测到</string>
     <string name="detection_community_detected_pct">%d%% 的检查检测到</string>
-    <string name="detection_community_reports">已记录 %d 次检查</string>
     <string name="detection_error_retry">重试</string>
     <string name="detection_history_title">历史记录</string>
     <string name="detection_onboarding_skip">跳过</string>
@@ -1914,7 +1904,6 @@ fake_burst 3</string>
     <string name="host_pack_degraded_status_title">缓存快照已被丢弃</string>
     <string name="host_pack_downloaded_status_title">使用已验证的下载</string>
     <string name="host_pack_last_fetch_label">最近一次已验证的拉取</string>
-    <string name="host_pack_packs_badge">%1$d 个包</string>
     <string name="host_pack_refresh_action">拉取最新列表</string>
     <string name="host_pack_refresh_status_title">正在刷新精选主机包</string>
     <string name="host_pack_target_title">目标列表</string>
@@ -2201,7 +2190,6 @@ fake_burst 3</string>
     <string name="biometric_auth_error_title">身份验证失败</string>
     <string name="biometric_prompt_action">解锁</string>
     <string name="biometric_prompt_pin_body">在生物识别不可用时,使用本设备上存储的备用 PIN。</string>
-    <string name="biometric_prompt_pin_lockout_body">请在 %1$d 秒后重试。</string>
     <string name="biometric_prompt_title">解锁 RIPDPI</string>
     <string name="block_signal_http_blockpage">HTTP 阻断页</string>
     <string name="block_signal_tcp_reset">TCP 重置</string>
@@ -2460,7 +2448,6 @@ fake_burst 3</string>
     <string name="host_pack_badge_checksum_verified">SHA-256 已校验</string>
     <string name="host_pack_bundled_status_title">使用内置快照</string>
     <string name="host_pack_download_failed_status_body">RIPDPI 无法获取最新的主机包源文件。当前主机包快照仍保持有效。</string>
-    <string name="host_pack_hosts_badge">%1$d 个主机</string>
     <string name="host_pack_last_fetch_never">尚未获取</string>
     <string name="host_pack_preset_body">%1$s
 来源:%2$s</string>
@@ -3027,7 +3014,6 @@ fake_burst 3</string>
     <string name="vpn_confirm_disconnect_stay">保持连接</string>
     <string name="vpn_confirm_disconnect_disconnect">断开</string>
     <string name="vpn_export_consent_title_format">导出 %1$s</string>
-    <string name="vpn_export_consent_meta_format">%1$s · %2$d 个数据包</string>
     <string name="vpn_export_consent_redact_label">将端点 IP 隐去为 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">取消</string>
     <string name="vpn_export_consent_confirm">导出</string>
@@ -3044,7 +3030,6 @@ fake_burst 3</string>
     <string name="vpn_replay_save_to_archive">保存到诊断存档</string>
     <string name="vpn_replay_history_title">过往重放</string>
     <string name="vpn_replay_history_empty">暂无重放</string>
-    <string name="vpn_replay_history_row_format">%1$s · %2$d 个事件</string>
     <string name="vpn_replay_history_verdict_success">成功</string>
     <string name="vpn_replay_history_verdict_failure">失败</string>
     <string name="vpn_replay_history_verdict_cancelled">已取消</string>
@@ -3074,8 +3059,6 @@ fake_burst 3</string>
     <string name="vpn_pcap_read_failed">无法读取 PCAP 数据。</string>
     <string name="vpn_pcap_truncated">正在显示前 2000 个数据包。</string>
     <string name="vpn_pcap_no_packets">此捕获没有数据包。</string>
-    <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d 个数据包</string>
-    <string name="vpn_pcap_capture_drops_format">高负载下丢弃了 %1$d 个数据包</string>
 
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">开发者</string>
@@ -3170,7 +3153,6 @@ fake_burst 3</string>
     <string name="domain_bypass_intro_body">此处列出的域名将绕过代理直接连接。每行一个。支持普通域名(example.com)、后缀(.example.com)以及 domain:、domain_suffix: 和 domain_regex: 前缀。</string>
     <string name="domain_bypass_editor_label">域名(每行一个)</string>
     <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
-    <string name="domain_bypass_clean_count">%1$d 个有效条目</string>
     <string name="domain_bypass_errors_title">%1$d 行无效</string>
     <string name="domain_bypass_error_line">第 %1$d 行:%2$s</string>
     <string name="domain_bypass_paste">粘贴</string>
@@ -3297,7 +3279,6 @@ fake_burst 3</string>
     <string name="asset_provider_exit_pending_body">RIPDPI 会取消所有正在进行的资源操作，保存提供方设置，然后返回上一页。</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom(俄罗斯)</string>
     <string name="asset_provider_runetfreedom_desc">事实上的俄罗斯绕过规则集;对 v2ray/xray 的 geoip/geosite 标签比 antizapret 更新更及时。</string>
-    <string name="asset_provider_updated_days_ago">%1$d 天前更新</string>
     <string name="asset_provider_updated_today">今天已更新</string>
     <string name="asset_provider_updated_never">从未更新</string>
     <!-- Backup &amp; Restore -->
@@ -3567,7 +3548,6 @@ fake_burst 3</string>
     <string name="rkn_self_info_source">来源</string>
     <string name="shared_diagnostic_screen_title">共享诊断</string>
     <string name="shared_diagnostic_result_snapshot_title">结果快照</string>
-    <string name="shared_diagnostic_endpoints_count">%1$d 个端点</string>
     <string name="shared_diagnostic_endpoint_label">端点 %1$d</string>
     <string name="shared_diagnostic_alive_prefix">存活：%1$s</string>
     <string name="shared_diagnostic_open_error_title">无法打开共享诊断</string>
@@ -3875,7 +3855,6 @@ fake_burst 3</string>
     <string name="diagnostics_ipv4_whitelist_caching">正在缓存……</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">检查已缓存的</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">子网检查失败。</string>
-    <string name="diagnostics_ipv4_whitelist_checked_complete">已检查 %1$d 个缓存的子网。</string>
     <string name="diagnostics_ipv4_whitelist_checked_progress">已检查 %1$d/%2$d 个缓存的子网。</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">IPv4 白名单子网.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">正在获取已通告的 IPv4 前缀……</string>
@@ -3895,7 +3874,6 @@ fake_burst 3</string>
     <string name="diagnostics_overview_policy_failures">失败 %1$d</string>
     <string name="diagnostics_overview_policy_success">成功 %1$d</string>
     <string name="diagnostics_overview_policy_validated">已验证 %1$s</string>
-    <string name="diagnostics_profile_curated_packs_included">已包含 %1$d 个精选包。</string>
     <string name="diagnostics_profile_manual_run_only">仅限手动运行。</string>
     <string name="diagnostics_pt_complete">已检查 obfs4、Snowflake 和 meek 端点的可达性。</string>
     <string name="diagnostics_pt_failed">PT 可达性检查失败。</string>
@@ -4092,14 +4070,12 @@ fake_burst 3</string>
     <string name="subscription_status_empty_body">已导入订阅的详情会显示在这里。</string>
     <string name="subscription_status_reveal_secrets">显示订阅机密</string>
     <string name="subscription_status_hide_secrets">隐藏订阅机密</string>
-    <string name="subscription_status_profiles_format">已分配 %1$d 个配置</string>
     <string name="subscription_status_last_refresh_format">上次更新：%1$s</string>
     <string name="subscription_status_token_expiry_format">令牌到期：%1$s</string>
     <string name="subscription_status_credential_expiry_format">凭据到期：%1$s</string>
     <string name="subscription_status_replacement_help">已保存的配置仍可使用。请导入新的订阅链接以恢复更新。</string>
     <string name="subscription_status_refresh_action">立即更新</string>
     <string name="subscription_status_active">有效</string>
-    <string name="subscription_status_expiring_days">将在 %1$d 天后到期</string>
     <string name="subscription_status_expired">已到期</string>
     <string name="subscription_status_invalidated">已到期或已撤销</string>
     <string name="subscription_status_unknown">未提供到期时间</string>
@@ -4110,7 +4086,6 @@ fake_burst 3</string>
     <string name="subscription_status_token_format">令牌：%1$s</string>
     <string name="subscription_home_multiple_title">有 %1$d 个订阅需要处理</string>
     <string name="subscription_home_expiring_title">订阅即将到期</string>
-    <string name="subscription_home_expiring_body">%1$s 将在 %2$d 天后到期。请更新或准备新的订阅链接。</string>
     <string name="subscription_home_expired_title">订阅已到期</string>
     <string name="subscription_home_expired_body">%1$s 已无法更新。现有配置仍可使用。</string>
     <string name="subscription_home_invalidated_title">订阅不可用</string>

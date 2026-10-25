@@ -7,7 +7,6 @@
     <string name="diagnostics_local_evidence">Данные</string>
     <string name="diagnostics_local_not_collected">В этом снимке не собрано</string>
     <string name="diagnostics_local_unknown">Неизвестно</string>
-    <string name="diagnostics_local_overview">%1$s · условий для проверки: %2$d</string>
     <string name="diagnostics_local_captured">Время снимка</string>
     <string name="diagnostics_local_transport">Активная сеть Android</string>
     <string name="diagnostics_local_airplane">Режим полёта</string>

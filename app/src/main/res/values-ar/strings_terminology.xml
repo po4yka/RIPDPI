@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="network_strategy_memory_count_summary">
+        <item quantity="zero">%1$d شبكات محفوظة مخزّنة محلياً.</item>
+        <item quantity="one">%1$d شبكة محفوظة مخزّنة محلياً.</item>
+        <item quantity="two">%1$d شبكتان محفوظتان مخزّنتان محلياً.</item>
+        <item quantity="few">%1$d شبكات محفوظة مخزّنة محلياً.</item>
+        <item quantity="many">%1$d شبكة محفوظة مخزّنة محلياً.</item>
+        <item quantity="other">%1$d شبكة محفوظة مخزّنة محلياً.</item>
+    </plurals>
+    <plurals name="remembered_networks_count_summary">
+        <item quantity="zero">%1$d شبكات محفوظة</item>
+        <item quantity="one">%1$d شبكة محفوظة</item>
+        <item quantity="two">%1$d شبكتان محفوظتان</item>
+        <item quantity="few">%1$d شبكات محفوظة</item>
+        <item quantity="many">%1$d شبكة محفوظة</item>
+        <item quantity="other">%1$d شبكة محفوظة</item>
+    </plurals>
+    <plurals name="remembered_networks_dns_servers">
+        <item quantity="zero">%1$d خوادم DNS</item>
+        <item quantity="one">%1$d خادم DNS</item>
+        <item quantity="two">%1$d خادما DNS</item>
+        <item quantity="few">%1$d خوادم DNS</item>
+        <item quantity="many">%1$d خادم DNS</item>
+        <item quantity="other">%1$d خادم DNS</item>
+    </plurals>
+    <plurals name="detection_community_reports">
+        <item quantity="zero">%1$d فحوصات مسجّلة</item>
+        <item quantity="one">%1$d فحص مسجّل</item>
+        <item quantity="two">%1$d فحصان مسجّلان</item>
+        <item quantity="few">%1$d فحوصات مسجّلة</item>
+        <item quantity="many">%1$d فحصًا مسجّلًا</item>
+        <item quantity="other">%1$d فحص مسجّل</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_meta_format">
+        <item quantity="zero">%1$s · %2$d حزم</item>
+        <item quantity="one">%1$s · %2$d حزمة</item>
+        <item quantity="two">%1$s · %2$d حزمتان</item>
+        <item quantity="few">%1$s · %2$d حزم</item>
+        <item quantity="many">%1$s · %2$d حزمة</item>
+        <item quantity="other">%1$s · %2$d حزمة</item>
+    </plurals>
+    <plurals name="vpn_export_consent_meta_format">
+        <item quantity="zero">%1$s · %2$d حزم</item>
+        <item quantity="one">%1$s · %2$d حزمة</item>
+        <item quantity="two">%1$s · %2$d حزمتان</item>
+        <item quantity="few">%1$s · %2$d حزم</item>
+        <item quantity="many">%1$s · %2$d حزمة</item>
+        <item quantity="other">%1$s · %2$d حزمة</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_drops_format">
+        <item quantity="zero">تم إسقاط %1$d حزم تحت الحمل</item>
+        <item quantity="one">تم إسقاط %1$d حزمة تحت الحمل</item>
+        <item quantity="two">تم إسقاط %1$d حزمتين تحت الحمل</item>
+        <item quantity="few">تم إسقاط %1$d حزم تحت الحمل</item>
+        <item quantity="many">تم إسقاط %1$d حزمة تحت الحمل</item>
+        <item quantity="other">تم إسقاط %1$d حزمة تحت الحمل</item>
+    </plurals>
+    <plurals name="host_pack_hosts_count">
+        <item quantity="zero">%1$d مضيفين</item>
+        <item quantity="one">%1$d مضيف</item>
+        <item quantity="two">%1$d مضيفان</item>
+        <item quantity="few">%1$d مضيفين</item>
+        <item quantity="many">%1$d مضيفًا</item>
+        <item quantity="other">%1$d مضيف</item>
+    </plurals>
+    <plurals name="host_pack_apply_summary">
+        <item quantity="zero">%1$d مضيفين · %2$s</item>
+        <item quantity="one">%1$d مضيف · %2$s</item>
+        <item quantity="two">%1$d مضيفان · %2$s</item>
+        <item quantity="few">%1$d مضيفين · %2$s</item>
+        <item quantity="many">%1$d مضيفًا · %2$s</item>
+        <item quantity="other">%1$d مضيف · %2$s</item>
+    </plurals>
+    <plurals name="host_pack_packs_badge">
+        <item quantity="zero">%1$d حزم</item>
+        <item quantity="one">%1$d حزمة</item>
+        <item quantity="two">%1$d حزمتان</item>
+        <item quantity="few">%1$d حزم</item>
+        <item quantity="many">%1$d حزمة</item>
+        <item quantity="other">%1$d حزمة</item>
+    </plurals>
+    <plurals name="subscription_status_expiring_days">
+        <item quantity="zero">ينتهي خلال %1$d أيام</item>
+        <item quantity="one">ينتهي خلال %1$d يوم</item>
+        <item quantity="two">ينتهي خلال %1$d يومين</item>
+        <item quantity="few">ينتهي خلال %1$d أيام</item>
+        <item quantity="many">ينتهي خلال %1$d يومًا</item>
+        <item quantity="other">ينتهي خلال %1$d يوم</item>
+    </plurals>
+    <plurals name="subscription_home_expiring_body">
+        <item quantity="zero">سينتهي %1$s خلال %2$d أيام. حدّثه أو جهّز رابطًا بديلاً.</item>
+        <item quantity="one">سينتهي %1$s خلال %2$d يوم. حدّثه أو جهّز رابطًا بديلاً.</item>
+        <item quantity="two">سينتهي %1$s خلال %2$d يومين. حدّثه أو جهّز رابطًا بديلاً.</item>
+        <item quantity="few">سينتهي %1$s خلال %2$d أيام. حدّثه أو جهّز رابطًا بديلاً.</item>
+        <item quantity="many">سينتهي %1$s خلال %2$d يومًا. حدّثه أو جهّز رابطًا بديلاً.</item>
+        <item quantity="other">سينتهي %1$s خلال %2$d يوم. حدّثه أو جهّز رابطًا بديلاً.</item>
+    </plurals>
+    <plurals name="asset_provider_updated_days_ago">
+        <item quantity="zero">تم التحديث منذ %1$d أيام</item>
+        <item quantity="one">تم التحديث منذ %1$d يوم</item>
+        <item quantity="two">تم التحديث منذ %1$d يومين</item>
+        <item quantity="few">تم التحديث منذ %1$d أيام</item>
+        <item quantity="many">تم التحديث منذ %1$d يومًا</item>
+        <item quantity="other">تم التحديث منذ %1$d يوم</item>
+    </plurals>
+    <plurals name="biometric_prompt_pin_lockout_body">
+        <item quantity="zero">حاول مرة أخرى بعد %1$d ثوانٍ.</item>
+        <item quantity="one">حاول مرة أخرى بعد %1$d ثانية.</item>
+        <item quantity="two">حاول مرة أخرى بعد %1$d ثانيتين.</item>
+        <item quantity="few">حاول مرة أخرى بعد %1$d ثوانٍ.</item>
+        <item quantity="many">حاول مرة أخرى بعد %1$d ثانية.</item>
+        <item quantity="other">حاول مرة أخرى بعد %1$d ثانية.</item>
+    </plurals>
+    <plurals name="subscription_status_profiles_format">
+        <item quantity="zero">%1$d ملفات معيّنة</item>
+        <item quantity="one">%1$d ملف معيّن</item>
+        <item quantity="two">%1$d ملفان معيّنان</item>
+        <item quantity="few">%1$d ملفات معيّنة</item>
+        <item quantity="many">%1$d ملفًا معيّنًا</item>
+        <item quantity="other">%1$d ملف معيّن</item>
+    </plurals>
+    <plurals name="domain_bypass_clean_count">
+        <item quantity="zero">%1$d إدخالات صالحة</item>
+        <item quantity="one">%1$d إدخال صالح</item>
+        <item quantity="two">%1$d إدخالان صالحان</item>
+        <item quantity="few">%1$d إدخالات صالحة</item>
+        <item quantity="many">%1$d إدخالًا صالحًا</item>
+        <item quantity="other">%1$d إدخال صالح</item>
+    </plurals>
+    <plurals name="shared_diagnostic_endpoints_count">
+        <item quantity="zero">%1$d نقاط نهاية</item>
+        <item quantity="one">%1$d نقطة نهاية</item>
+        <item quantity="two">%1$d نقطتا نهاية</item>
+        <item quantity="few">%1$d نقاط نهاية</item>
+        <item quantity="many">%1$d نقطة نهاية</item>
+        <item quantity="other">%1$d نقطة نهاية</item>
+    </plurals>
+    <plurals name="vpn_replay_history_row_format">
+        <item quantity="zero">%1$s · %2$d أحداث</item>
+        <item quantity="one">%1$s · %2$d حدث</item>
+        <item quantity="two">%1$s · %2$d حدثان</item>
+        <item quantity="few">%1$s · %2$d أحداث</item>
+        <item quantity="many">%1$s · %2$d حدثًا</item>
+        <item quantity="other">%1$s · %2$d حدث</item>
+    </plurals>
+    <plurals name="adaptive_fallback_badge_triggers">
+        <item quantity="zero">%1$d مُشغِّلات</item>
+        <item quantity="one">%1$d مُشغِّل</item>
+        <item quantity="two">%1$d مُشغِّلان</item>
+        <item quantity="few">%1$d مُشغِّلات</item>
+        <item quantity="many">%1$d مُشغِّلًا</item>
+        <item quantity="other">%1$d مُشغِّل</item>
+    </plurals>
+    <plurals name="activation_window_badge_step_filters">
+        <item quantity="zero">%1$d قواعد خطوة</item>
+        <item quantity="one">%1$d قاعدة خطوة</item>
+        <item quantity="two">%1$d قاعدتا خطوة</item>
+        <item quantity="few">%1$d قواعد خطوة</item>
+        <item quantity="many">%1$d قاعدة خطوة</item>
+        <item quantity="other">%1$d قاعدة خطوة</item>
+    </plurals>
+    <plurals name="activation_window_step_filters_present">
+        <item quantity="zero">%1$d قواعد خطوة في سلسلة DSL لا تزال تضيف مرشحات تفعيلها الخاصة فوق نافذة المجموعة.</item>
+        <item quantity="one">%1$d قاعدة خطوة في سلسلة DSL لا تزال تضيف مرشح تفعيلها الخاص فوق نافذة المجموعة.</item>
+        <item quantity="two">%1$d قاعدتا خطوة في سلسلة DSL لا تزالان تضيفان مرشحات تفعيلهما الخاصة فوق نافذة المجموعة.</item>
+        <item quantity="few">%1$d قواعد خطوة في سلسلة DSL لا تزال تضيف مرشحات تفعيلها الخاصة فوق نافذة المجموعة.</item>
+        <item quantity="many">%1$d قاعدة خطوة في سلسلة DSL لا تزال تضيف مرشحات تفعيلها الخاصة فوق نافذة المجموعة.</item>
+        <item quantity="other">%1$d قاعدة خطوة في سلسلة DSL لا تزال تضيف مرشحات تفعيلها الخاصة فوق نافذة المجموعة.</item>
+    </plurals>
+    <plurals name="home_diagnostics_vpn_detectors_summary">
+        <item quantity="zero">%1$d من التطبيقات المثبّتة معروفة بكشف الـ VPN.</item>
+        <item quantity="one">%1$d تطبيق مثبّت معروف بكشف الـ VPN.</item>
+        <item quantity="two">%1$d تطبيقان مثبّتان معروفان بكشف الـ VPN.</item>
+        <item quantity="few">%1$d من التطبيقات المثبّتة معروفة بكشف الـ VPN.</item>
+        <item quantity="many">%1$d من التطبيقات المثبّتة معروفة بكشف الـ VPN.</item>
+        <item quantity="other">%1$d من التطبيقات المثبّتة معروفة بكشف الـ VPN.</item>
+    </plurals>
+    <plurals name="diagnostics_stages_show">
+        <item quantity="zero">عرض مراحل الاتصال (%1$d مسارات)</item>
+        <item quantity="one">عرض مراحل الاتصال (%1$d مسار)</item>
+        <item quantity="two">عرض مراحل الاتصال (%1$d مساران)</item>
+        <item quantity="few">عرض مراحل الاتصال (%1$d مسارات)</item>
+        <item quantity="many">عرض مراحل الاتصال (%1$d مسارًا)</item>
+        <item quantity="other">عرض مراحل الاتصال (%1$d مسار)</item>
+    </plurals>
+    <plurals name="diagnostics_stages_hide">
+        <item quantity="zero">إخفاء المراحل (%1$d مسارات)</item>
+        <item quantity="one">إخفاء المراحل (%1$d مسار)</item>
+        <item quantity="two">إخفاء المراحل (%1$d مساران)</item>
+        <item quantity="few">إخفاء المراحل (%1$d مسارات)</item>
+        <item quantity="many">إخفاء المراحل (%1$d مسارًا)</item>
+        <item quantity="other">إخفاء المراحل (%1$d مسار)</item>
+    </plurals>
+    <plurals name="diagnostics_profile_curated_packs_included">
+        <item quantity="zero">‏%1$d حزم منسّقة مُضمَّنة.</item>
+        <item quantity="one">‏%1$d حزمة منسّقة مُضمَّنة.</item>
+        <item quantity="two">‏%1$d حزمتان منسّقتان مُضمَّنتان.</item>
+        <item quantity="few">‏%1$d حزم منسّقة مُضمَّنة.</item>
+        <item quantity="many">‏%1$d حزمة منسّقة مُضمَّنة.</item>
+        <item quantity="other">‏%1$d حزمة منسّقة مُضمَّنة.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_complete">
+        <item quantity="zero">تم فحص %1$d شبكات فرعية مخزَّنة مؤقتًا.</item>
+        <item quantity="one">تم فحص %1$d شبكة فرعية مخزَّنة مؤقتًا.</item>
+        <item quantity="two">تم فحص %1$d شبكتين فرعيتين مخزَّنتين مؤقتًا.</item>
+        <item quantity="few">تم فحص %1$d شبكات فرعية مخزَّنة مؤقتًا.</item>
+        <item quantity="many">تم فحص %1$d شبكة فرعية مخزَّنة مؤقتًا.</item>
+        <item quantity="other">تم فحص %1$d شبكة فرعية مخزَّنة مؤقتًا.</item>
+    </plurals>
+    <plurals name="diagnostics_local_overview">
+        <item quantity="zero">%1$s · %2$d حالات للمراجعة</item>
+        <item quantity="one">%1$s · %2$d حالة للمراجعة</item>
+        <item quantity="two">%1$s · %2$d حالتان للمراجعة</item>
+        <item quantity="few">%1$s · %2$d حالات للمراجعة</item>
+        <item quantity="many">%1$s · %2$d حالةً للمراجعة</item>
+        <item quantity="other">%1$s · %2$d حالة للمراجعة</item>
+    </plurals>
+</resources>

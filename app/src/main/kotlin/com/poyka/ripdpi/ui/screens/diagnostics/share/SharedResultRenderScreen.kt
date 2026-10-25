@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpich.AliveState
@@ -153,7 +154,12 @@ private fun SharedResultPayload(payload: ShareLinkPayload) {
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
                 Text(
-                    text = stringResource(R.string.shared_diagnostic_endpoints_count, payload.items.size),
+                    text =
+                        pluralStringResource(
+                            R.plurals.shared_diagnostic_endpoints_count,
+                            payload.items.size,
+                            payload.items.size,
+                        ),
                     style = RipDpiThemeTokens.type.smallLabel,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )

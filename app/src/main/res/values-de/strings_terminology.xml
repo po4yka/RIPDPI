@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="network_strategy_memory_count_summary">
+        <item quantity="one">%1$d gespeichertes Netzwerk lokal gespeichert.</item>
+        <item quantity="other">%1$d gespeicherte Netzwerke lokal gespeichert.</item>
+    </plurals>
+    <plurals name="remembered_networks_count_summary">
+        <item quantity="one">%1$d gespeichertes Netzwerk</item>
+        <item quantity="other">%1$d gespeicherte Netzwerke</item>
+    </plurals>
+    <plurals name="remembered_networks_dns_servers">
+        <item quantity="one">%1$d DNS-Server</item>
+        <item quantity="other">%1$d DNS-Server</item>
+    </plurals>
+    <plurals name="detection_community_reports">
+        <item quantity="one">%1$d Prüfung erfasst</item>
+        <item quantity="other">%1$d Prüfungen erfasst</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_meta_format">
+        <item quantity="one">%1$s · %2$d Paket</item>
+        <item quantity="other">%1$s · %2$d Pakete</item>
+    </plurals>
+    <plurals name="vpn_export_consent_meta_format">
+        <item quantity="one">%1$s · %2$d Paket</item>
+        <item quantity="other">%1$s · %2$d Pakete</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_drops_format">
+        <item quantity="one">%1$d Paket unter Last verworfen</item>
+        <item quantity="other">%1$d Pakete unter Last verworfen</item>
+    </plurals>
+    <plurals name="host_pack_hosts_count">
+        <item quantity="one">%1$d Host</item>
+        <item quantity="other">%1$d Hosts</item>
+    </plurals>
+    <plurals name="host_pack_apply_summary">
+        <item quantity="one">%1$d Host · %2$s</item>
+        <item quantity="other">%1$d Hosts · %2$s</item>
+    </plurals>
+    <plurals name="host_pack_packs_badge">
+        <item quantity="one">%1$d Paket</item>
+        <item quantity="other">%1$d Pakete</item>
+    </plurals>
+    <plurals name="subscription_status_expiring_days">
+        <item quantity="one">Läuft in %1$d Tag ab</item>
+        <item quantity="other">Läuft in %1$d Tagen ab</item>
+    </plurals>
+    <plurals name="subscription_home_expiring_body">
+        <item quantity="one">%1$s läuft in %2$d Tag ab. Aktualisiere es oder bereite einen neuen Link vor.</item>
+        <item quantity="other">%1$s läuft in %2$d Tagen ab. Aktualisiere es oder bereite einen neuen Link vor.</item>
+    </plurals>
+    <plurals name="asset_provider_updated_days_ago">
+        <item quantity="one">Vor %1$d Tag aktualisiert</item>
+        <item quantity="other">Vor %1$d Tagen aktualisiert</item>
+    </plurals>
+    <plurals name="biometric_prompt_pin_lockout_body">
+        <item quantity="one">Erneut versuchen in %1$d Sekunde.</item>
+        <item quantity="other">Erneut versuchen in %1$d Sekunden.</item>
+    </plurals>
+    <plurals name="subscription_status_profiles_format">
+        <item quantity="one">%1$d zugewiesenes Profil</item>
+        <item quantity="other">%1$d zugewiesene Profile</item>
+    </plurals>
+    <plurals name="domain_bypass_clean_count">
+        <item quantity="one">%1$d gültiger Eintrag</item>
+        <item quantity="other">%1$d gültige Einträge</item>
+    </plurals>
+    <plurals name="shared_diagnostic_endpoints_count">
+        <item quantity="one">%1$d Endpunkt</item>
+        <item quantity="other">%1$d Endpunkte</item>
+    </plurals>
+    <plurals name="vpn_replay_history_row_format">
+        <item quantity="one">%1$s · %2$d Ereignis</item>
+        <item quantity="other">%1$s · %2$d Ereignisse</item>
+    </plurals>
+    <plurals name="adaptive_fallback_badge_triggers">
+        <item quantity="one">%1$d Auslöser</item>
+        <item quantity="other">%1$d Auslöser</item>
+    </plurals>
+    <plurals name="activation_window_badge_step_filters">
+        <item quantity="one">%1$d Schrittregel</item>
+        <item quantity="other">%1$d Schrittregeln</item>
+    </plurals>
+    <plurals name="activation_window_step_filters_present">
+        <item quantity="one">%1$d Schrittregel in der Ketten-DSL fügt zusätzlich zum Gruppenfenster einen eigenen Aktivierungsfilter hinzu.</item>
+        <item quantity="other">%1$d Schritt-Regeln in der Ketten-DSL fügen zusätzlich zum Gruppenfenster eigene Aktivierungsfilter hinzu.</item>
+    </plurals>
+    <plurals name="home_diagnostics_vpn_detectors_summary">
+        <item quantity="one">%1$d installierte App ist ein bekannter VPN-Detektor.</item>
+        <item quantity="other">%1$d installierte Apps sind bekannte VPN-Detektoren.</item>
+    </plurals>
+    <plurals name="diagnostics_stages_show">
+        <item quantity="one">Verbindungsphasen anzeigen (%1$d Pfad)</item>
+        <item quantity="other">Verbindungsphasen anzeigen (%1$d Pfade)</item>
+    </plurals>
+    <plurals name="diagnostics_stages_hide">
+        <item quantity="one">Phasen ausblenden (%1$d Pfad)</item>
+        <item quantity="other">Phasen ausblenden (%1$d Pfade)</item>
+    </plurals>
+    <plurals name="diagnostics_profile_curated_packs_included">
+        <item quantity="one">%1$d kuratiertes Pack enthalten.</item>
+        <item quantity="other">%1$d kuratierte Packs enthalten.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_complete">
+        <item quantity="one">%1$d zwischengespeichertes Subnetz geprüft.</item>
+        <item quantity="other">%1$d zwischengespeicherte Subnetze geprüft.</item>
+    </plurals>
+    <plurals name="diagnostics_local_overview">
+        <item quantity="one">%1$s · %2$d Bedingung prüfen</item>
+        <item quantity="other">%1$s · %2$d Bedingungen prüfen</item>
+    </plurals>
+</resources>

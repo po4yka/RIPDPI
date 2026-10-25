@@ -7,7 +7,6 @@
     <string name="diagnostics_local_evidence">जानकारी</string>
     <string name="diagnostics_local_not_collected">इस स्नैपशॉट में एकत्र नहीं किया गया</string>
     <string name="diagnostics_local_unknown">अज्ञात</string>
-    <string name="diagnostics_local_overview">%1$s · जाँचने योग्य स्थितियाँ: %2$d</string>
     <string name="diagnostics_local_captured">एकत्र करने का समय</string>
     <string name="diagnostics_local_transport">सक्रिय Android नेटवर्क</string>
     <string name="diagnostics_local_airplane">हवाई जहाज़ मोड</string>

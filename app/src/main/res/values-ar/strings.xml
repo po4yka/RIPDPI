@@ -520,7 +520,6 @@
     <string name="home_diagnostics_detection_needs_review">نتائج الكشف تحتاج إلى مراجعة</string>
     <string name="home_diagnostics_detection_not_detected">لم تُرصد إشارات كشف</string>
     <string name="home_diagnostics_vpn_detectors_title">تطبيقات تكشف الـ VPN</string>
-    <string name="home_diagnostics_vpn_detectors_summary">%1$d من التطبيقات المثبّتة معروفة بكشف الـ VPN.</string>
     <string name="home_diagnostics_pcap_toggle">التقاط الحزم (متقدم)</string>
     <string name="home_diagnostics_pcap_helper">يتطلب صلاحيات root. يلتقط بايتات الحزم الخام لهذا التشغيل في ملف PCAP محلي منفصل؛ لا تُضمّن أرشيفات التشخيص المنقّحة التقاطات الحزم.</string>
     <string name="diagnostics_pcap_card_title">التقاط الحزم</string>
@@ -857,7 +856,6 @@
     <string name="network_strategy_memory_section_title">ذاكرة استراتيجية الشبكة</string>
     <string name="network_strategy_memory_enabled_title">تذكّر السياسة لكل شبكة</string>
     <string name="network_strategy_memory_enabled_body">خزّن سياسة توجيه مُتحقَّقاً منها للبصمة الحالية للشبكة وأعد استخدامها عند عمليات التشغيل المستقبلية.</string>
-    <string name="network_strategy_memory_count_summary">%1$d شبكة محفوظة مخزّنة محلياً.</string>
     <string name="network_strategy_memory_clear_action">مسح الشبكات المحفوظة</string>
     <string name="network_strategy_memory_helper">تُطبَّق تلقائياً تطابقات الشبكة المُتحقَّق منها فقط. تبقى SSID وBSSID الخام ومعرّفات شركة الاتصالات خارج التخزين.</string>
     <string name="network_strategy_memory_inspect_title">الشبكات المحفوظة</string>
@@ -865,12 +863,10 @@
     <string name="remembered_networks_intro_title">تسميات تحفظ الخصوصية</string>
     <string name="remembered_networks_intro_body">تُعرَّف كل شبكة بتجزئة نطاق أحادية الاتجاه فقط. لا تُخزَّن ولا تُعرَض أبداً SSID وBSSID وشركة الاتصالات وعناوين IP الخام.</string>
     <string name="remembered_networks_header_helper">تؤدي إزالة إدخال إلى محو سياسته المخزَّنة وتعلُّم DNS الخاص به نهائياً من هذا الجهاز.</string>
-    <string name="remembered_networks_count_summary">%1$d شبكة محفوظة</string>
     <string name="remembered_networks_clear_all_action">مسح الكل</string>
     <string name="remembered_networks_empty_title">لا توجد شبكات محفوظة</string>
     <string name="remembered_networks_empty_body">تظهر السياسات المُتحقَّق منها هنا بمجرد أن يتعلَّم التطبيق استراتيجية ناجحة لشبكة ما.</string>
     <string name="remembered_networks_scope_label">النطاق %1$s</string>
-    <string name="remembered_networks_dns_servers">%1$d خادم DNS</string>
     <string name="remembered_networks_private_dns_label">DNS الخاص: %1$s</string>
     <string name="remembered_networks_strategy_label">الاستراتيجية: %1$s</string>
     <string name="remembered_networks_outcomes">%1$d ناجحة · %2$d فاشلة</string>
@@ -934,7 +930,6 @@
     <string name="adaptive_fallback_cache_summary">%1$d ثانية · IPv4 /%2$d</string>
     <string name="adaptive_fallback_badge_enabled">مُفعَّل</string>
     <string name="adaptive_fallback_badge_disabled">مُعطَّل</string>
-    <string name="adaptive_fallback_badge_triggers">%1$d مُشغِّلات</string>
     <string name="adaptive_fallback_badge_auto_sort">ترتيب تلقائي</string>
     <string name="adaptive_fallback_no_triggers_summary">لم يتم تحديد أي مُشغِّلات.</string>
     <string name="ws_tunnel_section_title">نفق WebSocket</string>
@@ -1006,13 +1001,11 @@
     <string name="activation_window_scope_filtered">فقط القطع الصادرة ضمن النطاقات المحفوظة يمكنها استخدام استراتيجية التجاوز على مستوى المجموعة والنقل المزيف ومقدمة TLS واندفاعات UDP المزيفة.</string>
     <string name="activation_window_scope_open">كل قطعة صادرة يمكنها استخدام مجموعة استراتيجية التجاوز النشطة.</string>
     <string name="activation_window_step_filters_none">لا توجد قواعد when_round أو when_size أو when_stream محفوظة في سلسلة DSL على مستوى الخطوة.</string>
-    <string name="activation_window_step_filters_present">%1$d قاعدة خطوة في سلسلة DSL لا تزال تضيف مرشحات تفعيلها الخاصة فوق نافذة المجموعة.</string>
     <string name="activation_window_badge_default">افتراضي</string>
     <string name="activation_window_badge_custom">نافذة مخصصة</string>
     <string name="activation_window_badge_round">مُقيَّد بجولة</string>
     <string name="activation_window_badge_payload">مُقيَّد بحمولة</string>
     <string name="activation_window_badge_stream">مُقيَّد ببث</string>
-    <string name="activation_window_badge_step_filters">%1$d قاعدة خطوة</string>
     <string name="activation_window_reset_action">إعادة تعيين النافذة</string>
     <string name="activation_window_range_status_open">مفتوح</string>
     <string name="activation_window_range_status_scoped">محدود النطاق</string>
@@ -1906,8 +1899,6 @@ fakeddisorder endhost</string>
     <string name="host_pack_presets_body">اختر قائمة خدمات جاهزة للتطبيقات التي تعاني مشكلات في الاتصال. يمكن للتحديث تنزيل لقطة geosite أحدث، بينما يكتب التطبيق الحزمة المختارة في القائمة المحظورة أو المسموح بها أدناه.</string>
     <string name="host_pack_preset_body">%1$s
 المصدر: %2$s</string>
-    <string name="host_pack_hosts_badge">%1$d مضيف</string>
-    <string name="host_pack_packs_badge">%1$d حزم</string>
     <string name="host_pack_badge_downloaded">تم التنزيل</string>
     <string name="host_pack_badge_bundled">مدمج</string>
     <string name="host_pack_badge_checksum_verified">تم التحقق SHA-256</string>
@@ -1915,8 +1906,6 @@ fakeddisorder endhost</string>
     <string name="host_pack_semantics_note">تطابق مرشحات مضيفي RIPDPI لاحقة اسم المضيف. لذلك تنطبق إدخالات geosite من النوع full: بعد تحويلها على المضيف المحدد ونطاقاته الفرعية.</string>
     <string name="host_pack_apply_dialog_title">تطبيق حزمة %1$s</string>
     <string name="host_pack_apply_dialog_message">اختر وجهة هذه القائمة المنسّقة. يتغير حقل النص المحدد فقط.</string>
-    <string name="host_pack_apply_summary">%1$d مضيف · %2$s</string>
-    <string name="host_pack_apply_summary_hosts_only">%1$d مضيف</string>
     <string name="host_pack_target_title">القائمة المستهدفة</string>
     <string name="host_pack_action_title">وضع التطبيق</string>
     <string name="host_pack_target_blacklist">القائمة المحظورة</string>
@@ -2118,7 +2107,6 @@ fakeddisorder endhost</string>
     <string name="biometric_prompt_pin_helper">أرقام فقط. يُتحقق من رمز PIN محليًا ولا يغادر هذا الجهاز أبدًا.</string>
     <string name="biometric_prompt_pin_error">رمز PIN الاحتياطي غير صحيح.</string>
     <string name="biometric_prompt_pin_lockout_title">محاولات كثيرة جدًا</string>
-    <string name="biometric_prompt_pin_lockout_body">حاول مرة أخرى بعد %1$d ثانية.</string>
     <string name="biometric_prompt_use_biometric">العودة إلى المقاييس الحيوية</string>
     <string name="biometric_dialog_title">فتح RIPDPI</string>
     <string name="biometric_dialog_subtitle">أكِّد هويتك</string>
@@ -2579,7 +2567,6 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_rtt_triangulation">تثليث RTT</string>
     <string name="detection_community_title">المجتمع</string>
     <string name="detection_community_local_title">إحصاءاتك</string>
-    <string name="detection_community_reports">%d فحص مسجّل</string>
     <string name="detection_community_avg_score">متوسط نقاط التخفي: %d/100</string>
     <string name="detection_community_detected_pct">%d%% من الفحوصات مكتشفة</string>
     <string name="detection_community_loading">جارٍ تحميل إحصاءات المجتمع…</string>
@@ -2914,7 +2901,6 @@ fakeddisorder endhost</string>
     <string name="vpn_confirm_disconnect_stay">ابقَ متصلاً</string>
     <string name="vpn_confirm_disconnect_disconnect">قطع الاتصال</string>
     <string name="vpn_export_consent_title_format">تصدير %1$s</string>
-    <string name="vpn_export_consent_meta_format">%1$s · %2$d حزمة</string>
     <string name="vpn_export_consent_redact_label">تعتيم عناوين IP للنقاط على 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">إلغاء</string>
     <string name="vpn_export_consent_confirm">تصدير</string>
@@ -2927,7 +2913,6 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_save_to_archive">حفظ في أرشيف التشخيص</string>
     <string name="vpn_replay_history_title">عمليات الإعادة السابقة</string>
     <string name="vpn_replay_history_empty">لا توجد عمليات إعادة سابقة بعد</string>
-    <string name="vpn_replay_history_row_format">%1$s · %2$d أحداث</string>
     <string name="vpn_replay_history_verdict_success">نجاح</string>
     <string name="vpn_replay_history_verdict_failure">فشل</string>
     <string name="vpn_replay_history_verdict_cancelled">ملغى</string>
@@ -2957,8 +2942,6 @@ fakeddisorder endhost</string>
     <string name="vpn_pcap_read_failed">تعذّرت قراءة بيانات PCAP.</string>
     <string name="vpn_pcap_truncated">تُعرض أول ٢٠٠٠ حزمة.</string>
     <string name="vpn_pcap_no_packets">لا يحتوي هذا التسجيل على حزم.</string>
-    <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d حزمة</string>
-    <string name="vpn_pcap_capture_drops_format">تم إسقاط %1$d حزمة تحت الحمل</string>
     <string name="vpn_dev_pcap_section_title">المطوّر</string>
     <string name="vpn_dev_pcap_toggle_label">التقاط الحزم (تشخيص)</string>
     <string name="vpn_dev_pcap_toggle_desc">التقاط حزم VPN محلياً للفحص. معطّل افتراضياً.</string>
@@ -3040,7 +3023,6 @@ fakeddisorder endhost</string>
     <string name="domain_bypass_intro_body">النطاقات المدرجة هنا تتجاوز الوكيل وتتصل مباشرةً. واحد في كل سطر. يقبل النطاقات العادية (example.com) ولواحق النطاقات (.example.com) والبادئات domain:‏ وdomain_suffix:‏ وdomain_regex:‏.</string>
     <string name="domain_bypass_editor_label">النطاقات (واحد في كل سطر)</string>
     <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
-    <string name="domain_bypass_clean_count">%1$d إدخال صالح</string>
     <string name="domain_bypass_errors_title">%1$d سطر غير صالح</string>
     <string name="domain_bypass_error_line">السطر %1$d: %2$s</string>
     <string name="domain_bypass_paste">لصق</string>
@@ -3191,7 +3173,6 @@ fakeddisorder endhost</string>
     <string name="asset_provider_exit_pending_body">يلغي RIPDPI أي عملية أصول نشطة، ويحفظ إعدادات الموفّر، ثم يعود.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسيا)</string>
     <string name="asset_provider_runetfreedom_desc">مجموعة قواعد تجاوز RU الفعلية؛ أحدث من antizapret لوسوم geoip/geosite الخاصة بـ v2ray/xray.</string>
-    <string name="asset_provider_updated_days_ago">تم التحديث منذ %1$d يوم</string>
     <string name="asset_provider_updated_today">تم التحديث اليوم</string>
     <string name="asset_provider_updated_never">لم يُحدَّث قط</string>
     <string name="title_backup_restore">النسخ الاحتياطي &amp; الاستعادة</string>
@@ -3591,7 +3572,6 @@ fakeddisorder endhost</string>
     <string name="rkn_self_info_source">المصدر</string>
     <string name="shared_diagnostic_screen_title">تشخيص مُشترك</string>
     <string name="shared_diagnostic_result_snapshot_title">لقطة النتيجة</string>
-    <string name="shared_diagnostic_endpoints_count">%1$d نقاط نهاية</string>
     <string name="shared_diagnostic_endpoint_label">نقطة النهاية %1$d</string>
     <string name="shared_diagnostic_alive_prefix">نشط: %1$s</string>
     <string name="shared_diagnostic_open_error_title">تعذّر فتح التشخيص المُشترك</string>
@@ -3909,7 +3889,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_ipv4_whitelist_caching">جارٍ التخزين المؤقت…</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">فحص المخزَّن مؤقتًا</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">فشل فحص الشبكة الفرعية.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_complete">تم فحص %1$d شبكة فرعية مخزَّنة مؤقتًا.</string>
     <string name="diagnostics_ipv4_whitelist_checked_progress">تم فحص %1$d/%2$d شبكة فرعية مخزَّنة مؤقتًا.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">الشبكات الفرعية للقائمة البيضاء IPv4.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">جارٍ جلب بادئات IPv4 المُعلَنة…</string>
@@ -3929,7 +3908,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_overview_policy_failures">حالات الفشل %1$d</string>
     <string name="diagnostics_overview_policy_success">النجاح %1$d</string>
     <string name="diagnostics_overview_policy_validated">مُتحقَّق منه %1$s</string>
-    <string name="diagnostics_profile_curated_packs_included">‏%1$d حزمة منسّقة مُضمَّنة.</string>
     <string name="diagnostics_profile_manual_run_only">تشغيل يدوي فقط.</string>
     <string name="diagnostics_pt_complete">تم فحص وصول نقاط نهاية obfs4 وSnowflake وmeek.</string>
     <string name="diagnostics_pt_failed">فشل فحص وصول PT.</string>
@@ -4131,14 +4109,12 @@ fakeddisorder endhost</string>
     <string name="subscription_status_empty_body">ستظهر تفاصيل الاشتراكات المستوردة هنا.</string>
     <string name="subscription_status_reveal_secrets">إظهار أسرار الاشتراك</string>
     <string name="subscription_status_hide_secrets">إخفاء أسرار الاشتراك</string>
-    <string name="subscription_status_profiles_format">%1$d ملفات معيّنة</string>
     <string name="subscription_status_last_refresh_format">آخر تحديث: %1$s</string>
     <string name="subscription_status_token_expiry_format">انتهاء الرمز: %1$s</string>
     <string name="subscription_status_credential_expiry_format">انتهاء بيانات الاعتماد: %1$s</string>
     <string name="subscription_status_replacement_help">تبقى الملفات المحفوظة قابلة للاستخدام. استورد رابط اشتراك بديلاً لاستئناف التحديثات.</string>
     <string name="subscription_status_refresh_action">تحديث الآن</string>
     <string name="subscription_status_active">نشط</string>
-    <string name="subscription_status_expiring_days">ينتهي خلال %1$d أيام</string>
     <string name="subscription_status_expired">منتهي الصلاحية</string>
     <string name="subscription_status_invalidated">منتهي أو ملغى</string>
     <string name="subscription_status_unknown">لم يُحدّد انتهاء</string>
@@ -4149,7 +4125,6 @@ fakeddisorder endhost</string>
     <string name="subscription_status_token_format">الرمز: %1$s</string>
     <string name="subscription_home_multiple_title">%1$d اشتراكات تحتاج إلى الانتباه</string>
     <string name="subscription_home_expiring_title">سينتهي الاشتراك قريبًا</string>
-    <string name="subscription_home_expiring_body">سينتهي %1$s خلال %2$d أيام. حدّثه أو جهّز رابطًا بديلاً.</string>
     <string name="subscription_home_expired_title">انتهى الاشتراك</string>
     <string name="subscription_home_expired_body">لم يعد بالإمكان تحديث %1$s. تبقى الملفات الحالية متاحة.</string>
     <string name="subscription_home_invalidated_title">الاشتراك غير متاح</string>

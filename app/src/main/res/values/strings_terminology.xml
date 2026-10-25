@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="network_strategy_memory_count_summary">
+        <item quantity="one">%1$d remembered network stored locally.</item>
+        <item quantity="other">%1$d remembered networks stored locally.</item>
+    </plurals>
+    <plurals name="remembered_networks_count_summary">
+        <item quantity="one">%1$d remembered network</item>
+        <item quantity="other">%1$d remembered networks</item>
+    </plurals>
+    <plurals name="remembered_networks_dns_servers">
+        <item quantity="one">%1$d DNS server</item>
+        <item quantity="other">%1$d DNS servers</item>
+    </plurals>
+    <plurals name="detection_community_reports">
+        <item quantity="one">%1$d check recorded</item>
+        <item quantity="other">%1$d checks recorded</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_meta_format">
+        <item quantity="one">%1$s · %2$d packet</item>
+        <item quantity="other">%1$s · %2$d packets</item>
+    </plurals>
+    <plurals name="vpn_export_consent_meta_format">
+        <item quantity="one">%1$s · %2$d packet</item>
+        <item quantity="other">%1$s · %2$d packets</item>
+    </plurals>
+    <plurals name="vpn_pcap_capture_drops_format">
+        <item quantity="one">%1$d packet dropped under load</item>
+        <item quantity="other">%1$d packets dropped under load</item>
+    </plurals>
+    <plurals name="host_pack_hosts_count">
+        <item quantity="one">%1$d host</item>
+        <item quantity="other">%1$d hosts</item>
+    </plurals>
+    <plurals name="host_pack_apply_summary">
+        <item quantity="one">%1$d host · %2$s</item>
+        <item quantity="other">%1$d hosts · %2$s</item>
+    </plurals>
+    <plurals name="host_pack_packs_badge">
+        <item quantity="one">%1$d pack</item>
+        <item quantity="other">%1$d packs</item>
+    </plurals>
+    <plurals name="subscription_status_expiring_days">
+        <item quantity="one">Expires in %1$d day</item>
+        <item quantity="other">Expires in %1$d days</item>
+    </plurals>
+    <plurals name="subscription_home_expiring_body">
+        <item quantity="one">%1$s expires in %2$d day. Refresh it or prepare a replacement link.</item>
+        <item quantity="other">%1$s expires in %2$d days. Refresh it or prepare a replacement link.</item>
+    </plurals>
+    <plurals name="asset_provider_updated_days_ago">
+        <item quantity="one">Updated %1$d day ago</item>
+        <item quantity="other">Updated %1$d days ago</item>
+    </plurals>
+    <plurals name="biometric_prompt_pin_lockout_body">
+        <item quantity="one">Try again in %1$d second.</item>
+        <item quantity="other">Try again in %1$d seconds.</item>
+    </plurals>
+    <plurals name="subscription_status_profiles_format">
+        <item quantity="one">%1$d assigned profile</item>
+        <item quantity="other">%1$d assigned profiles</item>
+    </plurals>
+    <plurals name="domain_bypass_clean_count">
+        <item quantity="one">%1$d valid entry</item>
+        <item quantity="other">%1$d valid entries</item>
+    </plurals>
+    <plurals name="shared_diagnostic_endpoints_count">
+        <item quantity="one">%1$d endpoint</item>
+        <item quantity="other">%1$d endpoints</item>
+    </plurals>
+    <plurals name="vpn_replay_history_row_format">
+        <item quantity="one">%1$s · %2$d event</item>
+        <item quantity="other">%1$s · %2$d events</item>
+    </plurals>
+    <plurals name="adaptive_fallback_badge_triggers">
+        <item quantity="one">%1$d trigger</item>
+        <item quantity="other">%1$d triggers</item>
+    </plurals>
+    <plurals name="activation_window_badge_step_filters">
+        <item quantity="one">%1$d step rule</item>
+        <item quantity="other">%1$d step rules</item>
+    </plurals>
+    <plurals name="activation_window_step_filters_present">
+        <item quantity="one">%1$d step rule in the chain DSL still adds its own activation filter on top of the group window.</item>
+        <item quantity="other">%1$d step rules in the chain DSL still add their own activation filters on top of the group window.</item>
+    </plurals>
+    <plurals name="home_diagnostics_vpn_detectors_summary">
+        <item quantity="one">%1$d installed app is a known VPN detector.</item>
+        <item quantity="other">%1$d installed apps are known VPN detectors.</item>
+    </plurals>
+    <plurals name="diagnostics_stages_show">
+        <item quantity="one">Show connection stages (%1$d path)</item>
+        <item quantity="other">Show connection stages (%1$d paths)</item>
+    </plurals>
+    <plurals name="diagnostics_stages_hide">
+        <item quantity="one">Hide connection stages (%1$d path)</item>
+        <item quantity="other">Hide connection stages (%1$d paths)</item>
+    </plurals>
+    <plurals name="diagnostics_profile_curated_packs_included">
+        <item quantity="one">%1$d curated pack included.</item>
+        <item quantity="other">%1$d curated packs included.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_complete">
+        <item quantity="one">Checked %1$d cached subnet.</item>
+        <item quantity="other">Checked %1$d cached subnets.</item>
+    </plurals>
+    <plurals name="diagnostics_local_overview">
+        <item quantity="one">%1$s · %2$d condition to review</item>
+        <item quantity="other">%1$s · %2$d conditions to review</item>
+    </plurals>
+</resources>

@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
@@ -166,8 +167,9 @@ private fun ReplayHistoryList(
                 Spacer(modifier = Modifier.height(spacing.xs))
                 Text(
                     text =
-                        stringResource(
-                            R.string.vpn_replay_history_row_format,
+                        pluralStringResource(
+                            R.plurals.vpn_replay_history_row_format,
+                            result.events.size,
                             result.request.strategyId,
                             result.events.size,
                         ),

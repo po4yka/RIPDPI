@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -97,7 +98,8 @@ internal fun CommunityStatsCard(stats: CommunityStats) {
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         Text(text = title.uppercase(), style = type.sectionTitle, color = colors.mutedForeground)
         Text(
-            text = stringResource(R.string.detection_community_reports, stats.totalReports),
+            text =
+                pluralStringResource(R.plurals.detection_community_reports, stats.totalReports, stats.totalReports),
             style = type.body,
         )
         if (stats.averageStealthScore > 0) {

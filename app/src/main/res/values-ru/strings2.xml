@@ -41,7 +41,6 @@
     <string name="asset_provider_failure_unexpected">Не удалось выполнить операцию с базой. Повторите попытку.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Россия)</string>
     <string name="asset_provider_runetfreedom_desc">Де-факто набор правил обхода для РФ; актуальнее antizapret для тегов geoip/geosite v2ray/xray.</string>
-    <string name="asset_provider_updated_days_ago">Обновлено %1$d дн. назад</string>
     <string name="asset_provider_updated_today">Обновлено сегодня</string>
     <string name="asset_provider_updated_never">Никогда не обновлялось</string>
     <string name="unsaved_changes_title">Отменить несохранённые изменения?</string>

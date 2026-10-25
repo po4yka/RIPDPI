@@ -109,8 +109,6 @@
     <string name="host_pack_presets_body">कनेक्टिविटी समस्याओं वाले सामान्य ऐप्स के लिए तैयार सेवा सूची चुनें। नवीनतम सूची प्राप्त करें से नया geosite स्नैपशॉट डाउनलोड हो सकता है। पैक लागू करें से चुना गया पैक नीचे ब्लैकलिस्ट या व्हाइटलिस्ट में लिखा जाता है।</string>
     <string name="host_pack_preset_body">%1$s
 स्रोत: %2$s</string>
-    <string name="host_pack_hosts_badge">%1$d होस्ट</string>
-    <string name="host_pack_packs_badge">%1$d पैक</string>
     <string name="host_pack_badge_downloaded">डाउनलोड किया गया</string>
     <string name="host_pack_badge_bundled">बंडल किया गया</string>
     <string name="host_pack_badge_checksum_verified">SHA-256 सत्यापित</string>
@@ -118,8 +116,6 @@
     <string name="host_pack_semantics_note">RIPDPI होस्ट फ़िल्टर suffix के आधार पर मिलान करते हैं. इसलिए full: geosite प्रविष्टियों में बदले गए होस्ट उसी सटीक होस्ट और उसके सबडोमेन पर लागू होते हैं.</string>
     <string name="host_pack_apply_dialog_title">%1$s पैक लागू करें</string>
     <string name="host_pack_apply_dialog_message">चुनें कि यह क्यूरेटेड होस्ट सूची कहाँ जानी चाहिए. केवल चुना गया टेक्स्ट फ़ील्ड बदलता है.</string>
-    <string name="host_pack_apply_summary">%1$d होस्ट · %2$s</string>
-    <string name="host_pack_apply_summary_hosts_only">%1$d होस्ट</string>
     <string name="host_pack_target_title">लक्ष्य सूची</string>
     <string name="host_pack_action_title">लागू करने का मोड</string>
     <string name="host_pack_target_blacklist">ब्लैकलिस्ट</string>
@@ -332,7 +328,6 @@
     <string name="biometric_prompt_pin_helper">केवल अंक। PIN की जाँच स्थानीय रूप से की जाती है और यह कभी इस उपकरण से बाहर नहीं जाता।</string>
     <string name="biometric_prompt_pin_error">बैकअप PIN मेल नहीं खाता।</string>
     <string name="biometric_prompt_pin_lockout_title">बहुत अधिक प्रयास</string>
-    <string name="biometric_prompt_pin_lockout_body">%1$d सेकंड में पुनः प्रयास करें।</string>
     <string name="biometric_prompt_use_biometric">बायोमेट्रिक्स पर वापस जाएँ</string>
     <string name="biometric_dialog_title">RIPDPI अनलॉक करें</string>
     <string name="biometric_dialog_subtitle">अपनी पहचान की पुष्टि करें</string>
@@ -831,7 +826,6 @@
     <string name="detection_check_category_rtt_triangulation">RTT त्रिकोणन</string>
     <string name="detection_community_title">समुदाय</string>
     <string name="detection_community_local_title">आपके आँकड़े</string>
-    <string name="detection_community_reports">%d जाँचें दर्ज की गईं</string>
     <string name="detection_community_avg_score">औसत स्टेल्थ स्कोर: %d/100</string>
     <string name="detection_community_detected_pct">%d%% जाँचें पकड़ी गईं</string>
     <string name="detection_community_loading">समुदाय आँकड़े लोड हो रहे हैं…</string>
@@ -1265,7 +1259,6 @@
     <string name="vpn_confirm_disconnect_stay">कनेक्टेड रहें</string>
     <string name="vpn_confirm_disconnect_disconnect">डिस्कनेक्ट करें</string>
     <string name="vpn_export_consent_title_format">%1$s निर्यात करें</string>
-    <string name="vpn_export_consent_meta_format">%1$s · %2$d पैकेट</string>
     <string name="vpn_export_consent_redact_label">एंडपॉइंट IP को 0.0.0.0 पर छिपाएँ</string>
     <string name="vpn_export_consent_cancel">रद्द करें</string>
     <string name="vpn_export_consent_confirm">निर्यात करें</string>
@@ -1282,7 +1275,6 @@
     <string name="vpn_replay_save_to_archive">डायग्नोस्टिक्स आर्काइव में सहेजें</string>
     <string name="vpn_replay_history_title">पिछले रीप्ले</string>
     <string name="vpn_replay_history_empty">अभी तक कोई पिछला रीप्ले नहीं</string>
-    <string name="vpn_replay_history_row_format">%1$s · %2$d इवेंट</string>
     <string name="vpn_replay_history_verdict_success">सफल</string>
     <string name="vpn_replay_history_verdict_failure">विफल</string>
     <string name="vpn_replay_history_verdict_cancelled">रद्द किया गया</string>
@@ -1312,8 +1304,6 @@
     <string name="vpn_pcap_read_failed">PCAP डेटा पढ़ा नहीं जा सका।</string>
     <string name="vpn_pcap_truncated">पहले 2,000 पैकेट दिखाए जा रहे हैं।</string>
     <string name="vpn_pcap_no_packets">इस कैप्चर में कोई पैकेट नहीं है।</string>
-    <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d पैकेट</string>
-    <string name="vpn_pcap_capture_drops_format">लोड के तहत %1$d पैकेट छोड़े गए</string>
 
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">डेवलपर</string>
@@ -1408,7 +1398,6 @@
     <string name="domain_bypass_intro_body">यहाँ सूचीबद्ध डोमेन प्रॉक्सी से बाहर रहते हैं और सीधे कनेक्ट होते हैं। प्रति पंक्ति एक। सादे डोमेन (example.com), प्रत्यय (.example.com), और domain:, domain_suffix: तथा domain_regex: उपसर्ग स्वीकार करता है।</string>
     <string name="domain_bypass_editor_label">डोमेन (प्रति पंक्ति एक)</string>
     <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
-    <string name="domain_bypass_clean_count">%1$d मान्य प्रविष्टियाँ</string>
     <string name="domain_bypass_errors_title">%1$d अमान्य पंक्ति(याँ)</string>
     <string name="domain_bypass_error_line">पंक्ति %1$d: %2$s</string>
     <string name="domain_bypass_paste">चिपकाएँ</string>
@@ -1528,7 +1517,6 @@
     <string name="asset_provider_failed_title">डेटा कार्रवाई विफल</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russia)</string>
     <string name="asset_provider_runetfreedom_desc">वास्तविक RU बायपास नियमसेट; v2ray/xray geoip/geosite टैग के लिए antizapret की तुलना में अधिक अद्यतन।</string>
-    <string name="asset_provider_updated_days_ago">%1$d दिन पहले अपडेट हुआ</string>
     <string name="asset_provider_updated_today">आज अपडेट हुआ</string>
     <string name="asset_provider_updated_never">कभी अपडेट नहीं हुआ</string>
     <string name="title_backup_restore">बैकअप &amp; रिस्टोर</string>
@@ -1748,7 +1736,6 @@
     <string name="rkn_self_info_source">स्रोत</string>
     <string name="shared_diagnostic_screen_title">साझा डायग्नोस्टिक</string>
     <string name="shared_diagnostic_result_snapshot_title">परिणाम स्नैपशॉट</string>
-    <string name="shared_diagnostic_endpoints_count">%1$d एंडपॉइंट</string>
     <string name="shared_diagnostic_endpoint_label">एंडपॉइंट %1$d</string>
     <string name="shared_diagnostic_alive_prefix">सक्रिय: %1$s</string>
     <string name="shared_diagnostic_open_error_title">साझा डायग्नोस्टिक नहीं खोला जा सकता</string>
@@ -2058,7 +2045,6 @@
     <string name="diagnostics_ipv4_whitelist_caching">कैश किया जा रहा है...</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">कैश किए गए सबनेट जाँचें</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">सबनेट जाँच विफल रही.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_complete">%1$d कैश किए गए सबनेट जाँचे गए.</string>
     <string name="diagnostics_ipv4_whitelist_checked_progress">%2$d में से %1$d कैश किए गए सबनेट जाँचे गए.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">IPv4 whitelist subnets.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">घोषित IPv4 उपसर्ग प्राप्त किए जा रहे हैं...</string>
@@ -2078,7 +2064,6 @@
     <string name="diagnostics_overview_policy_failures">विफलताएँ %1$d</string>
     <string name="diagnostics_overview_policy_success">सफलता %1$d</string>
     <string name="diagnostics_overview_policy_validated">%1$s सत्यापित किया गया</string>
-    <string name="diagnostics_profile_curated_packs_included">%1$d क्यूरेट किए गए पैक शामिल.</string>
     <string name="diagnostics_profile_manual_run_only">केवल मैन्युअल रन.</string>
     <string name="diagnostics_pt_complete">obfs4, Snowflake, और meek एंडपॉइंट पहुँच जाँची गई.</string>
     <string name="diagnostics_pt_failed">PT पहुँच जाँच विफल रही.</string>

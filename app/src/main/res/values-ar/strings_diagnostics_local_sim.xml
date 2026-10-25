@@ -7,7 +7,6 @@
     <string name="diagnostics_local_evidence">البيانات</string>
     <string name="diagnostics_local_not_collected">لم تُجمع في هذه اللقطة</string>
     <string name="diagnostics_local_unknown">غير معروف</string>
-    <string name="diagnostics_local_overview">%1$s · %2$d حالات للمراجعة</string>
     <string name="diagnostics_local_captured">وقت الالتقاط</string>
     <string name="diagnostics_local_transport">شبكة Android النشطة</string>
     <string name="diagnostics_local_airplane">وضع الطيران</string>

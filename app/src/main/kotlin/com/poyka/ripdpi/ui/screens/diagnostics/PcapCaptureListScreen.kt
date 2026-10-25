@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,6 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.pcap.PcapCaptureMetadata
@@ -24,8 +27,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
-
-private const val BytesPerKilobyte = 1024L
 
 /**
  * Lists previously-captured .pcap files for the user to view or export.
@@ -105,9 +106,10 @@ private fun PcapCaptureListContent(
                 Spacer(modifier = Modifier.height(spacing.xs))
                 Text(
                     text =
-                        stringResource(
-                            R.string.vpn_pcap_capture_meta_format,
-                            capture.byteSize / BytesPerKilobyte,
+                        pluralStringResource(
+                            R.plurals.vpn_pcap_capture_meta_format,
+                            capture.packetCount.toInt(),
+                            Formatter.formatShortFileSize(LocalContext.current, capture.byteSize),
                             capture.packetCount,
                         ),
                     style = type.monoSmall,
@@ -117,8 +119,9 @@ private fun PcapCaptureListContent(
                     Spacer(modifier = Modifier.height(spacing.xs))
                     Text(
                         text =
-                            stringResource(
-                                R.string.vpn_pcap_capture_drops_format,
+                            pluralStringResource(
+                                R.plurals.vpn_pcap_capture_drops_format,
+                                capture.drops.toInt(),
                                 capture.drops,
                             ),
                         style = type.caption,

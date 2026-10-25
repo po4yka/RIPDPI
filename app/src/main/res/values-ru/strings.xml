@@ -613,7 +613,6 @@
     <string name="network_strategy_memory_section_title">Память стратегий сети</string>
     <string name="network_strategy_memory_enabled_title">Запоминать политику для каждой сети</string>
     <string name="network_strategy_memory_enabled_body">Сохранять проверенную политику маршрутизации для текущего отпечатка сети и повторно использовать её при последующих запусках.</string>
-    <string name="network_strategy_memory_count_summary">%1$d запомненных сетей хранятся локально.</string>
     <string name="network_strategy_memory_clear_action">Очистить запомненные сети</string>
     <string name="network_strategy_memory_helper">Только проверенные совпадения сетей применяются автоматически. Сырые SSID, BSSID и идентификаторы оператора не попадают в хранилище.</string>
     <string name="network_strategy_memory_inspect_title">Запомненные сети</string>
@@ -621,12 +620,10 @@
     <string name="remembered_networks_intro_title">Метки без раскрытия данных</string>
     <string name="remembered_networks_intro_body">Каждая сеть идентифицируется только односторонним хешем области. Сырые SSID, BSSID, оператор и IP-адреса никогда не сохраняются и не отображаются.</string>
     <string name="remembered_networks_header_helper">Удаление записи безвозвратно стирает её сохранённую политику и обучение DNS с этого устройства.</string>
-    <string name="remembered_networks_count_summary">Запомненных сетей: %1$d</string>
     <string name="remembered_networks_clear_all_action">Очистить все</string>
     <string name="remembered_networks_empty_title">Нет запомненных сетей</string>
     <string name="remembered_networks_empty_body">Проверенные политики появятся здесь, когда приложение подберёт рабочую стратегию для сети.</string>
     <string name="remembered_networks_scope_label">Область %1$s</string>
-    <string name="remembered_networks_dns_servers">DNS-серверов: %1$d</string>
     <string name="remembered_networks_private_dns_label">Частный DNS: %1$s</string>
     <string name="remembered_networks_strategy_label">Стратегия: %1$s</string>
     <string name="remembered_networks_outcomes">%1$d успешно · %2$d с ошибкой</string>
@@ -724,13 +721,11 @@
     <string name="activation_window_scope_filtered">Только исходящие фрагменты в сохранённых диапазонах могут использовать групповую стратегию обхода, fake-транспорт, TLS-преамбулу и UDP fake-burst.</string>
     <string name="activation_window_scope_open">Каждый исходящий фрагмент может использовать активную группу стратегии обхода.</string>
     <string name="activation_window_step_filters_none">В DSL цепочки нет сохранённых правил when_round, when_size или when_stream уровня шага.</string>
-    <string name="activation_window_step_filters_present">%1$d правил шагов в DSL цепочки ещё добавляют собственные фильтры активации поверх группового окна.</string>
     <string name="activation_window_badge_default">По умолчанию</string>
     <string name="activation_window_badge_custom">Пользовательское окно</string>
     <string name="activation_window_badge_round">Ограничено раундом</string>
     <string name="activation_window_badge_payload">Ограничено нагрузкой</string>
     <string name="activation_window_badge_stream">Ограничено потоком</string>
-    <string name="activation_window_badge_step_filters">%1$d правил шагов</string>
     <string name="activation_window_reset_action">Сбросить окно</string>
     <string name="activation_window_range_status_open">Открыто</string>
     <string name="activation_window_range_status_scoped">Ограничено</string>
@@ -1414,8 +1409,6 @@ fakeddisorder endhost</string>
     <string name="host_pack_presets_body">Выберите готовый список сервисов для распространённых приложений с проблемами соединения. Обновление позволяет загрузить более новый снимок geosite, а «Применить» записывает выбранный набор в чёрный или белый список ниже.</string>
     <string name="host_pack_preset_body">%1$s
 Источник: %2$s</string>
-    <string name="host_pack_hosts_badge">%1$d хостов</string>
-    <string name="host_pack_packs_badge">%1$d наборов</string>
     <string name="host_pack_badge_downloaded">Загружен</string>
     <string name="host_pack_badge_bundled">Встроенный</string>
     <string name="host_pack_badge_checksum_verified">SHA-256 проверен</string>
@@ -1423,8 +1416,6 @@ fakeddisorder endhost</string>
     <string name="host_pack_semantics_note">Фильтры хостов RIPDPI сопоставляются по суффиксу. Преобразованные записи geosite типа full: применяются к точному хосту и его поддоменам.</string>
     <string name="host_pack_apply_dialog_title">Применить набор %1$s</string>
     <string name="host_pack_apply_dialog_message">Выберите, куда должен попасть этот список хостов. Изменяется только выбранное текстовое поле.</string>
-    <string name="host_pack_apply_summary">%1$d хостов · %2$s</string>
-    <string name="host_pack_apply_summary_hosts_only">%1$d хостов</string>
     <string name="host_pack_target_title">Целевой список</string>
     <string name="host_pack_action_title">Режим применения</string>
     <string name="host_pack_target_blacklist">Чёрный список</string>
@@ -1622,7 +1613,6 @@ fakeddisorder endhost</string>
     <string name="biometric_prompt_pin_helper">Только цифры. PIN проверяется локально и никогда не покидает устройство.</string>
     <string name="biometric_prompt_pin_error">Резервный PIN не совпадает.</string>
     <string name="biometric_prompt_pin_lockout_title">Слишком много попыток</string>
-    <string name="biometric_prompt_pin_lockout_body">Повторите через %1$d сек.</string>
     <string name="biometric_prompt_use_biometric">Вернуться к биометрии</string>
     <string name="biometric_dialog_title">Разблокировать RIPDPI</string>
     <string name="biometric_dialog_subtitle">Подтвердите свою личность</string>
@@ -2009,7 +1999,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fallback_badge_auto_sort">Авто-сортировка</string>
     <string name="adaptive_fallback_badge_disabled">Отключено</string>
     <string name="adaptive_fallback_badge_enabled">Включено</string>
-    <string name="adaptive_fallback_badge_triggers">%1$d триггеров</string>
     <string name="adaptive_fallback_cache_prefix_body">Ширина подсети, используемая при сопоставлении кешированных победителей IPv4. /24 — баланс по умолчанию между повторным использованием и избыточностью.</string>
     <string name="adaptive_fallback_cache_prefix_title">Префикс кеша IPv4</string>
     <string name="adaptive_fallback_cache_summary">%1$d секунд · IPv4 /%2$d</string>
@@ -2296,7 +2285,6 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_regression_summary">%1$d новых сбоев, %2$d новых восстановлений, %3$d без изменений.</string>
     <string name="home_diagnostics_routing_sanity_section">Проверка маршрутизации приложений</string>
     <string name="home_diagnostics_routing_sanity_summary">Настроено %1$d известных приложений-детекторов VPN из %2$d записей всего.</string>
-    <string name="home_diagnostics_vpn_detectors_summary">%1$d установленных приложений известны как детекторы VPN.</string>
     <string name="home_diagnostics_vpn_detectors_title">Приложения, обнаруживающие VPN</string>
     <string name="home_mode_card_configure">Настроить</string>
     <string name="home_mode_card_connected_format">Подключено %1$s</string>
@@ -2893,7 +2881,6 @@ fakeddisorder endhost</string>
     <string name="vpn_confirm_disconnect_stay">Остаться на связи</string>
     <string name="vpn_confirm_disconnect_disconnect">Отключить</string>
     <string name="vpn_export_consent_title_format">Экспорт %1$s</string>
-    <string name="vpn_export_consent_meta_format">%1$s · %2$d пакетов</string>
     <string name="vpn_export_consent_redact_label">Скрыть IP-адреса как 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Отмена</string>
     <string name="vpn_export_consent_confirm">Экспортировать</string>
@@ -2906,7 +2893,6 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_save_to_archive">Сохранить в архив диагностики</string>
     <string name="vpn_replay_history_title">Прошлые повторы</string>
     <string name="vpn_replay_history_empty">Пока нет повторов</string>
-    <string name="vpn_replay_history_row_format">%1$s · %2$d событий</string>
     <string name="vpn_replay_history_verdict_success">Успех</string>
     <string name="vpn_replay_history_verdict_failure">Сбой</string>
     <string name="vpn_replay_history_verdict_cancelled">Отменено</string>
@@ -2936,8 +2922,6 @@ fakeddisorder endhost</string>
     <string name="vpn_pcap_read_failed">Не удалось прочитать данные PCAP.</string>
     <string name="vpn_pcap_truncated">Показаны первые 2 000 пакетов.</string>
     <string name="vpn_pcap_no_packets">В этом захвате нет пакетов.</string>
-    <string name="vpn_pcap_capture_meta_format">%1$d КиБ · %2$d пакетов</string>
-    <string name="vpn_pcap_capture_drops_format">%1$d пакетов потеряно под нагрузкой</string>
     <string name="vpn_dev_pcap_section_title">Разработчик</string>
     <string name="vpn_dev_pcap_toggle_label">Захват пакетов (диагностика)</string>
     <string name="vpn_dev_pcap_toggle_desc">Локальный захват пакетов VPN для анализа. По умолчанию отключён.</string>
@@ -3019,7 +3003,6 @@ fakeddisorder endhost</string>
     <string name="domain_bypass_intro_body">Перечисленные домены идут напрямую, минуя прокси. По одному в строке. Допускаются обычные домены (example.com), суффиксы (.example.com) и префиксы domain:, domain_suffix: и domain_regex:.</string>
     <string name="domain_bypass_editor_label">Домены (по одному в строке)</string>
     <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
-    <string name="domain_bypass_clean_count">Допустимых записей: %1$d</string>
     <string name="domain_bypass_errors_title">Недопустимых строк: %1$d</string>
     <string name="domain_bypass_error_line">Строка %1$d: %2$s</string>
     <string name="domain_bypass_paste">Вставить</string>
@@ -3354,7 +3337,6 @@ fakeddisorder endhost</string>
     <string name="rkn_self_info_source">Источник</string>
     <string name="shared_diagnostic_screen_title">Общая диагностика</string>
     <string name="shared_diagnostic_result_snapshot_title">Снимок результата</string>
-    <string name="shared_diagnostic_endpoints_count">%1$d точек</string>
     <string name="shared_diagnostic_endpoint_label">Точка %1$d</string>
     <string name="shared_diagnostic_alive_prefix">Активна: %1$s</string>
     <string name="shared_diagnostic_open_error_title">Не удаётся открыть общую диагностику</string>
@@ -3601,7 +3583,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_ipv4_whitelist_caching">Кэширование…</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">Проверить закэшированные</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">Проверка подсетей не удалась.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_complete">Проверено %1$d закэшированных подсетей.</string>
     <string name="diagnostics_ipv4_whitelist_checked_progress">Проверено %1$d/%2$d закэшированных подсетей.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">Подсети белого списка IPv4.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">Получение анонсированных префиксов IPv4…</string>
@@ -3621,7 +3602,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_overview_policy_failures">Сбоев %1$d</string>
     <string name="diagnostics_overview_policy_success">Успехов %1$d</string>
     <string name="diagnostics_overview_policy_validated">Проверено %1$s</string>
-    <string name="diagnostics_profile_curated_packs_included">Включено %1$d отобранных наборов.</string>
     <string name="diagnostics_profile_manual_run_only">Только ручной запуск.</string>
     <string name="diagnostics_pt_complete">Проверена достижимость точек obfs4, Snowflake и meek.</string>
     <string name="diagnostics_pt_failed">Проверка достижимости PT не удалась.</string>
@@ -3821,14 +3801,12 @@ fakeddisorder endhost</string>
     <string name="subscription_status_empty_body">Здесь появятся сведения об импортированных подписках.</string>
     <string name="subscription_status_reveal_secrets">Показать секреты подписки</string>
     <string name="subscription_status_hide_secrets">Скрыть секреты подписки</string>
-    <string name="subscription_status_profiles_format">Назначено профилей: %1$d</string>
     <string name="subscription_status_last_refresh_format">Последнее обновление: %1$s</string>
     <string name="subscription_status_token_expiry_format">Срок токена: %1$s</string>
     <string name="subscription_status_credential_expiry_format">Срок учётных данных: %1$s</string>
     <string name="subscription_status_replacement_help">Сохранённые профили продолжат работать. Импортируйте новую ссылку подписки, чтобы возобновить обновления.</string>
     <string name="subscription_status_refresh_action">Обновить сейчас</string>
     <string name="subscription_status_active">Активна</string>
-    <string name="subscription_status_expiring_days">Истекает через %1$d дн.</string>
     <string name="subscription_status_expired">Истекла</string>
     <string name="subscription_status_invalidated">Истекла или отозвана</string>
     <string name="subscription_status_unknown">Срок не указан</string>
@@ -3839,7 +3817,6 @@ fakeddisorder endhost</string>
     <string name="subscription_status_token_format">Токен: %1$s</string>
     <string name="subscription_home_multiple_title">Требуют внимания: %1$d</string>
     <string name="subscription_home_expiring_title">Подписка скоро истечёт</string>
-    <string name="subscription_home_expiring_body">%1$s истекает через %2$d дн. Обновите её или подготовьте новую ссылку.</string>
     <string name="subscription_home_expired_title">Подписка истекла</string>
     <string name="subscription_home_expired_body">%1$s больше не обновляется. Существующие профили сохранены.</string>
     <string name="subscription_home_invalidated_title">Подписка недоступна</string>

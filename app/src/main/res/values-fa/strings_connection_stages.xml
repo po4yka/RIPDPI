@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="diagnostics_stages_show">نمایش مراحل اتصال (%1$d مسیر)</string>
-    <string name="diagnostics_stages_hide">پنهان کردن مراحل (%1$d مسیر)</string>
     <string name="diagnostics_stages_legend">نامعلوم: شواهدی نیست. نرسیده: تلاش زودتر متوقف شد. نامرتبط: این مسیر از مرحله استفاده نمی‌کند. مشاهده‌شده و جزئی به معنی موفقیت نیستند.</string>
     <string name="diagnostics_stages_attempt">%1$s · تلاش %2$d</string>
     <string name="diagnostics_stages_state">%1$s — %2$s</string>

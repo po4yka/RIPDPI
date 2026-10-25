@@ -533,7 +533,6 @@
     <string name="home_diagnostics_detection_needs_review">Detection results need review</string>
     <string name="home_diagnostics_detection_not_detected">No detection signals observed</string>
     <string name="home_diagnostics_vpn_detectors_title">Apps that detect VPNs</string>
-    <string name="home_diagnostics_vpn_detectors_summary">%1$d installed apps are known VPN detectors.</string>
     <string name="home_diagnostics_pcap_toggle">Capture packets (advanced)</string>
     <string name="home_diagnostics_pcap_helper">Root required. Captures raw packet bytes for this run into a separate local PCAP file; redacted diagnostics archives do not embed packet captures.</string>
     <string name="diagnostics_pcap_card_title">Packet Capture</string>
@@ -879,7 +878,6 @@
     <string name="network_strategy_memory_section_title">Network strategy memory</string>
     <string name="network_strategy_memory_enabled_title">Remember policy per network</string>
     <string name="network_strategy_memory_enabled_body">Store a validated routing policy for the current network fingerprint and reuse it on future starts.</string>
-    <string name="network_strategy_memory_count_summary">%1$d remembered networks stored locally.</string>
     <string name="network_strategy_memory_clear_action">Clear remembered networks</string>
     <string name="network_strategy_memory_helper">Only validated network matches auto-apply. Raw SSID, BSSID, and carrier identifiers stay out of storage.</string>
     <string name="network_strategy_memory_inspect_title">Remembered networks</string>
@@ -887,12 +885,10 @@
     <string name="remembered_networks_intro_title">Privacy-safe labels</string>
     <string name="remembered_networks_intro_body">Each network is identified only by a one-way scope hash. Raw SSID, BSSID, carrier, and IP addresses are never stored or shown.</string>
     <string name="remembered_networks_header_helper">Removing an entry permanently purges its stored policy and DNS learning from this device.</string>
-    <string name="remembered_networks_count_summary">%1$d remembered networks</string>
     <string name="remembered_networks_clear_all_action">Clear all</string>
     <string name="remembered_networks_empty_title">No remembered networks</string>
     <string name="remembered_networks_empty_body">Validated policies appear here once the app learns a working strategy for a network.</string>
     <string name="remembered_networks_scope_label">Scope %1$s</string>
-    <string name="remembered_networks_dns_servers">%1$d DNS servers</string>
     <string name="remembered_networks_private_dns_label">Private DNS: %1$s</string>
     <string name="remembered_networks_strategy_label">Strategy: %1$s</string>
     <string name="remembered_networks_outcomes">%1$d ok · %2$d failed</string>
@@ -956,7 +952,6 @@
     <string name="adaptive_fallback_cache_summary">%1$d seconds · IPv4 /%2$d</string>
     <string name="adaptive_fallback_badge_enabled">Enabled</string>
     <string name="adaptive_fallback_badge_disabled">Disabled</string>
-    <string name="adaptive_fallback_badge_triggers">%1$d triggers</string>
     <string name="adaptive_fallback_badge_auto_sort">Auto-sort</string>
     <string name="adaptive_fallback_no_triggers_summary">No triggers selected.</string>
     <string name="ws_tunnel_section_title">WebSocket tunnel</string>
@@ -1028,13 +1023,11 @@
     <string name="activation_window_scope_filtered">Only outbound chunks inside the saved ranges can use group-wide bypass strategy, fake transport, TLS prelude, and UDP fake bursts.</string>
     <string name="activation_window_scope_open">Every outbound chunk can use the active bypass strategy group.</string>
     <string name="activation_window_step_filters_none">No step-local when_round, when_size, or when_stream rules are saved in the chain DSL.</string>
-    <string name="activation_window_step_filters_present">%1$d step rules in the chain DSL still add their own activation filters on top of the group window.</string>
     <string name="activation_window_badge_default">Default</string>
     <string name="activation_window_badge_custom">Custom window</string>
     <string name="activation_window_badge_round">Round gated</string>
     <string name="activation_window_badge_payload">Payload gated</string>
     <string name="activation_window_badge_stream">Stream gated</string>
-    <string name="activation_window_badge_step_filters">%1$d step rules</string>
     <string name="activation_window_reset_action">Reset window</string>
     <string name="activation_window_range_status_open">Open</string>
     <string name="activation_window_range_status_scoped">Scoped</string>
@@ -1989,8 +1982,6 @@ fakeddisorder endhost</string>
     <string name="host_pack_presets_body">Pick a ready-made service list for common apps with connectivity issues. Refresh can download a newer geosite snapshot, while Apply writes the selected pack into the blacklist or whitelist below.</string>
     <string name="host_pack_preset_body">%1$s
 Source: %2$s</string>
-    <string name="host_pack_hosts_badge">%1$d hosts</string>
-    <string name="host_pack_packs_badge">%1$d packs</string>
     <string name="host_pack_badge_downloaded">Downloaded</string>
     <string name="host_pack_badge_bundled">Bundled</string>
     <string name="host_pack_badge_checksum_verified">SHA-256 verified</string>
@@ -1998,8 +1989,6 @@ Source: %2$s</string>
     <string name="host_pack_semantics_note">RIPDPI host filters match by suffix. Converted full: geosite entries therefore apply to the exact host and its subdomains.</string>
     <string name="host_pack_apply_dialog_title">Apply %1$s pack</string>
     <string name="host_pack_apply_dialog_message">Choose where this curated host list should go. Only the selected text field changes.</string>
-    <string name="host_pack_apply_summary">%1$d hosts · %2$s</string>
-    <string name="host_pack_apply_summary_hosts_only">%1$d hosts</string>
     <string name="host_pack_target_title">Target list</string>
     <string name="host_pack_action_title">Apply mode</string>
     <string name="host_pack_target_blacklist">Blacklist</string>
@@ -2215,7 +2204,6 @@ Source: %2$s</string>
     <string name="biometric_prompt_pin_helper">Digits only. The PIN is checked locally and never leaves this device.</string>
     <string name="biometric_prompt_pin_error">The backup PIN does not match.</string>
     <string name="biometric_prompt_pin_lockout_title">Too many attempts</string>
-    <string name="biometric_prompt_pin_lockout_body">Try again in %1$d seconds.</string>
     <string name="biometric_prompt_use_biometric">Back to biometrics</string>
     <string name="biometric_dialog_title">Unlock RIPDPI</string>
     <string name="biometric_dialog_subtitle">Confirm your identity</string>
@@ -2739,7 +2727,6 @@ Source: %2$s</string>
     <string name="detection_check_category_rtt_triangulation">RTT Triangulation</string>
     <string name="detection_community_title">Community</string>
     <string name="detection_community_local_title">Your Statistics</string>
-    <string name="detection_community_reports">%d checks recorded</string>
     <string name="detection_community_avg_score">Average stealth score: %d/100</string>
     <string name="detection_community_detected_pct">%d%% of checks detected</string>
     <string name="detection_community_loading">Loading community stats…</string>
@@ -3188,7 +3175,6 @@ Source: %2$s</string>
     <string name="vpn_confirm_disconnect_stay">Stay connected</string>
     <string name="vpn_confirm_disconnect_disconnect">Disconnect</string>
     <string name="vpn_export_consent_title_format">Export %1$s</string>
-    <string name="vpn_export_consent_meta_format">%1$s · %2$d packets</string>
     <string name="vpn_export_consent_redact_label">Redact endpoint IPs to 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Cancel</string>
     <string name="vpn_export_consent_confirm">Export</string>
@@ -3205,7 +3191,6 @@ Source: %2$s</string>
     <string name="vpn_replay_save_to_archive">Save to diagnostics archive</string>
     <string name="vpn_replay_history_title">Past replays</string>
     <string name="vpn_replay_history_empty">No past replays yet</string>
-    <string name="vpn_replay_history_row_format">%1$s · %2$d events</string>
     <string name="vpn_replay_history_verdict_success">Success</string>
     <string name="vpn_replay_history_verdict_failure">Failure</string>
     <string name="vpn_replay_history_verdict_cancelled">Cancelled</string>
@@ -3235,8 +3220,6 @@ Source: %2$s</string>
     <string name="vpn_pcap_read_failed">Could not read PCAP data.</string>
     <string name="vpn_pcap_truncated">Showing the first 2,000 packets.</string>
     <string name="vpn_pcap_no_packets">This capture has no packets.</string>
-    <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d packets</string>
-    <string name="vpn_pcap_capture_drops_format">%1$d packets dropped under load</string>
 
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Developer</string>
@@ -3332,7 +3315,6 @@ Source: %2$s</string>
     <string name="domain_bypass_intro_body">Domains listed here stay off the proxy and connect directly. One per line. Accepts plain domains (example.com), suffixes (.example.com), and the domain:, domain_suffix: and domain_regex: prefixes.</string>
     <string name="domain_bypass_editor_label">Domains (one per line)</string>
     <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
-    <string name="domain_bypass_clean_count">%1$d valid entries</string>
     <string name="domain_bypass_errors_title">%1$d invalid line(s)</string>
     <string name="domain_bypass_error_line">Line %1$d: %2$s</string>
     <string name="domain_bypass_paste">Paste</string>
@@ -3470,7 +3452,6 @@ Source: %2$s</string>
     <string name="asset_provider_exit_pending_body">RIPDPI cancels any active asset operation, saves the provider settings, and then returns.</string>
     <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russia)</string>
     <string name="asset_provider_runetfreedom_desc">De-facto RU bypass ruleset; more current than antizapret for v2ray/xray geoip/geosite tags.</string>
-    <string name="asset_provider_updated_days_ago">Updated %1$d days ago</string>
     <string name="asset_provider_updated_today">Updated today</string>
     <string name="asset_provider_updated_never">Never updated</string>
     <!-- Backup &amp; Restore -->
@@ -3699,7 +3680,6 @@ Source: %2$s</string>
     <string name="rkn_self_info_source">Source</string>
     <string name="shared_diagnostic_screen_title">Shared diagnostic</string>
     <string name="shared_diagnostic_result_snapshot_title">Result snapshot</string>
-    <string name="shared_diagnostic_endpoints_count">%1$d endpoints</string>
     <string name="shared_diagnostic_endpoint_label">Endpoint %1$d</string>
     <string name="shared_diagnostic_alive_prefix">Alive: %1$s</string>
     <string name="shared_diagnostic_open_error_title">Cannot open shared diagnostic</string>
@@ -4015,7 +3995,6 @@ Source: %2$s</string>
     <string name="diagnostics_ipv4_whitelist_caching">Caching...</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">Check cached</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">Subnet check failed.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_complete">Checked %1$d cached subnets.</string>
     <string name="diagnostics_ipv4_whitelist_checked_progress">Checked %1$d/%2$d cached subnets.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">IPv4 whitelist subnets.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">Fetching announced IPv4 prefixes...</string>
@@ -4035,7 +4014,6 @@ Source: %2$s</string>
     <string name="diagnostics_overview_policy_failures">Failures %1$d</string>
     <string name="diagnostics_overview_policy_success">Success %1$d</string>
     <string name="diagnostics_overview_policy_validated">Validated %1$s</string>
-    <string name="diagnostics_profile_curated_packs_included">%1$d curated packs included.</string>
     <string name="diagnostics_profile_manual_run_only">Manual run only.</string>
     <string name="diagnostics_pt_complete">Checked obfs4, Snowflake, and meek endpoint reachability.</string>
     <string name="diagnostics_pt_failed">PT reachability check failed.</string>
@@ -4234,14 +4212,12 @@ Source: %2$s</string>
     <string name="subscription_status_empty_body">Imported subscription details will appear here.</string>
     <string name="subscription_status_reveal_secrets">Reveal subscription secrets</string>
     <string name="subscription_status_hide_secrets">Hide subscription secrets</string>
-    <string name="subscription_status_profiles_format">%1$d assigned profiles</string>
     <string name="subscription_status_last_refresh_format">Last refresh: %1$s</string>
     <string name="subscription_status_token_expiry_format">Token expiry: %1$s</string>
     <string name="subscription_status_credential_expiry_format">Credential expiry: %1$s</string>
     <string name="subscription_status_replacement_help">The saved profiles remain usable. Import a replacement subscription link to resume updates.</string>
     <string name="subscription_status_refresh_action">Refresh now</string>
     <string name="subscription_status_active">Active</string>
-    <string name="subscription_status_expiring_days">Expires in %1$d days</string>
     <string name="subscription_status_expired">Expired</string>
     <string name="subscription_status_invalidated">Expired or revoked</string>
     <string name="subscription_status_unknown">No expiry supplied</string>
@@ -4252,7 +4228,6 @@ Source: %2$s</string>
     <string name="subscription_status_token_format">Token: %1$s</string>
     <string name="subscription_home_multiple_title">%1$d subscriptions need attention</string>
     <string name="subscription_home_expiring_title">Subscription expires soon</string>
-    <string name="subscription_home_expiring_body">%1$s expires in %2$d days. Refresh it or prepare a replacement link.</string>
     <string name="subscription_home_expired_title">Subscription expired</string>
     <string name="subscription_home_expired_body">%1$s can no longer refresh. Existing profiles remain available.</string>
     <string name="subscription_home_invalidated_title">Subscription unavailable</string>

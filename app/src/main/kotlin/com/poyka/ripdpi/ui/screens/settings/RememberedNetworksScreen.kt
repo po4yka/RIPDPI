@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -194,7 +195,7 @@ private fun RememberedNetworksHeader(
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             Text(
-                text = stringResource(R.string.remembered_networks_count_summary, count),
+                text = pluralStringResource(R.plurals.remembered_networks_count_summary, count, count),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
             )
@@ -278,7 +279,7 @@ private fun RememberedNetworkMetaFlow(entry: RememberedNetworkUiModel) {
         RememberedNetworkMetaText(rememberedModeLabel(entry.modeKey))
         RememberedNetworkMetaText(rememberedValidationLabel(entry.validationKey))
         RememberedNetworkMetaText(
-            stringResource(R.string.remembered_networks_dns_servers, entry.dnsServerCount),
+            pluralStringResource(R.plurals.remembered_networks_dns_servers, entry.dnsServerCount, entry.dnsServerCount),
         )
         if (entry.privateDnsMode.isNotBlank()) {
             RememberedNetworkMetaText(

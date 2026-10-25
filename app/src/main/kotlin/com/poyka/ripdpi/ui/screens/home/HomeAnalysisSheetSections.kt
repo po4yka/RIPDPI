@@ -8,6 +8,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
@@ -106,7 +107,7 @@ private fun HomeVpnDetectorsSection(sheet: HomeDiagnosticsAnalysisSheetUiState) 
     )
     HomeAnalysisInsetColumn(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsVpnDetectorsCard)) {
         Text(
-            text = stringResource(R.string.home_diagnostics_vpn_detectors_summary, count),
+            text = pluralStringResource(R.plurals.home_diagnostics_vpn_detectors_summary, count, count),
             style = RipDpiThemeTokens.type.body,
             color = colors.foreground,
         )

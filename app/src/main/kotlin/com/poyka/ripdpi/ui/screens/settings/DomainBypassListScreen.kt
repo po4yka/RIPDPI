@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -220,7 +221,11 @@ internal fun DomainBypassEditorCard(
                     RipDpiTextFieldDecoration(
                         placeholder = stringResource(R.string.domain_bypass_placeholder),
                         helperText =
-                            stringResource(R.string.domain_bypass_clean_count, state.cleanCount),
+                            pluralStringResource(
+                                R.plurals.domain_bypass_clean_count,
+                                state.cleanCount,
+                                state.cleanCount,
+                            ),
                         testTag = RipDpiTestTags.DomainBypassEditor,
                     ),
                 behavior =

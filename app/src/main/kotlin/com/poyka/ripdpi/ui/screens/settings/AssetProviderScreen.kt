@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -398,7 +399,7 @@ private fun UpdatedRow(staleness: GeoAssetStaleness) {
             }
 
             is GeoAssetStaleness.DaysAgo -> {
-                stringResource(R.string.asset_provider_updated_days_ago, staleness.days)
+                pluralStringResource(R.plurals.asset_provider_updated_days_ago, staleness.days.toInt(), staleness.days)
             }
         }
     Text(
