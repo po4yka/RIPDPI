@@ -105,11 +105,20 @@ impl DynamicTcpInterface {
                             && let Some((queue, upload)) = send_queue.get_mut(virtual_port) {
                                 match queue.pop_front() { Some(to_send) => {
                                     let total = to_send.len();
-                                    // A send error discards the chunk, as before; its credit returns too.
-                                    let sent = client_socket.send_slice(&to_send).unwrap_or(total);
-                                    upload.add_permits(sent);
-                                    if sent < total {
-                                        queue.push_front(to_send.slice(sent..));
+                                    match client_socket.send_slice(&to_send) {
+                                        Ok(sent) => {
+                                            upload.add_permits(sent);
+                                            if sent < total {
+                                                queue.push_front(to_send.slice(sent..));
+                                            }
+                                        }
+                                        // Skipping accepted client bytes would corrupt the
+                                        // stream, so reset the session instead.
+                                        Err(error) => {
+                                            tracing::warn!(%error, "TCP virtual send failed; resetting the session");
+                                            upload.add_permits(total);
+                                            client_socket.abort();
+                                        }
                                     }
                                 } _ => if client_socket.state() == tcp::State::CloseWait || graceful_closing.contains(virtual_port) {
                                     client_socket.close();
