@@ -100,20 +100,23 @@ fun HomeScreen(
         // message and its copy action belonged to the banner exclusively.
         val faultDetail = uiState.connectionActuator.faultDetail
         val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
-        RipDpiConnectionActuator(
-            state = uiState.connectionActuator,
-            onActivate = onToggleConnection,
-            onDeactivate = onToggleConnection,
-            modifier = Modifier.fillMaxWidth(),
-            onCopyFaultDetail =
-                faultDetail.takeIf { it.isNotEmpty() }?.let { message ->
-                    { clipboardManager?.setPrimaryClip(ClipData.newPlainText(errorClipboardLabel, message)) }
-                },
-            testTag = RipDpiTestTags.ConnectionActuatorButton,
-        )
-
-        if (pause.available || pause.phase != null || pause.requestFailed) {
-            HomePauseControls(pause, onPause, onResumePause, onStopPause)
+        // Pause qualifies the connection action, so it shares the control's group
+        // instead of taking a section, and its section gaps, of its own.
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+            RipDpiConnectionActuator(
+                state = uiState.connectionActuator,
+                onActivate = onToggleConnection,
+                onDeactivate = onToggleConnection,
+                modifier = Modifier.fillMaxWidth(),
+                onCopyFaultDetail =
+                    faultDetail.takeIf { it.isNotEmpty() }?.let { message ->
+                        { clipboardManager?.setPrimaryClip(ClipData.newPlainText(errorClipboardLabel, message)) }
+                    },
+                testTag = RipDpiTestTags.ConnectionActuatorButton,
+            )
+            if (pause.available || pause.phase != null || pause.requestFailed) {
+                HomePauseControls(pause, onPause, onResumePause, onStopPause)
+            }
         }
 
         // One slot, ordered by severity. Setup health, the Xray provider stage,
