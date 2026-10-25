@@ -11,4 +11,6 @@
         <item quantity="many">%d autres avis</item>
         <item quantity="other">%d autres avis</item>
     </plurals>
+    <string name="config_relay_off_title">Relais désactivé</string>
+    <string name="config_relay_off_body">Configurez un serveur relais pour y faire passer votre trafic.</string>
 </resources>

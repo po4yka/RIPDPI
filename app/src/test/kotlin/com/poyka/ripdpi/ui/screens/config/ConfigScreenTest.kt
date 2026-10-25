@@ -274,7 +274,7 @@ class ConfigScreenTest {
     }
 
     @Test
-    fun `vpn section renders relay protocol credentials and dns rows`() {
+    fun `vpn section with the relay off shows one relay setup row and dns`() {
         setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
@@ -284,9 +284,11 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).assertExists()
         composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnRelay).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnRelay)
+            .assert(hasContentDescription("Relay off", substring = true))
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
     }
 

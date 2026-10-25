@@ -1154,8 +1154,8 @@ fakeddisorder endhost</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_split_marker_helper">手动标记可接受偏移量,例如 1、host、method+2、midsld-1 或 host+1。使用自适应预设选择器或原始链 DSL 来使用 auto(…)。</string>
     <string name="config_validation_banner_body">编辑器正在实时验证。请修正标记的字段后再次保存。</string>
-    <string name="config_vpn_credentials_summary">用于安全凭据材料的配置引用</string>
-    <string name="config_vpn_relay_server_summary">中继配置使用的远程服务器端点</string>
+    <string name="config_vpn_credentials_summary">中继服务器的密钥或密码，保存在本设备的安全存储中</string>
+    <string name="config_vpn_relay_server_summary">承载你的流量的远程服务器地址</string>
     <string name="confirm_clear_remembered_networks_dismiss">取消</string>
     <string name="confirm_forget_learned_hosts_dismiss">取消</string>
     <string name="confirm_reset_activation_window_dismiss">取消</string>
@@ -1309,7 +1309,6 @@ fakeddisorder endhost</string>
     <string name="home_history_title">查看已保存的会话和失败记录</string>
     <string name="home_mode_card_diagnostic_empty">暂无分析</string>
     <string name="home_mode_card_diagnostic_status_review">查看最新审计</string>
-    <string name="home_mode_card_remote_relay_disabled">中继已禁用</string>
     <string name="home_mode_card_remote_relay_disabled_hint">在“配置”中启用中继以开启此功能</string>
     <string name="home_mode_card_status_busy">繁忙</string>
     <string name="home_mode_proxy">本地代理</string>
@@ -2262,7 +2261,7 @@ fake_burst 3</string>
     <string name="config_tls_record_marker_helper">接受偏移,如 0、host、sniext、extlen 或 host+1。</string>
     <string name="config_validation_fix">保存前请检查高亮的字段。</string>
     <string name="config_editor_hydration_failed">无法打开此配置。已保存的凭据未被更改。</string>
-    <string name="config_vpn_protocol_summary">在当前中继配置中所选的传输</string>
+    <string name="config_vpn_protocol_summary">应用连接中继服务器的方式</string>
     <string name="confirm_clear_remembered_networks_body">已保存的按网络策略选择将被删除。应用将在重新连接时重新评估每个网络。</string>
     <string name="confirm_forget_learned_hosts_body">所有自动学习到的主机条目将被删除。引擎将在下次会话从零开始重新学习。</string>
     <string name="confirm_reset_activation_window_body">自定义的轮次、载荷及流字节过滤器将被删除。所有数据包将不受窗口限制处理。</string>

@@ -596,7 +596,6 @@
     <string name="home_connection_actuator_state_vpn_unverified">Local processes are running; VPN connectivity is unverified</string>
     <string name="home_connection_actuator_state_vpn_unavailable">Local processes are running; VPN connectivity is unavailable</string>
     <string name="home_mode_card_connecting">Starting...</string>
-    <string name="home_mode_card_remote_relay_disabled">Relay disabled</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
     <string name="home_mode_card_remote_server_unknown">Server not configured</string>
     <string name="home_mode_card_diagnostic_empty">No analysis yet</string>
@@ -672,11 +671,11 @@
     <string name="config_dns_summary_disabled">Proxy mode can resolve local proxy target names with encrypted DNS. Device DNS interception needs a supported VPN resolver.</string>
     <string name="config_listen_address_summary">Where the local proxy listener binds</string>
     <string name="config_default_ttl_summary">Time-to-live override for outgoing packets</string>
-    <string name="config_vpn_relay_server_summary">Remote server endpoint used by the relay profile</string>
+    <string name="config_vpn_relay_server_summary">Address of the remote server that carries your traffic</string>
     <string name="config_vpn_protocol_title">Relay protocol</string>
-    <string name="config_vpn_protocol_summary">Transport selected in the current relay profile</string>
+    <string name="config_vpn_protocol_summary">How the app connects to the relay server</string>
     <string name="config_vpn_credentials_title">Relay credentials</string>
-    <string name="config_vpn_credentials_summary">Profile reference used for secure credential material</string>
+    <string name="config_vpn_credentials_summary">Keys or passwords for the relay server, kept in secure storage on this device</string>
     <string name="config_vpn_credentials_required">Needs credentials</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>

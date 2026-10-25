@@ -14,4 +14,6 @@
         <item quantity="many">%d تنبيهًا آخر</item>
         <item quantity="other">%d تنبيه آخر</item>
     </plurals>
+    <string name="config_relay_off_title">الترحيل متوقف</string>
+    <string name="config_relay_off_body">اضبط خادم ترحيل لتمرير حركة المرور عبره.</string>
 </resources>

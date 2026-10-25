@@ -11,4 +11,6 @@
         <item quantity="many">Mais %d avisos</item>
         <item quantity="other">Mais %d avisos</item>
     </plurals>
+    <string name="config_relay_off_title">Relay desativado</string>
+    <string name="config_relay_off_body">Configure um servidor de retransmissão para enviar seu tráfego por ele.</string>
 </resources>

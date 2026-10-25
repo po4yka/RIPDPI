@@ -12,4 +12,6 @@
         <item quantity="many">Ещё %d уведомлений</item>
         <item quantity="other">Ещё %d уведомления</item>
     </plurals>
+    <string name="config_relay_off_title">Реле выключено</string>
+    <string name="config_relay_off_body">Настройте сервер реле, чтобы направлять через него трафик.</string>
 </resources>

@@ -10,4 +10,6 @@
         <item quantity="one">%d weiterer Hinweis</item>
         <item quantity="other">%d weitere Hinweise</item>
     </plurals>
+    <string name="config_relay_off_title">Relay aus</string>
+    <string name="config_relay_off_body">Richten Sie einen Relay-Server ein, um Ihren Datenverkehr darüber zu leiten.</string>
 </resources>

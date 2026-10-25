@@ -79,7 +79,9 @@ internal fun VpnConfigScreen(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        SettingsCategoryHeader(title = stringResource(R.string.home_mode_remote_vpn))
+        SettingsCategoryHeader(
+            title = stringResource(if (settingsOnly) R.string.config_relay_server else R.string.home_mode_remote_vpn),
+        )
         if (settingsOnly) {
             VpnAdvancedRows(uiState, onOpenRelaySettings, onOpenDnsSettings, showGuidance = false)
             return@Column
@@ -431,10 +433,36 @@ private fun VpnAdvancedRows(
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
-        VpnRelayRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
-        VpnProtocolRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
-        VpnCredentialsRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
+        if (uiState.draft.relayEnabled && uiState.draft.relayKind != RelayKindOff) {
+            VpnRelayRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
+            VpnProtocolRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
+            VpnCredentialsRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
+        } else {
+            // One setup row instead of three rows that all say "Relay disabled".
+            VpnRelayOffRow(onOpenRelaySettings = onOpenRelaySettings)
+        }
         VpnDnsRow(uiState = uiState, onOpenDnsSettings = onOpenDnsSettings)
+    }
+}
+
+@Composable
+private fun VpnRelayOffRow(onOpenRelaySettings: () -> Unit) {
+    val title = stringResource(R.string.config_relay_off_title)
+    val body = stringResource(R.string.config_relay_off_body)
+    VpnActionRow(
+        testTag = RipDpiTestTags.ConfigVpnRelay,
+        accessibilityLabel = title,
+        accessibilityValue = "",
+        onClick = onOpenRelaySettings,
+        accessibilitySubtitle = body,
+    ) {
+        SettingsRow(
+            title = title,
+            subtitle = body,
+            leadingIcon = RipDpiIcons.Public,
+            showChevron = true,
+            showDivider = true,
+        )
     }
 }
 
@@ -568,9 +596,6 @@ private fun VpnActionRow(
 @Composable
 private fun relayEndpointLabel(uiState: ConfigUiState): String {
     val draft = uiState.draft
-    if (!draft.relayEnabled || draft.relayKind == RelayKindOff) {
-        return stringResource(R.string.home_mode_card_remote_relay_disabled)
-    }
     val chainEndpoint =
         listOf(draft.relayChainEntryServer, draft.relayChainExitServer)
             .filter { it.isNotBlank() }
@@ -609,10 +634,6 @@ private fun credentialsSubtitle(uiState: ConfigUiState): String =
 @Composable
 private fun credentialsValue(uiState: ConfigUiState): String =
     when {
-        !uiState.draft.relayEnabled || uiState.draft.relayKind == RelayKindOff -> {
-            stringResource(R.string.home_mode_card_remote_relay_disabled)
-        }
-
         uiState.validationErrors[ConfigFieldRelayCredentials] != null -> {
             stringResource(R.string.config_vpn_credentials_required)
         }

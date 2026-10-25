@@ -582,7 +582,6 @@
     <string name="home_connection_actuator_state_vpn_unverified">العمليات المحلية قيد التشغيل؛ لم يتم التحقق من اتصال VPN</string>
     <string name="home_connection_actuator_state_vpn_unavailable">العمليات المحلية قيد التشغيل؛ اتصال VPN غير متاح</string>
     <string name="home_mode_card_connecting">جارٍ البدء...</string>
-    <string name="home_mode_card_remote_relay_disabled">الترحيل معطّل</string>
     <string name="home_mode_card_remote_relay_disabled_hint">فعّل الترحيل في «الاتصال» لتشغيل هذا الخيار.</string>
     <string name="home_mode_card_remote_server_unknown">الخادم غير مُهيَّأ</string>
     <string name="home_mode_card_diagnostic_empty">لا يوجد تحليل بعد</string>
@@ -658,11 +657,11 @@
     <string name="config_dns_summary_disabled">يمكن لوضع الوكيل حل الأسماء عبر DNS المشفّر. يتطلب اعتراض DNS الجهاز محلل VPN متوافقًا.</string>
     <string name="config_listen_address_summary">العنوان الذي يرتبط به مستمع الوكيل المحلي</string>
     <string name="config_default_ttl_summary">تجاوز وقت الحياة للحزم الصادرة</string>
-    <string name="config_vpn_relay_server_summary">نقطة نهاية الخادم البعيد المستخدمة بواسطة ملف تعريف الترحيل</string>
+    <string name="config_vpn_relay_server_summary">عنوان الخادم البعيد الذي ينقل حركة المرور الخاصة بك</string>
     <string name="config_vpn_protocol_title">بروتوكول الترحيل</string>
-    <string name="config_vpn_protocol_summary">البروتوكول المحدد في ملف تعريف الترحيل الحالي</string>
+    <string name="config_vpn_protocol_summary">كيف يتصل التطبيق بخادم الترحيل</string>
     <string name="config_vpn_credentials_title">بيانات اعتماد الترحيل</string>
-    <string name="config_vpn_credentials_summary">مرجع الملف الشخصي المستخدم لمواد الاعتماد الآمنة</string>
+    <string name="config_vpn_credentials_summary">مفاتيح أو كلمات مرور خادم الترحيل، محفوظة في التخزين الآمن على هذا الجهاز</string>
     <string name="config_vpn_credentials_required">يتطلب بيانات اعتماد</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>

@@ -785,6 +785,8 @@ app:config_relay_naive_path_helper
 app:config_relay_naive_username
 app:config_relay_naive_username_helper
 app:config_relay_obfs4_bridge_line_helper
+app:config_relay_off_body
+app:config_relay_off_title
 app:config_relay_presets_title
 app:config_relay_profile_id
 app:config_relay_profile_id_helper
@@ -3366,7 +3368,6 @@ app:home_mode_card_diagnostic_status_review_format
 app:home_mode_card_diagnostic_status_stale
 app:home_mode_card_disable
 app:home_mode_card_enable
-app:home_mode_card_remote_relay_disabled
 app:home_mode_card_remote_relay_disabled_hint
 app:home_mode_card_remote_server_unknown
 app:home_mode_card_run_scan

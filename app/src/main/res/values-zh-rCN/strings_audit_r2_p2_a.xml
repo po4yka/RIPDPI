@@ -9,4 +9,6 @@
     <plurals name="home_advisories_more">
         <item quantity="other">另有 %d 条提示</item>
     </plurals>
+    <string name="config_relay_off_title">中继已关闭</string>
+    <string name="config_relay_off_body">设置中继服务器，让你的流量通过它传输。</string>
 </resources>

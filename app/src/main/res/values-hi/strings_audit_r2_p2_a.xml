@@ -10,4 +10,6 @@
         <item quantity="one">%d और सूचना</item>
         <item quantity="other">%d और सूचनाएँ</item>
     </plurals>
+    <string name="config_relay_off_title">रिले बंद है</string>
+    <string name="config_relay_off_body">अपना ट्रैफ़िक भेजने के लिए एक रिले सर्वर सेट करें।</string>
 </resources>

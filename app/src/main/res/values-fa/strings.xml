@@ -586,7 +586,6 @@
     <string name="home_connection_actuator_state_vpn_unverified">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN تأیید نشده است</string>
     <string name="home_connection_actuator_state_vpn_unavailable">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN در دسترس نیست</string>
     <string name="home_mode_card_connecting">در حال شروع...</string>
-    <string name="home_mode_card_remote_relay_disabled">رله غیرفعال</string>
     <string name="home_mode_card_remote_relay_disabled_hint">برای روشن کردن این گزینه، یک رله را در «اتصال» فعال کنید.</string>
     <string name="home_mode_card_remote_server_unknown">سرور پیکربندی نشده</string>
     <string name="home_mode_card_diagnostic_empty">هنوز هیچ تحلیلی نیست</string>
@@ -662,11 +661,11 @@
     <string name="config_dns_summary_disabled">حالت پروکسی می‌تواند نام‌ها را با DNS رمزگذاری‌شده حل کند. رهگیری DNS دستگاه به حل‌کننده سازگار VPN نیاز دارد.</string>
     <string name="config_listen_address_summary">جایی که شنوندهٔ پراکسی محلی متصل می‌شود</string>
     <string name="config_default_ttl_summary">جایگزینی زمان زنده‌مانی برای بسته‌های خروجی</string>
-    <string name="config_vpn_relay_server_summary">نقطه پایانی سرور دور که توسط پروفایل رله استفاده می‌شود</string>
+    <string name="config_vpn_relay_server_summary">نشانی سرور دوری که ترافیک شما را منتقل می‌کند</string>
     <string name="config_vpn_protocol_title">پروتکل رله</string>
-    <string name="config_vpn_protocol_summary">حمل‌و‌نقل انتخاب‌شده در پروفایل رلهٔ فعلی</string>
+    <string name="config_vpn_protocol_summary">نحوهٔ اتصال برنامه به سرور رله</string>
     <string name="config_vpn_credentials_title">اعتبارنامهٔ رله</string>
-    <string name="config_vpn_credentials_summary">ارجاع پروفایل که برای مواد اعتبارنامه‌ای امن استفاده می‌شود</string>
+    <string name="config_vpn_credentials_summary">کلیدها یا گذرواژه‌های سرور رله که در فضای ذخیره‌سازی امن این دستگاه نگه داشته می‌شوند</string>
     <string name="config_vpn_credentials_required">به اعتبارنامه نیاز دارد</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>

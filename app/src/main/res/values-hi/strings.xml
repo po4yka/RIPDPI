@@ -584,7 +584,6 @@
     <string name="home_connection_actuator_state_vpn_unverified">स्थानीय प्रक्रियाएँ चल रही हैं; VPN कनेक्टिविटी सत्यापित नहीं है</string>
     <string name="home_connection_actuator_state_vpn_unavailable">स्थानीय प्रक्रियाएँ चल रही हैं; VPN कनेक्टिविटी उपलब्ध नहीं है</string>
     <string name="home_mode_card_connecting">शुरू हो रहा है...</string>
-    <string name="home_mode_card_remote_relay_disabled">रिले अक्षम</string>
     <string name="home_mode_card_remote_relay_disabled_hint">इसे चालू करने के लिए कनेक्शन में कोई रिले सक्षम करें</string>
     <string name="home_mode_card_remote_server_unknown">सर्वर कॉन्फ़िगर नहीं है</string>
     <string name="home_mode_card_diagnostic_empty">अभी कोई विश्लेषण नहीं</string>
@@ -660,11 +659,11 @@
     <string name="config_dns_summary_disabled">प्रॉक्सी मोड स्थानीय प्रॉक्सी के लक्ष्य नाम एन्क्रिप्टेड DNS से हल कर सकता है। डिवाइस DNS अनुरोधों को संभालने के लिए समर्थित VPN रिज़ॉल्वर चाहिए।</string>
     <string name="config_listen_address_summary">जहाँ लोकल प्रॉक्सी श्रोता बाइंड होता है</string>
     <string name="config_default_ttl_summary">आउटगोइंग पैकेटों के लिए TTL ओवरराइड</string>
-    <string name="config_vpn_relay_server_summary">रिले प्रोफ़ाइल द्वारा उपयोग किया जाने वाला रिमोट सर्वर एंडपॉइंट</string>
+    <string name="config_vpn_relay_server_summary">उस रिमोट सर्वर का पता जो आपका ट्रैफ़िक ले जाता है</string>
     <string name="config_vpn_protocol_title">रिले प्रोटोकॉल</string>
-    <string name="config_vpn_protocol_summary">मौजूदा रिले प्रोफ़ाइल में चयनित ट्रांसपोर्ट</string>
+    <string name="config_vpn_protocol_summary">ऐप रिले सर्वर से कैसे कनेक्ट होता है</string>
     <string name="config_vpn_credentials_title">रिले क्रेडेंशियल</string>
-    <string name="config_vpn_credentials_summary">सुरक्षित क्रेडेंशियल सामग्री के लिए उपयोग किया जाने वाला प्रोफ़ाइल संदर्भ</string>
+    <string name="config_vpn_credentials_summary">रिले सर्वर की कुंजियाँ या पासवर्ड, जो इस डिवाइस के सुरक्षित स्टोरेज में रखे जाते हैं</string>
     <string name="config_vpn_credentials_required">क्रेडेंशियल आवश्यक</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>

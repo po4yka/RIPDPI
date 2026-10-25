@@ -585,7 +585,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_relay_xhttp_mode">Modo xHTTP</string>
     <string name="config_tls_record_marker_helper">Acepta desplazamientos como 0, host, sniext, extlen o host+1.</string>
     <string name="config_vpn_credentials_required">Requiere credenciales</string>
-    <string name="config_vpn_relay_server_summary">Endpoint del servidor remoto usado por el perfil de relay</string>
+    <string name="config_vpn_relay_server_summary">Dirección del servidor remoto que transporta tu tráfico</string>
     <string name="confirm_clear_remembered_networks_title">¿Borrar redes recordadas?</string>
     <string name="confirm_reset_activation_window_body">Se eliminarán los filtros personalizados de ronda, payload y bytes de stream. Todos los paquetes se procesarán sin restricciones de ventana.</string>
     <string name="confirm_reset_adaptive_fake_ttl_confirm">Restablecer</string>
@@ -1172,7 +1172,7 @@ fake_burst 3</string>
     <string name="config_relay_vless_transport">Transporte VLESS</string>
     <string name="config_relay_xhttp_path">Ruta xHTTP</string>
     <string name="config_udp_chain_hint">Las ráfagas fake UDP ahora viven dentro del editor de estrategia de bypass como contadores fake_burst.</string>
-    <string name="config_vpn_credentials_summary">Referencia de perfil utilizada para material de credenciales seguro</string>
+    <string name="config_vpn_credentials_summary">Claves o contraseñas del servidor de relay, guardadas en el almacenamiento seguro de este dispositivo</string>
     <string name="config_vpn_section_body">Ajusta la configuración de la ruta VPN, el transporte del relay y el comportamiento del DNS.</string>
     <string name="config_vpn_simple_title">VPN</string>
     <string name="config_vpn_simple_body">Añade un enlace de perfil y RIPDPI inferirá el protocolo desde el URI.</string>
@@ -1376,7 +1376,6 @@ fake_burst 3</string>
     <string name="home_connection_actuator_state_vpn_unverified">Los procesos locales están en ejecución; la conectividad VPN no está verificada</string>
     <string name="home_connection_actuator_state_vpn_unavailable">Los procesos locales están en ejecución; la conectividad VPN no está disponible</string>
     <string name="home_mode_card_diagnostic_status_review">Revisar última auditoría</string>
-    <string name="home_mode_card_remote_relay_disabled">Relay desactivado</string>
     <string name="home_mode_card_remote_relay_disabled_hint">Activa un relé en Configurar para habilitar esta opción</string>
     <string name="home_mode_card_status_inactive">Inactivo</string>
     <string name="home_mode_vpn">VPN local</string>
@@ -2305,7 +2304,7 @@ Origen: %2$s</string>
     <string name="config_relay_server_port">Puerto del relay</string>
     <string name="config_split_marker_helper">Los marcadores manuales aceptan desplazamientos como 1, host, method+2, midsld-1 o host+1. Usa el selector de preajustes adaptativo o el DSL de cadena sin procesar para auto(…).</string>
     <string name="config_validation_banner_title">Algunos valores aún requieren atención</string>
-    <string name="config_vpn_protocol_summary">Transporte seleccionado en el perfil de relay actual</string>
+    <string name="config_vpn_protocol_summary">Cómo se conecta la app al servidor de relay</string>
     <string name="confirm_clear_remembered_networks_confirm">Borrar</string>
     <string name="confirm_forget_learned_hosts_dismiss">Cancelar</string>
     <string name="confirm_reset_activation_window_title">¿Restablecer la ventana de activación?</string>

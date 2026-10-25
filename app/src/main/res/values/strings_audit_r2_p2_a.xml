@@ -10,4 +10,6 @@
         <item quantity="one">%d more notice</item>
         <item quantity="other">%d more notices</item>
     </plurals>
+    <string name="config_relay_off_title">Relay off</string>
+    <string name="config_relay_off_body">Set up a relay server to send your traffic through it.</string>
 </resources>

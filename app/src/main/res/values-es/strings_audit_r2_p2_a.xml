@@ -11,4 +11,6 @@
         <item quantity="many">%d avisos más</item>
         <item quantity="other">%d avisos más</item>
     </plurals>
+    <string name="config_relay_off_title">Relay desactivado</string>
+    <string name="config_relay_off_body">Configura un servidor de relay para enviar tu tráfico a través de él.</string>
 </resources>
