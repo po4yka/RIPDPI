@@ -86,10 +86,20 @@ impl UdpSession {
         }
     }
 
+    /// Receives the next datagram; fails once the connection is closed.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: a cancelled wait takes no packet from the channel.
     pub async fn recv_from(&mut self) -> io::Result<(String, Vec<u8>)> {
-        self.incoming_rx
-            .recv()
-            .await
+        // The session's own sender keeps the channel open, so a closed
+        // connection (which also ends the dispatcher) must end the wait.
+        let packet = tokio::select! {
+            biased;
+            packet = self.incoming_rx.recv() => packet,
+            _ = self.client.connection.closed() => self.incoming_rx.try_recv().ok(),
+        };
+        packet
             .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "TUIC UDP session ended"))
             .map(|packet| (packet.address, packet.payload))
     }
@@ -204,16 +214,19 @@ enum ReassemblyResult {
     Rejected,
 }
 
+/// Routes inbound datagrams to UDP sessions. It holds only a weak client
+/// handle; `ClientInner::dispatch_task` aborts it when the client state drops.
+///
 /// # Cancel safety
 ///
 /// NOT cancel-safe: maintains mutable partials map across multiple await points.
 /// Cancellation mid-loop can leave reassembly state partially updated.
-pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
+pub(crate) async fn dispatch_incoming_datagrams(connection: quinn::Connection, client: std::sync::Weak<ClientInner>) {
     let mut partials: HashMap<(u16, u16), PartialPacket> = HashMap::new();
     let mut last_cleanup = Instant::now();
 
     loop {
-        let datagram = match client.connection.read_datagram().await {
+        let datagram = match connection.read_datagram().await {
             Ok(datagram) => datagram,
             Err(error) => {
                 debug!(error = %error, "TUIC datagram dispatcher stopped");
@@ -241,10 +254,14 @@ pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
             }
         };
 
+        let Some(client) = client.upgrade() else {
+            return;
+        };
         let sender = {
             let registrations = client.registrations.lock().await;
             registrations.get(&header.assoc_id).cloned()
         };
+        drop(client);
         let Some(sender) = sender else {
             continue;
         };
@@ -264,7 +281,9 @@ pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
         }
     }
 
-    client.registrations.lock().await.clear();
+    if let Some(client) = client.upgrade() {
+        client.registrations.lock().await.clear();
+    }
 }
 
 fn try_deliver(sender: &mpsc::Sender<UdpPacket>, packet: UdpPacket) {

@@ -41,9 +41,6 @@ const HEARTBEAT_INTERVAL: Duration = if cfg!(test) { Duration::from_millis(200) 
 #[derive(Clone)]
 pub struct TuicClient {
     inner: Arc<ClientInner>,
-    /// Keeps the datagram-dispatch task alive and aborts it when the last
-    /// `TuicClient` clone is dropped. `None` when UDP was disabled at connect time.
-    _dispatch_guard: Option<Arc<AbortOnDrop>>,
 }
 
 impl TuicClient {
@@ -75,6 +72,7 @@ impl TuicClient {
         let max_datagram_size = connection.max_datagram_size();
 
         let inner = Arc::new(ClientInner {
+            dispatch_task: std::sync::OnceLock::new(),
             endpoint,
             connection,
             udp_enabled: config.udp_enabled,
@@ -86,13 +84,13 @@ impl TuicClient {
             migration: QuicMigration::new_not_attempted(current_socket),
             active_tasks: AtomicUsize::new(0),
         });
-
-        let dispatch_guard = if config.udp_enabled && max_datagram_size.is_some() {
-            let handle = tokio::spawn(dispatch_incoming_datagrams(Arc::clone(&inner)));
-            Some(Arc::new(AbortOnDrop(handle)))
-        } else {
-            None
-        };
+        if config.udp_enabled && max_datagram_size.is_some() {
+            // The dispatcher holds a weak handle and `ClientInner` owns its
+            // abort guard, so it runs while the client or any UDP session is
+            // open, and stops when the last of them drops.
+            let task = tokio::spawn(dispatch_incoming_datagrams(inner.connection.clone(), Arc::downgrade(&inner)));
+            let _ = inner.dispatch_task.set(AbortOnDrop(task));
+        }
 
         if max_datagram_size.is_some() {
             // Detached on purpose: open streams and UDP sessions keep
@@ -101,7 +99,7 @@ impl TuicClient {
             tokio::spawn(send_heartbeats(Arc::downgrade(&inner)));
         }
 
-        Ok(Self { inner, _dispatch_guard: dispatch_guard })
+        Ok(Self { inner })
     }
 
     pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
@@ -187,6 +185,9 @@ pub(crate) struct ClientInner {
     pub(crate) migration: QuicMigration,
     /// Open TCP relays and UDP sessions; heartbeats run only while non-zero.
     pub(crate) active_tasks: AtomicUsize,
+    /// Aborts the datagram dispatcher when the last client or session drops.
+    /// Empty when UDP is disabled or the connection has no datagrams.
+    pub(crate) dispatch_task: std::sync::OnceLock<AbortOnDrop>,
 }
 
 /// Counts one relay task (a TCP stream or a UDP session) for the heartbeat.

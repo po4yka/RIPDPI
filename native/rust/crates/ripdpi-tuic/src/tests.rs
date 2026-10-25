@@ -216,18 +216,29 @@ async fn tuic_client_relays_tcp_and_udp() {
     tcp.read_exact(&mut echoed).await.expect("tcp read");
     assert_eq!(&echoed, b"hello");
 
-    let mut udp = client.udp_session().await.expect("udp session");
-    udp.send_to("dns.example:53", b"world").await.expect("udp send");
-    let (address, payload) = udp.recv_from().await.expect("udp recv");
-    assert_eq!(address, "dns.example:53");
-    assert_eq!(payload, b"world");
-    udp.send_to("dns.example:53", &large_payload()).await.expect("fragmented udp send");
     assert_eq!(
         client.quic_migration_snapshot(),
         (Some("validated".to_string()), Some("path_validated_after_stream_open".to_string()),)
     );
 
+    let mut udp = client.udp_session().await.expect("udp session");
+    // The open session, not the client handle, keeps inbound datagrams flowing.
+    drop(client);
+    udp.send_to("dns.example:53", b"world").await.expect("udp send");
+    let (address, payload) = tokio::time::timeout(Duration::from_secs(5), udp.recv_from())
+        .await
+        .expect("a UDP session must keep receiving after the client handle drops")
+        .expect("udp recv");
+    assert_eq!(address, "dns.example:53");
+    assert_eq!(payload, b"world");
+    udp.send_to("dns.example:53", &large_payload()).await.expect("fragmented udp send");
+
     server_task.await.expect("server task");
+    // The server is gone, so the connection closes and `recv_from` must end.
+    let closed = tokio::time::timeout(Duration::from_secs(5), udp.recv_from())
+        .await
+        .expect("recv_from must not hang once the connection is closed");
+    assert!(closed.is_err(), "a closed connection must end the UDP session");
 }
 
 /// TUIC v5 SPEC "Heartbeat": the client sends `VER 0x05, TYPE 0x04`
