@@ -76,9 +76,8 @@ fn probe_tcp_repair_requires_kernel_or_protect_path_work() {
 fn tcp_timestamp_round_trips_tsvals_above_i32_max() {
     use std::os::fd::AsRawFd;
 
-    use crate::linux::tcp_repair::{
-        TCP_REPAIR_ON, disable_tcp_repair, read_tcp_timestamp, set_tcp_repair, set_tcp_timestamp,
-    };
+    use crate::linux::socket_options::set_c_int_sockopt;
+    use crate::linux::tcp_repair::{TCP_REPAIR_ON, disable_tcp_repair, read_tcp_timestamp, set_tcp_repair};
 
     let (client, _server) = super::connected_pair();
     let fd = client.as_raw_fd();
@@ -92,7 +91,8 @@ fn tcp_timestamp_round_trips_tsvals_above_i32_max() {
         return;
     }
     let written = 0x9000_0000_u32;
-    let result = set_tcp_timestamp(fd, written, false).and_then(|()| read_tcp_timestamp(fd));
+    let result = set_c_int_sockopt(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP, written.cast_signed())
+        .and_then(|()| read_tcp_timestamp(fd));
     let _ = disable_tcp_repair(fd);
     let read_back = result.expect("TSval above i32::MAX round-trips");
     assert!(read_back.wrapping_sub(written) < 10_000, "read back {read_back:#x}, wrote {written:#x}");

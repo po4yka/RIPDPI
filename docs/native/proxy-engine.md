@@ -227,7 +227,7 @@ Validation rules:
 Runtime semantics:
 
 - Fake packet flag overrides are applied by the shared raw TCP segment builder used by fake sends, fake RST, seq-overlap helpers, multi-disorder, and TCP IP fragmentation.
-- Original-payload flag overrides do not use normal stream writes. The runtime sends the payload through the raw TCP / TCP_REPAIR path and swaps to a replacement socket exactly like other raw original-payload techniques.
+- Original-payload flag overrides do not use normal stream writes. The runtime sends the payload through the raw TCP / TCP_REPAIR path and then queues the same bytes as already sent in the repair-mode send queue, exactly like other raw original-payload techniques.
 - If the required raw capability is unavailable, RIPDPI fails closed instead of silently sending the original payload with the kernel's default flags.
 
 Example DSL:
@@ -622,7 +622,7 @@ The fake-transport path now includes:
 - TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server response segments
 - QUIC source port binding for port-based filtering compatibility tests
 
-`hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs. `multidisorder` is different: it uses packet-owned TCP repair plus raw IPv4/IPv6 injection to emit the real payload segments in reverse order, then hands the live stream off to a repaired replacement socket.
+`hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs. `multidisorder` is different: it uses packet-owned TCP repair plus raw IPv4/IPv6 injection to emit the real payload segments in reverse order, then leaves repair mode and writes the payload on the live stream at the same sequence numbers.
 
 ### QUIC handshake variation surface
 

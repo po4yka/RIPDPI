@@ -16,9 +16,8 @@ use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::get_stream_ttl;
 use crate::linux::tcp_info::wait_tcp_stage_fd;
 use crate::linux::tcp_repair::{
-    TCP_NO_QUEUE, TCP_REPAIR_ON, build_replacement_tcp_socket, capture_stream_socket_settings, disable_tcp_repair,
-    sequence_after_payload, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
-    swap_stream_to_replacement,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, queue_payload_as_sent, sequence_after_payload, set_tcp_repair,
+    set_tcp_repair_queue, snapshot_tcp_repair_state,
 };
 use crate::{OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
 
@@ -75,10 +74,10 @@ pub fn send_ordered_tcp_segments(
         return Ok(());
     }
 
+    let genuine_payload = genuine_ordered_payload(segments, original_payload_len)?;
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
     let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
@@ -117,9 +116,8 @@ pub fn send_ordered_tcp_segments(
             return wait_tcp_stage_fd(fd, wait.0, wait.1);
         }
 
-        let replacement = build_replacement_tcp_socket(source, target, original_payload_len, &snapshot, protect_path)?;
         send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path)?;
-        swap_stream_to_replacement(stream, &replacement, settings)?;
+        queue_payload_as_sent(stream, &genuine_payload)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)?;
         wait_tcp_stage_fd(fd, wait.0, wait.1)
@@ -127,6 +125,32 @@ pub fn send_ordered_tcp_segments(
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
     let _ = disable_tcp_repair(fd);
     result
+}
+
+/// Rebuilds the real `[0, len)` bytes from the genuine segments, the ones
+/// without the fake timestamp, so the kernel can queue them for
+/// retransmission.
+fn genuine_ordered_payload(segments: &[OrderedTcpSegment<'_>], len: usize) -> io::Result<Vec<u8>> {
+    let mut payload = vec![0_u8; len];
+    let mut covered = vec![false; len];
+    for segment in segments.iter().filter(|segment| !segment.use_fake_timestamp) {
+        let end = segment.sequence_offset.checked_add(segment.payload.len()).filter(|end| *end <= len);
+        let Some(end) = end else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "genuine TCP segment exceeds the original payload",
+            ));
+        };
+        payload[segment.sequence_offset..end].copy_from_slice(segment.payload);
+        covered[segment.sequence_offset..end].fill(true);
+    }
+    if covered.contains(&false) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "genuine TCP segments must cover the original payload",
+        ));
+    }
+    Ok(payload)
 }
 
 pub fn send_flagged_tcp_payload(
@@ -151,7 +175,6 @@ pub fn send_flagged_tcp_payload(
     let target = stream.peer_addr()?;
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
@@ -170,9 +193,8 @@ pub fn send_flagged_tcp_payload(
             md5sig,
             flags,
         )?;
-        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
         send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
-        swap_stream_to_replacement(stream, &replacement, settings)?;
+        queue_payload_as_sent(stream, payload)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)
     })();
@@ -200,7 +222,6 @@ pub fn send_seqovl_tcp(
     let target = stream.peer_addr()?;
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
@@ -227,9 +248,7 @@ pub fn send_seqovl_tcp(
             flags,
         )?;
         send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
-
-        let replacement = build_replacement_tcp_socket(source, target, real_chunk.len(), &snapshot, protect_path)?;
-        swap_stream_to_replacement(stream, &replacement, settings)?;
+        queue_payload_as_sent(stream, real_chunk)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)
     })();

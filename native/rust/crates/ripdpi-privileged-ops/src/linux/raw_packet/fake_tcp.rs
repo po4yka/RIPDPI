@@ -15,8 +15,8 @@ use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::{get_stream_ttl, set_stream_ttl, set_tcp_md5sig, try_set_stream_ttl_with_outcome};
 use crate::linux::tcp_info::wait_tcp_stage_fd;
 use crate::linux::tcp_repair::{
-    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpTimestampSnapshot, build_replacement_tcp_socket, capture_stream_socket_settings,
-    disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state, swap_stream_to_replacement,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpTimestampSnapshot, disable_tcp_repair, queue_payload_as_sent, set_tcp_repair,
+    set_tcp_repair_queue, snapshot_tcp_repair_state,
 };
 use crate::{FakeTcpOptions, TcpStageWait};
 
@@ -146,7 +146,6 @@ fn send_fake_tcp_via_raw_packets(
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
     let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
@@ -219,10 +218,8 @@ fn send_fake_tcp_via_raw_packets(
                 options.orig_flags,
             )?;
             packets.push(original_packet);
-            let replacement =
-                build_replacement_tcp_socket(source, target, original_prefix.len(), &snapshot, options.protect_path)?;
             send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
-            swap_stream_to_replacement(stream, &replacement, settings)?;
+            queue_payload_as_sent(stream, original_prefix)?;
             set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
             disable_tcp_repair(fd)?;
         }

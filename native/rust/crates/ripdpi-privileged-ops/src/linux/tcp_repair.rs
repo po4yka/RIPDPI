@@ -1,13 +1,11 @@
-//! Linux TCP_REPAIR helpers for socket state capture and replacement.
+//! Linux TCP_REPAIR helpers for socket state capture and send-queue handoff.
 //!
 //! Privileged boundaries include TCP_REPAIR socket options, queue sequence reads,
-//! and fd replacement via duplicated sockets.
+//! and repair-mode writes that mark crafted payloads as sent.
 
 mod fionread;
-mod handoff;
 mod options;
-mod replacement;
-mod settings;
+mod send_queue;
 mod snapshot;
 mod sockopt;
 
@@ -15,16 +13,14 @@ use std::io;
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::os::fd::AsRawFd;
 
-pub(crate) use handoff::swap_stream_to_replacement;
 pub(crate) use options::TcpTimestampSnapshot;
 #[cfg(test)]
 pub(crate) use options::{TcpRepairOptionsSnapshot, TcpWindowScaleSnapshot, decode_tcp_repair_options};
-pub(crate) use replacement::{build_replacement_tcp_socket, sequence_after_payload};
-pub(crate) use settings::capture_stream_socket_settings;
+pub(crate) use send_queue::{queue_payload_as_sent, sequence_after_payload};
 pub(crate) use snapshot::{TcpRepairSnapshot, snapshot_tcp_repair_state};
 pub(crate) use sockopt::{TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue};
 #[cfg(test)]
-pub(crate) use sockopt::{TcpRepairWindow, read_tcp_timestamp, set_tcp_timestamp};
+pub(crate) use sockopt::{TcpRepairWindow, read_tcp_timestamp};
 
 pub(crate) fn probe_tcp_repair(protect_path: Option<&str>) -> io::Result<()> {
     let (client, _server) = connected_loopback_pair()?;

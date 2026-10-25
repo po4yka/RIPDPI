@@ -229,3 +229,127 @@ fn send_fake_tcp_raw_path_leaves_repair_mode_before_the_real_write() {
     server.read_exact(&mut received).expect("read payload and tail");
     assert_eq!(&received[10..], b"tail");
 }
+
+/// Returns false when the run lacks CAP_NET_ADMIN or CAP_NET_RAW, which the
+/// packet-owned paths refuse up front with EPERM.
+fn raw_tcp_paths_available(result: &io::Result<()>) -> bool {
+    !matches!(result, Err(error) if error.kind() == io::ErrorKind::PermissionDenied)
+}
+
+/// Writes "tail" after a raw send and returns the payload-length bytes the
+/// peer read before it.
+fn peer_bytes_before_tail(
+    client: &std::net::TcpStream,
+    server: &mut std::net::TcpStream,
+    payload_len: usize,
+) -> Vec<u8> {
+    use std::io::{Read, Write};
+    use std::time::Duration;
+
+    // If the kernel did not move the send sequence past the payload, "tail"
+    // would reuse the payload's sequence range and the peer would drop it.
+    (&*client).write_all(b"tail").expect("stream is usable after the raw send");
+    let mut received = vec![0_u8; payload_len + 4];
+    server.set_read_timeout(Some(Duration::from_secs(3))).expect("set read timeout");
+    server.read_exact(&mut received).expect("read payload and tail");
+    assert_eq!(&received[payload_len..], b"tail");
+    received.truncate(payload_len);
+    received
+}
+
+#[test]
+fn send_flagged_tcp_payload_advances_the_original_socket_past_the_payload() {
+    let (client, mut server) = connected_pair();
+    let payload = b"flagged-payload";
+    let result = raw_packet::send_flagged_tcp_payload(
+        &client,
+        payload,
+        64,
+        None,
+        false,
+        TcpFlagOverrides { set: 0x08, unset: 0 },
+        None,
+    );
+    if !raw_tcp_paths_available(&result) {
+        return;
+    }
+    result.expect("flagged payload send without a replacement socket");
+    assert_eq!(peer_bytes_before_tail(&client, &mut server, payload.len()), payload);
+}
+
+#[test]
+fn send_ordered_tcp_segments_queues_the_genuine_bytes() {
+    use std::time::Duration;
+
+    let (client, mut server) = connected_pair();
+    let real = b"real-ordered";
+    let segments = [
+        crate::OrderedTcpSegment {
+            payload: b"fake",
+            ttl: 1,
+            flags: TcpFlagOverrides::default(),
+            sequence_offset: 0,
+            use_fake_timestamp: true,
+        },
+        crate::OrderedTcpSegment {
+            payload: &real[..4],
+            ttl: 64,
+            flags: TcpFlagOverrides { set: 0x08, unset: 0 },
+            sequence_offset: 0,
+            use_fake_timestamp: false,
+        },
+        crate::OrderedTcpSegment {
+            payload: &real[4..],
+            ttl: 64,
+            flags: TcpFlagOverrides::default(),
+            sequence_offset: 4,
+            use_fake_timestamp: false,
+        },
+    ];
+    let result = raw_packet::send_ordered_tcp_segments(
+        &client,
+        &segments,
+        real.len(),
+        64,
+        None,
+        false,
+        None,
+        &[],
+        (false, Duration::ZERO),
+    );
+    if !raw_tcp_paths_available(&result) {
+        return;
+    }
+    result.expect("ordered segments without a replacement socket");
+    // Loopback also delivers the low-TTL fake, so the first range may hold
+    // fake bytes; the real bytes stay queued for retransmission.
+    let received = peer_bytes_before_tail(&client, &mut server, real.len());
+    assert_eq!(&received[4..], &real[4..]);
+}
+
+#[test]
+fn send_ordered_tcp_segments_rejects_genuine_segments_that_leave_a_gap() {
+    use std::time::Duration;
+
+    let (client, _server) = connected_pair();
+    let segments = [crate::OrderedTcpSegment {
+        payload: b"real",
+        ttl: 64,
+        flags: TcpFlagOverrides::default(),
+        sequence_offset: 0,
+        use_fake_timestamp: false,
+    }];
+    let err = raw_packet::send_ordered_tcp_segments(
+        &client,
+        &segments,
+        8,
+        64,
+        None,
+        false,
+        None,
+        &[],
+        (false, Duration::ZERO),
+    )
+    .expect_err("the kernel cannot queue bytes the segments do not carry");
+    assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+}

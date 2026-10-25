@@ -169,7 +169,7 @@ When the kernel rejects it (EPERM on Android):
 
 These primitives craft real L3/L4 TCP segments via raw sockets and inject them with custom sequence numbers and TTLs. They are not userspace stream approximations — they require kernel-level socket repair state and raw packet injection.
 
-- **fakedsplit** (`send_ordered_tcp_segments`): uses `TCP_REPAIR` to freeze the kernel send queue, snapshots the current sequence number (`snd_nxt`), builds N crafted TCP segments via `SOCK_RAW`+`IP_HDRINCL`+`sendto`, then installs a replacement socket to advance the kernel send pointer to the correct post-payload position.
+- **fakedsplit** (`send_ordered_tcp_segments`): uses `TCP_REPAIR` to freeze the kernel send queue, snapshots the current sequence number (`snd_nxt`), builds N crafted TCP segments via `SOCK_RAW`+`IP_HDRINCL`+`sendto`, then writes the genuine bytes into the repair-mode send queue (`TCP_REPAIR_QUEUE=TCP_SEND_QUEUE`), so the kernel advances its send pointer past the payload and keeps the real bytes for retransmission without transmitting them again.
 - **fakeddisorder** (`send_multi_disorder_tcp`): same `TCP_REPAIR` snapshot, builds ≥3 crafted segments covering the full payload, sends them in **reverse order** (`packets.iter().rev()` at `fragmentation.rs:173`), then calls `write_all(payload)` to send the real in-order payload.
 - **seqovl** (`send_seqovl_tcp`): builds one raw packet with `seq = snd_nxt - fake_prefix.len()` — the overlap means the server TCP stack discards the overlapping bytes (already-ACKed range), while a DPI device that sees only the start of the segment sees fake content.
 

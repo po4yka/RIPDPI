@@ -76,13 +76,6 @@ pub(crate) fn get_c_int_sockopt(fd: libc::c_int, level: libc::c_int, name: libc:
     Ok(value)
 }
 
-/// Safe wrapper for socket options whose Linux ABI payload is exactly `u32`.
-pub(crate) fn set_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int, value: u32) -> io::Result<()> {
-    // SAFETY: callers provide a live socket descriptor and this helper is only
-    // used for options whose payload type is exactly `u32`.
-    unsafe { setsockopt_raw(fd, level, name, &value) }
-}
-
 /// Safe wrapper for socket options whose Linux ABI returns exactly `u32`.
 pub(crate) fn get_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> io::Result<u32> {
     // SAFETY: callers provide a live socket descriptor and this helper is only
