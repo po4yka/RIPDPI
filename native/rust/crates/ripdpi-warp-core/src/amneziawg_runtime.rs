@@ -48,7 +48,9 @@ const MIN_MTU: i32 = 1280;
 const TELEMETRY_SOURCE: &str = "amneziawg";
 /// Bound on the WSS carrier TCP connect, TLS handshake and WebSocket upgrade.
 /// A DPI black hole that accepts TCP and then stays silent would hang forever.
-const WS_CARRIER_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+/// Short under test, so the deadline itself is testable.
+const WS_CARRIER_CONNECT_TIMEOUT: Duration =
+    if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(15) };
 /// Every task that can report a failure holds a sender until shutdown, so a
 /// closed failure channel means they all died.
 /// Bound on the wait for the peer's handshake response, so an unreachable
@@ -998,6 +1000,35 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::TimedOut);
         assert_eq!(runtime.telemetry().last_error.as_deref(), Some("AmneziaWG peer handshake timed out"));
         assert_eq!(runtime.telemetry().state, "idle");
+    }
+
+    #[tokio::test]
+    async fn black_holed_ws_carrier_connect_times_out() {
+        // Accepts TCP but never answers the TLS handshake, like a DPI black hole.
+        let black_hole = TcpListener::bind("127.0.0.1:0").await.expect("black-hole listener");
+        let carrier_ws_url = format!("wss://{}/wg", black_hole.local_addr().expect("black-hole address"));
+        let _held = tokio::spawn(async move { black_hole.accept().await.map(|(stream, _)| stream) });
+        let config = AmneziaWgProfileConfig {
+            enabled: true,
+            carrier: AmneziaWgCarrierKind::Ws,
+            carrier_ws_url,
+            interface_address_v4: "10.8.0.2/32".to_string(),
+            endpoint_host: "127.0.0.1".to_string(),
+            endpoint_ipv4: "127.0.0.1".to_string(),
+            endpoint_port: 443,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 0,
+            ..Default::default()
+        };
+        let runtime = AmneziaWgRuntime::new(config);
+
+        let error = timeout(WS_CARRIER_CONNECT_TIMEOUT * 4, Arc::clone(&runtime).run())
+            .await
+            .expect("a silent carrier host must not hang the start")
+            .expect_err("a silent carrier host fails the start");
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert_eq!(runtime.telemetry().ws_carrier_handshake_failures, 1, "the timeout counts as a carrier failure");
     }
 
     #[tokio::test]
