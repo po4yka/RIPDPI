@@ -144,6 +144,7 @@ class DetectionCheckSchedulerTest {
             val config = configs.single()
             assertFalse(config.includeGeoIpCheck)
             assertFalse(config.includeIpComparisonCheck)
+            assertFalse(config.includeIcmpSpoofingCheck)
             assertFalse(config.includeCdnPullingCheck)
             assertFalse(config.includeRttTriangulationCheck)
             assertFalse(config.includeCallTransportCheck)
