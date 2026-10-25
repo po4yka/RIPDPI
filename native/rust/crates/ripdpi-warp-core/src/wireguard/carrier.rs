@@ -271,6 +271,7 @@ mod tests {
                 peer_public_key: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
                 preshared_key: None,
                 persistent_keepalive: None,
+                persistent_keepalive_max: None,
                 endpoint: addr,
                 reserved: [0; 3],
                 source_peer_ip: "10.77.0.2".parse().expect("source"),
