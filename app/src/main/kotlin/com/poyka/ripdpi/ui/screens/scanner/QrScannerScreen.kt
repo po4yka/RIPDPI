@@ -32,6 +32,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
 import com.poyka.ripdpi.proxyimport.ProxyImportRequest
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -110,6 +111,9 @@ fun QrScannerRoute(
         onQrDecoded = viewModel::onQrDecoded,
         onDismissError = viewModel::consumeDecodeError,
         onPickImage = { imagePickLauncher.launch(arrayOf("image/*")) },
+        onOpenAppSettings = {
+            context.startActivity(BatteryOptimizationIntents.createAppDetailsIntent(context.packageName))
+        },
         modifier = modifier,
     )
 }
@@ -121,6 +125,7 @@ internal fun QrScannerScreen(
     onQrDecoded: (String) -> Unit,
     onDismissError: () -> Unit,
     onPickImage: () -> Unit,
+    onOpenAppSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     RipDpiContentScreenScaffold(
@@ -162,6 +167,14 @@ internal fun QrScannerScreen(
                     message = stringResource(R.string.scanner_permission_denied_body),
                     tone = WarningBannerTone.Restricted,
                     icon = RipDpiIcons.CameraOff,
+                )
+                // The system no longer prompts after a denial; only app settings can grant the camera.
+                RipDpiButton(
+                    text = stringResource(R.string.settings_permission_action_open_settings),
+                    onClick = onOpenAppSettings,
+                    variant = RipDpiButtonVariant.Primary,
+                    leadingIcon = RipDpiIcons.Settings,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
