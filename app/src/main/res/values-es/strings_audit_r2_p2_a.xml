@@ -3,4 +3,5 @@
     <string name="settings_backup_pin_clear_dialog_title">¿Borrar el PIN de respaldo?</string>
     <string name="settings_backup_pin_clear_dialog_body">El PIN se eliminará de este dispositivo. Ya no podrás usarlo para la autenticación de respaldo.</string>
     <string name="routes_edit_rule">Editar regla</string>
+    <string name="home_quality_measure">Medir</string>
 </resources>

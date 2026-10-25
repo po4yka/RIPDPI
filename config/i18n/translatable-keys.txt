@@ -3397,6 +3397,7 @@ app:home_quality_connecting
 app:home_quality_excellent
 app:home_quality_good
 app:home_quality_last_values
+app:home_quality_measure
 app:home_quality_measurements_title
 app:home_quality_metric_loss_format
 app:home_quality_metric_ms_format

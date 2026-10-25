@@ -3,4 +3,5 @@
     <string name="settings_backup_pin_clear_dialog_title">बैकअप PIN साफ़ करें?</string>
     <string name="settings_backup_pin_clear_dialog_body">PIN इस डिवाइस से हटा दिया जाएगा। इसके बाद आप इसे फ़ॉलबैक प्रमाणीकरण के लिए उपयोग नहीं कर पाएंगे।</string>
     <string name="routes_edit_rule">नियम संपादित करें</string>
+    <string name="home_quality_measure">मापें</string>
 </resources>

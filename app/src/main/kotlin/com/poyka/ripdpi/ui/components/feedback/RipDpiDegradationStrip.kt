@@ -100,7 +100,7 @@ fun RipDpiDegradationStrip(
         }
     val accentForeground =
         when (tone) {
-            RipDpiDegradationTone.Nominal -> colors.card
+            RipDpiDegradationTone.Nominal -> colors.mutedForeground
             RipDpiDegradationTone.Warning -> colors.warningForeground
             RipDpiDegradationTone.Critical -> colors.destructiveForeground
         }
@@ -224,7 +224,8 @@ private fun RipDpiDegradationActions(
             text = primaryAction.label,
             onClick = primaryAction.onClick,
             modifier = Modifier.width(IntrinsicSize.Max),
-            variant = RipDpiButtonVariant.Primary,
+            // Secondary weight: a measurement must not outweigh the screen's main action.
+            variant = RipDpiButtonVariant.Secondary,
             density = RipDpiControlDensity.Compact,
         )
     }

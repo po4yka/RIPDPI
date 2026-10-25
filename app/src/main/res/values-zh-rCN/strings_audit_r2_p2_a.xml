@@ -3,4 +3,5 @@
     <string name="settings_backup_pin_clear_dialog_title">清除备用 PIN？</string>
     <string name="settings_backup_pin_clear_dialog_body">PIN 将从本设备中删除，之后无法再用于备用身份验证。</string>
     <string name="routes_edit_rule">编辑规则</string>
+    <string name="home_quality_measure">测量</string>
 </resources>

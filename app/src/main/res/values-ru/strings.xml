@@ -2895,7 +2895,7 @@ fakeddisorder endhost</string>
     <string name="vpn_quality_strip_body_warning">Туннель активен, но производительность снизилась. Показатели вышли за нормальные пределы.</string>
     <string name="vpn_quality_strip_body_critical">Туннель активен, но качество низкое. Большинство показателей далеко за нормальными пределами.</string>
     <string name="vpn_quality_strip_since_format">С %1$s</string>
-    <string name="vpn_quality_strip_reprobe">Повторить</string>
+    <string name="vpn_quality_strip_reprobe">Измерить снова</string>
     <string name="vpn_quality_strip_dismiss">Скрыть</string>
     <string name="vpn_quality_metric_loss">Потери</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>

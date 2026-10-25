@@ -2915,7 +2915,7 @@ fakeddisorder endhost</string>
     <string name="vpn_quality_strip_body_warning">النفق نشط لكن الأداء انخفض. المؤشرات خارج نطاقها الطبيعي.</string>
     <string name="vpn_quality_strip_body_critical">النفق نشط لكن الجودة رديئة. معظم المؤشرات خارج النطاق الطبيعي بشكل ملحوظ.</string>
     <string name="vpn_quality_strip_since_format">منذ %1$s</string>
-    <string name="vpn_quality_strip_reprobe">إعادة الفحص</string>
+    <string name="vpn_quality_strip_reprobe">إعادة القياس</string>
     <string name="vpn_quality_strip_dismiss">تجاهل</string>
     <string name="vpn_quality_metric_loss">الفقد</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>

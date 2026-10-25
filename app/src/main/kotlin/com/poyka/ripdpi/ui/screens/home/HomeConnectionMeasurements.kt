@@ -102,7 +102,7 @@ internal fun HomeConnectionMeasurements(
                     observed?.takeIf { it.sampleCount > 0L }?.let {
                         stringResource(R.string.home_quality_samples, it.sampleCount)
                     } ?: stringResource(R.string.measurement_byte_total),
-                primaryAction = RipDpiDegradationAction(stringResource(R.string.vpn_quality_strip_reprobe), onReprobe),
+                primaryAction = measureAction(measured = observed != null, onMeasure = onReprobe),
                 secondaryAction = null,
                 tone = summary.tone,
                 modifier = Modifier.fillMaxWidth(),
@@ -127,6 +127,16 @@ internal fun HomeConnectionMeasurements(
         }
     }
 }
+
+/** "Re-measure" only after a measurement exists; before that there is nothing to repeat. */
+@Composable
+private fun measureAction(
+    measured: Boolean,
+    onMeasure: () -> Unit,
+) = RipDpiDegradationAction(
+    stringResource(if (measured) R.string.vpn_quality_strip_reprobe else R.string.home_quality_measure),
+    onMeasure,
+)
 
 internal data class HomeMeasurementSummary(
     val title: Int = R.string.home_quality_measurements_title,

@@ -1280,7 +1280,7 @@
     <string name="vpn_quality_strip_body_warning">टनल चालू है पर प्रदर्शन गिर गया है. संकेतक अपनी सामान्य सीमा से बाहर हैं.</string>
     <string name="vpn_quality_strip_body_critical">टनल चालू है पर गुणवत्ता खराब है. अधिकांश संकेतक सामान्य सीमा से काफी बाहर हैं.</string>
     <string name="vpn_quality_strip_since_format">%1$s से</string>
-    <string name="vpn_quality_strip_reprobe">पुनः प्रोब करें</string>
+    <string name="vpn_quality_strip_reprobe">फिर से मापें</string>
     <string name="vpn_quality_strip_dismiss">खारिज करें</string>
     <string name="vpn_quality_metric_loss">हानि</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>

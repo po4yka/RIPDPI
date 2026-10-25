@@ -3,4 +3,5 @@
     <string name="settings_backup_pin_clear_dialog_title">مسح رمز PIN الاحتياطي؟</string>
     <string name="settings_backup_pin_clear_dialog_body">سيُحذف رمز PIN من هذا الجهاز، ولن تتمكن بعد ذلك من استخدامه للمصادقة البديلة.</string>
     <string name="routes_edit_rule">تعديل القاعدة</string>
+    <string name="home_quality_measure">قياس</string>
 </resources>
