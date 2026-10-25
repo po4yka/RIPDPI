@@ -1,12 +1,9 @@
-use std::sync::Arc;
-
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::config::FinalmaskConfig;
 
 use super::masks::TcpOutboundMask;
 use super::spec::FinalmaskSpec;
-use super::sudoku::{SudokuDecoder, SudokuEncoder};
 use super::wrap_tcp_stream;
 
 fn header_config() -> FinalmaskConfig {
@@ -63,25 +60,6 @@ fn noise_mode_emits_random_prelude_once_then_passes_payload() {
     assert_eq!(b"hello", first[1].as_slice());
     assert_eq!(1, second.len());
     assert_eq!(b"world", second[0].as_slice());
-}
-
-#[test]
-fn sudoku_round_trips_stream_payload() {
-    let config = FinalmaskConfig {
-        r#type: "sudoku".to_string(),
-        sudoku_seed: "fixture-seed".to_string(),
-        ..FinalmaskConfig::default()
-    };
-    let spec = FinalmaskSpec::from_config(&config).expect("config").expect("mask");
-    let FinalmaskSpec::Sudoku { table } = spec else {
-        unreachable!();
-    };
-    let mut encoder = SudokuEncoder::new(Arc::clone(&table));
-    let encoded = encoder.encode_chunk(b"hello world").expect("encode");
-    let mut decoder = SudokuDecoder::new(table);
-    let decoded = decoder.decode_stream_chunk(&encoded).expect("decode");
-
-    assert_eq!(b"hello world", decoded.as_slice());
 }
 
 #[test]

@@ -14,7 +14,7 @@ Supported modes:
 - `header-custom`
 - `noise`
 - `fragment`
-- `Sudoku`
+- `Sudoku`: wire-compatible with Xray-core's TCP sudoku finalmask for a password with the default entropy layout (no `ascii` or custom table). The uplink uses classic hint tuples from the password table (Go `math/rand` shuffle); the downlink reads Xray's packed 6-bit groups. Server-side padding is accepted.
 
 The current implementation mutates the outbound xHTTP byte stream before the Reality or TLS handshake starts.
 

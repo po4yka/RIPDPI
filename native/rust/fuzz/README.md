@@ -20,7 +20,7 @@ Targets:
 - `client_hello_offsets` - TLS ClientHello offset discovery used by desync planning
 - `mtproto_init` - Telegram MTProto obfuscated2 init seed classifier in `ripdpi-ws-tunnel` (covers `classify_mtproto_seed`, `decrypt_init_packet`, `extract_dc_from_init`)
 - `finalmask_spec` - xHTTP FinalMask config parser in `ripdpi-xhttp` (`finalmask/spec.rs`); covers `FinalmaskSpec::from_config`, including the Sudoku-seed path, header/trailer hex decoders, and rand-range parser
-- `finalmask_decoder` - xHTTP FinalMask byte-stream decoder in `ripdpi-xhttp` (`finalmask/masks.rs`, `finalmask/sudoku.rs`); exercises `TcpInboundMask::decode` with attacker-influenced ciphertext bytes including the Sudoku hint-tuple table walk (`SudokuDecoder::decode_stream_chunk`)
+- `finalmask_decoder` - xHTTP FinalMask byte-stream decoder in `ripdpi-xhttp` (`finalmask/masks.rs`, `finalmask/sudoku.rs`); exercises `TcpInboundMask::decode` with attacker-influenced ciphertext bytes including the Sudoku packed downlink decoder (`SudokuDecoder::decode_stream_chunk`)
 - `vless_response` - VLESS response-header parsing in `ripdpi-vless`
 
 Run from `native/rust/fuzz`:

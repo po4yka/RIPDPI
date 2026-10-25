@@ -1,5 +1,6 @@
 mod bridge;
 mod fragmentation;
+mod go_rand;
 mod masks;
 mod spec;
 mod sudoku;

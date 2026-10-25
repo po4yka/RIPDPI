@@ -4,10 +4,13 @@ use std::sync::{Arc, OnceLock};
 use rand::RngExt;
 use sha2::{Digest, Sha256};
 
+use super::go_rand::GoRand;
+
+/// Uplink table of Xray's sudoku finalmask with the default entropy layout
+/// and no custom table (`transport/internet/finalmask/sudoku/table.go`).
 #[derive(Clone)]
 pub(crate) struct SudokuTable {
     encode: Vec<Vec<[u8; 4]>>,
-    decode: Arc<Vec<(u32, u8)>>,
 }
 
 impl SudokuTable {
@@ -21,7 +24,8 @@ impl SudokuTable {
         let hash = Sha256::digest(password.as_bytes());
         let mut seed_bytes = [0u8; 8];
         seed_bytes.copy_from_slice(&hash[..8]);
-        shuffle_with_seed(&mut order, u64::from_be_bytes(seed_bytes));
+        // Xray seeds Go math/rand with the first 8 bytes of SHA-256(password).
+        GoRand::new(i64::from_be_bytes(seed_bytes)).shuffle(&mut order);
 
         let mut encode = vec![Vec::new(); 256];
         let mut decode_map = std::collections::BTreeMap::new();
@@ -49,11 +53,7 @@ impl SudokuTable {
             encode[usize::from(value)] = encodings;
         }
 
-        Ok(Self { encode, decode: Arc::new(decode_map.into_iter().collect()) })
-    }
-
-    fn decode_key(&self, key: u32) -> Option<u8> {
-        self.decode.binary_search_by_key(&key, |entry| entry.0).ok().map(|index| self.decode[index].1)
+        Ok(Self { encode })
     }
 }
 
@@ -84,36 +84,37 @@ impl SudokuEncoder {
     }
 }
 
+/// Downlink decoder. An Xray server writes the downlink "packed": each hint
+/// byte carries 6 data bits in the entropy layout, and the pad marker `0x80`
+/// ends a write whose bits do not fill a byte (`conn_tcp_packed.go`). The
+/// password table is not used in this direction.
+#[derive(Default)]
 pub(crate) struct SudokuDecoder {
-    table: Arc<SudokuTable>,
-    hints: Vec<u8>,
+    bits: u32,
+    bit_count: u32,
 }
 
 impl SudokuDecoder {
-    pub(crate) fn new(table: Arc<SudokuTable>) -> Self {
-        Self { table, hints: Vec::with_capacity(4) }
-    }
-
-    pub(crate) fn decode_stream_chunk(&mut self, payload: &[u8]) -> io::Result<Vec<u8>> {
-        let mut out = Vec::with_capacity(payload.len() / 4 + 1);
+    pub(crate) fn decode_stream_chunk(&mut self, payload: &[u8]) -> Vec<u8> {
+        const PAD_MARKER: u8 = 0x80;
+        let mut out = Vec::with_capacity(payload.len() * 3 / 4 + 1);
         for &byte in payload {
             if !is_entropy_hint(byte) {
+                if byte == PAD_MARKER {
+                    self.bits = 0;
+                    self.bit_count = 0;
+                }
                 continue;
             }
-            self.hints.push(byte);
-            if self.hints.len() < 4 {
-                continue;
+            self.bits = (self.bits << 6) | u32::from(((byte >> 1) & 0x30) | (byte & 0x0f));
+            self.bit_count += 6;
+            if self.bit_count >= 8 {
+                self.bit_count -= 8;
+                out.push((self.bits >> self.bit_count) as u8);
+                self.bits &= (1 << self.bit_count) - 1;
             }
-            let hints = [self.hints[0], self.hints[1], self.hints[2], self.hints[3]];
-            let key = pack_key(sort4(hints));
-            let decoded = self
-                .table
-                .decode_key(key)
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid sudoku hint tuple"))?;
-            out.push(decoded);
-            self.hints.clear();
         }
-        Ok(out)
+        out
     }
 }
 
@@ -124,18 +125,6 @@ fn encode_group(group: u8) -> u8 {
 
 fn is_entropy_hint(byte: u8) -> bool {
     (byte & 0x90) == 0
-}
-
-fn shuffle_with_seed(values: &mut [usize], seed: u64) {
-    let mut state = seed.wrapping_add(0x9e3779b97f4a7c15);
-    for index in (1..values.len()).rev() {
-        state ^= state >> 12;
-        state ^= state << 25;
-        state ^= state >> 27;
-        let next = state.wrapping_mul(0x2545f4914f6cdd1d);
-        let other = (next as usize) % (index + 1);
-        values.swap(index, other);
-    }
 }
 
 fn permutation4(index: usize) -> [usize; 4] {
@@ -277,4 +266,77 @@ fn sort4(mut values: [u8; 4]) -> [u8; 4] {
 
 fn pack_key(values: [u8; 4]) -> u32 {
     u32::from(values[0]) << 24 | u32::from(values[1]) << 16 | u32::from(values[2]) << 8 | u32::from(values[3])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// SHA-256 over every byte's `u16` big-endian encoding count followed by
+    /// its hint tuples, in table order. The expected values come from Xray-core
+    /// `transport/internet/finalmask/sudoku/table.go` `getTables` (Xray-core
+    /// 1b1647c, Go 1.27), serialized the same way.
+    fn encode_table_digest(table: &SudokuTable) -> String {
+        let mut hasher = Sha256::new();
+        for encodings in &table.encode {
+            hasher.update(u16::try_from(encodings.len()).expect("encoding count fits u16").to_be_bytes());
+            for hints in encodings {
+                hasher.update(hints);
+            }
+        }
+        hex::encode(hasher.finalize())
+    }
+
+    #[test]
+    fn table_matches_xray_for_the_same_password() {
+        let table = SudokuTable::new("fixture-seed").expect("table");
+        assert_eq!(table.encode[0][0], [0x00, 0x2f, 0x42, 0x6d]);
+        assert_eq!(table.encode[1][0], [0x20, 0x4b, 0x62, 0x64]);
+        assert_eq!(table.encode[255][0], [0x09, 0x23, 0x4a, 0x60]);
+        assert_eq!(encode_table_digest(&table), "eea11e01632ee2111a0005a120bef1edda1b2afdd58667b1504518bfff6d2dd1");
+
+        let empty = SudokuTable::new("").expect("table");
+        assert_eq!(encode_table_digest(&empty), "bf89940defc58da3feb19fcc3eaec20ac80d78d367f796f7d33d7a298210ff7e");
+    }
+
+    /// Xray's server reads the uplink with `decodeBytes`: it keeps only hint
+    /// bytes and maps each sorted 4-tuple through its own decode table.
+    #[test]
+    fn uplink_decodes_with_xray_server_rule() {
+        let table = Arc::new(SudokuTable::new("fixture-seed").expect("table"));
+        let mut server_decode = std::collections::HashMap::new();
+        for (value, encodings) in table.encode.iter().enumerate() {
+            for hints in encodings {
+                server_decode.insert(pack_key(sort4(*hints)), u8::try_from(value).expect("byte value"));
+            }
+        }
+
+        let encoded = SudokuEncoder::new(Arc::clone(&table)).encode_chunk(b"hello world").expect("encode");
+
+        let decoded: Vec<u8> = encoded
+            .chunks(4)
+            .map(|hints| server_decode[&pack_key(sort4([hints[0], hints[1], hints[2], hints[3]]))])
+            .collect();
+        assert_eq!(decoded, b"hello world");
+    }
+
+    /// Downlink bytes written by Xray's server (`newPackedEncoder(...).encode`,
+    /// entropy layout) for "RIPDPI sudoku packed downlink!" in two writes,
+    /// without and with padding.
+    #[test]
+    fn decoder_reads_xray_packed_downlink() {
+        let vectors = [
+            ("244445202105010908070d6529066d4b2d2080", "0807014128664d45290201442b672d4e2b06454e2a620480"),
+            (
+                "24444516202110050109810807100d651029066d4b862d17208016",
+                "820807170113412887664d854529020144812b67172d4e812b0645134e2a62048082",
+            ),
+        ];
+        for (first, second) in vectors {
+            let mut decoder = SudokuDecoder::default();
+            let mut decoded = decoder.decode_stream_chunk(&hex::decode(first).expect("hex"));
+            decoded.extend(decoder.decode_stream_chunk(&hex::decode(second).expect("hex")));
+            assert_eq!(decoded, b"RIPDPI sudoku packed downlink!");
+        }
+    }
 }

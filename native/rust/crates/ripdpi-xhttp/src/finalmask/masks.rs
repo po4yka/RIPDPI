@@ -77,7 +77,7 @@ pub(crate) struct TcpInboundMask {
 impl TcpInboundMask {
     pub(crate) fn new(spec: FinalmaskSpec) -> Self {
         let sudoku_decoder = match &spec {
-            FinalmaskSpec::Sudoku { table } => Some(SudokuDecoder::new(Arc::clone(table))),
+            FinalmaskSpec::Sudoku { .. } => Some(SudokuDecoder::default()),
             _ => None,
         };
         Self { sudoku_decoder }
@@ -85,7 +85,7 @@ impl TcpInboundMask {
 
     pub(crate) fn decode(&mut self, payload: &[u8]) -> io::Result<Vec<u8>> {
         match &mut self.sudoku_decoder {
-            Some(decoder) => decoder.decode_stream_chunk(payload),
+            Some(decoder) => Ok(decoder.decode_stream_chunk(payload)),
             None => Ok(payload.to_vec()),
         }
     }
