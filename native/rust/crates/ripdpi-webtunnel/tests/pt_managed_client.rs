@@ -104,6 +104,33 @@ fn binary_rejects_untrusted_bridge_certificate_before_sending_secret_path() {
     );
 }
 
+/// Connections past the concurrency cap are closed at once instead of each
+/// costing a thread or task. 128 idle clients fill the cap while their SOCKS
+/// handshakes wait; the next client must be closed without a reply.
+#[test]
+fn binary_closes_connections_past_the_concurrency_cap() {
+    const CAP: usize = 128;
+    let (mut child, listener) = spawn_managed_client();
+
+    let idle: Vec<TcpStream> = (0..CAP).map(|_| retry_connect(listener)).collect();
+    // Give the accept loop time to take every idle connection.
+    std::thread::sleep(Duration::from_millis(500));
+    let mut extra = retry_connect(listener);
+    extra.set_read_timeout(Some(Duration::from_secs(3))).expect("set read timeout");
+    extra.write_all(&[0x05, 0x01, 0x00]).ok();
+    let mut byte = [0_u8; 1];
+    let outcome = extra.read(&mut byte);
+    drop(idle);
+    stop_managed_client(&mut child);
+
+    use std::io::ErrorKind::{BrokenPipe, ConnectionAborted, ConnectionReset};
+    assert!(
+        matches!(outcome, Ok(0))
+            || matches!(&outcome, Err(error) if matches!(error.kind(), ConnectionReset | BrokenPipe | ConnectionAborted)),
+        "a connection past the cap must be closed without a SOCKS reply: {outcome:?}"
+    );
+}
+
 fn spawn_managed_client() -> (Child, SocketAddr) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_ripdpi-webtunnel"))
         .env("TOR_PT_MANAGED_TRANSPORT_VER", "1")

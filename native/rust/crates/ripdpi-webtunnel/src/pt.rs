@@ -3,12 +3,15 @@ use std::env;
 use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::Duration;
 
 use thiserror::Error;
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::runtime::Runtime;
+use tokio::sync::Semaphore;
 
 use crate::bridge_line::{BridgeLineError, WebTunnelBridgeConfig, parse_bridge_line};
 use crate::client::connect_webtunnel_async;
@@ -29,6 +32,13 @@ const IO_TIMEOUT: Duration = Duration::from_secs(5);
 const ACCEPT_POLL: Duration = Duration::from_millis(50);
 /// Budget for TCP connect, TLS (with the h2 retry) and the HTTP Upgrade.
 const BRIDGE_CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
+/// Most SOCKS connections served at once. Tor opens a few connections per
+/// bridge; a connection past this cap is closed at once instead of costing a
+/// thread or task.
+const MAX_CONCURRENT_CONNECTIONS: usize = 128;
+/// After one direction of a relay ends, the other must finish within this,
+/// so a half-closed flow cannot hold its sockets forever.
+const HALF_CLOSE_DRAIN_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManagedClientEnvironment {
@@ -219,12 +229,40 @@ fn split_escaped(value: &str, delimiter: char) -> Result<Vec<String>, PtArgsErro
     Ok(entries)
 }
 
+/// The process-wide runtime that serves every PT connection.
+fn pt_runtime() -> io::Result<&'static Runtime> {
+    static RUNTIME: OnceLock<Runtime> = OnceLock::new();
+    if let Some(runtime) = RUNTIME.get() {
+        return Ok(runtime);
+    }
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .thread_name("ripdpi-webtunnel")
+        .enable_io()
+        .enable_time()
+        .build()?;
+    // A racing caller may have set it first; the spare runtime is then
+    // dropped here, on a thread outside any runtime.
+    Ok(RUNTIME.get_or_init(|| runtime))
+}
+
 fn accept_loop(listener: TcpListener, running: Arc<AtomicBool>) -> io::Result<()> {
+    let runtime = pt_runtime()?;
+    let slots = Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS));
     while running.load(Ordering::Acquire) {
         match listener.accept() {
             Ok((stream, _peer)) => {
-                thread::spawn(move || {
-                    let _ = handle_socks_client(stream);
+                // Dropping the stream closes a connection over the cap.
+                let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else { continue };
+                // The SOCKS parser uses blocking reads with timeouts; on some
+                // hosts an accepted socket inherits the listener's
+                // non-blocking mode.
+                if stream.set_nonblocking(false).is_err() {
+                    continue;
+                }
+                runtime.spawn(async move {
+                    let _slot = slot;
+                    let _ = serve_socks_client(stream).await;
                 });
             }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
@@ -236,29 +274,39 @@ fn accept_loop(listener: TcpListener, running: Arc<AtomicBool>) -> io::Result<()
     Ok(())
 }
 
-fn handle_socks_client(mut stream: TcpStream) -> io::Result<()> {
+/// Reads the SOCKS request on the blocking pool (the parser uses blocking
+/// reads with timeouts), then connects and relays on the runtime.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it closes the app stream; a handshake already on the
+/// blocking pool ends at its socket timeout.
+async fn serve_socks_client(stream: TcpStream) -> io::Result<()> {
+    let handshake = tokio::task::spawn_blocking(move || read_socks_handshake(stream))
+        .await
+        .map_err(|error| io::Error::other(format!("SOCKS handshake task failed: {error}")))??;
+    let Some((stream, bridge)) = handshake else {
+        return Ok(());
+    };
+    connect_and_relay_async(stream, &bridge).await
+}
+
+/// Returns the stream and bridge for a valid CONNECT, or `None` after it
+/// answered a request without bridge arguments with a SOCKS failure.
+fn read_socks_handshake(mut stream: TcpStream) -> io::Result<Option<(TcpStream, WebTunnelBridgeConfig)>> {
     stream.set_read_timeout(Some(IO_TIMEOUT))?;
     stream.set_write_timeout(Some(IO_TIMEOUT))?;
     let request = read_socks5_request(&mut stream)?;
     let Some(bridge) = request.bridge else {
-        return write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE);
+        write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE)?;
+        return Ok(None);
     };
-    connect_and_relay(stream, &bridge)
+    Ok(Some((stream, bridge)))
 }
 
 /// Connects to the bridge, sends the SOCKS reply, and relays until both sides
-/// are done.
+/// are done (see [`relay_streams`]).
 ///
-/// The relay runs on a per-connection current-thread runtime so each direction
-/// is driven only when it has data (`copy_bidirectional`), and EOF on one side
-/// shuts down the write half of the other. A single thread that polled both
-/// blocking sockets with read timeouts capped a one-way transfer at one buffer
-/// per timeout and never propagated EOF.
-fn connect_and_relay(stream: TcpStream, bridge: &WebTunnelBridgeConfig) -> io::Result<()> {
-    let runtime = tokio::runtime::Builder::new_current_thread().enable_io().enable_time().build()?;
-    runtime.block_on(connect_and_relay_async(stream, bridge))
-}
-
 /// # Cancel safety
 ///
 /// cancel-safe: the future owns the app and bridge streams; dropping it
@@ -269,7 +317,7 @@ async fn connect_and_relay_async(stream: TcpStream, bridge: &WebTunnelBridgeConf
     stream.set_nonblocking(true)?;
     let mut client = tokio::net::TcpStream::from_std(stream)?;
     let connected = tokio::time::timeout(BRIDGE_CONNECT_TIMEOUT, connect_webtunnel_async(bridge)).await;
-    let mut webtunnel = match connected {
+    let webtunnel = match connected {
         Ok(Ok(webtunnel)) => webtunnel,
         Ok(Err(error)) => {
             let _ = client.write_all(&socks_reply(SOCKS_GENERAL_FAILURE)).await;
@@ -281,8 +329,40 @@ async fn connect_and_relay_async(stream: TcpStream, bridge: &WebTunnelBridgeConf
         }
     };
     client.write_all(&socks_reply(0x00)).await?;
-    tokio::io::copy_bidirectional(&mut client, &mut webtunnel).await?;
-    Ok(())
+    relay_streams(client, webtunnel, HALF_CLOSE_DRAIN_TIMEOUT).await
+}
+
+/// Copies both directions until both end. Each direction moves data as soon
+/// as it arrives, and EOF on one side shuts down the write half of the other.
+/// Once one direction has ended, the other must end within `drain`.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the future owns both streams; dropping it closes them.
+async fn relay_streams<A, B>(client: A, bridge: B, drain: Duration) -> io::Result<()>
+where
+    A: AsyncRead + AsyncWrite + Unpin,
+    B: AsyncRead + AsyncWrite + Unpin,
+{
+    use tokio::io::AsyncWriteExt;
+
+    let (mut client_read, mut client_write) = tokio::io::split(client);
+    let (mut bridge_read, mut bridge_write) = tokio::io::split(bridge);
+    let upload = async {
+        tokio::io::copy(&mut client_read, &mut bridge_write).await?;
+        bridge_write.shutdown().await
+    };
+    let download = async {
+        tokio::io::copy(&mut bridge_read, &mut client_write).await?;
+        client_write.shutdown().await
+    };
+    tokio::pin!(upload, download);
+    // The first direction to end starts the drain deadline of the other.
+    let rest = tokio::select! {
+        ended = &mut upload => { ended?; tokio::time::timeout(drain, &mut download).await }
+        ended = &mut download => { ended?; tokio::time::timeout(drain, &mut upload).await }
+    };
+    rest.map_err(|_elapsed| io::Error::new(io::ErrorKind::TimedOut, "WebTunnel half-closed relay drain timed out"))?
 }
 
 fn read_socks5_request(stream: &mut TcpStream) -> io::Result<SocksConnectRequest> {
@@ -408,7 +488,7 @@ mod tests {
     use boring::x509::{X509, X509NameBuilder};
     use local_network_fixture::WebTunnelFixture;
 
-    use super::connect_and_relay;
+    use super::{connect_and_relay_async, pt_runtime, relay_streams};
     use crate::bridge_line::{WebTunnelBridgeConfig, parse_bridge_line};
 
     const SOCKS_REPLY_LEN: usize = 10;
@@ -429,7 +509,8 @@ mod tests {
         let addr = listener.local_addr().expect("relay addr");
         thread::spawn(move || {
             let (stream, _) = listener.accept().expect("accept app connection");
-            let _ = connect_and_relay(stream, &bridge);
+            let runtime = pt_runtime().expect("PT runtime");
+            let _ = runtime.block_on(connect_and_relay_async(stream, &bridge));
         });
         let mut client = TcpStream::connect(addr).expect("connect relay");
         client.set_read_timeout(Some(Duration::from_secs(5))).expect("client read timeout");
@@ -529,5 +610,28 @@ mod tests {
         let mut echoed = Vec::new();
         client.read_to_end(&mut echoed).expect("read echo and EOF");
         assert_eq!(echoed, b"ping");
+    }
+
+    /// A flow whose app side closed must not live forever because the bridge
+    /// never closes its side.
+    #[test]
+    fn half_closed_relay_ends_within_the_drain_deadline() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let runtime = pt_runtime().expect("PT runtime");
+        runtime.block_on(async {
+            let (relay_app_side, mut app) = tokio::io::duplex(1024);
+            let (relay_bridge_side, mut bridge) = tokio::io::duplex(1024);
+            let relay = tokio::spawn(relay_streams(relay_app_side, relay_bridge_side, Duration::from_millis(200)));
+
+            app.shutdown().await.expect("app EOF");
+            let mut byte = [0_u8; 1];
+            assert_eq!(bridge.read(&mut byte).await.expect("bridge sees EOF"), 0);
+
+            // The bridge stays open and silent.
+            let ended = tokio::time::timeout(Duration::from_secs(3), relay).await;
+            assert!(ended.is_ok(), "a half-closed relay must end after the drain deadline");
+            drop(bridge);
+        });
     }
 }
