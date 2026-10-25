@@ -3,7 +3,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpStream, UdpSocket, lookup_host};
 
@@ -62,28 +62,35 @@ async fn handle_tcp_connect(
     let result = async {
         write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
 
-        let mut buffer = BytesMut::with_capacity(MAX_PACKET);
+        // One read never exceeds the upload credit it is taken under.
+        let mut buffer = vec![0u8; MAX_PACKET];
         // Pending remote->client write, held outside the select! so the write is not
         // entangled with the readable arm and cancel reasoning stays simple.
         let mut pending_write: Option<Bytes> = None;
+        // The client is read only under upload credit, so a stalled peer stops
+        // this reader instead of growing the interface queue.
+        let mut credit = None;
         loop {
             if let Some(data) = pending_write.take() {
                 client.write_all(&data).await?;
             }
             tokio::select! {
-                readable_result = client.readable() => {
-                    match readable_result {
-                        Ok(_) => match client.try_read_buf(&mut buffer) {
-                            Ok(size) if size > 0 => {
-                                if !session.send_local(Bytes::copy_from_slice(&buffer[..size])) {
-                                    break;
-                                }
-                                buffer.clear();
+                granted = session.upload_credit(), if credit.is_none() => match granted {
+                    Some(granted) => credit = Some(granted),
+                    None => break,
+                },
+                readable_result = client.readable(), if credit.is_some() => {
+                    readable_result?;
+                    match client.try_read(&mut buffer) {
+                        Ok(0) => break,
+                        Ok(size) => {
+                            let data = Bytes::copy_from_slice(&buffer[..size]);
+                            let Some(granted) = credit.take() else { break };
+                            if !session.send_local(granted, data) {
+                                break;
                             }
-                            Ok(_) => break,
-                            Err(error) if error.kind() == io::ErrorKind::WouldBlock => continue,
-                            Err(error) => return Err(error),
-                        },
+                        }
+                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => continue,
                         Err(error) => return Err(error),
                     }
                 }
@@ -355,7 +362,7 @@ mod tests {
         .await
         .expect("handler exits");
         assert!(result.is_err(), "closed write half must reject the SOCKS reply");
-        let Some(TcpCommand::Open(_, lease, _)) = commands.recv().await else { panic!("expected allocation") };
+        let Some(TcpCommand::Open(_, lease, _, _)) = commands.recv().await else { panic!("expected allocation") };
         let port = lease.port();
         drop(lease);
         let closed =

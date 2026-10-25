@@ -8,7 +8,7 @@ use smoltcp::iface::{Config as IfaceConfig, Interface, SocketHandle, SocketSet};
 use smoltcp::socket::tcp;
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress};
-use tokio::sync::{Notify, mpsc};
+use tokio::sync::{Notify, Semaphore, mpsc};
 use tokio::time::Duration;
 
 use crate::ports::{PortProtocol, VirtualPort, VirtualPortLease};
@@ -51,7 +51,8 @@ impl DynamicTcpInterface {
         // Dropping a session's sender ends its handler after the queued chunks.
         let mut port_client_handle_map: HashMap<VirtualPort, (SocketHandle, VirtualPortLease, mpsc::Sender<Bytes>)> =
             HashMap::new();
-        let mut send_queue: HashMap<VirtualPort, VecDeque<Bytes>> = HashMap::new();
+        // Queued client bytes and the session's upload credit, returned as smoltcp takes them.
+        let mut send_queue: HashMap<VirtualPort, (VecDeque<Bytes>, Arc<Semaphore>)> = HashMap::new();
         let mut graceful_closing = HashSet::new();
 
         loop {
@@ -89,13 +90,15 @@ impl DynamicTcpInterface {
                     for (virtual_port, (client_handle, _lease, remote)) in &port_client_handle_map {
                         let client_socket = sockets.get_mut::<tcp::Socket>(*client_handle);
                         if client_socket.can_send()
-                            && let Some(queue) = send_queue.get_mut(virtual_port) {
+                            && let Some((queue, upload)) = send_queue.get_mut(virtual_port) {
                                 match queue.pop_front() { Some(to_send) => {
                                     let total = to_send.len();
-                                    if let Ok(sent) = client_socket.send_slice(&to_send)
-                                        && sent < total {
-                                            queue.push_front(Bytes::copy_from_slice(&to_send[sent..]));
-                                        }
+                                    // A send error discards the chunk, as before; its credit returns too.
+                                    let sent = client_socket.send_slice(&to_send).unwrap_or(total);
+                                    upload.add_permits(sent);
+                                    if sent < total {
+                                        queue.push_front(to_send.slice(sent..));
+                                    }
                                 } _ => if client_socket.state() == tcp::State::CloseWait || graceful_closing.contains(virtual_port) {
                                     client_socket.close();
                                 }}
@@ -126,7 +129,7 @@ impl DynamicTcpInterface {
                 command = self.commands.recv() => match command {
                     // The bus keeps a sender, so the channel stays open while this task runs.
                     None => break,
-                    Some(TcpCommand::Open(port_forward, lease, remote)) => {
+                    Some(TcpCommand::Open(port_forward, lease, remote, upload)) => {
                         let virtual_port = lease.port();
                         // Without a source the session is dropped, which ends its handler.
                         let Some(source) = select_source(self.source_peer_ip, self.source_peer_ipv6, port_forward.destination.ip()) else {
@@ -145,7 +148,7 @@ impl DynamicTcpInterface {
                         }
                         let client_handle = sockets.add(client_socket);
                         port_client_handle_map.insert(virtual_port, (client_handle, lease, remote));
-                        send_queue.insert(virtual_port, VecDeque::new());
+                        send_queue.insert(virtual_port, (VecDeque::new(), upload));
                         next_poll = None;
                     }
                     Some(TcpCommand::Close(virtual_port)) => {
@@ -158,7 +161,7 @@ impl DynamicTcpInterface {
                         }
                     }
                     Some(TcpCommand::Data(virtual_port, data)) => {
-                        if let Some(queue) = send_queue.get_mut(&virtual_port) {
+                        if let Some((queue, _)) = send_queue.get_mut(&virtual_port) {
                             queue.push_back(data);
                             next_poll = None;
                         }

@@ -101,7 +101,9 @@ async fn exercise_interface(mode: CloseMode) -> TcpSeqNumber {
                     assert!(tokio::time::timeout(Duration::from_millis(20), outbound(&mut endpoint)).await.is_err(),
                         "shared EOF state must not overtake ordered pending data");
                 }
-                assert!(session.as_ref().expect("open session").send_local(Bytes::from_static(b"before-eof")));
+                let open = session.as_ref().expect("open session");
+                let credit = open.upload_credit().await.expect("upload credit");
+                assert!(open.send_local(credit, Bytes::from_static(b"before-eof")));
                 let mut payload = Vec::new();
                 lease.request_close();
                 drop(session.take());
@@ -303,4 +305,53 @@ async fn unaddressable_connect_fails_only_its_own_session() {
     outcome.expect("session deadline");
     bus.shutdown();
     worker.await.expect("interface shutdown");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its handler and interface tasks before returning.
+#[tokio::test]
+async fn stalled_peer_stops_the_handler_reading_its_client() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let bus = Bus::new();
+    let mut endpoint = bus.new_endpoint();
+    let interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    let worker = tokio::spawn(interface.run());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("listener");
+    let (client, server) =
+        tokio::join!(tokio::net::TcpStream::connect(listener.local_addr().expect("address")), listener.accept());
+    let mut client = client.expect("client");
+    let handler = tokio::spawn(crate::socks::handle_socks_client(
+        server.expect("server").0,
+        bus.clone(),
+        Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool")),
+        Arc::new(crate::ports::UdpAssociationPool::new()),
+    ));
+    let mut reply = [0u8; 10];
+    client.write_all(&[0x05, 0x01, 0x00]).await.expect("greeting");
+    client.read_exact(&mut reply[..2]).await.expect("method");
+    // CONNECT 10.77.0.1:41001
+    client.write_all(&[0x05, 0x01, 0x00, 0x01, 10, 77, 0, 1, 0xa0, 0x29]).await.expect("connect");
+    client.read_exact(&mut reply).await.expect("connect reply");
+    let syn = tokio::time::timeout(Duration::from_secs(2), outbound(&mut endpoint)).await.expect("SYN");
+    // The peer completes the handshake but never acknowledges uploaded data.
+    endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
+
+    const LIMIT: usize = 48 << 20;
+    let chunk = vec![0u8; 64 << 10];
+    let mut written = 0;
+    while written < LIMIT {
+        match tokio::time::timeout(Duration::from_millis(500), client.write_all(&chunk)).await {
+            Ok(result) => {
+                result.expect("upload write");
+                written += chunk.len();
+            }
+            Err(_) => break,
+        }
+    }
+    handler.abort();
+    worker.abort();
+    // Kernel loopback buffers hold a few MiB; the session itself must hold little.
+    assert!(written < 16 << 20, "a stalled peer must stop the upload, but {written} bytes were accepted");
 }

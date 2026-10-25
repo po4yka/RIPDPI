@@ -3,9 +3,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use bytes::Bytes;
-use tokio::sync::{Notify, broadcast, mpsc};
+use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore, broadcast, mpsc};
 
 use crate::ports::{PortForwardConfig, PortProtocol, VirtualPort, VirtualPortLease};
+use crate::support::MAX_PACKET;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Event {
@@ -22,11 +23,17 @@ pub(crate) enum Event {
 /// its smoltcp socket, which closes the TCP window toward the peer.
 const TCP_SESSION_QUEUE: usize = 8;
 
+/// Client bytes one TCP session may queue ahead of smoltcp's send buffer
+/// before its handler stops reading the local client.
+const TCP_SESSION_UPLOAD_BYTES: usize = 4 * MAX_PACKET;
+
 /// TCP session traffic from SOCKS handlers to the TCP interface. It uses a
 /// lossless channel: the packet bus may drop events, but smoltcp has already
 /// ACKed stream bytes, so losing one corrupts the stream.
 pub(crate) enum TcpCommand {
-    Open(PortForwardConfig, VirtualPortLease, mpsc::Sender<Bytes>),
+    /// The semaphore holds the session's upload byte credit. The interface
+    /// returns credit as smoltcp accepts queued bytes.
+    Open(PortForwardConfig, VirtualPortLease, mpsc::Sender<Bytes>, Arc<Semaphore>),
     Data(VirtualPort, Bytes),
     Close(VirtualPort),
 }
@@ -58,8 +65,9 @@ impl Bus {
     pub(crate) fn open_tcp_session(&self, forward: PortForwardConfig, lease: VirtualPortLease) -> TcpSession {
         let (remote_tx, remote) = mpsc::channel(TCP_SESSION_QUEUE);
         let port = lease.port();
-        let _ = self.tcp_tx.send(TcpCommand::Open(forward, lease, remote_tx));
-        TcpSession { port, commands: self.tcp_tx.clone(), remote, drained: Arc::clone(&self.tcp_drained) }
+        let upload = Arc::new(Semaphore::new(TCP_SESSION_UPLOAD_BYTES));
+        let _ = self.tcp_tx.send(TcpCommand::Open(forward, lease, remote_tx, Arc::clone(&upload)));
+        TcpSession { port, commands: self.tcp_tx.clone(), remote, drained: Arc::clone(&self.tcp_drained), upload }
     }
 
     /// The command receiver and drain signal of the single TCP interface on this bus.
@@ -86,11 +94,27 @@ pub(crate) struct TcpSession {
     commands: mpsc::UnboundedSender<TcpCommand>,
     remote: mpsc::Receiver<Bytes>,
     drained: Arc<Notify>,
+    upload: Arc<Semaphore>,
 }
 
 impl TcpSession {
-    /// Queue client bytes for the virtual socket. `false` once the interface is gone.
-    pub(crate) fn send_local(&self, data: Bytes) -> bool {
+    /// Wait for credit to queue one client read of up to `MAX_PACKET` bytes.
+    /// `None` only if the credit is closed. The future does not borrow the
+    /// session, so a handler can wait for credit and for remote data together.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a dropped wait holds no credit.
+    pub(crate) fn upload_credit(&self) -> impl Future<Output = Option<OwnedSemaphorePermit>> + Send + use<> {
+        let upload = Arc::clone(&self.upload);
+        async move { upload.acquire_many_owned(MAX_PACKET as u32).await.ok() }
+    }
+
+    /// Queue client bytes, at most `MAX_PACKET`, read under `credit`. The
+    /// unused part of the credit returns at once. `false` once the interface is gone.
+    pub(crate) fn send_local(&self, credit: OwnedSemaphorePermit, data: Bytes) -> bool {
+        credit.forget();
+        self.upload.add_permits(MAX_PACKET.saturating_sub(data.len()));
         self.commands.send(TcpCommand::Data(self.port, data)).is_ok()
     }
 
