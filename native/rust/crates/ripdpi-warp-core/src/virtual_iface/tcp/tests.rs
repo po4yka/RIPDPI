@@ -307,16 +307,25 @@ async fn unaddressable_connect_fails_only_its_own_session() {
     worker.await.expect("interface shutdown");
 }
 
+/// A SOCKS client whose virtual peer completes the handshake but never
+/// acknowledges uploaded data.
+struct StalledUpload {
+    client: tokio::net::TcpStream,
+    handler: tokio::task::JoinHandle<std::io::Result<()>>,
+    worker: tokio::task::JoinHandle<anyhow::Result<()>>,
+}
+
 /// # Cancel safety
 ///
-/// NOT cancel-safe: the test aborts its handler and interface tasks before returning.
-#[tokio::test]
-async fn stalled_peer_stops_the_handler_reading_its_client() {
+/// NOT cancel-safe: a dropped setup leaves its spawned tasks to the test runtime.
+async fn stalled_upload(close_grace: Duration, peer_timeout: Duration) -> StalledUpload {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     let bus = Bus::new();
     let mut endpoint = bus.new_endpoint();
-    let interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    let mut interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    interface.close_grace = close_grace;
+    interface.peer_timeout = peer_timeout;
     let worker = tokio::spawn(interface.run());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("listener");
     let (client, server) =
@@ -335,13 +344,21 @@ async fn stalled_peer_stops_the_handler_reading_its_client() {
     client.write_all(&[0x05, 0x01, 0x00, 0x01, 10, 77, 0, 1, 0xa0, 0x29]).await.expect("connect");
     client.read_exact(&mut reply).await.expect("connect reply");
     let syn = tokio::time::timeout(Duration::from_secs(2), outbound(&mut endpoint)).await.expect("SYN");
-    // The peer completes the handshake but never acknowledges uploaded data.
     endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
+    StalledUpload { client, handler, worker }
+}
 
-    const LIMIT: usize = 48 << 20;
+/// Write until the upload stalls for 500 ms or `limit` bytes are accepted.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe: a dropped write may leave a partial chunk in the socket.
+async fn upload_until_stalled(client: &mut tokio::net::TcpStream, limit: usize) -> usize {
+    use tokio::io::AsyncWriteExt;
+
     let chunk = vec![0u8; 64 << 10];
     let mut written = 0;
-    while written < LIMIT {
+    while written < limit {
         match tokio::time::timeout(Duration::from_millis(500), client.write_all(&chunk)).await {
             Ok(result) => {
                 result.expect("upload write");
@@ -350,8 +367,50 @@ async fn stalled_peer_stops_the_handler_reading_its_client() {
             Err(_) => break,
         }
     }
-    handler.abort();
-    worker.abort();
+    written
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its handler and interface tasks before returning.
+#[tokio::test]
+async fn stalled_peer_stops_the_handler_reading_its_client() {
+    let mut upload = stalled_upload(Duration::from_secs(30), Duration::from_secs(60)).await;
+    let written = upload_until_stalled(&mut upload.client, 48 << 20).await;
+    upload.handler.abort();
+    upload.worker.abort();
     // Kernel loopback buffers hold a few MiB; the session itself must hold little.
     assert!(written < 16 << 20, "a stalled peer must stop the upload, but {written} bytes were accepted");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its interface task before returning.
+#[tokio::test]
+async fn client_reset_ends_a_session_stalled_on_upload_credit() {
+    let StalledUpload { mut client, handler, worker } =
+        stalled_upload(Duration::from_millis(50), Duration::from_secs(60)).await;
+    upload_until_stalled(&mut client, 48 << 20).await;
+    // The handler holds no credit now, and the peer never drains the queue. A
+    // graceful FIN would wait behind the unread bytes, so the client aborts.
+    client.set_zero_linger().expect("abortive close");
+    drop(client);
+    let ended = tokio::time::timeout(Duration::from_secs(3), handler).await;
+    worker.abort();
+    ended.expect("a closed client must end its stalled session").expect("handler task joins").expect("clean close");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its interface task before returning.
+#[tokio::test]
+async fn peer_that_never_acknowledges_upload_is_timed_out() {
+    use tokio::io::AsyncWriteExt;
+
+    let StalledUpload { mut client, handler, worker } =
+        stalled_upload(Duration::from_secs(30), Duration::from_millis(300)).await;
+    client.write_all(b"never-acknowledged").await.expect("upload");
+    let ended = tokio::time::timeout(Duration::from_secs(3), handler).await;
+    worker.abort();
+    ended.expect("a silent peer must not hold the session forever").expect("handler task joins").expect("clean end");
 }

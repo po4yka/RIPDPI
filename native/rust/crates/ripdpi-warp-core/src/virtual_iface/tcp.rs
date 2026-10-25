@@ -28,12 +28,24 @@ pub(crate) struct DynamicTcpInterface {
     source_peer_ipv6: Option<Ipv6Addr>,
     mtu: usize,
     close_grace: Duration,
+    /// A connect or send the peer leaves unanswered this long aborts the
+    /// socket; otherwise smoltcp retransmits to a dead peer forever.
+    peer_timeout: Duration,
 }
 
 impl DynamicTcpInterface {
     pub(crate) fn new(bus: Bus, source_peer_ip: IpAddr, source_peer_ipv6: Option<Ipv6Addr>, mtu: usize) -> Self {
         let (commands, drained) = bus.take_tcp_commands();
-        Self { bus, commands, drained, source_peer_ip, source_peer_ipv6, mtu, close_grace: Duration::from_secs(30) }
+        Self {
+            bus,
+            commands,
+            drained,
+            source_peer_ip,
+            source_peer_ipv6,
+            mtu,
+            close_grace: Duration::from_secs(30),
+            peer_timeout: Duration::from_secs(60),
+        }
     }
 
     /// # Cancel safety
@@ -136,6 +148,9 @@ impl DynamicTcpInterface {
                             continue;
                         };
                         let mut client_socket = new_tcp_client_socket();
+                        client_socket.set_timeout(Some(smoltcp::time::Duration::from_millis(
+                            u64::try_from(self.peer_timeout.as_millis()).unwrap_or(u64::MAX),
+                        )));
                         // A refused target (port 0, unspecified address) fails only this
                         // session: dropping `remote` ends its handler.
                         if let Err(error) = client_socket.connect(

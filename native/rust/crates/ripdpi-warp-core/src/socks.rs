@@ -4,8 +4,9 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 
 use bytes::Bytes;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, Interest};
 use tokio::net::{TcpStream, UdpSocket, lookup_host};
+use tokio::time::Duration;
 
 use crate::ports::{PortForwardConfig, PortProtocol, UdpAssociationPool, VirtualPortPool};
 use crate::support::{MAX_PACKET, to_io_error};
@@ -70,6 +71,7 @@ async fn handle_tcp_connect(
         // The client is read only under upload credit, so a stalled peer stops
         // this reader instead of growing the interface queue.
         let mut credit = None;
+        let mut client_closed = false;
         loop {
             if let Some(data) = pending_write.take() {
                 client.write_all(&data).await?;
@@ -79,6 +81,13 @@ async fn handle_tcp_connect(
                     Some(granted) => credit = Some(granted),
                     None => break,
                 },
+                () = client_read_closed(&client), if credit.is_none() && !client_closed => {
+                    // The client left while the peer is stalled: start the close
+                    // deadline so the session cannot outlive it, but keep
+                    // uploading what credit still allows.
+                    client_closed = true;
+                    lease.request_close();
+                }
                 readable_result = client.readable(), if credit.is_some() => {
                     readable_result?;
                     match client.try_read(&mut buffer) {
@@ -108,6 +117,20 @@ async fn handle_tcp_connect(
     lease.request_close();
     drop(session);
     result
+}
+
+/// Resolve once the client's read side has closed or failed. Readiness stays
+/// set while unread data waits, so recheck on a slow tick instead of spinning.
+///
+/// # Cancel safety
+/// cancel-safe: it only observes readiness and consumes no bytes.
+async fn client_read_closed(client: &TcpStream) {
+    loop {
+        match client.ready(Interest::READABLE).await {
+            Ok(ready) if !ready.is_read_closed() => tokio::time::sleep(Duration::from_millis(250)).await,
+            _ => return,
+        }
+    }
 }
 
 /// # Cancel safety
