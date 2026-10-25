@@ -22,6 +22,17 @@ class DoqIntegrityProbeTest {
         }
 
     @Test
+    fun invalidDomainIsSkippedWithoutAbortingTheOtherDomains() =
+        runTest {
+            val probe = probeWithResponse("1.2.3.4")
+
+            val results = probe.run(listOf("x.com/i/api/1.1", TestDomain), mapOf(TestDomain to listOf("1.2.3.4")))
+
+            assertEquals(listOf(TestDomain), results.map { it.domain })
+            assertEquals(DoqVerdict.DOQ_OK, results.single().verdict)
+        }
+
+    @Test
     fun quicHandshakeFailureReturnsBlockedQuic() =
         runTest {
             val probe =

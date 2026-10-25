@@ -118,15 +118,22 @@ class DoqIntegrityProbe(
                         }
                     }
                 }.awaitAll()
+                .filterNotNull()
         }
 
+    /** Returns null when [domain] is not a DNS name, so it has no DoQ query to send. */
     private suspend fun probe(
         provider: DoqProvider,
         domain: String,
         dohIps: Set<String>,
-    ): DoqProbeResult {
+    ): DoqProbeResult? {
         val startedAt = System.currentTimeMillis()
-        val (transactionId, query) = DoqWireCodec.buildQuery(domain)
+        val (transactionId, query) =
+            try {
+                DoqWireCodec.buildQuery(domain)
+            } catch (_: IllegalArgumentException) {
+                return null
+            }
         return try {
             val records =
                 withTimeout(timeoutMs) {
