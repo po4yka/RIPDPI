@@ -137,6 +137,27 @@ class DetectionScreenSemanticsTest {
         composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.DetectionSettings)).fetchSemanticsNode()
     }
 
+    @Test
+    fun disabledMeduzaCohortNamesTheSettingItWaitsFor() {
+        composeRule.setContent {
+            RipDpiTheme {
+                DetectionSettingsScreen(
+                    state =
+                        DetectionSettingsUiState(
+                            networkRequestsEnabled = true,
+                            cdnPullingEnabled = false,
+                            cdnPullingMeduzaEnabled = true,
+                        ),
+                    onBack = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithText("Include the Meduza target set. Turn on CDN pulling to change this.")
+            .fetchSemanticsNode()
+    }
+
     private fun cleanDetectionResult(): DetectionCheckResult =
         DetectionCheckResult(
             geoIp = emptyCategory("GeoIP"),

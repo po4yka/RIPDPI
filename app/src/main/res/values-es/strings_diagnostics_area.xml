@@ -6,4 +6,5 @@
     <string name="strategy_tuner_purpose">Prueba cada estrategia de evasión con los dominios de abajo y las ordena según cuántos dominios abren.</string>
     <string name="blockcheck_purpose">Comprueba los dominios de abajo con cada estrategia de evasión, muestra qué los bloquea y ordena las estrategias.</string>
     <string name="blockcheck_diagnosis_title_sites">Por qué los sitios están bloqueados</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">Incluir el conjunto de objetivos de Meduza. Activa «%1$s» para cambiarlo.</string>
 </resources>

@@ -6,4 +6,5 @@
     <string name="strategy_tuner_purpose">Essaie chaque stratégie de contournement sur les domaines ci-dessous et les classe selon le nombre de domaines qui s’ouvrent.</string>
     <string name="blockcheck_purpose">Vérifie les domaines ci-dessous avec chaque stratégie de contournement, montre ce qui les bloque et classe les stratégies.</string>
     <string name="blockcheck_diagnosis_title_sites">Pourquoi des sites sont bloqués</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">Inclure l’ensemble de cibles Meduza. Activez « %1$s » pour le modifier.</string>
 </resources>

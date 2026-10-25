@@ -6,4 +6,5 @@
     <string name="strategy_tuner_purpose">هر راهبرد دورزدن را روی دامنه‌های زیر امتحان می‌کند و راهبردها را بر اساس تعداد دامنه‌هایی که باز می‌شوند رتبه‌بندی می‌کند.</string>
     <string name="blockcheck_purpose">دامنه‌های زیر را با هر راهبرد دورزدن بررسی می‌کند، نشان می‌دهد چه چیزی آن‌ها را مسدود می‌کند و راهبردها را رتبه‌بندی می‌کند.</string>
     <string name="blockcheck_diagnosis_title_sites">چرا سایت‌ها مسدود هستند</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">مجموعهٔ هدف Meduza را بگنجانید. برای تغییر، «%1$s» را روشن کنید.</string>
 </resources>

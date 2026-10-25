@@ -6,4 +6,5 @@
     <string name="strategy_tuner_purpose">يجرّب كل استراتيجية تجاوز على النطاقات أدناه ويرتّب الاستراتيجيات حسب عدد النطاقات التي تفتح.</string>
     <string name="blockcheck_purpose">يفحص النطاقات أدناه بكل استراتيجية تجاوز، ويبيّن ما يحجبها، ويرتّب الاستراتيجيات.</string>
     <string name="blockcheck_diagnosis_title_sites">لماذا المواقع محجوبة</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">تضمين مجموعة أهداف Meduza. شغّل «%1$s» لتغيير هذا.</string>
 </resources>

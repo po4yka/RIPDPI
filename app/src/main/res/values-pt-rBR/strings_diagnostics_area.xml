@@ -6,4 +6,5 @@
     <string name="strategy_tuner_purpose">Testa cada estratégia de contorno nos domínios abaixo e classifica as estratégias pelo número de domínios que abrem.</string>
     <string name="blockcheck_purpose">Verifica os domínios abaixo com cada estratégia de contorno, mostra o que os bloqueia e classifica as estratégias.</string>
     <string name="blockcheck_diagnosis_title_sites">Por que os sites estão bloqueados</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">Incluir o conjunto de alvos Meduza. Ative “%1$s” para alterar isto.</string>
 </resources>

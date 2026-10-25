@@ -6,4 +6,5 @@
     <string name="strategy_tuner_purpose">在下方域名上逐一尝试每种绕过策略，并按能打开的域名数量对策略排名。</string>
     <string name="blockcheck_purpose">用每种绕过策略检查下方域名，显示阻止它们的原因，并对策略排名。</string>
     <string name="blockcheck_diagnosis_title_sites">网站为何被阻止</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">包含 Meduza 目标集。开启“%1$s”后才能更改。</string>
 </resources>

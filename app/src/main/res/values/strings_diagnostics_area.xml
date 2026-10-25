@@ -6,4 +6,5 @@
     <string name="strategy_tuner_purpose">Tries each bypass strategy on the domains below and ranks the strategies by how many domains open.</string>
     <string name="blockcheck_purpose">Checks the domains below with each bypass strategy, shows what blocks them and ranks the strategies.</string>
     <string name="blockcheck_diagnosis_title_sites">Why sites are blocked</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">Include the Meduza target set. Turn on %1$s to change this.</string>
 </resources>

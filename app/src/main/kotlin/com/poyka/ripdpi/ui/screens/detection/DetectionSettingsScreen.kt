@@ -242,9 +242,19 @@ private fun DetectionNetworkSettingsSection(
                 enabled = state.networkDependentEnabled,
                 onCheckedChange = onCdnPullingChange,
             )
+            // A greyed switch that stays on needs its reason: name the setting it waits for.
+            val meduzaDependency =
+                when {
+                    !state.networkDependentEnabled -> R.string.detection_settings_network_requests_title
+                    !state.cdnPullingEnabled -> R.string.detection_settings_cdn_pulling_title
+                    else -> null
+                }
             SettingsRow(
                 title = stringResource(R.string.detection_settings_meduza_cohort_title),
-                subtitle = stringResource(R.string.detection_settings_meduza_cohort_subtitle),
+                subtitle =
+                    meduzaDependency?.let {
+                        stringResource(R.string.detection_settings_meduza_cohort_disabled_format, stringResource(it))
+                    } ?: stringResource(R.string.detection_settings_meduza_cohort_subtitle),
                 checked = state.cdnPullingMeduzaEnabled,
                 enabled = state.networkDependentEnabled && state.cdnPullingEnabled,
                 onCheckedChange = onCdnPullingMeduzaChange,

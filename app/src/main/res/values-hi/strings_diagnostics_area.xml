@@ -6,4 +6,5 @@
     <string name="strategy_tuner_purpose">नीचे दिए डोमेन पर हर बायपास रणनीति आज़माता है और रणनीतियों को इस आधार पर रैंक करता है कि कितने डोमेन खुलते हैं।</string>
     <string name="blockcheck_purpose">नीचे दिए डोमेन को हर बायपास रणनीति से जाँचता है, दिखाता है कि उन्हें क्या रोकता है, और रणनीतियों को रैंक करता है।</string>
     <string name="blockcheck_diagnosis_title_sites">साइटें क्यों अवरुद्ध हैं</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">Meduza टारगेट सेट शामिल करें। इसे बदलने के लिए “%1$s” चालू करें।</string>
 </resources>
