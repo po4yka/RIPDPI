@@ -17,8 +17,8 @@
         <item quantity="other">Eine Kette kann höchstens %1$d Hops haben.</item>
     </plurals>
     <plurals name="config_relay_chain_cumulative_caveat_body">
-        <item quantity="one">Der Verkehr wird der Reihe nach über %1$d Hop geleitet, daher erhöht jeder Hop die Latenz. Mehr Hops verteilen das Vertrauen auf mehr Betreiber, bieten aber keine Tor-Anonymität. Nutze pro Hop unterschiedliche Rechtsräume und Betreiber, um Korrelation zu verringern.</item>
-        <item quantity="other">Der Verkehr wird der Reihe nach über alle %1$d Hops geleitet, daher erhöht jeder Hop die Latenz. Mehr Hops verteilen das Vertrauen auf mehr Betreiber, bieten aber keine Tor-Anonymität. Nutze pro Hop unterschiedliche Rechtsräume und Betreiber, um Korrelation zu verringern.</item>
+        <item quantity="one">Der Verkehr wird der Reihe nach über %1$d Hop geleitet, daher erhöht jeder Hop die Latenz. Mehr Hops verteilen das Vertrauen auf mehr Betreiber, bieten aber keine Tor-Anonymität. Nutzen Sie pro Hop unterschiedliche Rechtsräume und Betreiber, um Korrelation zu verringern.</item>
+        <item quantity="other">Der Verkehr wird der Reihe nach über alle %1$d Hops geleitet, daher erhöht jeder Hop die Latenz. Mehr Hops verteilen das Vertrauen auf mehr Betreiber, bieten aber keine Tor-Anonymität. Nutzen Sie pro Hop unterschiedliche Rechtsräume und Betreiber, um Korrelation zu verringern.</item>
     </plurals>
     <plurals name="adaptive_fallback_cache_summary">
         <item quantity="one">%1$d Sekunde · IPv4 /%2$d</item>

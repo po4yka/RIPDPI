@@ -8,7 +8,7 @@
     <string name="export_preview_share_archive">ZIP-Archiv teilen</string>
     <string name="export_preview_save_archive">ZIP-Archiv speichern</string>
     <string name="export_preview_save_logs">Textdatei speichern</string>
-    <string name="export_preview_redaction">Sensible Werte sind unkenntlich gemacht. Prüfe die enthaltenen Daten.</string>
+    <string name="export_preview_redaction">Sensible Werte sind unkenntlich gemacht. Prüfen Sie die enthaltenen Daten.</string>
     <string name="export_preview_summary_only">Nur die folgende Zusammenfassung wird als Text geteilt.</string>
     <string name="export_preview_log_excerpt">Anfang des Protokolls (gespeichert wird die ganze Datei)</string>
     <string name="export_preview_summary">Zusammenfassung</string>
