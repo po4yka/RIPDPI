@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::io;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -51,7 +52,7 @@ pub(crate) async fn run(
                 let mitm = mitm.clone();
                 let telemetry = telemetry.clone();
                 let hosts = config.hosts.clone();
-                tasks.spawn(async move {
+                spawn_reaped(&mut tasks, async move {
                     let _ = client_job::handle(stream, relay, mitm, telemetry, hosts).await;
                 });
             }
@@ -73,4 +74,36 @@ pub(crate) async fn run(
         "Apps Script relay listener stopped"
     );
     Ok(())
+}
+
+/// Spawns a connection task after it removes every finished one.
+///
+/// A finished task stays in a `JoinSet`, with its whole future-sized cell,
+/// until a join method returns it. Without this reaping the set grows with
+/// every connection accepted since start, not with live connections.
+fn spawn_reaped<F>(tasks: &mut JoinSet<()>, task: F)
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    while tasks.try_join_next().is_some() {}
+    tasks.spawn(task);
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::task::JoinSet;
+
+    use super::spawn_reaped;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn finished_connection_tasks_do_not_accumulate() {
+        let mut tasks = JoinSet::new();
+        for _ in 0..100 {
+            spawn_reaped(&mut tasks, async {});
+            // Let the short-lived connection task run to completion.
+            tokio::task::yield_now().await;
+        }
+
+        assert!(tasks.len() <= 1, "finished tasks were kept: {}", tasks.len());
+    }
 }
