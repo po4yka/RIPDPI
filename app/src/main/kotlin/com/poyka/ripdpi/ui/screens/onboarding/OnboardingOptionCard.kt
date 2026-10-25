@@ -23,16 +23,16 @@ import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
-// Border widths are derived from spacing.xs (no literal dp): halve it for the 2 dp selected
+// Border widths are derived from spacing.xs (no literal dp): take three quarters for the 3 dp selected
 // outline, quarter it for the 1 dp unselected outline.
-private const val selectedBorderDivisor = 2
+private const val selectedBorderMultiplier = 3
 private const val unselectedBorderDivisor = 4
 
 /**
  * Onboarding-scoped selectable option card used for both the traffic-mode and DNS choices.
  *
  * Intentionally lighter than the shared [com.poyka.ripdpi.ui.components.cards.PresetCard]: no drop
- * shadow, a subtle neutral fill on selection, and a clean 2 dp border (1 dp when unselected) so the
+ * shadow, a subtle neutral fill on selection, and a clean 3 dp foreground border (1 dp when unselected) so the
  * selected state reads as "outlined + faintly filled" rather than a heavy elevated tile. The whole
  * card is a single [Role.RadioButton] selectable target with Android ripple; the badge is a quiet
  * tonal pill that stays secondary to the title.
@@ -55,13 +55,17 @@ internal fun OnboardingOptionCard(
     val interactionSource = remember { MutableInteractionSource() }
     val showCompleteText = LocalDensity.current.fontScale >= AccessibilityOptionTextFontScale
 
-    // Selection reads as a subtle filled container + the radio dot — NOT a harsh black outline.
-    // Borders stay on the quiet outline ramp so the card looks like a real Material surface, with
-    // the selected state carrying a slightly stronger (but still soft) outline for a non-color cue.
+    // Selection reads as a filled container, the radio dot, and a strong foreground border, so the
+    // chosen card is obvious at a glance; unselected cards stay on the quiet outline ramp.
     val container = if (selected) colors.muted else colors.card
-    val borderColor = if (selected) colors.outline else colors.outlineVariant
-    // Token-derived widths (no literal dp): 2 dp selected / 1 dp unselected.
-    val borderWidth = if (selected) spacing.xs / selectedBorderDivisor else spacing.xs / unselectedBorderDivisor
+    val borderColor = if (selected) colors.foreground else colors.outlineVariant
+    // Token-derived widths (no literal dp): 3 dp selected / 1 dp unselected.
+    val borderWidth =
+        if (selected) {
+            spacing.xs * selectedBorderMultiplier / unselectedBorderDivisor
+        } else {
+            spacing.xs / unselectedBorderDivisor
+        }
 
     Column(
         modifier =
@@ -109,7 +113,7 @@ internal fun OnboardingOptionCard(
         }
         Text(
             text = description,
-            style = type.secondaryBody,
+            style = type.body,
             color = colors.mutedForeground,
             maxLines = if (showCompleteText) Int.MAX_VALUE else 3,
             overflow = if (showCompleteText) TextOverflow.Clip else TextOverflow.Ellipsis,

@@ -54,4 +54,5 @@
     <string name="diagnostics_archive_database_failed">Не удалось прочитать записи диагностики для экспорта. Запустите диагностику заново и сохраните новый результат.</string>
     <string name="diagnostics_archive_inconsistent_result_failed">Результат диагностики изменился до завершения экспорта. Запустите диагностику заново и сохраните новый результат.</string>
     <string name="diagnostics_support_details_copied">Сведения об ошибке диагностики скопированы</string>
+    <string name="onboarding_badge_manual_setup">Для ручной настройки</string>
 </resources>

@@ -32,7 +32,7 @@
     <string name="onboarding_persona_title">选择界面</string>
     <string name="onboarding_persona_body">稍后可在设置中切换引导和高级模式。</string>
     <string name="onboarding_persona_simple_body">日常控制保持可见，专家细节保持折叠。</string>
-    <string name="onboarding_persona_advanced_body">打开包含诊断、配置档和底层控制的完整操作界面。</string>
+    <string name="onboarding_persona_advanced_body">显示所有诊断、配置档和底层设置。</string>
     <string name="settings_logs_body">打开应用、服务和诊断的实时日志流。</string>
     <string name="settings_subscription_failover_body">查看当前使用的订阅服务器和最近的自动切换。</string>
     <string name="diagnostics_open_logs_body">打开带有服务、代理、隧道和诊断过滤器的实时日志流。</string>
@@ -832,7 +832,7 @@
     <string name="notice_strategy_pack_refresh_failed_message">RIPDPI 无法刷新最新的策略包目录。当前策略快照仍保持活动。</string>
     <string name="notice_telemetry_salt_reset_message">下次连接时将生成新的盐值。之前记录的指纹哈希将无法再被关联。</string>
     <string name="onboarding_continue">继续</string>
-    <string name="onboarding_local_first_body">RIPDPI 在你的设备上本地运行。无账号、无遥测、无云同步。</string>
+    <string name="onboarding_local_first_body">一切都在你的设备上运行。</string>
     <string name="onboarding_permission_body">Android 需要 VPN 权限才能将流量路由经过应用。RIPDPI 使用本地隧道，但 DNS 和连接检查可能会联系你选择的提供方或测试端点。</string>
     <string name="onboarding_setup_dns_adguard_body">带广告和追踪器过滤的 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system_body">原样使用你网络的 DNS 服务器。</string>
@@ -1387,7 +1387,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_dns_system">系统默认</string>
     <string name="dns_unknown_provider">未知提供商</string>
     <string name="onboarding_setup_mode_proxy_title">代理模式</string>
-    <string name="onboarding_setup_next">下一步</string>
     <string name="onboarding_setup_test_running">正在检查连接…</string>
     <string name="onboarding_skip">稍后设置</string>
     <string name="onboarding_set_up_later">稍后设置</string>
@@ -3381,7 +3380,7 @@ fake_burst 3</string>
     <string name="xray_capability_dns_protection_desc">通过隧道解析域名，而非本地网络。</string>
     <string name="xray_capability_realtime_media_title">实时媒体</string>
     <string name="xray_capability_realtime_media_desc">通过隧道传输通话、游戏和流媒体。</string>
-    <string name="xray_import_title">高级 VPN</string>
+    <string name="xray_import_title">VPN 连接</string>
     <string name="xray_service_mode_section_title">连接模式</string>
     <string name="xray_service_mode_section_body">选择此设备的连接方式。</string>
     <string name="xray_import_profile_section_title">导入配置</string>
@@ -3412,12 +3411,10 @@ fake_burst 3</string>
     <string name="onboarding_skip_test">跳过测试</string>
     <!-- mode badges -->
     <string name="onboarding_badge_recommended">推荐</string>
-    <string name="onboarding_badge_advanced">高级</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">侧重隐私的 DNS 解析器。</string>
     <string name="onboarding_dns_advanced">高级 DNS 设置</string>
     <string name="onboarding_setup_mode_subtitle">选择 RIPDPI 在此设备上路由流量的方式。</string>
-    <string name="onboarding_setup_mode_vpn_meta">测试期间会请求 Android VPN 权限。</string>
     <string name="onboarding_test_permission_card_title">本地 VPN 权限</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">启动所选模式,确认 RIPDPI 能够正确路由流量。</string>

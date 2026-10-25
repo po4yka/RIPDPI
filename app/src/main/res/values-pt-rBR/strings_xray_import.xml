@@ -16,5 +16,5 @@
     <string name="config_xray_import_title">Perfil de VPN avançada</string>
     <string name="config_xray_import_body">Importe ou revise um perfil Xray para o provedor integrado.</string>
     <string name="onboarding_setup_mode_xray_title">Configurar VPN avançada</string>
-    <string name="onboarding_setup_mode_xray_body">Importe um perfil Xray antes de testar o modo VPN.</string>
+    <string name="onboarding_setup_mode_xray_body">Use um perfil Xray importado em vez da VPN integrada.</string>
 </resources>

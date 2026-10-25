@@ -337,7 +337,7 @@
     <string name="notice_pin_key_lost_title">Code PIN de secours réinitialisé</string>
     <string name="notice_strategy_packs_refreshed_message">RIPDPI a téléchargé, vérifié et activé le dernier catalogue de packs de stratégies autorisé pour cet appareil.</string>
     <string name="onboarding_bypass_modes_title">VPN ou proxy — votre choix</string>
-    <string name="onboarding_local_first_body">RIPDPI fonctionne localement sur votre appareil. Pas de compte, pas de télémétrie, pas de synchronisation cloud.</string>
+    <string name="onboarding_local_first_body">Tout fonctionne sur votre appareil.</string>
     <string name="onboarding_permission_title">Un VPN local, pas distant</string>
     <string name="onboarding_setup_dns_google_body">DNS fiable par Google.</string>
     <string name="onboarding_setup_finish">Terminer</string>
@@ -925,7 +925,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="onboarding_privacy_body">Pas de télémétrie, pas de pistage, pas de compte. Les réglages et l\'historique de diagnostic restent sur votre appareil sauf export explicite.</string>
     <string name="onboarding_setup_dns_quad9_body">Résolveur DNS axé sur la sécurité.</string>
     <string name="onboarding_setup_mode_proxy_body">Exécute un proxy local pour les apps ou clients prenant en charge la configuration manuelle du proxy.</string>
-    <string name="onboarding_setup_next">Suivant</string>
     <string name="onboarding_setup_test_success">Connecté en %1$d ms</string>
     <string name="onboarding_validation_checking_vpn">Vérification du trafic via le mode VPN…</string>
     <string name="onboarding_validation_finish_keep_running">Terminer et continuer l\'exécution</string>
@@ -1932,7 +1931,7 @@ Source : %2$s</string>
     <string name="onboarding_persona_title">Choisir l’interface</string>
     <string name="onboarding_persona_body">Vous pourrez basculer entre Guidé et Avancé plus tard dans Paramètres.</string>
     <string name="onboarding_persona_simple_body">Les contrôles courants restent visibles et les détails experts restent repliés.</string>
-    <string name="onboarding_persona_advanced_body">Ouvre toute la surface opérateur avec diagnostics, profils et contrôles bas niveau.</string>
+    <string name="onboarding_persona_advanced_body">Affiche tous les diagnostics, profils et réglages de bas niveau.</string>
     <string name="settings_logs_body">Ouvre le flux en direct des journaux de l’application, du service et des diagnostics.</string>
     <string name="settings_subscription_failover_body">Consultez le serveur d\'abonnement actif et les basculements automatiques récents.</string>
     <string name="diagnostics_open_logs_body">Ouvre le flux en direct des journaux avec des filtres pour le service, le proxy, le tunnel et les diagnostics.</string>
@@ -3389,7 +3388,7 @@ Source : %2$s</string>
     <string name="xray_capability_dns_protection_desc">Résout les noms via le tunnel, pas via le réseau local.</string>
     <string name="xray_capability_realtime_media_title">Média en temps réel</string>
     <string name="xray_capability_realtime_media_desc">Achemine appels, jeux et streaming par le tunnel.</string>
-    <string name="xray_import_title">VPN avancé</string>
+    <string name="xray_import_title">Connexion VPN</string>
     <string name="xray_service_mode_section_title">Mode de connexion</string>
     <string name="xray_service_mode_section_body">Choisissez comment cet appareil se connecte.</string>
     <string name="xray_import_profile_section_title">Importer un profil</string>
@@ -3420,12 +3419,10 @@ Source : %2$s</string>
     <string name="onboarding_skip_test">Ignorer le test</string>
     <!-- mode badges -->
     <string name="onboarding_badge_recommended">Recommandé</string>
-    <string name="onboarding_badge_advanced">Avancé</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Résolveur DNS axé sur la confidentialité.</string>
     <string name="onboarding_dns_advanced">Paramètres DNS avancés</string>
     <string name="onboarding_setup_mode_subtitle">Choisissez comment RIPDPI doit acheminer le trafic sur cet appareil.</string>
-    <string name="onboarding_setup_mode_vpn_meta">Demande l\'autorisation VPN d\'Android pendant le test.</string>
     <string name="onboarding_test_permission_card_title">Autorisation VPN locale</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Démarrez le mode sélectionné et vérifiez que RIPDPI peut acheminer le trafic correctement.</string>

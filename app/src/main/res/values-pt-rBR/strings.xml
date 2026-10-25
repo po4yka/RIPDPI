@@ -34,7 +34,7 @@
     <string name="onboarding_persona_title">Escolha sua interface</string>
     <string name="onboarding_persona_body">Você pode alternar entre Guiado e Avançado depois nas Configurações.</string>
     <string name="onboarding_persona_simple_body">Os controles do dia a dia ficam visíveis enquanto os detalhes técnicos permanecem recolhidos.</string>
-    <string name="onboarding_persona_advanced_body">Abrir toda a superfície de operação com diagnóstico, perfis e controles de baixo nível.</string>
+    <string name="onboarding_persona_advanced_body">Mostra todos os diagnósticos, perfis e configurações de baixo nível.</string>
     <string name="settings_logs_body">Abra o fluxo de logs em tempo real do app, dos serviços e do diagnóstico.</string>
     <string name="settings_subscription_failover_body">Veja qual servidor de assinatura está ativo e as trocas automáticas recentes.</string>
     <string name="diagnostics_open_logs_body">Abra o fluxo de logs em tempo real com filtros para entradas de serviço, proxy, túnel e diagnóstico.</string>
@@ -1605,11 +1605,10 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_confirm_continue">Continuar configuração</string>
     <string name="onboarding_continue">Continuar</string>
     <string name="onboarding_get_started">Começar</string>
-    <string name="onboarding_setup_next">Avançar</string>
     <string name="onboarding_setup_finish">Concluir</string>
 
     <string name="onboarding_local_first_title">Privado por design</string>
-    <string name="onboarding_local_first_body">O RIPDPI funciona localmente no seu dispositivo. Sem contas, sem telemetria, sem sincronização na nuvem.</string>
+    <string name="onboarding_local_first_body">Tudo é executado no seu dispositivo.</string>
     <string name="onboarding_permission_title">Uma VPN local, não remota</string>
     <string name="onboarding_permission_body">O Android exige permissão de VPN para rotear o tráfego pelo app. O RIPDPI usa um túnel local, enquanto as verificações de DNS e conectividade podem contatar o provedor ou o endpoint de teste que você escolher.</string>
     <string name="onboarding_modes_title">Predefinições ou controle total</string>
@@ -1677,11 +1676,9 @@ fakeddisorder endhost</string>
     <string name="onboarding_use_recommended">Usar recomendado</string>
     <string name="onboarding_skip_test">Pular teste</string>
     <string name="onboarding_badge_recommended">Recomendado</string>
-    <string name="onboarding_badge_advanced">Avançado</string>
     <string name="onboarding_setup_dns_mullvad_body">Resolvedor DNS focado em privacidade.</string>
     <string name="onboarding_dns_advanced">Configurações avançadas de DNS</string>
     <string name="onboarding_setup_mode_subtitle">Selecione como o RIPDPI deve rotear o tráfego neste dispositivo.</string>
-    <string name="onboarding_setup_mode_vpn_meta">Solicita permissão de VPN do Android durante o teste.</string>
     <string name="onboarding_test_permission_card_title">Permissão de VPN local</string>
     <string name="onboarding_test_idle_body">Inicie o modo selecionado e verifique se o RIPDPI consegue rotear o tráfego corretamente.</string>
     <string name="onboarding_test_step_tunnel_vpn">Iniciar túnel VPN local</string>
@@ -3439,7 +3436,7 @@ Fonte: %2$s</string>
     <string name="xray_capability_dns_protection_desc">Resolve nomes pelo túnel, não pela rede local.</string>
     <string name="xray_capability_realtime_media_title">Mídia em tempo real</string>
     <string name="xray_capability_realtime_media_desc">Transporta chamadas, jogos e streaming pelo túnel.</string>
-    <string name="xray_import_title">VPN avançada</string>
+    <string name="xray_import_title">Conexão VPN</string>
     <string name="xray_service_mode_section_title">Modo de conexão</string>
     <string name="xray_service_mode_section_body">Escolha como este dispositivo se conecta.</string>
     <string name="xray_import_profile_section_title">Importar perfil</string>

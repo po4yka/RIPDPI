@@ -16,5 +16,5 @@
     <string name="config_xray_import_title">高级 VPN 配置</string>
     <string name="config_xray_import_body">导入或查看嵌入式提供方的 Xray 配置。</string>
     <string name="onboarding_setup_mode_xray_title">设置高级 VPN</string>
-    <string name="onboarding_setup_mode_xray_body">测试 VPN 模式前导入 Xray 配置。</string>
+    <string name="onboarding_setup_mode_xray_body">使用已导入的 Xray 配置，而不是内置 VPN。</string>
 </resources>

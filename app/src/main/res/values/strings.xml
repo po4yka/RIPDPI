@@ -34,7 +34,7 @@
     <string name="onboarding_persona_title">Choose your interface</string>
     <string name="onboarding_persona_body">You can switch between Guided and Advanced later in Settings.</string>
     <string name="onboarding_persona_simple_body">Everyday controls stay visible while expert details stay collapsed.</string>
-    <string name="onboarding_persona_advanced_body">Open the full operator surface with diagnostics, profiles, and low-level controls.</string>
+    <string name="onboarding_persona_advanced_body">Show all diagnostics, profiles, and low-level settings.</string>
     <string name="settings_logs_body">Open the live app, service, and diagnostics log stream.</string>
     <string name="settings_subscription_failover_body">See which subscription server is active and recent automatic switchovers.</string>
     <string name="diagnostics_open_logs_body">Open the live log stream with filters for service, proxy, tunnel, and diagnostics entries.</string>
@@ -1630,11 +1630,10 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_confirm_continue">Continue setup</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_get_started">Get started</string>
-    <string name="onboarding_setup_next">Next</string>
     <string name="onboarding_setup_finish">Finish</string>
 
     <string name="onboarding_local_first_title">Private by design</string>
-    <string name="onboarding_local_first_body">RIPDPI runs locally on your device. No accounts, no telemetry, no cloud sync.</string>
+    <string name="onboarding_local_first_body">Everything runs on your device.</string>
     <string name="onboarding_permission_title">A local VPN, not a remote one</string>
     <string name="onboarding_permission_body">Android requires VPN permission to route traffic through the app. RIPDPI uses a local tunnel, while DNS and connectivity checks may contact the provider or test endpoint you choose.</string>
     <string name="onboarding_modes_title">Presets or full control</string>
@@ -1706,12 +1705,10 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_test">Skip test</string>
     <!-- mode badges -->
     <string name="onboarding_badge_recommended">Recommended</string>
-    <string name="onboarding_badge_advanced">Advanced</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Privacy-focused DNS resolver.</string>
     <string name="onboarding_dns_advanced">Advanced DNS settings</string>
     <string name="onboarding_setup_mode_subtitle">Select how RIPDPI should route traffic on this device.</string>
-    <string name="onboarding_setup_mode_vpn_meta">Requests Android VPN permission during the test.</string>
     <string name="onboarding_test_permission_card_title">Local VPN permission</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Start the selected mode and verify that RIPDPI can route traffic correctly.</string>
@@ -3556,7 +3553,7 @@ Source: %2$s</string>
     <string name="xray_capability_dns_protection_desc">Resolves names through the tunnel, not the local network.</string>
     <string name="xray_capability_realtime_media_title">Real-time media</string>
     <string name="xray_capability_realtime_media_desc">Carries calls, games, and streaming over the tunnel.</string>
-    <string name="xray_import_title">Advanced VPN</string>
+    <string name="xray_import_title">VPN connection</string>
     <string name="xray_service_mode_section_title">Connection mode</string>
     <string name="xray_service_mode_section_body">Choose how this device connects.</string>
     <string name="xray_import_profile_section_title">Import profile</string>

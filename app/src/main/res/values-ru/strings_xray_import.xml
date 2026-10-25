@@ -16,5 +16,5 @@
     <string name="config_xray_import_title">Профиль расширенного VPN</string>
     <string name="config_xray_import_body">Импортируйте или проверьте профиль Xray для встроенного провайдера.</string>
     <string name="onboarding_setup_mode_xray_title">Настроить расширенный VPN</string>
-    <string name="onboarding_setup_mode_xray_body">Импортируйте профиль Xray перед проверкой режима VPN.</string>
+    <string name="onboarding_setup_mode_xray_body">Используйте импортированный профиль Xray вместо встроенного VPN.</string>
 </resources>

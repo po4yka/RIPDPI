@@ -33,7 +33,7 @@
     <string name="onboarding_persona_title">अपना इंटरफ़ेस चुनें</string>
     <string name="onboarding_persona_body">आप बाद में सेटिंग्स में निर्देशित और उन्नत के बीच स्विच कर सकते हैं।</string>
     <string name="onboarding_persona_simple_body">रोज़मर्रा के नियंत्रण दिखते रहते हैं जबकि विशेषज्ञ विवरण संकुचित रहते हैं।</string>
-    <string name="onboarding_persona_advanced_body">जाँच, प्रोफ़ाइल और निम्न-स्तरीय नियंत्रणों के साथ पूरा ऑपरेटर सरफ़ेस खोलें।</string>
+    <string name="onboarding_persona_advanced_body">सभी जाँच, प्रोफ़ाइल और निम्न-स्तरीय सेटिंग्स दिखाएँ।</string>
     <string name="settings_logs_body">लाइव ऐप, सेवा और जाँच लॉग स्ट्रीम खोलें।</string>
     <string name="settings_subscription_failover_body">देखें कि कौन-सा सब्सक्रिप्शन सर्वर सक्रिय है और हाल के स्वचालित स्विचओवर।</string>
     <string name="diagnostics_open_logs_body">सेवा, प्रॉक्सी, टनल और जाँच प्रविष्टियों के फ़िल्टर के साथ लाइव लॉग स्ट्रीम खोलें।</string>
@@ -1601,11 +1601,10 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_confirm_continue">सेटअप जारी रखें</string>
     <string name="onboarding_continue">जारी रखें</string>
     <string name="onboarding_get_started">शुरू करें</string>
-    <string name="onboarding_setup_next">आगे</string>
     <string name="onboarding_setup_finish">समाप्त करें</string>
 
     <string name="onboarding_local_first_title">डिज़ाइन से ही निजी</string>
-    <string name="onboarding_local_first_body">RIPDPI आपके डिवाइस पर स्थानीय रूप से चलता है। कोई अकाउंट नहीं, कोई टेलीमेट्री नहीं, कोई क्लाउड सिंक नहीं।</string>
+    <string name="onboarding_local_first_body">सब कुछ आपके डिवाइस पर चलता है।</string>
     <string name="onboarding_permission_title">एक स्थानीय VPN, रिमोट नहीं</string>
     <string name="onboarding_permission_body">ट्रैफ़िक को ऐप के ज़रिए रूट करने के लिए Android को VPN अनुमति की ज़रूरत होती है। RIPDPI एक स्थानीय टनल का उपयोग करता है, जबकि DNS और कनेक्टिविटी जाँच आपके चुने हुए प्रदाता या टेस्ट एंडपॉइंट से संपर्क कर सकती हैं।</string>
     <string name="onboarding_modes_title">प्रीसेट या पूरा नियंत्रण</string>
@@ -1674,11 +1673,9 @@ fakeddisorder endhost</string>
     <string name="onboarding_use_recommended">अनुशंसित का उपयोग करें</string>
     <string name="onboarding_skip_test">परीक्षण छोड़ें</string>
     <string name="onboarding_badge_recommended">अनुशंसित</string>
-    <string name="onboarding_badge_advanced">उन्नत</string>
     <string name="onboarding_setup_dns_mullvad_body">गोपनीयता-केंद्रित DNS रिज़ॉल्वर।</string>
     <string name="onboarding_dns_advanced">उन्नत DNS सेटिंग्स</string>
     <string name="onboarding_setup_mode_subtitle">चुनें कि RIPDPI को इस डिवाइस पर ट्रैफ़िक कैसे रूट करना चाहिए।</string>
-    <string name="onboarding_setup_mode_vpn_meta">परीक्षण के दौरान Android VPN अनुमति का अनुरोध करता है।</string>
     <string name="onboarding_test_permission_card_title">स्थानीय VPN अनुमति</string>
     <string name="onboarding_test_idle_body">चयनित मोड शुरू करें और सत्यापित करें कि RIPDPI ट्रैफ़िक सही ढंग से रूट कर सकता है।</string>
     <string name="onboarding_test_step_tunnel_vpn">स्थानीय VPN टनल शुरू करें</string>

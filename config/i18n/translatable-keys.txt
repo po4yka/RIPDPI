@@ -3743,7 +3743,7 @@ app:notice_strategy_packs_refreshed_message
 app:notice_strategy_packs_refreshed_title
 app:notice_telemetry_salt_reset_message
 app:notice_telemetry_salt_reset_title
-app:onboarding_badge_advanced
+app:onboarding_badge_manual_setup
 app:onboarding_badge_recommended
 app:onboarding_bypass_modes_body
 app:onboarding_bypass_modes_title
@@ -3788,11 +3788,9 @@ app:onboarding_setup_mode_proxy_title
 app:onboarding_setup_mode_subtitle
 app:onboarding_setup_mode_title
 app:onboarding_setup_mode_vpn_body
-app:onboarding_setup_mode_vpn_meta
 app:onboarding_setup_mode_vpn_title
 app:onboarding_setup_mode_xray_body
 app:onboarding_setup_mode_xray_title
-app:onboarding_setup_next
 app:onboarding_setup_test_failed
 app:onboarding_setup_test_hint
 app:onboarding_setup_test_run

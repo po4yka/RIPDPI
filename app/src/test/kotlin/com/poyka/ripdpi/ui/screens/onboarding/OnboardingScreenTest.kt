@@ -107,7 +107,7 @@ class OnboardingScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Navigate back").performClick()
+        composeRule.onNodeWithContentDescription("Navigate back").performClick()
 
         assertEquals(0, selectedPage)
     }
@@ -512,7 +512,7 @@ class OnboardingScreenTest {
         composeRule.waitForIdle()
         listOf(
             "Everyday controls stay visible while expert details stay collapsed.",
-            "Open the full operator surface with diagnostics, profiles, and low-level controls.",
+            "Show all diagnostics, profiles, and low-level settings.",
         ).forEach(::assertCompleteScrollableText)
 
         composeRule.runOnIdle { uiState = uiState.copy(currentPage = OnboardingInfoPageCount + 1) }
@@ -520,7 +520,7 @@ class OnboardingScreenTest {
         listOf(
             "Routes all app traffic through a local on-device VPN. Full coverage, no manual setup.",
             "Runs a local proxy for apps or clients that support manual proxy configuration.",
-            "Import an Xray profile before testing the VPN mode.",
+            "Use an imported Xray profile instead of the built-in VPN.",
         ).forEach(::assertCompleteScrollableText)
     }
 

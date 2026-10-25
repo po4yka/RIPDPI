@@ -32,7 +32,7 @@
     <string name="onboarding_persona_title">رابط را انتخاب کنید</string>
     <string name="onboarding_persona_body">بعداً می‌توانید در تنظیمات بین راهنمایی‌شده و پیشرفته جابه‌جا شوید.</string>
     <string name="onboarding_persona_simple_body">کنترل‌های روزمره پیدا می‌مانند و جزئیات تخصصی جمع می‌شوند.</string>
-    <string name="onboarding_persona_advanced_body">سطح کامل اپراتوری با تشخیص، پروفایل‌ها و کنترل‌های سطح پایین را باز می‌کند.</string>
+    <string name="onboarding_persona_advanced_body">همه ابزارهای تشخیص، پروفایل‌ها و تنظیمات سطح پایین را نمایش می‌دهد.</string>
     <string name="settings_logs_body">جریان زنده گزارش‌های برنامه، سرویس و تشخیص را باز کنید.</string>
     <string name="settings_subscription_failover_body">سرور اشتراک فعال و جابه‌جایی‌های خودکار اخیر را ببینید.</string>
     <string name="diagnostics_open_logs_body">جریان زنده گزارش‌ها را با فیلترهای سرویس، پروکسی، تونل و تشخیص باز کنید.</string>
@@ -2108,7 +2108,7 @@ fakeddisorder endhost</string>
     <string name="notice_strategy_packs_refreshed_title">بسته‌های استراتژی به‌روزرسانی شدند</string>
     <string name="onboarding_bypass_modes_body">ترافیک را برای پوشش کامل از طریق یک VPN محلی مسیریابی کنید، یا برای کنترل دقیق از یک proxy محلی استفاده کنید. در هر زمان جابجا شوید.</string>
     <string name="onboarding_diagnostics_body">بدون خروج از برنامه، اختلال DPI را شناسایی کنید و سلامت شبکه خود را تحلیل کنید.</string>
-    <string name="onboarding_local_first_body">RIPDPI به‌صورت محلی روی دستگاه شما اجرا می‌شود. بدون حساب کاربری، بدون تله‌متری، بدون همگام‌سازی ابری.</string>
+    <string name="onboarding_local_first_body">همه‌چیز روی دستگاه شما اجرا می‌شود.</string>
     <string name="onboarding_modes_title">پیش‌تنظیم‌ها یا کنترل کامل</string>
     <string name="onboarding_privacy_body">بدون تله‌متری، بدون ردیابی، بدون حساب کاربری. تنظیمات و سابقهٔ عیب‌یابی روی دستگاه شما می‌مانند مگر اینکه آن‌ها را صریحاً صادر کنید.</string>
     <string name="onboarding_setup_dns_cloudflare_body">حل‌کننده DNS سریع و همه‌منظوره.</string>
@@ -2117,7 +2117,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_finish">پایان</string>
     <string name="onboarding_setup_mode_title">حالت ترافیک را انتخاب کنید</string>
     <string name="config_traffic_mode_title">حالت ترافیک را انتخاب کنید</string>
-    <string name="onboarding_setup_next">بعدی</string>
     <string name="onboarding_setup_test_run">اجرای تست</string>
     <string name="onboarding_setup_test_title">اتصال خود را تست کنید</string>
     <string name="onboarding_validation_checking_proxy">در حال بررسی ترافیک از طریق حالت proxy…</string>
@@ -3394,7 +3393,7 @@ fakeddisorder endhost</string>
     <string name="xray_capability_dns_protection_desc">نام‌ها را از طریق تونل تبدیل می‌کند، نه شبکه محلی.</string>
     <string name="xray_capability_realtime_media_title">رسانه بلادرنگ</string>
     <string name="xray_capability_realtime_media_desc">تماس‌ها، بازی‌ها و پخش را از طریق تونل منتقل می‌کند.</string>
-    <string name="xray_import_title">وی‌پی‌ان پیشرفته</string>
+    <string name="xray_import_title">اتصال وی‌پی‌ان</string>
     <string name="xray_service_mode_section_title">حالت اتصال</string>
     <string name="xray_service_mode_section_body">نحوه اتصال این دستگاه را انتخاب کنید.</string>
     <string name="xray_import_profile_section_title">وارد کردن نمایه</string>
@@ -3425,12 +3424,10 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_test">رد کردن آزمایش</string>
     <!-- mode badges -->
     <string name="onboarding_badge_recommended">پیشنهادی</string>
-    <string name="onboarding_badge_advanced">پیشرفته</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">حل‌کننده DNS متمرکز بر حریم خصوصی.</string>
     <string name="onboarding_dns_advanced">تنظیمات پیشرفته DNS</string>
     <string name="onboarding_setup_mode_subtitle">انتخاب کنید RIPDPI چگونه ترافیک را روی این دستگاه هدایت کند.</string>
-    <string name="onboarding_setup_mode_vpn_meta">هنگام آزمایش، مجوز VPN اندروید را درخواست می‌کند.</string>
     <string name="onboarding_test_permission_card_title">مجوز VPN محلی</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">حالت انتخاب‌شده را اجرا کنید و بررسی کنید که RIPDPI می‌تواند ترافیک را به‌درستی مسیریابی کند.</string>

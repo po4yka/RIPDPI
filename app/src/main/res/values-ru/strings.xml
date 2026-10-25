@@ -33,7 +33,7 @@
     <string name="onboarding_persona_title">Выберите интерфейс</string>
     <string name="onboarding_persona_body">Позже в настройках можно выбрать режим с подсказками или расширенный.</string>
     <string name="onboarding_persona_simple_body">Обычные элементы остаются видимыми, а экспертные детали свернуты.</string>
-    <string name="onboarding_persona_advanced_body">Открывает полный операторский интерфейс с диагностикой, профилями и низкоуровневыми настройками.</string>
+    <string name="onboarding_persona_advanced_body">Показывать все диагностики, профили и низкоуровневые настройки.</string>
     <string name="settings_logs_body">Открыть живой поток журналов приложения, сервиса и диагностики.</string>
     <string name="settings_subscription_failover_body">Посмотрите, какой сервер подписки активен и какие автоматические переключения произошли недавно.</string>
     <string name="diagnostics_open_logs_body">Открыть живой поток журналов с фильтрами для сервиса, прокси, туннеля и диагностики.</string>
@@ -1174,7 +1174,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_continue">Продолжить</string>
     <string name="onboarding_get_started">Начать</string>
     <string name="onboarding_local_first_title">Конфиденциально по умолчанию</string>
-    <string name="onboarding_local_first_body">RIPDPI работает локально на вашем устройстве. Без аккаунтов, без телеметрии, без облачной синхронизации.</string>
+    <string name="onboarding_local_first_body">Всё работает на вашем устройстве.</string>
     <string name="onboarding_permission_title">Разрешение локального VPN</string>
     <string name="onboarding_permission_body">Android запросит разрешение VPN, чтобы направлять трафик через приложение. RIPDPI использует локальный туннель, а DNS и проверки подключения могут обращаться к выбранному провайдеру или тестовой точке.</string>
     <string name="onboarding_modes_title">Выберите режим</string>
@@ -1183,7 +1183,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_bypass_modes_body">Направляйте трафик через локальный VPN для полного покрытия или через локальный прокси для более точного контроля.</string>
     <string name="onboarding_privacy_title">Прозрачность по умолчанию</string>
     <string name="onboarding_privacy_body">Никакой телеметрии, отслеживания или аккаунтов. Настройки и история диагностики остаются на устройстве, если вы явно не экспортируете их.</string>
-    <string name="onboarding_setup_next">Далее</string>
     <string name="onboarding_setup_finish">Завершить</string>
     <string name="onboarding_setup_mode_title">Выберите режим трафика</string>
     <string name="onboarding_setup_mode_vpn_title">Режим VPN</string>
@@ -3194,7 +3193,7 @@ fakeddisorder endhost</string>
     <string name="xray_capability_dns_protection_desc">Разрешает имена через туннель, а не через локальную сеть.</string>
     <string name="xray_capability_realtime_media_title">Медиа в реальном времени</string>
     <string name="xray_capability_realtime_media_desc">Передаёт звонки, игры и стриминг через туннель.</string>
-    <string name="xray_import_title">Расширенный VPN</string>
+    <string name="xray_import_title">VPN-подключение</string>
     <string name="xray_service_mode_section_title">Режим подключения</string>
     <string name="xray_service_mode_section_body">Выберите способ подключения устройства.</string>
     <string name="xray_import_profile_section_title">Импорт профиля</string>
@@ -3220,11 +3219,9 @@ fakeddisorder endhost</string>
     <string name="onboarding_use_recommended">Использовать рекомендуемое</string>
     <string name="onboarding_skip_test">Пропустить проверку</string>
     <string name="onboarding_badge_recommended">Рекомендуется</string>
-    <string name="onboarding_badge_advanced">Расширенный</string>
     <string name="onboarding_setup_dns_mullvad_body">DNS-резолвер с акцентом на приватность.</string>
     <string name="onboarding_dns_advanced">Расширенные настройки DNS</string>
     <string name="onboarding_setup_mode_subtitle">Выберите, как RIPDPI должен направлять трафик на этом устройстве.</string>
-    <string name="onboarding_setup_mode_vpn_meta">Запрашивает разрешение Android VPN во время теста.</string>
     <string name="onboarding_test_permission_card_title">Разрешение для локального VPN</string>
     <string name="onboarding_test_idle_body">Запустите выбранный режим и убедитесь, что RIPDPI правильно маршрутизирует трафик.</string>
     <string name="onboarding_test_step_tunnel_vpn">Запуск локального VPN-туннеля</string>

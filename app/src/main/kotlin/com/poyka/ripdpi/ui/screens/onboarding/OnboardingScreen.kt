@@ -11,10 +11,11 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.displayCutoutPadding
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
@@ -40,13 +42,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,9 +63,9 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
-import com.poyka.ripdpi.ui.components.intro.RipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -75,33 +76,10 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.coroutines.flow.Flow
-import kotlin.math.absoluteValue
 
-// Animation / alpha keyframe fractions
-private const val alphaTextMin = 0.24f
-private const val alphaTextRange = 0.76f
-private const val alphaBodyMin = 0.18f
-private const val alphaBodyRange = 0.82f
-private const val alphaIllusMin = 0.4f
-private const val alphaIllusRange = 0.6f
-
-// Illustration scale keyframe fractions
-private const val scaleIllusBase = 0.88f
-private const val scaleIllusRange = 0.12f
-
-// Intro illustration is drawn container-less at this multiple of the base illustration size.
-private const val introIllustrationScale = 2.1f
-
-// Parallax travel fractions (× illustration size) for the page-swipe entrance animation.
-private const val illusTravelFraction = 0.55f
-private const val titleTravelFraction = 0.35f
-private const val bodyTravelFraction = 0.52f
-private const val illusLiftFraction = 0.15f
-
-// Fraction of the page viewport reserved BELOW the guarantee grid in the SpaceBetween info
-// layout. Larger value lifts the grid toward the body, shrinking the body->grid empty band.
-private const val guaranteeGridBottomInsetFraction = 0.12f
 private const val AccessibilityOnboardingFontScale = 1.5f
+private val OnboardingHeaderBadgeSize = 56.dp
+private val OnboardingHeaderIconSize = 28.dp
 
 @Composable
 fun OnboardingRoute(
@@ -335,7 +313,6 @@ private fun OnboardingPagerContent(
                 is OnboardingPage.Informational -> {
                     OnboardingInfoPageScene(
                         pageModel = pageModel,
-                        pageOffset = pagerState.onboardingPageOffset(page),
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -391,14 +368,12 @@ private fun OnboardingTopBar(
                 minHeight = introLayout.topActionRowHeight,
             )
         } else {
-            RipDpiTextAction(
-                text = stringResource(R.string.navigation_back),
+            RipDpiIconButton(
+                icon = RipDpiIcons.Back,
+                contentDescription = stringResource(R.string.navigation_back),
                 onClick = onBack,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingBack),
-                textStyle = type.introAction,
-                color = colors.mutedForeground,
                 enabled = backEnabled,
-                minHeight = introLayout.topActionRowHeight,
             )
         }
     }
@@ -437,7 +412,6 @@ private fun OnboardingBottomBar(
         RipDpiPageIndicators(
             currentPage = settledPage,
             pageCount = pageCount,
-            sectionBreakAfter = OnboardingInfoPageCount,
             accessibilityLabel =
                 stringResource(
                     R.string.onboarding_step_progress,
@@ -458,25 +432,32 @@ private fun OnboardingBottomBar(
                     .fillMaxWidth()
                     .heightIn(min = introLayout.footerButtonMinHeight),
         )
-        if (validationState is OnboardingValidationState.Success) {
-            RipDpiTextAction(
-                text = stringResource(R.string.onboarding_validation_finish_disconnected),
-                onClick = onFinishDisconnected,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
-                textStyle = type.introAction,
-                color = colors.mutedForeground,
-                minHeight = introLayout.footerButtonMinHeight,
-            )
-        }
-        if (showIdleSkipTest) {
-            RipDpiTextAction(
-                text = stringResource(R.string.onboarding_skip_test),
-                onClick = onFinishAnyway,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingSkipTest),
-                textStyle = type.introAction,
-                color = colors.mutedForeground,
-                minHeight = introLayout.footerButtonMinHeight,
-            )
+        // Minimum-height slot, reserved on every page, so the indicator and CTA never shift when a
+        // secondary action appears.
+        Box(
+            modifier = Modifier.fillMaxWidth().heightIn(min = introLayout.footerButtonMinHeight),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (validationState is OnboardingValidationState.Success) {
+                RipDpiTextAction(
+                    text = stringResource(R.string.onboarding_validation_finish_disconnected),
+                    onClick = onFinishDisconnected,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
+                    textStyle = type.introAction,
+                    color = colors.mutedForeground,
+                    minHeight = introLayout.footerButtonMinHeight,
+                )
+            }
+            if (showIdleSkipTest) {
+                RipDpiTextAction(
+                    text = stringResource(R.string.onboarding_skip_test),
+                    onClick = onFinishAnyway,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingSkipTest),
+                    textStyle = type.introAction,
+                    color = colors.mutedForeground,
+                    minHeight = introLayout.footerButtonMinHeight,
+                )
+            }
         }
     }
 }
@@ -561,167 +542,40 @@ private fun OnboardingValidationRecoveryKind.requiresPermissionGrantAction(): Bo
     this == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION ||
         this == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS
 
-/** Per-frame parallax + fade values for the swipeable info page, derived once from the page offset. */
-private class OnboardingInfoParallax(
-    val clampedOffset: Float,
-    val pageProgress: Float,
-    val illustrationTravelPx: Float,
-    val titleTravelPx: Float,
-    val bodyTravelPx: Float,
-    val illustrationLiftPx: Float,
-    val textAlpha: Float,
-    val bodyAlpha: Float,
-)
-
-@Composable
-private fun onboardingInfoParallax(
-    pageOffset: Float,
-    illustrationSize: Dp,
-): OnboardingInfoParallax {
-    val clampedOffset = pageOffset.coerceIn(-1f, 1f)
-    val pageProgress = (1f - clampedOffset.absoluteValue).coerceIn(0f, 1f)
-    return with(LocalDensity.current) {
-        OnboardingInfoParallax(
-            clampedOffset = clampedOffset,
-            pageProgress = pageProgress,
-            illustrationTravelPx = (illustrationSize * illusTravelFraction).toPx(),
-            titleTravelPx = (illustrationSize * titleTravelFraction).toPx(),
-            bodyTravelPx = (illustrationSize * bodyTravelFraction).toPx(),
-            illustrationLiftPx = (illustrationSize * illusLiftFraction).toPx(),
-            textAlpha = (alphaTextMin + (pageProgress * alphaTextRange)).coerceIn(0f, 1f),
-            bodyAlpha = (alphaBodyMin + (pageProgress * alphaBodyRange)).coerceIn(0f, 1f),
-        )
-    }
-}
-
 @Composable
 private fun OnboardingInfoPageScene(
     pageModel: OnboardingPage.Informational,
-    pageOffset: Float,
     modifier: Modifier = Modifier,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    val parallax = onboardingInfoParallax(pageOffset, introLayout.illustrationSize)
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        // Captured here so it stays reachable inside the nested Column lambdas — Compose's
-        // @LayoutScopeMarker hides the outer BoxWithConstraints receiver from inner layout scopes.
-        val gridBottomInset =
-            if (LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale) {
-                0.dp
-            } else {
-                maxHeight * guaranteeGridBottomInsetFraction
-            }
-        // Two-zone layout: the hero cluster (illustration + title + body) anchors the top and the
-        // guarantee grid is pushed toward the CTA by SpaceBetween, so the page reads as two
-        // deliberate zones instead of a top-loaded block over an empty band. heightIn(min =
-        // maxHeight) keeps the column at least one viewport tall so SpaceBetween has room to
-        // distribute, while verticalScroll preserves large-font / a11y reflow on short viewports.
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = maxHeight)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = introLayout.bodyHorizontalPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            OnboardingInfoHero(
-                pageModel = pageModel,
-                parallax = parallax,
-                introLayout = introLayout,
-            )
-            OnboardingGuaranteeGrid(
-                modifier = Modifier.padding(bottom = gridBottomInset),
-                privacyLabels =
-                    listOf(
-                        R.string.onboarding_chip_no_account,
-                        R.string.onboarding_chip_no_telemetry,
-                        R.string.onboarding_chip_no_cloud_sync,
-                    ),
-                localLabels =
-                    listOf(
-                        R.string.onboarding_chip_local_vpn,
-                        R.string.onboarding_chip_local_proxy,
-                        R.string.onboarding_chip_local_config,
-                    ),
-            )
-        }
-    }
-}
-
-/**
- * Hero cluster for the informational onboarding page — illustration, title, and body — extracted
- * so [OnboardingInfoPageScene] stays within the method-length budget. Kept as one unit so the
- * caller's SpaceBetween arrangement treats it as the single top zone.
- */
-@Composable
-private fun OnboardingInfoHero(
-    pageModel: OnboardingPage.Informational,
-    parallax: OnboardingInfoParallax,
-    introLayout: RipDpiIntroScaffoldMetrics,
-    modifier: Modifier = Modifier,
-) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val spacing = RipDpiThemeTokens.spacing
-    // A leading inset clears the OnboardingTopBar "Skip setup" row that overlays the page.
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = introLayout.bodyHorizontalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
     ) {
-        Spacer(
-            modifier =
-                Modifier.height(
-                    if (LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale) {
-                        0.dp
-                    } else {
-                        introLayout.topActionRowHeight
-                    },
+        OnboardingPageHeader(
+            icon = pageModel.icon,
+            titleRes = pageModel.titleRes,
+            subtitleRes = pageModel.descriptionRes,
+        )
+        OnboardingGuaranteeGrid(
+            privacyLabels =
+                listOf(
+                    R.string.onboarding_chip_no_account,
+                    R.string.onboarding_chip_no_telemetry,
+                    R.string.onboarding_chip_no_cloud_sync,
                 ),
-        )
-        OnboardingIllustrationBox(
-            modifier =
-                Modifier
-                    .size(introLayout.illustrationSize * introIllustrationScale)
-                    .graphicsLayer {
-                        translationX = -parallax.clampedOffset * parallax.illustrationTravelPx
-                        translationY = (1f - parallax.pageProgress) * parallax.illustrationLiftPx
-                        rotationZ = parallax.clampedOffset * 2f
-                        scaleX = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
-                        scaleY = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
-                        alpha = (alphaIllusMin + (parallax.pageProgress * alphaIllusRange)).coerceIn(0f, 1f)
-                    },
-        )
-        Spacer(modifier = Modifier.height(spacing.xl))
-        Text(
-            text = stringResource(pageModel.titleRes),
-            style = type.introTitle,
-            color = colors.foreground,
-            textAlign = TextAlign.Center,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = introLayout.titleHorizontalPadding)
-                    .graphicsLayer {
-                        translationX = parallax.clampedOffset * parallax.titleTravelPx
-                        alpha = parallax.textAlpha
-                    },
-        )
-        Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
-        Text(
-            text = stringResource(pageModel.descriptionRes),
-            style = type.introBody,
-            color = colors.mutedForeground,
-            textAlign = TextAlign.Center,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        translationX = parallax.clampedOffset * parallax.bodyTravelPx
-                        alpha = parallax.bodyAlpha
-                    },
+            localLabels =
+                listOf(
+                    R.string.onboarding_chip_local_vpn,
+                    R.string.onboarding_chip_local_proxy,
+                    R.string.onboarding_chip_local_config,
+                ),
         )
     }
 }
@@ -762,20 +616,23 @@ private fun OnboardingGuaranteeGrid(
             )
         }
     } else {
-        Row(
-            modifier = gridModifier,
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        ) {
-            OnboardingGuaranteeColumn(
-                headerRes = R.string.onboarding_guarantee_header_privacy,
-                labels = privacyLabels,
-                modifier = Modifier.weight(1f),
-            )
-            OnboardingGuaranteeColumn(
-                headerRes = R.string.onboarding_guarantee_header_local,
-                labels = localLabels,
-                modifier = Modifier.weight(1f),
-            )
+        // Size the block to its content and center it so short labels do not look left-heavy.
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Row(
+                modifier = modifier.widthIn(max = introLayout.guaranteeGridMaxWidth).width(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            ) {
+                OnboardingGuaranteeColumn(
+                    headerRes = R.string.onboarding_guarantee_header_privacy,
+                    labels = privacyLabels,
+                    modifier = Modifier.weight(1f),
+                )
+                OnboardingGuaranteeColumn(
+                    headerRes = R.string.onboarding_guarantee_header_local,
+                    labels = localLabels,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -830,7 +687,7 @@ private fun OnboardingGuaranteeItem(
         )
         Text(
             text = text,
-            style = type.secondaryBody,
+            style = type.body,
             color = colors.mutedForeground,
             // Constrain to the remaining column width so long translated labels wrap, never clip.
             modifier = Modifier.weight(1f),
@@ -840,10 +697,8 @@ private fun OnboardingGuaranteeItem(
 
 /**
  * One coherent setup step: a header (title + optional subtitle) followed by the step content, laid
- * out as a single scrollable group. Short steps (mode, connection test) are vertically balanced
- * between the top bar and the bottom action area; the longer DNS list is top-aligned and scrolls.
- * The outer [Column] supplies the bounded weight slot so centering works while overflow still
- * scrolls at large font scales.
+ * out as a single top-anchored scrollable group, so the title sits at the same height on every page
+ * and overflow still scrolls at large font scales.
  */
 @Composable
 private fun OnboardingSetupPageScene(
@@ -861,7 +716,6 @@ private fun OnboardingSetupPageScene(
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val useAccessibilityLayout = LocalDensity.current.fontScale >= AccessibilityOnboardingFontScale
-    val balanced = !useAccessibilityLayout && pageModel.kind != SetupPageKind.DnsSelection
     val headerToContentGap = introLayout.setupHeaderToContentGap
     val spacing = RipDpiThemeTokens.spacing
 
@@ -876,12 +730,7 @@ private fun OnboardingSetupPageScene(
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = if (useAccessibilityLayout) spacing.md else 0.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement =
-                if (balanced) {
-                    Arrangement.spacedBy(headerToContentGap, Alignment.CenterVertically)
-                } else {
-                    Arrangement.spacedBy(headerToContentGap)
-                },
+            verticalArrangement = Arrangement.spacedBy(headerToContentGap),
         ) {
             val headerTitleRes =
                 if (pageModel.kind == SetupPageKind.ConnectionTest &&
@@ -891,9 +740,10 @@ private fun OnboardingSetupPageScene(
                 } else {
                     pageModel.titleRes
                 }
-            OnboardingSetupHeader(
+            OnboardingPageHeader(
+                icon = pageModel.icon,
                 titleRes = headerTitleRes,
-                subtitleRes = onboardingSetupSubtitleRes(pageModel.kind),
+                subtitleRes = onboardingSetupSubtitleRes(pageModel.kind, uiState.validationState),
             )
 
             when (pageModel.kind) {
@@ -937,9 +787,10 @@ private fun OnboardingSetupPageScene(
     }
 }
 
-/** Centered header for a setup step: the page title plus an optional one-line subtitle. */
+/** Header shared by every onboarding page: icon badge, title, optional subtitle, anchored at the top. */
 @Composable
-private fun OnboardingSetupHeader(
+private fun OnboardingPageHeader(
+    icon: ImageVector,
     titleRes: Int,
     subtitleRes: Int?,
     modifier: Modifier = Modifier,
@@ -953,6 +804,21 @@ private fun OnboardingSetupHeader(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        Box(
+            modifier =
+                Modifier
+                    .padding(bottom = spacing.md)
+                    .size(OnboardingHeaderBadgeSize)
+                    .background(colors.muted, RipDpiThemeTokens.shapes.full),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = colors.foreground,
+                modifier = Modifier.size(OnboardingHeaderIconSize),
+            )
+        }
         Text(
             text = stringResource(titleRes),
             style = type.introTitle,
@@ -979,15 +845,27 @@ private fun OnboardingSetupHeader(
 }
 
 /** Optional one-line subtitle shown under a setup step's title. */
-private fun onboardingSetupSubtitleRes(kind: SetupPageKind): Int? =
+private fun onboardingSetupSubtitleRes(
+    kind: SetupPageKind,
+    validationState: OnboardingValidationState,
+): Int? =
     when (kind) {
-        SetupPageKind.PersonaSelection -> R.string.onboarding_persona_body
-        SetupPageKind.ModeSelection -> R.string.onboarding_setup_mode_subtitle
-        SetupPageKind.DnsSelection -> null
-        SetupPageKind.ConnectionTest -> null
-    }
+        SetupPageKind.PersonaSelection -> {
+            R.string.onboarding_persona_body
+        }
 
-private fun PagerState.onboardingPageOffset(page: Int): Float = (currentPage - page) + currentPageOffsetFraction
+        SetupPageKind.ModeSelection -> {
+            R.string.onboarding_setup_mode_subtitle
+        }
+
+        SetupPageKind.DnsSelection -> {
+            null
+        }
+
+        SetupPageKind.ConnectionTest -> {
+            R.string.onboarding_test_idle_body.takeIf { validationState == OnboardingValidationState.Idle }
+        }
+    }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable

@@ -84,7 +84,7 @@ private val PageIndicatorStyle =
         val motion = LocalRipDpiMotion.currentValue
         animate(
             motion.stateTween<Float>(),
-        ) { rdsBackground(if (state.isSelected) colors.foreground else colors.border) }
+        ) { rdsBackground(if (state.isSelected) colors.foreground else colors.mutedForeground) }
     }
 
 fun RipDpiComponentStyles.warningIcon(role: RipDpiBannerStateRole): CommonStyle = WarningIconStyles.getValue(role)
