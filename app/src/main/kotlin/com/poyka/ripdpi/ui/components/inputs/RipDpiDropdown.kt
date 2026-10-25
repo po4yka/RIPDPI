@@ -255,7 +255,8 @@ private fun DropdownField(
             Text(
                 text = selectedLabel.ifEmpty { placeholder.orEmpty() },
                 modifier = Modifier.weight(1f),
-                style = RipDpiThemeTokens.type.monoValue,
+                // Options are labels such as "Light" or "TCP", not technical values.
+                style = RipDpiThemeTokens.type.secondaryBody,
                 color = if (selectedLabel.isEmpty()) fieldState.placeholder else fieldState.content,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

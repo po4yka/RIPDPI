@@ -113,6 +113,9 @@ fun RipDpiTextField(
 ) {
     val components = RipDpiThemeTokens.components
     val resolvedTextStyle = behavior.textStyle ?: RipDpiThemeTokens.type.monoValue
+    // A placeholder is a hint, not a technical value: sans text with the same metrics as monoValue.
+    // A caller-supplied style (config and code fields) still applies to the placeholder.
+    val placeholderTextStyle = behavior.textStyle ?: RipDpiThemeTokens.type.secondaryBody
     val resolvedInteractionSource = behavior.interactionSource ?: remember { MutableInteractionSource() }
     val controlledState = rememberControlledTextFieldState(value, onValueChange)
     // Read the shown text unconditionally: edits must recompose so rememberControlledTextFieldState syncs.
@@ -141,7 +144,7 @@ fun RipDpiTextField(
                     if (isEmpty && decoration.placeholder != null) {
                         Text(
                             text = decoration.placeholder,
-                            style = resolvedTextStyle,
+                            style = placeholderTextStyle,
                             color = state.placeholder,
                         )
                     }
