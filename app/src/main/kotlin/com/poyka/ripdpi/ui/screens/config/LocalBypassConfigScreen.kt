@@ -32,6 +32,7 @@ import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.screens.dns.dnsSettingsRowSubtitle
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -297,13 +298,7 @@ private fun LocalBypassDnsRow(
 ) {
     val dnsSummary = uiState.draft.localizedDnsSummary()
     val dnsSubtitle =
-        stringResource(
-            if (uiState.draft.mode == Mode.VPN) {
-                R.string.config_dns_summary_enabled
-            } else {
-                R.string.config_dns_summary_disabled
-            },
-        )
+        dnsSettingsRowSubtitle(vpn = uiState.draft.mode == Mode.VPN)
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
@@ -338,6 +333,7 @@ private fun LocalBypassDesyncRow(
             title = stringResource(R.string.ripdpi_desync_method_setting),
             value = desyncSummary,
             leadingIcon = RipDpiIcons.Shield,
+            monospaceValue = true,
             showChevron = true,
             showDivider = uiState.draft.defaultTtl.isNotBlank(),
         )

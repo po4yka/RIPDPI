@@ -1143,7 +1143,6 @@ fakeddisorder endhost</string>
     <string name="config_chain_summary_label">Bypass-Strategie: %1$s</string>
     <string name="config_chain_cli_override_note">CLI überschreibt die Bypass-Strategie</string>
     <string name="config_default_ttl_helper">Leer lassen, um den Engine-Standard zu verwenden.</string>
-    <string name="config_dns_summary_disabled">Der Proxy-Modus kann Zielnamen mit verschlüsseltem DNS auflösen. Zum Abfangen von Geräte-DNS ist ein unterstützter VPN-Resolver nötig.</string>
     <string name="config_engine_section">Engine</string>
     <string name="config_error_invalid_proxy_ip">Geben Sie eine gültige Proxy-Listen-Adresse ein.</string>
     <string name="config_fake_tls_size_helper">0 = Eingabegröße, positiv = exakte Ziel-Bytes, negativ = Eingabe minus N.</string>
@@ -1646,7 +1645,6 @@ Quelle: %2$s</string>
     <string name="config_chain_editor_helper">Verwenden Sie [tcp]- und [udp]-Abschnitte. Marker akzeptieren numerische oder semantische Offsets. Der HTTPS-Abschnitt unten kann einzelne tlsrec- und randomisierte tlsrandrec-Schritte visuell erstellen, während die Karten zu Hostfake und Fake-Approximation hostnamen-gezielte Fake-Chunks und retransmissionsartige Approximationen erläutern. Linux/Android-spezifische Approximationen sind als fakedsplit host+1 und fakeddisorder endhost für HTTP- oder TLS-SNI-nahe Nutzlasten verfügbar.</string>
     <string name="config_cli_banner_body">Die untenstehenden Argumente haben Vorrang vor den visuellen Steuerelementen auf diesem Bildschirm.</string>
     <string name="config_default_ttl_summary">Time-to-Live-Override für ausgehende Pakete</string>
-    <string name="config_dns_summary_enabled">Wird im VPN-Modus zum Abfangen von Geräte-DNS verwendet, wenn der Resolver unterstützt wird.</string>
     <string name="config_chain_block_valid">Die Kette entspricht dem Modell der Strategieregistrierung.</string>
     <string name="config_chain_block_invalid">Ungültige Kette: %1$s</string>
     <string name="config_chain_block_invalid_body">Öffnen Sie die DSL-Rohansicht und korrigieren Sie Syntax oder Reihenfolge, bevor Sie wieder Blöcke bearbeiten.</string>

@@ -13,4 +13,5 @@
     </plurals>
     <string name="config_relay_off_title">Relay desactivado</string>
     <string name="config_relay_off_body">Configura un servidor de relay para enviar tu tráfico a través de él.</string>
+    <string name="home_connection_path_direct">Conexión directa</string>
 </resources>

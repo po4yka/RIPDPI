@@ -657,8 +657,6 @@
     <string name="config_preset_proxy_body">نمایه‌ای برای حالت عبور محلی با همان تنظیم پایه.</string>
     <string name="config_preset_custom_title">نمایه دستی</string>
     <string name="config_preset_custom_body">نمایه‌ای برای DNS دستی، نقطه پایانی پروکسی، مقدارهای موتور و بازنویسی‌های اختیاری خط فرمان.</string>
-    <string name="config_dns_summary_enabled">در حالت VPN و با حل‌کننده سازگار، برای رهگیری DNS دستگاه استفاده می‌شود.</string>
-    <string name="config_dns_summary_disabled">حالت پروکسی می‌تواند نام‌ها را با DNS رمزگذاری‌شده حل کند. رهگیری DNS دستگاه به حل‌کننده سازگار VPN نیاز دارد.</string>
     <string name="config_listen_address_summary">جایی که شنوندهٔ پراکسی محلی متصل می‌شود</string>
     <string name="config_default_ttl_summary">جایگزینی زمان زنده‌مانی برای بسته‌های خروجی</string>
     <string name="config_vpn_relay_server_summary">نشانی سرور دوری که ترافیک شما را منتقل می‌کند</string>

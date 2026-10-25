@@ -12,4 +12,5 @@
     </plurals>
     <string name="config_relay_off_title">रिले बंद है</string>
     <string name="config_relay_off_body">अपना ट्रैफ़िक भेजने के लिए एक रिले सर्वर सेट करें।</string>
+    <string name="home_connection_path_direct">सीधा कनेक्शन</string>
 </resources>

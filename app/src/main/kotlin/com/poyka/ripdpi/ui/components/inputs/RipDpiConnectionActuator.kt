@@ -378,7 +378,7 @@ private fun HomeConnectionActuatorUiState.withResolvedLabels(): HomeConnectionAc
                 )
             },
         routeLabel = routeLabel.ifEmpty { stringResource(R.string.home_mode_vpn) },
-        trailingLabel = trailingLabel.ifEmpty { stringResource(R.string.home_connection_actuator_direct) },
+        trailingLabel = trailingLabel.ifEmpty { stringResource(R.string.home_connection_path_direct) },
     )
 
 private fun HomeConnectionActuatorStatus.toThemeRole(): RipDpiActuatorStateRole =

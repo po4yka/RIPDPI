@@ -1143,7 +1143,6 @@ fakeddisorder endhost</string>
     <string name="config_chain_summary_label">Estrategia de evasión: %1$s</string>
     <string name="config_chain_cli_override_note">La línea de comandos sustituye la estrategia de evasión</string>
     <string name="config_default_ttl_helper">Deja vacío para usar el valor por defecto del motor.</string>
-    <string name="config_dns_summary_disabled">El modo Proxy puede resolver nombres con DNS cifrado. La interceptación del DNS del dispositivo requiere un resolutor VPN compatible.</string>
     <string name="config_engine_section">Motor</string>
     <string name="config_error_invalid_proxy_ip">Introduce una dirección de escucha de proxy válida.</string>
     <string name="config_fake_tls_size_helper">0 = tamaño de entrada, positivo = bytes objetivo exactos, negativo = entrada menos N.</string>
@@ -1646,7 +1645,6 @@ Origen: %2$s</string>
     <string name="config_chain_editor_helper">Usa las secciones [tcp] y [udp]. Los marcadores aceptan desplazamientos numéricos o semánticos. La sección HTTPS a continuación puede crear visualmente pasos tlsrec únicos y tlsrandrec aleatorizados, mientras que las tarjetas de Hostfake y aproximación falsa explican los bloques falsos dirigidos al nombre de host y las aproximaciones tipo retransmisión. Las aproximaciones exclusivas de Linux/Android están disponibles como fakedsplit host+1 y fakeddisorder endhost para cargas útiles adyacentes a HTTP o SNI TLS.</string>
     <string name="config_cli_banner_body">Los argumentos a continuación tienen prioridad sobre los controles visuales en esta pantalla.</string>
     <string name="config_default_ttl_summary">Anulación del tiempo de vida para los paquetes salientes</string>
-    <string name="config_dns_summary_enabled">Se usa para interceptar el DNS del dispositivo en modo VPN cuando el resolutor es compatible.</string>
     <string name="config_chain_block_valid">La cadena es válida según el modelo del registro de estrategias.</string>
     <string name="config_chain_block_invalid">Cadena no válida: %1$s</string>
     <string name="config_chain_block_invalid_body">Abre la vista de DSL sin procesar para corregir la sintaxis o el orden antes de continuar con la edición de bloques.</string>

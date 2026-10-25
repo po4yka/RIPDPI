@@ -518,8 +518,6 @@
     <string name="config_preset_proxy_body">Профиль для режима локального обхода с теми же базовыми настройками.</string>
     <string name="config_preset_custom_title">Ручной профиль</string>
     <string name="config_preset_custom_body">Профиль для ручной настройки DNS, конечной точки прокси, параметров движка и необязательных переопределений командной строки.</string>
-    <string name="config_dns_summary_enabled">Используется для перехвата DNS устройства в режиме VPN, если резолвер поддерживается.</string>
-    <string name="config_dns_summary_disabled">Режим прокси может разрешать имена через зашифрованный DNS. Для перехвата DNS устройства нужен поддерживаемый VPN-резолвер.</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_placeholder_proxy_port">1080</string>

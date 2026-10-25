@@ -486,7 +486,7 @@ class MainViewModelTest {
                 stringResolver = stringResolver,
             )
 
-        assertEquals("Direct", state.trailingLabel)
+        assertEquals("Direct connection", state.trailingLabel)
         assertEquals("Connected", state.statusDescription)
     }
 
@@ -526,7 +526,7 @@ class MainViewModelTest {
     @Test
     fun `connection actuator treats relay fallback to direct as Direct`() {
         // relayEnabled=true in settings but relayTelemetry is idle (0 sessions) →
-        // isRelayBackedEgress returns false, so the label must read "Direct".
+        // isRelayBackedEgress returns false, so the label must read "Direct connection".
         val stringResolver = ResourceStringResolver()
         val state =
             buildConnectionActuatorUiState(
@@ -545,7 +545,7 @@ class MainViewModelTest {
                 stringResolver = stringResolver,
             )
 
-        assertEquals("Direct", state.trailingLabel)
+        assertEquals("Direct connection", state.trailingLabel)
         assertEquals("Connected", state.statusDescription)
     }
 
@@ -777,7 +777,7 @@ class MainViewModelTest {
             )
 
         assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
-        assertEquals("Direct", state.trailingLabel)
+        assertEquals("Direct connection", state.trailingLabel)
         assertEquals(
             HomeConnectionActuatorStageState.Warning,
             state.stages.single { it.stage == HomeConnectionActuatorStage.Route }.state,

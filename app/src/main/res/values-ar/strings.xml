@@ -653,8 +653,6 @@
     <string name="config_preset_proxy_body">ملف شخصي لوضع التجاوز المحلي مع الضبط الأساسي نفسه.</string>
     <string name="config_preset_custom_title">ملف شخصي يدوي</string>
     <string name="config_preset_custom_body">ملف شخصي لـ DNS يدوي ونقطة نهاية الوكيل وقيم المحرك وتجاوزات سطر الأوامر الاختيارية.</string>
-    <string name="config_dns_summary_enabled">يُستخدم لاعتراض DNS الجهاز في وضع VPN عندما يكون المحلل متوافقًا.</string>
-    <string name="config_dns_summary_disabled">يمكن لوضع الوكيل حل الأسماء عبر DNS المشفّر. يتطلب اعتراض DNS الجهاز محلل VPN متوافقًا.</string>
     <string name="config_listen_address_summary">العنوان الذي يرتبط به مستمع الوكيل المحلي</string>
     <string name="config_default_ttl_summary">تجاوز وقت الحياة للحزم الصادرة</string>
     <string name="config_vpn_relay_server_summary">عنوان الخادم البعيد الذي ينقل حركة المرور الخاصة بك</string>

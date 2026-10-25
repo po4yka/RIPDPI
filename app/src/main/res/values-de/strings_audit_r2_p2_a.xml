@@ -12,4 +12,5 @@
     </plurals>
     <string name="config_relay_off_title">Relay aus</string>
     <string name="config_relay_off_body">Richten Sie einen Relay-Server ein, um Ihren Datenverkehr darüber zu leiten.</string>
+    <string name="home_connection_path_direct">Direkte Verbindung</string>
 </resources>

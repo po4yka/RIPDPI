@@ -255,7 +255,8 @@ class ConfigScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
             .assertContentDescription(
-                "DNS settings, " + RuntimeEnvironment.getApplication().getString(R.string.config_dns_summary_enabled),
+                "DNS settings, " +
+                    RuntimeEnvironment.getApplication().getString(R.string.settings_connectivity_dns_body),
             )
     }
 
@@ -295,7 +296,7 @@ class ConfigScreenTest {
     @Test
     fun `talkback reads the subtitle of a cleared settings row`() {
         setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
-        val subtitle = RuntimeEnvironment.getApplication().getString(R.string.config_dns_summary_enabled)
+        val subtitle = RuntimeEnvironment.getApplication().getString(R.string.settings_connectivity_dns_body)
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)

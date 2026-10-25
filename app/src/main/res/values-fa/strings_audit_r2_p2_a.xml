@@ -12,4 +12,5 @@
     </plurals>
     <string name="config_relay_off_title">رله خاموش است</string>
     <string name="config_relay_off_body">یک سرور رله راه‌اندازی کنید تا ترافیک شما از آن عبور کند.</string>
+    <string name="home_connection_path_direct">اتصال مستقیم</string>
 </resources>

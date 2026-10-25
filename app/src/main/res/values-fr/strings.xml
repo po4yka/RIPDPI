@@ -1143,7 +1143,6 @@ fakeddisorder endhost</string>
     <string name="config_chain_summary_label">Stratégie de contournement : %1$s</string>
     <string name="config_chain_cli_override_note">La ligne de commande remplace la stratégie de contournement</string>
     <string name="config_default_ttl_helper">Laisser vide pour utiliser la valeur par défaut du moteur.</string>
-    <string name="config_dns_summary_disabled">Le mode proxy peut résoudre les noms avec le DNS chiffré. Intercepter le DNS de l’appareil exige un résolveur VPN compatible.</string>
     <string name="config_engine_section">Moteur</string>
     <string name="config_error_invalid_proxy_ip">Saisissez une adresse d\'écoute proxy valide.</string>
     <string name="config_fake_tls_size_helper">0 = taille de l\'entrée, positif = octets cibles exacts, négatif = entrée moins N.</string>
@@ -1646,7 +1645,6 @@ Source : %2$s</string>
     <string name="config_chain_editor_helper">Utilisez les sections [tcp] et [udp]. Les marqueurs acceptent les décalages numériques ou sémantiques. La section HTTPS ci-dessous peut composer visuellement les étapes tlsrec uniques et tlsrandrec randomisées, tandis que les cartes Hostfake et d\'approximation de faux paquets expliquent les fragments factices ciblés sur le nom d\'hôte et les approximations de type retransmission. Les approximations spécifiques à Linux/Android sont disponibles via fakedsplit host+1 et fakeddisorder endhost pour les charges utiles HTTP ou adjacentes au SNI TLS.</string>
     <string name="config_cli_banner_body">Les arguments ci-dessous ont priorité sur les contrôles visuels de cet écran.</string>
     <string name="config_default_ttl_summary">Remplacement de la durée de vie pour les paquets sortants</string>
-    <string name="config_dns_summary_enabled">Utilisé pour intercepter le DNS de l’appareil en mode VPN si le résolveur est compatible.</string>
     <string name="config_chain_block_valid">La chaîne est valide selon le modèle du registre de stratégies.</string>
     <string name="config_chain_block_invalid">Chaîne non valide : %1$s</string>
     <string name="config_chain_block_invalid_body">Ouvrez la vue DSL brute pour corriger la syntaxe ou l’ordre avant de reprendre la modification des blocs.</string>

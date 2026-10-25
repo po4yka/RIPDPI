@@ -614,8 +614,6 @@ app:config_default_ttl_helper
 app:config_default_ttl_summary
 app:config_dns_disabled_helper
 app:config_dns_helper
-app:config_dns_summary_disabled
-app:config_dns_summary_enabled
 app:config_edit_current
 app:config_editor_body
 app:config_editor_hydration_failed
@@ -3033,6 +3031,7 @@ app:home_connection_actuator_state_vpn_checking
 app:home_connection_actuator_state_vpn_unavailable
 app:home_connection_actuator_state_vpn_unverified
 app:home_connection_button_connecting
+app:home_connection_path_direct
 app:home_connection_stage_handshake
 app:home_connection_stage_network
 app:home_connection_stage_route

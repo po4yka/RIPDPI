@@ -655,8 +655,6 @@
     <string name="config_preset_proxy_body">उसी आधारभूत ट्यूनिंग के साथ लोकल बायपास मोड के लिए प्रोफ़ाइल।</string>
     <string name="config_preset_custom_title">मैनुअल प्रोफ़ाइल</string>
     <string name="config_preset_custom_body">मैनुअल DNS, प्रॉक्सी एंडपॉइंट, इंजन मानों और वैकल्पिक कमांड लाइन ओवरराइड के लिए प्रोफ़ाइल।</string>
-    <string name="config_dns_summary_enabled">समर्थित रिज़ॉल्वर के साथ VPN मोड में डिवाइस DNS अनुरोधों को संभालने के लिए उपयोग किया जाता है।</string>
-    <string name="config_dns_summary_disabled">प्रॉक्सी मोड स्थानीय प्रॉक्सी के लक्ष्य नाम एन्क्रिप्टेड DNS से हल कर सकता है। डिवाइस DNS अनुरोधों को संभालने के लिए समर्थित VPN रिज़ॉल्वर चाहिए।</string>
     <string name="config_listen_address_summary">जहाँ लोकल प्रॉक्सी श्रोता बाइंड होता है</string>
     <string name="config_default_ttl_summary">आउटगोइंग पैकेटों के लिए TTL ओवरराइड</string>
     <string name="config_vpn_relay_server_summary">उस रिमोट सर्वर का पता जो आपका ट्रैफ़िक ले जाता है</string>

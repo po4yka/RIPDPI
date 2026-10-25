@@ -667,8 +667,6 @@
     <string name="config_preset_proxy_body">Profile for the local bypass mode with the same baseline tuning.</string>
     <string name="config_preset_custom_title">Manual profile</string>
     <string name="config_preset_custom_body">Profile for manual DNS, proxy endpoint, engine values, and optional command line overrides.</string>
-    <string name="config_dns_summary_enabled">Used for device DNS interception in VPN mode when the resolver is supported.</string>
-    <string name="config_dns_summary_disabled">Proxy mode can resolve local proxy target names with encrypted DNS. Device DNS interception needs a supported VPN resolver.</string>
     <string name="config_listen_address_summary">Where the local proxy listener binds</string>
     <string name="config_default_ttl_summary">Time-to-live override for outgoing packets</string>
     <string name="config_vpn_relay_server_summary">Address of the remote server that carries your traffic</string>

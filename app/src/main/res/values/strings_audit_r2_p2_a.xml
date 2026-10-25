@@ -12,4 +12,5 @@
     </plurals>
     <string name="config_relay_off_title">Relay off</string>
     <string name="config_relay_off_body">Set up a relay server to send your traffic through it.</string>
+    <string name="home_connection_path_direct">Direct connection</string>
 </resources>

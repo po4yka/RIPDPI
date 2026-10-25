@@ -44,9 +44,11 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.screens.dns.dnsSettingsRowSubtitle
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import com.poyka.ripdpi.utility.MaxPortNumber
@@ -215,33 +217,16 @@ private fun ModeEditorNetworkSection(
     uiState: ConfigUiState,
     actions: ModeEditorActions,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = stringResource(R.string.config_network_section))
         RipDpiCard {
-            Text(
-                text = stringResource(R.string.title_dns_settings),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            Text(
-                text = draft.localizedDnsSummary(),
-                style = RipDpiThemeTokens.type.monoValue,
-                color = colors.foreground,
-            )
-            Text(
-                text =
-                    stringResource(
-                        if (draft.mode == Mode.VPN) {
-                            R.string.config_dns_summary_enabled
-                        } else {
-                            R.string.config_dns_summary_disabled
-                        },
-                    ),
-                style = RipDpiThemeTokens.type.body,
-                color = colors.mutedForeground,
+            SettingsRow(
+                title = stringResource(R.string.title_dns_settings),
+                subtitle = dnsSettingsRowSubtitle(vpn = draft.mode == Mode.VPN),
+                value = draft.localizedDnsSummary(),
+                leadingIcon = RipDpiIcons.Dns,
             )
         }
         SettingsCategoryHeader(title = stringResource(R.string.config_listener_section))

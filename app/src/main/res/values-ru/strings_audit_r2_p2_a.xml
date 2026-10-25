@@ -14,4 +14,5 @@
     </plurals>
     <string name="config_relay_off_title">Реле выключено</string>
     <string name="config_relay_off_body">Настройте сервер реле, чтобы направлять через него трафик.</string>
+    <string name="home_connection_path_direct">Прямое подключение</string>
 </resources>
