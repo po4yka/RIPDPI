@@ -2,7 +2,7 @@
 id: TST-1792893938139528
 title: Verify all eight AWG peer acceptance sessions
 kind: bug
-status: review
+status: done
 area: testing
 priority: medium
 owner: Transport acceptance
@@ -14,6 +14,9 @@ created: 2026-10-25
 updated: 2026-10-25
 spec_reason: test-only
 status_detail: PR 665 merged; exact main native acceptance and CI passed.
+closed_at: "2026-10-25T03:59:15Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: PR 665 merged at 8b0f015bbc640e2e50d4670b7c89bc9045191909; exact main native run 40157994558 passed 38 peers, 9 routed and 8 Hysteria plus GRO; main CI 40157349621 passed all five APIs; strict eight-session AWG controls and cleanup passed.
 ---
 
 ## Goal
