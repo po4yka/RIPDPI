@@ -32,6 +32,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun StrategyConfigRoute(
@@ -527,16 +528,31 @@ private suspend fun saveLuaStrategyConfig(
 ): StrategyConfigBanner {
     val path = luaPath.trim()
     val function = luaFunction.trim()
-    val yaml = luaStrategyConfigYaml(function = function, scriptPath = path)
     // The absolute <filesDir>/lua jail base passed into loadLuaScript; the
     // first load seeds the native jail from it (no trust-on-first-use).
     val baseDir =
         withContext(Dispatchers.IO) {
             runCatching { LuaAssetManager.ensureExtracted(context).toAbsolutePath().toString() }
         }
+    // The runtime jail accepts only base-relative script paths, while the JNI load check
+    // resolves against the process CWD, so it gets the absolute in-jail path.
+    val jailRelativePath =
+        withContext(Dispatchers.IO) {
+            baseDir.getOrNull()?.let { dir -> luaJailRelativeScriptPath(dir, path) }
+        }
+    val loadPath = jailRelativePath?.let { relative -> baseDir.getOrNull()?.let { File(it, relative).path } }
     return luaInputValidationBanner(context, path, function)
-        ?: luaRuntimeValidationBanner(context, runtime, baseDir, path, function)
-        ?: saveAndApplyStrategyConfig(context, applySavedConfig) { saveRawStrategyConfig(yaml) }
+        ?: luaRuntimeValidationBanner(context, runtime, baseDir, loadPath ?: path, function)
+        ?: jailRelativePath?.let { scriptPath ->
+            saveAndApplyStrategyConfig(context, applySavedConfig) {
+                saveRawStrategyConfig(luaStrategyConfigYaml(function = function, scriptPath = scriptPath))
+            }
+        }
+        ?: StrategyConfigBanner(
+            title = context.getString(R.string.strategy_config_import_failed_title),
+            message = strategyConfigInternalErrorMessage(context),
+            tone = WarningBannerTone.Error,
+        )
 }
 
 private fun luaInputValidationBanner(

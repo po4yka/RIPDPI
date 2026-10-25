@@ -9,10 +9,13 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
+import java.nio.file.Files
 
 @RunWith(RobolectricTestRunner::class)
 class StrategyConfigRouteTest {
@@ -24,7 +27,7 @@ class StrategyConfigRouteTest {
         val yaml =
             luaStrategyConfigYaml(
                 function = "candidate",
-                scriptPath = "/data/user/0/com.poyka.ripdpi/files/lua/candidate.lua",
+                scriptPath = "candidate.lua",
             )
 
         assertEquals(
@@ -36,10 +39,32 @@ class StrategyConfigRouteTest {
                   - type: lua
                     function: "candidate"
                     script_paths:
-                      - "/data/user/0/com.poyka.ripdpi/files/lua/candidate.lua"
+                      - "candidate.lua"
             """.trimIndent(),
             yaml,
         )
+    }
+
+    @Test
+    fun `lua script path is stored relative to the jail the runtime loads from`() {
+        val root = Files.createTempDirectory("lua-jail").toFile()
+        try {
+            val jail = File(root, "files/lua").apply { mkdirs() }
+            File(jail, "zapret-antidpi.lua").writeText("-- script")
+            val alias = File(root, "alias")
+            Files.createSymbolicLink(alias.toPath(), File(root, "files").toPath())
+
+            val absolute = "${jail.path}/zapret-antidpi.lua"
+
+            assertEquals("zapret-antidpi.lua", luaJailRelativeScriptPath(jail.path, absolute))
+            assertEquals("zapret-antidpi.lua", luaJailRelativeScriptPath(jail.path, "zapret-antidpi.lua"))
+            assertEquals("zapret-antidpi.lua", luaJailRelativeScriptPath("${alias.path}/lua", absolute))
+            assertNull(luaJailRelativeScriptPath(jail.path, "../outside.lua"))
+            assertNull(luaJailRelativeScriptPath(jail.path, "${root.path}/outside.lua"))
+            assertNull(luaJailRelativeScriptPath(jail.path, jail.path))
+        } finally {
+            root.deleteRecursively()
+        }
     }
 
     @Test
