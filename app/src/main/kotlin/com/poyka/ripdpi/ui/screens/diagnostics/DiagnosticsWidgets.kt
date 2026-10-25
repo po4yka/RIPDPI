@@ -229,7 +229,7 @@ internal fun MetricsRow(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
 @Composable
 internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
     RipDpiMetricSurface(
-        tone = metricTone(metric.tone),
+        style = metricTileStyle(metric),
         shape = RipDpiThemeTokens.shapes.xl,
     ) { contentColor ->
         Column(
@@ -285,7 +285,7 @@ private fun OverviewStatTile(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     RipDpiMetricSurface(
-        tone = metricTone(metric.tone),
+        style = metricTileStyle(metric),
         shape = RipDpiThemeTokens.shapes.xl,
         modifier = modifier,
     ) { contentColor ->
@@ -312,6 +312,11 @@ private fun OverviewStatTile(
         }
     }
 }
+
+// Every metric tile shares one neutral fill; the tone shows only in the text, so tiles in a grid read as one set.
+@Composable
+private fun metricTileStyle(metric: DiagnosticsMetricUiModel): RipDpiMetricToneStyle =
+    ripDpiMetricToneStyle(metricTone(metric.tone)).copy(container = RipDpiThemeTokens.colors.inputBackground)
 
 private const val OverviewStatColumns = 2
 private const val OverviewStatLabelAlpha = 0.7f
