@@ -72,8 +72,9 @@ fun SubscriptionFailoverScreen(
                 testTag = RipDpiTestTags.SubscriptionLifecycleBanner,
             )
         }
-        SubscriptionFailoverSummary(uiState)
+        // Without servers the summary only repeats the empty state, so show one of them.
         if (uiState.hasServers) {
+            SubscriptionFailoverSummary(uiState)
             uiState.servers.forEach { server ->
                 SubscriptionServerRow(server)
             }

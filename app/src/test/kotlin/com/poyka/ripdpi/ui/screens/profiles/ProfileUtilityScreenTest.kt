@@ -246,6 +246,18 @@ class ProfileUtilityScreenTest {
         composeRule.onNodeWithText(text(R.string.profile_utility_command_failed)).assertExists()
     }
 
+    @Test fun `empty catalog offers profile import and hides check help`() {
+        var imports = 0
+        render(
+            state().copy(profiles = persistentListOf(), catalogState = ProfileCatalogState.Ready),
+            actions(importProfile = { imports++ }),
+        )
+        composeRule.onNodeWithText(text(R.string.profile_utility_disclosure)).assertDoesNotExist()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.ProbeOptions).assertDoesNotExist()
+        composeRule.onNodeWithTag(ProfileUtilityTestTags.EmptyImport).performScrollTo().performClick()
+        assertEquals(1, imports)
+    }
+
     @Test fun `fastest action is distinct from choosing a particular row`() {
         var calls = 0
         render(state(), actions(fastest = { calls += 1 }))
@@ -289,6 +301,7 @@ class ProfileUtilityScreenTest {
         fastest: () -> Unit = { error("Unexpected fastest selection") },
         reload: () -> Unit = { error("Unexpected catalog reload") },
         cancel: () -> Unit = { error("Unexpected cancel") },
+        importProfile: () -> Unit = { error("Unexpected import") },
     ) = ProfileUtilityActions(
         favorite,
         check,
@@ -298,6 +311,7 @@ class ProfileUtilityScreenTest {
         { error("Unexpected probe URL edit") },
         fastest,
         retryCatalog = reload,
+        importProfile = importProfile,
     )
 
     private fun render(

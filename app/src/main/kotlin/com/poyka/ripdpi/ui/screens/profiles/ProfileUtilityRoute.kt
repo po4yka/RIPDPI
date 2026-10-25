@@ -7,6 +7,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 internal fun ProfileUtilityRoute(
     onBack: () -> Unit,
+    onImportProfile: (() -> Unit)? = null,
     viewModel: ProfileUtilityViewModel = hiltViewModel(),
 ) {
     ProfileUtilityScreen(
@@ -21,6 +22,7 @@ internal fun ProfileUtilityRoute(
             viewModel::updateUrl,
             viewModel::checkAndSelectFastest,
             retryCatalog = viewModel::retryCatalog,
+            importProfile = onImportProfile,
         ),
     )
 }

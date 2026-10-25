@@ -43,6 +43,8 @@ internal class ProfileUtilityActions(
     val probeUrl: (String) -> Unit,
     val checkFastest: () -> Unit,
     val retryCatalog: () -> Unit = {},
+    // Null where the host has no import entry, such as the Simple flavor.
+    val importProfile: (() -> Unit)? = null,
 )
 
 @Composable
@@ -76,13 +78,7 @@ internal fun ProfileUtilityScreen(
             }
 
             state.catalogState == ProfileCatalogState.Ready && state.profiles.isEmpty() -> {
-                item(key = "empty") {
-                    Text(
-                        stringResource(R.string.profile_utility_empty),
-                        style = RipDpiThemeTokens.type.body,
-                        color = RipDpiThemeTokens.colors.mutedForeground,
-                    )
-                }
+                item(key = "empty") { ProfileUtilityEmptyState(actions.importProfile) }
             }
 
             state.catalogState == ProfileCatalogState.Failed -> {
@@ -150,19 +146,22 @@ private fun ProfileUtilityHeader(
             ),
             ProfileUtilityTestTags.Search,
         )
-        Text(
-            stringResource(R.string.profile_utility_disclosure),
-            style = RipDpiThemeTokens.type.caption,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        ProfileUtilityDisclosure(
-            text = stringResource(R.string.profile_utility_probe_options),
-            expanded = optionsExpanded,
-            onClick = { optionsExpanded = !optionsExpanded },
-            tag = ProfileUtilityTestTags.ProbeOptions,
-        )
-        if (optionsExpanded) {
-            ProfileUtilityProbeOptions(state, actions)
+        // Check help and probe options mean nothing until a profile exists to check.
+        if (state.profiles.isNotEmpty()) {
+            Text(
+                stringResource(R.string.profile_utility_disclosure),
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            ProfileUtilityDisclosure(
+                text = stringResource(R.string.profile_utility_probe_options),
+                expanded = optionsExpanded,
+                onClick = { optionsExpanded = !optionsExpanded },
+                tag = ProfileUtilityTestTags.ProbeOptions,
+            )
+            if (optionsExpanded) {
+                ProfileUtilityProbeOptions(state, actions)
+            }
         }
         if (state.cleanupPending) {
             Text(
@@ -182,6 +181,25 @@ private fun ProfileUtilityHeader(
                 failureText(it),
                 style = RipDpiThemeTokens.type.body,
                 color = RipDpiThemeTokens.colors.foreground,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileUtilityEmptyState(importProfile: (() -> Unit)?) {
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+        Text(
+            stringResource(R.string.profile_utility_empty),
+            style = RipDpiThemeTokens.type.body,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        importProfile?.let {
+            RipDpiButton(
+                text = stringResource(R.string.profile_utility_empty_import),
+                onClick = it,
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(ProfileUtilityTestTags.EmptyImport),
+                leadingIcon = RipDpiIcons.Add,
             )
         }
     }

@@ -3,4 +3,5 @@
     <string name="config_listener_section">Локальное прослушивание</string>
     <string name="routes_delete_confirm_title">Удалить это правило?</string>
     <string name="routes_delete_confirm_body">Трафик перестанет следовать этому правилу. Это действие нельзя отменить.</string>
+    <string name="profile_utility_empty_import">Импортировать профиль</string>
 </resources>

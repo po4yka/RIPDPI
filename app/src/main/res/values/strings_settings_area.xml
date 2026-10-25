@@ -3,4 +3,5 @@
     <string name="config_listener_section">Local listener</string>
     <string name="routes_delete_confirm_title">Delete this rule?</string>
     <string name="routes_delete_confirm_body">Traffic will no longer follow this rule. You cannot undo this.</string>
+    <string name="profile_utility_empty_import">Import a profile</string>
 </resources>

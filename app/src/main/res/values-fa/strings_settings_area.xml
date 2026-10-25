@@ -3,4 +3,5 @@
     <string name="config_listener_section">شنونده محلی</string>
     <string name="routes_delete_confirm_title">این قانون حذف شود؟</string>
     <string name="routes_delete_confirm_body">ترافیک دیگر از این قانون پیروی نمی‌کند. این کار برگشت‌پذیر نیست.</string>
+    <string name="profile_utility_empty_import">وارد کردن پروفایل</string>
 </resources>

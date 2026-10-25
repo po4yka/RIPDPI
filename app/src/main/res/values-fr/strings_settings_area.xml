@@ -3,4 +3,5 @@
     <string name="config_listener_section">Écoute locale</string>
     <string name="routes_delete_confirm_title">Supprimer cette règle ?</string>
     <string name="routes_delete_confirm_body">Le trafic ne suivra plus cette règle. Cette action est irréversible.</string>
+    <string name="profile_utility_empty_import">Importer un profil</string>
 </resources>

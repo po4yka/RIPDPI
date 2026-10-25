@@ -3,4 +3,5 @@
     <string name="config_listener_section">المستمع المحلي</string>
     <string name="routes_delete_confirm_title">حذف هذه القاعدة؟</string>
     <string name="routes_delete_confirm_body">لن تتبع حركة المرور هذه القاعدة بعد الآن. لا يمكن التراجع عن ذلك.</string>
+    <string name="profile_utility_empty_import">استيراد ملف تعريف</string>
 </resources>

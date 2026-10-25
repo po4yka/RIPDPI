@@ -9,6 +9,7 @@ internal object ProfileUtilityTestTags {
     const val ProbeUrl = "profile_utility_probe_url"
     const val Fastest = "profile_utility_fastest"
     const val Cleanup = "profile_utility_cleanup"
+    const val EmptyImport = "profile_utility_empty_import"
 
     fun action(
         reference: ProfileUtilityReference,
