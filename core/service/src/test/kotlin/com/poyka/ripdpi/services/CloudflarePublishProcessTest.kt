@@ -17,10 +17,12 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.system.measureTimeMillis
 
 @RunWith(RobolectricTestRunner::class)
@@ -252,6 +254,26 @@ class CloudflarePublishProcessTest {
         assertEquals(listOf("ERR token=<redacted> uuid=<redacted> path=<redacted>"), observed)
     }
 
+    @Test
+    fun `helper output reader ends quietly when stop closes stdout under a blocked read`() {
+        // Android's Process.destroy() closes stdout, so the blocked read fails instead of returning EOF.
+        val process = RecordingProcess(stdout = "ready\n", stdoutCloseFailure = IOException("Stream closed"))
+        val observed = mutableListOf<String>()
+        val uncaught = AtomicReference<Throwable?>()
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, error -> uncaught.set(error) }
+        try {
+            CloudflarePublishProcessOutputReader()
+                .start(process = process, redactedValues = emptyList(), onLine = observed::add)
+                .join()
+        } finally {
+            Thread.setDefaultUncaughtExceptionHandler(previous)
+        }
+
+        assertEquals(listOf("ready"), observed)
+        assertNull("a closed stdout must not reach the process handler", uncaught.get())
+    }
+
     private fun publishConfig(): ResolvedRipDpiRelayConfig =
         sampleResolvedRelayConfig(kind = RelayKindCloudflareTunnel)
             .copy(
@@ -329,6 +351,7 @@ class CloudflarePublishProcessTest {
         private var ignoreTermination: Boolean = false,
         private val holdStdoutOpen: Boolean = false,
         stdout: String = "",
+        private val stdoutCloseFailure: IOException? = null,
     ) : Process() {
         val stdin = RecordingOutputStream()
         private val stdoutBytes = stdout.toByteArray()
@@ -341,6 +364,7 @@ class CloudflarePublishProcessTest {
             object : InputStream() {
                 override fun read(): Int {
                     if (stdoutIndex < stdoutBytes.size) return stdoutBytes[stdoutIndex++].toInt() and 0xff
+                    stdoutCloseFailure?.let { throw it }
                     return waitForStdoutClose()
                 }
 

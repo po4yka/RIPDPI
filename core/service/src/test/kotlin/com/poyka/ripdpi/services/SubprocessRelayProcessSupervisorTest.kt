@@ -13,6 +13,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 class SubprocessRelayProcessSupervisorTest {
     @Test
@@ -77,6 +78,27 @@ class SubprocessRelayProcessSupervisorTest {
         assertTrue(supervisor.isRunning())
     }
 
+    @Test
+    fun `output reader ends quietly when stop closes stdout under a blocked read`() {
+        // Android's Process.destroy() closes stdout, so the blocked read fails instead of returning EOF.
+        val process = FakeProcess(exitOnTimedWait = true, stdoutFailure = IOException("Stream closed"))
+        val uncaught = AtomicReference<Throwable?>()
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, error -> uncaught.set(error) }
+        try {
+            supervisor(process).start(ProcessBuilder(), launchSpec(), onOutputEvent = {})
+            Thread
+                .getAllStackTraces()
+                .keys
+                .filter { it.name == "subprocess-relay-output-test" }
+                .forEach(Thread::join)
+        } finally {
+            Thread.setDefaultUncaughtExceptionHandler(previous)
+        }
+
+        assertNull("a closed stdout must not reach the process handler", uncaught.get())
+    }
+
     private fun supervisor(process: Process) =
         SubprocessRelayProcessSupervisor(
             outputParser = SubprocessRelayOutputParser(),
@@ -96,6 +118,7 @@ private class FakeProcess(
     private val exitOnBlockingWait: Boolean = false,
     private val failOutput: Boolean = false,
     var stopException: IOException? = null,
+    private val stdoutFailure: IOException? = null,
 ) : Process() {
     private var running = true
     var destroyedForcibly = false
@@ -110,7 +133,12 @@ private class FakeProcess(
             ByteArrayOutputStream()
         }
 
-    override fun getInputStream(): InputStream = ByteArrayInputStream(byteArrayOf())
+    override fun getInputStream(): InputStream =
+        stdoutFailure?.let { failure ->
+            object : InputStream() {
+                override fun read(): Int = throw failure
+            }
+        } ?: ByteArrayInputStream(byteArrayOf())
 
     override fun getErrorStream(): InputStream = ByteArrayInputStream(byteArrayOf())
 

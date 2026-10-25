@@ -5,6 +5,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import kotlinx.coroutines.CompletableDeferred
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.concurrent.thread
@@ -280,18 +281,22 @@ internal open class CloudflarePublishProcessOutputReader
                 name = "cloudflare-publish-output",
                 isDaemon = true,
             ) {
-                process.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { rawLine ->
-                        val line =
-                            redactedValues
-                                .filter(String::isNotBlank)
-                                .fold(rawLine.trim()) { message, secret ->
-                                    message.replace(secret, "<redacted>")
-                                }
-                        if (line.isNotBlank()) {
-                            onLine(line)
+                try {
+                    process.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { rawLine ->
+                            val line =
+                                redactedValues
+                                    .filter(String::isNotBlank)
+                                    .fold(rawLine.trim()) { message, secret ->
+                                        message.replace(secret, "<redacted>")
+                                    }
+                            if (line.isNotBlank()) {
+                                onLine(line)
+                            }
                         }
                     }
+                } catch (_: IOException) {
+                    // Process.destroy() closes stdout under the blocked read: that is EOF.
                 }
             }
     }

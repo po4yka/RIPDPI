@@ -89,10 +89,14 @@ internal class SubprocessRelayProcessSupervisor(
             name = "subprocess-relay-output-${spec.runtimeKind}",
             isDaemon = true,
         ) {
-            activeProcess.inputStream.bufferedReader().useLines { lines ->
-                lines.forEach { line ->
-                    outputParser.parse(line, spec)?.let(onOutputEvent)
+            try {
+                activeProcess.inputStream.bufferedReader().useLines { lines ->
+                    lines.forEach { line ->
+                        outputParser.parse(line, spec)?.let(onOutputEvent)
+                    }
                 }
+            } catch (_: IOException) {
+                // Process.destroy() closes stdout under the blocked read: that is EOF.
             }
         }
 
