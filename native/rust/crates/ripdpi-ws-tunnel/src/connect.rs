@@ -143,15 +143,14 @@ fn configure_established_ws_stream(ws: &mut WsStream) -> io::Result<()> {
     configure_relay_socket(ws.get_mut().get_ref())
 }
 
-fn build_tls_connector(
-    fake_sni: Option<&str>,
-    worker_route: Option<&CloudflareWorkerRoute>,
-) -> io::Result<SslConnector> {
+fn build_tls_connector(fake_sni: Option<&str>) -> io::Result<SslConnector> {
     let mut builder = ripdpi_tls_profiles::configure_builder("chrome_stable")
         .map_err(|e| io::Error::other(format!("TLS profile: {e}")))?;
-    if worker_route.is_some() {
-        builder.set_alpn_protos(HTTP11_ALPN).map_err(|e| io::Error::other(format!("TLS ALPN: {e}")))?;
-    }
+    // A WebSocket upgrade is an HTTP/1.1 request on every route (RFC 6455
+    // section 4.1), and Chrome offers only http/1.1 for WebSocket. The
+    // profile offers h2 first; kws2/kws4 select it and then answer the
+    // upgrade with HTTP/2 frames.
+    builder.set_alpn_protos(HTTP11_ALPN).map_err(|e| io::Error::other(format!("TLS ALPN: {e}")))?;
     if fake_sni.is_some() {
         builder.set_verify(SslVerifyMode::NONE);
     }
@@ -224,7 +223,7 @@ pub(crate) fn open_ws_tunnel_with_timeout(
         connect_timeout,
         fake_sni,
         worker_route,
-        build_tls_connector,
+        |fake_sni, _worker_route| build_tls_connector(fake_sni),
     )
 }
 
@@ -368,25 +367,16 @@ mod tests {
     }
 
     #[test]
-    fn worker_tls_connector_offers_only_http11_alpn() {
-        let route = CloudflareWorkerRoute::parse("https://edge.example.workers.dev/relay", "secret-token")
-            .expect("valid worker route");
+    fn tls_connector_offers_only_http11_alpn() {
+        // The fixture prefers h2 like kws2/kws4 do; a WebSocket upgrade
+        // needs HTTP/1.1, so no route (direct or Worker) may offer h2.
+        // The fake SNI only turns off verification of the fixture cert.
         let selected = selected_alpn_from_connector(
-            build_tls_connector(Some("edge.example.workers.dev"), Some(&route)).expect("worker TLS connector"),
-            "edge.example.workers.dev",
-        );
-
-        assert_eq!(selected.as_deref(), Some("http/1.1"));
-    }
-
-    #[test]
-    fn direct_tls_connector_keeps_profile_alpn() {
-        let selected = selected_alpn_from_connector(
-            build_tls_connector(Some("cover.example"), None).expect("direct TLS connector"),
+            build_tls_connector(Some("cover.example")).expect("TLS connector"),
             "cover.example",
         );
 
-        assert_eq!(selected.as_deref(), Some("h2"));
+        assert_eq!(selected.as_deref(), Some("http/1.1"));
     }
 
     #[test]
