@@ -1,13 +1,17 @@
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tokio::time::timeout;
 
 use super::EncryptedDnsResolver;
 use super::state::{DoqState, build_doq_endpoint_for_endpoint};
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport};
+
+/// How long after a failed connect (every bootstrap IP) further queries fail without retrying.
+/// Short, so a recovered upstream is retried soon, but long enough to cover a queued burst.
+const DOQ_CONNECT_FAILURE_BACKOFF: Duration = Duration::from_secs(2);
 
 impl EncryptedDnsResolver {
     /// # Cancel safety:
@@ -68,6 +72,7 @@ impl EncryptedDnsResolver {
                     &self.inner.dot_tls_config,
                 )?,
                 connection: None,
+                connect_failed_at: None,
             }),
         };
         if let Some(conn) = state.connection.as_ref()
@@ -76,6 +81,9 @@ impl EncryptedDnsResolver {
             return Ok(conn.clone());
         }
         state.connection = None;
+        if state.connect_failed_at.is_some_and(|failed_at| failed_at.elapsed() < DOQ_CONNECT_FAILURE_BACKOFF) {
+            return Err(EncryptedDnsError::Request("DoQ connect failed moments ago; backing off".to_string()));
+        }
         let server_name = self.inner.endpoint.tls_server_name.as_deref().unwrap_or(&self.inner.endpoint.host);
         let bootstrap_ips = self.inner.health.as_ref().map_or_else(
             || self.inner.endpoint.bootstrap_ips.clone(),
@@ -108,12 +116,14 @@ impl EncryptedDnsResolver {
             match result {
                 Ok(conn) => {
                     state.connection = Some(conn.clone());
+                    state.connect_failed_at = None;
                     return Ok(conn);
                 }
                 Err(error) => last_error = Some(error),
             }
         }
 
+        state.connect_failed_at = Some(tokio::time::Instant::now());
         Err(last_error.unwrap_or(EncryptedDnsError::MissingBootstrapIps))
     }
 }

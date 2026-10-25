@@ -130,3 +130,40 @@ async fn dot_burst_reuses_a_bounded_set_of_connections() {
     let connects = connects.load(Ordering::SeqCst);
     assert!((1..=4).contains(&connects), "a burst of {BURST} must reuse at most 4 DoT connections, opened {connects}");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn doq_burst_against_a_blackholed_upstream_fails_after_one_connect_attempt() {
+    // A bound UDP socket that never answers: every QUIC handshake times out.
+    let blackhole = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let timeout = Duration::from_millis(300);
+    let resolver = EncryptedDnsResolver::with_timeout(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doq,
+            resolver_id: None,
+            host: "localhost".into(),
+            port: blackhole.local_addr().unwrap().port(),
+            tls_server_name: None,
+            bootstrap_ips: vec![Ipv4Addr::LOCALHOST.into()],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        },
+        EncryptedDnsTransport::Direct,
+        timeout,
+    )
+    .unwrap();
+    let query = build_query("burst.test");
+    let started = std::time::Instant::now();
+    let mut lookups = JoinSet::new();
+    for _ in 0..8 {
+        let resolver = resolver.clone();
+        let query = query.clone();
+        lookups.spawn(async move { resolver.exchange(&query).await });
+    }
+    while let Some(result) = lookups.join_next().await {
+        assert!(result.expect("lookup task").is_err());
+    }
+    let elapsed = started.elapsed();
+    assert!(elapsed < timeout * 3, "waiters must fail fast after the failed connect, took {elapsed:?}");
+}

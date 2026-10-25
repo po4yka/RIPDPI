@@ -49,6 +49,9 @@ pub(crate) struct DoqState {
     pub(crate) runtime: tokio::runtime::Id,
     pub(crate) endpoint: quinn::Endpoint,
     pub(crate) connection: Option<quinn::Connection>,
+    /// When the last connect over every bootstrap IP failed; queries inside the
+    /// backoff window fail fast instead of each rerunning the whole connect loop.
+    pub(crate) connect_failed_at: Option<tokio::time::Instant>,
 }
 
 /// Owns the blocking-exchange runtime and shuts it down without blocking, so the resolver can drop anywhere.
