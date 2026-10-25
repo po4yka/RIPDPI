@@ -199,9 +199,14 @@ where
         this.write_frame = frame_payload(&mut this.write_hmac, payload)?;
         // Write through: callers (the VLESS request header) may never flush,
         // and a server-first peer then waits forever. The payload is already
-        // accepted, so a Pending or error leaves the rest of the frame for the
-        // next write, flush or shutdown to send or report.
-        let _ = this.poll_drain_write_frame(cx);
+        // accepted, so this call reports success in every case.
+        match this.poll_drain_write_frame(cx) {
+            Poll::Ready(Ok(())) => {}
+            // The carrier registered our waker; the next write, flush or shutdown sends the rest.
+            Poll::Pending => {}
+            // The frame stays queued; the next write, flush or shutdown retries it and reports the error.
+            Poll::Ready(Err(_)) => {}
+        }
         Poll::Ready(Ok(write_len))
     }
 
