@@ -9,10 +9,12 @@ import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -53,6 +55,35 @@ class ProxyRuntimeSupervisorTest {
             supervisor.stop()
 
             assertEquals(listOf("erase", "create", "erase", "create"), events)
+        }
+
+    @Test
+    fun stopDuringPendingEraseHookAbortsTheStart() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val owner = CoroutineScope(SupervisorJob() + dispatcher)
+            var creates = 0
+            lateinit var supervisor: ProxyRuntimeSupervisor
+            supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = owner,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory =
+                        TestRipDpiProxyFactory {
+                            creates += 1
+                            TestProxyRuntime()
+                        },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    // A stop() that arrives while the erase hook runs sees no runtime and returns.
+                    beforeNativeStart = { owner.launch(start = CoroutineStart.UNDISPATCHED) { supervisor.stop() } },
+                )
+
+            val startup = runCatching { supervisor.start(RipDpiProxyUIPreferences()) {} }
+
+            assertTrue(startup.exceptionOrNull() is CancellationException)
+            assertEquals(0, creates)
+            assertNull(supervisor.runtime)
+            owner.cancel()
         }
 
     @Test

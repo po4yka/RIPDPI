@@ -39,7 +39,7 @@ internal class DefaultProxyRuntimeSupervisorFactory
                 dispatcher = dispatcher,
                 ripDpiProxyFactory = ripDpiProxyFactory,
                 networkSnapshotProvider = networkSnapshotProvider,
-                beforeNativeStart = if (appliesPendingHostAutolearnErase) ::applyPendingHostAutolearnErase else ({}),
+                beforeNativeStart = ::applyPendingHostAutolearnErase.takeIf { appliesPendingHostAutolearnErase },
             )
 
         private fun applyPendingHostAutolearnErase() {

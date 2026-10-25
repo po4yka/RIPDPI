@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 internal data class ProxyRuntimeStartResult(
@@ -42,7 +43,7 @@ internal class ProxyRuntimeSupervisor(
     private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
     private val stopTimeoutMillis: Long = 5_000L,
     private val afterForwardingLeaseAcquired: suspend () -> Unit = {},
-    private val beforeNativeStart: () -> Unit = {},
+    private val beforeNativeStart: (() -> Unit)? = null,
 ) {
     private var proxyRuntime: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
@@ -50,6 +51,7 @@ internal class ProxyRuntimeSupervisor(
 
     @Volatile
     private var stopRequested: Boolean = false
+    private val stopCalls = AtomicInteger()
     private var exitReporting: AtomicBoolean? = null
 
     val runtime: RipDpiProxyRuntime?
@@ -59,9 +61,16 @@ internal class ProxyRuntimeSupervisor(
         preferences: RipDpiProxyPreferences,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ): ProxyRuntimeStartResult {
+        beforeNativeStart?.let { hook ->
+            // Run only when this supervisor's previous native run has returned and flushed. The hook
+            // suspends, so it runs before the check and assignment below; a stop() during it wins.
+            if (proxyJob == null) {
+                val stopsBefore = stopCalls.get()
+                withContext(dispatcher) { hook() }
+                if (stopCalls.get() != stopsBefore) throw CancellationException("Proxy stop requested during start")
+            }
+        }
         check(proxyJob == null) { "Proxy fields not null" }
-        // This supervisor's previous native run has returned (and flushed its state) here.
-        withContext(dispatcher) { beforeNativeStart() }
 
         val proxyInstance = ripDpiProxyFactory.create()
         val lease = ProxyForwardingLease(proxyInstance)
@@ -174,6 +183,7 @@ internal class ProxyRuntimeSupervisor(
     }
 
     suspend fun stop() {
+        stopCalls.incrementAndGet()
         val proxyInstance = proxyRuntime
         if (proxyInstance == null) {
             proxyJob = null
