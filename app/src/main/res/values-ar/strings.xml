@@ -230,7 +230,7 @@
     <string name="diagnostics_profile_badge_raw_and_in_path">مباشر أو اتصال نشط</string>
     <string name="diagnostics_profile_badge_manual_apply">تطبيق يدوي</string>
     <string name="diagnostics_profile_badge_manual_only">يدوي فقط</string>
-    <string name="diagnostics_profile_badge_region_net">Russia Net</string>
+    <string name="diagnostics_profile_badge_region_net">شبكة روسيا</string>
     <string name="diagnostics_profile_badge_ru_web">RU WEB</string>
     <string name="diagnostics_profile_badge_ru_msg">RU MSG</string>
     <string name="diagnostics_profile_badge_ru_adapt">RU ADAPT</string>
@@ -591,7 +591,7 @@
     <string name="home_mode_card_configure">ضبط</string>
     <string name="home_route_local">على الجهاز</string>
     <string name="config_overview_title">الملف الشخصي</string>
-    <string name="title_local_bypass_config">Local bypass config</string>
+    <string name="title_local_bypass_config">إعدادات التجاوز المحلي</string>
     <string name="title_vpn_config">إعدادات VPN</string>
     <string name="config_local_bypass_section_body">اضبط مسار الوكيل المحلي وDNS وعناصر التحكم في استراتيجية التجاوز.</string>
     <string name="config_local_bypass_simple_title">تجاوز محلي</string>
@@ -859,7 +859,7 @@
     <string name="remembered_networks_delete_action">نسيان</string>
     <string name="remembered_networks_transport_wifi">Wi-Fi</string>
     <string name="remembered_networks_transport_cellular">بيانات الجوال</string>
-    <string name="remembered_networks_transport_ethernet">Ethernet</string>
+    <string name="remembered_networks_transport_ethernet">إيثرنت</string>
     <string name="remembered_networks_transport_other">شبكة أخرى</string>
     <string name="remembered_networks_transport_unknown">شبكة غير معروفة</string>
     <string name="remembered_networks_validation_validated">مُتحقَّق منها</string>
@@ -4010,7 +4010,7 @@ fakeddisorder endhost</string>
     <string name="support_settings_change_summary">من %1$s إلى %2$s</string>
     <string name="support_settings_no_changes">لم يُعثر على أي تغييرات في الإعدادات.</string>
     <string name="support_settings_apply_action">تطبيق التغييرات</string>
-    <string name="support_settings_applied_action">Applied</string>
+    <string name="support_settings_applied_action">تم التطبيق</string>
     <string name="support_settings_restart_ask">قد تلزم إعادة التشغيل بعد التطبيق.</string>
     <string name="support_settings_restart_required">تلزم إعادة التشغيل بعد التطبيق.</string>
     <string name="support_settings_restart_never">لا يُتوقع أن تلزم إعادة التشغيل.</string>

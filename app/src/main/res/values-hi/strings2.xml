@@ -748,7 +748,7 @@
     <string name="copied_to_clipboard">क्लिपबोर्ड पर कॉपी किया गया</string>
     <string name="diagnostics_probe_copy_action">परिणाम कॉपी करें</string>
 
-    <string name="settings_community_api_url_label">Community API URL</string>
+    <string name="settings_community_api_url_label">कम्युनिटी API URL</string>
     <string name="settings_community_api_url_helper">डिफ़ॉल्ट एंडपॉइंट उपयोग करने के लिए खाली छोड़ें।</string>
     <string name="settings_community_api_url_save">सहेजें</string>
     <string name="settings_community_api_url_reset">डिफ़ॉल्ट पर रीसेट करें</string>
@@ -1065,7 +1065,7 @@
     <string name="awg_field_peer_endpoint">पीयर एंडपॉइंट</string>
     <string name="awg_field_allowed_ips">अनुमत IPs</string>
     <string name="awg_field_preshared_key">प्रीशेयर्ड कुंजी</string>
-    <string name="awg_field_persistent_keepalive">Persistent keepalive</string>
+    <string name="awg_field_persistent_keepalive">स्थायी keepalive</string>
     <string name="awg_field_jc">Jc</string>
     <string name="awg_field_jmin">Jmin</string>
     <string name="awg_field_jmax">Jmax</string>
@@ -1093,7 +1093,7 @@
     <string name="awg_connect_error">कनेक्ट नहीं हो सका। सर्वर का विवरण जाँचें और फिर से प्रयास करें।</string>
 
     <string name="anytls_editor_title">AnyTLS प्रोफ़ाइल</string>
-    <string name="anytls_section_endpoint">Endpoint</string>
+    <string name="anytls_section_endpoint">एंडपॉइंट</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_section_tls_body">SNI override वैकल्पिक है; सर्वर होस्ट का उपयोग करने के लिए इसे खाली छोड़ दें।</string>
     <string name="anytls_field_display_name">नाम</string>
@@ -1105,9 +1105,9 @@
     <string name="anytls_save_action">सहेजें</string>
 
     <string name="mieru_editor_title">Mieru प्रोफ़ाइल</string>
-    <string name="mieru_section_endpoint">Endpoint</string>
+    <string name="mieru_section_endpoint">एंडपॉइंट</string>
     <string name="mieru_section_credentials">क्रेडेंशियल</string>
-    <string name="mieru_section_transport">Transport</string>
+    <string name="mieru_section_transport">ट्रांसपोर्ट</string>
     <string name="mieru_section_transport_body">transport प्रोटोकॉल, multiplexing स्तर, और MTU चुनें।</string>
     <string name="mieru_field_display_name">नाम</string>
     <string name="mieru_field_server">सर्वर</string>
@@ -1115,7 +1115,7 @@
     <string name="mieru_field_username">उपयोगकर्ता नाम</string>
     <string name="mieru_field_password">पासवर्ड</string>
     <string name="mieru_field_protocol">प्रोटोकॉल</string>
-    <string name="mieru_field_multiplexing">Multiplexing</string>
+    <string name="mieru_field_multiplexing">मल्टीप्लेक्सिंग</string>
     <string name="mieru_transport_tcp">TCP</string>
     <string name="mieru_transport_udp">UDP</string>
     <string name="mieru_mux_off">बंद</string>
@@ -1480,7 +1480,7 @@
     <string name="asset_provider_sagernet_desc">आधिकारिक sing-box geoip और geosite डेटाबेस।</string>
     <string name="asset_provider_soffchen_label">soffchen</string>
     <string name="asset_provider_soffchen_desc">कम्युनिटी sing-box geoip और geosite मिरर।</string>
-    <string name="asset_provider_chocolate4u_label">Chocolate4U (Iran)</string>
+    <string name="asset_provider_chocolate4u_label">Chocolate4U (ईरान)</string>
     <string name="asset_provider_chocolate4u_desc">Iran-केंद्रित sing-box नियम।</string>
     <string name="asset_provider_l11r_label">L11R (antizapret)</string>
     <string name="asset_provider_l11r_desc">Russia / antizapret sing-box जियो नियम।</string>
@@ -1501,7 +1501,7 @@
     <string name="asset_provider_imported_title">एसेट आयात हुआ</string>
     <string name="asset_provider_imported_body">आयातित डेटाबेस लागू करने के लिए सेवा को पुनरारंभ करें।</string>
     <string name="asset_provider_failed_title">डेटा कार्रवाई विफल</string>
-    <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russia)</string>
+    <string name="asset_provider_runetfreedom_label">RuNet Freedom (रूस)</string>
     <string name="asset_provider_runetfreedom_desc">वास्तविक RU बायपास नियमसेट; v2ray/xray geoip/geosite टैग के लिए antizapret की तुलना में अधिक अद्यतन।</string>
     <string name="asset_provider_updated_today">आज अपडेट हुआ</string>
     <string name="asset_provider_updated_never">कभी अपडेट नहीं हुआ</string>
@@ -1647,7 +1647,7 @@
     <string name="xray_provider_probe_version">इंजन संस्करण</string>
     <string name="xray_provider_probe_wrapper_ping">रैपर पिंग</string>
     <string name="xray_provider_probe_listener">लिसनर तैयारी</string>
-    <string name="xray_provider_probe_stat_api">Stat API</string>
+    <string name="xray_provider_probe_stat_api">आँकड़ा API</string>
     <string name="xray_provider_probe_ok">ठीक है</string>
     <string name="xray_provider_probe_failed_label">विफल</string>
     <string name="xray_provider_probe_not_applicable">लागू नहीं</string>
@@ -1685,13 +1685,13 @@
     <string name="relay_finalmask_fragment_min_bytes_label">फ़्रैगमेंट न्यूनतम बाइट</string>
     <string name="relay_finalmask_fragment_max_bytes_label">फ़्रैगमेंट अधिकतम बाइट</string>
     <string name="relay_finalmask_header_hex_label">हेडर हेक्स</string>
-    <string name="relay_finalmask_trailer_hex_label">Trailer hex</string>
+    <string name="relay_finalmask_trailer_hex_label">ट्रेलर (hex)</string>
     <string name="relay_finalmask_random_range_label">यादृच्छिक श्रेणी</string>
-    <string name="relay_finalmask_sudoku_seed_label">Sudoku seed</string>
+    <string name="relay_finalmask_sudoku_seed_label">Sudoku सीड</string>
     <string name="relay_finalmask_noise_range_label">शोर श्रेणी</string>
-    <string name="relay_snowflake_broker_url_label">Broker URL</string>
+    <string name="relay_snowflake_broker_url_label">ब्रोकर URL</string>
     <string name="relay_snowflake_front_domain_label">फ़्रंट डोमेन</string>
-    <string name="relay_tor_bridge_line_label">Bridge line</string>
+    <string name="relay_tor_bridge_line_label">ब्रिज लाइन</string>
     <string name="relay_tor_bridge_line_helper">एक obfs4 bridge line पेस्ट करें। Tor केवल इसी pluggable transport के ज़रिए बूटस्ट्रैप करता है, कभी सीधे कनेक्शन से नहीं।</string>
     <string name="relay_tor_warning_title">Tor धीमा है और इसकी गुमनामी अलग तरीके से होती है</string>
     <string name="relay_tor_warning_message">ट्रैफ़िक स्वयंसेवी Tor नेटवर्क के ज़रिए रिले होता है, इसलिए सीधे रिले की तुलना में अधिक latency की उम्मीद करें। गुमनामी Tor द्वारा प्रदान की जाती है, RIPDPI द्वारा नहीं। Tor केवल TCP और DNS ले जाता है; UDP समर्थित नहीं है।</string>
@@ -1994,7 +1994,7 @@
     <string name="diagnostics_dns_integrity_metric_bootstrap_flagged">bootstrap फ़्लैग किया गया</string>
     <string name="diagnostics_dns_integrity_metric_checked">जाँचा गया</string>
     <string name="diagnostics_dns_integrity_metric_doh_blocked">DoH अवरुद्ध</string>
-    <string name="diagnostics_dns_integrity_metric_doh_bootstrap">DoH bootstrap</string>
+    <string name="diagnostics_dns_integrity_metric_doh_bootstrap">DoH बूटस्ट्रैप</string>
     <string name="diagnostics_dns_integrity_metric_doq_checks">DoQ जाँचें</string>
     <string name="diagnostics_dns_integrity_metric_doq_flagged">DoQ फ़्लैग किया गया</string>
     <string name="diagnostics_dns_integrity_metric_flagged">फ़्लैग किया गया</string>
@@ -2135,7 +2135,7 @@
     <string name="logs_mode_proxy">प्रॉक्सी</string>
     <string name="logs_mode_vpn">VPN</string>
     <string name="owned_stack_browser_request_failed">Owned-stack अनुरोध विफल रहा।</string>
-    <string name="port_matrix_host_port_header">HOST / PORT</string>
+    <string name="port_matrix_host_port_header">होस्ट / पोर्ट</string>
     <string name="profile_share_setup_sheet_template">RIPDPI सेटअप शीट\n\nप्रोफ़ाइल: %1$s\nप्रकार: %2$s\n\nसब्सक्रिप्शन/प्रोफ़ाइल लिंक:\n%3$s\n\nHiddify:\n1. Hiddify खोलें।\n2. प्रोफ़ाइल जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nAmneziaVPN:\n1. AmneziaVPN खोलें।\n2. लिंक या QR से सर्वर जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nइस शीट को निजी रखें। QR कोड और लिंक में क्रेडेंशियल होते हैं।</string>
     <string name="a11y_loading">लोड हो रहा है</string>
     <string name="percent_value">%1$d%%</string>

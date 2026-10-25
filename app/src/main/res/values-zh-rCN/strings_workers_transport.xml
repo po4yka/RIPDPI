@@ -8,7 +8,7 @@
     <string name="ws_tunnel_worker_transport_clear">停用</string>
     <string name="ws_tunnel_worker_transport_dialog_title">Worker 传输</string>
     <string name="ws_tunnel_worker_transport_dialog_message">Bearer 存储在 Android Keystore 中，不会写入设置或备份。</string>
-    <string name="ws_tunnel_worker_transport_url_label">Worker URL</string>
+    <string name="ws_tunnel_worker_transport_url_label">Worker 地址</string>
     <string name="ws_tunnel_worker_transport_ref_label">凭据引用</string>
     <string name="ws_tunnel_worker_transport_bearer_label">Bearer 令牌</string>
     <string name="ws_tunnel_worker_save_failed_title">未保存 Worker 传输</string>

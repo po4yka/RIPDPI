@@ -229,7 +229,7 @@
     <string name="diagnostics_profile_badge_raw_and_in_path">सीधा या सक्रिय कनेक्शन</string>
     <string name="diagnostics_profile_badge_manual_apply">मैन्युअल लागू करें</string>
     <string name="diagnostics_profile_badge_manual_only">केवल मैन्युअल</string>
-    <string name="diagnostics_profile_badge_region_net">Russia Net</string>
+    <string name="diagnostics_profile_badge_region_net">रूस नेटवर्क</string>
     <string name="diagnostics_profile_badge_ru_web">RU WEB</string>
     <string name="diagnostics_profile_badge_ru_msg">RU MSG</string>
     <string name="diagnostics_profile_badge_ru_adapt">RU ADAPT</string>
@@ -861,7 +861,7 @@
     <string name="remembered_networks_delete_action">भूल जाएँ</string>
     <string name="remembered_networks_transport_wifi">Wi-Fi</string>
     <string name="remembered_networks_transport_cellular">सेल्युलर</string>
-    <string name="remembered_networks_transport_ethernet">Ethernet</string>
+    <string name="remembered_networks_transport_ethernet">ईथरनेट</string>
     <string name="remembered_networks_transport_other">अन्य नेटवर्क</string>
     <string name="remembered_networks_transport_unknown">अज्ञात नेटवर्क</string>
     <string name="remembered_networks_validation_validated">मान्य किया गया</string>
@@ -872,7 +872,7 @@
     <string name="remembered_networks_status_observed">देखा गया</string>
     <string name="remembered_networks_status_suppressed">दबाया गया</string>
     <string name="remembered_networks_mode_vpn">VPN</string>
-    <string name="remembered_networks_mode_proxy">Proxy</string>
+    <string name="remembered_networks_mode_proxy">प्रॉक्सी</string>
     <string name="remembered_networks_mode_unknown">अज्ञात मोड</string>
     <string name="remembered_networks_delete_confirm_title">इस नेटवर्क को भूल जाएँ?</string>
     <string name="remembered_networks_delete_confirm_body">इस नेटवर्क स्कोप के लिए संग्रहीत नीति और DNS शिक्षण स्थायी रूप से हटा दिए जाएँगे।</string>

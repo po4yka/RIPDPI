@@ -863,7 +863,7 @@
     <string name="remembered_networks_delete_action">فراموش کردن</string>
     <string name="remembered_networks_transport_wifi">Wi-Fi</string>
     <string name="remembered_networks_transport_cellular">شبکهٔ همراه</string>
-    <string name="remembered_networks_transport_ethernet">Ethernet</string>
+    <string name="remembered_networks_transport_ethernet">اترنت</string>
     <string name="remembered_networks_transport_other">شبکهٔ دیگر</string>
     <string name="remembered_networks_transport_unknown">شبکهٔ ناشناخته</string>
     <string name="remembered_networks_validation_validated">اعتبارسنجی‌شده</string>
@@ -3991,7 +3991,7 @@ fakeddisorder endhost</string>
     <string name="support_settings_change_summary">از %1$s به %2$s</string>
     <string name="support_settings_no_changes">هیچ تغییری در تنظیمات یافت نشد.</string>
     <string name="support_settings_apply_action">اعمال تغییرات</string>
-    <string name="support_settings_applied_action">Applied</string>
+    <string name="support_settings_applied_action">اعمال شد</string>
     <string name="support_settings_restart_ask">پس از اعمال، ممکن است راه‌اندازی مجدد لازم باشد.</string>
     <string name="support_settings_restart_required">پس از اعمال، راه‌اندازی مجدد لازم است.</string>
     <string name="support_settings_restart_never">انتظار نمی‌رود راه‌اندازی مجدد لازم باشد.</string>

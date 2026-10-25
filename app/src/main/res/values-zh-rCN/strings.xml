@@ -894,7 +894,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_hostfake_summary_label_midhost">真实主机分割</string>
     <string name="ripdpi_hostfake_summary_label_tls_example">TLS 示例</string>
     <string name="ripdpi_hostfake_summary_scope_http">仅 HTTP Host</string>
-    <string name="ripdpi_hostfake_summary_transport">Fake TTL %1$d</string>
+    <string name="ripdpi_hostfake_summary_transport">伪造 TTL %1$d</string>
     <string name="ripdpi_http_host_extra_space_setting">Host 多余空格</string>
     <string name="ripdpi_http_method_space_setting">方法多余空格</string>
     <string name="ripdpi_http_parser_aggressive_none">未选择激进的 EOL 规避方式。</string>
@@ -1213,7 +1213,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_field_validated">已验证</string>
     <string name="diagnostics_field_wifi_band">Wi-Fi 频段</string>
     <string name="diagnostics_field_wifi_frequency_format">%1$d MHz</string>
-    <string name="diagnostics_field_wifi_ip">Wi-Fi IP</string>
+    <string name="diagnostics_field_wifi_ip">Wi-Fi IP 地址</string>
     <string name="diagnostics_field_wifi_network_id">Wi-Fi 网络 ID</string>
     <string name="diagnostics_field_wifi_rssi">Wi-Fi RSSI</string>
     <string name="diagnostics_field_wifi_standard">Wi-Fi 标准</string>
@@ -1246,7 +1246,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_dnscrypt_body">通过指定端点、提供商名称、公钥和引导 IP 使用 DNSCrypt 解析器。</string>
     <string name="dns_custom_dnscrypt_public_key_error">请输入有效的 64 字符十六进制公钥。</string>
     <string name="dns_custom_doh_body">使用带有显式引导 IP 的自定义 DoH 端点,使隧道解析不依赖于明文 DNS。</string>
-    <string name="dns_custom_doh_url_label">DoH URL</string>
+    <string name="dns_custom_doh_url_label">DoH 地址</string>
     <string name="dns_custom_dot_tls_helper">TLS 证书验证期间使用的服务器名。</string>
     <string name="dns_custom_section_body">当您需要自己的端点、主机名、TLS 名称或 DNSCrypt 凭据时,请使用自定义字段。</string>
     <string name="dns_custom_tls_server_name_label">TLS 服务器名</string>
@@ -1678,7 +1678,7 @@ fake_burst 3</string>
     <string name="config_relay_masque_cloudflare_geohash_helper">Android 可能会请求粗略位置，因为这个可选的 Cloudflare 出口提示会读取大致国家和地区。它不会用于跟踪，原始位置或网络标识符也不会被保存。</string>
     <string name="config_relay_masque_import_private_key">导入私钥</string>
     <string name="config_relay_masque_privacy_pass_available">此构建已配置 Privacy Pass 提供方。</string>
-    <string name="config_relay_masque_url">MASQUE URL</string>
+    <string name="config_relay_masque_url">MASQUE 地址</string>
     <string name="config_relay_reality_public_key">Reality 公钥</string>
     <string name="config_relay_server_port">中继端口</string>
     <string name="config_relay_xhttp_host">xHTTP host 覆盖</string>
@@ -2230,7 +2230,7 @@ fake_burst 3</string>
     <string name="config_relay_finalmask_fragment_help">当大小符合所设字节范围时，将每次载荷写入拆分为指定数量的 TCP 帧。</string>
     <string name="config_relay_finalmask_noise">噪声</string>
     <string name="config_relay_finalmask_noise_help">在真实载荷之前，一次性发送随机字节前导。从配置范围内选择前导的长度。</string>
-    <string name="config_relay_reality_short_id">Reality short ID</string>
+    <string name="config_relay_reality_short_id">Reality 短 ID</string>
     <string name="config_relay_server">中继服务器</string>
     <string name="config_relay_xhttp_path">xHTTP 路径</string>
     <string name="config_tls_record_marker_helper">接受偏移,如 0、host、sniext、extlen 或 host+1。</string>
@@ -2461,7 +2461,7 @@ fake_burst 3</string>
     <string name="owned_stack_browser_banner_title">自有栈路径</string>
     <string name="owned_stack_browser_status_value">HTTP %1$d · %2$s</string>
     <string name="owned_stack_browser_trace_native_ech_missing">已确认此目标主机无法使用 Android 17 ECH，因此 RIPDPI 使用了原生自有 TLS。</string>
-    <string name="owned_stack_browser_url_label">HTTPS URL</string>
+    <string name="owned_stack_browser_url_label">HTTPS 地址</string>
     <string name="permissions_battery_body">允许 RIPDPI 忽略 Android 电池优化,以减少 Doze 中断后台本地 VPN 或代理的可能性。</string>
     <string name="permissions_notifications_title">允许状态通知</string>
     <string name="permissions_vpn_error_title">仍需授予权限</string>
@@ -3473,7 +3473,7 @@ fake_burst 3</string>
     <string name="relay_tor_bridge_line_helper">粘贴一条 obfs4 网桥行。Tor 仅通过此可插拔传输引导，绝不使用直接连接。</string>
     <string name="relay_tor_warning_title">Tor 速度更慢，匿名方式也不同</string>
     <string name="relay_tor_warning_message">流量经由志愿者运营的 Tor 网络中继，因此延迟会高于直接中继。匿名性由 Tor 提供，而非 RIPDPI。Tor 仅承载 TCP 和 DNS，不支持 UDP。</string>
-    <string name="relay_webtunnel_url_label">WebTunnel URL</string>
+    <string name="relay_webtunnel_url_label">WebTunnel 地址</string>
     <string name="detection_tls_keylog_warning_title">已启用 TLS keylog</string>
     <string name="detection_tls_keylog_warning_message">密钥已写入 %1$s。调试完成后请禁用。</string>
     <string name="detection_check_copy_diagnostics">复制诊断信息</string>
@@ -3652,7 +3652,7 @@ fake_burst 3</string>
     <string name="detection_settings_cdn_pulling_title">CDN 拉取</string>
     <string name="detection_settings_dns_direct_servers_label">直连服务器</string>
     <string name="detection_settings_dns_doh_bootstrap_label">DoH 引导 IP</string>
-    <string name="detection_settings_dns_doh_url_label">DoH URL</string>
+    <string name="detection_settings_dns_doh_url_label">DoH 地址</string>
     <string name="detection_settings_dns_mode_title">模式</string>
     <string name="detection_settings_enable">启用</string>
     <string name="detection_settings_meduza_cohort_subtitle">包含 Meduza 目标集</string>
