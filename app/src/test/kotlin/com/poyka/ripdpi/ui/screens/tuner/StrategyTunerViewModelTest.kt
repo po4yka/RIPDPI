@@ -162,7 +162,8 @@ class StrategyTunerViewModelTest {
             advanceUntilIdle()
 
             assertNull(viewModel.uiState.value.messageRes)
-            assertEquals("Probe unavailable", viewModel.uiState.value.message)
+            // FakeStringResolver renders the resource id; raw exception text must not reach the UI.
+            assertEquals(R.string.error_user_generic.toString(), viewModel.uiState.value.message)
             assertEquals(StrategyTunerRunState.Error, viewModel.uiState.value.runState)
         }
 }

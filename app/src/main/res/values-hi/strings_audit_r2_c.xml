@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_user_timeout">समय सीमा समाप्त हो गई। अपना कनेक्शन जांचें, फिर दोबारा कोशिश करें।</string>
+    <string name="error_user_no_network">नेटवर्क तक नहीं पहुंच सके। अपना कनेक्शन या DNS जांचें, फिर दोबारा कोशिश करें।</string>
+    <string name="error_user_tls">सुरक्षित कनेक्शन नहीं बन सका। TLS हैंडशेक या प्रमाणपत्र जांच विफल रही।</string>
+    <string name="error_user_permission">अनुमति अस्वीकृत। आवश्यक अनुमति दें, फिर दोबारा कोशिश करें।</string>
+    <string name="error_user_generic">कुछ गलत हो गया। विवरण के लिए लॉग देखें।</string>
+</resources>

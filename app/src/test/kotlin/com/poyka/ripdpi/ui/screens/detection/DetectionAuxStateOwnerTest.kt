@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.community.CommunityStatsRefreshResult
@@ -206,14 +207,15 @@ class DetectionAuxStateOwnerTest {
                     networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                     historyStore = FakeDetectionHistoryRepository(),
                     communityStatsRepository =
-                        FakeCommunityStatsRepository(refreshThrows = IllegalStateException("io")),
+                        FakeCommunityStatsRepository(refreshThrows = IllegalStateException()),
                     detectionCheckPreferences = FakeDetectionCheckPreferenceStore(),
                 )
 
             owner.refreshCommunityStats()
             advanceUntilIdle()
 
-            assertEquals("io", flow.value.communityStatsError)
+            // A message-less exception must still produce a visible error.
+            assertEquals(R.string.error_user_generic, flow.value.communityStatsError)
             assertFalse(flow.value.communityStatsLoading)
         }
 

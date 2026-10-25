@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_user_timeout">انتهت مهلة العملية. تحقق من اتصالك، ثم أعد المحاولة.</string>
+    <string name="error_user_no_network">تعذر الوصول إلى الشبكة. تحقق من اتصالك أو من DNS، ثم أعد المحاولة.</string>
+    <string name="error_user_tls">تعذر إنشاء اتصال آمن. فشلت مصافحة TLS أو التحقق من الشهادة.</string>
+    <string name="error_user_permission">تم رفض الإذن. امنح الإذن المطلوب، ثم أعد المحاولة.</string>
+    <string name="error_user_generic">حدث خطأ ما. راجع السجلات للاطلاع على التفاصيل.</string>
+</resources>

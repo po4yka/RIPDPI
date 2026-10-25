@@ -3675,7 +3675,6 @@ fake_burst 3</string>
     <string name="detection_check_category_ip_consensus">IP 共识</string>
     <string name="detection_check_category_native_signs">原生迹象</string>
     <string name="detection_debug_diagnostics_label">调试诊断</string>
-    <string name="detection_error_unknown">未知错误</string>
     <string name="detection_exposure_insufficient_data">数据不足</string>
     <string name="detection_exposure_local_proxy_api">本地代理/API</string>
     <string name="detection_exposure_public_ip">公网 IP</string>

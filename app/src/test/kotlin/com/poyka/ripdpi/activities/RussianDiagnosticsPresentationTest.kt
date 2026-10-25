@@ -92,7 +92,7 @@ class RussianDiagnosticsPresentationTest {
         val failed = running.withFailure(IllegalStateException("user-error-id"), strings)
         assertEquals(DiagnosticsDpiSuiteState.Failed, failed.state)
         assertEquals("Не удалось выполнить набор проверок DPI.", failed.summary)
-        assertEquals("user-error-id", failed.errorMessage)
+        assertEquals("Что-то пошло не так. Подробности в разделе «Журналы».", failed.errorMessage)
         assertEquals("custom-wire-error", failed.rows.single().detail)
         assertRussian(failed.rows.single().status)
     }

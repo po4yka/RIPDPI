@@ -16,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.RknTarget
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -120,7 +121,7 @@ internal class DiagnosticsDpiToolsController(
                     DiagnosticsDnsIntegrityToolUiModel(
                         state = DiagnosticsDnsIntegrityState.Failed,
                         summary = stringResolver.getString(R.string.diagnostics_dns_integrity_failed),
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                     )
             }
         }
@@ -146,7 +147,7 @@ internal class DiagnosticsDpiToolsController(
                     DiagnosticsDnsAvailabilityToolUiModel(
                         state = DiagnosticsDnsAvailabilityState.Failed,
                         summary = stringResolver.getString(R.string.diagnostics_dns_availability_failed),
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                     )
             }
         }
@@ -184,7 +185,7 @@ internal class DiagnosticsDpiToolsController(
                     DiagnosticsDomainReachabilityToolUiModel(
                         state = DiagnosticsDomainReachabilityState.Failed,
                         summary = stringResolver.getString(R.string.diagnostics_domain_reachability_failed),
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                     )
             }
         }
@@ -227,7 +228,7 @@ internal class DiagnosticsDpiToolsController(
                         targetUrl = latest.targetUrl,
                         summary = stringResolver.getString(R.string.diagnostics_compression_failed),
                         includeZstd = latest.includeZstd,
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                     )
             }
         }
@@ -273,7 +274,7 @@ internal class DiagnosticsDpiToolsController(
                     DiagnosticsTcp16FatHeaderToolUiModel(
                         state = DiagnosticsTcp16FatHeaderState.Failed,
                         summary = stringResolver.getString(R.string.diagnostics_tcp16_failed),
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                     )
             }
         }
@@ -314,7 +315,7 @@ internal class DiagnosticsDpiToolsController(
                     DiagnosticsAllowlistSniToolUiModel(
                         state = DiagnosticsAllowlistSniState.Failed,
                         summary = stringResolver.getString(R.string.diagnostics_allowlist_sni_failed),
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                         enabled = true,
                     )
             }
@@ -367,7 +368,7 @@ internal class DiagnosticsDpiToolsController(
                         headline = latest.headline,
                         confidenceNote = latest.confidenceNote,
                         summary = stringResolver.getString(R.string.diagnostics_rkn_failed),
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                         fetchSelfInfoEnabled = latest.fetchSelfInfoEnabled,
                         selfInfoPrivacyOverridden = latest.selfInfoPrivacyOverridden,
                     )

@@ -1870,7 +1870,6 @@
     <string name="detection_check_category_ip_consensus">IP सहमति</string>
     <string name="detection_check_category_native_signs">मूल संकेत</string>
     <string name="detection_debug_diagnostics_label">डिबग डायग्नोस्टिक्स</string>
-    <string name="detection_error_unknown">अज्ञात त्रुटि</string>
     <string name="detection_exposure_insufficient_data">अपर्याप्त डेटा</string>
     <string name="detection_exposure_local_proxy_api">स्थानीय प्रॉक्सी/API</string>
     <string name="detection_exposure_public_ip">सार्वजनिक IP</string>

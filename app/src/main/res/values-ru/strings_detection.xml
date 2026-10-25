@@ -125,7 +125,6 @@
     <string name="detection_check_category_ip_consensus">Консенсус по IP</string>
     <string name="detection_check_category_native_signs">Нативные признаки</string>
     <string name="detection_debug_diagnostics_label">Отладочная диагностика</string>
-    <string name="detection_error_unknown">Неизвестная ошибка</string>
     <string name="detection_exposure_insufficient_data">Недостаточно данных</string>
     <string name="detection_exposure_local_proxy_api">Локальный прокси/API</string>
     <string name="detection_exposure_public_ip">Публичный IP</string>

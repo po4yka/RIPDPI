@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.ui.screens.detection
 
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -61,7 +61,7 @@ internal class DetectionRunCoordinator(
                         it.copy(
                             isRunning = false,
                             progress = null,
-                            error = error.message ?: stringResolver.getString(R.string.detection_error_unknown),
+                            error = stringResolver.userMessage(error),
                         )
                     }
                     deliverFeedback(DetectionCheckEffect.CheckFailed)

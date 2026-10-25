@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import com.poyka.ripdpi.services.OwnedStackBrowserBackend
 import com.poyka.ripdpi.services.OwnedStackBrowserPage
 import com.poyka.ripdpi.services.OwnedStackBrowserService
@@ -82,8 +83,7 @@ class OwnedStackBrowserViewModel
                         state.copy(
                             isLoading = false,
                             errorMessage =
-                                error.message
-                                    ?: stringResolver.getString(R.string.owned_stack_browser_request_failed),
+                                stringResolver.userMessage(error, R.string.owned_stack_browser_request_failed),
                         )
                     }
                 }

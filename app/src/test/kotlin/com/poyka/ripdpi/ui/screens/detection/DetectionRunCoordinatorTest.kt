@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
@@ -34,6 +35,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.net.SocketTimeoutException
 
 private class FakeProbeRunner(
     private val result: DetectionCheckResult? = null,
@@ -297,21 +299,21 @@ class DetectionRunCoordinatorTest {
     }
 
     @Test
-    fun `non-cancellation failure with null message uses unknown fallback`() {
+    fun `non-cancellation failure with null message uses generic fallback`() {
         val flow = MutableStateFlow(DetectionCheckUiState())
         coordinator(flow, FakeProbeRunner(error = RuntimeException())).startCheck()
 
         assertFalse(flow.value.isRunning)
         assertNull(flow.value.progress)
-        assertTrue(flow.value.error?.startsWith("string:") == true)
+        assertEquals("string:${R.string.error_user_generic}", flow.value.error)
     }
 
     @Test
-    fun `non-cancellation failure surfaces error message`() {
+    fun `non-cancellation failure shows a localized message instead of raw text`() {
         val flow = MutableStateFlow(DetectionCheckUiState())
-        coordinator(flow, FakeProbeRunner(error = RuntimeException("explicit"))).startCheck()
+        coordinator(flow, FakeProbeRunner(error = SocketTimeoutException("raw socket text"))).startCheck()
 
-        assertEquals("explicit", flow.value.error)
+        assertEquals("string:${R.string.error_user_timeout}", flow.value.error)
     }
 
     @Test

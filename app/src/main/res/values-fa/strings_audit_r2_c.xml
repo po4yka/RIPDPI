@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_user_timeout">مهلت زمانی عملیات به پایان رسید. اتصال خود را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="error_user_no_network">دسترسی به شبکه ممکن نشد. اتصال یا DNS را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="error_user_tls">برقراری اتصال امن ممکن نشد. دست‌دهی TLS یا بررسی گواهی ناموفق بود.</string>
+    <string name="error_user_permission">اجازه داده نشد. مجوز لازم را بدهید و دوباره تلاش کنید.</string>
+    <string name="error_user_generic">مشکلی پیش آمد. برای جزئیات، گزارش‌ها را ببینید.</string>
+</resources>

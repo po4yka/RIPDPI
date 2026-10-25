@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.dpich.ByohProbeResult
 import com.poyka.ripdpi.diagnostics.dpich.ByohProgress
 import com.poyka.ripdpi.diagnostics.dpich.ByohStats
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
@@ -88,7 +89,7 @@ internal class DiagnosticsByohCompatibilityController(
                         summary = stringResolver.getString(R.string.diagnostics_byoh_check_failed),
                         rows = rows.toPersistentList(),
                         csvExport = ByohCsvExporter.toCsv(results),
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                     )
             }
         }

@@ -3680,7 +3680,6 @@ Fonte: %2$s</string>
     <string name="detection_check_category_ip_consensus">Consenso de IP</string>
     <string name="detection_check_category_native_signs">Sinais nativos</string>
     <string name="detection_debug_diagnostics_label">Diagnósticos de depuração</string>
-    <string name="detection_error_unknown">Erro desconhecido</string>
     <string name="detection_exposure_insufficient_data">Dados insuficientes</string>
     <string name="detection_exposure_local_proxy_api">Proxy/API local</string>
     <string name="detection_exposure_public_ip">IP público</string>

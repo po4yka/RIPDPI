@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.dpich.PluggableTransportResult
 import com.poyka.ripdpi.diagnostics.dpich.loadMeekFrontUrls
 import com.poyka.ripdpi.diagnostics.dpich.loadObfs4BridgeEndpoints
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -117,7 +118,7 @@ internal class DiagnosticsPluggableTransportController(
                         state = DiagnosticsPluggableTransportState.Failed,
                         summary = stringResolver.getString(R.string.diagnostics_pt_failed),
                         summaryResId = R.string.diagnostics_pt_failed,
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                     )
             }
         }

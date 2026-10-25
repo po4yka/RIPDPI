@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistProbeTrace
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistUrlGroup
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistVerdict
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -43,7 +44,7 @@ internal class DiagnosticsCidrWhitelistController(
                     DiagnosticsCidrWhitelistToolUiModel(
                         state = DiagnosticsCidrWhitelistState.Failed,
                         summary = stringResolver.getString(R.string.diagnostics_cidr_whitelist_failed),
-                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        errorMessage = stringResolver.userMessage(error),
                     )
             }
         }

@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import androidx.annotation.StringRes
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.DetectionHistoryRepository
@@ -9,6 +11,7 @@ import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.platform.userMessageRes
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -98,7 +101,7 @@ internal class DetectionAuxStateOwner(
                     reducer.mutate { it.copy(communityStats = remoteStats) }
                 } else if (reducer.value.communityStats == null) {
                     reducer.mutate {
-                        it.copy(communityStatsError = refreshResult.remoteError?.message)
+                        it.copy(communityStatsError = refreshResult.remoteError?.let(::communityStatsErrorRes))
                     }
                 }
             } catch (e: CancellationException) {
@@ -110,7 +113,7 @@ internal class DetectionAuxStateOwner(
                 // settings flow), JSON parsing errors, or runtime exceptions; surface any
                 // failure as an error state instead of crashing the VM.
                 if (reducer.value.communityStats == null) {
-                    reducer.mutate { it.copy(communityStatsError = e.message) }
+                    reducer.mutate { it.copy(communityStatsError = communityStatsErrorRes(e)) }
                 }
             } finally {
                 reducer.mutate { it.copy(communityStatsLoading = false) }
@@ -163,4 +166,10 @@ internal class DetectionAuxStateOwner(
             }
         }
     }
+}
+
+@StringRes
+private fun communityStatsErrorRes(error: Throwable): Int {
+    Logger.w(error) { "Community stats refresh failed" }
+    return error.userMessageRes()
 }

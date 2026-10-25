@@ -3709,7 +3709,6 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_ip_consensus">توافق IP</string>
     <string name="detection_check_category_native_signs">إشارات أصلية</string>
     <string name="detection_debug_diagnostics_label">تشخيصات التصحيح</string>
-    <string name="detection_error_unknown">خطأ غير معروف</string>
     <string name="detection_exposure_insufficient_data">بيانات غير كافية</string>
     <string name="detection_exposure_local_proxy_api">وكيل/واجهة برمجة محلية</string>
     <string name="detection_exposure_public_ip">IP عام</string>

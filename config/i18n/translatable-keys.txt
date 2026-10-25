@@ -1034,7 +1034,6 @@ app:detection_dns_route_through_proxy_subtitle
 app:detection_dns_route_through_proxy_title
 app:detection_empty_history
 app:detection_error_retry
-app:detection_error_unknown
 app:detection_exposure_additional
 app:detection_exposure_app_artifact_hint
 app:detection_exposure_app_artifact_label
@@ -2869,6 +2868,11 @@ app:domain_bypass_moved_rule_name
 app:domain_bypass_paste
 app:domain_bypass_placeholder
 app:domain_bypass_saved
+app:error_user_generic
+app:error_user_no_network
+app:error_user_permission
+app:error_user_timeout
+app:error_user_tls
 app:export_preview_cleanup_failed
 app:export_preview_confirm_notice
 app:export_preview_contents

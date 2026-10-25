@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_user_timeout">Время ожидания истекло. Проверьте подключение и повторите попытку.</string>
+    <string name="error_user_no_network">Не удалось подключиться к сети. Проверьте подключение или DNS и повторите попытку.</string>
+    <string name="error_user_tls">Не удалось установить защищённое соединение: ошибка TLS-рукопожатия или проверки сертификата.</string>
+    <string name="error_user_permission">Доступ запрещён. Предоставьте нужное разрешение и повторите попытку.</string>
+    <string name="error_user_generic">Что-то пошло не так. Подробности в разделе «Журналы».</string>
+</resources>

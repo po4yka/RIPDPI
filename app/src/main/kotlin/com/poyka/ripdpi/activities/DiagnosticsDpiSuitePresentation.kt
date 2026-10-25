@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -530,6 +531,6 @@ internal fun DiagnosticsDpiSuiteToolUiModel.withFailure(
         copy(
             state = DiagnosticsDpiSuiteState.Failed,
             summary = stringResolver.getString(R.string.diagnostics_dpi_suite_failed_summary),
-            errorMessage = error.message ?: error.javaClass.simpleName,
+            errorMessage = stringResolver.userMessage(error),
         )
     }

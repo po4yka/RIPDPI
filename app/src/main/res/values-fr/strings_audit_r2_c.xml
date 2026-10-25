@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_user_timeout">Le délai d’attente a expiré. Vérifiez votre connexion, puis réessayez.</string>
+    <string name="error_user_no_network">Impossible d’accéder au réseau. Vérifiez votre connexion ou le DNS, puis réessayez.</string>
+    <string name="error_user_tls">Impossible d’établir une connexion sécurisée. La négociation TLS ou la vérification du certificat a échoué.</string>
+    <string name="error_user_permission">Autorisation refusée. Accordez l’autorisation requise, puis réessayez.</string>
+    <string name="error_user_generic">Une erreur s’est produite. Consultez Journaux pour plus de détails.</string>
+</resources>

@@ -15,6 +15,7 @@ import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TimestampTimeMillis
 import com.poyka.ripdpi.platform.TimestampTimeSeconds
+import com.poyka.ripdpi.platform.userMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -93,7 +94,7 @@ class ReplayFailureViewModel
                                     mutableUiState.update { state ->
                                         state.copy(
                                             isRunning = false,
-                                            errorMessage = error.localizedMessage ?: error.javaClass.simpleName,
+                                            errorMessage = stringResolver.userMessage(error),
                                         )
                                     }
                                 }

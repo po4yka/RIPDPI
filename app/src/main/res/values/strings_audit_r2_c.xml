@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_user_timeout">The operation timed out. Check your connection and try again.</string>
+    <string name="error_user_no_network">Could not reach the network. Check your connection or DNS and try again.</string>
+    <string name="error_user_tls">Could not set up a secure connection. The TLS handshake or certificate check failed.</string>
+    <string name="error_user_permission">Permission denied. Grant the required permission and try again.</string>
+    <string name="error_user_generic">Something went wrong. See Logs for details.</string>
+</resources>

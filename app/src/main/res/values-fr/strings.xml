@@ -3685,7 +3685,6 @@ Source : %2$s</string>
     <string name="detection_check_category_ip_consensus">Consensus IP</string>
     <string name="detection_check_category_native_signs">Signes natifs</string>
     <string name="detection_debug_diagnostics_label">Diagnostics de débogage</string>
-    <string name="detection_error_unknown">Erreur inconnue</string>
     <string name="detection_exposure_insufficient_data">Données insuffisantes</string>
     <string name="detection_exposure_local_proxy_api">Proxy/API local</string>
     <string name="detection_exposure_public_ip">IP publique</string>

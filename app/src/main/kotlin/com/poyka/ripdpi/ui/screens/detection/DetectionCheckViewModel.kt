@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
@@ -43,7 +44,7 @@ data class DetectionCheckUiState(
     val history: ImmutableList<DetectionHistoryEntry> = persistentListOf(),
     val communityStats: CommunityStats? = null,
     val communityStatsLoading: Boolean = false,
-    val communityStatsError: String? = null,
+    @StringRes val communityStatsError: Int? = null,
     val privacyModeEnabled: Boolean = false,
     val cdnPullingEnabled: Boolean = false,
     val debugModeEnabled: Boolean = false,

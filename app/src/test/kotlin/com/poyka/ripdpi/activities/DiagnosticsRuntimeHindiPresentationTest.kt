@@ -178,7 +178,14 @@ class DiagnosticsRuntimeHindiPresentationTest {
                     if (language == "hi") "PT पहुँच जाँच विफल रही." else "PT reachability check failed.",
                     controller.tool.value.summary,
                 )
-                assertEquals("Exact_Raw_Failure", controller.tool.value.errorMessage)
+                assertEquals(
+                    if (language == "hi") {
+                        "कुछ गलत हो गया। विवरण के लिए लॉग देखें।"
+                    } else {
+                        "Something went wrong. See Logs for details."
+                    },
+                    controller.tool.value.errorMessage,
+                )
             }
         }
 

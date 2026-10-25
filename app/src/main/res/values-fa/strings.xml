@@ -3690,7 +3690,6 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_ip_consensus">اجماع IP</string>
     <string name="detection_check_category_native_signs">نشانه‌های بومی</string>
     <string name="detection_debug_diagnostics_label">تشخیص اشکال‌زدایی</string>
-    <string name="detection_error_unknown">خطای ناشناخته</string>
     <string name="detection_exposure_insufficient_data">داده ناکافی</string>
     <string name="detection_exposure_local_proxy_api">پروکسی/API محلی</string>
     <string name="detection_exposure_public_ip">IP عمومی</string>

@@ -3815,7 +3815,6 @@ Source: %2$s</string>
     <string name="detection_check_category_ip_consensus">IP consensus</string>
     <string name="detection_check_category_native_signs">Native signs</string>
     <string name="detection_debug_diagnostics_label">Debug diagnostics</string>
-    <string name="detection_error_unknown">Unknown error</string>
     <string name="detection_exposure_insufficient_data">Insufficient data</string>
     <string name="detection_exposure_local_proxy_api">Local proxy/API</string>
     <string name="detection_exposure_public_ip">Public IP</string>

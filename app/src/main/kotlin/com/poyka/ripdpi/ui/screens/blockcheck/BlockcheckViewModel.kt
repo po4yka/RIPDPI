@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.blockcheck
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.BlockLayerDiagnosis
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
@@ -10,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeFailureKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.platform.userMessageRes
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import dagger.Binds
 import dagger.Module
@@ -115,7 +117,11 @@ class BlockcheckViewModel
                     candidateResult
                         .onFailure { error ->
                             mutableUiState.update {
-                                it.copy(runState = BlockcheckRunState.Error, message = error.userMessage())
+                                it.copy(
+                                    runState = BlockcheckRunState.Error,
+                                    message = null,
+                                    messageRes = error.loggedUserMessageRes(),
+                                )
                             }
                         }.onSuccess { candidates ->
                             lastCandidates = candidates
@@ -135,7 +141,11 @@ class BlockcheckViewModel
                                         throw error
                                     }
                                     mutableUiState.update { state ->
-                                        state.copy(runState = BlockcheckRunState.Error, message = error.userMessage())
+                                        state.copy(
+                                            runState = BlockcheckRunState.Error,
+                                            message = null,
+                                            messageRes = error.loggedUserMessageRes(),
+                                        )
                                     }
                                 }.collect { snapshot ->
                                     mutableUiState.value = snapshot
@@ -231,4 +241,8 @@ class NativeBlockcheckStrategyReloader : BlockcheckStrategyReloader {
     override fun reloadConfig(): String? = runtime.reloadConfig()
 }
 
-private fun Throwable.userMessage(): String = localizedMessage ?: javaClass.simpleName
+@StringRes
+private fun Throwable.loggedUserMessageRes(): Int {
+    Logger.w(this) { "Blockcheck failed" }
+    return userMessageRes()
+}

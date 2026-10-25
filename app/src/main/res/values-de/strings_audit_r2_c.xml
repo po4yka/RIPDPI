@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_user_timeout">Zeitüberschreitung. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.</string>
+    <string name="error_user_no_network">Das Netzwerk ist nicht erreichbar. Prüfen Sie Ihre Verbindung oder das DNS und versuchen Sie es erneut.</string>
+    <string name="error_user_tls">Es konnte keine sichere Verbindung hergestellt werden. Der TLS-Handshake oder die Zertifikatsprüfung ist fehlgeschlagen.</string>
+    <string name="error_user_permission">Zugriff verweigert. Erteilen Sie die nötige Berechtigung und versuchen Sie es erneut.</string>
+    <string name="error_user_generic">Etwas ist schiefgelaufen. Details finden Sie unter Logs.</string>
+</resources>

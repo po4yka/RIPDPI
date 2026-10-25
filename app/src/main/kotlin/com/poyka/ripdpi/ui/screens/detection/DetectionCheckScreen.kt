@@ -8,6 +8,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -763,7 +764,7 @@ private fun DetectionHistoryCommunitySection(
     hasResult: Boolean,
     isRunning: Boolean,
     communityStatsLoading: Boolean,
-    communityStatsError: String?,
+    @StringRes communityStatsError: Int?,
     communityStats: CommunityStats?,
     onReload: () -> Unit,
 ) {
@@ -804,7 +805,7 @@ private fun DetectionHistorySection(
 @Composable
 private fun DetectionCommunityStatsSection(
     isLoading: Boolean,
-    error: String?,
+    @StringRes error: Int?,
     stats: CommunityStats?,
     onReload: () -> Unit,
 ) {
@@ -814,7 +815,7 @@ private fun DetectionCommunityStatsSection(
         }
 
         error != null -> {
-            CommunityStatsErrorCard(message = error, onRetry = onReload)
+            CommunityStatsErrorCard(message = stringResource(error), onRetry = onReload)
         }
 
         stats != null && stats.totalReports > 0 -> {

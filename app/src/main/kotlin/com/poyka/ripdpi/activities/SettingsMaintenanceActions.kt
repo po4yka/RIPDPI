@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -145,6 +146,7 @@ internal class SettingsMaintenanceActions(
             runCatching {
                 strategyPackService.refreshNow()
             }.onFailure { error ->
+                Logger.w(error) { "Strategy-pack catalog refresh failed" }
                 strategyPackCatalogState.value =
                     StrategyPackCatalogUiState(
                         runtimeState = strategyPackStateStore.state.value,
@@ -154,7 +156,6 @@ internal class SettingsMaintenanceActions(
                     SettingsEffect.Notice(
                         title = R.string.notice_strategy_pack_refresh_failed_title,
                         message = R.string.notice_strategy_pack_refresh_failed_message,
-                        messageOverride = error.message,
                         tone = SettingsNoticeTone.Warning,
                     ),
                 )

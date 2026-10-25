@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
 import com.poyka.ripdpi.diagnostics.dpich.WhitelistedSubnetResult
 import com.poyka.ripdpi.diagnostics.dpich.toWhitelistedSubnetCsv
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -143,7 +144,7 @@ internal class DiagnosticsIpv4WhitelistController(
             _tool.value.copy(
                 state = DiagnosticsIpv4WhitelistState.Failed,
                 summary = summary,
-                errorMessage = error.message ?: error.javaClass.simpleName,
+                errorMessage = stringResolver.userMessage(error),
             )
     }
 }

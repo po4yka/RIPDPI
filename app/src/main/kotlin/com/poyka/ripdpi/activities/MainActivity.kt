@@ -14,7 +14,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.AppStartupReadinessState
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.data.support.SupportSettingsDeepLinkParseResult
@@ -22,6 +21,7 @@ import com.poyka.ripdpi.data.support.SupportSettingsDeepLinkParser
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.platform.ProvideDeviceHourCycle
+import com.poyka.ripdpi.platform.userMessageRes
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
 import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
@@ -104,11 +104,7 @@ class MainActivity : AppCompatActivity() {
                             hostCommandFailurePermissionResult(command)?.let { (kind, result) ->
                                 viewModel.onPermissionResult(kind = kind, result = result)
                             }
-                            val message =
-                                error.message
-                                    ?.takeIf { it.isNotBlank() }
-                                    ?: getString(R.string.onboarding_validation_failed_generic)
-                            shellController.onEffect(MainEffect.ShowError(message))
+                            shellController.onEffect(MainEffect.ShowError(getString(error.userMessageRes())))
                         }
                 }
             }

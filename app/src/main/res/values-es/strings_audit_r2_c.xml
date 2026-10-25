@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_user_timeout">Se agotó el tiempo de espera. Comprueba tu conexión y vuelve a intentarlo.</string>
+    <string name="error_user_no_network">No se pudo acceder a la red. Comprueba tu conexión o el DNS y vuelve a intentarlo.</string>
+    <string name="error_user_tls">No se pudo establecer una conexión segura. Falló el protocolo de enlace TLS o la verificación del certificado.</string>
+    <string name="error_user_permission">Permiso denegado. Concede el permiso necesario y vuelve a intentarlo.</string>
+    <string name="error_user_generic">Algo salió mal. Consulta Registros para ver los detalles.</string>
+</resources>

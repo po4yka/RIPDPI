@@ -15,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
 import com.poyka.ripdpi.diagnostics.toStrategyActivationYaml
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import dagger.Binds
 import dagger.Module
@@ -159,7 +160,7 @@ class StrategyTunerViewModel
                             mutableUiState.update {
                                 it.copy(
                                     runState = StrategyTunerRunState.Error,
-                                    message = error.userMessage(),
+                                    message = stringResolver.userMessage(error),
                                     messageRes = null,
                                 )
                             }
@@ -317,5 +318,3 @@ private fun String.normalizedDomains(maxDomains: Int): List<String> =
         .distinct()
         .take(maxDomains.coerceAtLeast(0))
         .toList()
-
-private fun Throwable.userMessage(): String = localizedMessage ?: javaClass.simpleName
