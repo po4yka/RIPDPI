@@ -48,7 +48,7 @@ pub struct CommonRelayConfig {
     pub local_socks_host: String,
     pub local_socks_port: i32,
     /// Per-session RFC 1929 credentials the SOCKS listener requires; `None` keeps NO-AUTH.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing)]
     pub local_socks_auth: Option<LocalSocksAuth>,
     pub udp_enabled: bool,
     pub tcp_fallback_enabled: bool,

@@ -232,9 +232,10 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub tor_transports: Vec<TorPluggableTransportConfig>,
     pub local_socks_host: String,
     pub local_socks_port: i32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    // Input only: no consumer reads a serialized relay config back, and the session secret must not leave.
+    #[serde(default, skip_serializing)]
     pub local_socks_username: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing)]
     pub local_socks_password: Option<String>,
     pub udp_enabled: bool,
     pub tcp_fallback_enabled: bool,
@@ -401,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn kotlin_local_socks_credentials_reach_the_listener_config_and_round_trip() {
+    fn kotlin_local_socks_credentials_reach_the_listener_config_but_are_never_serialized() {
         let mut object = relay_config_json_object();
         object.insert("localSocksUsername".to_string(), json!("session-user"));
         object.insert("localSocksPassword".to_string(), json!(DEBUG_SECRET));
@@ -413,9 +414,10 @@ mod tests {
         assert_eq!("session-user", auth.username);
         assert_eq!(DEBUG_SECRET, auth.password);
         assert_debug_redacts(&config.common);
-        let round_trip = serde_json::to_value(&config).expect("serialize");
-        assert_eq!(json!("session-user"), round_trip["localSocksUsername"]);
-        assert_eq!(json!(DEBUG_SECRET), round_trip["localSocksPassword"]);
+        let serialized = serde_json::to_value(&config).expect("serialize");
+        assert!(serialized.get("localSocksUsername").is_none());
+        assert!(serialized.get("localSocksPassword").is_none());
+        assert!(!serialized.to_string().contains(DEBUG_SECRET));
     }
 
     #[test]
