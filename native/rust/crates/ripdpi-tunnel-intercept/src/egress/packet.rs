@@ -59,6 +59,23 @@ impl PacketMeta {
     pub(crate) fn payload(self, packet: &[u8]) -> &[u8] {
         packet.get(self.payload_offset..).unwrap_or_default()
     }
+
+    /// Whether `candidate` is a whole IP packet of this packet's flow: same transport, addresses and
+    /// ports, and an IP length field that covers exactly `candidate`. Bytes that only parse as a
+    /// packet header (an app payload slice, a crafted string) do not qualify.
+    pub(crate) fn is_complete_packet_of_flow(self, candidate: &[u8]) -> bool {
+        let Some(endpoint) = transport_endpoint(candidate) else { return false };
+        let declared_len = if endpoint.is_ipv6 {
+            candidate.get(4..6).map(|len| IPV6_HEADER_LEN + usize::from(u16::from_be_bytes([len[0], len[1]])))
+        } else {
+            candidate.get(2..4).map(|len| usize::from(u16::from_be_bytes([len[0], len[1]])))
+        };
+        declared_len == Some(candidate.len())
+            && endpoint.transport == self.transport
+            && endpoint.is_ipv6 == self.is_ipv6
+            && SocketAddr::new(endpoint.src_ip, endpoint.src_port) == self.src_addr()
+            && SocketAddr::new(endpoint.dst_ip, endpoint.dst_port) == self.dst_addr()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

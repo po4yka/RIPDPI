@@ -985,3 +985,69 @@ fn upstream_fake_ttl_matches_complete_packets_and_forwards_original() {
         assert_eq!(packet, decode(original));
     }
 }
+
+/// A Lua egress interceptor that runs `body` as the strategy function.
+fn lua_interceptor(name: &str, body: &str) -> (LuaScriptFixture, TunEgressInterceptor<RecordingInjector>) {
+    let script = write_lua_script(name, &format!("function candidate(desync)\n{body}\nend"));
+    let yaml = format!(
+        "version: 1\nstrategies:\n  - id: lua-egress\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [{}]\n",
+        script.display()
+    );
+    let interceptor = TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+    (script, interceptor)
+}
+
+/// An app payload whose bytes from offset 2 form a complete IPv4/UDP packet to another host.
+fn payload_with_embedded_foreign_packet() -> (Vec<u8>, Vec<u8>) {
+    let mut foreign = ipv4_udp_packet(5353, 53, b"spoofed");
+    foreign[16..20].copy_from_slice(&[8, 8, 8, 8]);
+    recompute_ipv4_header_checksum(&mut foreign[..IPV4_MIN_HEADER_LEN]);
+    assert!(transport_endpoint(&foreign).is_some(), "fixture must parse as a packet");
+    let mut payload = b"xx".to_vec();
+    payload.extend_from_slice(&foreign);
+    (payload, foreign)
+}
+
+#[test]
+fn lua_split_never_injects_an_app_payload_slice_as_a_raw_packet() {
+    let (payload, foreign) = payload_with_embedded_foreign_packet();
+    let packet = ipv4_tcp_packet(49152, 443, &payload);
+    let (_script, mut interceptor) =
+        lua_interceptor("lua-egress-split-spoof", "desync.split(2, false)\nreturn VERDICT_MODIFY");
+
+    assert!(interceptor.handle_packet(&packet));
+
+    let second = &interceptor.injector.packets[1];
+    assert_ne!(second, &foreign, "a payload slice must not be sent as a raw packet");
+    assert_eq!(packet_payload(second), foreign.as_slice());
+    assert_eq!(packet_destination(second), packet_destination(&packet));
+}
+
+#[test]
+fn lua_rawsend_wraps_bytes_that_are_not_a_packet_of_the_current_flow() {
+    let (payload, foreign) = payload_with_embedded_foreign_packet();
+    let packet = ipv4_tcp_packet(49152, 443, &payload);
+    let (_script, mut interceptor) =
+        lua_interceptor("lua-egress-rawsend-spoof", "desync.rawsend(desync.payload:sub(3))\nreturn VERDICT_MODIFY");
+
+    assert!(interceptor.handle_packet(&packet));
+
+    let injected = &interceptor.injector.packets[0];
+    assert_ne!(injected, &foreign, "a foreign packet from Lua output must not be sent verbatim");
+    assert_eq!(packet_payload(injected), foreign.as_slice());
+    assert_eq!(packet_destination(injected), packet_destination(&packet));
+}
+
+#[test]
+fn lua_rawsend_injects_a_complete_packet_of_the_current_flow_verbatim() {
+    let own = ipv4_tcp_packet(49152, 443, b"own-flow");
+    let mut payload = b"xx".to_vec();
+    payload.extend_from_slice(&own);
+    let packet = ipv4_tcp_packet(49152, 443, &payload);
+    let (_script, mut interceptor) =
+        lua_interceptor("lua-egress-rawsend-own", "desync.rawsend(desync.payload:sub(3))\nreturn VERDICT_MODIFY");
+
+    assert!(interceptor.handle_packet(&packet));
+
+    assert_eq!(interceptor.injector.packets, vec![own]);
+}

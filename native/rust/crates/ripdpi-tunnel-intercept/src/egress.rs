@@ -25,11 +25,12 @@ mod upstream_vectors;
 
 use self::packet::{
     PacketMeta, Transport, flow_id, low_ttl_tcp_copy, packet_destination, packet_with_payload, set_packet_hop_limit,
-    transport_endpoint,
 };
 
 #[cfg(test)]
-use self::packet::{IPV4_MIN_HEADER_LEN, IPV6_HEADER_LEN, TCP_PROTO, UDP_PROTO, recompute_ipv4_header_checksum};
+use self::packet::{
+    IPV4_MIN_HEADER_LEN, IPV6_HEADER_LEN, TCP_PROTO, UDP_PROTO, recompute_ipv4_header_checksum, transport_endpoint,
+};
 
 pub trait TunPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
@@ -409,7 +410,7 @@ fn execute_registry_action<I: TunPacketInjector>(
     for action in plan.actions {
         match action {
             DesyncAction::RawSend(output) | DesyncAction::Write(output) => {
-                if inject_strategy_output(packet, meta, &output, sequence_delta, ttl, injector) {
+                if inject_lua_output(packet, meta, &output, sequence_delta, ttl, injector) {
                     injected = true;
                     sequence_delta = sequence_delta.wrapping_add(output.len() as u32);
                 } else {
@@ -419,16 +420,15 @@ fn execute_registry_action<I: TunPacketInjector>(
             }
             DesyncAction::Split { offset, disorder } => {
                 if let Some((first, second)) = split_payload(payload, offset) {
+                    // Split segments are slices of the app's own payload: always wrap them.
                     let (first_sent, second_sent) = if disorder {
-                        let first_sent =
-                            inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
-                        (first_sent, first_sent && inject_strategy_output(packet, meta, first, 0, ttl, injector))
+                        let first_sent = inject_payload(packet, meta, second, first.len() as u32, ttl, injector);
+                        (first_sent, first_sent && inject_payload(packet, meta, first, 0, ttl, injector))
                     } else {
-                        let first_sent = inject_strategy_output(packet, meta, first, 0, ttl, injector);
+                        let first_sent = inject_payload(packet, meta, first, 0, ttl, injector);
                         (
                             first_sent,
-                            first_sent
-                                && inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector),
+                            first_sent && inject_payload(packet, meta, second, first.len() as u32, ttl, injector),
                         )
                     };
                     injected |= first_sent || second_sent;
@@ -442,7 +442,7 @@ fn execute_registry_action<I: TunPacketInjector>(
             DesyncAction::RestoreDefaultTtl => ttl = None,
             DesyncAction::WriteFake { ttl: fake_ttl, .. } => {
                 if let Some(output) = low_ttl_tcp_copy(packet, fake_ttl.or(ttl).unwrap_or(5)) {
-                    let sent = inject_strategy_output(packet, meta, &output, 0, None, injector);
+                    let sent = inject_raw_packet(output, None, injector);
                     injected |= sent;
                     all_injected &= sent;
                 } else {
@@ -452,7 +452,7 @@ fn execute_registry_action<I: TunPacketInjector>(
             }
             DesyncAction::UdpLen { delta } => {
                 if let Some(output) = ripdpi_strategy_udp::apply_udplen(packet, delta) {
-                    let sent = inject_strategy_output(packet, meta, &output, 0, None, injector);
+                    let sent = inject_raw_packet(output, None, injector);
                     injected |= sent;
                     all_injected &= sent;
                 } else {
@@ -639,7 +639,10 @@ fn split_payload(payload: &[u8], offset: usize) -> Option<(&[u8], &[u8])> {
     Some(payload.split_at(offset))
 }
 
-fn inject_strategy_output<I: TunPacketInjector>(
+/// Injects bytes a Lua strategy returned. As in the zapret2 rawsend contract, a whole packet is
+/// sent as is, but only a packet of the current flow: anything else, including bytes that merely
+/// parse as an IP header, is the payload of a packet built from the original.
+fn inject_lua_output<I: TunPacketInjector>(
     packet: &[u8],
     meta: PacketMeta,
     output: &[u8],
@@ -647,23 +650,36 @@ fn inject_strategy_output<I: TunPacketInjector>(
     ttl: Option<u8>,
     injector: &mut I,
 ) -> bool {
-    if output.is_empty() {
+    if meta.is_complete_packet_of_flow(output) {
+        inject_raw_packet(output.to_vec(), ttl, injector)
+    } else {
+        inject_payload(packet, meta, output, sequence_delta, ttl, injector)
+    }
+}
+
+fn inject_payload<I: TunPacketInjector>(
+    packet: &[u8],
+    meta: PacketMeta,
+    payload: &[u8],
+    sequence_delta: u32,
+    ttl: Option<u8>,
+    injector: &mut I,
+) -> bool {
+    if payload.is_empty() {
         return false;
     }
-    let injection = if transport_endpoint(output).is_some() {
-        let mut packet = output.to_vec();
-        if let Some(ttl) = ttl
-            && set_packet_hop_limit(&mut packet, ttl).is_none()
-        {
-            return false;
-        }
-        packet
-    } else {
-        match packet_with_payload(packet, meta, output, sequence_delta, ttl) {
-            Some(packet) => packet,
-            None => return false,
-        }
-    };
+    match packet_with_payload(packet, meta, payload, sequence_delta, ttl) {
+        Some(injection) => inject_raw_packet(injection, None, injector),
+        None => false,
+    }
+}
+
+fn inject_raw_packet<I: TunPacketInjector>(mut injection: Vec<u8>, ttl: Option<u8>, injector: &mut I) -> bool {
+    if let Some(ttl) = ttl
+        && set_packet_hop_limit(&mut injection, ttl).is_none()
+    {
+        return false;
+    }
     match injector.inject_packet(&injection) {
         Ok(()) => true,
         Err(error) => {
