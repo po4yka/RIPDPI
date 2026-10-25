@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -200,14 +200,12 @@ internal fun AdvancedTextSetting(
                 RipDpiTextFieldBehavior(
                     enabled = enabled,
                     keyboardOptions = keyboardOptions,
-                    keyboardActions =
-                        KeyboardActions(
-                            onDone = {
-                                if (enabled && isDirty && isValid) {
-                                    onConfirm(setting, normalizedInput)
-                                }
-                            },
-                        ),
+                    onKeyboardAction =
+                        KeyboardActionHandler {
+                            if (enabled && isDirty && isValid) {
+                                onConfirm(setting, normalizedInput)
+                            }
+                        },
                 ),
             multiline = multiline,
         )

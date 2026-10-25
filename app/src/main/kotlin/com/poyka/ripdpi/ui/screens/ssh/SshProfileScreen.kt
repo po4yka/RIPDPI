@@ -2,14 +2,13 @@ package com.poyka.ripdpi.ui.screens.ssh
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -246,14 +245,8 @@ private fun PlainField(
         behavior =
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                visualTransformation =
-                    if (keyboardType ==
-                        KeyboardType.Password
-                    ) {
-                        PasswordVisualTransformation()
-                    } else {
-                        VisualTransformation.None
-                    },
+                textObfuscationMode =
+                    if (keyboardType == KeyboardType.Password) TextObfuscationMode.Hidden else null,
                 readOnly = readOnly,
             ),
     )
@@ -278,8 +271,8 @@ private fun SecretField(
             ),
         behavior =
             RipDpiTextFieldBehavior(
-                visualTransformation =
-                    if (revealed) VisualTransformation.None else PasswordVisualTransformation(),
+                textObfuscationMode =
+                    if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
             ),
         trailingContent = {
             RipDpiButton(

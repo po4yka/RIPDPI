@@ -9,8 +9,9 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +21,6 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
@@ -599,15 +599,13 @@ internal fun BackupPinEditor(
                             keyboardType = KeyboardType.NumberPassword,
                             imeAction = ImeAction.Done,
                         ),
-                    keyboardActions =
-                        KeyboardActions(
-                            onDone = {
-                                if (canSave) {
-                                    onSave()
-                                }
-                            },
-                        ),
-                    visualTransformation = PasswordVisualTransformation(),
+                    onKeyboardAction =
+                        KeyboardActionHandler {
+                            if (canSave) {
+                                onSave()
+                            }
+                        },
+                    textObfuscationMode = TextObfuscationMode.Hidden,
                 ),
         )
         FlowRow(
@@ -691,10 +689,7 @@ internal fun CommunityApiUrlEditor(
                             keyboardType = KeyboardType.Uri,
                             imeAction = ImeAction.Done,
                         ),
-                    keyboardActions =
-                        KeyboardActions(
-                            onDone = { onSave() },
-                        ),
+                    onKeyboardAction = KeyboardActionHandler { onSave() },
                 ),
         )
         FlowRow(

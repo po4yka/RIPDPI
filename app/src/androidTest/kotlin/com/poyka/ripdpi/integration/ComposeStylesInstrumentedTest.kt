@@ -10,8 +10,8 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -103,12 +103,12 @@ class ComposeStylesInstrumentedTest {
                         behavior =
                             RipDpiTextFieldBehavior(
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions =
-                                    KeyboardActions(onDone = {
+                                onKeyboardAction =
+                                    KeyboardActionHandler {
                                         commits++
                                         keyboard?.hide()
                                         focus.clearFocus()
-                                    }),
+                                    },
                             ),
                     )
                 }
