@@ -153,7 +153,7 @@ fun RipDpiNavHost(
 
     HandleLaunchRequests(
         launchRequests = launchRequests,
-        currentStableRoute = currentStableRoute,
+        currentStableRoute = navController.launchGateRoute(currentBackStackEntry, currentStableRoute),
         navigateHome = { navController.navigateHome() },
         navigateToRoute = { destination ->
             if (Route.topLevel.contains(destination)) {
@@ -231,10 +231,8 @@ fun RipDpiNavHost(
 
 /** No tab is selected, so no bottom bar or rail shows, while onboarding is on the back stack. */
 @Composable
-private fun NavHostController.selectedTopLevelRoute(entry: NavBackStackEntry?): Route? {
-    val onboardingActive = remember(entry) { runCatching { getBackStackEntry<Route.Onboarding>() }.isSuccess }
-    return if (onboardingActive) null else entry?.destination?.topLevelRoute()
-}
+private fun NavHostController.selectedTopLevelRoute(entry: NavBackStackEntry?): Route? =
+    if (hasOnboardingEntry(entry)) null else entry?.destination?.topLevelRoute()
 
 private fun NavDestination.topLevelRoute(): Route? =
     Route.topLevel.firstOrNull { matchesRoute(it) }
