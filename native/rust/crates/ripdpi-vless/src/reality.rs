@@ -242,6 +242,17 @@ where
     connect_reality_tls_inner(transport, config).await
 }
 
+/// Puts `X25519MLKEM768:X25519` first in a BoringSSL curve list and keeps the
+/// other groups in order. XTLS/REALITY (since 2026-09-08, Xray v26.9.9) sends
+/// a ClientHello without an X25519MLKEM768 share ahead of the X25519 share to
+/// the cover site. BoringSSL sends key shares for the first group and the
+/// next group of the other kind, so this list yields exactly those two shares;
+/// the separate X25519 share is the one the REALITY seal is derived from.
+fn reality_curves_list(curves: &str) -> String {
+    let rest = curves.split(':').filter(|group| !matches!(*group, "X25519MLKEM768" | "X25519"));
+    ["X25519MLKEM768", "X25519"].into_iter().chain(rest).collect::<Vec<_>>().join(":")
+}
+
 /// # Cancel safety
 ///
 /// conditionally cancel-safe: this function exclusively owns the in-progress
@@ -276,13 +287,17 @@ where
         .set_sigalgs_list(&reality_sigalgs)
         .map_err(|error| io::Error::other(format!("Reality TLS signature algorithms: {error}")))?;
 
-    // Optional post-quantum KEM group override: replace the profile's static
-    // curve list with the configured ordered group list (applied AFTER profile
+    // Curve list: the optional KEM group override, else the profile's static
+    // list, with the hybrid prefix REALITY requires (applied AFTER profile
     // resolution, BEFORE `.build()`).
-    if let Some(kem_groups) = config.kem_groups.as_deref() {
-        ripdpi_tls_profiles::apply_kem_groups(&mut builder, kem_groups)
-            .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?;
-    }
+    let base_curves = match config.kem_groups.as_deref() {
+        Some(kem_groups) => ripdpi_tls_profiles::normalize_kem_groups(kem_groups)
+            .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?,
+        None => ripdpi_tls_profiles::selected_profile_config(profile_name).curves.to_owned(),
+    };
+    builder
+        .set_curves_list(&reality_curves_list(&base_curves))
+        .map_err(|error| io::Error::other(format!("Reality TLS curves: {error}")))?;
 
     // REALITY servers present a temporary certificate, not the cover
     // site's chain, so X.509 chain validation is off here. The server is
@@ -488,15 +503,26 @@ mod tests {
     /// client's `derive_auth_key`, so it is not an independent oracle; the
     /// `local-network-fixture` REALITY server and the frozen Go seal vector
     /// cover the derivation independently.
+    ///
+    /// Like XTLS/REALITY tls.go since 2026-09-08, a ClientHello without an
+    /// X25519MLKEM768 share before the X25519 share is not a REALITY client.
     fn server_auth_key(server_secret: &[u8; 32], hello: &ClientHello<'_>) -> Option<zeroize::Zeroizing<[u8; 32]>> {
+        const MLKEM768_HYBRID_SHARE_LEN: usize = 1184 + 32;
         let client_random: [u8; 32] = hello.random().try_into().ok()?;
         let extension = hello.get_extension(ExtensionType::KEY_SHARE)?;
         let mut entries = extension.get(2..)?;
+        let mut saw_hybrid = false;
         while entries.len() >= 4 {
             let group = u16::from_be_bytes([entries[0], entries[1]]);
             let length = usize::from(u16::from_be_bytes([entries[2], entries[3]]));
             let key = entries.get(4..4 + length)?;
+            if group == 0x11ec && length == MLKEM768_HYBRID_SHARE_LEN {
+                saw_hybrid = true;
+            }
             if group == 0x001d {
+                if !saw_hybrid {
+                    return None;
+                }
                 let client_share: [u8; 32] = key.try_into().ok()?;
                 return derive_auth_key(server_secret, &client_share, &client_random).ok();
             }
@@ -508,6 +534,14 @@ mod tests {
     /// Runs one REALITY handshake against a fixture server and reads its
     /// two-byte reply.
     async fn connect_to_fixture(certificate: FixtureCertificate) -> io::Result<[u8; 2]> {
+        connect_to_fixture_with(certificate, "chrome_stable", Some(vec!["X25519".to_string()])).await
+    }
+
+    async fn connect_to_fixture_with(
+        certificate: FixtureCertificate,
+        profile: &str,
+        kem_groups: Option<Vec<String>>,
+    ) -> io::Result<[u8; 2]> {
         let context = fixture_context(certificate);
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind Reality TLS fixture");
         let address = listener.local_addr().expect("Reality TLS fixture address");
@@ -532,10 +566,13 @@ mod tests {
             "reality.test",
             &public_key,
             "abcd1234",
-            "chrome_stable",
+            profile,
         )
-        .expect("Reality TLS fixture config")
-        .with_kem_groups(vec!["X25519".to_string()]);
+        .expect("Reality TLS fixture config");
+        let config = match kem_groups {
+            Some(groups) => config.with_kem_groups(groups),
+            None => config,
+        };
 
         let tcp = tokio::net::TcpStream::connect(address).await.expect("connect Reality TLS fixture");
         let result = match connect_reality_tls(tcp, &config).await {
@@ -555,6 +592,19 @@ mod tests {
             .await
             .expect("a REALITY server with the configured key must be accepted");
         assert_eq!(response, *b"ok");
+    }
+
+    #[tokio::test]
+    async fn reality_tls_offers_hybrid_key_share_for_every_profile() {
+        // firefox_stable, firefox_ech_stable and safari_stable list only
+        // classical curves; current REALITY servers reject such a ClientHello.
+        for profile in ["chrome_stable", "firefox_stable", "firefox_ech_stable", "safari_stable"] {
+            let response =
+                connect_to_fixture_with(FixtureCertificate::RealityAuth(REALITY_SERVER_SECRET), profile, None)
+                    .await
+                    .unwrap_or_else(|error| panic!("{profile}: REALITY handshake failed: {error}"));
+            assert_eq!(response, *b"ok", "{profile}");
+        }
     }
 
     #[tokio::test]

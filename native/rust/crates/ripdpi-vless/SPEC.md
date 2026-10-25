@@ -33,7 +33,8 @@ See `wire.rs` for the encoder; the response header is one version byte + one add
 5. It patches the serialized ClientHello before BoringSSL adds it to the transcript.
 6. The patched handshake driver synchronizes BoringSSL's internal session ID with the serialized replacement before processing ServerHello.
 7. The REALITY-only connector advertises Ed25519 because the authenticated server flight uses an ephemeral Ed25519 certificate and CertificateVerify signature.
-8. Standard certificate verification is disabled because REALITY uses its own authentication model.
+8. The REALITY-only connector puts `X25519MLKEM768:X25519` first in the curve list, for every TLS profile and KEM group override. XTLS/REALITY since 2026-09-08 (Xray v26.9.9) treats a ClientHello without an X25519MLKEM768 share ahead of the X25519 share as a non-REALITY client.
+9. Standard certificate verification is disabled because REALITY uses its own authentication model.
 
 The vendored BoringSSL hook surface is declared in `reality_hook.rs`;
 `reality_seal.rs` owns the HKDF/AES-GCM sealing logic. The exact BoringSSL pin
