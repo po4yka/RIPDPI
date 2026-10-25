@@ -28,6 +28,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -124,10 +125,6 @@ class StrategyTunerViewModel
 
         private var probeJob: Job? = null
 
-        // A cancelled sweep restores the user's settings only when its probe reaches a
-        // suspension point; the next sweep or apply must not touch settings before that.
-        private val settingsMutex = Mutex()
-
         fun updateDomainsText(value: String) {
             mutableUiState.update { state ->
                 if (state.isRunning) {
@@ -155,7 +152,7 @@ class StrategyTunerViewModel
             probeJob?.cancel()
             probeJob =
                 viewModelScope.launch {
-                    settingsMutex.withLock { collectSweep(domains) }
+                    collectSweep(domains)
                 }
         }
 
@@ -238,7 +235,7 @@ class StrategyTunerViewModel
         fun apply(strategyId: String) {
             if (uiState.value.isRunning) return
             viewModelScope.launch {
-                val error = settingsMutex.withLock { runner.apply(strategyId) }
+                val error = runner.apply(strategyId)
                 mutableUiState.update {
                     it.copy(
                         runState = if (error == null) it.runState else StrategyTunerRunState.Error,
@@ -263,43 +260,52 @@ class DefaultStrategyTunerRunner
         override val budget: StrategyTunerBudget = StrategyTunerBudget()
         private var lastCandidates: List<StrategyProbeCandidate> = emptyList()
 
-        override fun run(domains: List<String>): Flow<StrategyTunerEvent> =
-            flow {
-                val boundedDomains = domains.take(budget.maxDomains)
-                val candidates =
-                    candidateProvider
-                        .listCandidates()
-                        .distinctBy(
-                            StrategyProbeCandidate::id,
-                        ).take(budget.maxStrategies)
-                lastCandidates = candidates
-                val expected = min(candidates.size * boundedDomains.size, budget.maxTotalProbes)
-                emit(
-                    StrategyTunerEvent.Started(
-                        domains = boundedDomains,
-                        candidates = candidates,
-                        totalExpectedResults = expected,
-                    ),
-                )
-                if (expected == 0) {
-                    emit(StrategyTunerEvent.Complete)
-                    return@flow
-                }
-                probeService
-                    .run(
-                        StrategyProbeConfig(
-                            testDomains = boundedDomains,
-                            timeoutMs = budget.timeoutMs,
-                            maxStrategies = candidates.size,
-                            maxTotalProbes = budget.maxTotalProbes,
-                            probeIntervalMs = budget.probeIntervalMs,
-                            candidateIds = candidates.map(StrategyProbeCandidate::id),
-                        ),
-                    ).collect { result -> emit(StrategyTunerEvent.Result(result)) }
-                emit(StrategyTunerEvent.Complete)
-            }
+        // A sweep writes probe candidates into the persisted settings and restores the user's
+        // snapshot only when its probe reaches a suspension point after cancel. The lock lives in
+        // this singleton so a sweep or apply from a re-created screen also waits for that restore.
+        private val settingsMutex = Mutex()
 
-        override suspend fun apply(strategyId: String): String? {
+        override fun run(domains: List<String>): Flow<StrategyTunerEvent> =
+            flow { settingsMutex.withLock { emitSweep(domains) } }
+
+        private suspend fun FlowCollector<StrategyTunerEvent>.emitSweep(domains: List<String>) {
+            val boundedDomains = domains.take(budget.maxDomains)
+            val candidates =
+                candidateProvider
+                    .listCandidates()
+                    .distinctBy(
+                        StrategyProbeCandidate::id,
+                    ).take(budget.maxStrategies)
+            lastCandidates = candidates
+            val expected = min(candidates.size * boundedDomains.size, budget.maxTotalProbes)
+            emit(
+                StrategyTunerEvent.Started(
+                    domains = boundedDomains,
+                    candidates = candidates,
+                    totalExpectedResults = expected,
+                ),
+            )
+            if (expected == 0) {
+                emit(StrategyTunerEvent.Complete)
+                return
+            }
+            probeService
+                .run(
+                    StrategyProbeConfig(
+                        testDomains = boundedDomains,
+                        timeoutMs = budget.timeoutMs,
+                        maxStrategies = candidates.size,
+                        maxTotalProbes = budget.maxTotalProbes,
+                        probeIntervalMs = budget.probeIntervalMs,
+                        candidateIds = candidates.map(StrategyProbeCandidate::id),
+                    ),
+                ).collect { result -> emit(StrategyTunerEvent.Result(result)) }
+            emit(StrategyTunerEvent.Complete)
+        }
+
+        override suspend fun apply(strategyId: String): String? = settingsMutex.withLock { applyLocked(strategyId) }
+
+        private suspend fun applyLocked(strategyId: String): String? {
             val candidate =
                 lastCandidates.firstOrNull { it.id == strategyId }
                     ?: candidateProvider.listCandidates().firstOrNull { it.id == strategyId }
