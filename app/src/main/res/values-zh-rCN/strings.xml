@@ -2279,8 +2279,8 @@ fake_burst 3</string>
     <string name="data_transparency_dpi_detection">DPI 检测结果:失败分类、策略有效性</string>
     <string name="data_transparency_export_redaction">导出的摘要、清单和报告会对 IP 地址、Wi-Fi 标识符及支持上下文进行脱敏。原始数据包捕获会单独存储和导出，绝不会嵌入已脱敏的诊断归档。</string>
     <string name="data_transparency_network_identity">网络身份:网络特征的哈希指纹(Wi-Fi SSID、运营商信息)</string>
-    <string name="data_transparency_no_personal_data">不包含账户或凭据；只有通过高级数据包捕获控件才会创建 PCAP，其中可能包含原始数据包载荷字节</string>
-    <string name="data_transparency_what_we_collect_section">我们收集的内容</string>
+    <string name="data_transparency_no_personal_data">无需用户账户：应用无需登录即可使用</string>
+    <string name="data_transparency_what_we_collect_section">此设备上存储的内容</string>
     <string name="detection_check_category_bypass">绕过</string>
     <string name="detection_check_category_icmp_spoofing">ICMP 欺骗</string>
     <string name="detection_check_category_rtt_triangulation">RTT 三角测量</string>
@@ -2596,7 +2596,7 @@ fake_burst 3</string>
     <string name="settings_biometric_title">需要身份验证</string>
     <string name="settings_community_api_url_label">社区 API URL</string>
     <string name="settings_connectivity_dns_body">解析器模式、协议、IPv6 及本地隧道 DNS 行为。</string>
-    <string name="settings_data_transparency_body">收集了哪些数据、如何存储,以及您的隐私控制选项。</string>
+    <string name="settings_data_transparency_body">此设备上存储了哪些内容、保留多久，以及何时会离开设备。</string>
     <string name="settings_diagnostics_monitor_disabled">启用运行时诊断历史以编辑采样频率。</string>
     <string name="settings_diagnostics_sample_body">RIPDPI 为活动连接存储网络、遥测和上下文样本的频率。允许范围:5 至 300 秒。</string>
     <string name="settings_full_tunnel_body">将所有流量通过 VPN 路由,不设应用排除。可防止间谍模块直接发送流量,但俄罗斯应用可能会检测到 VPN。</string>

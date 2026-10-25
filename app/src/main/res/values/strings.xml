@@ -2213,8 +2213,8 @@ Source: %2$s</string>
     <string name="about_links_section">Links</string>
 
     <string name="title_data_transparency">Data transparency</string>
-    <string name="settings_data_transparency_body">What data is collected, how it is stored, and your privacy controls.</string>
-    <string name="data_transparency_what_we_collect_section">What we collect</string>
+    <string name="settings_data_transparency_body">What is stored on this device, how long it is kept, and when it leaves the device.</string>
+    <string name="data_transparency_what_we_collect_section">What is stored on this device</string>
     <string name="data_transparency_network_diagnostics">Network diagnostics: transport type, signal strength, DNS configuration</string>
     <string name="data_transparency_dpi_detection">DPI detection results: failure classifications, strategy effectiveness</string>
     <string name="data_transparency_performance_metrics">Performance metrics: RTT measurements, retry counts, traffic statistics</string>
@@ -2223,7 +2223,7 @@ Source: %2$s</string>
     <string name="data_transparency_optional_ip">Optional: public IP address (only during manual diagnostic scans)</string>
     <string name="data_transparency_what_we_do_not_collect_section">What we do NOT collect</string>
     <string name="data_transparency_no_browsing">No browsing history, URL content, packet payloads, credentials, or TLS secrets in normal diagnostics</string>
-    <string name="data_transparency_no_personal_data">No accounts or credentials; PCAP is only created by the advanced packet capture control and may contain raw packet payload bytes</string>
+    <string name="data_transparency_no_personal_data">No user accounts: the app works without sign-in</string>
     <string name="data_transparency_no_external_servers">No data is sent to external servers automatically</string>
     <string name="data_transparency_no_analytics">No analytics, crash reporting, or advertising SDKs</string>
     <string name="data_transparency_how_stored_section">How data is stored</string>

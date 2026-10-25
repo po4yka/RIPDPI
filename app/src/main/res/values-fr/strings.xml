@@ -1019,7 +1019,7 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_pin_required_message">Définissez un PIN de secours avant d\'activer le déverrouillage biométrique. Le PIN fournit un accès de repli si l\'authentification biométrique devient indisponible.</string>
     <string name="settings_clear_community_cache">Effacer le cache communautaire</string>
     <string name="settings_connectivity_dns_body">Mode de résolveur, protocole, IPv6 et comportement DNS du tunnel local.</string>
-    <string name="settings_data_transparency_body">Quelles données sont collectées, comment elles sont stockées et vos contrôles de confidentialité.</string>
+    <string name="settings_data_transparency_body">Ce qui est stocké sur cet appareil, combien de temps, et quand les données le quittent.</string>
     <string name="settings_diagnostics_monitor_title">Enregistrer l\'historique des diagnostics d\'exécution</string>
     <string name="settings_exclude_russian_apps_body">Les applis bancaires, de livraison et gouvernementales contournent le VPN pour éviter les problèmes de détection.</string>
     <string name="settings_full_tunnel_title">Mode tunnel complet</string>
@@ -1692,7 +1692,7 @@ Source : %2$s</string>
     <string name="data_transparency_export_control">Vous contrôlez les données enregistrées ou partagées, leurs destinataires et la suppression des exports enregistrés hors du stockage de l’application</string>
     <string name="data_transparency_local_database">Toutes les données restent sur votre appareil dans une base de données locale</string>
     <string name="data_transparency_no_external_servers">Aucune donnée n\'est envoyée automatiquement à des serveurs externes</string>
-    <string name="data_transparency_what_we_collect_section">Ce que nous collectons</string>
+    <string name="data_transparency_what_we_collect_section">Ce qui est stocké sur cet appareil</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_rtt_triangulation">Triangulation RTT</string>
     <string name="detection_check_recommendations">Recommandations</string>
@@ -2318,7 +2318,7 @@ Source : %2$s</string>
     <string name="customization_themed_icon_title">Icône thématique monochrome</string>
     <string name="data_transparency_export_explicit">Les archives, journaux et partages ne sont créés que sur votre demande explicite</string>
     <string name="data_transparency_network_diagnostics">Diagnostics réseau : type de transport, force du signal, configuration DNS</string>
-    <string name="data_transparency_no_personal_data">Aucun compte ni identifiant ; les fichiers PCAP ne sont créés que par le contrôle avancé de capture des paquets et peuvent contenir les octets bruts de leur charge utile</string>
+    <string name="data_transparency_no_personal_data">Aucun compte utilisateur : l\'application fonctionne sans connexion</string>
     <string name="data_transparency_what_we_do_not_collect_section">Ce que nous ne collectons PAS</string>
     <string name="desync_https">Stratégie de contournement HTTPS</string>
     <string name="detection_check_category_icmp_spoofing">Usurpation ICMP</string>

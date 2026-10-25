@@ -1019,7 +1019,7 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_pin_required_message">Establece un PIN de respaldo antes de habilitar el desbloqueo biométrico. El PIN proporciona acceso de respaldo si la autenticación biométrica deja de estar disponible.</string>
     <string name="settings_clear_community_cache">Borrar caché de comunidad</string>
     <string name="settings_connectivity_dns_body">Modo de resolutor, protocolo, IPv6 y comportamiento del DNS del túnel local.</string>
-    <string name="settings_data_transparency_body">Qué datos se recopilan, cómo se almacenan y tus controles de privacidad.</string>
+    <string name="settings_data_transparency_body">Qué se guarda en este dispositivo, durante cuánto tiempo y cuándo sale de él.</string>
     <string name="settings_diagnostics_monitor_title">Registrar el historial de diagnóstico del runtime</string>
     <string name="settings_exclude_russian_apps_body">Las apps bancarias, de entrega y gubernamentales evitan la VPN para evitar problemas de detección.</string>
     <string name="settings_full_tunnel_title">Modo túnel completo</string>
@@ -1692,7 +1692,7 @@ Origen: %2$s</string>
     <string name="data_transparency_export_control">Tú decides qué se guarda o comparte, quién lo recibe y cuándo eliminar las exportaciones guardadas fuera del almacenamiento de la aplicación</string>
     <string name="data_transparency_local_database">Todos los datos permanecen en tu dispositivo en una base de datos local</string>
     <string name="data_transparency_no_external_servers">No se envían datos automáticamente a servidores externos</string>
-    <string name="data_transparency_what_we_collect_section">Qué recopilamos</string>
+    <string name="data_transparency_what_we_collect_section">Qué se guarda en este dispositivo</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_rtt_triangulation">Triangulación de RTT</string>
     <string name="detection_check_recommendations">Recomendaciones</string>
@@ -2318,7 +2318,7 @@ Origen: %2$s</string>
     <string name="customization_themed_icon_title">Icono temático monocromo</string>
     <string name="data_transparency_export_explicit">Los archivos de exportación, registros y elementos compartidos solo se crean cuando los solicitas explícitamente</string>
     <string name="data_transparency_network_diagnostics">Diagnósticos de red: tipo de transporte, intensidad de la señal, configuración del DNS</string>
-    <string name="data_transparency_no_personal_data">Sin cuentas ni credenciales; el PCAP solo se crea mediante el control avanzado de captura de paquetes y puede contener bytes de datos de paquetes sin procesar</string>
+    <string name="data_transparency_no_personal_data">Sin cuentas de usuario: la app funciona sin iniciar sesión</string>
     <string name="data_transparency_what_we_do_not_collect_section">Lo que NO recopilamos</string>
     <string name="desync_https">Estrategia de bypass HTTPS</string>
     <string name="detection_check_category_icmp_spoofing">Suplantación ICMP</string>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">التقاط الحزم</string>
+    <string name="data_transparency_packet_capture_body">لا يُنشأ ملف PCAP إلا عند تشغيل أداة التقاط الحزم المتقدمة. قد يحتوي على بيانات خام من حمولة الحزم ولا يخضع للتنقيح. شاركه فقط مع أشخاص تثق بهم.</string>
+    <string name="data_transparency_open_controls">إعدادات الاحتفاظ والمراقبة</string>
+</resources>

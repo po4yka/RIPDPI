@@ -1624,8 +1624,8 @@ fakeddisorder endhost</string>
     <string name="about_credits_body">RIPDPI основан на open-source проекте hufrea/ripdpi и хранит всю маршрутизацию и конфигурацию локально на устройстве.</string>
     <string name="about_links_section">Ссылки</string>
     <string name="title_data_transparency">Прозрачность данных</string>
-    <string name="settings_data_transparency_body">Какие данные собираются, как хранятся и какие есть средства управления конфиденциальностью.</string>
-    <string name="data_transparency_what_we_collect_section">Что мы собираем</string>
+    <string name="settings_data_transparency_body">Что хранится на этом устройстве, как долго и когда данные покидают устройство.</string>
+    <string name="data_transparency_what_we_collect_section">Что хранится на этом устройстве</string>
     <string name="data_transparency_network_diagnostics">Сетевая диагностика: тип транспорта, уровень сигнала, конфигурация DNS</string>
     <string name="data_transparency_dpi_detection">Результаты обнаружения DPI: классификация сбоев, эффективность стратегий</string>
     <string name="data_transparency_performance_metrics">Метрики производительности: измерения RTT, количество повторов, статистика трафика</string>
@@ -1634,7 +1634,7 @@ fakeddisorder endhost</string>
     <string name="data_transparency_optional_ip">Необязательно: публичный IP-адрес (только во время ручного диагностического сканирования)</string>
     <string name="data_transparency_what_we_do_not_collect_section">Что мы НЕ собираем</string>
     <string name="data_transparency_no_browsing">Никакой истории просмотров, содержимого URL, payload пакетов, учётных данных или TLS-секретов в обычной диагностике</string>
-    <string name="data_transparency_no_personal_data">Никаких аккаунтов или учётных данных; PCAP создаётся только расширенным управлением захватом пакетов и может содержать raw payload пакетов</string>
+    <string name="data_transparency_no_personal_data">Никаких аккаунтов: приложение работает без входа</string>
     <string name="data_transparency_no_external_servers">Данные не отправляются на внешние серверы автоматически</string>
     <string name="data_transparency_no_analytics">Нет аналитики, отчётов об ошибках или рекламных SDK</string>
     <string name="data_transparency_how_stored_section">Как хранятся данные</string>

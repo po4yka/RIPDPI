@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">Packet capture</string>
+    <string name="data_transparency_packet_capture_body">A PCAP file is created only when you start the advanced packet capture control. It can contain raw packet payload bytes and is not redacted. Share it only with people you trust.</string>
+    <string name="data_transparency_open_controls">Retention and monitoring settings</string>
+</resources>

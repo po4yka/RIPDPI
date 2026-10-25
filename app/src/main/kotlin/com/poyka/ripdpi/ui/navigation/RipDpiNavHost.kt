@@ -791,7 +791,10 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
 
 private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostController) {
     composable<Route.DataTransparency> {
-        DataTransparencyRoute(onBack = { navController.popBackStack() })
+        DataTransparencyRoute(
+            onBack = { navController.popBackStack() },
+            onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
+        )
     }
     composable<Route.DetectionCheck> {
         DetectionCheckRoute(

@@ -1019,7 +1019,7 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_pin_required_message">Legen Sie eine Backup-PIN fest, bevor Sie die biometrische Entsperrung aktivieren. Die PIN bietet Fallback-Zugriff, falls die biometrische Authentifizierung nicht mehr verfügbar ist.</string>
     <string name="settings_clear_community_cache">Community-Cache leeren</string>
     <string name="settings_connectivity_dns_body">Resolver-Modus, Protokoll, IPv6 und lokales Tunnel-DNS-Verhalten.</string>
-    <string name="settings_data_transparency_body">Welche Daten erfasst werden, wie sie gespeichert werden und Ihre Datenschutzkontrollen.</string>
+    <string name="settings_data_transparency_body">Was auf diesem Gerät gespeichert wird, wie lange und wann es das Gerät verlässt.</string>
     <string name="settings_diagnostics_monitor_title">Laufzeit-Diagnoseverlauf aufzeichnen</string>
     <string name="settings_exclude_russian_apps_body">Banking-, Liefer- und Behörden-Apps umgehen das VPN, um Erkennungsprobleme zu vermeiden.</string>
     <string name="settings_full_tunnel_title">Voller Tunnelmodus</string>
@@ -1692,7 +1692,7 @@ Quelle: %2$s</string>
     <string name="data_transparency_export_control">Sie bestimmen, was gespeichert oder geteilt wird, wer es erhält und wann gespeicherte Exporte außerhalb des App-Speichers gelöscht werden</string>
     <string name="data_transparency_local_database">Alle Daten verbleiben auf Ihrem Gerät in einer lokalen Datenbank</string>
     <string name="data_transparency_no_external_servers">Es werden keine Daten automatisch an externe Server gesendet</string>
-    <string name="data_transparency_what_we_collect_section">Was wir erfassen</string>
+    <string name="data_transparency_what_we_collect_section">Was auf diesem Gerät gespeichert wird</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_rtt_triangulation">RTT-Triangulation</string>
     <string name="detection_check_recommendations">Empfehlungen</string>
@@ -2318,7 +2318,7 @@ Quelle: %2$s</string>
     <string name="customization_themed_icon_title">Monochromes Themen-Icon</string>
     <string name="data_transparency_export_explicit">Exportarchive, Protokolldateien und Freigaben werden nur auf Ihre ausdrückliche Anforderung erstellt</string>
     <string name="data_transparency_network_diagnostics">Netzwerkdiagnose: Transporttyp, Signalstärke, DNS-Konfiguration</string>
-    <string name="data_transparency_no_personal_data">Keine Konten oder Zugangsdaten; PCAP wird nur über die erweiterte Paketaufzeichnung erstellt und kann rohe Paketnutzdaten enthalten</string>
+    <string name="data_transparency_no_personal_data">Keine Benutzerkonten: Die App funktioniert ohne Anmeldung</string>
     <string name="data_transparency_what_we_do_not_collect_section">Was wir NICHT erfassen</string>
     <string name="desync_https">HTTPS-Bypass-Strategie</string>
     <string name="detection_check_category_icmp_spoofing">ICMP-Spoofing</string>

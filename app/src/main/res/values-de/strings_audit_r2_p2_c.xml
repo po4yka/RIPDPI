@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">Paketaufzeichnung</string>
+    <string name="data_transparency_packet_capture_body">Eine PCAP-Datei wird nur erstellt, wenn Sie die erweiterte Paketaufzeichnung starten. Sie kann rohe Paketnutzdaten enthalten und wird nicht geschwärzt. Teilen Sie sie nur mit Personen, denen Sie vertrauen.</string>
+    <string name="data_transparency_open_controls">Einstellungen für Aufbewahrung und Überwachung</string>
+</resources>

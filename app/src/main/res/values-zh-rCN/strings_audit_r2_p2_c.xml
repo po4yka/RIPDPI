@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">数据包捕获</string>
+    <string name="data_transparency_packet_capture_body">只有在您启动高级数据包捕获控件时才会创建 PCAP 文件。它可能包含原始数据包载荷字节，且不会脱敏。请只与您信任的人分享。</string>
+    <string name="data_transparency_open_controls">保留与监控设置</string>
+</resources>

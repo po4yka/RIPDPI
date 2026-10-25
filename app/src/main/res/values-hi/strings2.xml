@@ -344,8 +344,8 @@
     <string name="about_credits_body">RIPDPI ओपन-सोर्स hufrea/ripdpi प्रोजेक्ट पर आधारित है और सभी रूटिंग और कॉन्फ़िगरेशन को इस उपकरण तक सीमित रखता है।</string>
     <string name="about_links_section">लिंक</string>
     <string name="title_data_transparency">डेटा पारदर्शिता</string>
-    <string name="settings_data_transparency_body">कौन-सा डेटा एकत्र किया जाता है, इसे कैसे संग्रहीत किया जाता है, और आपके गोपनीयता नियंत्रण।</string>
-    <string name="data_transparency_what_we_collect_section">हम क्या एकत्र करते हैं</string>
+    <string name="settings_data_transparency_body">इस डिवाइस पर क्या संग्रहीत होता है, कितने समय तक रखा जाता है, और यह डिवाइस से कब बाहर जाता है।</string>
+    <string name="data_transparency_what_we_collect_section">इस डिवाइस पर क्या संग्रहीत होता है</string>
     <string name="data_transparency_network_diagnostics">नेटवर्क डायग्नोस्टिक्स: ट्रांसपोर्ट प्रकार, सिग्नल क्षमता, DNS कॉन्फ़िगरेशन</string>
     <string name="data_transparency_dpi_detection">DPI पहचान परिणाम: विफलता वर्गीकरण, रणनीति प्रभावशीलता</string>
     <string name="data_transparency_performance_metrics">प्रदर्शन मेट्रिक्स: RTT मापन, पुनः प्रयास गणना, ट्रैफ़िक आँकड़े</string>
@@ -354,7 +354,7 @@
     <string name="data_transparency_optional_ip">वैकल्पिक: सार्वजनिक IP पता (केवल मैन्युअल डायग्नोस्टिक स्कैन के दौरान)</string>
     <string name="data_transparency_what_we_do_not_collect_section">हम क्या एकत्र नहीं करते</string>
     <string name="data_transparency_no_browsing">सामान्य डायग्नोस्टिक्स में कोई ब्राउज़िंग इतिहास, URL सामग्री, पैकेट पेलोड, क्रेडेंशियल, या TLS गोपनीय जानकारी नहीं</string>
-    <string name="data_transparency_no_personal_data">कोई खाता या क्रेडेंशियल नहीं; PCAP केवल उन्नत पैकेट कैप्चर नियंत्रण द्वारा बनाया जाता है और इसमें कच्चे पैकेट पेलोड बाइट्स हो सकते हैं</string>
+    <string name="data_transparency_no_personal_data">कोई उपयोगकर्ता खाता नहीं: ऐप साइन-इन के बिना काम करता है</string>
     <string name="data_transparency_no_external_servers">कोई डेटा स्वचालित रूप से बाहरी सर्वर को नहीं भेजा जाता</string>
     <string name="data_transparency_no_analytics">कोई एनालिटिक्स, क्रैश रिपोर्टिंग, या विज्ञापन SDK नहीं</string>
     <string name="data_transparency_how_stored_section">डेटा कैसे संग्रहीत होता है</string>

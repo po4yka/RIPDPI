@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">Захват пакетов</string>
+    <string name="data_transparency_packet_capture_body">Файл PCAP создаётся только при запуске расширенного управления захватом пакетов. Он может содержать необработанные байты полезной нагрузки пакетов и не обезличивается. Передавайте его только тем, кому доверяете.</string>
+    <string name="data_transparency_open_controls">Настройки хранения и мониторинга</string>
+</resources>

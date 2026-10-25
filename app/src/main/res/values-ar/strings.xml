@@ -2114,8 +2114,8 @@ fakeddisorder endhost</string>
     <string name="about_credits_body">يعتمد RIPDPI على مشروع hufrea/ripdpi مفتوح المصدر ويحتفظ بجميع عمليات التوجيه والتهيئة محليًا على هذا الجهاز.</string>
     <string name="about_links_section">الروابط</string>
     <string name="title_data_transparency">شفافية البيانات</string>
-    <string name="settings_data_transparency_body">البيانات التي نجمعها وطريقة تخزينها وضوابط الخصوصية لديك.</string>
-    <string name="data_transparency_what_we_collect_section">ما نجمعه</string>
+    <string name="settings_data_transparency_body">ما يُخزَّن على هذا الجهاز، ومدة الاحتفاظ به، ومتى يغادر الجهاز.</string>
+    <string name="data_transparency_what_we_collect_section">ما يُخزَّن على هذا الجهاز</string>
     <string name="data_transparency_network_diagnostics">تشخيصات الشبكة: نوع النقل وقوة الإشارة وتهيئة DNS</string>
     <string name="data_transparency_dpi_detection">نتائج اكتشاف DPI: تصنيفات الإخفاقات وفعالية الاستراتيجية</string>
     <string name="data_transparency_performance_metrics">مقاييس الأداء: قياسات RTT وعدد إعادة المحاولات وإحصاءات حركة البيانات</string>
@@ -2124,7 +2124,7 @@ fakeddisorder endhost</string>
     <string name="data_transparency_optional_ip">اختياري: عنوان IP العام (فقط أثناء الفحص التشخيصي اليدوي)</string>
     <string name="data_transparency_what_we_do_not_collect_section">ما لا نجمعه</string>
     <string name="data_transparency_no_browsing">لا سجل تصفح أو محتوى URL أو حمولات الحزم أو بيانات الاعتماد أو أسرار TLS في التشخيصات الاعتيادية</string>
-    <string name="data_transparency_no_personal_data">لا حسابات ولا بيانات اعتماد؛ يُنشأ ملف PCAP فقط من خلال أداة التقاط الحزم المتقدمة وقد يحتوي على بيانات خام</string>
+    <string name="data_transparency_no_personal_data">لا حسابات مستخدمين: يعمل التطبيق دون تسجيل الدخول</string>
     <string name="data_transparency_no_external_servers">لا يُرسل أي بيانات إلى خوادم خارجية تلقائيًا</string>
     <string name="data_transparency_no_analytics">لا تحليلات ولا إبلاغ عن الأعطال ولا SDKs إعلانية</string>
     <string name="data_transparency_how_stored_section">كيفية تخزين البيانات</string>

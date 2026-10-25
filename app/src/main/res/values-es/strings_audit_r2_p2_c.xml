@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">Captura de paquetes</string>
+    <string name="data_transparency_packet_capture_body">Un archivo PCAP solo se crea cuando inicias el control avanzado de captura de paquetes. Puede contener bytes de datos de paquetes sin procesar y no se censura. Compártelo solo con personas de confianza.</string>
+    <string name="data_transparency_open_controls">Ajustes de retención y monitorización</string>
+</resources>

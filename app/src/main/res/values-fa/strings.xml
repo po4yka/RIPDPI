@@ -1484,7 +1484,7 @@ fakeddisorder endhost</string>
     <string name="data_transparency_network_diagnostics">تشخیص شبکه: نوع انتقال، قدرت سیگنال، پیکربندی DNS</string>
     <string name="data_transparency_no_browsing">در تشخیص‌های معمول، تاریخچهٔ مرور، محتوای URL، بار دادهٔ بسته‌ها، اعتبارنامه‌ها یا اسرار TLS جمع‌آوری نمی‌شود</string>
     <string name="data_transparency_optional_ip">اختیاری: آدرس IP عمومی (فقط هنگام پویش‌های تشخیصی دستی)</string>
-    <string name="data_transparency_what_we_collect_section">آنچه جمع‌آوری می‌کنیم</string>
+    <string name="data_transparency_what_we_collect_section">آنچه روی این دستگاه ذخیره می‌شود</string>
     <string name="debug_bundle_failed">آماده‌سازی بسته پشتیبانی ناموفق بود</string>
     <string name="desync_udp">راهبرد عبور UDP</string>
     <string name="detection_check_category_bypass">دور زدن</string>
@@ -2326,7 +2326,7 @@ fakeddisorder endhost</string>
     <string name="data_transparency_export_privacy_section">حریم خصوصی صدور</string>
     <string name="data_transparency_local_database">تمام داده‌ها در پایگاه‌داده محلی روی دستگاه شما باقی می‌مانند</string>
     <string name="data_transparency_no_analytics">بدون SDKهای تحلیلی، گزارش خرابی یا تبلیغاتی</string>
-    <string name="data_transparency_no_personal_data">حساب یا اعتبارنامه‌ای جمع‌آوری نمی‌شود؛ PCAP فقط با کنترل پیشرفتهٔ ضبط بسته ساخته می‌شود و ممکن است شامل بایت‌های خام بار دادهٔ بسته‌ها باشد</string>
+    <string name="data_transparency_no_personal_data">بدون حساب کاربری: برنامه بدون ورود به حساب کار می‌کند</string>
     <string name="data_transparency_retention_period">دوره نگه‌داری قابل پیکربندی (1–365 روز)</string>
     <string name="desync_http">راهبرد عبور HTTP</string>
     <string name="detection_check_category_dns_leak">نشت DNS</string>
@@ -2610,7 +2610,7 @@ fakeddisorder endhost</string>
     <string name="settings_community_api_url_helper">برای استفاده از نقطه پایانی پیش‌فرض خالی بگذارید.</string>
     <string name="settings_community_api_url_save">ذخیره</string>
     <string name="settings_connectivity_section">اتصال</string>
-    <string name="settings_data_transparency_body">چه داده‌هایی جمع‌آوری می‌شوند، چگونه ذخیره می‌شوند و کنترل‌های حریم خصوصی شما.</string>
+    <string name="settings_data_transparency_body">چه چیزی روی این دستگاه ذخیره می‌شود، تا چه مدت نگه داشته می‌شود و چه زمانی از دستگاه خارج می‌شود.</string>
     <string name="settings_full_tunnel_body">تمام ترافیک را بدون استثنای برنامه از طریق VPN مسیریابی کنید. از ارسال مستقیم ترافیک توسط ماژول‌های جاسوس‌افزار جلوگیری می‌کند، اما برنامه‌های روسی ممکن است VPN را تشخیص دهند.</string>
     <string name="settings_full_tunnel_title">حالت تونل کامل</string>
     <string name="settings_permission_action_open_settings">باز کردن تنظیمات</string>

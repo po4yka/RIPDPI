@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">पैकेट कैप्चर</string>
+    <string name="data_transparency_packet_capture_body">PCAP फ़ाइल केवल तभी बनती है जब आप उन्नत पैकेट कैप्चर नियंत्रण शुरू करते हैं। इसमें कच्चे पैकेट पेलोड बाइट्स हो सकते हैं और इसे रिडैक्ट नहीं किया जाता। इसे केवल भरोसेमंद लोगों के साथ साझा करें।</string>
+    <string name="data_transparency_open_controls">प्रतिधारण और निगरानी सेटिंग्स</string>
+</resources>

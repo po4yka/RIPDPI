@@ -2176,8 +2176,8 @@ Fonte: %2$s</string>
     <string name="about_links_section">Links</string>
 
     <string name="title_data_transparency">Transparência de dados</string>
-    <string name="settings_data_transparency_body">Quais dados são coletados, como são armazenados e seus controles de privacidade.</string>
-    <string name="data_transparency_what_we_collect_section">O que coletamos</string>
+    <string name="settings_data_transparency_body">O que fica armazenado neste dispositivo, por quanto tempo e quando sai dele.</string>
+    <string name="data_transparency_what_we_collect_section">O que fica armazenado neste dispositivo</string>
     <string name="data_transparency_network_diagnostics">Diagnósticos de rede: tipo de transporte, intensidade do sinal, configuração de DNS</string>
     <string name="data_transparency_dpi_detection">Resultados de detecção de DPI: classificações de falhas, eficácia das estratégias</string>
     <string name="data_transparency_performance_metrics">Métricas de desempenho: medições de RTT, contagens de novas tentativas, estatísticas de tráfego</string>
@@ -2186,7 +2186,7 @@ Fonte: %2$s</string>
     <string name="data_transparency_optional_ip">Opcional: endereço IP público (apenas durante varreduras de diagnóstico manuais)</string>
     <string name="data_transparency_what_we_do_not_collect_section">O que NÃO coletamos</string>
     <string name="data_transparency_no_browsing">Nenhum histórico de navegação, conteúdo de URL, payload de pacotes, credenciais ou segredos de TLS nos diagnósticos normais</string>
-    <string name="data_transparency_no_personal_data">Nenhuma conta ou credencial; o PCAP só é criado pelo controle avançado de captação de pacotes e pode conter bytes brutos de payload dos pacotes</string>
+    <string name="data_transparency_no_personal_data">Nenhuma conta de usuário: o app funciona sem login</string>
     <string name="data_transparency_no_external_servers">Nenhum dado é enviado automaticamente a servidores externos</string>
     <string name="data_transparency_no_analytics">Nenhuma ferramenta de análise, relatório de falhas ou SDK de publicidade</string>
     <string name="data_transparency_how_stored_section">Como os dados são armazenados</string>
