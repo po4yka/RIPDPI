@@ -8,4 +8,7 @@
         <item quantity="many">تم اكتشاف VPN في %1$d من %2$d فحصًا</item>
         <item quantity="other">تم اكتشاف VPN في %1$d من %2$d فحص</item>
     </plurals>
+    <string name="vpn_pcap_read_failed_missing">لم يعد ملف التسجيل موجودًا. ربما تم حذفه.</string>
+    <string name="vpn_pcap_read_failed_invalid">الملف تالف أو ليس تسجيل PCAP مدعومًا.</string>
+    <string name="vpn_pcap_viewer_back">رجوع</string>
 </resources>

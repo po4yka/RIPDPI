@@ -4,4 +4,7 @@
         <item quantity="one">VPN در %1$d از %2$d بررسی شناسایی شد</item>
         <item quantity="other">VPN در %1$d از %2$d بررسی شناسایی شد</item>
     </plurals>
+    <string name="vpn_pcap_read_failed_missing">فایل ضبط دیگر وجود ندارد. ممکن است حذف شده باشد.</string>
+    <string name="vpn_pcap_read_failed_invalid">فایل آسیب دیده است یا یک ضبط PCAP پشتیبانی‌شده نیست.</string>
+    <string name="vpn_pcap_viewer_back">بازگشت</string>
 </resources>

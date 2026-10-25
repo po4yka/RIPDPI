@@ -5185,7 +5185,10 @@ app:vpn_pcap_loading
 app:vpn_pcap_no_packets
 app:vpn_pcap_open_advanced_settings
 app:vpn_pcap_read_failed
+app:vpn_pcap_read_failed_invalid
+app:vpn_pcap_read_failed_missing
 app:vpn_pcap_truncated
+app:vpn_pcap_viewer_back
 app:vpn_pcap_viewer_col_dst
 app:vpn_pcap_viewer_col_no
 app:vpn_pcap_viewer_col_src

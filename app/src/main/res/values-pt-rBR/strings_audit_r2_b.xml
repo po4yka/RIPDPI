@@ -5,4 +5,7 @@
         <item quantity="many">VPN detectada em %1$d de %2$d verificações</item>
         <item quantity="other">VPN detectada em %1$d de %2$d verificações</item>
     </plurals>
+    <string name="vpn_pcap_read_failed_missing">O arquivo de captura não existe mais. Ele pode ter sido excluído.</string>
+    <string name="vpn_pcap_read_failed_invalid">O arquivo está danificado ou não é uma captura PCAP compatível.</string>
+    <string name="vpn_pcap_viewer_back">Voltar</string>
 </resources>

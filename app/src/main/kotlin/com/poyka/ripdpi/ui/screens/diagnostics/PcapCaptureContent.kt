@@ -5,7 +5,7 @@ import com.poyka.ripdpi.pcap.PcapReaderRecord
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import java.io.File
-import java.io.IOException
+import java.io.FileNotFoundException
 import java.net.InetAddress
 import java.util.Locale
 
@@ -42,11 +42,11 @@ internal fun captureFile(
     fileName: String,
 ): File {
     if (fileName.isBlank() || fileName != File(fileName).name || !fileName.endsWith(".pcap")) {
-        throw IOException("Invalid capture name")
+        throw FileNotFoundException("Invalid capture name")
     }
     val file = File(directory, fileName).canonicalFile
     if (file.parentFile != directory.canonicalFile || !file.isFile) {
-        throw IOException("Capture unavailable")
+        throw FileNotFoundException("Capture unavailable")
     }
     return file
 }

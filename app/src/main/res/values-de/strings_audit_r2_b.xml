@@ -4,4 +4,7 @@
         <item quantity="one">VPN in %1$d von %2$d Prüfung erkannt</item>
         <item quantity="other">VPN in %1$d von %2$d Prüfungen erkannt</item>
     </plurals>
+    <string name="vpn_pcap_read_failed_missing">Die Mitschnittdatei existiert nicht mehr. Sie wurde möglicherweise gelöscht.</string>
+    <string name="vpn_pcap_read_failed_invalid">Die Datei ist beschädigt oder kein unterstützter PCAP-Mitschnitt.</string>
+    <string name="vpn_pcap_viewer_back">Zurück</string>
 </resources>

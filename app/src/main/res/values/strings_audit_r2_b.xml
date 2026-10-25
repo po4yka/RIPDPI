@@ -4,4 +4,7 @@
         <item quantity="one">VPN detected in %1$d of %2$d check</item>
         <item quantity="other">VPN detected in %1$d of %2$d checks</item>
     </plurals>
+    <string name="vpn_pcap_read_failed_missing">The capture file no longer exists. It may have been deleted.</string>
+    <string name="vpn_pcap_read_failed_invalid">The file is damaged or is not a supported PCAP capture.</string>
+    <string name="vpn_pcap_viewer_back">Back</string>
 </resources>

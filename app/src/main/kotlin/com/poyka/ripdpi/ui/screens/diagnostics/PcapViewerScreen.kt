@@ -27,8 +27,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
@@ -72,12 +78,16 @@ private const val AnnotationBadgeAlpha = 0.16f
 @Composable
 fun PcapViewerScreen(
     fileName: String,
-    packetCount: Int,
+    // Null until a capture has loaded, so loading and failed states never claim "Packets: 0".
+    packetCount: Int?,
     packets: ImmutableList<PcapPacket>,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     initiallySelectedIndex: Int = 0,
     message: String? = null,
+    loading: Boolean = false,
+    failureReason: String? = null,
+    onRetry: (() -> Unit)? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
@@ -116,6 +126,12 @@ fun PcapViewerScreen(
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 item(key = "pcap-header") { PcapFileHeader(fileName, packetCount) }
+                if (loading) {
+                    item(key = "pcap-loading") { PcapLoadingRow() }
+                }
+                if (failureReason != null) {
+                    item(key = "pcap-failure") { PcapReadFailure(failureReason, onRetry, onBack) }
+                }
                 if (message != null) {
                     item(key = "pcap-message") {
                         Text(text = message, style = RipDpiThemeTokens.type.body, color = colors.mutedForeground)
@@ -135,16 +151,63 @@ fun PcapViewerScreen(
 @Composable
 private fun PcapFileHeader(
     fileName: String,
-    packetCount: Int,
+    packetCount: Int?,
 ) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         Text(text = fileName, style = type.bodyEmphasis, color = colors.foreground)
+        packetCount?.let {
+            Text(
+                text = stringResource(R.string.vpn_pcap_viewer_meta_format, it),
+                style = type.caption,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PcapLoadingRow() {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RipDpiSpinner(size = RipDpiSpinnerSize.Standard)
         Text(
-            text = stringResource(R.string.vpn_pcap_viewer_meta_format, packetCount),
-            style = type.caption,
-            color = colors.mutedForeground,
+            text = stringResource(R.string.vpn_pcap_loading),
+            style = RipDpiThemeTokens.type.body,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun PcapReadFailure(
+    reason: String,
+    onRetry: (() -> Unit)?,
+    onBack: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+        WarningBanner(
+            title = stringResource(R.string.vpn_pcap_read_failed),
+            message = reason,
+            tone = WarningBannerTone.Error,
+        )
+        onRetry?.let {
+            RipDpiButton(
+                text = stringResource(R.string.startup_recovery_retry),
+                onClick = it,
+                modifier = Modifier.fillMaxWidth(),
+                wrapLabel = true,
+            )
+        }
+        RipDpiButton(
+            text = stringResource(R.string.vpn_pcap_viewer_back),
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth(),
+            variant = RipDpiButtonVariant.Outline,
+            wrapLabel = true,
         )
     }
 }

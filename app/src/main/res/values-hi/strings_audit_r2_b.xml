@@ -4,4 +4,7 @@
         <item quantity="one">%2$d जाँच में से %1$d में VPN पहचाना गया</item>
         <item quantity="other">%2$d जाँचों में से %1$d में VPN पहचाना गया</item>
     </plurals>
+    <string name="vpn_pcap_read_failed_missing">कैप्चर फ़ाइल अब मौजूद नहीं है। हो सकता है कि इसे हटा दिया गया हो।</string>
+    <string name="vpn_pcap_read_failed_invalid">फ़ाइल खराब है या समर्थित PCAP कैप्चर नहीं है।</string>
+    <string name="vpn_pcap_viewer_back">वापस</string>
 </resources>

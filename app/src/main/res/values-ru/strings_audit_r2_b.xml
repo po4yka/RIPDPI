@@ -6,4 +6,7 @@
         <item quantity="many">VPN обнаружен в %1$d из %2$d проверок</item>
         <item quantity="other">VPN обнаружен в %1$d из %2$d проверки</item>
     </plurals>
+    <string name="vpn_pcap_read_failed_missing">Файл захвата больше не существует. Возможно, он был удалён.</string>
+    <string name="vpn_pcap_read_failed_invalid">Файл повреждён или не является поддерживаемым захватом PCAP.</string>
+    <string name="vpn_pcap_viewer_back">Назад</string>
 </resources>
