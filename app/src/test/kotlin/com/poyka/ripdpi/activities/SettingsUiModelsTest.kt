@@ -26,7 +26,7 @@ class SettingsUiModelsTest {
         assertEquals(defaultDns.encryptedDnsTlsServerName, state.encryptedDnsTlsServerName)
         assertEquals(defaultDns.encryptedDnsBootstrapIps, state.encryptedDnsBootstrapIps)
         assertEquals(defaultDns.encryptedDnsDohUrl, state.encryptedDnsDohUrl)
-        assertEquals(defaultDns.summary(), state.dnsSummary)
+        assertEquals(defaultDns.mode, state.dnsMode)
     }
 
     @Test

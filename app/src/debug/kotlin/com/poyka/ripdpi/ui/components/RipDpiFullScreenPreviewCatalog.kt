@@ -33,6 +33,7 @@ import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.screens.config.ConfigScreen
@@ -333,7 +334,7 @@ internal fun RipDpiDnsSettingsPreviewScene() {
                     dns =
                         DnsUiState(
                             dnsIp = "1.1.1.1",
-                            dnsSummary = "Plain DNS - 1.1.1.1",
+                            dnsMode = DnsModePlainUdp,
                         ),
                     isVpn = true,
                 ),

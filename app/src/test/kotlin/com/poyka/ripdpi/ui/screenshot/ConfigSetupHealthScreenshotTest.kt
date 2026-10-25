@@ -10,6 +10,7 @@ import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
+import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindTuicV5
@@ -138,7 +139,7 @@ class ConfigSetupHealthScreenshotTest {
         val draft =
             ConfigDraft(
                 mode = Mode.VPN,
-                dnsSummary = "AdGuard DoH with system fallback",
+                dnsProviderId = DnsProviderAdGuard,
                 relayEnabled = true,
                 relayKind = RelayKindVlessReality,
                 relayProfileId = "tokyo-reality",

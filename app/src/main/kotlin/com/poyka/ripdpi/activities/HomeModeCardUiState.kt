@@ -111,7 +111,7 @@ private fun buildLocalBypassCard(
     HomeModeCardUiState(
         mode = HomeMode.LocalDpiBypass,
         title = stringResolver.getString(R.string.home_mode_local_dpi_bypass),
-        primaryLabel = "${draft.chainSummary} - ${draft.dnsSummary}",
+        primaryLabel = "${draft.chainSummary} - ${stringResolver.dnsSummaryLabel(draft)}",
         summaryFacets =
             persistentListOf(
                 HomeModeSummaryFacet(
@@ -120,7 +120,7 @@ private fun buildLocalBypassCard(
                 ),
                 HomeModeSummaryFacet(
                     label = stringResolver.getString(R.string.home_connection_stage_dns),
-                    value = draft.dnsSummary,
+                    value = stringResolver.dnsSummaryLabel(draft),
                 ),
             ),
         secondaryLabel =

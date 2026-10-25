@@ -118,7 +118,6 @@ private fun DnsSettingsEncryptedPreview() {
                         DnsUiState(
                             dnsMode = DnsModeEncrypted,
                             dnsProviderId = DnsProviderCloudflare,
-                            dnsSummary = "Encrypted DNS · Cloudflare (DoH)",
                             encryptedDnsProtocol = EncryptedDnsProtocolDoh,
                             encryptedDnsHost = "cloudflare-dns.com",
                             encryptedDnsPort = 443,
@@ -155,7 +154,6 @@ private fun DnsSettingsPlainPreview() {
                             dnsMode = DnsModePlainUdp,
                             dnsProviderId = DnsProviderCustom,
                             dnsIp = "9.9.9.9",
-                            dnsSummary = "Plain DNS · 9.9.9.9",
                         ),
                     isVpn = true,
                 ),

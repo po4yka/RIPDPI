@@ -44,6 +44,7 @@ import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.awg.rememberAwgConfFileImport
+import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -506,10 +507,11 @@ private fun VpnDnsRow(
     uiState: ConfigUiState,
     onOpenDnsSettings: () -> Unit,
 ) {
+    val dnsSummary = uiState.draft.localizedDnsSummary()
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
-        accessibilityValue = uiState.draft.dnsSummary,
+        accessibilityValue = dnsSummary,
         onClick = onOpenDnsSettings,
     ) {
         SettingsRow(
@@ -522,7 +524,7 @@ private fun VpnDnsRow(
                         R.string.config_dns_summary_disabled
                     },
                 ),
-            value = uiState.draft.dnsSummary,
+            value = dnsSummary,
             leadingIcon = RipDpiIcons.Dns,
             showChevron = true,
         )

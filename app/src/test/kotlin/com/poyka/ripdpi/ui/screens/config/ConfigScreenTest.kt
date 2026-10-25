@@ -260,7 +260,7 @@ class ConfigScreenTest {
             .assert(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.StateDescription,
-                    AppSettingsSerializer.defaultValue.toConfigDraft().dnsSummary,
+                    "Encrypted DNS · AdGuard DNS (DoH)",
                 ),
             )
     }

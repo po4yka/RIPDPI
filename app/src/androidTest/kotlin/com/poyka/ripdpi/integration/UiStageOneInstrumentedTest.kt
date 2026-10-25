@@ -111,7 +111,9 @@ class UiStageOneInstrumentedTest {
             .performScrollTo()
             .assertIsDisplayed()
             .assertHasClickAction()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, state.draft.dnsSummary))
+            .assert(
+                SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Encrypted DNS · AdGuard DNS (DoH)"),
+            )
         saveScreenshot("dns-setting")
     }
 

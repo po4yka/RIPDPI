@@ -77,7 +77,10 @@ private val DefaultConfigDnsSeed = canonicalDefaultEncryptedDnsSettings()
 data class ConfigDraft(
     val mode: Mode = Mode.VPN,
     val dnsIp: String = DefaultConfigDnsSeed.dnsIp,
-    val dnsSummary: String = DefaultConfigDnsSeed.summary(),
+    // Inputs of the localized DNS summary (dnsSummaryLabel); the draft carries no display text.
+    val dnsMode: String = DefaultConfigDnsSeed.mode,
+    val dnsProviderId: String = DefaultConfigDnsSeed.providerId,
+    val encryptedDnsProtocol: String = DefaultConfigDnsSeed.encryptedDnsProtocol,
     val proxyIp: String = "127.0.0.1",
     val proxyPort: String = "1080",
     val maxConnections: String = "512",
@@ -473,11 +476,14 @@ internal const val LegacyChainExitProfileSuffix = "__ripdpi_chain_exit"
 internal const val RelayChainMinHopsUi = 2
 internal const val RelayChainMaxHopsUi = 4
 
-internal fun AppSettings.toConfigDraft(): ConfigDraft =
-    ConfigDraft(
+internal fun AppSettings.toConfigDraft(): ConfigDraft {
+    val dns = activeDnsSettings()
+    return ConfigDraft(
         mode = Mode.fromString(ripdpiMode.ifEmpty { "vpn" }),
-        dnsIp = activeDnsSettings().dnsIp,
-        dnsSummary = activeDnsSettings().summary(),
+        dnsIp = dns.dnsIp,
+        dnsMode = dns.mode,
+        dnsProviderId = dns.providerId,
+        encryptedDnsProtocol = dns.encryptedDnsProtocol,
         proxyIp = proxyIp.ifEmpty { "127.0.0.1" },
         proxyPort = (proxyPort.takeIf { it > 0 } ?: 1080).toString(),
         maxConnections = (maxConnections.takeIf { it > 0 } ?: 512).toString(),
@@ -490,6 +496,7 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
         desyncMethod = primaryDesyncMethod(effectiveTcpChainSteps()).ifEmpty { "none" },
         defaultTtl = if (customTtl && defaultTtl > 0) defaultTtl.toString() else "",
     ).withRelaySettings(toRelaySettingsModel())
+}
 
 internal fun buildConfigPresets(currentDraft: ConfigDraft): ImmutableList<ConfigPreset> {
     val recommendedDraft = AppSettingsSerializer.defaultValue.toConfigDraft()

@@ -44,6 +44,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -226,7 +227,7 @@ private fun ModeEditorNetworkSection(
                 color = colors.foreground,
             )
             Text(
-                text = draft.dnsSummary,
+                text = draft.localizedDnsSummary(),
                 style = RipDpiThemeTokens.type.monoValue,
                 color = colors.foreground,
             )

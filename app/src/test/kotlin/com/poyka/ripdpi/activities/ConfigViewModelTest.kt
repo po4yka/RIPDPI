@@ -126,7 +126,9 @@ class ConfigViewModelTest {
         val draft = ConfigDraft()
 
         assertEquals(defaultDns.dnsIp, draft.dnsIp)
-        assertEquals(defaultDns.summary(), draft.dnsSummary)
+        assertEquals(defaultDns.mode, draft.dnsMode)
+        assertEquals(defaultDns.providerId, draft.dnsProviderId)
+        assertEquals(defaultDns.encryptedDnsProtocol, draft.encryptedDnsProtocol)
     }
 
     @Test
@@ -197,7 +199,7 @@ class ConfigViewModelTest {
     }
 
     @Test
-    fun `config draft surfaces custom dot dns summary`() {
+    fun `config draft carries custom dot dns inputs`() {
         val draft =
             AppSettingsSerializer.defaultValue
                 .toBuilder()
@@ -214,11 +216,13 @@ class ConfigViewModelTest {
                 .toConfigDraft()
 
         assertEquals("9.9.9.9", draft.dnsIp)
-        assertEquals("Encrypted DNS · Custom resolver (DoT)", draft.dnsSummary)
+        assertEquals(DnsModeEncrypted, draft.dnsMode)
+        assertEquals(DnsProviderCustom, draft.dnsProviderId)
+        assertEquals(EncryptedDnsProtocolDot, draft.encryptedDnsProtocol)
     }
 
     @Test
-    fun `config draft surfaces plain dns and dnscrypt summaries`() {
+    fun `config draft carries plain dns and dnscrypt inputs`() {
         val plainDraft =
             AppSettingsSerializer.defaultValue
                 .toBuilder()
@@ -253,8 +257,10 @@ class ConfigViewModelTest {
                 ).build()
                 .toConfigDraft()
 
-        assertEquals("Plain DNS · 9.9.9.9", plainDraft.dnsSummary)
-        assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", dnsCryptDraft.dnsSummary)
+        assertEquals(DnsModePlainUdp, plainDraft.dnsMode)
+        assertEquals("9.9.9.9", plainDraft.dnsIp)
+        assertEquals(DnsModeEncrypted, dnsCryptDraft.dnsMode)
+        assertEquals(EncryptedDnsProtocolDnsCrypt, dnsCryptDraft.encryptedDnsProtocol)
     }
 
     @Test

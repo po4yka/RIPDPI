@@ -36,7 +36,6 @@ internal fun AppSettings.buildDnsUiState(
                 configsRetrievedAtSecs = activeDns.encryptedDnsOdohConfigsRetrievedAtSecs,
                 configsTtlSecs = activeDns.encryptedDnsOdohConfigsTtlSecs,
             ),
-        dnsSummary = activeDns.summary(),
         systemPrivateDnsStatus = systemPrivateDnsStatus.wireValue,
     )
 

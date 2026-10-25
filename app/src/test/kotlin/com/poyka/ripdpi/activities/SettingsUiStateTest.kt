@@ -1705,7 +1705,6 @@ class SettingsUiStateTest {
         assertEquals(853, state.dns.encryptedDnsPort)
         assertEquals("dot.example.test", state.dns.encryptedDnsTlsServerName)
         assertEquals(listOf("9.9.9.9", "149.112.112.112"), state.dns.encryptedDnsBootstrapIps)
-        assertEquals("Encrypted DNS · Custom resolver (DoT)", state.dns.dnsSummary)
     }
 
     @Test
@@ -1739,7 +1738,6 @@ class SettingsUiStateTest {
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             state.dns.encryptedDnsDnscryptPublicKey,
         )
-        assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", state.dns.dnsSummary)
     }
 
     @Test
