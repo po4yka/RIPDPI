@@ -6,7 +6,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -28,7 +28,10 @@ const SOCKS_ATYP_DOMAIN: u8 = 0x03;
 const SOCKS_ATYP_IPV6: u8 = 0x04;
 const SOCKS_GENERAL_FAILURE: u8 = 0x01;
 const RFC1929_VERSION: u8 = 0x01;
-const IO_TIMEOUT: Duration = Duration::from_secs(5);
+/// One deadline for the whole SOCKS greeting, auth and CONNECT request. A
+/// per-read timeout alone lets a client that trickles one byte at a time hold
+/// a connection slot for minutes.
+const SOCKS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const ACCEPT_POLL: Duration = Duration::from_millis(50);
 /// Budget for TCP connect, TLS (with the h2 retry) and the HTTP Upgrade.
 const BRIDGE_CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
@@ -280,7 +283,7 @@ fn accept_loop(listener: TcpListener, running: Arc<AtomicBool>) -> io::Result<()
 /// # Cancel safety
 ///
 /// cancel-safe: dropping it closes the app stream; a handshake already on the
-/// blocking pool ends at its socket timeout.
+/// blocking pool ends at its deadline.
 async fn serve_socks_client(stream: TcpStream) -> io::Result<()> {
     let handshake = tokio::task::spawn_blocking(move || read_socks_handshake(stream))
         .await
@@ -293,15 +296,54 @@ async fn serve_socks_client(stream: TcpStream) -> io::Result<()> {
 
 /// Returns the stream and bridge for a valid CONNECT, or `None` after it
 /// answered a request without bridge arguments with a SOCKS failure.
+/// The whole exchange must finish within [`SOCKS_HANDSHAKE_TIMEOUT`]; on
+/// expiry the stream is dropped, which closes it and frees its slot.
 fn read_socks_handshake(mut stream: TcpStream) -> io::Result<Option<(TcpStream, WebTunnelBridgeConfig)>> {
-    stream.set_read_timeout(Some(IO_TIMEOUT))?;
-    stream.set_write_timeout(Some(IO_TIMEOUT))?;
-    let request = read_socks5_request(&mut stream)?;
+    let mut deadline_stream =
+        DeadlineStream { stream: &mut stream, deadline: Instant::now() + SOCKS_HANDSHAKE_TIMEOUT };
+    let request = read_socks5_request(&mut deadline_stream)?;
     let Some(bridge) = request.bridge else {
-        write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE)?;
+        write_socks_reply(&mut deadline_stream, SOCKS_GENERAL_FAILURE)?;
         return Ok(None);
     };
     Ok(Some((stream, bridge)))
+}
+
+/// A blocking stream whose every read and write times out at one shared
+/// deadline: each call sets the socket timeout to the time that remains.
+struct DeadlineStream<'a> {
+    stream: &'a mut TcpStream,
+    deadline: Instant,
+}
+
+impl DeadlineStream<'_> {
+    fn remaining(&self) -> io::Result<Duration> {
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "SOCKS handshake deadline passed"));
+        }
+        Ok(remaining)
+    }
+}
+
+impl Read for DeadlineStream<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let remaining = self.remaining()?;
+        self.stream.set_read_timeout(Some(remaining))?;
+        self.stream.read(buf)
+    }
+}
+
+impl Write for DeadlineStream<'_> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let remaining = self.remaining()?;
+        self.stream.set_write_timeout(Some(remaining))?;
+        self.stream.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.stream.flush()
+    }
 }
 
 /// Connects to the bridge, sends the SOCKS reply, and relays until both sides
@@ -365,7 +407,7 @@ where
     rest.map_err(|_elapsed| io::Error::new(io::ErrorKind::TimedOut, "WebTunnel half-closed relay drain timed out"))?
 }
 
-fn read_socks5_request(stream: &mut TcpStream) -> io::Result<SocksConnectRequest> {
+fn read_socks5_request<S: Read + Write>(stream: &mut S) -> io::Result<SocksConnectRequest> {
     let version = read_u8(stream)?;
     if version != SOCKS_VERSION {
         return Err(invalid_data(format!("unsupported SOCKS version {version:#x}")));
@@ -405,7 +447,7 @@ fn selected_auth_method(methods: &[u8]) -> u8 {
     }
 }
 
-fn read_rfc1929_auth(stream: &mut TcpStream) -> io::Result<WebTunnelBridgeConfig> {
+fn read_rfc1929_auth<S: Read + Write>(stream: &mut S) -> io::Result<WebTunnelBridgeConfig> {
     let version = read_u8(stream)?;
     if version != RFC1929_VERSION {
         return Err(invalid_data(format!("unsupported RFC1929 version {version:#x}")));
@@ -423,7 +465,7 @@ fn read_rfc1929_auth(stream: &mut TcpStream) -> io::Result<WebTunnelBridgeConfig
     Ok(bridge)
 }
 
-fn read_socks_host(stream: &mut TcpStream) -> io::Result<String> {
+fn read_socks_host<S: Read>(stream: &mut S) -> io::Result<String> {
     match read_u8(stream)? {
         SOCKS_ATYP_IPV4 => {
             let mut bytes = [0_u8; 4];
@@ -445,7 +487,7 @@ fn read_socks_host(stream: &mut TcpStream) -> io::Result<String> {
     }
 }
 
-fn write_socks_reply(stream: &mut TcpStream, reply: u8) -> io::Result<()> {
+fn write_socks_reply<S: Write>(stream: &mut S, reply: u8) -> io::Result<()> {
     stream.write_all(&socks_reply(reply))?;
     stream.flush()
 }
@@ -454,13 +496,13 @@ fn socks_reply(reply: u8) -> [u8; 10] {
     [SOCKS_VERSION, reply, 0x00, SOCKS_ATYP_IPV4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 }
 
-fn read_u8(stream: &mut TcpStream) -> io::Result<u8> {
+fn read_u8<S: Read>(stream: &mut S) -> io::Result<u8> {
     let mut byte = [0_u8; 1];
     stream.read_exact(&mut byte)?;
     Ok(byte[0])
 }
 
-fn read_u16(stream: &mut TcpStream) -> io::Result<u16> {
+fn read_u16<S: Read>(stream: &mut S) -> io::Result<u16> {
     let mut bytes = [0_u8; 2];
     stream.read_exact(&mut bytes)?;
     Ok(u16::from_be_bytes(bytes))

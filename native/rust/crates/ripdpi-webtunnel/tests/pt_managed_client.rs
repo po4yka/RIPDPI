@@ -131,6 +131,45 @@ fn binary_closes_connections_past_the_concurrency_cap() {
     );
 }
 
+/// Clients that trickle their SOCKS handshake one byte at a time must not
+/// hold the connection slots: the whole handshake has one deadline, so they
+/// are cut when it passes and a new client is served again.
+#[test]
+fn binary_cuts_trickling_handshakes_and_serves_new_clients() {
+    const CAP: usize = 128;
+    let (mut child, listener) = spawn_managed_client();
+
+    // A greeting that offers 255 methods can be trickled for minutes.
+    let mut slow: Vec<TcpStream> = (0..CAP).map(|_| retry_connect(listener)).collect();
+    let started = Instant::now();
+    let mut trickled = 0_u8;
+    while started.elapsed() < Duration::from_secs(13) {
+        let byte = if trickled == 0 {
+            0x05
+        } else if trickled == 1 {
+            0xFF
+        } else {
+            0x00
+        };
+        for stream in &mut slow {
+            let _ = stream.write_all(&[byte]);
+        }
+        trickled = trickled.saturating_add(1);
+        std::thread::sleep(Duration::from_secs(1));
+    }
+
+    let mut fresh = retry_connect(listener);
+    fresh.set_read_timeout(Some(Duration::from_secs(3))).expect("set read timeout");
+    fresh.write_all(&[0x05, 0x01, 0x00]).expect("write greeting");
+    let mut method = [0_u8; 2];
+    let served = fresh.read_exact(&mut method);
+    drop(slow);
+    stop_managed_client(&mut child);
+
+    assert!(served.is_ok(), "a new client must be served once slow handshakes hit the deadline: {served:?}");
+    assert_eq!(method, [0x05, 0x00]);
+}
+
 fn spawn_managed_client() -> (Child, SocketAddr) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_ripdpi-webtunnel"))
         .env("TOR_PT_MANAGED_TRANSPORT_VER", "1")
