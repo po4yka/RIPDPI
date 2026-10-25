@@ -47,6 +47,14 @@ class LearnedHostsEraserTest {
             assertTrue(store.erasePending)
         }
 
+    @Test
+    fun `marker that cannot be written is reported as failed`() =
+        runTest {
+            val store = RecordingStoreController(present = true, markable = false)
+
+            assertEquals(LearnedHostsEraseResult.Failed, eraser(store, FakeServiceStateStore()).erase())
+        }
+
     private fun TestScope.eraser(
         store: HostAutolearnStoreController,
         status: FakeServiceStateStore,
@@ -58,6 +66,7 @@ class LearnedHostsEraserTest {
     private class RecordingStoreController(
         var present: Boolean,
         private val deletable: Boolean = true,
+        private val markable: Boolean = true,
     ) : HostAutolearnStoreController {
         var erasePending = false
 
@@ -69,8 +78,8 @@ class LearnedHostsEraserTest {
         }
 
         override fun markErasePending(): Boolean {
-            erasePending = true
-            return true
+            erasePending = markable
+            return markable
         }
 
         override fun applyPendingErase(): Boolean = clearStore().also { if (it) erasePending = false }

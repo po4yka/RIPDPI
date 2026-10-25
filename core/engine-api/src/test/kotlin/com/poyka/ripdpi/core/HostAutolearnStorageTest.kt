@@ -32,6 +32,19 @@ class HostAutolearnStorageTest {
     }
 
     @Test
+    fun `marker that cannot be created reports failure instead of throwing`() {
+        val dir = createTempDirectory("autolearn").toFile()
+        try {
+            // The store's directory is missing, so createNewFile throws IOException.
+            val store = File(dir, "missing/host-autolearn-v2.json")
+
+            assertFalse(markHostAutolearnErasePending(store))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `failed delete keeps the erase pending`() {
         val dir = createTempDirectory("autolearn").toFile()
         try {

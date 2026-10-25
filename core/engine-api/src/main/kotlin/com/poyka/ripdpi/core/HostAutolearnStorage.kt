@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core
 
 import android.content.Context
 import java.io.File
+import java.io.IOException
 
 private const val HostAutolearnDirectoryName = "ripdpi"
 private const val HostAutolearnFileName = "host-autolearn-v2.json"
@@ -17,7 +18,8 @@ fun resolveHostAutolearnStorePath(context: Context): String = resolveHostAutolea
 
 fun hasHostAutolearnStore(context: Context): Boolean = resolveHostAutolearnStoreFile(context).exists()
 
-fun clearHostAutolearnStore(context: Context): Boolean = resolveHostAutolearnStoreFile(context).deleteIfPresent()
+fun clearHostAutolearnStore(context: Context): Boolean =
+    fileOperationSucceeded { resolveHostAutolearnStoreFile(context).deleteIfPresent() }
 
 /**
  * Records a user erase of the learned hosts. A running or starting engine keeps them in memory
@@ -25,7 +27,7 @@ fun clearHostAutolearnStore(context: Context): Boolean = resolveHostAutolearnSto
  * [applyPendingHostAutolearnErase] deletes the store before the next engine loads it.
  */
 fun markHostAutolearnErasePending(context: Context): Boolean =
-    markHostAutolearnErasePending(resolveHostAutolearnStoreFile(context))
+    fileOperationSucceeded { markHostAutolearnErasePending(resolveHostAutolearnStoreFile(context)) }
 
 /**
  * Applies a pending erase. Call it only before a native runtime that loads the store starts, when
@@ -33,17 +35,28 @@ fun markHostAutolearnErasePending(context: Context): Boolean =
  * could not be deleted.
  */
 fun applyPendingHostAutolearnErase(context: Context): Boolean =
-    applyPendingHostAutolearnErase(resolveHostAutolearnStoreFile(context))
+    fileOperationSucceeded { applyPendingHostAutolearnErase(resolveHostAutolearnStoreFile(context)) }
 
-internal fun markHostAutolearnErasePending(store: File): Boolean {
-    val marker = store.resolveSibling(HostAutolearnErasePendingFileName)
-    return marker.exists() || marker.createNewFile()
-}
+internal fun markHostAutolearnErasePending(store: File): Boolean =
+    fileOperationSucceeded {
+        val marker = store.resolveSibling(HostAutolearnErasePendingFileName)
+        marker.exists() || marker.createNewFile()
+    }
 
-internal fun applyPendingHostAutolearnErase(store: File): Boolean {
-    val marker = store.resolveSibling(HostAutolearnErasePendingFileName)
-    if (!marker.exists()) return true
-    return store.deleteIfPresent() && marker.deleteIfPresent()
-}
+internal fun applyPendingHostAutolearnErase(store: File): Boolean =
+    fileOperationSucceeded {
+        val marker = store.resolveSibling(HostAutolearnErasePendingFileName)
+        !marker.exists() || (store.deleteIfPresent() && marker.deleteIfPresent())
+    }
+
+// Both helpers report failure as false so callers show "not cleared" instead of crashing.
+private inline fun fileOperationSucceeded(operation: () -> Boolean): Boolean =
+    try {
+        operation()
+    } catch (_: IOException) {
+        false
+    } catch (_: SecurityException) {
+        false
+    }
 
 private fun File.deleteIfPresent(): Boolean = !exists() || delete()
