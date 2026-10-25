@@ -432,8 +432,8 @@ Fragment example:
 
 ## Import Coverage vs Relay Settings
 
-Profile **import** (QR / clipboard / share-sheet URI, and the sing-box / Clash.Meta /
-base64 / WireGuard-INI subscription parsers) is an identity-and-topology channel, not a
+Profile **import** (QR / clipboard / share-sheet URI or `.conf`, and the sing-box /
+Clash.Meta / base64 / WireGuard-INI subscription parsers) is an identity-and-topology channel, not a
 full transport-configuration channel. It captures the endpoint and credentials needed to
 recognize a server; the remaining transport knobs are owned by the relay editor (the
 `RelayProfileRecord` / `ResolvedRipDpiRelayConfig` wire surface), which is authoritative.

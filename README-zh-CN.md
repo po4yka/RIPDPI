@@ -116,7 +116,7 @@ Google Play 宣传素材使用真实应用界面。点击图片可查看完整�
 
 - **代理模式**：在配置的本地主机端口上运行本地 SOCKS5 代理。
 - **VPN 模式**：通过 `VpnService` 经由本地 TUN-到-SOCKS 桥接路由 Android 设备流量。
-- **配置文件导入**：QR 码扫描与生成，以及通过剪贴板和分享表单导入。剪贴板/分享表单解析使用代理 URI 编解码器，支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://`、`anytls://`、`tuic://`、`mieru://` 和 `ssh://`；QR 码扫描目前支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://`、`tuic://` 和 `mieru://`。AmneziaWG 使用独立的 `amneziawg://` 编解码器。Android intent 过滤器还会将 `ssh://` 暴露给导入中转层，代理 URI 编解码器可解析并双向编码该协议。
+- **配置文件导入**：同一个分类器服务于二维码扫描（相机或已保存的图片）、剪贴板和 Android 分享表单（完整版）。它接受代理 URI（`vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://`、`anytls://`、`tuic://`、`mieru://`、`ssh://`）、订阅链接（`https://` 以及 `ripdpi://`、`sing-box://`、NekoBox `sn://`、Clash、v2rayNG 和 Hiddify 的订阅链接）、WireGuard / AmneziaWG `.conf` 文本、`amneziawg://` 链接和 AmneziaVPN `vpn://` 密钥（包括多个二维码组成的系列）。VPN 设置中的**添加配置文件**还可打开订阅链接页面和 `.conf` 文件选择器。配置文件也可以通过二维码分享。
 - **订阅**：支持 base64、Clash / Clash.Meta YAML、sing-box JSON 和 WireGuard-INI 订阅格式，具备后台自动更新、重复配置文件检测、selector/urltest 分组以及多镜像分发。
 - **加密 DNS**：在 VPN 相关路径中支持 DoH、DoT、DNSCrypt 和 DoQ 解析器。
 - **策略控制**：TCP split/disorder/fake 系列、TLS 记录分片和伪造配置文件、QUIC 握手变种、UDP 长度字段变种、IPv6 扩展头、Lua `rawsend`、每步骤激活过滤器、IPv4 ID 控制以及 OOB 注入。

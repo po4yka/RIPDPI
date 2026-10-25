@@ -1,6 +1,6 @@
 # `amneziawg://` share-URI scheme
 
-RIPDPI defines a local `amneziawg://` URI scheme for ergonomic single-profile sharing of AmneziaWG profiles (link, QR code, clipboard import).
+RIPDPI defines a local `amneziawg://` URI scheme for ergonomic single-profile sharing of AmneziaWG profiles. RIPDPI accepts it from the QR scanner, the clipboard, and the share sheet, and opens it in the AmneziaWG editor. The same surfaces also accept a raw `.conf` and an AmneziaVPN `vpn://` key.
 
 ## Rationale
 

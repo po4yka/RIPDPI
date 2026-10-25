@@ -23,10 +23,14 @@ The target is percent-decoded and must be `https://`. Malformed or non-https inp
 | Surface | How | Best for |
 | --- | --- | --- |
 | `ripdpi://` deep link | tap the recipient-page button | same-device handoff, one tap |
-| QR code | scan the recipient-page QR with RIPDPI | phone-to-phone, printed handoff |
-| Subscription URL | paste `https://<host>/sub/<token>` into Add Subscription | manual entry, fleet + auto-update |
-| Config / bundle file or text | share-sheet, clipboard, or QR of a sing-box / RIPDPI bundle JSON | offline, air-gapped handoff |
-| Single share link | `vless://…`, `hysteria2://…`, `amneziawg://…` | a single profile |
+| QR code | scan the recipient-page QR (or any link, `.conf`, or AmneziaVPN key below) with RIPDPI | phone-to-phone, printed handoff |
+| Subscription URL | VPN settings → **Add profile** → **Subscription**, then paste `https://<host>/sub/<token>`; a `/bootstrap/` path is treated as a one-time link | manual entry, fleet + auto-update |
+| Other clients' subscription links | `sing-box://import-remote-profile?url=…#name`, NekoBox `sn://subscription`, `clash://install-config`, `v2rayng://install-sub`, `hiddify://install-config` | links already published for other clients |
+| WireGuard / AmneziaWG config | VPN settings → **Add profile** → **WireGuard / AmneziaWG from file**, the share sheet, the clipboard, or a QR of the `.conf` text; opens the AmneziaWG editor prefilled | an AmneziaVPN or WireGuard export |
+| AmneziaVPN key | `vpn://…` text or AmneziaVPN's multi-code QR series; RIPDPI extracts the WireGuard / AmneziaWG config | an AmneziaVPN share |
+| Single share link | `vless://…`, `hysteria2://…`, `amneziawg://…` via QR, clipboard, or share sheet | a single profile |
+
+RIPDPI does not import a sing-box / RIPDPI bundle JSON from a local file or the clipboard; deliver bundles through a subscription URL.
 
 ## What each artifact carries
 
@@ -132,7 +136,7 @@ Import coverage does not prove a connection on an Android device.
 | VLESS XHTTP direct and alternate | The exporter permits `auto` and `stream-up` without tuning. Each endpoint retains its TLS identity. |
 | CDN-front XHTTP | The recipient exporter does not emit the CDN endpoint. A manual profile needs separate connection checks. |
 | Hysteria2 + Salamander | Single UDP port with the supported bandwidth profile. The exporter rejects port hopping, ECH and BBR resource profiles. |
-| AmneziaWG | Imported through `ripdpi.amneziawg`; activation requires a valid device key and an ABI-compatible parameter set. |
+| AmneziaWG | Imported through `ripdpi.amneziawg`, a `.conf` (file, QR, clipboard, share sheet), an `amneziawg://` link, or an AmneziaVPN `vpn://` key. A plain WireGuard `.conf` becomes an AmneziaWG profile with no obfuscation. Only the first `[Peer]` is used. AmneziaWG 3.x keys (header protection, content padding, random trailers, timer ranges) are carried to the native engine. Activation requires a valid device key and an ABI-compatible parameter set. Non-zero `S3`/`S4`, which 3.x header protection needs, import with a notice but cannot start until the S3/S4 device floor is revalidated. |
 | NaiveProxy | A native backend exists, but the recipient exporter and subscription parser do not provide a complete import path. |
 | Snell v4/v6 | Research only. Stored as an inactive raw profile by the parser; never a selectable relay. |
 | DNS-morph | No recipient export or app runtime kind. |

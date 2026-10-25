@@ -67,6 +67,12 @@ Run this matrix before considering a build broadly healthy.
 - [ ] Language selector shows native language names in every locale.
 - [ ] Reset-to-default behavior clears only the intended settings.
 - [ ] Importing a profile rejects malformed or unsupported values with a clear local error.
+- [ ] VPN settings → **Add profile** → **Subscription** accepts an `https://` link, rejects a non-https or host-less link, and opens the subscription confirmation; a `/bootstrap/` link shows the one-time badge.
+- [ ] A subscription link that returns a web page (not a subscription) fails without leaving a saved group behind.
+- [ ] VPN settings → **Add profile** → **WireGuard / AmneziaWG from file** imports an AmneziaWG `.conf`, a plain WireGuard `.conf`, and a file that holds an AmneziaVPN `vpn://` key; an empty, binary, or over-64 KB file shows "could not read the file".
+- [ ] A `.conf` with more than one `[Peer]` shows the "only the first peer is used" notice.
+- [ ] The QR scanner imports a proxy link, an `https://` subscription link, a `sing-box://` link, a `.conf` QR, and an AmneziaVPN multi-code key series (progress shows "Scanned N of M"); Back from the next screen returns to where the scan started.
+- [ ] **Paste link** and the Android share sheet accept the same content as the QR scanner.
 - [ ] Exporting a profile omits private runtime-only values.
 - [ ] Migrated settings keep old defaults compatible with current schema.
 - [ ] The app handles missing native libraries with a clear non-crashing state.
