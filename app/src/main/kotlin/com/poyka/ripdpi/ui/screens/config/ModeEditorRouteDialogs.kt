@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.config
 
 import android.net.Uri
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -10,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
@@ -123,7 +123,7 @@ internal fun ModeEditorPkcs12Dialog(
             behavior =
                 RipDpiTextFieldBehavior(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    visualTransformation = PasswordVisualTransformation(),
+                    textObfuscationMode = TextObfuscationMode.Hidden,
                 ),
         )
     }

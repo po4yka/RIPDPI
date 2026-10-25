@@ -37,9 +37,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.EnableKeyboardInput
@@ -153,6 +155,33 @@ class RipDpiInputStylesTest {
         field.assertIsFocused().performTextInput("1080")
         field.assertTextEquals("1080")
         composeRule.runOnIdle { assertEquals("1080", value) }
+    }
+
+    @Test
+    fun `field shows the caller value after rejected edits and programmatic updates`() {
+        var value by mutableStateOf("8080")
+        composeRule.setContent {
+            InputTestTheme {
+                RipDpiTextField(
+                    value = value,
+                    onValueChange = { if (it.all(Char::isDigit)) value = it },
+                    modifier = Modifier.width(280.dp),
+                    decoration = RipDpiTextFieldDecoration(testTag = Control),
+                    visualStyle = SmallFieldStyle,
+                )
+            }
+        }
+        val field = composeRule.onNodeWithTag(Control)
+        field.performTouchInput { click(center) }
+        field.assertIsFocused().performTextInputSelection(TextRange(1))
+        field.performTextInput("x")
+        field.assertTextEquals("8080")
+        field.assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(2)))
+        field.performTextInput("1")
+        field.assertTextEquals("80180")
+        composeRule.runOnIdle { assertEquals("80180", value) }
+        composeRule.runOnIdle { value = "443" }
+        field.assertTextEquals("443")
     }
 
     @Test

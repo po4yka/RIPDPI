@@ -95,9 +95,7 @@ internal class MainActivityShellController(
                     putString("import-value", route.importToken)
                 }
 
-                else -> {
-                    Unit
-                }
+                else -> {}
             }
             putBoolean("start-mode", current.startConfiguredModeRequested)
             putBoolean("stop-mode", current.stopConfiguredModeRequested)

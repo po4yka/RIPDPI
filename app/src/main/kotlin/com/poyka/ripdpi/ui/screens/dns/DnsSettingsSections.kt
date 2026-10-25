@@ -5,8 +5,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -353,14 +353,12 @@ private fun PlainDnsEditor(
                         keyboardType = KeyboardType.Ascii,
                         imeAction = ImeAction.Done,
                     ),
-                keyboardActions =
-                    KeyboardActions(
-                        onDone = {
-                            if (validation.plainDnsValid && validation.plainDnsDirty) {
-                                onSavePlainDns(validation.trimmedPlainDns)
-                            }
-                        },
-                    ),
+                onKeyboardAction =
+                    KeyboardActionHandler {
+                        if (validation.plainDnsValid && validation.plainDnsDirty) {
+                            onSavePlainDns(validation.trimmedPlainDns)
+                        }
+                    },
             ),
     )
     RipDpiButton(

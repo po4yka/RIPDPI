@@ -107,9 +107,7 @@ internal class VpnTelemetryCoordinator(
                         continue
                     }
 
-                    VpnTelemetryFailureHandling.Continue -> {
-                        Unit
-                    }
+                    VpnTelemetryFailureHandling.Continue -> {}
                 }
                 dependencies.telemetryReporter.report(telemetry, state)
                 delay(nextTelemetryPollInterval())

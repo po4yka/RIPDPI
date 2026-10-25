@@ -3,8 +3,8 @@ package com.poyka.ripdpi.ui.screens.dns
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -147,14 +147,12 @@ internal fun CustomEncryptedDnsSection(
                                 keyboardType = KeyboardType.Ascii,
                                 imeAction = ImeAction.Done,
                             ),
-                        keyboardActions =
-                            KeyboardActions(
-                                onDone = {
-                                    if (customDotValid && customDotDirty && !doqUnavailable) {
-                                        onSaveCustomDot()
-                                    }
-                                },
-                            ),
+                        onKeyboardAction =
+                            KeyboardActionHandler {
+                                if (customDotValid && customDotDirty && !doqUnavailable) {
+                                    onSaveCustomDot()
+                                }
+                            },
                     ),
             )
             RipDpiButton(
@@ -250,14 +248,12 @@ internal fun CustomEncryptedDnsSection(
                                 keyboardType = KeyboardType.Ascii,
                                 imeAction = ImeAction.Done,
                             ),
-                        keyboardActions =
-                            KeyboardActions(
-                                onDone = {
-                                    if (customDnsCryptValid && customDnsCryptDirty) {
-                                        onSaveCustomDnsCrypt()
-                                    }
-                                },
-                            ),
+                        onKeyboardAction =
+                            KeyboardActionHandler {
+                                if (customDnsCryptValid && customDnsCryptDirty) {
+                                    onSaveCustomDnsCrypt()
+                                }
+                            },
                     ),
             )
             RipDpiButton(
@@ -337,14 +333,12 @@ internal fun CustomEncryptedDnsSection(
                                 keyboardType = KeyboardType.Ascii,
                                 imeAction = ImeAction.Done,
                             ),
-                        keyboardActions =
-                            KeyboardActions(
-                                onDone = {
-                                    if (customDohValid && customDohDirty) {
-                                        onSaveCustomDoh()
-                                    }
-                                },
-                            ),
+                        onKeyboardAction =
+                            KeyboardActionHandler {
+                                if (customDohValid && customDohDirty) {
+                                    onSaveCustomDoh()
+                                }
+                            },
                     ),
             )
             RipDpiButton(

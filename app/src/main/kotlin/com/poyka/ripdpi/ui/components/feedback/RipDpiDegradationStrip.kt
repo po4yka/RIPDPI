@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -176,18 +175,27 @@ fun RipDpiDegradationStrip(
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                     verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                    // An actionable chip reserves a taller touch slot; keep its neighbours level with it.
+                    itemVerticalAlignment = Alignment.CenterVertically,
                 ) {
                     metrics.forEach { metric ->
                         RipDpiDegradationMetricChip(metric = metric)
                     }
                 }
-                Text(
-                    text = sinceLabel,
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    style = type.caption,
-                    color = colors.mutedForeground,
-                )
-                RipDpiDegradationActions(primaryAction, secondaryAction)
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = sinceLabel,
+                        modifier = Modifier.weight(1f),
+                        style = type.caption,
+                        color = colors.mutedForeground,
+                    )
+                    RipDpiDegradationActions(primaryAction, secondaryAction)
+                }
             }
         }
     }
@@ -200,7 +208,6 @@ private fun RipDpiDegradationActions(
     secondaryAction: RipDpiDegradationAction?,
 ) {
     FlowRow(
-        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm, Alignment.End),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
@@ -236,9 +243,12 @@ private fun RipDpiDegradationMetricChip(metric: RipDpiDegradationMetric) {
         modifier =
             metric.modifier.then(
                 metric.action?.let { action ->
-                    Modifier
-                        .heightIn(min = RipDpiThemeTokens.components.buttons.minHeight)
-                        .ripDpiClickable(role = Role.Button, onClickLabel = action.label, onClick = action.onClick)
+                    // ripDpiClickable reserves the 48dp touch slot around the chip without enlarging the chip itself.
+                    Modifier.ripDpiClickable(
+                        role = Role.Button,
+                        onClickLabel = action.label,
+                        onClick = action.onClick,
+                    )
                 } ?: Modifier,
             ),
         shape = shapes.md,

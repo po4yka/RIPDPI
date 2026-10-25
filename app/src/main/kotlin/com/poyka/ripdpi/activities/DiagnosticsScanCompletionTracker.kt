@@ -60,7 +60,7 @@ internal class DiagnosticsScanCompletionTracker {
             null
         } else {
             pendingSessionId = null
-            pendingSession?.takeIf { it.status == "completed" && deliveredSessionIds.add(it.id) }
+            pendingSession.takeIf { it.status == "completed" && deliveredSessionIds.add(it.id) }
         }
     }
 }

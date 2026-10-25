@@ -19,7 +19,7 @@ class SensitiveSavedStateContractTest {
         assertTrue(dialogs.contains("pkcs12Password by remember {"))
         assertFalse(dialogs.contains("pkcs12Password by rememberSaveable"))
         assertTrue(dialogs.contains("KeyboardType.Password"))
-        assertTrue(dialogs.contains("PasswordVisualTransformation()"))
+        assertTrue(dialogs.contains("TextObfuscationMode.Hidden"))
 
         val viewModel = source("activities/ConfigViewModel.kt").readText()
         val recoverySupport = source("activities/ConfigEditorRecoverySupport.kt").readText()
@@ -35,7 +35,7 @@ class SensitiveSavedStateContractTest {
         assertTrue(workerTransport.contains("var bearer by remember {"))
         assertFalse(workerTransport.contains("bearer by rememberSaveable"))
         assertTrue(workerTransport.contains("SecureWindowEffect()"))
-        assertTrue(workerTransport.contains("PasswordVisualTransformation()"))
+        assertTrue(workerTransport.contains("TextObfuscationMode.Hidden"))
     }
 
     private fun source(relativePath: String): File =

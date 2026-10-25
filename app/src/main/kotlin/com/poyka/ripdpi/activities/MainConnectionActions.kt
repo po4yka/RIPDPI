@@ -226,9 +226,7 @@ internal class MainConnectionActions(
                     // resolveEffectiveConnectionState (single source of truth); no
                     // runtime-state mutation is needed here, and the terminal
                     // Running/Halted edge resolves the state.
-                    AppStatus.Reconnecting -> {
-                        Unit
-                    }
+                    AppStatus.Reconnecting -> {}
                 }
                 refreshPermissionSnapshot()
             }

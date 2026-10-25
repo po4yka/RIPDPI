@@ -380,10 +380,10 @@ private fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =
         put(AwgEditorField.S2, s2.toString())
         put(AwgEditorField.S3, s3.toString())
         put(AwgEditorField.S4, s4.toString())
-        put(AwgEditorField.H1, h1.toString())
-        put(AwgEditorField.H2, h2.toString())
-        put(AwgEditorField.H3, h3.toString())
-        put(AwgEditorField.H4, h4.toString())
+        put(AwgEditorField.H1, h1)
+        put(AwgEditorField.H2, h2)
+        put(AwgEditorField.H3, h3)
+        put(AwgEditorField.H4, h4)
         // I1..I5 are signature programs: only seed raw text when present so an empty
         // payload column does not flag a spurious field error in the editor.
         if (i1.isNotEmpty()) put(AwgEditorField.I1, i1)
