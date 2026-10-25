@@ -28,7 +28,13 @@ pub(in crate::io_loop) fn spawn_dns_worker(
                 biased;
                 _ = cancel.cancelled() => break,
                 _ = resp_tx.closed() => break,
-                Some(_) = in_flight.join_next(), if !in_flight.is_empty() => {}
+                Some(joined) = in_flight.join_next(), if !in_flight.is_empty() => {
+                    if let Err(error) = joined
+                        && error.is_panic()
+                    {
+                        tracing::warn!("DNS lookup task panicked; its query gets no response: {error}");
+                    }
+                }
                 request = req_rx.recv(), if in_flight.len() < MAX_IN_FLIGHT_DNS_REQUESTS => {
                     let Some(request) = request else {
                         break;

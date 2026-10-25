@@ -45,14 +45,12 @@ impl EncryptedDnsResolver {
     /// # Cancel safety:
     /// A connection is published only after its handshake completes; cancellation releases the pending handle.
     async fn get_or_connect_doq(&self, endpoint: &quinn::Endpoint) -> Result<quinn::Connection, EncryptedDnsError> {
-        // Try cached connection.
+        // Held across the connect, so a burst of queries waits for one handshake instead of starting many.
+        let mut cached = self.inner.doq_connection.lock().await;
+        if let Some(conn) = cached.as_ref()
+            && conn.close_reason().is_none()
         {
-            let guard = self.inner.doq_connection.lock().await;
-            if let Some(ref conn) = *guard
-                && conn.close_reason().is_none()
-            {
-                return Ok(conn.clone());
-            }
+            return Ok(conn.clone());
         }
         let server_name = self.inner.endpoint.tls_server_name.as_deref().unwrap_or(&self.inner.endpoint.host);
         let bootstrap_ips = self.inner.health.as_ref().map_or_else(
@@ -84,7 +82,7 @@ impl EncryptedDnsResolver {
             }
             match result {
                 Ok(conn) => {
-                    *self.inner.doq_connection.lock().await = Some(conn.clone());
+                    *cached = Some(conn.clone());
                     return Ok(conn);
                 }
                 Err(error) => last_error = Some(error),

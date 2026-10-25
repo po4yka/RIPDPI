@@ -1,3 +1,4 @@
+mod burst;
 mod https_service_binding;
 mod pipeline;
 

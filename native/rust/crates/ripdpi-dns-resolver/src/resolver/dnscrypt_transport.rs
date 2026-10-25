@@ -14,8 +14,13 @@ use crate::transport::{
 use crate::types::{DnsCryptCachedCertificate, EncryptedDnsError};
 
 impl EncryptedDnsResolver {
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: the connection slot and the stream are owned by this call; a
+    /// cancelled exchange drops its stream instead of returning it to the pool.
     pub(super) async fn exchange_dnscrypt(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         let certificate = self.current_dnscrypt_certificate().await?;
+        let _slot = self.inner.connection_pool.slot().await?;
         let (mut stream, reused) = self.take_dnscrypt_session().await?;
         match self.exchange_dnscrypt_with_session(&mut stream, &certificate, query_bytes).await {
             Ok(response) => {

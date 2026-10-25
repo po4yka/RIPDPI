@@ -9,7 +9,12 @@ use crate::transport::{read_length_prefixed_frame_async, write_length_prefixed_f
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsError};
 
 impl EncryptedDnsResolver {
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: the connection slot and the stream are owned by this call; a
+    /// cancelled exchange drops its stream instead of returning it to the pool.
     pub(super) async fn exchange_dot(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        let _slot = self.inner.connection_pool.slot().await?;
         let (mut stream, reused) = self.take_dot_session().await?;
         match self.exchange_dot_with_session(&mut stream, query_bytes).await {
             Ok(response) => {
