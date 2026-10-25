@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.userMessage
 import com.poyka.ripdpi.services.OwnedStackBrowserBackend
 import com.poyka.ripdpi.services.OwnedStackBrowserPage
 import com.poyka.ripdpi.services.OwnedStackBrowserService
@@ -91,26 +92,24 @@ class OwnedStackBrowserViewModel
                     }
                 } catch (error: CancellationException) {
                     throw error
-                } catch (_: IOException) {
-                    showRequestFailed()
-                } catch (_: IllegalArgumentException) {
+                } catch (error: IOException) {
+                    showRequestFailed(error)
+                } catch (error: IllegalArgumentException) {
                     // Includes SerializationException from decoding the response.
-                    showRequestFailed()
-                } catch (_: SecurityException) {
-                    showRequestFailed()
-                } catch (_: GeneralSecurityException) {
-                    showRequestFailed()
+                    showRequestFailed(error)
+                } catch (error: SecurityException) {
+                    showRequestFailed(error)
+                } catch (error: GeneralSecurityException) {
+                    showRequestFailed(error)
                 }
             }
         }
 
-        private fun showRequestFailed() {
-            _uiState.update { state ->
-                state.copy(
-                    isLoading = false,
-                    errorMessage = stringResolver.getString(R.string.owned_stack_browser_request_failed),
-                )
-            }
+        private fun showRequestFailed(error: Throwable? = null) {
+            val message =
+                error?.let { stringResolver.userMessage(it, R.string.owned_stack_browser_request_failed) }
+                    ?: stringResolver.getString(R.string.owned_stack_browser_request_failed)
+            _uiState.update { state -> state.copy(isLoading = false, errorMessage = message) }
         }
     }
 

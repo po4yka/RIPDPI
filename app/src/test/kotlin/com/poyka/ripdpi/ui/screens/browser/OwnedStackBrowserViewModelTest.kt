@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.browser
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.OwnedStackBrowserPage
 import com.poyka.ripdpi.services.OwnedStackBrowserService
@@ -10,6 +11,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.security.GeneralSecurityException
 
@@ -51,6 +53,17 @@ class OwnedStackBrowserViewModelTest {
 
             assertEquals(FallbackMessage, viewModel.uiState.value.errorMessage)
         }
+    }
+
+    @Test
+    fun `classified fetch failures show their localized class and others the browser fallback`() {
+        val timeout = OwnedStackBrowserViewModel(RejectingBrowserService(SocketTimeoutException()), ResIdResolver)
+        timeout.load("https://example.com")
+        assertEquals(R.string.error_user_timeout.toString(), timeout.uiState.value.errorMessage)
+
+        val generic = OwnedStackBrowserViewModel(RejectingBrowserService(), ResIdResolver)
+        generic.load("https://example.com")
+        assertEquals(R.string.owned_stack_browser_request_failed.toString(), generic.uiState.value.errorMessage)
     }
 
     @Test
@@ -97,6 +110,19 @@ class OwnedStackBrowserViewModelTest {
             quantity: Int,
             vararg formatArgs: Any,
         ): String = FallbackMessage
+    }
+
+    private object ResIdResolver : StringResolver {
+        override fun getString(
+            resId: Int,
+            vararg formatArgs: Any,
+        ): String = resId.toString()
+
+        override fun getQuantityString(
+            resId: Int,
+            quantity: Int,
+            vararg formatArgs: Any,
+        ): String = resId.toString()
     }
 
     private companion object {
