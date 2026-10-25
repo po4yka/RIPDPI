@@ -62,33 +62,40 @@ fun ConnectionHealthScreen(
         onNavigationClick = onBack,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.ConnectionHealth)),
     ) {
-        ConnectionHealthSummary(uiState)
-        if (uiState.latencyDistributions.isNotEmpty()) {
-            LatencyDistributionsCard(distributions = uiState.latencyDistributions, source = uiState.latencySource)
-        }
-        uiState.dnsCounters?.let { counters ->
-            DnsCountersCard(counters = counters, source = uiState.dnsSource)
-        }
-        MeasurementCaption(
-            stringResource(
-                R.string.measurement_observation_scope,
-                uiState.observationWindowMillis / MillisPerMinute,
-                uiState.observationLimit,
-                uiState.observedAt.takeIf { it > 0L }?.let { measurementTimestamp(it) }
-                    ?: stringResource(R.string.diagnostics_field_unknown),
-            ),
-        )
-        // A destination without samples has nothing to show; the empty state below stands in for blank cards.
-        uiState.rows.filter { it.totalCount > 0L }.forEach { row ->
-            ConnectionHealthRow(row = row)
-        }
         if (!uiState.hasData) {
+            // Nothing is measured yet: one empty state stands in for every section.
             RipDpiEmptyStateCard(
                 title = stringResource(R.string.connection_health_empty_title),
                 body = stringResource(R.string.connection_health_empty_body),
             )
+        } else {
+            ConnectionHealthSummary(uiState)
+            if (uiState.latencyDistributions.isNotEmpty()) {
+                LatencyDistributionsCard(distributions = uiState.latencyDistributions, source = uiState.latencySource)
+            }
+            uiState.dnsCounters?.let { counters ->
+                DnsCountersCard(counters = counters, source = uiState.dnsSource)
+            }
+            DestinationRows(uiState)
         }
     }
+}
+
+@Composable
+private fun DestinationRows(uiState: ConnectionHealthUiState) {
+    // A destination without samples has nothing to show, and the window caption belongs to the rows.
+    val rows = uiState.rows.filter { it.totalCount > 0L }
+    if (rows.isEmpty()) return
+    MeasurementCaption(
+        stringResource(
+            R.string.measurement_observation_scope,
+            uiState.observationWindowMillis / MillisPerMinute,
+            uiState.observationLimit,
+            uiState.observedAt.takeIf { it > 0L }?.let { measurementTimestamp(it) }
+                ?: stringResource(R.string.diagnostics_field_unknown),
+        ),
+    )
+    rows.forEach { row -> ConnectionHealthRow(row = row) }
 }
 
 @Composable
@@ -131,7 +138,6 @@ private fun ConnectionHealthSummary(uiState: ConnectionHealthUiState) {
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
         if (uiState.qualitySampleCount != null) {
-            MeasurementCaption(stringResource(R.string.measurement_quality_meaning))
             MeasurementCaption(
                 stringResource(
                     R.string.measurement_quality_samples,
@@ -148,6 +154,7 @@ private fun ConnectionHealthSummary(uiState: ConnectionHealthUiState) {
                 MeasurementCaption(stringResource(R.string.measurement_quality_p95, it))
             }
             MeasurementSource(uiState.qualitySource)
+            MeasurementHelp(stringResource(R.string.measurement_quality_meaning))
         }
     }
 }
@@ -223,14 +230,12 @@ private fun LatencyDistributionsCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.connection_health_latency_section_title))
-        Text(
-            text = stringResource(R.string.connection_health_latency_caption),
-            style = RipDpiThemeTokens.type.caption,
-            color = colors.mutedForeground,
-        )
-        MeasurementCaption(stringResource(R.string.measurement_percentiles_meaning))
-        MeasurementCaption(stringResource(R.string.measurement_runtime_scope))
         MeasurementSource(source)
+        MeasurementHelp(
+            stringResource(R.string.connection_health_latency_caption),
+            stringResource(R.string.measurement_percentiles_meaning),
+            stringResource(R.string.measurement_runtime_scope),
+        )
         distributions.forEach { distribution ->
             Column(
                 modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
@@ -300,8 +305,8 @@ private fun DnsCountersCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.connection_health_dns_section_title))
-        MeasurementCaption(stringResource(R.string.measurement_runtime_scope))
         MeasurementSource(source)
+        MeasurementHelp(stringResource(R.string.measurement_runtime_scope))
         counters.cacheHitRatePercent?.let { rate ->
             Text(
                 text = stringResource(R.string.connection_health_dns_hit_rate_format, rate),

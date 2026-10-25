@@ -916,6 +916,7 @@ app:connection_health_latency_section_title
 app:connection_health_latency_tcp
 app:connection_health_latency_tls
 app:connection_health_latency_value_ms
+app:connection_health_measurement_help_title
 app:connection_health_open_action
 app:connection_health_quality_format
 app:connection_health_quality_loss_format

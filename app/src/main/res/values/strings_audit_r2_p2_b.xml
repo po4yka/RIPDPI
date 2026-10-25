@@ -2,4 +2,5 @@
 <resources>
     <string name="strategy_tuner_vs_probe">A quick, limited run. To also see what blocks each domain, use Strategy probe.</string>
     <string name="blockcheck_vs_tuner">Tries every strategy and finds what blocks each domain. For a quick, limited run, use Strategy tuner.</string>
+    <string name="connection_health_measurement_help_title">About these numbers</string>
 </resources>

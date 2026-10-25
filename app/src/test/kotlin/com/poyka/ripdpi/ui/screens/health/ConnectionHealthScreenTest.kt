@@ -46,6 +46,8 @@ class ConnectionHealthScreenTest {
         }
         composeRule.onNodeWithText("Estimated loss: 0.25%.").assertIsDisplayed()
         composeRule.onNodeWithText("Waiting for classified traffic").assertDoesNotExist()
+        // The destination window caption belongs to destination rows; without rows it must not linger.
+        composeRule.onNodeWithText("Destination events", substring = true).assertDoesNotExist()
     }
 
     @Test
@@ -80,6 +82,7 @@ class ConnectionHealthScreenTest {
             }
         }
         composeRule.onNodeWithText("Waiting for classified traffic").assertIsDisplayed()
+        composeRule.onNodeWithText("Waiting for quality measurements.").assertDoesNotExist()
         composeRule.onNodeWithText("VK").assertDoesNotExist()
         composeRule.onNodeWithText("SAMPLES").assertDoesNotExist()
     }

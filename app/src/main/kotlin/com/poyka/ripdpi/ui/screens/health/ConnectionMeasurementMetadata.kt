@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.health
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,6 +14,7 @@ import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementFreshness
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetrySamplingPolicy
 import com.poyka.ripdpi.service.telemetry.freshness
+import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleDataBadge
 import com.poyka.ripdpi.ui.components.indicators.liveStaleBadgeTier
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -69,6 +72,16 @@ internal fun MeasurementSource(
             )
         }
     if (tier != null) RipDpiStaleDataBadge(label = label, tier = tier) else MeasurementCaption(label)
+}
+
+/** Collapses explanatory captions behind one "About these numbers" toggle. */
+@Composable
+internal fun MeasurementHelp(vararg lines: String) {
+    AdvancedSection(title = stringResource(R.string.connection_health_measurement_help_title)) {
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+            lines.forEach { MeasurementCaption(it) }
+        }
+    }
 }
 
 private fun RuntimeMeasurementFreshness.labelResource(): Int =

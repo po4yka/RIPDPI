@@ -2,4 +2,5 @@
 <resources>
     <string name="strategy_tuner_vs_probe">Быстрый запуск с ограничениями. Чтобы узнать, что блокирует каждый домен, используйте «Зондирование стратегий».</string>
     <string name="blockcheck_vs_tuner">Пробует все стратегии и находит, что блокирует каждый домен. Для быстрого запуска с ограничениями используйте «Подбор стратегии».</string>
+    <string name="connection_health_measurement_help_title">Об этих значениях</string>
 </resources>
