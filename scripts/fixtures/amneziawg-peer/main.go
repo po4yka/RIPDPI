@@ -144,7 +144,7 @@ func echoTCP(listener net.Listener) error {
 		return err
 	}
 	defer client.Close()
-	if err = client.SetDeadline(time.Now().Add(20 * time.Second)); err != nil {
+	if err = client.SetDeadline(time.Now().Add(60 * time.Second)); err != nil {
 		return err
 	}
 	var header [4]byte
@@ -152,7 +152,7 @@ func echoTCP(listener net.Listener) error {
 		return err
 	}
 	size := binary.BigEndian.Uint32(header[:])
-	if size == 0 || size > 65536 {
+	if size == 0 || size > 16<<20 {
 		return errors.New("invalid payload size")
 	}
 	payload := make([]byte, int(size))
@@ -162,8 +162,12 @@ func echoTCP(listener net.Listener) error {
 	_, err = io.Copy(client, bytes.NewReader(payload))
 	return err
 }
+
+// sessionWait bounds the wait for one session's first datagram: bulk TCP runs before the UDP and DNS exchanges.
+const sessionWait = 90 * time.Second
+
 func echoUDPPair(first, second net.PacketConn) error {
-	deadline := time.Now().Add(20 * time.Second)
+	deadline := time.Now().Add(sessionWait)
 	if err := first.SetDeadline(deadline); err != nil {
 		return err
 	}
@@ -187,8 +191,30 @@ func echoUDPPair(first, second net.PacketConn) error {
 	return err
 }
 
+// echoUDPSeries echoes count datagrams; the client sends each one after the previous echo, so any loss stalls it.
+func echoUDPSeries(socket net.PacketConn, count int) error {
+	buffer := make([]byte, 2048)
+	for i := 0; i < count; i++ {
+		wait := 20 * time.Second
+		if i == 0 {
+			wait = sessionWait
+		}
+		if err := socket.SetDeadline(time.Now().Add(wait)); err != nil {
+			return err
+		}
+		size, source, err := socket.ReadFrom(buffer)
+		if err != nil {
+			return err
+		}
+		if _, err = socket.WriteTo(buffer[:size], source); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func answerDNS(socket net.PacketConn) error {
-	if err := socket.SetDeadline(time.Now().Add(25 * time.Second)); err != nil {
+	if err := socket.SetDeadline(time.Now().Add(sessionWait)); err != nil {
 		return err
 	}
 	buffer := make([]byte, 1024)
@@ -249,6 +275,17 @@ func run() error {
 			return errors.New("RIPDPI_AWG_INTEROP_CYCLES must be an integer from 1 through 4")
 		}
 	}
+	series := 0
+	if value := os.Getenv("RIPDPI_AWG_UDP_SERIES"); value != "" {
+		series, err = strconv.Atoi(value)
+		if err != nil || series < 1 || series > 4096 {
+			return errors.New("RIPDPI_AWG_UDP_SERIES must be an integer from 1 through 4096")
+		}
+	}
+	profile, err := selectWireProfile(os.Getenv("RIPDPI_AWG_PROFILE"))
+	if err != nil {
+		return err
+	}
 	server, err := ecdh.X25519().NewPrivateKey(bytes.Repeat([]byte{9}, 32))
 	if err != nil {
 		return err
@@ -270,9 +307,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	bind.observation.profile = profile
 	peer := device.NewDevice(tun, bind, device.NewLogger(device.LogLevelSilent, ""))
 	defer peer.Close()
-	config := fmt.Sprintf("private_key=%s\nlisten_port=0\njc=4\njmin=64\njmax=96\ns1=8\ns2=12\nh1=100-199\nh2=200-299\nh3=300-399\nh4=400-499\ni1=<b 0xf0f1><r 16><rd 8><rc 8><t>\ni2=<b 0xf2>\ni3=<b 0xf3>\ni4=<b 0xf4>\ni5=<b 0xf5>\npublic_key=%s\npreshared_key=%s\nallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)))
+	config := fmt.Sprintf("private_key=%s\nlisten_port=0\n%spublic_key=%s\npreshared_key=%s\n%sallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), profile.iface, hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)), profile.peer)
 	if err = peer.IpcSet(config); err != nil {
 		return err
 	}
@@ -317,7 +355,7 @@ func run() error {
 	}
 	defer second6.Close()
 	expected := 4
-	results := make(chan error, 6)
+	results := make(chan error, 8)
 	serve := func(exchange func() error) {
 		for cycle := 0; cycle < cycles; cycle++ {
 			if err := exchange(); err != nil {
@@ -331,6 +369,17 @@ func run() error {
 	go serve(func() error { return echoUDPPair(first, second) })
 	go serve(func() error { return echoTCP(tcp6) })
 	go serve(func() error { return echoUDPPair(first6, second6) })
+	if series > 0 {
+		for _, address := range []string{"10.77.0.1:41007", "[fd77::1]:41008"} {
+			socket, err := network.ListenUDPAddrPort(netip.MustParseAddrPort(address))
+			if err != nil {
+				return err
+			}
+			defer socket.Close()
+			go serve(func() error { return echoUDPSeries(socket, series) })
+			expected++
+		}
+	}
 	if os.Getenv("RIPDPI_AWG_INTEROP_DNS") == "1" {
 		for _, address := range []string{"10.77.0.1:53", "[fd77::1]:53"} {
 			socket, err := network.ListenUDPAddrPort(netip.MustParseAddrPort(address))
@@ -352,7 +401,7 @@ func run() error {
 	stop := make(chan struct{})
 	go func() { bufio.NewScanner(os.Stdin).Scan(); close(stop) }()
 	// Preserve the per-session deadline while one peer serves all reconnects.
-	timer := time.NewTimer(time.Duration(cycles) * 30 * time.Second)
+	timer := time.NewTimer(time.Duration(cycles) * sessionWait)
 	defer timer.Stop()
 	completed := 0
 	for {

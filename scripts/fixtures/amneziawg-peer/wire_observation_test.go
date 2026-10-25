@@ -130,3 +130,38 @@ func TestWireTransportCountersDoNotChangeHandshakeState(t *testing.T) {
 		t.Fatal("transport became initiation")
 	}
 }
+
+// protectedPacket builds an AmneziaVPN 5.x datagram: a 12-byte S prefix that is also the mask nonce.
+func protectedPacket(size int, header uint32) []byte {
+	packet := make([]byte, size)
+	for i := 0; i < 12; i++ {
+		packet[i] = byte(i + 1)
+	}
+	binary.LittleEndian.PutUint32(packet[12:16], header^headerMask(amneziaVPN5xKey, packet))
+	return packet
+}
+
+func TestProtectedProfileUnmasksHeadersAndAcceptsTrailers(t *testing.T) {
+	observation := wireObservation{profile: amneziaVPN5xWireProfile}
+	completeWirePrelude(&observation, 1)
+	observation.observe(protectedPacket(160+40, 100), true)
+	observation.observe(protectedPacket(44+64, 450), true)
+	observation.observe(protectedPacket(104, 200), false)
+	if observation.failure != "" || observation.handshakes != 1 || observation.trailers != 1 ||
+		!observation.inbound[3][450] || !observation.outbound[1][200] || observation.clearHeaders != 0 {
+		t.Fatalf("protected profile misclassified: failure=%q handshakes=%d trailers=%d", observation.failure, observation.handshakes, observation.trailers)
+	}
+	// A clear S1=12 initiation is not a valid protected datagram.
+	observation.observe(wirePacket(160, 12, 100), true)
+	if observation.failure != "packet outside configured header ranges" {
+		t.Fatal("unprotected header was accepted by the protected profile")
+	}
+}
+
+func TestLegacyProfileRejectsTrailers(t *testing.T) {
+	var observation wireObservation
+	observation.observe(wirePacket(156+1, 8, 100), false)
+	if len(observation.outbound[0]) != 0 {
+		t.Fatal("legacy profile accepted a handshake trailer")
+	}
+}

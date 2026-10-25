@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/netip"
+	"strings"
 	"testing"
 )
 
@@ -32,6 +33,24 @@ func TestPeerBindAdmitsOnlyExplicitPrivatePeer(t *testing.T) {
 		t.Setenv("RIPDPI_AWG_PEER_IP", pair[1])
 		if _, err := newPeerBind(); err == nil {
 			t.Fatalf("invalid opt-in accepted: %v", pair)
+		}
+	}
+}
+
+func TestWireProfileSelection(t *testing.T) {
+	for name, want := range map[string]string{"": "awg-3.1-ranges-v1", "awg-3.1-ranges-v1": "awg-3.1-ranges-v1", "amneziavpn-5x": "amneziavpn-5x"} {
+		profile, err := selectWireProfile(name)
+		if err != nil || profile.name != want {
+			t.Fatalf("profile %q: got %q, %v", name, profile.name, err)
+		}
+	}
+	if _, err := selectWireProfile("awg-unknown"); err == nil {
+		t.Fatal("unknown profile accepted")
+	}
+	profile, _ := selectWireProfile("amneziavpn-5x")
+	for _, key := range []string{"s3=12\n", "s4=12\n", "header_protection_key=0303", "random_trailers=true\n", "content_padding_addition=10-100\n"} {
+		if !strings.Contains(profile.iface, key) {
+			t.Fatalf("AmneziaVPN 5.x interface lacks %q", key)
 		}
 	}
 }

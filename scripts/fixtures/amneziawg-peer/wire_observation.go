@@ -3,22 +3,81 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/chacha20"
 )
+
+// wireProfile is the configured AWG envelope the observer checks. The zero value is the legacy profile.
+type wireProfile struct {
+	name      string
+	padding   [4]int
+	headerKey []byte // nil: message headers travel in the clear
+	trailers  bool   // RandomTrailers: handshake messages may be longer than S + size
+	iface     string // UAPI obfuscation keys after private_key
+	peer      string // UAPI keys after the peer public_key
+}
+
+const signaturePrograms = "h1=100-199\nh2=200-299\nh3=300-399\nh4=400-499\ni1=<b 0xf0f1><r 16><rd 8><rc 8><t>\ni2=<b 0xf2>\ni3=<b 0xf3>\ni4=<b 0xf4>\ni5=<b 0xf5>\n"
+
+var legacyWireProfile = wireProfile{name: "awg-3.1-ranges-v1", padding: [4]int{8, 12, 0, 0},
+	iface: "jc=4\njmin=64\njmax=96\ns1=8\ns2=12\n" + signaturePrograms}
+
+// amneziaVPN5xKey is a public test fixture key, never a production secret.
+var amneziaVPN5xKey = bytes.Repeat([]byte{3}, 32)
+
+// amneziaVPN5xWireProfile mirrors an AmneziaVPN 5.x server: AWG 3.1 with S1-S4 = 12,
+// header protection, content padding, random trailers and ranged timers.
+var amneziaVPN5xWireProfile = wireProfile{name: "amneziavpn-5x", padding: [4]int{12, 12, 12, 12}, headerKey: amneziaVPN5xKey, trailers: true,
+	iface: "jc=4\njmin=64\njmax=96\ns1=12\ns2=12\ns3=12\ns4=12\n" + signaturePrograms +
+		"header_protection_key=" + hex.EncodeToString(amneziaVPN5xKey) + "\ncontent_padding_addition=10-100\nrekey_after_time=100-120\n" +
+		"rekey_timeout=3-7\nreject_after_time=150-180\nkeepalive_timeout=5-15\nmax_handshake_attempts=15-20\nrandom_trailers=true\ndisable_cookies=true\n",
+	peer: "protocol_version=1\npersistent_keepalive_interval=25-35\n"}
+
+func selectWireProfile(name string) (wireProfile, error) {
+	switch name {
+	case "", legacyWireProfile.name:
+		return legacyWireProfile, nil
+	case amneziaVPN5xWireProfile.name:
+		return amneziaVPN5xWireProfile, nil
+	}
+	return wireProfile{}, fmt.Errorf("unknown RIPDPI_AWG_PROFILE %q", name)
+}
+
+// headerMask is the 4-byte type mask: IETF ChaCha20 keyed by the header key, nonce = first 12 datagram bytes.
+func headerMask(key, packet []byte) uint32 {
+	cipher, err := chacha20.NewUnauthenticatedCipher(key, packet[:chacha20.NonceSize])
+	if err != nil {
+		panic(err)
+	}
+	var mask [4]byte
+	cipher.XORKeyStream(mask[:], mask[:])
+	return binary.LittleEndian.Uint32(mask[:])
+}
+
+func inHeaderRange(index int, header uint32) bool {
+	return header >= uint32((index+1)*100) && header <= uint32((index+1)*100+99)
+}
 
 // Measurements come from the actual received and sent datagrams, before upstream decoding.
 type wireObservation struct {
-	mu         sync.Mutex
-	inbound    [4]map[uint32]bool
-	outbound   [4]map[uint32]bool
-	signatures map[string]bool
-	stage      int
-	handshakes int
-	failure    string
+	mu      sync.Mutex
+	profile wireProfile
+	// Protected profile only: raw headers inside a configured range, handshake trailers, transport sizes.
+	clearHeaders   int
+	trailers       int
+	transportSizes map[int]bool
+	inbound        [4]map[uint32]bool
+	outbound       [4]map[uint32]bool
+	signatures     map[string]bool
+	stage          int
+	handshakes     int
+	failure        string
 }
 
 func (o *wireObservation) observe(packet []byte, inbound bool) {
@@ -26,6 +85,7 @@ func (o *wireObservation) observe(packet []byte, inbound bool) {
 	defer o.mu.Unlock()
 	if o.signatures == nil {
 		o.signatures = make(map[string]bool)
+		o.transportSizes = make(map[int]bool)
 		for i := range o.inbound {
 			o.inbound[i] = make(map[uint32]bool)
 			o.outbound[i] = make(map[uint32]bool)
@@ -69,19 +129,35 @@ func (o *wireObservation) observe(packet []byte, inbound bool) {
 			return
 		}
 	}
-	for index, padding := range []int{8, 12, 0, 0} {
+	wire := o.wire()
+	var mask uint32
+	if wire.headerKey != nil && len(packet) >= chacha20.NonceSize {
+		mask = headerMask(wire.headerKey, packet)
+	}
+	for index, padding := range wire.padding {
 		// Match the pinned peer's size checks before interpreting a header.
 		// A transport counter occupies the same offset as the padded H1 header.
 		size := padding + []int{148, 92, 64, 32}[index]
-		if (index < 3 && len(packet) != size) || (index == 3 && len(packet) < size) {
+		grown := index < 3 && wire.trailers && len(packet) > size
+		if (index < 3 && len(packet) != size && !grown) || (index == 3 && len(packet) < size) {
 			continue
 		}
-		header := binary.LittleEndian.Uint32(packet[padding : padding+4])
-		if header < uint32((index+1)*100) || header > uint32((index+1)*100+99) {
+		raw := binary.LittleEndian.Uint32(packet[padding : padding+4])
+		header := raw ^ mask
+		if !inHeaderRange(index, header) {
 			continue
+		}
+		if wire.headerKey != nil && inHeaderRange(index, raw) {
+			o.clearHeaders++
 		}
 		if inbound {
 			o.inbound[index][header] = true
+			if grown {
+				o.trailers++
+			}
+			if index == 3 {
+				o.transportSizes[len(packet)] = true
+			}
 			if index == 0 {
 				if o.stage != 9 {
 					o.failure = "initiation arrived without complete I/J prelude"
@@ -99,6 +175,13 @@ func (o *wireObservation) observe(packet []byte, inbound bool) {
 	}
 }
 
+func (o *wireObservation) wire() wireProfile {
+	if o.profile.name == "" {
+		return legacyWireProfile
+	}
+	return o.profile
+}
+
 func (o *wireObservation) finish(cycles int) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -108,9 +191,20 @@ func (o *wireObservation) finish(cycles int) error {
 	if o.handshakes < cycles || len(o.signatures) < cycles || len(o.inbound[0]) == 0 || len(o.outbound[1]) == 0 || len(o.inbound[3]) < 2 || len(o.outbound[3]) < 2 {
 		return fmt.Errorf("incomplete wire observation: handshakes=%d fresh-signatures=%d H4-in=%d H4-out=%d", o.handshakes, len(o.signatures), len(o.inbound[3]), len(o.outbound[3]))
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"wire_observation": map[string]any{
-		"wire_profile": "awg-3.1-ranges-v1", "handshakes": o.handshakes,
+	wire := o.wire()
+	if wire.headerKey != nil && o.clearHeaders != 0 {
+		return fmt.Errorf("wire observation: %d protected headers travelled in the clear", o.clearHeaders)
+	}
+	result := map[string]any{
+		"wire_profile": wire.name, "handshakes": o.handshakes,
 		"fresh_signature_packets": len(o.signatures), "h4_in_values": len(o.inbound[3]), "h4_out_values": len(o.outbound[3]),
 		"signature_order": "I1-I5,Jc,initiation", "signature_tags": []string{"b", "r", "rd", "rc", "t"},
-	}})
+	}
+	if wire.headerKey != nil {
+		result["padding"] = wire.padding
+		result["headers_in_clear"] = o.clearHeaders
+		result["handshake_trailers"] = o.trailers
+		result["inbound_transport_sizes"] = len(o.transportSizes)
+	}
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"wire_observation": result})
 }

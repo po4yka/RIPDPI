@@ -21,7 +21,8 @@ RUNNER_SPEC.loader.exec_module(RUNNER)
 
 class AuthorizationRestorationTest(unittest.TestCase):
     def test_previous_mode_is_restored_after_success_or_failure(self):
-        for previous, expected in (("No operations.", "default"), ("ACTIVATE_VPN: ignore; time=never", "ignore")):
+        for previous, expected in (("No operations.", "default"), ("ACTIVATE_VPN: ignore; time=never", "ignore"),
+                                   ("Uid mode: ACTIVATE_VPN: deny", "deny")):
             for failure in (False, True):
                 with self.subTest(previous=previous, failure=failure):
                     with patch.object(RUNNER, "checked", side_effect=[previous, "", ""]) as command:
@@ -32,6 +33,7 @@ class AuthorizationRestorationTest(unittest.TestCase):
                         except RuntimeError:
                             self.assertTrue(failure)
                         self.assertEqual(command.call_args_list[-1].args[0][-1], expected)
+                        self.assertIn("--uid", command.call_args_list[-1].args[0])
                         self.assertEqual(command.call_count, 3)
 
     def test_grant_failure_also_restores_previous_mode(self):
@@ -50,14 +52,18 @@ class AuthorizationRestorationTest(unittest.TestCase):
 
 
 class EvidenceValidationTest(unittest.TestCase):
+    profile = "awg-3.1-ranges-v1"
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.sha = "a" * 40
         self.nonce = "unit-test-invocation"
+        protected = self.profile == "amneziavpn-5x"
+        tcp_bytes = 4 << 20 if protected else 100
         self.evidence = {
-            "version": VALIDATOR.VERSION, "nonce": self.nonce, "source_sha": self.sha,
+            "version": VALIDATOR.VERSION, "nonce": self.nonce, "source_sha": self.sha, "profile": self.profile, "candidate_patch": None,
             "scope": "native_core", "device_class": "emulator", "abi": "arm64-v8a", "api": 32,
             "peer": {"version": "v3.1.20260828", "commit": VALIDATOR.PEER_COMMIT, "go": "go1.27.3"},
             "artifacts": {name: self.artifact(name, b"unit fixture, not native code")
@@ -71,20 +77,39 @@ class EvidenceValidationTest(unittest.TestCase):
             for cycle in range(4):
                 observations = []
                 for family in (4, 6):
-                    for protocol in ("tcp", "udp", "udp", "dns"):
-                        observation = {"protocol": protocol, "family": family, "sent_bytes": 100,
-                                       "received_bytes": 120 if protocol == "dns" else 100,
+                    for protocol in ("tcp", "udp", "udp", "dns") + (("udp_series",) if protected else ()):
+                        size = tcp_bytes if protocol == "tcp" else 100
+                        observation = {"protocol": protocol, "family": family, "sent_bytes": size,
+                                       "received_bytes": 120 if protocol == "dns" else size,
                                        "sent_sha256": "b" * 64, "received_sha256": "b" * 64}
                         if protocol == "dns":
                             observation.update(answer_type=1 if family == 4 else 28, transaction_id=0x4321)
+                        if protocol == "udp_series":
+                            observation.update(datagrams=512)
                         observations.append(observation)
-                value = {"nonce": self.nonce, "mtu": mtu, "cycle": cycle, "peer_port": 40000 + mtu, "abi": "arm64-v8a", "api": 32,
+                value = {"nonce": self.nonce, "profile": self.profile, "mtu": mtu, "cycle": cycle, "peer_port": 40000 + mtu, "abi": "arm64-v8a", "api": 32,
                          "socket_protection": {"attempted": 1, "successful": 1}, "measurements": observations}
                 identity = "INSTRUMENTATION_STATUS: class=" + VALIDATOR.METHOD.split("#")[0] + "\n" + "INSTRUMENTATION_STATUS: test=" + VALIDATOR.METHOD.split("#")[1] + "\n"
                 log = (identity + "INSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: awgEvidence=" + json.dumps(value) +
                        "\nINSTRUMENTATION_STATUS_CODE: 2\n" + identity + "INSTRUMENTATION_STATUS_CODE: 0\nOK (1 test)\nINSTRUMENTATION_CODE: -1\n")
                 value["instrumentation"] = self.artifact(f"cycle-{mtu}-{cycle}.txt", log.encode())
                 self.evidence["cycles"].append(value)
+        self.evidence["wire_observations"] = []
+        for mtu in (1280, 1420):
+            observation = {"wire_profile": self.profile, "handshakes": 4}
+            if protected:
+                observation.update(padding=[12, 12, 12, 12], headers_in_clear=0)
+            content = json.dumps({"wire_observation": observation}).encode()
+            self.evidence["wire_observations"].append({"mtu": mtu, **observation, "artifact": self.artifact(f"peer-{mtu}.json", content)})
+        self.evidence["negative_control"] = None
+        if protected:
+            record = {"nonce": self.nonce, "mtu": 1280, "abi": "arm64-v8a", "api": 32, "window_ms": 12000,
+                      "telemetry_polls": 400, "reached_running": False}
+            identity = "INSTRUMENTATION_STATUS: class=" + VALIDATOR.NEGATIVE_METHOD.split("#")[0] + "\n" + "INSTRUMENTATION_STATUS: test=" + VALIDATOR.NEGATIVE_METHOD.split("#")[1] + "\n"
+            log = (identity + "INSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: awgNegativeEvidence=" + json.dumps(record) +
+                   "\nINSTRUMENTATION_STATUS_CODE: 2\n" + identity + "INSTRUMENTATION_STATUS_CODE: 0\nOK (1 test)\nINSTRUMENTATION_CODE: -1\n")
+            self.evidence["negative_control"] = {**record, "instrumentation": self.artifact("negative.txt", log.encode()),
+                                                 "peer_exit": 1, "peer_error": "incomplete exchanges: 0/8"}
 
     def artifact(self, name, content):
         (self.root / name).write_bytes(content)
@@ -134,6 +159,13 @@ class EvidenceValidationTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "socket protection absent"):
                     self.validate(changed)
 
+    def test_candidate_patch_must_match_its_digest(self):
+        self.evidence["candidate_patch"] = self.artifact("candidate.patch", b"diff --git a/x b/x\n")
+        self.validate()
+        (self.root / "candidate.patch").write_bytes(b"different patch")
+        with self.assertRaisesRegex(ValueError, "digest mismatch"):
+            self.validate()
+
     def test_artifact_escape_is_rejected(self):
         changed = copy.deepcopy(self.evidence)
         changed["artifacts"]["native_library"]["path"] = "../foreign-library"
@@ -147,6 +179,44 @@ class EvidenceValidationTest(unittest.TestCase):
         self.evidence["artifacts"]["test_apk"] = self.artifact("test_apk", apk.getvalue())
         with self.assertRaisesRegex(ValueError, "different native library"):
             self.validate()
+
+
+class AmneziaVpn5xEvidenceTest(EvidenceValidationTest):
+    """The header-protected S1-S4 = 12 profile also needs bulk payloads, peer observations and a negative control."""
+
+    profile = "amneziavpn-5x"
+
+    def test_wrong_key_that_completes_an_exchange_is_rejected(self):
+        for key, value in (("peer_exit", 0), ("peer_error", "incomplete exchanges: 1/8"), ("reached_running", True)):
+            with self.subTest(key=key):
+                changed = copy.deepcopy(self.evidence)
+                changed["negative_control"][key] = value
+                with self.assertRaises(ValueError):
+                    self.validate(changed)
+
+    def test_missing_negative_control_is_rejected(self):
+        with self.assertRaises((ValueError, TypeError)):
+            self.validate({**self.evidence, "negative_control": None})
+
+    def test_small_tcp_payload_or_clear_headers_are_rejected(self):
+        changed = copy.deepcopy(self.evidence)
+        for value in changed["cycles"][0]["measurements"]:
+            if value["protocol"] == "tcp":
+                value["sent_bytes"] = value["received_bytes"] = 4096
+        with self.assertRaises(ValueError):
+            self.validate(changed)
+        changed = copy.deepcopy(self.evidence)
+        observation = {"wire_profile": self.profile, "handshakes": 4, "padding": [12, 12, 12, 12], "headers_in_clear": 1}
+        changed["wire_observations"][0] = {"mtu": 1280, **observation,
+                                           "artifact": self.artifact("clear.json", json.dumps({"wire_observation": observation}).encode())}
+        with self.assertRaisesRegex(ValueError, "header protection not observed"):
+            self.validate(changed)
+
+    def test_udp_series_is_required(self):
+        changed = copy.deepcopy(self.evidence)
+        changed["cycles"][0]["measurements"] = [v for v in changed["cycles"][0]["measurements"] if v["protocol"] != "udp_series"]
+        with self.assertRaises(ValueError):
+            self.validate(changed)
 
 
 if __name__ == "__main__":

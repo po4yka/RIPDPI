@@ -18,26 +18,46 @@ sign-off gates are unchanged.
 
 The isolated `:testing:awg-interop` instrumentation host packages the actual
 `ripdpi-amneziawg-android` JNI library without other app runtimes. The runner
-requires committed source, an exact baseline peer checkout, pinned Go 1.27.1,
+requires committed source, an exact baseline peer checkout, pinned Go 1.27.3,
 NDK 29.0.14206865, and an installed arm64 Google APIs image. It leases an emulator
 through the shared pool and measures IPv4/IPv6 TCP, UDP and DNS at MTUs 1280 and
 1420 over three native start/stop cycles per MTU.
 
 ```sh
 build-gate -- python3 scripts/tests/run-android-awg-interop.py \
-  --peer-source "$AWG_BASELINE_CHECKOUT" --api 32 \
+  --peer-source "$AWG_BASELINE_CHECKOUT" --api 35 --avd-profile pixel_10_pro_xl \
+  --profile amneziavpn-5x \
   --output-dir "$AWG_EVIDENCE_DIRECTORY" --nonce "$AWG_ACCEPTANCE_NONCE"
 python3 scripts/tests/validate-android-awg-interop.py \
   --evidence "$AWG_EVIDENCE_DIRECTORY/evidence.json" \
   --nonce "$AWG_ACCEPTANCE_NONCE" --source-sha "$AWG_CONSUMER_SHA"
 ```
 
-The peer checkout must identify amneziawg-go v0.2.12 at
-`2e3f7d122ca8ef61e403fddc48a9db8fccd95dbf`; the runner archives that exact
-revision rather than compiling mutable checkout files. The fresh evidence
-directory retains source and binary identities, the APK and its packaged-library
-digest, and raw per-cycle instrumentation measurements. Missing prerequisites,
-skipped tests, mismatched nonce/source/artifacts or incomplete protocols fail.
+The peer checkout must identify amneziawg-go v3.1.20260828 at
+`b5928efb6ca19f0153958460c3d141f04abc5c2e`; the runner archives that exact
+revision rather than compiling mutable checkout files. `--avd-profile` must match
+an idle pool slot; `--temporary-reason` uses a temporary AVD instead when no pool
+slot is usable. The runner grants VPN pre-consent through the app-ops uid mode,
+which API 35 requires, and restores the previous mode. The fresh evidence directory retains source and binary
+identities, the APK and its packaged-library digest, raw per-cycle
+instrumentation measurements, and the peer's wire observation for each MTU.
+Missing prerequisites, skipped tests, mismatched nonce/source/artifacts or
+incomplete protocols fail.
+
+For evidence before a commit, `--candidate-patch` builds `HEAD` plus uncommitted
+changes to tracked files. The runner archives `git diff --binary HEAD` as
+`candidate.patch` and records its digest, so the evidence names the exact source.
+Commit that patch unchanged after the run passes.
+
+`--profile` selects the envelope for both sides. The default
+`awg-3.1-ranges-v1` uses S1=8, S2=12 and zero S3/S4. `amneziavpn-5x` configures
+the peer like an AmneziaVPN 5.x server: S1-S4 = 12, a header protection key,
+`ContentPaddingAddition`, random trailers, ranged timers and a ranged keepalive.
+That profile also moves 4 MiB of TCP per address family and session, echoes 512
+UDP datagrams in lockstep (one lost datagram fails the run), checks SHA-256 of
+every payload, and requires the peer to see no header in the clear. A negative
+control then runs the same profile with a wrong header protection key: the
+native runtime must never reach readiness and the peer must complete no exchange.
 
 This is emulator/native-core interop. Android VpnService TUN policy, no-leak
 packet forwarding, physical-device and external deployment acceptance require

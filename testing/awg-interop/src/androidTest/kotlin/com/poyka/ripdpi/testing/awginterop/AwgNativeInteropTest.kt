@@ -25,6 +25,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.security.MessageDigest
+import java.util.Random
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
@@ -42,42 +43,10 @@ class AwgNativeInteropTest {
         awaitIpv4Underlay(context)
         assertNull("The runner must obtain real Android VPN authorization", VpnService.prepare(context))
         assertNoActiveVpn(context)
-        val config =
-            JSONObject()
-                .put("enabled", true)
-                .put("profileId", "native-interop")
-                .put("privateKey", key(7))
-                .put("peerPublicKey", args.getString("awgPublicKey"))
-                .put("presharedKey", key(5))
-                .put("endpointHost", "10.0.2.2")
-                .put("endpointIpv4", "10.0.2.2")
-                .put("endpointPort", requireNotNull(args.getString("awgPeerPort")).toInt())
-                .put("interfaceAddressV4", "10.77.0.2/32")
-                .put("interfaceAddressV6", "fd77::2/128")
-                .put("mtu", mtu)
-                .put("localSocksHost", "127.0.0.1")
-                .put("localSocksPort", 0)
-                .put(
-                    "amnezia",
-                    JSONObject()
-                        .put("wireProfile", "awg-3.1-ranges-v1")
-                        .put("jc", 4)
-                        .put("jmin", 64)
-                        .put("jmax", 96)
-                        .put("s1", 8)
-                        .put("s2", 12)
-                        .put("s3", 0)
-                        .put("s4", 0)
-                        .put("h1", "100-199")
-                        .put("h2", "200-299")
-                        .put("h3", "300-399")
-                        .put("h4", "400-499")
-                        .put("i1", "<b 0xf0f1><r 16><rd 8><rc 8><t>")
-                        .put("i2", "<b 0xf2>")
-                        .put("i3", "<b 0xf3>")
-                        .put("i4", "<b 0xf4>")
-                        .put("i5", "<b 0xf5>"),
-                )
+        val config = config(args, mtu)
+        val tcpBytes = args.getString("awgTcpBytes")?.toInt() ?: DefaultTcpBytes
+        val udpSeries = args.getString("awgUdpSeries")?.toInt() ?: 0
+        require(tcpBytes in 1..MaxTcpBytes && udpSeries in 0..MaxUdpSeries)
         val bindings = RipDpiAmneziaWgNativeBindings()
         val protection = RecordingVpnService()
         val handle = bindings.jniCreate(config.toString())
@@ -92,8 +61,12 @@ class AwgNativeInteropTest {
             worker = thread(name = "awg-interop-native") { exit.set(bindings.jniStart(handle)) }
             val listener = awaitListener(bindings, handle, exit)
             listOf("10.77.0.1" to 41001, "fd77::1" to 41004).forEach { (host, port) ->
-                val payload = ByteArray(4096) { (it % 251).toByte() }
+                val payload = ByteArray(tcpBytes).also { Random(port.toLong() * 4 + cycle).nextBytes(it) }
                 socks(listener, 1, host, port).first.use { socket ->
+                    // The peer echoes only after it has the whole payload, so the first echo byte
+                    // can trail the local write by the full tunnel transfer time.
+                    socket.soTimeout = BulkTimeoutMs
+                    val started = System.nanoTime()
                     DataOutputStream(socket.getOutputStream()).apply {
                         writeInt(payload.size)
                         write(payload)
@@ -102,7 +75,10 @@ class AwgNativeInteropTest {
                     val echoed = ByteArray(payload.size)
                     DataInputStream(socket.getInputStream()).readFully(echoed)
                     assertArrayEquals(payload, echoed)
-                    measurements.put(measure("tcp", host, payload, echoed))
+                    measurements.put(
+                        measure("tcp", host, payload, echoed)
+                            .put("elapsed_ms", (System.nanoTime() - started) / 1_000_000),
+                    )
                 }
             }
             val (control, relayPort) = socks(listener, 3, "0.0.0.0", 0)
@@ -154,11 +130,17 @@ class AwgNativeInteropTest {
                             measure("dns", host, sent, received).put("answer_type", type).put("transaction_id", 0x4321),
                         )
                     }
+                    if (udpSeries > 0) {
+                        listOf("10.77.0.1" to 41007, "fd77::1" to 41008).forEach { (host, port) ->
+                            measurements.put(udpSeries(udp, relayPort, host, port, udpSeries, cycle))
+                        }
+                    }
                 }
             }
             val evidence =
                 JSONObject()
                     .put("nonce", args.getString("awgNonce"))
+                    .put("profile", args.getString("awgProfile") ?: LegacyProfile)
                     .put("mtu", mtu)
                     .put("cycle", cycle)
                     .put("peer_port", requireNotNull(args.getString("awgPeerPort")).toInt())
@@ -184,6 +166,179 @@ class AwgNativeInteropTest {
         }
         assertEquals("native start must exit cleanly", 0, exit.get())
         assertNoActiveVpn(context)
+    }
+
+    /** Negative control: a header protection key that differs from the peer's must never authenticate. */
+    @Test
+    fun nativeCoreRefusesMismatchedHeaderProtection() {
+        val args = InstrumentationRegistry.getArguments()
+        val mtu = requireNotNull(args.getString("awgMtu")).toInt()
+        require(mtu in 1280..1420 && args.getString("awgProfile") == AmneziaVpn5xProfile)
+        assertEquals("arm64-v8a", Build.SUPPORTED_ABIS.first())
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertNoActiveVpn(context)
+        awaitIpv4Underlay(context)
+        assertNull("The runner must obtain real Android VPN authorization", VpnService.prepare(context))
+        val bindings = RipDpiAmneziaWgNativeBindings()
+        val handle = bindings.jniCreate(config(args, mtu).toString())
+        assertTrue("real JNI create must return a handle", handle != 0L)
+        val protectionToken = RipDpiAmneziaWgNativeBindings.jniRegisterVpnProtect(RecordingVpnService())
+        val exit = AtomicInteger(-1)
+        var worker: Thread? = null
+        try {
+            assertTrue("real JNI protection registration must return a token", protectionToken != 0L)
+            worker = thread(name = "awg-interop-native") { exit.set(bindings.jniStart(handle)) }
+            val deadline = System.nanoTime() + NegativeWindowMs * 1_000_000L
+            var polls = 0
+            while (System.nanoTime() < deadline) {
+                val telemetry = bindings.jniPollTelemetry(handle)?.let(::JSONObject)
+                assertFalse(
+                    "a mismatched header protection key must never reach readiness",
+                    telemetry?.optString("state") == "running" || telemetry?.isNull("listenerAddress") == false,
+                )
+                polls++
+                Thread.sleep(25)
+            }
+            assertEquals("the native runtime must keep waiting, not crash", -1, exit.get())
+            InstrumentationRegistry.getInstrumentation().sendStatus(
+                2,
+                Bundle().apply {
+                    putString(
+                        "awgNegativeEvidence",
+                        JSONObject()
+                            .put("nonce", args.getString("awgNonce"))
+                            .put("mtu", mtu)
+                            .put("abi", Build.SUPPORTED_ABIS.first())
+                            .put("api", Build.VERSION.SDK_INT)
+                            .put("window_ms", NegativeWindowMs)
+                            .put("telemetry_polls", polls)
+                            .put("reached_running", false)
+                            .toString(),
+                    )
+                },
+            )
+        } finally {
+            try {
+                bindings.jniStop(handle)
+                worker?.join(5000)
+                assertFalse("native shutdown must finish", worker?.isAlive == true)
+                bindings.jniDestroy(handle)
+            } finally {
+                RipDpiAmneziaWgNativeBindings.jniUnregisterVpnProtect(protectionToken)
+            }
+        }
+        assertNoActiveVpn(context)
+    }
+
+    private fun config(
+        args: Bundle,
+        mtu: Int,
+    ): JSONObject {
+        val profile = args.getString("awgProfile") ?: LegacyProfile
+        val amnezia =
+            JSONObject()
+                .put("wireProfile", "awg-3.1-ranges-v1")
+                .put("jc", 4)
+                .put("jmin", 64)
+                .put("jmax", 96)
+                .put("h1", "100-199")
+                .put("h2", "200-299")
+                .put("h3", "300-399")
+                .put("h4", "400-499")
+                .put("i1", "<b 0xf0f1><r 16><rd 8><rc 8><t>")
+                .put("i2", "<b 0xf2>")
+                .put("i3", "<b 0xf3>")
+                .put("i4", "<b 0xf4>")
+                .put("i5", "<b 0xf5>")
+        val config =
+            JSONObject()
+                .put("enabled", true)
+                .put("profileId", "native-interop")
+                .put("privateKey", key(7))
+                .put("peerPublicKey", args.getString("awgPublicKey"))
+                .put("presharedKey", key(5))
+                .put("endpointHost", "10.0.2.2")
+                .put("endpointIpv4", "10.0.2.2")
+                .put("endpointPort", requireNotNull(args.getString("awgPeerPort")).toInt())
+                .put("interfaceAddressV4", "10.77.0.2/32")
+                .put("interfaceAddressV6", "fd77::2/128")
+                .put("mtu", mtu)
+                .put("localSocksHost", "127.0.0.1")
+                .put("localSocksPort", 0)
+        when (profile) {
+            LegacyProfile -> {
+                amnezia
+                    .put("s1", 8)
+                    .put("s2", 12)
+                    .put("s3", 0)
+                    .put("s4", 0)
+            }
+
+            AmneziaVpn5xProfile -> {
+                // The AmneziaVPN 5.x server envelope: S1-S4 = 12, header protection, padding, trailers.
+                amnezia
+                    .put("s1", 12)
+                    .put("s2", 12)
+                    .put("s3", 12)
+                    .put("s4", 12)
+                    .put(
+                        "v3",
+                        JSONObject()
+                            .put("headerProtectionKey", requireNotNull(args.getString("awgHeaderKey")))
+                            .put("contentPaddingAddition", "10-100")
+                            .put("rekeyAfterTime", "100-120")
+                            .put("rekeyTimeout", "3-7")
+                            .put("rejectAfterTime", "150-180")
+                            .put("keepaliveTimeout", "5-15")
+                            .put("maxHandshakeAttempts", "15-20")
+                            .put("randomTrailers", true)
+                            .put("disableCookies", true),
+                    )
+                config.put("persistentKeepalive", 25).put("persistentKeepaliveMax", 35)
+            }
+
+            else -> {
+                error("unknown awgProfile $profile")
+            }
+        }
+        return config.put("amnezia", amnezia)
+    }
+
+    /** Lockstep echo: each datagram waits for the previous echo, so one lost datagram fails the run. */
+    private fun udpSeries(
+        udp: DatagramSocket,
+        relayPort: Int,
+        host: String,
+        port: Int,
+        count: Int,
+        cycle: Int,
+    ): JSONObject {
+        val sentDigest = MessageDigest.getInstance("SHA-256")
+        val receivedDigest = MessageDigest.getInstance("SHA-256")
+        var sentBytes = 0L
+        var receivedBytes = 0L
+        val random = Random(port.toLong() * 4 + cycle)
+        repeat(count) {
+            val frame = udpFrame(host, port, ByteArray(UdpSeriesPayload).also(random::nextBytes))
+            udp.send(DatagramPacket(frame, frame.size, InetAddress.getByName("127.0.0.1"), relayPort))
+            val packet = DatagramPacket(ByteArray(2048), 2048)
+            udp.receive(packet)
+            assertEquals(relayPort, packet.port)
+            val received = packet.data.copyOf(packet.length)
+            assertArrayEquals("datagram $it must return unchanged", frame, received)
+            sentDigest.update(frame)
+            receivedDigest.update(received)
+            sentBytes += frame.size
+            receivedBytes += received.size
+        }
+        return JSONObject()
+            .put("protocol", "udp_series")
+            .put("family", if (':' in host) 6 else 4)
+            .put("datagrams", count)
+            .put("sent_bytes", sentBytes)
+            .put("received_bytes", receivedBytes)
+            .put("sent_sha256", hex(sentDigest.digest()))
+            .put("received_sha256", hex(receivedDigest.digest()))
     }
 
     private fun awaitListener(
@@ -308,12 +463,19 @@ class AwgNativeInteropTest {
         .put("sent_sha256", sha256(sent))
         .put("received_sha256", sha256(received))
 
-    private fun sha256(value: ByteArray) =
-        MessageDigest.getInstance("SHA-256").digest(value).joinToString("") {
-            "%02x".format(it.toInt() and 255)
-        }
+    private fun sha256(value: ByteArray) = hex(MessageDigest.getInstance("SHA-256").digest(value))
+
+    private fun hex(value: ByteArray) = value.joinToString("") { "%02x".format(it.toInt() and 255) }
 
     private companion object {
         const val TimeoutMs = 5000
+        const val BulkTimeoutMs = 60_000
+        const val LegacyProfile = "awg-3.1-ranges-v1"
+        const val AmneziaVpn5xProfile = "amneziavpn-5x"
+        const val DefaultTcpBytes = 4096
+        const val MaxTcpBytes = 16 shl 20
+        const val MaxUdpSeries = 4096
+        const val UdpSeriesPayload = 1000
+        const val NegativeWindowMs = 12_000L
     }
 }
