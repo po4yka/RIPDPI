@@ -440,7 +440,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="settings_permission_status_optional">Optional</string>
     <string name="settings_permissions_notifications_needed">Empfohlen, damit Android Status und Dienstwarnungen für das lokale VPN oder den Proxy anzeigen kann.</string>
     <string name="settings_permissions_vpn_optional">Nur erforderlich, wenn Sie RIPDPI im lokalen VPN-Modus ausführen möchten.</string>
-    <string name="settings_reset_dialog_title">Alle Einstellungen zurücksetzen?</string>
+    <string name="settings_reset_dialog_title">Einstellungen zurücksetzen?</string>
     <string name="settings_strategy_pack_allow_rollback_override_body">Nur für Debug. Erlaubt gleiche oder niedrigere heruntergeladene Strategie-Paket-Sequenzen für die lokale Validierung. Signatur-, Kompatibilitäts- und Aktualitätsprüfungen gelten weiterhin.</string>
     <string name="settings_telemetry_salt_reset_action">Telemetrie-Salt zurücksetzen</string>
     <string name="settings_webrtc_body">Reduziert Peer-Discovery-Leaks, die den lokalen Tunnel umgehen können.</string>
@@ -1028,7 +1028,7 @@ fakeddisorder endhost</string>
     <string name="settings_permission_status_recommended">Empfohlen</string>
     <string name="settings_permissions_notifications_ready">Vordergrunddienst-Benachrichtigungen sind für RIPDPI verfügbar.</string>
     <string name="settings_reset_action">Zurücksetzen</string>
-    <string name="settings_reset_title">Alle Einstellungen zurücksetzen</string>
+    <string name="settings_reset_title">Einstellungen zurücksetzen</string>
     <string name="settings_strategy_pack_allow_rollback_override_title">Strategie-Paket-Rollback erlauben</string>
     <string name="settings_telemetry_salt_reset_body">Setzt das Per-Installation-Salt zurück, das zum Hashen von Netzwerkfingerabdrücken verwendet wird. Zuvor aufgezeichnete Hashes können nicht mehr mit zukünftigen Sitzungen korreliert werden.</string>
     <string name="settings_vpn_flag_warning_body">Apps in allen Android-Profilen (einschließlich Arbeitsprofil und Knox) können erkennen, dass ein VPN aktiv ist. Für vollständige Isolation verwenden Sie ein separates Gerät für russische Apps.</string>
@@ -1540,7 +1540,7 @@ Quelle: %2$s</string>
     <string name="settings_permission_action_review">Prüfen</string>
     <string name="settings_permission_status_required">Erforderlich</string>
     <string name="settings_permissions_section">Berechtigungen</string>
-    <string name="settings_reset_body">Alle Einstellungen auf ihre Standardwerte zurücksetzen.</string>
+    <string name="settings_reset_body">Alle Einstellungen auf ihre Standardwerte zurücksetzen. Profile, Gruppen, Routing-Regeln und der Diagnoseverlauf bleiben erhalten.</string>
     <string name="settings_security_section">Datenschutz</string>
     <string name="settings_support_debug_bundle_body">Aktuelle Protokolle und Diagnosedaten als ZIP-Datei für den Support teilen. Paketmitschnitte sind nicht enthalten.</string>
     <string name="settings_tethering_dns_warning_body">Wenn Tethering aktiv ist, führt Android einen lokalen DNS-Server aus, der das VPN umgeht. Apps können dies nutzen, um Tracking-Beacons außerhalb des Tunnels zu senden.</string>
@@ -2655,7 +2655,7 @@ Quelle: %2$s</string>
     <string name="settings_permission_status_not_needed">Nicht erforderlich</string>
     <string name="settings_permissions_battery_ready">Android erlaubt RIPDPI bereits, die Doze-Akkuoptimierung zu ignorieren.</string>
     <string name="settings_permissions_vpn_needed">Erteilen Sie die Android-VPN-Zustimmung, bevor RIPDPI den lokalen VPN-Pfad starten kann.</string>
-    <string name="settings_reset_dialog_body">Dies stellt alle Einstellungen auf ihre Standardwerte zurück. Ihre Verbindung wird gestoppt und alle Anpassungen gehen verloren.</string>
+    <string name="settings_reset_dialog_body">Dies stellt alle Einstellungen auf ihre Standardwerte zurück, und alle Anpassungen gehen verloren. Profile, Gruppen, Routing-Regeln und der Diagnoseverlauf bleiben erhalten.</string>
     <string name="settings_support_section">Support</string>
     <string name="settings_theme_body">Wählen Sie, ob die App dem Systemdesign folgt oder fest bleibt.</string>
     <string name="settings_warning_backup_pin_title">Backup-PIN empfohlen</string>
@@ -3329,13 +3329,13 @@ Quelle: %2$s</string>
     <string name="backup_share_reminder_body">Diese Sicherung entfernt Passwörter und Schlüssel, enthält aber weiterhin deine Gruppen, Routen und Einstellungen. Teile sie nur mit vertrauenswürdigen Personen.</string>
     <string name="backup_share_reminder_confirm">Trotzdem teilen</string>
     <string name="backup_share_reminder_cancel">Abbrechen</string>
-    <string name="backup_reset_section">Zurücksetzen</string>
+    <string name="backup_reset_section">App-Daten löschen</string>
     <string name="backup_reset_warning_title">Das kann nicht rückgängig gemacht werden</string>
-    <string name="backup_reset_warning_body">Beim Zurücksetzen werden alle Profile, Gruppen, Routing-Regeln, Einstellungen und Diagnosedaten gelöscht und die App auf die Ersteinrichtung neu gestartet. Exportiere zuerst eine Sicherung, wenn du diese Daten behalten möchtest.</string>
-    <string name="backup_reset_action">Alle Einstellungen zurücksetzen</string>
-    <string name="backup_reset_dialog_title">Alle Einstellungen zurücksetzen?</string>
-    <string name="backup_reset_dialog_body">Gib %1$s ein, um zu bestätigen. Dadurch werden alle Profile, Gruppen, Routen, Einstellungen und der Diagnoseverlauf gelöscht und die App neu gestartet.</string>
-    <string name="backup_reset_confirm_action">Zurücksetzen und neu starten</string>
+    <string name="backup_reset_warning_body">Beim Löschen werden alle Profile, Gruppen, Routing-Regeln, Einstellungen und Diagnosedaten entfernt und die App auf die Ersteinrichtung neu gestartet. Exportiere zuerst eine Sicherung, wenn du diese Daten behalten möchtest.</string>
+    <string name="backup_reset_action">Alle App-Daten löschen</string>
+    <string name="backup_reset_dialog_title">Alle App-Daten löschen?</string>
+    <string name="backup_reset_dialog_body">Gib %1$s ein, um zu bestätigen. Dadurch werden alle Profile, Gruppen, Routing-Regeln, Einstellungen und der Diagnoseverlauf gelöscht und die App neu gestartet.</string>
+    <string name="backup_reset_confirm_action">Löschen und neu starten</string>
     <string name="backup_reset_cancel_action">Abbrechen</string>
     <!-- Xray provider selection + import (Task 5) -->
     <string name="service_mode_native_direct_title">Direktes VPN</string>

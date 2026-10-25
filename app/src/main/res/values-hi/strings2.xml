@@ -929,11 +929,11 @@
         <item quantity="other">%d विफल</item>
     </plurals>
     <string name="settings_danger_section">खतरा क्षेत्र</string>
-    <string name="settings_reset_title">सभी सेटिंग्स रीसेट करें</string>
-    <string name="settings_reset_body">सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित करें।</string>
+    <string name="settings_reset_title">सेटिंग्स रीसेट करें</string>
+    <string name="settings_reset_body">सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित करें। प्रोफ़ाइल, समूह, रूटिंग नियम और डायग्नोस्टिक्स इतिहास बने रहते हैं।</string>
     <string name="settings_reset_action">रीसेट करें</string>
-    <string name="settings_reset_dialog_title">सभी सेटिंग्स रीसेट करें?</string>
-    <string name="settings_reset_dialog_body">यह सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित कर देगा। आपका कनेक्शन रोक दिया जाएगा और सभी अनुकूलन खो जाएँगे।</string>
+    <string name="settings_reset_dialog_title">सेटिंग्स रीसेट करें?</string>
+    <string name="settings_reset_dialog_body">यह सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित कर देगा और सभी अनुकूलन खो जाएँगे। प्रोफ़ाइल, समूह, रूटिंग नियम और डायग्नोस्टिक्स इतिहास बने रहते हैं।</string>
     <string name="settings_reset_confirm">रीसेट करें</string>
     <string name="qs_tile_label_connected">RIPDPI: कनेक्टेड</string>
     <string name="qs_tile_subtitle_tap_connect">कनेक्ट करने के लिए टैप करें</string>
@@ -1562,13 +1562,13 @@
     <string name="backup_share_reminder_body">यह बैकअप पासवर्ड और कुंजियाँ हटा देता है, लेकिन फिर भी आपके समूह, रूट और सेटिंग्स सूचीबद्ध करता है। इसे केवल किसी विश्वसनीय व्यक्ति के साथ ही साझा करें।</string>
     <string name="backup_share_reminder_confirm">फिर भी साझा करें</string>
     <string name="backup_share_reminder_cancel">रद्द करें</string>
-    <string name="backup_reset_section">रीसेट करें</string>
+    <string name="backup_reset_section">ऐप डेटा मिटाएँ</string>
     <string name="backup_reset_warning_title">इसे पूर्ववत नहीं किया जा सकता</string>
-    <string name="backup_reset_warning_body">रीसेट करने से हर प्रोफ़ाइल, समूह, रूटिंग नियम, सेटिंग और डायग्नोस्टिक्स रिकॉर्ड हट जाता है, फिर ऐप ऑनबोर्डिंग पर पुनः आरंभ होता है। यदि आप यह डेटा रखना चाहते हैं तो पहले बैकअप एक्सपोर्ट करें।</string>
-    <string name="backup_reset_action">सभी सेटिंग्स रीसेट करें</string>
-    <string name="backup_reset_dialog_title">सभी सेटिंग्स रीसेट करें?</string>
-    <string name="backup_reset_dialog_body">पुष्टि के लिए %1$s टाइप करें। यह सभी प्रोफ़ाइल, समूह, रूट, सेटिंग्स और डायग्नोस्टिक्स इतिहास मिटा देता है, फिर ऐप को पुनः आरंभ करता है।</string>
-    <string name="backup_reset_confirm_action">रीसेट करें और पुनः आरंभ करें</string>
+    <string name="backup_reset_warning_body">मिटाने से हर प्रोफ़ाइल, समूह, रूटिंग नियम, सेटिंग और डायग्नोस्टिक्स रिकॉर्ड हट जाता है, फिर ऐप ऑनबोर्डिंग पर पुनः आरंभ होता है। यदि आप यह डेटा रखना चाहते हैं तो पहले बैकअप एक्सपोर्ट करें।</string>
+    <string name="backup_reset_action">सारा ऐप डेटा मिटाएँ</string>
+    <string name="backup_reset_dialog_title">सारा ऐप डेटा मिटाएँ?</string>
+    <string name="backup_reset_dialog_body">पुष्टि के लिए %1$s टाइप करें। यह सभी प्रोफ़ाइल, समूह, रूटिंग नियम, सेटिंग्स और डायग्नोस्टिक्स इतिहास मिटा देता है, फिर ऐप को पुनः आरंभ करता है।</string>
+    <string name="backup_reset_confirm_action">मिटाएँ और पुनः आरंभ करें</string>
     <string name="backup_reset_cancel_action">रद्द करें</string>
     <string name="service_mode_native_direct_title">सीधा VPN</string>
     <string name="service_mode_native_direct_desc">अंतर्निहित VPN से इस डिवाइस को सुरक्षित करें, सीधे कनेक्ट करते हुए।</string>

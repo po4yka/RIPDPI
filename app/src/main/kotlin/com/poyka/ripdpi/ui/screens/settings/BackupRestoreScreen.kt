@@ -750,7 +750,7 @@ private fun BackupExportCard(
 }
 
 /**
- * Danger-zone card hosting the destructive "Reset all settings" action. The button
+ * Danger-zone card hosting the destructive "Erase all app data" action. The button
  * only opens the typed-confirmation dialog; the wipe never runs from a single tap.
  * Extracted so [BackupRestoreScreen] stays within the composable-length budget.
  */

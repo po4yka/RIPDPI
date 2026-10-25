@@ -7,7 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Owns the typed-confirmation "reset all settings" workflow: dialog visibility, the
+ * Owns the typed-confirmation "erase all app data" workflow: dialog visibility, the
  * confirmation-token input, and the gated wipe.
  *
  * The wipe runs on [defaultDispatcher] (defaulting to the dispatcher the ViewModel

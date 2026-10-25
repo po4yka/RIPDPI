@@ -2763,11 +2763,11 @@ Fonte: %2$s</string>
         <item quantity="other">%d falharam</item>
     </plurals>
     <string name="settings_danger_section">Zona de perigo</string>
-    <string name="settings_reset_title">Redefinir todas as configurações</string>
-    <string name="settings_reset_body">Restaura todas as configurações para os valores padrão.</string>
+    <string name="settings_reset_title">Redefinir configurações</string>
+    <string name="settings_reset_body">Restaura todas as configurações para os valores padrão. Perfis, grupos, regras de roteamento e histórico de diagnóstico são mantidos.</string>
     <string name="settings_reset_action">Redefinir</string>
-    <string name="settings_reset_dialog_title">Redefinir todas as configurações?</string>
-    <string name="settings_reset_dialog_body">Isso restaurará todas as configurações para os valores padrão. Sua conexão será interrompida e todas as personalizações serão perdidas.</string>
+    <string name="settings_reset_dialog_title">Redefinir configurações?</string>
+    <string name="settings_reset_dialog_body">Isso restaurará todas as configurações para os valores padrão e todas as personalizações serão perdidas. Perfis, grupos, regras de roteamento e histórico de diagnóstico são mantidos.</string>
     <string name="settings_reset_confirm">Redefinir</string>
     <string name="qs_tile_label_connected">RIPDPI: conectado</string>
     <string name="qs_tile_subtitle_tap_connect">Toque para conectar</string>
@@ -3378,13 +3378,13 @@ Fonte: %2$s</string>
     <string name="backup_share_reminder_body">Este backup remove senhas e chaves, mas ainda lista seus grupos, rotas e configurações. Compartilhe apenas com alguém de confiança.</string>
     <string name="backup_share_reminder_confirm">Compartilhar mesmo assim</string>
     <string name="backup_share_reminder_cancel">Cancelar</string>
-    <string name="backup_reset_section">Redefinir</string>
+    <string name="backup_reset_section">Apagar dados do app</string>
     <string name="backup_reset_warning_title">Isto não pode ser desfeito</string>
-    <string name="backup_reset_warning_body">A redefinição remove todos os perfis, grupos, regras de roteamento, configurações e registros de diagnóstico e reinicia o app na configuração inicial. Exporte um backup antes se quiser manter esses dados.</string>
-    <string name="backup_reset_action">Redefinir todas as configurações</string>
-    <string name="backup_reset_dialog_title">Redefinir todas as configurações?</string>
-    <string name="backup_reset_dialog_body">Digite %1$s para confirmar. Isso apaga todos os perfis, grupos, rotas, configurações e histórico de diagnóstico e reinicia o app.</string>
-    <string name="backup_reset_confirm_action">Redefinir e reiniciar</string>
+    <string name="backup_reset_warning_body">Apagar os dados remove todos os perfis, grupos, regras de roteamento, configurações e registros de diagnóstico e reinicia o app na configuração inicial. Exporte um backup antes se quiser manter esses dados.</string>
+    <string name="backup_reset_action">Apagar todos os dados do app</string>
+    <string name="backup_reset_dialog_title">Apagar todos os dados do app?</string>
+    <string name="backup_reset_dialog_body">Digite %1$s para confirmar. Isso apaga todos os perfis, grupos, regras de roteamento, configurações e histórico de diagnóstico e reinicia o app.</string>
+    <string name="backup_reset_confirm_action">Apagar e reiniciar</string>
     <string name="backup_reset_cancel_action">Cancelar</string>
     <string name="service_mode_native_direct_title">VPN direta</string>
     <string name="service_mode_native_direct_desc">Proteja este dispositivo com a VPN integrada, conectando-se diretamente.</string>

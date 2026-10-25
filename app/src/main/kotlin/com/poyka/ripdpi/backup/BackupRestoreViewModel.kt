@@ -155,7 +155,7 @@ class BackupRestoreViewModel
          */
         fun confirmRestore() = importCoordinator.confirmRestore()
 
-        // -- Reset all settings ---------------------------------------------------
+        // -- Erase all app data ---------------------------------------------------
 
         /**
          * Shows or hides the typed-confirmation reset dialog, always resetting the

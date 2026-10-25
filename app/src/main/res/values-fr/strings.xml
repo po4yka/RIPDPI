@@ -440,7 +440,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="settings_permission_status_optional">Facultatif</string>
     <string name="settings_permissions_notifications_needed">Recommandé afin qu\'Android puisse afficher l\'état et les alertes de service du VPN local ou du proxy.</string>
     <string name="settings_permissions_vpn_optional">Nécessaire uniquement si vous souhaitez exécuter RIPDPI en mode VPN local.</string>
-    <string name="settings_reset_dialog_title">Réinitialiser tous les paramètres ?</string>
+    <string name="settings_reset_dialog_title">Réinitialiser les paramètres ?</string>
     <string name="settings_strategy_pack_allow_rollback_override_body">Débogage uniquement. Autoriser des séquences téléchargées de packs de stratégies égales ou inférieures pour la validation locale. Les vérifications de signature, de compatibilité et de fraîcheur s\'appliquent toujours.</string>
     <string name="settings_telemetry_salt_reset_action">Réinitialiser le sel de télémétrie</string>
     <string name="settings_webrtc_body">Réduire les fuites de découverte de pairs qui peuvent contourner le tunnel local.</string>
@@ -1028,7 +1028,7 @@ fakeddisorder endhost</string>
     <string name="settings_permission_status_recommended">Recommandé</string>
     <string name="settings_permissions_notifications_ready">Les notifications de service en avant-plan sont disponibles pour RIPDPI.</string>
     <string name="settings_reset_action">Réinitialiser</string>
-    <string name="settings_reset_title">Réinitialiser tous les paramètres</string>
+    <string name="settings_reset_title">Réinitialiser les paramètres</string>
     <string name="settings_strategy_pack_allow_rollback_override_title">Autoriser le retour arrière du pack de stratégie</string>
     <string name="settings_telemetry_salt_reset_body">Réinitialiser le sel par installation utilisé pour hacher les empreintes réseau. Les hachages précédemment enregistrés ne peuvent plus être corrélés avec les sessions futures.</string>
     <string name="settings_vpn_flag_warning_body">Les applis de tous les profils Android (y compris Work Profile et Knox) peuvent détecter qu\'un VPN est actif. Pour une isolation complète, utilisez un appareil distinct pour les applis russes.</string>
@@ -1540,7 +1540,7 @@ Source : %2$s</string>
     <string name="settings_permission_action_review">Examiner</string>
     <string name="settings_permission_status_required">Requis</string>
     <string name="settings_permissions_section">Autorisations</string>
-    <string name="settings_reset_body">Restaurer tous les paramètres à leurs valeurs par défaut.</string>
+    <string name="settings_reset_body">Restaurer tous les paramètres à leurs valeurs par défaut. Les profils, groupes, règles de routage et l\'historique de diagnostic sont conservés.</string>
     <string name="settings_security_section">Confidentialité</string>
     <string name="settings_support_debug_bundle_body">Partagez les journaux récents et les diagnostics dans un fichier ZIP pour l’assistance. Les captures de paquets ne sont pas incluses.</string>
     <string name="settings_tethering_dns_warning_body">Quand le partage de connexion est actif, Android exécute un serveur DNS local qui contourne le VPN. Des applications peuvent l\'utiliser pour envoyer des balises de suivi hors du tunnel.</string>
@@ -2655,7 +2655,7 @@ Source : %2$s</string>
     <string name="settings_permission_status_not_needed">Non nécessaire</string>
     <string name="settings_permissions_battery_ready">Android permet déjà à RIPDPI d\'ignorer l\'optimisation de batterie Doze.</string>
     <string name="settings_permissions_vpn_needed">Accordez le consentement VPN Android avant que RIPDPI ne puisse démarrer le chemin VPN local.</string>
-    <string name="settings_reset_dialog_body">Cela restaurera tous les paramètres à leurs valeurs par défaut. Votre connexion sera arrêtée et toutes les personnalisations seront perdues.</string>
+    <string name="settings_reset_dialog_body">Cela restaurera tous les paramètres à leurs valeurs par défaut et toutes les personnalisations seront perdues. Les profils, groupes, règles de routage et l\'historique de diagnostic sont conservés.</string>
     <string name="settings_support_section">Assistance</string>
     <string name="settings_theme_body">Choisissez si l\'application suit le thème du système ou reste fixe.</string>
     <string name="settings_warning_backup_pin_title">PIN de secours recommandé</string>
@@ -3329,13 +3329,13 @@ Source : %2$s</string>
     <string name="backup_share_reminder_body">Cette sauvegarde supprime les mots de passe et les clés, mais répertorie toujours vos groupes, routes et réglages. Ne la partagez qu’avec une personne de confiance.</string>
     <string name="backup_share_reminder_confirm">Partager quand même</string>
     <string name="backup_share_reminder_cancel">Annuler</string>
-    <string name="backup_reset_section">Réinitialiser</string>
+    <string name="backup_reset_section">Effacer les données</string>
     <string name="backup_reset_warning_title">Cette action est irréversible</string>
-    <string name="backup_reset_warning_body">La réinitialisation supprime tous les profils, groupes, règles de routage, paramètres et enregistrements de diagnostic, puis redémarre l\'application vers la configuration initiale. Exportez d\'abord une sauvegarde si vous souhaitez conserver ces données.</string>
-    <string name="backup_reset_action">Réinitialiser tous les paramètres</string>
-    <string name="backup_reset_dialog_title">Réinitialiser tous les paramètres ?</string>
-    <string name="backup_reset_dialog_body">Saisissez %1$s pour confirmer. Cela efface tous les profils, groupes, routes, paramètres et l\'historique de diagnostic, puis redémarre l\'application.</string>
-    <string name="backup_reset_confirm_action">Réinitialiser et redémarrer</string>
+    <string name="backup_reset_warning_body">L\'effacement supprime tous les profils, groupes, règles de routage, paramètres et enregistrements de diagnostic, puis redémarre l\'application vers la configuration initiale. Exportez d\'abord une sauvegarde si vous souhaitez conserver ces données.</string>
+    <string name="backup_reset_action">Effacer toutes les données de l\'application</string>
+    <string name="backup_reset_dialog_title">Effacer toutes les données de l\'application ?</string>
+    <string name="backup_reset_dialog_body">Saisissez %1$s pour confirmer. Cela efface tous les profils, groupes, règles de routage, paramètres et l\'historique de diagnostic, puis redémarre l\'application.</string>
+    <string name="backup_reset_confirm_action">Effacer et redémarrer</string>
     <string name="backup_reset_cancel_action">Annuler</string>
     <!-- Xray provider selection + import (Task 5) -->
     <string name="service_mode_native_direct_title">VPN direct</string>

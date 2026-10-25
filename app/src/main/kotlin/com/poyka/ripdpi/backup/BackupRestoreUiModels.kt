@@ -70,7 +70,7 @@ sealed interface BackupRestoreEffect {
 }
 
 /**
- * One-shot effect surfaced after a confirmed "reset all settings" wipe completes.
+ * One-shot effect surfaced after a confirmed "erase all app data" wipe completes.
  */
 sealed interface BackupResetEffect {
     /**

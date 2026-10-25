@@ -2825,11 +2825,11 @@ Source: %2$s</string>
         <item quantity="other">%d failed</item>
     </plurals>
     <string name="settings_danger_section">Danger zone</string>
-    <string name="settings_reset_title">Reset all settings</string>
-    <string name="settings_reset_body">Restore all settings to their default values.</string>
+    <string name="settings_reset_title">Reset settings</string>
+    <string name="settings_reset_body">Restore every setting to its default value. Profiles, groups, routing rules, and diagnostics history are kept.</string>
     <string name="settings_reset_action">Reset</string>
-    <string name="settings_reset_dialog_title">Reset all settings?</string>
-    <string name="settings_reset_dialog_body">This will restore all settings to their default values. Your connection will be stopped and all customizations will be lost.</string>
+    <string name="settings_reset_dialog_title">Reset settings?</string>
+    <string name="settings_reset_dialog_body">This restores every setting to its default value, and your customizations will be lost. Profiles, groups, routing rules, and diagnostics history are kept.</string>
     <string name="settings_reset_confirm">Reset</string>
     <string name="qs_tile_label_connected">RIPDPI: Connected</string>
     <string name="qs_tile_label_disconnected" translatable="false">RIPDPI</string>
@@ -3494,13 +3494,13 @@ Source: %2$s</string>
     <string name="backup_share_reminder_body">This backup removes passwords and keys, but still lists your groups, routes, and settings. Only share it with someone you trust.</string>
     <string name="backup_share_reminder_confirm">Share anyway</string>
     <string name="backup_share_reminder_cancel">Cancel</string>
-    <string name="backup_reset_section">Reset</string>
+    <string name="backup_reset_section">Erase app data</string>
     <string name="backup_reset_warning_title">This cannot be undone</string>
-    <string name="backup_reset_warning_body">Resetting removes every profile, group, routing rule, setting, and diagnostics record, then restarts the app to onboarding. Export a backup first if you want to keep this data.</string>
-    <string name="backup_reset_action">Reset all settings</string>
-    <string name="backup_reset_dialog_title">Reset all settings?</string>
-    <string name="backup_reset_dialog_body">Type %1$s to confirm. This wipes all profiles, groups, routes, settings, and diagnostics history, then restarts the app.</string>
-    <string name="backup_reset_confirm_action">Reset and restart</string>
+    <string name="backup_reset_warning_body">Erasing removes every profile, group, routing rule, setting, and diagnostics record, then restarts the app to onboarding. Export a backup first if you want to keep this data.</string>
+    <string name="backup_reset_action">Erase all app data</string>
+    <string name="backup_reset_dialog_title">Erase all app data?</string>
+    <string name="backup_reset_dialog_body">Type %1$s to confirm. This erases all profiles, groups, routing rules, settings, and diagnostics history, then restarts the app.</string>
+    <string name="backup_reset_confirm_action">Erase and restart</string>
     <string name="backup_reset_cancel_action">Cancel</string>
     <!-- Xray provider selection + import (Task 5) -->
     <string name="service_mode_native_direct_title">Direct VPN</string>

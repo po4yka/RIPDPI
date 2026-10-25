@@ -1771,8 +1771,8 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_always_on_unknown">Android هنوز وضعیت VPN همیشه روشن را گزارش نکرده است. برای بررسی، تنظیمات VPN را باز کنید.</string>
     <string name="settings_permissions_notifications_ready">اعلان‌های سرویس پیش‌زمینه برای RIPDPI در دسترس هستند.</string>
     <string name="settings_permissions_vpn_needed">قبل از اینکه RIPDPI بتواند مسیر VPN محلی را شروع کند، رضایت VPN Android را اعطا کنید.</string>
-    <string name="settings_reset_body">بازگرداندن همه تنظیمات به مقادیر پیش‌فرض.</string>
-    <string name="settings_reset_dialog_title">همه تنظیمات بازنشانی شود؟</string>
+    <string name="settings_reset_body">بازگرداندن همه تنظیمات به مقادیر پیش‌فرض. پروفایل‌ها، گروه‌ها، قوانین مسیریابی و تاریخچهٔ عیب‌یابی حفظ می‌شوند.</string>
+    <string name="settings_reset_dialog_title">تنظیمات بازنشانی شود؟</string>
     <string name="settings_support_section">پشتیبانی</string>
     <string name="settings_theme_body">انتخاب کنید آیا برنامه از تم سیستم پیروی کند یا ثابت بماند.</string>
     <string name="settings_vpn_flag_warning_title">پرچم VPN قابل‌مشاهده است</string>
@@ -2200,7 +2200,7 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_section">دسترسی‌ها</string>
     <string name="settings_permissions_vpn_optional">فقط زمانی لازم است که بخواهید RIPDPI را در حالت VPN محلی اجرا کنید.</string>
     <string name="settings_reset_confirm">بازنشانی</string>
-    <string name="settings_reset_title">بازنشانی تمام تنظیمات</string>
+    <string name="settings_reset_title">بازنشانی تنظیمات</string>
     <string name="settings_support_debug_bundle_body">گزارش‌های اخیر و داده‌های عیب‌یابی را در یک فایل ZIP برای پشتیبانی به اشتراک بگذارید. ضبط بسته‌ها شامل نمی‌شود.</string>
     <string name="settings_tethering_dns_warning_body">وقتی tethering فعال است، Android یک سرور DNS محلی اجرا می‌کند که VPN را دور می‌زند. برنامه‌ها ممکن است از آن برای ارسال beaconهای ردیابی خارج از تونل استفاده کنند.</string>
     <string name="settings_warning_backup_pin_body">یک PIN بازگشتی چهار رقمی تنظیم کنید تا اگر بیومتریک در دسترس نبود همچنان بتوانید قفل RIPDPI را باز کنید.</string>
@@ -2624,7 +2624,7 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_notifications_needed">پیشنهاد می‌شود تا اندروید بتواند وضعیت و هشدارهای سرویس VPN یا پراکسی محلی را نشان دهد.</string>
     <string name="settings_permissions_vpn_active">برای حالت VPN محلی انتخاب‌شده فعلی ضروری است.</string>
     <string name="settings_reset_action">بازنشانی</string>
-    <string name="settings_reset_dialog_body">این کار تمام تنظیمات را به مقادیر پیش‌فرض بازخواهد گرداند. اتصال شما متوقف می‌شود و تمام شخصی‌سازی‌ها از بین می‌روند.</string>
+    <string name="settings_reset_dialog_body">این کار همه تنظیمات را به مقادیر پیش‌فرض بازمی‌گرداند و شخصی‌سازی‌های شما از بین می‌روند. پروفایل‌ها، گروه‌ها، قوانین مسیریابی و تاریخچهٔ عیب‌یابی حفظ می‌شوند.</string>
     <string name="settings_security_section">حریم خصوصی</string>
     <string name="settings_support_debug_bundle_title">اشتراک‌گذاری بسته پشتیبانی</string>
     <string name="settings_tethering_dns_warning_title">خطر نشت DNS اشتراک اتصال</string>
@@ -3334,13 +3334,13 @@ fakeddisorder endhost</string>
     <string name="backup_share_reminder_body">این نسخه گذرواژه‌ها و کلیدها را حذف می‌کند، اما همچنان گروه‌ها، مسیرها و تنظیمات شما را فهرست می‌کند. آن را فقط با فردی که به او اعتماد دارید هم‌رسانی کنید.</string>
     <string name="backup_share_reminder_confirm">به هر حال هم‌رسانی شود</string>
     <string name="backup_share_reminder_cancel">لغو</string>
-    <string name="backup_reset_section">بازنشانی</string>
+    <string name="backup_reset_section">پاک کردن داده‌ها</string>
     <string name="backup_reset_warning_title">این کار قابل بازگشت نیست</string>
-    <string name="backup_reset_warning_body">بازنشانی همهٔ پروفایل‌ها، گروه‌ها، قوانین مسیریابی، تنظیمات و سوابق عیب‌یابی را حذف می‌کند و سپس برنامه را به راه‌اندازی اولیه بازمی‌گرداند. اگر می‌خواهید این داده‌ها را نگه دارید، ابتدا یک نسخهٔ پشتیبان بگیرید.</string>
-    <string name="backup_reset_action">بازنشانی همهٔ تنظیمات</string>
-    <string name="backup_reset_dialog_title">همهٔ تنظیمات بازنشانی شود؟</string>
-    <string name="backup_reset_dialog_body">برای تأیید %1$s را تایپ کنید. این کار همهٔ پروفایل‌ها، گروه‌ها، مسیرها، تنظیمات و تاریخچهٔ عیب‌یابی را پاک می‌کند و سپس برنامه را دوباره راه‌اندازی می‌کند.</string>
-    <string name="backup_reset_confirm_action">بازنشانی و راه‌اندازی مجدد</string>
+    <string name="backup_reset_warning_body">پاک کردن داده‌ها همهٔ پروفایل‌ها، گروه‌ها، قوانین مسیریابی، تنظیمات و سوابق عیب‌یابی را حذف می‌کند و سپس برنامه را به راه‌اندازی اولیه بازمی‌گرداند. اگر می‌خواهید این داده‌ها را نگه دارید، ابتدا یک نسخهٔ پشتیبان بگیرید.</string>
+    <string name="backup_reset_action">پاک کردن همهٔ داده‌های برنامه</string>
+    <string name="backup_reset_dialog_title">همهٔ داده‌های برنامه پاک شود؟</string>
+    <string name="backup_reset_dialog_body">برای تأیید %1$s را تایپ کنید. این کار همهٔ پروفایل‌ها، گروه‌ها، قوانین مسیریابی، تنظیمات و تاریخچهٔ عیب‌یابی را پاک می‌کند و سپس برنامه را دوباره راه‌اندازی می‌کند.</string>
+    <string name="backup_reset_confirm_action">پاک کردن و راه‌اندازی مجدد</string>
     <string name="backup_reset_cancel_action">لغو</string>
     <!-- Xray provider selection + import (Task 5) -->
     <string name="service_mode_native_direct_title">وی‌پی‌ان مستقیم</string>
