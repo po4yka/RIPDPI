@@ -121,6 +121,20 @@ class QrScannerViewModelTest {
     }
 
     @Test
+    fun `a failed series keeps its error while the camera still sees the last code`() {
+        val viewModel = QrScannerViewModel()
+        viewModel.onCameraPermissionResult(granted = true)
+        val openVpn = AmneziaVpnKeyFixtures.keyJson("client\ndev tun", "amnezia-openvpn", "openvpn")
+        val chunk = AmneziaVpnKeyFixtures.qrChunk(1, 0, AmneziaVpnKeyFixtures.qCompress(openVpn.toByteArray()))
+
+        viewModel.onQrDecoded(chunk)
+        viewModel.onQrDecoded(chunk)
+
+        assertEquals("vpn://", viewModel.uiState.value.decodeError)
+        assertNull(viewModel.uiState.value.seriesProgress)
+    }
+
+    @Test
     fun `consuming the decode error clears it so scanning can resume`() {
         val viewModel = QrScannerViewModel()
         viewModel.onCameraPermissionResult(granted = true)

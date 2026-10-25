@@ -97,26 +97,7 @@ class QrScannerViewModel
          * preview is surfaced as [QrScannerUiState.decodeError].
          */
         fun onQrDecoded(payload: String) {
-            val result =
-                when (val chunk = seriesAssembler.accept(payload)) {
-                    is AmneziaQrChunkAssembler.Result.Partial -> {
-                        _uiState.update { it.copy(seriesProgress = chunk.progress, decodeError = null) }
-                        return
-                    }
-
-                    is AmneziaQrChunkAssembler.Result.Complete -> {
-                        _uiState.update { it.copy(seriesProgress = null) }
-                        AmneziaVpnKeyDecoder
-                            .confFromCompressed(chunk.compressed)
-                            ?.let { ScannerScanResult.Recognized(ImportPayload.WireGuardConf(it)) }
-                            ?: ScannerScanResult.Invalid(AmneziaVpnKeyDecoder.Scheme)
-                    }
-
-                    null -> {
-                        ScannerUriDispatcher.dispatch(payload)
-                    }
-                }
-            when (result) {
+            when (val result = classify(payload) ?: return) {
                 is ScannerScanResult.Invalid -> {
                     _uiState.update { it.copy(decodeError = result.redactedPreview, scanResult = null) }
                 }
@@ -124,12 +105,38 @@ class QrScannerViewModel
                 is ScannerScanResult.Recognized -> {
                     // The analyzer reports every frame that holds the code; the navigation pops
                     // this screen, so one recognised code is imported once. Only a hash is kept.
-                    if (payload.hashCode() == lastImportedPayloadHash) return
-                    lastImportedPayloadHash = payload.hashCode()
-                    _uiState.update { it.copy(scanResult = result.payload, decodeError = null) }
+                    if (payload.hashCode() != lastImportedPayloadHash) {
+                        lastImportedPayloadHash = payload.hashCode()
+                        _uiState.update { it.copy(scanResult = result.payload, decodeError = null) }
+                    }
                 }
             }
         }
+
+        /** Runs [payload] through the AmneziaVPN series assembler first; `null` means nothing to show yet. */
+        private fun classify(payload: String): ScannerScanResult? =
+            when (val chunk = seriesAssembler.accept(payload)) {
+                AmneziaQrChunkAssembler.Result.Repeat -> {
+                    null
+                }
+
+                is AmneziaQrChunkAssembler.Result.Partial -> {
+                    _uiState.update { it.copy(seriesProgress = chunk.progress, decodeError = null) }
+                    null
+                }
+
+                is AmneziaQrChunkAssembler.Result.Complete -> {
+                    _uiState.update { it.copy(seriesProgress = null) }
+                    AmneziaVpnKeyDecoder
+                        .confFromCompressed(chunk.compressed)
+                        ?.let { ScannerScanResult.Recognized(ImportPayload.WireGuardConf(it)) }
+                        ?: ScannerScanResult.Invalid(AmneziaVpnKeyDecoder.Scheme)
+                }
+
+                null -> {
+                    ScannerUriDispatcher.dispatch(payload)
+                }
+            }
 
         /** Clears the pending scan result once the screen has navigated on it. */
         fun consumeScanResult() {

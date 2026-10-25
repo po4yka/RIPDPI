@@ -96,8 +96,18 @@ class ScannerUriDispatcherTest {
     }
 
     @Test
-    fun `conf payload never prints the private key`() {
+    fun `payloads never print their secrets`() {
         assertTrue("privkey" !in ImportPayload.WireGuardConf(AwgConf).toString())
+        val profile = recognized("trojan://hunter2-secret@example.com:443#QR")
+        assertTrue("hunter2" !in profile.toString())
+    }
+
+    @Test
+    fun `a share link inside a v2rayng install link imports as that profile`() {
+        val link =
+            "v2rayng://install-config?url=" + java.net.URLEncoder.encode("trojan://pw@example.com:443#T", "UTF-8")
+
+        assertTrue(recognized(link) is ImportPayload.Profile)
     }
 
     private fun recognized(text: String): ImportPayload =

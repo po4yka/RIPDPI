@@ -2,7 +2,6 @@ package com.poyka.ripdpi.proxyimport
 
 import android.content.ContentResolver
 import android.net.Uri
-import java.io.IOException
 import java.io.InputStream
 
 /** U+FEFF, which some editors put at the start of a UTF-8 file and the `.conf` parser does not trim. */
@@ -20,13 +19,9 @@ internal fun readImportText(
     resolver: ContentResolver,
     uri: Uri,
 ): String? =
-    try {
-        resolver.openInputStream(uri)?.use(::readAtMostLimit)?.let(::decodeImportText)
-    } catch (_: IOException) {
-        null
-    } catch (_: SecurityException) {
-        null
-    }
+    // A provider can throw any RuntimeException across Binder; none of them may crash the
+    // process that also hosts the VPN service.
+    runCatching { resolver.openInputStream(uri)?.use(::readAtMostLimit)?.let(::decodeImportText) }.getOrNull()
 
 /** Reads up to one byte past [MaxImportFileBytes], so an oversized file is detectable. */
 private fun readAtMostLimit(input: InputStream): ByteArray {

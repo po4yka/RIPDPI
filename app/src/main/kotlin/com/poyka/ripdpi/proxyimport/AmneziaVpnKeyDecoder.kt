@@ -31,20 +31,14 @@ internal object AmneziaVpnKeyDecoder {
     fun confFromKey(text: String): String? =
         text
             .takeIf { it.startsWith(Scheme, ignoreCase = true) }
-            ?.let { runCatching { Base64.getUrlDecoder().decode(it.substring(Scheme.length).trim()) }.getOrNull() }
+            ?.let { key -> key.substring(Scheme.length).filterNot { it.isWhitespace() } }
+            ?.let { runCatching { Base64.getUrlDecoder().decode(it) }.getOrNull() }
             ?.let(::confFromCompressed)
 
     fun confFromCompressed(compressed: ByteArray): String? {
-        val root =
-            qUncompress(compressed)
-                ?.let {
-                    runCatching {
-                        Json.parseToJsonElement(
-                            it.toString(Charsets.UTF_8),
-                        ) as? JsonObject
-                    }.getOrNull()
-                }
-                ?: return null
+        // AmneziaVPN's importer also accepts an uncompressed JSON key.
+        val json = (qUncompress(compressed) ?: compressed).toString(Charsets.UTF_8)
+        val root = runCatching { Json.parseToJsonElement(json) as? JsonObject }.getOrNull() ?: return null
         return nativeConfOf(root)
             ?.replace("\$PRIMARY_DNS", root.string("dns1").orEmpty())
             ?.replace("\$SECONDARY_DNS", root.string("dns2").orEmpty())
@@ -138,17 +132,34 @@ class AmneziaQrChunkAssembler {
         data class Complete(
             val compressed: ByteArray,
         ) : Result
+
+        /** A code of the series that was just completed; the camera still sees it. */
+        data object Repeat : Result
     }
 
     private val chunks = sortedMapOf<Int, ByteArray>()
     private var total = 0
 
+    /** Chunks of the last completed series: the camera keeps reporting them after the import. */
+    private var completedChunks: Set<String> = emptySet()
+    private val pendingChunks = mutableSetOf<String>()
+
     /** Returns `null` when [payload] is not an AmneziaVPN QR chunk. */
-    fun accept(payload: String): Result? = parse(payload)?.let(::add)
+    fun accept(payload: String): Result? {
+        if (payload in completedChunks) return Result.Repeat
+        val result = parse(payload)?.let(::add)
+        if (result != null) pendingChunks += payload
+        if (result is Result.Complete) {
+            completedChunks = pendingChunks.toSet()
+            pendingChunks.clear()
+        }
+        return result
+    }
 
     private fun add(chunk: Chunk): Result {
         if (chunk.total != total) {
             chunks.clear()
+            pendingChunks.clear()
             total = chunk.total
         }
         chunks[chunk.index] = chunk.data

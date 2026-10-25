@@ -227,7 +227,7 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
-    fun `server title and interval apply to an auto-named group`() =
+    fun `server title names an auto-named group`() =
         runTest {
             val fixture = fixture(2_000L)
             val viewModel = viewModel(fixture)
@@ -238,7 +238,6 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
                     .code(200)
                     .body(trojanPayload)
                     .addHeader("Profile-Title", "base64:" + Base64.getEncoder().encodeToString("Fleet ✓".toByteArray()))
-                    .addHeader("Profile-Update-Interval", "12")
                     .build(),
             )
 
@@ -249,7 +248,6 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
 
             val group = fixture.repository.list().single { it.id == "imported" }
             assertEquals("Fleet ✓", group.name)
-            assertEquals(12L * 60L, group.subscription?.autoUpdateDelay)
         }
 
     @Test

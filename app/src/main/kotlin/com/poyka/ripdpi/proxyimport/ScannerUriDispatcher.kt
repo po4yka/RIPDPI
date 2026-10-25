@@ -5,7 +5,10 @@ sealed interface ImportPayload {
     /** A single proxy share URI, parsed into a profile import request. */
     data class Profile(
         val request: ProxyImportRequest.Profile,
-    ) : ImportPayload
+    ) : ImportPayload {
+        // Most proxy profiles carry a UUID or password.
+        override fun toString(): String = "Profile(<redacted>)"
+    }
 
     /** A subscription link (`https://…` or a client subscription deep link). */
     data class Subscription(
@@ -37,9 +40,18 @@ object ImportPayloadClassifier {
         if (trimmed.isEmpty()) return null
         return (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
             ?: SubscriptionLinkClassifier.classify(trimmed)?.let(ImportPayload::Subscription)
+            ?: embeddedShareLink(trimmed)
+                ?.let { ProxyUriShareDispatcher.dispatch(it) as? ProxyImportRequest.Profile }
+                ?.let(ImportPayload::Profile)
             ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(ImportPayload::WireGuardConf)
             ?: trimmed.takeIf(::looksLikeWireGuardConf)?.let(ImportPayload::WireGuardConf)
     }
+
+    /** `v2rayng://install-config?url=vless://…` carries a share link, not a subscription URL. */
+    private fun embeddedShareLink(text: String): String? =
+        (SingBoxDeepLinkParser.parse(text) as? SingBoxDeepLinkResult.Success)
+            ?.url
+            ?.takeUnless { it.startsWith("http://", ignoreCase = true) || it.startsWith("https://", ignoreCase = true) }
 
     private fun looksLikeWireGuardConf(text: String): Boolean {
         val sections = text.lineSequence().map { it.trim().lowercase() }.toSet()

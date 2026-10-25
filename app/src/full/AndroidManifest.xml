@@ -53,7 +53,7 @@
             android:exported="true"
             android:noHistory="true"
             android:excludeFromRecents="true"
-            android:theme="@android:style/Theme.NoDisplay"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -112,7 +112,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
             <intent-filter android:priority="-100">

@@ -323,5 +323,4 @@ class SubscriptionImportConfirmViewModel
         }
     }
 
-private val NotASubscription =
-    setOf(SubscriptionRefreshFailure.PARSE_ERROR, SubscriptionRefreshFailure.INVALID_PAYLOAD)
+private val NotASubscription = setOf(SubscriptionRefreshFailure.PARSE_ERROR)

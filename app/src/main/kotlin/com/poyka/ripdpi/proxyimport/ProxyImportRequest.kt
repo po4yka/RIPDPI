@@ -14,7 +14,10 @@ sealed interface ProxyImportRequest {
     /** A successfully parsed single-profile share link, ready for the confirm screen. */
     data class Profile(
         val profile: ProxyProfile,
-    ) : ProxyImportRequest
+    ) : ProxyImportRequest {
+        // Most proxy profiles carry a UUID or password.
+        override fun toString(): String = "Profile(<redacted>)"
+    }
 
     /** The URI scheme is not a recognised proxy-node scheme, or the URI is malformed. */
     data class UnsupportedScheme(

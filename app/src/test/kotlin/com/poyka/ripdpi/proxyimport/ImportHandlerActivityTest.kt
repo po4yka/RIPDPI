@@ -121,6 +121,23 @@ class ImportHandlerActivityTest {
     }
 
     @Test
+    fun `shared file uri is refused so the app never reads its own private files for the sender`() {
+        val intent =
+            Intent(
+                Intent.ACTION_SEND,
+                null,
+                ApplicationProvider.getApplicationContext(),
+                ImportHandlerActivity::class.java,
+            ).setType("text/plain")
+                .putExtra(Intent.EXTRA_STREAM, Uri.parse("file:///data/data/com.poyka.ripdpi/shared_prefs/x.xml"))
+        val controller = Robolectric.buildActivity(ImportHandlerActivity::class.java, intent).create()
+
+        assertEquals(null, shadowOf(controller.get()).nextStartedActivity)
+        assertTrue(controller.get().isFinishing)
+        controller.destroy()
+    }
+
+    @Test
     fun `shared subscription link forwards a subscription route`() {
         val intent =
             Intent(

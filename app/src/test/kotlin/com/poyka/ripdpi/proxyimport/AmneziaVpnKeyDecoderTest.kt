@@ -52,6 +52,26 @@ class AmneziaVpnKeyDecoderTest {
     }
 
     @Test
+    fun `uncompressed and line-wrapped keys decode too`() {
+        val json = AmneziaVpnKeyFixtures.keyJson("[Interface]\nPrivateKey = k==")
+        val uncompressed = "vpn://" + AmneziaVpnKeyFixtures.base64Url(json.toByteArray())
+        val wrapped = AmneziaVpnKeyFixtures.vpnKey("[Interface]\nPrivateKey = k==").chunked(40).joinToString("\n")
+
+        assertEquals("[Interface]\nPrivateKey = k==", AmneziaVpnKeyDecoder.confFromKey(uncompressed))
+        assertEquals("[Interface]\nPrivateKey = k==", AmneziaVpnKeyDecoder.confFromKey(wrapped))
+    }
+
+    @Test
+    fun `frames of a completed series are ignored instead of starting it again`() {
+        val compressed = AmneziaVpnKeyFixtures.qCompress(AmneziaVpnKeyFixtures.keyJson(conf).toByteArray())
+        val only = AmneziaVpnKeyFixtures.qrChunk(1, 0, compressed)
+        val assembler = AmneziaQrChunkAssembler()
+
+        assertTrue(assembler.accept(only) is AmneziaQrChunkAssembler.Result.Complete)
+        assertEquals(AmneziaQrChunkAssembler.Result.Repeat, assembler.accept(only))
+    }
+
+    @Test
     fun `a qr series is assembled in any order and reports progress`() {
         val compressed =
             AmneziaVpnKeyFixtures.qCompress(

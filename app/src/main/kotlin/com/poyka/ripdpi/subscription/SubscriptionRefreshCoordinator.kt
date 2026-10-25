@@ -260,8 +260,6 @@ class SubscriptionRefreshCoordinator private constructor(
                 subscription
                     .withUserinfoHeader(outcome.subscriptionUserinfo)
                     .copy(
-                        autoUpdateDelay =
-                            subscription.autoUpdateDelay.takeIf { it > 0L } ?: outcome.updateIntervalMinutes ?: 0L,
                         lastUpdated = attemptedAt,
                         lastRefreshAttemptAtEpochMillis = attemptedAt,
                         tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
@@ -560,7 +558,6 @@ class SubscriptionRefreshCoordinator private constructor(
         copy(
             subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty(),
             profileTitle = profileTitleOf(response.header(ProfileTitleHeader)),
-            updateIntervalMinutes = updateIntervalMinutesOf(response.header(ProfileUpdateIntervalHeader)),
         )
 
     private fun SingBoxParseResult.Success?.orEmptyAwgCount(): Int = this?.amneziaWgProfiles?.size ?: 0
@@ -574,7 +571,6 @@ class SubscriptionRefreshCoordinator private constructor(
             val awgProfiles: List<AwgSubscriptionProfile> = emptyList(),
             val subscriptionUserinfo: String = "",
             val profileTitle: String = "",
-            val updateIntervalMinutes: Long? = null,
             val tokenExpiresAtEpochMillis: Long? = null,
             val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
             val clearRelayMembers: Boolean = false,
@@ -602,7 +598,6 @@ class SubscriptionRefreshCoordinator private constructor(
         const val HttpServerErrorEnd = 599
         const val SubscriptionUserinfoHeader = "Subscription-Userinfo"
         const val ProfileTitleHeader = "Profile-Title"
-        const val ProfileUpdateIntervalHeader = "Profile-Update-Interval"
         const val EndpointTimeoutSeconds = 15L
     }
 }
@@ -616,8 +611,6 @@ object SubscriptionRefreshModule {
 }
 
 private const val MaxProfileTitleLength = 64
-private const val MaxUpdateIntervalHours = 24L * 30L
-private const val MinutesPerHour = 60L
 
 /**
  * Decodes the `profile-title` header (plain text, or `base64:<utf-8 text>` as Hiddify and
@@ -633,13 +626,8 @@ internal fun profileTitleOf(header: String?): String {
         } else {
             raw
         }
-    return text.filterNot { it.isISOControl() }.trim().take(MaxProfileTitleLength)
+    // Bidi and other format characters could make a server title spoof another group's name.
+    val clean = text.filterNot { it.isISOControl() || Character.getType(it) == Character.FORMAT.toInt() }.trim()
+    val bounded = clean.take(MaxProfileTitleLength)
+    return if (bounded.lastOrNull()?.isHighSurrogate() == true) bounded.dropLast(1) else bounded
 }
-
-/** Converts the `profile-update-interval` header (whole hours) into minutes; `null` when absent or invalid. */
-internal fun updateIntervalMinutesOf(header: String?): Long? =
-    header
-        ?.trim()
-        ?.toLongOrNull()
-        ?.takeIf { it in 1L..MaxUpdateIntervalHours }
-        ?.times(MinutesPerHour)
