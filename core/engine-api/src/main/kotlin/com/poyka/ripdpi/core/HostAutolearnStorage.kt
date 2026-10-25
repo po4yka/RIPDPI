@@ -33,6 +33,11 @@ fun markHostAutolearnErasePending(context: Context): Boolean =
  * Applies a pending erase. Call it only before a native runtime that loads the store starts, when
  * no engine holds the hosts in memory. Returns false, and keeps the erase pending, when the store
  * could not be deleted.
+ *
+ * Residual window: the caller (ProxyRuntimeSupervisor) knows only that its own previous native run
+ * has returned. There is no process-wide "native proxy alive" signal, so if an older session's
+ * native run outlived its stop timeout and flushes after a new session applied the erase, the old
+ * hosts come back. A stop that times out already leaves that session in cleanup-pending state.
  */
 fun applyPendingHostAutolearnErase(context: Context): Boolean =
     fileOperationSucceeded { applyPendingHostAutolearnErase(resolveHostAutolearnStoreFile(context)) }
