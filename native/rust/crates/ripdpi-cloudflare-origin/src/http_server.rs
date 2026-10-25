@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::io;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
@@ -13,6 +14,7 @@ use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::{Mutex, mpsc};
+use tokio::task::AbortHandle;
 use tokio::time::sleep;
 
 use crate::config::OriginConfig;
@@ -22,12 +24,18 @@ use crate::path::extract_session_id;
 use crate::session::run_session;
 
 const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|cloudflare-origin|";
-const SESSION_ATTACH_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long a new session id may wait for its GET and POST. Anyone who can
+/// reach the origin can open one before authentication, so this is short.
+const SESSION_ATTACH_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_LIVE_SESSIONS: usize = 1_024;
 
 struct SessionState {
     outbound_tx: mpsc::Sender<io::Result<Bytes>>,
     binding: Mutex<SessionBindingState>,
+    /// Creation order, so a full table evicts the oldest pre-auth session.
+    seq: u64,
+    /// Set once the VLESS header carried the configured UUID.
+    authenticated: Arc<AtomicBool>,
 }
 
 struct SessionBindingState {
@@ -37,12 +45,15 @@ struct SessionBindingState {
     inbound_tx: Option<mpsc::Sender<Bytes>>,
     inbound_rx: Option<mpsc::Receiver<Bytes>>,
     outbound_rx: Option<mpsc::Receiver<io::Result<Bytes>>>,
+    /// The running session task, aborted when the session is evicted.
+    task: Option<AbortHandle>,
 }
 
 #[derive(Clone)]
 struct OriginServer {
     config: Arc<OriginConfig>,
     sessions: Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
+    next_session_seq: Arc<AtomicU64>,
 }
 
 pub(crate) async fn run(config: OriginConfig) -> io::Result<()> {
@@ -50,7 +61,11 @@ pub(crate) async fn run(config: OriginConfig) -> io::Result<()> {
     let listener_address = listener.local_addr()?.to_string();
     println!("{STRUCTURED_READY_PREFIX}{}|{listener_address}", env!("CARGO_PKG_VERSION"));
 
-    let server = OriginServer { config: Arc::new(config), sessions: Arc::new(Mutex::new(HashMap::new())) };
+    let server = OriginServer {
+        config: Arc::new(config),
+        sessions: Arc::new(Mutex::new(HashMap::new())),
+        next_session_seq: Arc::new(AtomicU64::new(0)),
+    };
 
     loop {
         let (stream, _) = listener.accept().await?;
@@ -124,19 +139,28 @@ impl OriginServer {
         empty_response(StatusCode::OK)
     }
 
+    /// Returns the session for `session_id`, creating it when it is new.
+    ///
+    /// A full table evicts the oldest session that has not authenticated, so
+    /// unauthenticated peers that open many ids cannot lock out real clients.
+    /// Only a table full of authenticated sessions rejects a new id.
+    ///
     /// # Cancel safety
     ///
-    /// cancel-safe: cancellation during the scan leaves the map unchanged; insertion
-    /// and timer registration complete without further awaits.
+    /// cancel-safe: cancellation while waiting for a lock leaves the map
+    /// unchanged; an eviction removes its entry before it aborts the task, and
+    /// insertion and timer registration complete without further awaits.
     async fn session_for(&self, session_id: String) -> Option<Arc<SessionState>> {
         let mut sessions = self.sessions.lock().await;
         if let Some(session) = sessions.get(&session_id) {
             return Some(Arc::clone(session));
         }
-        if sessions.len() >= MAX_LIVE_SESSIONS {
+        if sessions.len() >= MAX_LIVE_SESSIONS && !evict_oldest_unauthenticated(&mut sessions).await {
             return None;
         }
-        let session = new_session();
+        // Ordering: the counter only orders sessions for eviction; it
+        // publishes no other memory.
+        let session = new_session(self.next_session_seq.fetch_add(1, Ordering::Relaxed));
         sessions.insert(session_id.clone(), Arc::clone(&session));
         let sessions = Arc::clone(&self.sessions);
         let weak = Arc::downgrade(&session);
@@ -163,13 +187,67 @@ impl OriginServer {
         let protect_path = self.config.protect_path.clone();
         let sessions = Arc::clone(&self.sessions);
         let outbound_tx = session.outbound_tx.clone();
-        tokio::spawn(async move {
-            let result = run_session(inbound_rx, outbound_tx, expected_uuid, protect_path.as_deref()).await;
+        let authenticated = Arc::clone(&session.authenticated);
+        let weak = Arc::downgrade(&session);
+        let task = tokio::spawn(async move {
+            let on_authenticated = || {
+                // Ordering: a standalone flag read by the eviction scan under
+                // the sessions lock; it publishes no other memory.
+                authenticated.store(true, Ordering::Relaxed);
+            };
+            let result =
+                run_session(inbound_rx, outbound_tx, expected_uuid, protect_path.as_deref(), on_authenticated).await;
             if let Err(error) = result {
                 emit_structured_error(classify_error(&error), &error);
             }
-            sessions.lock().await.remove(&session_id);
+            remove_if_current(&sessions, &session_id, &weak).await;
         });
+        session.binding.lock().await.task = Some(task.abort_handle());
+    }
+}
+
+/// Removes the oldest session that has not authenticated and aborts its task.
+/// Returns false when every session has authenticated.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the entry is removed with no await in between; a cancel while
+/// waiting for its binding lock only skips the abort, and the session then
+/// ends at its own header or attach deadline.
+async fn evict_oldest_unauthenticated(sessions: &mut HashMap<String, Arc<SessionState>>) -> bool {
+    // Ordering: see `maybe_start_session`; the flag guards no other memory.
+    let oldest = sessions
+        .iter()
+        .filter(|(_, session)| !session.authenticated.load(Ordering::Relaxed))
+        .min_by_key(|(_, session)| session.seq)
+        .map(|(id, _)| id.clone());
+    let Some(evicted) = oldest.and_then(|id| sessions.remove(&id)) else {
+        return false;
+    };
+    if let Some(task) = evicted.binding.lock().await.task.take() {
+        task.abort();
+    }
+    true
+}
+
+/// Removes `session_id` only while it still maps to the session in `weak`, so
+/// a finished session never removes a newer session that reused its id.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the map is changed only while its lock is held.
+async fn remove_if_current(
+    sessions: &Mutex<HashMap<String, Arc<SessionState>>>,
+    session_id: &str,
+    weak: &Weak<SessionState>,
+) {
+    let mut sessions = sessions.lock().await;
+    let is_current = match (sessions.get(session_id), weak.upgrade()) {
+        (Some(current), Some(session)) => Arc::ptr_eq(current, &session),
+        _ => false,
+    };
+    if is_current {
+        sessions.remove(session_id);
     }
 }
 
@@ -192,7 +270,7 @@ async fn expire_unstarted_session(
     }
 }
 
-fn new_session() -> Arc<SessionState> {
+fn new_session(seq: u64) -> Arc<SessionState> {
     let (inbound_tx, inbound_rx) = mpsc::channel::<Bytes>(64);
     let (outbound_tx, outbound_rx) = mpsc::channel::<io::Result<Bytes>>(64);
     Arc::new(SessionState {
@@ -204,7 +282,10 @@ fn new_session() -> Arc<SessionState> {
             inbound_tx: Some(inbound_tx),
             inbound_rx: Some(inbound_rx),
             outbound_rx: Some(outbound_rx),
+            task: None,
         }),
+        seq,
+        authenticated: Arc::new(AtomicBool::new(false)),
     })
 }
 
@@ -248,6 +329,7 @@ mod tests {
                 protect_path: None,
             }),
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            next_session_seq: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         }
     }
 
@@ -256,7 +338,7 @@ mod tests {
     ///
     /// cancel-safe: the test owns its socket and channel resources.
     async fn post_sender_closure_reaches_session_while_state_is_retained() {
-        let session = new_session();
+        let session = new_session(0);
         let mut binding = session.binding.lock().await;
         let sender = binding.inbound_tx.take().expect("POST sender");
         let mut receiver = binding.inbound_rx.take().expect("session receiver");
@@ -289,16 +371,35 @@ mod tests {
     /// # Cancel safety
     ///
     /// cancel-safe: this test owns only in-memory session entries.
-    async fn live_limit_rejects_new_ids_even_when_existing_sessions_started() {
+    async fn full_table_evicts_oldest_unauthenticated_session_for_a_new_id() {
         let server = server();
         for index in 0..MAX_LIVE_SESSIONS {
             assert!(server.session_for(format!("session-{index}")).await.is_some());
         }
-        assert!(server.session_for("overflow".to_owned()).await.is_none());
 
-        let active = server.sessions.lock().await.get("session-0").cloned().expect("first session");
-        active.binding.lock().await.started = true;
-        assert!(server.session_for("new-pending".to_owned()).await.is_none());
+        // Unauthenticated peers must not be able to lock out a real client.
+        assert!(server.session_for("newcomer".to_owned()).await.is_some());
+
+        let sessions = server.sessions.lock().await;
+        assert_eq!(sessions.len(), MAX_LIVE_SESSIONS);
+        assert!(!sessions.contains_key("session-0"), "oldest unauthenticated session must be evicted");
+        assert!(sessions.contains_key("session-1"));
+        assert!(sessions.contains_key("newcomer"));
+    }
+
+    #[tokio::test]
+    /// # Cancel safety
+    ///
+    /// cancel-safe: this test owns only in-memory session entries.
+    async fn full_table_of_authenticated_sessions_rejects_new_ids() {
+        let server = server();
+        for index in 0..MAX_LIVE_SESSIONS {
+            let session = server.session_for(format!("session-{index}")).await.expect("session");
+            session.authenticated.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+
+        assert!(server.session_for("overflow".to_owned()).await.is_none());
         assert!(server.session_for("session-0".to_owned()).await.is_some());
+        assert_eq!(server.sessions.lock().await.len(), MAX_LIVE_SESSIONS);
     }
 }

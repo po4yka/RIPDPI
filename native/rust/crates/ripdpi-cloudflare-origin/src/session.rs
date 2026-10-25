@@ -9,13 +9,24 @@ use tokio::time::timeout;
 use crate::errors::join_error_to_io;
 
 const STREAM_BUFFER_SIZE: usize = 16 * 1024;
-const VLESS_HEADER_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long a started session may wait for its VLESS header. The session is
+/// unauthenticated until then, so this is short.
+const VLESS_HEADER_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Reads the VLESS header, checks the UUID, then relays to the target.
+/// `on_authenticated` runs once the UUID matches.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it drops the channels and the upstream socket; the
+/// relay halves run in spawned tasks that end when their channel or socket
+/// closes.
 pub(crate) async fn run_session(
     mut inbound_rx: mpsc::Receiver<Bytes>,
     outbound_tx: mpsc::Sender<io::Result<Bytes>>,
     expected_uuid: [u8; 16],
     protect_path: Option<&str>,
+    on_authenticated: impl FnOnce(),
 ) -> io::Result<()> {
     let (decoded, buffered_payload) = read_request_header_with_timeout(&mut inbound_rx, VLESS_HEADER_TIMEOUT).await?;
     if decoded.uuid != expected_uuid {
@@ -24,6 +35,7 @@ pub(crate) async fn run_session(
             "VLESS UUID does not match configured tunnel identity",
         ));
     }
+    on_authenticated();
 
     let upstream = ripdpi_subprocess_protect::protected_tcp_connect(decoded.target.as_str(), protect_path)
         .await
