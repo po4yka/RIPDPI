@@ -13,4 +13,7 @@
     <string name="awg_conf_import_unreadable_body">O RIPDPI não conseguiu ler o arquivo. Ele está vazio, tem mais de 64 KB ou não é um arquivo de texto.</string>
     <string name="awg_conf_extra_peers_title">Apenas o primeiro par é usado</string>
     <string name="awg_conf_extra_peers_body">Seções [Peer] extras ignoradas: %1$d. O RIPDPI se conecta apenas pelo primeiro par.</string>
+    <string name="awg_conf_unsupported_option_body">A configuração usa uma opção que o RIPDPI não aceita: %1$s.</string>
+    <string name="awg_conf_padding_blocked_title">Esta configuração ainda não pode ser iniciada</string>
+    <string name="awg_conf_padding_blocked_body">Ela usa preenchimento S3/S4 diferente de zero, necessário para a proteção de cabeçalhos do AmneziaWG 3.x. O RIPDPI mantém S3/S4 em zero até que esses valores sejam verificados em dispositivos Android.</string>
 </resources>

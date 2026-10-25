@@ -271,8 +271,7 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `populateFromConf with non-zero S3 or S4 leaves the state unchanged`() {
-        val before = AmneziaWgEditorState.initial().updateField(AwgEditorField.SERVER, "keep.me")
+    fun `a conf with non-zero S3 imports and is flagged as blocked by the padding floor`() {
         val unsafe =
             """
             [Interface]
@@ -285,9 +284,47 @@ class AmneziaWgEditorStateTest {
             Endpoint = host.example.com:443
             """.trimIndent()
 
-        val after = before.populateFromConf(unsafe, catalog)
+        val result = AmneziaWgEditorState.initial().importConf(unsafe, catalog) as AwgConfImport.Imported
 
-        assertEquals(before, after)
+        assertTrue(result.blockedByPaddingFloor)
+        assertEquals("host.example.com", result.editor.form.server)
+    }
+
+    @Test
+    fun `an unknown key is named without its value`() {
+        val conf = "[Interface]\nPrivateKey = k==\nMadeUpKey = secret-value\n\n[Peer]\nPublicKey = p=="
+
+        val result = AmneziaWgEditorState.initial().importConf(conf, catalog)
+
+        assertEquals(AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION, "MadeUpKey"), result)
+    }
+
+    @Test
+    fun `awg 3x keys and a keepalive range reach the activation request`() {
+        val conf =
+            """
+            [Interface]
+            PrivateKey = k==
+            Address = 10.8.0.2/32
+            Jc = 4
+            Jmin = 10
+            Jmax = 50
+            RandomTrailers = on
+            ContentPaddingAddition = 10-100
+
+            [Peer]
+            PublicKey = p==
+            Endpoint = vpn.example.com:51820
+            PersistentKeepalive = 25-35
+            """.trimIndent()
+
+        val editor = (AmneziaWgEditorState.initial().importConf(conf, catalog) as AwgConfImport.Imported).editor
+        val request = editor.toActivationRequest(profileId = "p")
+
+        assertTrue(editor.form.v3.randomTrailers)
+        assertEquals("10-100", editor.form.v3.contentPaddingAddition)
+        assertEquals(25, request.persistentKeepalive)
+        assertEquals(35, request.persistentKeepaliveMax)
     }
 
     @Test

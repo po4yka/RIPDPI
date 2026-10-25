@@ -19,7 +19,10 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
     val mtu =
         rawText(AwgEditorField.MTU).trim().toIntOrNull()?.takeIf { it > 0 }
             ?: AwgActivationRequest.DEFAULT_MTU
-    val keepalive = rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().toIntOrNull()?.takeIf { it >= 0 } ?: 0
+    // A `.conf` range such as `25-35` (AWG 3.x) picks a random interval in that span.
+    val keepaliveRange = rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().split('-').map { it.trim().toIntOrNull() }
+    val keepalive = keepaliveRange.first()?.takeIf { it >= 0 } ?: 0
+    val keepaliveMax = keepaliveRange.getOrNull(1)?.takeIf { keepaliveRange.size == 2 && it > keepalive } ?: 0
     return form.toActivationRequest(
         profileId = profileId,
         interfaceAddressV4 = ipv4.single(),
@@ -28,6 +31,7 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
         allowedIps = rawText(AwgEditorField.ALLOWED_IPS).commaSeparatedValues(),
         mtu = mtu,
         persistentKeepalive = keepalive,
+        persistentKeepaliveMax = keepaliveMax,
     )
 }
 

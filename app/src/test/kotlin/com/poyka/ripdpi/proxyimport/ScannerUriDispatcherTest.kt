@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.proxyimport
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.uri.AmneziaWgUriCodec
+import com.poyka.ripdpi.data.wireguard.AmneziaWgProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -93,6 +95,26 @@ class ScannerUriDispatcherTest {
             ImportPayload.WireGuardConf("[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p=="),
             recognized(key),
         )
+    }
+
+    @Test
+    fun `amneziawg link opens the editor with an equivalent conf`() {
+        val link =
+            AmneziaWgUriCodec.encode(
+                AmneziaWgProfile(
+                    name = "Home",
+                    host = "vpn.example.com",
+                    port = 51820,
+                    privateKey = "cHJpdmtleQ==",
+                    publicKey = "cGVlcnB1Yg==",
+                    address = listOf("10.8.0.2/32"),
+                ),
+            )
+
+        val conf = (recognized(link) as ImportPayload.WireGuardConf).conf
+
+        assertTrue(conf.contains("Endpoint = vpn.example.com:51820"))
+        assertTrue(conf.contains("PrivateKey = cHJpdmtleQ=="))
     }
 
     @Test

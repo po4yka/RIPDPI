@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.data.uri.AmneziaWgUriCodec
+import com.poyka.ripdpi.data.wireguard.toWgQuickConf
+
 /** What a block of imported text is. Shared by the QR scanner, the clipboard, and the share sheet. */
 sealed interface ImportPayload {
     /** A single proxy share URI, parsed into a profile import request. */
@@ -32,7 +35,8 @@ sealed interface ImportPayload {
  * Classifies text from any import surface. Never throws, never logs the text. Tries, in
  * order: a proxy share URI ([ProxyUriShareDispatcher]), a subscription link
  * ([SubscriptionLinkClassifier]), an AmneziaVPN `vpn://` key ([AmneziaVpnKeyDecoder]),
- * and a `.conf` with `[Interface]` and `[Peer]` sections.
+ * an `amneziawg://` link ([AmneziaWgUriCodec], rendered back to `.conf` text), and a
+ * `.conf` with `[Interface]` and `[Peer]` sections.
  */
 object ImportPayloadClassifier {
     fun classify(text: String): ImportPayload? {
@@ -44,6 +48,7 @@ object ImportPayloadClassifier {
                 ?.let { ProxyUriShareDispatcher.dispatch(it) as? ProxyImportRequest.Profile }
                 ?.let(ImportPayload::Profile)
             ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(ImportPayload::WireGuardConf)
+            ?: AmneziaWgUriCodec.decode(trimmed)?.toWgQuickConf()?.let(ImportPayload::WireGuardConf)
             ?: trimmed.takeIf(::looksLikeWireGuardConf)?.let(ImportPayload::WireGuardConf)
     }
 

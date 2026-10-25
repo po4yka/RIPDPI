@@ -128,13 +128,26 @@ internal fun AmneziaWgProfileScreen(
             WarningBanner(
                 title = stringResource(R.string.awg_conf_import_failed_title),
                 message =
-                    stringResource(
-                        when (failure) {
-                            AwgConfImportFailure.UNREADABLE -> R.string.awg_conf_import_unreadable_body
-                            AwgConfImportFailure.INVALID -> R.string.awg_conf_import_failed_body
-                        },
-                    ),
+                    when (failure.reason) {
+                        AwgConfImportFailure.UNREADABLE -> {
+                            stringResource(R.string.awg_conf_import_unreadable_body)
+                        }
+
+                        AwgConfImportFailure.INVALID -> {
+                            stringResource(R.string.awg_conf_import_failed_body)
+                        }
+
+                        AwgConfImportFailure.UNSUPPORTED_OPTION -> {
+                            stringResource(R.string.awg_conf_unsupported_option_body, failure.key)
+                        }
+                    },
                 testTag = RipDpiTestTags.AwgConfImportFailed,
+            )
+        }
+        if (uiState.paddingFloorBlocked) {
+            WarningBanner(
+                title = stringResource(R.string.awg_conf_padding_blocked_title),
+                message = stringResource(R.string.awg_conf_padding_blocked_body),
             )
         }
         if (uiState.ignoredPeerCount > 0) {

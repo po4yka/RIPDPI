@@ -1,16 +1,10 @@
 package com.poyka.ripdpi.ui.screens.awg
 
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
-import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
-import com.poyka.ripdpi.data.awg.matchCohortForConf
-import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
-import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
-import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
-import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 
 /**
  * Every editable field of the AmneziaWG profile editor.
@@ -207,107 +201,6 @@ data class AmneziaWgEditorState(
     private fun effectiveMtu(): Int =
         rawText(AwgEditorField.MTU).trim().toIntOrNull()?.takeIf { it > 0 } ?: AwgActivationRequest.DEFAULT_MTU
 
-    /** Replaces the editor state from a `.conf`, or returns this state unchanged when it cannot. */
-    fun populateFromConf(
-        conf: String,
-        catalog: AwgCohortCatalogData,
-    ): AmneziaWgEditorState = (importConf(conf, catalog) as? AwgConfImport.Imported)?.editor ?: this
-
-    /**
-     * Imports a WireGuard or AmneziaWG `.conf` through [WireGuardConfParser]. A plain
-     * WireGuard config becomes an AmneziaWG profile with no obfuscation (`Jc`/`S` = 0,
-     * `H1`-`H4` = 1-4), which is the same wire protocol. When the parsed obfuscation params
-     * byte-match a [catalog] preset the editor locks onto that cohort, otherwise it lands on
-     * `Custom`. Only the first `[Peer]` is used; [AwgConfImport.Imported.ignoredPeerCount]
-     * reports the rest so the screen can say so.
-     */
-    fun importConf(
-        conf: String,
-        catalog: AwgCohortCatalogData,
-    ): AwgConfImport {
-        val parsed = conf.takeIf { it.isNotBlank() }?.let { runCatching { WireGuardConfParser.parse(it) }.getOrNull() }
-        return when {
-            conf.isBlank() -> AwgConfImport.Failed(AwgConfImportFailure.UNREADABLE)
-            parsed == null -> AwgConfImport.Failed(AwgConfImportFailure.INVALID)
-            else -> imported(conf, parsed, catalog)
-        }
-    }
-
-    private fun imported(
-        conf: String,
-        parsed: WireGuardConfModel,
-        catalog: AwgCohortCatalogData,
-    ): AwgConfImport.Imported {
-        val awg = (parsed as? AmneziaWgConfig)?.awg ?: AmneziaWgParameters()
-        val cohortId = matchCohortForConf(conf, catalog)
-        val nextForm = buildFormFromConf(parsed, awg, cohortId)
-        // obfuscationRawText() seeds the S/H/I raw text from the freshly-built
-        // form, so the I-fields parsed into the form above are covered here too.
-        // transportRawText() seeds the non-column fields (Address/DNS/MTU/
-        // AllowedIPs/Keepalive) that the parser retains but buildFormFromConf does
-        // not carry as form columns — without these a pasted .conf left Address
-        // blank (blocking activation) and silently discarded DNS/AllowedIPs/MTU
-        // (audit P1-12).
-        val nextRaw =
-            nextForm.identityRawText() + nextForm.obfuscationRawText() + transportRawText(parsed)
-        val editor =
-            copy(
-                form = nextForm,
-                rawTextByField = rawTextByField + nextRaw,
-                obfuscationLocked = cohortId != AwgProfileForm.CUSTOM_COHORT_ID,
-            )
-        return AwgConfImport.Imported(editor, ignoredPeerCount = (parsed.peers.size - 1).coerceAtLeast(0))
-    }
-
-    private fun transportRawText(parsed: WireGuardConfModel): Map<AwgEditorField, String> {
-        val iface = parsed.interfaceSection
-        val peer = parsed.peers.firstOrNull()
-        return buildMap {
-            iface.address.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.ADDRESS, it.joinToString(", ")) }
-            iface.dns.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.DNS, it.joinToString(", ")) }
-            iface.mtu?.let { put(AwgEditorField.MTU, it.toString()) }
-            peer?.allowedIps?.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.ALLOWED_IPS, it.joinToString(", ")) }
-            peer?.persistentKeepalive?.let { put(AwgEditorField.PERSISTENT_KEEPALIVE, it.toString()) }
-        }
-    }
-
-    private fun buildFormFromConf(
-        parsed: WireGuardConfModel,
-        awg: AmneziaWgParameters,
-        cohortId: String,
-    ): AwgProfileForm {
-        val peer = parsed.peers.firstOrNull()
-        val endpoint = peer?.endpoint.orEmpty()
-        // `[2001:db8::1]:51820` keeps its brackets only around the port separator.
-        val host = endpoint.substringBeforeLast(':', endpoint).removeSurrounding("[", "]")
-        val port = endpoint.substringAfterLast(':', "").toIntOrNull() ?: 0
-        return form.copy(
-            wireProfile = awg.wireProfile,
-            interfacePrivateKey = parsed.interfaceSection.privateKey,
-            peerPublicKey = peer?.publicKey.orEmpty(),
-            presharedKey = peer?.presharedKey.orEmpty(),
-            server = host,
-            serverPort = port,
-            jc = awg.jc ?: 0,
-            jmin = awg.jmin ?: 0,
-            jmax = awg.jmax ?: 0,
-            s1 = awg.s1 ?: 0,
-            s2 = awg.s2 ?: 0,
-            s3 = awg.s3 ?: 0,
-            s4 = awg.s4 ?: 0,
-            h1 = awg.h1 ?: "1",
-            h2 = awg.h2 ?: "2",
-            h3 = awg.h3 ?: "3",
-            h4 = awg.h4 ?: "4",
-            i1 = awg.i1.orEmpty(),
-            i2 = awg.i2.orEmpty(),
-            i3 = awg.i3.orEmpty(),
-            i4 = awg.i4.orEmpty(),
-            i5 = awg.i5.orEmpty(),
-            cohortId = cohortId,
-        )
-    }
-
     companion object {
         /** A fresh editor: an empty `Custom` profile with an unlocked obfuscation group. */
         fun initial(): AmneziaWgEditorState =
@@ -383,7 +276,7 @@ private fun AwgProfileForm.applyField(
         else -> this
     }
 
-private fun AwgProfileForm.identityRawText(): Map<AwgEditorField, String> =
+internal fun AwgProfileForm.identityRawText(): Map<AwgEditorField, String> =
     mapOf(
         AwgEditorField.SERVER to server,
         AwgEditorField.SERVER_PORT to serverPort.toString(),
@@ -393,7 +286,7 @@ private fun AwgProfileForm.identityRawText(): Map<AwgEditorField, String> =
         AwgEditorField.CARRIER_WS_URL to carrierWsUrl,
     )
 
-private fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =
+internal fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =
     buildMap {
         put(AwgEditorField.JC, jc.toString())
         put(AwgEditorField.JMIN, jmin.toString())
@@ -414,24 +307,3 @@ private fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =
         if (i4.isNotEmpty()) put(AwgEditorField.I4, i4)
         if (i5.isNotEmpty()) put(AwgEditorField.I5, i5)
     }
-
-/** Why a `.conf` could not fill the editor. */
-enum class AwgConfImportFailure {
-    /** The file could not be read, was empty, too large, or not text. */
-    UNREADABLE,
-
-    /** The text is not a WireGuard / AmneziaWG config RIPDPI can parse. */
-    INVALID,
-}
-
-/** Outcome of [AmneziaWgEditorState.importConf]. */
-sealed interface AwgConfImport {
-    data class Imported(
-        val editor: AmneziaWgEditorState,
-        val ignoredPeerCount: Int,
-    ) : AwgConfImport
-
-    data class Failed(
-        val reason: AwgConfImportFailure,
-    ) : AwgConfImport
-}

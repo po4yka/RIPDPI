@@ -13,4 +13,7 @@
     <string name="awg_conf_import_unreadable_body">RIPDPI 无法读取该文件。文件为空、大于 64 KB 或不是文本文件。</string>
     <string name="awg_conf_extra_peers_title">仅使用第一个对端</string>
     <string name="awg_conf_extra_peers_body">已忽略的额外 [Peer] 部分：%1$d。RIPDPI 仅通过第一个对端连接。</string>
+    <string name="awg_conf_unsupported_option_body">该配置使用了 RIPDPI 不支持的选项：%1$s。</string>
+    <string name="awg_conf_padding_blocked_title">此配置暂时无法启动</string>
+    <string name="awg_conf_padding_blocked_body">它使用了非零的 S3/S4 填充，这是 AmneziaWG 3.x 报头保护所需要的。在这些值于 Android 设备上验证之前，RIPDPI 会将 S3/S4 保持为零。</string>
 </resources>

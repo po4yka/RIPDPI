@@ -310,7 +310,11 @@ class AmneziaWgProfileViewModelTest {
         viewModel.onConfPasted("definitely not a wireguard config")
 
         assertEquals("keep.me", viewModel.uiState.value.editor.form.server)
-        assertEquals(AwgConfImportFailure.INVALID, viewModel.uiState.value.confImportFailure)
+        assertEquals(
+            AwgConfImportFailure.INVALID,
+            viewModel.uiState.value.confImportFailure
+                ?.reason,
+        )
         viewModel.onFieldChanged(AwgEditorField.SERVER, "edited")
         assertNull(viewModel.uiState.value.confImportFailure)
     }
@@ -376,7 +380,11 @@ class AmneziaWgProfileViewModelTest {
 
         viewModel.onConfPasted("")
 
-        assertEquals(AwgConfImportFailure.UNREADABLE, viewModel.uiState.value.confImportFailure)
+        assertEquals(
+            AwgConfImportFailure.UNREADABLE,
+            viewModel.uiState.value.confImportFailure
+                ?.reason,
+        )
     }
 
     @Test
