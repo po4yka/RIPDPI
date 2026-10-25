@@ -3,6 +3,8 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.DefaultSnowflakeBrokerUrl
 import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RetiredSnowflakeBrokerUrl
+import com.poyka.ripdpi.data.RetiredSnowflakeFrontDomain
 import javax.inject.Inject
 
 internal class SnowflakeRelayKindResolver
@@ -11,16 +13,25 @@ internal class SnowflakeRelayKindResolver
         override fun supports(kind: String): Boolean = kind == RelayKindSnowflake
 
         override suspend fun resolve(request: RelayResolverRequest): RelayResolverResult {
+            val merged = request.mergedConfig
+            // Profiles saved with the retired built-in pair get the current built-in pair.
+            val retiredDefaults =
+                merged.ptSnowflakeBrokerUrl == RetiredSnowflakeBrokerUrl &&
+                    merged.ptSnowflakeFrontDomain == RetiredSnowflakeFrontDomain
             val effectiveConfig =
-                request.mergedConfig.copy(
+                merged.copy(
                     udpEnabled = false,
                     ptSnowflakeBrokerUrl =
-                        request.mergedConfig.ptSnowflakeBrokerUrl.ifBlank {
+                        if (retiredDefaults) {
                             DefaultSnowflakeBrokerUrl
+                        } else {
+                            merged.ptSnowflakeBrokerUrl.ifBlank { DefaultSnowflakeBrokerUrl }
                         },
                     ptSnowflakeFrontDomain =
-                        request.mergedConfig.ptSnowflakeFrontDomain.ifBlank {
+                        if (retiredDefaults) {
                             DefaultSnowflakeFrontDomain
+                        } else {
+                            merged.ptSnowflakeFrontDomain.ifBlank { DefaultSnowflakeFrontDomain }
                         },
                 )
 

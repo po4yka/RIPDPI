@@ -377,8 +377,55 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                 )
 
             assertFalse(resolved.udpEnabled)
+            // Tor Browser's built-in snowflake bridge line (tor-browser-build pt_config.json).
+            assertEquals("https://1098762253.rsc.cdn77.org/", resolved.ptSnowflakeBrokerUrl)
+            assertEquals("app.datapacket.com,www.datapacket.com", resolved.ptSnowflakeFrontDomain)
+        }
+
+    @Test
+    fun `resolve snowflake replaces the retired built-in broker and front pair`() =
+        runTest {
+            val resolved =
+                resolver().resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindSnowflake,
+                            profileId = "snowflake",
+                            ptSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/",
+                            ptSnowflakeFrontDomain = "cdn.sstatic.net",
+                        ),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
+                )
+
+            assertEquals("https://1098762253.rsc.cdn77.org/", resolved.ptSnowflakeBrokerUrl)
+            assertEquals("app.datapacket.com,www.datapacket.com", resolved.ptSnowflakeFrontDomain)
+        }
+
+    @Test
+    fun `resolve snowflake keeps a custom front for the origin broker`() =
+        runTest {
+            val resolved =
+                resolver().resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindSnowflake,
+                            profileId = "snowflake",
+                            ptSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/",
+                            ptSnowflakeFrontDomain = "front.example",
+                        ),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
+                )
+
             assertEquals("https://snowflake-broker.torproject.net/", resolved.ptSnowflakeBrokerUrl)
-            assertEquals("cdn.sstatic.net", resolved.ptSnowflakeFrontDomain)
+            assertEquals("front.example", resolved.ptSnowflakeFrontDomain)
         }
 
     @Test

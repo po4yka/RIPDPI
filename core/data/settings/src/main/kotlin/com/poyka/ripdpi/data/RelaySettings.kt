@@ -56,8 +56,15 @@ const val DefaultRelayProfileId = "default"
 const val DefaultRelayLocalSocksHost = "127.0.0.1"
 const val DefaultRelayLocalSocksPort = 11980
 const val DefaultRelayAppsScriptVerifySsl = true
-const val DefaultSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/"
-const val DefaultSnowflakeFrontDomain = "cdn.sstatic.net"
+
+// Tor Browser's built-in snowflake bridge line (tor-browser-build projects/tor-expert-bundle/pt_config.json).
+// The pinned client splits a comma-separated front list and picks one per rendezvous.
+const val DefaultSnowflakeBrokerUrl = "https://1098762253.rsc.cdn77.org/"
+const val DefaultSnowflakeFrontDomain = "app.datapacket.com,www.datapacket.com"
+
+// The earlier built-in pair; that front no longer routes to the broker.
+const val RetiredSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/"
+const val RetiredSnowflakeFrontDomain = "cdn.sstatic.net"
 private const val RelayXhttpModeAutoValue = "auto"
 private const val RelayXhttpModeStreamUpValue = "stream-up"
 private const val RelayXhttpModeStreamOneValue = "stream-one"
