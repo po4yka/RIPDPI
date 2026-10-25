@@ -181,27 +181,41 @@ impl AwgV3Params {
     }
 }
 
-/// The per-peer `udpWindow`: the largest datagram size seen, used to bound padding.
+/// The per-peer `udpWindow`: the largest authenticated datagram size seen, used to bound padding.
 #[derive(Debug)]
-pub(crate) struct UdpWindow(AtomicU32);
+pub(crate) struct UdpWindow {
+    size: AtomicU32,
+    limit: u32,
+}
+
+/// Largest IP packet a tunnel carries (Ethernet MTU); the window never grows past it plus framing.
+const MAX_TUNNEL_IP_PACKET: u32 = 1500;
 
 impl Default for UdpWindow {
     fn default() -> Self {
-        Self(AtomicU32::new(DEFAULT_UDP_WINDOW))
+        Self::for_transport_prefix(0)
     }
 }
 
 impl UdpWindow {
+    /// A window that starts at 500 and is capped at `S4 + 32 + 1500`.
+    pub(crate) fn for_transport_prefix(s4: u32) -> Self {
+        let limit = MAX_TUNNEL_IP_PACKET + MESSAGE_SIZES[TRANSPORT_INDEX] as u32 + s4;
+        Self { size: AtomicU32::new(DEFAULT_UDP_WINDOW), limit }
+    }
+
     // Relaxed: the window is a size heuristic; no other memory is published through it.
     fn get(&self) -> u32 {
-        self.0.load(Ordering::Relaxed)
+        self.size.load(Ordering::Relaxed)
     }
 
     fn raise(&self, size: usize) {
-        self.0.fetch_max(u32::try_from(size).unwrap_or(u32::MAX), Ordering::Relaxed);
+        let size = u32::try_from(size).unwrap_or(u32::MAX).min(self.limit);
+        self.size.fetch_max(size, Ordering::Relaxed);
     }
 
-    /// Learn from a received transport datagram: `S4 + header + plaintext`.
+    /// Learn from a received transport datagram (`S4 + header + plaintext`).
+    /// Call only after boringtun authenticated it, like `receive.go:518-521`.
     pub(crate) fn observe_inbound_transport(&self, datagram_len: usize) {
         self.raise(datagram_len.saturating_sub(AEAD_TAG_SIZE));
     }

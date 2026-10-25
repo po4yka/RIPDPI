@@ -159,3 +159,25 @@ fn transport_padding_respects_the_learned_udp_window() {
     let fresh = UdpWindow::default();
     assert!((0..56).contains(&trailers.transport_padding(400, 12, &fresh)));
 }
+
+#[test]
+fn unauthenticated_transport_does_not_grow_the_udp_window_and_growth_is_capped() {
+    use crate::amneziawg::{AwgParams, AwgWireCodec};
+    let padded = AwgV3Config { content_padding_addition: "1000-1000".into(), ..Default::default() };
+    let codec = AwgWireCodec::new(AwgParams::from_config(&config(padded, 12), &[""; 5]).unwrap());
+    // A spoofed 65 KB datagram with a valid H4 decodes, but boringtun has not authenticated it.
+    let mut spoofed = vec![0u8; 65_000];
+    spoofed[12..16].copy_from_slice(&450u32.to_le_bytes());
+    assert!(codec.decode(&spoofed).is_some());
+    let mut out = Vec::new();
+    assert!(codec.pad_transport_plaintext_into(&[0x45; 400], &mut out));
+    // 400 + 32 + 12 = 444 of the default 500-byte window: at most 56 padding bytes.
+    assert_eq!(out.len(), 456, "decode alone must not move the window");
+
+    codec.observe_authenticated_transport(65_000);
+    assert!(codec.pad_transport_plaintext_into(&[0x45; 400], &mut out));
+    // Capped at 1500 + 32 + S4 = 1544, which leaves 1100 bytes of space: 1000 fit.
+    assert_eq!(out.len(), 1400);
+    assert!(codec.pad_transport_plaintext_into(&[0x45; 1200], &mut out));
+    assert_eq!(out.len(), 1200 + 300, "the capped window bounds padding to 1544 - 1244 bytes");
+}

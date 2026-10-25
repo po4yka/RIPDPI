@@ -461,16 +461,16 @@ pub(crate) struct AwgWireCodec {
 
 impl AwgWireCodec {
     pub(crate) fn new(params: AwgParams) -> Self {
-        Self { params, mac_keys: None, mac_state: Mutex::new(AwgMacState::default()), udp_window: UdpWindow::default() }
+        Self::with_mac_keys(params, None)
     }
 
     pub(crate) fn new_authenticated(params: AwgParams, mac_keys: AwgMacKeys) -> Self {
-        Self {
-            params,
-            mac_keys: Some(mac_keys),
-            mac_state: Mutex::new(AwgMacState::default()),
-            udp_window: UdpWindow::default(),
-        }
+        Self::with_mac_keys(params, Some(mac_keys))
+    }
+
+    fn with_mac_keys(params: AwgParams, mac_keys: Option<AwgMacKeys>) -> Self {
+        let udp_window = UdpWindow::for_transport_prefix(params.size_padding[3]);
+        Self { params, mac_keys, mac_state: Mutex::new(AwgMacState::default()), udp_window }
     }
 
     pub(crate) fn params(&self) -> &AwgParams {
@@ -529,16 +529,23 @@ impl AwgWireCodec {
         self.seal_envelope(wire_packet, index)
     }
 
-    /// AWG 3.x content padding: the IP packet plus trailing zeros, or `None` when no padding applies.
-    pub(crate) fn pad_transport_plaintext(&self, packet: &[u8]) -> Option<Vec<u8>> {
+    /// AWG 3.x content padding: writes the IP packet plus trailing zeros into the
+    /// reused `out` buffer and returns `true`, or returns `false` when no padding applies.
+    pub(crate) fn pad_transport_plaintext_into(&self, packet: &[u8], out: &mut Vec<u8>) -> bool {
         let s4 = self.params.size_padding[3] as usize;
         let padding = self.params.v3.transport_padding(packet.len(), s4, &self.udp_window);
-        (padding > 0).then(|| {
-            let mut padded = Vec::with_capacity(packet.len() + padding);
-            padded.extend_from_slice(packet);
-            padded.resize(packet.len() + padding, 0);
-            padded
-        })
+        if padding == 0 {
+            return false;
+        }
+        out.clear();
+        out.extend_from_slice(packet);
+        out.resize(packet.len() + padding, 0);
+        true
+    }
+
+    /// Learn the UDP window from a transport datagram that boringtun authenticated.
+    pub(crate) fn observe_authenticated_transport(&self, datagram_len: usize) {
+        self.udp_window.observe_inbound_transport(datagram_len);
     }
 
     /// Reverse [`AwgWireCodec::encode`] for a packet received from the peer.
@@ -546,14 +553,19 @@ impl AwgWireCodec {
     /// Returns a complete vanilla WireGuard packet or `None` when the packet
     /// has an unknown layout or fails AWG MAC/cookie authentication.
     pub(crate) fn decode(&self, packet: &[u8]) -> Option<Vec<u8>> {
-        let (index, wire) = self.params.v3.open(packet, &self.params.size_padding, &self.params.magic_headers)?;
+        let (index, mut wire) = self.params.v3.open(packet, &self.params.size_padding, &self.params.magic_headers)?;
+        let vanilla_type = ((index + 1) as u32).to_le_bytes();
         if index == 3 {
-            self.udp_window.observe_inbound_transport(packet.len());
+            // Transport needs no MAC translation: rewrite the type in place and skip the copy.
+            if self.params.headers_active() {
+                wire[..4].copy_from_slice(&vanilla_type);
+            }
+            return Some(wire);
         }
         let mut vanilla_packet = wire.clone();
 
         if self.params.headers_active() {
-            vanilla_packet[..4].copy_from_slice(&((index + 1) as u32).to_le_bytes());
+            vanilla_packet[..4].copy_from_slice(&vanilla_type);
         }
         if index == 2 && self.mac_keys.is_some() {
             return self.decode_cookie_reply(&wire, vanilla_packet);

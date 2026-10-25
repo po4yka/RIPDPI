@@ -4,9 +4,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
+use boringtun::noise::errors::WireGuardError;
 use boringtun::noise::{Tunn, TunnResult};
 use bytes::Bytes;
 
+use super::awg_timers::{AwgTimers, keepalive_interval};
 use super::carrier::WgCarrier;
 use super::keys::{apply_reserved_bytes, decode_key};
 use super::routing::route_protocol;
@@ -107,7 +109,12 @@ pub(crate) struct WireGuardTunnel {
     handshake_readiness: HandshakeReadiness,
     /// AWG 3.x keepalive range in seconds; boringtun's fixed keepalive is off when set.
     keepalive_range: Option<(u16, u16)>,
+    /// Stamps for the AWG 3.x keepalive range and `RekeyAfterTime`.
+    timers: AwgTimers,
 }
+
+/// Room for the largest message the AWG timers make: a 148-byte initiation or a keepalive.
+const TIMER_PACKET_BUFFER: usize = 256;
 
 #[derive(Default)]
 struct HandshakeReadiness {
@@ -185,6 +192,7 @@ impl WireGuardTunnel {
             amnezia,
             handshake_readiness: HandshakeReadiness::default(),
             keepalive_range,
+            timers: AwgTimers::new(),
         })
     }
 
@@ -203,6 +211,10 @@ impl WireGuardTunnel {
             }
         }
         self.carrier.send_to(&payload, self.endpoint).await?;
+        if wireguard_message_type(packet) == Some(1) {
+            self.timers.mark_initiation();
+        }
+        self.timers.mark_traffic();
         Ok(())
     }
 
@@ -231,10 +243,17 @@ impl WireGuardTunnel {
         self.handshake_readiness.is_established()
     }
 
-    async fn send_ip_packet(&self, packet: &[u8]) {
+    /// Encrypt and send one IP packet. `padded` is a reused scratch buffer for AWG 3.x content padding.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: cancellation drops at most this one datagram; the boringtun
+    /// lock is released before the send, and `padded` is rewritten on every call.
+    async fn send_ip_packet(&self, packet: &[u8], padded: &mut Vec<u8>) {
         // AWG 3.x content padding rides inside the ciphertext; the receiver trims to the IP length.
-        let padded = self.amnezia.as_ref().and_then(|codec| codec.pad_transport_plaintext(packet));
-        let packet = padded.as_deref().unwrap_or(packet);
+        let packet = match &self.amnezia {
+            Some(codec) if codec.pad_transport_plaintext_into(packet, padded) => padded.as_slice(),
+            _ => packet,
+        };
         let mut send_buf = [0u8; MAX_PACKET];
         let result = { self.peer.lock().await.encapsulate(packet, &mut send_buf) };
         self.send_tunn_result(result).await;
@@ -242,13 +261,22 @@ impl WireGuardTunnel {
     }
 
     /// AWG 3.x `RekeyAfterTime` (`keepKeyFreshSending`): after a send, start a
-    /// handshake once the session is older than a fresh sample. boringtun's
-    /// fixed 120 s rekey still applies when the sample is larger.
+    /// handshake once our session is older than a fresh sample, at most once per
+    /// `rekeyMinTimeout`. boringtun's fixed 120 s rekey still applies when the
+    /// sample is larger. boringtun does not expose the initiator role; a RIPDPI
+    /// client starts every session, so the session stamp comes from our responses.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: the boringtun lock is not held across an await, and a dropped
+    /// initiation is retried by the next send or by boringtun's own timers.
     async fn refresh_key_after_send(&self) {
         let Some(limit) = self.amnezia.as_ref().and_then(|codec| codec.params().v3().rekey_after_time()) else {
             return;
         };
-        let mut send_buf = [0u8; MAX_PACKET];
+        if !self.timers.early_rekey_due(limit) {
+            return;
+        }
+        let mut send_buf = [0u8; TIMER_PACKET_BUFFER];
         let result = {
             let mut peer = self.peer.lock().await;
             match peer.time_since_last_handshake() {
@@ -287,25 +315,36 @@ impl WireGuardTunnel {
 
     pub(crate) async fn produce_task(&self, bus: Bus) {
         let mut endpoint = bus.new_endpoint();
+        let mut padded = Vec::new();
         loop {
             match endpoint.recv().await {
                 Event::Shutdown => break,
-                Event::OutboundInternetPacket(packet) => self.send_ip_packet(&packet).await,
+                Event::OutboundInternetPacket(packet) => self.send_ip_packet(&packet, &mut padded).await,
                 _ => {}
             }
         }
     }
 
     pub(crate) async fn routine_task(&self) {
-        let mut next_keepalive = self.keepalive_range.map(next_keepalive_deadline);
+        // (traffic stamp, deadline): any authenticated packet re-arms the timer with a fresh draw
+        // (`timersAnyAuthenticatedPacketTraversal`), so it fires only after an idle interval.
+        let mut keepalive =
+            self.keepalive_range.map(|range| (self.timers.traffic_stamp(), Instant::now() + keepalive_interval(range)));
         loop {
             let mut send_buf = [0u8; MAX_PACKET];
             let result = { self.peer.lock().await.update_timers(&mut send_buf) };
             self.send_tunn_result(result).await;
-            if let (Some(range), Some(deadline)) = (self.keepalive_range, next_keepalive)
-                && Instant::now() >= deadline
-            {
-                next_keepalive = Some(next_keepalive_deadline(range));
+            if let (Some(range), Some((armed_at, deadline))) = (self.keepalive_range, keepalive.as_mut()) {
+                let stamp = self.timers.traffic_stamp();
+                if stamp != *armed_at {
+                    *armed_at = stamp;
+                    *deadline = Instant::now() + keepalive_interval(range);
+                }
+                if Instant::now() < *deadline {
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                    continue;
+                }
+                *deadline = Instant::now() + keepalive_interval(range);
                 let result = {
                     let mut peer = self.peer.lock().await;
                     // Only an established session sends; an empty encapsulate would otherwise queue a handshake.
@@ -360,6 +399,19 @@ impl WireGuardTunnel {
                 raw
             };
             let result = { self.peer.lock().await.decapsulate(None, data, &mut send_buf) };
+            if authenticated_by_boringtun(&result, data, self.amnezia.is_some()) {
+                self.timers.mark_traffic();
+                match wireguard_message_type(data) {
+                    Some(2) => self.timers.mark_session(),
+                    // The UDP window learns only from datagrams that passed AEAD and the replay check.
+                    Some(4) => {
+                        if let Some(codec) = &self.amnezia {
+                            codec.observe_authenticated_transport(size);
+                        }
+                    }
+                    _ => {}
+                }
+            }
             match result {
                 TunnResult::WriteToNetwork(packet) => {
                     self.handshake_readiness.observe_authenticated_packet(data);
@@ -375,6 +427,9 @@ impl WireGuardTunnel {
                 TunnResult::Done => {
                     self.handshake_readiness.observe_authenticated_packet(data);
                 }
+                TunnResult::Err(WireGuardError::InvalidPacket) if is_padded_keepalive(data, self.amnezia.is_some()) => {
+                    tracing::debug!("AmneziaWG padded keepalive received");
+                }
                 TunnResult::Err(error) => {
                     tracing::warn!("WARP tunnel decapsulation failed: {error:?}");
                 }
@@ -383,10 +438,24 @@ impl WireGuardTunnel {
     }
 }
 
-/// The next AWG 3.x persistent keepalive: a uniform draw from `[low, high]` seconds from now.
-fn next_keepalive_deadline((low, high): (u16, u16)) -> Instant {
-    let span = u32::from(high - low) + 1;
-    Instant::now() + Duration::from_secs(u64::from(u32::from(low) + rand_u32() % span))
+/// An AWG 3.x peer pads keepalives with zeros inside the ciphertext. boringtun
+/// decrypts and authenticates them, then rejects the zero "IP header" as
+/// `InvalidPacket`. For a well-sized transport packet that is the only source of
+/// `InvalidPacket`, because the size and type checks already passed.
+fn is_padded_keepalive(decoded: &[u8], awg_active: bool) -> bool {
+    awg_active && wireguard_message_type(decoded) == Some(4)
+}
+
+/// Whether boringtun accepted `decoded` as an authenticated message (MAC, AEAD, and replay checks).
+fn authenticated_by_boringtun(result: &TunnResult<'_>, decoded: &[u8], awg_active: bool) -> bool {
+    match result {
+        TunnResult::WriteToNetwork(_)
+        | TunnResult::WriteToTunnelV4(..)
+        | TunnResult::WriteToTunnelV6(..)
+        | TunnResult::Done => true,
+        TunnResult::Err(WireGuardError::InvalidPacket) => is_padded_keepalive(decoded, awg_active),
+        TunnResult::Err(_) => false,
+    }
 }
 
 fn wireguard_message_type(packet: &[u8]) -> Option<u32> {
@@ -544,12 +613,15 @@ mod tests {
     }
 
     #[test]
-    fn keepalive_range_draws_each_interval_inside_the_range() {
-        for _ in 0..64 {
-            let start = Instant::now();
-            let wait = next_keepalive_deadline((25, 35)).duration_since(start);
-            assert!(wait >= Duration::from_secs(25) && wait <= Duration::from_secs(36), "{wait:?}");
-        }
+    fn only_boringtun_authenticated_transport_may_teach_the_udp_window() {
+        let transport = [4, 0, 0, 0, 1, 0, 0, 0];
+        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidAeadTag), &transport, true));
+        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::DuplicateCounter), &transport, true));
+        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::NoCurrentSession), &transport, true));
+        assert!(authenticated_by_boringtun(&TunnResult::Done, &transport, true));
+        assert!(authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &transport, true));
+        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &transport, false));
+        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &[1, 0, 0, 0], true));
     }
 
     #[test]

@@ -91,12 +91,14 @@ keystream (`receive.go:159-245`).
   physical device revalidation changes the floor. The Kotlin activation check rejects non-zero
   S3/S4 on all platforms.
 - boringtun owns the Noise timers. RIPDPI applies `RekeyAfterTime` after each data send
-  (earlier than the fixed 120 s only), and applies the `PersistentKeepalive` range with its own
-  timer. `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, and `MaxHandshakeAttempts` are
+  (earlier than the fixed 120 s only), at most once in 5 s (`rekeyMinTimeout`). It applies the
+  `PersistentKeepalive` range with its own timer, which each authenticated packet resets. `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, and `MaxHandshakeAttempts` are
   validated but boringtun keeps its fixed values.
 - RIPDPI does not pad its own keepalives or pad transport data to a multiple of 16. boringtun
-  reports a padded keepalive from the peer as an invalid packet after it updates the receive
-  timer.
+  rejects a padded keepalive from the peer as an invalid packet after authentication; RIPDPI
+  treats that result as a keepalive.
+- The UDP window learns only from datagrams that boringtun authenticated, and it stops at
+  `S4 + 32 + 1500` bytes.
 - RIPDPI does not send cookie replies as a client, so `DisableCookies` has no effect.
 - Junk lengths stay in `[Jmin, Jmax]`. The receiver ignores junk, so this does not change
   interoperability.

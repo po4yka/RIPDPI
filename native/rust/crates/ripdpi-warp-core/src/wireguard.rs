@@ -1,3 +1,4 @@
+mod awg_timers;
 mod carrier;
 mod keys;
 mod routing;
