@@ -52,8 +52,8 @@ class QrScannerViewModelTest {
         viewModel.onQrDecoded("vless://11111111-2222-3333-4444-555555555555@example.com:443#QR")
 
         val result = viewModel.uiState.value.scanResult
-        assertTrue(result is ScannerScanResult.Profile)
-        assertTrue((result as ScannerScanResult.Profile).request.profile is ProxyProfile.Vless)
+        assertTrue(result is ImportPayload.Profile)
+        assertTrue((result as ImportPayload.Profile).request.profile is ProxyProfile.Vless)
         assertNull(viewModel.uiState.value.decodeError)
     }
 
@@ -76,7 +76,7 @@ class QrScannerViewModelTest {
 
         viewModel.onQrDecoded("trojan://secret@example.com:443#FromImage")
 
-        assertTrue(viewModel.uiState.value.scanResult is ScannerScanResult.Profile)
+        assertTrue(viewModel.uiState.value.scanResult is ImportPayload.Profile)
     }
 
     @Test
@@ -100,6 +100,24 @@ class QrScannerViewModelTest {
         viewModel.onQrDecoded("trojan://secret@example.com:443#QR")
 
         assertNull(viewModel.uiState.value.scanResult)
+    }
+
+    @Test
+    fun `an amneziavpn qr series shows progress and then imports the conf`() {
+        val viewModel = QrScannerViewModel()
+        viewModel.onCameraPermissionResult(granted = true)
+        val conf = "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p=="
+        val compressed = AmneziaVpnKeyFixtures.qCompress(AmneziaVpnKeyFixtures.keyJson(conf).toByteArray())
+        val half = compressed.size / 2
+
+        viewModel.onQrDecoded(AmneziaVpnKeyFixtures.qrChunk(2, 0, compressed.copyOfRange(0, half)))
+        val progress = viewModel.uiState.value.seriesProgress
+        viewModel.onQrDecoded(AmneziaVpnKeyFixtures.qrChunk(2, 1, compressed.copyOfRange(half, compressed.size)))
+
+        assertEquals(2, progress?.total)
+        assertEquals(1, progress?.received)
+        assertNull(viewModel.uiState.value.seriesProgress)
+        assertEquals(ImportPayload.WireGuardConf(conf), viewModel.uiState.value.scanResult)
     }
 
     @Test

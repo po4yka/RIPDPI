@@ -2755,13 +2755,13 @@ fake_burst 3</string>
     <string name="import_subscription_unnamed">未命名订阅</string>
     <string name="scanner_title">扫描二维码</string>
     <string name="scanner_permission_rationale_title">摄像头访问</string>
-    <string name="scanner_permission_rationale_body">RIPDPI 仅使用摄像头读取代理二维码，不会记录或上传任何内容。</string>
+    <string name="scanner_permission_rationale_body">RIPDPI 仅使用相机读取包含代理链接、订阅链接或 WireGuard / AmneziaWG 配置的二维码。不会录制或上传任何内容。</string>
     <string name="scanner_scanning_title">对准二维码</string>
-    <string name="scanner_scanning_body">将二维码保持在取景框内以导入配置文件。</string>
+    <string name="scanner_scanning_body">将二维码保持在取景框内即可导入。</string>
     <string name="scanner_permission_denied_title">摄像头不可用</string>
     <string name="scanner_permission_denied_body">摄像头访问被拒绝。你仍可从已保存的图片中导入二维码。</string>
     <string name="scanner_invalid_qr_title">无法识别的二维码</string>
-    <string name="scanner_invalid_qr_body">此二维码不是受支持的代理链接（开头为：%1$s）。</string>
+    <string name="scanner_invalid_qr_body">此二维码不是受支持的代理链接、订阅链接或 WireGuard 配置（开头为：%1$s）。</string>
     <string name="scanner_pick_image_action">从图片导入</string>
 
     <!-- Clipboard import -->

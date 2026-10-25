@@ -292,6 +292,13 @@ internal fun importRouteFrom(intent: Intent?): Route? {
             Route.SubscriptionImportConfirm(importToken = importToken)
         }
 
+        ImportLaunchRoute.AMNEZIAWG_EDITOR -> {
+            val importToken =
+                intent.getStringExtra(ImportHandlerActivity.EXTRA_AMNEZIAWG_IMPORT_TOKEN) ?: return null
+            if (!PendingProxyImportStore.process.contains(importToken)) return null
+            Route.AmneziaWgProfile(importToken = importToken)
+        }
+
         else -> {
             null
         }

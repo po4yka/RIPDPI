@@ -156,4 +156,43 @@ class SingBoxDeepLinkParserTest {
     fun `blank input yields a typed unsupported error`() {
         assertEquals(SingBoxDeepLinkResult.Error.Unsupported, SingBoxDeepLinkParser.parse("  "))
     }
+
+    @Test
+    fun `official sing-box scheme takes the name from the fragment`() {
+        val result =
+            SingBoxDeepLinkParser.parse(
+                "sing-box://import-remote-profile?url=${enc("https://s.example/c")}#Home%20Fleet",
+            )
+
+        assertEquals(SingBoxDeepLinkResult.Success("https://s.example/c", "Home Fleet", false), result)
+    }
+
+    @Test
+    fun `other clients subscription links parse to the same request`() {
+        val url = enc("https://s.example/c")
+        val expected = SingBoxDeepLinkResult.Success("https://s.example/c", "Fleet", false)
+
+        assertEquals(expected, SingBoxDeepLinkParser.parse("sn://subscription?url=$url&name=Fleet"))
+        assertEquals(expected, SingBoxDeepLinkParser.parse("clash://install-config?url=$url&name=Fleet"))
+        assertEquals(expected, SingBoxDeepLinkParser.parse("clashmeta://install-config?url=$url&name=Fleet"))
+        assertEquals(expected, SingBoxDeepLinkParser.parse("v2rayng://install-sub?url=$url#Fleet"))
+        assertEquals(expected, SingBoxDeepLinkParser.parse("v2rayng://install-config?url=$url#Fleet"))
+        assertEquals(expected, SingBoxDeepLinkParser.parse("hiddify://install-config?url=$url#Fleet"))
+    }
+
+    @Test
+    fun `hiddify import path carries the raw url with its own query`() {
+        assertEquals(
+            SingBoxDeepLinkResult.Success("https://s.example/c?token=t", "Fleet", false),
+            SingBoxDeepLinkParser.parse("hiddify://import/https://s.example/c?token=t#Fleet"),
+        )
+    }
+
+    @Test
+    fun `a host from another client is unsupported`() {
+        assertEquals(
+            SingBoxDeepLinkResult.Error.Unsupported,
+            SingBoxDeepLinkParser.parse("clash://import-remote-profile?url=${enc("https://s.example/c")}"),
+        )
+    }
 }

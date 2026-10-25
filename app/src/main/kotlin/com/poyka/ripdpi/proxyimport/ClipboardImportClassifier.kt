@@ -10,9 +10,9 @@ package com.poyka.ripdpi.proxyimport
  * URI cannot leak into logs or UI error text.
  */
 sealed interface ClipboardImportResult {
-    /** The clipboard held a recognised proxy share URI, ready for the confirm screen. */
+    /** The clipboard held something importable: a proxy URI, a subscription link, or a `.conf`. */
     data class Importable(
-        val request: ProxyImportRequest.Profile,
+        val payload: ImportPayload,
     ) : ClipboardImportResult
 
     /**
@@ -35,21 +35,19 @@ sealed interface ClipboardImportResult {
  * caller (the clipboard-import ViewModel) is responsible for performing the actual
  * one-shot `ClipboardManager` read only on user action, then handing the text here.
  *
- * Parsing reuses the shared [ProxyUriShareDispatcher] / `ProxyUriCodec`; the classifier
+ * Parsing reuses the shared [ImportPayloadClassifier]; the classifier
  * never throws and never echoes the payload.
  */
 object ClipboardImportClassifier {
     /**
      * Classifies [clipboardText]. A `null` or blank value is [ClipboardImportResult.Empty];
-     * a recognised proxy URI is [ClipboardImportResult.Importable]; anything else is
+     * importable text is [ClipboardImportResult.Importable]; anything else is
      * [ClipboardImportResult.UnknownContent] carrying only the scheme prefix.
      */
     fun classify(clipboardText: String?): ClipboardImportResult {
         val trimmed = clipboardText?.trim().orEmpty()
         if (trimmed.isEmpty()) return ClipboardImportResult.Empty
-        return when (val request = ProxyUriShareDispatcher.dispatch(trimmed)) {
-            is ProxyImportRequest.Profile -> ClipboardImportResult.Importable(request)
-            is ProxyImportRequest.UnsupportedScheme -> ClipboardImportResult.UnknownContent(request.scheme)
-        }
+        return ImportPayloadClassifier.classify(trimmed)?.let(ClipboardImportResult::Importable)
+            ?: ClipboardImportResult.UnknownContent(ProxyUriShareDispatcher.schemeOf(trimmed))
     }
 }

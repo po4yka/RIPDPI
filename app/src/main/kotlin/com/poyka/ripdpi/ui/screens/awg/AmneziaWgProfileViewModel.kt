@@ -78,8 +78,10 @@ data class AmneziaWgProfileUiState(
      * when the service layer cannot reach readiness; the next edit or Connect tap clears it.
      */
     val activationStatus: AwgActivationStatus = AwgActivationStatus.Idle,
-    /** `true` after a pasted, picked, or scanned `.conf` failed to parse; the next edit clears it. */
-    val confImportFailed: Boolean = false,
+    /** Why the last pasted, picked, scanned, or shared `.conf` was not used; the next edit clears it. */
+    val confImportFailure: AwgConfImportFailure? = null,
+    /** `[Peer]` sections the last imported `.conf` had beyond the first one, which the editor ignores. */
+    val ignoredPeerCount: Int = 0,
 )
 
 /**
@@ -171,14 +173,20 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * Replaces the editor state from an AmneziaWG `.conf`. Malformed input or a vanilla
-         * WireGuard config leaves the editor unchanged and sets
-         * [AmneziaWgProfileUiState.confImportFailed].
+         * Replaces the editor state from a WireGuard or AmneziaWG `.conf`. Input that cannot
+         * be used leaves the editor unchanged and sets [AmneziaWgProfileUiState.confImportFailure].
          */
         fun onConfPasted(conf: String) {
             _uiState.update { state ->
-                val next = state.editor.populateFromConf(conf, catalog)
-                if (next === state.editor) state.copy(confImportFailed = true) else state.withEditor(next)
+                when (val result = state.editor.importConf(conf, catalog)) {
+                    is AwgConfImport.Failed -> {
+                        state.copy(confImportFailure = result.reason)
+                    }
+
+                    is AwgConfImport.Imported -> {
+                        state.withEditor(result.editor).copy(ignoredPeerCount = result.ignoredPeerCount)
+                    }
+                }
             }
         }
 
@@ -296,7 +304,7 @@ private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState)
     copy(
         editor = nextEditor,
         canActivate = nextEditor.isActivatable(),
-        confImportFailed = false,
+        confImportFailure = null,
         activationStatus =
             if (activationStatus == AwgActivationStatus.Failed) AwgActivationStatus.Idle else activationStatus,
     )

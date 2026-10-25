@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_vpn_add_subscription">اشتراك</string>
-    <string name="config_vpn_import_awg_conf">AmneziaWG من ملف .conf</string>
+    <string name="config_vpn_import_awg_conf">WireGuard / AmneziaWG من ملف</string>
     <string name="subscription_add_url_label">رابط الاشتراك</string>
     <string name="subscription_add_body">الصق رابط https:// من مزوّد الخدمة. ستراجع الاشتراك قبل أن يضيفه RIPDPI.</string>
     <string name="subscription_add_url_invalid">أدخل رابط اشتراك https:// صالحًا.</string>
     <string name="subscription_add_continue">متابعة</string>
     <string name="awg_conf_import_failed_title">لم يتم استيراد الإعداد</string>
-    <string name="awg_conf_import_failed_body">النص ليس ملف .conf صالحًا لـ AmneziaWG. لا يدعم هذا المحرر إعدادات WireGuard العادية.</string>
+    <string name="awg_conf_import_failed_body">النص ليس ملف .conf صالحًا لـ WireGuard أو AmneziaWG، أو يستخدم خيارات لا يدعمها RIPDPI.</string>
+    <string name="scanner_series_title">مفتاح AmneziaVPN متعدد الأجزاء</string>
+    <string name="scanner_series_progress">تم مسح %1$d من %2$d رموز. امسح الرمز التالي.</string>
+    <string name="awg_conf_import_unreadable_body">تعذّر على RIPDPI قراءة الملف. الملف فارغ أو أكبر من 64 كيلوبايت أو ليس ملفًا نصيًا.</string>
+    <string name="awg_conf_extra_peers_title">يُستخدم الند الأول فقط</string>
+    <string name="awg_conf_extra_peers_body">أقسام [Peer] الإضافية المتجاهَلة: %1$d. يتصل RIPDPI عبر الند الأول فقط.</string>
 </resources>

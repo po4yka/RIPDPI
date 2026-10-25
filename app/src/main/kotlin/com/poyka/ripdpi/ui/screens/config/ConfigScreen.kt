@@ -29,7 +29,7 @@ import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.proxyimport.ProxyImportRequest
+import com.poyka.ripdpi.proxyimport.ImportPayload
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
@@ -76,7 +76,7 @@ fun ConfigRoute(
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     viewModel: ConfigViewModel = hiltViewModel(),
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
-    onProfileImport: (ProxyImportRequest.Profile) -> Unit = {},
+    onImport: (ImportPayload) -> Unit = {},
     onProfileShare: (String) -> Unit = {},
     runtimeIntegration: ConfigRuntimeIntegration = ConfigRuntimeIntegration(),
 ) {
@@ -84,10 +84,10 @@ fun ConfigRoute(
     val runtime = configRuntimePresentation(viewModel, uiState, runtimeIntegration)
     val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
     val navigateTo = clipboardImportState.navigateToConfirm
-    if (navigateTo is ProxyImportRequest.Profile) {
+    if (navigateTo != null) {
         androidx.compose.runtime.LaunchedEffect(navigateTo) {
             clipboardImportViewModel.consumeNavigation()
-            onProfileImport(navigateTo)
+            onImport(navigateTo)
         }
     }
     val onImportFromClipboard =

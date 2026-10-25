@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.poyka.ripdpi.proxyimport.ImportPayload
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
-import com.poyka.ripdpi.proxyimport.PendingSubscriptionImportRequest
-import com.poyka.ripdpi.proxyimport.ProxyImportRequest
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileRoute
 import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileRoute
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileRoute
@@ -88,18 +88,14 @@ private fun NavGraphBuilder.addCapturedImportRoutes(navController: NavHostContro
     composable<Route.SubscriptionAdd> {
         SubscriptionAddRoute(
             onBack = { navController.popBackStack() },
-            onContinue = { request -> navController.navigateSubscriptionImport(request) },
+            onContinue = { request -> navController.navigateImport(ImportPayload.Subscription(request)) },
         )
     }
     composable<Route.QrScanner> { backStackEntry ->
         QrScannerRoute(
             sessionId = backStackEntry.id,
             onBack = { navController.popBackStack() },
-            onProfileScanned = { request ->
-                navController.navigateProfileImport(request)
-            },
-            onSubscriptionScanned = { request -> navController.navigateSubscriptionImport(request) },
-            onAmneziaWgConfScanned = { conf -> navController.navigateAmneziaWgImport(conf) },
+            onImport = navController::navigateImport,
         )
     }
     composable<Route.AmneziaWgProfile> { entry ->
@@ -111,30 +107,46 @@ private fun NavGraphBuilder.addCapturedImportRoutes(navController: NavHostContro
 }
 
 /**
- * Routes to the single-profile import-confirmation destination for a clipboard- or
- * scanner-sourced [request], staging the credential-bearing profile outside saved state.
+ * Opens the destination that consumes [payload]: the profile or subscription confirmation
+ * screen, or the WireGuard / AmneziaWG editor. The credential-bearing payload is staged in
+ * the process-local [PendingProxyImportStore]; navigation carries only an opaque token.
+ *
+ * An in-app entry point (the QR scanner or the subscription link screen) is replaced, so
+ * Back returns to where the import started and the camera cannot re-import the same code.
+ * A repeat call while the target is already shown (a double tap, a late camera frame) is
+ * ignored, so it cannot stage a second copy of the secret.
  */
-internal fun NavHostController.navigateProfileImport(request: ProxyImportRequest.Profile) {
-    val importToken = PendingProxyImportStore.process.stage(request.profile)
-    navigate(Route.ProfileImportConfirm(importToken = importToken)) {
-        launchSingleTop = true
-    }
-}
+internal fun NavHostController.navigateImport(payload: ImportPayload) {
+    val current = currentBackStackEntry?.destination
+    val alreadyShown =
+        when (payload) {
+            is ImportPayload.Profile -> current?.hasRoute<Route.ProfileImportConfirm>()
+            is ImportPayload.Subscription -> current?.hasRoute<Route.SubscriptionImportConfirm>()
+            is ImportPayload.WireGuardConf -> current?.hasRoute<Route.AmneziaWgProfile>()
+        } == true
+    if (alreadyShown) return
+    val store = PendingProxyImportStore.process
+    val route =
+        when (payload) {
+            is ImportPayload.Profile -> {
+                Route.ProfileImportConfirm(importToken = store.stage(payload.request.profile))
+            }
 
-/** Stages a subscription [request] outside saved state and opens its confirmation screen. */
-internal fun NavHostController.navigateSubscriptionImport(request: PendingSubscriptionImportRequest) {
-    val importToken = PendingProxyImportStore.process.stageSubscription(request) ?: return
-    navigate(Route.SubscriptionImportConfirm(importToken = importToken)) {
-        launchSingleTop = true
-        popUpTo<Route.SubscriptionAdd> { inclusive = true }
-    }
-}
+            is ImportPayload.Subscription -> {
+                store
+                    .stageSubscription(
+                        payload.request,
+                    )?.let(Route::SubscriptionImportConfirm)
+            }
 
-/** Stages a scanned AmneziaWG [conf] (it carries the private key) and opens the prefilled editor. */
-internal fun NavHostController.navigateAmneziaWgImport(conf: String) {
-    val importToken = PendingProxyImportStore.process.stageAmneziaWgConf(conf) ?: return
-    navigate(Route.AmneziaWgProfile(importToken = importToken)) {
+            is ImportPayload.WireGuardConf -> {
+                store.stageAmneziaWgConf(payload.conf)?.let(Route::AmneziaWgProfile)
+            }
+        } ?: return
+    val replacedEntryId =
+        current?.takeIf { it.hasRoute<Route.QrScanner>() || it.hasRoute<Route.SubscriptionAdd>() }?.id
+    navigate(route) {
         launchSingleTop = true
-        popUpTo<Route.QrScanner> { inclusive = true }
+        replacedEntryId?.let { popUpTo(it) { inclusive = true } }
     }
 }

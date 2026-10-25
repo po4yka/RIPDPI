@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_vpn_add_subscription">Подписка</string>
-    <string name="config_vpn_import_awg_conf">AmneziaWG из файла .conf</string>
+    <string name="config_vpn_import_awg_conf">WireGuard / AmneziaWG из файла</string>
     <string name="subscription_add_url_label">Ссылка на подписку</string>
     <string name="subscription_add_body">Вставьте ссылку https:// от вашего провайдера. Перед добавлением вы сможете проверить подписку.</string>
     <string name="subscription_add_url_invalid">Введите корректную ссылку на подписку https://.</string>
     <string name="subscription_add_continue">Продолжить</string>
     <string name="awg_conf_import_failed_title">Конфигурация не импортирована</string>
-    <string name="awg_conf_import_failed_body">Текст не является корректным файлом AmneziaWG .conf. Обычные конфигурации WireGuard в этом редакторе не поддерживаются.</string>
+    <string name="awg_conf_import_failed_body">Текст не является корректным файлом .conf WireGuard или AmneziaWG либо использует параметры, которые RIPDPI не поддерживает.</string>
+    <string name="scanner_series_title">Многочастный ключ AmneziaVPN</string>
+    <string name="scanner_series_progress">Отсканировано кодов: %1$d из %2$d. Отсканируйте следующий код.</string>
+    <string name="awg_conf_import_unreadable_body">RIPDPI не удалось прочитать файл. Он пустой, больше 64 КБ или не является текстовым.</string>
+    <string name="awg_conf_extra_peers_title">Используется только первый пир</string>
+    <string name="awg_conf_extra_peers_body">Пропущено дополнительных разделов [Peer]: %1$d. RIPDPI подключается только через первый пир.</string>
 </resources>

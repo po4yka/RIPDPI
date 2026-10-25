@@ -9,7 +9,7 @@ import org.junit.Test
  * Pure-logic tests for [ClipboardImportClassifier]: the one-shot classifier behind the
  * explicit "Import from clipboard" menu action. It is invoked only after the user taps
  * the menu entry — the clipboard is never watched or polled. Classification reuses the
- * shared [com.poyka.ripdpi.data.uri.ProxyUriCodec]; unknown content surfaces a typed
+ * shared [ImportPayloadClassifier]; unknown content surfaces a typed
  * error carrying only the scheme prefix, never the payload.
  */
 class ClipboardImportClassifierTest {
@@ -21,7 +21,25 @@ class ClipboardImportClassifierTest {
             )
 
         assertTrue(result is ClipboardImportResult.Importable)
-        assertTrue((result as ClipboardImportResult.Importable).request.profile is ProxyProfile.Vless)
+        val payload = (result as ClipboardImportResult.Importable).payload
+        assertTrue((payload as ImportPayload.Profile).request.profile is ProxyProfile.Vless)
+    }
+
+    @Test
+    fun `subscription link classifies as an importable subscription`() {
+        val result = ClipboardImportClassifier.classify("https://sub.example.com/s/token")
+
+        val payload = (result as ClipboardImportResult.Importable).payload
+        assertEquals("https://sub.example.com/s/token", (payload as ImportPayload.Subscription).request.url)
+    }
+
+    @Test
+    fun `wireguard conf classifies as an importable conf`() {
+        val conf = "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820"
+
+        val payload = (ClipboardImportClassifier.classify(conf) as ClipboardImportResult.Importable).payload
+
+        assertEquals(ImportPayload.WireGuardConf(conf), payload)
     }
 
     @Test

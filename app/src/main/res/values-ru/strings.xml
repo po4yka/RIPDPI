@@ -2638,13 +2638,13 @@ fakeddisorder endhost</string>
     <string name="import_subscription_unnamed">Подписка без названия</string>
     <string name="scanner_title">Сканировать QR-код</string>
     <string name="scanner_permission_rationale_title">Доступ к камере</string>
-    <string name="scanner_permission_rationale_body">RIPDPI использует камеру только для чтения QR-кода прокси. Ничего не записывается и не отправляется.</string>
+    <string name="scanner_permission_rationale_body">RIPDPI использует камеру только для чтения QR-кодов со ссылкой на прокси, ссылкой на подписку или конфигурацией WireGuard / AmneziaWG. Ничего не записывается и не отправляется.</string>
     <string name="scanner_scanning_title">Наведите на QR-код</string>
-    <string name="scanner_scanning_body">Удерживайте код в рамке, чтобы импортировать профиль.</string>
+    <string name="scanner_scanning_body">Удерживайте код внутри рамки, чтобы импортировать его.</string>
     <string name="scanner_permission_denied_title">Камера недоступна</string>
     <string name="scanner_permission_denied_body">Доступ к камере запрещён. Вы всё ещё можете импортировать QR-код из сохранённого изображения.</string>
     <string name="scanner_invalid_qr_title">QR-код не распознан</string>
-    <string name="scanner_invalid_qr_body">Этот QR-код не является поддерживаемой ссылкой прокси (начинается с: %1$s).</string>
+    <string name="scanner_invalid_qr_body">Этот QR-код не является поддерживаемой ссылкой на прокси, ссылкой на подписку или конфигурацией WireGuard (начинается с: %1$s).</string>
     <string name="scanner_pick_image_action">Импорт из изображения</string>
     <string name="import_clipboard_action">Импорт из буфера обмена</string>
     <string name="import_clipboard_unknown_title">В буфере обмена нет ссылки прокси</string>

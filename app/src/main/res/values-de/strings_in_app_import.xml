@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_vpn_add_subscription">Abonnement</string>
-    <string name="config_vpn_import_awg_conf">AmneziaWG aus .conf-Datei</string>
+    <string name="config_vpn_import_awg_conf">WireGuard / AmneziaWG aus Datei</string>
     <string name="subscription_add_url_label">Abonnement-Link</string>
     <string name="subscription_add_body">Fügen Sie den https://-Link Ihres Anbieters ein. Sie prüfen das Abonnement, bevor RIPDPI es hinzufügt.</string>
     <string name="subscription_add_url_invalid">Geben Sie einen gültigen https://-Abonnement-Link ein.</string>
     <string name="subscription_add_continue">Weiter</string>
     <string name="awg_conf_import_failed_title">Konfiguration nicht importiert</string>
-    <string name="awg_conf_import_failed_body">Der Text ist keine gültige AmneziaWG-.conf. Dieser Editor unterstützt keine reinen WireGuard-Konfigurationen.</string>
+    <string name="awg_conf_import_failed_body">Der Text ist keine gültige WireGuard- oder AmneziaWG-.conf oder verwendet Optionen, die RIPDPI nicht unterstützt.</string>
+    <string name="scanner_series_title">Mehrteiliger AmneziaVPN-Schlüssel</string>
+    <string name="scanner_series_progress">%1$d von %2$d Codes gescannt. Scannen Sie den nächsten Code.</string>
+    <string name="awg_conf_import_unreadable_body">RIPDPI konnte die Datei nicht lesen. Sie ist leer, größer als 64 KB oder keine Textdatei.</string>
+    <string name="awg_conf_extra_peers_title">Nur der erste Peer wird verwendet</string>
+    <string name="awg_conf_extra_peers_body">Ignorierte zusätzliche [Peer]-Abschnitte: %1$d. RIPDPI verbindet sich nur über den ersten Peer.</string>
 </resources>

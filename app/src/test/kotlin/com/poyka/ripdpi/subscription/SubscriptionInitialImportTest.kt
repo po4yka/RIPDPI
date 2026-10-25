@@ -10,11 +10,13 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.util.Base64
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
@@ -194,6 +196,92 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
+    fun `a first fetch that is not a subscription discards the new group`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            val discarded = mutableListOf<String>()
+            val viewModel = viewModel(fixture, discardGroup = { discarded += it })
+            viewModel.setRequest(server.url("/menu").toString(), "", bootstrap = false)
+            server.enqueue(response(200, "<html><body>Today's menu</body></html>"))
+
+            viewModel.confirm()
+            viewModel.uiState.first { !it.importing }
+
+            assertTrue(viewModel.uiState.value.importFailed)
+            assertEquals(listOf("imported"), discarded)
+        }
+
+    @Test
+    fun `a transient first failure keeps the new group for retry`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            val discarded = mutableListOf<String>()
+            val viewModel = viewModel(fixture, discardGroup = { discarded += it })
+            viewModel.setRequest(server.url("/new-subscription").toString(), "", bootstrap = false)
+            server.enqueue(response(503))
+
+            viewModel.confirm()
+            viewModel.uiState.first { !it.importing }
+
+            assertTrue(discarded.isEmpty())
+        }
+
+    @Test
+    fun `server title and interval apply to an auto-named group`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            val viewModel = viewModel(fixture)
+            viewModel.setRequest(server.url("/new-subscription").toString(), "", bootstrap = false)
+            server.enqueue(
+                MockResponse
+                    .Builder()
+                    .code(200)
+                    .body(trojanPayload)
+                    .addHeader("Profile-Title", "base64:" + Base64.getEncoder().encodeToString("Fleet ✓".toByteArray()))
+                    .addHeader("Profile-Update-Interval", "12")
+                    .build(),
+            )
+
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                awaitItem()
+            }
+
+            val group = fixture.repository.list().single { it.id == "imported" }
+            assertEquals("Fleet ✓", group.name)
+            assertEquals(12L * 60L, group.subscription?.autoUpdateDelay)
+        }
+
+    @Test
+    fun `a name the user chose is kept despite a server title`() =
+        runTest {
+            val fixture = fixture(2_000L)
+            val viewModel = viewModel(fixture)
+            viewModel.setRequest(server.url("/new-subscription").toString(), "Mine", bootstrap = false)
+            server.enqueue(
+                MockResponse
+                    .Builder()
+                    .code(200)
+                    .body(trojanPayload)
+                    .addHeader("Profile-Title", "Theirs")
+                    .build(),
+            )
+
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                awaitItem()
+            }
+
+            assertEquals(
+                "Mine",
+                fixture.repository
+                    .list()
+                    .single { it.id == "imported" }
+                    .name,
+            )
+        }
+
+    @Test
     fun `cancelled refresh does not report success or failure`() =
         runTest {
             val fixture = fixture(2_000L)
@@ -221,11 +309,13 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
     private fun viewModel(
         fixture: Fixture,
         scheduleAutoUpdate: (List<ProxyGroup>) -> Unit = {},
+        discardGroup: suspend (String) -> Unit = {},
     ) = SubscriptionImportConfirmViewModel(
         repository = fixture.repository,
         groupIdFactory = { "imported" },
         refreshSubscription = fixture.coordinator::refresh,
         scheduleAutoUpdate = scheduleAutoUpdate,
+        discardGroup = discardGroup,
     )
 
     private companion object {

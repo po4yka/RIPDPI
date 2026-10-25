@@ -32,18 +32,38 @@ sealed interface SingBoxDeepLinkResult {
 }
 
 /**
- * Pure parser for the subscription-import deep link the deployer's recipient page hands
- * out: `singbox://import-remote-profile?url=<enc>&name=<enc>`. The `ripdpi://` and `sn://`
- * schemes share the identical shape. Parsing is string-only (no `android.net.Uri`) so it
- * is fully unit-testable; the handler activity feeds it the raw intent-data string.
+ * Pure parser for the remote-profile (subscription) deep links that proxy clients hand out.
+ * Parsing is string-only (no `android.net.Uri`) so it is fully unit-testable; the handler
+ * activity, the QR scanner, and the clipboard feed it raw text.
  *
- * Convention source: sing-box-for-Android / NekoBox; deployer renderer
- * `ripdpi-vpn-deploy/vpnd/src/pages/recipient.rs`.
+ * Accepted shapes (the display name comes from `name=` or, when that is absent, the
+ * `#fragment`):
+ * - `sing-box://import-remote-profile?url=<enc>#<name>` (sing-box docs/clients/general.md),
+ *   plus the `singbox`, `ripdpi` and `sn` spellings the deployer recipient page uses;
+ * - `sn://subscription?url=<enc>&name=<enc>` (NekoBox);
+ * - `clash://install-config?url=<enc>&name=<enc>` and `clashmeta://…` (Clash Meta);
+ * - `v2rayng://install-config?url=<enc>#<name>` and `v2rayng://install-sub?url=…`;
+ * - `hiddify://install-config?url=<enc>#<name>` and `hiddify://import/<url>#<name>`.
+ *
+ * Deployer renderer: `ripdpi-vpn-deploy/vpnd/src/pages/recipient.rs`.
  */
 object SingBoxDeepLinkParser {
-    private val SUPPORTED_SCHEMES = setOf("singbox", "ripdpi", "sn")
-    private const val IMPORT_HOST = "import-remote-profile"
+    private val SUPPORTED_HOSTS: Map<String, Set<String>> =
+        mapOf(
+            "sing-box" to setOf("import-remote-profile"),
+            "singbox" to setOf("import-remote-profile"),
+            "ripdpi" to setOf("import-remote-profile"),
+            "sn" to setOf("import-remote-profile", "subscription"),
+            "clash" to setOf("install-config"),
+            "clashmeta" to setOf("install-config"),
+            "v2rayng" to setOf("install-config", "install-sub"),
+            "hiddify" to setOf("install-config", HIDDIFY_PATH_IMPORT_HOST),
+        )
+    private const val HIDDIFY_PATH_IMPORT_HOST = "import"
     private const val BOOTSTRAP_PATH_PREFIX = "/bootstrap/"
+
+    /** Schemes this parser can accept; the manifest registers the same set. */
+    val supportedSchemes: Set<String> get() = SUPPORTED_HOSTS.keys
 
     /**
      * Parses [deepLink] into a [SingBoxDeepLinkResult]. Never throws: malformed
@@ -57,19 +77,25 @@ object SingBoxDeepLinkParser {
         val schemeEnd = trimmed.indexOf("://")
         if (schemeEnd <= 0) return SingBoxDeepLinkResult.Error.Unsupported
         val scheme = trimmed.substring(0, schemeEnd).lowercase()
-        if (scheme !in SUPPORTED_SCHEMES) return SingBoxDeepLinkResult.Error.Unsupported
+        val hosts = SUPPORTED_HOSTS[scheme] ?: return SingBoxDeepLinkResult.Error.Unsupported
 
         val afterScheme = trimmed.substring(schemeEnd + "://".length)
-        val querySeparator = afterScheme.indexOf('?')
-        val host =
-            if (querySeparator >= 0) {
-                afterScheme.substring(0, querySeparator)
-            } else {
-                afterScheme
-            }.substringBefore('/')
-        if (!host.equals(IMPORT_HOST, ignoreCase = true)) return SingBoxDeepLinkResult.Error.Unsupported
+        val beforeFragment = afterScheme.substringBefore('#')
+        val fragment = decode(afterScheme.substringAfter('#', "")) ?: return SingBoxDeepLinkResult.Error.BadEncoding
+        val host = beforeFragment.substringBefore('?').substringBefore('/').lowercase()
+        if (host !in hosts) return SingBoxDeepLinkResult.Error.Unsupported
 
-        val query = if (querySeparator >= 0) afterScheme.substring(querySeparator + 1) else ""
+        // `hiddify://import/<url>` carries the target URL, with its own query, as the path.
+        if (scheme == "hiddify" && host == HIDDIFY_PATH_IMPORT_HOST) {
+            val rawUrl = beforeFragment.substringAfter('/', "")
+            val url =
+                (if (rawUrl.contains("://")) rawUrl else decode(rawUrl))
+                    ?.takeIf { it.isNotBlank() }
+                    ?: return SingBoxDeepLinkResult.Error.MissingUrl
+            return SingBoxDeepLinkResult.Success(url = url, name = fragment, bootstrap = isBootstrapUrl(url))
+        }
+
+        val query = beforeFragment.substringAfter('?', "")
         val params =
             when (val parsed = parseQuery(query)) {
                 is QueryParseResult.Failure -> return SingBoxDeepLinkResult.Error.BadEncoding
@@ -77,7 +103,7 @@ object SingBoxDeepLinkParser {
             }
 
         val url = params["url"]?.takeIf { it.isNotBlank() } ?: return SingBoxDeepLinkResult.Error.MissingUrl
-        val name = params["name"].orEmpty()
+        val name = params["name"]?.takeIf { it.isNotBlank() } ?: fragment
         return SingBoxDeepLinkResult.Success(
             url = url,
             name = name,

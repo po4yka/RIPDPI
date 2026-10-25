@@ -3,7 +3,7 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import com.poyka.ripdpi.R
@@ -99,11 +98,9 @@ internal fun SubscriptionAddScreen(
                             },
                         testTag = RipDpiTestTags.SubscriptionAddUrl,
                     ),
-                behavior =
-                    RipDpiTextFieldBehavior(
-                        keyboardOptions =
-                            KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
-                    ),
+                // A secure field keeps the token-bearing link out of keyboard learning and the
+                // clipboard copy menu; Visible still shows it in full.
+                behavior = RipDpiTextFieldBehavior(textObfuscationMode = TextObfuscationMode.Visible),
             )
         }
         RipDpiButton(

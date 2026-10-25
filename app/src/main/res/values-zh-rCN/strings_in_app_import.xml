@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="config_vpn_add_subscription">订阅</string>
-    <string name="config_vpn_import_awg_conf">从 .conf 文件导入 AmneziaWG</string>
+    <string name="config_vpn_import_awg_conf">从文件导入 WireGuard / AmneziaWG</string>
     <string name="subscription_add_url_label">订阅链接</string>
     <string name="subscription_add_body">粘贴服务商提供的 https:// 链接。RIPDPI 添加订阅前，您可以先查看。</string>
     <string name="subscription_add_url_invalid">请输入有效的 https:// 订阅链接。</string>
     <string name="subscription_add_continue">继续</string>
     <string name="awg_conf_import_failed_title">配置未导入</string>
-    <string name="awg_conf_import_failed_body">该文本不是有效的 AmneziaWG .conf。此编辑器不支持普通 WireGuard 配置。</string>
+    <string name="awg_conf_import_failed_body">该文本不是有效的 WireGuard 或 AmneziaWG .conf，或使用了 RIPDPI 不支持的选项。</string>
+    <string name="scanner_series_title">多段式 AmneziaVPN 密钥</string>
+    <string name="scanner_series_progress">已扫描 %1$d / %2$d 个二维码。请扫描下一个二维码。</string>
+    <string name="awg_conf_import_unreadable_body">RIPDPI 无法读取该文件。文件为空、大于 64 KB 或不是文本文件。</string>
+    <string name="awg_conf_extra_peers_title">仅使用第一个对端</string>
+    <string name="awg_conf_extra_peers_body">已忽略的额外 [Peer] 部分：%1$d。RIPDPI 仅通过第一个对端连接。</string>
 </resources>

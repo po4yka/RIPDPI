@@ -600,7 +600,7 @@ private fun NavGraphBuilder.addConfigRoutes(
                 route = Route.Config,
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
-                onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onImport = navController::navigateImport,
                 onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }
@@ -618,7 +618,7 @@ private fun NavGraphBuilder.addConfigRoutes(
                 route = Route.LocalBypassConfig,
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
-                onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onImport = navController::navigateImport,
                 onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }
@@ -636,7 +636,7 @@ private fun NavGraphBuilder.addConfigRoutes(
                 route = Route.VpnConfig,
                 initialModeSection = ConfigModeSection.Vpn,
                 viewModel = configViewModel,
-                onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onImport = navController::navigateImport,
                 onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }

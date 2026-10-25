@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.ui.screens.scanner
 
 import androidx.lifecycle.ViewModel
+import com.poyka.ripdpi.proxyimport.AmneziaQrChunkAssembler
+import com.poyka.ripdpi.proxyimport.AmneziaVpnKeyDecoder
+import com.poyka.ripdpi.proxyimport.ImportPayload
 import com.poyka.ripdpi.proxyimport.ScannerScanResult
 import com.poyka.ripdpi.proxyimport.ScannerUriDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,9 +29,11 @@ enum class ScannerCameraState {
 data class QrScannerUiState(
     val cameraState: ScannerCameraState = ScannerCameraState.REQUESTING_PERMISSION,
     val imageFallbackAvailable: Boolean = true,
-    /** A recognised payload awaiting navigation; never [ScannerScanResult.Invalid]. */
-    val scanResult: ScannerScanResult? = null,
+    /** A recognised payload awaiting navigation. */
+    val scanResult: ImportPayload? = null,
     val decodeError: String? = null,
+    /** Codes scanned so far from a multi-code AmneziaVPN key; `null` outside such a series. */
+    val seriesProgress: AmneziaQrChunkAssembler.Progress? = null,
 )
 
 /**
@@ -48,7 +53,8 @@ class QrScannerViewModel
         private val _uiState = MutableStateFlow(QrScannerUiState())
         val uiState: StateFlow<QrScannerUiState> = _uiState.asStateFlow()
         private var cameraPermissionRequestSessionId: String? = null
-        private var lastImportedPayload: String? = null
+        private var lastImportedPayloadHash: Int? = null
+        private val seriesAssembler = AmneziaQrChunkAssembler()
 
         /** Requests camera permission at most once for each navigation session. */
         internal fun requestCameraPermissionOnce(
@@ -91,19 +97,36 @@ class QrScannerViewModel
          * preview is surfaced as [QrScannerUiState.decodeError].
          */
         fun onQrDecoded(payload: String) {
-            when (val result = ScannerUriDispatcher.dispatch(payload)) {
+            val result =
+                when (val chunk = seriesAssembler.accept(payload)) {
+                    is AmneziaQrChunkAssembler.Result.Partial -> {
+                        _uiState.update { it.copy(seriesProgress = chunk.progress, decodeError = null) }
+                        return
+                    }
+
+                    is AmneziaQrChunkAssembler.Result.Complete -> {
+                        _uiState.update { it.copy(seriesProgress = null) }
+                        AmneziaVpnKeyDecoder
+                            .confFromCompressed(chunk.compressed)
+                            ?.let { ScannerScanResult.Recognized(ImportPayload.WireGuardConf(it)) }
+                            ?: ScannerScanResult.Invalid(AmneziaVpnKeyDecoder.Scheme)
+                    }
+
+                    null -> {
+                        ScannerUriDispatcher.dispatch(payload)
+                    }
+                }
+            when (result) {
                 is ScannerScanResult.Invalid -> {
                     _uiState.update { it.copy(decodeError = result.redactedPreview, scanResult = null) }
                 }
 
-                is ScannerScanResult.Profile,
-                is ScannerScanResult.Subscription,
-                is ScannerScanResult.AmneziaWgConf,
-                -> {
-                    // The analyzer reports every frame that holds the code; import it once per scanner visit.
-                    if (payload == lastImportedPayload) return
-                    lastImportedPayload = payload
-                    _uiState.update { it.copy(scanResult = result, decodeError = null) }
+                is ScannerScanResult.Recognized -> {
+                    // The analyzer reports every frame that holds the code; the navigation pops
+                    // this screen, so one recognised code is imported once. Only a hash is kept.
+                    if (payload.hashCode() == lastImportedPayloadHash) return
+                    lastImportedPayloadHash = payload.hashCode()
+                    _uiState.update { it.copy(scanResult = result.payload, decodeError = null) }
                 }
             }
         }

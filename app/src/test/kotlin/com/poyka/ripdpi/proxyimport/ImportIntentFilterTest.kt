@@ -62,6 +62,8 @@ class ImportIntentFilterTest {
                 "tuic://uuid:pass@example.com:443",
                 "anytls://pass@example.com:443",
                 "ssh://user@example.com:22",
+                "hy2://pass@example.com:443",
+                "mieru://user:pass@example.com:443",
             )
         schemes.forEach { uri ->
             assertEquals(
@@ -90,6 +92,32 @@ class ImportIntentFilterTest {
             isFullExperience,
             resolvesToImportHandler("singbox://import-remote-profile?url=https%3A%2F%2Fx.example"),
         )
+    }
+
+    @Test
+    fun `other clients subscription links resolve to the import handler`() {
+        listOf(
+            "sing-box://import-remote-profile?url=https%3A%2F%2Fx.example#Fleet",
+            "sn://subscription?url=https%3A%2F%2Fx.example",
+            "clash://install-config?url=https%3A%2F%2Fx.example",
+            "clashmeta://install-config?url=https%3A%2F%2Fx.example",
+            "v2rayng://install-sub?url=https%3A%2F%2Fx.example",
+            "v2rayng://install-config?url=https%3A%2F%2Fx.example",
+            "hiddify://install-config?url=https%3A%2F%2Fx.example",
+            "hiddify://import/https://x.example/sub",
+        ).forEach { uri -> assertEquals(uri, isFullExperience, resolvesToImportHandler(uri)) }
+    }
+
+    @Test
+    fun `shared text and files resolve to the import handler`() {
+        listOf("text/plain", "application/octet-stream").forEach { type ->
+            val matches =
+                packageManager
+                    .queryIntentActivities(Intent(Intent.ACTION_SEND).setType(type), 0)
+                    .filter { it.activityInfo?.packageName == packageName }
+                    .mapNotNull { it.activityInfo?.name }
+            assertEquals(type, isFullExperience, ImportHandlerActivity::class.java.name in matches)
+        }
     }
 
     @Test

@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
 import com.poyka.ripdpi.proxyimport.ClipboardReader
-import com.poyka.ripdpi.proxyimport.ProxyImportRequest
+import com.poyka.ripdpi.proxyimport.ImportPayload
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -35,7 +35,7 @@ class ClipboardImportViewModelTest {
             viewModel.onImportFromClipboard()
 
             val request = viewModel.uiState.value.navigateToConfirm
-            assertTrue(request is ProxyImportRequest.Profile)
+            assertTrue(request is ImportPayload.Profile)
             assertEquals(1, clipboard.readCount)
         }
 

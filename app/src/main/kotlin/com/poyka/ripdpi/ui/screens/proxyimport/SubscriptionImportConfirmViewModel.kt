@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.PauseMutationPreparationSource
+import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -9,6 +11,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.saveMigrationTargets
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
@@ -17,6 +20,7 @@ import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
+import com.poyka.ripdpi.proxyimport.subscriptionHost
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateScheduler
 import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
@@ -64,6 +68,7 @@ class SubscriptionImportConfirmViewModel
         ) -> List<com.poyka.ripdpi.data.subscription.MigrationTarget>,
         private val refreshSubscription: suspend (String) -> SubscriptionRefreshResult,
         private val scheduleAutoUpdate: (List<ProxyGroup>) -> Unit,
+        private val discardGroup: suspend (String) -> Unit,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
         @Inject
@@ -72,6 +77,7 @@ class SubscriptionImportConfirmViewModel
             awgProfileRepository: AwgProfileRepository,
             refreshCoordinator: SubscriptionRefreshCoordinator,
             autoUpdateScheduler: SubscriptionAutoUpdateScheduler,
+            profileMutations: PauseMutationPreparationSource,
         ) : this(
             repository = repository,
             bootstrapConsumer = BootstrapConsumer(),
@@ -85,6 +91,9 @@ class SubscriptionImportConfirmViewModel
             },
             refreshSubscription = refreshCoordinator::refresh,
             scheduleAutoUpdate = autoUpdateScheduler::schedule,
+            discardGroup = { groupId ->
+                repository.delete(profileMutations.captureMutation(ProfileMutationOrigin.Compensation), groupId)
+            },
             constructorMarker = Unit,
         )
 
@@ -100,6 +109,7 @@ class SubscriptionImportConfirmViewModel
                 String,
             ) -> SubscriptionRefreshResult = { error("No test refresh") },
             scheduleAutoUpdate: (List<ProxyGroup>) -> Unit = {},
+            discardGroup: suspend (String) -> Unit = {},
         ) : this(
             repository,
             bootstrapConsumer,
@@ -107,6 +117,7 @@ class SubscriptionImportConfirmViewModel
             saveAwgProfiles,
             refreshSubscription,
             scheduleAutoUpdate,
+            discardGroup,
             Unit,
         )
 
@@ -172,7 +183,8 @@ class SubscriptionImportConfirmViewModel
                     val groups = repository.list()
                     val existing = groups.firstOrNull { group -> group.subscription?.link == state.url }
                     val groupId = existing?.id ?: groupIdFactory()
-                    val groupName = state.name.takeIf { it.isNotBlank() } ?: hostOf(state.url)
+                    val groupName =
+                        state.name.takeIf { it.isNotBlank() } ?: subscriptionHost(state.url).ifEmpty { state.url }
                     val order = existing?.order ?: groups.size
                     if (state.bootstrap && existing?.subscription?.consumedAt == null) {
                         consumeBootstrap(state, existing, groupId, groupName, order)
@@ -195,7 +207,7 @@ class SubscriptionImportConfirmViewModel
                         if (subscription.kind == SubscriptionKind.BOOTSTRAP && subscription.consumedAt != null) {
                             completeImport()
                         } else {
-                            refreshAndCompleteImport(groupId)
+                            refreshAndCompleteImport(groupId, isNewGroup = existing == null)
                         }
                     }
                 } catch (cancellation: CancellationException) {
@@ -208,8 +220,16 @@ class SubscriptionImportConfirmViewModel
             }
         }
 
-        private suspend fun refreshAndCompleteImport(groupId: String) {
+        private suspend fun refreshAndCompleteImport(
+            groupId: String,
+            isNewGroup: Boolean,
+        ) {
             val result = refreshSubscription(groupId)
+            // A first fetch that is not a subscription at all (a web page, say) leaves nothing
+            // worth retrying: drop the new group so auto-update never polls that URL again.
+            if (isNewGroup && result is SubscriptionRefreshResult.Failed && result.failure in NotASubscription) {
+                discardGroup(groupId)
+            }
             // Schedule from the saved result so terminal failures and opt-outs stay excluded.
             scheduleAutoUpdate(repository.list())
             when (result) {
@@ -301,16 +321,7 @@ class SubscriptionImportConfirmViewModel
             completed = true
             importedEventChannel.send(Unit)
         }
-
-        /** Extracts the host from [url] for use as a fallback group name. */
-        private fun hostOf(url: String): String {
-            val schemeEnd = url.indexOf("://")
-            val afterScheme = if (schemeEnd >= 0) url.substring(schemeEnd + "://".length) else url
-            return afterScheme
-                .substringBefore('/')
-                .substringBefore('?')
-                .substringBefore('#')
-                .substringBefore(':')
-                .takeIf { it.isNotBlank() } ?: url
-        }
     }
+
+private val NotASubscription =
+    setOf(SubscriptionRefreshFailure.PARSE_ERROR, SubscriptionRefreshFailure.INVALID_PAYLOAD)

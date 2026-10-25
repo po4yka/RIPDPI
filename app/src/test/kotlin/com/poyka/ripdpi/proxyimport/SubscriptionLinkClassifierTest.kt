@@ -32,11 +32,35 @@ class SubscriptionLinkClassifierTest {
     }
 
     @Test
+    fun `plain https bootstrap link keeps the bootstrap kind`() {
+        assertEquals(
+            PendingSubscriptionImportRequest("https://sub.example.com/bootstrap/abc", name = "", bootstrap = true),
+            SubscriptionLinkClassifier.classify("https://sub.example.com/bootstrap/abc"),
+        )
+    }
+
+    @Test
+    fun `hosts with underscores are accepted`() {
+        assertEquals(
+            "https://my_sub.example.com/s",
+            SubscriptionLinkClassifier.classify("https://my_sub.example.com/s")?.url,
+        )
+    }
+
+    @Test
+    fun `subscription host strips userinfo and port`() {
+        assertEquals("host.example", subscriptionHost("https://user:pass@host.example:8443/s?x=1#f"))
+        assertEquals("[2001:db8::1]", subscriptionHost("https://[2001:db8::1]:443/s"))
+        assertEquals("", subscriptionHost("https:///s"))
+    }
+
+    @Test
     fun `non-https and hostless input is rejected`() {
         assertNull(SubscriptionLinkClassifier.classify("http://sub.example.com/s"))
         assertNull(SubscriptionLinkClassifier.classify("https://"))
         assertNull(SubscriptionLinkClassifier.classify("vless://id@example.com:443"))
         assertNull(SubscriptionLinkClassifier.classify(""))
+        assertNull(SubscriptionLinkClassifier.classify("https://sub.example.com/a b"))
     }
 
     @Test

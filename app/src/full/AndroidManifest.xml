@@ -66,14 +66,54 @@
                 <data android:scheme="tuic" />
                 <data android:scheme="anytls" />
                 <data android:scheme="ssh" />
+                <data android:scheme="hy2" />
+                <data android:scheme="mieru" />
             </intent-filter>
             <intent-filter android:priority="-100">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="singbox" android:host="import-remote-profile" />
+                <data android:scheme="sing-box" android:host="import-remote-profile" />
                 <data android:scheme="ripdpi" android:host="import-remote-profile" />
                 <data android:scheme="sn" android:host="import-remote-profile" />
+            </intent-filter>
+            <!-- Other clients' subscription links; kept below their own apps' default priority. -->
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sn" android:host="subscription" />
+            </intent-filter>
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="clash" android:host="install-config" />
+                <data android:scheme="clashmeta" android:host="install-config" />
+            </intent-filter>
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="v2rayng" />
+                <data android:host="install-config" />
+                <data android:host="install-sub" />
+            </intent-filter>
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="hiddify" />
+                <data android:host="install-config" />
+                <data android:host="import" />
+            </intent-filter>
+            <!-- Share sheet: a link, a subscription URL, a .conf, or an AmneziaVPN key, as text or as a file. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="application/octet-stream" />
             </intent-filter>
             <intent-filter android:priority="-100">
                 <action android:name="android.intent.action.VIEW" />

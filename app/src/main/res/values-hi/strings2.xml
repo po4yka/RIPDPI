@@ -1007,13 +1007,13 @@
     <string name="import_subscription_unnamed">बिना नाम का सब्सक्रिप्शन</string>
     <string name="scanner_title">QR कोड स्कैन करें</string>
     <string name="scanner_permission_rationale_title">कैमरा एक्सेस</string>
-    <string name="scanner_permission_rationale_body">RIPDPI कैमरे का उपयोग केवल प्रॉक्सी QR कोड पढ़ने के लिए करता है। कुछ भी रिकॉर्ड या अपलोड नहीं किया जाता।</string>
+    <string name="scanner_permission_rationale_body">RIPDPI कैमरे का उपयोग केवल प्रॉक्सी लिंक, सब्सक्रिप्शन लिंक या WireGuard / AmneziaWG कॉन्फ़िग वाले QR कोड पढ़ने के लिए करता है। कुछ भी रिकॉर्ड या अपलोड नहीं किया जाता।</string>
     <string name="scanner_scanning_title">QR कोड पर निशाना लगाएँ</string>
-    <string name="scanner_scanning_body">प्रोफ़ाइल आयात करने के लिए कोड को फ़्रेम के अंदर रखें।</string>
+    <string name="scanner_scanning_body">कोड को इम्पोर्ट करने के लिए उसे फ़्रेम के अंदर रखें।</string>
     <string name="scanner_permission_denied_title">कैमरा अनुपलब्ध</string>
     <string name="scanner_permission_denied_body">कैमरा एक्सेस अस्वीकृत कर दिया गया। आप अभी भी किसी सहेजी गई छवि से QR कोड आयात कर सकते हैं।</string>
     <string name="scanner_invalid_qr_title">अपरिचित QR कोड</string>
-    <string name="scanner_invalid_qr_body">यह QR कोड कोई समर्थित प्रॉक्सी लिंक नहीं है (इससे शुरू होता है: %1$s)।</string>
+    <string name="scanner_invalid_qr_body">यह QR कोड समर्थित प्रॉक्सी लिंक, सब्सक्रिप्शन लिंक या WireGuard कॉन्फ़िग नहीं है (शुरुआत: %1$s)।</string>
     <string name="scanner_pick_image_action">छवि से आयात करें</string>
 
     <!-- Clipboard import -->

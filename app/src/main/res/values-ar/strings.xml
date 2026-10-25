@@ -2714,13 +2714,13 @@ fakeddisorder endhost</string>
     <string name="import_subscription_unnamed">اشتراك بدون اسم</string>
     <string name="scanner_title">مسح رمز QR</string>
     <string name="scanner_permission_rationale_title">الوصول إلى الكاميرا</string>
-    <string name="scanner_permission_rationale_body">يستخدم RIPDPI الكاميرا فقط لقراءة رمز QR للبروكسي. لا يُسجَّل أي شيء ولا يُرفَع.</string>
+    <string name="scanner_permission_rationale_body">يستخدم RIPDPI الكاميرا فقط لقراءة رموز QR التي تحتوي على رابط وكيل أو رابط اشتراك أو إعداد WireGuard / AmneziaWG. لا يُسجَّل أي شيء ولا يُرفَع.</string>
     <string name="scanner_scanning_title">وجِّه نحو رمز QR</string>
-    <string name="scanner_scanning_body">ضع الرمز داخل الإطار لاستيراد الملف الشخصي.</string>
+    <string name="scanner_scanning_body">أبقِ الرمز داخل الإطار لاستيراده.</string>
     <string name="scanner_permission_denied_title">الكاميرا غير متاحة</string>
     <string name="scanner_permission_denied_body">تم رفض الوصول إلى الكاميرا. لا يزال بإمكانك استيراد رمز QR من صورة محفوظة.</string>
     <string name="scanner_invalid_qr_title">رمز QR غير معروف</string>
-    <string name="scanner_invalid_qr_body">رمز QR هذا ليس رابط بروكسي مدعوماً (يبدأ بـ: %1$s).</string>
+    <string name="scanner_invalid_qr_body">رمز QR هذا ليس رابط وكيل أو رابط اشتراك أو إعداد WireGuard مدعومًا (يبدأ بـ: %1$s).</string>
     <string name="scanner_pick_image_action">استيراد من صورة</string>
     <string name="import_clipboard_action">استيراد من الحافظة</string>
     <string name="import_clipboard_unknown_title">محتوى الحافظة ليس رابط بروكسي</string>

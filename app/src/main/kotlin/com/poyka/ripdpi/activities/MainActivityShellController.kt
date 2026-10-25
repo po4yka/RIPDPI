@@ -95,6 +95,11 @@ internal class MainActivityShellController(
                     putString("import-value", route.importToken)
                 }
 
+                is Route.AmneziaWgProfile -> {
+                    putString("import-kind", "amneziawg")
+                    putString("import-value", route.importToken)
+                }
+
                 else -> {}
             }
             putBoolean("start-mode", current.startConfiguredModeRequested)
@@ -272,6 +277,12 @@ private fun restorePendingLaunchRequests(saved: Bundle): MainActivityShellState 
                 importValue
                     ?.takeIf(PendingProxyImportStore.process::contains)
                     ?.let(Route::SubscriptionImportConfirm)
+            }
+
+            "amneziawg" -> {
+                importValue
+                    ?.takeIf(PendingProxyImportStore.process::contains)
+                    ?.let(Route::AmneziaWgProfile)
             }
 
             else -> {

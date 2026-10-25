@@ -288,8 +288,11 @@ app:awg_carrier_ws
 app:awg_cohort_custom
 app:awg_cohort_locked_hint
 app:awg_cohort_picker_label
+app:awg_conf_extra_peers_body
+app:awg_conf_extra_peers_title
 app:awg_conf_import_failed_body
 app:awg_conf_import_failed_title
+app:awg_conf_import_unreadable_body
 app:awg_connect_action
 app:awg_connect_error
 app:awg_connect_incomplete_hint
@@ -4584,6 +4587,8 @@ app:scanner_permission_rationale_title
 app:scanner_pick_image_action
 app:scanner_scanning_body
 app:scanner_scanning_title
+app:scanner_series_progress
+app:scanner_series_title
 app:scanner_title
 app:semantic_action_collapse
 app:semantic_action_expand

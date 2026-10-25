@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.poyka.ripdpi.proxyimport.ClipboardImportClassifier
 import com.poyka.ripdpi.proxyimport.ClipboardImportResult
 import com.poyka.ripdpi.proxyimport.ClipboardReader
-import com.poyka.ripdpi.proxyimport.ProxyImportRequest
+import com.poyka.ripdpi.proxyimport.ImportPayload
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +20,7 @@ import javax.inject.Inject
  * fields ever carries the raw clipboard payload — at most the scheme prefix.
  */
 data class ClipboardImportUiState(
-    val navigateToConfirm: ProxyImportRequest.Profile? = null,
+    val navigateToConfirm: ImportPayload? = null,
     val unknownContentScheme: String? = null,
     val clipboardEmpty: Boolean = false,
     val clearClipboardAfterImport: Boolean = false,
@@ -33,8 +33,8 @@ data class ClipboardImportUiState(
  * user's menu tap. There is no watcher, no `OnPrimaryClipChangedListener`, and nothing
  * polls in the background — constructing this ViewModel does not touch the clipboard.
  *
- * Parsing reuses the shared [ClipboardImportClassifier]; a recognised proxy URI yields a
- * [ProxyImportRequest.Profile] for the screen to route on, unknown content yields a typed
+ * Parsing reuses the shared [ClipboardImportClassifier]; importable text yields an
+ * [ImportPayload] for the screen to route on, unknown content yields a typed
  * error carrying only the scheme. The "clear clipboard after import" step is opt-in and
  * defaults to off; when enabled it runs only after a *successful* import, to reduce how
  * long a credential-bearing URI lingers in the system clipboard.
@@ -61,7 +61,7 @@ class ClipboardImportViewModel
                     }
                     _uiState.update {
                         it.copy(
-                            navigateToConfirm = result.request,
+                            navigateToConfirm = result.payload,
                             unknownContentScheme = null,
                             clipboardEmpty = false,
                         )

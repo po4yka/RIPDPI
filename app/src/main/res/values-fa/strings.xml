@@ -2763,13 +2763,13 @@ fakeddisorder endhost</string>
     <string name="import_subscription_unnamed">اشتراک بدون نام</string>
     <string name="scanner_title">پویش کد QR</string>
     <string name="scanner_permission_rationale_title">دسترسی به دوربین</string>
-    <string name="scanner_permission_rationale_body">RIPDPI تنها برای خواندن کد QR پراکسی از دوربین استفاده می‌کند. چیزی ضبط یا بارگذاری نمی‌شود.</string>
+    <string name="scanner_permission_rationale_body">RIPDPI فقط برای خواندن کدهای QR حاوی پیوند پراکسی، پیوند اشتراک یا پیکربندی WireGuard / AmneziaWG از دوربین استفاده می‌کند. هیچ چیزی ضبط یا بارگذاری نمی‌شود.</string>
     <string name="scanner_scanning_title">دوربین را روی کد QR بگیرید</string>
-    <string name="scanner_scanning_body">برای درون‌ریزی نمایه، کد را درون کادر نگه دارید.</string>
+    <string name="scanner_scanning_body">کد را داخل کادر نگه دارید تا وارد شود.</string>
     <string name="scanner_permission_denied_title">دوربین در دسترس نیست</string>
     <string name="scanner_permission_denied_body">دسترسی به دوربین رد شد. هنوز می‌توانید کد QR را از یک تصویر ذخیره‌شده درون‌ریزی کنید.</string>
     <string name="scanner_invalid_qr_title">کد QR شناخته نشد</string>
-    <string name="scanner_invalid_qr_body">این کد QR یک پیوند پراکسی پشتیبانی‌شده نیست (با %1$s آغاز می‌شود).</string>
+    <string name="scanner_invalid_qr_body">این کد QR پیوند پراکسی، پیوند اشتراک یا پیکربندی WireGuard پشتیبانی‌شده نیست (با این شروع می‌شود: %1$s).</string>
     <string name="scanner_pick_image_action">درون‌ریزی از تصویر</string>
 
     <!-- Clipboard import -->

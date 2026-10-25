@@ -310,9 +310,9 @@ class AmneziaWgProfileViewModelTest {
         viewModel.onConfPasted("definitely not a wireguard config")
 
         assertEquals("keep.me", viewModel.uiState.value.editor.form.server)
-        assertTrue(viewModel.uiState.value.confImportFailed)
+        assertEquals(AwgConfImportFailure.INVALID, viewModel.uiState.value.confImportFailure)
         viewModel.onFieldChanged(AwgEditorField.SERVER, "edited")
-        assertFalse(viewModel.uiState.value.confImportFailed)
+        assertNull(viewModel.uiState.value.confImportFailure)
     }
 
     @Test
@@ -328,7 +328,7 @@ class AmneziaWgProfileViewModelTest {
 
         assertEquals("edited", viewModel.uiState.value.editor.form.server)
         assertEquals("k==", viewModel.uiState.value.editor.form.interfacePrivateKey)
-        assertFalse(viewModel.uiState.value.confImportFailed)
+        assertNull(viewModel.uiState.value.confImportFailure)
     }
 
     @Test
@@ -337,7 +337,46 @@ class AmneziaWgProfileViewModelTest {
 
         viewModel.onImportToken(UUID.randomUUID().toString(), PendingProxyImportStore())
 
-        assertFalse(viewModel.uiState.value.confImportFailed)
+        assertNull(viewModel.uiState.value.confImportFailure)
+    }
+
+    @Test
+    fun `a plain wireguard conf imports as an unobfuscated profile`() {
+        val viewModel = viewModel()
+
+        viewModel.onConfPasted(
+            "[Interface]\nPrivateKey = k==\nAddress = 10.0.0.2/32\n\n[Peer]\nPublicKey = p==\n" +
+                "Endpoint = [2001:db8::1]:51820\nAllowedIPs = 0.0.0.0/0",
+        )
+
+        val form = viewModel.uiState.value.editor.form
+        assertNull(viewModel.uiState.value.confImportFailure)
+        assertEquals("2001:db8::1", form.server)
+        assertEquals(51820, form.serverPort)
+        assertEquals(listOf(0, 0, 0), listOf(form.jc, form.s1, form.s2))
+        assertEquals(listOf("1", "2", "3", "4"), listOf(form.h1, form.h2, form.h3, form.h4))
+    }
+
+    @Test
+    fun `extra peers are reported and only the first peer is used`() {
+        val viewModel = viewModel()
+
+        viewModel.onConfPasted(
+            "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = first==\nEndpoint = a.example:1\n\n" +
+                "[Peer]\nPublicKey = second==\nEndpoint = b.example:2\n\n[Peer]\nPublicKey = third==\n",
+        )
+
+        assertEquals("first==", viewModel.uiState.value.editor.form.peerPublicKey)
+        assertEquals(2, viewModel.uiState.value.ignoredPeerCount)
+    }
+
+    @Test
+    fun `an unreadable file is reported apart from an invalid config`() {
+        val viewModel = viewModel()
+
+        viewModel.onConfPasted("")
+
+        assertEquals(AwgConfImportFailure.UNREADABLE, viewModel.uiState.value.confImportFailure)
     }
 
     @Test

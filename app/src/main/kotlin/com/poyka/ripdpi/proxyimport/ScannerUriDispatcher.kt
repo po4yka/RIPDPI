@@ -1,30 +1,61 @@
 package com.poyka.ripdpi.proxyimport
 
-import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
-import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
+/** What a block of imported text is. Shared by the QR scanner, the clipboard, and the share sheet. */
+sealed interface ImportPayload {
+    /** A single proxy share URI, parsed into a profile import request. */
+    data class Profile(
+        val request: ProxyImportRequest.Profile,
+    ) : ImportPayload
+
+    /** A subscription link (`https://…` or a client subscription deep link). */
+    data class Subscription(
+        val request: PendingSubscriptionImportRequest,
+    ) : ImportPayload
+
+    /**
+     * A WireGuard or AmneziaWG `.conf`: pasted or scanned text (the WireGuard and AmneziaWG
+     * apps put the raw `.conf` in their QR codes), or unpacked from an AmneziaVPN `vpn://` key.
+     * The editor validates it and reports a precise reason when it cannot be used.
+     */
+    data class WireGuardConf(
+        val conf: String,
+    ) : ImportPayload {
+        // The conf carries the private key.
+        override fun toString(): String = "WireGuardConf(conf=<redacted>)"
+    }
+}
+
+/**
+ * Classifies text from any import surface. Never throws, never logs the text. Tries, in
+ * order: a proxy share URI ([ProxyUriShareDispatcher]), a subscription link
+ * ([SubscriptionLinkClassifier]), an AmneziaVPN `vpn://` key ([AmneziaVpnKeyDecoder]),
+ * and a `.conf` with `[Interface]` and `[Peer]` sections.
+ */
+object ImportPayloadClassifier {
+    fun classify(text: String): ImportPayload? {
+        val trimmed = text.trim().removePrefix(ByteOrderMark).trim()
+        if (trimmed.isEmpty()) return null
+        return (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
+            ?: SubscriptionLinkClassifier.classify(trimmed)?.let(ImportPayload::Subscription)
+            ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(ImportPayload::WireGuardConf)
+            ?: trimmed.takeIf(::looksLikeWireGuardConf)?.let(ImportPayload::WireGuardConf)
+    }
+
+    private fun looksLikeWireGuardConf(text: String): Boolean {
+        val sections = text.lineSequence().map { it.trim().lowercase() }.toSet()
+        return "[interface]" in sections && "[peer]" in sections
+    }
+}
 
 /** Outcome of classifying a QR-decoded text payload. */
 sealed interface ScannerScanResult {
-    /** The payload is an allowlisted proxy URI and parsed into a profile import request. */
-    data class Profile(
-        val request: ProxyImportRequest.Profile,
+    /** The payload is something RIPDPI can import. */
+    data class Recognized(
+        val payload: ImportPayload,
     ) : ScannerScanResult
-
-    /** The payload is a subscription link (`https://…` or a subscription deep link). */
-    data class Subscription(
-        val request: PendingSubscriptionImportRequest,
-    ) : ScannerScanResult
-
-    /** The payload is an AmneziaWG `.conf` file, the format the reference client puts in its QR codes. */
-    data class AmneziaWgConf(
-        val conf: String,
-    ) : ScannerScanResult {
-        // The conf carries the private key.
-        override fun toString(): String = "AmneziaWgConf(conf=<redacted>)"
-    }
 
     /**
-     * The payload is not an allowlisted proxy URI, or a known scheme failed to parse.
+     * The payload is not importable.
      *
      * @property redactedPreview at most the first 16 characters of the payload — the full
      *   QR content is never surfaced or logged, since it may carry credentials.
@@ -35,43 +66,16 @@ sealed interface ScannerScanResult {
 }
 
 /**
- * Classifies QR-scanner decoded text. Shared by the live CameraX path and the image-file
- * fallback so both behave identically. A decoded payload is tried, in order, as an
- * allowlisted proxy URI ([ProxyUriShareDispatcher]), a subscription link
- * ([SubscriptionLinkClassifier]), and an AmneziaWG `.conf`; anything else becomes a
- * [ScannerScanResult.Invalid] carrying only a redacted 16-char preview.
+ * Classifies QR-scanner decoded text through [ImportPayloadClassifier]. Shared by the live
+ * CameraX path and the image-file fallback so both behave identically.
  */
 object ScannerUriDispatcher {
     private const val REDACTION_LIMIT = 16
 
-    /**
-     * Schemes the scanner prefilter allows before parser validation. This is not the
-     * full clipboard/share-sheet codec list; [ProxyUriShareDispatcher] still decides
-     * whether the payload is a supported single-profile URI.
-     */
-    val allowedSchemes: Set<String> =
-        setOf("vless", "trojan", "mieru", "ss", "hysteria2", "hy2", "tuic", "ripdpi")
-
-    /**
-     * Parses [payload] into a [ScannerScanResult]. Never throws; an unparseable or
-     * non-allowlisted payload yields [ScannerScanResult.Invalid] with a redacted preview.
-     */
-    fun dispatch(payload: String): ScannerScanResult {
-        val trimmed = payload.trim()
-        return profileOf(trimmed)?.let(ScannerScanResult::Profile)
-            ?: SubscriptionLinkClassifier.classify(trimmed)?.let(ScannerScanResult::Subscription)
-            ?: trimmed.takeIf(::isAmneziaWgConf)?.let(ScannerScanResult::AmneziaWgConf)
-            ?: ScannerScanResult.Invalid(redact(trimmed))
-    }
-
-    private fun profileOf(text: String): ProxyImportRequest.Profile? =
-        text
-            .takeIf { ProxyUriShareDispatcher.schemeOf(it) in allowedSchemes }
-            ?.let { ProxyUriShareDispatcher.dispatch(it) as? ProxyImportRequest.Profile }
-
-    private fun isAmneziaWgConf(text: String): Boolean =
-        text.contains("[Interface]", ignoreCase = true) &&
-            runCatching { WireGuardConfParser.parse(text) }.getOrNull() is AmneziaWgConfig
+    /** Never throws; an unknown payload yields [ScannerScanResult.Invalid] with a redacted preview. */
+    fun dispatch(payload: String): ScannerScanResult =
+        ImportPayloadClassifier.classify(payload)?.let(ScannerScanResult::Recognized)
+            ?: ScannerScanResult.Invalid(redact(payload.trim()))
 
     /** Returns at most the first [REDACTION_LIMIT] characters of [value]. */
     internal fun redact(value: String): String = value.take(REDACTION_LIMIT)

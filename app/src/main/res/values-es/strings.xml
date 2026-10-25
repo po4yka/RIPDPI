@@ -2758,13 +2758,13 @@ Origen: %2$s</string>
     <string name="import_subscription_unnamed">Suscripción sin nombre</string>
     <string name="scanner_title">Escanear código QR</string>
     <string name="scanner_permission_rationale_title">Acceso a la cámara</string>
-    <string name="scanner_permission_rationale_body">RIPDPI usa la cámara solo para leer un código QR de proxy. No se graba ni se sube nada.</string>
+    <string name="scanner_permission_rationale_body">RIPDPI usa la cámara solo para leer códigos QR con un enlace de proxy, un enlace de suscripción o una configuración de WireGuard / AmneziaWG. No se graba ni se sube nada.</string>
     <string name="scanner_scanning_title">Apunta a un código QR</string>
-    <string name="scanner_scanning_body">Mantén el código dentro del marco para importar el perfil.</string>
+    <string name="scanner_scanning_body">Mantén el código dentro del marco para importarlo.</string>
     <string name="scanner_permission_denied_title">Cámara no disponible</string>
     <string name="scanner_permission_denied_body">Se denegó el acceso a la cámara. Aún puedes importar un código QR desde una imagen guardada.</string>
     <string name="scanner_invalid_qr_title">Código QR no reconocido</string>
-    <string name="scanner_invalid_qr_body">Este código QR no es un enlace de proxy compatible (empieza por: %1$s).</string>
+    <string name="scanner_invalid_qr_body">Este código QR no es un enlace de proxy, un enlace de suscripción ni una configuración de WireGuard compatibles (empieza por: %1$s).</string>
     <string name="scanner_pick_image_action">Importar desde imagen</string>
 
     <!-- Clipboard import -->

@@ -12,4 +12,7 @@ object ImportLaunchRoute {
 
     /** Open the subscription-add import-confirmation screen. */
     const val SUBSCRIPTION_CONFIRM: String = "import/subscription_confirm"
+
+    /** Open the WireGuard / AmneziaWG editor prefilled from a staged `.conf`. */
+    const val AMNEZIAWG_EDITOR: String = "profile/amneziawg"
 }

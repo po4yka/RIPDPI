@@ -95,6 +95,53 @@ class ImportHandlerActivityTest {
     }
 
     @Test
+    fun `shared wireguard conf text forwards an editor route without the key in extras`() {
+        val conf =
+            "[Interface]\nPrivateKey = shared-secret==\n\n[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820"
+        val intent =
+            Intent(
+                Intent.ACTION_SEND,
+                null,
+                ApplicationProvider.getApplicationContext(),
+                ImportHandlerActivity::class.java,
+            ).setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, conf)
+        val controller = Robolectric.buildActivity(ImportHandlerActivity::class.java, intent).create()
+
+        val forwarded = shadowOf(controller.get()).nextStartedActivity
+
+        assertEquals(
+            ImportLaunchRoute.AMNEZIAWG_EDITOR,
+            forwarded.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE),
+        )
+        assertFalse(forwarded.extras.toString().contains("shared-secret"))
+        val importToken = requireNotNull(forwarded.getStringExtra(ImportHandlerActivity.EXTRA_AMNEZIAWG_IMPORT_TOKEN))
+        assertEquals(conf, PendingProxyImportStore.process.claimAmneziaWgConf(importToken))
+        controller.destroy()
+    }
+
+    @Test
+    fun `shared subscription link forwards a subscription route`() {
+        val intent =
+            Intent(
+                Intent.ACTION_SEND,
+                null,
+                ApplicationProvider.getApplicationContext(),
+                ImportHandlerActivity::class.java,
+            ).setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, "https://sub.example.com/s/token")
+        val controller = Robolectric.buildActivity(ImportHandlerActivity::class.java, intent).create()
+
+        val forwarded = shadowOf(controller.get()).nextStartedActivity
+
+        assertEquals(
+            ImportLaunchRoute.SUBSCRIPTION_CONFIRM,
+            forwarded.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE),
+        )
+        controller.destroy()
+    }
+
+    @Test
     fun `bootstrap deep link forwards the bootstrap flag`() {
         val link =
             "singbox://import-remote-profile?url=" +

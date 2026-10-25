@@ -34,6 +34,7 @@ import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.receivedMigration
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
+import com.poyka.ripdpi.proxyimport.subscriptionHost
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -42,7 +43,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.IOException
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -247,12 +250,18 @@ class SubscriptionRefreshCoordinator private constructor(
                     isSelector = outcome.isSelector,
                 )
             }
+        // A server-given title replaces only the host fallback name, never a name the user chose.
+        val serverTitle =
+            outcome.profileTitle.takeIf { it.isNotEmpty() && expected.name == subscriptionHost(subscription.link) }
         return withMembers.copy(
+            name = serverTitle ?: withMembers.name,
             packageRoutingRules = outcome.packageRoutingRules,
             subscription =
                 subscription
                     .withUserinfoHeader(outcome.subscriptionUserinfo)
                     .copy(
+                        autoUpdateDelay =
+                            subscription.autoUpdateDelay.takeIf { it > 0L } ?: outcome.updateIntervalMinutes ?: 0L,
                         lastUpdated = attemptedAt,
                         lastRefreshAttemptAtEpochMillis = attemptedAt,
                         tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
@@ -341,13 +350,13 @@ class SubscriptionRefreshCoordinator private constructor(
                         if (!profiles.profiles.fitsSubscriptionLimits() || wireGuardCount > MaxSubscriptionProfiles) {
                             payloadTooLargeFailure()
                         } else {
-                            profiles.copy(
-                                awgProfiles = parsedWireGuardProfiles(singBox, wireGuard),
-                                subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty(),
-                                subscriptionMirrors = singBox?.subscriptionMirrors,
-                                migration = singBox?.migration,
-                                payloadSha256 = payload.sha256,
-                            )
+                            profiles
+                                .copy(
+                                    awgProfiles = parsedWireGuardProfiles(singBox, wireGuard),
+                                    subscriptionMirrors = singBox?.subscriptionMirrors,
+                                    migration = singBox?.migration,
+                                    payloadSha256 = payload.sha256,
+                                ).withResponseHeaders(response)
                         }
                     } else {
                         RefreshOutcome.Failure(
@@ -547,6 +556,13 @@ class SubscriptionRefreshCoordinator private constructor(
             retry = false,
         )
 
+    private fun RefreshOutcome.Updated.withResponseHeaders(response: Response): RefreshOutcome.Updated =
+        copy(
+            subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty(),
+            profileTitle = profileTitleOf(response.header(ProfileTitleHeader)),
+            updateIntervalMinutes = updateIntervalMinutesOf(response.header(ProfileUpdateIntervalHeader)),
+        )
+
     private fun SingBoxParseResult.Success?.orEmptyAwgCount(): Int = this?.amneziaWgProfiles?.size ?: 0
 
     private fun Int?.orZero(): Int = this ?: 0
@@ -557,6 +573,8 @@ class SubscriptionRefreshCoordinator private constructor(
             val failover: SelectorFailover?,
             val awgProfiles: List<AwgSubscriptionProfile> = emptyList(),
             val subscriptionUserinfo: String = "",
+            val profileTitle: String = "",
+            val updateIntervalMinutes: Long? = null,
             val tokenExpiresAtEpochMillis: Long? = null,
             val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
             val clearRelayMembers: Boolean = false,
@@ -583,6 +601,8 @@ class SubscriptionRefreshCoordinator private constructor(
         const val HttpServerErrorStart = 500
         const val HttpServerErrorEnd = 599
         const val SubscriptionUserinfoHeader = "Subscription-Userinfo"
+        const val ProfileTitleHeader = "Profile-Title"
+        const val ProfileUpdateIntervalHeader = "Profile-Update-Interval"
         const val EndpointTimeoutSeconds = 15L
     }
 }
@@ -594,3 +614,32 @@ object SubscriptionRefreshModule {
     @Singleton
     fun provideSubscriptionExpiryClock(): SubscriptionExpiryClock = SubscriptionExpiryClock(System::currentTimeMillis)
 }
+
+private const val MaxProfileTitleLength = 64
+private const val MaxUpdateIntervalHours = 24L * 30L
+private const val MinutesPerHour = 60L
+
+/**
+ * Decodes the `profile-title` header (plain text, or `base64:<utf-8 text>` as Hiddify and
+ * the 3x-ui panels send it) into a bounded, control-free group name; `""` when unusable.
+ */
+internal fun profileTitleOf(header: String?): String {
+    val raw = header?.trim().orEmpty()
+    val text =
+        if (raw.startsWith("base64:", ignoreCase = true)) {
+            runCatching { String(Base64.getDecoder().decode(raw.substring("base64:".length).trim()), Charsets.UTF_8) }
+                .getOrNull()
+                .orEmpty()
+        } else {
+            raw
+        }
+    return text.filterNot { it.isISOControl() }.trim().take(MaxProfileTitleLength)
+}
+
+/** Converts the `profile-update-interval` header (whole hours) into minutes; `null` when absent or invalid. */
+internal fun updateIntervalMinutesOf(header: String?): Long? =
+    header
+        ?.trim()
+        ?.toLongOrNull()
+        ?.takeIf { it in 1L..MaxUpdateIntervalHours }
+        ?.times(MinutesPerHour)

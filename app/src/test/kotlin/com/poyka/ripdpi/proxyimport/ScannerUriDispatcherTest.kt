@@ -2,122 +2,106 @@ package com.poyka.ripdpi.proxyimport
 
 import com.poyka.ripdpi.data.ProxyProfile
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Pure-logic tests for [ScannerUriDispatcher]: the QR-scanner decoded-text classifier.
- * A decoded payload is validated against the proxy-URI allowlist and mapped to a
- * [ProxyImportRequest]; invalid content produces a redacted error (first 16 chars only)
- * so the full payload is never surfaced or logged.
+ * Pure-logic tests for [ScannerUriDispatcher] and the shared [ImportPayloadClassifier]
+ * behind it. Invalid content produces a redacted error (first 16 chars only) so the full
+ * payload is never surfaced or logged.
  */
 class ScannerUriDispatcherTest {
     @Test
-    fun `allowlisted vless qr payload resolves to a profile import request`() {
-        val request =
+    fun `vless qr payload resolves to a profile import request`() {
+        val payload = recognized("vless://11111111-2222-3333-4444-555555555555@example.com:443#QR")
+
+        assertTrue((payload as ImportPayload.Profile).request.profile is ProxyProfile.Vless)
+    }
+
+    @Test
+    fun `every codec scheme is scannable, including anytls`() {
+        val payload = recognized("anytls://secret@example.com:443?sni=example.com#QR")
+
+        assertTrue(payload is ImportPayload.Profile)
+    }
+
+    @Test
+    fun `non https link yields a redacted invalid result`() {
+        val result =
             ScannerUriDispatcher.dispatch(
-                "vless://11111111-2222-3333-4444-555555555555@example.com:443#QR",
+                "http://malicious.example.com/very/long/path/that/should/be/redacted",
             )
 
-        assertTrue(request is ScannerScanResult.Profile)
-        assertTrue((request as ScannerScanResult.Profile).request.profile is ProxyProfile.Vless)
+        assertEquals(ScannerScanResult.Invalid("http://malicious"), result)
     }
 
     @Test
-    fun `allowlisted shadowsocks qr payload resolves to a profile import request`() {
-        val request =
-            ScannerUriDispatcher.dispatch(
-                "ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ=@example.com:8388#QR",
-            )
-
-        assertTrue(request is ScannerScanResult.Profile)
-    }
-
-    @Test
-    fun `non allowlisted scheme yields a redacted invalid result`() {
-        val payload = "http://malicious.example.com/very/long/path/that/should/be/redacted"
-
-        val result = ScannerUriDispatcher.dispatch(payload)
-
-        assertTrue(result is ScannerScanResult.Invalid)
-        result as ScannerScanResult.Invalid
-        // Redaction caps the preview at the first 16 characters of the payload.
-        assertEquals("http://malicious", result.redactedPreview)
-    }
-
-    @Test
-    fun `redaction caps preview at 16 characters`() {
-        val result = ScannerUriDispatcher.dispatch("this-is-not-a-uri-at-all-and-is-very-long")
-
-        assertTrue(result is ScannerScanResult.Invalid)
-        assertTrue((result as ScannerScanResult.Invalid).redactedPreview.length <= 16)
-    }
-
-    @Test
-    fun `short invalid payload is previewed in full`() {
-        val result = ScannerUriDispatcher.dispatch("nope")
-
-        assertTrue(result is ScannerScanResult.Invalid)
-        assertEquals("nope", (result as ScannerScanResult.Invalid).redactedPreview)
-    }
-
-    @Test
-    fun `structurally broken allowlisted scheme is treated as invalid, never throws`() {
-        val result = ScannerUriDispatcher.dispatch("vless://")
-
-        assertTrue(result is ScannerScanResult.Invalid)
-    }
-
-    @Test
-    fun `blank payload is invalid`() {
+    fun `short invalid payload is previewed in full and blank payload is invalid`() {
+        assertEquals(ScannerScanResult.Invalid("nope"), ScannerUriDispatcher.dispatch("nope"))
         assertTrue(ScannerUriDispatcher.dispatch("   ") is ScannerScanResult.Invalid)
+        assertTrue(ScannerUriDispatcher.dispatch("vless://") is ScannerScanResult.Invalid)
     }
 
     @Test
-    fun `allowlist covers the scanner-supported proxy schemes`() {
-        // The scanner prefilter is narrower than clipboard/share-sheet import.
-        val schemes = ScannerUriDispatcher.allowedSchemes
-        assertTrue(schemes.containsAll(listOf("vless", "trojan", "ss", "hysteria2", "tuic")))
-        // Removed legacy schemes are no longer prefiltered.
-        assertFalse(schemes.contains("vmess"))
-        assertFalse(schemes.contains("trojan-go"))
-        assertFalse(schemes.contains("hysteria"))
-        // https is explicitly not a proxy-node scheme.
-        assertFalse(schemes.contains("https"))
+    fun `https subscription qr payload resolves to a long-lived subscription`() {
+        val payload = recognized("https://sub.example.com/s/token123") as ImportPayload.Subscription
+
+        assertEquals(PendingSubscriptionImportRequest("https://sub.example.com/s/token123", "", false), payload.request)
     }
 
     @Test
-    fun `https subscription qr payload resolves to a subscription request`() {
-        val result = ScannerUriDispatcher.dispatch("https://sub.example.com/s/token123")
+    fun `https bootstrap link keeps the bootstrap kind`() {
+        val payload = recognized("https://sub.example.com/bootstrap/one-time") as ImportPayload.Subscription
 
-        assertTrue(result is ScannerScanResult.Subscription)
-        assertEquals("https://sub.example.com/s/token123", (result as ScannerScanResult.Subscription).request.url)
+        assertTrue(payload.request.bootstrap)
     }
 
     @Test
-    fun `ripdpi subscription deep link qr payload resolves to a subscription request`() {
-        val result = ScannerUriDispatcher.dispatch("ripdpi://import?sub=https%3A%2F%2Fsub.example.com%2Fs")
+    fun `official sing-box link takes its name from the fragment`() {
+        val payload =
+            recognized("sing-box://import-remote-profile?url=https%3A%2F%2Fsub.example.com%2Fs#My%20Fleet")
+                as ImportPayload.Subscription
 
-        assertTrue(result is ScannerScanResult.Subscription)
-        assertEquals("https://sub.example.com/s", (result as ScannerScanResult.Subscription).request.url)
+        assertEquals(PendingSubscriptionImportRequest("https://sub.example.com/s", "My Fleet", false), payload.request)
+    }
+
+    @Test
+    fun `ripdpi subscription deep link resolves to a subscription request`() {
+        val payload = recognized("ripdpi://import?sub=https%3A%2F%2Fsub.example.com%2Fs") as ImportPayload.Subscription
+
+        assertEquals("https://sub.example.com/s", payload.request.url)
     }
 
     @Test
     fun `amneziawg conf qr payload resolves to a conf import`() {
-        val result = ScannerUriDispatcher.dispatch(AwgConf)
-
-        assertTrue(result is ScannerScanResult.AmneziaWgConf)
-        assertEquals(AwgConf, (result as ScannerScanResult.AmneziaWgConf).conf)
+        assertEquals(ImportPayload.WireGuardConf(AwgConf), recognized(AwgConf))
     }
 
     @Test
-    fun `plain wireguard conf is invalid because the editor accepts only amneziawg`() {
+    fun `plain wireguard conf is scanned too, the editor validates it`() {
         val plain =
             "[Interface]\nPrivateKey = privkey==\n\n[Peer]\nPublicKey = peerpub==\nEndpoint = vpn.example.com:51820"
 
-        assertTrue(ScannerUriDispatcher.dispatch(plain) is ScannerScanResult.Invalid)
+        assertEquals(ImportPayload.WireGuardConf(plain), recognized(plain))
     }
+
+    @Test
+    fun `amneziavpn vpn key resolves to the embedded conf`() {
+        val key = AmneziaVpnKeyFixtures.vpnKey(conf = "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p==")
+
+        assertEquals(
+            ImportPayload.WireGuardConf("[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p=="),
+            recognized(key),
+        )
+    }
+
+    @Test
+    fun `conf payload never prints the private key`() {
+        assertTrue("privkey" !in ImportPayload.WireGuardConf(AwgConf).toString())
+    }
+
+    private fun recognized(text: String): ImportPayload =
+        (ScannerUriDispatcher.dispatch(text) as ScannerScanResult.Recognized).payload
 
     private companion object {
         val AwgConf =

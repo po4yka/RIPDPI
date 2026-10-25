@@ -124,11 +124,24 @@ internal fun AmneziaWgProfileScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AmneziaWgProfile())),
     ) {
-        if (uiState.confImportFailed) {
+        uiState.confImportFailure?.let { failure ->
             WarningBanner(
                 title = stringResource(R.string.awg_conf_import_failed_title),
-                message = stringResource(R.string.awg_conf_import_failed_body),
+                message =
+                    stringResource(
+                        when (failure) {
+                            AwgConfImportFailure.UNREADABLE -> R.string.awg_conf_import_unreadable_body
+                            AwgConfImportFailure.INVALID -> R.string.awg_conf_import_failed_body
+                        },
+                    ),
                 testTag = RipDpiTestTags.AwgConfImportFailed,
+            )
+        }
+        if (uiState.ignoredPeerCount > 0) {
+            WarningBanner(
+                title = stringResource(R.string.awg_conf_extra_peers_title),
+                message = stringResource(R.string.awg_conf_extra_peers_body, uiState.ignoredPeerCount),
+                tone = WarningBannerTone.Info,
             )
         }
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
