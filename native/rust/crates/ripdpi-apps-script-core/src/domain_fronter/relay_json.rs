@@ -57,7 +57,7 @@ pub(super) fn parse(body: &[u8]) -> Result<Vec<u8>, FronterError> {
             if is_skipped_response_header(&lower) || connection_tokens.contains(&lower) {
                 continue;
             }
-            if let Some(value) = header_value_from_json(&value) {
+            for value in header_values_from_json(&value) {
                 output.extend_from_slice(format!("{key}: {value}\r\n").as_bytes());
             }
         }
@@ -92,19 +92,29 @@ fn connection_tokens(headers: &serde_json::Map<String, Value>) -> Vec<String> {
     headers
         .iter()
         .filter(|(key, _)| key.eq_ignore_ascii_case("connection"))
-        .filter_map(|(_, value)| header_value_from_json(value))
+        .flat_map(|(_, value)| header_values_from_json(value))
         .flat_map(|value| value.split(',').map(|token| token.trim().to_ascii_lowercase()).collect::<Vec<_>>())
         .filter(|token| !token.is_empty())
         .collect()
 }
 
+/// One field value per output line. UrlFetchApp reports a repeated header
+/// (such as Set-Cookie) as an array; each element stays its own line,
+/// because Set-Cookie must not be combined (RFC 9110 section 5.3) and other
+/// list fields mean the same either way.
+fn header_values_from_json(value: &Value) -> Vec<String> {
+    match value {
+        Value::Array(values) => values.iter().filter_map(header_value_from_json).collect(),
+        value => header_value_from_json(value).into_iter().collect(),
+    }
+}
+
 fn header_value_from_json(value: &Value) -> Option<String> {
     match value {
-        Value::Array(values) => Some(values.iter().filter_map(header_value_from_json).collect::<Vec<_>>().join(", ")),
         Value::String(value) => Some(value.clone()),
         Value::Bool(value) => Some(value.to_string()),
         Value::Number(value) => Some(value.to_string()),
-        Value::Null | Value::Object(_) => None,
+        Value::Null | Value::Object(_) | Value::Array(_) => None,
     }
 }
 
@@ -145,6 +155,25 @@ mod tests {
         let head = std::str::from_utf8(&response[..end]).expect("utf-8 head");
         let lines = head.split("\r\n").skip(1).map(str::to_owned).collect();
         (lines, response[end + 4..].to_vec())
+    }
+
+    #[test]
+    fn repeated_set_cookie_values_stay_separate_header_lines() {
+        // Expires contains a comma, so a comma-joined Set-Cookie cannot be
+        // split back (RFC 9110 section 5.3).
+        let headers =
+            r#"{"Set-Cookie":["session=abc; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/","csrf=xyz; Path=/"]}"#;
+
+        let (lines, _) = split(&parse(&envelope(headers, b"")).expect("parse envelope"));
+
+        assert_eq!(
+            lines,
+            vec![
+                "Set-Cookie: session=abc; Expires=Wed, 21 Oct 2026 07:28:00 GMT; Path=/".to_owned(),
+                "Set-Cookie: csrf=xyz; Path=/".to_owned(),
+                "Content-Length: 0".to_owned(),
+            ]
+        );
     }
 
     #[test]
