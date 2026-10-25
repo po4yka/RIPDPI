@@ -21,25 +21,10 @@ pub const VISION_ADDONS: &[u8] = &[
     b'x', b't', b'l', b's', b'-', b'r', b'p', b'r', b'x', b'-', b'v', b'i', b's', b'i', b'o', b'n',
 ];
 
-/// Hand-encoded protobuf for the VLESS addons message with
-/// `Flow = "xtls-rprx-vision-udp443"`.
-///
-/// Same wire shape as [`VISION_ADDONS`], with a 23-byte payload string.
-/// This variant signals to the server that the client wants UDP-443
-/// behavior on top of Vision; the wire encoding is otherwise identical.
-///
-/// **Selecting which variant to send** is a per-profile decision. This crate
-/// exposes all supported byte slices and [`crate::config::VlessRealityConfig`]
-/// carries the selected flow. The default remains `VISION_ADDONS` for
-/// compatibility; Android profile UX may expose only a subset.
-pub const VISION_UDP443_ADDONS: &[u8] = &[
-    0x0a, 0x17, // field 1, length 23
-    b'x', b't', b'l', b's', b'-', b'r', b'p', b'r', b'x', b'-', b'v', b'i', b's', b'i', b'o', b'n', b'-', b'u', b'd',
-    b'p', b'4', b'4', b'3',
-];
-
 /// VLESS flow selection. xray-core servers accept clients with either no
-/// flow (empty addons), `xtls-rprx-vision`, or `xtls-rprx-vision-udp443`.
+/// flow (empty addons) or `xtls-rprx-vision`. The `-udp443` spelling is a
+/// client-side policy only: Xray trims it to `xtls-rprx-vision` before it
+/// writes the request header, and servers reject the longer string.
 /// Hardcoding Vision in every connection breaks compatibility with
 /// servers that advertise `flow: ""` and is a packet-level fingerprint
 /// for DPI heuristics looking for unconditional Vision-addons traffic.
@@ -53,7 +38,8 @@ pub enum VlessFlow {
     /// `xtls-rprx-vision`. Default for back-compatibility.
     #[default]
     Vision,
-    /// `xtls-rprx-vision-udp443`.
+    /// `xtls-rprx-vision-udp443`. Same on-wire addons as [`Self::Vision`];
+    /// the suffix only lets the client carry UDP/443 through XUDP.
     VisionUdp443,
 }
 
@@ -63,8 +49,7 @@ impl VlessFlow {
     pub const fn as_addons_bytes(self) -> &'static [u8] {
         match self {
             Self::None => &[],
-            Self::Vision => VISION_ADDONS,
-            Self::VisionUdp443 => VISION_UDP443_ADDONS,
+            Self::Vision | Self::VisionUdp443 => VISION_ADDONS,
         }
     }
 
@@ -112,21 +97,12 @@ mod tests {
     }
 
     #[test]
-    fn vision_udp443_addons_encoding() {
-        assert_eq!(VISION_UDP443_ADDONS.len(), 25);
-        // Tag: field 1, wire type 2 (length-delimited)
-        assert_eq!(VISION_UDP443_ADDONS[0], 0x0a);
-        // Length
-        assert_eq!(VISION_UDP443_ADDONS[1], 23);
-        // Payload
-        assert_eq!(&VISION_UDP443_ADDONS[2..], b"xtls-rprx-vision-udp443");
-    }
-
-    #[test]
     fn flow_as_addons_bytes_maps_each_variant() {
         assert_eq!(VlessFlow::None.as_addons_bytes(), b"");
         assert_eq!(VlessFlow::Vision.as_addons_bytes(), VISION_ADDONS);
-        assert_eq!(VlessFlow::VisionUdp443.as_addons_bytes(), VISION_UDP443_ADDONS);
+        // Xray trims the -udp443 suffix before it writes the request header;
+        // servers reject the 23-byte spelling as an unknown flow.
+        assert_eq!(VlessFlow::VisionUdp443.as_addons_bytes(), b"\x0a\x10xtls-rprx-vision");
     }
 
     #[test]

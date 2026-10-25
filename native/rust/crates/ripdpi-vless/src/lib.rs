@@ -456,7 +456,8 @@ impl VlessRealityClient {
     {
         // Write VLESS request. The addons block is driven by the
         // profile's `flow` field so the engine can honor xray servers
-        // that advertise `flow: ""` or `xtls-rprx-vision-udp443`. See
+        // that advertise `flow: ""` or `xtls-rprx-vision` (the `-udp443`
+        // spelling is client-side only and is sent as plain Vision). See
         // [`crate::addons::VlessFlow`] and audit finding C3.
         let request = wire::encode_command_request(&config.uuid, config.flow.as_addons_bytes(), command, target)?;
         trace_io_stage("vless_request", tls.write_all(&request)).await?;

@@ -53,7 +53,7 @@ Vision UDP uses VLESS command `0x03` (`Mux`) without a VLESS destination. It doe
 
 XUDP addresses use port-before-address ordering for IPv4, domain, and IPv6. Metadata is limited to 512 bytes and payloads to 7,526 bytes (`8192 - 666`). Empty, oversized, malformed, and truncated datagrams fail explicitly. A single reader task owns the stream read half and publishes complete datagrams through a bounded 32-item channel, so cancelling `recv_from()` cannot desynchronize the carrier.
 
-`xtls-rprx-vision` rejects UDP port 443 locally. `xtls-rprx-vision-udp443` permits it at the client boundary, but deployment policy may still block QUIC independently.
+`xtls-rprx-vision` rejects UDP port 443 locally. `xtls-rprx-vision-udp443` permits it at the client boundary, but deployment policy may still block QUIC independently. As in Xray, the `-udp443` suffix is not sent: both flows put `xtls-rprx-vision` in the request addons.
 
 ## Known divergences from upstream
 
