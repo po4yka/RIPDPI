@@ -50,8 +50,15 @@ impl MieruClient {
             return Err(MieruError::UdpUnsupported);
         }
         let session_id = random_session_id()?;
-        let (writer, reader) =
-            open_session(transport, config.password.as_bytes(), config.username.as_bytes(), session_id, time).await?;
+        let (writer, reader) = open_session(
+            transport,
+            config.password.as_bytes(),
+            config.username.as_bytes(),
+            session_id,
+            time,
+            config.time_source(),
+        )
+        .await?;
         Ok(Self { writer, reader })
     }
 

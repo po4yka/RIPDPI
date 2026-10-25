@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use rand::RngExt;
-use ripdpi_network_time::NetworkTimeProvider;
+use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use ripdpi_shadowsocks::{
     Aead2022UdpPacketType, Aead2022UdpSession, Cipher, PresharedKey, SecretString, TcpStream as ShadowsocksTcpCodec,
@@ -208,7 +208,9 @@ impl ShadowsocksUdpSession {
         if let Some(timestamp) = server_timestamp
             && !self.calibrated
         {
-            NetworkTimeProvider::shared().calibrate(i64::try_from(timestamp).unwrap_or(i64::MAX));
+            // SIP022 stamps whole seconds, so a stamp is within 1 s of the server clock.
+            let source = TimeSource::new("shadowsocks", &self.config.server_host, self.config.server_port, 1);
+            NetworkTimeProvider::shared().calibrate(i64::try_from(timestamp).unwrap_or(i64::MAX), source);
             self.calibrated = true;
         }
         let (target, payload) = decode_address(&plain)?;

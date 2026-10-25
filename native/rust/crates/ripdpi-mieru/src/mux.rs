@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex as StdMutex, PoisonError};
 use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
-use ripdpi_network_time::NetworkTimeProvider;
+use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{Semaphore, mpsc, oneshot};
 use tokio::time::timeout;
@@ -353,7 +353,7 @@ impl MieruMuxConnection {
             Arc::clone(&table),
         );
         let limit = Arc::new(Semaphore::new(config.multiplexing.max_concurrent_streams()));
-        let reader_task = run_reader(dec, Box::new(read_half), Arc::clone(&table), time);
+        let reader_task = run_reader(dec, Box::new(read_half), Arc::clone(&table), time, config.time_source());
         // Carrier tasks do not retain the queue, so this shared owner has no cycle.
         let carrier = Arc::new(OwnedTasks::spawn(reader_task, writer_task));
         let writer = MuxWriteQueue {
@@ -530,6 +530,7 @@ async fn run_reader(
     mut reader: Box<dyn AsyncRead + Unpin + Send>,
     table: DemuxTable,
     time: Arc<NetworkTimeProvider>,
+    time_source: TimeSource,
 ) {
     let mut calibrated = false;
     loop {
@@ -538,7 +539,7 @@ async fn run_reader(
         // (AEAD-verified) timestamp; minute granularity makes per-segment
         // re-anchoring jitter backwards, so do it a single time.
         if !calibrated {
-            time.calibrate(timestamp_estimate_unix(&meta));
+            time.calibrate(timestamp_estimate_unix(&meta), time_source);
             calibrated = true;
         }
         let session_id = session_id_of(&meta);
@@ -866,6 +867,7 @@ mod tests {
             Box::new(reader_side),
             Arc::clone(&table),
             Arc::new(NetworkTimeProvider::fixed(NOW)),
+            ripdpi_network_time::TimeSource::new("mieru", "fixture", 1, 30),
         ));
         let mut enc = Encryptor::new(key, USERNAME.as_bytes().to_vec());
         let mut seqs = HashMap::new();

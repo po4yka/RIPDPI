@@ -46,15 +46,24 @@
 //!   session's own server timestamps calibrate the provider for subsequent
 //!   sessions.
 //! - **Calibration precision is bounded by the wire source.** Mieru stamps time
-//!   at *minute* granularity (±60 s); Shadowsocks SIP022 at *second* granularity.
-//!   The provider stores whatever precision it is fed; both are far inside the
-//!   protocols' tolerance windows.
+//!   at *minute* granularity (the midpoint estimate is within ±30 s); Shadowsocks
+//!   SIP022 at *second* granularity. Each [`TimeSource`] states that uncertainty,
+//!   and an in-window observation that agrees with the estimate within it does
+//!   not move the clock, so a coarse source cannot degrade a fine anchor.
+//! - **Network time can step backwards.** An in-window observation that is
+//!   behind the estimate by more than its source's uncertainty re-anchors the
+//!   clock backwards by that amount (at most [`MAX_PLAUSIBLE_DRIFT_SECS`], or a
+//!   voted correction). This keeps replay windows correct: SIP022 (±30 s), VMess
+//!   (±120 s) and Mieru (±1 min) check that a stamp is close to the server's
+//!   clock, not that stamps increase, so the step moves stamps toward the server.
 //! - **Sleep time counts.** On Linux and Android the monotonic reading is
 //!   `CLOCK_BOOTTIME`, which keeps running while the device is suspended
 //!   (`CLOCK_MONOTONIC`, behind [`Instant`], stops). Other hosts use [`Instant`].
-//! - **A wrong anchor recovers.** [`RECALIBRATION_VOTES`] consecutive rejected
-//!   observations that agree with each other re-anchor the clock, so an
-//!   estimate error past [`MAX_PLAUSIBLE_DRIFT_SECS`] cannot wedge it.
+//! - **A wrong anchor recovers.** Rejected observations from at least
+//!   [`RECALIBRATION_SOURCES`] distinct sources that agree with the first such
+//!   observation, within [`RECALIBRATION_WINDOW_SECS`], re-anchor the clock, so an
+//!   estimate error past [`MAX_PLAUSIBLE_DRIFT_SECS`] cannot wedge it. One server,
+//!   however often it repeats a wrong time, cannot move the shared clock.
 //! - **No SNTP.** A true external time source is intentionally not used — it
 //!   would be a remote dependency, which the project's offline/no-backend rule
 //!   forbids. The anchor comes only from servers the user already connects to.
@@ -111,14 +120,44 @@ impl Clock for SystemClock {
 /// how far a rogue/misconfigured server can move the shared clock.
 const MAX_PLAUSIBLE_DRIFT_SECS: u64 = 600;
 
-/// Consecutive rejected observations, each within [`RECALIBRATION_AGREEMENT_SECS`]
-/// of the previous one's offset, that re-anchor the clock. One rogue reply cannot
-/// move the shared clock; a consistent stream of server times can.
-const RECALIBRATION_VOTES: u8 = 3;
+/// Distinct sources whose rejected observations must agree before they re-anchor
+/// the clock. One rogue or misconfigured server cannot move it alone.
+const RECALIBRATION_SOURCES: usize = 2;
 
-/// How closely rejected observations must agree to count as one vote stream.
+/// How closely a rejected observation's offset must match the first vote's offset.
 /// Covers Mieru's minute-granularity stamps.
 const RECALIBRATION_AGREEMENT_SECS: u64 = 120;
+
+/// How long (monotonic seconds) a vote stays valid after the first vote.
+const RECALIBRATION_WINDOW_SECS: u128 = 600;
+
+/// Identifies where a calibration observation came from, and how precise it is.
+///
+/// The identity is an opaque hash of the transport kind and server endpoint, so the
+/// provider can tell servers apart without storing or logging their addresses.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct TimeSource {
+    id: u64,
+    uncertainty_secs: u64,
+}
+
+impl TimeSource {
+    /// A source for `kind` (for example `"mieru"`) at `host:port` whose stamps are
+    /// within `uncertainty_secs` of the server's clock.
+    #[must_use]
+    pub fn new(kind: &str, host: &str, port: u16, uncertainty_secs: u64) -> Self {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        (kind, host, port).hash(&mut hasher);
+        Self { id: hasher.finish(), uncertainty_secs }
+    }
+}
+
+impl std::fmt::Debug for TimeSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TimeSource").field("uncertainty_secs", &self.uncertainty_secs).finish_non_exhaustive()
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 struct Anchor {
@@ -136,12 +175,39 @@ impl Anchor {
     }
 }
 
+/// Rejected observations that agree with the first one, from distinct sources.
+#[derive(Debug)]
+struct Votes {
+    /// The first vote's offset from the estimate; later votes must match it.
+    offset: i64,
+    /// Monotonic reading of the first vote; votes expire after the window.
+    mono_nanos: u128,
+    sources: Vec<u64>,
+}
+
 #[derive(Debug, Default)]
 struct ClockState {
     anchor: Option<Anchor>,
-    /// Offset from the estimate of the last rejected observation and the number
-    /// of consecutive rejected observations that agreed with it.
-    rejected: Option<(i64, u8)>,
+    votes: Option<Votes>,
+}
+
+impl ClockState {
+    /// Records a rejected observation; returns whether enough sources now agree.
+    fn vote(&mut self, offset: i64, mono_nanos: u128, source: u64) -> bool {
+        let current = self.votes.take().filter(|votes| {
+            mono_nanos.saturating_sub(votes.mono_nanos) / 1_000_000_000 <= RECALIBRATION_WINDOW_SECS
+                && offset.saturating_sub(votes.offset).unsigned_abs() <= RECALIBRATION_AGREEMENT_SECS
+        });
+        let mut votes = current.unwrap_or(Votes { offset, mono_nanos, sources: Vec::new() });
+        if !votes.sources.contains(&source) {
+            votes.sources.push(source);
+        }
+        if votes.sources.len() >= RECALIBRATION_SOURCES {
+            return true;
+        }
+        self.votes = Some(votes);
+        false
+    }
 }
 
 /// A calibratable, monotonic-from-anchor network-time source. Cheap to share
@@ -206,21 +272,22 @@ impl NetworkTimeProvider {
         u64::try_from(self.now_unix()).unwrap_or(0)
     }
 
-    /// Calibrate the anchor to a server-observed `observed_network_unix`,
-    /// captured against the current monotonic reading. Returns whether the
-    /// observation was accepted.
+    /// Calibrate the anchor to a server-observed `observed_network_unix` from
+    /// `source`, captured against the current monotonic reading. Returns whether
+    /// the observation was accepted.
     ///
     /// The **first** observation is always accepted (bootstrap — it may correct a
     /// grossly-wrong device clock). Once anchored, an observation that disagrees
     /// with the established network time by more than [`MAX_PLAUSIBLE_DRIFT_SECS`]
     /// is **rejected**, so a single misconfigured or hostile (but key-holding)
     /// server cannot yank the process-wide clock — and thus the replay window of
-    /// *other* transports sharing this provider — to an arbitrary value. Real
-    /// drift over a session is far inside this window; in-window observations
-    /// re-anchor (refining toward the freshest server time). If the estimate
-    /// itself is wrong, [`RECALIBRATION_VOTES`] consecutive rejected observations
-    /// that agree with each other re-anchor it.
-    pub fn calibrate(&self, observed_network_unix: i64) -> bool {
+    /// *other* transports sharing this provider — to an arbitrary value. An
+    /// in-window observation that agrees with the estimate within the source's
+    /// uncertainty keeps the anchor; one outside it re-anchors (possibly
+    /// backwards, see the crate docs). If the estimate itself is wrong, rejected
+    /// observations from [`RECALIBRATION_SOURCES`] distinct sources that agree
+    /// with the first of them within [`RECALIBRATION_WINDOW_SECS`] re-anchor it.
+    pub fn calibrate(&self, observed_network_unix: i64, source: TimeSource) -> bool {
         let mono = self.clock.monotonic_nanos();
         let mut guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         // Compute the current estimate under the same lock (calling `now_unix`
@@ -228,22 +295,16 @@ impl NetworkTimeProvider {
         if let Some(anchor) = guard.anchor {
             let offset = observed_network_unix.saturating_sub(anchor.estimate(mono));
             if offset.unsigned_abs() > MAX_PLAUSIBLE_DRIFT_SECS {
-                let votes = match guard.rejected {
-                    Some((previous, votes))
-                        if offset.saturating_sub(previous).unsigned_abs() <= RECALIBRATION_AGREEMENT_SECS =>
-                    {
-                        votes.saturating_add(1)
-                    }
-                    _ => 1,
-                };
-                if votes < RECALIBRATION_VOTES {
-                    guard.rejected = Some((offset, votes));
+                if !guard.vote(offset, mono, source.id) {
                     return false;
                 }
+            } else if offset.unsigned_abs() <= source.uncertainty_secs {
+                guard.votes = None;
+                return true;
             }
         }
         guard.anchor = Some(Anchor { net_unix: observed_network_unix, mono_nanos: mono });
-        guard.rejected = None;
+        guard.votes = None;
         true
     }
 
@@ -279,6 +340,11 @@ mod tests {
     use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
     use super::*;
+
+    /// An exact source (second-precise stamps) named `name`.
+    fn source(name: &str) -> TimeSource {
+        TimeSource::new("test", name, 1, 0)
+    }
 
     /// A deterministic clock whose wall and monotonic values are set by the test.
     struct TestClock {
@@ -325,7 +391,7 @@ mod tests {
         let clock = std::sync::Arc::new(TestClock::new(1_000_000));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
         // Server says it is 1_700_000_000 right now.
-        provider.calibrate(1_700_000_000);
+        provider.calibrate(1_700_000_000, source("a"));
         assert!(provider.is_calibrated());
         assert_eq!(provider.now_unix(), 1_700_000_000);
 
@@ -343,14 +409,14 @@ mod tests {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
         // First observation always accepted (bootstrap — may correct a wrong clock).
-        assert!(provider.calibrate(1_000_000_000));
+        assert!(provider.calibrate(1_000_000_000, source("a")));
         assert_eq!(provider.now_unix(), 1_000_000_000);
         // A wild jump from a rogue/misconfigured server (> MAX_PLAUSIBLE_DRIFT) is
         // rejected and must not move the shared clock.
-        assert!(!provider.calibrate(1_000_000_000 + 3_600));
+        assert!(!provider.calibrate(1_000_000_000 + 3_600, source("a")));
         assert_eq!(provider.now_unix(), 1_000_000_000, "implausible calibration must not move the clock");
         // A small in-window correction re-anchors.
-        assert!(provider.calibrate(1_000_000_010));
+        assert!(provider.calibrate(1_000_000_010, source("a")));
         assert_eq!(provider.now_unix(), 1_000_000_010);
     }
 
@@ -358,11 +424,11 @@ mod tests {
     fn recalibration_reanchors_to_latest_observation() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        provider.calibrate(1_000);
+        provider.calibrate(1_000, source("a"));
         clock.advance_secs(10);
         assert_eq!(provider.now_unix(), 1_010);
         // A fresh, in-window observation re-anchors from the new monotonic point.
-        provider.calibrate(1_400);
+        provider.calibrate(1_400, source("a"));
         assert_eq!(provider.now_unix(), 1_400);
         clock.advance_secs(5);
         assert_eq!(provider.now_unix(), 1_405);
@@ -373,43 +439,70 @@ mod tests {
         // The device clock is an hour slow; the server corrects it.
         let clock = std::sync::Arc::new(TestClock::new(1_700_000_000));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        assert!(provider.calibrate(1_700_003_600));
+        assert!(provider.calibrate(1_700_003_600, source("a")));
         clock.advance_secs(10);
         // Automatic time then steps the device clock forward to the right value.
         clock.set_wall(1_700_003_610);
         assert_eq!(provider.now_unix(), 1_700_003_610, "a wall-clock step must not move network time");
-        assert!(provider.calibrate(1_700_003_611), "honest recalibration stays inside the drift window");
+        assert!(provider.calibrate(1_700_003_611, source("a")), "honest recalibration stays inside the drift window");
         assert_eq!(provider.now_unix(), 1_700_003_611);
     }
 
     #[test]
-    fn consistent_rejected_observations_reanchor_a_wrong_estimate() {
+    fn one_source_repeating_a_wrong_time_never_moves_the_clock() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        assert!(provider.calibrate(1_000_000));
-        // The estimate is now two hours behind the servers, which keep reporting the same time.
-        assert!(!provider.calibrate(1_007_200));
+        assert!(provider.calibrate(1_000_000, source("a")));
+        for _ in 0..10 {
+            clock.advance_secs(10);
+            assert!(!provider.calibrate(provider.now_unix() + 7_200, source("rogue")));
+        }
+        assert_eq!(provider.now_unix(), 1_000_100);
+    }
+
+    #[test]
+    fn two_sources_agreeing_reanchor_a_wrong_estimate() {
+        let clock = std::sync::Arc::new(TestClock::new(0));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        assert!(provider.calibrate(1_000_000, source("a")));
+        // The estimate is now two hours behind the servers.
+        assert!(!provider.calibrate(1_007_200, source("b")));
+        assert!(!provider.calibrate(1_007_200, source("b")), "a repeat from the same source is not a new vote");
         clock.advance_secs(30);
-        assert!(!provider.calibrate(1_007_230));
-        assert_eq!(provider.now_unix(), 1_000_030, "two votes must not move the clock");
-        clock.advance_secs(30);
-        assert!(provider.calibrate(1_007_290), "the third consistent observation re-anchors");
+        assert!(provider.calibrate(1_007_290, source("c")), "a second source agreeing re-anchors");
         assert_eq!(provider.now_unix(), 1_007_290);
     }
 
     #[test]
-    fn inconsistent_rejected_observations_do_not_reanchor() {
+    fn votes_must_agree_with_the_first_vote_and_expire() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        assert!(provider.calibrate(1_000_000));
-        for observed in [1_007_200, 1_003_600, 1_010_800, 1_007_200, 1_003_600] {
-            assert!(!provider.calibrate(observed));
-        }
-        // An accepted in-window observation also clears pending votes.
-        assert!(provider.calibrate(1_000_005));
-        assert!(!provider.calibrate(1_007_200));
-        assert!(!provider.calibrate(1_007_200));
-        assert_eq!(provider.now_unix(), 1_000_005);
+        assert!(provider.calibrate(1_000_000, source("a")));
+        // The third vote is within the agreement of the second but not of the first.
+        assert!(!provider.calibrate(1_007_200, source("b")));
+        assert!(!provider.calibrate(1_007_300, source("b")));
+        assert!(!provider.calibrate(1_007_400, source("c")));
+        assert_eq!(provider.now_unix(), 1_000_000, "drifting votes must not re-anchor");
+
+        // A vote older than the window no longer counts.
+        assert!(!provider.calibrate(1_007_200, source("d")));
+        clock.advance_secs(601);
+        assert!(!provider.calibrate(1_007_801, source("e")));
+        assert_eq!(provider.now_unix(), 1_000_601);
+    }
+
+    #[test]
+    fn coarse_source_within_its_uncertainty_does_not_move_the_clock() {
+        let clock = std::sync::Arc::new(TestClock::new(0));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        assert!(provider.calibrate(1_000_000, source("sip022")));
+        let mieru = TimeSource::new("mieru", "a", 1, 30);
+        // A minute-granular stamp 25 s behind is consistent: no backward step.
+        assert!(provider.calibrate(999_975, mieru));
+        assert_eq!(provider.now_unix(), 1_000_000);
+        // 45 s behind is outside its uncertainty: a real correction, stepping backwards.
+        assert!(provider.calibrate(999_955, mieru));
+        assert_eq!(provider.now_unix(), 999_955);
     }
 
     #[test]

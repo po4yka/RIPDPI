@@ -119,6 +119,12 @@ pub struct MieruConfig {
 }
 
 impl MieruConfig {
+    /// This server as a calibration source for the shared network clock. Mieru stamps
+    /// minutes and the reader estimates the midpoint, so stamps are within 30 s.
+    pub(crate) fn time_source(&self) -> ripdpi_network_time::TimeSource {
+        ripdpi_network_time::TimeSource::new("mieru", &self.server, self.port, 30)
+    }
+
     /// Validate this configuration without driving any network I/O.
     ///
     /// Checks the port range, the non-empty username / password invariants, and

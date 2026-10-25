@@ -6,7 +6,7 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::Arc;
 
-use ripdpi_network_time::NetworkTimeProvider;
+use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::cipher::KEY_LEN;
@@ -121,12 +121,18 @@ pub(crate) struct DataReader {
     /// server segment so future sessions derive keys from network time even if
     /// the device clock is wrong.
     time: Arc<NetworkTimeProvider>,
+    time_source: TimeSource,
     calibrated: bool,
 }
 
 impl DataReader {
-    fn new(dec: Decryptor, reader: Box<dyn AsyncRead + Unpin + Send>, time: Arc<NetworkTimeProvider>) -> Self {
-        Self { dec, reader, buffer: Vec::new(), pos: 0, time, calibrated: false }
+    fn new(
+        dec: Decryptor,
+        reader: Box<dyn AsyncRead + Unpin + Send>,
+        time: Arc<NetworkTimeProvider>,
+        time_source: TimeSource,
+    ) -> Self {
+        Self { dec, reader, buffer: Vec::new(), pos: 0, time, time_source, calibrated: false }
     }
 
     /// Pull the next decrypted data fragment into the buffer, skipping any
@@ -144,7 +150,7 @@ impl DataReader {
             // make network time jitter backwards. The segment is already AEAD-
             // verified at this point, so the timestamp is trusted.
             if !self.calibrated {
-                self.time.calibrate(timestamp_estimate_unix(&meta));
+                self.time.calibrate(timestamp_estimate_unix(&meta), self.time_source);
                 self.calibrated = true;
             }
             let protocol = ProtocolType::from_u8(meta[0])?;
@@ -206,6 +212,7 @@ pub(crate) async fn open_session<T>(
     username: &[u8],
     session_id: u32,
     time: Arc<NetworkTimeProvider>,
+    time_source: TimeSource,
 ) -> Result<(DataWriter, DataReader)>
 where
     T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -215,7 +222,7 @@ where
     let enc = Encryptor::new(key, username.to_vec());
     let dec = Decryptor::new(key);
     let mut writer = DataWriter::new(enc, Box::new(write_half), session_id, Arc::clone(&time), 0);
-    let reader = DataReader::new(dec, Box::new(read_half), time);
+    let reader = DataReader::new(dec, Box::new(read_half), time, time_source);
     writer.send_open().await?;
     Ok((writer, reader))
 }
