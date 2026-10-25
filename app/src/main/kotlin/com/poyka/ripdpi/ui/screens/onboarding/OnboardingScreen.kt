@@ -62,6 +62,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.RipDpiIntroScaffoldMetrics
@@ -391,14 +392,12 @@ private fun OnboardingTopBar(
                 minHeight = introLayout.topActionRowHeight,
             )
         } else {
-            RipDpiTextAction(
-                text = stringResource(R.string.navigation_back),
+            RipDpiIconButton(
+                icon = RipDpiIcons.Back,
+                contentDescription = stringResource(R.string.navigation_back),
                 onClick = onBack,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingBack),
-                textStyle = type.introAction,
-                color = colors.mutedForeground,
                 enabled = backEnabled,
-                minHeight = introLayout.topActionRowHeight,
             )
         }
     }

@@ -107,7 +107,7 @@ class OnboardingScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Navigate back").performClick()
+        composeRule.onNodeWithContentDescription("Navigate back").performClick()
 
         assertEquals(0, selectedPage)
     }
