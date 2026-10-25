@@ -549,21 +549,15 @@ private fun OnboardingInfoPageScene(
     modifier: Modifier = Modifier,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = introLayout.bodyHorizontalPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
-    ) {
+    val header = @Composable { headerModifier: Modifier ->
         OnboardingPageHeader(
             icon = pageModel.icon,
             titleRes = pageModel.titleRes,
             subtitleRes = pageModel.descriptionRes,
+            modifier = headerModifier,
         )
+    }
+    val grid = @Composable { gridModifier: Modifier ->
         OnboardingGuaranteeGrid(
             privacyLabels =
                 listOf(
@@ -577,7 +571,37 @@ private fun OnboardingInfoPageScene(
                     R.string.onboarding_chip_local_proxy,
                     R.string.onboarding_chip_local_config,
                 ),
+            modifier = gridModifier,
         )
+    }
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val scrollModifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = introLayout.bodyHorizontalPadding)
+        if (maxWidth > maxHeight) {
+            // Landscape leaves too little height to stack the header over the lists, so the
+            // lists fell below the fold. Two panes keep both in view.
+            Row(
+                modifier = scrollModifier,
+                horizontalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                header(Modifier.weight(1f))
+                grid(Modifier.weight(1f))
+            }
+        } else {
+            Column(
+                modifier = scrollModifier,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
+            ) {
+                header(Modifier)
+                grid(Modifier)
+            }
+        }
     }
 }
 
@@ -619,13 +643,12 @@ private fun OnboardingGuaranteeGrid(
     } else {
         // Size each column to its own content (at most half the grid, so long labels wrap) and
         // center the pair. Equal-width columns left the narrower one with a wider right margin.
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        BoxWithConstraints(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             val columnModifier =
                 Modifier
                     .widthIn(max = (minOf(maxWidth, introLayout.guaranteeGridMaxWidth) - spacing.md) / 2)
                     .width(IntrinsicSize.Max)
             Row(
-                modifier = modifier,
                 horizontalArrangement = Arrangement.spacedBy(spacing.md),
             ) {
                 OnboardingGuaranteeColumn(
