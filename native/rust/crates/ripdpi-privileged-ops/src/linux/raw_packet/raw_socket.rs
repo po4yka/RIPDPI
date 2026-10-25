@@ -4,7 +4,7 @@
 //! sending caller-built packet bytes.
 
 use std::io;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, SocketAddrV6};
 use std::os::fd::AsRawFd;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -51,7 +51,7 @@ where
             socket
         }
     };
-    let sockaddr = SockAddr::from(target);
+    let sockaddr = raw_send_target(target);
     for packet in packets {
         socket.send_to(packet, &sockaddr)?;
     }
@@ -71,7 +71,7 @@ where
         return send_raw_packets(target, packets, protect_path);
     }
     let socket = open_raw_socket(target, protect_path)?;
-    let sockaddr = SockAddr::from(target);
+    let sockaddr = raw_send_target(target);
     let delay = std::time::Duration::from_millis(u64::from(inter_segment_delay_ms));
     let mut first = true;
     for packet in packets {
@@ -82,6 +82,19 @@ where
         first = false;
     }
     Ok(())
+}
+
+/// The address for a raw `sendto`. An AF_INET6 raw socket reads `sin6_port`
+/// as the protocol number and fails with EINVAL above 255, so the transport
+/// port is dropped; the crafted header already carries it.
+pub(crate) fn raw_send_target(target: SocketAddr) -> SockAddr {
+    match target {
+        SocketAddr::V4(_) => SockAddr::from(target),
+        SocketAddr::V6(addr) => {
+            let raw_target = SocketAddr::V6(SocketAddrV6::new(*addr.ip(), 0, addr.flowinfo(), addr.scope_id()));
+            SockAddr::from(raw_target)
+        }
+    }
 }
 
 fn open_raw_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result<Socket> {

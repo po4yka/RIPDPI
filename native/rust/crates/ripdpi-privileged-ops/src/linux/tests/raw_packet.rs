@@ -353,3 +353,34 @@ fn send_ordered_tcp_segments_rejects_genuine_segments_that_leave_a_gap() {
     .expect_err("the kernel cannot queue bytes the segments do not carry");
     assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
 }
+
+#[test]
+fn raw_ipv6_sends_accept_a_target_with_a_transport_port() {
+    let source = SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, 40_000));
+    let target = SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, 443));
+    let packet = raw_packet::build_tcp_segment_packet(
+        source,
+        target,
+        64,
+        0,
+        1,
+        1,
+        1024,
+        None,
+        true,
+        b"raw-ipv6",
+        false,
+        TcpFlagOverrides::default(),
+    )
+    .expect("build IPv6 TCP segment");
+
+    let result = raw_packet::send_raw_fragments(target, [&packet, &packet], None);
+    // Without CAP_NET_RAW (or with IPv6 loopback off) the raw socket cannot open.
+    if matches!(&result, Err(error) if matches!(error.kind(), io::ErrorKind::PermissionDenied | io::ErrorKind::AddrNotAvailable))
+    {
+        return;
+    }
+    result.expect("raw IPv6 send to port 443");
+    raw_packet::send_raw_packets_with_delay(target, [packet.as_slice(), packet.as_slice()], None, 1)
+        .expect("delayed raw IPv6 send to port 443");
+}
