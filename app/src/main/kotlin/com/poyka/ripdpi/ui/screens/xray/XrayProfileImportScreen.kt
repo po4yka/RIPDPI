@@ -7,14 +7,21 @@
 package com.poyka.ripdpi.ui.screens.xray
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -26,13 +33,13 @@ import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
@@ -182,14 +189,52 @@ private fun XrayServiceModeCard(
             title = stringResource(R.string.xray_service_mode_section_title),
             supporting = stringResource(R.string.xray_service_mode_section_body),
         )
-        XrayServiceModeOption.all.forEach { option ->
-            SettingsRow(
-                title = stringResource(stringIdFor(option.titleKey)),
-                subtitle = stringResource(stringIdFor(option.descriptionKey)),
-                checked = selectedOption == option,
-                enabled = enabled,
-                onCheckedChange = { selected -> if (selected) onSelectOption(option) },
-                testTag = "xray_mode_${option.name}",
+        Column(modifier = Modifier.selectableGroup()) {
+            XrayServiceModeOption.all.forEach { option ->
+                XrayServiceModeRow(
+                    option = option,
+                    selected = selectedOption == option,
+                    enabled = enabled,
+                    onSelect = { onSelectOption(option) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun XrayServiceModeRow(
+    option: XrayServiceModeOption,
+    selected: Boolean,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .ripDpiTestTag("xray_mode_${option.name}")
+                .ripDpiSelectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)
+                .padding(vertical = spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null, enabled = enabled)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Text(
+                text = stringResource(stringIdFor(option.titleKey)),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(stringIdFor(option.descriptionKey)),
+                style = RipDpiThemeTokens.type.body,
+                color = colors.mutedForeground,
             )
         }
     }
