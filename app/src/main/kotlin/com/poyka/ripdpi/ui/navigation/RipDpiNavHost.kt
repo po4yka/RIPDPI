@@ -144,7 +144,7 @@ fun RipDpiNavHost(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
     val currentStableRoute = currentDestination?.stableRouteKey()
-    val selectedTopLevel = currentDestination?.topLevelRoute()
+    val selectedTopLevel = navController.selectedTopLevelRoute(currentDestination)
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
     val permissionSummary by mainViewModel.permissionSummary.collectAsStateWithLifecycle(
@@ -227,6 +227,14 @@ fun RipDpiNavHost(
             onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
         )
     }
+}
+
+/** No tab is selected, so no bottom bar or rail shows, while onboarding is on the back stack. */
+@Composable
+private fun NavHostController.selectedTopLevelRoute(currentDestination: NavDestination?): Route? {
+    val backStack by currentBackStack.collectAsStateWithLifecycle()
+    val onboardingActive = backStack.any { it.destination.hasRoute<Route.Onboarding>() }
+    return if (onboardingActive) null else currentDestination?.topLevelRoute()
 }
 
 private fun NavDestination.topLevelRoute(): Route? =
