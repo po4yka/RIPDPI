@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 data class DetectionRunnerConfig(
     val ownProxyPort: Int? = null,
     val ownPackageName: String? = null,
+    val includeGeoIpCheck: Boolean = true,
     val includeBypassCheck: Boolean = true,
     val includeLocationCheck: Boolean = true,
     val includeDnsLeakCheck: Boolean = true,

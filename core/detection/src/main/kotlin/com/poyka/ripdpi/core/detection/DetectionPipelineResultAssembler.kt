@@ -85,6 +85,13 @@ private val DEFAULT_ASN_RESOLVER =
     }
 
 internal object DetectionDisabledResults {
+    fun geoIp(): CategoryResult =
+        CategoryResult(
+            name = "GeoIP",
+            detected = false,
+            findings = listOf(Finding("GeoIP check disabled")),
+        )
+
     fun locationSignals(): CategoryResult =
         CategoryResult(
             name = "Location signals",

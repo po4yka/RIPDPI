@@ -106,9 +106,13 @@ class DetectionCheckScheduler
             try {
                 val network = networkFingerprintProvider.capture()
                 val networkKey = network?.scopeKey() ?: "unknown"
+                // Local checks only: an automatic check must not send the public IP to third-party
+                // GeoIP or IP-echo services. The user runs those lookups from the Detection screen.
                 val config =
                     DetectionRunnerConfig(
                         ownPackageName = context.packageName,
+                        includeGeoIpCheck = false,
+                        includeIpComparisonCheck = false,
                         includeBypassCheck = false,
                         includeLocationCheck = false,
                         includeDnsLeakCheck = false,

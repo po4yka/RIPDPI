@@ -107,6 +107,7 @@ class DetectionCheckRunnerTest {
                     context = RuntimeEnvironment.getApplication(),
                     config =
                         DetectionRunnerConfig(
+                            includeGeoIpCheck = false,
                             includeBypassCheck = false,
                             includeLocationCheck = false,
                             includeDnsLeakCheck = false,
@@ -121,6 +122,13 @@ class DetectionCheckRunnerTest {
                         ),
                 )
 
+            assertEquals(
+                "GeoIP check disabled",
+                result.geoIp.findings
+                    .single()
+                    .description,
+            )
+            assertNull(ports.geo.resolverConfig)
             assertEquals("Location signals", result.locationSignals.name)
             assertEquals(
                 "Location check disabled",

@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -110,6 +111,44 @@ class DetectionCheckSchedulerTest {
             assertEquals(launcher, opened.component)
             assertEquals(Intent.ACTION_VIEW, opened.action)
             assertEquals(Uri.parse("ripdpi://detection-check"), opened.data)
+        }
+
+    @Test
+    fun `automatic check on VPN start makes no third-party IP lookups`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val state = DefaultServiceStateStore()
+            val fingerprint =
+                object : NetworkFingerprintProvider {
+                    override fun capture(): NetworkFingerprint = network("wifi")
+                }
+            val configs = mutableListOf<DetectionRunnerConfig>()
+            val runner =
+                object : DetectionCheckRunner {
+                    override suspend fun run(
+                        context: Context,
+                        config: DetectionRunnerConfig,
+                        onProgress: (suspend (DetectionProgress) -> Unit)?,
+                    ): DetectionCheckResult {
+                        configs += config
+                        return cleanResult()
+                    }
+                }
+            val scheduler =
+                DetectionCheckScheduler(context, state, fingerprint, runner, recordingHistory(mutableListOf()))
+
+            scheduler.startObserving(context, this)
+            state.setStatus(AppStatus.Running, Mode.VPN)
+            advanceUntilIdle()
+
+            val config = configs.single()
+            assertFalse(config.includeGeoIpCheck)
+            assertFalse(config.includeIpComparisonCheck)
+            assertFalse(config.includeCdnPullingCheck)
+            assertFalse(config.includeRttTriangulationCheck)
+            assertFalse(config.includeCallTransportCheck)
+            assertFalse(config.includeBypassCheck)
+            scheduler.stopObserving()
         }
 
     private fun network(transport: String) = NetworkFingerprint(transport, true, false, "system", emptyList())

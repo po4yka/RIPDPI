@@ -38,11 +38,15 @@ internal class DetectionPipelineScheduler(
             val excludePorts = setOfNotNull(config.ownProxyPort)
 
             val geoIpDeferred =
-                async {
-                    reporter.started(DetectionStage.GEO_IP)
-                    geoIpChecker.check(config.resolverConfig).also {
-                        reporter.completed(DetectionStage.GEO_IP)
+                if (config.includeGeoIpCheck) {
+                    async {
+                        reporter.started(DetectionStage.GEO_IP)
+                        geoIpChecker.check(config.resolverConfig).also {
+                            reporter.completed(DetectionStage.GEO_IP)
+                        }
                     }
+                } else {
+                    null
                 }
             val directSignsDeferred =
                 async {
@@ -152,7 +156,7 @@ internal class DetectionPipelineScheduler(
                     null
                 }
 
-            val geoIp = geoIpDeferred.await()
+            val geoIp = geoIpDeferred?.await() ?: DetectionDisabledResults.geoIp()
             val directSigns = directSignsDeferred.await()
             val indirectSigns = indirectSignsDeferred.await()
             val locationSignals = locationSignalsDeferred?.await()
