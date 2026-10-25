@@ -26,17 +26,13 @@ internal class HistoryConnectionDetailUiFactory
         private val measurementSupport = DiagnosticsUiFactorySupport(stringResolver, coreSupport)
 
         fun toConnectionRowUiModel(session: DiagnosticConnectionSession): HistoryConnectionRowUiModel {
-            val durationMs =
-                (session.finishedAt ?: session.updatedAt).coerceAtLeast(session.startedAt) - session.startedAt
             val networkLabel = stringResolver.networkTypeLabel(session.networkType)
-            val summary =
-                session.failureMessage
-                    ?: stringResolver.endedReasonLabel(session.endedReason)
-                    ?: stringResolver.getString(
-                        R.string.history_connection_summary_format,
-                        session.serviceMode,
-                        networkLabel,
-                    )
+            // A running session has no end yet; updatedAt is only the last telemetry write, so a
+            // duration from it reads as a finished "0s".
+            val duration =
+                session.finishedAt?.let { finishedAt ->
+                    formatDurationMs(finishedAt.coerceAtLeast(session.startedAt) - session.startedAt)
+                } ?: stringResolver.getString(R.string.history_connection_duration_running)
             return HistoryConnectionRowUiModel(
                 id = session.id,
                 title =
@@ -55,7 +51,8 @@ internal class HistoryConnectionDetailUiFactory
                 connectionState = session.connectionState,
                 networkType = session.networkType,
                 startedAtLabel = coreSupport.formatTimestamp(session.startedAt),
-                summary = summary,
+                // Mode and network already appear in the title and subtitle.
+                summary = session.failureMessage ?: stringResolver.endedReasonLabel(session.endedReason),
                 rememberedPolicyBadge =
                     session.rememberedPolicyAudit?.let {
                         stringResolver.getString(R.string.history_connection_remembered_policy_badge)
@@ -64,7 +61,7 @@ internal class HistoryConnectionDetailUiFactory
                     persistentListOf(
                         DiagnosticsMetricUiModel(
                             stringResolver.getString(R.string.diagnostics_metric_duration),
-                            formatDurationMs(durationMs),
+                            duration,
                         ),
                         DiagnosticsMetricUiModel(
                             stringResolver.getString(R.string.diagnostics_metric_tx),

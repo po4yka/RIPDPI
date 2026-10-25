@@ -2,4 +2,5 @@
 <resources>
     <string name="diagnostics_guided_tool_matrix_summary">Compara qué sitios nacionales y extranjeros abren en esta red.</string>
     <string name="diagnostics_guided_tool_throttling_summary">Compara la velocidad de descarga de YouTube con servidores neutrales para detectar ralentizaciones.</string>
+    <string name="history_connection_duration_running">En curso</string>
 </resources>

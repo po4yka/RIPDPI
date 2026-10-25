@@ -1,6 +1,5 @@
 <resources>
     <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
-    <string name="history_connection_summary_format">%1$s（%2$s）</string>
     <string name="history_connection_title_format">%1$s %2$s</string>
     <string name="history_connection_subtitle_format">%1$s · %2$s</string>
     <string name="diagnostics_metric_duration">持续时间</string>

@@ -272,7 +272,27 @@ class HistoryConnectionDetailUiFactoryTest {
 
         assertEquals("Stopped when the app process ended", row.summary)
         assertTrue(row.subtitle.startsWith("Wi-Fi · "))
-        assertEquals("VPN on Wi-Fi", plainStop.summary)
+        // A plain stop has nothing to add to the title and subtitle.
+        assertEquals(null, plainStop.summary)
+        // An unrecognized code keeps its exact text.
+        assertEquals("legacy_code", factory.toConnectionRowUiModel(session.copy(endedReason = "legacy_code")).summary)
+    }
+
+    @Test
+    fun `running connection row shows duration in progress and no repeated summary`() {
+        val row =
+            factory.toConnectionRowUiModel(
+                historyConnectionSession(
+                    state = "Running",
+                    startedAt = 0L,
+                    finishedAt = null,
+                    updatedAt = 0L,
+                    endedReason = null,
+                ),
+            )
+
+        assertEquals(null, row.summary)
+        assertEquals("In progress", row.metrics.single { it.label == "Duration" }.value)
     }
 
     @Test

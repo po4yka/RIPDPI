@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.health
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,6 +20,7 @@ import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.indicators.RipDpiCompactMetrics
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -30,10 +29,9 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 import java.text.NumberFormat
 
-private const val AccessibilityMetricFontScale = 1.5f
-private const val AccessibilityMetricColumns = 2
 private const val MillisPerMinute = 60_000L
 private const val LossFractionDigits = 9
 
@@ -188,71 +186,13 @@ private fun ConnectionHealthRow(row: ConnectionHealthRowUiState) {
             )
         }
         RipDpiProgressBar(progress = (rate ?: 0) / 100f)
-        ConnectionHealthMetrics(
+        RipDpiCompactMetrics(
             metrics =
-                listOf(
+                persistentListOf(
                     stringResource(R.string.connection_health_successes) to row.successCount.toString(),
                     stringResource(R.string.connection_health_failures) to row.failureCount.toString(),
                     stringResource(R.string.connection_health_samples) to row.totalCount.toString(),
                 ),
-        )
-    }
-}
-
-@Composable
-private fun ConnectionHealthMetrics(
-    metrics: List<Pair<String, String>>,
-    modifier: Modifier = Modifier,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-    if (LocalDensity.current.fontScale >= AccessibilityMetricFontScale) {
-        FlowRow(
-            modifier = modifier.fillMaxWidth(),
-            maxItemsInEachRow = AccessibilityMetricColumns,
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            metrics.forEach { (label, value) ->
-                ConnectionHealthMetric(
-                    label = label,
-                    value = value,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    } else {
-        Row(
-            modifier = modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        ) {
-            metrics.forEach { (label, value) ->
-                ConnectionHealthMetric(
-                    label = label,
-                    value = value,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ConnectionHealthMetric(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-) {
-    val locale = LocalLocale.current.platformLocale
-    Column(modifier = modifier.padding(top = RipDpiThemeTokens.spacing.xs)) {
-        Text(
-            text = value,
-            style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        Text(
-            text = label.uppercase(locale),
-            style = RipDpiThemeTokens.type.caption,
-            color = RipDpiThemeTokens.colors.mutedForeground,
         )
     }
 }
@@ -380,9 +320,9 @@ private fun DnsCountersCard(
                 color = colors.mutedForeground,
             )
         }
-        ConnectionHealthMetrics(
+        RipDpiCompactMetrics(
             metrics =
-                listOf(
+                persistentListOf(
                     stringResource(R.string.connection_health_dns_queries) to counters.queriesTotal.toString(),
                     stringResource(R.string.connection_health_dns_cache_hits) to counters.cacheHits.toString(),
                     stringResource(R.string.connection_health_dns_cache_misses) to counters.cacheMisses.toString(),

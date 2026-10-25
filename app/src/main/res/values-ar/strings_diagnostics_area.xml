@@ -2,4 +2,5 @@
 <resources>
     <string name="diagnostics_guided_tool_matrix_summary">يقارن بين المواقع المحلية والأجنبية التي تفتح على هذه الشبكة.</string>
     <string name="diagnostics_guided_tool_throttling_summary">يقارن سرعة التنزيل من YouTube بخوادم محايدة لاكتشاف إبطاء الاتصال.</string>
+    <string name="history_connection_duration_running">جارٍ</string>
 </resources>

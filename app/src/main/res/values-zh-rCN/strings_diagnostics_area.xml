@@ -2,4 +2,5 @@
 <resources>
     <string name="diagnostics_guided_tool_matrix_summary">比较在此网络上可以打开哪些国内和国外网站。</string>
     <string name="diagnostics_guided_tool_throttling_summary">将 YouTube 的下载速度与中立服务器对比，以发现限速。</string>
+    <string name="history_connection_duration_running">进行中</string>
 </resources>

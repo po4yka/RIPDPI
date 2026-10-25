@@ -16,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
+import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.displayTriggerClassification
@@ -23,12 +24,15 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.indicators.RipDpiCompactMetrics
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
 import com.poyka.ripdpi.ui.theme.screens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 internal fun ConnectionSessionCard(
@@ -70,12 +74,14 @@ internal fun ConnectionSessionCard(
             style = RipDpiThemeTokens.type.secondaryBody,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
-        Text(
-            text = session.summary,
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        MetricList(session.metrics)
+        session.summary?.let { summary ->
+            Text(
+                text = summary,
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.foreground,
+            )
+        }
+        SessionMetrics(session.metrics)
     }
 }
 
@@ -140,8 +146,14 @@ internal fun DiagnosticsSessionCard(
             style = RipDpiThemeTokens.type.body,
             color = RipDpiThemeTokens.colors.foreground,
         )
-        MetricList(session.metrics)
+        SessionMetrics(session.metrics)
     }
+}
+
+// Session cards are list rows; one compact line of stats keeps each card short.
+@Composable
+private fun SessionMetrics(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
+    RipDpiCompactMetrics(metrics = metrics.map { it.label to it.value }.toImmutableList())
 }
 
 @Composable

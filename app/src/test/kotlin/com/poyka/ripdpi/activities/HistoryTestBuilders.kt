@@ -59,6 +59,7 @@ internal fun historyConnectionSession(
     updatedAt: Long = finishedAt ?: startedAt,
     failureMessage: String? = null,
     rememberedPolicyAudit: RememberedPolicyApplicationAudit? = null,
+    endedReason: String? = "Completed",
 ): DiagnosticConnectionSession =
     DiagnosticConnectionSession(
         id = id,
@@ -88,7 +89,7 @@ internal fun historyConnectionSession(
         totalErrors = 1L,
         routeChanges = 2L,
         restartCount = 0,
-        endedReason = "Completed",
+        endedReason = endedReason,
         failureMessage = failureMessage,
         rememberedPolicyAudit = rememberedPolicyAudit,
     )

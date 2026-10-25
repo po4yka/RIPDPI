@@ -2945,6 +2945,7 @@ app:haptic_feedback_off
 app:haptic_feedback_system
 app:haptic_feedback_title
 app:history_clear_filters_action
+app:history_connection_duration_running
 app:history_connection_remembered_policy_badge
 app:history_connection_remembered_policy_exact_match
 app:history_connection_remembered_policy_fingerprint
@@ -2961,7 +2962,6 @@ app:history_connection_state_reconnecting
 app:history_connection_state_running
 app:history_connection_state_stopped
 app:history_connection_subtitle_format
-app:history_connection_summary_format
 app:history_connection_title_format
 app:history_connections_empty_body
 app:history_connections_empty_title
