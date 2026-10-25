@@ -11,6 +11,7 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.service.telemetry.measurementSource
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 internal enum class MainPrimaryConnectionAction {
@@ -330,7 +331,9 @@ internal fun buildConnectionActuatorUiState(
     return HomeConnectionActuatorUiState(
         status = status,
         trailingLabel = actuatorTrailingLabel(egressBacked, stringResolver),
-        routeLabel = approachSummary?.title ?: routeLabelForMode(mode, settings, stringResolver),
+        routeLabel = routeLabelForMode(mode, settings, stringResolver),
+        strategyLabel = approachSummary?.title.orEmpty(),
+        strategyFacets = approachSummary?.facets ?: persistentListOf(),
         statusDescription =
             actuatorStatusDescription(
                 status = status,

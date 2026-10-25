@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.poyka.ripdpi.R
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /**
@@ -88,6 +89,9 @@ data class HomeConnectionActuatorUiState(
      * rather than by a banner beside it. Empty in every state but a fault.
      */
     val faultDetail: String = "",
+    /** The active bypass strategy (its step chain or profile name); blank hides the strategy panel. */
+    val strategyLabel: String = "",
+    val strategyFacets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
     val stages: ImmutableList<HomeConnectionActuatorStageUiState> = DefaultHomeConnectionActuatorStages,
     val activationEnabled: Boolean? = null,
     val deactivationEnabled: Boolean? = null,

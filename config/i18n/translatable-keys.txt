@@ -3030,6 +3030,7 @@ app:home_connection_stage_state_failed
 app:home_connection_stage_state_pending
 app:home_connection_stage_state_warning
 app:home_connection_stage_tunnel
+app:home_connection_strategy_explainer
 app:home_control_plane_health_action
 app:home_control_plane_health_body
 app:home_control_plane_health_title

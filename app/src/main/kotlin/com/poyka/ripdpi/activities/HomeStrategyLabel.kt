@@ -4,37 +4,54 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.platform.StringResolver
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
-internal fun BypassStrategySignature.localizedHomeStrategyLabel(strings: StringResolver): String =
+/**
+ * One labeled row per strategy setting. Protocol, lane and provider names
+ * (TCP, QUIC, DNS, HTTP) are technical tokens and stay untranslated.
+ */
+internal fun BypassStrategySignature.localizedHomeStrategyFacets(
+    strings: StringResolver,
+): ImmutableList<HomeModeSummaryFacet> =
     buildList {
-        add("$mode $chainSummary")
-        add(protocolToggles.joinToString("/"))
-        add(
-            if (hostAutolearn == "command_line") {
-                strings.getString(R.string.host_autolearn_cli_status_title)
-            } else {
-                val state =
-                    when (hostAutolearn) {
-                        "enabled" -> R.string.config_local_bypass_enabled
-                        else -> R.string.config_local_bypass_disabled
-                    }
-                "${strings.getString(R.string.host_autolearn_section_title)} ${strings.getString(state)}"
-            },
-        )
-        val lanes =
-            listOfNotNull(
-                tcpStrategyFamily?.let { "TCP ${strategyLaneFamilyLabel(it)}" },
-                quicStrategyFamily?.let {
-                    val label =
-                        when (it) {
-                            "quic_disabled" -> strings.getString(R.string.adaptive_fallback_badge_disabled)
-                            else -> strategyLaneFamilyLabel(it)
-                        }
-                    "QUIC $label"
-                },
-                dnsStrategyLabel?.let { "DNS $it" },
+        fun facet(
+            label: String,
+            value: String,
+        ) = add(HomeModeSummaryFacet(label, value))
+        if (protocolToggles.isNotEmpty()) {
+            facet(
+                strings.getString(R.string.adaptive_split_summary_label_protocols),
+                protocolToggles.joinToString(", "),
             )
-        if (lanes.isNotEmpty()) add(lanes.joinToString(" / "))
-        if (tlsRecordSplitEnabled) add(strings.getString(R.string.blockcheck_bypass_tls_record_split))
-        routeGroup?.let { add("${strings.getString(R.string.home_stat_route)} $it") }
-    }.joinToString(" · ")
+        }
+        facet(
+            strings.getString(R.string.host_autolearn_section_title),
+            strings.getString(
+                when (hostAutolearn) {
+                    "command_line" -> R.string.host_autolearn_cli_status_title
+                    "enabled" -> R.string.config_local_bypass_enabled
+                    else -> R.string.config_local_bypass_disabled
+                },
+            ),
+        )
+        tcpStrategyFamily?.let { facet("TCP", strategyLaneFamilyLabel(it)) }
+        quicStrategyFamily?.let {
+            facet(
+                "QUIC",
+                when (it) {
+                    "quic_disabled" -> strings.getString(R.string.adaptive_fallback_badge_disabled)
+                    else -> strategyLaneFamilyLabel(it)
+                },
+            )
+        }
+        dnsStrategyLabel?.let { facet("DNS", it) }
+        if (tlsRecordSplitEnabled) {
+            facet(
+                // Several locales word this as a mid-sentence phrase; as a row label it starts capitalized.
+                strings.getString(R.string.blockcheck_bypass_tls_record_split).replaceFirstChar { it.titlecase() },
+                strings.getString(R.string.config_local_bypass_enabled),
+            )
+        }
+        routeGroup?.let { facet(strings.getString(R.string.home_stat_route), it) }
+    }.toImmutableList()

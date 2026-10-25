@@ -23,6 +23,7 @@ import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.ui.diagnostics.uiEvidenceNote
 import com.poyka.ripdpi.ui.diagnostics.verificationLabelRes
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -185,12 +186,13 @@ internal class MainConnectionActions(
                 }
         val summary = strategySummary ?: profileSummary ?: return null
         return HomeApproachSummaryUiState(
-            title =
-                if (strategySummary != null) {
-                    strategySignature.localizedHomeStrategyLabel(stringResolver)
-                } else {
-                    summary.displayName
-                },
+            // The mode is already the actuator's route label, so the title is only the step chain.
+            title = if (strategySummary != null) strategySignature.chainSummary else summary.displayName,
+            facets =
+                strategySignature
+                    .localizedHomeStrategyFacets(stringResolver)
+                    .takeIf { strategySummary != null }
+                    ?: persistentListOf(),
             verification = stringResolver.getString(summary.verificationLabelRes()),
             successRate =
                 summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",

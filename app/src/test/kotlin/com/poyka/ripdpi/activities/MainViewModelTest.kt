@@ -1945,7 +1945,7 @@ class MainViewModelTest {
 
             val summary = viewModel.uiState.value.approachSummary
 
-            assertTrue(summary?.title.orEmpty().contains("Host learning Off"))
+            assertTrue(summary?.facets.orEmpty().any { it.label == "Host learning" && it.value == "Off" })
             assertEquals("Partially successful", summary?.verification)
             assertEquals("75%", summary?.successRate)
             diagnosticsTimelineSource.approachStats.value =
@@ -1960,6 +1960,12 @@ class MainViewModelTest {
                 "Autolearn on",
                 viewModel.uiState.value.approachSummary
                     ?.title,
+            )
+            assertTrue(
+                viewModel.uiState.value.approachSummary
+                    ?.facets
+                    .orEmpty()
+                    .isEmpty(),
             )
             collector.cancel()
         }

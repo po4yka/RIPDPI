@@ -25,4 +25,5 @@
     <string name="home_connection_stage_state_failed">сбой</string>
     <string name="home_connection_actuator_action_cancel">Отменить подключение</string>
     <string name="home_connection_actuator_action_retry">Повторить</string>
+    <string name="home_connection_strategy_explainer">Так RIPDPI изменяет ваш трафик, чтобы сетевые фильтры не могли распознать и заблокировать его.</string>
 </resources>

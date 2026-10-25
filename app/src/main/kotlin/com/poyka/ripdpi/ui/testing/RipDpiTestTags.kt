@@ -41,6 +41,7 @@ internal object RipDpiTestTags {
     const val ConnectionActuatorRouteLabel = "connection-actuator-route-label"
     const val ConnectionActuatorActionLabel = "connection-actuator-action-label"
     const val ConnectionActuatorTerminalLabel = "connection-actuator-terminal-label"
+    const val ConnectionActuatorStrategyPanel = "connection-actuator-strategy-panel"
     const val ConnectionActuatorFaultDetail = "connection-actuator-fault-detail"
     const val HomeLatencyMetric = "home-latency-metric"
     const val LatencyDetailDialog = "latency-detail-dialog"

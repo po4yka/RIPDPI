@@ -25,4 +25,5 @@
     <string name="home_connection_stage_state_failed">ناموفق</string>
     <string name="home_connection_actuator_action_cancel">لغو اتصال</string>
     <string name="home_connection_actuator_action_retry">تلاش دوباره</string>
+    <string name="home_connection_strategy_explainer">RIPDPI ترافیک شما را این‌گونه تغییر می‌دهد تا فیلترهای شبکه نتوانند آن را شناسایی و مسدود کنند.</string>
 </resources>

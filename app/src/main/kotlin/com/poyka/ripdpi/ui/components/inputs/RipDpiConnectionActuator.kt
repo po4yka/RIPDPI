@@ -151,6 +151,13 @@ fun RipDpiConnectionActuator(
 
     Column(modifier = modifier) {
         ActuatorHeadline(state = resolved, stateStyle = style)
+        if (resolved.strategyLabel.isNotEmpty()) {
+            RipDpiConnectionStrategyPanel(
+                strategyLabel = resolved.strategyLabel,
+                facets = resolved.strategyFacets,
+                modifier = Modifier.padding(top = spacing.md),
+            )
+        }
         Spacer(modifier = Modifier.height(spacing.md))
         RipDpiButton(
             text = actionLabel,
@@ -330,18 +337,26 @@ private fun ActuatorRouteLabels(
     stateStyle: RipDpiActuatorStateStyle,
 ) {
     val type = RipDpiThemeTokens.type
-    val labelModifier =
-        if (LocalDensity.current.fontScale >= StackedRouteFontScale) Modifier.fillMaxWidth() else Modifier
+    val stacked = LocalDensity.current.fontScale >= StackedRouteFontScale
+    val labelModifier = if (stacked) Modifier.fillMaxWidth() else Modifier
     Text(
         modifier = labelModifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRouteLabel),
         text = state.routeLabel,
-        style = type.smallLabel,
+        style = type.secondaryBody,
         color = stateStyle.routeLabel,
     )
+    if (!stacked) {
+        Text(
+            modifier = Modifier.clearAndSetSemantics {},
+            text = "·",
+            style = type.secondaryBody,
+            color = stateStyle.routeLabel,
+        )
+    }
     Text(
         modifier = labelModifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorTerminalLabel),
         text = state.trailingLabel,
-        style = type.smallLabel,
+        style = type.secondaryBody,
         color = stateStyle.routeLabel,
     )
 }
