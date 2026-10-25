@@ -212,7 +212,7 @@
     <string name="diagnostics_scan_metadata_handover_class">Clase de transferencia</string>
     <string name="diagnostics_scan_open_advanced_settings">Abrir ajustes avanzados</string>
     <string name="diagnostics_scan_trigger_handover_summary_format">Tras la transferencia: %1$s</string>
-    <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s está bloqueado porque %2$s está activado. Desactívalo en Ajustes avanzados antes de ejecutar este flujo de trabajo para que RIPDPI pueda lanzar pruebas de estrategia temporales aisladas con la configuración visual.</string>
+    <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s está bloqueado porque %2$s está activado. Desactívalo en ajustes avanzados antes de ejecutar este flujo de trabajo para que RIPDPI pueda lanzar pruebas de estrategia temporales aisladas con la configuración visual.</string>
     <string name="diagnostics_section_network">Red</string>
     <string name="diagnostics_sensitive_profile_consent_confirm">Ejecutar diagnósticos sensibles</string>
     <string name="diagnostics_share_archive_action">Compartir archivo</string>
@@ -599,7 +599,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="customization_icon_rubble">Escombros</string>
     <string name="customization_shape_sheet_action">Entendido</string>
     <string name="customization_shape_system_default">Predeterminado del sistema</string>
-    <string name="data_transparency_disable_monitoring">Puedes deshabilitar la monitorización pasiva en Ajustes avanzados</string>
+    <string name="data_transparency_disable_monitoring">Puedes deshabilitar la monitorización pasiva en ajustes avanzados</string>
     <string name="data_transparency_export_redaction">Los resúmenes, manifiestos e informes exportados ocultan las direcciones IP, los identificadores de Wi-Fi y el contexto de soporte. Las capturas de paquetes sin procesar se almacenan y exportan por separado, y nunca se incluyen en los archivos de diagnóstico censurados.</string>
     <string name="data_transparency_no_analytics">Sin analítica, sin reportes de fallos, sin SDK de publicidad</string>
     <string name="data_transparency_performance_metrics">Métricas de rendimiento: mediciones de RTT, conteos de reintentos, estadísticas de tráfico</string>
@@ -833,7 +833,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="history_connections_section">Conexiones</string>
     <string name="history_events_empty_title">Aún no hay eventos en el historial</string>
     <string name="home">Estado</string>
-    <string name="home_control_plane_health_body">Uno o más feeds de actualización recurrieron a una instantánea local segura o rechazaron la última actualización. Revisa los Ajustes avanzados antes de confiar en el estado actual.</string>
+    <string name="home_control_plane_health_body">Uno o más feeds de actualización recurrieron a una instantánea local segura o rechazaron la última actualización. Revisa los ajustes avanzados antes de confiar en el estado actual.</string>
     <string name="home_control_plane_host_pack_verification_failed">La última actualización falló la verificación de checksum.</string>
     <string name="home_control_plane_strategy_pack_rollback_rejected">Rollback rechazado: la secuencia %1$d era más antigua que la secuencia aceptada %2$d.</string>
     <string name="home_diagnostics_actionable_section">Qué hacer a continuación</string>
@@ -858,7 +858,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_quality_connecting">Conectando</string>
     <string name="home_remediation_browser_relay_step_enable_relay">Habilita la ruta de relay ascendente para tu modo actual.</string>
-    <string name="home_remediation_command_line_step_open_settings">Abre los Ajustes avanzados.</string>
+    <string name="home_remediation_command_line_step_open_settings">Abre los ajustes avanzados.</string>
     <string name="home_remediation_no_actionable_step_review">Revisa los detalles y la evidencia de la última auditoría.</string>
     <string name="home_remediation_no_hint_summary">El análisis de inicio no encontró una solución directa, pero la evidencia de capacidad guardada aún es demasiado escasa para recomendar una familia de relay estable.</string>
     <string name="home_remediation_owned_stack_step_verify_result">Verifica que la autoridad cargue allí antes de promover otros cambios de relay.</string>
@@ -1015,7 +1015,7 @@ fakeddisorder endhost</string>
     <string name="routing_protection_policy_prompt_body">Mostrar sugerencias de enrutamiento cuando haya apps de riesgo presentes.</string>
     <string name="routing_protection_summary_title">Las sugerencias de enrutamiento usan solo coincidencias de apps instaladas</string>
     <string name="semantic_state_expanded">Expandido</string>
-    <string name="settings_advanced_body">Banderas RIPDPI de bajo nivel, listeners de proxy y sobrescrituras de protocolo.</string>
+    <string name="settings_advanced_body">Banderas RIPDPI de bajo nivel, listeners de proxy y sobrescrituras de protocolo</string>
     <string name="settings_backup_pin_helper_saved">Ya hay un PIN de respaldo de cuatro dígitos almacenado localmente.</string>
     <string name="settings_biometric_confirm_cancel">Cancelar</string>
     <string name="settings_biometric_pin_required_message">Establece un PIN de respaldo antes de habilitar el desbloqueo biométrico. El PIN proporciona acceso de respaldo si la autenticación biométrica deja de estar disponible.</string>
@@ -1023,7 +1023,7 @@ fakeddisorder endhost</string>
     <string name="settings_connectivity_dns_body">Modo de resolutor, protocolo, IPv6 y comportamiento del DNS del túnel local.</string>
     <string name="settings_data_transparency_body">Qué datos se recopilan, cómo se almacenan y tus controles de privacidad.</string>
     <string name="settings_diagnostics_monitor_title">Registrar el historial de diagnóstico del runtime</string>
-    <string name="settings_exclude_russian_apps_body">Las apps bancarias, de entrega y gubernamentales evitan la VPN para evitar problemas de detección</string>
+    <string name="settings_exclude_russian_apps_body">Las apps bancarias, de entrega y gubernamentales evitan la VPN para evitar problemas de detección.</string>
     <string name="settings_full_tunnel_title">Modo túnel completo</string>
     <string name="settings_permission_action_open_settings">Abrir ajustes</string>
     <string name="settings_permission_status_recommended">Recomendado</string>
@@ -1032,7 +1032,7 @@ fakeddisorder endhost</string>
     <string name="settings_reset_title">Restablecer todos los ajustes</string>
     <string name="settings_strategy_pack_allow_rollback_override_title">Permitir rollback del pack de estrategia</string>
     <string name="settings_telemetry_salt_reset_body">Restablece el salt por instalación usado para hashear las huellas de red. Los hashes registrados anteriormente ya no podrán correlacionarse con sesiones futuras.</string>
-    <string name="settings_vpn_flag_warning_body">Las apps en todos los perfiles de Android (incluidos el perfil de trabajo y Knox) pueden detectar que hay una VPN activa. Para aislamiento total, usa un dispositivo separado para apps rusas</string>
+    <string name="settings_vpn_flag_warning_body">Las apps en todos los perfiles de Android (incluidos el perfil de trabajo y Knox) pueden detectar que hay una VPN activa. Para aislamiento total, usa un dispositivo separado para apps rusas.</string>
     <string name="settings_webrtc_title">Protección WebRTC</string>
     <string name="shortcut_quick_connect_disabled">Conexión no disponible</string>
     <plurals name="stage_failed_count">
@@ -1292,7 +1292,7 @@ fake_burst 3</string>
     <string name="diagnostics_remediation_browser_relay_title">Prefiere un relay con camuflaje de navegador</string>
     <string name="diagnostics_remediation_dns_step_open_settings">Abre los ajustes de DNS.</string>
     <string name="diagnostics_remediation_no_hint_step_retry">Reintenta tras recopilar otra ejecución en la misma red.</string>
-    <string name="diagnostics_remediation_open_history_action">Abrir Historial</string>
+    <string name="diagnostics_remediation_open_history_action">Abrir historial</string>
     <string name="diagnostics_remediation_owned_stack_step_verify_result">Comprueba si la página carga ahí aunque el modo directo falle en otros sitios.</string>
     <string name="diagnostics_remediation_partial_step_review">Revisa los candidatos fallidos y omitidos.</string>
     <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">Abre el Editor de perfil.</string>
@@ -1366,7 +1366,7 @@ fake_burst 3</string>
     <string name="home_diagnostics_dns_section">Resolver DNS</string>
     <string name="home_diagnostics_network_captive_portal">Portal cautivo</string>
     <string name="home_diagnostics_network_section">En esta red</string>
-    <string name="home_diagnostics_open_diagnostics_action">Abrir Diagnóstico</string>
+    <string name="home_diagnostics_open_diagnostics_action">Abrir diagnóstico</string>
     <string name="home_diagnostics_quick_scan_body">Solo sondeo de estrategias, ~90 segundos</string>
     <string name="home_diagnostics_regression_summary">%1$d nuevos fallos, %2$d recuperados, %3$d sin cambios.</string>
     <string name="home_diagnostics_run_analysis_first">Ejecuta primero un análisis completo.</string>
@@ -1541,10 +1541,10 @@ Origen: %2$s</string>
     <string name="settings_permission_action_review">Revisar</string>
     <string name="settings_permission_status_required">Obligatorio</string>
     <string name="settings_permissions_section">Permisos</string>
-    <string name="settings_reset_body">Restaurar todos los ajustes a sus valores predeterminados</string>
+    <string name="settings_reset_body">Restaurar todos los ajustes a sus valores predeterminados.</string>
     <string name="settings_security_section">Privacidad</string>
     <string name="settings_support_debug_bundle_body">Crea un archivo ZIP de diagnóstico con el logcat limitado a la app, información de depuración reciente, metadatos del archivo, notas de completitud y hashes de integridad; después, envíalo mediante la hoja para compartir de Android tras elegir un destinatario. Las capturas de paquetes no se incluyen.</string>
-    <string name="settings_tethering_dns_warning_body">Cuando el anclaje a red está activo, Android ejecuta un servidor DNS local que evita la VPN. Las apps pueden usarlo para enviar balizas de rastreo fuera del túnel</string>
+    <string name="settings_tethering_dns_warning_body">Cuando el anclaje a red está activo, Android ejecuta un servidor DNS local que evita la VPN. Las apps pueden usarlo para enviar balizas de rastreo fuera del túnel.</string>
     <string name="settings_vpn_flag_warning_title">El indicador de VPN es visible</string>
     <string name="shortcut_diagnostics">Ejecutar diagnóstico</string>
     <string name="shortcut_quick_connect_short">Conectar</string>
@@ -1644,7 +1644,7 @@ Origen: %2$s</string>
     <string name="block_signal_connection_freeze">Congelación de conexión</string>
     <string name="block_signal_tcp_reset">Reinicio TCP</string>
     <string name="blockcheck_cancel">Cancelar</string>
-    <string name="blockcheck_entry_title">Sonda de Estrategia</string>
+    <string name="blockcheck_entry_title">Sonda de estrategia</string>
     <string name="blockcheck_results_title">Resultados clasificados</string>
     <string name="command_line_arguments">Argumentos de línea de comandos</string>
     <string name="config_chain_editor_helper">Usa las secciones [tcp] y [udp]. Los marcadores aceptan desplazamientos numéricos o semánticos. La sección HTTPS a continuación puede crear visualmente pasos tlsrec únicos y tlsrandrec aleatorizados, mientras que las tarjetas de Hostfake y aproximación falsa explican los bloques falsos dirigidos al nombre de host y las aproximaciones tipo retransmisión. Las aproximaciones exclusivas de Linux/Android están disponibles como fakedsplit host+1 y fakeddisorder endhost para cargas útiles adyacentes a HTTP o SNI TLS.</string>
@@ -1703,7 +1703,7 @@ Origen: %2$s</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_rtt_triangulation">Triangulación de RTT</string>
     <string name="detection_check_recommendations">Recomendaciones</string>
-    <string name="detection_check_subtitle">Comprueba qué tan visible es tu configuración de VPN/proxy</string>
+    <string name="detection_check_subtitle">Comprueba qué tan visible es tu configuración de VPN/proxy.</string>
     <string name="detection_community_detected_pct">%d%% de las comprobaciones detectadas</string>
     <string name="detection_community_retry">Reintentar</string>
     <string name="detection_finding_ok">OK</string>
@@ -1886,7 +1886,7 @@ Origen: %2$s</string>
     <string name="home_remediation_browser_relay_summary">El análisis de inicio encontró un fallo en modo directo de tipo TLS/IP. Abre el Editor de perfil y cambia a un preajuste de relé con camuflaje de navegador.</string>
     <string name="home_remediation_command_line_title">El análisis completo está bloqueado</string>
     <string name="home_remediation_no_hint_step_open_diagnostics">Abre Diagnósticos.</string>
-    <string name="home_remediation_open_diagnostics_action">Abrir Diagnósticos</string>
+    <string name="home_remediation_open_diagnostics_action">Abrir diagnóstico</string>
     <string name="home_remediation_owned_stack_title">Esta autoridad necesita el navegador RIPDPI</string>
     <string name="home_remediation_quic_relay_title">Prefiere un relé centrado en QUIC</string>
     <string name="home_remediation_stale_step_open_diagnostics">Abre Diagnósticos.</string>
@@ -2091,7 +2091,7 @@ Origen: %2$s</string>
     <string name="settings_connectivity_section">Conexión</string>
     <string name="settings_diagnostics_export_history_title">Incluir el historial en los archivos de diagnóstico</string>
     <string name="settings_diagnostics_retention_title">Retención del historial (días)</string>
-    <string name="settings_full_tunnel_body">Enruta todo el tráfico a través de la VPN sin exclusiones de aplicaciones. Evita que los módulos de spyware envíen tráfico directamente, pero las aplicaciones rusas pueden detectar la VPN</string>
+    <string name="settings_full_tunnel_body">Enruta todo el tráfico a través de la VPN sin exclusiones de aplicaciones. Evita que los módulos de spyware envíen tráfico directamente, pero las aplicaciones rusas pueden detectar la VPN.</string>
     <string name="settings_language_title">Idioma</string>
     <string name="settings_permission_status_granted">Concedido</string>
     <string name="settings_permissions_battery_needed">Recomendado para que Doze sea menos propenso a pausar RIPDPI mientras se ejecuta en segundo plano.</string>
@@ -2123,7 +2123,7 @@ Origen: %2$s</string>
         <item quantity="one">%d fallida</item>
         <item quantity="other">%d fallidas</item>
     </plurals>
-    <string name="strategy_config_entry_title">Configuración de Estrategia</string>
+    <string name="strategy_config_entry_title">Configuración de estrategia</string>
     <string name="strategy_config_import_too_large">Elige un archivo no mayor de %1$d KB.</string>
     <string name="strategy_config_load_action">Cargar</string>
     <string name="strategy_config_lua_function_required_title">Se requiere nombre de función</string>
@@ -2144,11 +2144,11 @@ Origen: %2$s</string>
     <string name="tcp_flag_orig_set_title">Paquete original: establecer indicadores</string>
     <string name="title_biometric_prompt">Autenticación</string>
     <string name="title_local_bypass_config">Configuración de evasión local</string>
-    <string name="title_strategy_config">Configuración de Estrategia</string>
+    <string name="title_strategy_config">Configuración de estrategia</string>
     <string name="title_remembered_networks">Redes recordadas</string>
     <string name="title_root_mode_strategies">Estrategias en modo root</string>
     <string name="root_mode_toggle_label">Modo root</string>
-    <string name="settings_root_mode_strategies_body">Configura FakeRST, multidesorden y fragmentación IP.</string>
+    <string name="settings_root_mode_strategies_body">Configura FakeRST, multidesorden y fragmentación IP</string>
     <string name="root_mode_strategies_intro_title">Requiere root</string>
     <string name="root_mode_strategies_intro_body">Estas estrategias de desincronización inyectan o fragmentan paquetes por debajo del socket de la VPN y solo funcionan en dispositivos con root y el modo root activado.</string>
     <string name="root_mode_strategies_disabled_title">El modo root está desactivado</string>
@@ -2418,7 +2418,7 @@ Origen: %2$s</string>
     <string name="diagnostics_profile_probe_ready_body">La última ejecución de sondeo automático finalizó y produjo una recomendación manual con ganadores TCP y QUIC.</string>
     <string name="diagnostics_profiles_title">Perfil activo</string>
     <string name="diagnostics_remediation_browser_relay_step_enable_relay">Habilita la ruta de relay ascendente para este modo.</string>
-    <string name="diagnostics_remediation_command_line_step_open_settings">Abrir Configuración avanzada.</string>
+    <string name="diagnostics_remediation_command_line_step_open_settings">Abrir configuración avanzada.</string>
     <string name="diagnostics_remediation_dns_step_review_recommendation">Revisa el resolvedor recomendado: %1$s.</string>
     <string name="diagnostics_remediation_no_hint_summary">El modo directo no está disponible aquí, pero RIPDPI todavía no tiene suficiente evidencia de capacidad guardada para recomendar una familia de relay estable.</string>
     <string name="diagnostics_remediation_open_owned_stack_action">Abrir Navegador RIPDPI</string>
@@ -3292,7 +3292,7 @@ Origen: %2$s</string>
     <!-- Backup &amp; Restore -->
     <string name="title_backup_restore">Copia y restauración</string>
     <string name="settings_backup_section">Copia y restauración</string>
-    <string name="settings_backup_body">Exporta tus perfiles, grupos, reglas y ajustes a un archivo</string>
+    <string name="settings_backup_body">Exporta tus perfiles, grupos, reglas y ajustes a un archivo.</string>
     <string name="backup_export_section">Exportar</string>
     <string name="backup_export_intro_title">La copia se queda en tu dispositivo</string>
     <string name="backup_export_intro_body">La copia se escribe solo en el archivo que elijas. No se sube nada.</string>

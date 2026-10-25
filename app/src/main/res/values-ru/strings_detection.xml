@@ -7,7 +7,7 @@
     <string name="detection_dns_provider_jurisdiction_ru_warning">Под российской юрисдикцией (РКН). Не используйте для обхода цензуры.</string>
     <string name="detection_dns_route_through_proxy_title">Направлять зашифрованный DNS через прокси</string>
     <string name="detection_dns_route_through_proxy_subtitle">Отправляет зашифрованный DNS через активный прокси, чтобы его нельзя было заблокировать в локальной сети.</string>
-    <string name="detection_check_subtitle">Проверьте, насколько заметна ваша настройка VPN/прокси</string>
+    <string name="detection_check_subtitle">Проверьте, насколько заметна ваша настройка VPN/прокси.</string>
     <string name="detection_check_start">Запустить проверку</string>
     <string name="detection_check_stop">Остановить</string>
     <string name="detection_check_running">Выполняются проверки обнаружения\u2026</string>

@@ -120,9 +120,9 @@ class DataTransparencyScreenTest {
     fun howStoredDisableMonitoringBulletIsDisplayed() {
         setScreen()
 
-        scrollTo("You can disable passive monitoring in Advanced Settings")
+        scrollTo("You can disable passive monitoring in advanced settings")
         composeRule
-            .onNodeWithText("You can disable passive monitoring in Advanced Settings")
+            .onNodeWithText("You can disable passive monitoring in advanced settings")
             .assertIsDisplayed()
     }
 

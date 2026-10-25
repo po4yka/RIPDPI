@@ -65,7 +65,7 @@ class HomeDiagnosticRunControlsTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name))
             .performScrollTo()
-            .assertTextEquals("Quick Scan")
+            .assertTextEquals("Quick scan")
             .performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis)

@@ -1375,7 +1375,7 @@ fakeddisorder endhost</string>
     <string name="title_remembered_networks">الشبكات المحفوظة</string>
     <string name="title_root_mode_strategies">استراتيجيات وضع الجذر</string>
     <string name="root_mode_toggle_label">وضع الجذر</string>
-    <string name="settings_root_mode_strategies_body">اضبط FakeRST والفوضى المتعددة وتجزئة IP.</string>
+    <string name="settings_root_mode_strategies_body">اضبط FakeRST والفوضى المتعددة وتجزئة IP</string>
     <string name="root_mode_strategies_intro_title">يتطلب صلاحية الجذر</string>
     <string name="root_mode_strategies_intro_body">تحقن استراتيجيات إلغاء التزامن هذه الحزم أو تجزّئها أسفل مقبس VPN، وتعمل فقط على الأجهزة ذات صلاحية الجذر مع تفعيل وضع الجذر.</string>
     <string name="root_mode_strategies_disabled_title">وضع الجذر مُعطَّل</string>
@@ -2029,7 +2029,7 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_always_on_unknown">لم يُبلّغ Android عن حالة VPN دائم التشغيل بعد. افتح إعدادات VPN للتحقق.</string>
     <string name="settings_connectivity_dns_body">وضع المحلل، البروتوكول، IPv6، وسلوك DNS النفق المحلي.</string>
     <string name="settings_connectivity_dns_body_proxy">يمكن أن يحل DNS المشفّر أسماء أهداف الوكيل المحلي. يظل DNS الجهاز دون تغيير.</string>
-    <string name="settings_advanced_body">أعلام RIPDPI المتقدمة، مستمعو الوكيل، وتجاوزات البروتوكول.</string>
+    <string name="settings_advanced_body">أعلام RIPDPI المتقدمة، مستمعو الوكيل، وتجاوزات البروتوكول</string>
     <string name="settings_security_section">الخصوصية</string>
     <string name="settings_webrtc_title">حماية WebRTC</string>
     <string name="settings_webrtc_body">تقليل تسريبات اكتشاف النظير التي قد تتجاوز النفق المحلي.</string>
@@ -2037,14 +2037,14 @@ fakeddisorder endhost</string>
     <string name="settings_start_on_boot_body">إعادة الاتصال بآخر وضع نشط تلقائياً بعد إعادة تشغيل الجهاز.</string>
     <string name="settings_start_on_boot_battery_warning">تحسين البطارية لا يزال نشطاً. قد يمنع Android بدء تشغيل RIPDPI عند الإقلاع حتى تُعفيه من تحسين البطارية.</string>
     <string name="settings_exclude_russian_apps_title">استثناء التطبيقات الروسية</string>
-    <string name="settings_exclude_russian_apps_body">تتجاوز تطبيقات البنوك والتوصيل والحكومة الـ VPN لتجنب مشاكل الكشف</string>
+    <string name="settings_exclude_russian_apps_body">تتجاوز تطبيقات البنوك والتوصيل والحكومة الـ VPN لتجنب مشاكل الكشف.</string>
     <string name="settings_full_tunnel_title">وضع النفق الكامل</string>
-    <string name="settings_full_tunnel_body">توجيه جميع حركة المرور عبر VPN بدون استثناءات للتطبيقات. يمنع وحدات التجسس من إرسال حركة المرور مباشرة، لكن التطبيقات الروسية قد تكتشف الـ VPN</string>
+    <string name="settings_full_tunnel_body">توجيه جميع حركة المرور عبر VPN بدون استثناءات للتطبيقات. يمنع وحدات التجسس من إرسال حركة المرور مباشرة، لكن التطبيقات الروسية قد تكتشف الـ VPN.</string>
     <string name="settings_full_tunnel_helper">عند التفعيل، تمر جميع حركة المرور عبر النفق. استثناءات التطبيقات معطّلة في هذا الوضع.</string>
     <string name="settings_vpn_flag_warning_title">علامة VPN مرئية</string>
-    <string name="settings_vpn_flag_warning_body">يمكن للتطبيقات في جميع ملفات تعريف Android (بما في ذلك ملف تعريف العمل وKnox) اكتشاف أن VPN نشط. للعزل الكامل، استخدم جهازاً منفصلاً للتطبيقات الروسية</string>
+    <string name="settings_vpn_flag_warning_body">يمكن للتطبيقات في جميع ملفات تعريف Android (بما في ذلك ملف تعريف العمل وKnox) اكتشاف أن VPN نشط. للعزل الكامل، استخدم جهازاً منفصلاً للتطبيقات الروسية.</string>
     <string name="settings_tethering_dns_warning_title">خطر تسريب DNS عند المشاركة</string>
-    <string name="settings_tethering_dns_warning_body">عند تفعيل المشاركة، يُشغّل Android خادم DNS محلياً يتجاوز الـ VPN. قد تستخدم التطبيقات هذا لإرسال إشارات تتبع خارج النفق</string>
+    <string name="settings_tethering_dns_warning_body">عند تفعيل المشاركة، يُشغّل Android خادم DNS محلياً يتجاوز الـ VPN. قد تستخدم التطبيقات هذا لإرسال إشارات تتبع خارج النفق.</string>
     <string name="settings_biometric_title">طلب المصادقة</string>
     <string name="settings_biometric_body_with_pin">تم تفعيل فتح القفل بالمقاييس الحيوية مع رمز PIN احتياطي محلي كبديل.</string>
     <string name="settings_biometric_body_without_pin">تم تفعيل فتح القفل بالمقاييس الحيوية. أضف رمز PIN احتياطيًا للوصول البديل.</string>
@@ -2513,7 +2513,7 @@ fakeddisorder endhost</string>
     <string name="detection_dns_route_through_proxy_title">توجيه DNS المشفّر عبر الوكيل</string>
     <string name="detection_dns_route_through_proxy_subtitle">يرسل DNS المشفّر عبر الوكيل النشط حتى لا يمكن حظر التحليل على الشبكة المحلية.</string>
     <string name="title_shared_diagnostic_result">تشخيص مشترك</string>
-    <string name="detection_check_subtitle">تحقق من مدى ظهور إعداد VPN/الوكيل الخاص بك</string>
+    <string name="detection_check_subtitle">تحقق من مدى ظهور إعداد VPN/الوكيل الخاص بك.</string>
     <string name="detection_check_start">تشغيل الفحص</string>
     <string name="detection_check_stop">إيقاف</string>
     <string name="detection_check_running">جارٍ تشغيل فحوصات الكشف\u2026</string>
@@ -2644,7 +2644,7 @@ fakeddisorder endhost</string>
     <string name="shortcut_open_settings_short">الإعدادات</string>
     <string name="settings_danger_section">منطقة الخطر</string>
     <string name="settings_reset_title">إعادة تعيين جميع الإعدادات</string>
-    <string name="settings_reset_body">استعادة جميع الإعدادات إلى قيمها الافتراضية</string>
+    <string name="settings_reset_body">استعادة جميع الإعدادات إلى قيمها الافتراضية.</string>
     <string name="settings_reset_action">إعادة تعيين</string>
     <string name="settings_reset_dialog_title">إعادة تعيين جميع الإعدادات؟</string>
     <string name="settings_reset_dialog_body">سيُعيد هذا جميع الإعدادات إلى قيمها الافتراضية. سيتوقف الاتصال وستُفقد جميع التخصيصات.</string>
@@ -3177,7 +3177,7 @@ fakeddisorder endhost</string>
     <string name="asset_provider_updated_never">لم يُحدَّث قط</string>
     <string name="title_backup_restore">النسخ الاحتياطي &amp; الاستعادة</string>
     <string name="settings_backup_section">النسخ الاحتياطي &amp; الاستعادة</string>
-    <string name="settings_backup_body">تصدير ملفاتك الشخصية والمجموعات والقواعد والإعدادات إلى ملف</string>
+    <string name="settings_backup_body">تصدير ملفاتك الشخصية والمجموعات والقواعد والإعدادات إلى ملف.</string>
     <string name="backup_export_section">تصدير</string>
     <string name="backup_export_intro_title">النسخة الاحتياطية تبقى على جهازك</string>
     <string name="backup_export_intro_body">تُكتب النسخة الاحتياطية فقط في الملف الذي تختاره. لا يُرفع شيء.</string>

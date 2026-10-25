@@ -34,7 +34,7 @@ class HomeModeCardUiStateTest {
         )
         assertEquals("Local bypass", cards[0].title)
         assertEquals("VPN", cards[1].title)
-        assertEquals("Diagnostic Scan", cards[2].title)
+        assertEquals("Diagnostic scan", cards[2].title)
     }
 
     @Test
@@ -294,14 +294,14 @@ class HomeModeCardUiStateTest {
     fun `diagnostic card secondary action opens diagnostics`() {
         val diagnostic = buildCards().single { it.mode == HomeMode.Diagnostic }
 
-        assertEquals("Open Diagnostics", diagnostic.configureLabel)
+        assertEquals("Open diagnostics", diagnostic.configureLabel)
     }
 
     @Test
     fun `diagnostic idle action is a quick check`() {
         val diagnostic = buildCards().single { it.mode == HomeMode.Diagnostic }
 
-        assertEquals("Quick Scan", diagnostic.primaryActionLabel)
+        assertEquals("Quick scan", diagnostic.primaryActionLabel)
     }
 
     @Test

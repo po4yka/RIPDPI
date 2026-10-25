@@ -189,7 +189,7 @@
     <string name="diagnostics_profile_audit_partial_results_body">The audit ran out of time before all candidates could be tested. Results are based on %1$d of %2$d candidates.</string>
     <string name="diagnostics_profile_audit_unavailable_body">Automatic audit only works with visual RIPDPI settings. Turn off raw command-line mode before running this workflow.</string>
     <string name="diagnostics_remediation_command_line_title">Turn off command-line mode</string>
-    <string name="diagnostics_remediation_command_line_step_open_settings">Open Advanced Settings.</string>
+    <string name="diagnostics_remediation_command_line_step_open_settings">Open advanced settings.</string>
     <string name="diagnostics_remediation_command_line_step_disable_setting">Disable Use command line settings.</string>
     <string name="diagnostics_remediation_command_line_step_retry">Return to Diagnostics and run this workflow again.</string>
     <string name="diagnostics_remediation_vpn_permission_title">Grant VPN permission</string>
@@ -209,7 +209,7 @@
     <string name="diagnostics_remediation_review_step_compare_results">Review the latest full-audit findings and candidate outcomes.</string>
     <string name="diagnostics_remediation_review_step_rerun">Run a new full audit if the current network still needs work.</string>
     <string name="diagnostics_remediation_open_dns_settings_action">Open DNS Settings</string>
-    <string name="diagnostics_remediation_open_history_action">Open History</string>
+    <string name="diagnostics_remediation_open_history_action">Open history</string>
     <string name="diagnostics_remediation_owned_stack_title">Open the authority in RIPDPI browser</string>
     <string name="diagnostics_remediation_owned_stack_summary">Diagnostics found this authority works only through RIPDPI’s owned request stack.</string>
     <string name="diagnostics_remediation_owned_stack_step_open_browser">Open the authority in the built-in RIPDPI browser.</string>
@@ -252,13 +252,13 @@
     <string name="diagnostics_profile_desc_throttling">Manual throughput windows against neutral control endpoints.</string>
     <string name="diagnostics_profile_desc_network_full">Deep packet inspection detection across multiple services and protocols.</string>
     <string name="diagnostics_family_general">General</string>
-    <string name="diagnostics_family_web_connectivity">Web Connectivity</string>
+    <string name="diagnostics_family_web_connectivity">Web connectivity</string>
     <string name="diagnostics_family_messaging">Messaging</string>
     <string name="diagnostics_family_adaptation">Adaptation</string>
     <string name="diagnostics_family_throttling">Throttling</string>
     <string name="diagnostics_family_network_full">Network Full</string>
-    <string name="diagnostics_family_automatic_probing">Automatic Probing</string>
-    <string name="diagnostics_family_automatic_audit">Automatic Audit</string>
+    <string name="diagnostics_family_automatic_probing">Automatic probing</string>
+    <string name="diagnostics_family_automatic_audit">Automatic audit</string>
     <string name="diagnostics_diagnosis_summary_title">Diagnosis summary</string>
     <string name="diagnostics_region_suite_title">Region-focused suite</string>
     <string name="diagnostics_region_suite_message">Manual local checks tuned for regional network patterns. Results are evidence, not attribution.</string>
@@ -378,10 +378,10 @@
     <string name="history_events_empty_title">No history events yet</string>
     <string name="history_events_empty_body">Connection events will appear here when RIPDPI records them.</string>
     <string name="diagnostics_history_background_probe_badge">Background automatic probing</string>
-    <string name="history_open_action">Open History</string>
+    <string name="history_open_action">Open history</string>
     <string name="diagnostics_open_history_title">Persistent history moved out of Diagnostics</string>
     <string name="diagnostics_open_history_body">Use the dedicated History screen for saved connection sessions, previous scans, and the durable event feed.</string>
-    <string name="diagnostics_open_history_action">Open History</string>
+    <string name="diagnostics_open_history_action">Open history</string>
     <string name="diagnostics_overview_automatic_probe_title">Hidden automatic probing finished</string>
     <string name="diagnostics_overview_automatic_probe_detail_format">Completed %1$s</string>
     <string name="diagnostics_overview_automatic_probe_detail_handover_format">Completed %1$s • %2$s</string>
@@ -444,8 +444,8 @@
     <string name="home_diagnostics_title">Audit this network and prepare verified launch</string>
     <string name="home_diagnostics_body">Run the full built-in audit on this network, apply any actionable bypass, DNS, or WARP settings, then launch a VPN and verify access on the working path.</string>
     <string name="home_control_plane_health_title">Control-plane status needs review</string>
-    <string name="home_control_plane_health_body">One or more update feeds fell back to a safe local snapshot or rejected the latest refresh. Review Advanced Settings before relying on the current state.</string>
-    <string name="home_control_plane_health_action">Open Advanced Settings</string>
+    <string name="home_control_plane_health_body">One or more update feeds fell back to a safe local snapshot or rejected the latest refresh. Review advanced settings before relying on the current state.</string>
+    <string name="home_control_plane_health_action">Open advanced settings</string>
     <string name="home_control_plane_host_packs_label">Host packs</string>
     <string name="home_control_plane_host_pack_degraded">Using bundled fallback after cached snapshot degradation.</string>
     <string name="home_control_plane_host_pack_verification_failed">Latest refresh failed checksum verification.</string>
@@ -461,7 +461,7 @@
     <string name="home_control_plane_strategy_pack_download_failed">Latest refresh could not download the catalog.</string>
     <string name="home_diagnostics_analysis_body">Run the complete built-in diagnostics audit. It can apply verified bypass lanes, DNS path changes, and supported WARP routing options from the working path.</string>
     <string name="home_diagnostics_verified_vpn_body">Start VPN with the latest applied audit result and verify network access on-path.</string>
-    <string name="home_diagnostics_run_analysis">Run Full Analysis</string>
+    <string name="home_diagnostics_run_analysis">Run full analysis</string>
     <string name="home_diagnostics_start_verified_vpn">Start Verified VPN</string>
     <string name="home_diagnostics_analysis_running">Running full network analysis…</string>
     <string name="home_diagnostics_verifying">Verifying VPN access…</string>
@@ -476,7 +476,7 @@
     <string name="home_diagnostics_disconnect_first">Disconnect the current session before starting verified VPN.</string>
     <string name="home_diagnostics_run_again">The network changed. Run the full analysis again.</string>
     <string name="home_remediation_command_line_title">Full analysis is blocked</string>
-    <string name="home_remediation_command_line_step_open_settings">Open Advanced Settings.</string>
+    <string name="home_remediation_command_line_step_open_settings">Open advanced settings.</string>
     <string name="home_remediation_command_line_step_disable_setting">Disable Use command line settings.</string>
     <string name="home_remediation_command_line_step_retry">Return to Home and run Full Analysis again.</string>
     <string name="home_remediation_stale_title">This result is stale</string>
@@ -491,7 +491,7 @@
     <string name="home_remediation_no_actionable_step_open_diagnostics">Open Diagnostics.</string>
     <string name="home_remediation_no_actionable_step_review">Review the latest audit details and evidence.</string>
     <string name="home_remediation_no_actionable_step_rerun">Try another full analysis on the same network if conditions changed.</string>
-    <string name="home_remediation_open_diagnostics_action">Open Diagnostics</string>
+    <string name="home_remediation_open_diagnostics_action">Open diagnostics</string>
     <string name="home_remediation_owned_stack_title">This authority needs the RIPDPI browser</string>
     <string name="home_remediation_owned_stack_summary">Home analysis found an owned-stack-only result. Open Diagnostics and launch the authority through the RIPDPI browser path.</string>
     <string name="home_remediation_owned_stack_step_open_diagnostics">Open Diagnostics.</string>
@@ -515,10 +515,10 @@
     <string name="home_diagnostics_share_failed">Failed to share analysis logs and results.</string>
     <string name="home_diagnostics_copy_support_code">Copy for support</string>
     <string name="home_diagnostics_verification_failed">Failed to start the short verification probe.</string>
-    <string name="home_diagnostics_analysis_sheet_title">Analysis Result</string>
+    <string name="home_diagnostics_analysis_sheet_title">Analysis result</string>
     <string name="home_diagnostics_verified_sheet_title">Verified VPN Result</string>
-    <string name="home_diagnostics_share_action">Share Logs &amp; Results</string>
-    <string name="home_diagnostics_open_diagnostics_action">Open Diagnostics</string>
+    <string name="home_diagnostics_share_action">Share logs &amp; results</string>
+    <string name="home_diagnostics_open_diagnostics_action">Open diagnostics</string>
     <string name="home_diagnostics_confidence_label">Confidence</string>
     <string name="home_diagnostics_coverage_label">Coverage</string>
     <string name="home_diagnostics_recommendation_label">Recommendation</string>
@@ -535,11 +535,11 @@
     <string name="home_diagnostics_vpn_detectors_title">Apps that detect VPNs</string>
     <string name="home_diagnostics_pcap_toggle">Capture packets (advanced)</string>
     <string name="home_diagnostics_pcap_helper">Root required. Captures raw packet bytes for this run into a separate local PCAP file; redacted diagnostics archives do not embed packet captures.</string>
-    <string name="diagnostics_pcap_card_title">Packet Capture</string>
+    <string name="diagnostics_pcap_card_title">Packet capture</string>
     <string name="diagnostics_pcap_card_body_idle">Records raw IP packet bytes to a local PCAP file. Retention: 24 h / 3 most-recent files. PCAP is not created unless you start recording, and no automatic sharing occurs.</string>
     <string name="diagnostics_pcap_card_body_recording">Recording raw packet bytes. Files are kept for 24 h (3 most-recent) as separate local PCAP artifacts and are not embedded in redacted diagnostics archives.</string>
-    <string name="diagnostics_pcap_card_start">Start Recording</string>
-    <string name="diagnostics_pcap_card_stop">Stop Recording</string>
+    <string name="diagnostics_pcap_card_start">Start recording</string>
+    <string name="diagnostics_pcap_card_stop">Stop recording</string>
     <string name="diagnostics_pcap_disclosure_title">Raw-packet capture disclosure</string>
     <string name="diagnostics_pcap_disclosure_body">Recording writes raw IP packet bytes to a local file and can include packet payloads. Retention is 24 h or 3 most-recent files, whichever is smaller, then cleanup deletes old captures. PCAP files are separate raw artifacts; redacted diagnostics archives do not embed them.</string>
     <string name="home_diagnostics_detection_permission_required">Some detection checks need Android location or phone permissions to read Wi-Fi or cellular network identity. RIPDPI uses this only to compare network policy behavior; raw identifiers are not persisted and diagnostics exports redact them.</string>
@@ -572,11 +572,11 @@
     <string name="home_diagnostics_dns_resolver_unknown">DNS characterization inconclusive.</string>
     <string name="home_diagnostics_stage_recommendation_marker">active recommendation</string>
     <string name="home_diagnostics_stage_failed_marker">failed</string>
-    <string name="home_diagnostics_quick_scan">Quick Scan</string>
+    <string name="home_diagnostics_quick_scan">Quick scan</string>
     <string name="home_diagnostics_quick_scan_body">Strategy probe only, ~90 seconds</string>
     <string name="home_history_title">Review saved sessions and failures</string>
     <string name="home_history_body">History keeps durable connection sessions, sampled runtime diagnostics, and native failures outside the live Diagnostics tools.</string>
-    <string name="home_history_cta">Open History</string>
+    <string name="home_history_cta">Open history</string>
     <string name="home_stat_duration">Duration</string>
     <string name="home_stat_traffic">Traffic</string>
     <string name="home_stat_mode">Mode</string>
@@ -590,7 +590,7 @@
     <string name="home_mode_proxy">Local proxy</string>
     <string name="home_mode_local_dpi_bypass">Local bypass</string>
     <string name="home_mode_remote_vpn">VPN</string>
-    <string name="home_mode_diagnostic_scan">Diagnostic Scan</string>
+    <string name="home_mode_diagnostic_scan">Diagnostic scan</string>
     <string name="home_mode_card_connected_format">Connected %1$s</string>
     <string name="home_connection_actuator_state_vpn_checking">Local processes are running; checking VPN connectivity</string>
     <string name="home_connection_actuator_state_vpn_unverified">Local processes are running; VPN connectivity is unverified</string>
@@ -1400,11 +1400,11 @@ fakeddisorder endhost</string>
     <string name="title_mode_editor">Profile editor</string>
     <string name="title_dns_settings">DNS settings</string>
     <string name="title_advanced_settings">Advanced settings</string>
-    <string name="title_strategy_config">Strategy Config</string>
+    <string name="title_strategy_config">Strategy config</string>
     <string name="title_remembered_networks">Remembered networks</string>
     <string name="title_root_mode_strategies">Root-mode strategies</string>
     <string name="root_mode_toggle_label">Root mode</string>
-    <string name="settings_root_mode_strategies_body">Configure FakeRST, multi-disorder, and IP fragmentation.</string>
+    <string name="settings_root_mode_strategies_body">Configure FakeRST, multi-disorder, and IP fragmentation</string>
     <string name="root_mode_strategies_intro_title">Requires root</string>
     <string name="root_mode_strategies_intro_body">These desync strategies inject or fragment packets below the VPN socket and only work on rooted devices with root mode enabled.</string>
     <string name="root_mode_strategies_disabled_title">Root mode is off</string>
@@ -1416,12 +1416,12 @@ fakeddisorder endhost</string>
     <string name="root_mode_strategy_ipfrag2_title">IP fragmentation</string>
     <string name="root_mode_strategy_ipfrag2_body">Splits packets at the IP layer so inspectors never see the full payload.</string>
     <string name="root_mode_strategies_configure_action">Open strategy editor</string>
-    <string name="title_blockcheck">Strategy Probe</string>
+    <string name="title_blockcheck">Strategy probe</string>
     <string name="strategy_config_section_title">Strategy config</string>
-    <string name="strategy_config_entry_title">Strategy Config</string>
+    <string name="strategy_config_entry_title">Strategy config</string>
     <string name="strategy_config_entry_body">Review the active bypass strategy, import a local config, export the text, or load a Lua strategy script.</string>
     <string name="blockcheck_section_title">Strategy probe</string>
-    <string name="blockcheck_entry_title">Strategy Probe</string>
+    <string name="blockcheck_entry_title">Strategy probe</string>
     <string name="blockcheck_entry_body">Run the strategy probe, review ranked results, and apply the strongest strategy for this network.</string>
     <string name="blockcheck_domains_label">Test domains</string>
     <string name="blockcheck_status_format">%1$d/%2$d checks</string>
@@ -1459,7 +1459,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_active_path_label">Active source</string>
     <string name="strategy_config_source_builtin">Built-in</string>
     <string name="strategy_config_source_yaml">Custom YAML</string>
-    <string name="strategy_config_source_lua">Lua Script</string>
+    <string name="strategy_config_source_lua">Lua script</string>
     <string name="strategy_config_path_datastore">Bypass strategy in app settings</string>
     <string name="strategy_config_path_imported">Imported text buffer</string>
     <string name="strategy_config_path_not_selected">No script selected</string>
@@ -1678,7 +1678,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_validation_notifications_required">Allow notifications so RIPDPI can show validation service status.</string>
     <string name="onboarding_validation_vpn_permission_denied">VPN permission was denied, so RIPDPI could not validate VPN mode.</string>
     <string name="onboarding_validation_switch_to_vpn">Switch to VPN</string>
-    <string name="onboarding_validation_switch_to_proxy">Switch to Proxy</string>
+    <string name="onboarding_validation_switch_to_proxy">Switch to proxy</string>
 
     <!-- intro chips -->
     <string name="onboarding_chip_no_account">No account</string>
@@ -1917,7 +1917,7 @@ fakeddisorder endhost</string>
     <string name="desync_http">HTTP bypass strategy</string>
     <string name="desync_https">HTTPS bypass strategy</string>
     <string name="desync_udp">UDP bypass strategy</string>
-    <string name="oob_data">OOB Data</string>
+    <string name="oob_data">OOB data</string>
     <string name="sni_of_fake_packet">SNI of fake packet</string>
     <string name="ripdpi_proxy">Proxy</string>
     <string name="ripdpi_desync">Bypass strategy</string>
@@ -2074,8 +2074,8 @@ Source: %2$s</string>
     <string name="ripdpi_fake_offset_setting">Fake offset marker</string>
     <string name="ripdpi_drop_sack_setting">Drop SACK</string>
     <string name="ripdpi_md5sig_setting">TCP MD5 Signature</string>
-    <string name="ripdpi_tlsminor_setting">TLS Record Version Override</string>
-    <string name="ripdpi_tlsminor_value_title">TLS Record Minor Version</string>
+    <string name="ripdpi_tlsminor_setting">TLS record version override</string>
+    <string name="ripdpi_tlsminor_value_title">TLS record minor version</string>
     <string name="ripdpi_tlsminor_value_body">Overwrite the minor-version byte (0–255) in the TLS record header of the genuine first-flight packet.</string>
     <string name="ripdpi_ip_id_mode_title">IPv4 ID mode</string>
     <string name="ripdpi_ip_id_mode_body">Controls IPv4 identification values for raw fake and fragment paths. Seqgroup also promotes mixed fake/original TCP sends onto the raw replacement path so IDs stay exact.</string>
@@ -2126,7 +2126,7 @@ Source: %2$s</string>
     <string name="settings_permissions_always_on_unknown">Android has not reported the Always-on VPN state yet. Open VPN settings to verify it.</string>
     <string name="settings_connectivity_dns_body">Resolver mode, protocol, IPv6, and local tunnel DNS behavior.</string>
     <string name="settings_connectivity_dns_body_proxy">Encrypted DNS can resolve local proxy target names. Device DNS is unchanged.</string>
-    <string name="settings_advanced_body">Low-level RIPDPI flags, proxy listeners, and protocol overrides.</string>
+    <string name="settings_advanced_body">Low-level RIPDPI flags, proxy listeners, and protocol overrides</string>
     <string name="settings_security_section">Privacy</string>
     <string name="settings_webrtc_title">WebRTC protection</string>
     <string name="settings_webrtc_body">Reduce peer-discovery leaks that can bypass the local tunnel.</string>
@@ -2134,14 +2134,14 @@ Source: %2$s</string>
     <string name="settings_start_on_boot_body">Reconnect the last active mode automatically after the device restarts.</string>
     <string name="settings_start_on_boot_battery_warning">Battery optimization is still active. Android may stop RIPDPI from starting on boot until you exempt it from battery optimization.</string>
     <string name="settings_exclude_russian_apps_title">Exclude Russian apps</string>
-    <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues</string>
+    <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues.</string>
     <string name="settings_full_tunnel_title">Full tunnel mode</string>
-    <string name="settings_full_tunnel_body">Route all traffic through VPN with no app exclusions. Prevents spyware modules from sending traffic directly, but Russian apps may detect the VPN</string>
+    <string name="settings_full_tunnel_body">Route all traffic through VPN with no app exclusions. Prevents spyware modules from sending traffic directly, but Russian apps may detect the VPN.</string>
     <string name="settings_full_tunnel_helper">When enabled, all traffic goes through the tunnel. Per-app exclusions are disabled in this mode.</string>
     <string name="settings_vpn_flag_warning_title">VPN flag is visible</string>
-    <string name="settings_vpn_flag_warning_body">Apps in all Android profiles (including Work Profile and Knox) can detect that a VPN is active. For full isolation, use a separate device for Russian apps</string>
+    <string name="settings_vpn_flag_warning_body">Apps in all Android profiles (including Work Profile and Knox) can detect that a VPN is active. For full isolation, use a separate device for Russian apps.</string>
     <string name="settings_tethering_dns_warning_title">Tethering DNS leak risk</string>
-    <string name="settings_tethering_dns_warning_body">When tethering is active, Android runs a local DNS server that bypasses the VPN. Apps may use this to send tracking beacons outside the tunnel</string>
+    <string name="settings_tethering_dns_warning_body">When tethering is active, Android runs a local DNS server that bypasses the VPN. Apps may use this to send tracking beacons outside the tunnel.</string>
     <string name="settings_biometric_title">Require authentication</string>
     <string name="settings_biometric_body_with_pin">Biometric unlock is enabled with a local backup PIN fallback.</string>
     <string name="settings_biometric_body_without_pin">Biometric unlock is enabled. Add a backup PIN for fallback access.</string>
@@ -2222,13 +2222,13 @@ Source: %2$s</string>
     <string name="about_credits_body">RIPDPI builds on the open-source hufrea/ripdpi project and keeps all routing and configuration local to this device.</string>
     <string name="about_links_section">Links</string>
 
-    <string name="title_data_transparency">Data Transparency</string>
+    <string name="title_data_transparency">Data transparency</string>
     <string name="settings_data_transparency_body">What data is collected, how it is stored, and your privacy controls.</string>
     <string name="data_transparency_what_we_collect_section">What we collect</string>
     <string name="data_transparency_network_diagnostics">Network diagnostics: transport type, signal strength, DNS configuration</string>
     <string name="data_transparency_dpi_detection">DPI detection results: failure classifications, strategy effectiveness</string>
     <string name="data_transparency_performance_metrics">Performance metrics: RTT measurements, retry counts, traffic statistics</string>
-    <string name="data_transparency_network_identity">Network identity: hashed fingerprint of network characteristics (WiFi SSID, carrier info)</string>
+    <string name="data_transparency_network_identity">Network identity: hashed fingerprint of network characteristics (Wi-Fi SSID, carrier info)</string>
     <string name="data_transparency_device_context">Device context: Android version, device model, app version, permission states</string>
     <string name="data_transparency_optional_ip">Optional: public IP address (only during manual diagnostic scans)</string>
     <string name="data_transparency_what_we_do_not_collect_section">What we do NOT collect</string>
@@ -2239,7 +2239,7 @@ Source: %2$s</string>
     <string name="data_transparency_how_stored_section">How data is stored</string>
     <string name="data_transparency_local_database">All data stays on your device in a local database</string>
     <string name="data_transparency_retention_period">Configurable retention period (1\u2013365 days)</string>
-    <string name="data_transparency_disable_monitoring">You can disable passive monitoring in Advanced Settings</string>
+    <string name="data_transparency_disable_monitoring">You can disable passive monitoring in advanced settings</string>
     <string name="data_transparency_export_explicit">Export archives, log files, and shares are only created when you explicitly request them</string>
     <string name="data_transparency_export_privacy_section">Export privacy</string>
     <string name="data_transparency_export_redaction">Exported summaries, manifests, and reports redact IP addresses, Wi-Fi identifiers, and support context. Raw packet captures are stored and exported separately, never embedded in redacted diagnostics archives.</string>
@@ -2488,9 +2488,9 @@ Source: %2$s</string>
     <string name="diagnostics_scan_raw_path_format">%1$s tests temporary strategy candidates and returns a manual recommendation.</string>
     <string name="diagnostics_scan_raw_only_format">%1$s requires direct-network scanning because it launches isolated temporary strategy trials.</string>
     <string name="diagnostics_scan_in_path_service_halted">Start the RIPDPI service before running in-path diagnostics.</string>
-    <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s is blocked because %2$s is enabled. Turn it off in Advanced Settings before running this workflow so RIPDPI can launch isolated temporary strategy trials with the visual configuration.</string>
+    <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s is blocked because %2$s is enabled. Turn it off in advanced settings before running this workflow so RIPDPI can launch isolated temporary strategy trials with the visual configuration.</string>
     <string name="diagnostics_scan_blocked_setting_label">Blocked setting</string>
-    <string name="diagnostics_scan_open_advanced_settings">Open Advanced Settings</string>
+    <string name="diagnostics_scan_open_advanced_settings">Open advanced settings</string>
     <string name="diagnostics_scan_vpn_permission_warning_title">VPN permission recommended</string>
     <string name="diagnostics_scan_vpn_permission_warning_body_format">%1$s recommendations assume VPN routing. Without VPN permission, the recommended strategy cannot be applied in VPN mode. Grant permission before running this audit for actionable results.</string>
     <string name="diagnostics_scan_grant_vpn_permission">Grant VPN permission</string>
@@ -2523,7 +2523,7 @@ Source: %2$s</string>
     <!-- Diagnostics Telegram card -->
     <string name="diagnostics_telegram_download">Download</string>
     <string name="diagnostics_telegram_upload">Upload</string>
-    <string name="diagnostics_telegram_data_centers">Data Centers</string>
+    <string name="diagnostics_telegram_data_centers">Data centers</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s reachable</string>
     <string name="diagnostics_telegram_avg_speed">Avg speed</string>
     <string name="diagnostics_telegram_peak_speed">Peak speed</string>
@@ -2662,7 +2662,7 @@ Source: %2$s</string>
     <string name="settings_community_api_url_reset">Reset to default</string>
     <string name="settings_clear_community_cache">Clear community cache</string>
 
-    <string name="title_detection_check">Detection Check</string>
+    <string name="title_detection_check">Detection check</string>
     <string name="title_detection_settings">Detection settings</string>
     <string name="detection_dns_provider_label">DNS provider</string>
     <string name="detection_dns_provider_flag_no_log">no log</string>
@@ -2673,26 +2673,26 @@ Source: %2$s</string>
     <string name="detection_dns_route_through_proxy_title">Route encrypted DNS through proxy</string>
     <string name="detection_dns_route_through_proxy_subtitle">Send encrypted DNS through the active proxy so resolution can’t be blocked on the local network.</string>
     <string name="title_shared_diagnostic_result">Shared diagnostic</string>
-    <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is</string>
-    <string name="detection_check_start">Run Check</string>
+    <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is.</string>
+    <string name="detection_check_start">Run check</string>
     <string name="detection_check_stop">Stop</string>
     <string name="detection_check_running">Running detection checks\u2026</string>
-    <string name="detection_check_verdict_not_detected">Not Detected</string>
-    <string name="detection_check_verdict_needs_review">Needs Review</string>
+    <string name="detection_check_verdict_not_detected">Not detected</string>
+    <string name="detection_check_verdict_needs_review">Needs review</string>
     <string name="detection_check_verdict_detected">Detected</string>
     <string name="detection_check_category_geoip">GeoIP</string>
-    <string name="detection_check_category_direct">Direct Signs</string>
-    <string name="detection_check_category_indirect">Indirect Signs</string>
-    <string name="detection_check_category_location">Location Signals</string>
+    <string name="detection_check_category_direct">Direct signs</string>
+    <string name="detection_check_category_indirect">Indirect signs</string>
+    <string name="detection_check_category_location">Location signals</string>
     <string name="detection_check_category_bypass">Bypass</string>
     <string name="detection_check_recommendations">Recommendations</string>
     <string name="detection_check_copy">Copy</string>
     <string name="detection_check_share">Share</string>
-    <string name="detection_onboarding_title">Detection Check</string>
+    <string name="detection_onboarding_title">Detection check</string>
     <string name="detection_onboarding_body">Detection can ask Android for phone and location permissions because Wi-Fi and cellular identity help distinguish network behavior. RIPDPI does not use them for tracking, raw identifiers are not persisted, and diagnostics exports redact sensitive identifiers.</string>
     <string name="detection_onboarding_allow">Allow</string>
     <string name="detection_onboarding_skip">Skip</string>
-    <string name="title_owned_stack_browser">RIPDPI Browser</string>
+    <string name="title_owned_stack_browser">RIPDPI browser</string>
     <string name="owned_stack_browser_banner_title">Owned-stack path</string>
     <string name="owned_stack_browser_banner_android17">This device can use Android 17 platform ECH preferences through Network Security Config when the platform stack supplies ECH data.</string>
     <string name="owned_stack_browser_banner_platform">Android platform HttpEngine is available here, but Android 17 platform ECH is not. RIPDPI can still use HttpEngine opportunistically and falls back to native owned TLS when needed.</string>
@@ -2714,19 +2714,19 @@ Source: %2$s</string>
     <string name="owned_stack_browser_empty_body">No response body.</string>
     <string name="detection_permission_rationale">Android labels these as location permissions because Wi-Fi and cellular identity can imply where you are. RIPDPI does not use them for tracking; checks use them only to distinguish network behavior, raw identifiers are not stored, and diagnostics exports redact sensitive identifiers.</string>
     <string name="detection_permission_settings">Permissions were denied. Open settings only if you want detection checks to read Wi-Fi or cellular identity; raw identifiers are not persisted and diagnostics exports redact them.</string>
-    <string name="detection_permission_open_settings">Open Settings</string>
+    <string name="detection_permission_open_settings">Open settings</string>
     <string name="detection_stealth_score">Visibility</string>
     <string name="detection_privacy_mode">Privacy mode</string>
     <string name="detection_history_title">History</string>
-    <string name="detection_check_category_dns_leak">DNS Leak</string>
-    <string name="detection_check_category_webrtc">WebRTC Leak</string>
-    <string name="detection_check_category_tls">TLS Fingerprint</string>
-    <string name="detection_check_category_timing">Timing Analysis</string>
-    <string name="detection_check_category_icmp_spoofing">ICMP Spoofing</string>
-    <string name="detection_check_category_ip_comparison">IP Comparison</string>
-    <string name="detection_check_category_rtt_triangulation">RTT Triangulation</string>
+    <string name="detection_check_category_dns_leak">DNS leak</string>
+    <string name="detection_check_category_webrtc">WebRTC leak</string>
+    <string name="detection_check_category_tls">TLS fingerprint</string>
+    <string name="detection_check_category_timing">Timing analysis</string>
+    <string name="detection_check_category_icmp_spoofing">ICMP spoofing</string>
+    <string name="detection_check_category_ip_comparison">IP comparison</string>
+    <string name="detection_check_category_rtt_triangulation">RTT triangulation</string>
     <string name="detection_community_title">Community</string>
-    <string name="detection_community_local_title">Your Statistics</string>
+    <string name="detection_community_local_title">Your statistics</string>
     <string name="detection_community_avg_score">Average stealth score: %d/100</string>
     <string name="detection_community_detected_pct">%d%% of checks detected</string>
     <string name="detection_community_loading">Loading community stats…</string>
@@ -2740,7 +2740,7 @@ Source: %2$s</string>
     <string name="detection_error_retry">Retry</string>
     <string name="detection_permission_title">Permissions</string>
 
-    <string name="detection_methodology_info">Methodology Info</string>
+    <string name="detection_methodology_info">Methodology info</string>
     <string name="detection_finding_detected">Detected</string>
     <string name="detection_finding_review">Needs review</string>
     <string name="detection_finding_ok">OK</string>
@@ -2748,7 +2748,7 @@ Source: %2$s</string>
     <string name="detection_score_degraded">Score degraded</string>
     <string name="detection_score_unchanged">Unchanged</string>
     <string name="detection_stealth_score_a11y">Stealth score %1$d</string>
-    <string name="routing_protection_section_title">App Routing Protection</string>
+    <string name="routing_protection_section_title">App routing protection</string>
     <string name="routing_protection_summary_title">Routing suggestions use installed-app matches only</string>
     <string name="routing_protection_summary_body">%1$d risky apps detected across %2$d enabled presets.</string>
     <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
@@ -2790,18 +2790,18 @@ Source: %2$s</string>
     <string name="tcp_flag_fake_clear_title">Fake packet: clear flags</string>
     <string name="tcp_flag_orig_set_title">Original packet: set flags</string>
     <string name="tcp_flag_orig_clear_title">Original packet: clear flags</string>
-    <string name="shortcut_quick_connect">Quick Connect</string>
+    <string name="shortcut_quick_connect">Quick connect</string>
     <string name="shortcut_quick_connect_short">Connect</string>
     <string name="shortcut_quick_connect_disabled">Connection unavailable</string>
-    <string name="shortcut_diagnostics">Run Diagnostics</string>
+    <string name="shortcut_diagnostics">Run diagnostics</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
     <string name="shortcut_diagnostics_disabled">Diagnostics unavailable</string>
     <string name="shortcut_stop_vpn">Stop VPN</string>
     <string name="shortcut_stop_vpn_short">Stop</string>
     <string name="shortcut_stop_vpn_disabled">VPN is not running</string>
-    <string name="shortcut_open_config">Open Profiles</string>
+    <string name="shortcut_open_config">Open profiles</string>
     <string name="shortcut_open_config_short">Profiles</string>
-    <string name="shortcut_open_settings">Open Settings</string>
+    <string name="shortcut_open_settings">Open settings</string>
     <string name="shortcut_open_settings_short">Settings</string>
     <plurals name="stage_passed_count">
         <item quantity="one">%d passed</item>
@@ -2831,9 +2831,9 @@ Source: %2$s</string>
         <item quantity="one">%d failed</item>
         <item quantity="other">%d failed</item>
     </plurals>
-    <string name="settings_danger_section">Danger Zone</string>
+    <string name="settings_danger_section">Danger zone</string>
     <string name="settings_reset_title">Reset all settings</string>
-    <string name="settings_reset_body">Restore all settings to their default values</string>
+    <string name="settings_reset_body">Restore all settings to their default values.</string>
     <string name="settings_reset_action">Reset</string>
     <string name="settings_reset_dialog_title">Reset all settings?</string>
     <string name="settings_reset_dialog_body">This will restore all settings to their default values. Your connection will be stopped and all customizations will be lost.</string>
@@ -3079,10 +3079,10 @@ Source: %2$s</string>
     <string name="ssh_save_action">Save</string>
 
     <!-- App widget strings -->
-    <string name="widget_description_connect_toggle">Connect Toggle</string>
-    <string name="widget_description_status">VPN Status</string>
+    <string name="widget_description_connect_toggle">Connect toggle</string>
+    <string name="widget_description_status">VPN status</string>
     <string name="widget_description_telemetry">Telemetry</string>
-    <string name="widget_description_mode_picker">Mode Picker</string>
+    <string name="widget_description_mode_picker">Mode picker</string>
     <string name="widget_action_connect">Connect</string>
     <string name="widget_action_disconnect">Disconnect</string>
     <string name="widget_status_running">Running</string>
@@ -3096,7 +3096,7 @@ Source: %2$s</string>
     <string name="widget_telemetry_restarts">Restarts</string>
     <string name="widget_mode_vpn" translatable="false">VPN</string>
     <string name="widget_mode_proxy">Proxy</string>
-    <string name="widget_mode_picker_title">Select Mode</string>
+    <string name="widget_mode_picker_title">Select mode</string>
 
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">Replay failure</string>
@@ -3247,8 +3247,8 @@ Source: %2$s</string>
     <string name="strategy_ab_badge_candidate">CANDIDATE</string>
 
     <!-- Strategy import screen -->
-    <string name="title_strategy_import">Strategy Import</string>
-    <string name="strategy_import_title">Strategy Import</string>
+    <string name="title_strategy_import">Strategy import</string>
+    <string name="strategy_import_title">Strategy import</string>
     <string name="strategy_import_source_file_title">From file</string>
     <string name="strategy_import_source_file_sub">.json, .cfg, or a saved bundle from another install</string>
     <string name="strategy_import_source_qr_title">Scan QR</string>
@@ -3261,8 +3261,8 @@ Source: %2$s</string>
     <string name="strategy_import_caption">Strategy import · 4 sources (file / QR / URL / clipboard) · auto-detection on paste · recent imports for fast re-import.</string>
 
     <!-- Profile Variants screen -->
-    <string name="title_profile_variants">Profile Variants</string>
-    <string name="profile_variants_title">Profile Variants</string>
+    <string name="title_profile_variants">Profile variants</string>
+    <string name="profile_variants_title">Profile variants</string>
     <string name="profile_variants_chip_balanced">BALANCED</string>
     <string name="profile_variants_chip_aggressive">AGGRESSIVE</string>
     <string name="profile_variants_chip_stealth">STEALTH</string>
@@ -3457,7 +3457,7 @@ Source: %2$s</string>
     <!-- Backup &amp; Restore -->
     <string name="title_backup_restore">Backup &amp; restore</string>
     <string name="settings_backup_section">Backup &amp; restore</string>
-    <string name="settings_backup_body">Export your profiles, groups, rules, and settings to a file</string>
+    <string name="settings_backup_body">Export your profiles, groups, rules, and settings to a file.</string>
     <string name="backup_export_section">Export</string>
     <string name="backup_export_intro_title">Backup stays on your device</string>
     <string name="backup_export_intro_body">The backup is written only to the file you choose. Nothing is uploaded.</string>
@@ -3557,9 +3557,9 @@ Source: %2$s</string>
     <string name="clipboard_label_probe_details">Probe details</string>
     <string name="clipboard_label_byoh_compatibility_csv">BYOH compatibility CSV</string>
     <string name="clipboard_label_compatible_sni">Compatible SNI</string>
-    <string name="clipboard_label_detection_diagnostics">Detection Diagnostics</string>
-    <string name="clipboard_label_detection_report">Detection Report</string>
-    <string name="clipboard_label_detection_markdown_export">Detection Markdown Export</string>
+    <string name="clipboard_label_detection_diagnostics">Detection diagnostics</string>
+    <string name="clipboard_label_detection_report">Detection report</string>
+    <string name="clipboard_label_detection_markdown_export">Detection Markdown export</string>
     <string name="clipboard_label_profile_link">RIPDPI profile link</string>
     <string name="clipboard_label_setup_sheet">RIPDPI setup sheet</string>
     <!-- Xray import: per-node skip reasons and errors for native translation. -->

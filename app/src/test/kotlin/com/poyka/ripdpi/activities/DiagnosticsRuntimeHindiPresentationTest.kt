@@ -45,13 +45,13 @@ class DiagnosticsRuntimeHindiPresentationTest {
             )
         val english =
             listOf(
-                "TCP Reset",
-                "Silent Drop",
-                "TLS Alert",
-                "HTTP Blockpage",
-                "QUIC Breakage",
-                "TLS Handshake Failure",
-                "Connection Freeze",
+                "TCP reset",
+                "Silent drop",
+                "TLS alert",
+                "HTTP block page",
+                "QUIC breakage",
+                "TLS handshake failure",
+                "Connection freeze",
                 "Redirect",
                 "Unknown DPI",
             )

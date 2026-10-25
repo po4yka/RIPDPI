@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="diagnostics_dpi_failure_tcp_reset">TCP Reset</string>
-    <string name="diagnostics_dpi_failure_silent_drop">Silent Drop</string>
-    <string name="diagnostics_dpi_failure_tls_alert">TLS Alert</string>
-    <string name="diagnostics_dpi_failure_http_blockpage">HTTP Blockpage</string>
-    <string name="diagnostics_dpi_failure_quic_breakage">QUIC Breakage</string>
-    <string name="diagnostics_dpi_failure_tls_handshake_failure">TLS Handshake Failure</string>
-    <string name="diagnostics_dpi_failure_connection_freeze">Connection Freeze</string>
+    <string name="diagnostics_dpi_failure_tcp_reset">TCP reset</string>
+    <string name="diagnostics_dpi_failure_silent_drop">Silent drop</string>
+    <string name="diagnostics_dpi_failure_tls_alert">TLS alert</string>
+    <string name="diagnostics_dpi_failure_http_blockpage">HTTP block page</string>
+    <string name="diagnostics_dpi_failure_quic_breakage">QUIC breakage</string>
+    <string name="diagnostics_dpi_failure_tls_handshake_failure">TLS handshake failure</string>
+    <string name="diagnostics_dpi_failure_connection_freeze">Connection freeze</string>
     <string name="diagnostics_dpi_failure_redirect">Redirect</string>
     <string name="diagnostics_dpi_failure_other">Unknown DPI</string>
     <string name="diagnostics_pt_idle">Check public PT endpoint reachability for obfs4, Snowflake, and meek.</string>

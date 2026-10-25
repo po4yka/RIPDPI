@@ -250,7 +250,7 @@
     <string name="settings_permissions_always_on_unknown">Android ने अभी तक Always-on VPN स्थिति की रिपोर्ट नहीं की है। इसकी पुष्टि के लिए VPN सेटिंग्स खोलें।</string>
     <string name="settings_connectivity_dns_body">रिज़ॉल्वर मोड, प्रोटोकॉल, IPv6, और स्थानीय टनल DNS व्यवहार।</string>
     <string name="settings_connectivity_dns_body_proxy">एन्क्रिप्टेड DNS स्थानीय प्रॉक्सी के लक्ष्य नाम हल कर सकता है। डिवाइस DNS नहीं बदलता।</string>
-    <string name="settings_advanced_body">निम्न-स्तरीय RIPDPI फ़्लैग, प्रॉक्सी लिसनर, और प्रोटोकॉल ओवरराइड।</string>
+    <string name="settings_advanced_body">निम्न-स्तरीय RIPDPI फ़्लैग, प्रॉक्सी लिसनर, और प्रोटोकॉल ओवरराइड</string>
     <string name="settings_security_section">गोपनीयता</string>
     <string name="settings_webrtc_title">WebRTC सुरक्षा</string>
     <string name="settings_webrtc_body">पीयर-डिस्कवरी लीक कम करें जो स्थानीय टनल को बायपास कर सकते हैं।</string>
@@ -258,14 +258,14 @@
     <string name="settings_start_on_boot_body">डिवाइस पुनः चालू होने के बाद अंतिम सक्रिय मोड को स्वचालित रूप से पुनः कनेक्ट करें।</string>
     <string name="settings_start_on_boot_battery_warning">बैटरी ऑप्टिमाइज़ेशन अभी भी सक्रिय है। जब तक आप RIPDPI को बैटरी ऑप्टिमाइज़ेशन से छूट नहीं देते, तब तक Android इसे बूट पर शुरू होने से रोक सकता है।</string>
     <string name="settings_exclude_russian_apps_title">रूसी ऐप्स को बाहर रखें</string>
-    <string name="settings_exclude_russian_apps_body">पता लगने की समस्याओं से बचने के लिए बैंकिंग, डिलीवरी और सरकारी ऐप्स VPN को बायपास करते हैं</string>
+    <string name="settings_exclude_russian_apps_body">पता लगने की समस्याओं से बचने के लिए बैंकिंग, डिलीवरी और सरकारी ऐप्स VPN को बायपास करते हैं।</string>
     <string name="settings_full_tunnel_title">फ़ुल टनल मोड</string>
-    <string name="settings_full_tunnel_body">बिना किसी ऐप अपवाद के सारा ट्रैफ़िक VPN के माध्यम से रूट करें। यह स्पाईवेयर मॉड्यूल को सीधे ट्रैफ़िक भेजने से रोकता है, पर रूसी ऐप्स VPN का पता लगा सकते हैं</string>
+    <string name="settings_full_tunnel_body">बिना किसी ऐप अपवाद के सारा ट्रैफ़िक VPN के माध्यम से रूट करें। यह स्पाईवेयर मॉड्यूल को सीधे ट्रैफ़िक भेजने से रोकता है, पर रूसी ऐप्स VPN का पता लगा सकते हैं।</string>
     <string name="settings_full_tunnel_helper">सक्षम होने पर, सारा ट्रैफ़िक टनल के माध्यम से जाता है। इस मोड में प्रति-ऐप अपवाद अक्षम होते हैं।</string>
     <string name="settings_vpn_flag_warning_title">VPN फ़्लैग दृश्यमान है</string>
-    <string name="settings_vpn_flag_warning_body">सभी Android प्रोफ़ाइलों (Work Profile और Knox सहित) के ऐप्स यह पता लगा सकते हैं कि VPN सक्रिय है। पूर्ण पृथक्करण के लिए, रूसी ऐप्स हेतु अलग डिवाइस का उपयोग करें</string>
+    <string name="settings_vpn_flag_warning_body">सभी Android प्रोफ़ाइलों (Work Profile और Knox सहित) के ऐप्स यह पता लगा सकते हैं कि VPN सक्रिय है। पूर्ण पृथक्करण के लिए, रूसी ऐप्स हेतु अलग डिवाइस का उपयोग करें।</string>
     <string name="settings_tethering_dns_warning_title">टेदरिंग DNS लीक जोखिम</string>
-    <string name="settings_tethering_dns_warning_body">जब टेदरिंग सक्रिय होती है, तो Android एक स्थानीय DNS सर्वर चलाता है जो VPN को बायपास करता है। ऐप्स इसका उपयोग टनल के बाहर ट्रैकिंग बीकन भेजने के लिए कर सकते हैं</string>
+    <string name="settings_tethering_dns_warning_body">जब टेदरिंग सक्रिय होती है, तो Android एक स्थानीय DNS सर्वर चलाता है जो VPN को बायपास करता है। ऐप्स इसका उपयोग टनल के बाहर ट्रैकिंग बीकन भेजने के लिए कर सकते हैं।</string>
     <string name="settings_biometric_title">प्रमाणीकरण आवश्यक करें</string>
     <string name="settings_biometric_body_with_pin">बायोमेट्रिक अनलॉक स्थानीय बैकअप PIN फ़ॉलबैक के साथ सक्षम है।</string>
     <string name="settings_biometric_body_without_pin">बायोमेट्रिक अनलॉक सक्षम है। फ़ॉलबैक पहुँच के लिए एक बैकअप PIN जोड़ें।</string>
@@ -350,7 +350,7 @@
     <string name="data_transparency_network_diagnostics">नेटवर्क डायग्नोस्टिक्स: ट्रांसपोर्ट प्रकार, सिग्नल क्षमता, DNS कॉन्फ़िगरेशन</string>
     <string name="data_transparency_dpi_detection">DPI पहचान परिणाम: विफलता वर्गीकरण, रणनीति प्रभावशीलता</string>
     <string name="data_transparency_performance_metrics">प्रदर्शन मेट्रिक्स: RTT मापन, पुनः प्रयास गणना, ट्रैफ़िक आँकड़े</string>
-    <string name="data_transparency_network_identity">नेटवर्क पहचान: नेटवर्क विशेषताओं का हैश किया गया फ़िंगरप्रिंट (WiFi SSID, कैरियर जानकारी)</string>
+    <string name="data_transparency_network_identity">नेटवर्क पहचान: नेटवर्क विशेषताओं का हैश किया गया फ़िंगरप्रिंट (Wi-Fi SSID, कैरियर जानकारी)</string>
     <string name="data_transparency_device_context">डिवाइस संदर्भ: Android संस्करण, डिवाइस मॉडल, ऐप संस्करण, अनुमति स्थितियाँ</string>
     <string name="data_transparency_optional_ip">वैकल्पिक: सार्वजनिक IP पता (केवल मैन्युअल डायग्नोस्टिक स्कैन के दौरान)</string>
     <string name="data_transparency_what_we_do_not_collect_section">हम क्या एकत्र नहीं करते</string>
@@ -772,7 +772,7 @@
     <string name="detection_dns_route_through_proxy_title">एन्क्रिप्टेड DNS को प्रॉक्सी के माध्यम से रूट करें</string>
     <string name="detection_dns_route_through_proxy_subtitle">एन्क्रिप्टेड DNS को सक्रिय प्रॉक्सी के माध्यम से भेजें ताकि स्थानीय नेटवर्क पर रिज़ॉल्यूशन को ब्लॉक न किया जा सके।</string>
     <string name="title_shared_diagnostic_result">साझा डायग्नोस्टिक</string>
-    <string name="detection_check_subtitle">जाँचें कि आपका VPN/प्रॉक्सी सेटअप कितना दृश्यमान है</string>
+    <string name="detection_check_subtitle">जाँचें कि आपका VPN/प्रॉक्सी सेटअप कितना दृश्यमान है।</string>
     <string name="detection_check_start">जाँच चलाएँ</string>
     <string name="detection_check_stop">रोकें</string>
     <string name="detection_check_running">पहचान जाँचें चल रही हैं…</string>
@@ -932,7 +932,7 @@
     </plurals>
     <string name="settings_danger_section">खतरा क्षेत्र</string>
     <string name="settings_reset_title">सभी सेटिंग्स रीसेट करें</string>
-    <string name="settings_reset_body">सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित करें</string>
+    <string name="settings_reset_body">सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित करें।</string>
     <string name="settings_reset_action">रीसेट करें</string>
     <string name="settings_reset_dialog_title">सभी सेटिंग्स रीसेट करें?</string>
     <string name="settings_reset_dialog_body">यह सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित कर देगा। आपका कनेक्शन रोक दिया जाएगा और सभी अनुकूलन खो जाएँगे।</string>
@@ -1521,7 +1521,7 @@
     <string name="asset_provider_updated_never">कभी अपडेट नहीं हुआ</string>
     <string name="title_backup_restore">बैकअप &amp; रिस्टोर</string>
     <string name="settings_backup_section">बैकअप &amp; रिस्टोर</string>
-    <string name="settings_backup_body">अपने प्रोफाइल, समूह, नियम और सेटिंग्स को किसी फ़ाइल में निर्यात करें</string>
+    <string name="settings_backup_body">अपने प्रोफाइल, समूह, नियम और सेटिंग्स को किसी फ़ाइल में निर्यात करें।</string>
     <string name="backup_export_section">निर्यात</string>
     <string name="backup_export_intro_title">बैकअप आपके डिवाइस पर ही रहता है</string>
     <string name="backup_export_intro_body">बैकअप केवल उसी फ़ाइल में लिखा जाता है जिसे आप चुनते हैं। कुछ भी अपलोड नहीं किया जाता।</string>

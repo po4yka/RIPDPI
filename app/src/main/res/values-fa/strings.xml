@@ -1379,7 +1379,7 @@ fakeddisorder endhost</string>
     <string name="title_remembered_networks">شبکه‌های به‌خاطر‌سپرده</string>
     <string name="title_root_mode_strategies">راهبردهای حالت روت</string>
     <string name="root_mode_toggle_label">حالت روت</string>
-    <string name="settings_root_mode_strategies_body">پیکربندی FakeRST، چند-بی‌نظمی و قطعه‌قطعه‌سازی IP.</string>
+    <string name="settings_root_mode_strategies_body">پیکربندی FakeRST، چند-بی‌نظمی و قطعه‌قطعه‌سازی IP</string>
     <string name="root_mode_strategies_intro_title">به روت نیاز دارد</string>
     <string name="root_mode_strategies_intro_body">این راهبردهای ناهمگام‌سازی بسته‌ها را در زیر سوکت VPN تزریق یا قطعه‌قطعه می‌کنند و فقط روی دستگاه‌های روت‌شده با حالت روت فعال کار می‌کنند.</string>
     <string name="root_mode_strategies_disabled_title">حالت روت خاموش است</string>
@@ -1499,7 +1499,7 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_timing">تحلیل زمان‌بندی</string>
     <string name="detection_check_copy">رونوشت</string>
     <string name="detection_check_share">اشتراک‌گذاری</string>
-    <string name="detection_check_subtitle">بررسی کنید پیکربندی VPN/پروکسی شما چقدر قابل‌مشاهده است</string>
+    <string name="detection_check_subtitle">بررسی کنید پیکربندی VPN/پروکسی شما چقدر قابل‌مشاهده است.</string>
     <string name="detection_check_verdict_not_detected">شناسایی نشد</string>
     <string name="detection_community_error">بارگیری آمار جامعه ممکن نشد</string>
     <string name="detection_empty_history">هنوز بررسی‌ای انجام نشده</string>
@@ -1765,7 +1765,7 @@ fakeddisorder endhost</string>
     <string name="settings_community_api_url_label">URL API جامعه</string>
     <string name="settings_connectivity_dns_body_proxy">DNS رمزگذاری‌شده می‌تواند نام‌های مقصد پروکسی محلی را حل کند. DNS دستگاه تغییر نمی‌کند.</string>
     <string name="settings_customization_body">آیکن برنامه، شکل تطبیقی و گزینه‌های آیکن تم‌دار.</string>
-    <string name="settings_exclude_russian_apps_body">برنامه‌های بانکی، تحویل و دولتی برای جلوگیری از مشکلات شناسایی، VPN را دور می‌زنند</string>
+    <string name="settings_exclude_russian_apps_body">برنامه‌های بانکی، تحویل و دولتی برای جلوگیری از مشکلات شناسایی، VPN را دور می‌زنند.</string>
     <string name="settings_manage_action">مدیریت</string>
     <string name="settings_permission_action_review">بازبینی</string>
     <string name="settings_permission_status_optional">اختیاری</string>
@@ -1776,7 +1776,7 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_always_on_unknown">Android هنوز وضعیت VPN همیشه روشن را گزارش نکرده است. برای بررسی، تنظیمات VPN را باز کنید.</string>
     <string name="settings_permissions_notifications_ready">اعلان‌های سرویس پیش‌زمینه برای RIPDPI در دسترس هستند.</string>
     <string name="settings_permissions_vpn_needed">قبل از اینکه RIPDPI بتواند مسیر VPN محلی را شروع کند، رضایت VPN Android را اعطا کنید.</string>
-    <string name="settings_reset_body">بازگرداندن همه تنظیمات به مقادیر پیش‌فرض</string>
+    <string name="settings_reset_body">بازگرداندن همه تنظیمات به مقادیر پیش‌فرض.</string>
     <string name="settings_reset_dialog_title">همه تنظیمات بازنشانی شود؟</string>
     <string name="settings_support_section">پشتیبانی</string>
     <string name="settings_theme_body">انتخاب کنید آیا برنامه از تم سیستم پیروی کند یا ثابت بماند.</string>
@@ -1912,7 +1912,7 @@ fakeddisorder endhost</string>
     <string name="data_transparency_disable_monitoring">می‌توانید نظارت غیرفعال را در تنظیمات پیشرفته غیرفعال کنید</string>
     <string name="data_transparency_export_explicit">بایگانی‌های خروجی، فایل‌های گزارش و موارد اشتراک‌گذاری فقط با درخواست صریح شما ساخته می‌شوند</string>
     <string name="data_transparency_how_stored_section">داده‌ها چگونه ذخیره می‌شوند</string>
-    <string name="data_transparency_network_identity">شناسه شبکه: اثر انگشت هش‌شده از ویژگی‌های شبکه (WiFi SSID، اطلاعات اپراتور)</string>
+    <string name="data_transparency_network_identity">شناسه شبکه: اثر انگشت هش‌شده از ویژگی‌های شبکه (Wi-Fi SSID، اطلاعات اپراتور)</string>
     <string name="data_transparency_no_external_servers">هیچ داده‌ای به‌طور خودکار به سرورهای خارجی ارسال نمی‌شود</string>
     <string name="data_transparency_performance_metrics">معیارهای عملکرد: اندازه‌گیری RTT، تعداد تلاش‌های مجدد، آمار ترافیک</string>
     <string name="data_transparency_what_we_do_not_collect_section">آنچه ما جمع‌آوری نمی‌کنیم</string>
@@ -2207,7 +2207,7 @@ fakeddisorder endhost</string>
     <string name="settings_reset_confirm">بازنشانی</string>
     <string name="settings_reset_title">بازنشانی تمام تنظیمات</string>
     <string name="settings_support_debug_bundle_body">یک فایل ZIP تشخیصی با logcat محدود به برنامه، اطلاعات تازهٔ اشکال‌زدایی، فرادادهٔ آرشیو، یادداشت‌های کامل‌بودن، و هش‌های یکپارچگی بسازید، سپس پس از انتخاب گیرنده آن را از طریق برگهٔ اشتراک Android ارسال کنید. ضبط‌های بسته در آن قرار نمی‌گیرند.</string>
-    <string name="settings_tethering_dns_warning_body">وقتی tethering فعال است، Android یک سرور DNS محلی اجرا می‌کند که VPN را دور می‌زند. برنامه‌ها ممکن است از آن برای ارسال beaconهای ردیابی خارج از تونل استفاده کنند</string>
+    <string name="settings_tethering_dns_warning_body">وقتی tethering فعال است، Android یک سرور DNS محلی اجرا می‌کند که VPN را دور می‌زند. برنامه‌ها ممکن است از آن برای ارسال beaconهای ردیابی خارج از تونل استفاده کنند.</string>
     <string name="settings_theme_helper">رابط بلافاصله پس از تغییر این تنظیم به‌روزرسانی می‌شود.</string>
     <string name="settings_warning_backup_pin_body">یک PIN بازگشتی چهار رقمی تنظیم کنید تا اگر بیومتریک در دسترس نبود همچنان بتوانید قفل RIPDPI را باز کنید.</string>
     <string name="settings_webrtc_title">محافظت WebRTC</string>
@@ -2612,7 +2612,7 @@ fakeddisorder endhost</string>
     <string name="routing_protection_summary_title">پیشنهادات مسیریابی فقط از مطابقت‌های برنامه‌های نصب‌شده استفاده می‌کنند</string>
     <string name="semantic_action_expand">گسترش</string>
     <string name="semantic_state_off">خاموش</string>
-    <string name="settings_advanced_body">پرچم‌های سطح پایین RIPDPI، شنوندگان پراکسی و بازنویسی‌های پروتکل.</string>
+    <string name="settings_advanced_body">پرچم‌های سطح پایین RIPDPI، شنوندگان پراکسی و بازنویسی‌های پروتکل</string>
     <string name="settings_backup_pin_clear">پاک‌سازی PIN</string>
     <string name="settings_backup_pin_save">ذخیره PIN</string>
     <string name="settings_biometric_body_without_pin">بازگشایی بیومتریک فعال است. یک PIN پشتیبان برای دسترسی جایگزین اضافه کنید.</string>
@@ -2623,7 +2623,7 @@ fakeddisorder endhost</string>
     <string name="settings_community_api_url_save">ذخیره</string>
     <string name="settings_connectivity_section">اتصال</string>
     <string name="settings_data_transparency_body">چه داده‌هایی جمع‌آوری می‌شوند، چگونه ذخیره می‌شوند و کنترل‌های حریم خصوصی شما.</string>
-    <string name="settings_full_tunnel_body">تمام ترافیک را بدون استثنای برنامه از طریق VPN مسیریابی کنید. از ارسال مستقیم ترافیک توسط ماژول‌های جاسوس‌افزار جلوگیری می‌کند، اما برنامه‌های روسی ممکن است VPN را تشخیص دهند</string>
+    <string name="settings_full_tunnel_body">تمام ترافیک را بدون استثنای برنامه از طریق VPN مسیریابی کنید. از ارسال مستقیم ترافیک توسط ماژول‌های جاسوس‌افزار جلوگیری می‌کند، اما برنامه‌های روسی ممکن است VPN را تشخیص دهند.</string>
     <string name="settings_full_tunnel_title">حالت تونل کامل</string>
     <string name="settings_permission_action_open_settings">باز کردن تنظیمات</string>
     <string name="settings_permission_status_not_needed">نیاز نیست</string>
@@ -2635,7 +2635,7 @@ fakeddisorder endhost</string>
     <string name="settings_security_section">حریم خصوصی</string>
     <string name="settings_support_debug_bundle_title">اشتراک‌گذاری بسته پشتیبانی</string>
     <string name="settings_tethering_dns_warning_title">خطر نشت DNS اشتراک اتصال</string>
-    <string name="settings_vpn_flag_warning_body">برنامه‌ها در تمام پروفایل‌های اندروید (شامل Work Profile و Knox) می‌توانند تشخیص دهند که VPN فعال است. برای جداسازی کامل، از یک دستگاه جداگانه برای برنامه‌های روسی استفاده کنید</string>
+    <string name="settings_vpn_flag_warning_body">برنامه‌ها در تمام پروفایل‌های اندروید (شامل Work Profile و Knox) می‌توانند تشخیص دهند که VPN فعال است. برای جداسازی کامل، از یک دستگاه جداگانه برای برنامه‌های روسی استفاده کنید.</string>
     <string name="settings_warning_backup_pin_title">PIN پشتیبان توصیه می‌شود</string>
     <string name="shortcut_diagnostics_disabled">تشخیص‌ها در دسترس نیست</string>
     <string name="shortcut_quick_connect_disabled">اتصال در دسترس نیست</string>
@@ -3297,7 +3297,7 @@ fakeddisorder endhost</string>
     <!-- Backup &amp; Restore -->
     <string name="title_backup_restore">پشتیبان‌گیری و بازیابی</string>
     <string name="settings_backup_section">پشتیبان‌گیری و بازیابی</string>
-    <string name="settings_backup_body">برون‌بری نمایه‌ها، گروه‌ها، قوانین و تنظیمات در یک فایل</string>
+    <string name="settings_backup_body">برون‌بری نمایه‌ها، گروه‌ها، قوانین و تنظیمات در یک فایل.</string>
     <string name="backup_export_section">برون‌بری</string>
     <string name="backup_export_intro_title">پشتیبان روی دستگاه شما می‌ماند</string>
     <string name="backup_export_intro_body">پشتیبان فقط در فایلی که انتخاب می‌کنید نوشته می‌شود. چیزی بارگذاری نمی‌شود.</string>

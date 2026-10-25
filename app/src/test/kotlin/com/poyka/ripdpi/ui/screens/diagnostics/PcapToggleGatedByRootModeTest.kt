@@ -48,7 +48,7 @@ class PcapToggleGatedByRootModeTest {
             }
         }
 
-        composeRule.onNodeWithText("Packet Capture").assertIsNotDisplayed()
+        composeRule.onNodeWithText("Packet capture").assertIsNotDisplayed()
     }
 
     @Test
@@ -77,6 +77,6 @@ class PcapToggleGatedByRootModeTest {
             }
         }
 
-        composeRule.onNodeWithText("Packet Capture").assertIsDisplayed()
+        composeRule.onNodeWithText("Packet capture").assertIsDisplayed()
     }
 }

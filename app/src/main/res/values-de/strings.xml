@@ -103,7 +103,7 @@
     <string name="customization_shape_sheet_title">Adaptive Form</string>
     <string name="data_transparency_device_context">Gerätekontext: Android-Version, Gerätemodell, App-Version, Berechtigungsstatus</string>
     <string name="data_transparency_export_privacy_section">Export-Datenschutz</string>
-    <string name="data_transparency_network_identity">Netzwerkidentität: gehashter Fingerprint der Netzwerkeigenschaften (WiFi-SSID, Carrier-Informationen)</string>
+    <string name="data_transparency_network_identity">Netzwerkidentität: gehashter Fingerprint der Netzwerkeigenschaften (Wi-Fi-SSID, Carrier-Informationen)</string>
     <string name="data_transparency_optional_ip">Optional: öffentliche IP-Adresse (nur während manueller Diagnose-Scans)</string>
     <string name="detection_check_category_bypass">Bypass</string>
     <string name="detection_check_category_indirect">Indirekte Anzeichen</string>
@@ -1015,7 +1015,7 @@ fakeddisorder endhost</string>
     <string name="routing_protection_policy_prompt_body">Routing-Vorschläge anzeigen, wenn riskante Apps vorhanden sind.</string>
     <string name="routing_protection_summary_title">Routing-Vorschläge verwenden nur Übereinstimmungen installierter Apps</string>
     <string name="semantic_state_expanded">Erweitert</string>
-    <string name="settings_advanced_body">Low-Level-RIPDPI-Flags, Proxy-Listener und Protokoll-Überschreibungen.</string>
+    <string name="settings_advanced_body">Low-Level-RIPDPI-Flags, Proxy-Listener und Protokoll-Überschreibungen</string>
     <string name="settings_backup_pin_helper_saved">Eine vierstellige Fallback-PIN ist bereits lokal gespeichert.</string>
     <string name="settings_biometric_confirm_cancel">Abbrechen</string>
     <string name="settings_biometric_pin_required_message">Legen Sie eine Backup-PIN fest, bevor Sie die biometrische Entsperrung aktivieren. Die PIN bietet Fallback-Zugriff, falls die biometrische Authentifizierung nicht mehr verfügbar ist.</string>
@@ -1023,7 +1023,7 @@ fakeddisorder endhost</string>
     <string name="settings_connectivity_dns_body">Resolver-Modus, Protokoll, IPv6 und lokales Tunnel-DNS-Verhalten.</string>
     <string name="settings_data_transparency_body">Welche Daten erfasst werden, wie sie gespeichert werden und Ihre Datenschutzkontrollen.</string>
     <string name="settings_diagnostics_monitor_title">Laufzeit-Diagnoseverlauf aufzeichnen</string>
-    <string name="settings_exclude_russian_apps_body">Banking-, Liefer- und Behörden-Apps umgehen das VPN, um Erkennungsprobleme zu vermeiden</string>
+    <string name="settings_exclude_russian_apps_body">Banking-, Liefer- und Behörden-Apps umgehen das VPN, um Erkennungsprobleme zu vermeiden.</string>
     <string name="settings_full_tunnel_title">Voller Tunnelmodus</string>
     <string name="settings_permission_action_open_settings">Einstellungen öffnen</string>
     <string name="settings_permission_status_recommended">Empfohlen</string>
@@ -1032,7 +1032,7 @@ fakeddisorder endhost</string>
     <string name="settings_reset_title">Alle Einstellungen zurücksetzen</string>
     <string name="settings_strategy_pack_allow_rollback_override_title">Strategie-Paket-Rollback erlauben</string>
     <string name="settings_telemetry_salt_reset_body">Setzt das Per-Installation-Salt zurück, das zum Hashen von Netzwerkfingerabdrücken verwendet wird. Zuvor aufgezeichnete Hashes können nicht mehr mit zukünftigen Sitzungen korreliert werden.</string>
-    <string name="settings_vpn_flag_warning_body">Apps in allen Android-Profilen (einschließlich Arbeitsprofil und Knox) können erkennen, dass ein VPN aktiv ist. Für vollständige Isolation verwenden Sie ein separates Gerät für russische Apps</string>
+    <string name="settings_vpn_flag_warning_body">Apps in allen Android-Profilen (einschließlich Arbeitsprofil und Knox) können erkennen, dass ein VPN aktiv ist. Für vollständige Isolation verwenden Sie ein separates Gerät für russische Apps.</string>
     <string name="settings_webrtc_title">WebRTC-Schutz</string>
     <string name="shortcut_quick_connect_disabled">Verbindung nicht verfügbar</string>
     <plurals name="stage_failed_count">
@@ -1541,10 +1541,10 @@ Quelle: %2$s</string>
     <string name="settings_permission_action_review">Prüfen</string>
     <string name="settings_permission_status_required">Erforderlich</string>
     <string name="settings_permissions_section">Berechtigungen</string>
-    <string name="settings_reset_body">Alle Einstellungen auf ihre Standardwerte zurücksetzen</string>
+    <string name="settings_reset_body">Alle Einstellungen auf ihre Standardwerte zurücksetzen.</string>
     <string name="settings_security_section">Datenschutz</string>
     <string name="settings_support_debug_bundle_body">Erstellen Sie eine Diagnose-ZIP mit einem auf die App beschränkten Logcat, aktuellen Debug-Informationen, Archivmetadaten, Vollständigkeitshinweisen und Integritäts-Hashes. Wählen Sie anschließend einen Empfänger und senden Sie sie über das Android-Teilen-Menü. Paketmitschnitte werden nicht eingebettet.</string>
-    <string name="settings_tethering_dns_warning_body">Wenn Tethering aktiv ist, führt Android einen lokalen DNS-Server aus, der das VPN umgeht. Apps können dies nutzen, um Tracking-Beacons außerhalb des Tunnels zu senden</string>
+    <string name="settings_tethering_dns_warning_body">Wenn Tethering aktiv ist, führt Android einen lokalen DNS-Server aus, der das VPN umgeht. Apps können dies nutzen, um Tracking-Beacons außerhalb des Tunnels zu senden.</string>
     <string name="settings_vpn_flag_warning_title">VPN-Flag ist sichtbar</string>
     <string name="shortcut_diagnostics">Diagnostik ausführen</string>
     <string name="shortcut_quick_connect_short">Verbinden</string>
@@ -1703,7 +1703,7 @@ Quelle: %2$s</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_rtt_triangulation">RTT-Triangulation</string>
     <string name="detection_check_recommendations">Empfehlungen</string>
-    <string name="detection_check_subtitle">Prüfen Sie, wie sichtbar Ihre VPN-/Proxy-Konfiguration ist</string>
+    <string name="detection_check_subtitle">Prüfen Sie, wie sichtbar Ihre VPN-/Proxy-Konfiguration ist.</string>
     <string name="detection_community_detected_pct">%d %% der Prüfungen erkannt</string>
     <string name="detection_community_retry">Erneut versuchen</string>
     <string name="detection_finding_ok">OK</string>
@@ -2091,7 +2091,7 @@ Quelle: %2$s</string>
     <string name="settings_connectivity_section">Verbindung</string>
     <string name="settings_diagnostics_export_history_title">Historie in Diagnose-Archive einschließen</string>
     <string name="settings_diagnostics_retention_title">Aufbewahrungsdauer der Historie (Tage)</string>
-    <string name="settings_full_tunnel_body">Gesamten Datenverkehr ohne App-Ausschlüsse durch das VPN leiten. Verhindert, dass Spyware-Module Datenverkehr direkt senden, aber russische Apps können das VPN erkennen</string>
+    <string name="settings_full_tunnel_body">Gesamten Datenverkehr ohne App-Ausschlüsse durch das VPN leiten. Verhindert, dass Spyware-Module Datenverkehr direkt senden, aber russische Apps können das VPN erkennen.</string>
     <string name="settings_language_title">Sprache</string>
     <string name="settings_permission_status_granted">Erteilt</string>
     <string name="settings_permissions_battery_needed">Empfohlen, damit Doze RIPDPI seltener pausiert, während es im Hintergrund läuft.</string>
@@ -2148,7 +2148,7 @@ Quelle: %2$s</string>
     <string name="title_remembered_networks">Gespeicherte Netzwerke</string>
     <string name="title_root_mode_strategies">Root-Modus-Strategien</string>
     <string name="root_mode_toggle_label">Root-Modus</string>
-    <string name="settings_root_mode_strategies_body">FakeRST, Multi-Disorder und IP-Fragmentierung konfigurieren.</string>
+    <string name="settings_root_mode_strategies_body">FakeRST, Multi-Disorder und IP-Fragmentierung konfigurieren</string>
     <string name="root_mode_strategies_intro_title">Erfordert Root</string>
     <string name="root_mode_strategies_intro_body">Diese Desync-Strategien injizieren oder fragmentieren Pakete unterhalb des VPN-Sockets und funktionieren nur auf gerooteten Geräten mit aktiviertem Root-Modus.</string>
     <string name="root_mode_strategies_disabled_title">Root-Modus ist aus</string>
@@ -3292,7 +3292,7 @@ Quelle: %2$s</string>
     <!-- Backup &amp; Restore -->
     <string name="title_backup_restore">Sicherung &amp; Wiederherstellung</string>
     <string name="settings_backup_section">Sicherung &amp; Wiederherstellung</string>
-    <string name="settings_backup_body">Profile, Gruppen, Regeln und Einstellungen in eine Datei exportieren</string>
+    <string name="settings_backup_body">Profile, Gruppen, Regeln und Einstellungen in eine Datei exportieren.</string>
     <string name="backup_export_section">Exportieren</string>
     <string name="backup_export_intro_title">Die Sicherung bleibt auf dem Gerät</string>
     <string name="backup_export_intro_body">Die Sicherung wird nur in die von dir gewählte Datei geschrieben. Nichts wird hochgeladen.</string>
