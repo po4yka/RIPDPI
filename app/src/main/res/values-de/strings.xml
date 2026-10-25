@@ -2147,10 +2147,7 @@ Quelle: %2$s</string>
     <string name="title_root_mode_strategies">Root-Modus-Strategien</string>
     <string name="root_mode_toggle_label">Root-Modus</string>
     <string name="settings_root_mode_strategies_body">FakeRST, Multi-Disorder und IP-Fragmentierung konfigurieren</string>
-    <string name="root_mode_strategies_intro_title">Erfordert Root</string>
     <string name="root_mode_strategies_intro_body">Diese Desync-Strategien injizieren oder fragmentieren Pakete unterhalb des VPN-Sockets und funktionieren nur auf gerooteten Geräten mit aktiviertem Root-Modus.</string>
-    <string name="root_mode_strategies_disabled_title">Root-Modus ist aus</string>
-    <string name="root_mode_strategies_disabled_body">Aktiviere den Root-Modus, um diese Strategien zu nutzen. Auf nicht gerooteten Geräten bleiben sie inaktiv und werden sauber deaktiviert.</string>
     <string name="root_mode_strategy_fakerst_title">Fake RST</string>
     <string name="root_mode_strategy_fakerst_body">Injiziert ein gefälschtes TCP-Reset, um die zustandsbehaftete DPI-Verfolgung zu desynchronisieren.</string>
     <string name="root_mode_strategy_multidisorder_title">Multi-Disorder</string>

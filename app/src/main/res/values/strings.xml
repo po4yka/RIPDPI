@@ -1405,10 +1405,7 @@ fakeddisorder endhost</string>
     <string name="title_root_mode_strategies">Root-mode strategies</string>
     <string name="root_mode_toggle_label">Root mode</string>
     <string name="settings_root_mode_strategies_body">Configure FakeRST, multi-disorder, and IP fragmentation</string>
-    <string name="root_mode_strategies_intro_title">Requires root</string>
     <string name="root_mode_strategies_intro_body">These desync strategies inject or fragment packets below the VPN socket and only work on rooted devices with root mode enabled.</string>
-    <string name="root_mode_strategies_disabled_title">Root mode is off</string>
-    <string name="root_mode_strategies_disabled_body">Enable root mode to use these strategies. They stay inactive and degrade gracefully on non-rooted devices.</string>
     <string name="root_mode_strategy_fakerst_title">Fake RST</string>
     <string name="root_mode_strategy_fakerst_body">Injects a spoofed TCP reset to desynchronise stateful DPI tracking.</string>
     <string name="root_mode_strategy_multidisorder_title">Multi-disorder</string>

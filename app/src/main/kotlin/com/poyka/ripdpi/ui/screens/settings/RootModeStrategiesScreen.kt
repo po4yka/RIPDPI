@@ -20,7 +20,6 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -116,7 +115,6 @@ internal fun RootModeStrategiesScreen(
     onRootModeEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
     RipDpiSettingsScaffold(
         modifier =
             modifier
@@ -127,43 +125,20 @@ internal fun RootModeStrategiesScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
     ) {
-        item(key = "root_mode_strategies_intro") {
-            RipDpiPanelHeader(
-                title = stringResource(R.string.root_mode_strategies_intro_title),
-                supporting = stringResource(R.string.root_mode_strategies_intro_body),
-            )
-        }
-
+        // The switch carries the only explanation; strategies appear once root mode is on.
         item(key = "root_mode_toggle") {
             RipDpiCard {
                 RipDpiSwitch(
                     checked = uiState.rootModeEnabled,
                     onCheckedChange = onRootModeEnabledChange,
                     label = stringResource(R.string.root_mode_toggle_label),
+                    helperText = stringResource(R.string.root_mode_strategies_intro_body),
                     testTag = RipDpiTestTags.RootModeToggle,
                 )
             }
         }
 
-        if (!uiState.rootModeEnabled) {
-            item(key = "root_mode_strategies_disabled") {
-                RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RootModeStrategiesDisabled)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-                        Text(
-                            text = stringResource(R.string.root_mode_strategies_disabled_title),
-                            style = RipDpiThemeTokens.type.bodyEmphasis,
-                            color = colors.foreground,
-                        )
-                        Text(
-                            text = stringResource(R.string.root_mode_strategies_disabled_body),
-                            style = RipDpiThemeTokens.type.caption,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                }
-            }
-            return@RipDpiSettingsScaffold
-        }
+        if (!uiState.rootModeEnabled) return@RipDpiSettingsScaffold
 
         items(
             items = rootModeStrategies,

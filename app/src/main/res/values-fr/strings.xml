@@ -2147,10 +2147,7 @@ Source : %2$s</string>
     <string name="title_root_mode_strategies">Stratégies en mode root</string>
     <string name="root_mode_toggle_label">Mode root</string>
     <string name="settings_root_mode_strategies_body">Configurez FakeRST, le multi-désordre et la fragmentation IP</string>
-    <string name="root_mode_strategies_intro_title">Nécessite le root</string>
     <string name="root_mode_strategies_intro_body">Ces stratégies de désynchronisation injectent ou fragmentent les paquets sous le socket du VPN et ne fonctionnent que sur les appareils rootés avec le mode root activé.</string>
-    <string name="root_mode_strategies_disabled_title">Le mode root est désactivé</string>
-    <string name="root_mode_strategies_disabled_body">Activez le mode root pour utiliser ces stratégies. Elles restent inactives et se désactivent proprement sur les appareils non rootés.</string>
     <string name="root_mode_strategy_fakerst_title">Fake RST</string>
     <string name="root_mode_strategy_fakerst_body">Injecte une réinitialisation TCP falsifiée pour désynchroniser le suivi d\'état du DPI.</string>
     <string name="root_mode_strategy_multidisorder_title">Multi-désordre</string>

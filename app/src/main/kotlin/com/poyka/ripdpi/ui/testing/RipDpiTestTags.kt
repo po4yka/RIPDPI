@@ -266,7 +266,6 @@ internal object RipDpiTestTags {
     const val AppPickerSearch = "app-picker-search"
     const val SettingsSplitTunnel = "settings-split-tunnel"
     const val SettingsRootModeStrategies = "settings-root-mode-strategies"
-    const val RootModeStrategiesDisabled = "root-mode-strategies-disabled"
     const val RootModeStrategiesConfigure = "root-mode-strategies-configure"
     const val RootModeToggle = "root-mode-toggle"
     const val SplitTunnelModeSelector = "split-tunnel-mode-selector"

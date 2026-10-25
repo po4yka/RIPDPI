@@ -1380,10 +1380,7 @@ fakeddisorder endhost</string>
     <string name="title_root_mode_strategies">راهبردهای حالت روت</string>
     <string name="root_mode_toggle_label">حالت روت</string>
     <string name="settings_root_mode_strategies_body">پیکربندی FakeRST، چند-بی‌نظمی و قطعه‌قطعه‌سازی IP</string>
-    <string name="root_mode_strategies_intro_title">به روت نیاز دارد</string>
     <string name="root_mode_strategies_intro_body">این راهبردهای ناهمگام‌سازی بسته‌ها را در زیر سوکت VPN تزریق یا قطعه‌قطعه می‌کنند و فقط روی دستگاه‌های روت‌شده با حالت روت فعال کار می‌کنند.</string>
-    <string name="root_mode_strategies_disabled_title">حالت روت خاموش است</string>
-    <string name="root_mode_strategies_disabled_body">برای استفاده از این راهبردها حالت روت را فعال کنید. آن‌ها روی دستگاه‌های بدون روت غیرفعال می‌مانند و بدون ایجاد اختلال کنار گذاشته می‌شوند.</string>
     <string name="root_mode_strategy_fakerst_title">Fake RST</string>
     <string name="root_mode_strategy_fakerst_body">یک بازنشانی جعلی TCP تزریق می‌کند تا ردیابی حالت‌مند DPI را ناهمگام کند.</string>
     <string name="root_mode_strategy_multidisorder_title">چند-بی‌نظمی</string>
