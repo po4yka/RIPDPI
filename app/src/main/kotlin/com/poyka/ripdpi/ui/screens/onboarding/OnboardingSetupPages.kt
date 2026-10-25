@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -305,9 +305,9 @@ private fun OnboardingValidationSuccessMessage(modifier: Modifier = Modifier) {
 }
 
 /**
- * Low-emphasis info card clarifying the Android VPN consent prompt is for a LOCAL tunnel. Reuses the
- * shared [WarningBanner] in its quiet neutral [WarningBannerTone.Restricted] tone with a lock glyph, so it reads as
- * a clearly separated notice (title + supporting text) rather than a faint inline caption.
+ * Low-emphasis info card clarifying the Android VPN consent prompt is for a LOCAL tunnel: a lock glyph,
+ * title, and supporting text on the same neutral surface as an unselected option card, read as one
+ * TalkBack stop.
  */
 @Composable
 private fun OnboardingPermissionNote(modifier: Modifier = Modifier) {
@@ -329,7 +329,7 @@ private fun OnboardingPermissionNote(modifier: Modifier = Modifier) {
                 ).padding(
                     horizontal = components.inputs.fieldHorizontalPadding,
                     vertical = components.rows.settingsRowVerticalPadding,
-                ),
+                ).semantics(mergeDescendants = true) {},
         horizontalArrangement = Arrangement.spacedBy(spacing.md),
         verticalAlignment = Alignment.Top,
     ) {
@@ -520,10 +520,11 @@ private fun OnboardingChecklistMarker(
             OnboardingRowStatus.Failed -> RipDpiThemeTokens.stateRoles.actuatorStage.failed
         }
     val stageStyle = RipDpiThemeTokens.state.actuator.resolveStage(stage)
+    // Minimum, not fixed, size: the step number is in sp and must not clip at large font scales.
     Box(
         modifier =
             modifier
-                .size(RipDpiThemeTokens.spacing.xxxl)
+                .defaultMinSize(minWidth = RipDpiThemeTokens.spacing.xxxl, minHeight = RipDpiThemeTokens.spacing.xxxl)
                 .clip(CircleShape),
         contentAlignment = Alignment.Center,
     ) {
@@ -554,8 +555,10 @@ private fun OnboardingChecklistMarker(
                 Box(
                     modifier =
                         Modifier
-                            .fillMaxSize()
-                            .ripDpiFeatureSurface(
+                            .defaultMinSize(
+                                minWidth = RipDpiThemeTokens.spacing.xxxl,
+                                minHeight = RipDpiThemeTokens.spacing.xxxl,
+                            ).ripDpiFeatureSurface(
                                 shape = CircleShape,
                                 border = stageStyle.border,
                                 borderWidth = RipDpiThemeTokens.spacing.xs / 2,

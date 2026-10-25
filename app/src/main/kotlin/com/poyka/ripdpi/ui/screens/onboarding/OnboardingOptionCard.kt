@@ -55,9 +55,8 @@ internal fun OnboardingOptionCard(
     val interactionSource = remember { MutableInteractionSource() }
     val showCompleteText = LocalDensity.current.fontScale >= AccessibilityOptionTextFontScale
 
-    // Selection reads as a subtle filled container + the radio dot — NOT a harsh black outline.
-    // Borders stay on the quiet outline ramp so the card looks like a real Material surface, with
-    // the selected state carrying a slightly stronger (but still soft) outline for a non-color cue.
+    // Selection reads as a filled container, the radio dot, and a strong foreground border, so the
+    // chosen card is obvious at a glance; unselected cards stay on the quiet outline ramp.
     val container = if (selected) colors.muted else colors.card
     val borderColor = if (selected) colors.foreground else colors.outlineVariant
     // Token-derived widths (no literal dp): 3 dp selected / 1 dp unselected.
