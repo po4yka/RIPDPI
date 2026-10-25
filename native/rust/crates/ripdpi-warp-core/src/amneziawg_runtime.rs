@@ -22,13 +22,14 @@
 // special-junk frames.
 
 use std::io;
-use std::net::Ipv6Addr;
+use std::net::{IpAddr, Ipv6Addr};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
+use tokio::sync::watch;
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
@@ -45,6 +46,9 @@ use crate::wireguard::{WgCarrier, WireGuardTunnel, WireGuardTunnelParams, connec
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const MIN_MTU: i32 = 1280;
 const TELEMETRY_SOURCE: &str = "amneziawg";
+/// Bound on the WSS carrier TCP connect, TLS handshake and WebSocket upgrade.
+/// A DPI black hole that accepts TCP and then stays silent would hang forever.
+const WS_CARRIER_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 /// Every task that can report a failure holds a sender until shutdown, so a
 /// closed failure channel means they all died.
 const TASKS_GONE: &str = "AmneziaWG tunnel tasks stopped";
@@ -345,7 +349,7 @@ pub struct AmneziaWgTelemetry {
 pub struct AmneziaWgRuntime {
     config: AmneziaWgProfileConfig,
     platform: WarpPlatform,
-    stop_requested: AtomicBool,
+    stop: watch::Sender<bool>,
     running: AtomicBool,
     active_sessions: AtomicU64,
     total_sessions: AtomicU64,
@@ -365,7 +369,7 @@ impl AmneziaWgRuntime {
         Arc::new(Self {
             config,
             platform,
-            stop_requested: AtomicBool::new(false),
+            stop: watch::Sender::new(false),
             running: AtomicBool::new(false),
             active_sessions: AtomicU64::new(0),
             total_sessions: AtomicU64::new(0),
@@ -379,7 +383,20 @@ impl AmneziaWgRuntime {
 
     /// Signal a blocked [`AmneziaWgRuntime::run`] to unwind. Idempotent.
     pub fn stop(&self) {
-        self.stop_requested.store(true, Ordering::SeqCst);
+        self.stop.send_replace(true);
+    }
+
+    fn stop_requested(&self) -> bool {
+        *self.stop.borrow()
+    }
+
+    /// Complete once [`Self::stop`] has been called, also before this call.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: it only observes the stop flag.
+    async fn stopped(&self) {
+        // The sender lives in `self`, so the wait ends only on a stop request.
+        let _ = self.stop.subscribe().wait_for(|stopped| *stopped).await;
     }
 
     /// Record one successful WG-over-WebSocket carrier handshake.
@@ -461,51 +478,12 @@ impl AmneziaWgRuntime {
             io::Error::new(io::ErrorKind::InvalidInput, "AmneziaWG runtime requires an IPv4 interface address")
         })?;
         let source_peer_ipv6 = parse_interface_ipv6(&self.config.interface_address_v6)?;
-        let endpoint = resolve_endpoint(&self.endpoint_descriptor()).await?;
-
-        let amnezia_cfg = self.config.amnezia.to_warp_amnezia();
-        let (keepalive, keepalive_max) =
-            keepalive_bounds(self.config.persistent_keepalive, self.config.persistent_keepalive_max)?;
-        let preshared = (!self.config.preshared_key.is_empty()).then_some(self.config.preshared_key.as_str());
-
-        // Carrier select. UDP (the default) hands the tunnel `None` so it binds +
-        // protects its own UdpSocket. WS opens a protected carrier socket NOW
-        // (protect-before-connect via the SAME VpnService.protect callback as the
-        // UDP path), upgrades it to a WebSocket, and hands the tunnel the ready
-        // carrier. A carrier-open success/failure is recorded on the telemetry
-        // counters before the first WireGuard datagram is framed.
-        let carrier = self.open_carrier().await?;
-
-        let tunnel = Arc::new(
-            WireGuardTunnel::new(
-                WireGuardTunnelParams {
-                    private_key: &self.config.private_key,
-                    peer_public_key: &self.config.peer_public_key,
-                    preshared_key: preshared,
-                    persistent_keepalive: keepalive,
-                    persistent_keepalive_max: keepalive_max,
-                    endpoint,
-                    // A generic AmneziaWG peer carries no Cloudflare reserved bytes.
-                    reserved: [0u8; 3],
-                    source_peer_ip,
-                    source_peer_ipv6,
-                    amnezia_cfg: &amnezia_cfg,
-                    signature_programs: [
-                        self.config.amnezia.i1.as_str(),
-                        self.config.amnezia.i2.as_str(),
-                        self.config.amnezia.i3.as_str(),
-                        self.config.amnezia.i4.as_str(),
-                        self.config.amnezia.i5.as_str(),
-                    ],
-                    // `None` for the UDP path (the tunnel binds its own socket);
-                    // `Some(ws)` when a WS carrier was opened above.
-                    carrier,
-                },
-                &self.platform,
-            )
-            .await
-            .map_err(to_io_error)?,
-        );
+        // A stop request, also one sent before `run`, ends network setup at once.
+        let tunnel = tokio::select! {
+            biased;
+            () = self.stopped() => return Ok(()),
+            tunnel = self.connect_tunnel(source_peer_ip, source_peer_ipv6) => Arc::new(tunnel?),
+        };
 
         let bus = Bus::new();
         let mut tasks = Vec::<JoinHandle<()>>::new();
@@ -574,7 +552,7 @@ impl AmneziaWgRuntime {
         }
 
         let mut runtime_failure = self.await_handshake(&tunnel, &mut failure_rx).await;
-        if runtime_failure.is_none() && !self.stop_requested.load(Ordering::SeqCst) {
+        if runtime_failure.is_none() && !self.stop_requested() {
             *self.listener_address.lock().expect("listener address") = Some(bind_addr.clone());
             self.running.store(true, Ordering::SeqCst);
             emit_runtime_ready(&bind_addr);
@@ -584,7 +562,7 @@ impl AmneziaWgRuntime {
         // The owner must retain even clients stalled before their bus subscription.
         // A bus shutdown alone cannot reach an incomplete SOCKS greeting.
         let mut clients = JoinSet::new();
-        while self.running.load(Ordering::SeqCst) && !self.stop_requested.load(Ordering::SeqCst) {
+        while self.running.load(Ordering::SeqCst) && !self.stop_requested() {
             while clients.try_join_next().is_some() {}
             match poll_runtime(&listener, &mut failure_rx).await {
                 RuntimePoll::Client(stream) => {
@@ -630,6 +608,62 @@ impl AmneziaWgRuntime {
         runtime_failure.map_or(Ok(()), |message| Err(io::Error::other(message)))
     }
 
+    /// Resolve the peer, open the configured carrier, and build the tunnel.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: dropping it drops the in-flight carrier connect and its
+    /// socket. Only the carrier counters and `last_error` change, and only
+    /// when the carrier connect completes.
+    async fn connect_tunnel(
+        &self,
+        source_peer_ip: IpAddr,
+        source_peer_ipv6: Option<Ipv6Addr>,
+    ) -> io::Result<WireGuardTunnel> {
+        let endpoint = resolve_endpoint(&self.endpoint_descriptor()).await?;
+
+        let amnezia_cfg = self.config.amnezia.to_warp_amnezia();
+        let (keepalive, keepalive_max) =
+            keepalive_bounds(self.config.persistent_keepalive, self.config.persistent_keepalive_max)?;
+        let preshared = (!self.config.preshared_key.is_empty()).then_some(self.config.preshared_key.as_str());
+
+        // Carrier select. UDP (the default) hands the tunnel `None` so it binds +
+        // protects its own UdpSocket. WS opens a protected carrier socket NOW
+        // (protect-before-connect via the SAME VpnService.protect callback as the
+        // UDP path), upgrades it to a WebSocket, and hands the tunnel the ready
+        // carrier. A carrier-open success/failure is recorded on the telemetry
+        // counters before the first WireGuard datagram is framed.
+        let carrier = self.open_carrier().await?;
+
+        WireGuardTunnel::new(
+            WireGuardTunnelParams {
+                private_key: &self.config.private_key,
+                peer_public_key: &self.config.peer_public_key,
+                preshared_key: preshared,
+                persistent_keepalive: keepalive,
+                persistent_keepalive_max: keepalive_max,
+                endpoint,
+                // A generic AmneziaWG peer carries no Cloudflare reserved bytes.
+                reserved: [0u8; 3],
+                source_peer_ip,
+                source_peer_ipv6,
+                amnezia_cfg: &amnezia_cfg,
+                signature_programs: [
+                    self.config.amnezia.i1.as_str(),
+                    self.config.amnezia.i2.as_str(),
+                    self.config.amnezia.i3.as_str(),
+                    self.config.amnezia.i4.as_str(),
+                    self.config.amnezia.i5.as_str(),
+                ],
+                // `None` for the UDP path (the tunnel binds its own socket);
+                // `Some(ws)` when a WS carrier was opened above.
+                carrier,
+            },
+            &self.platform,
+        )
+        .await
+        .map_err(to_io_error)
+    }
+
     /// Wait until the peer answers the handshake or [`Self::stop`] is called.
     /// A carrier that dies first is a runtime failure: its message is
     /// recorded and returned.
@@ -642,7 +676,7 @@ impl AmneziaWgRuntime {
         tunnel: &WireGuardTunnel,
         failures: &mut UnboundedReceiver<String>,
     ) -> Option<String> {
-        while !self.stop_requested.load(Ordering::SeqCst) && !tunnel.is_handshake_established() {
+        while !self.stop_requested() && !tunnel.is_handshake_established() {
             if let Ok(failure) = timeout(ACCEPT_POLL_INTERVAL, failures.recv()).await {
                 let message = failure.unwrap_or_else(|| TASKS_GONE.to_string());
                 if let Ok(mut last_error) = self.last_error.lock() {
@@ -699,7 +733,12 @@ impl AmneziaWgRuntime {
                     return Err(error);
                 }
                 let protector = self.platform.carrier_protector();
-                match connect_ws_carrier(&self.config.carrier_ws_url, &protector).await {
+                let connect =
+                    timeout(WS_CARRIER_CONNECT_TIMEOUT, connect_ws_carrier(&self.config.carrier_ws_url, &protector));
+                let connected = connect.await.unwrap_or_else(|_| {
+                    Err(io::Error::new(io::ErrorKind::TimedOut, "AmneziaWG WS carrier connect timed out"))
+                });
+                match connected {
                     Ok(carrier) => {
                         self.record_ws_carrier_handshake();
                         // Never log the endpoint host/port (privacy): the scope
@@ -887,6 +926,38 @@ mod tests {
         timeout(Duration::from_secs(1), run_task)
             .await
             .expect("stopped runtime must unwind")
+            .expect("runtime task must join")
+            .expect("stop before readiness is a clean shutdown");
+    }
+
+    #[tokio::test]
+    async fn stop_interrupts_a_black_holed_ws_carrier_connect() {
+        // Accepts TCP but never answers the TLS handshake, like a DPI black hole.
+        let black_hole = TcpListener::bind("127.0.0.1:0").await.expect("black-hole listener");
+        let carrier_ws_url = format!("wss://{}/wg", black_hole.local_addr().expect("black-hole address"));
+        let held = tokio::spawn(async move { black_hole.accept().await.map(|(stream, _)| stream) });
+        let config = AmneziaWgProfileConfig {
+            enabled: true,
+            carrier: AmneziaWgCarrierKind::Ws,
+            carrier_ws_url,
+            interface_address_v4: "10.8.0.2/32".to_string(),
+            endpoint_host: "127.0.0.1".to_string(),
+            endpoint_ipv4: "127.0.0.1".to_string(),
+            endpoint_port: 443,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 0,
+            ..Default::default()
+        };
+        let runtime = AmneziaWgRuntime::new(config);
+        let run_task = tokio::spawn(Arc::clone(&runtime).run());
+        let _accepted = timeout(Duration::from_secs(1), held).await.expect("carrier connects").expect("accept task");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(!run_task.is_finished(), "the carrier handshake is still pending");
+
+        runtime.stop();
+        timeout(Duration::from_secs(1), run_task)
+            .await
+            .expect("stop must interrupt a pending carrier connect")
             .expect("runtime task must join")
             .expect("stop before readiness is a clean shutdown");
     }
