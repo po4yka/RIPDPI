@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.ui.screens.dns
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -30,7 +34,10 @@ class DnsOptionCardSemanticsTest {
                 }
             }
         }
-        composeRule.onNodeWithContentDescription("Selected DNS").assertIsSelected()
+        composeRule
+            .onNodeWithContentDescription("Selected DNS")
+            .assertIsSelected()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
         composeRule.onNodeWithContentDescription("Other DNS").assertIsNotSelected()
     }
 }

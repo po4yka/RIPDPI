@@ -1623,9 +1623,7 @@ fakeddisorder endhost</string>
     <string name="dns_private_dns_warning_title">DNS خصوصی سیستم روشن است</string>
     <string name="dns_private_dns_warning_body">برای این شبکه DNS خصوصی اندروید پیکربندی شده است. RIPDPI همچنان از حل‌کنندهٔ خود استفاده می‌کند، بنابراین ممکن است تنظیم سیستم با کاری که VPN واقعاً انجام می‌دهد مطابقت نداشته باشد. نیازی به اقدامی نیست.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
-    <string name="dns_resolver_custom_active">استفاده از آدرس سفارشی</string>
     <string name="dns_resolver_quad9_body">resolver عمومی متمرکز بر امنیت با مسدودسازی تهدیدات.</string>
-    <string name="dns_selected_badge">انتخاب‌شده</string>
     <string name="fake_order_card_dsl_only">این شکل زنجیره با کارت ترتیب جعلی گام اصلی قابل ویرایش نیست. برای تغییر altorder یا seqmode از DSL زنجیره استفاده کنید.</string>
     <string name="fake_order_card_order_title">ترتیب انتشار</string>
     <string name="fake_order_card_runtime_label">نمایه فعلی</string>

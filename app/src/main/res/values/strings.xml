@@ -1547,8 +1547,6 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_error">Enter one or more bootstrap IP addresses. Do not use loopback or unspecified addresses.</string>
     <string name="dns_custom_save_requirements_hint">Fill in all required fields to save</string>
     <string name="dns_custom_switch_hint">Save this form to replace the current built-in profile with a custom endpoint.</string>
-    <string name="dns_resolver_custom_active">Using custom address</string>
-    <string name="dns_selected_badge">Selected</string>
     <string name="dns_active_detail_endpoint">Endpoint</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
     <string name="dns_active_detail_route">Tunnel route</string>

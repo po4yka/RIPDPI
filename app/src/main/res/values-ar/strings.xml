@@ -1516,8 +1516,6 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_error">أدخل عنوان IP واحدًا أو أكثر للتمهيد. لا تستخدم عنوان الاسترجاع أو العنوان غير المحدد.</string>
     <string name="dns_custom_save_requirements_hint">املأ جميع الحقول المطلوبة للحفظ</string>
     <string name="dns_custom_switch_hint">احفظ هذا النموذج لاستبدال الملف الشخصي المدمج الحالي بنقطة نهاية مخصَّصة.</string>
-    <string name="dns_resolver_custom_active">يُستخدم عنوان مخصَّص</string>
-    <string name="dns_selected_badge">محدَّد</string>
     <string name="dns_active_detail_endpoint">نقطة النهاية</string>
     <string name="dns_active_detail_bootstrap">التمهيد</string>
     <string name="dns_active_detail_route">مسار النفق</string>

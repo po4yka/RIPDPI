@@ -345,7 +345,7 @@ class ReadabilityFormsLayoutTest {
         val title = "Настройки зашифрованного DNS"
         val body = "Разрешение адресов и резервный сервер без передачи истории"
         val badges = listOf("Зашифрованный DNS", "HTTPS", "Резервный сервер")
-        assertMatrix(strings = listOf(title, body) + badges + text(R.string.dns_selected_badge)) {
+        assertMatrix(strings = listOf(title, body) + badges) {
             DnsOptionCard(RipDpiIcons.Lock, title, body, true, badges, { clicks++ }, "dns-option")
         }
         composeRule
@@ -363,7 +363,7 @@ class ReadabilityFormsLayoutTest {
         val title = "خادم أسماء النطاقات المشفر"
         val description = "وضع تحليل العناوين والخادم الاحتياطي"
         assertMatrix(
-            strings = listOf(title, description, "1.1.1.1", "DoH", text(R.string.dns_selected_badge)),
+            strings = listOf(title, description, "1.1.1.1", "DoH"),
             direction = LayoutDirection.Rtl,
         ) {
             DnsResolverCard(

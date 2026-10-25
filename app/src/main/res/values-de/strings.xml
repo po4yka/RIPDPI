@@ -1829,7 +1829,6 @@ Quelle: %2$s</string>
     <string name="dns_mode_plain">Klartext-DNS</string>
     <string name="dns_protocol_custom_only">Nur benutzerdefiniert</string>
     <string name="dns_proxy_banner_title">Proxy-Modus ist aktiv</string>
-    <string name="dns_resolver_custom_active">Benutzerdefinierte Adresse wird verwendet</string>
     <string name="dns_resolvers_section">Resolver</string>
     <string name="fake_order_card_hostfake_order_locked">Nicht-Standard-Hostfake-Reihenfolge erfordert einen Midhost-Split-Marker. Fügen Sie `midhost=` in der Chain-DSL hinzu, um Altorder-Änderungen freizuschalten.</string>
     <string name="fake_order_card_runtime_label">Aktuelles Profil</string>
@@ -2459,7 +2458,6 @@ Quelle: %2$s</string>
     <string name="dns_resolver_adguard_body">Öffentlicher Resolver, der Werbe- und Tracker-Blockierung betont.</string>
     <string name="dns_resolver_catalog_generic_body">Verschlüsseltes DNS über HTTPS.</string>
     <string name="dns_resolver_google_body">Weithin erreichbarer öffentlicher Resolver mit vertrauten Standardeinstellungen.</string>
-    <string name="dns_selected_badge">Ausgewählt</string>
     <string name="fake_order_card_order_body">Wählen Sie, wie Fake- und echte Spans für diesen Sendeschritt verschachtelt werden.</string>
     <string name="fake_order_card_seqmode_body">Duplizieren verwendet die ursprüngliche Stream-Sequenz erneut. Sequenziell rückt spätere Fake-Pakete in Sende-Reihenfolge vor.</string>
     <string name="fake_payload_badge_burst_ready">%1$d fake_burst</string>

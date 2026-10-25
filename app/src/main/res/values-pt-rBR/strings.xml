@@ -1522,8 +1522,6 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_error">Informe um ou mais endereços IP de bootstrap. Não use endereços de loopback ou não especificados.</string>
     <string name="dns_custom_save_requirements_hint">Preencha todos os campos obrigatórios para salvar</string>
     <string name="dns_custom_switch_hint">Salve este formulário para substituir o perfil integrado atual por um endpoint personalizado.</string>
-    <string name="dns_resolver_custom_active">Usando endereço personalizado</string>
-    <string name="dns_selected_badge">Selecionado</string>
     <string name="dns_active_detail_endpoint">Endpoint</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
     <string name="dns_active_detail_route">Rota do túnel</string>

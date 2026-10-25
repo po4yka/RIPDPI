@@ -1278,7 +1278,6 @@ fakeddisorder endhost</string>
     <string name="dns_private_dns_warning_body">此网络已配置 Android 私人 DNS。RIPDPI 仍使用自己的解析器，因此别处显示的系统设置可能与 VPN 实际的行为不一致。无需任何操作。</string>
     <string name="dns_resolver_cloudflare_body">设置占用极小的快速公共解析器。</string>
     <string name="dns_resolver_google_title">Google Public DNS</string>
-    <string name="dns_selected_badge">已选择</string>
     <string name="fake_order_card_hostfake_order_locked">非默认 hostfake 顺序需要 midhost 分割标记。在链 DSL 中添加 `midhost=` 即可解锁 altorder 更改。</string>
     <string name="fake_order_card_runtime_default">默认顺序</string>
     <string name="fake_order_card_step_label">主步骤</string>
@@ -2382,7 +2381,6 @@ fake_burst 3</string>
     <string name="dns_protocol_helper">选择 RIPDPI 应当用于 VPN DNS 拦截和诊断的加密 DNS 传输方式。</string>
     <string name="dns_resolver_adguard_body">侧重广告和跟踪器拦截的公共解析器。</string>
     <string name="dns_resolver_catalog_generic_body">基于 HTTPS 的加密 DNS。</string>
-    <string name="dns_resolver_custom_active">正在使用自定义地址</string>
     <string name="dns_resolver_quad9_title">Quad9</string>
     <string name="fake_order_card_body">无需编辑完整链 DSL,即可控制主伪族步骤中伪段与真实段的交错方式。</string>
     <string name="fake_order_card_order_title">发射顺序</string>

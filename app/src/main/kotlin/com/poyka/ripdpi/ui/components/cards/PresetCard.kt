@@ -180,7 +180,7 @@ private val RadioIndicatorSize = 18.dp
 private val RadioIndicatorDotSize = 8.dp
 
 @Composable
-private fun RadioIndicator(selected: Boolean) {
+internal fun RadioIndicator(selected: Boolean) {
     val state = rememberUpdatedStyleState(null) { it.isSelected = selected }
     val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.presetRadio, CommonStyle, state)
     val dotResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.presetRadioDot, CommonStyle, state)

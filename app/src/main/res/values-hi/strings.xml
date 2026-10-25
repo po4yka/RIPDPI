@@ -1518,8 +1518,6 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_error">एक या अधिक बूटस्ट्रैप IP पते दर्ज करें। लूपबैक या अनिर्दिष्ट पते इस्तेमाल न करें।</string>
     <string name="dns_custom_save_requirements_hint">सहेजने के लिए सभी आवश्यक फ़ील्ड भरें</string>
     <string name="dns_custom_switch_hint">वर्तमान अंतर्निहित प्रोफ़ाइल को कस्टम एंडपॉइंट से बदलने के लिए इस फ़ॉर्म को सहेजें।</string>
-    <string name="dns_resolver_custom_active">कस्टम पते का उपयोग किया जा रहा है</string>
-    <string name="dns_selected_badge">चयनित</string>
     <string name="dns_active_detail_endpoint">एंडपॉइंट</string>
     <string name="dns_active_detail_bootstrap">बूटस्ट्रैप</string>
     <string name="dns_active_detail_route">टनल रूट</string>

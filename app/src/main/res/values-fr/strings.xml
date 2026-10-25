@@ -1829,7 +1829,6 @@ Source : %2$s</string>
     <string name="dns_mode_plain">DNS en clair</string>
     <string name="dns_protocol_custom_only">Personnalisé uniquement</string>
     <string name="dns_proxy_banner_title">Le mode proxy est actif</string>
-    <string name="dns_resolver_custom_active">Utilisation d\'une adresse personnalisée</string>
     <string name="dns_resolvers_section">Résolveurs</string>
     <string name="fake_order_card_hostfake_order_locked">L\'ordre hostfake non par défaut nécessite un marqueur de découpage midhost. Ajoutez `midhost=` dans le DSL de chaîne pour débloquer les changements d\'altorder.</string>
     <string name="fake_order_card_runtime_label">Profil actuel</string>
@@ -2459,7 +2458,6 @@ Source : %2$s</string>
     <string name="dns_resolver_adguard_body">Résolveur public mettant l\'accent sur le blocage des publicités et des traqueurs.</string>
     <string name="dns_resolver_catalog_generic_body">DNS chiffré via HTTPS.</string>
     <string name="dns_resolver_google_body">Résolveur public largement accessible avec des valeurs par défaut familières.</string>
-    <string name="dns_selected_badge">Sélectionné</string>
     <string name="fake_order_card_order_body">Choisissez comment les segments factices et authentiques sont entrelacés pour cette étape d\'envoi.</string>
     <string name="fake_order_card_seqmode_body">Dupliquer réutilise la séquence du flux d’origine. Séquentiel fait avancer les paquets factices suivants dans l’ordre d’émission.</string>
     <string name="fake_payload_badge_burst_ready">%1$d fake_burst</string>
