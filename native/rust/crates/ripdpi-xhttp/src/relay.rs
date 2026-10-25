@@ -359,12 +359,14 @@ pub(crate) fn stream_up_path(path: &str, session_id: &str) -> String {
     if normalized == "/" { format!("/{session_id}") } else { format!("{normalized}/{session_id}") }
 }
 
-/// Stream-one URL path: the bare configured path. xray-core's
-/// `dialer.go` stream-one branch sets `sessionId = ""` and writes the
-/// request directly to `<path>`, so callers must not append a session
-/// segment.
+/// Stream-one URL path: the configured path with a trailing `/` and no
+/// session segment. xray-core's `dialer.go` stream-one branch sets
+/// `sessionId = ""` and writes the request to `GetNormalizedPath()`, which
+/// appends `/` under the default path placement; its hub answers 404 to a
+/// path without that prefix.
 pub(crate) fn stream_one_path(path: &str) -> String {
-    normalize_path(path)
+    let normalized = normalize_path(path);
+    if normalized == "/" { normalized } else { format!("{normalized}/") }
 }
 
 pub(crate) fn referer_padding(host: &str, path: &str) -> String {

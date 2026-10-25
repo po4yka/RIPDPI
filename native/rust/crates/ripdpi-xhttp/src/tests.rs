@@ -68,12 +68,14 @@ fn random_padding_value_varies_between_calls() {
 
 /// Stream-one mode does not embed a session id in the URL — xray-core's
 /// `dialer.go` stream-one branch sets `sessionId = ""` and writes the request
-/// to `<path>` only.
+/// to `GetNormalizedPath()`, which ends in `/` with the default path
+/// placement. The server's hub only serves paths with that `/`-terminated
+/// prefix, so `/api/v1/stream` would get a 404.
 #[test]
 fn stream_one_path_returns_base_path_without_session_segment() {
-    assert_eq!("/api/v1/stream", stream_one_path("/api/v1/stream"));
+    assert_eq!("/api/v1/stream/", stream_one_path("/api/v1/stream"));
     assert_eq!("/", stream_one_path("/"));
-    assert_eq!("/leading", stream_one_path("leading/"));
+    assert_eq!("/leading/", stream_one_path("leading/"));
 }
 
 #[test]
@@ -81,7 +83,7 @@ fn stream_one_and_stream_up_paths_differ_only_by_session_segment() {
     let session = "deadbeef";
     let one = stream_one_path("/api/v1/stream");
     let up = stream_up_path("/api/v1/stream", session);
-    assert_eq!(up, format!("{one}/{session}"));
+    assert_eq!(up, format!("{one}{session}"));
 }
 
 #[test]
