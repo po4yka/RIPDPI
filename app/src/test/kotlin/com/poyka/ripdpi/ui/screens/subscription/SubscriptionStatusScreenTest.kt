@@ -45,6 +45,7 @@ class SubscriptionStatusScreenTest {
                         uiState.value = state(expiry = Now + EightDaysMillis, revealSecrets = true)
                     },
                     onRefresh = {},
+                    onAddSubscription = {},
                     migrationContent = {},
                 )
             }
@@ -120,10 +121,23 @@ class SubscriptionStatusScreenTest {
         composeRule.runOnIdle { assertEquals(GroupId, refreshedGroup) }
     }
 
+    @Test
+    fun `empty status offers adding a subscription`() {
+        var addRequests = 0
+        render(uiState = SubscriptionStatusUiState(), onAddSubscription = { addRequests++ })
+
+        composeRule
+            .onNodeWithText(string(R.string.import_subscription_confirm_title))
+            .performScrollTo()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(1, addRequests) }
+    }
+
     private fun render(
         uiState: SubscriptionStatusUiState,
         onToggleSecrets: () -> Unit = {},
         onRefresh: (String) -> Unit = {},
+        onAddSubscription: () -> Unit = {},
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -132,6 +146,7 @@ class SubscriptionStatusScreenTest {
                     onBack = {},
                     onToggleSecrets = onToggleSecrets,
                     onRefresh = onRefresh,
+                    onAddSubscription = onAddSubscription,
                     migrationContent = {},
                 )
             }

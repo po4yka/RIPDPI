@@ -78,7 +78,7 @@ class SubscriptionRetainedLocaleRouteTest {
                 LocalConfiguration provides configuration.value,
                 LocalContext provides ContextCompat.getContextForLanguage(context),
             ) {
-                RipDpiTheme { SubscriptionFailoverRoute(onBack = {}, viewModel = viewModel) }
+                RipDpiTheme { SubscriptionFailoverRoute(onBack = {}, onAddSubscription = {}, viewModel = viewModel) }
             }
         }
         composeRule.waitUntil(5_000) { viewModel.uiState.value.servers.size == 2 }

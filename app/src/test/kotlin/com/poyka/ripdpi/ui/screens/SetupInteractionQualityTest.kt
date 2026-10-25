@@ -331,6 +331,7 @@ class SetupInteractionQualityTest {
                     {},
                     {},
                     {},
+                    {},
                 )
             }
         }

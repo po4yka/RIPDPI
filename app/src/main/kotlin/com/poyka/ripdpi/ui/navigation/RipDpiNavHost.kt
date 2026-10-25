@@ -538,13 +538,19 @@ private fun NavGraphBuilder.addSubscriptionFailoverRoute(navController: NavHostC
     composable<Route.SubscriptionFailover>(
         deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://subscription-failover" }),
     ) {
-        SubscriptionFailoverRoute(onBack = { navController.popBackStack() })
+        SubscriptionFailoverRoute(
+            onBack = { navController.popBackStack() },
+            onAddSubscription = { navController.navigate(Route.SubscriptionAdd) { launchSingleTop = true } },
+        )
     }
 }
 
 private fun NavGraphBuilder.addSubscriptionStatusRoute(navController: NavHostController) {
     composable<Route.SubscriptionStatus> {
-        SubscriptionStatusRoute(onBack = { navController.popBackStack() })
+        SubscriptionStatusRoute(
+            onBack = { navController.popBackStack() },
+            onAddSubscription = { navController.navigate(Route.SubscriptionAdd) { launchSingleTop = true } },
+        )
     }
 }
 

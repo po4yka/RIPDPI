@@ -36,6 +36,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun SubscriptionStatusRoute(
     onBack: () -> Unit,
+    onAddSubscription: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SubscriptionStatusViewModel = hiltViewModel(),
 ) {
@@ -60,6 +61,7 @@ fun SubscriptionStatusRoute(
         onBack = onBack,
         onToggleSecrets = viewModel::toggleSecrets,
         onRefresh = viewModel::refresh,
+        onAddSubscription = onAddSubscription,
         migrationContent = { groupId ->
             migrations[groupId]?.let { state ->
                 MigrationStatusCard(
@@ -79,6 +81,7 @@ internal fun SubscriptionStatusScreen(
     onBack: () -> Unit,
     onToggleSecrets: () -> Unit,
     onRefresh: (String) -> Unit,
+    onAddSubscription: () -> Unit,
     migrationContent: @Composable (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -93,6 +96,8 @@ internal fun SubscriptionStatusScreen(
             RipDpiEmptyStateCard(
                 title = stringResource(R.string.subscription_status_empty_title),
                 body = stringResource(R.string.subscription_status_empty_body),
+                actionLabel = stringResource(R.string.import_subscription_confirm_title),
+                onAction = onAddSubscription,
             )
         } else {
             RipDpiButton(
