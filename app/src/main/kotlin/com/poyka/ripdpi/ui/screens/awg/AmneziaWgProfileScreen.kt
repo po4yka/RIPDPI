@@ -415,7 +415,6 @@ private fun SecretField(
         decoration =
             RipDpiTextFieldDecoration(
                 label = label,
-                placeholder = if (revealed) null else stringResource(R.string.awg_secret_hidden),
                 testTag = RipDpiTestTags.awgField(field.name),
             ),
         behavior =

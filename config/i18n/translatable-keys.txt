@@ -322,7 +322,6 @@ app:awg_field_server
 app:awg_field_server_port
 app:awg_paste_conf_action
 app:awg_reveal_secret_action
-app:awg_secret_hidden
 app:awg_section_carrier
 app:awg_section_carrier_body
 app:awg_section_interface
@@ -4807,7 +4806,6 @@ app:ssh_field_strict_host_key_body
 app:ssh_field_username
 app:ssh_reveal_secret_action
 app:ssh_save_action
-app:ssh_secret_hidden
 app:ssh_section_auth
 app:ssh_section_auth_body
 app:ssh_section_endpoint

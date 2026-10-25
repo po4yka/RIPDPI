@@ -2847,7 +2847,6 @@ Quelle: %2$s</string>
     <string name="awg_cohort_locked_hint">Die Verschleierungsfelder werden von der gewählten Kohorte festgelegt. Wähle \"Benutzerdefiniert\", um sie zu bearbeiten.</string>
     <string name="awg_paste_conf_action">.conf einfügen</string>
     <string name="awg_reveal_secret_action">Anzeigen</string>
-    <string name="awg_secret_hidden">Verborgen – zum Anzeigen tippen</string>
     <string name="awg_connect_action">Verbinden</string>
     <string name="awg_connect_ready_hint">Bereit zum Verbinden.</string>
     <string name="awg_connect_incomplete_hint">Gib Server, Port, privaten Schlüssel, öffentlichen Peer-Schlüssel und Adresse ein, um zu verbinden.</string>
@@ -2911,7 +2910,6 @@ Quelle: %2$s</string>
     <string name="ssh_field_strict_host_key">Strenge Hostschlüsselprüfung</string>
     <string name="ssh_field_strict_host_key_body">Verbindung ablehnen, wenn der Hostschlüssel des Servers nicht mit dem verankerten Fingerabdruck übereinstimmt.</string>
     <string name="ssh_field_invalid">Kein gültiger Wert für dieses Feld.</string>
-    <string name="ssh_secret_hidden">Verborgen – zum Anzeigen tippen</string>
     <string name="ssh_reveal_secret_action">Anzeigen</string>
     <string name="ssh_save_action">Speichern</string>
 

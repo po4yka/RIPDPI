@@ -2844,7 +2844,6 @@ fake_burst 3</string>
     <string name="awg_cohort_locked_hint">混淆字段由所选群组设定。选择“自定义”可编辑这些字段。</string>
     <string name="awg_paste_conf_action">粘贴 .conf</string>
     <string name="awg_reveal_secret_action">显示</string>
-    <string name="awg_secret_hidden">已隐藏 — 点按“显示”以查看</string>
     <string name="awg_connect_action">连接</string>
     <string name="awg_connect_ready_hint">已准备好连接。</string>
     <string name="awg_connect_incomplete_hint">填写服务器、端口、私钥、对端公钥和地址以进行连接。</string>
@@ -2908,7 +2907,6 @@ fake_burst 3</string>
     <string name="ssh_field_strict_host_key">严格主机密钥校验</string>
     <string name="ssh_field_strict_host_key_body">当服务器主机密钥与固定指纹不匹配时拒绝连接。</string>
     <string name="ssh_field_invalid">此字段的值无效。</string>
-    <string name="ssh_secret_hidden">已隐藏 — 点按显示</string>
     <string name="ssh_reveal_secret_action">显示</string>
     <string name="ssh_save_action">保存</string>
 

@@ -267,7 +267,6 @@ private fun SecretField(
         decoration =
             RipDpiTextFieldDecoration(
                 label = label,
-                placeholder = if (revealed) null else stringResource(R.string.ssh_secret_hidden),
             ),
         behavior =
             RipDpiTextFieldBehavior(

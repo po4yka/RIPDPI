@@ -3004,7 +3004,6 @@ Source: %2$s</string>
     <string name="awg_cohort_locked_hint">Obfuscation fields are set by the selected cohort. Choose \"Custom\" to edit them.</string>
     <string name="awg_paste_conf_action">Paste .conf</string>
     <string name="awg_reveal_secret_action">Reveal</string>
-    <string name="awg_secret_hidden">Hidden — tap reveal to show</string>
     <string name="awg_connect_action">Connect</string>
     <string name="awg_connect_ready_hint">Ready to connect.</string>
     <string name="awg_connect_incomplete_hint">Fill in the server, port, private key, peer public key, and address to connect.</string>
@@ -3068,7 +3067,6 @@ Source: %2$s</string>
     <string name="ssh_field_strict_host_key">Strict host-key checking</string>
     <string name="ssh_field_strict_host_key_body">Reject the connection if the server\'s host key does not match the pinned fingerprint.</string>
     <string name="ssh_field_invalid">Not a valid value for this field.</string>
-    <string name="ssh_secret_hidden">Hidden — tap reveal to show</string>
     <string name="ssh_reveal_secret_action">Reveal</string>
     <string name="ssh_save_action">Save</string>
 

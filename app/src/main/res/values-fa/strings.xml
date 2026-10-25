@@ -2852,7 +2852,6 @@ fakeddisorder endhost</string>
     <string name="awg_cohort_locked_hint">فیلدهای مبهم‌سازی توسط گروه برگزیده تعیین می‌شوند. برای ویرایش آن‌ها «سفارشی» را برگزینید.</string>
     <string name="awg_paste_conf_action">چسباندن ‎.conf</string>
     <string name="awg_reveal_secret_action">نمایش</string>
-    <string name="awg_secret_hidden">پنهان — برای نمایش، «نمایش» را بزنید</string>
     <string name="awg_connect_action">اتصال</string>
     <string name="awg_connect_ready_hint">آماده برای اتصال.</string>
     <string name="awg_connect_incomplete_hint">برای اتصال، سرور، درگاه، کلید خصوصی، کلید عمومی همتا و نشانی را وارد کنید.</string>
@@ -2916,7 +2915,6 @@ fakeddisorder endhost</string>
     <string name="ssh_field_strict_host_key">بررسی سختگیرانهٔ کلید میزبان</string>
     <string name="ssh_field_strict_host_key_body">اگر کلید میزبان سرور با اثرانگشت پین‌شده مطابقت نداشت، اتصال را رد کن.</string>
     <string name="ssh_field_invalid">مقدار این فیلد معتبر نیست.</string>
-    <string name="ssh_secret_hidden">پنهان — برای نمایش ضربه بزنید</string>
     <string name="ssh_reveal_secret_action">نمایش</string>
     <string name="ssh_save_action">ذخیره</string>
 

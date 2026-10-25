@@ -2847,7 +2847,6 @@ Origen: %2$s</string>
     <string name="awg_cohort_locked_hint">Los campos de ofuscación los define la cohorte seleccionada. Elige \"Personalizado\" para editarlos.</string>
     <string name="awg_paste_conf_action">Pegar .conf</string>
     <string name="awg_reveal_secret_action">Mostrar</string>
-    <string name="awg_secret_hidden">Oculto: toca mostrar para verlo</string>
     <string name="awg_connect_action">Conectar</string>
     <string name="awg_connect_ready_hint">Listo para conectar.</string>
     <string name="awg_connect_incomplete_hint">Completa el servidor, el puerto, la clave privada, la clave pública del par y la dirección para conectar.</string>
@@ -2911,7 +2910,6 @@ Origen: %2$s</string>
     <string name="ssh_field_strict_host_key">Comprobación estricta de la clave del host</string>
     <string name="ssh_field_strict_host_key_body">Rechazar la conexión si la clave del host del servidor no coincide con la huella fijada.</string>
     <string name="ssh_field_invalid">No es un valor válido para este campo.</string>
-    <string name="ssh_secret_hidden">Oculto: toca «Mostrar» para verlo</string>
     <string name="ssh_reveal_secret_action">Mostrar</string>
     <string name="ssh_save_action">Guardar</string>
 

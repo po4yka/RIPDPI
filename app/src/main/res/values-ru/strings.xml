@@ -2720,7 +2720,6 @@ fakeddisorder endhost</string>
     <string name="awg_cohort_locked_hint">Поля обфускации заданы выбранной когортой. Выберите \"Свой\", чтобы их изменить.</string>
     <string name="awg_paste_conf_action">Вставить .conf</string>
     <string name="awg_reveal_secret_action">Показать</string>
-    <string name="awg_secret_hidden">Скрыто — нажмите «Показать», чтобы отобразить</string>
     <string name="awg_connect_action">Подключиться</string>
     <string name="awg_connect_ready_hint">Готово к подключению.</string>
     <string name="awg_connect_incomplete_hint">Укажите сервер, порт, приватный ключ, публичный ключ узла и адрес, чтобы подключиться.</string>
@@ -2779,7 +2778,6 @@ fakeddisorder endhost</string>
     <string name="ssh_field_strict_host_key">Строгая проверка ключа хоста</string>
     <string name="ssh_field_strict_host_key_body">Отклонять подключение, если ключ хоста сервера не совпадает с закреплённым отпечатком.</string>
     <string name="ssh_field_invalid">Недопустимое значение для этого поля.</string>
-    <string name="ssh_secret_hidden">Скрыто — нажмите «Показать»</string>
     <string name="ssh_reveal_secret_action">Показать</string>
     <string name="ssh_save_action">Сохранить</string>
     <string name="widget_description_connect_toggle">Переключатель подключения</string>
