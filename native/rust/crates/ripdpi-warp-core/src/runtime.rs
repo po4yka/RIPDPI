@@ -184,7 +184,10 @@ impl WarpRuntime {
         {
             let tunnel = Arc::clone(&tunnel);
             let bus = bus.clone();
-            tasks.push(tokio::spawn(async move { tunnel.consume_task(bus).await }));
+            tasks.push(tokio::spawn(async move {
+                let error = tunnel.consume_task(bus).await;
+                tracing::warn!("WARP tunnel receive stopped: {error}");
+            }));
         }
         {
             let tunnel = Arc::clone(&tunnel);

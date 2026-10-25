@@ -45,6 +45,9 @@ use crate::wireguard::{WgCarrier, WireGuardTunnel, WireGuardTunnelParams, connec
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const MIN_MTU: i32 = 1280;
 const TELEMETRY_SOURCE: &str = "amneziawg";
+/// Every task that can report a failure holds a sender until shutdown, so a
+/// closed failure channel means they all died.
+const TASKS_GONE: &str = "AmneziaWG tunnel tasks stopped";
 
 enum RuntimePoll {
     Client(TcpStream),
@@ -61,7 +64,7 @@ enum RuntimePoll {
 /// before returning an outcome.
 async fn poll_runtime(listener: &TcpListener, failures: &mut UnboundedReceiver<String>) -> RuntimePoll {
     tokio::select! {
-        failure = failures.recv() => failure.map_or(RuntimePoll::Idle, RuntimePoll::CriticalFailure),
+        failure = failures.recv() => RuntimePoll::CriticalFailure(failure.unwrap_or_else(|| TASKS_GONE.to_string())),
         accepted = timeout(ACCEPT_POLL_INTERVAL, listener.accept()) => match accepted {
             Ok(Ok((stream, _))) => RuntimePoll::Client(stream),
             Ok(Err(error)) => RuntimePoll::ListenerError(error),
@@ -518,7 +521,13 @@ impl AmneziaWgRuntime {
         {
             let tunnel = Arc::clone(&tunnel);
             let bus = bus.clone();
-            tasks.push(tokio::spawn(async move { tunnel.consume_task(bus).await }));
+            let failure_tx = failure_tx.clone();
+            tasks.push(tokio::spawn(async move {
+                // A closed or broken carrier fails the runtime so its supervisor restarts it.
+                let message = format!("AmneziaWG carrier stopped: {}", tunnel.consume_task(bus).await);
+                tracing::warn!("{message}");
+                let _ = failure_tx.send(message);
+            }));
         }
         {
             let tunnel = Arc::clone(&tunnel);
@@ -564,18 +573,14 @@ impl AmneziaWgRuntime {
             return Err(error);
         }
 
-        while !self.stop_requested.load(Ordering::SeqCst) && !tunnel.is_handshake_established() {
-            tokio::time::sleep(ACCEPT_POLL_INTERVAL).await;
-        }
-
-        if !self.stop_requested.load(Ordering::SeqCst) {
+        let mut runtime_failure = self.await_handshake(&tunnel, &mut failure_rx).await;
+        if runtime_failure.is_none() && !self.stop_requested.load(Ordering::SeqCst) {
             *self.listener_address.lock().expect("listener address") = Some(bind_addr.clone());
             self.running.store(true, Ordering::SeqCst);
             emit_runtime_ready(&bind_addr);
             self.notify_ready();
         }
 
-        let mut runtime_failure = None;
         // The owner must retain even clients stalled before their bus subscription.
         // A bus shutdown alone cannot reach an incomplete SOCKS greeting.
         let mut clients = JoinSet::new();
@@ -623,6 +628,30 @@ impl AmneziaWgRuntime {
         emit_runtime_stopped();
         cleared_listener?;
         runtime_failure.map_or(Ok(()), |message| Err(io::Error::other(message)))
+    }
+
+    /// Wait until the peer answers the handshake or [`Self::stop`] is called.
+    /// A carrier that dies first is a runtime failure: its message is
+    /// recorded and returned.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: `UnboundedReceiver::recv` loses no message when cancelled,
+    /// and the failure is recorded only after it is received.
+    async fn await_handshake(
+        &self,
+        tunnel: &WireGuardTunnel,
+        failures: &mut UnboundedReceiver<String>,
+    ) -> Option<String> {
+        while !self.stop_requested.load(Ordering::SeqCst) && !tunnel.is_handshake_established() {
+            if let Ok(failure) = timeout(ACCEPT_POLL_INTERVAL, failures.recv()).await {
+                let message = failure.unwrap_or_else(|| TASKS_GONE.to_string());
+                if let Ok(mut last_error) = self.last_error.lock() {
+                    *last_error = Some(message.clone());
+                }
+                return Some(message);
+            }
+        }
+        None
     }
 
     fn endpoint_descriptor(&self) -> ResolvedWarpRuntimeEndpoint {
@@ -874,6 +903,20 @@ mod tests {
             RuntimePoll::CriticalFailure(message) => assert_eq!(message, "TCP virtual connect failed"),
             _ => panic!("critical interface failure must terminate the runtime poll"),
         }
+    }
+
+    #[tokio::test]
+    async fn closed_failure_channel_is_a_critical_failure() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind listener");
+        let (failure_tx, mut failure_rx) = unbounded_channel::<String>();
+        drop(failure_tx);
+
+        let outcome = poll_runtime(&listener, &mut failure_rx).await;
+
+        assert!(
+            matches!(outcome, RuntimePoll::CriticalFailure(message) if message == TASKS_GONE),
+            "a runtime whose supervised tasks all died must not keep serving"
+        );
     }
 
     #[test]

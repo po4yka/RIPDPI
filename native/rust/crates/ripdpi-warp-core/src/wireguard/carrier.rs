@@ -129,6 +129,15 @@ impl WgCarrier {
     }
 }
 
+impl WgCarrier {
+    /// Whether a [`Self::recv`] error ends this carrier for good. A WebSocket
+    /// stream is finished after a close or a transport error, but one bad frame
+    /// (`InvalidData`) is skipped. A UDP socket error is transient.
+    pub(crate) fn is_terminal_recv_error(&self, error: &io::Error) -> bool {
+        !matches!(self, Self::Udp(_)) && error.kind() != io::ErrorKind::InvalidData
+    }
+}
+
 /// Open a protected WG-over-WebSocket carrier to `request_url`.
 ///
 /// The sequence mirrors the UDP `bind_tunnel_socket` fail-closed posture, but for
@@ -237,6 +246,50 @@ mod tests {
             .expect("receive must finish after peer disconnects")
             .expect("read task joins");
         assert!(read_result.is_err(), "closed peer must end the pending receive");
+    }
+
+    /// # Cancel safety
+    ///
+    /// cancel-safe: test-owned tasks and sockets are dropped with the test runtime.
+    #[tokio::test]
+    async fn closed_ws_carrier_ends_the_tunnel_receive_task() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("loopback listener");
+        let addr = listener.local_addr().expect("listener address");
+        let server = tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.expect("accept");
+            let mut ws = accept_hdr_async(tcp, accept_binary_subprotocol).await.expect("upgrade");
+            ws.close(None).await.expect("close the carrier");
+        });
+        let stream = connect_protected_carrier(addr, &|_| Ok(())).await.expect("connect");
+        let endpoint = WssEndpoint::parse(&format!("wss://{addr}/wg")).expect("endpoint");
+        let (ws, _) = client_async(endpoint.build_client_request().expect("request"), stream).await.expect("upgrade");
+        let (sender, receiver) = WsCarrier::new(ws).split();
+        let amnezia = crate::config::WarpAmneziaConfig::default();
+        let tunnel = crate::wireguard::WireGuardTunnel::new(
+            crate::wireguard::WireGuardTunnelParams {
+                private_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                peer_public_key: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+                preshared_key: None,
+                persistent_keepalive: None,
+                endpoint: addr,
+                reserved: [0; 3],
+                source_peer_ip: "10.77.0.2".parse().expect("source"),
+                source_peer_ipv6: None,
+                amnezia_cfg: &amnezia,
+                signature_programs: [""; 5],
+                carrier: Some(WgCarrier::PlainTestWs(Box::new(SplitWsCarrier::new(sender, receiver)))),
+            },
+            &crate::platform::WarpPlatform::default(),
+        )
+        .await
+        .expect("tunnel");
+
+        let outcome =
+            tokio::time::timeout(Duration::from_secs(2), tunnel.consume_task(crate::virtual_iface::Bus::new()))
+                .await
+                .expect("a closed carrier must end the receive task, not retry forever");
+        server.await.expect("server task");
+        assert_eq!(outcome.kind(), io::ErrorKind::UnexpectedEof, "a closed carrier is a terminal tunnel failure");
     }
 
     /// A LOCAL in-process WS relay terminating WS frames on `127.0.0.1` and

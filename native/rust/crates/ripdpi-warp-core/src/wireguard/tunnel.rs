@@ -360,13 +360,22 @@ impl WireGuardTunnel {
         }
     }
 
-    pub(crate) async fn consume_task(&self, bus: Bus) {
+    /// Feed carrier datagrams to the virtual interfaces until the carrier
+    /// fails for good, and return that terminal error. Transient UDP errors
+    /// are retried.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the carrier receive is cancel-safe and a dropped task only
+    /// loses the datagram it was decoding. The runtime aborts it at shutdown.
+    pub(crate) async fn consume_task(&self, bus: Bus) -> io::Error {
         let endpoint = bus.new_endpoint();
         loop {
             let mut recv_buf = [0u8; MAX_PACKET];
             let mut send_buf = [0u8; MAX_PACKET];
             let size = match self.carrier.recv(&mut recv_buf).await {
                 Ok(size) => size,
+                Err(error) if self.carrier.is_terminal_recv_error(&error) => return error,
                 Err(error) => {
                     tracing::warn!("WARP tunnel recv failed: {error}");
                     tokio::time::sleep(Duration::from_millis(10)).await;
