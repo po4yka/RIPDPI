@@ -51,6 +51,9 @@ const TELEMETRY_SOURCE: &str = "amneziawg";
 const WS_CARRIER_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 /// Every task that can report a failure holds a sender until shutdown, so a
 /// closed failure channel means they all died.
+/// Bound on the wait for the peer's handshake response, so an unreachable
+/// peer fails the start instead of leaving it pending. Short under test.
+const HANDSHAKE_TIMEOUT: Duration = if cfg!(test) { Duration::from_millis(1_000) } else { Duration::from_secs(20) };
 const TASKS_GONE: &str = "AmneziaWG tunnel tasks stopped";
 
 enum RuntimePoll {
@@ -584,7 +587,7 @@ impl AmneziaWgRuntime {
                 }
                 RuntimePoll::CriticalFailure(message) => {
                     *self.last_error.lock().expect("last error") = Some(message.clone());
-                    runtime_failure = Some(message);
+                    runtime_failure = Some(io::Error::other(message));
                     break;
                 }
                 RuntimePoll::Idle => {}
@@ -605,7 +608,7 @@ impl AmneziaWgRuntime {
             .map_err(|_| io::Error::other("AmneziaWG listener state poisoned after shutdown"));
         emit_runtime_stopped();
         cleared_listener?;
-        runtime_failure.map_or(Ok(()), |message| Err(io::Error::other(message)))
+        runtime_failure.map_or(Ok(()), Err)
     }
 
     /// Resolve the peer, open the configured carrier, and build the tunnel.
@@ -665,8 +668,8 @@ impl AmneziaWgRuntime {
     }
 
     /// Wait until the peer answers the handshake or [`Self::stop`] is called.
-    /// A carrier that dies first is a runtime failure: its message is
-    /// recorded and returned.
+    /// A carrier that dies first, or a peer silent for [`HANDSHAKE_TIMEOUT`]
+    /// (`TimedOut`), is a runtime failure: it is recorded and returned.
     ///
     /// # Cancel safety
     /// cancel-safe: `UnboundedReceiver::recv` loses no message when cancelled,
@@ -675,15 +678,20 @@ impl AmneziaWgRuntime {
         &self,
         tunnel: &WireGuardTunnel,
         failures: &mut UnboundedReceiver<String>,
-    ) -> Option<String> {
+    ) -> Option<io::Error> {
+        let deadline = tokio::time::Instant::now() + HANDSHAKE_TIMEOUT;
         while !self.stop_requested() && !tunnel.is_handshake_established() {
-            if let Ok(failure) = timeout(ACCEPT_POLL_INTERVAL, failures.recv()).await {
-                let message = failure.unwrap_or_else(|| TASKS_GONE.to_string());
-                if let Ok(mut last_error) = self.last_error.lock() {
-                    *last_error = Some(message.clone());
-                }
-                return Some(message);
+            let failure = if tokio::time::Instant::now() >= deadline {
+                io::Error::new(io::ErrorKind::TimedOut, "AmneziaWG peer handshake timed out")
+            } else if let Ok(failure) = timeout(ACCEPT_POLL_INTERVAL, failures.recv()).await {
+                io::Error::other(failure.unwrap_or_else(|| TASKS_GONE.to_string()))
+            } else {
+                continue;
+            };
+            if let Ok(mut last_error) = self.last_error.lock() {
+                *last_error = Some(failure.to_string());
             }
+            return Some(failure);
         }
         None
     }
@@ -960,6 +968,36 @@ mod tests {
             .expect("stop must interrupt a pending carrier connect")
             .expect("runtime task must join")
             .expect("stop before readiness is a clean shutdown");
+    }
+
+    #[tokio::test]
+    async fn unanswered_handshake_fails_the_start_with_timed_out() {
+        let sink = std::net::UdpSocket::bind("127.0.0.1:0").expect("reserve an unresponsive UDP endpoint");
+        let local_private = StaticSecret::from([0x17; 32]);
+        let peer_private = StaticSecret::from([0x2b; 32]);
+        let config = AmneziaWgProfileConfig {
+            enabled: true,
+            private_key: BASE64_STANDARD.encode(local_private.to_bytes()),
+            peer_public_key: BASE64_STANDARD.encode(PublicKey::from(&peer_private).to_bytes()),
+            endpoint_host: "127.0.0.1".to_string(),
+            endpoint_ipv4: "127.0.0.1".to_string(),
+            endpoint_port: i32::from(sink.local_addr().expect("sink address").port()),
+            interface_address_v4: "10.8.0.2/32".to_string(),
+            mtu: 1420,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 0,
+            ..Default::default()
+        };
+        let runtime = AmneziaWgRuntime::new(config);
+
+        let error = timeout(HANDSHAKE_TIMEOUT * 3, Arc::clone(&runtime).run())
+            .await
+            .expect("an unanswered handshake must not leave the start pending")
+            .expect_err("an unanswered handshake fails the start");
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert_eq!(runtime.telemetry().last_error.as_deref(), Some("AmneziaWG peer handshake timed out"));
+        assert_eq!(runtime.telemetry().state, "idle");
     }
 
     #[tokio::test]
