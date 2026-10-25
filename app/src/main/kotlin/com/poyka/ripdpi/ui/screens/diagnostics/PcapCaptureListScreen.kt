@@ -77,7 +77,7 @@ private fun PcapCaptureListContent(
             modifier =
                 modifier
                     .fillMaxWidth()
-                    .padding(spacing.lg),
+                    .padding(horizontal = RipDpiThemeTokens.layout.horizontalPadding, vertical = spacing.lg),
         ) {
             Text(
                 text = message ?: stringResource(R.string.vpn_pcap_capture_list_empty),
@@ -89,7 +89,7 @@ private fun PcapCaptureListContent(
     }
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(spacing.lg),
+        contentPadding = PaddingValues(horizontal = RipDpiThemeTokens.layout.horizontalPadding, vertical = spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         items(

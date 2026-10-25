@@ -80,7 +80,7 @@ private fun ReplayHistoryContent(
             modifier =
                 modifier
                     .fillMaxWidth()
-                    .padding(spacing.lg),
+                    .padding(horizontal = RipDpiThemeTokens.layout.horizontalPadding, vertical = spacing.lg),
         ) {
             ReplayHistoryEmptyState(
                 onRunScan = onRunScan,
@@ -150,7 +150,7 @@ private fun ReplayHistoryList(
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(spacing.lg),
+        contentPadding = PaddingValues(horizontal = RipDpiThemeTokens.layout.horizontalPadding, vertical = spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         items(
