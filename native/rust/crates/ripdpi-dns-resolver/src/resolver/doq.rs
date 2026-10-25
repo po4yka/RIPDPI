@@ -6,7 +6,7 @@ use std::time::Instant;
 use tokio::time::timeout;
 
 use super::EncryptedDnsResolver;
-use super::state::build_doq_endpoint_for_endpoint;
+use super::state::{DoqState, build_doq_endpoint_for_endpoint};
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport};
 
 impl EncryptedDnsResolver {
@@ -19,39 +19,63 @@ impl EncryptedDnsResolver {
                 "DoQ is not supported over SOCKS5 transport (SOCKS5 is TCP-only)".to_string(),
             ));
         }
-        let endpoint = self
-            .inner
-            .doq_endpoint
-            .get_or_try_init(|| async {
-                build_doq_endpoint_for_endpoint(
-                    &self.inner.endpoint,
-                    &self.inner.connect_hooks,
-                    &self.inner.dot_tls_config,
-                )
-            })
-            .await?;
+        let conn = self.get_or_connect_doq().await?;
+        match self.exchange_doq_on(&conn, query_bytes, len_prefix).await {
+            // A cached connection can die unnoticed, for example while no runtime drove it between
+            // blocking calls. Retry once; the lost connection is closed, so this connects afresh.
+            Err(_) if conn.close_reason().is_some_and(|reason| reason != quinn::ConnectionError::LocallyClosed) => {
+                let conn = self.get_or_connect_doq().await?;
+                self.exchange_doq_on(&conn, query_bytes, len_prefix).await
+            }
+            result => result,
+        }
+    }
 
-        let conn = self.get_or_connect_doq(endpoint).await?;
+    /// # Cancel safety:
+    /// Dropping the query releases its dedicated QUIC stream; the connection stays usable.
+    async fn exchange_doq_on(
+        &self,
+        conn: &quinn::Connection,
+        query_bytes: &[u8],
+        len_prefix: [u8; 2],
+    ) -> Result<Vec<u8>, EncryptedDnsError> {
         match timeout(self.inner.timeout, exchange_doq_query(conn.clone(), query_bytes, len_prefix)).await {
             Ok(result) => result,
             Err(_) => {
+                // A closed connection is replaced on the next query.
                 conn.close(0u32.into(), b"DoQ query timeout");
-                *self.inner.doq_connection.lock().await = None;
                 Err(EncryptedDnsError::Request("DoQ query timeout".to_string()))
             }
         }
     }
 
+    /// Returns the cached connection, or connects on an endpoint driven by the current runtime.
+    ///
     /// # Cancel safety:
     /// A connection is published only after its handshake completes; cancellation releases the pending handle.
-    async fn get_or_connect_doq(&self, endpoint: &quinn::Endpoint) -> Result<quinn::Connection, EncryptedDnsError> {
+    async fn get_or_connect_doq(&self) -> Result<quinn::Connection, EncryptedDnsError> {
+        let runtime = tokio::runtime::Handle::current().id();
         // Held across the connect, so a burst of queries waits for one handshake instead of starting many.
-        let mut cached = self.inner.doq_connection.lock().await;
-        if let Some(conn) = cached.as_ref()
+        let mut guard = self.inner.doq.lock().await;
+        let state = match guard.take() {
+            Some(state) if state.runtime == runtime => guard.insert(state),
+            // None yet, or its drivers live on another runtime that may be gone.
+            _ => guard.insert(DoqState {
+                runtime,
+                endpoint: build_doq_endpoint_for_endpoint(
+                    &self.inner.endpoint,
+                    &self.inner.connect_hooks,
+                    &self.inner.dot_tls_config,
+                )?,
+                connection: None,
+            }),
+        };
+        if let Some(conn) = state.connection.as_ref()
             && conn.close_reason().is_none()
         {
             return Ok(conn.clone());
         }
+        state.connection = None;
         let server_name = self.inner.endpoint.tls_server_name.as_deref().unwrap_or(&self.inner.endpoint.host);
         let bootstrap_ips = self.inner.health.as_ref().map_or_else(
             || self.inner.endpoint.bootstrap_ips.clone(),
@@ -66,7 +90,8 @@ impl EncryptedDnsResolver {
             let started = Instant::now();
             let addr = SocketAddr::new(ip, self.inner.endpoint.port);
             let result = timeout(self.inner.timeout, async {
-                endpoint
+                state
+                    .endpoint
                     .connect(addr, server_name)
                     .map_err(|error| EncryptedDnsError::Tls(format!("DoQ connect: {error}")))?
                     .await
@@ -82,7 +107,7 @@ impl EncryptedDnsResolver {
             }
             match result {
                 Ok(conn) => {
-                    *cached = Some(conn.clone());
+                    state.connection = Some(conn.clone());
                     return Ok(conn);
                 }
                 Err(error) => last_error = Some(error),

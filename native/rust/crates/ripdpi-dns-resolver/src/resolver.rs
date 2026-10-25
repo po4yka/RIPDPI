@@ -268,10 +268,7 @@ impl EncryptedDnsResolver {
                 self.inner.blocking_runtime.get_or_init(|| state::BlockingRuntime::new(runtime))
             }
         };
-        let runtime = runtime
-            .get()
-            .ok_or_else(|| EncryptedDnsError::TaskJoin("blocking DNS exchange runtime is shut down".to_string()))?;
-        runtime.block_on(self.exchange_with_metadata(query_bytes))
+        runtime.get().block_on(self.exchange_with_metadata(query_bytes))
     }
 
     pub fn exchange_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {

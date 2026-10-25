@@ -5,7 +5,7 @@ use rustls::ClientConfig;
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
 use tokio::runtime::Runtime;
-use tokio::sync::{Mutex as AsyncMutex, OnceCell as AsyncOnceCell};
+use tokio::sync::Mutex as AsyncMutex;
 
 use super::connection::ConnectionPool;
 use super::doq;
@@ -36,11 +36,19 @@ pub(crate) struct ResolverInner {
     pub(crate) connection_pool: ConnectionPool,
     pub(crate) health: Option<HealthRegistry>,
     pub(crate) network_scope: ResolverNetworkScope,
-    /// Built on first use inside the runtime that drives it: quinn spawns its endpoint driver there.
-    pub(crate) doq_endpoint: AsyncOnceCell<quinn::Endpoint>,
-    pub(crate) doq_connection: AsyncMutex<Option<quinn::Connection>>,
+    /// Built on first use inside the runtime that drives it, and rebuilt when a query runs on another one.
+    pub(crate) doq: AsyncMutex<Option<DoqState>>,
     /// Runtime reused by every blocking exchange, so state such as the DoQ endpoint outlives one call.
     pub(crate) blocking_runtime: OnceLock<BlockingRuntime>,
+}
+
+/// A DoQ endpoint and its cached connection. quinn spawns the endpoint and connection drivers on
+/// the runtime that built them, so they work only while that runtime runs.
+#[derive(Debug)]
+pub(crate) struct DoqState {
+    pub(crate) runtime: tokio::runtime::Id,
+    pub(crate) endpoint: quinn::Endpoint,
+    pub(crate) connection: Option<quinn::Connection>,
 }
 
 /// Owns the blocking-exchange runtime and shuts it down without blocking, so the resolver can drop anywhere.
@@ -52,8 +60,9 @@ impl BlockingRuntime {
         Self(Some(runtime))
     }
 
-    pub(crate) fn get(&self) -> Option<&Runtime> {
-        self.0.as_ref()
+    pub(crate) fn get(&self) -> &Runtime {
+        // Infallible: only `Drop` takes the runtime out, and nothing can borrow `self` after that.
+        self.0.as_ref().expect("blocking runtime is present until drop")
     }
 }
 
@@ -115,8 +124,7 @@ pub(crate) fn build_inner(
         connection_pool: ConnectionPool::default(),
         health,
         network_scope,
-        doq_endpoint: AsyncOnceCell::new(),
-        doq_connection: AsyncMutex::new(None),
+        doq: AsyncMutex::new(None),
         blocking_runtime: OnceLock::new(),
     })
 }
