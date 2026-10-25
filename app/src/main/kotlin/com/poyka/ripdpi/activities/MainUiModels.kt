@@ -18,6 +18,7 @@ import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.services.RunningReconnectState
 import com.poyka.ripdpi.ui.navigation.Route
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 
@@ -132,6 +133,7 @@ data class HomeApproachSummaryUiState(
     val verification: String,
     val successRate: String,
     val supportingText: String,
+    val facets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
 )
 
 internal data class ConnectionRuntimeState(

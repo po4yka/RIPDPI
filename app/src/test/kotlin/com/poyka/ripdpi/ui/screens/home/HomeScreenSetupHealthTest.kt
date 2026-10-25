@@ -167,7 +167,8 @@ class HomeScreenSetupHealthTest {
             .assertIsDisplayed()
             .performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails).assertIsDisplayed()
-        composeRule.onNodeWithText("Review →").assertIsDisplayed()
+        // Both items offer a "Review" action once the card is expanded.
+        composeRule.onAllNodesWithText("Review").assertCountEquals(2)
         composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)
     }
 
@@ -219,7 +220,7 @@ class HomeScreenSetupHealthTest {
 
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeSetupHealthRow).assertCountEquals(0)
         composeRule.onNodeWithText("Battery optimization").assertIsDisplayed()
-        composeRule.onNodeWithText("Review →").assertIsDisplayed()
+        composeRule.onNodeWithText("Review").assertIsDisplayed()
         composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)

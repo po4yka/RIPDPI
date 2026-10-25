@@ -747,6 +747,7 @@ class ProfileUtilityCatalogRecoveryTest {
         }
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 private suspend fun TestScope.fixture(
     disk: FaultingPreferencesContext = FaultingPreferencesContext(RuntimeEnvironment.getApplication()),
     settings: MemorySettings = MemorySettings(),
@@ -1446,11 +1447,13 @@ private fun <T> port(
     type: Class<T>,
     call: (String, Array<out Any?>) -> Any?,
 ): T =
-    type.cast(
-        Proxy.newProxyInstance(
-            type.classLoader,
-            arrayOf(type),
-        ) { _, method, args -> call(method.name, args.orEmpty()) },
+    checkNotNull(
+        type.cast(
+            Proxy.newProxyInstance(
+                type.classLoader,
+                arrayOf(type),
+            ) { _, method, args -> call(method.name, args.orEmpty()) },
+        ),
     )
 
 private fun internalTcpProbe(block: suspend (RelayProbeEndpoint, String) -> Any): Any {

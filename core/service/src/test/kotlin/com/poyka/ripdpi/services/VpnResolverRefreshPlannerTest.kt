@@ -154,7 +154,7 @@ class VpnResolverRefreshPlannerTest {
                     assertNull(policy.underlayLeaseGeneration)
                     assertEquals(activeDns.encryptedDnsBootstrapIps, policy.bootstrapPins)
                     assertEquals(rules, policy.destinationRouting.rules)
-                    assertEquals(activeDns, refresh.connectionPolicy?.activeDns)
+                    assertEquals(activeDns, refresh.connectionPolicy.activeDns)
                 }
             }
         }

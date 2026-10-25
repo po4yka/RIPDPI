@@ -25,4 +25,5 @@
     <string name="home_connection_stage_state_failed">con error</string>
     <string name="home_connection_actuator_action_cancel">Cancelar conexión</string>
     <string name="home_connection_actuator_action_retry">Reintentar</string>
+    <string name="home_connection_strategy_explainer">Así modifica RIPDPI tu tráfico para que los filtros de red no puedan identificarlo ni bloquearlo.</string>
 </resources>

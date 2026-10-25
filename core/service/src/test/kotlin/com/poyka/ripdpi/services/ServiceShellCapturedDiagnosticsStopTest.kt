@@ -61,7 +61,7 @@ class ServiceShellCapturedDiagnosticsStopTest {
                 durableReference = first.durable.authority,
                 activation =
                     com.poyka.ripdpi.data.RuntimeAppliedIntent.Activation(
-                        first.durable as com.poyka.ripdpi.data.RuntimeActivationReceipt,
+                        first.durable,
                     ),
                 stopSnapshot = firstSnapshot,
             )
@@ -130,7 +130,7 @@ class ServiceShellCapturedDiagnosticsStopTest {
                 durableReference = first.durable.authority,
                 activation =
                     com.poyka.ripdpi.data.RuntimeAppliedIntent.Activation(
-                        first.durable as com.poyka.ripdpi.data.RuntimeActivationReceipt,
+                        first.durable,
                     ),
                 stopSnapshot = firstSnapshot,
             )

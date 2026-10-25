@@ -25,4 +25,5 @@
     <string name="home_connection_stage_state_failed">فاشل</string>
     <string name="home_connection_actuator_action_cancel">إلغاء الاتصال</string>
     <string name="home_connection_actuator_action_retry">إعادة المحاولة</string>
+    <string name="home_connection_strategy_explainer">هكذا يغيّر RIPDPI حركة بياناتك حتى لا تتمكن مرشحات الشبكة من التعرّف عليها وحظرها.</string>
 </resources>

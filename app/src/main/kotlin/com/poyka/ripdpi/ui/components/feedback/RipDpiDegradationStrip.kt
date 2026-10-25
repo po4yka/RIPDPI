@@ -137,7 +137,7 @@ fun RipDpiDegradationStrip(
                             start = spacing.xs + spacing.lg,
                             top = spacing.md,
                             bottom = spacing.md,
-                            end = spacing.md,
+                            end = spacing.lg,
                         ),
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {

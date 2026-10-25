@@ -22,7 +22,7 @@ class DiagnosticsArchiveStorageWiringTest {
             val pcapController = PcapController(context)
             val capture =
                 pcapController.captureDirectory.resolve("0000000000000001-1-00.pcap").apply {
-                    parentFile.mkdirs()
+                    parentFile?.mkdirs()
                     writeText("expired capture")
                     setLastModified(0L)
                 }

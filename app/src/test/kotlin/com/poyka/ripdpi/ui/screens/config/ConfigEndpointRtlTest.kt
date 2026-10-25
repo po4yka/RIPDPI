@@ -172,7 +172,7 @@ class ConfigEndpointRtlTest {
         tag: String,
         name: String,
     ) {
-        val output = File("build/reports/localization-ar/$name.png").apply { parentFile.mkdirs() }
+        val output = File("build/reports/localization-ar/$name.png").apply { parentFile?.mkdirs() }
         output.outputStream().use {
             composeRule
                 .onNodeWithTag(tag, useUnmergedTree = true)

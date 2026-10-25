@@ -25,4 +25,5 @@
     <string name="home_connection_stage_state_failed">fehlgeschlagen</string>
     <string name="home_connection_actuator_action_cancel">Verbindung abbrechen</string>
     <string name="home_connection_actuator_action_retry">Erneut versuchen</string>
+    <string name="home_connection_strategy_explainer">So verändert RIPDPI Ihren Datenverkehr, damit Netzwerkfilter ihn nicht erkennen und blockieren können.</string>
 </resources>

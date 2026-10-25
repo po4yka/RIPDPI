@@ -160,7 +160,7 @@ class DiagnosticsToolHindiCaptionsTest {
 
     private fun capture(name: String) {
         val output = File("build/compose-previews/renders/$name")
-        output.parentFile.mkdirs()
+        output.parentFile?.mkdirs()
         output.outputStream().use { stream ->
             val bitmap = composeRule.onRoot().captureToImage().asAndroidBitmap()
             assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))

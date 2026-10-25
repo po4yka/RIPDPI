@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -155,8 +156,16 @@ class DiagnosticsStrategyReportLayoutTest {
         val layout = results.single()
         val input = layout.layoutInput
         val wordWidth =
-            TextMeasurer(input.fontFamilyResolver, input.density, input.layoutDirection)
-                .measure(AnnotatedString(text), style = input.style.copy(hyphens = Hyphens.None))
+            TextMeasurer(
+                input.fontFamilyResolver,
+                LocaleList(
+                    android.os.LocaleList
+                        .getDefault()
+                        .toLanguageTags(),
+                ),
+                input.density,
+                input.layoutDirection,
+            ).measure(AnnotatedString(text), style = input.style.copy(hyphens = Hyphens.None))
                 .multiParagraph.minIntrinsicWidth
         assertTrue(
             "Whole word needs $wordWidth px but gets ${layout.size.width}: $text",

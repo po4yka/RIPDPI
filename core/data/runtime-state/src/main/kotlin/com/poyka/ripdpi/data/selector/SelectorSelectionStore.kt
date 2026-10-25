@@ -6,6 +6,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -90,6 +91,7 @@ class SharedPreferencesSelectorSelectionStore
         private var clearRevision = 0L
         private val manualReceipts = HashMap<String, com.poyka.ripdpi.data.DurableCommandReceipt>()
 
+        @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
         override fun selectedProfileId(groupId: String): StateFlow<String?> =
             object : StateFlow<String?> {
                 override val value: String? get() = preferences.getString(keyFor(groupId), null)

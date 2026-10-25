@@ -26,6 +26,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.homePauseDuration
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.text.NumberFormat
 import java.util.Date
@@ -49,18 +50,14 @@ internal fun HomePauseControls(
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         if (state.available) {
+            // Full width centres the label in the column instead of indenting it by the ghost padding.
             RipDpiButton(
                 text = stringResource(R.string.pause_action),
-                onClick = {
-                    chooseDuration =
-                        true
-                },
+                onClick = { chooseDuration = true },
                 variant = RipDpiButtonVariant.Ghost,
+                leadingIcon = RipDpiIcons.Timer,
                 wrapLabel = true,
-                modifier =
-                    Modifier.ripDpiTestTag(
-                        RipDpiTestTags.HomePauseOpen,
-                    ),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomePauseOpen),
             )
         }
         if (state.phase != null) HomePauseStatus(state, onResume, onStop)

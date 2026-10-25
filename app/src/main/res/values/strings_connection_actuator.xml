@@ -26,4 +26,5 @@
     <string name="home_connection_stage_state_failed">failed</string>
     <string name="home_connection_actuator_action_cancel">Cancel connection</string>
     <string name="home_connection_actuator_action_retry">Try again</string>
+    <string name="home_connection_strategy_explainer">RIPDPI changes your traffic in these ways so that network filters cannot identify and block it.</string>
 </resources>

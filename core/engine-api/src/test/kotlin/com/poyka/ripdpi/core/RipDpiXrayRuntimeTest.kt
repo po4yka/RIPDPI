@@ -62,10 +62,10 @@ class RipDpiXrayRuntimeTest {
             val release = CountDownLatch(1)
             val bridge =
                 object : FakeXrayNativeBridge() {
-                    override fun start(renderedConfig: String): Int {
+                    override fun start(jsonConfig: String): Int {
                         entered.countDown()
                         check(release.await(5, TimeUnit.SECONDS))
-                        return super.start(renderedConfig)
+                        return super.start(jsonConfig)
                     }
                 }
             val owner = XrayRuntimeOwner(bridge)

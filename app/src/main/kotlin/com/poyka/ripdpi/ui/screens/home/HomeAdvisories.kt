@@ -1,14 +1,6 @@
 package com.poyka.ripdpi.ui.screens.home
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainUiState
@@ -16,15 +8,8 @@ import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
-import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.SettingsRow
-import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
  * How loudly an advisory has to be heard. Ordering is the declaration order, so
@@ -95,109 +80,6 @@ internal fun buildHomeAdvisories(
     subscriptionExpiryAdvisory(subscriptionExpiry, onOpenSubscriptionStatus)?.let { advisories += it }
     // Stable, so advisories of equal severity keep the order they were built in.
     return advisories.sortedBy { it.severity.ordinal }
-}
-
-/**
- * The one slot every advisory shares.
- *
- * A lone banner or compact hint keeps its existing surface. A row shows its
- * recovery directly. Multiple advisories share a card that preserves the
- * highest-priority warning and the first available recovery action.
- */
-@Composable
-internal fun HomeAdvisorySlot(advisories: List<HomeAdvisory>) {
-    if (advisories.isEmpty()) return
-    val top = advisories.first()
-    if (advisories.size == 1) {
-        when (top.presentation) {
-            HomeAdvisoryPresentation.Banner -> AdvisoryBanner(top)
-            HomeAdvisoryPresentation.Row -> AdvisoryCard(top)
-            HomeAdvisoryPresentation.CompactRow -> RipDpiCard { AdvisoryRow(top, showDivider = false) }
-        }
-        return
-    }
-    AdvisoryCard(top, advisories = advisories)
-}
-
-@Composable
-internal fun AdvisoryBanner(advisory: HomeAdvisory) {
-    WarningBanner(
-        title = advisory.title,
-        message = advisory.message,
-        tone = advisory.tone,
-        modifier = Modifier.fillMaxWidth(),
-        onClick = advisory.onClick,
-        testTag = advisory.testTag,
-        announce = advisory.announce,
-    )
-}
-
-/** Keep the priority warning and first recovery visible; disclose only the remaining items. */
-@Composable
-private fun AdvisoryCard(
-    top: HomeAdvisory,
-    advisories: List<HomeAdvisory> = listOf(top),
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val recoveryIndex = advisories.indexOfFirst { it.onClick != null }
-    val remaining = advisories.filterIndexed { index, _ -> index != 0 && index != recoveryIndex }
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthRow)) {
-        AdvisoryRow(
-            advisory = top,
-            showDivider = false,
-            testTag = if (recoveryIndex == 0) RipDpiTestTags.HomeAdvisoryPrimaryAction else top.testTag,
-        )
-        if (recoveryIndex > 0) {
-            AdvisoryRow(
-                advisory = advisories[recoveryIndex],
-                showDivider = false,
-                testTag = RipDpiTestTags.HomeAdvisoryPrimaryAction,
-            )
-        }
-        if (remaining.isNotEmpty()) {
-            SettingsRow(
-                title = stringResource(R.string.home_advisories_more_format, remaining.size),
-                value =
-                    stringResource(
-                        if (expanded) R.string.semantic_action_collapse else R.string.semantic_action_expand,
-                    ),
-                onClick = { expanded = !expanded },
-                leadingIcon = RipDpiIcons.Info,
-                showChevron = true,
-                testTag = RipDpiTestTags.HomeAdvisoryMore,
-            )
-            if (expanded) {
-                Column(
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthDetails),
-                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-                ) {
-                    remaining.forEach { advisory -> AdvisoryRow(advisory, showDivider = true) }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AdvisoryRow(
-    advisory: HomeAdvisory,
-    showDivider: Boolean,
-    testTag: String = advisory.testTag,
-) {
-    val compact = advisory.presentation == HomeAdvisoryPresentation.CompactRow
-    SettingsRow(
-        title = advisory.title,
-        subtitle = advisory.message.takeUnless { compact },
-        value =
-            advisory.actionLabel?.let { label ->
-                if (compact) "$label →" else label
-            },
-        onClick = advisory.onClick,
-        leadingIcon = RipDpiIcons.Info,
-        showDivider = showDivider,
-        variant = if (compact) SettingsRowVariant.Tonal else SettingsRowVariant.Default,
-        testTag = testTag,
-    )
 }
 
 @Composable

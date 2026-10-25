@@ -21,7 +21,7 @@ import java.io.File
  */
 class CiRelayBundleFixtureTest {
     private fun fixtureText(): String {
-        var dir: File? = File(System.getProperty("user.dir")).absoluteFile
+        var dir: File? = File(checkNotNull(System.getProperty("user.dir"))).absoluteFile
         while (dir != null && !File(dir, "settings.gradle.kts").isFile) {
             dir = dir.parentFile
         }

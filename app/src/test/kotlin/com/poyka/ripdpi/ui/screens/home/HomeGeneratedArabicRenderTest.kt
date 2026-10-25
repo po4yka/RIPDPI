@@ -166,7 +166,7 @@ class HomeGeneratedArabicRenderTest {
     }
 
     private fun capture(name: String) {
-        val output = File("build/reports/localization-ar/home-$name.png").apply { parentFile.mkdirs() }
+        val output = File("build/reports/localization-ar/home-$name.png").apply { parentFile?.mkdirs() }
         output.outputStream().use {
             composeRule
                 .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet, useUnmergedTree = true)

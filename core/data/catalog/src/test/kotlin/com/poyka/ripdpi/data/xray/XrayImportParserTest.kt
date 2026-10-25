@@ -91,7 +91,7 @@ class XrayImportParserTest {
                 "?security=reality&pbk=$pbk&sni=www.cloudflare.com&sid=abcd&fp=chrome&flow=xtls-rprx-vision#node"
         val result = accepted(parser.parse(link, stableTag))
 
-        val profile = assertNotNull("typed profile present", result.profile).let { result.profile!! }
+        val profile = assertNotNull("typed profile present", result.profile).let { result.profile }
         assertEquals("edge.example.com", profile.outbound.serverAddress)
         assertEquals(443, profile.outbound.serverPort)
         assertEquals(uuid, profile.outbound.uuid)
@@ -108,7 +108,7 @@ class XrayImportParserTest {
             "vless://$uuid@edge.example.com:8443" +
                 "?type=xhttp&security=tls&sni=cdn.example.com&path=%2Fhls&mode=auto#x"
         val result = accepted(parser.parse(link, stableTag))
-        val profile = result.profile!!
+        val profile = result.profile
         assertEquals(XrayProfile.Network.XHTTP, profile.outbound.network)
         assertEquals("/hls", profile.outbound.xhttp?.path)
         assertTrue(result.capabilities.contains(XrayCapability.ANTI_DPI))
@@ -118,14 +118,14 @@ class XrayImportParserTest {
     fun `fixed upstream supports REALITY XHTTP in both release and module tag formats`() {
         val link = "vless://$uuid@edge.example.com:443?type=xhttp&security=reality&pbk=$pbk&sni=decoy.example.com"
         for (tag in listOf("v26.3.27", "1.260327.0", "v26.2.6", "v1.260206.0")) {
-            assertEquals("", accepted(parser.parse(link, tag)).profile!!.outbound.flow)
+            assertEquals("", accepted(parser.parse(link, tag)).profile.outbound.flow)
         }
     }
 
     @Test
     fun `XHTTP retains empty flow instead of injecting incompatible Vision`() {
         val link = "vless://$uuid@edge.example.com:443?type=xhttp&security=tls&sni=cdn.example.com&flow="
-        assertEquals("", accepted(parser.parse(link, stableTag)).profile!!.outbound.flow)
+        assertEquals("", accepted(parser.parse(link, stableTag)).profile.outbound.flow)
     }
 
     @Test
@@ -134,7 +134,7 @@ class XrayImportParserTest {
         assertEquals(
             "/%2F",
             accepted(parser.parse(link, stableTag))
-                .profile!!
+                .profile
                 .outbound.xhttp!!
                 .path,
         )
@@ -159,7 +159,7 @@ class XrayImportParserTest {
             "vless://$uuid@edge.example.com:8443" +
                 "?type=xhttp&security=tls&sni=cdn.example.com&path=&mode=auto#x"
 
-        val profile = accepted(parser.parse(link, stableTag)).profile!!
+        val profile = accepted(parser.parse(link, stableTag)).profile
 
         assertEquals(XrayProfile.Network.XHTTP, profile.outbound.network)
         assertEquals("", profile.outbound.xhttp?.path)

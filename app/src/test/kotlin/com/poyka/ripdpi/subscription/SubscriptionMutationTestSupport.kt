@@ -117,8 +117,6 @@ private class SubscriptionSelectorChoice : SelectorChoicePersistence {
 
 /** Unrelated WARP, Xray-secret and runtime ports must not participate in a subscription commit. */
 private inline fun <reified T> unusedStore(): T =
-    T::class.java.cast(
-        Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { _, method, _ ->
-            error("Unexpected subscription store operation: ${method.name}")
-        },
-    )
+    Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { _, method, _ ->
+        error("Unexpected subscription store operation: ${method.name}")
+    } as T

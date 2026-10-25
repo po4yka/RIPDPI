@@ -27,7 +27,7 @@ class BootPolicyAuthorityTest {
         val receipt = authority.authorizeBootPolicyStart(Mode.Proxy, authority.snapshotAuthority())
         assertNotNull(receipt)
         apply(authority, checkNotNull(receipt), Mode.Proxy)
-        assertTrue(authority.allowsRecovery(receipt!!.authority, Mode.Proxy))
+        assertTrue(authority.allowsRecovery(receipt.authority, Mode.Proxy))
     }
 
     @Test fun `stop or pause between capture and policy authorization preserves newer intent`() {

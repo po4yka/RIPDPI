@@ -25,4 +25,5 @@
     <string name="home_connection_stage_state_failed">विफल</string>
     <string name="home_connection_actuator_action_cancel">कनेक्शन रद्द करें</string>
     <string name="home_connection_actuator_action_retry">फिर से प्रयास करें</string>
+    <string name="home_connection_strategy_explainer">RIPDPI आपके ट्रैफ़िक को इस तरह बदलता है ताकि नेटवर्क फ़िल्टर उसे पहचानकर ब्लॉक न कर सकें।</string>
 </resources>

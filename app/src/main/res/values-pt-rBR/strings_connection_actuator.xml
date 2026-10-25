@@ -25,4 +25,5 @@
     <string name="home_connection_stage_state_failed">falhou</string>
     <string name="home_connection_actuator_action_cancel">Cancelar conexão</string>
     <string name="home_connection_actuator_action_retry">Tentar novamente</string>
+    <string name="home_connection_strategy_explainer">É assim que o RIPDPI modifica seu tráfego para que os filtros de rede não consigam identificá-lo nem bloqueá-lo.</string>
 </resources>

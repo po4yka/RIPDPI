@@ -26,7 +26,7 @@ class MainActivityImePolicyTest {
 
         assertEquals(
             "The merged manifest must keep the toolbar in place when a lower field opens the keyboard",
-            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,
+            SoftInputAdjustResize,
             activityInfo.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST,
         )
     }
@@ -53,9 +53,12 @@ class MainActivityImePolicyTest {
             )
             assertEquals(
                 "Launcher ${alias.name} must inherit the keyboard resize policy",
-                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,
+                SoftInputAdjustResize,
                 alias.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST,
             )
         }
     }
 }
+
+// The manifest still declares adjustResize; the platform constant is deprecated since API 30.
+private const val SoftInputAdjustResize = 0x10

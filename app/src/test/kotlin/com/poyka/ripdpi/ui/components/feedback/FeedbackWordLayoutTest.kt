@@ -22,6 +22,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -135,8 +136,16 @@ class FeedbackWordLayoutTest {
         val layout = layouts.single()
         val input = layout.layoutInput
         val wholeWordWidth =
-            TextMeasurer(input.fontFamilyResolver, input.density, input.layoutDirection)
-                .measure(AnnotatedString(text), style = input.style.copy(hyphens = Hyphens.None))
+            TextMeasurer(
+                input.fontFamilyResolver,
+                LocaleList(
+                    android.os.LocaleList
+                        .getDefault()
+                        .toLanguageTags(),
+                ),
+                input.density,
+                input.layoutDirection,
+            ).measure(AnnotatedString(text), style = input.style.copy(hyphens = Hyphens.None))
                 .multiParagraph.minIntrinsicWidth
         assertTrue(
             "Word needs $wholeWordWidth px but receives ${layout.size.width}: $text",

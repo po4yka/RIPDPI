@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -95,7 +96,7 @@ class HomeAdvisoryPrimaryActionTest {
         composeRule.onNodeWithText("Provider failed").assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertIsDisplayed().performClick()
         assertEquals(1, repairs)
-        composeRule.onNodeWithText("More 1").assertIsDisplayed()
+        composeRule.onNodeWithText("1 more").assertIsDisplayed()
         composeRule.onNodeWithText("Background activity").assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
         composeRule.onNodeWithText("Background activity").assertIsDisplayed()
@@ -114,6 +115,23 @@ class HomeAdvisoryPrimaryActionTest {
         composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertIsDisplayed().performClick()
         assertEquals(1, repairs)
         composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a status label without an action stays visible and is not clickable`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeAdvisorySlot(
+                    listOf(
+                        testAdvisory("System lockdown enabled", HomeAdvisorySeverity.Info)
+                            .copy(actionLabel = "Managed by Android lockdown"),
+                    ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Managed by Android lockdown", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("System lockdown enabled").assertHasNoClickAction()
     }
 
     @Test

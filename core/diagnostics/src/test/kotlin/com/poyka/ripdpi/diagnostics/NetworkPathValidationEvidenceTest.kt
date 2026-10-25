@@ -28,8 +28,8 @@ class NetworkPathValidationEvidenceTest {
 
         assertFalse(encoded.contains("vpnRouteEvidence"))
         assertFalse(requireNotNull(decoded.pathValidation?.vpnPresent))
-        assertNull(decoded.pathValidation?.vpnRouteEvidence)
-        assertEquals("unavailable", decoded.pathValidation?.callingDefaultObserverRole)
+        assertNull(decoded.pathValidation.vpnRouteEvidence)
+        assertEquals("unavailable", decoded.pathValidation.callingDefaultObserverRole)
         assertEquals(7L, decoded.pathSnapshots?.captureGeneration)
     }
 

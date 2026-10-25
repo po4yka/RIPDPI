@@ -25,4 +25,5 @@
     <string name="home_connection_stage_state_failed">en échec</string>
     <string name="home_connection_actuator_action_cancel">Annuler la connexion</string>
     <string name="home_connection_actuator_action_retry">Réessayer</string>
+    <string name="home_connection_strategy_explainer">Voici comment RIPDPI modifie votre trafic pour que les filtres réseau ne puissent pas le reconnaître ni le bloquer.</string>
 </resources>

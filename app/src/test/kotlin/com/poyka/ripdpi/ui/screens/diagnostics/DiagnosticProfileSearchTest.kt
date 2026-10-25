@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.activity.ComponentDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
@@ -98,7 +99,9 @@ class DiagnosticProfileSearchTest {
         composeRule.setContent { Content() }
         open()
         query("chat")
-        composeRule.runOnIdle { ShadowDialog.getLatestDialog().onBackPressed() }
+        composeRule.runOnIdle {
+            (ShadowDialog.getLatestDialog() as ComponentDialog).onBackPressedDispatcher.onBackPressed()
+        }
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticProfileSearchSheet).assertDoesNotExist()
         assertNoActions()
     }
