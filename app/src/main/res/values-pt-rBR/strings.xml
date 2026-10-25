@@ -2116,7 +2116,6 @@ Fonte: %2$s</string>
     <string name="settings_full_tunnel_title">Modo túnel completo</string>
     <string name="settings_full_tunnel_body">Roteia todo o tráfego pela VPN sem exclusões de apps. Impede módulos espiões de enviar tráfego diretamente, mas apps russos podem detectar a VPN</string>
     <string name="settings_full_tunnel_helper">Quando ativado, todo o tráfego passa pelo túnel. As exclusões por app ficam desativadas nesse modo.</string>
-    <string name="settings_full_tunnel_exclusions_disabled">Desativado porque o modo túnel completo está ativado</string>
     <string name="settings_vpn_flag_warning_title">Flag de VPN está visível</string>
     <string name="settings_vpn_flag_warning_body">Apps em todos os perfis do Android (incluindo Perfil de trabalho e Knox) podem detectar que uma VPN está ativa. Para isolamento total, use um dispositivo separado para apps russos</string>
     <string name="settings_tethering_dns_warning_title">Risco de vazamento de DNS no tethering</string>

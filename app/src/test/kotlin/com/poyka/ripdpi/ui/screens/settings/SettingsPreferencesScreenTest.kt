@@ -1,10 +1,15 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -189,6 +194,53 @@ class SettingsPreferencesScreenTest {
             .onNode(hasScrollToNodeAction())
             .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsAdvancedSettings))
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSettings).assertIsDisplayed()
+    }
+
+    @Test
+    fun fullTunnelModeDisablesExcludeRussianAppsAndKeepsStoredChoice() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(excludeRussianAppsEnabled = true, fullTunnelMode = true),
+                    actions = testActions(),
+                    permissionSummary = PermissionSummaryUiState(),
+                )
+            }
+        }
+        val context = RuntimeEnvironment.getApplication()
+
+        composeRule
+            .onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsExcludeRussianApps))
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.SettingsExcludeRussianApps)
+            .assertIsNotEnabled()
+            .assertIsOn()
+            .assert(hasText(context.getString(R.string.settings_exclude_russian_apps_full_tunnel_body)))
+            .assert(hasText(context.getString(R.string.settings_exclude_russian_apps_body)).not())
+    }
+
+    @Test
+    fun excludeRussianAppsIsToggleableWhenFullTunnelModeIsOff() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(excludeRussianAppsEnabled = true, fullTunnelMode = false),
+                    actions = testActions(),
+                    permissionSummary = PermissionSummaryUiState(),
+                )
+            }
+        }
+        val context = RuntimeEnvironment.getApplication()
+
+        composeRule
+            .onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsExcludeRussianApps))
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.SettingsExcludeRussianApps)
+            .assertIsEnabled()
+            .assertIsOn()
+            .assert(hasText(context.getString(R.string.settings_exclude_russian_apps_body)))
     }
 
     @Test

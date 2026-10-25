@@ -961,7 +961,6 @@ fakeddisorder endhost</string>
     <string name="settings_diagnostics_export_history_body">只有在你明确创建诊断归档用于分享或本地导出时，才会附加已存储的历史记录表。</string>
     <string name="settings_diagnostics_monitor_title">记录运行时诊断历史</string>
     <string name="settings_diagnostics_sample_title">采样间隔(秒)</string>
-    <string name="settings_full_tunnel_exclusions_disabled">已禁用,因为已启用完整隧道模式</string>
     <string name="settings_permission_action_allow">允许</string>
     <string name="settings_permission_status_not_needed">无需</string>
     <string name="settings_permissions_battery_needed">推荐启用,以减少 Doze 在 RIPDPI 后台运行时将其暂停的可能性。</string>

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">Sans effet tant que le mode tunnel complet est activé : toutes les applications passent par le VPN. Votre choix s\'appliquera de nouveau quand vous désactiverez le mode tunnel complet.</string>
+</resources>

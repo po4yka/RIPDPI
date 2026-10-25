@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">No effect while Full tunnel mode is on: all apps use the VPN. Your choice applies again when you turn Full tunnel mode off.</string>
+</resources>

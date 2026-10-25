@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">Sem efeito enquanto o modo túnel completo estiver ativado: todos os apps usam a VPN. Sua escolha volta a valer quando você desativar o modo túnel completo.</string>
+</resources>

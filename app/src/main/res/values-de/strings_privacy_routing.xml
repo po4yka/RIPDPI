@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">Keine Wirkung, solange der volle Tunnelmodus aktiv ist: Alle Apps nutzen das VPN. Ihre Auswahl gilt wieder, sobald Sie den vollen Tunnelmodus ausschalten.</string>
+</resources>

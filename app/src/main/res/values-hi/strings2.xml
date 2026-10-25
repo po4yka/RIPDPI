@@ -266,7 +266,6 @@
     <string name="settings_full_tunnel_title">फ़ुल टनल मोड</string>
     <string name="settings_full_tunnel_body">बिना किसी ऐप अपवाद के सारा ट्रैफ़िक VPN के माध्यम से रूट करें। यह स्पाईवेयर मॉड्यूल को सीधे ट्रैफ़िक भेजने से रोकता है, पर रूसी ऐप्स VPN का पता लगा सकते हैं</string>
     <string name="settings_full_tunnel_helper">सक्षम होने पर, सारा ट्रैफ़िक टनल के माध्यम से जाता है। इस मोड में प्रति-ऐप अपवाद अक्षम होते हैं।</string>
-    <string name="settings_full_tunnel_exclusions_disabled">फ़ुल टनल मोड सक्षम होने के कारण अक्षम</string>
     <string name="settings_vpn_flag_warning_title">VPN फ़्लैग दृश्यमान है</string>
     <string name="settings_vpn_flag_warning_body">सभी Android प्रोफ़ाइलों (Work Profile और Knox सहित) के ऐप्स यह पता लगा सकते हैं कि VPN सक्रिय है। पूर्ण पृथक्करण के लिए, रूसी ऐप्स हेतु अलग डिवाइस का उपयोग करें</string>
     <string name="settings_tethering_dns_warning_title">टेदरिंग DNS लीक जोखिम</string>

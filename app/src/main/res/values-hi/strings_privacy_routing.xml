@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">फ़ुल टनल मोड चालू रहने तक इसका कोई असर नहीं होता: सभी ऐप्स VPN का उपयोग करते हैं। फ़ुल टनल मोड बंद करने पर आपकी पसंद फिर से लागू होगी।</string>
+</resources>

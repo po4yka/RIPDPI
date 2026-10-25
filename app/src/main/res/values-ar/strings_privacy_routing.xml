@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">لا تأثير لهذا الخيار ما دام وضع النفق الكامل مفعّلًا: كل التطبيقات تستخدم VPN. سيُطبَّق اختيارك مجددًا عند إيقاف وضع النفق الكامل.</string>
+</resources>

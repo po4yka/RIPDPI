@@ -273,20 +273,23 @@ private fun FullTunnelExclusionsRows(
     uiState: SettingsUiState,
     actions: SettingsScreenActions,
 ) {
-    Column {
-        SettingsRow(
-            title = stringResource(R.string.settings_exclude_russian_apps_title),
-            subtitle = stringResource(R.string.settings_exclude_russian_apps_body),
-            checked = uiState.excludeRussianAppsEnabled,
-            onCheckedChange = actions.onExcludeRussianAppsChanged,
-            enabled = !uiState.fullTunnelMode,
-            showDivider = !uiState.fullTunnelMode,
-        )
-        FullTunnelHelperFooter(
-            visible = uiState.fullTunnelMode,
-            textRes = R.string.settings_full_tunnel_exclusions_disabled,
-        )
-    }
+    // Full tunnel wins at runtime (computeAppRoutingPlan), so the stored choice is shown but inert.
+    SettingsRow(
+        title = stringResource(R.string.settings_exclude_russian_apps_title),
+        subtitle =
+            stringResource(
+                if (uiState.fullTunnelMode) {
+                    R.string.settings_exclude_russian_apps_full_tunnel_body
+                } else {
+                    R.string.settings_exclude_russian_apps_body
+                },
+            ),
+        checked = uiState.excludeRussianAppsEnabled,
+        onCheckedChange = actions.onExcludeRussianAppsChanged,
+        enabled = !uiState.fullTunnelMode,
+        showDivider = true,
+        testTag = RipDpiTestTags.SettingsExcludeRussianApps,
+    )
     Column {
         SettingsRow(
             title = stringResource(R.string.settings_full_tunnel_title),

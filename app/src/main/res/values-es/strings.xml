@@ -2674,7 +2674,6 @@ Origen: %2$s</string>
     <string name="settings_customization_body">Icono de aplicación, forma adaptable y opciones de icono temático.</string>
     <string name="settings_diagnostics_monitor_body">Sigue muestreando telemetría de conexión, estado de la red y contexto mientras RIPDPI esté en ejecución.</string>
     <string name="settings_diagnostics_sample_body">Con qué frecuencia RIPDPI almacena muestras de red, telemetría y contexto para una conexión activa. Rango permitido: 5 a 300 segundos.</string>
-    <string name="settings_full_tunnel_exclusions_disabled">Deshabilitado porque el modo Túnel completo está habilitado</string>
     <string name="settings_manage_action">Gestionar</string>
     <string name="settings_permission_status_not_needed">No es necesario</string>
     <string name="settings_permissions_battery_ready">Android ya permite que RIPDPI ignore la optimización de batería Doze.</string>

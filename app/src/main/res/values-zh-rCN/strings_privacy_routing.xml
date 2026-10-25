@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">全隧道模式开启时此项不起作用:所有应用都通过 VPN。关闭全隧道模式后,你的选择将重新生效。</string>
+</resources>

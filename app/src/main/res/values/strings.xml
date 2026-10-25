@@ -2152,7 +2152,6 @@ Source: %2$s</string>
     <string name="settings_full_tunnel_title">Full tunnel mode</string>
     <string name="settings_full_tunnel_body">Route all traffic through VPN with no app exclusions. Prevents spyware modules from sending traffic directly, but Russian apps may detect the VPN</string>
     <string name="settings_full_tunnel_helper">When enabled, all traffic goes through the tunnel. Per-app exclusions are disabled in this mode.</string>
-    <string name="settings_full_tunnel_exclusions_disabled">Disabled because Full Tunnel mode is enabled</string>
     <string name="settings_vpn_flag_warning_title">VPN flag is visible</string>
     <string name="settings_vpn_flag_warning_body">Apps in all Android profiles (including Work Profile and Knox) can detect that a VPN is active. For full isolation, use a separate device for Russian apps</string>
     <string name="settings_tethering_dns_warning_title">Tethering DNS leak risk</string>

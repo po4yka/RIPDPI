@@ -1779,7 +1779,6 @@ fakeddisorder endhost</string>
     <string name="settings_connectivity_dns_body_proxy">DNS رمزگذاری‌شده می‌تواند نام‌های مقصد پروکسی محلی را حل کند. DNS دستگاه تغییر نمی‌کند.</string>
     <string name="settings_customization_body">آیکن برنامه، شکل تطبیقی و گزینه‌های آیکن تم‌دار.</string>
     <string name="settings_exclude_russian_apps_body">برنامه‌های بانکی، تحویل و دولتی برای جلوگیری از مشکلات شناسایی، VPN را دور می‌زنند</string>
-    <string name="settings_full_tunnel_exclusions_disabled">غیرفعال است زیرا حالت Full Tunnel فعال است</string>
     <string name="settings_manage_action">مدیریت</string>
     <string name="settings_permission_action_review">بازبینی</string>
     <string name="settings_permission_status_optional">اختیاری</string>

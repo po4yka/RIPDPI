@@ -4646,9 +4646,9 @@ app:settings_diagnostics_sample_body
 app:settings_diagnostics_sample_title
 app:settings_domain_bypass_body
 app:settings_exclude_russian_apps_body
+app:settings_exclude_russian_apps_full_tunnel_body
 app:settings_exclude_russian_apps_title
 app:settings_full_tunnel_body
-app:settings_full_tunnel_exclusions_disabled
 app:settings_full_tunnel_helper
 app:settings_full_tunnel_title
 app:settings_language_body

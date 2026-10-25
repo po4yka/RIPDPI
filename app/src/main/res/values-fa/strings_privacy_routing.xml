@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">تا وقتی حالت تونل کامل روشن است، اثری ندارد: همه برنامه‌ها از VPN استفاده می‌کنند. انتخاب شما پس از خاموش کردن حالت تونل کامل دوباره اعمال می‌شود.</string>
+</resources>

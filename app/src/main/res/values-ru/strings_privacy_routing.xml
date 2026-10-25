@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_exclude_russian_apps_full_tunnel_body">Не действует, пока включён режим полного туннеля: все приложения работают через VPN. Ваш выбор снова применится, когда вы выключите режим полного туннеля.</string>
+</resources>

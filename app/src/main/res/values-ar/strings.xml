@@ -2055,7 +2055,6 @@ fakeddisorder endhost</string>
     <string name="settings_full_tunnel_title">وضع النفق الكامل</string>
     <string name="settings_full_tunnel_body">توجيه جميع حركة المرور عبر VPN بدون استثناءات للتطبيقات. يمنع وحدات التجسس من إرسال حركة المرور مباشرة، لكن التطبيقات الروسية قد تكتشف الـ VPN</string>
     <string name="settings_full_tunnel_helper">عند التفعيل، تمر جميع حركة المرور عبر النفق. استثناءات التطبيقات معطّلة في هذا الوضع.</string>
-    <string name="settings_full_tunnel_exclusions_disabled">معطّل لأن وضع النفق الكامل مفعّل</string>
     <string name="settings_vpn_flag_warning_title">علامة VPN مرئية</string>
     <string name="settings_vpn_flag_warning_body">يمكن للتطبيقات في جميع ملفات تعريف Android (بما في ذلك ملف تعريف العمل وKnox) اكتشاف أن VPN نشط. للعزل الكامل، استخدم جهازاً منفصلاً للتطبيقات الروسية</string>
     <string name="settings_tethering_dns_warning_title">خطر تسريب DNS عند المشاركة</string>

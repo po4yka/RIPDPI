@@ -2674,7 +2674,6 @@ Quelle: %2$s</string>
     <string name="settings_customization_body">App-Icon, adaptive Form und Optionen für Themen-Icons.</string>
     <string name="settings_diagnostics_monitor_body">Erfassen Sie weiterhin Verbindungstelemetrie, Netzwerkstatus und Kontext, während RIPDPI läuft.</string>
     <string name="settings_diagnostics_sample_body">Wie oft RIPDPI Netzwerk-, Telemetrie- und Kontext-Samples für eine aktive Verbindung speichert. Zulässiger Bereich: 5 bis 300 Sekunden.</string>
-    <string name="settings_full_tunnel_exclusions_disabled">Deaktiviert, da der Full-Tunnel-Modus aktiviert ist</string>
     <string name="settings_manage_action">Verwalten</string>
     <string name="settings_permission_status_not_needed">Nicht erforderlich</string>
     <string name="settings_permissions_battery_ready">Android erlaubt RIPDPI bereits, die Doze-Akkuoptimierung zu ignorieren.</string>
