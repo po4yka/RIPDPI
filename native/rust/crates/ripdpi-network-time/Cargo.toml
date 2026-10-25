@@ -6,5 +6,8 @@ license.workspace = true
 
 [dependencies]
 
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
+nix = { workspace = true, features = ["time"] }
+
 [lints]
 workspace = true

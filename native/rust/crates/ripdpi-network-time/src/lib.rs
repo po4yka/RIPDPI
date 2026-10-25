@@ -49,11 +49,12 @@
 //!   at *minute* granularity (±60 s); Shadowsocks SIP022 at *second* granularity.
 //!   The provider stores whatever precision it is fed; both are far inside the
 //!   protocols' tolerance windows.
-//! - **Suspend is inferred from the wall clock.** [`Instant`] is `CLOCK_MONOTONIC`
-//!   on Linux and Android, which stops while the device sleeps. When the wall
-//!   clock has run ahead of the monotonic clock since the anchor by more than
-//!   [`SUSPEND_GAP_SECS`], that excess is counted as sleep time, so a forward
-//!   wall-clock step after calibration also moves network time forward.
+//! - **Sleep time counts.** On Linux and Android the monotonic reading is
+//!   `CLOCK_BOOTTIME`, which keeps running while the device is suspended
+//!   (`CLOCK_MONOTONIC`, behind [`Instant`], stops). Other hosts use [`Instant`].
+//! - **A wrong anchor recovers.** [`RECALIBRATION_VOTES`] consecutive rejected
+//!   observations that agree with each other re-anchor the clock, so an
+//!   estimate error past [`MAX_PLAUSIBLE_DRIFT_SECS`] cannot wedge it.
 //! - **No SNTP.** A true external time source is intentionally not used — it
 //!   would be a remote dependency, which the project's offline/no-backend rule
 //!   forbids. The anchor comes only from servers the user already connects to.
@@ -90,6 +91,13 @@ impl Clock for SystemClock {
     }
 
     fn monotonic_nanos(&self) -> u128 {
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        if let Ok(now) = nix::time::clock_gettime(nix::time::ClockId::CLOCK_BOOTTIME) {
+            let secs = u128::try_from(now.tv_sec()).unwrap_or(0);
+            let nanos = u128::try_from(now.tv_nsec()).unwrap_or(0);
+            return secs * 1_000_000_000 + nanos;
+        }
+        // CLOCK_BOOTTIME exists since Linux 2.6.39, so only other hosts reach this.
         static BASE: OnceLock<Instant> = OnceLock::new();
         let base = *BASE.get_or_init(Instant::now);
         base.elapsed().as_nanos()
@@ -103,10 +111,14 @@ impl Clock for SystemClock {
 /// how far a rogue/misconfigured server can move the shared clock.
 const MAX_PLAUSIBLE_DRIFT_SECS: u64 = 600;
 
-/// How far the wall clock may run ahead of the monotonic clock since the anchor
-/// before the excess counts as device sleep. Far above NTP slew and second
-/// truncation, and below SIP022's 30 s freshness window.
-const SUSPEND_GAP_SECS: i64 = 10;
+/// Consecutive rejected observations, each within [`RECALIBRATION_AGREEMENT_SECS`]
+/// of the previous one's offset, that re-anchor the clock. One rogue reply cannot
+/// move the shared clock; a consistent stream of server times can.
+const RECALIBRATION_VOTES: u8 = 3;
+
+/// How closely rejected observations must agree to count as one vote stream.
+/// Covers Mieru's minute-granularity stamps.
+const RECALIBRATION_AGREEMENT_SECS: u64 = 120;
 
 #[derive(Debug, Clone, Copy)]
 struct Anchor {
@@ -114,33 +126,34 @@ struct Anchor {
     net_unix: i64,
     /// Monotonic reading captured at the same moment.
     mono_nanos: u128,
-    /// Device wall clock captured at the same moment; only its later delta is used.
-    wall_unix: i64,
 }
 
 impl Anchor {
-    fn estimate(&self, clock: &dyn Clock, mono_nanos: u128) -> i64 {
+    fn estimate(&self, mono_nanos: u128) -> i64 {
         let elapsed_nanos = mono_nanos.saturating_sub(self.mono_nanos);
-        let mono_secs = i64::try_from(elapsed_nanos / 1_000_000_000).unwrap_or(i64::MAX);
-        let wall_secs = clock.wall_unix_secs().saturating_sub(self.wall_unix);
-        // CLOCK_MONOTONIC stops in suspend and the wall clock does not, so a large
-        // wall lead is sleep time. shortcut: a forward wall-clock step is counted too;
-        // use CLOCK_BOOTTIME once this crate may depend on a safe clock_gettime wrapper.
-        let elapsed_secs = if wall_secs > mono_secs.saturating_add(SUSPEND_GAP_SECS) { wall_secs } else { mono_secs };
+        let elapsed_secs = i64::try_from(elapsed_nanos / 1_000_000_000).unwrap_or(i64::MAX);
         self.net_unix.saturating_add(elapsed_secs)
     }
+}
+
+#[derive(Debug, Default)]
+struct ClockState {
+    anchor: Option<Anchor>,
+    /// Offset from the estimate of the last rejected observation and the number
+    /// of consecutive rejected observations that agreed with it.
+    rejected: Option<(i64, u8)>,
 }
 
 /// A calibratable, monotonic-from-anchor network-time source. Cheap to share
 /// behind an [`std::sync::Arc`]; all methods are `&self`.
 pub struct NetworkTimeProvider {
     clock: Box<dyn Clock>,
-    anchor: Mutex<Option<Anchor>>,
+    state: Mutex<ClockState>,
 }
 
 impl std::fmt::Debug for NetworkTimeProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let calibrated = self.anchor.lock().is_ok_and(|a| a.is_some());
+        let calibrated = self.state.lock().is_ok_and(|state| state.anchor.is_some());
         f.debug_struct("NetworkTimeProvider").field("calibrated", &calibrated).finish_non_exhaustive()
     }
 }
@@ -149,7 +162,7 @@ impl NetworkTimeProvider {
     /// Build a provider over a custom [`Clock`] (used by tests).
     #[must_use]
     pub fn with_clock(clock: Box<dyn Clock>) -> Self {
-        Self { clock, anchor: Mutex::new(None) }
+        Self { clock, state: Mutex::new(ClockState::default()) }
     }
 
     /// Build a provider over the production [`SystemClock`].
@@ -179,9 +192,9 @@ impl NetworkTimeProvider {
     /// never re-reading the device clock. Uncalibrated: the device wall clock.
     #[must_use]
     pub fn now_unix(&self) -> i64 {
-        let guard = self.anchor.lock().unwrap_or_else(PoisonError::into_inner);
-        match *guard {
-            Some(anchor) => anchor.estimate(self.clock.as_ref(), self.clock.monotonic_nanos()),
+        let guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        match guard.anchor {
+            Some(anchor) => anchor.estimate(self.clock.monotonic_nanos()),
             None => self.clock.wall_unix_secs(),
         }
     }
@@ -204,27 +217,40 @@ impl NetworkTimeProvider {
     /// server cannot yank the process-wide clock — and thus the replay window of
     /// *other* transports sharing this provider — to an arbitrary value. Real
     /// drift over a session is far inside this window; in-window observations
-    /// re-anchor (refining toward the freshest server time).
+    /// re-anchor (refining toward the freshest server time). If the estimate
+    /// itself is wrong, [`RECALIBRATION_VOTES`] consecutive rejected observations
+    /// that agree with each other re-anchor it.
     pub fn calibrate(&self, observed_network_unix: i64) -> bool {
         let mono = self.clock.monotonic_nanos();
-        let mut guard = self.anchor.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         // Compute the current estimate under the same lock (calling `now_unix`
         // here would re-lock the non-reentrant mutex and deadlock).
-        if let Some(anchor) = *guard {
-            let estimate = anchor.estimate(self.clock.as_ref(), mono);
-            if observed_network_unix.saturating_sub(estimate).unsigned_abs() > MAX_PLAUSIBLE_DRIFT_SECS {
-                return false;
+        if let Some(anchor) = guard.anchor {
+            let offset = observed_network_unix.saturating_sub(anchor.estimate(mono));
+            if offset.unsigned_abs() > MAX_PLAUSIBLE_DRIFT_SECS {
+                let votes = match guard.rejected {
+                    Some((previous, votes))
+                        if offset.saturating_sub(previous).unsigned_abs() <= RECALIBRATION_AGREEMENT_SECS =>
+                    {
+                        votes.saturating_add(1)
+                    }
+                    _ => 1,
+                };
+                if votes < RECALIBRATION_VOTES {
+                    guard.rejected = Some((offset, votes));
+                    return false;
+                }
             }
         }
-        *guard =
-            Some(Anchor { net_unix: observed_network_unix, mono_nanos: mono, wall_unix: self.clock.wall_unix_secs() });
+        guard.anchor = Some(Anchor { net_unix: observed_network_unix, mono_nanos: mono });
+        guard.rejected = None;
         true
     }
 
     /// Whether an anchor has been set (the replay clock is network-derived).
     #[must_use]
     pub fn is_calibrated(&self) -> bool {
-        self.anchor.lock().unwrap_or_else(PoisonError::into_inner).is_some()
+        self.state.lock().unwrap_or_else(PoisonError::into_inner).anchor.is_some()
     }
 }
 
@@ -343,32 +369,53 @@ mod tests {
     }
 
     #[test]
-    fn device_sleep_advances_calibrated_time_and_keeps_recalibration_open() {
+    fn wall_clock_step_after_calibration_does_not_move_network_time() {
+        // The device clock is an hour slow; the server corrects it.
         let clock = std::sync::Arc::new(TestClock::new(1_700_000_000));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        // The server clock is 120 s ahead of the device clock.
-        assert!(provider.calibrate(1_700_000_120));
-        clock.advance_secs(5);
-        clock.set_wall(1_700_000_005);
-        assert_eq!(provider.now_unix(), 1_700_000_125);
-
-        // Two hours of suspend: CLOCK_MONOTONIC stands still, the wall clock moves on.
-        clock.set_wall(1_700_007_205);
-        assert_eq!(provider.now_unix(), 1_700_007_325, "sleep time must count, with the calibrated offset kept");
-        // A fresh server timestamp after the sleep is within the drift window and re-anchors.
-        assert!(provider.calibrate(1_700_007_326));
-        assert_eq!(provider.now_unix(), 1_700_007_326);
+        assert!(provider.calibrate(1_700_003_600));
+        clock.advance_secs(10);
+        // Automatic time then steps the device clock forward to the right value.
+        clock.set_wall(1_700_003_610);
+        assert_eq!(provider.now_unix(), 1_700_003_610, "a wall-clock step must not move network time");
+        assert!(provider.calibrate(1_700_003_611), "honest recalibration stays inside the drift window");
+        assert_eq!(provider.now_unix(), 1_700_003_611);
     }
 
     #[test]
-    fn small_wall_clock_lead_does_not_count_as_sleep() {
-        let clock = std::sync::Arc::new(TestClock::new(1_000));
+    fn consistent_rejected_observations_reanchor_a_wrong_estimate() {
+        let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        provider.calibrate(5_000);
-        clock.advance_secs(20);
-        // Within SUSPEND_GAP_SECS of the monotonic elapsed time: NTP slew, not sleep.
-        clock.set_wall(1_000 + 20 + SUSPEND_GAP_SECS);
-        assert_eq!(provider.now_unix(), 5_020);
+        assert!(provider.calibrate(1_000_000));
+        // The estimate is now two hours behind the servers, which keep reporting the same time.
+        assert!(!provider.calibrate(1_007_200));
+        clock.advance_secs(30);
+        assert!(!provider.calibrate(1_007_230));
+        assert_eq!(provider.now_unix(), 1_000_030, "two votes must not move the clock");
+        clock.advance_secs(30);
+        assert!(provider.calibrate(1_007_290), "the third consistent observation re-anchors");
+        assert_eq!(provider.now_unix(), 1_007_290);
+    }
+
+    #[test]
+    fn inconsistent_rejected_observations_do_not_reanchor() {
+        let clock = std::sync::Arc::new(TestClock::new(0));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        assert!(provider.calibrate(1_000_000));
+        for observed in [1_007_200, 1_003_600, 1_010_800, 1_007_200, 1_003_600] {
+            assert!(!provider.calibrate(observed));
+        }
+        // An accepted in-window observation also clears pending votes.
+        assert!(provider.calibrate(1_000_005));
+        assert!(!provider.calibrate(1_007_200));
+        assert!(!provider.calibrate(1_007_200));
+        assert_eq!(provider.now_unix(), 1_000_005);
+    }
+
+    #[test]
+    fn system_clock_monotonic_reading_never_decreases() {
+        let first = SystemClock.monotonic_nanos();
+        assert!(SystemClock.monotonic_nanos() >= first);
     }
 
     #[test]
