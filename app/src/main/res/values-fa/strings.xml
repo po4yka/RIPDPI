@@ -607,7 +607,6 @@
     <string name="config_overview_title">نمایه</string>
     <string name="title_local_bypass_config">پیکربندی عبور محلی</string>
     <string name="title_vpn_config">پیکربندی VPN</string>
-    <string name="config_mode_sections_title">پیکربندی</string>
     <string name="config_local_bypass_section_body">مسیر پراکسی روی دستگاه، DNS و کنترل‌های راهبرد عبور را تنظیم کنید.</string>
     <string name="config_local_bypass_simple_title">عبور محلی</string>
     <string name="config_local_bypass_simple_body">از مسیر عبور روی دستگاه با راهبرد عبور خودکار پیشنهادی استفاده کنید.</string>
@@ -664,7 +663,6 @@
     <string name="config_dns_summary_enabled">در حالت VPN و با حل‌کننده سازگار، برای رهگیری DNS دستگاه استفاده می‌شود.</string>
     <string name="config_dns_summary_disabled">حالت پروکسی می‌تواند نام‌ها را با DNS رمزگذاری‌شده حل کند. رهگیری DNS دستگاه به حل‌کننده سازگار VPN نیاز دارد.</string>
     <string name="config_listen_address_summary">جایی که شنوندهٔ پراکسی محلی متصل می‌شود</string>
-    <string name="config_desync_method_summary">راهبرد عبور فعال</string>
     <string name="config_default_ttl_summary">جایگزینی زمان زنده‌مانی برای بسته‌های خروجی</string>
     <string name="config_vpn_relay_server_summary">نقطه پایانی سرور دور که توسط پروفایل رله استفاده می‌شود</string>
     <string name="config_vpn_protocol_title">پروتکل رله</string>

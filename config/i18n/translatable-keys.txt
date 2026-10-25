@@ -600,12 +600,10 @@ app:config_connection_path_direct
 app:config_connection_path_relay
 app:config_connection_scope_proxy
 app:config_connection_scope_vpn
-app:config_connection_settings
 app:config_connection_start
 app:config_connection_stop
 app:config_default_ttl_helper
 app:config_default_ttl_summary
-app:config_desync_method_summary
 app:config_dns_disabled_helper
 app:config_dns_helper
 app:config_dns_summary_disabled
@@ -648,7 +646,6 @@ app:config_local_bypass_turn_off
 app:config_local_bypass_turn_on
 app:config_max_connections_helper
 app:config_mode_section
-app:config_mode_sections_title
 app:config_mode_summary
 app:config_network_section
 app:config_overrides_section

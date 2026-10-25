@@ -607,7 +607,6 @@
     <string name="config_overview_title">Perfil</string>
     <string name="title_local_bypass_config">Configuração do desvio de DPI local</string>
     <string name="title_vpn_config">Configuração de VPN</string>
-    <string name="config_mode_sections_title">Configurar</string>
     <string name="config_local_bypass_section_body">Ajuste o caminho de proxy no aparelho, o DNS e os controles da estratégia de desvio.</string>
     <string name="config_local_bypass_simple_title">Desvio de DPI local</string>
     <string name="config_local_bypass_simple_body">Use o caminho de desvio no aparelho com a estratégia de desvio automática recomendada.</string>
@@ -664,7 +663,6 @@
     <string name="config_dns_summary_enabled">Usado para interceptar o DNS do dispositivo no modo VPN quando o resolvedor é compatível.</string>
     <string name="config_dns_summary_disabled">O modo Proxy pode resolver nomes com DNS criptografado. Interceptar o DNS do dispositivo exige um resolvedor VPN compatível.</string>
     <string name="config_listen_address_summary">Endereço onde o listener do proxy local fica vinculado</string>
-    <string name="config_desync_method_summary">Estratégia de desvio ativa</string>
     <string name="config_default_ttl_summary">Substituição de time-to-live para pacotes enviados</string>
     <string name="config_vpn_relay_server_summary">Endpoint do servidor remoto usado pelo perfil de relay</string>
     <string name="config_vpn_protocol_title">Protocolo do relay</string>

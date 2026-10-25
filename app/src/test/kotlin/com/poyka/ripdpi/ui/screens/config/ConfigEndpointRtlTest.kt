@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -46,7 +47,7 @@ class ConfigEndpointRtlTest {
 
     @Test
     fun `local bypass endpoints retain logical and visual address order under RTL titles`() {
-        val state = mutableStateOf(ConfigUiState(uiPersona = "advanced", draft = ConfigDraft()))
+        val state = mutableStateOf(ConfigUiState(uiPersona = "advanced", draft = ConfigDraft(mode = Mode.Proxy)))
         composeRule.setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 RipDpiTheme(themePreference = "light") {
@@ -65,7 +66,7 @@ class ConfigEndpointRtlTest {
         addresses.forEach { address ->
             composeRule.runOnIdle {
                 state.value =
-                    state.value.copy(draft = ConfigDraft(proxyIp = address, proxyPort = "443"))
+                    state.value.copy(draft = ConfigDraft(mode = Mode.Proxy, proxyIp = address, proxyPort = "443"))
             }
             assertEndpoint(address)
             if (address ==

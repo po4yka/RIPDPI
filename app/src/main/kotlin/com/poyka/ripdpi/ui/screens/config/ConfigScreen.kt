@@ -180,7 +180,6 @@ fun ConfigScreen(
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     runtimeCallbacks: ConfigRuntimeCallbacks = ConfigRuntimeCallbacks(),
 ) {
-    val colors = RipDpiThemeTokens.colors
     val desyncSummary = uiState.draft.chainSummary
     var selectedModeSectionKey by rememberSaveable { mutableStateOf(initialModeSection.stableKey) }
     val selectedModeSection = ConfigModeSection.fromStableKey(selectedModeSectionKey)
@@ -216,12 +215,8 @@ fun ConfigScreen(
             }
         }
 
+        // One labeled control group: the chips carry their own label and the tabs name each section.
         RipDpiCard {
-            Text(
-                text = stringResource(R.string.config_connection_settings),
-                style = RipDpiThemeTokens.type.sectionTitle,
-                color = colors.foreground,
-            )
             ConfigModeChips(
                 selectedMode = uiState.activeMode,
                 onModeSelected = onModeSelected,
@@ -307,19 +302,9 @@ internal fun ConfigModeSectionSwitcher(
     onSectionSelected: (ConfigModeSection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
-    val groupLabel = stringResource(R.string.config_mode_sections_title)
     val sections = ConfigModeSection.entries
 
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        Text(
-            text = groupLabel,
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+    Column(modifier = modifier.fillMaxWidth()) {
         RipDpiTabs(
             tabs =
                 sections

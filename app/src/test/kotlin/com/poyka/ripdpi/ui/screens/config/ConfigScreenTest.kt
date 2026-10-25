@@ -97,7 +97,9 @@ class ConfigScreenTest {
     fun `connection card exposes visible group labels without duplicate descriptions`() {
         setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
 
-        composeRule.onNodeWithText("Configure").assertExists()
+        // One label per control group: no card heading and no extra label above the section tabs.
+        composeRule.onNodeWithText("Connection settings").assertDoesNotExist()
+        composeRule.onNodeWithText("Configure").assertDoesNotExist()
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigSectionNavigation)
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
@@ -166,7 +168,11 @@ class ConfigScreenTest {
 
     @Test
     fun `local bypass section renders mode listen dns and desync rows`() {
-        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass, uiPersona = "advanced")
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.LocalBypass,
+            uiPersona = "advanced",
+            activeMode = Mode.Proxy,
+        )
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
@@ -174,6 +180,14 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync).assertExists()
+    }
+
+    @Test
+    fun `vpn mode hides the internal proxy listen address`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass, activeMode = Mode.VPN)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassMode).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertDoesNotExist()
     }
 
     @Test
@@ -583,7 +597,7 @@ class ConfigScreenTest {
         activeMode: Mode = Mode.VPN,
         runningMode: Mode? = null,
     ): ConfigUiState {
-        val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
+        val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(mode = activeMode)
         return ConfigUiState(
             activeMode = activeMode,
             runningMode = runningMode,

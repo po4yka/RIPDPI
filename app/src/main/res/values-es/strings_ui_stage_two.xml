@@ -9,7 +9,6 @@
     <string name="config_connection_path_relay">Ruta: perfil de servidor %1$s</string>
     <string name="config_connection_start">Conectar</string>
     <string name="config_connection_stop">Desconectar</string>
-    <string name="config_connection_settings">Ajustes de conexión</string>
     <string name="config_connection_details">Detalles de configuración</string>
     <string name="diagnostics_technical_details">Detalles técnicos</string>
     <string name="diagnostics_outcome_source_audit">Análisis de red</string>

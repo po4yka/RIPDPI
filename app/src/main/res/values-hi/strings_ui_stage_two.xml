@@ -9,7 +9,6 @@
     <string name="config_connection_path_relay">पथ: सर्वर प्रोफ़ाइल %1$s</string>
     <string name="config_connection_start">कनेक्ट करें</string>
     <string name="config_connection_stop">डिस्कनेक्ट करें</string>
-    <string name="config_connection_settings">कनेक्शन सेटिंग</string>
     <string name="config_connection_details">कॉन्फ़िगरेशन विवरण</string>
     <string name="diagnostics_technical_details">तकनीकी विवरण</string>
     <string name="diagnostics_outcome_source_audit">नेटवर्क विश्लेषण</string>

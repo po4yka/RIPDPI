@@ -1156,7 +1156,6 @@ fakeddisorder endhost</string>
     <string name="config_engine_section">Moteur</string>
     <string name="config_error_invalid_proxy_ip">Saisissez une adresse d\'écoute proxy valide.</string>
     <string name="config_fake_tls_size_helper">0 = taille de l\'entrée, positif = octets cibles exacts, négatif = entrée moins N.</string>
-    <string name="config_mode_sections_title">Configurer</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
 hostfake endhost+8 midhost=midsld host=googlevideo.com
@@ -2264,7 +2263,6 @@ Source : %2$s</string>
     <string name="config">Connexion</string>
     <string name="config_chain_editor_helper_brief">Utilisez des sections [tcp] et [udp] avec des marqueurs de décalage numériques ou sémantiques.</string>
     <string name="config_cli_banner_title">Surcharges de ligne de commande activées</string>
-    <string name="config_desync_method_summary">Stratégie de contournement active</string>
     <string name="config_edit_current">Modifier le profil</string>
     <string name="config_error_invalid_dns">Saisissez une adresse DNS non locale valide.</string>
     <string name="config_error_required">Ce champ est obligatoire.</string>

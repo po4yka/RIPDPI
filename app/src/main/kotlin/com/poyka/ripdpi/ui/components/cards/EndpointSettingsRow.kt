@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.components.cards
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextDirection
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
@@ -16,6 +17,7 @@ internal fun EndpointSettingsRow(
     value: String,
     monospaceValue: Boolean = false,
     showChevron: Boolean = false,
+    leadingIcon: ImageVector? = RipDpiIcons.Public,
     testTag: String? = null,
 ) {
     CompositionLocalProvider(LocalEndpointValueDirection provides TextDirection.ContentOrLtr) {
@@ -23,7 +25,7 @@ internal fun EndpointSettingsRow(
             title = title,
             subtitle = subtitle,
             value = value,
-            leadingIcon = RipDpiIcons.Public,
+            leadingIcon = leadingIcon,
             monospaceValue = monospaceValue,
             showChevron = showChevron,
             showDivider = true,

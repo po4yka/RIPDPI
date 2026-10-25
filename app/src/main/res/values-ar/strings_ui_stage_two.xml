@@ -9,7 +9,6 @@
     <string name="config_connection_path_relay">المسار: ملف الخادم %1$s</string>
     <string name="config_connection_start">اتصال</string>
     <string name="config_connection_stop">قطع الاتصال</string>
-    <string name="config_connection_settings">إعدادات الاتصال</string>
     <string name="config_connection_details">تفاصيل الإعدادات</string>
     <string name="diagnostics_technical_details">التفاصيل التقنية</string>
     <string name="diagnostics_outcome_source_audit">تحليل الشبكة</string>

@@ -9,7 +9,6 @@
     <string name="config_connection_path_relay">路径：服务器配置 %1$s</string>
     <string name="config_connection_start">连接</string>
     <string name="config_connection_stop">断开连接</string>
-    <string name="config_connection_settings">连接设置</string>
     <string name="config_connection_details">配置详情</string>
     <string name="diagnostics_technical_details">技术详情</string>
     <string name="diagnostics_outcome_source_audit">网络分析</string>

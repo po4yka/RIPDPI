@@ -603,7 +603,6 @@
     <string name="config_overview_title">الملف الشخصي</string>
     <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_vpn_config">إعدادات VPN</string>
-    <string name="config_mode_sections_title">الإعداد</string>
     <string name="config_local_bypass_section_body">اضبط مسار الوكيل المحلي وDNS وعناصر التحكم في استراتيجية التجاوز.</string>
     <string name="config_local_bypass_simple_title">تجاوز محلي</string>
     <string name="config_local_bypass_simple_body">استخدم مسار التجاوز على الجهاز مع استراتيجية التجاوز التلقائية الموصى بها.</string>
@@ -660,7 +659,6 @@
     <string name="config_dns_summary_enabled">يُستخدم لاعتراض DNS الجهاز في وضع VPN عندما يكون المحلل متوافقًا.</string>
     <string name="config_dns_summary_disabled">يمكن لوضع الوكيل حل الأسماء عبر DNS المشفّر. يتطلب اعتراض DNS الجهاز محلل VPN متوافقًا.</string>
     <string name="config_listen_address_summary">العنوان الذي يرتبط به مستمع الوكيل المحلي</string>
-    <string name="config_desync_method_summary">استراتيجية التجاوز النشطة</string>
     <string name="config_default_ttl_summary">تجاوز وقت الحياة للحزم الصادرة</string>
     <string name="config_vpn_relay_server_summary">نقطة نهاية الخادم البعيد المستخدمة بواسطة ملف تعريف الترحيل</string>
     <string name="config_vpn_protocol_title">بروتوكول الترحيل</string>

@@ -9,7 +9,6 @@
     <string name="config_connection_path_relay">Pfad: Serverprofil %1$s</string>
     <string name="config_connection_start">Verbinden</string>
     <string name="config_connection_stop">Trennen</string>
-    <string name="config_connection_settings">Verbindungseinstellungen</string>
     <string name="config_connection_details">Konfigurationsdetails</string>
     <string name="diagnostics_technical_details">Technische Details</string>
     <string name="diagnostics_outcome_source_audit">Netzwerkanalyse</string>

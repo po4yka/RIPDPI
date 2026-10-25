@@ -9,7 +9,6 @@
     <string name="config_connection_path_relay">Путь: серверный профиль %1$s</string>
     <string name="config_connection_start">Подключить</string>
     <string name="config_connection_stop">Отключить</string>
-    <string name="config_connection_settings">Настройки подключения</string>
     <string name="config_connection_details">Подробности конфигурации</string>
     <string name="diagnostics_technical_details">Технические сведения</string>
     <string name="diagnostics_outcome_source_audit">Анализ сети</string>

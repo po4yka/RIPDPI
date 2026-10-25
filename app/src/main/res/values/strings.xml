@@ -617,7 +617,6 @@
     <string name="config_overview_title">Profile</string>
     <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_vpn_config">VPN config</string>
-    <string name="config_mode_sections_title">Configure</string>
     <string name="config_local_bypass_section_body">Tune the on-device proxy path, DNS, and bypass strategy controls.</string>
     <string name="config_local_bypass_simple_title">Local bypass</string>
     <string name="config_local_bypass_simple_body">Use the on-device bypass path with the recommended automatic bypass strategy.</string>
@@ -674,7 +673,6 @@
     <string name="config_dns_summary_enabled">Used for device DNS interception in VPN mode when the resolver is supported.</string>
     <string name="config_dns_summary_disabled">Proxy mode can resolve local proxy target names with encrypted DNS. Device DNS interception needs a supported VPN resolver.</string>
     <string name="config_listen_address_summary">Where the local proxy listener binds</string>
-    <string name="config_desync_method_summary">Active bypass strategy</string>
     <string name="config_default_ttl_summary">Time-to-live override for outgoing packets</string>
     <string name="config_vpn_relay_server_summary">Remote server endpoint used by the relay profile</string>
     <string name="config_vpn_protocol_title">Relay protocol</string>

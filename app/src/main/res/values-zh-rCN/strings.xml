@@ -1135,7 +1135,6 @@ fakeddisorder endhost</string>
     <string name="config_error_invalid_marker">请输入有效的标记表达式。</string>
     <string name="config_error_required">此字段为必填项。</string>
     <string name="config_listen_address_summary">本地代理监听器绑定的位置</string>
-    <string name="config_mode_sections_title">配置</string>
     <string name="config_overview_title">配置档</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
@@ -1652,7 +1651,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="unsaved_changes_keep_editing">继续编辑</string>
     <string name="config_chain_editor_label">绕过策略</string>
     <string name="config_command_line_caption">优先使用原始 RIPDPI 标志,而非可视化编辑器。</string>
-    <string name="config_desync_method_summary">活动绕过策略</string>
     <string name="config_dns_summary_enabled">解析器受支持时，用于在 VPN 模式下拦截设备 DNS。</string>
     <string name="config_engine_section">引擎</string>
     <string name="config_error_invalid_port">请输入有效的 TCP 端口。</string>

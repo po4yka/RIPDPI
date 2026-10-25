@@ -531,7 +531,6 @@
     <string name="config_dns_helper">Используется для локального VPN-маршрута.</string>
     <string name="config_dns_disabled_helper">Переопределение DNS применяется только в локальном режиме VPN.</string>
     <string name="config_listen_address_summary">Адрес привязки локального прокси</string>
-    <string name="config_desync_method_summary">Активная стратегия обхода</string>
     <string name="config_proxy_helper">Адрес привязки локального прокси-слушателя.</string>
     <string name="config_port_helper">Допустимый диапазон определяется текущей проверкой порта сервиса.</string>
     <string name="config_max_connections_helper">Максимальное число одновременных локальных сессий.</string>
@@ -2098,7 +2097,6 @@ fakeddisorder endhost</string>
     <string name="config_local_bypass_turn_on">Включить</string>
     <string name="config_local_bypass_turn_off">Выключить</string>
     <string name="config_local_bypass_retest_strategies">Открыть Диагностику для повторной проверки</string>
-    <string name="config_mode_sections_title">Настроить</string>
     <string name="config_relay_body">Направлять прокси-трафик через локальную среду выполнения реле. Секреты остаются в защищённом хранилище, поддерживаемом keystore.</string>
     <string name="config_relay_chain_entry_port">Порт входного узла</string>
     <string name="config_relay_chain_entry_public_key">Публичный ключ входного узла</string>

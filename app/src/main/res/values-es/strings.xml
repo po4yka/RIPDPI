@@ -1156,7 +1156,6 @@ fakeddisorder endhost</string>
     <string name="config_engine_section">Motor</string>
     <string name="config_error_invalid_proxy_ip">Introduce una dirección de escucha de proxy válida.</string>
     <string name="config_fake_tls_size_helper">0 = tamaño de entrada, positivo = bytes objetivo exactos, negativo = entrada menos N.</string>
-    <string name="config_mode_sections_title">Configurar</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
 hostfake endhost+8 midhost=midsld host=googlevideo.com
@@ -2264,7 +2263,6 @@ Origen: %2$s</string>
     <string name="config">Conexión</string>
     <string name="config_chain_editor_helper_brief">Usa secciones [tcp] y [udp] con marcadores de desplazamiento numéricos o semánticos.</string>
     <string name="config_cli_banner_title">Anulaciones de línea de comandos habilitadas</string>
-    <string name="config_desync_method_summary">Estrategia de bypass activa</string>
     <string name="config_edit_current">Editar perfil</string>
     <string name="config_error_invalid_dns">Introduce una dirección DNS válida y no local.</string>
     <string name="config_error_required">Este campo es obligatorio.</string>

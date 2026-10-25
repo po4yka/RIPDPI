@@ -605,7 +605,6 @@
     <string name="config_overview_title">प्रोफ़ाइल</string>
     <string name="title_local_bypass_config">लोकल बायपास कॉन्फ़िग</string>
     <string name="title_vpn_config">VPN कॉन्फ़िग</string>
-    <string name="config_mode_sections_title">कॉन्फ़िगर करें</string>
     <string name="config_local_bypass_section_body">डिवाइस पर मौजूद प्रॉक्सी पथ, DNS, और बायपास रणनीति नियंत्रण समायोजित करें.</string>
     <string name="config_local_bypass_simple_title">लोकल बायपास</string>
     <string name="config_local_bypass_simple_body">अनुशंसित स्वचालित बायपास रणनीति के साथ डिवाइस पर मौजूद बायपास पथ का उपयोग करें.</string>
@@ -662,7 +661,6 @@
     <string name="config_dns_summary_enabled">समर्थित रिज़ॉल्वर के साथ VPN मोड में डिवाइस DNS अनुरोधों को संभालने के लिए उपयोग किया जाता है।</string>
     <string name="config_dns_summary_disabled">प्रॉक्सी मोड स्थानीय प्रॉक्सी के लक्ष्य नाम एन्क्रिप्टेड DNS से हल कर सकता है। डिवाइस DNS अनुरोधों को संभालने के लिए समर्थित VPN रिज़ॉल्वर चाहिए।</string>
     <string name="config_listen_address_summary">जहाँ लोकल proxy श्रोता बाइंड होता है</string>
-    <string name="config_desync_method_summary">सक्रिय बायपास रणनीति</string>
     <string name="config_default_ttl_summary">आउटगोइंग पैकेटों के लिए TTL ओवरराइड</string>
     <string name="config_vpn_relay_server_summary">relay प्रोफ़ाइल द्वारा उपयोग किया जाने वाला रिमोट सर्वर एंडपॉइंट</string>
     <string name="config_vpn_protocol_title">Relay प्रोटोकॉल</string>

@@ -9,7 +9,6 @@
     <string name="config_connection_path_relay">Path: server profile %1$s</string>
     <string name="config_connection_start">Connect</string>
     <string name="config_connection_stop">Disconnect</string>
-    <string name="config_connection_settings">Connection settings</string>
     <string name="config_connection_details">Configuration details</string>
     <string name="diagnostics_technical_details">Technical details</string>
     <string name="diagnostics_outcome_source_audit">Network audit</string>

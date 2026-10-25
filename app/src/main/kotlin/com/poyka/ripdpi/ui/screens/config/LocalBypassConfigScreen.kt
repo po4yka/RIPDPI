@@ -264,7 +264,8 @@ private fun LocalBypassAdvancedRows(
             )
         }
         LocalBypassModeRow(uiState = uiState)
-        LocalBypassListenAddressRow(uiState = uiState)
+        // In VPN mode the listener is internal to the tunnel; only proxy-mode users point apps at it.
+        if (uiState.draft.mode == Mode.Proxy) LocalBypassListenAddressRow(uiState = uiState)
         LocalBypassDnsRow(uiState = uiState, onOpenDnsSettings = onOpenDnsSettings)
         LocalBypassDesyncRow(
             uiState = uiState,
@@ -280,7 +281,7 @@ private fun LocalBypassModeRow(uiState: ConfigUiState) {
         title = stringResource(R.string.mode_setting),
         subtitle = stringResource(R.string.config_mode_summary),
         value = stringResource(modeLabelRes(uiState.draft.mode)),
-        leadingIcon = RipDpiIcons.NetworkCheck,
+        // Read-only rows carry no icon badge, so they do not look like the navigable rows below.
         showDivider = true,
         testTag = RipDpiTestTags.ConfigLocalBypassMode,
     )
@@ -298,6 +299,7 @@ private fun LocalBypassListenAddressRow(uiState: ConfigUiState) {
                 uiState.draft.proxyPort,
             ),
         monospaceValue = true,
+        leadingIcon = null,
         testTag = RipDpiTestTags.ConfigLocalBypassListenAddress,
     )
 }
@@ -345,7 +347,6 @@ private fun LocalBypassDesyncRow(
     ) {
         SettingsRow(
             title = stringResource(R.string.ripdpi_desync_method_setting),
-            subtitle = stringResource(R.string.config_desync_method_summary),
             value = desyncSummary,
             leadingIcon = RipDpiIcons.Shield,
             showChevron = true,
