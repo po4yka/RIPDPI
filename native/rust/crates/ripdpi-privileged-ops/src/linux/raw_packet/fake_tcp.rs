@@ -195,6 +195,10 @@ fn send_fake_tcp_via_raw_packets(
 
         if options.orig_flags.is_empty() && !options.force_raw_original {
             send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
+            // A send in repair mode with TCP_NO_QUEUE fails with EINVAL, so
+            // leave repair mode before the real bytes go out.
+            set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+            disable_tcp_repair(fd)?;
             use std::io::Write;
             (&*stream).write_all(original_prefix)?;
         } else {

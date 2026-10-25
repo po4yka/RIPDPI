@@ -198,3 +198,34 @@ fn send_fake_tcp_stream_path_leaves_the_real_bytes_in_the_spliced_pages() {
     server.read_exact(&mut received).expect("read spliced bytes");
     assert_eq!(received, real, "the queued segment must carry the real bytes after the fake send");
 }
+
+#[test]
+fn send_fake_tcp_raw_path_leaves_repair_mode_before_the_real_write() {
+    use std::io::{Read, Write};
+    use std::time::Duration;
+
+    let (client, mut server) = connected_pair();
+    let result = raw_packet::send_fake_tcp(
+        &client,
+        b"real-bytes",
+        b"fake-bytes",
+        8,
+        false,
+        64,
+        crate::FakeTcpOptions { require_raw_path: true, ..Default::default() },
+        (false, Duration::ZERO),
+    );
+    // Without CAP_NET_ADMIN and CAP_NET_RAW the raw path is refused up front.
+    if matches!(&result, Err(error) if error.kind() == io::ErrorKind::PermissionDenied) {
+        return;
+    }
+    result.expect("raw fake followed by the real stream write");
+
+    (&client).write_all(b"tail").expect("stream is usable after the fake send");
+    // Loopback delivers the raw fake too, so the peer sees fake-or-real bytes
+    // for the first range; only the length and the tail are stable.
+    let mut received = [0_u8; 14];
+    server.set_read_timeout(Some(Duration::from_secs(2))).expect("set read timeout");
+    server.read_exact(&mut received).expect("read payload and tail");
+    assert_eq!(&received[10..], b"tail");
+}
