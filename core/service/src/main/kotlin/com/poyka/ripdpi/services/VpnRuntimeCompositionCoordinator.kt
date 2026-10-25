@@ -142,7 +142,7 @@ internal class VpnRuntimeCompositionCoordinator(
         restartReason: String,
     ): RuntimeStartEvidence {
         providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason)?.let { evidence ->
-            currentLocalProxyEndpoint = providerDelegate?.currentLocalProxyEndpoint
+            currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
             return evidence
         }
         session.currentDns = null
@@ -215,7 +215,7 @@ internal class VpnRuntimeCompositionCoordinator(
         // handled the start. Everything below this guard is the native
         // composition, unchanged.
         providerDelegate?.tryStart(session, resolution)?.let { evidence ->
-            currentLocalProxyEndpoint = providerDelegate?.currentLocalProxyEndpoint
+            currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
             return evidence
         }
 

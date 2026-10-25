@@ -20,9 +20,11 @@ import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.Optional
 import java.util.UUID
 import javax.inject.Inject
@@ -255,13 +257,15 @@ class RipDpiVpnService :
             kotlinx.coroutines
                 .CoroutineScope(
                     kotlinx.coroutines.Dispatchers.IO,
-                ).launch(kotlinx.coroutines.NonCancellable) {
-                    entryMutex.withLock {
-                        if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
-                        val outcome = runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
-                        if (outcome != RuntimeStopOutcome.FullyReleased) {
-                            co.touchlab.kermit.Logger
-                                .e { "VPN destruction retained cleanup ownership" }
+                ).launch {
+                    withContext(NonCancellable) {
+                        entryMutex.withLock {
+                            if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
+                            val outcome = runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
+                            if (outcome != RuntimeStopOutcome.FullyReleased) {
+                                co.touchlab.kermit.Logger
+                                    .e { "VPN destruction retained cleanup ownership" }
+                            }
                         }
                     }
                 }

@@ -71,7 +71,7 @@ class DefaultHomeAnalysisAugmentationSource
                     val ipv6Reachable =
                         measureHomeIpv6Reachability(
                             socketFactory = activeNetwork?.let { network -> { network.socketFactory.createSocket() } },
-                            isNetworkCurrent = { activeNetwork != null && cm?.activeNetwork == activeNetwork },
+                            isNetworkCurrent = { activeNetwork != null && cm.activeNetwork == activeNetwork },
                         )
                     val notes = mutableListOf<String>()
                     if (capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) == false) {

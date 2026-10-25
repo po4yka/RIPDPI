@@ -169,9 +169,7 @@ internal class RuntimeConfigurationLifecycle
                     stopped(session)
                 }
 
-                else -> {
-                    Unit
-                }
+                else -> {}
             }
         }
 

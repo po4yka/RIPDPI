@@ -319,9 +319,7 @@ class TimedPauseController
                                 )
                             }
 
-                            else -> {
-                                Unit
-                            }
+                            else -> {}
                         }
                         val current = authority.snapshot() ?: return@withLock
                         val remaining = authority.remainingMillis(current)

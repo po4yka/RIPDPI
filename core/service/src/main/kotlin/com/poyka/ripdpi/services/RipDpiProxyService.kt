@@ -26,8 +26,10 @@ import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.EntryPoints
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -246,11 +248,13 @@ class RipDpiProxyService :
             kotlinx.coroutines
                 .CoroutineScope(
                     kotlinx.coroutines.Dispatchers.IO,
-                ).launch(kotlinx.coroutines.NonCancellable) {
-                    entryMutex.withLock {
-                        val outcome = releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
-                        if (outcome != RuntimeStopOutcome.FullyReleased) {
-                            Logger.e { "Proxy destruction retained cleanup ownership" }
+                ).launch {
+                    withContext(NonCancellable) {
+                        entryMutex.withLock {
+                            val outcome = releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
+                            if (outcome != RuntimeStopOutcome.FullyReleased) {
+                                Logger.e { "Proxy destruction retained cleanup ownership" }
+                            }
                         }
                     }
                 }

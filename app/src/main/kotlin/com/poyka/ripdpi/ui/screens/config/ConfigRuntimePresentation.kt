@@ -39,9 +39,7 @@ internal fun configRuntimePresentation(
                 if (effect.hapticFeedbackEnabled) performHaptic(RipDpiHapticFeedback.Error)
             }
 
-            else -> {
-                Unit
-            }
+            else -> {}
         }
     }
     val runtimeError =
