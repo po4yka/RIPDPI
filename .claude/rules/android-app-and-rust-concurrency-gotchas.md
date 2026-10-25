@@ -37,9 +37,9 @@ The `kotlin-test-patterns` skill's "Common Mistakes" section owns the Robolectri
 
 `android:allowBackup="false"` in `app/src/main/AndroidManifest.xml`, combined with the explicit deny-all `<exclude>` rules in `app/src/main/res/xml/backup_rules.xml` (pre-API-31 full-backup-content) and the `cloud-backup` / `device-transfer` blocks in `app/src/main/res/xml/data_extraction_rules.xml` (API 31+), is the defense-in-depth for this privacy-sensitive VPN app — both files currently exclude every domain (`root`, `file`, `database`, `sharedpref`, `external`). An empty or commented-out rule file means allow-everything by default, not deny-by-default. Any new persisted field — a new `SharedPreferences` key, database table, or file under app-private storage — is a potential new leak surface until it is confirmed to fall under one of these existing domain-wide excludes; do not narrow these exclude blocks without an explicit, reviewed reason.
 
-### Navigation: keep the bottom-bar fallback set in sync with the nav graph
+### Navigation: only Connection-tab variants select a tab from a sub-route
 
-`RipDpiNavHost.kt`'s `selectedTopLevel` picks the highlighted bottom tab via an exact stable-route match plus the explicit `configSubRouteStableKeys` fallback set — it does not walk `NavDestination.hierarchy`. Locate both symbols by name instead of relying on line-number snapshots. Whenever a new sub-destination is added inside a nested nav graph (for example, a new screen under the Config tab), add its stable route key to `configSubRouteStableKeys` in the same change, or the parent tab goes unselected when a user navigates into that sub-screen.
+`RipDpiNavHost.kt`'s `selectedTopLevel` picks the highlighted bottom tab via an exact stable-route match plus the explicit `configSubRouteStableKeys` fallback set; it does not walk `NavDestination.hierarchy`. Locate both symbols by name instead of relying on line-number snapshots. The fallback set holds only variants of the Connection tab itself (the same screen with a preselected section). A screen with no selected tab shows a back arrow and no bottom bar, so do not add editors, Logs, or other sub-screens to the set; add a route only when it renders the Connection tab itself.
 
 ### Cross-references
 
