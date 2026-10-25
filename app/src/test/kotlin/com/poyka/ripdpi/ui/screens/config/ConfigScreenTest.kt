@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -25,6 +26,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
@@ -41,6 +43,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -251,7 +254,9 @@ class ConfigScreenTest {
             .assertContentDescription("Bypass strategy")
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
-            .assertContentDescription("DNS settings")
+            .assertContentDescription(
+                "DNS settings, " + RuntimeEnvironment.getApplication().getString(R.string.config_dns_summary_enabled),
+            )
     }
 
     @Test
@@ -283,6 +288,16 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
+    }
+
+    @Test
+    fun `talkback reads the subtitle of a cleared settings row`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
+        val subtitle = RuntimeEnvironment.getApplication().getString(R.string.config_dns_summary_enabled)
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .assert(hasContentDescription(subtitle, substring = true))
     }
 
     @Test

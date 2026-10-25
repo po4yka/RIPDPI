@@ -296,22 +296,24 @@ private fun LocalBypassDnsRow(
     onOpenDnsSettings: () -> Unit,
 ) {
     val dnsSummary = uiState.draft.localizedDnsSummary()
+    val dnsSubtitle =
+        stringResource(
+            if (uiState.draft.mode == Mode.VPN) {
+                R.string.config_dns_summary_enabled
+            } else {
+                R.string.config_dns_summary_disabled
+            },
+        )
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
         accessibilityValue = dnsSummary,
         onClick = onOpenDnsSettings,
+        accessibilitySubtitle = dnsSubtitle,
     ) {
         SettingsRow(
             title = stringResource(R.string.title_dns_settings),
-            subtitle =
-                stringResource(
-                    if (uiState.draft.mode == Mode.VPN) {
-                        R.string.config_dns_summary_enabled
-                    } else {
-                        R.string.config_dns_summary_disabled
-                    },
-                ),
+            subtitle = dnsSubtitle,
             value = dnsSummary,
             leadingIcon = RipDpiIcons.Dns,
             showChevron = true,
@@ -357,6 +359,7 @@ private fun LocalBypassActionRow(
     accessibilityLabel: String,
     accessibilityValue: String,
     onClick: () -> Unit,
+    accessibilitySubtitle: String? = null,
     content: @Composable () -> Unit,
 ) {
     Box(
@@ -365,7 +368,8 @@ private fun LocalBypassActionRow(
                 .ripDpiClickable(role = Role.Button, onClick = onClick)
                 .clearAndSetSemantics {
                     this.testTag = testTag
-                    contentDescription = accessibilityLabel
+                    // The cleared subtree hides the row subtitle, so it joins the label here.
+                    contentDescription = listOfNotNull(accessibilityLabel, accessibilitySubtitle).joinToString(", ")
                     stateDescription = accessibilityValue
                     role = Role.Button
                     onClick(action = {

@@ -448,6 +448,7 @@ private fun VpnRelayRow(
         accessibilityLabel = stringResource(R.string.config_relay_server),
         accessibilityValue = relayEndpointLabel(uiState),
         onClick = onOpenRelaySettings,
+        accessibilitySubtitle = stringResource(R.string.config_vpn_relay_server_summary),
     ) {
         EndpointSettingsRow(
             title = stringResource(R.string.config_relay_server),
@@ -468,6 +469,7 @@ private fun VpnProtocolRow(
         accessibilityLabel = stringResource(R.string.config_vpn_protocol_title),
         accessibilityValue = uiState.draft.relaySummary,
         onClick = onOpenRelaySettings,
+        accessibilitySubtitle = stringResource(R.string.config_vpn_protocol_summary),
     ) {
         SettingsRow(
             title = stringResource(R.string.config_vpn_protocol_title),
@@ -490,6 +492,7 @@ private fun VpnCredentialsRow(
         accessibilityLabel = stringResource(R.string.config_vpn_credentials_title),
         accessibilityValue = credentialsValue(uiState),
         onClick = onOpenRelaySettings,
+        accessibilitySubtitle = credentialsSubtitle(uiState),
     ) {
         SettingsRow(
             title = stringResource(R.string.config_vpn_credentials_title),
@@ -508,22 +511,24 @@ private fun VpnDnsRow(
     onOpenDnsSettings: () -> Unit,
 ) {
     val dnsSummary = uiState.draft.localizedDnsSummary()
+    val dnsSubtitle =
+        stringResource(
+            if (uiState.draft.mode == Mode.VPN) {
+                R.string.config_dns_summary_enabled
+            } else {
+                R.string.config_dns_summary_disabled
+            },
+        )
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
         accessibilityValue = dnsSummary,
         onClick = onOpenDnsSettings,
+        accessibilitySubtitle = dnsSubtitle,
     ) {
         SettingsRow(
             title = stringResource(R.string.title_dns_settings),
-            subtitle =
-                stringResource(
-                    if (uiState.draft.mode == Mode.VPN) {
-                        R.string.config_dns_summary_enabled
-                    } else {
-                        R.string.config_dns_summary_disabled
-                    },
-                ),
+            subtitle = dnsSubtitle,
             value = dnsSummary,
             leadingIcon = RipDpiIcons.Dns,
             showChevron = true,
@@ -537,6 +542,7 @@ private fun VpnActionRow(
     accessibilityLabel: String,
     accessibilityValue: String,
     onClick: () -> Unit,
+    accessibilitySubtitle: String? = null,
     content: @Composable () -> Unit,
 ) {
     Box(
@@ -545,7 +551,8 @@ private fun VpnActionRow(
                 .ripDpiClickable(role = Role.Button, onClick = onClick)
                 .clearAndSetSemantics {
                     this.testTag = testTag
-                    contentDescription = accessibilityLabel
+                    // The cleared subtree hides the row subtitle, so it joins the label here.
+                    contentDescription = listOfNotNull(accessibilityLabel, accessibilitySubtitle).joinToString(", ")
                     stateDescription = accessibilityValue
                     role = Role.Button
                     onClick(action = {
