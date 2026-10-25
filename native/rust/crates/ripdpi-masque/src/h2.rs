@@ -383,6 +383,39 @@ mod protect_tests {
         hooks.direct_udp_binder.unwrap()("127.0.0.1:0".parse().unwrap()).expect("inactive UDP");
     }
 
+    /// The relay builds MASQUE backends inside its Tokio runtime. The ECH
+    /// bootstrap lookup must still reach its (protected) DoH connect there
+    /// instead of failing on the blocking resolver's runtime guard and
+    /// silently degrading to GREASE.
+    #[test]
+    fn ech_lookup_inside_a_tokio_runtime_reaches_the_protected_connect() {
+        use std::sync::atomic::AtomicUsize;
+        struct CountingReject(AtomicUsize);
+        impl ProtectCallback for CountingReject {
+            fn protect(&self, _: RawFd) -> io::Result<()> {
+                // Relaxed: a standalone counter read after the lookup returns.
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Err(io::Error::new(io::ErrorKind::PermissionDenied, "fixture rejection"))
+            }
+        }
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let cb = Arc::new(CountingReject(AtomicUsize::new(0)));
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime");
+
+        let result = runtime.block_on(async {
+            crate::config::resolve_ech_config_via_encrypted_dns(
+                "example.com",
+                None,
+                ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
+            )
+        });
+        unregister_protect_callback();
+
+        assert!(matches!(result, Ok(None)), "a refused bootstrap degrades to GREASE: {result:?}");
+        assert!(cb.0.load(Ordering::Relaxed) > 0, "the lookup never reached the bootstrap connect");
+    }
+
     fn non_loopback() -> SocketAddr {
         SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 443))
     }

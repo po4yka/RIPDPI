@@ -185,7 +185,12 @@ pub fn exchange_encrypted_dns_query_with_request(
     .map_err(|err| err.to_string())?;
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
     let packet = build_dns_query_with_type(domain, query_id, record_type)?;
-    let response = resolver.exchange_blocking(&packet).map_err(|err| err.to_string())?;
+    // `exchange_blocking` refuses to run on a thread inside a Tokio runtime,
+    // and relay backends (the MASQUE ECH bootstrap) are built inside one. A
+    // fresh thread has no runtime context, so the exchange runs in every caller.
+    let response = std::thread::scope(|scope| scope.spawn(|| resolver.exchange_blocking(&packet)).join())
+        .map_err(|_| "encrypted DNS exchange thread panicked".to_string())?
+        .map_err(|err| err.to_string())?;
     Ok((packet, response))
 }
 
