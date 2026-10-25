@@ -132,17 +132,20 @@ impl DynamicTcpInterface {
                         let Some(source) = select_source(self.source_peer_ip, self.source_peer_ipv6, port_forward.destination.ip()) else {
                             continue;
                         };
-                        let client_handle = sockets.add(new_tcp_client_socket());
+                        let mut client_socket = new_tcp_client_socket();
+                        // A refused target (port 0, unspecified address) fails only this
+                        // session: dropping `remote` ends its handler.
+                        if let Err(error) = client_socket.connect(
+                            iface.context(),
+                            (IpAddress::from(port_forward.destination.ip()), port_forward.destination.port()),
+                            (IpAddress::from(source), virtual_port.num()),
+                        ) {
+                            tracing::debug!(%error, "TCP virtual connect refused");
+                            continue;
+                        }
+                        let client_handle = sockets.add(client_socket);
                         port_client_handle_map.insert(virtual_port, (client_handle, lease, remote));
                         send_queue.insert(virtual_port, VecDeque::new());
-                        let client_socket = sockets.get_mut::<tcp::Socket>(client_handle);
-                        client_socket
-                            .connect(
-                                iface.context(),
-                                (IpAddress::from(port_forward.destination.ip()), port_forward.destination.port()),
-                                (IpAddress::from(source), virtual_port.num()),
-                            )
-                            .context("TCP virtual connect failed")?;
                         next_poll = None;
                     }
                     Some(TcpCommand::Close(virtual_port)) => {

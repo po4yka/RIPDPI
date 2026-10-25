@@ -80,7 +80,15 @@ impl DynamicUdpInterface {
                         };
                         let key = (virtual_port, source);
                         if let std::collections::hash_map::Entry::Vacant(entry) = port_client_handle_map.entry(key) {
-                            let socket_handle = sockets.add(new_udp_client_socket(source, virtual_port)?);
+                            // A bind error fails only this datagram, never the shared interface.
+                            let socket = match new_udp_client_socket(source, virtual_port) {
+                                Ok(socket) => socket,
+                                Err(error) => {
+                                    tracing::debug!(%error, "UDP virtual bind refused");
+                                    continue;
+                                }
+                            };
+                            let socket_handle = sockets.add(socket);
                             entry.insert(socket_handle);
                             send_queue.insert(key, VecDeque::new());
                         }

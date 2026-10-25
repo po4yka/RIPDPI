@@ -268,3 +268,39 @@ async fn peer_close_keeps_payload_buffered_behind_a_full_session_queue() {
     bus.shutdown();
     worker.await.expect("interface shutdown");
 }
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the owned interface is shut down after the SYN deadline.
+#[tokio::test]
+async fn unaddressable_connect_fails_only_its_own_session() {
+    let bus = Bus::new();
+    let mut endpoint = bus.new_endpoint();
+    let interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    let mut worker = Box::pin(interface.run());
+    let pool = VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool");
+    let session_to = |target: &str| {
+        let forward = PortForwardConfig { destination: target.parse().expect("target"), protocol: PortProtocol::Tcp };
+        bus.open_tcp_session(forward, pool.acquire().expect("TCP lease"))
+    };
+    // smoltcp refuses a remote port 0 or an unspecified remote address.
+    let mut bad_port = session_to("10.77.0.1:0");
+    let mut bad_address = session_to("0.0.0.0:80");
+    let _good = session_to("10.77.0.1:41001");
+    let outcome = tokio::select! {
+        biased;
+        result = &mut worker => panic!("one bad CONNECT stopped the interface: {result:?}"),
+        result = tokio::time::timeout(Duration::from_secs(2), async {
+            assert!(bad_port.recv_remote().await.is_none(), "a refused connect must end its own session");
+            assert!(bad_address.recv_remote().await.is_none(), "a refused connect must end its own session");
+            let syn = outbound(&mut endpoint).await;
+            let ip = Ipv4Packet::new_checked(&syn[..]).expect("IPv4 SYN");
+            let tcp = TcpPacket::new_checked(ip.payload()).expect("TCP SYN");
+            assert!(tcp.syn());
+            assert_eq!(tcp.dst_port(), 41001, "the valid session must still connect");
+        }) => result,
+    };
+    outcome.expect("session deadline");
+    bus.shutdown();
+    worker.await.expect("interface shutdown");
+}
