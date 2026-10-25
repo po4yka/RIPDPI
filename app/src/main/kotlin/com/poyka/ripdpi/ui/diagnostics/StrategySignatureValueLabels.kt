@@ -20,6 +20,9 @@ internal class StrategySignatureValueLabels(
         return laneResources[normalized]?.let(stringResolver::getString) ?: value
     }
 
+    /** Formats an aggregate winning family such as `split + quic_disabled` the way Remembered networks shows it. */
+    fun winningFamily(value: String): String = value.split(" + ").joinToString(" · ") { lane(it) }
+
     fun offset(value: String): String {
         val resource =
             when (adaptiveOffsetPreset(value)) {

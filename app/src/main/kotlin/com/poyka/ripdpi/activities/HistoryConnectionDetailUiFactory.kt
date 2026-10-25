@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.diagnostics.StrategySignatureValueLabels
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -143,7 +144,13 @@ internal class HistoryConnectionDetailUiFactory
                     add(metric(R.string.diagnostics_metric_failure_class, failure, DiagnosticsTone.Warning))
                 }
                 (latestTelemetry?.winningStrategyFamily() ?: session.winningStrategyFamily())?.let { strategy ->
-                    add(metric(R.string.diagnostics_metric_strategy, strategy, DiagnosticsTone.Positive))
+                    add(
+                        metric(
+                            R.string.diagnostics_metric_strategy,
+                            StrategySignatureValueLabels(stringResolver).winningFamily(strategy),
+                            DiagnosticsTone.Positive,
+                        ),
+                    )
                 }
                 add(
                     DiagnosticsMetricUiModel(
