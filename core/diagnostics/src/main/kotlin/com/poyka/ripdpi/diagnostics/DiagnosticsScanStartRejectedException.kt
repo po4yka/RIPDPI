@@ -11,6 +11,9 @@ sealed interface DiagnosticsScanStartRejectionReason {
 
     data object BlockedByLegalSafetyPolicy : DiagnosticsScanStartRejectionReason
 
+    /** The stored profile request cannot be decoded, so its legal-safety policy is unknown. */
+    data object ProfileUnreadable : DiagnosticsScanStartRejectionReason
+
     data class InPathUnavailable(
         val reason: DiagnosticsInPathUnavailableReason,
     ) : DiagnosticsScanStartRejectionReason
@@ -54,6 +57,10 @@ class DiagnosticsScanStartRejectedException(
 
             DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy -> {
                 "Diagnostics profile is unavailable under local legal-safety policy"
+            }
+
+            DiagnosticsScanStartRejectionReason.ProfileUnreadable -> {
+                "Diagnostics profile request cannot be decoded"
             }
         },
     )

@@ -3,9 +3,12 @@ package com.poyka.ripdpi.activities
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
+import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -89,8 +92,8 @@ class DiagnosticsUiStateFactoryTest {
             diagnosticsUiStateInput(listOf(latest)).copy(
                 profiles =
                     listOf(
-                        DiagnosticProfile("profile-a", "Profile A", "bundled", 1, updatedAt = 0L),
-                        DiagnosticProfile("profile-b", "Profile B", "bundled", 1, updatedAt = 0L),
+                        readableProfile("profile-a", "Profile A"),
+                        readableProfile("profile-b", "Profile B"),
                     ),
                 selectedProfileId = "profile-b",
             )
@@ -102,6 +105,24 @@ class DiagnosticsUiStateFactoryTest {
         assertEquals(emptyList<DiagnosticsProbeResultUiModel>(), state.scan.latestResults)
         assertNull(state.scan.resolverRecommendation)
         assertNull(state.scan.strategyProbeReport)
+    }
+
+    @Test
+    fun `profile whose request did not decode is hidden and never becomes the default`() {
+        val input =
+            diagnosticsUiStateInput(emptyList()).copy(
+                profiles =
+                    listOf(
+                        DiagnosticProfile("legacy", "Legacy", "bundled", 1, request = null, updatedAt = 0L),
+                        readableProfile("profile-b", "Profile B"),
+                    ),
+            )
+
+        val resolved = DiagnosticsUiInputResolver(support).resolve(input, emptyList())
+
+        assertEquals(listOf("profile-b"), resolved.visibleProfiles.map { it.id })
+        assertEquals("profile-b", resolved.activeProfile?.id)
+        assertEquals(1, resolved.omittedProfileCount)
     }
 
     @Test
@@ -120,7 +141,7 @@ class DiagnosticsUiStateFactoryTest {
         val state =
             factory.buildUiState(
                 diagnosticsUiStateInput(listOf(latest, matching)).copy(
-                    profiles = listOf(DiagnosticProfile("profile-b", "Profile B", "bundled", 1, updatedAt = 0L)),
+                    profiles = listOf(readableProfile("profile-b", "Profile B")),
                     selectedProfileId = "profile-b",
                 ),
             )
@@ -257,3 +278,15 @@ private fun diagnosticsUiStateInput(sessions: List<com.poyka.ripdpi.diagnostics.
         scanStartedAt = null,
         activeScanPathMode = null,
     )
+
+private fun readableProfile(
+    id: String,
+    name: String,
+) = DiagnosticProfile(
+    id = id,
+    name = name,
+    source = "bundled",
+    version = 1,
+    request = DiagnosticsProfileProjection(kind = ScanKind.CONNECTIVITY, family = DiagnosticProfileFamily.GENERAL),
+    updatedAt = 0L,
+)

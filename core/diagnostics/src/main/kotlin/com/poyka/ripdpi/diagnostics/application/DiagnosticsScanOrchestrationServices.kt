@@ -67,9 +67,14 @@ class ScanAdmissionService
                 requireNotNull(profileCatalog.getProfile(profileId)) {
                     "Unknown diagnostics profile: $profileId"
                 }
-            val request = json.decodeProfileSpecWire(profile.requestJson)
-            val rejectionReason =
-                resolveRejectionReason(request.resolveLegalSafetyPolicy().access, allowSensitiveProfileStart)
+            val access =
+                try {
+                    json.decodeProfileSpecWire(profile.requestJson).resolveLegalSafetyPolicy().access
+                } catch (_: IllegalArgumentException) {
+                    // SerializationException included: an unreadable profile has no known policy.
+                    throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ProfileUnreadable)
+                }
+            val rejectionReason = resolveRejectionReason(access, allowSensitiveProfileStart)
             if (rejectionReason != null) {
                 throw DiagnosticsScanStartRejectedException(rejectionReason)
             }

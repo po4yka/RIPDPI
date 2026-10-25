@@ -111,7 +111,9 @@ internal class DiagnosticsUiInputResolver
 
         private fun DiagnosticsUiStateInput.visibleProfiles() =
             profiles.filter { profile ->
-                profile.request?.resolveLegalSafetyPolicy()?.access != DiagnosticsJurisdictionProfileAccess.BLOCKED
+                // A profile whose request did not decode has no known policy, so it stays hidden.
+                val access = profile.request?.resolveLegalSafetyPolicy()?.access
+                access != null && access != DiagnosticsJurisdictionProfileAccess.BLOCKED
             }
 
         private fun DiagnosticsSessionProjection?.probeResultRows(

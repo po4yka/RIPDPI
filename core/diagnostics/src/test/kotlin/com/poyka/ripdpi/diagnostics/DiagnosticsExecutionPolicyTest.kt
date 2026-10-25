@@ -306,6 +306,30 @@ class DiagnosticsExecutionPolicyTest {
         }
 
     @Test
+    fun `manual admission rejects an undecodable profile request as unreadable`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.upsertProfile(
+                com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity(
+                    id = "legacy",
+                    name = "Legacy",
+                    source = "bundled",
+                    version = 1,
+                    requestJson = """{"profileId":"legacy"}""",
+                    updatedAt = 1L,
+                ),
+            )
+            val service = scanAdmissionService(stores, activeScanRegistry(stores, backgroundScope, json), json)
+
+            try {
+                service.admitManualStart(selectedProfileId = "legacy")
+                fail("Expected manual admission to be rejected")
+            } catch (error: DiagnosticsScanStartRejectedException) {
+                assertEquals(DiagnosticsScanStartRejectionReason.ProfileUnreadable, error.reason)
+            }
+        }
+
+    @Test
     fun `legal safety policy blocks unsafe region matched profiles`() {
         val decision =
             ProfileSpecWire(
