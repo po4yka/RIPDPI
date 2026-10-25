@@ -13,6 +13,9 @@ use rand::Rng;
 
 type Blake2b256 = Blake2b<U32>;
 
+/// Length of the random salt that prefixes every Salamander datagram.
+const SALT_LEN: usize = 8;
+
 #[derive(Debug)]
 pub(crate) struct SalamanderUdpSocket {
     io: tokio::net::UdpSocket,
@@ -57,15 +60,22 @@ impl AsyncUdpSocket for SalamanderUdpSocket {
             let mut scratch = vec![0u8; buffer_len.saturating_mul(2).max(2048)];
             match self.io.try_io(tokio::io::Interest::READABLE, || self.io.try_recv_from(&mut scratch)) {
                 Ok((received, addr)) => {
-                    let decoded = self.codec.decode(&scratch[..received])?;
                     let first = bufs
                         .first_mut()
                         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing QUIC receive buffer"))?;
+                    // The socket is unconnected and Salamander has no MAC, so
+                    // anyone can send to it. A datagram that is too short or
+                    // too large is dropped here, as the reference client does;
+                    // an Err would end the quinn endpoint and every connection
+                    // on it. Only real socket errors are returned.
+                    if received <= SALT_LEN {
+                        continue;
+                    }
+                    let Ok(decoded) = self.codec.decode(&scratch[..received]) else {
+                        continue;
+                    };
                     if decoded.len() > first.len() {
-                        return Poll::Ready(Err(io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            "Salamander datagram exceeds QUIC receive buffer",
-                        )));
+                        continue;
                     }
                     first[..decoded.len()].copy_from_slice(&decoded);
                     meta[0] = quinn::udp::RecvMeta {
@@ -132,7 +142,7 @@ impl SalamanderCodec {
     }
 
     pub(crate) fn decode(&self, payload: &[u8]) -> io::Result<Vec<u8>> {
-        if payload.len() < 8 {
+        if payload.len() < SALT_LEN {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Salamander datagram is shorter than the required salt prefix",
@@ -206,6 +216,42 @@ mod tests {
         assert_eq!(count, 1);
         assert_eq!(meta[0].addr, peer_addr);
         assert_eq!(&payload[..meta[0].len], b"response");
+    }
+
+    /// A datagram that cannot be a Salamander packet is per-packet garbage:
+    /// it must be dropped, not surfaced as a socket error that ends the quinn
+    /// endpoint and every connection on it.
+    #[tokio::test(flavor = "current_thread")]
+    async fn undecodable_and_oversize_datagrams_are_dropped() {
+        tokio::time::timeout(std::time::Duration::from_secs(2), drop_garbage_then_receive())
+            .await
+            .expect("valid datagram must still arrive after garbage");
+    }
+
+    // cancel-safe: dropping this future closes only its owned loopback sockets.
+    async fn drop_garbage_then_receive() {
+        let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("bind Salamander socket");
+        let local = socket.local_addr().expect("bound address");
+        let wrapped = SalamanderUdpSocket::new(socket, b"fixture-key".to_vec()).expect("wrap socket");
+        let peer = tokio::net::UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+        let codec = SalamanderCodec::new(b"fixture-key".to_vec());
+
+        let oversize = codec.encode(&[0x42; 200]);
+        for garbage in [&[][..], &[1][..], &[7; 7][..], &[8; 8][..], &oversize[..]] {
+            peer.send_to(garbage, local).await.expect("send garbage datagram");
+        }
+        peer.send_to(&codec.encode(b"after-garbage"), local).await.expect("send valid datagram");
+
+        let mut payload = [0u8; 128];
+        let mut meta = [quinn::udp::RecvMeta::default()];
+        let count = {
+            let mut bufs = [std::io::IoSliceMut::new(&mut payload)];
+            std::future::poll_fn(|cx| wrapped.poll_recv(cx, &mut bufs, &mut meta))
+                .await
+                .expect("garbage must not surface as a socket error")
+        };
+        assert_eq!(count, 1);
+        assert_eq!(&payload[..meta[0].len], b"after-garbage");
     }
 
     #[test]
