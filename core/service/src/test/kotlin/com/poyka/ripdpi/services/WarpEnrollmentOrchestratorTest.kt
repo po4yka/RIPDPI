@@ -272,7 +272,7 @@ class WarpEnrollmentOrchestratorTest {
             val bootstrapSessionFactory =
                 object : BootstrapProxyRuntimeSupervisorSessionFactory {
                     override fun create(scope: kotlinx.coroutines.CoroutineScope): ProxyRuntimeSupervisor =
-                        DefaultProxyRuntimeSupervisorFactory(proxyFactory).create(
+                        DefaultProxyRuntimeSupervisorFactory(proxyFactory, NoStoreHostAutolearnController).create(
                             scope = scope,
                             dispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
                             networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
@@ -381,7 +381,7 @@ class WarpEnrollmentOrchestratorTest {
             val bootstrapSessionFactory =
                 object : BootstrapProxyRuntimeSupervisorSessionFactory {
                     override fun create(scope: kotlinx.coroutines.CoroutineScope): ProxyRuntimeSupervisor =
-                        DefaultProxyRuntimeSupervisorFactory(proxyFactory).create(
+                        DefaultProxyRuntimeSupervisorFactory(proxyFactory, NoStoreHostAutolearnController).create(
                             scope = scope,
                             dispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
                             networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
@@ -893,4 +893,14 @@ private fun createWarpEnrollmentOrchestrator(
                 profileMutations = profileMutations,
             ),
     )
+}
+
+private object NoStoreHostAutolearnController : HostAutolearnStoreController {
+    override fun hasStore(): Boolean = false
+
+    override fun clearStore(): Boolean = true
+
+    override fun markErasePending(): Boolean = true
+
+    override fun applyPendingErase(): Boolean = true
 }

@@ -26,7 +26,7 @@ internal class DefaultProxyRuntimeSupervisorFactory
     @Inject
     constructor(
         private val ripDpiProxyFactory: RipDpiProxyFactory,
-        private val hostAutolearnStoreController: HostAutolearnStoreController? = null,
+        private val hostAutolearnStoreController: HostAutolearnStoreController,
     ) : ProxyRuntimeSupervisorFactory {
         override fun create(
             scope: CoroutineScope,
@@ -43,7 +43,7 @@ internal class DefaultProxyRuntimeSupervisorFactory
             )
 
         private fun applyPendingHostAutolearnErase() {
-            if (hostAutolearnStoreController?.applyPendingErase() == false) {
+            if (!hostAutolearnStoreController.applyPendingErase()) {
                 Logger.w { "Pending learned-hosts erase could not delete the store; it stays pending" }
             }
         }
