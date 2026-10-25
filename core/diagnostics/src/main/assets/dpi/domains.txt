@@ -1,7 +1,7 @@
 cloudflare.com
 www.instagram.com
 www.facebook.com
-x.com/i/api/1.1/graphql/user_flow.json
+x.com
 www.linkedin.com
 discord.com
 gateway.discord.gg
@@ -30,7 +30,7 @@ www.messenger.com
 www.themoscowtimes.com
 www.linuxserver.io
 danbooru.donmai.us
-gelbooru.com/script/application.grid.js
+gelbooru.com
 browserleaks.com
 www.cdn77.com
 shikimori.io

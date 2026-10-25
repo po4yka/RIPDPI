@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
 import com.poyka.ripdpi.diagnostics.dpich.loadObfs4BridgeEndpoints
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -88,6 +89,33 @@ class DpiAssetLoaderTest {
             )
 
         assertEquals(listOf("example.org", "example.net"), loader.loadDomains())
+    }
+
+    @Test
+    fun bundledDomainsAreDnsHostNames() {
+        val domains = DpiAssetLoader(fileProvider = RepoDpiAssetFileProvider()).loadDomains()
+
+        assertTrue("x.com" in domains)
+        assertTrue("gelbooru.com" in domains)
+        domains.forEach { domain -> DnsWireBuilder.buildQuery(domain) }
+    }
+
+    @Test
+    fun domainEntriesWithSchemePortOrPathYieldTheirHost() {
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        assets =
+                            mapOf(
+                                "dpi/domains.txt" to
+                                    "x.com/i/api/1.1/graphql/user_flow.json\nhttps://Example.org:443/a?b\n" +
+                                    "example.org\nbad host\n",
+                            ),
+                    ),
+            )
+
+        assertEquals(listOf("x.com", "example.org"), loader.loadDomains())
     }
 
     @Test

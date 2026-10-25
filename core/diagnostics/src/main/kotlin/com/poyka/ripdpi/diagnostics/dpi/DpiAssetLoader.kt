@@ -82,6 +82,8 @@ class DpiAssetLoader(
     fun loadDomains(): List<String> =
         cachedDomains ?: loadText(DomainsPath)
             .parseLineList()
+            .mapNotNull(::dpiTargetHostOrNull)
+            .distinct()
             .also { cachedDomains = it }
 
     fun loadEchTargets(): List<String> =

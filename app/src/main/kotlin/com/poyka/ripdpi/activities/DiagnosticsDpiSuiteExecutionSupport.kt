@@ -26,6 +26,7 @@ import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
 import com.poyka.ripdpi.diagnostics.dpi.TelegramSpeedTest
+import com.poyka.ripdpi.diagnostics.dpi.dpiTargetHostOrNull
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
@@ -141,8 +142,8 @@ internal fun parseCustomDomains(input: String): List<String>? =
     input
         .lineSequence()
         .flatMap { line -> line.split(',', ' ', ';').asSequence() }
-        .map { value -> value.trim().trimEnd('/') }
-        .filter(String::isNotBlank)
+        .mapNotNull(::dpiTargetHostOrNull)
+        .distinct()
         .toList()
         .takeIf(List<String>::isNotEmpty)
 
