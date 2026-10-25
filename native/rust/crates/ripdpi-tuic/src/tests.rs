@@ -1,5 +1,6 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
 
 use bytes::BytesMut;
 use quinn::Endpoint;
@@ -79,6 +80,16 @@ fn packet_header_encoded_len_matches_encoding() {
     }
 }
 
+/// Reads the next UDP packet datagram, skipping Heartbeats as a server does.
+async fn read_packet_datagram(connection: &quinn::Connection) -> bytes::Bytes {
+    loop {
+        let datagram = connection.read_datagram().await.expect("udp datagram");
+        if datagram.as_ref() != [TUIC_VERSION, 0x04] {
+            return datagram;
+        }
+    }
+}
+
 fn large_payload() -> Vec<u8> {
     (0..3000u32).map(|index| (index % 251) as u8).collect()
 }
@@ -141,7 +152,7 @@ async fn tuic_client_relays_tcp_and_udp() {
 
         let udp_conn = connection.clone();
         let udp_task = tokio::spawn(async move {
-            let datagram = udp_conn.read_datagram().await.expect("udp datagram");
+            let datagram = read_packet_datagram(&udp_conn).await;
             let (header, payload) = PacketHeader::decode(&datagram).expect("decode packet");
             assert_eq!(payload, b"world");
             let response = PacketHeader {
@@ -160,7 +171,7 @@ async fn tuic_client_relays_tcp_and_udp() {
             // A payload larger than one QUIC datagram arrives as fragments.
             let mut fragments = Vec::new();
             loop {
-                let datagram = udp_conn.read_datagram().await.expect("fragment datagram");
+                let datagram = read_packet_datagram(&udp_conn).await;
                 let (header, payload) = PacketHeader::decode(&datagram).expect("decode fragment");
                 fragments.push((header.fragment_id, payload.to_vec()));
                 if fragments.len() == usize::from(header.fragment_total) {
@@ -216,5 +227,69 @@ async fn tuic_client_relays_tcp_and_udp() {
         (Some("validated".to_string()), Some("path_validated_after_stream_open".to_string()),)
     );
 
+    server_task.await.expect("server task");
+}
+
+/// TUIC v5 SPEC "Heartbeat": the client sends `VER 0x05, TYPE 0x04`
+/// datagrams periodically while relay tasks are active, so a server with a
+/// short idle timeout (tuic-server default 10 s) keeps idle flows open.
+#[tokio::test]
+async fn tuic_client_sends_heartbeats_only_while_tasks_are_active() {
+    ensure_crypto_provider();
+    let certificate = generate_simple_self_signed(vec!["localhost".to_owned()]).expect("certificate");
+    let cert_der = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(certificate.signing_key.serialize_der().into());
+    let mut server_tls = RustlsServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert_der.clone()], key_der)
+        .expect("server cert");
+    server_tls.alpn_protocols = vec![b"h3".to_vec()];
+    let server_config = quinn::ServerConfig::with_crypto(Arc::new(
+        quinn::crypto::rustls::QuicServerConfig::try_from(server_tls).expect("quic server config"),
+    ));
+    let server = Endpoint::server(server_config, SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).expect("endpoint");
+    let server_addr = server.local_addr().expect("server addr");
+    let (stream_opened_tx, stream_opened_rx) = tokio::sync::oneshot::channel();
+    let server_task = tokio::spawn(async move {
+        let connection = server.accept().await.expect("incoming").await.expect("connection");
+        let quiet = tokio::time::timeout(Duration::from_millis(600), connection.read_datagram()).await;
+        assert!(quiet.is_err(), "an idle client with no relay task must not send heartbeats");
+        stream_opened_tx.send(()).expect("signal client");
+
+        let (_send, mut recv) = connection.accept_bi().await.expect("tcp stream");
+        let mut header = [0u8; 2];
+        recv.read_exact(&mut header).await.expect("connect header");
+        let heartbeat = tokio::time::timeout(Duration::from_secs(2), connection.read_datagram())
+            .await
+            .expect("an open TCP relay must trigger a heartbeat")
+            .expect("heartbeat datagram");
+        assert_eq!(heartbeat.as_ref(), [TUIC_VERSION, 0x04]);
+    });
+
+    let tls_config = build_tls_config(false, Some(vec![cert_der])).expect("tls config");
+    let client = TuicClient::connect_with_tls(
+        Config {
+            server: server_addr.ip().to_string(),
+            server_port: i32::from(server_addr.port()),
+            server_name: "localhost".to_owned(),
+            uuid: "00000000-0000-0000-0000-000000000000".to_owned(),
+            password: "tuic-fixture".to_owned(),
+            zero_rtt: false,
+            congestion_control: "bbr".to_owned(),
+            udp_enabled: true,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
+            keepalive_interval_ms: 0,
+            root_certificate_pem: None,
+        },
+        tls_config,
+    )
+    .await
+    .expect("client");
+
+    stream_opened_rx.await.expect("server saw an idle client");
+    let _tcp = client.tcp_connect("echo.example:443").await.expect("tcp connect");
     server_task.await.expect("server task");
 }

@@ -171,6 +171,8 @@ pub(crate) fn classify_handshake_failure(connection: &quinn::Connection, fallbac
 pub(crate) const COMMAND_AUTHENTICATE: u8 = 0x00;
 pub(crate) const COMMAND_CONNECT: u8 = 0x01;
 pub(crate) const COMMAND_PACKET: u8 = 0x02;
+pub(crate) const COMMAND_HEARTBEAT: u8 = 0x04;
+pub(crate) const HEARTBEAT_DATAGRAM: [u8; 2] = [TUIC_VERSION, COMMAND_HEARTBEAT];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum TuicAddress {

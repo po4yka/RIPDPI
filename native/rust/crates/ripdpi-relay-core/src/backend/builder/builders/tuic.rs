@@ -27,9 +27,10 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 quic_migrate_after_handshake: config.common.quic_migrate_after_handshake,
                 socket_protection: context.socket_protection,
                 outbound_bind_ip: context.outbound_bind_ip,
-                // Relay profiles currently expose TUIC zero-RTT and congestion
-                // control, but not TUIC keepalive. Keep it disabled until the
-                // Kotlin/native relay config contract adds an explicit field.
+                // QUIC PING keepalive stays off: ripdpi-tuic sends TUIC
+                // Heartbeats while relay tasks are active, so an idle carrier
+                // stays silent and the server's idle timeout cannot close a
+                // quiet flow.
                 keepalive_interval_ms: 0,
                 root_certificate_pem: None,
             },

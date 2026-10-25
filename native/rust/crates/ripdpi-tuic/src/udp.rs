@@ -8,7 +8,7 @@ use bytes::BytesMut;
 use tokio::sync::{Mutex, mpsc};
 use tracing::debug;
 
-use crate::client::ClientInner;
+use crate::client::{ActiveTask, ClientInner};
 use crate::protocol::{PacketHeader, TuicAddress};
 
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
@@ -22,6 +22,7 @@ const MAX_ASSOC_ID_SCAN_ATTEMPTS: u16 = 1024;
 
 pub struct UdpSession {
     client: Arc<ClientInner>,
+    _active: ActiveTask,
     incoming_rx: mpsc::Receiver<UdpPacket>,
     incoming_tx: mpsc::Sender<UdpPacket>,
     destinations: Mutex<DestinationState>,
@@ -54,7 +55,14 @@ impl DestinationState {
 impl UdpSession {
     pub(crate) fn new(client: Arc<ClientInner>) -> Self {
         let (incoming_tx, incoming_rx) = mpsc::channel(64);
-        Self { client, incoming_rx, incoming_tx, destinations: Mutex::new(DestinationState::default()) }
+        let active = ActiveTask::new(Arc::clone(&client));
+        Self {
+            client,
+            _active: active,
+            incoming_rx,
+            incoming_tx,
+            destinations: Mutex::new(DestinationState::default()),
+        }
     }
 
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> io::Result<()> {

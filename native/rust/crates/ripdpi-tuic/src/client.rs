@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
-use std::sync::atomic::AtomicU16;
+use std::sync::atomic::{AtomicU16, AtomicUsize, Ordering};
+use std::time::Duration;
 
 use quinn::Endpoint;
 use rustls::ClientConfig as RustlsClientConfig;
@@ -15,7 +16,7 @@ use crate::endpoint::{
     ClientSocketSpec, build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config,
 };
 use crate::migration::QuicMigration;
-use crate::protocol::{TuicAddress, authenticate_connection, classify_handshake_failure};
+use crate::protocol::{HEARTBEAT_DATAGRAM, TuicAddress, authenticate_connection, classify_handshake_failure};
 use crate::tcp::{DuplexStream, encode_connect_header};
 use crate::udp::{UdpPacket, UdpSession, dispatch_incoming_datagrams};
 
@@ -32,12 +33,20 @@ impl Drop for AbortOnDrop {
     }
 }
 
+/// TUIC v5 Heartbeat period while relay tasks are active. The reference
+/// client sends one every 3 s; tuic-server closes a connection after 10 s of
+/// silence by default.
+const HEARTBEAT_INTERVAL: Duration = if cfg!(test) { Duration::from_millis(200) } else { Duration::from_secs(3) };
+
 #[derive(Clone)]
 pub struct TuicClient {
     inner: Arc<ClientInner>,
     /// Keeps the datagram-dispatch task alive and aborts it when the last
     /// `TuicClient` clone is dropped. `None` when UDP was disabled at connect time.
     _dispatch_guard: Option<Arc<AbortOnDrop>>,
+    /// Keeps the heartbeat task alive; `None` when the connection has no
+    /// datagram support.
+    _heartbeat_guard: Option<Arc<AbortOnDrop>>,
 }
 
 impl TuicClient {
@@ -78,6 +87,7 @@ impl TuicClient {
             socket_spec,
             migrate_after_handshake: config.quic_migrate_after_handshake,
             migration: QuicMigration::new_not_attempted(current_socket),
+            active_tasks: AtomicUsize::new(0),
         });
 
         let dispatch_guard = if config.udp_enabled && max_datagram_size.is_some() {
@@ -87,7 +97,10 @@ impl TuicClient {
             None
         };
 
-        Ok(Self { inner, _dispatch_guard: dispatch_guard })
+        let heartbeat_guard =
+            max_datagram_size.map(|_| Arc::new(AbortOnDrop(tokio::spawn(send_heartbeats(Arc::clone(&inner))))));
+
+        Ok(Self { inner, _dispatch_guard: dispatch_guard, _heartbeat_guard: heartbeat_guard })
     }
 
     pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
@@ -140,7 +153,7 @@ impl TuicClient {
     async fn open_tcp_stream_inner(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
         let (mut send, recv) = self.inner.connection.open_bi().await?;
         encode_connect_header(&mut send, target).await?;
-        Ok(DuplexStream { send, recv })
+        Ok(DuplexStream { send, recv, _active: ActiveTask::new(Arc::clone(&self.inner)) })
     }
 }
 
@@ -171,4 +184,49 @@ pub(crate) struct ClientInner {
     pub(crate) socket_spec: ClientSocketSpec,
     pub(crate) migrate_after_handshake: bool,
     pub(crate) migration: QuicMigration,
+    /// Open TCP relays and UDP sessions; heartbeats run only while non-zero.
+    pub(crate) active_tasks: AtomicUsize,
+}
+
+/// Counts one relay task (a TCP stream or a UDP session) for the heartbeat.
+pub(crate) struct ActiveTask(Arc<ClientInner>);
+
+impl ActiveTask {
+    pub(crate) fn new(inner: Arc<ClientInner>) -> Self {
+        // Ordering: Relaxed — a standalone counter read only as a heartbeat
+        // on/off hint; no other memory is published through it.
+        inner.active_tasks.fetch_add(1, Ordering::Relaxed);
+        Self(inner)
+    }
+}
+
+impl Drop for ActiveTask {
+    fn drop(&mut self) {
+        // Ordering: Relaxed — see `ActiveTask::new`.
+        self.0.active_tasks.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// Sends a TUIC Heartbeat datagram every [`HEARTBEAT_INTERVAL`] while a relay
+/// task is active, so the server's idle timeout and NAT bindings do not
+/// close an established but quiet flow. An idle carrier stays silent.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: it holds no state besides the connection handle, and
+/// `AbortOnDrop` cancels it when the last `TuicClient` clone drops.
+async fn send_heartbeats(inner: Arc<ClientInner>) {
+    let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL);
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        ticker.tick().await;
+        // Ordering: Relaxed — see `ActiveTask::new`.
+        if inner.active_tasks.load(Ordering::Relaxed) == 0 {
+            continue;
+        }
+        // Every send error (closed connection, datagrams disabled) is terminal.
+        if inner.connection.send_datagram(bytes::Bytes::from_static(&HEARTBEAT_DATAGRAM)).is_err() {
+            return;
+        }
+    }
 }

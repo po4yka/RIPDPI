@@ -6,11 +6,13 @@ use bytes::{BufMut, BytesMut};
 use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
+use crate::client::ActiveTask;
 use crate::protocol::{COMMAND_CONNECT, TUIC_VERSION, TuicAddress};
 
 pub struct DuplexStream {
     pub(crate) send: SendStream,
     pub(crate) recv: RecvStream,
+    pub(crate) _active: ActiveTask,
 }
 
 impl AsyncRead for DuplexStream {
