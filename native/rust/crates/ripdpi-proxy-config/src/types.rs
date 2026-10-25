@@ -51,6 +51,8 @@ pub use payload::{ProxyConfigError, ProxyConfigPayload, ProxySessionOverrides, R
 pub(crate) use payload::validate_schema_version;
 pub use protocol::ProxyUiProtocolConfig;
 pub use quic::ProxyUiQuicConfig;
+#[cfg(test)]
+pub(crate) use relay::LocalSocksSecret;
 pub use relay::ProxyUiRelayConfig;
 pub use runtime_context::{
     ProxyConnectionConcurrencyPolicy, ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyLogContext,

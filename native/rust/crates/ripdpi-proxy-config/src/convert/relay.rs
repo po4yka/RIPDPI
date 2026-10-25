@@ -42,10 +42,10 @@ fn build_upstream_auth(relay: &ProxyUiRelayConfig) -> Result<Option<UpstreamSock
         (Some(username), Some(password)) => {
             // RFC 1929 carries each field behind a one-byte length.
             let valid = |value: &String| (1..=255).contains(&value.len());
-            if !valid(username) || !valid(password) {
+            if !valid(username) || !valid(&password.0) {
                 return Err(invalid());
             }
-            Ok(Some(UpstreamSocksAuth { username: username.clone(), password: password.clone() }))
+            Ok(Some(UpstreamSocksAuth { username: username.clone(), password: password.0.clone() }))
         }
         _ => Err(invalid()),
     }

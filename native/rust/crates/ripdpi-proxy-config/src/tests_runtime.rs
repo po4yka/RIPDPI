@@ -498,7 +498,7 @@ fn relay_upstream_covers_all_generated_fallback_groups() {
     ui.upstream_relay.udp_enabled = true;
     ui.upstream_relay.local_socks_port = 11_980;
     ui.upstream_relay.local_socks_username = Some("session-user".to_string());
-    ui.upstream_relay.local_socks_password = Some("session-pass".to_string());
+    ui.upstream_relay.local_socks_password = Some(crate::types::LocalSocksSecret("session-pass".to_string()));
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
     let relay = std::net::SocketAddr::from(([127, 0, 0, 1], 11_980));
@@ -527,7 +527,8 @@ fn relay_listener_credentials_are_read_from_kotlin_json_but_never_serialized() {
     .expect("relay section with listener credentials");
 
     assert_eq!(relay.local_socks_username.as_deref(), Some("session-user"));
-    assert_eq!(relay.local_socks_password.as_deref(), Some("session-pass"));
+    assert_eq!(relay.local_socks_password.as_ref().map(|secret| secret.0.as_str()), Some("session-pass"));
+    assert!(!format!("{relay:?}").contains("session-pass"), "Debug must redact the listener password");
     let serialized = serde_json::to_value(&relay).expect("serialize relay section");
     assert!(serialized.get("localSocksUsername").is_none());
     assert!(serialized.get("localSocksPassword").is_none());
@@ -540,7 +541,8 @@ fn relay_upstream_rejects_half_set_listener_credentials() {
         ui.upstream_relay.enabled = true;
         ui.upstream_relay.kind = "hysteria2".to_string();
         ui.upstream_relay.local_socks_username = username.map(str::to_string);
-        ui.upstream_relay.local_socks_password = password.map(str::to_string);
+        ui.upstream_relay.local_socks_password =
+            password.map(|value| crate::types::LocalSocksSecret(value.to_string()));
 
         assert!(
             runtime_config_from_payload(ui_payload(ui)).is_err(),

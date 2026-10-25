@@ -115,11 +115,22 @@ pub struct ProxyUiRelayConfig {
     #[serde(default, skip_serializing)]
     pub local_socks_username: Option<String>,
     #[serde(default, skip_serializing)]
-    pub local_socks_password: Option<String>,
+    pub local_socks_password: Option<LocalSocksSecret>,
     #[serde(default)]
     pub udp_enabled: bool,
     #[serde(default = "super::common::default_true")]
     pub tcp_fallback_enabled: bool,
+}
+
+/// Relay listener password read from Kotlin. `Debug` never prints it.
+#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[serde(transparent)]
+pub struct LocalSocksSecret(pub String);
+
+impl std::fmt::Debug for LocalSocksSecret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<redacted>")
+    }
 }
 
 impl Default for ProxyUiRelayConfig {
