@@ -383,7 +383,7 @@ private fun LuaStrategyConfigCard(
                 primaryIcon = RipDpiIcons.Check,
                 onPrimary = onValidateLua,
                 secondaryLabel = stringResource(R.string.strategy_config_load_action),
-                secondaryIcon = RipDpiIcons.NetworkCheck,
+                secondaryIcon = RipDpiIcons.Import,
                 onSecondary = onSave,
                 secondaryLoading = state.isSaving,
                 enabled = editingEnabled,
