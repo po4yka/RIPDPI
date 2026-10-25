@@ -101,7 +101,7 @@ class SettingsViewModel
         }
         private val maintenanceActions by lazy {
             SettingsMaintenanceActions(
-                hostAutolearnStoreController = settingsActionDependencies.hostAutolearnStoreController,
+                learnedHostsEraser = settingsActionDependencies.learnedHostsEraser,
                 rememberedPolicySource = settingsActionDependencies.rememberedPolicySource,
                 strategyPackService = settingsActionDependencies.strategyPackService,
                 strategyPackStateStore = settingsActionDependencies.strategyPackStateStore,

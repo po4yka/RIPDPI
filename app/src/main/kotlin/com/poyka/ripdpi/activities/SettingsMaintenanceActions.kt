@@ -20,7 +20,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogRefreshResult
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
-import com.poyka.ripdpi.services.HostAutolearnStoreController
+import com.poyka.ripdpi.hosts.LearnedHostsEraseResult
+import com.poyka.ripdpi.hosts.LearnedHostsEraser
 import com.poyka.ripdpi.services.TelemetryInstallSaltStore
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -28,7 +29,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
 internal class SettingsMaintenanceActions(
-    private val hostAutolearnStoreController: HostAutolearnStoreController,
+    private val learnedHostsEraser: LearnedHostsEraser,
     private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
     private val strategyPackService: StrategyPackService,
     private val strategyPackStateStore: StrategyPackStateStore,
@@ -178,11 +179,11 @@ internal class SettingsMaintenanceActions(
 
     fun forgetLearnedHosts() {
         mutations.launch {
-            val cleared = hostAutolearnStoreController.clearStore()
+            val result = learnedHostsEraser.erase()
             hostAutolearnStoreRefresh.update { it + 1 }
             val effect =
-                when {
-                    !cleared -> {
+                when (result) {
+                    LearnedHostsEraseResult.Failed -> {
                         SettingsEffect.Notice(
                             title = R.string.notice_learned_hosts_clear_failed_title,
                             message = R.string.notice_learned_hosts_clear_failed_message,
@@ -190,7 +191,7 @@ internal class SettingsMaintenanceActions(
                         )
                     }
 
-                    currentServiceStatus() == AppStatus.Running -> {
+                    LearnedHostsEraseResult.ClearedAfterStop -> {
                         SettingsEffect.Notice(
                             title = R.string.notice_learned_hosts_cleared_next_start_title,
                             message =
@@ -199,7 +200,7 @@ internal class SettingsMaintenanceActions(
                         )
                     }
 
-                    else -> {
+                    LearnedHostsEraseResult.Cleared -> {
                         SettingsEffect.Notice(
                             title = R.string.notice_learned_hosts_cleared_title,
                             message = R.string.notice_learned_hosts_cleared_message,

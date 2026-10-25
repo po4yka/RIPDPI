@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.WarpPayloadGenCatalog
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
+import com.poyka.ripdpi.hosts.LearnedHostsEraser
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.StartOnBootController
 import com.poyka.ripdpi.platform.StringResolver
@@ -43,7 +44,7 @@ class SettingsActionDependencies
         val launcherIconController: LauncherIconController,
         val startOnBootController: StartOnBootController,
         val stringResolver: StringResolver,
-        val hostAutolearnStoreController: HostAutolearnStoreController,
+        val learnedHostsEraser: LearnedHostsEraser,
         val telemetrySaltStore: TelemetryInstallSaltStore,
         val strategyPackService: StrategyPackService,
         val pinVerifier: PinVerifier,
