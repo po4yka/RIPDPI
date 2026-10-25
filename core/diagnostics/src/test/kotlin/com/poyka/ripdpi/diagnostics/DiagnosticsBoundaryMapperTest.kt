@@ -9,13 +9,59 @@ import com.poyka.ripdpi.data.RawPathExecutionSettlement
 import com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome
 import com.poyka.ripdpi.data.RawPathRuntimeContext
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DiagnosticsBoundaryMapperTest {
+    @Test
+    fun `undecodable stored scan report maps to a session without a report`() {
+        val mapper = DiagnosticsBoundaryMapper(Json { ignoreUnknownKeys = true })
+
+        val session =
+            mapper.toDiagnosticScanSession(
+                ScanSessionEntity(
+                    id = "scan-legacy",
+                    profileId = "profile-1",
+                    pathMode = "RAW_PATH",
+                    serviceMode = null,
+                    status = "completed",
+                    summary = "Stored summary",
+                    reportJson = """{"schemaVersion":5,"sessionId":"scan-legacy"}""",
+                    startedAt = 1L,
+                    finishedAt = 2L,
+                ),
+            )
+
+        assertEquals("scan-legacy", session.id)
+        assertNull(session.report)
+    }
+
+    @Test
+    fun `undecodable stored profile request maps to a profile without a request`() {
+        val mapper = DiagnosticsBoundaryMapper(Json { ignoreUnknownKeys = true })
+
+        val profile =
+            mapper.toDiagnosticProfile(
+                DiagnosticProfileEntity(
+                    id = "profile-1",
+                    name = "Legacy",
+                    source = "bundled",
+                    version = 1,
+                    requestJson = """{"profileId":"profile-1"}""",
+                    updatedAt = 1L,
+                ),
+            )
+
+        assertEquals("profile-1", profile.id)
+        assertNull(profile.request)
+    }
+
     @Test
     fun `expected raw path settlement does not log a context decode warning`() {
         val json = Json { ignoreUnknownKeys = true }

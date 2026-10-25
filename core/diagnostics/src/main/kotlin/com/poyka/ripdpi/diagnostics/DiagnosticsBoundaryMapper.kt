@@ -281,7 +281,7 @@ private fun decodeScanProjection(
 ): DiagnosticsSessionProjection? =
     payload
         ?.takeIf { it.isNotBlank() }
-        ?.let { json.decodeStoredEngineScanReportWire(it).toSessionProjection() }
+        ?.let { decodeStoredOrNull("scan report") { json.decodeStoredEngineScanReportWire(it).toSessionProjection() } }
 
 private fun decodeProfileProjection(
     json: Json,
@@ -289,7 +289,17 @@ private fun decodeProfileProjection(
 ): com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection? =
     payload
         ?.takeIf { it.isNotBlank() }
-        ?.let { json.decodeProfileSpecWire(it).toProfileProjection() }
+        ?.let { decodeStoredOrNull("profile request") { json.decodeProfileSpecWire(it).toProfileProjection() } }
+
+// A stored row from another schema version, or a corrupt one, degrades to a missing projection
+// instead of failing the whole Room flow that maps it.
+private inline fun <T> decodeStoredOrNull(
+    label: String,
+    decode: () -> T,
+): T? =
+    runCatching(decode)
+        .onFailure { e -> Logger.w(e) { "Failed to decode stored diagnostics $label" } }
+        .getOrNull()
 
 private fun decodeStrategySignature(
     json: Json,
