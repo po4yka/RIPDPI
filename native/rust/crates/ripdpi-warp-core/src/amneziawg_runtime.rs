@@ -28,7 +28,7 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::sync::watch;
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
@@ -51,12 +51,48 @@ const TELEMETRY_SOURCE: &str = "amneziawg";
 /// Short under test, so the deadline itself is testable.
 const WS_CARRIER_CONNECT_TIMEOUT: Duration =
     if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(15) };
-/// Every task that can report a failure holds a sender until shutdown, so a
-/// closed failure channel means they all died.
 /// Bound on the wait for the peer's handshake response, so an unreachable
 /// peer fails the start instead of leaving it pending. Short under test.
 const HANDSHAKE_TIMEOUT: Duration = if cfg!(test) { Duration::from_millis(1_000) } else { Duration::from_secs(20) };
+/// Every supervised task reports its exit, a panic included, before it drops
+/// its sender, so a closed channel without a report is only a fallback.
 const TASKS_GONE: &str = "AmneziaWG tunnel tasks stopped";
+
+/// Sends a supervised task's exit message on the failure channel when the
+/// task ends for any reason: return, panic or abort. After shutdown starts,
+/// nothing reads the channel, so the reports from aborted tasks are ignored.
+struct ExitReport {
+    message: String,
+    failures: UnboundedSender<String>,
+}
+
+impl Drop for ExitReport {
+    fn drop(&mut self) {
+        let _ = self.failures.send(std::mem::take(&mut self.message));
+    }
+}
+
+/// Spawn a tunnel task whose exit is a runtime failure. The task may return
+/// a specific failure message; otherwise a generic one names the task.
+fn spawn_supervised<F>(tasks: &mut Vec<JoinHandle<()>>, failures: &UnboundedSender<String>, task: &str, future: F)
+where
+    F: Future<Output = Option<String>> + Send + 'static,
+{
+    let report = ExitReport { message: format!("AmneziaWG {task} task stopped"), failures: failures.clone() };
+    tasks.push(tokio::spawn(async move {
+        // Own the whole guard, so it drops when the task ends.
+        let mut report = report;
+        if let Some(message) = future.await {
+            report.message = message;
+        }
+    }));
+}
+
+fn interface_failure(protocol: &str, error: &anyhow::Error) -> String {
+    let message = format!("AmneziaWG {protocol} virtual interface stopped: {error}");
+    tracing::warn!("{message}");
+    message
+}
 
 enum RuntimePoll {
     Client(TcpStream),
@@ -502,47 +538,36 @@ impl AmneziaWgRuntime {
         let mtu = self.config.mtu.max(MIN_MTU) as usize;
 
         {
-            let tunnel = Arc::clone(&tunnel);
-            let bus = bus.clone();
-            let failure_tx = failure_tx.clone();
-            tasks.push(tokio::spawn(async move {
+            let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
+            spawn_supervised(&mut tasks, &failure_tx, "carrier receive", async move {
                 // A closed or broken carrier fails the runtime so its supervisor restarts it.
                 let message = format!("AmneziaWG carrier stopped: {}", tunnel.consume_task(bus).await);
                 tracing::warn!("{message}");
-                let _ = failure_tx.send(message);
-            }));
+                Some(message)
+            });
+        }
+        {
+            let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
+            spawn_supervised(&mut tasks, &failure_tx, "packet send", async move {
+                tunnel.produce_task(bus).await;
+                None
+            });
         }
         {
             let tunnel = Arc::clone(&tunnel);
-            let bus = bus.clone();
-            tasks.push(tokio::spawn(async move { tunnel.produce_task(bus).await }));
+            spawn_supervised(&mut tasks, &failure_tx, "timer", async move {
+                tunnel.routine_task().await;
+                None
+            });
         }
-        {
-            let tunnel = Arc::clone(&tunnel);
-            tasks.push(tokio::spawn(async move { tunnel.routine_task().await }));
-        }
-        {
-            let interface = DynamicTcpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
-            let failure_tx = failure_tx.clone();
-            tasks.push(tokio::spawn(async move {
-                if let Err(error) = interface.run().await {
-                    let message = format!("AmneziaWG TCP virtual interface stopped: {error}");
-                    tracing::warn!("{message}");
-                    let _ = failure_tx.send(message);
-                }
-            }));
-        }
-        {
-            let interface = DynamicUdpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
-            let failure_tx = failure_tx.clone();
-            tasks.push(tokio::spawn(async move {
-                if let Err(error) = interface.run().await {
-                    let message = format!("AmneziaWG UDP virtual interface stopped: {error}");
-                    tracing::warn!("{message}");
-                    let _ = failure_tx.send(message);
-                }
-            }));
-        }
+        let tcp = DynamicTcpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
+        spawn_supervised(&mut tasks, &failure_tx, "TCP interface", async move {
+            tcp.run().await.err().map(|error| interface_failure("TCP", &error))
+        });
+        let udp = DynamicUdpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
+        spawn_supervised(&mut tasks, &failure_tx, "UDP interface", async move {
+            udp.run().await.err().map(|error| interface_failure("UDP", &error))
+        });
         drop(failure_tx);
 
         // Arm the receive side first, then emit the AmneziaWG prelude and an
@@ -1029,6 +1054,23 @@ mod tests {
 
         assert_eq!(error.kind(), io::ErrorKind::TimedOut);
         assert_eq!(runtime.telemetry().ws_carrier_handshake_failures, 1, "the timeout counts as a carrier failure");
+    }
+
+    #[tokio::test]
+    async fn panicking_supervised_task_is_a_runtime_failure() {
+        let (failure_tx, mut failure_rx) = unbounded_channel();
+        let mut tasks = Vec::new();
+        spawn_supervised(&mut tasks, &failure_tx, "test", async { panic!("supervised task panic") });
+        spawn_supervised(&mut tasks, &failure_tx, "returning", async { Some("specific failure".to_string()) });
+        drop(failure_tx);
+
+        let mut reports = vec![failure_rx.recv().await, failure_rx.recv().await];
+        reports.sort();
+        assert_eq!(
+            reports,
+            [Some("AmneziaWG test task stopped".to_string()), Some("specific failure".to_string())],
+            "a panic must reach the failure channel like a returned failure"
+        );
     }
 
     #[tokio::test]
