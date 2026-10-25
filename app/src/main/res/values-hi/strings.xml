@@ -1470,7 +1470,6 @@ fakeddisorder endhost</string>
     <string name="dns_mode_section">मोड</string>
     <string name="dns_mode_doh">एन्क्रिप्टेड DNS</string>
     <string name="dns_mode_plain">सादा DNS</string>
-    <string name="dns_mode_helper">एन्क्रिप्टेड DNS, VPN के भीतर DNS को इंटरसेप्ट करता है और चुने गए एन्क्रिप्टेड प्रोटोकॉल के माध्यम से उसे हल करता है। सादा DNS नीचे दिए गए IP पते का सीधे उपयोग करता है।</string>
     <string name="dns_mode_encrypted_body">VPN के भीतर DNS को इंटरसेप्ट करें और चयनित एन्क्रिप्टेड प्रोटोकॉल से हल करें।</string>
     <string name="dns_mode_plain_body">एन्क्रिप्टेड इंटरसेप्शन या बूटस्ट्रैप सेटअप के बिना DNS को सीधे रिज़ॉल्वर IP पर भेजें।</string>
     <string name="dns_protocol_section">एन्क्रिप्टेड प्रोटोकॉल</string>
@@ -1516,8 +1515,8 @@ fakeddisorder endhost</string>
     <string name="dns_active_detail_bootstrap">बूटस्ट्रैप</string>
     <string name="dns_active_detail_route">टनल रूट</string>
     <string name="dns_active_bootstrap_not_required">सादा DNS मोड में आवश्यक नहीं</string>
-    <string name="dns_active_route_encrypted_vpn">स्थानीय VPN मोड में मैप्ड DNS इंटरसेप्शन सक्रिय है।</string>
-    <string name="dns_active_route_plain_vpn">स्थानीय VPN मोड में क्वेरी सीधे इस रिज़ॉल्वर IP पर जाती हैं।</string>
+    <string name="dns_active_route_encrypted_vpn">VPN चलने के दौरान DNS इंटरसेप्ट किया जाता है।</string>
+    <string name="dns_active_route_plain_vpn">VPN चलने के दौरान क्वेरी सीधे इस रिज़ॉल्वर IP पर जाती हैं।</string>
     <string name="dns_active_route_saved">स्थानीय प्रॉक्सी के लक्ष्य नाम हल करता है। डिवाइस DNS नहीं बदलता।</string>
     <string name="dns_proxy_banner_title">प्रॉक्सी मोड सक्रिय है</string>
     <string name="dns_save_in_progress">DNS सेटिंग सहेजी जा रही हैं। फिर से प्रयास करें।</string>
@@ -1536,7 +1535,6 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_quad9_body">खतरा अवरोधन के साथ सुरक्षा-केंद्रित सार्वजनिक रिज़ॉल्वर।</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">विज्ञापन और ट्रैकर अवरोधन पर ज़ोर देने वाला सार्वजनिक रिज़ॉल्वर।</string>
-    <string name="dns_resolver_catalog_generic_body">DNS over HTTPS के माध्यम से एन्क्रिप्टेड।</string>
     <string name="title_app_customization">ऐप आइकन</string>
     <string name="save_logs">लॉग सहेजें</string>
     <string name="logs_clear">साफ़ करें</string>

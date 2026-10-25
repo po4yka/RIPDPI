@@ -2828,7 +2828,6 @@ app:dns_custom_tls_server_name_label
 app:dns_ipv6_helper
 app:dns_mode_doh
 app:dns_mode_encrypted_body
-app:dns_mode_helper
 app:dns_mode_plain
 app:dns_mode_plain_body
 app:dns_mode_section
@@ -2855,7 +2854,6 @@ app:dns_proxy_banner_body
 app:dns_proxy_banner_title
 app:dns_resolver_adguard_body
 app:dns_resolver_adguard_title
-app:dns_resolver_catalog_generic_body
 app:dns_resolver_cloudflare_body
 app:dns_resolver_cloudflare_title
 app:dns_resolver_google_body

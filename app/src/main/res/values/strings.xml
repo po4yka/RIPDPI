@@ -1497,7 +1497,6 @@ fakeddisorder endhost</string>
     <string name="dns_mode_section">Mode</string>
     <string name="dns_mode_doh">Encrypted DNS</string>
     <string name="dns_mode_plain">Plain DNS</string>
-    <string name="dns_mode_helper">Encrypted DNS intercepts DNS inside the VPN and resolves it through the selected encrypted protocol. Plain DNS uses the IP address below directly.</string>
     <string name="dns_mode_encrypted_body">Intercept DNS inside the VPN and resolve it through the selected encrypted protocol.</string>
     <string name="dns_mode_plain_body">Send DNS directly to the resolver IP without encrypted interception or bootstrap setup.</string>
     <string name="dns_protocol_section">Encrypted protocol</string>
@@ -1545,8 +1544,8 @@ fakeddisorder endhost</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
     <string name="dns_active_detail_route">Tunnel route</string>
     <string name="dns_active_bootstrap_not_required">Not required in plain DNS mode</string>
-    <string name="dns_active_route_encrypted_vpn">Mapped DNS interception is active in local VPN mode.</string>
-    <string name="dns_active_route_plain_vpn">Queries go directly to this resolver IP in local VPN mode.</string>
+    <string name="dns_active_route_encrypted_vpn">DNS is intercepted while the VPN runs.</string>
+    <string name="dns_active_route_plain_vpn">While the VPN runs, queries go directly to this resolver IP.</string>
     <string name="dns_active_route_saved">Resolves names handled by the local proxy. Device DNS is unchanged.</string>
     <string name="dns_proxy_banner_title">Proxy mode is active</string>
     <string name="dns_save_in_progress">DNS settings are being saved. Try again.</string>
@@ -1565,7 +1564,6 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_quad9_body">Security-focused public resolver with threat blocking.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">Public resolver that emphasizes ad and tracker blocking.</string>
-    <string name="dns_resolver_catalog_generic_body">Encrypted DNS over HTTPS.</string>
     <string name="title_app_customization">App icon</string>
     <string name="save_logs">Save logs</string>
     <string name="logs_clear">Clear</string>

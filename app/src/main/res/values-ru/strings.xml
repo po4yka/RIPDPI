@@ -1062,7 +1062,6 @@ fakeddisorder endhost</string>
     <string name="dns_mode_section">Режим</string>
     <string name="dns_mode_doh">Зашифрованный DNS</string>
     <string name="dns_mode_plain">Обычный DNS</string>
-    <string name="dns_mode_helper">Зашифрованный DNS перехватывает DNS-запросы внутри VPN и разрешает их через выбранный зашифрованный протокол. Обычный DNS напрямую использует указанный IP-адрес.</string>
     <string name="dns_mode_encrypted_body">Перехватывать DNS внутри VPN и разрешать через выбранный зашифрованный протокол.</string>
     <string name="dns_mode_plain_body">Отправлять DNS-запросы напрямую на IP-адрес резолвера без зашифрованного перехвата или дополнительной настройки.</string>
     <string name="dns_protocol_section">Зашифрованный протокол</string>
@@ -1108,8 +1107,8 @@ fakeddisorder endhost</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
     <string name="dns_active_detail_route">Маршрут туннеля</string>
     <string name="dns_active_bootstrap_not_required">Не требуется в режиме обычного DNS</string>
-    <string name="dns_active_route_encrypted_vpn">Перехват DNS с маппингом активен в режиме локального VPN.</string>
-    <string name="dns_active_route_plain_vpn">Запросы идут напрямую на IP этого резолвера в режиме локального VPN.</string>
+    <string name="dns_active_route_encrypted_vpn">DNS перехватывается, пока работает VPN.</string>
+    <string name="dns_active_route_plain_vpn">Пока работает VPN, запросы идут напрямую на IP этого резолвера.</string>
     <string name="dns_active_route_saved">Разрешает имена, обрабатываемые локальным прокси. DNS устройства не меняется.</string>
     <string name="dns_proxy_banner_title">Режим прокси активен</string>
     <string name="dns_save_in_progress">Настройки DNS сохраняются. Повторите попытку.</string>
@@ -1128,7 +1127,6 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_quad9_body">Публичный резолвер с акцентом на безопасность и блокировкой угроз.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">Публичный резолвер с упором на блокировку рекламы и трекеров.</string>
-    <string name="dns_resolver_catalog_generic_body">Шифрованный DNS поверх HTTPS.</string>
     <string name="title_app_customization">Значок приложения</string>
     <string name="save_logs">Сохранить логи</string>
     <string name="logs_clear">Очистить</string>

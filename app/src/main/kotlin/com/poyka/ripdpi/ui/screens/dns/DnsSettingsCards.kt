@@ -347,12 +347,14 @@ internal fun DnsResolverCard(
                     color = colors.foreground,
                 )
             }
-            Text(
-                text = resolverBody,
-                modifier = Modifier.width(IntrinsicSize.Max),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
+            if (resolverBody.isNotEmpty()) {
+                Text(
+                    text = resolverBody,
+                    modifier = Modifier.width(IntrinsicSize.Max),
+                    style = type.body,
+                    color = colors.mutedForeground,
+                )
+            }
             if (resolver.jurisdictionRu) {
                 Text(
                     text = stringResource(R.string.detection_dns_provider_jurisdiction_ru_warning),

@@ -14,8 +14,8 @@ internal const val dnsPortWeightFraction = 0.4f
 /**
  * One row in the primary VPN DNS picker. Curated rows carry localized [titleRes]/[descriptionRes];
  * catalog-derived rows instead carry the provider's proper name in [title] (proper names are not
- * translated) and reuse a generic [descriptionRes]. [jurisdictionRu] drives the RU-jurisdiction
- * caption rendered below the description.
+ * translated) and no description. [jurisdictionRu] drives the RU-jurisdiction caption rendered
+ * below the description.
  */
 internal data class DnsResolverOption(
     val providerId: String,
@@ -91,9 +91,10 @@ private val curatedResolverOptions =
 
 /**
  * The full resolver picker: the four curated rows followed by every other DoH-capable bundled
- * catalog provider. Catalog-derived rows carry the provider's proper name (not translated) and a
- * generic localized description. A selection persists because the prior data layer's
- * `dnsProviderById` falls back to the bundled catalog for catalog-only ids.
+ * catalog provider. Catalog-derived rows carry the provider's proper name (not translated) and
+ * no description, because a generic one would repeat the DoH badge on every row. A selection
+ * persists because the prior data layer's `dnsProviderById` falls back to the bundled catalog for
+ * catalog-only ids.
  */
 internal val resolverOptions: List<DnsResolverOption> =
     curatedResolverOptions +
@@ -110,7 +111,6 @@ internal val resolverOptions: List<DnsResolverOption> =
                     dohUrl = entry.dohUrl,
                     bootstrapIps = entry.bootstrapIps.toImmutableList(),
                     title = entry.name,
-                    descriptionRes = R.string.dns_resolver_catalog_generic_body,
                     jurisdictionRu = entry.rf.jurisdictionRu,
                 )
             }

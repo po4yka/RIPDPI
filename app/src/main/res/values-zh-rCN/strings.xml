@@ -1256,7 +1256,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_telegram_error">错误</string>
     <string name="diagnostics_telegram_upload">上传</string>
     <string name="dns_active_bootstrap_not_required">明文 DNS 模式下不需要</string>
-    <string name="dns_active_route_encrypted_vpn">本地 VPN 模式下已激活映射 DNS 拦截。</string>
+    <string name="dns_active_route_encrypted_vpn">VPN 运行期间会拦截 DNS。</string>
     <string name="dns_custom_body">为本地 VPN 路径设置特定的解析器地址,并将其存储在此设备上。</string>
     <string name="dns_custom_dnscrypt_body">通过指定端点、提供商名称、公钥和引导 IP 使用 DNSCrypt 解析器。</string>
     <string name="dns_custom_dnscrypt_public_key_error">请输入有效的 64 字符十六进制公钥。</string>
@@ -1265,7 +1265,6 @@ fakeddisorder endhost</string>
     <string name="dns_custom_dot_tls_helper">TLS 证书验证期间使用的服务器名。</string>
     <string name="dns_custom_section_body">当您需要自己的端点、主机名、TLS 名称或 DNSCrypt 凭据时,请使用自定义字段。</string>
     <string name="dns_custom_tls_server_name_label">TLS 服务器名</string>
-    <string name="dns_mode_helper">加密 DNS 在 VPN 内拦截 DNS,并通过所选加密协议解析。明文 DNS 直接使用下方的 IP 地址。</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>
     <string name="dns_protocol_dnscrypt_body">带提供商名称和公钥验证的 DNSCrypt。仅用于自定义解析器。</string>
@@ -1817,7 +1816,7 @@ fake_burst 3</string>
     <string name="diagnostics_telegram_peak_speed">峰值速度</string>
     <string name="diagnostics_warn_notification_permission">通知权限已禁用,因此可能更难注意到服务问题。</string>
     <string name="dns_active_detail_bootstrap">引导</string>
-    <string name="dns_active_route_plain_vpn">在本地 VPN 模式下,查询直接发送到此解析器 IP。</string>
+    <string name="dns_active_route_plain_vpn">VPN 运行期间，查询直接发送到此解析器 IP。</string>
     <string name="dns_custom_bootstrap_error">请输入一个或多个引导 IP 地址。请勿使用回环地址或未指定地址。</string>
     <string name="dns_custom_save_requirements_hint">请填写所有必填字段以保存</string>
     <string name="dns_custom_dnscrypt_host_helper">DNSCrypt 服务器的主机名或 IP。</string>
@@ -2376,7 +2375,6 @@ fake_burst 3</string>
     <string name="dns_protocol_doh_body">最佳默认工作流。已内置 Cloudflare、Google、Quad9 和 AdGuard 配置,可直接使用。</string>
     <string name="dns_protocol_helper">选择 RIPDPI 应当用于 VPN DNS 拦截和诊断的加密 DNS 传输方式。</string>
     <string name="dns_resolver_adguard_body">侧重广告和跟踪器拦截的公共解析器。</string>
-    <string name="dns_resolver_catalog_generic_body">基于 HTTPS 的加密 DNS。</string>
     <string name="dns_resolver_quad9_title">Quad9</string>
     <string name="fake_order_card_body">无需编辑完整链 DSL,即可控制主伪族步骤中伪段与真实段的交错方式。</string>
     <string name="fake_order_card_order_title">发射顺序</string>

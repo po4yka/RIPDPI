@@ -1474,7 +1474,6 @@ fakeddisorder endhost</string>
     <string name="dns_mode_section">Modo</string>
     <string name="dns_mode_doh">DNS criptografado</string>
     <string name="dns_mode_plain">DNS simples</string>
-    <string name="dns_mode_helper">O DNS criptografado intercepta o DNS dentro da VPN e o resolve pelo protocolo criptografado selecionado. O DNS simples usa diretamente o endereço IP abaixo.</string>
     <string name="dns_mode_encrypted_body">Intercepta o DNS dentro da VPN e o resolve pelo protocolo criptografado selecionado.</string>
     <string name="dns_mode_plain_body">Envia o DNS diretamente ao IP do resolvedor, sem intercepção criptografada nem configuração de bootstrap.</string>
     <string name="dns_protocol_section">Protocolo criptografado</string>
@@ -1520,8 +1519,8 @@ fakeddisorder endhost</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
     <string name="dns_active_detail_route">Rota do túnel</string>
     <string name="dns_active_bootstrap_not_required">Não necessário no modo DNS simples</string>
-    <string name="dns_active_route_encrypted_vpn">A intercepção de DNS mapeada está ativa no modo VPN local.</string>
-    <string name="dns_active_route_plain_vpn">As consultas vão diretamente a este IP de resolvedor no modo VPN local.</string>
+    <string name="dns_active_route_encrypted_vpn">O DNS é interceptado enquanto a VPN está em execução.</string>
+    <string name="dns_active_route_plain_vpn">Enquanto a VPN está em execução, as consultas vão diretamente a este IP de resolvedor.</string>
     <string name="dns_active_route_saved">Resolve nomes tratados pelo proxy local. O DNS do dispositivo não muda.</string>
     <string name="dns_proxy_banner_title">O modo proxy está ativo</string>
     <string name="dns_save_in_progress">As configurações de DNS estão sendo salvas. Tente novamente.</string>
@@ -1540,7 +1539,6 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_quad9_body">Resolvedor público focado em segurança, com bloqueio de ameaças.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">Resolvedor público que prioriza o bloqueio de anúncios e rastreadores.</string>
-    <string name="dns_resolver_catalog_generic_body">DNS criptografado sobre HTTPS.</string>
     <string name="title_app_customization">Ícone do app</string>
     <string name="save_logs">Salvar logs</string>
     <string name="logs_clear">Limpar</string>

@@ -2014,7 +2014,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_telegram_transferred">منتقل‌شده</string>
     <string name="diagnostics_warn_power_restriction">محدودیت‌های انرژی یا پس‌زمینه ممکن است در تشخیص پایدار اختلال ایجاد کنند.</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
-    <string name="dns_active_route_encrypted_vpn">رهگیری DNS نگاشت‌شده در حالت VPN محلی فعال است.</string>
+    <string name="dns_active_route_encrypted_vpn">تا وقتی VPN در حال اجراست، DNS رهگیری می‌شود.</string>
     <string name="dns_active_section_title">resolver فعال</string>
     <string name="dns_custom_bootstrap_helper">یک یا چند IP resolver را با کاما یا فاصله جدا شده وارد کنید.</string>
     <string name="dns_custom_dnscrypt_host_helper">نام میزبان یا IP برای سرور DNSCrypt.</string>
@@ -2026,7 +2026,6 @@ fakeddisorder endhost</string>
     <string name="dns_custom_port_label">پورت</string>
     <string name="dns_custom_switch_hint">این فرم را ذخیره کنید تا پروفایل داخلی فعلی با یک نقطه‌پایانی سفارشی جایگزین شود.</string>
     <string name="dns_ipv6_helper">به سازنده VPN محلی اجازه دهید زمانی که شبکه انتخاب‌شده از آن پشتیبانی می‌کند، مسیریابی DNS IPv6 را شامل شود.</string>
-    <string name="dns_mode_helper">DNS رمزگذاری‌شده DNS را داخل VPN رهگیری می‌کند و آن را از طریق پروتکل رمزگذاری‌شده انتخاب‌شده حل می‌کند. DNS ساده آدرس IP زیر را مستقیماً استفاده می‌کند.</string>
     <string name="dns_mode_section">حالت</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_protocol_dnscrypt_body">DNSCrypt با اعتبارسنجی provider-name و کلید عمومی. این را فقط برای resolverهای سفارشی استفاده کنید.</string>
@@ -2437,7 +2436,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_telegram_upload">آپلود</string>
     <string name="diagnostics_warn_vpn_permission">مجوز VPN در حال حاضر اعطا نشده است.</string>
     <string name="dns_active_detail_endpoint">نقطه پایانی</string>
-    <string name="dns_active_route_plain_vpn">در حالت VPN محلی، پرس‌وجوها مستقیماً به IP این تحلیل‌گر می‌روند.</string>
+    <string name="dns_active_route_plain_vpn">تا وقتی VPN در حال اجراست، پرس‌وجوها مستقیماً به IP این تحلیل‌گر می‌روند.</string>
     <string name="dns_custom_body">یک نشانی تحلیل‌گر مشخص برای مسیر VPN محلی تنظیم کنید و آن را روی این دستگاه نگه دارید.</string>
     <string name="dns_custom_bootstrap_label">IPهای Bootstrap</string>
     <string name="dns_custom_dnscrypt_provider_helper">نام ارائه‌دهنده گواهی که توسط تحلیل‌گر DNSCrypt اعلام می‌شود.</string>
@@ -2457,7 +2456,6 @@ fakeddisorder endhost</string>
     <string name="dns_protocol_dot_body">DNS-over-TLS روی پورت 853. مناسب وقتی شما نام میزبان و نام سرور TLS را کنترل می‌کنید.</string>
     <string name="dns_protocol_section">پروتکل رمزنگاری‌شده</string>
     <string name="dns_resolver_adguard_body">تحلیل‌گر عمومی که بر مسدودسازی تبلیغات و ردیاب‌ها تأکید می‌کند.</string>
-    <string name="dns_resolver_catalog_generic_body">DNS رمزگذاری‌شده روی HTTPS.</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
     <string name="dns_resolver_google_title">Google Public DNS</string>
     <string name="dns_resolvers_section">تحلیل‌گرها</string>

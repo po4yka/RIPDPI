@@ -1468,7 +1468,6 @@ fakeddisorder endhost</string>
     <string name="dns_mode_section">الوضع</string>
     <string name="dns_mode_doh">DNS مشفّر</string>
     <string name="dns_mode_plain">DNS عادي</string>
-    <string name="dns_mode_helper">يعترض DNS المشفّر حركة DNS داخل VPN ويحلّها عبر البروتوكول المشفّر المحدد. يستخدم DNS العادي عنوان IP أدناه مباشرةً.</string>
     <string name="dns_mode_encrypted_body">اعتراض DNS داخل VPN وتحليله عبر البروتوكول المشفر المحدد.</string>
     <string name="dns_mode_plain_body">إرسال DNS مباشرةً إلى IP المحلل دون اعتراض مشفّر أو إعداد bootstrap.</string>
     <string name="dns_protocol_section">البروتوكول المشفّر</string>
@@ -1514,8 +1513,8 @@ fakeddisorder endhost</string>
     <string name="dns_active_detail_bootstrap">التمهيد</string>
     <string name="dns_active_detail_route">مسار النفق</string>
     <string name="dns_active_bootstrap_not_required">غير مطلوب في وضع DNS العادي</string>
-    <string name="dns_active_route_encrypted_vpn">اعتراض DNS المعيَّن نشط في وضع VPN المحلي.</string>
-    <string name="dns_active_route_plain_vpn">تتوجَّه الاستعلامات مباشرةً إلى عنوان IP هذا للمحلِّل في وضع VPN المحلي.</string>
+    <string name="dns_active_route_encrypted_vpn">يُعترَض DNS ما دام VPN يعمل.</string>
+    <string name="dns_active_route_plain_vpn">ما دام VPN يعمل، تتوجَّه الاستعلامات مباشرةً إلى عنوان IP هذا للمحلِّل.</string>
     <string name="dns_active_route_saved">يحل الأسماء التي يعالجها الوكيل المحلي. يظل DNS الجهاز دون تغيير.</string>
     <string name="dns_proxy_banner_title">وضع الوكيل نشط</string>
     <string name="dns_save_in_progress">جارٍ حفظ إعدادات DNS. حاول مرة أخرى.</string>
@@ -1534,7 +1533,6 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_quad9_body">محلِّل عام يركِّز على الأمان مع حجب التهديدات.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">محلِّل عام يُركِّز على حجب الإعلانات وأدوات التتبُّع.</string>
-    <string name="dns_resolver_catalog_generic_body">DNS مشفّر عبر HTTPS.</string>
     <string name="title_app_customization">أيقونة التطبيق</string>
     <string name="save_logs">حفظ السجلات</string>
     <string name="logs_clear">مسح</string>

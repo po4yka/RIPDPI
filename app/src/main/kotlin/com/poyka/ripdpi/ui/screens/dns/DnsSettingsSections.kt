@@ -44,16 +44,9 @@ internal fun DnsModeSection(
     uiState: SettingsUiState,
     onModeSelected: (String) -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = stringResource(R.string.dns_mode_section))
-        Text(
-            text = stringResource(R.string.dns_mode_helper),
-            style = type.body,
-            color = colors.mutedForeground,
-        )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             DnsOptionCard(
                 icon = RipDpiIcons.Lock,
@@ -152,10 +145,8 @@ internal fun DnsResolverCatalogSection(
     uiState: SettingsUiState,
     onResolverSelected: (DnsResolverOption) -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     AnimatedVisibility(
         visible =
             uiState.dns.dnsMode == DnsModeEncrypted &&
@@ -165,11 +156,6 @@ internal fun DnsResolverCatalogSection(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
             SettingsCategoryHeader(title = stringResource(R.string.dns_resolvers_section))
-            Text(
-                text = stringResource(R.string.dns_protocol_doh_body),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 resolverOptions.forEach { resolver ->
                     DnsResolverCard(
