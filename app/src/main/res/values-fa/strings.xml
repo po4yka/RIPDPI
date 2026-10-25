@@ -780,7 +780,7 @@
     <string name="config_relay_udp">فعال‌سازی رلهٔ UDP</string>
     <string name="config_relay_local_port">پورت SOCKS رلهٔ محلی</string>
     <string name="config_relay_local_port_helper">پراکسی اصلی RIPDPI به این شنوندهٔ loopback متصل می‌شود.</string>
-    <string name="config_port_helper">محدودهٔ پذیرفته‌شده از اعتبارسنجی پورت سرویس فعلی پیروی می‌کند.</string>
+    <string name="config_port_helper">یک پورت از %1$d تا %2$d وارد کنید.</string>
     <string name="config_max_connections_helper">حد بالای نشست‌های محلی همزمان.</string>
     <string name="config_buffer_helper">اندازهٔ بافر سوکت به بایت.</string>
     <string name="config_default_ttl_helper">برای استفاده از پیش‌فرض موتور، خالی بگذارید.</string>

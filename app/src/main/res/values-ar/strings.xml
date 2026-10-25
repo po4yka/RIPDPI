@@ -776,7 +776,7 @@
     <string name="config_relay_udp">تفعيل ترحيل UDP</string>
     <string name="config_relay_local_port">منفذ SOCKS المحلي للترحيل</string>
     <string name="config_relay_local_port_helper">يتصل الوكيل الرئيسي لـ RIPDPI بمستمع loopback هذا.</string>
-    <string name="config_port_helper">النطاق المقبول يتبع التحقق من صحة منفذ الخدمة الحالي.</string>
+    <string name="config_port_helper">استخدم منفذًا من %1$d إلى %2$d.</string>
     <string name="config_max_connections_helper">الحد الأقصى للجلسات المحلية المتزامنة.</string>
     <string name="config_buffer_helper">حجم مخزن المقبس بالبايت.</string>
     <string name="config_default_ttl_helper">اتركه فارغاً لاستخدام الإعداد الافتراضي للمحرك.</string>

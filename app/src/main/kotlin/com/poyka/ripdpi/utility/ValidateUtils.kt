@@ -25,9 +25,10 @@ private const val Ipv4OctetCount = 4
 private const val MaxIpv4Digits = 3
 private const val MaxIpv4Octet = 255
 
-private const val MaxPortNumber = 65535
+const val MinPortNumber = 1
+const val MaxPortNumber = 65535
 
-fun validatePort(value: String): Boolean = value.toIntOrNull()?.let { it in 1..MaxPortNumber } ?: false
+fun validatePort(value: String): Boolean = value.toIntOrNull()?.let { it in MinPortNumber..MaxPortNumber } ?: false
 
 fun validateIntRange(
     value: String,

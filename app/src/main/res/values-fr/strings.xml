@@ -1664,7 +1664,7 @@ Source : %2$s</string>
     <string name="config_mode_summary">Chemin de routage VPN local ou proxy</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
-    <string name="config_port_helper">La plage acceptée suit la validation actuelle du port de service.</string>
+    <string name="config_port_helper">Utilisez un port de %1$d à %2$d.</string>
     <string name="config_preset_recommended_body">Profil recommandé pour la plupart des réseaux. Conserve le chemin VPN local et un réglage RIPDPI sûr.</string>
     <string name="config_relay_chain_entry_port">Port du saut d\'entrée</string>
     <string name="config_relay_chain_entry_uuid">UUID du saut d\'entrée</string>

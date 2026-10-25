@@ -40,6 +40,8 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.utility.MaxPortNumber
+import com.poyka.ripdpi.utility.MinPortNumber
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
@@ -393,7 +395,7 @@ private fun ProxyPortSetting(
 ) {
     AdvancedTextSetting(
         title = stringResource(R.string.ripdpi_proxy_port_setting),
-        description = stringResource(R.string.config_port_helper),
+        description = stringResource(R.string.config_port_helper, MinPortNumber, MaxPortNumber),
         value = uiState.proxy.proxyPort.toString(),
         placeholder = stringResource(R.string.config_placeholder_proxy_port),
         enabled = visualEditorEnabled,

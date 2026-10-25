@@ -622,6 +622,7 @@ app:config_import_certificate_failed
 app:config_import_pkcs12_failed
 app:config_import_private_key_failed
 app:config_listen_address_summary
+app:config_listener_section
 app:config_local_bypass_disabled
 app:config_local_bypass_enabled
 app:config_local_bypass_precedence_body

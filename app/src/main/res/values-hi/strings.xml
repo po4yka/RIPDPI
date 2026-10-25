@@ -778,7 +778,7 @@
     <string name="config_relay_udp">UDP रिले सक्षम करें</string>
     <string name="config_relay_local_port">स्थानीय रिले SOCKS पोर्ट</string>
     <string name="config_relay_local_port_helper">मुख्य RIPDPI प्रॉक्सी इस लूपबैक लिसनर से चेन होता है।</string>
-    <string name="config_port_helper">स्वीकृत श्रेणी वर्तमान सेवा पोर्ट सत्यापन के अनुसार होती है।</string>
+    <string name="config_port_helper">%1$d से %2$d तक का पोर्ट इस्तेमाल करें।</string>
     <string name="config_max_connections_helper">समवर्ती स्थानीय सत्रों की ऊपरी सीमा।</string>
     <string name="config_buffer_helper">बाइट्स में सॉकेट बफ़र आकार।</string>
     <string name="config_default_ttl_helper">इंजन डिफ़ॉल्ट उपयोग करने के लिए खाली छोड़ दें।</string>

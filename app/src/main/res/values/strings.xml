@@ -798,7 +798,7 @@
     <string name="config_relay_udp">Enable UDP relay</string>
     <string name="config_relay_local_port">Local relay SOCKS port</string>
     <string name="config_relay_local_port_helper">The main RIPDPI proxy chains to this loopback listener.</string>
-    <string name="config_port_helper">Accepted range follows the current service port validation.</string>
+    <string name="config_port_helper">Use a port from %1$d to %2$d.</string>
     <string name="config_max_connections_helper">Upper bound for concurrent local sessions.</string>
     <string name="config_buffer_helper">Socket buffer size in bytes.</string>
     <string name="config_default_ttl_helper">Leave empty to use the engine default.</string>

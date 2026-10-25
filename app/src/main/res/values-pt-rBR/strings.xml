@@ -781,7 +781,7 @@
     <string name="config_relay_udp">Ativar retransmissão UDP</string>
     <string name="config_relay_local_port">Porta SOCKS do retransmissor local</string>
     <string name="config_relay_local_port_helper">O proxy principal do RIPDPI encadeia o tráfego para este listener de loopback.</string>
-    <string name="config_port_helper">O intervalo aceito segue a validação atual da porta do serviço.</string>
+    <string name="config_port_helper">Use uma porta de %1$d a %2$d.</string>
     <string name="config_max_connections_helper">Limite superior de sessões locais simultâneas.</string>
     <string name="config_buffer_helper">Tamanho do buffer de socket em bytes.</string>
     <string name="config_default_ttl_helper">Deixe vazio para usar o padrão do engine.</string>

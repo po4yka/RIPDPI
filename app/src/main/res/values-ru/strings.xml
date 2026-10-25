@@ -532,7 +532,7 @@
     <string name="config_dns_disabled_helper">Переопределение DNS применяется только в локальном режиме VPN.</string>
     <string name="config_listen_address_summary">Адрес привязки локального прокси</string>
     <string name="config_proxy_helper">Адрес привязки локального прокси-слушателя.</string>
-    <string name="config_port_helper">Допустимый диапазон определяется текущей проверкой порта сервиса.</string>
+    <string name="config_port_helper">Укажите порт от %1$d до %2$d.</string>
     <string name="config_max_connections_helper">Максимальное число одновременных локальных сессий.</string>
     <string name="config_buffer_helper">Размер буфера сокета в байтах.</string>
     <string name="config_default_ttl_summary">Переопределение TTL для исходящих пакетов</string>

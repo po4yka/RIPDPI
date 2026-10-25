@@ -48,6 +48,8 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
+import com.poyka.ripdpi.utility.MaxPortNumber
+import com.poyka.ripdpi.utility.MinPortNumber
 
 @Composable
 internal fun ModeEditorBottomBar(
@@ -154,12 +156,8 @@ private fun ModeEditorRecoveryPersistenceBanner(uiState: ConfigUiState) {
 private fun ModeEditorIntroCard(uiState: ConfigUiState) {
     val colors = RipDpiThemeTokens.colors
 
+    // The top app bar already names the screen, so the card carries only the explanation.
     RipDpiCard {
-        Text(
-            text = stringResource(R.string.config_editor_title),
-            style = RipDpiThemeTokens.type.screenTitle,
-            color = colors.foreground,
-        )
         Text(
             text =
                 stringResource(
@@ -244,6 +242,9 @@ private fun ModeEditorNetworkSection(
                 style = RipDpiThemeTokens.type.body,
                 color = colors.mutedForeground,
             )
+        }
+        SettingsCategoryHeader(title = stringResource(R.string.config_listener_section))
+        RipDpiCard {
             RipDpiTextField(
                 value = draft.proxyIp,
                 onValueChange = actions.onProxyIpChanged,
@@ -263,7 +264,7 @@ private fun ModeEditorNetworkSection(
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.ripdpi_proxy_port_setting),
                         placeholder = stringResource(R.string.config_placeholder_proxy_port),
-                        helperText = stringResource(R.string.config_port_helper),
+                        helperText = stringResource(R.string.config_port_helper, MinPortNumber, MaxPortNumber),
                         errorText = validationMessage(uiState.validationErrors[ConfigFieldProxyPort]),
                         testTag = RipDpiTestTags.ModeEditorProxyPort,
                     ),
