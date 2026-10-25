@@ -148,6 +148,7 @@ impl WarpRuntime {
                     // defaults to 25 when omitted, preserving WARP's pin.
                     preshared_key: self.config.amnezia.preshared_key_opt(),
                     persistent_keepalive: self.config.amnezia.persistent_keepalive_opt(),
+                    persistent_keepalive_max: None,
                     endpoint,
                     reserved,
                     source_peer_ip,

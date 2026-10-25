@@ -35,7 +35,8 @@
 // # Reference
 //
 // Handshake MAC and padding semantics use `amneziawg-go` v0.2.18.
-// Header ranges and signature programs use v3.1.20260828, implemented in awg_profile:
+// Header ranges and signature programs use v3.1.20260828, implemented in awg_profile;
+// the 3.x envelope (header protection, trailers, content padding) lives in awg_v3:
 //   * `device/peer.go`, `device/send.go` -- `junkPacketCount` (Jc) junk
 //     packets, each sized uniformly in `[Jmin, Jmax]`, sent before the
 //     real initiation.
@@ -52,6 +53,7 @@
 // keepalive could not occur here regardless of the upstream pin.
 
 use crate::awg_profile::{HeaderRange, SignatureProgram, WIRE_PROFILE};
+use crate::awg_v3::{AwgV3Params, UdpWindow};
 use crate::config::WarpAmneziaConfig;
 use blake2::digest::consts::U16;
 use blake2::digest::{Digest, KeyInit as Blake2KeyInit, Mac};
@@ -131,6 +133,17 @@ pub(crate) enum AwgParamsError {
     InvalidSignature {
         index: usize,
     },
+    /// `HeaderProtectionKey` is not a base64 32-byte key. The value is never echoed.
+    InvalidHeaderProtectionKey,
+    /// Header protection takes its nonce from the first 12 `S` prefix bytes of every message type.
+    HeaderProtectionPaddingTooSmall {
+        index: usize,
+        value: u32,
+    },
+    /// A 3.x range key is not `lo` or `lo-hi` with `lo <= hi <= 65535`.
+    InvalidRange {
+        name: &'static str,
+    },
 }
 
 impl std::fmt::Display for AwgParamsError {
@@ -161,6 +174,18 @@ impl std::fmt::Display for AwgParamsError {
             }
             Self::InvalidSignature { index } => {
                 write!(f, "AmneziaWG i{} is not a supported signature program", index + 1)
+            }
+            Self::InvalidHeaderProtectionKey => {
+                write!(f, "AmneziaWG HeaderProtectionKey must be a base64 32-byte key")
+            }
+            Self::HeaderProtectionPaddingTooSmall { index, value } => write!(
+                f,
+                "AmneziaWG header protection requires S{} >= {} (got {value})",
+                index + 1,
+                crate::awg_v3::HEADER_NONCE_SIZE
+            ),
+            Self::InvalidRange { name } => {
+                write!(f, "AmneziaWG {name} must be a decimal value or lo-hi range up to 65535")
             }
         }
     }
@@ -197,6 +222,8 @@ pub(crate) struct AwgParams {
     size_padding: [u32; WG_MESSAGE_TYPE_COUNT],
     /// `I1..I5` compiled signature programs. `None` means the slot is unused.
     special_junk: [Option<SignatureProgram>; SPECIAL_JUNK_SLOTS],
+    /// AmneziaWG 3.x envelope knobs; all off for 1.x/2.0 configs.
+    v3: AwgV3Params,
 }
 
 impl AwgParams {
@@ -284,6 +311,7 @@ impl AwgParams {
                 Some(SignatureProgram::parse(program).ok_or(AwgParamsError::InvalidSignature { index })?);
         }
 
+        let v3 = AwgV3Params::from_config(cfg, &size_padding)?;
         Ok(Self {
             junk_packet_count,
             junk_packet_min_size,
@@ -291,6 +319,7 @@ impl AwgParams {
             magic_headers,
             size_padding,
             special_junk,
+            v3,
         })
     }
 
@@ -311,6 +340,10 @@ impl AwgParams {
     /// for the headers-unset case).
     pub(crate) fn headers_active(&self) -> bool {
         self.magic_headers.iter().enumerate().any(|(index, h)| !h.is_singleton((index + 1) as u32))
+    }
+
+    pub(crate) fn v3(&self) -> &AwgV3Params {
+        &self.v3
     }
 
     fn wire_header(&self, index: usize) -> u32 {
@@ -423,15 +456,21 @@ pub(crate) struct AwgWireCodec {
     params: AwgParams,
     mac_keys: Option<AwgMacKeys>,
     mac_state: Mutex<AwgMacState>,
+    udp_window: UdpWindow,
 }
 
 impl AwgWireCodec {
     pub(crate) fn new(params: AwgParams) -> Self {
-        Self { params, mac_keys: None, mac_state: Mutex::new(AwgMacState::default()) }
+        Self { params, mac_keys: None, mac_state: Mutex::new(AwgMacState::default()), udp_window: UdpWindow::default() }
     }
 
     pub(crate) fn new_authenticated(params: AwgParams, mac_keys: AwgMacKeys) -> Self {
-        Self { params, mac_keys: Some(mac_keys), mac_state: Mutex::new(AwgMacState::default()) }
+        Self {
+            params,
+            mac_keys: Some(mac_keys),
+            mac_state: Mutex::new(AwgMacState::default()),
+            udp_window: UdpWindow::default(),
+        }
     }
 
     pub(crate) fn params(&self) -> &AwgParams {
@@ -487,7 +526,19 @@ impl AwgWireCodec {
         if index <= 1 {
             self.rewrite_outbound_handshake_macs(&mut wire_packet);
         }
-        Some(self.prefix_padding(wire_packet, index))
+        self.seal_envelope(wire_packet, index)
+    }
+
+    /// AWG 3.x content padding: the IP packet plus trailing zeros, or `None` when no padding applies.
+    pub(crate) fn pad_transport_plaintext(&self, packet: &[u8]) -> Option<Vec<u8>> {
+        let s4 = self.params.size_padding[3] as usize;
+        let padding = self.params.v3.transport_padding(packet.len(), s4, &self.udp_window);
+        (padding > 0).then(|| {
+            let mut padded = Vec::with_capacity(packet.len() + padding);
+            padded.extend_from_slice(packet);
+            padded.resize(packet.len() + padding, 0);
+            padded
+        })
     }
 
     /// Reverse [`AwgWireCodec::encode`] for a packet received from the peer.
@@ -495,45 +546,27 @@ impl AwgWireCodec {
     /// Returns a complete vanilla WireGuard packet or `None` when the packet
     /// has an unknown layout or fails AWG MAC/cookie authentication.
     pub(crate) fn decode(&self, packet: &[u8]) -> Option<Vec<u8>> {
-        let index = self.classify_wire_packet(packet)?;
-        let pad_len = self.params.size_padding[index] as usize;
-        let mut vanilla_packet = packet.get(pad_len..)?.to_vec();
+        let (index, wire) = self.params.v3.open(packet, &self.params.size_padding, &self.params.magic_headers)?;
+        if index == 3 {
+            self.udp_window.observe_inbound_transport(packet.len());
+        }
+        let mut vanilla_packet = wire.clone();
 
         if self.params.headers_active() {
             vanilla_packet[..4].copy_from_slice(&((index + 1) as u32).to_le_bytes());
         }
         if index == 2 && self.mac_keys.is_some() {
-            return self.decode_cookie_reply(packet.get(pad_len..)?, vanilla_packet);
+            return self.decode_cookie_reply(&wire, vanilla_packet);
         }
-        if index <= 1 && !self.rewrite_inbound_handshake_macs(packet.get(pad_len..)?, &mut vanilla_packet) {
+        if index <= 1 && !self.rewrite_inbound_handshake_macs(&wire, &mut vanilla_packet) {
             return None;
         }
         Some(vanilla_packet)
     }
 
-    fn classify_wire_packet(&self, packet: &[u8]) -> Option<usize> {
-        (0..WG_MESSAGE_TYPE_COUNT).find(|&index| {
-            let pad_len = self.params.size_padding[index] as usize;
-            let Some(body) = packet.get(pad_len..) else {
-                return false;
-            };
-            if !packet_size_matches(index, body.len()) || body.len() < 4 {
-                return false;
-            }
-            self.params.magic_headers[index]
-                .contains(u32::from_le_bytes(body[..4].try_into().expect("four-byte header checked")))
-        })
-    }
-
-    fn prefix_padding(&self, packet: Vec<u8>, index: usize) -> Vec<u8> {
-        let pad_len = self.params.size_padding[index] as usize;
-        if pad_len == 0 {
-            return packet;
-        }
-        let mut out = vec![0u8; pad_len];
-        fill_random(&mut out);
-        out.extend_from_slice(&packet);
-        out
+    /// `S` prefix, 3.x header protection, and trailer around a final AWG message.
+    fn seal_envelope(&self, packet: Vec<u8>, index: usize) -> Option<Vec<u8>> {
+        self.params.v3.seal(packet, index, self.params.size_padding[index] as usize, &self.udp_window)
     }
 
     fn rewrite_outbound_handshake_macs(&self, packet: &mut [u8]) {
@@ -619,7 +652,7 @@ impl AwgWireCodec {
             keys.local_public_key,
             handshake.wire_mac1,
         )?;
-        Some(self.prefix_padding(wire_packet, index))
+        self.seal_envelope(wire_packet, index)
     }
 
     fn decode_cookie_reply(&self, wire_packet: &[u8], _vanilla_packet: Vec<u8>) -> Option<Vec<u8>> {
@@ -641,18 +674,7 @@ impl AwgWireCodec {
 const HANDSHAKE_INIT_SIZE: usize = 148;
 const HANDSHAKE_RESPONSE_SIZE: usize = 92;
 const COOKIE_REPLY_SIZE: usize = 64;
-const TRANSPORT_MIN_SIZE: usize = 32;
 const COOKIE_EXPIRATION: Duration = Duration::from_secs(120);
-
-fn packet_size_matches(index: usize, size: usize) -> bool {
-    match index {
-        0 => size == HANDSHAKE_INIT_SIZE,
-        1 => size == HANDSHAKE_RESPONSE_SIZE,
-        2 => size == COOKIE_REPLY_SIZE,
-        3 => size >= TRANSPORT_MIN_SIZE,
-        _ => false,
-    }
-}
 
 fn handshake_mac_offsets(size: usize) -> Option<(usize, usize)> {
     matches!(size, HANDSHAKE_INIT_SIZE | HANDSHAKE_RESPONSE_SIZE).then_some((size - 32, size - 16))

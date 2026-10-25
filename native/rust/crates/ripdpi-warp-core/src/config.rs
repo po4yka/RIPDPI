@@ -96,6 +96,43 @@ fn default_warp_persistent_keepalive() -> u16 {
     WARP_DEFAULT_PERSISTENT_KEEPALIVE
 }
 
+/// A config string that must not reach logs: `Debug` prints `<redacted>` when set.
+#[derive(Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct SecretString(pub String);
+
+impl std::fmt::Debug for SecretString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(if self.0.is_empty() { "\"\"" } else { "<redacted>" })
+    }
+}
+
+/// AmneziaWG 3.x `[Interface]` keys. Empty strings and `false` mean "not set",
+/// so a config without them keeps the AWG 1.x/2.0 wire output.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
+pub struct AwgV3Config {
+    /// Base64 32-byte `HeaderProtectionKey`. A secret: never logged.
+    pub header_protection_key: SecretString,
+    /// `ContentPaddingAddition`, `lo` or `lo-hi` bytes.
+    pub content_padding_addition: String,
+    /// `RekeyAfterTime`, `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout` in seconds.
+    pub rekey_after_time: String,
+    pub rekey_timeout: String,
+    pub reject_after_time: String,
+    pub keepalive_timeout: String,
+    /// `MaxHandshakeAttempts`, `lo` or `lo-hi`.
+    pub max_handshake_attempts: String,
+    pub random_trailers: bool,
+    pub disable_cookies: bool,
+}
+
+impl AwgV3Config {
+    pub(crate) fn is_set(&self) -> bool {
+        *self != Self::default()
+    }
+}
+
 /// `Debug` is implemented manually to redact the WireGuard `preshared_key`.
 /// A derived `Debug` would expose it to any `tracing::debug!(?config)` call
 /// or panic message that prints the AmneziaWG config. The `i1..i5` special-junk
@@ -137,6 +174,9 @@ pub struct WarpAmneziaConfig {
     /// to WARP's historical 25s pin when omitted from the config JSON.
     #[serde(default = "default_warp_persistent_keepalive")]
     pub persistent_keepalive: u16,
+    /// AmneziaWG 3.x keys as a nested `v3` object. Omitted = all off.
+    #[serde(default)]
+    pub v3: AwgV3Config,
 }
 
 impl std::fmt::Debug for WarpAmneziaConfig {
@@ -162,6 +202,7 @@ impl std::fmt::Debug for WarpAmneziaConfig {
             .field("i5", &self.i5)
             .field("preshared_key", &"<redacted>")
             .field("persistent_keepalive", &self.persistent_keepalive)
+            .field("v3", &self.v3)
             .finish()
     }
 }
@@ -189,6 +230,7 @@ impl Default for WarpAmneziaConfig {
             i5: String::new(),
             preshared_key: String::new(),
             persistent_keepalive: WARP_DEFAULT_PERSISTENT_KEEPALIVE,
+            v3: AwgV3Config::default(),
         }
     }
 }

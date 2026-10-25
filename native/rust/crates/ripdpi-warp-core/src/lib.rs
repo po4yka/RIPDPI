@@ -3,6 +3,7 @@
 mod amneziawg;
 mod amneziawg_runtime;
 mod awg_profile;
+mod awg_v3;
 mod config;
 mod endpoint_probe;
 mod observe;
@@ -18,8 +19,8 @@ pub use amneziawg_runtime::{
     AmneziaWgCarrierKind, AmneziaWgObfuscation, AmneziaWgProfileConfig, AmneziaWgRuntime, AmneziaWgTelemetry,
 };
 pub use config::{
-    ResolvedWarpRuntimeConfig, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, WarpEndpointProbeRequest,
-    WarpEndpointProbeResult, WarpManualEndpoint, WarpTelemetry,
+    AwgV3Config, ResolvedWarpRuntimeConfig, ResolvedWarpRuntimeEndpoint, SecretString, WarpAmneziaConfig,
+    WarpEndpointProbeRequest, WarpEndpointProbeResult, WarpManualEndpoint, WarpTelemetry,
 };
 pub use endpoint_probe::{WarpProbeError, probe_endpoint, probe_endpoint_with_platform};
 pub use observe::TcpConnectObservation;

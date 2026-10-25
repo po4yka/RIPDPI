@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Context;
 use boringtun::noise::{Tunn, TunnResult};
@@ -72,6 +72,9 @@ pub(crate) struct WireGuardTunnelParams<'a> {
     /// Persistent-keepalive interval in seconds. WARP pins `Some(25)`; a
     /// generic profile maps its (nullable) `PersistentKeepalive` field here.
     pub persistent_keepalive: Option<u16>,
+    /// Upper bound of an AWG 3.x `PersistentKeepalive = lo-hi` range. Above
+    /// `persistent_keepalive`, each interval is drawn from the range.
+    pub persistent_keepalive_max: Option<u16>,
     /// Resolved UDP endpoint of the peer.
     pub endpoint: SocketAddr,
     /// The 3 WireGuard reserved bytes (WARP derives them from the Cloudflare
@@ -102,6 +105,8 @@ pub(crate) struct WireGuardTunnel {
     reserved: [u8; 3],
     amnezia: Option<AwgWireCodec>,
     handshake_readiness: HandshakeReadiness,
+    /// AWG 3.x keepalive range in seconds; boringtun's fixed keepalive is off when set.
+    keepalive_range: Option<(u16, u16)>,
 }
 
 #[derive(Default)]
@@ -128,6 +133,7 @@ impl WireGuardTunnel {
             peer_public_key,
             preshared_key,
             persistent_keepalive,
+            persistent_keepalive_max,
             endpoint,
             reserved,
             source_peer_ip,
@@ -142,13 +148,17 @@ impl WireGuardTunnel {
             Some(value) => Some(decode_key(value).context("invalid WireGuard preshared key")?),
             None => None,
         };
+        let keepalive_range = match (persistent_keepalive, persistent_keepalive_max) {
+            (Some(low), Some(high)) if high > low => Some((low, high)),
+            _ => None,
+        };
         let private_key = boringtun::x25519::StaticSecret::from(private_key);
         let local_public_key = boringtun::x25519::PublicKey::from(&private_key).to_bytes();
         let peer = Box::new(Tunn::new(
             private_key,
             boringtun::x25519::PublicKey::from(peer_public_key),
             preshared_key,
-            persistent_keepalive,
+            if keepalive_range.is_some() { None } else { persistent_keepalive },
             0,
             None,
         ));
@@ -174,6 +184,7 @@ impl WireGuardTunnel {
             reserved,
             amnezia,
             handshake_readiness: HandshakeReadiness::default(),
+            keepalive_range,
         })
     }
 
@@ -221,8 +232,30 @@ impl WireGuardTunnel {
     }
 
     async fn send_ip_packet(&self, packet: &[u8]) {
+        // AWG 3.x content padding rides inside the ciphertext; the receiver trims to the IP length.
+        let padded = self.amnezia.as_ref().and_then(|codec| codec.pad_transport_plaintext(packet));
+        let packet = padded.as_deref().unwrap_or(packet);
         let mut send_buf = [0u8; MAX_PACKET];
         let result = { self.peer.lock().await.encapsulate(packet, &mut send_buf) };
+        self.send_tunn_result(result).await;
+        self.refresh_key_after_send().await;
+    }
+
+    /// AWG 3.x `RekeyAfterTime` (`keepKeyFreshSending`): after a send, start a
+    /// handshake once the session is older than a fresh sample. boringtun's
+    /// fixed 120 s rekey still applies when the sample is larger.
+    async fn refresh_key_after_send(&self) {
+        let Some(limit) = self.amnezia.as_ref().and_then(|codec| codec.params().v3().rekey_after_time()) else {
+            return;
+        };
+        let mut send_buf = [0u8; MAX_PACKET];
+        let result = {
+            let mut peer = self.peer.lock().await;
+            match peer.time_since_last_handshake() {
+                Some(age) if age > limit => peer.format_handshake_initiation(&mut send_buf, false),
+                _ => TunnResult::Done,
+            }
+        };
         self.send_tunn_result(result).await;
     }
 
@@ -264,10 +297,26 @@ impl WireGuardTunnel {
     }
 
     pub(crate) async fn routine_task(&self) {
+        let mut next_keepalive = self.keepalive_range.map(next_keepalive_deadline);
         loop {
             let mut send_buf = [0u8; MAX_PACKET];
             let result = { self.peer.lock().await.update_timers(&mut send_buf) };
             self.send_tunn_result(result).await;
+            if let (Some(range), Some(deadline)) = (self.keepalive_range, next_keepalive)
+                && Instant::now() >= deadline
+            {
+                next_keepalive = Some(next_keepalive_deadline(range));
+                let result = {
+                    let mut peer = self.peer.lock().await;
+                    // Only an established session sends; an empty encapsulate would otherwise queue a handshake.
+                    if peer.time_since_last_handshake().is_some() {
+                        peer.encapsulate(&[], &mut send_buf)
+                    } else {
+                        TunnResult::Done
+                    }
+                };
+                self.send_tunn_result(result).await;
+            }
             tokio::time::sleep(Duration::from_millis(1)).await;
         }
     }
@@ -334,6 +383,12 @@ impl WireGuardTunnel {
     }
 }
 
+/// The next AWG 3.x persistent keepalive: a uniform draw from `[low, high]` seconds from now.
+fn next_keepalive_deadline((low, high): (u16, u16)) -> Instant {
+    let span = u32::from(high - low) + 1;
+    Instant::now() + Duration::from_secs(u64::from(u32::from(low) + rand_u32() % span))
+}
+
 fn wireguard_message_type(packet: &[u8]) -> Option<u32> {
     packet.get(..4).map(|header| u32::from_le_bytes(header.try_into().expect("four-byte WireGuard header")))
 }
@@ -365,6 +420,7 @@ mod tests {
             peer_public_key: VALID_KEY_B64,
             preshared_key,
             persistent_keepalive: None,
+            persistent_keepalive_max: None,
             endpoint: dummy_endpoint(),
             reserved: [0u8; 3],
             source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
@@ -439,6 +495,7 @@ mod tests {
                     peer_public_key: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
                     preshared_key: None,
                     persistent_keepalive: None,
+                    persistent_keepalive_max: None,
                     endpoint: receiver.local_addr().unwrap(),
                     reserved: [0; 3],
                     source_peer_ip: "10.77.0.2".parse().unwrap(),
@@ -484,6 +541,15 @@ mod tests {
         routine.abort();
         result.expect("initial handshake and timer retry");
         assert_ne!(signatures[0], signatures[1]);
+    }
+
+    #[test]
+    fn keepalive_range_draws_each_interval_inside_the_range() {
+        for _ in 0..64 {
+            let start = Instant::now();
+            let wait = next_keepalive_deadline((25, 35)).duration_since(start);
+            assert!(wait >= Duration::from_secs(25) && wait <= Duration::from_secs(36), "{wait:?}");
+        }
     }
 
     #[test]

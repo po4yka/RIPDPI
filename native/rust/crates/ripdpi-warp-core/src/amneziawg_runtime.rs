@@ -32,7 +32,9 @@ use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
-use crate::config::{ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, now_ms, parse_ipv4_cidr, resolve_endpoint};
+use crate::config::{
+    AwgV3Config, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, now_ms, parse_ipv4_cidr, resolve_endpoint,
+};
 use crate::platform::WarpPlatform;
 use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
 use crate::socks::handle_socks_client;
@@ -110,6 +112,9 @@ pub struct AmneziaWgProfileConfig {
     /// `[Peer] PersistentKeepalive` in seconds; `0` = disabled.
     #[serde(default)]
     pub persistent_keepalive: i32,
+    /// Upper bound of an AWG 3.x `PersistentKeepalive = lo-hi` range; `0` = a fixed interval.
+    #[serde(default)]
+    pub persistent_keepalive_max: i32,
     /// AmneziaWG `Jc/Jmin/Jmax/H1..H4/S1..S2` obfuscation knobs.
     #[serde(default)]
     pub amnezia: AmneziaWgObfuscation,
@@ -198,6 +203,9 @@ pub struct AmneziaWgObfuscation {
     pub i4: String,
     #[serde(default)]
     pub i5: String,
+    /// AmneziaWG 3.x keys (header protection, padding, timers). Omitted = all off.
+    #[serde(default)]
+    pub v3: AwgV3Config,
 }
 
 impl Default for AmneziaWgObfuscation {
@@ -220,6 +228,7 @@ impl Default for AmneziaWgObfuscation {
             i3: String::new(),
             i4: String::new(),
             i5: String::new(),
+            v3: AwgV3Config::default(),
         }
     }
 }
@@ -247,6 +256,7 @@ impl AmneziaWgObfuscation {
             || !self.i3.is_empty()
             || !self.i4.is_empty()
             || !self.i5.is_empty()
+            || self.v3.is_set()
     }
 
     /// Project onto the data-plane [`WarpAmneziaConfig`] consumed by the AWG
@@ -270,6 +280,7 @@ impl AmneziaWgObfuscation {
             s2: self.s2,
             s3: self.s3,
             s4: self.s4,
+            v3: self.v3.clone(),
             ..Default::default()
         }
     }
@@ -435,6 +446,7 @@ impl AmneziaWgRuntime {
 
         let amnezia_cfg = self.config.amnezia.to_warp_amnezia();
         let keepalive = u16::try_from(self.config.persistent_keepalive.max(0)).ok().filter(|value| *value != 0);
+        let keepalive_max = u16::try_from(self.config.persistent_keepalive_max.max(0)).ok().filter(|value| *value != 0);
         let preshared = (!self.config.preshared_key.is_empty()).then_some(self.config.preshared_key.as_str());
 
         // Carrier select. UDP (the default) hands the tunnel `None` so it binds +
@@ -452,6 +464,7 @@ impl AmneziaWgRuntime {
                     peer_public_key: &self.config.peer_public_key,
                     preshared_key: preshared,
                     persistent_keepalive: keepalive,
+                    persistent_keepalive_max: keepalive_max,
                     endpoint,
                     // A generic AmneziaWG peer carries no Cloudflare reserved bytes.
                     reserved: [0u8; 3],
@@ -987,5 +1000,43 @@ mod tests {
         let s = serde_json::to_string(&cfg).expect("serialize");
         let again: AmneziaWgProfileConfig = serde_json::from_str(&s).expect("reparse");
         assert_eq!(again.local_socks_port, 11090);
+    }
+
+    /// Pins the AWG 3.x keys emitted by Kotlin `RipDpiAmneziaWgV3Config` and
+    /// `ResolvedRipDpiAmneziaWgConfig.persistentKeepaliveMax`.
+    #[test]
+    fn awg3_keys_deserialize_activate_the_codec_and_stay_redacted() {
+        let key = "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=";
+        let json = format!(
+            r#"{{ "enabled": true, "profileId": "p3", "privateKey": "k", "peerPublicKey": "p",
+                 "endpointHost": "1.2.3.4", "endpointPort": 51820, "interfaceAddressV4": "10.8.0.2/32",
+                 "mtu": 1420, "persistentKeepalive": 25, "persistentKeepaliveMax": 35,
+                 "amnezia": {{ "wireProfile": "awg-3.1-ranges-v1", "jc": 0, "jmin": 0, "jmax": 0,
+                   "s1": 12, "s2": 12, "s3": 12, "s4": 12, "h1": "1", "h2": "2", "h3": "3", "h4": "4",
+                   "v3": {{ "headerProtectionKey": "{key}", "contentPaddingAddition": "10-100",
+                     "rekeyAfterTime": "100-120", "rekeyTimeout": "3-7", "rejectAfterTime": "150-180",
+                     "keepaliveTimeout": "5-15", "maxHandshakeAttempts": "15-20",
+                     "randomTrailers": true, "disableCookies": true }} }},
+                 "localSocksHost": "127.0.0.1", "localSocksPort": 11090 }}"#
+        );
+        let cfg: AmneziaWgProfileConfig = serde_json::from_str(&json).expect("parse");
+        assert_eq!(cfg.persistent_keepalive_max, 35);
+        let v3 = &cfg.amnezia.v3;
+        assert_eq!(v3.header_protection_key.0, key);
+        assert_eq!((v3.content_padding_addition.as_str(), v3.max_handshake_attempts.as_str()), ("10-100", "15-20"));
+        assert!(v3.random_trailers && v3.disable_cookies);
+        assert!(cfg.amnezia.is_active(), "3.x keys alone must enable the AWG codec");
+        let warp = cfg.amnezia.to_warp_amnezia();
+        assert_eq!(&warp.v3, v3);
+        assert!(crate::amneziawg::AwgParams::from_config_for_platform(&warp, &[""; 5], false).is_ok());
+        assert!(!format!("{:?} {warp:?}", cfg.amnezia).contains(key), "Debug must redact the header protection key");
+
+        let unknown = json.replace("\"disableCookies\"", "\"disableCookiez\"");
+        assert!(serde_json::from_str::<AmneziaWgProfileConfig>(&unknown).is_err(), "unknown v3 keys fail closed");
+        let without: AmneziaWgObfuscation = serde_json::from_str(
+            r#"{"wireProfile":"awg-3.1-ranges-v1","jc":0,"jmin":0,"jmax":0,"s1":0,"s2":0,"h1":"1","h2":"2","h3":"3","h4":"4"}"#,
+        )
+        .expect("AWG 2.0 JSON without v3");
+        assert_eq!(without.v3, AwgV3Config::default());
     }
 }

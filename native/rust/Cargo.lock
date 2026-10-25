@@ -6854,6 +6854,7 @@ dependencies = [
  "blake2 0.11.0",
  "boringtun",
  "bytes",
+ "chacha20 0.10.0",
  "chacha20poly1305 0.11.0",
  "getrandom 0.4.3",
  "ripdpi-wireguard-ws",

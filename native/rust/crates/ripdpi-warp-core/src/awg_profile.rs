@@ -19,7 +19,8 @@ impl HeaderRange {
         let (low, high) = match text.split_once('-') {
             Some((low, high)) => {
                 let (low, high) = (canonical_u32(low)?, canonical_u32(high)?);
-                if low >= high {
+                // amneziawg-go `UintRange.FromString` accepts `x-x`; only `hi < lo` is invalid.
+                if low > high {
                     return None;
                 }
                 (low, high)
@@ -30,6 +31,9 @@ impl HeaderRange {
             }
         };
         Some(Self { low, high })
+    }
+    pub(crate) fn high(self) -> u32 {
+        self.high
     }
     pub(crate) fn contains(self, value: u32) -> bool {
         (self.low..=self.high).contains(&value)
@@ -171,9 +175,10 @@ mod tests {
     use super::*;
     #[test]
     fn ranges_are_canonical_bounded_and_disjoint() {
-        for invalid in ["", "01", "+1", " 1", "1 ", "1-1", "2-1", "1-02", "4294967296", "1-2-3"] {
+        for invalid in ["", "01", "+1", " 1", "1 ", "2-1", "1-02", "4294967296", "1-2-3"] {
             assert!(HeaderRange::parse(invalid).is_none(), "{invalid}");
         }
+        assert!(HeaderRange::parse("7-7").unwrap().is_singleton(7));
         let range = HeaderRange::parse("4294967290-4294967295").unwrap();
         assert!(range.contains(u32::MAX));
         assert!(!range.contains(1));
