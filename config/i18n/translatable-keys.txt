@@ -4602,6 +4602,7 @@ app:runtime_config_unknown_body
 app:save_logs
 app:scanner_invalid_qr_body
 app:scanner_invalid_qr_title
+app:scanner_permission_continue
 app:scanner_permission_denied_body
 app:scanner_permission_denied_title
 app:scanner_permission_rationale_body

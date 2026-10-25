@@ -19,4 +19,5 @@
     <string name="import_subscription_confirm_empty_body">Este enlace no contiene una URL de suscripción.</string>
     <string name="relay_editor_profile_not_found_title">Perfil no encontrado</string>
     <string name="relay_editor_profile_not_found_body">Este perfil se eliminó o el enlace que lo abrió no es correcto. Vuelve atrás y elige un perfil de la lista.</string>
+    <string name="scanner_permission_continue">Continuar</string>
 </resources>

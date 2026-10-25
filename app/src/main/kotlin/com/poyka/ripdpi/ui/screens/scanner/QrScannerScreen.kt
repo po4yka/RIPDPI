@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.scanner
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -57,8 +58,9 @@ import kotlinx.coroutines.launch
  * flow degrades gracefully: a denied permission keeps the image-file-pick fallback
  * ([QrImageScanner]) available rather than bricking the screen. Invalid QR content shows
  * a redacted error (first 16 chars only); the full payload is never logged.
- * Camera permission is requested once per [sessionId]; later grant-state changes only
- * synchronize the scanner state, so an explicit revocation is not immediately re-prompted.
+ * Without the camera permission the screen first explains why it needs the camera; the system
+ * prompt opens only from its Continue action. Later grant-state changes only synchronize the
+ * scanner state, so an explicit revocation is not immediately re-prompted.
  */
 @Composable
 fun QrScannerRoute(
@@ -71,10 +73,15 @@ fun QrScannerRoute(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val activity = LocalActivity.current
+    // Android shows its camera prompt again until the user denies it more than once.
+    val canRequestCameraPermissionAgain = {
+        activity?.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) == true
+    }
 
     val cameraPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            viewModel.onCameraPermissionResult(granted)
+            viewModel.onCameraPermissionResult(granted, canRequestAgain = canRequestCameraPermissionAgain())
         }
     val imagePickLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -94,8 +101,8 @@ fun QrScannerRoute(
     QrScannerPermissionEffects(
         sessionId = sessionId,
         cameraPermissionGranted = cameraPermissionGranted,
+        canRequestCameraPermissionAgain = canRequestCameraPermissionAgain,
         viewModel = viewModel,
-        requestCameraPermission = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
     )
 
     LaunchedEffect(uiState.scanResult) {
@@ -110,6 +117,7 @@ fun QrScannerRoute(
         onQrDecoded = viewModel::onQrDecoded,
         onDismissError = viewModel::consumeDecodeError,
         onPickImage = { imagePickLauncher.launch(arrayOf("image/*")) },
+        onRequestCameraPermission = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
         onOpenAppSettings = {
             context.startActivity(BatteryOptimizationIntents.createAppDetailsIntent(context.packageName))
         },
@@ -124,6 +132,7 @@ internal fun QrScannerScreen(
     onQrDecoded: (String) -> Unit,
     onDismissError: () -> Unit,
     onPickImage: () -> Unit,
+    onRequestCameraPermission: () -> Unit,
     onOpenAppSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -142,6 +151,12 @@ internal fun QrScannerScreen(
                         supporting = stringResource(R.string.scanner_permission_rationale_body),
                     )
                 }
+                RipDpiButton(
+                    text = stringResource(R.string.scanner_permission_continue),
+                    onClick = onRequestCameraPermission,
+                    leadingIcon = RipDpiIcons.PhotoCamera,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             ScannerCameraState.SCANNING -> {
@@ -161,19 +176,10 @@ internal fun QrScannerScreen(
             }
 
             ScannerCameraState.PERMISSION_DENIED -> {
-                WarningBanner(
-                    title = stringResource(R.string.scanner_permission_denied_title),
-                    message = stringResource(R.string.scanner_permission_denied_body),
-                    tone = WarningBannerTone.Restricted,
-                    icon = RipDpiIcons.CameraOff,
-                )
-                // The system no longer prompts after a denial; only app settings can grant the camera.
-                RipDpiButton(
-                    text = stringResource(R.string.settings_permission_action_open_settings),
-                    onClick = onOpenAppSettings,
-                    variant = RipDpiButtonVariant.Primary,
-                    leadingIcon = RipDpiIcons.Settings,
-                    modifier = Modifier.fillMaxWidth(),
+                CameraDeniedContent(
+                    canRequestAgain = uiState.canRequestCameraPermissionAgain,
+                    onRequestCameraPermission = onRequestCameraPermission,
+                    onOpenAppSettings = onOpenAppSettings,
                 )
             }
         }
@@ -204,6 +210,38 @@ internal fun QrScannerScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+}
+
+@Composable
+private fun CameraDeniedContent(
+    canRequestAgain: Boolean,
+    onRequestCameraPermission: () -> Unit,
+    onOpenAppSettings: () -> Unit,
+) {
+    WarningBanner(
+        title = stringResource(R.string.scanner_permission_denied_title),
+        message = stringResource(R.string.scanner_permission_denied_body),
+        tone = WarningBannerTone.Restricted,
+        icon = RipDpiIcons.CameraOff,
+    )
+    if (canRequestAgain) {
+        RipDpiButton(
+            text = stringResource(R.string.scanner_permission_continue),
+            onClick = onRequestCameraPermission,
+            variant = RipDpiButtonVariant.Primary,
+            leadingIcon = RipDpiIcons.PhotoCamera,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    } else {
+        // After repeated denials the system no longer prompts; only app settings can grant the camera.
+        RipDpiButton(
+            text = stringResource(R.string.settings_permission_action_open_settings),
+            onClick = onOpenAppSettings,
+            variant = RipDpiButtonVariant.Primary,
+            leadingIcon = RipDpiIcons.Settings,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -294,28 +332,21 @@ private fun isCameraPermissionGranted(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
         PackageManager.PERMISSION_GRANTED
 
-internal fun QrScannerViewModel.syncCameraPermission(cameraPermissionGranted: Boolean) {
-    onCameraPermissionResult(granted = cameraPermissionGranted)
-}
-
 @Composable
 internal fun QrScannerPermissionEffects(
     sessionId: String,
     cameraPermissionGranted: Boolean,
+    canRequestCameraPermissionAgain: () -> Boolean,
     viewModel: QrScannerViewModel,
-    requestCameraPermission: () -> Unit,
 ) {
-    val currentRequestCameraPermission by rememberUpdatedState(requestCameraPermission)
-
     LaunchedEffect(cameraPermissionGranted) {
-        viewModel.syncCameraPermission(cameraPermissionGranted)
+        viewModel.syncCameraPermission(cameraPermissionGranted, canRequestAgain = canRequestCameraPermissionAgain())
     }
 
     LaunchedEffect(sessionId, cameraPermissionGranted) {
-        viewModel.requestCameraPermissionOnce(
+        viewModel.showCameraRationaleOnce(
             sessionId = sessionId,
             cameraPermissionGranted = cameraPermissionGranted,
-            requestCameraPermission = currentRequestCameraPermission,
         )
     }
 }

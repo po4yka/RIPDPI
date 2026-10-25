@@ -19,4 +19,5 @@
     <string name="import_subscription_confirm_empty_body">Dieser Link enthält keine Abonnement-URL.</string>
     <string name="relay_editor_profile_not_found_title">Profil nicht gefunden</string>
     <string name="relay_editor_profile_not_found_body">Dieses Profil wurde gelöscht oder der Link, der es geöffnet hat, ist falsch. Gehen Sie zurück und wählen Sie ein Profil aus der Liste.</string>
+    <string name="scanner_permission_continue">Weiter</string>
 </resources>

@@ -19,4 +19,5 @@
     <string name="import_subscription_confirm_empty_body">此链接不包含订阅 URL。</string>
     <string name="relay_editor_profile_not_found_title">未找到配置文件</string>
     <string name="relay_editor_profile_not_found_body">此配置文件已被删除，或打开它的链接有误。请返回并从列表中选择一个配置文件。</string>
+    <string name="scanner_permission_continue">继续</string>
 </resources>

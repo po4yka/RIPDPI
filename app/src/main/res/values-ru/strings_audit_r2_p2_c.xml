@@ -19,4 +19,5 @@
     <string name="import_subscription_confirm_empty_body">Эта ссылка не содержит URL подписки.</string>
     <string name="relay_editor_profile_not_found_title">Профиль не найден</string>
     <string name="relay_editor_profile_not_found_body">Этот профиль удалён, или ссылка, которая его открыла, неверна. Вернитесь назад и выберите профиль из списка.</string>
+    <string name="scanner_permission_continue">Продолжить</string>
 </resources>

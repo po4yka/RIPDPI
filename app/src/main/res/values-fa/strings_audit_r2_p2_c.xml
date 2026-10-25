@@ -19,4 +19,5 @@
     <string name="import_subscription_confirm_empty_body">این پیوند شامل URL اشتراک نیست.</string>
     <string name="relay_editor_profile_not_found_title">نمایه پیدا نشد</string>
     <string name="relay_editor_profile_not_found_body">این نمایه حذف شده یا پیوندی که آن را باز کرده نادرست است. برگردید و یک نمایه از فهرست انتخاب کنید.</string>
+    <string name="scanner_permission_continue">ادامه</string>
 </resources>
