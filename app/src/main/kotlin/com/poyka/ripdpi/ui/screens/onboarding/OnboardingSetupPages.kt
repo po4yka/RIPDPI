@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -22,7 +23,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
@@ -62,7 +62,6 @@ internal fun OnboardingModeSelectionContent(
         OnboardingOptionCard(
             title = stringResource(R.string.onboarding_setup_mode_vpn_title),
             description = stringResource(R.string.onboarding_setup_mode_vpn_body),
-            metadata = stringResource(R.string.onboarding_setup_mode_vpn_meta),
             badgeText = stringResource(R.string.onboarding_badge_recommended),
             selected = selectedMode == Mode.VPN,
             onClick = { onModeSelected(Mode.VPN) },
@@ -201,6 +200,13 @@ internal fun OnboardingModeValidationContent(
         OnboardingValidationChecklist(
             mode = uiState.selectedMode,
             state = state,
+            // The idle subtitle lives in the page header, so the checklist carries the status tag.
+            modifier =
+                if (state == OnboardingValidationState.Idle) {
+                    Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus)
+                } else {
+                    Modifier
+                },
         )
 
         OnboardingValidationContentActions(
@@ -224,16 +230,6 @@ private fun OnboardingValidationStatusBlock(
 
     when (state) {
         OnboardingValidationState.Idle -> {
-            Text(
-                text = stringResource(R.string.onboarding_test_idle_body),
-                style = type.introBody,
-                color = colors.mutedForeground,
-                textAlign = TextAlign.Start,
-                modifier =
-                    modifier
-                        .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
-            )
             if (selectedMode == Mode.VPN) {
                 OnboardingPermissionNote()
             }
@@ -315,15 +311,47 @@ private fun OnboardingValidationSuccessMessage(modifier: Modifier = Modifier) {
  */
 @Composable
 private fun OnboardingPermissionNote(modifier: Modifier = Modifier) {
-    WarningBanner(
-        title = stringResource(R.string.onboarding_test_permission_card_title),
-        message = stringResource(R.string.onboarding_test_permission_note),
-        tone = WarningBannerTone.Restricted,
-        icon = RipDpiIcons.Lock,
-        // Static reference note (always shown in the VPN idle state) — read on focus, not auto-announced.
-        announce = false,
-        modifier = modifier,
-    )
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val components = RipDpiThemeTokens.components
+    // Same neutral surface as an unselected option card.
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .ripDpiFeatureSurface(
+                    container = colors.card,
+                    shape = RipDpiThemeTokens.shapes.xl,
+                    border = colors.outlineVariant,
+                    borderWidth = spacing.xs / 4,
+                    clip = true,
+                ).padding(
+                    horizontal = components.inputs.fieldHorizontalPadding,
+                    vertical = components.rows.settingsRowVerticalPadding,
+                ),
+        horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            imageVector = RipDpiIcons.Lock,
+            contentDescription = null,
+            tint = colors.mutedForeground,
+            modifier = Modifier.size(components.inputs.chipIconSize),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Text(
+                text = stringResource(R.string.onboarding_test_permission_card_title),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.onboarding_test_permission_note),
+                style = type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+    }
 }
 
 private enum class OnboardingRowStatus { Pending, Active, Complete, Failed }

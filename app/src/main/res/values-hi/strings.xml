@@ -1676,7 +1676,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_dns_mullvad_body">गोपनीयता-केंद्रित DNS रिज़ॉल्वर।</string>
     <string name="onboarding_dns_advanced">उन्नत DNS सेटिंग्स</string>
     <string name="onboarding_setup_mode_subtitle">चुनें कि RIPDPI को इस डिवाइस पर ट्रैफ़िक कैसे रूट करना चाहिए।</string>
-    <string name="onboarding_setup_mode_vpn_meta">परीक्षण के दौरान Android VPN अनुमति का अनुरोध करता है।</string>
     <string name="onboarding_test_permission_card_title">स्थानीय VPN अनुमति</string>
     <string name="onboarding_test_idle_body">चयनित मोड शुरू करें और सत्यापित करें कि RIPDPI ट्रैफ़िक सही ढंग से रूट कर सकता है।</string>
     <string name="onboarding_test_step_tunnel_vpn">स्थानीय VPN टनल शुरू करें</string>
