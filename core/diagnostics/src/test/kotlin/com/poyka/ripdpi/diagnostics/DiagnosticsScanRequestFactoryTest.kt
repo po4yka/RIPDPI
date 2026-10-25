@@ -239,12 +239,11 @@ class DiagnosticsScanRequestFactoryTest {
                     ),
                 ).relay
 
-            assertNull("no live listener, no credentials", probedRelay().localSocksPassword)
+            assertNull("no live listener, no credentials", probedRelay().localSocksCredentials)
             LocalSocksCredentialRegistry.register("127.0.0.1", 41_980, credentials)
             try {
                 val probed = probedRelay()
-                assertEquals(credentials.username, probed.localSocksUsername)
-                assertEquals(credentials.password, probed.localSocksPassword)
+                assertEquals(credentials, probed.localSocksCredentials)
             } finally {
                 LocalSocksCredentialRegistry.unregister("127.0.0.1", 41_980, credentials)
             }

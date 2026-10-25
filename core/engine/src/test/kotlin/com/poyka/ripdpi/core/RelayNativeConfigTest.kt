@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -260,6 +261,31 @@ class RelayNativeConfigTest {
             for (field in listOf("ptBridgeLine", "ptWebTunnelUrl", "ptSnowflakeBrokerUrl", "ptSnowflakeFrontDomain")) {
                 assertTrue("Android launch input $field is rejected by the native schema", field !in keys)
             }
+        }
+    }
+
+    @Test
+    fun `relay listener password never appears in any relay config string form`() {
+        val resolved = fullyPopulatedRelayConfig()
+        val password = checkNotNull(resolved.localSocksPassword)
+        val proxyRelay =
+            RipDpiRelayConfig(
+                enabled = true,
+                kind = "hysteria2",
+                localSocksCredentials = LocalSocksCredentials("session-user", password),
+            )
+        val native =
+            com.poyka.ripdpi.core.codec.RelaySectionCodec
+                .toNative(proxyRelay)
+
+        assertEquals(password, native.localSocksPassword)
+        assertEquals(
+            proxyRelay,
+            com.poyka.ripdpi.core.codec.RelaySectionCodec
+                .toModel(native),
+        )
+        for (rendered in listOf(resolved, resolved.toSections().common, proxyRelay, native).map(Any::toString)) {
+            assertFalse("string form leaked the listener password: $rendered", password in rendered)
         }
     }
 

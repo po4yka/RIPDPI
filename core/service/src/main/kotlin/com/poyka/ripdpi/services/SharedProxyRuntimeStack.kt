@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
+import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.core.withAwgEgressPort
@@ -215,8 +216,8 @@ internal class SharedProxyRuntimeStack(
                     kind = started.kind,
                     profileId = started.profileId,
                     udpEnabled = started.udpEnabled,
-                    localSocksUsername = started.endpoint.username,
-                    localSocksPassword = started.endpoint.password,
+                    localSocksCredentials =
+                        localSocksCredentialsOrNull(started.endpoint.username, started.endpoint.password),
                 ),
                 started.endpoint.host,
                 started.endpoint.port,
@@ -230,8 +231,8 @@ internal class SharedProxyRuntimeStack(
                 renderedRelay.udpEnabled == started.udpEnabled &&
                 renderedRelay.localSocksHost == started.endpoint.host &&
                 renderedRelay.localSocksPort == started.endpoint.port &&
-                renderedRelay.localSocksUsername == started.endpoint.username &&
-                renderedRelay.localSocksPassword == started.endpoint.password,
+                renderedRelay.localSocksCredentials?.username == started.endpoint.username &&
+                renderedRelay.localSocksCredentials?.password == started.endpoint.password,
         ) {
             "Started relay configuration was not applied to proxy preferences"
         }

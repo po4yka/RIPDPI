@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.codec
 
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
+import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
@@ -81,7 +82,10 @@ internal data class NativeRelayConfig(
     val udpEnabled: Boolean = false,
     val tcpFallbackEnabled: Boolean = true,
     val finalmask: NativeRelayFinalmaskConfig = NativeRelayFinalmaskConfig(),
-)
+) {
+    /** Carries the relay listener password; its string form must never print it. */
+    override fun toString(): String = "NativeRelayConfig(kind=$kind, profileId=$profileId, [REDACTED])"
+}
 
 internal object RelaySectionCodec {
     fun toModel(value: NativeRelayConfig): RipDpiRelayConfig =
@@ -139,8 +143,7 @@ internal object RelaySectionCodec {
             appsScriptDirectHosts = value.appsScriptDirectHosts,
             localSocksHost = value.localSocksHost,
             localSocksPort = value.localSocksPort,
-            localSocksUsername = value.localSocksUsername,
-            localSocksPassword = value.localSocksPassword,
+            localSocksCredentials = localSocksCredentialsOrNull(value.localSocksUsername, value.localSocksPassword),
             udpEnabled = value.udpEnabled,
             tcpFallbackEnabled = value.tcpFallbackEnabled,
             finalmask =
@@ -211,8 +214,8 @@ internal object RelaySectionCodec {
             appsScriptDirectHosts = value.appsScriptDirectHosts,
             localSocksHost = value.localSocksHost,
             localSocksPort = value.localSocksPort,
-            localSocksUsername = value.localSocksUsername,
-            localSocksPassword = value.localSocksPassword,
+            localSocksUsername = value.localSocksCredentials?.username,
+            localSocksPassword = value.localSocksCredentials?.password,
             udpEnabled = value.udpEnabled,
             tcpFallbackEnabled = value.tcpFallbackEnabled,
             finalmask =

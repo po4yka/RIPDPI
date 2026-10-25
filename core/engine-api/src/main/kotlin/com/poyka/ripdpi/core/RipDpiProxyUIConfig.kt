@@ -47,6 +47,7 @@ import com.poyka.ripdpi.data.canonicalDefaultTcpChainSteps
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 data class RipDpiListenConfig(
     val ip: String = "127.0.0.1",
@@ -303,8 +304,7 @@ data class RipDpiRelayConfig(
     val localSocksHost: String = DefaultRelayLocalSocksHost,
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
     /** Session credentials of the started relay listener; set only at runtime, never persisted. */
-    val localSocksUsername: String? = null,
-    val localSocksPassword: String? = null,
+    @Transient val localSocksCredentials: LocalSocksCredentials? = null,
     val udpEnabled: Boolean = false,
     val tcpFallbackEnabled: Boolean = true,
     val finalmask: RipDpiRelayFinalmaskConfig = RipDpiRelayFinalmaskConfig(),

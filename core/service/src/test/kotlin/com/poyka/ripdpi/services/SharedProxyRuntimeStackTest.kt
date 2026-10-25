@@ -180,9 +180,9 @@ class SharedProxyRuntimeStackTest {
             val winnerConfig =
                 fixture.relayFactory.runtimes
                     .mapNotNull { it.lastConfig }
-                    .single { it.localSocksPassword == renderedRelay?.localSocksPassword }
-            assertEquals(winnerConfig.localSocksUsername, renderedRelay?.localSocksUsername)
-            assertTrue(renderedRelay?.localSocksPassword?.isNotEmpty() == true)
+                    .single { it.localSocksPassword == renderedRelay?.localSocksCredentials?.password }
+            assertEquals(winnerConfig.localSocksUsername, renderedRelay?.localSocksCredentials?.username)
+            assertTrue(renderedRelay?.localSocksCredentials?.password?.isNotEmpty() == true)
             assertEquals(HysteriaProfileId, selected.single().selectedCandidate.profileId)
             fixture.stack.stop(skipRuntimeShutdown = false)
         }

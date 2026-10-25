@@ -484,7 +484,7 @@ private fun RipDpiProxyPreferences.withLiveRelayListenerCredentials(): RipDpiPro
         this
     } else {
         withRelayRuntimeSelection(
-            relay.copy(localSocksUsername = credentials.username, localSocksPassword = credentials.password),
+            relay.copy(localSocksCredentials = credentials),
             relay.localSocksHost,
             relay.localSocksPort,
         )

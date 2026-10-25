@@ -38,6 +38,19 @@ data class LocalSocksCredentials(
     }
 }
 
+/** Joins the wire pair; a pair Kotlin did not write in full is no pair. */
+fun localSocksCredentialsOrNull(
+    username: String?,
+    password: String?,
+): LocalSocksCredentials? =
+    if (username != null &&
+        password != null
+    ) {
+        LocalSocksCredentials(username, password)
+    } else {
+        null
+    }
+
 /**
  * Process-local map from an app-owned loopback SOCKS5 listener to the credentials its owner issued.
  *

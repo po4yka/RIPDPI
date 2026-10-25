@@ -274,7 +274,10 @@ data class ResolvedRipDpiRelayConfig(
     val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
     @Required
     val schemaVersion: Int = RelayNativeConfigSchemaVersion,
-)
+) {
+    /** The wire DTO carries relay and listener secrets; its string form must never print them. */
+    override fun toString(): String = "ResolvedRipDpiRelayConfig(kind=$kind, profileId=$profileId, [REDACTED])"
+}
 
 /**
  * Current relay native-config wire schema version. Every
@@ -364,8 +367,7 @@ private fun ResolvedRipDpiRelayConfig.commonSection(): RelayCommonSection =
         serverName = serverName,
         localSocksHost = localSocksHost,
         localSocksPort = localSocksPort,
-        localSocksUsername = localSocksUsername,
-        localSocksPassword = localSocksPassword,
+        localSocksCredentials = localSocksCredentialsOrNull(localSocksUsername, localSocksPassword),
         udpEnabled = udpEnabled,
         tcpFallbackEnabled = tcpFallbackEnabled,
         quicBindLowPort = quicBindLowPort,
@@ -705,8 +707,8 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         torTransports = tor.torTransports,
         localSocksHost = common.localSocksHost,
         localSocksPort = common.localSocksPort,
-        localSocksUsername = common.localSocksUsername,
-        localSocksPassword = common.localSocksPassword,
+        localSocksUsername = common.localSocksCredentials?.username,
+        localSocksPassword = common.localSocksCredentials?.password,
         udpEnabled = common.udpEnabled,
         tcpFallbackEnabled = common.tcpFallbackEnabled,
         quicBindLowPort = common.quicBindLowPort,
