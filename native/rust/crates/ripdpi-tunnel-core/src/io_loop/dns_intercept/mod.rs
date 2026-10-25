@@ -11,6 +11,7 @@ mod route;
 mod types;
 mod wire;
 mod worker;
+mod worker_pool;
 
 use std::net::SocketAddr;
 
@@ -28,7 +29,7 @@ pub(super) use self::route::route_dns_packet;
 pub(super) use self::types::{DirectDnsRequest, DnsRequest, DnsResponse};
 pub(super) use self::wire::dns_query_name;
 pub(crate) use self::wire::parse_dns_query;
-pub(super) use self::worker::spawn_dns_worker;
+pub(super) use self::worker_pool::spawn_dns_worker;
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct MapDnsRuntime {
