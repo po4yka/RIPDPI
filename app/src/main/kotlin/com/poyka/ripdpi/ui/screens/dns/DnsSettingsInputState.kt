@@ -144,6 +144,7 @@ internal fun rememberDnsSettingsValidation(
     selectedProtocol: String,
     input: DnsSettingsInputState,
     ipv6Enabled: Boolean,
+    vpnMode: Boolean,
 ): DnsSettingsValidation {
     val normalizedBootstrapIps = remember(input.bootstrapInput) { parseBootstrapIps(input.bootstrapInput) }
     return DnsSettingsValidation(
@@ -152,6 +153,7 @@ internal fun rememberDnsSettingsValidation(
         input = input,
         normalizedBootstrapIps = normalizedBootstrapIps,
         ipv6Enabled = ipv6Enabled,
+        vpnMode = vpnMode,
     )
 }
 
@@ -181,11 +183,13 @@ private fun DnsSettingsValidation(
     input: DnsSettingsInputState,
     normalizedBootstrapIps: List<String>,
     ipv6Enabled: Boolean,
+    vpnMode: Boolean,
 ): DnsSettingsValidation {
     val trimmedPlainDns = input.plainDnsInput.trim()
     val plainDnsAddressValid = trimmedPlainDns.isNotEmpty() && checkNotLocalIp(trimmedPlainDns)
-    // The VPN service refuses to start with an IPv6 plain DNS server while IPv6 is off.
-    val plainDnsNeedsIpv6 = plainDnsAddressValid && ':' in trimmedPlainDns && !ipv6Enabled
+    // Same predicate as the VPN Builder DNS check (any ':' address, ::ffff:a.b.c.d included),
+    // which refuses to start the VPN with such a server while IPv6 is off. Proxy mode is unaffected.
+    val plainDnsNeedsIpv6 = vpnMode && plainDnsAddressValid && ':' in trimmedPlainDns && !ipv6Enabled
     val trimmedDohUrl = input.customDohUrl.trim()
     val trimmedDotHost = input.customDotHost.trim()
     val trimmedDotTlsServerName = input.tlsServerNameInput.trim()

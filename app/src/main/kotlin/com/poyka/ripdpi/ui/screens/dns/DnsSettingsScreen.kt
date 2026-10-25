@@ -57,6 +57,7 @@ internal fun DnsSettingsScreen(
             selectedProtocol = editorUiState.dns.encryptedDnsProtocol,
             input = input,
             ipv6Enabled = uiState.ipv6Enable,
+            vpnMode = uiState.isVpn,
         )
     val selectedResolver = selectedResolverOption(uiState.dns)
 

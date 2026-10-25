@@ -63,12 +63,34 @@ class DnsSettingsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainSave).performScrollTo().assertIsEnabled()
     }
 
-    private fun setPlainDnsContent(ipv6Enable: Boolean) {
+    @Test
+    fun ipv4MappedIpv6PlainDnsIsRejectedWhileIpv6IsOff() {
+        setPlainDnsContent(ipv6Enable = false)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainAddress).performTextReplacement("::ffff:1.1.1.1")
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainSave).performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun ipv6PlainDnsIsAcceptedInProxyMode() {
+        setPlainDnsContent(ipv6Enable = false, isVpn = false)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainAddress).performTextReplacement(Ipv6Dns)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainSave).performScrollTo().assertIsEnabled()
+    }
+
+    private fun setPlainDnsContent(
+        ipv6Enable: Boolean,
+        isVpn: Boolean = true,
+    ) {
         composeRule.setContent {
             RipDpiTheme {
                 DnsSettingsScreen(
                     uiState =
                         SettingsUiState(
+                            isVpn = isVpn,
                             ipv6Enable = ipv6Enable,
                             dns = DnsUiState(dnsMode = DnsModePlainUdp, dnsIp = "1.1.1.1"),
                         ),
