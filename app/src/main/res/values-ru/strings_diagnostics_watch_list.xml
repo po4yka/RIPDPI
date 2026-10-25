@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_watch_list_exit_title">Приложение остановлено</string>
+    <string name="diagnostics_watch_list_exit_pressure">Android закрыл приложение, чтобы освободить ресурсы, пока работал VPN.</string>
+    <string name="diagnostics_watch_list_exit_unexpected">Приложение неожиданно закрылось, пока работал VPN.</string>
+    <string name="diagnostics_watch_list_repeat_count">×%1$d</string>
+</resources>

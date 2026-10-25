@@ -17,6 +17,8 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     latestContext: DiagnosticContextModel?,
 ): DiagnosticsLiveUiModel {
+    // The labels agree with the health headline; passiveEvents below stays the raw feed.
+    val attentionEvents = nativeEvents.filterNot { isExpectedProcessExit(it.message) }
     val health = deriveLiveHealth(activeConnectionSession, currentTelemetry, nativeEvents)
     return DiagnosticsLiveUiModel(
         health = health,
@@ -43,15 +45,15 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         // so FreshnessIndicator falls back to the plain label instead.
         currentTelemetryTimestampMs = currentTelemetry?.createdAt?.takeIf { it > 0L },
         freshnessUnavailableLabel = liveUnavailableLabel(currentTelemetry),
-        headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
-        body = buildLiveBody(currentTelemetry, nativeEvents),
+        headline = buildLiveHeadline(health, currentTelemetry, attentionEvents),
+        body = buildLiveBody(currentTelemetry, attentionEvents),
         networkLabel =
             (currentTelemetry?.networkType ?: activeConnectionSession?.networkType)
                 ?.let { context.networkTypeLabel(it) },
         modeLabel = currentTelemetry?.activeMode ?: activeConnectionSession?.serviceMode,
         signalLabel = buildLiveSignalLabel(currentTelemetry),
-        eventSummaryLabel = buildLiveEventSummaryLabel(nativeEvents),
-        highlights = buildLiveHighlights(currentTelemetry, nativeEvents).toImmutableList(),
+        eventSummaryLabel = buildLiveEventSummaryLabel(attentionEvents),
+        highlights = buildLiveHighlights(currentTelemetry, attentionEvents).toImmutableList(),
         metrics = buildLiveMetrics(currentTelemetry).toImmutableList(),
         trends = buildLiveTrends(telemetry).toImmutableList(),
         snapshot = latestSnapshot,

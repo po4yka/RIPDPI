@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_watch_list_exit_title">App beendet</string>
+    <string name="diagnostics_watch_list_exit_pressure">Android hat die App beendet, um Ressourcen freizugeben, während das VPN aktiv war.</string>
+    <string name="diagnostics_watch_list_exit_unexpected">Die App wurde unerwartet beendet, während das VPN aktiv war.</string>
+    <string name="diagnostics_watch_list_repeat_count">×%1$d</string>
+</resources>

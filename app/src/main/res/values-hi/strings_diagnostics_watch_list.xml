@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_watch_list_exit_title">ऐप बंद हुआ</string>
+    <string name="diagnostics_watch_list_exit_pressure">VPN चालू रहते समय Android ने संसाधन खाली करने के लिए ऐप बंद कर दिया।</string>
+    <string name="diagnostics_watch_list_exit_unexpected">VPN चालू रहते समय ऐप अनपेक्षित रूप से बंद हो गया।</string>
+    <string name="diagnostics_watch_list_repeat_count">×%1$d</string>
+</resources>

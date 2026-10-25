@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_watch_list_exit_title">توقف التطبيق</string>
+    <string name="diagnostics_watch_list_exit_pressure">أغلق Android التطبيق لتحرير الموارد أثناء تشغيل VPN.</string>
+    <string name="diagnostics_watch_list_exit_unexpected">أُغلق التطبيق بشكل غير متوقع أثناء تشغيل VPN.</string>
+    <string name="diagnostics_watch_list_repeat_count">×%1$d</string>
+</resources>

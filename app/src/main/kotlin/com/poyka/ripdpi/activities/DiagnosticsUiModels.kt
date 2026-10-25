@@ -564,6 +564,7 @@ data class DiagnosticsEventUiModel(
     val message: String,
     val createdAtLabel: String,
     val tone: DiagnosticsTone,
+    val occurrences: Int = 1,
 )
 
 @Immutable

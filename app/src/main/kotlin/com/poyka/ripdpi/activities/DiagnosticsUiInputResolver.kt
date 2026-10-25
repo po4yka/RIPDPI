@@ -133,10 +133,7 @@ internal class DiagnosticsUiInputResolver
             latestContext: DiagnosticContextModel?,
             eventModels: List<DiagnosticsEventUiModel>,
         ): List<DiagnosticsEventUiModel> =
-            (
-                support.buildContextWarnings(latestContext) +
-                    eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning }
-            ).take(MaxOverviewWarnings)
+            (support.buildContextWarnings(latestContext) + eventModels.toWatchList()).take(MaxOverviewWarnings)
 
         private fun resolveSelectedStrategyProbeCandidate(
             candidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,

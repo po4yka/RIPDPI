@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_watch_list_exit_title">Aplicación detenida</string>
+    <string name="diagnostics_watch_list_exit_pressure">Android cerró la aplicación para liberar recursos mientras la VPN estaba activa.</string>
+    <string name="diagnostics_watch_list_exit_unexpected">La aplicación se cerró inesperadamente mientras la VPN estaba activa.</string>
+    <string name="diagnostics_watch_list_repeat_count">×%1$d</string>
+</resources>

@@ -65,6 +65,42 @@ class DiagnosticsWarningPresentationTest {
         assertVisibleWarning("network", "Wi-Fi disconnected.")
     }
 
+    @Test
+    fun guidedWatchlistShowsReadableProcessExitWithRepeatCount() {
+        val warning = processExitWarning(reason = "crash").copy(occurrences = 3)
+        renderOverview(warning, expertMode = false)
+        assertVisibleWarning("App stopped", "The app closed unexpectedly while the VPN was on.")
+        composeRule.onNodeWithText("×3").assertIsDisplayed()
+        composeRule.onNodeWithText("Application_exit_correlation").assertDoesNotExist()
+        composeRule.onNodeWithText(warning.message).assertDoesNotExist()
+    }
+
+    @Test
+    fun guidedWatchlistExplainsResourcePressureExit() {
+        renderOverview(processExitWarning(reason = "low_memory"), expertMode = false)
+        assertVisibleWarning("App stopped", "Android closed the app to free resources while the VPN was on.")
+        composeRule.onNodeWithText("×1").assertDoesNotExist()
+    }
+
+    @Test
+    fun advancedWatchlistRetainsRawProcessExitEvidence() {
+        val warning = processExitWarning(reason = "crash")
+        renderOverview(warning, expertMode = true)
+        assertVisibleWarning("Application_exit_correlation", warning.message)
+    }
+
+    private fun processExitWarning(reason: String) =
+        DiagnosticsEventUiModel(
+            id = "exit-warning",
+            source = "Application_exit_correlation",
+            severity = "WARN",
+            message =
+                "event=process_exit_correlation verdict=inconclusive evidence=last_exit_inspector_v1 " +
+                    "reason=$reason subtype=none importance=foreground",
+            createdAtLabel = "13:36",
+            tone = DiagnosticsTone.Warning,
+        )
+
     private fun renderOverview(
         warning: DiagnosticsEventUiModel,
         expertMode: Boolean,

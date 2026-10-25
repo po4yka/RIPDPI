@@ -31,7 +31,8 @@ internal fun DiagnosticsUiFactorySupport.buildSharePreview(
 ): ShareSummary {
     val warningHeadline =
         nativeEvents.firstOrNull {
-            it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
+            (it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)) &&
+                !isExpectedProcessExit(it.message)
         }
     val body =
         DiagnosticsSummaryTextRenderer.render(

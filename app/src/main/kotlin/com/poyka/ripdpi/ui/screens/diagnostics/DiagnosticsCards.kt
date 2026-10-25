@@ -426,6 +426,12 @@ internal fun EventRow(
                 ) {
                     EventBadge(text = event.source, tone = event.tone)
                     EventBadge(text = event.severity, tone = event.tone)
+                    if (event.occurrences > 1) {
+                        EventBadge(
+                            text = stringResource(R.string.diagnostics_watch_list_repeat_count, event.occurrences),
+                            tone = event.tone,
+                        )
+                    }
                 }
                 if (friendlySummary != null) {
                     Text(

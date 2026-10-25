@@ -13,8 +13,9 @@ internal fun DiagnosticsUiFactorySupport.deriveHealth(
     latestTelemetry: DiagnosticTelemetrySample?,
     nativeEvents: List<DiagnosticEvent>,
 ): DiagnosticsHealth {
-    val hasError = nativeEvents.any { it.level.equals("error", ignoreCase = true) }
-    val hasWarning = nativeEvents.any { it.level.equals("warn", ignoreCase = true) }
+    val events = nativeEvents.filterNot { isExpectedProcessExit(it.message) }
+    val hasError = events.any { it.level.equals("error", ignoreCase = true) }
+    val hasWarning = events.any { it.level.equals("warn", ignoreCase = true) }
     val latestSessionBucket =
         latestSession
             ?.report
@@ -28,7 +29,7 @@ internal fun DiagnosticsUiFactorySupport.deriveHealth(
             DiagnosticsHealth.Attention
         }
 
-        latestSession == null && latestTelemetry == null && nativeEvents.isEmpty() -> {
+        latestSession == null && latestTelemetry == null && events.isEmpty() -> {
             DiagnosticsHealth.Idle
         }
 
@@ -68,8 +69,9 @@ internal fun DiagnosticsUiFactorySupport.deriveLiveHealth(
         return DiagnosticsHealth.Idle
     }
 
-    val hasError = nativeEvents.any { it.level.equals("error", ignoreCase = true) }
-    val hasWarning = nativeEvents.any { it.level.equals("warn", ignoreCase = true) }
+    val events = nativeEvents.filterNot { isExpectedProcessExit(it.message) }
+    val hasError = events.any { it.level.equals("error", ignoreCase = true) }
+    val hasWarning = events.any { it.level.equals("warn", ignoreCase = true) }
     return when {
         hasError -> DiagnosticsHealth.Degraded
         activeConnectionSession.connectionState.equals("failed", ignoreCase = true) -> DiagnosticsHealth.Degraded

@@ -169,7 +169,7 @@ private fun NativeSessionEventEntity.toCorrelationEvent(
         source = ProcessExitCorrelationSource,
         level = "warn",
         message =
-            "event=process_exit_correlation verdict=${classification.wireValue} evidence=last_exit_inspector_v1 " +
+            "event=$ProcessExitCorrelationEvent verdict=${classification.wireValue} evidence=last_exit_inspector_v1 " +
                 "reason=${tokens["reason"]} subtype=${tokens["subtype"]} importance=${tokens["importance"]}",
         createdAt = createdAt,
         subsystem = DefaultLastExitInspector.Subsystem,
@@ -233,7 +233,18 @@ private fun Map<String, String>.processExitClassificationOrNull(): ProcessExitCl
     }
 }
 
+/** How the reconciler classified the process exit behind a correlation event. */
+enum class ProcessExitCorrelationKind { ExpectedLifecycle, ResourcePressure, Unexpected }
+
+/** Returns the kind of a persisted process-exit correlation [message], or null for any other event message. */
+fun processExitCorrelationKind(message: String): ProcessExitCorrelationKind? {
+    val tokens = message.toKeyValueTokens()
+    if (tokens["event"] != ProcessExitCorrelationEvent) return null
+    return tokens.processExitClassificationOrNull()?.kind
+}
+
 private data class ProcessExitClassification(
+    val kind: ProcessExitCorrelationKind,
     val wireValue: String,
     val connectionState: String,
     val health: String?,
@@ -243,6 +254,7 @@ private data class ProcessExitClassification(
     companion object {
         val ResourcePressure: ProcessExitClassification =
             ProcessExitClassification(
+                kind = ProcessExitCorrelationKind.ResourcePressure,
                 wireValue = "inconclusive",
                 connectionState = "Failed",
                 health = "degraded",
@@ -251,6 +263,7 @@ private data class ProcessExitClassification(
             )
         val ExpectedLifecycle: ProcessExitClassification =
             ProcessExitClassification(
+                kind = ProcessExitCorrelationKind.ExpectedLifecycle,
                 wireValue = "inconclusive",
                 connectionState = "Stopped",
                 health = null,
@@ -259,6 +272,7 @@ private data class ProcessExitClassification(
             )
         val Unexpected: ProcessExitClassification =
             ProcessExitClassification(
+                kind = ProcessExitCorrelationKind.Unexpected,
                 wireValue = "inconclusive",
                 connectionState = "Failed",
                 health = "degraded",
@@ -293,6 +307,7 @@ private fun String.sha256Hex(): String {
 }
 
 internal const val ProcessExitCorrelationSource = "application_exit_correlation"
+private const val ProcessExitCorrelationEvent = "process_exit_correlation"
 
 private const val MaxRuntimeExitSessions = 16
 private const val MaxRuntimeExitEvents = 16

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_watch_list_exit_title">برنامه متوقف شد</string>
+    <string name="diagnostics_watch_list_exit_pressure">Android برای آزاد کردن منابع، برنامه را در حالی که VPN روشن بود بست.</string>
+    <string name="diagnostics_watch_list_exit_unexpected">برنامه در حالی که VPN روشن بود به‌طور غیرمنتظره بسته شد.</string>
+    <string name="diagnostics_watch_list_repeat_count">×%1$d</string>
+</resources>
