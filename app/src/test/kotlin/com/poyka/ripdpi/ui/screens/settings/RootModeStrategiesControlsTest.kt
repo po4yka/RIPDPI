@@ -1,9 +1,18 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToKey
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -12,6 +21,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -49,6 +59,28 @@ class RootModeStrategiesControlsTest {
         }
         composeRule.onNodeWithTag(RipDpiTestTags.RootModeToggle).assertIsOff().performClick()
         assertTrue(enabled)
+    }
+
+    @Test
+    fun `strategies are listed while root mode is off and root status shows once checked`() {
+        var state by mutableStateOf(RootModeStrategiesUiState(rootModeEnabled = false))
+        composeRule.setContent {
+            RipDpiTheme {
+                RootModeStrategiesScreen(uiState = state, onBack = {}, onOpenStrategyConfig = {})
+            }
+        }
+        val app = RuntimeEnvironment.getApplication()
+
+        composeRule.onNodeWithText(app.getString(R.string.root_mode_strategy_fakerst_title)).assertExists()
+        composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("root_mode_strategies_configure")
+        composeRule.onNodeWithTag(RipDpiTestTags.RootModeStrategiesConfigure).assertIsNotEnabled()
+        composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("root_mode_toggle")
+        composeRule.onNodeWithText(app.getString(R.string.root_mode_access_denied)).assertDoesNotExist()
+
+        state = RootModeStrategiesUiState(rootModeEnabled = true, rootAccess = RootAccessState.Denied)
+        composeRule.onNodeWithText(app.getString(R.string.root_mode_access_denied)).assertExists()
+        composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("root_mode_strategies_configure")
+        composeRule.onNodeWithTag(RipDpiTestTags.RootModeStrategiesConfigure).assertIsEnabled()
     }
 
     private fun testActions() =

@@ -10,4 +10,8 @@
     <string name="ripdpi_no_domain_body">Accept only IP addresses. The proxy rejects requests that ask it to resolve a domain name.</string>
     <string name="ripdpi_tcp_fast_open_body">Send data in the first packet of outgoing connections to save a round trip. Some networks drop these packets.</string>
     <string name="advanced_settings_unsaved_change">Not saved</string>
+    <string name="root_mode_access_checking">Checking root access…</string>
+    <string name="root_mode_access_granted">Root access is available on this device.</string>
+    <string name="root_mode_access_denied">Root access was denied. Allow RIPDPI in your root manager, then turn root mode on again.</string>
+    <string name="root_mode_access_unavailable">This device has no root access, so these strategies will not work.</string>
 </resources>

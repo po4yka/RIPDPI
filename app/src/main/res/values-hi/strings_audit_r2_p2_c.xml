@@ -10,4 +10,8 @@
     <string name="ripdpi_no_domain_body">केवल IP पते स्वीकार करें। प्रॉक्सी उन अनुरोधों को अस्वीकार करता है जिनमें उसे डोमेन नाम रिज़ॉल्व करना हो।</string>
     <string name="ripdpi_tcp_fast_open_body">एक राउंड ट्रिप बचाने के लिए आउटगोइंग कनेक्शन के पहले पैकेट में डेटा भेजें। कुछ नेटवर्क ऐसे पैकेट गिरा देते हैं।</string>
     <string name="advanced_settings_unsaved_change">सहेजा नहीं गया</string>
+    <string name="root_mode_access_checking">रूट एक्सेस की जाँच हो रही है…</string>
+    <string name="root_mode_access_granted">इस डिवाइस पर रूट एक्सेस उपलब्ध है।</string>
+    <string name="root_mode_access_denied">रूट एक्सेस अस्वीकार कर दिया गया। अपने रूट मैनेजर में RIPDPI को अनुमति दें, फिर रूट मोड दोबारा चालू करें।</string>
+    <string name="root_mode_access_unavailable">इस डिवाइस पर रूट एक्सेस नहीं है, इसलिए ये रणनीतियाँ काम नहीं करेंगी।</string>
 </resources>

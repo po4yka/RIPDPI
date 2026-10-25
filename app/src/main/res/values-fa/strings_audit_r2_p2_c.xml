@@ -10,4 +10,8 @@
     <string name="ripdpi_no_domain_body">فقط نشانی‌های IP پذیرفته می‌شوند. پراکسی درخواست‌هایی را که نیاز به تحلیل نام دامنه دارند رد می‌کند.</string>
     <string name="ripdpi_tcp_fast_open_body">داده در نخستین بستهٔ اتصال‌های خروجی فرستاده می‌شود تا یک رفت‌وبرگشت کم شود. برخی شبکه‌ها این بسته‌ها را دور می‌اندازند.</string>
     <string name="advanced_settings_unsaved_change">ذخیره نشده</string>
+    <string name="root_mode_access_checking">در حال بررسی دسترسی روت…</string>
+    <string name="root_mode_access_granted">دسترسی روت روی این دستگاه در دسترس است.</string>
+    <string name="root_mode_access_denied">دسترسی روت رد شد. در مدیر روت به RIPDPI اجازه دهید و سپس دوباره حالت روت را روشن کنید.</string>
+    <string name="root_mode_access_unavailable">این دستگاه دسترسی روت ندارد، بنابراین این راهبردها کار نمی‌کنند.</string>
 </resources>

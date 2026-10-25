@@ -10,4 +10,8 @@
     <string name="ripdpi_no_domain_body">N\'accepter que des adresses IP. Le proxy refuse les requêtes qui lui demandent de résoudre un nom de domaine.</string>
     <string name="ripdpi_tcp_fast_open_body">Envoyer des données dans le premier paquet des connexions sortantes pour économiser un aller-retour. Certains réseaux rejettent ces paquets.</string>
     <string name="advanced_settings_unsaved_change">Non enregistré</string>
+    <string name="root_mode_access_checking">Vérification de l\'accès root…</string>
+    <string name="root_mode_access_granted">L\'accès root est disponible sur cet appareil.</string>
+    <string name="root_mode_access_denied">L\'accès root a été refusé. Autorisez RIPDPI dans votre gestionnaire root, puis réactivez le mode root.</string>
+    <string name="root_mode_access_unavailable">Cet appareil n\'a pas d\'accès root : ces stratégies ne fonctionneront pas.</string>
 </resources>

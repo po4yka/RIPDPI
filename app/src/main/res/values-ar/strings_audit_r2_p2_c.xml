@@ -10,4 +10,8 @@
     <string name="ripdpi_no_domain_body">قبول عناوين IP فقط. يرفض الوكيل الطلبات التي تطلب منه تحليل اسم نطاق.</string>
     <string name="ripdpi_tcp_fast_open_body">إرسال البيانات في أول حزمة من الاتصالات الصادرة لتوفير جولة ذهاب وإياب. بعض الشبكات تُسقط هذه الحزم.</string>
     <string name="advanced_settings_unsaved_change">غير محفوظ</string>
+    <string name="root_mode_access_checking">جارٍ التحقق من صلاحية الجذر…</string>
+    <string name="root_mode_access_granted">صلاحية الجذر متاحة على هذا الجهاز.</string>
+    <string name="root_mode_access_denied">رُفضت صلاحية الجذر. اسمح لـ RIPDPI في مدير صلاحيات الجذر، ثم فعّل وضع الجذر مرة أخرى.</string>
+    <string name="root_mode_access_unavailable">لا يملك هذا الجهاز صلاحية الجذر، لذا لن تعمل هذه الاستراتيجيات.</string>
 </resources>

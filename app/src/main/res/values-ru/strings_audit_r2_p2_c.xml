@@ -10,4 +10,8 @@
     <string name="ripdpi_no_domain_body">Принимать только IP-адреса. Прокси отклоняет запросы, в которых нужно разрешить доменное имя.</string>
     <string name="ripdpi_tcp_fast_open_body">Отправлять данные в первом пакете исходящих соединений, чтобы сэкономить один круг обмена. Некоторые сети отбрасывают такие пакеты.</string>
     <string name="advanced_settings_unsaved_change">Не сохранено</string>
+    <string name="root_mode_access_checking">Проверка root-доступа…</string>
+    <string name="root_mode_access_granted">На этом устройстве есть root-доступ.</string>
+    <string name="root_mode_access_denied">В root-доступе отказано. Разрешите RIPDPI в менеджере root и снова включите root-режим.</string>
+    <string name="root_mode_access_unavailable">На этом устройстве нет root-доступа, поэтому эти стратегии не будут работать.</string>
 </resources>

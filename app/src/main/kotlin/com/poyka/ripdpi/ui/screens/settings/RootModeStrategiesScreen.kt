@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.services.RootAccessResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -30,34 +31,66 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class RootModeStrategiesUiState(
     val rootModeEnabled: Boolean = false,
+    val rootAccess: RootAccessState = RootAccessState.NotChecked,
 )
+
+enum class RootAccessState {
+    NotChecked,
+    Checking,
+    Granted,
+    Denied,
+    Unavailable,
+}
 
 @HiltViewModel
 class RootModeStrategiesViewModel
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
+        private val rootAccessChecker: RootAccessChecker,
     ) : ViewModel() {
+        private val rootAccess = MutableStateFlow(RootAccessState.NotChecked)
+        private var rootModeChange: Job? = null
+
         val uiState: StateFlow<RootModeStrategiesUiState> =
-            appSettingsRepository.settings
-                .map { RootModeStrategiesUiState(rootModeEnabled = it.rootModeEnabled) }
-                .stateIn(
-                    scope = viewModelScope,
-                    started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-                    initialValue = RootModeStrategiesUiState(),
-                )
+            combine(appSettingsRepository.settings, rootAccess) { settings, access ->
+                RootModeStrategiesUiState(rootModeEnabled = settings.rootModeEnabled, rootAccess = access)
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+                initialValue = RootModeStrategiesUiState(),
+            )
 
         fun setRootModeEnabled(enabled: Boolean) {
-            viewModelScope.launch { appSettingsRepository.update { rootModeEnabled = enabled } }
+            // A newer toggle replaces the previous one, so a check still running cannot report a stale result.
+            rootModeChange?.cancel()
+            rootModeChange =
+                viewModelScope.launch {
+                    appSettingsRepository.update { rootModeEnabled = enabled }
+                    if (!enabled) {
+                        rootAccess.value = RootAccessState.NotChecked
+                        return@launch
+                    }
+                    // The check runs only after the user turns root mode on, because it can open the root prompt.
+                    rootAccess.value = RootAccessState.Checking
+                    rootAccess.value =
+                        when (rootAccessChecker.check()) {
+                            RootAccessResult.Granted -> RootAccessState.Granted
+                            RootAccessResult.Denied -> RootAccessState.Denied
+                            RootAccessResult.Unavailable -> RootAccessState.Unavailable
+                        }
+                }
         }
 
         private companion object {
@@ -125,7 +158,6 @@ internal fun RootModeStrategiesScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
     ) {
-        // The switch carries the only explanation; strategies appear once root mode is on.
         item(key = "root_mode_toggle") {
             RipDpiCard {
                 RipDpiSwitch(
@@ -135,16 +167,16 @@ internal fun RootModeStrategiesScreen(
                     helperText = stringResource(R.string.root_mode_strategies_intro_body),
                     testTag = RipDpiTestTags.RootModeToggle,
                 )
+                RootAccessStatus(uiState.rootAccess)
             }
         }
 
-        if (!uiState.rootModeEnabled) return@RipDpiSettingsScaffold
-
+        // Listed while off too, so the screen shows what root mode enables.
         items(
             items = rootModeStrategies,
             key = { strategy -> "root_mode_strategy_${strategy.testKey}" },
         ) { strategy ->
-            RootModeStrategyCard(strategy)
+            RootModeStrategyCard(strategy, enabled = uiState.rootModeEnabled)
         }
 
         item(key = "root_mode_strategies_configure") {
@@ -155,6 +187,7 @@ internal fun RootModeStrategiesScreen(
                 RipDpiButton(
                     text = stringResource(R.string.root_mode_strategies_configure_action),
                     onClick = onOpenStrategyConfig,
+                    enabled = uiState.rootModeEnabled,
                     variant = RipDpiButtonVariant.Outline,
                     trailingIcon = RipDpiIcons.ChevronRight,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RootModeStrategiesConfigure),
@@ -165,13 +198,34 @@ internal fun RootModeStrategiesScreen(
 }
 
 @Composable
-private fun RootModeStrategyCard(strategy: RootModeStrategyInfo) {
+private fun RootAccessStatus(state: RootAccessState) {
+    val colors = RipDpiThemeTokens.colors
+    val (textRes, color) =
+        when (state) {
+            RootAccessState.NotChecked -> return
+            RootAccessState.Checking -> R.string.root_mode_access_checking to colors.mutedForeground
+            RootAccessState.Granted -> R.string.root_mode_access_granted to colors.success
+            RootAccessState.Denied -> R.string.root_mode_access_denied to colors.warning
+            RootAccessState.Unavailable -> R.string.root_mode_access_unavailable to colors.warning
+        }
+    Text(
+        text = stringResource(textRes),
+        style = RipDpiThemeTokens.type.secondaryBody,
+        color = color,
+    )
+}
+
+@Composable
+private fun RootModeStrategyCard(
+    strategy: RootModeStrategyInfo,
+    enabled: Boolean,
+) {
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
             Text(
                 text = stringResource(strategy.titleRes),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = RipDpiThemeTokens.colors.foreground,
+                color = if (enabled) RipDpiThemeTokens.colors.foreground else RipDpiThemeTokens.colors.mutedForeground,
             )
             Text(
                 text = stringResource(strategy.bodyRes),

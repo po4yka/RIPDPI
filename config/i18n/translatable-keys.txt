@@ -4462,6 +4462,10 @@ app:rkn_self_info_ip
 app:rkn_self_info_isp
 app:rkn_self_info_location
 app:rkn_self_info_source
+app:root_mode_access_checking
+app:root_mode_access_denied
+app:root_mode_access_granted
+app:root_mode_access_unavailable
 app:root_mode_strategies_configure_action
 app:root_mode_strategies_intro_body
 app:root_mode_strategy_fakerst_body

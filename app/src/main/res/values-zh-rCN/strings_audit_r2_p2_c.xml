@@ -10,4 +10,8 @@
     <string name="ripdpi_no_domain_body">仅接受 IP 地址。代理会拒绝需要它解析域名的请求。</string>
     <string name="ripdpi_tcp_fast_open_body">在出站连接的第一个数据包中发送数据，以节省一次往返。有些网络会丢弃这类数据包。</string>
     <string name="advanced_settings_unsaved_change">未保存</string>
+    <string name="root_mode_access_checking">正在检查 root 权限…</string>
+    <string name="root_mode_access_granted">此设备可获取 root 权限。</string>
+    <string name="root_mode_access_denied">root 权限被拒绝。请在 root 管理器中允许 RIPDPI，然后重新开启 root 模式。</string>
+    <string name="root_mode_access_unavailable">此设备没有 root 权限，因此这些策略无法生效。</string>
 </resources>
