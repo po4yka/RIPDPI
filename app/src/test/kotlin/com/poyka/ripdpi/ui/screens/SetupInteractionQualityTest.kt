@@ -27,6 +27,8 @@ import com.poyka.ripdpi.subscription.SubscriptionDetailUiState
 import com.poyka.ripdpi.subscription.SubscriptionExpiryItemUiState
 import com.poyka.ripdpi.subscription.SubscriptionExpiryStatus
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
+import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmScreen
+import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmUiState
 import com.poyka.ripdpi.ui.screens.routes.AppPickerSheet
 import com.poyka.ripdpi.ui.screens.routes.InstalledAppItem
 import com.poyka.ripdpi.ui.screens.routes.RoutesScreen
@@ -265,6 +267,22 @@ class SetupInteractionQualityTest {
         composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("rule_editor_empty_warning")
         composeRule.onNodeWithText(text(R.string.rule_editor_empty_error_title)).assertExists()
         assertEquals(0, saves)
+    }
+
+    @Test
+    fun `subscription link without a url shows the empty import state`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SubscriptionImportConfirmScreen(
+                    uiState = SubscriptionImportConfirmUiState(url = ""),
+                    onBack = {},
+                    onConfirm = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText(text(R.string.import_profile_confirm_empty_title)).assertExists()
+        composeRule.onNodeWithText(text(R.string.import_subscription_unnamed)).assertDoesNotExist()
+        composeRule.onNodeWithText(text(R.string.import_confirm_add_action)).assertDoesNotExist()
     }
 
     @Test

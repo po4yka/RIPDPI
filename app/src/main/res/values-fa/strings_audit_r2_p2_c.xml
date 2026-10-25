@@ -16,4 +16,5 @@
     <string name="root_mode_access_unavailable">این دستگاه دسترسی روت ندارد، بنابراین این راهبردها کار نمی‌کنند.</string>
     <string name="domain_bypass_move_requires_save">ابتدا فهرست را ذخیره کنید تا بتوانید آن را به قوانین منتقل کنید.</string>
     <string name="title_rule_editor_new">قانون جدید</string>
+    <string name="import_subscription_confirm_empty_body">این پیوند شامل URL اشتراک نیست.</string>
 </resources>

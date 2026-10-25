@@ -88,6 +88,16 @@ internal fun SubscriptionImportConfirmScreen(
                 tone = WarningBannerTone.Error,
             )
         }
+        // Same empty state as profile import: nothing to add, so no card and no disabled Add.
+        if (uiState.url.isBlank()) {
+            RipDpiCard {
+                RipDpiPanelHeader(
+                    title = stringResource(R.string.import_profile_confirm_empty_title),
+                    supporting = stringResource(R.string.import_subscription_confirm_empty_body),
+                )
+            }
+            return@RipDpiContentScreenScaffold
+        }
         RipDpiCard {
             RipDpiPanelHeader(
                 title =
@@ -99,7 +109,7 @@ internal fun SubscriptionImportConfirmScreen(
         RipDpiButton(
             text = stringResource(R.string.import_confirm_add_action),
             onClick = onConfirm,
-            enabled = !uiState.importing && uiState.url.isNotBlank(),
+            enabled = !uiState.importing,
             loading = uiState.importing,
             modifier = Modifier.fillMaxWidth(),
         )

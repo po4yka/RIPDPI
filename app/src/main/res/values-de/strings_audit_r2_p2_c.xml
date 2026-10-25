@@ -16,4 +16,5 @@
     <string name="root_mode_access_unavailable">Dieses Gerät hat keinen Root-Zugriff, daher funktionieren diese Strategien nicht.</string>
     <string name="domain_bypass_move_requires_save">Speichern Sie die Liste zuerst, um sie zu den Regeln zu verschieben.</string>
     <string name="title_rule_editor_new">Neue Regel</string>
+    <string name="import_subscription_confirm_empty_body">Dieser Link enthält keine Abonnement-URL.</string>
 </resources>
