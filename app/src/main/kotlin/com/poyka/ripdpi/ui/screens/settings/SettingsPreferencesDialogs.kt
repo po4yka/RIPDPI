@@ -107,6 +107,7 @@ private fun ResetConfirmDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.settings_reset_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         dismissAction =

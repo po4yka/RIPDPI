@@ -121,6 +121,7 @@ internal fun RoutesScreen(
             confirmAction =
                 RipDpiDialogAction(
                     label = stringResource(R.string.rule_editor_delete),
+                    destructive = true,
                     onClick = {
                         pendingDelete = null
                         onDelete(rule)

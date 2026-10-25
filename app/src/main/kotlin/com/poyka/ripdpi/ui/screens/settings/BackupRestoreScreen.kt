@@ -502,6 +502,7 @@ private fun BackupResetConfirmationDialog(
             if (confirmEnabled) {
                 com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction(
                     label = stringResource(R.string.backup_reset_confirm_action),
+                    destructive = true,
                     onClick = onConfirm,
                     testTag = RipDpiTestTags.BackupResetConfirm,
                 )

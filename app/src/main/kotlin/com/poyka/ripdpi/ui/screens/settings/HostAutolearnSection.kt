@@ -200,7 +200,7 @@ private fun HostAutolearnFooter(
             text = stringResource(R.string.host_autolearn_forget_action),
             onClick = onForgetClick,
             enabled = uiState.canForgetLearnedHosts,
-            variant = RipDpiButtonVariant.Outline,
+            variant = RipDpiButtonVariant.Destructive,
             trailingIcon = RipDpiIcons.Close,
         )
     }
@@ -227,6 +227,7 @@ private fun HostAutolearnForgetDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_forget_learned_hosts_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =

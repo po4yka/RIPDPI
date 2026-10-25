@@ -199,6 +199,7 @@ private fun FakeTlsResetDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_reset_fake_tls_profile_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =

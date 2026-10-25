@@ -261,6 +261,7 @@ private fun TelemetrySaltResetAction(onRotateSalt: () -> Unit) {
             confirmAction =
                 RipDpiDialogAction(
                     label = stringResource(R.string.confirm_rotate_telemetry_salt_confirm),
+                    destructive = true,
                     onClick = {
                         showConfirmDialog = false
                         onRotateSalt()
@@ -286,7 +287,7 @@ private fun TelemetrySaltResetAction(onRotateSalt: () -> Unit) {
         RipDpiButton(
             text = stringResource(R.string.settings_telemetry_salt_reset_action),
             onClick = { showConfirmDialog = true },
-            variant = RipDpiButtonVariant.Outline,
+            variant = RipDpiButtonVariant.Destructive,
             trailingIcon = RipDpiIcons.Close,
         )
     }
@@ -689,7 +690,7 @@ internal fun LazyListScope.networkStrategyMemorySection(
                         onClick = { showClearDialog = true },
                         enabled = uiState.canClearRememberedNetworks,
                         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.AdvancedClearRememberedNetworks),
-                        variant = RipDpiButtonVariant.Outline,
+                        variant = RipDpiButtonVariant.Destructive,
                         trailingIcon = RipDpiIcons.Close,
                     )
                 }
@@ -719,6 +720,7 @@ private fun ClearRememberedNetworksDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_clear_remembered_networks_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =

@@ -206,6 +206,7 @@ private fun FakePayloadLibraryResetDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_reset_fake_payload_library_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =

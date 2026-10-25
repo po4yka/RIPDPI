@@ -475,6 +475,7 @@ private fun HttpParserResetDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_reset_http_parser_evasions_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =

@@ -35,6 +35,7 @@ fun RipDpiConfirmDisconnectDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.vpn_confirm_disconnect_disconnect),
+                destructive = true,
                 onClick = onConfirm,
                 testTag = RipDpiTestTags.ConnectionActuatorDisconnectConfirm,
             ),

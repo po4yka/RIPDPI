@@ -167,7 +167,7 @@ private fun RememberedNetworksConfirmDialog(
         onDismissRequest = onDismiss,
         title = title,
         dismissAction = RipDpiDialogAction(label = dismissLabel, onClick = onDismiss),
-        confirmAction = RipDpiDialogAction(label = confirmLabel, onClick = onConfirm),
+        confirmAction = RipDpiDialogAction(label = confirmLabel, onClick = onConfirm, destructive = true),
         visuals = RipDpiDialogVisuals(message = message, tone = RipDpiDialogTone.Destructive),
     )
 }

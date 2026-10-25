@@ -321,6 +321,7 @@ private fun AdaptiveSplitResetDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_reset_adaptive_split_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =
