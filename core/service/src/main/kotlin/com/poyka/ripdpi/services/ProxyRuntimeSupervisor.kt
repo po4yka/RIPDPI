@@ -61,15 +61,7 @@ internal class ProxyRuntimeSupervisor(
         preferences: RipDpiProxyPreferences,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ): ProxyRuntimeStartResult {
-        beforeNativeStart?.let { hook ->
-            // Run only when this supervisor's previous native run has returned and flushed. The hook
-            // suspends, so it runs before the check and assignment below; a stop() during it wins.
-            if (proxyJob == null) {
-                val stopsBefore = stopCalls.get()
-                withContext(dispatcher) { hook() }
-                if (stopCalls.get() != stopsBefore) throw CancellationException("Proxy stop requested during start")
-            }
-        }
+        runBeforeNativeStartHook()
         check(proxyJob == null) { "Proxy fields not null" }
 
         val proxyInstance = ripDpiProxyFactory.create()
@@ -136,6 +128,18 @@ internal class ProxyRuntimeSupervisor(
 
         updateNetworkSnapshot(proxyInstance)
         return startResult
+    }
+
+    /**
+     * Runs the hook only when this supervisor's previous native run has returned and flushed. The
+     * hook suspends, so it runs before start()'s check and assignment; a stop() during it wins.
+     */
+    private suspend fun runBeforeNativeStartHook() {
+        val hook = beforeNativeStart ?: return
+        if (proxyJob != null) return
+        val stopsBefore = stopCalls.get()
+        withContext(dispatcher) { hook() }
+        if (stopCalls.get() != stopsBefore) throw CancellationException("Proxy stop requested during start")
     }
 
     private suspend fun cleanupFailedStart(
