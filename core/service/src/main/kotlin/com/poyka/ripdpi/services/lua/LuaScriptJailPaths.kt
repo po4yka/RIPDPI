@@ -2,7 +2,10 @@ package com.poyka.ripdpi.services.lua
 
 import java.io.File
 
-private val ScriptPathListItem = Regex("""^(\s*-\s*)("?)(/[^"\n]*?)\2(\s*)$""", RegexOption.MULTILINE)
+private val ScriptPathsKey = Regex("""^(\s*)script_paths:\s*$""")
+private val AbsolutePathListItem = Regex("""^(\s*)-\s*("?)(/[^"]*?)\2\s*$""")
+private const val IndentGroup = 1
+private const val PathGroup = 3
 
 /**
  * Maps a typed script path (absolute, or relative to [baseDir]) to the [baseDir]-relative
@@ -19,19 +22,29 @@ fun luaJailRelativeScriptPath(
 }
 
 /**
- * Rewrites absolute list-item paths inside [baseDir] in a strategy YAML to the jail-relative form.
- * Configs saved before the in-app editor stored relative paths hold absolute in-jail paths, which
- * the runtime jail rejects. Paths outside [baseDir] stay as they are, so the jail still rejects them.
+ * Rewrites absolute items of `script_paths:` blocks that lie inside [baseDir] to the jail-relative
+ * form. Configs saved before the in-app editor stored relative paths hold absolute in-jail paths,
+ * which the runtime jail rejects. Paths outside [baseDir] stay as they are, so the jail still
+ * rejects them. Other YAML lists are not touched.
  */
 fun relativizeLuaScriptPaths(
     yaml: String,
     baseDir: String,
-): String =
-    ScriptPathListItem.replace(yaml) { match ->
-        val path = match.groupValues[PathGroup]
-        luaJailRelativeScriptPath(baseDir, path)
-            ?.let { relative -> match.value.replaceFirst(path, relative) }
-            ?: match.value
+): String {
+    var keyIndent: Int? = null
+    return yaml.lines().joinToString("\n") { line ->
+        ScriptPathsKey.matchEntire(line)?.let { key ->
+            keyIndent = key.groupValues[IndentGroup].length
+            return@joinToString line
+        }
+        val item = AbsolutePathListItem.matchEntire(line)
+        val inBlock = keyIndent?.let { indent -> line.isBlank() || line.isScriptPathsItem(indent) } == true
+        if (!inBlock) keyIndent = null
+        val path = item?.groupValues?.get(PathGroup)
+        val relative = if (inBlock && path != null) luaJailRelativeScriptPath(baseDir, path) else null
+        if (path == null || relative == null) line else line.replaceFirst(path, relative)
     }
+}
 
-private const val PathGroup = 3
+private fun String.isScriptPathsItem(keyIndent: Int): Boolean =
+    trimStart().startsWith("-") && length - trimStart().length >= keyIndent

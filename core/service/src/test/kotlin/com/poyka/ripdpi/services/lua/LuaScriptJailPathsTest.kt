@@ -47,13 +47,16 @@ class LuaScriptJailPathsTest {
                           - "${jail.path}/zapret-antidpi.lua"
                           - ${root.path}/outside.lua
                           - "relative.lua"
+                      - type: split
+                        payload_files:
+                          - "${jail.path}/zapret-antidpi.lua"
                 """.trimIndent()
 
             val loaded = relativizeLuaScriptPaths(saved, jail.path)
 
+            // Only the script_paths item changes; the same path in another list stays absolute.
             assertEquals(
-                saved
-                    .replace("\"${jail.path}/zapret-antidpi.lua\"", "\"zapret-antidpi.lua\""),
+                saved.replaceFirst("\"${jail.path}/zapret-antidpi.lua\"", "\"zapret-antidpi.lua\""),
                 loaded,
             )
         } finally {
