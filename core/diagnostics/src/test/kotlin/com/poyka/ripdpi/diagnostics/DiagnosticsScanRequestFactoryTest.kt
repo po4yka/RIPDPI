@@ -25,6 +25,7 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.application.toLaunchTrigger
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
@@ -244,6 +245,7 @@ class DiagnosticsScanRequestFactoryTest {
             try {
                 val probed = probedRelay()
                 assertEquals(credentials, probed.localSocksCredentials)
+                assertSecretNeverPersistedOrExported(checkNotNull(lastPreparedScan), credentials.password, json)
             } finally {
                 LocalSocksCredentialRegistry.unregister("127.0.0.1", 41_980, credentials)
             }
@@ -650,8 +652,11 @@ class DiagnosticsScanRequestFactoryTest {
                 registerActiveBridge = false,
             )
 
+        lastPreparedScan = prepared
         return json.decodeFromString(EngineScanRequestWire.serializer(), prepared.requestJson)
     }
+
+    private var lastPreparedScan: PreparedDiagnosticsScan? = null
 
     private fun strategyProbeIntent(
         settings: com.poyka.ripdpi.proto.AppSettings,
