@@ -1,5 +1,6 @@
 use std::io;
 use std::net::SocketAddr;
+use std::os::fd::{AsFd, AsRawFd};
 
 use etherparse::{Ipv4Header, TcpHeader};
 
@@ -374,15 +375,22 @@ fn raw_ipv6_sends_accept_a_target_with_a_transport_port() {
     )
     .expect("build IPv6 TCP segment");
 
-    let result = raw_packet::send_raw_fragments(target, [&packet, &packet], None);
+    let (mark_source, _peer) = connected_pair();
+    let result = raw_packet::send_raw_fragments(target, [&packet, &packet], None, mark_source.as_fd());
     // Without CAP_NET_RAW (or with IPv6 loopback off) the raw socket cannot open.
     if matches!(&result, Err(error) if matches!(error.kind(), io::ErrorKind::PermissionDenied | io::ErrorKind::AddrNotAvailable))
     {
         return;
     }
     result.expect("raw IPv6 send to port 443");
-    raw_packet::send_raw_packets_with_delay(target, [packet.as_slice(), packet.as_slice()], None, 1)
-        .expect("delayed raw IPv6 send to port 443");
+    raw_packet::send_raw_packets_with_delay(
+        target,
+        [packet.as_slice(), packet.as_slice()],
+        None,
+        mark_source.as_fd(),
+        1,
+    )
+    .expect("delayed raw IPv6 send to port 443");
 }
 
 #[test]
@@ -393,4 +401,24 @@ fn send_fake_rst_refuses_a_socket_at_the_default_ttl() {
     let err = raw_packet::send_fake_rst(&client, 64, None, TcpFlagOverrides::default(), None)
         .expect_err("an exact-sequence RST at the default TTL would reset the real connection");
     assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+}
+
+#[test]
+fn raw_sockets_inherit_the_mark_of_the_socket_they_stand_in_for() {
+    use socket2::{Domain, Protocol, Socket, Type};
+
+    use crate::linux::socket_options::{get_u32_sockopt, set_c_int_sockopt};
+
+    let (source, _peer) = connected_pair();
+    let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).expect("create socket");
+    // An unmarked source copies nothing, so no CAP_NET_ADMIN is needed.
+    raw_packet::inherit_socket_mark(&socket, source.as_fd()).expect("unmarked source");
+    assert_eq!(get_u32_sockopt(socket.as_raw_fd(), libc::SOL_SOCKET, libc::SO_MARK).expect("read mark"), 0);
+
+    // Setting SO_MARK needs CAP_NET_ADMIN, which the root helper has.
+    if set_c_int_sockopt(source.as_raw_fd(), libc::SOL_SOCKET, libc::SO_MARK, 0x0004_1234).is_err() {
+        return;
+    }
+    raw_packet::inherit_socket_mark(&socket, source.as_fd()).expect("copy the source mark");
+    assert_eq!(get_u32_sockopt(socket.as_raw_fd(), libc::SOL_SOCKET, libc::SO_MARK).expect("read mark"), 0x0004_1234);
 }

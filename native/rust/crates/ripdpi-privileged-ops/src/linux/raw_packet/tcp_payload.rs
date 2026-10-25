@@ -5,7 +5,7 @@
 
 use std::io;
 use std::net::TcpStream;
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsFd, AsRawFd};
 
 use crate::detect_default_ttl;
 use crate::linux::raw_packet::fake_tcp::mutate_fake_timestamp;
@@ -52,7 +52,7 @@ pub fn send_fake_rst(
         })
         .map_err(build_error_to_io)?;
         apply_tcp_flag_overrides_to_packet(&mut packet, source, target, 0, flags)?;
-        send_raw_packets(target, [packet.as_slice()], protect_path)
+        send_raw_packets(target, [packet.as_slice()], protect_path, stream.as_fd())
     })();
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
     let _ = disable_tcp_repair(fd);
@@ -125,13 +125,13 @@ pub fn send_ordered_tcp_segments(
         }
 
         if original_payload_len == 0 {
-            send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path)?;
+            send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path, stream.as_fd())?;
             set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
             disable_tcp_repair(fd)?;
             return wait_tcp_stage_fd(fd, wait.0, wait.1);
         }
 
-        send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path)?;
+        send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path, stream.as_fd())?;
         queue_payload_as_sent(stream, &genuine_payload)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)?;
@@ -208,7 +208,7 @@ pub fn send_flagged_tcp_payload(
             md5sig,
             flags,
         )?;
-        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
+        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path, stream.as_fd())?;
         queue_payload_as_sent(stream, payload)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)
@@ -262,7 +262,7 @@ pub fn send_seqovl_tcp(
             md5sig,
             flags,
         )?;
-        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
+        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path, stream.as_fd())?;
         queue_payload_as_sent(stream, real_chunk)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)

@@ -243,9 +243,17 @@ fallback; no follow-up is required.**
 
 The helper is a **uid-0 process boundary** — treat every request as untrusted,
 validate aggressively, and route protocol changes through security review. The
-session nonce confines the socket to the launching app session. The helper
-still honors the `VpnService.protect()` invariant for any non-loopback socket
-it opens. See [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md).
+session nonce confines the socket to the launching app session. The helper runs
+outside the app, so it cannot call `VpnService.protect()`, and its commands
+carry no protect path. Instead, every raw socket that a command with an app
+socket opens (fake, flagged, seqovl, ordered segments, fake RST, ipfrag,
+multidisorder) copies that socket's `SO_MARK`. On Android the mark carries the
+network selection and, after `VpnService.protect()`, the VPN-bypass bit, so the
+crafted packets route like the protected app socket. Raw sends never open a
+second TCP socket. The experimental tier-3 commands (`send_raw_ip_packet`,
+`send_syn_hide_tcp`, `send_icmp_wrapped_udp`, `recv_icmp_wrapped_udp`) receive
+no app socket, so their raw sockets have no mark and are not protected while a
+VPN is active. See [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md).
 
 ## Adding a privileged operation
 

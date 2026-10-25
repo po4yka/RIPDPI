@@ -6,7 +6,7 @@
 use std::io;
 use std::io::Write;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsFd, AsRawFd};
 
 use ripdpi_ipfrag::{
     TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec, build_tcp_fragment_pair, build_udp_fragment_pair,
@@ -60,9 +60,9 @@ pub fn send_ip_fragmented_udp(
     )
     .map_err(build_error_to_io)?;
     if disorder {
-        send_raw_fragments(target, [&pair.second, &pair.first], protect_path)
+        send_raw_fragments(target, [&pair.second, &pair.first], protect_path, upstream.as_fd())
     } else {
-        send_raw_fragments(target, [&pair.first, &pair.second], protect_path)
+        send_raw_fragments(target, [&pair.first, &pair.second], protect_path, upstream.as_fd())
     }
 }
 
@@ -115,9 +115,9 @@ pub fn send_ip_fragmented_tcp(
         .map_err(build_error_to_io)?;
 
         if disorder {
-            send_raw_fragments(target, [&pair.second, &pair.first], protect_path)?;
+            send_raw_fragments(target, [&pair.second, &pair.first], protect_path, stream.as_fd())?;
         } else {
-            send_raw_fragments(target, [&pair.first, &pair.second], protect_path)?;
+            send_raw_fragments(target, [&pair.first, &pair.second], protect_path, stream.as_fd())?;
         }
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)?;
@@ -174,6 +174,7 @@ pub fn send_multi_disorder_tcp(
             target,
             packets.iter().rev().map(Vec::as_slice),
             protect_path,
+            stream.as_fd(),
             inter_segment_delay_ms,
         )?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
