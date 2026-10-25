@@ -626,6 +626,7 @@ app:config_error_invalid_dns
 app:config_error_invalid_marker
 app:config_error_invalid_port
 app:config_error_invalid_proxy_ip
+app:config_error_ipv6_dns_requires_ipv6
 app:config_error_out_of_range
 app:config_error_required
 app:config_error_unsupported

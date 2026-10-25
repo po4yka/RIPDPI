@@ -1241,6 +1241,7 @@
     <string name="config_validation_banner_title">Alguns valores ainda precisam de atenção</string>
     <string name="config_validation_banner_body">O editor está validando em tempo real. Corrija os campos marcados e salve novamente.</string>
     <string name="config_error_invalid_dns">Informe um endereço DNS não local válido.</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">Ative o IPv6 para usar um endereço DNS IPv6.</string>
     <string name="config_error_invalid_proxy_ip">Informe um endereço de escuta de proxy válido.</string>
     <string name="config_error_invalid_port">Informe uma porta TCP válida.</string>
     <string name="config_error_out_of_range">O valor está fora do intervalo permitido.</string>

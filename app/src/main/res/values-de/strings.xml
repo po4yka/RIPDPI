@@ -2247,6 +2247,7 @@ Quelle: %2$s</string>
     <string name="config_cli_banner_title">Kommandozeilen-Überschreibungen aktiviert</string>
     <string name="config_edit_current">Profil bearbeiten</string>
     <string name="config_error_invalid_dns">Geben Sie eine gültige, nicht lokale DNS-Adresse ein.</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">Aktivieren Sie IPv6, um eine IPv6-DNS-Adresse zu verwenden.</string>
     <string name="config_error_required">Dieses Feld ist erforderlich.</string>
     <string name="config_local_bypass_section_body">Passen Sie den geräteinternen Proxy-Pfad, DNS und die Bypass-Strategie-Steuerungen an.</string>
     <string name="config_local_bypass_simple_title">Lokaler Bypass</string>

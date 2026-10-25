@@ -338,10 +338,18 @@ private fun PlainDnsEditor(
                         stringResource(R.string.config_dns_disabled_helper)
                     },
                 errorText =
-                    if (input.plainDnsInput.isNotBlank() && !validation.plainDnsValid) {
-                        stringResource(R.string.config_error_invalid_dns)
-                    } else {
-                        null
+                    when {
+                        validation.plainDnsNeedsIpv6 -> {
+                            stringResource(R.string.config_error_ipv6_dns_requires_ipv6)
+                        }
+
+                        input.plainDnsInput.isNotBlank() && !validation.plainDnsValid -> {
+                            stringResource(R.string.config_error_invalid_dns)
+                        }
+
+                        else -> {
+                            null
+                        }
                     },
             ),
         behavior =

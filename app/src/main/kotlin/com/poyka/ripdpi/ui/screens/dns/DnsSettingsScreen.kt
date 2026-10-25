@@ -51,7 +51,13 @@ internal fun DnsSettingsScreen(
         draftProtocol?.let { protocol -> uiState.copy(dns = uiState.dns.copy(encryptedDnsProtocol = protocol)) }
             ?: uiState
     val input = rememberDnsSettingsInputState(editorUiState.dns)
-    val validation = rememberDnsSettingsValidation(uiState.dns, editorUiState.dns.encryptedDnsProtocol, input)
+    val validation =
+        rememberDnsSettingsValidation(
+            dns = uiState.dns,
+            selectedProtocol = editorUiState.dns.encryptedDnsProtocol,
+            input = input,
+            ipv6Enabled = uiState.ipv6Enable,
+        )
     val selectedResolver = selectedResolverOption(uiState.dns)
 
     RipDpiContentScreenScaffold(

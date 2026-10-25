@@ -1263,6 +1263,7 @@
     <string name="config_validation_banner_title">Some values still need attention</string>
     <string name="config_validation_banner_body">The editor is validating in real time. Fix the marked fields, then save again.</string>
     <string name="config_error_invalid_dns">Enter a valid non-local DNS address.</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">Turn on IPv6 to use an IPv6 DNS address.</string>
     <string name="config_error_invalid_proxy_ip">Enter a valid proxy listen address.</string>
     <string name="config_error_invalid_port">Enter a valid TCP port.</string>
     <string name="config_error_out_of_range">Value is outside the allowed range.</string>

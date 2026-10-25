@@ -1238,6 +1238,7 @@
     <string name="config_validation_banner_title">कुछ मानों पर अभी ध्यान देने की आवश्यकता है</string>
     <string name="config_validation_banner_body">संपादक वास्तविक समय में सत्यापन कर रहा है। चिह्नित फ़ील्ड ठीक करें, फिर दोबारा सहेजें।</string>
     <string name="config_error_invalid_dns">एक मान्य गैर-स्थानीय DNS पता दर्ज करें।</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">IPv6 DNS पता इस्तेमाल करने के लिए IPv6 चालू करें।</string>
     <string name="config_error_invalid_proxy_ip">एक मान्य प्रॉक्सी लिसन पता दर्ज करें।</string>
     <string name="config_error_invalid_port">एक मान्य TCP पोर्ट दर्ज करें।</string>
     <string name="config_error_out_of_range">मान अनुमत सीमा से बाहर है।</string>

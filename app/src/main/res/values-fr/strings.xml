@@ -2247,6 +2247,7 @@ Source : %2$s</string>
     <string name="config_cli_banner_title">Surcharges de ligne de commande activées</string>
     <string name="config_edit_current">Modifier le profil</string>
     <string name="config_error_invalid_dns">Saisissez une adresse DNS non locale valide.</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">Activez IPv6 pour utiliser une adresse DNS IPv6.</string>
     <string name="config_error_required">Ce champ est obligatoire.</string>
     <string name="config_local_bypass_section_body">Ajustez le chemin du proxy sur l\'appareil, le DNS et les commandes de stratégie de contournement.</string>
     <string name="config_local_bypass_simple_title">Contournement local</string>

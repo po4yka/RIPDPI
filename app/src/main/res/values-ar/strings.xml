@@ -1236,6 +1236,7 @@
     <string name="config_validation_banner_title">بعض القيم تحتاج إلى انتباه</string>
     <string name="config_validation_banner_body">المحرر يتحقق في الوقت الفعلي. أصلح الحقول المحددة ثم احفظ مجدداً.</string>
     <string name="config_error_invalid_dns">أدخل عنوان DNS صالحاً وغير محلي.</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">فعّل IPv6 لاستخدام عنوان DNS من نوع IPv6.</string>
     <string name="config_error_invalid_proxy_ip">أدخل عنوان استماع وكيل صالحاً.</string>
     <string name="config_error_invalid_port">أدخل منفذ TCP صالحاً.</string>
     <string name="config_error_out_of_range">القيمة خارج النطاق المسموح به.</string>

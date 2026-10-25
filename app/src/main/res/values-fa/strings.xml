@@ -1240,6 +1240,7 @@
     <string name="config_validation_banner_title">برخی مقادیر هنوز نیاز به توجه دارند</string>
     <string name="config_validation_banner_body">ویرایشگر در زمان واقعی اعتبارسنجی می‌کند. فیلدهای علامت‌گذاری‌شده را برطرف کنید، سپس دوباره ذخیره کنید.</string>
     <string name="config_error_invalid_dns">یک آدرس DNS غیر محلی معتبر وارد کنید.</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">برای استفاده از آدرس DNS از نوع IPv6، گزینه IPv6 را روشن کنید.</string>
     <string name="config_error_invalid_proxy_ip">یک آدرس شنود پراکسی معتبر وارد کنید.</string>
     <string name="config_error_invalid_port">یک پورت TCP معتبر وارد کنید.</string>
     <string name="config_error_out_of_range">مقدار خارج از محدودهٔ مجاز است.</string>

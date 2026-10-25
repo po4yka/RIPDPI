@@ -45,6 +45,7 @@ internal data class DnsSettingsValidation(
     val normalizedBootstrapIps: List<String>,
     val bootstrapIpsValid: Boolean,
     val plainDnsValid: Boolean,
+    val plainDnsNeedsIpv6: Boolean,
     val plainDnsDirty: Boolean,
     val trimmedDohUrl: String,
     val customDohValid: Boolean,
@@ -142,6 +143,7 @@ internal fun rememberDnsSettingsValidation(
     dns: DnsUiState,
     selectedProtocol: String,
     input: DnsSettingsInputState,
+    ipv6Enabled: Boolean,
 ): DnsSettingsValidation {
     val normalizedBootstrapIps = remember(input.bootstrapInput) { parseBootstrapIps(input.bootstrapInput) }
     return DnsSettingsValidation(
@@ -149,6 +151,7 @@ internal fun rememberDnsSettingsValidation(
         selectedProtocol = selectedProtocol,
         input = input,
         normalizedBootstrapIps = normalizedBootstrapIps,
+        ipv6Enabled = ipv6Enabled,
     )
 }
 
@@ -177,8 +180,12 @@ private fun DnsSettingsValidation(
     selectedProtocol: String,
     input: DnsSettingsInputState,
     normalizedBootstrapIps: List<String>,
+    ipv6Enabled: Boolean,
 ): DnsSettingsValidation {
     val trimmedPlainDns = input.plainDnsInput.trim()
+    val plainDnsAddressValid = trimmedPlainDns.isNotEmpty() && checkNotLocalIp(trimmedPlainDns)
+    // The VPN service refuses to start with an IPv6 plain DNS server while IPv6 is off.
+    val plainDnsNeedsIpv6 = plainDnsAddressValid && ':' in trimmedPlainDns && !ipv6Enabled
     val trimmedDohUrl = input.customDohUrl.trim()
     val trimmedDotHost = input.customDotHost.trim()
     val trimmedDotTlsServerName = input.tlsServerNameInput.trim()
@@ -193,7 +200,8 @@ private fun DnsSettingsValidation(
         trimmedPlainDns = trimmedPlainDns,
         normalizedBootstrapIps = normalizedBootstrapIps,
         bootstrapIpsValid = bootstrapIpsValid,
-        plainDnsValid = trimmedPlainDns.isNotEmpty() && checkNotLocalIp(trimmedPlainDns),
+        plainDnsValid = plainDnsAddressValid && !plainDnsNeedsIpv6,
+        plainDnsNeedsIpv6 = plainDnsNeedsIpv6,
         plainDnsDirty = dns.dnsMode != DnsModePlainUdp || trimmedPlainDns != dns.dnsIp,
         trimmedDohUrl = trimmedDohUrl,
         customDohValid = isValidHttpsUrl(trimmedDohUrl) && bootstrapIpsValid,

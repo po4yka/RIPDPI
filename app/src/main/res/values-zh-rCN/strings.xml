@@ -541,6 +541,7 @@
     <string name="config_dns_helper">用于本地 VPN 路由。</string>
     <string name="config_editor_body">正在编辑 %1$s。修改会立即校验并存储于本设备。</string>
     <string name="config_error_invalid_dns">请输入有效的非本地 DNS 地址。</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">请开启 IPv6 以使用 IPv6 DNS 地址。</string>
     <string name="config_error_out_of_range">数值超出允许范围。</string>
     <string name="config_fake_tls_size_helper">0 = 与输入相同大小,正值 = 精确目标字节数,负值 = 输入减去 N。</string>
     <string name="config_mode_section">模式</string>

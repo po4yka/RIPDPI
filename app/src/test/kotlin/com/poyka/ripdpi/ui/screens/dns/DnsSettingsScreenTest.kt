@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -16,6 +17,7 @@ import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.activities.ValidOdohConfigsHex
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
@@ -41,6 +43,49 @@ import org.robolectric.annotation.GraphicsMode
 class DnsSettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun ipv6PlainDnsIsRejectedWhileIpv6IsOff() {
+        setPlainDnsContent(ipv6Enable = false)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainAddress).performTextReplacement(Ipv6Dns)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainSave).performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithText("Turn on IPv6 to use an IPv6 DNS address.").assertExists()
+    }
+
+    @Test
+    fun ipv6PlainDnsIsAcceptedWhileIpv6IsOn() {
+        setPlainDnsContent(ipv6Enable = true)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainAddress).performTextReplacement(Ipv6Dns)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsPlainSave).performScrollTo().assertIsEnabled()
+    }
+
+    private fun setPlainDnsContent(ipv6Enable: Boolean) {
+        composeRule.setContent {
+            RipDpiTheme {
+                DnsSettingsScreen(
+                    uiState =
+                        SettingsUiState(
+                            ipv6Enable = ipv6Enable,
+                            dns = DnsUiState(dnsMode = DnsModePlainUdp, dnsIp = "1.1.1.1"),
+                        ),
+                    onBack = {},
+                    onModeSelected = {},
+                    onProtocolSelected = {},
+                    onResolverSelected = {},
+                    onSaveCustomDoh = { _, _ -> },
+                    onSaveCustomDot = { _, _, _, _, _ -> },
+                    onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, _ -> },
+                    onSavePlainDns = {},
+                    onIpv6Changed = {},
+                )
+            }
+        }
+    }
 
     @Test
     fun builtInResolverCardIsRendered() {
@@ -346,3 +391,5 @@ class DnsSettingsScreenTest {
         composeRule.runOnIdle { assertEquals(listOf("8.8.8.8"), savedBootstrap) }
     }
 }
+
+private const val Ipv6Dns = "2606:4700:4700::1111"

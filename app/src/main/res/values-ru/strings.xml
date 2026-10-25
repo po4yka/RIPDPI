@@ -954,6 +954,7 @@
     <string name="config_validation_banner_title">Некоторые значения требуют внимания</string>
     <string name="config_validation_banner_body">Редактор выполняет проверку в реальном времени. Исправьте отмеченные поля и сохраните снова.</string>
     <string name="config_error_invalid_dns">Введите корректный нелокальный DNS-адрес.</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">Включите IPv6, чтобы использовать DNS-адрес IPv6.</string>
     <string name="config_error_invalid_proxy_ip">Введите корректный адрес прослушивания прокси.</string>
     <string name="config_error_invalid_port">Введите корректный TCP-порт.</string>
     <string name="config_error_out_of_range">Значение выходит за пределы допустимого диапазона.</string>

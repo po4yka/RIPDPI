@@ -2247,6 +2247,7 @@ Origen: %2$s</string>
     <string name="config_cli_banner_title">Anulaciones de línea de comandos habilitadas</string>
     <string name="config_edit_current">Editar perfil</string>
     <string name="config_error_invalid_dns">Introduce una dirección DNS válida y no local.</string>
+    <string name="config_error_ipv6_dns_requires_ipv6">Activa IPv6 para usar una dirección DNS IPv6.</string>
     <string name="config_error_required">Este campo es obligatorio.</string>
     <string name="config_local_bypass_section_body">Ajusta la ruta del proxy en el dispositivo, el DNS y los controles de la estrategia de bypass.</string>
     <string name="config_local_bypass_simple_title">Bypass local</string>
