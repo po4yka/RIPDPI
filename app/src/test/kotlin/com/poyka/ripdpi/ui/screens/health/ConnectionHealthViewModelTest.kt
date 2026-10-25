@@ -129,7 +129,7 @@ class ConnectionHealthViewModelTest {
         }
 
     @Test
-    fun `observed zero loss window is real data without rtt samples`() =
+    fun `zero loss window without samples is not an estimate`() =
         runTest {
             val viewModel =
                 ConnectionHealthViewModel(
@@ -140,9 +140,10 @@ class ConnectionHealthViewModelTest {
                 )
             viewModel.uiState.test {
                 val state = awaitItem()
-                assertTrue(state.hasData)
-                assertEquals(0f, state.qualityLossPercent)
-                assertEquals(1_000L, state.qualityWindowStartAtMs)
+                assertFalse(state.hasData)
+                assertNull(state.qualityLossPercent)
+                assertNull(state.qualitySampleCount)
+                assertNull(state.qualityWindowStartAtMs)
                 assertNull(state.qualityRttP50Ms)
                 cancelAndIgnoreRemainingEvents()
             }

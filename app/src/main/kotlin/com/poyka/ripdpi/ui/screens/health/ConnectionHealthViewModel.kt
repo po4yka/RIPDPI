@@ -13,7 +13,6 @@ import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.services.ConnectionHealthObservationPolicy
 import com.poyka.ripdpi.services.ConnectionHealthRepository
 import com.poyka.ripdpi.services.ConnectionHealthSnapshot
-import com.poyka.ripdpi.services.hasObservedMeasurements
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -123,7 +122,9 @@ private fun toUiState(
     snapshot: ConnectionHealthSnapshot,
     insights: RuntimeTelemetryInsights,
 ): ConnectionHealthUiState {
-    val quality = snapshot.quality?.takeIf { it.hasObservedMeasurements() }
+    // Without a connect sample or nonzero loss, the window holds only the retransmit tracker's
+    // zero-segment 0%, which is no estimate; the card then shows its waiting state instead.
+    val quality = snapshot.quality?.takeIf { it.sampleCount > 0L || it.lossPct > 0f }
     return ConnectionHealthUiState(
         rows = snapshot.buckets.map(ConnectionHealthBucket::toRowUiState).toImmutableList(),
         qualityLossPercent = quality?.lossPct,
