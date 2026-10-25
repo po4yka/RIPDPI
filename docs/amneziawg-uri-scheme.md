@@ -38,7 +38,7 @@ amneziawg://<private-key>@<host>:<port>
 - **`allowed_ips`** — comma-separated CIDR list (e.g. `0.0.0.0/0,::/0`).
 - **`dns`** — comma-separated DNS server list.
 - **`mtu`** — interface MTU.
-- **`persistent_keepalive`** — optional `[Peer] PersistentKeepalive` seconds, `lo` or an AWG 3.x `lo-hi` range.
+- **`persistent_keepalive`** — optional `[Peer] PersistentKeepalive` seconds, `lo` or an AWG 3.x `lo-hi` range. A range starts at 1 or more; `0` alone means no keepalive.
 - **`jc` `jmin` `jmax` `s1` `s2`** — AmneziaWG junk-packet parameters: `jc` is 0–128; sizes are 0–1280. `jmin <= jmax` applies even when `jc` is zero. Initiation and response sizes (`148+s1`, `92+s2`) must differ.
 - **`s3` `s4`** — retained for configuration compatibility but must be absent or zero. RIPDPI rejects non-zero values because amneziawg-go#110 can silently drop all transport data on Android arm64 after a successful handshake.
 - **`h1`..`h4`** — canonical unsigned decimal strings, either a singleton (`100`) or inclusive range (`100-199`). Ranges are disjoint; custom values exceed 4. Each standard singleton may retain its own message type (1, 2, 3, or 4). Each outbound packet samples its header afresh; receive accepts the full range.

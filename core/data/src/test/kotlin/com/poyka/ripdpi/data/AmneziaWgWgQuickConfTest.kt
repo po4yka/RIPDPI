@@ -128,4 +128,14 @@ class AmneziaWgWgQuickConfTest {
             assertThrows(dns, IllegalArgumentException::class.java) { profile.copy(dns = listOf(dns)).toWgQuickConf() }
         }
     }
+
+    @Test
+    fun `a share link with a zero-based keepalive range is refused`() {
+        val uri = AmneziaWgUriCodec.encode(profile)
+        assertTrue(uri.contains("persistent_keepalive=25-35"))
+        assertEquals(
+            null,
+            AmneziaWgUriCodec.decode(uri.replace("persistent_keepalive=25-35", "persistent_keepalive=0-35")),
+        )
+    }
 }

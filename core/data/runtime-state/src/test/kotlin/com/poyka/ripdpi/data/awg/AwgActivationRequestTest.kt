@@ -193,4 +193,24 @@ class AwgActivationRequestTest {
         assertTrue(s4Error.message.orEmpty().contains("amneziawg-go#110"))
         assertTrue(bothError.message.orEmpty().contains("amneziawg-go#110"))
     }
+
+    @Test
+    fun `persistent keepalive ranges must start at one and must not be inverted`() {
+        runtimeRequest().copy(persistentKeepalive = 25, persistentKeepaliveMax = 35).requireRuntimeReady()
+        runtimeRequest().copy(persistentKeepalive = 0, persistentKeepaliveMax = 0).requireRuntimeReady()
+        listOf(0 to 35, 36 to 35, 25 to 70_000).forEach { (low, high) ->
+            assertThrows("$low-$high", IllegalArgumentException::class.java) {
+                runtimeRequest().copy(persistentKeepalive = low, persistentKeepaliveMax = high).requireRuntimeReady()
+            }
+        }
+    }
+
+    @Test
+    fun `awg secrets never print key material`() {
+        val secrets = AwgSecrets(privateKey = "cHJpdmF0ZQ==", presharedKey = "", headerProtectionKey = "aHBr")
+        val text = secrets.toString()
+        assertTrue(text.contains("privateKey=<redacted>"))
+        assertTrue(text.contains("presharedKey=\"\""))
+        listOf("cHJpdmF0ZQ==", "aHBr").forEach { assertTrue(it, it !in text) }
+    }
 }

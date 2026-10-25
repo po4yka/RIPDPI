@@ -88,6 +88,9 @@ fun AwgActivationRequest.requireRuntimeReady() {
     require(persistentKeepaliveMax == 0 || persistentKeepaliveMax >= persistentKeepalive) {
         "AmneziaWG persistent keepalive range is inverted"
     }
+    require(persistentKeepaliveMax == 0 || persistentKeepalive > 0) {
+        "AmneziaWG persistent keepalive range must start at 1 or more"
+    }
     require(interfaceAddressV4.isIpv4Cidr()) { "AmneziaWG interface address must be an IPv4 CIDR" }
     require(interfaceAddressV6.isEmpty() || interfaceAddressV6.isIpv6Cidr()) {
         "AmneziaWG IPv6 interface address must be an IPv6 CIDR"

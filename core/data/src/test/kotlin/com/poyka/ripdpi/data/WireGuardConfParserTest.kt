@@ -320,6 +320,54 @@ class WireGuardConfParserTest {
         assertEquals(3, parsed.awg.jc)
     }
 
+    private fun interfaceConf(
+        interfaceLine: String,
+        peerLine: String = "",
+    ) = "[Interface]\nPrivateKey = k\nAddress = 10.0.0.2/32\n$interfaceLine\n[Peer]\nPublicKey = p\n$peerLine\n"
+
+    @Test
+    fun `split-tunnel app lists and retired AWG 1_5 keys keep importing`() {
+        listOf(
+            "IncludedApplications = com.example.browser, com.example.mail",
+            "ExcludedApplications = com.poyka.ripdpi",
+            "J1 = <b 0x01>",
+            "J2 = <r 8>",
+            "J3 = <t>",
+            "Itime = 120",
+        ).forEach { line ->
+            val parsed = WireGuardConfParser.parse(interfaceConf(line))
+            assertTrue(line, parsed is WireGuardConfig)
+            assertEquals(line, "10.0.0.2/32", parsed.interfaceSection.address.single())
+        }
+        // An AWG export with one of these keys still parses as AWG.
+        assertTrue(WireGuardConfParser.parse(interfaceConf("Jc = 3\nItime = 60")) is AmneziaWgConfig)
+    }
+
+    @Test
+    fun `persistent keepalive off means no keepalive and a zero-based range is refused`() {
+        val off = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = off")).peers.single()
+        assertNull(off.persistentKeepalive)
+        assertNull(off.persistentKeepaliveMax)
+        val zero = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 0")).peers.single()
+        assertEquals(0, zero.persistentKeepalive)
+        assertThrows(IllegalArgumentException::class.java) {
+            WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 0-35"))
+        }
+    }
+
+    @Test
+    fun `numeric booleans and ranges accept only ASCII digits`() {
+        val nonAsciiDigits =
+            listOf(
+                "RandomTrailers = \u0661",
+                "RekeyTimeout = \u0663-\u0667",
+                "DisableCookies = \u0967",
+            )
+        nonAsciiDigits.forEach { line ->
+            assertThrows(line, IllegalArgumentException::class.java) { WireGuardConfParser.parse(interfaceConf(line)) }
+        }
+    }
+
     @Test
     fun `comments and blank lines are skipped`() {
         val withComments =

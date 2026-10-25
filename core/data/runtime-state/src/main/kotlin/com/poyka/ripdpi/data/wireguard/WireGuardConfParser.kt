@@ -27,16 +27,36 @@ class WireGuardConfUnknownKeyException(
  * (`tunnel/.../config/Interface.java`, Apache-2.0).
  *
  * `#` and `;` start a comment. The wg-quick host keys (`Table`, `PreUp`, `PostUp`,
- * `PreDown`, `PostDown`, `SaveConfig`, `FwMark`) are ignored; any other unknown key
- * throws [WireGuardConfUnknownKeyException]. Structurally malformed input — a
+ * `PreDown`, `PostDown`, `SaveConfig`, `FwMark`), `IncludedApplications`,
+ * `ExcludedApplications`, and the AWG 1.5 `J1`..`J3`/`Itime` keys are ignored; any
+ * other unknown key throws [WireGuardConfUnknownKeyException]. Structurally malformed input — a
  * non-comment line with no `=`, a `Key = Value` pair before any section header,
  * an empty file, or a field that fails validation — throws
  * [IllegalArgumentException]. S3/S4 are carried as parsed: the Android arm64
  * S3/S4 floor is enforced at activation with [AmneziaWgArm64S34FloorException].
  */
 object WireGuardConfParser {
-    /** wg-quick keys that configure the host, not the tunnel data plane. */
-    private val WgQuickHostKeys = setOf("table", "preup", "postup", "predown", "postdown", "saveconfig", "fwmark")
+    /**
+     * `[Interface]` keys that real exports carry but that do not change the RIPDPI data plane:
+     * wg-quick host keys, the per-app split-tunnel keys of wireguard-android and
+     * amneziawg-android, and the retired AWG 1.5 `J1`..`J3`/`Itime` keys.
+     */
+    private val IgnoredInterfaceKeys =
+        setOf(
+            "table",
+            "preup",
+            "postup",
+            "predown",
+            "postdown",
+            "saveconfig",
+            "fwmark",
+            "includedapplications",
+            "excludedapplications",
+            "j1",
+            "j2",
+            "j3",
+            "itime",
+        )
 
     private enum class Section { NONE, INTERFACE, PEER }
 
@@ -233,7 +253,7 @@ object WireGuardConfParser {
             "i3" -> builder.awg.i3 = parseSignature(key, value)
             "i4" -> builder.awg.i4 = parseSignature(key, value)
             "i5" -> builder.awg.i5 = parseSignature(key, value)
-            in WgQuickHostKeys -> Unit
+            in IgnoredInterfaceKeys -> Unit
             else -> builder.awg.v3 = builder.awg.v3.withConfKey(key, value)
         }
     }
@@ -261,9 +281,12 @@ object WireGuardConfParser {
             }
 
             "persistentkeepalive" -> {
-                val range = parseConfRange(key, value).split('-').map(String::toInt)
-                builder.persistentKeepalive = range.first()
-                builder.persistentKeepaliveMax = range.getOrNull(1)?.takeIf { it != range.first() }
+                // wg-quick writes `off` for "no persistent keepalive".
+                if (!value.equals("off", ignoreCase = true)) {
+                    val range = parseKeepaliveRange(key, value)
+                    builder.persistentKeepalive = range.first
+                    builder.persistentKeepaliveMax = range.second
+                }
             }
 
             else -> {

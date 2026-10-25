@@ -29,7 +29,14 @@ data class AwgSecrets(
     val presharedKey: String = "",
     /** AWG 3.x `HeaderProtectionKey` (base64); empty for 1.x/2.0 profiles and older entries. */
     val headerProtectionKey: String = "",
-)
+) {
+    /** Shows only which secrets are present, never their values. */
+    override fun toString(): String =
+        "AwgSecrets(privateKey=${redact(privateKey)}, presharedKey=${redact(presharedKey)}, " +
+            "headerProtectionKey=${redact(headerProtectionKey)})"
+
+    private fun redact(value: String): String = if (value.isEmpty()) "\"\"" else "<redacted>"
+}
 
 /**
  * Encrypted-at-rest store for the standalone-AmneziaWG secret fields.

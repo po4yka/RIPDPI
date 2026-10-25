@@ -286,6 +286,22 @@ impl AmneziaWgObfuscation {
     }
 }
 
+/// `PersistentKeepalive` seconds as boringtun's interval plus the AWG 3.x range top.
+/// `0` disables keepalive; a range (`max != 0`) must satisfy `1 <= low <= max <= 65535`,
+/// because `0-N` has no defined meaning.
+fn keepalive_bounds(low: i32, max: i32) -> io::Result<(Option<u16>, Option<u16>)> {
+    let invalid = || io::Error::new(io::ErrorKind::InvalidInput, "AmneziaWG persistent keepalive range is invalid");
+    let low = u16::try_from(low.max(0)).map_err(|_| invalid())?;
+    if max == 0 {
+        return Ok(((low != 0).then_some(low), None));
+    }
+    let max = u16::try_from(max).map_err(|_| invalid())?;
+    if low == 0 || max < low {
+        return Err(invalid());
+    }
+    Ok((Some(low), Some(max)))
+}
+
 /// Telemetry snapshot for a generic AmneziaWG tunnel (camelCase JSON).
 /// Parallel to [`crate::config::WarpTelemetry`] with `source = "amneziawg"`.
 #[derive(Debug, Clone, Serialize)]
@@ -445,8 +461,8 @@ impl AmneziaWgRuntime {
         let endpoint = resolve_endpoint(&self.endpoint_descriptor()).await?;
 
         let amnezia_cfg = self.config.amnezia.to_warp_amnezia();
-        let keepalive = u16::try_from(self.config.persistent_keepalive.max(0)).ok().filter(|value| *value != 0);
-        let keepalive_max = u16::try_from(self.config.persistent_keepalive_max.max(0)).ok().filter(|value| *value != 0);
+        let (keepalive, keepalive_max) =
+            keepalive_bounds(self.config.persistent_keepalive, self.config.persistent_keepalive_max)?;
         let preshared = (!self.config.preshared_key.is_empty()).then_some(self.config.preshared_key.as_str());
 
         // Carrier select. UDP (the default) hands the tunnel `None` so it binds +
@@ -1000,6 +1016,16 @@ mod tests {
         let s = serde_json::to_string(&cfg).expect("serialize");
         let again: AmneziaWgProfileConfig = serde_json::from_str(&s).expect("reparse");
         assert_eq!(again.local_socks_port, 11090);
+    }
+
+    #[test]
+    fn keepalive_ranges_must_start_above_zero() {
+        assert_eq!(keepalive_bounds(0, 0).unwrap(), (None, None));
+        assert_eq!(keepalive_bounds(25, 0).unwrap(), (Some(25), None));
+        assert_eq!(keepalive_bounds(25, 35).unwrap(), (Some(25), Some(35)));
+        for (low, max) in [(0, 35), (36, 35), (25, 70_000), (-1, 5)] {
+            assert!(keepalive_bounds(low, max).is_err(), "{low}-{max}");
+        }
     }
 
     /// Pins the AWG 3.x keys emitted by Kotlin `RipDpiAmneziaWgV3Config` and

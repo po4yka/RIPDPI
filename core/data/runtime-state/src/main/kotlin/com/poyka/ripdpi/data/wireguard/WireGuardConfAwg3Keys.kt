@@ -66,6 +66,20 @@ internal fun parseConfRange(
     return value
 }
 
+/**
+ * `PersistentKeepalive` as `(low, high)`; `high` is null for a single value or `x-x`. A range must
+ * start at 1 or more, because `0` means "keepalive off" and a `0-N` range has no defined meaning.
+ */
+internal fun parseKeepaliveRange(
+    key: String,
+    value: String,
+): Pair<Int, Int?> {
+    val bounds = parseConfRange(key, value).split('-').map(String::toInt)
+    val high = bounds.last().takeIf { it != bounds.first() }
+    require(high == null || bounds.first() > 0) { "WireGuard config key '$key' range must start at 1 or more" }
+    return bounds.first() to high
+}
+
 /** amneziawg-tools `parse_bool`: `on`/`off` or a decimal number (non-zero = on); UAPI `true`/`false`. */
 private fun parseConfBool(
     key: String,
@@ -74,6 +88,6 @@ private fun parseConfBool(
     when {
         value.equals("on", ignoreCase = true) || value.equals("true", ignoreCase = true) -> true
         value.equals("off", ignoreCase = true) || value.equals("false", ignoreCase = true) -> false
-        value.isNotEmpty() && value.all(Char::isDigit) -> value.trimStart('0').isNotEmpty()
+        value.isNotEmpty() && value.all { it in '0'..'9' } -> value.trimStart('0').isNotEmpty()
         else -> throw IllegalArgumentException("WireGuard config key '$key' expects on or off")
     }
