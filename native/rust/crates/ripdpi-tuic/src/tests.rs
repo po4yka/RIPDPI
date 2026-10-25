@@ -60,6 +60,29 @@ fn packet_header_round_trips() {
     assert_eq!(payload, b"hello");
 }
 
+/// TUIC v5 packet header: VER, TYPE, ASSOC_ID(2), PKT_ID(2), FRAG_TOTAL,
+/// FRAG_ID, SIZE(2), then the address (1 type byte for `None`).
+#[test]
+fn packet_header_encoded_len_matches_encoding() {
+    let headers = [
+        (TuicAddress::None, 11),
+        (TuicAddress::Socket(SocketAddr::from((Ipv4Addr::LOCALHOST, 53))), 17),
+        (TuicAddress::Domain("dns.example".to_owned(), 53), 10 + 1 + 1 + 11 + 2),
+    ];
+    for (address, expected) in headers {
+        let header =
+            PacketHeader { assoc_id: 1, packet_id: 2, fragment_total: 1, fragment_id: 0, payload_len: 0, address };
+        let mut buffer = BytesMut::new();
+        header.encode(&mut buffer);
+        assert_eq!(buffer.len(), expected);
+        assert_eq!(header.encoded_len(), expected);
+    }
+}
+
+fn large_payload() -> Vec<u8> {
+    (0..3000u32).map(|index| (index % 251) as u8).collect()
+}
+
 #[tokio::test]
 async fn tuic_client_relays_tcp_and_udp() {
     ensure_crypto_provider();
@@ -133,6 +156,21 @@ async fn tuic_client_relays_tcp_and_udp() {
             response.encode(&mut frame);
             frame.extend_from_slice(payload);
             udp_conn.send_datagram(frame.freeze()).expect("send datagram");
+
+            // A payload larger than one QUIC datagram arrives as fragments.
+            let mut fragments = Vec::new();
+            loop {
+                let datagram = udp_conn.read_datagram().await.expect("fragment datagram");
+                let (header, payload) = PacketHeader::decode(&datagram).expect("decode fragment");
+                fragments.push((header.fragment_id, payload.to_vec()));
+                if fragments.len() == usize::from(header.fragment_total) {
+                    break;
+                }
+            }
+            assert!(fragments.len() > 1, "a 3000-byte payload must be fragmented");
+            fragments.sort_by_key(|(fragment_id, _)| *fragment_id);
+            let reassembled: Vec<u8> = fragments.into_iter().flat_map(|(_, chunk)| chunk).collect();
+            assert_eq!(reassembled, large_payload());
         });
 
         let _ = tokio::join!(tcp_task, udp_task);
@@ -172,6 +210,7 @@ async fn tuic_client_relays_tcp_and_udp() {
     let (address, payload) = udp.recv_from().await.expect("udp recv");
     assert_eq!(address, "dns.example:53");
     assert_eq!(payload, b"world");
+    udp.send_to("dns.example:53", &large_payload()).await.expect("fragmented udp send");
     assert_eq!(
         client.quic_migration_snapshot(),
         (Some("validated".to_string()), Some("path_validated_after_stream_open".to_string()),)

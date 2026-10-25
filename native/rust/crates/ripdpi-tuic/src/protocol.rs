@@ -301,8 +301,9 @@ pub(crate) struct PacketHeader {
 }
 
 impl PacketHeader {
+    /// Length of [`Self::encode`]'s output, including the VER and TYPE bytes.
     pub(crate) fn encoded_len(&self) -> usize {
-        2 + 2 + 1 + 1 + 2 + self.address.encoded_len()
+        1 + 1 + 2 + 2 + 1 + 1 + 2 + self.address.encoded_len()
     }
 
     pub(crate) fn encode(&self, buffer: &mut BytesMut) {
