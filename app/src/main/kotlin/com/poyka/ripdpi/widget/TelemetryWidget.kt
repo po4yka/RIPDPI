@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.widget
 
 import android.content.Context
+import android.text.format.Formatter
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
@@ -36,7 +37,6 @@ private const val WidgetMediumWidthDp = 250
 private const val WidgetCompactHeightDp = 110
 private const val WidgetExpandedHeightDp = 180
 private const val TelemetryLabelWidthDp = 80
-private const val BytesPerKiB = 1024.0
 private const val SecondsPerMinute = 60L
 
 class TelemetryWidget : GlanceAppWidget() {
@@ -92,11 +92,11 @@ private fun TelemetryContent(
             )
             TelemetryRow(
                 label = context.getString(R.string.widget_telemetry_bytes_up),
-                value = formatBytes(snap.bytesUp),
+                value = Formatter.formatShortFileSize(context, snap.bytesUp.coerceAtLeast(0L)),
             )
             TelemetryRow(
                 label = context.getString(R.string.widget_telemetry_bytes_down),
-                value = formatBytes(snap.bytesDown),
+                value = Formatter.formatShortFileSize(context, snap.bytesDown.coerceAtLeast(0L)),
             )
             TelemetryRow(
                 label = context.getString(R.string.widget_telemetry_restarts),
@@ -134,19 +134,6 @@ private fun formatUptime(ms: Long): String {
     val minutes = TimeUnit.MILLISECONDS.toMinutes(ms) % SecondsPerMinute
     val seconds = TimeUnit.MILLISECONDS.toSeconds(ms) % SecondsPerMinute
     return "%02d:%02d:%02d".format(hours, minutes, seconds)
-}
-
-private fun formatBytes(bytes: Long): String {
-    if (bytes <= 0L) return "0 B"
-    val kb = bytes / BytesPerKiB
-    val mb = kb / BytesPerKiB
-    val gb = mb / BytesPerKiB
-    return when {
-        gb >= 1.0 -> "%.1f GB".format(gb)
-        mb >= 1.0 -> "%.1f MB".format(mb)
-        kb >= 1.0 -> "%.1f KB".format(kb)
-        else -> "$bytes B"
-    }
 }
 
 class TelemetryWidgetReceiver : GlanceAppWidgetReceiver() {

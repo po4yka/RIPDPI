@@ -2743,7 +2743,7 @@ Quelle: %2$s</string>
     <string name="update_downloading_action">Aktualisierung wird heruntergeladen …</string>
     <string name="update_no_update">Diese Version ist aktuell.</string>
     <string name="update_available_title_format">Version %1$s (%2$d) ist verfügbar.</string>
-    <string name="update_size_format">APK-Größe: %1$d MiB</string>
+    <string name="update_size_format">APK-Größe: %1$s</string>
     <string name="update_changelog_title">Changelog</string>
     <string name="update_permission_required">Erlauben Sie Installationen aus dieser App und kehren Sie dann zurück, um fortzufahren.</string>
     <string name="update_install_started">Android-Installation geöffnet.</string>

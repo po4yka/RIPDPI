@@ -29,13 +29,11 @@ class DiagnosticsTelegramPresentationTest {
     }
 
     @Test
-    fun `numbers follow the requested locale without changing transferred bytes`() {
+    fun `numbers follow the requested locale`() {
         listOf(Locale.US, Locale.GERMAN, Locale.US).forEach { locale ->
             val separator = if (locale == Locale.GERMAN) ',' else '.'
             assertEquals("1${separator}5 Mbps", formatTelegramThroughput(187_500L, locale))
-            assertEquals("1${separator}5 MB", formatTelegramTransferBytes(1_500_000L, locale))
         }
-        assertEquals("999 B", formatTelegramTransferBytes(999L, Locale.GERMAN))
     }
 
     @Test

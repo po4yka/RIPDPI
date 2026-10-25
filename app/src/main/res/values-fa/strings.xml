@@ -2748,7 +2748,7 @@ fakeddisorder endhost</string>
     <string name="update_downloading_action">در حال دانلود به‌روزرسانی…</string>
     <string name="update_no_update">این نسخه به‌روز است.</string>
     <string name="update_available_title_format">نسخهٔ %1$s (%2$d) در دسترس است.</string>
-    <string name="update_size_format">اندازهٔ APK: %1$d MiB</string>
+    <string name="update_size_format">اندازهٔ APK: %1$s</string>
     <string name="update_changelog_title">فهرست تغییرات</string>
     <string name="update_permission_required">نصب از این برنامه را مجاز کنید، سپس برای ادامه بازگردید.</string>
     <string name="update_install_started">نصب‌کنندهٔ Android باز شد.</string>

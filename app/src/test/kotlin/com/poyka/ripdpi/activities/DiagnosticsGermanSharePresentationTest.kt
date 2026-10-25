@@ -47,7 +47,7 @@ class DiagnosticsGermanSharePresentationTest {
         assertTrue(body.contains("1,5 Mbps"))
         assertTrue(body.contains("1,5 MB"))
         assertTrue(body.contains("1,0 Kbps"))
-        assertTrue(body.contains("999 B"))
+        assertTrue(body.contains("1,00 kB"))
         assertTrue(body.contains("Raw_Engine_V1"))
         assertTrue(body.contains("Raw_Classifier_V2"))
         assertTrue(body.contains("Raw_Pack@23"))

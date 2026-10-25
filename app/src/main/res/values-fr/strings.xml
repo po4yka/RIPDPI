@@ -2743,7 +2743,7 @@ Source : %2$s</string>
     <string name="update_downloading_action">Téléchargement de la mise à jour…</string>
     <string name="update_no_update">Cette version est à jour.</string>
     <string name="update_available_title_format">La version %1$s (%2$d) est disponible.</string>
-    <string name="update_size_format">Taille de l’APK : %1$d Mio</string>
+    <string name="update_size_format">Taille de l’APK : %1$s</string>
     <string name="update_changelog_title">Notes de version</string>
     <string name="update_permission_required">Autorisez les installations depuis cette application, puis revenez pour continuer.</string>
     <string name="update_install_started">Le programme d’installation Android est ouvert.</string>

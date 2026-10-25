@@ -982,7 +982,7 @@
     <string name="update_downloading_action">अपडेट डाउनलोड हो रहा है...</string>
     <string name="update_no_update">यह संस्करण अद्यतित है।</string>
     <string name="update_available_title_format">संस्करण %1$s (%2$d) उपलब्ध है।</string>
-    <string name="update_size_format">APK आकार: %1$d MiB</string>
+    <string name="update_size_format">APK आकार: %1$s</string>
     <string name="update_changelog_title">बदलाव सूची</string>
     <string name="update_permission_required">इस ऐप से इंस्टॉल की अनुमति दें, फिर जारी रखने के लिए वापस आएँ।</string>
     <string name="update_install_started">Android इंस्टॉलर खुल गया।</string>

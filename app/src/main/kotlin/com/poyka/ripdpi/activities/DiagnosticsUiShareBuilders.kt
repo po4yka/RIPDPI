@@ -302,7 +302,7 @@ private fun DiagnosticsUiFactorySupport.telegramShareLines(result: ProbeResult):
                 context.getString(
                     R.string.diagnostics_share_download_format,
                     formatTelegramThroughput(bps, core.formatter.locale),
-                    formatTelegramTransferBytes(details["downloadBytes"]?.toLongOrNull() ?: 0, core.formatter.locale),
+                    formatBytes(details["downloadBytes"]?.toLongOrNull() ?: 0),
                 ),
             )
         }
@@ -311,7 +311,7 @@ private fun DiagnosticsUiFactorySupport.telegramShareLines(result: ProbeResult):
                 context.getString(
                     R.string.diagnostics_share_upload_format,
                     formatTelegramThroughput(bps, core.formatter.locale),
-                    formatTelegramTransferBytes(details["uploadBytes"]?.toLongOrNull() ?: 0, core.formatter.locale),
+                    formatBytes(details["uploadBytes"]?.toLongOrNull() ?: 0),
                 ),
             )
         }

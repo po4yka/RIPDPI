@@ -2898,7 +2898,7 @@ Source: %2$s</string>
     <string name="update_downloading_action">Downloading update...</string>
     <string name="update_no_update">This version is up to date.</string>
     <string name="update_available_title_format">Version %1$s (%2$d) is available.</string>
-    <string name="update_size_format">APK size: %1$d MiB</string>
+    <string name="update_size_format">APK size: %1$s</string>
     <string name="update_changelog_title">Changelog</string>
     <string name="update_permission_required">Allow installs from this app, then return to continue.</string>
     <string name="update_install_started">Android installer opened.</string>

@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import android.os.LocaleList
+import android.text.format.Formatter
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.LocaleManagerCompat
 import androidx.core.os.LocaleListCompat
@@ -80,7 +81,7 @@ class AppLanguageTransitionRegressionTest {
                 assertEquals("$from->$to numeric locale", Locale.forLanguageTag(to).language, formatter.locale.language)
                 assertEquals(
                     "$from->$to numbers",
-                    String.format(Locale.forLanguageTag(to), "%.1f KB", 1.5),
+                    Formatter.formatShortFileSize(expected, 1_500),
                     formatter.formatBytes(1_500),
                 )
                 transitions++

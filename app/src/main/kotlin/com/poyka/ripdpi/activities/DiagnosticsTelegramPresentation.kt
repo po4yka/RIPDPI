@@ -37,13 +37,3 @@ internal fun formatTelegramThroughput(
         else -> String.format(locale, "%.0f bps", bitsPerSecond)
     }
 }
-
-internal fun formatTelegramTransferBytes(
-    bytes: Long,
-    locale: Locale,
-): String =
-    when {
-        bytes >= DecimalMega -> String.format(locale, "%.1f MB", bytes / DecimalMega)
-        bytes >= DecimalKilo -> String.format(locale, "%.1f KB", bytes / DecimalKilo)
-        else -> String.format(locale, "%d B", bytes)
-    }

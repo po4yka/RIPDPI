@@ -2623,7 +2623,7 @@ fakeddisorder endhost</string>
     <string name="update_downloading_action">Загрузка обновления…</string>
     <string name="update_no_update">Установлена актуальная версия.</string>
     <string name="update_available_title_format">Доступна версия %1$s (%2$d).</string>
-    <string name="update_size_format">Размер APK: %1$d МиБ</string>
+    <string name="update_size_format">Размер APK: %1$s</string>
     <string name="update_changelog_title">Список изменений</string>
     <string name="update_permission_required">Разрешите установку из этого приложения, затем вернитесь, чтобы продолжить.</string>
     <string name="update_install_started">Установщик Android открыт.</string>

@@ -2740,7 +2740,7 @@ fake_burst 3</string>
     <string name="update_downloading_action">正在下载更新…</string>
     <string name="update_no_update">当前版本已是最新版本。</string>
     <string name="update_available_title_format">版本 %1$s（%2$d）可用。</string>
-    <string name="update_size_format">APK 大小：%1$d MiB</string>
+    <string name="update_size_format">APK 大小：%1$s</string>
     <string name="update_changelog_title">更新日志</string>
     <string name="update_permission_required">请允许此应用安装其他应用，然后返回继续。</string>
     <string name="update_install_started">已打开 Android 安装程序。</string>

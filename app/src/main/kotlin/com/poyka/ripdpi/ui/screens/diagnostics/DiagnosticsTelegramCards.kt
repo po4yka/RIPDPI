@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,11 +11,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.formatTelegramThroughput
-import com.poyka.ripdpi.activities.formatTelegramTransferBytes
 import com.poyka.ripdpi.activities.telegramStatusLabelRes
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -123,7 +124,7 @@ private fun TelegramTransferSection(
     val locale = LocalConfiguration.current.locales[0]
     val avgSpeed = formatTelegramThroughput(avgBps?.toLongOrNull() ?: 0, locale)
     val peakSpeed = formatTelegramThroughput(peakBps?.toLongOrNull() ?: 0, locale)
-    val totalBytes = formatTelegramTransferBytes(bytes?.toLongOrNull() ?: 0, locale)
+    val totalBytes = Formatter.formatShortFileSize(LocalContext.current, bytes?.toLongOrNull() ?: 0)
     val tone =
         when (status) {
             "ok" -> StatusIndicatorTone.Active

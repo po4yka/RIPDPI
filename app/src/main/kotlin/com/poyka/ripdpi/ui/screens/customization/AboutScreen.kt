@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.customization
 
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -44,8 +45,6 @@ import com.poyka.ripdpi.updates.UpdateFailureReason
 import com.poyka.ripdpi.updates.UpdateUiState
 import com.poyka.ripdpi.updates.UpdateUiStatus
 import com.poyka.ripdpi.updates.UpdateViewModel
-
-private const val BytesPerMib = 1024 * 1024
 
 @Composable
 fun AboutRoute(
@@ -311,7 +310,11 @@ private fun AvailableUpdateDetails(update: AvailableAppUpdate) {
         )
         update.sizeBytes?.let { sizeBytes ->
             Text(
-                text = stringResource(R.string.update_size_format, sizeBytes / BytesPerMib),
+                text =
+                    stringResource(
+                        R.string.update_size_format,
+                        Formatter.formatShortFileSize(LocalContext.current, sizeBytes),
+                    ),
                 style = type.caption,
                 color = colors.mutedForeground,
             )

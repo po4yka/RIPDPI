@@ -82,7 +82,7 @@ class AndroidStringResolverLocaleTest {
             context.resources.configuration.locales[0]
                 .language,
         )
-        assertEquals("1,5 KB", formatter.formatBytes(1_500L))
+        assertEquals("1,5 kB", formatter.formatBytes(1_500L))
         assertEquals("1,5 MB", formatter.formatBytes(1_500_000L))
         assertEquals("1,5 GB", formatter.formatBytes(1_500_000_000L))
         assertEquals("1,5 Kbps", formatter.formatBps(1_500L))
@@ -90,7 +90,7 @@ class AndroidStringResolverLocaleTest {
 
         selectLanguage("en")
 
-        assertEquals("1.5 KB", formatter.formatBytes(1_500L))
+        assertEquals("1.5 kB", formatter.formatBytes(1_500L))
         assertEquals("1.5 Mbps", formatter.formatBps(1_500_000L))
     }
 
@@ -112,8 +112,8 @@ class AndroidStringResolverLocaleTest {
         selectLanguage("es")
         val formatter = DiagnosticsUiFormatter(englishContext(RuntimeEnvironment.getApplication()))
         assertEquals("0 B", formatter.formatBytes(0L))
-        assertEquals("999 B", formatter.formatBytes(999L))
-        assertEquals("1,0 KB", formatter.formatBytes(1_000L))
+        assertEquals("1,00 kB", formatter.formatBytes(999L))
+        assertEquals("1,0 kB", formatter.formatBytes(1_000L))
         assertEquals("1,0 MB", formatter.formatBytes(1_000_000L))
         assertEquals("1,0 GB", formatter.formatBytes(1_000_000_000L))
         assertEquals("0 Bps", formatter.formatBps(0L))

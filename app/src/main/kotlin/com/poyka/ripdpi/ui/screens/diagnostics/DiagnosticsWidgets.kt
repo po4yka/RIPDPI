@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import android.text.format.Formatter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -45,6 +46,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -71,7 +73,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
-import java.util.Locale
 import kotlin.math.roundToInt
 
 private const val LargeTextFontScale = 1.5f
@@ -862,39 +863,13 @@ private fun SparklineValueChip(
     }
 }
 
-private const val SparklineBytesPerKilobyte = 1_000L
-private const val SparklineBytesPerMegabyte = 1_000_000L
-private const val SparklineBytesPerGigabyte = 1_000_000_000L
-
 @Composable
-private fun formatSparklineValue(value: Float): String =
-    formatSparklineValue(value, LocalConfiguration.current.locales[0])
-
-internal fun formatSparklineValue(
-    value: Float,
-    locale: Locale,
-): String {
-    val longValue = value.toLong()
-    return when {
-        longValue >= SparklineBytesPerGigabyte -> {
-            String.format(locale, "%.1f GB", longValue / SparklineBytesPerGigabyte.toDouble())
-        }
-
-        longValue >= SparklineBytesPerMegabyte -> {
-            String.format(locale, "%.1f MB", longValue / SparklineBytesPerMegabyte.toDouble())
-        }
-
-        longValue >= SparklineBytesPerKilobyte -> {
-            String.format(locale, "%.1f KB", longValue / SparklineBytesPerKilobyte.toDouble())
-        }
-
-        longValue > 0L -> {
-            String.format(locale, "%d B", longValue)
-        }
-
-        else -> {
-            String.format(locale, "%d", 0)
-        }
+private fun formatSparklineValue(value: Float): String {
+    val bytes = value.toLong()
+    return if (bytes > 0L) {
+        Formatter.formatShortFileSize(LocalContext.current, bytes)
+    } else {
+        String.format(LocalConfiguration.current.locales[0], "%d", 0)
     }
 }
 

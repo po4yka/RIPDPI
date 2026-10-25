@@ -2743,7 +2743,7 @@ Origen: %2$s</string>
     <string name="update_downloading_action">Descargando actualización...</string>
     <string name="update_no_update">Esta versión está actualizada.</string>
     <string name="update_available_title_format">La versión %1$s (%2$d) está disponible.</string>
-    <string name="update_size_format">Tamaño del APK: %1$d MiB</string>
+    <string name="update_size_format">Tamaño del APK: %1$s</string>
     <string name="update_changelog_title">Registro de cambios</string>
     <string name="update_permission_required">Permite las instalaciones desde esta aplicación y vuelve para continuar.</string>
     <string name="update_install_started">Se abrió el instalador de Android.</string>

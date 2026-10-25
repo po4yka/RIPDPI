@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import android.text.format.DateFormat
+import android.text.format.Formatter
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DirectModeVerdictResult
@@ -45,13 +46,9 @@ internal open class DiagnosticsUiFormatter
         open fun formatTimestamp(timestamp: Long): String =
             formatLocalizedTimestamp(timestamp, timestampLocale, is24HourFormat, zoneId = zoneId)
 
+        // The platform formatter localizes both the number and the unit, matching Home's byte labels.
         open fun formatBytes(bytes: Long): String =
-            when {
-                bytes >= BytesPerGigabyte -> String.format(locale, "%.1f GB", bytes / BytesPerGigabyte.toFloat())
-                bytes >= BytesPerMegabyte -> String.format(locale, "%.1f MB", bytes / BytesPerMegabyte.toFloat())
-                bytes >= BytesPerKilobyte -> String.format(locale, "%.1f KB", bytes / BytesPerKilobyte.toFloat())
-                else -> "$bytes B"
-            }
+            Formatter.formatShortFileSize(ContextCompat.getContextForLanguage(context), bytes)
 
         open fun formatBps(bps: Long): String =
             when {
@@ -63,9 +60,6 @@ internal open class DiagnosticsUiFormatter
         open fun formatDurationMs(durationMs: Long): String = formatScanDurationMs(durationMs, locale)
     }
 
-private const val BytesPerKilobyte = 1_000L
-private const val BytesPerMegabyte = 1_000_000L
-private const val BytesPerGigabyte = 1_000_000_000L
 private const val BitsPerKilobit = 1_000L
 private const val BitsPerMegabit = 1_000_000L
 

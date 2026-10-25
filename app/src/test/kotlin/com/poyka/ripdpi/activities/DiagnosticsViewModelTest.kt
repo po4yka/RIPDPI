@@ -477,7 +477,7 @@ class DiagnosticsViewModelTest {
             assertEquals("Connection sample", state.live.snapshot?.title)
             assertTrue(state.live.contextGroups.isEmpty())
             assertTrue(
-                state.live.body.contains("3.0 KB transferred") || state.live.signalLabel.contains("1.0 KB sent"),
+                state.live.body.contains("3.0 kB transferred") || state.live.signalLabel.contains("1.0 kB sent"),
             )
             collector.cancel()
         }
@@ -596,9 +596,9 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertTrue(state.overview.metrics.any { it.label == "TX" && it.value == "1.0 KB" })
-            assertTrue(state.overview.metrics.any { it.label == "RX" && it.value == "2.0 KB" })
-            assertFalse(state.overview.metrics.any { it.value == "8.8 KB" || it.value == "11.7 KB" })
+            assertTrue(state.overview.metrics.any { it.label == "TX" && it.value == "1.0 kB" })
+            assertTrue(state.overview.metrics.any { it.label == "RX" && it.value == "2.0 kB" })
+            assertFalse(state.overview.metrics.any { it.value == "8.8 kB" || it.value == "12 kB" })
             assertTrue(state.share.previewBody.contains("Live running"))
             assertTrue(state.share.previewBody.contains("wifi"))
             assertFalse(state.share.previewBody.contains("cellular"))

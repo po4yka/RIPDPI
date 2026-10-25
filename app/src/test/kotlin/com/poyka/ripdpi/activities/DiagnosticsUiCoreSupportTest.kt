@@ -111,7 +111,7 @@ class DiagnosticsUiCoreSupportTest {
             RuntimeEnvironment.setQualifiers("+$tag")
             assertEquals(expected, support.formatTimestamp(1_791_590_400_000L))
         }
-        assertEquals("1.5 KB", support.formatBytes(1_500L))
+        assertEquals("1.5 kB", support.formatBytes(1_500L))
         assertEquals("1.5 Kbps", support.formatBps(1_500L))
     }
 
@@ -125,7 +125,6 @@ class DiagnosticsUiCoreSupportTest {
                 },
             )
 
-        assertEquals("1,5 KB", support.formatBytes(1_500L))
         assertEquals("1,5 Kbps", support.formatBps(1_500L))
         assertEquals("2h 05m", support.formatDurationMs(7_500_000L))
     }

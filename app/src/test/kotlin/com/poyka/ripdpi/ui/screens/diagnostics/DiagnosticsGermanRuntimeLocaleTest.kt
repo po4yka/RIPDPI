@@ -88,9 +88,9 @@ class DiagnosticsGermanRuntimeLocaleTest {
                 }
             }
         }
-        composeRule.onAllNodesWithText("1.5 KB")[0].assertExists()
+        composeRule.onAllNodesWithText("1.5 kB")[0].assertExists()
         composeRule.runOnIdle { context.value = languageContext("de") }
-        composeRule.onAllNodesWithText("1,5 KB")[0].assertExists()
+        composeRule.onAllNodesWithText("1,5 kB")[0].assertExists()
         val states =
             composeRule
                 .onAllNodes(
@@ -98,9 +98,9 @@ class DiagnosticsGermanRuntimeLocaleTest {
                         .keyIsDefined(SemanticsProperties.StateDescription),
                 ).fetchSemanticsNodes()
                 .map { it.config[SemanticsProperties.StateDescription] }
-        assertTrue(states.any { it.contains("1,5 KB") })
+        assertTrue(states.any { it.contains("1,5 kB") })
         composeRule.runOnIdle { context.value = languageContext("en") }
-        composeRule.onAllNodesWithText("1.5 KB")[0].assertExists()
+        composeRule.onAllNodesWithText("1.5 kB")[0].assertExists()
     }
 
     private fun probe(verdict: String) =
