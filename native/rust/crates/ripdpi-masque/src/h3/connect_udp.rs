@@ -35,9 +35,9 @@ pub(crate) async fn attempt_h3_connect_udp(
     let mut stream = send_request.send_request(request).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to send H3 CONNECT-UDP request: {error}"))
     })?;
-    stream.finish().await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to finish H3 CONNECT-UDP request: {error}"))
-    })?;
+    // No FIN: the request stream carries the tunnel's lifetime (RFC 9114 4.4,
+    // RFC 9298 3.1), and proxies such as masque-go close the UDP socket on
+    // EOF. The reader task owns the stream until the flow is dropped.
     let response = stream.recv_response().await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to receive H3 CONNECT-UDP response: {error}"))
     })?;

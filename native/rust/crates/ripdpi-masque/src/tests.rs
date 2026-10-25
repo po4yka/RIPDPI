@@ -1100,3 +1100,113 @@ async fn connect_over_h2_with_unrelated_root_certificate_fails_verification() {
     let result = MasqueClient::connect_over(&config, transport, &fixture.tcp_echo_target()).await;
     assert!(result.is_err(), "pinning an unrelated cert must fail TLS verification, not succeed");
 }
+
+/// Self-signed `localhost` certificate (DER, PKCS#8 key DER, PEM) for an
+/// in-test H3 proxy.
+fn localhost_certificate() -> (Vec<u8>, Vec<u8>, String) {
+    use boring::asn1::Asn1Time;
+    use boring::bn::BigNum;
+    use boring::ec::{EcGroup, EcKey};
+    use boring::hash::MessageDigest;
+    use boring::nid::Nid;
+    use boring::pkey::PKey;
+    use boring::x509::extension::SubjectAlternativeName;
+    use boring::x509::{X509, X509NameBuilder};
+
+    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).expect("P-256 group");
+    let key = PKey::from_ec_key(EcKey::generate(&group).expect("EC key")).expect("PKey");
+    let mut name = X509NameBuilder::new().expect("name builder");
+    name.append_entry_by_nid(Nid::COMMONNAME, "localhost").expect("common name");
+    let name = name.build();
+    let mut builder = X509::builder().expect("X509 builder");
+    builder.set_version(2).expect("version");
+    builder.set_serial_number(&BigNum::from_u32(1).expect("serial").to_asn1_integer().expect("asn1")).expect("serial");
+    builder.set_subject_name(&name).expect("subject");
+    builder.set_issuer_name(&name).expect("issuer");
+    builder.set_pubkey(&key).expect("public key");
+    builder.set_not_before(&Asn1Time::days_from_now(0).expect("now")).expect("not before");
+    builder.set_not_after(&Asn1Time::days_from_now(1).expect("tomorrow")).expect("not after");
+    let san = SubjectAlternativeName::new().dns("localhost").build(&builder.x509v3_context(None, None)).expect("SAN");
+    builder.append_extension(&san).expect("SAN extension");
+    builder.sign(&key, MessageDigest::sha256()).expect("sign");
+    let certificate = builder.build();
+    let pem = String::from_utf8(certificate.to_pem().expect("PEM")).expect("PEM text");
+    (certificate.to_der().expect("DER"), key.private_key_to_der_pkcs8().expect("PKCS#8"), pem)
+}
+
+/// RFC 9114 4.4 keeps a CONNECT request stream open, and RFC 9298 3.1 ties
+/// the UDP socket to it. masque-go's proxy closes the socket as soon as the
+/// request stream reaches EOF, so a client FIN black-holes every datagram.
+#[tokio::test]
+async fn h3_connect_udp_keeps_request_stream_open_after_the_response() {
+    let (certificate_der, key_der, certificate_pem) = localhost_certificate();
+    let mut tls = rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("TLS versions")
+        .with_no_client_auth()
+        .with_single_cert(
+            vec![rustls::pki_types::CertificateDer::from(certificate_der)],
+            rustls::pki_types::PrivatePkcs8KeyDer::from(key_der).into(),
+        )
+        .expect("server certificate");
+    tls.alpn_protocols = vec![b"h3".to_vec()];
+    let quic = quinn::crypto::rustls::QuicServerConfig::try_from(tls).expect("QUIC server config");
+    let endpoint = quinn::Endpoint::server(
+        quinn::ServerConfig::with_crypto(Arc::new(quic)),
+        "127.0.0.1:0".parse().expect("server address"),
+    )
+    .expect("server endpoint");
+    let proxy_address = endpoint.local_addr().expect("proxy address");
+    let server = tokio::spawn(async move {
+        let connection = endpoint.accept().await.expect("incoming").await.expect("QUIC handshake");
+        let mut builder = ::h3::server::builder();
+        builder.enable_extended_connect(true);
+        builder.enable_datagram(true);
+        let mut h3_connection: ::h3::server::Connection<h3_quinn::Connection, Bytes> =
+            builder.build(h3_quinn::Connection::new(connection)).await.expect("H3 server");
+        let resolver = h3_connection.accept().await.expect("accept").expect("request");
+        let (_request, mut stream) = resolver.resolve_request().await.expect("resolve request");
+        let response = http::Response::builder()
+            .status(StatusCode::OK)
+            .header("capsule-protocol", "?1")
+            .body(())
+            .expect("response");
+        stream.send_response(response).await.expect("send response");
+        let request_body = tokio::time::timeout(std::time::Duration::from_millis(800), stream.recv_data()).await;
+        assert!(
+            request_body.is_err(),
+            "the client must not close the CONNECT-UDP request stream: {:?}",
+            request_body.map(|data| data.map(|chunk| chunk.is_some()))
+        );
+    });
+
+    let mut config = h3_connect_udp_proxy_config(proxy_address, certificate_pem);
+    config.url = format!("https://localhost:{}/", proxy_address.port());
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+    udp.send_to("127.0.0.1:9", b"open").await.expect("open H3 CONNECT-UDP flow");
+    server.await.expect("server task");
+    drop(udp);
+}
+
+fn h3_connect_udp_proxy_config(proxy_address: SocketAddr, certificate_pem: String) -> MasqueConfig {
+    MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        url: String::new(),
+        proxy_socket_addr: Some(proxy_address),
+        tcp_protocol: MasqueTcpProtocol::Http3,
+        use_http2_fallback: false,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: Some(certificate_pem),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    }
+}
