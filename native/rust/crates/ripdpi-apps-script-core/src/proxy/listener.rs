@@ -65,7 +65,9 @@ pub(crate) async fn run(
     }
 
     tasks.abort_all();
-    while tasks.join_next().await.is_some() {}
+    while let Some(result) = tasks.join_next().await {
+        note_finished_task(result);
+    }
     tracing::info!(
         ring = "relay",
         subsystem = "relay",
@@ -85,15 +87,44 @@ fn spawn_reaped<F>(tasks: &mut JoinSet<()>, task: F)
 where
     F: Future<Output = ()> + Send + 'static,
 {
-    while tasks.try_join_next().is_some() {}
+    reap_finished(tasks);
     tasks.spawn(task);
+}
+
+/// Removes every finished task and returns how many of them panicked.
+fn reap_finished(tasks: &mut JoinSet<()>) -> usize {
+    let mut panicked = 0;
+    while let Some(result) = tasks.try_join_next() {
+        if note_finished_task(result) {
+            panicked += 1;
+        }
+    }
+    panicked
+}
+
+/// Logs a connection task that panicked, without any connection identifier.
+/// Returns true for a panic; a normal end or an abort is not logged.
+fn note_finished_task(result: Result<(), tokio::task::JoinError>) -> bool {
+    match result {
+        Err(error) if error.is_panic() => {
+            tracing::warn!(
+                ring = "relay",
+                subsystem = "relay",
+                source = "relay",
+                kind = "connection_task_panicked",
+                "Apps Script connection task panicked"
+            );
+            true
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use tokio::task::JoinSet;
 
-    use super::spawn_reaped;
+    use super::{reap_finished, spawn_reaped};
 
     #[tokio::test(flavor = "current_thread")]
     async fn finished_connection_tasks_do_not_accumulate() {
@@ -105,5 +136,16 @@ mod tests {
         }
 
         assert!(tasks.len() <= 1, "finished tasks were kept: {}", tasks.len());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn panicked_connection_tasks_are_reported_when_reaped() {
+        let mut tasks = JoinSet::new();
+        spawn_reaped(&mut tasks, async { panic!("connection task failure") });
+        spawn_reaped(&mut tasks, async {});
+        tokio::task::yield_now().await;
+
+        assert_eq!(reap_finished(&mut tasks), 1);
+        assert!(tasks.is_empty());
     }
 }
