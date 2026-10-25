@@ -7,7 +7,7 @@ mod ws_tunnel;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
@@ -17,7 +17,8 @@ use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
 use connect_relay::{ConnectPolicyRejection, ConnectRelayError, SuccessReply, connect_and_relay};
 use protocol_io::{
-    negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request, read_socks5_request,
+    arm_read_timeout, negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request,
+    read_socks5_request,
 };
 
 use super::state::{HANDSHAKE_TIMEOUT, RuntimeState};
@@ -29,19 +30,24 @@ const OWNED_STACK_REQUIRED_HTTP_REPLY: &[u8] =
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
+    // One absolute deadline covers the whole pre-relay handshake, so a peer
+    // that sends a byte per timeout period cannot hold the client slot.
+    let deadline = Instant::now() + HANDSHAKE_TIMEOUT;
     match state.proxy_protocol_mode() {
         RuntimeProxyProtocolMode::Transparent => handle_transparent(client, state),
-        RuntimeProxyProtocolMode::HttpConnect => handle_http_connect(client, state),
-        RuntimeProxyProtocolMode::Mixed { shadowsocks_enabled } => handle_mixed(client, state, shadowsocks_enabled),
+        RuntimeProxyProtocolMode::HttpConnect => handle_http_connect(client, state, deadline),
+        RuntimeProxyProtocolMode::Mixed { shadowsocks_enabled } => {
+            handle_mixed(client, state, shadowsocks_enabled, deadline)
+        }
         RuntimeProxyProtocolMode::BytePrefixed { shadowsocks_enabled } => {
             let mut first = [0u8; 1];
-            client.read_exact(&mut first)?;
+            read_first_byte(&mut client, &mut first, deadline)?;
             if shadowsocks_enabled {
-                return handle_shadowsocks(client, state, first[0]);
+                return handle_shadowsocks(client, state, first[0], deadline);
             }
             match first[0] {
-                0x04 => handle_socks4(client, state, first[0]),
-                0x05 => handle_socks5(client, state, first[0]),
+                0x04 => handle_socks4(client, state, first[0], deadline),
+                0x05 => handle_socks5(client, state, first[0], deadline),
                 _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported proxy protocol")),
             }
         }
@@ -55,8 +61,14 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
 /// byte must stay in the socket buffer — we therefore *peek* (non-consuming)
 /// to classify, then only consume the byte for the SOCKS/shadowsocks paths,
 /// whose handlers expect the version byte already read.
-fn handle_mixed(mut client: TcpStream, state: &RuntimeState, shadowsocks_enabled: bool) -> io::Result<()> {
+fn handle_mixed(
+    mut client: TcpStream,
+    state: &RuntimeState,
+    shadowsocks_enabled: bool,
+    deadline: Instant,
+) -> io::Result<()> {
     let mut first = [0u8; 1];
+    arm_read_timeout(&client, deadline)?;
     let peeked = client.peek(&mut first)?;
     if peeked == 0 {
         return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "empty mixed handshake"));
@@ -65,20 +77,28 @@ fn handle_mixed(mut client: TcpStream, state: &RuntimeState, shadowsocks_enabled
     // 'C' (0x43) is the first byte of "CONNECT ...". Shadowsocks is a raw
     // byte-prefixed protocol and never combines with HTTP, so it short-circuits.
     if !shadowsocks_enabled && first[0] == b'C' {
-        return handle_http_connect(client, state);
+        return handle_http_connect(client, state, deadline);
     }
 
     // Consume the classified byte and dispatch like the byte-prefixed path.
     let mut consumed = [0u8; 1];
-    client.read_exact(&mut consumed)?;
+    read_first_byte(&mut client, &mut consumed, deadline)?;
     if shadowsocks_enabled {
-        return handle_shadowsocks(client, state, consumed[0]);
+        return handle_shadowsocks(client, state, consumed[0], deadline);
     }
     match consumed[0] {
-        0x04 => handle_socks4(client, state, consumed[0]),
-        0x05 => handle_socks5(client, state, consumed[0]),
+        0x04 => handle_socks4(client, state, consumed[0], deadline),
+        0x05 => handle_socks5(client, state, consumed[0], deadline),
         _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported proxy protocol")),
     }
+}
+
+/// Reads the protocol-selecting first byte under the handshake deadline.
+fn read_first_byte(client: &mut TcpStream, first: &mut [u8; 1], deadline: Instant) -> io::Result<()> {
+    arm_read_timeout(client, deadline)?;
+    client.read_exact(first)?;
+    let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
+    Ok(())
 }
 
 fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
@@ -105,12 +125,12 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
     }
 }
 
-fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
+fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8, deadline: Instant) -> io::Result<()> {
     if state.proxy_auth_token().is_some() {
         client.write_all(RuntimeState::encode_socks4_reply(false).as_bytes())?;
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "socks4 cannot authenticate"));
     }
-    let request = read_socks4_request(&mut client, version)?;
+    let request = read_socks4_request(&mut client, version, deadline)?;
     let resolver = |host: &str| state.resolve_handshake_name(host);
     let parsed = state.parse_socks4_client_request(&request, resolver);
     match parsed {
@@ -133,12 +153,12 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     }
 }
 
-fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
+fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadline: Instant) -> io::Result<()> {
     if !RuntimeState::is_socks5_version(version) {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid socks version"));
     }
-    let attempt_token = negotiate_socks5(&mut client, state.proxy_auth_token())?;
-    let request = read_socks5_request(&mut client)?;
+    let attempt_token = negotiate_socks5(&mut client, state.proxy_auth_token(), deadline)?;
+    let request = read_socks5_request(&mut client, deadline)?;
     if request.get(3).copied().is_some_and(RuntimeState::is_socks5_resolved_domain_address_type)
         && (!client.peer_addr()?.ip().is_loopback() || !state.resolved_domain_targets_allowed())
     {
@@ -183,8 +203,8 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     }
 }
 
-fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
-    let request = read_http_connect_request(&mut client)?;
+fn handle_http_connect(mut client: TcpStream, state: &RuntimeState, deadline: Instant) -> io::Result<()> {
+    let request = read_http_connect_request(&mut client, deadline)?;
     if let Some(token) = state.proxy_auth_token()
         && !protocol_io::validate_http_proxy_auth(&request, token)
     {
@@ -209,9 +229,14 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
     }
 }
 
-fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u8) -> io::Result<()> {
+fn handle_shadowsocks(
+    mut client: TcpStream,
+    state: &RuntimeState,
+    first_byte: u8,
+    deadline: Instant,
+) -> io::Result<()> {
     let resolver = |host: &str| state.resolve_handshake_name(host);
-    let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, state, resolver)?;
+    let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, state, resolver, deadline)?;
     let host = target.host.or_else(|| state.extract_relay_payload_host(&first_request));
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
     let (upstream, route, _cap_guard) = super::routing::connect_target(target.addr, state, payload, false, host)?;

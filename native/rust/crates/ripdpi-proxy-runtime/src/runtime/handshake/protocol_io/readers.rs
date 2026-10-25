@@ -1,17 +1,34 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
+use std::time::Instant;
 
-use crate::runtime::state::RuntimeState;
+use crate::runtime::state::{HANDSHAKE_TIMEOUT, RuntimeState};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
+/// Every read in this module is bounded by one absolute `deadline`, not by a
+/// per-syscall timeout, so a peer that trickles one byte per timeout period
+/// cannot hold a handshake open. The client read timeout returns to
+/// `HANDSHAKE_TIMEOUT` once a reader finishes, which is what the relay stage
+/// expects.
 pub(in crate::runtime::handshake) fn negotiate_socks5(
     client: &mut TcpStream,
     auth_token: Option<&str>,
+    deadline: Instant,
+) -> io::Result<Option<AttemptCorrelationId>> {
+    let result = negotiate_socks5_inner(client, auth_token, deadline);
+    let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
+    result
+}
+
+fn negotiate_socks5_inner(
+    client: &mut TcpStream,
+    auth_token: Option<&str>,
+    deadline: Instant,
 ) -> io::Result<Option<AttemptCorrelationId>> {
     let mut count = [0u8; 1];
-    client.read_exact(&mut count)?;
+    read_exact_by(client, &mut count, deadline)?;
     let mut methods = vec![0u8; count[0] as usize];
-    client.read_exact(&mut methods)?;
+    read_exact_by(client, &mut methods, deadline)?;
 
     let (reply, accepted) = RuntimeState::socks5_auth_selection(auth_token, &methods);
     client.write_all(&reply)?;
@@ -21,7 +38,7 @@ pub(in crate::runtime::handshake) fn negotiate_socks5(
         }
 
         let allow_attempt_token = client.peer_addr().is_ok_and(|addr| addr.ip().is_loopback());
-        read_socks5_userpass_auth(client, token, allow_attempt_token)
+        read_socks5_userpass_auth(client, token, allow_attempt_token, deadline)
     } else {
         if !accepted {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks auth method"));
@@ -30,41 +47,50 @@ pub(in crate::runtime::handshake) fn negotiate_socks5(
     }
 }
 
-pub(in crate::runtime::handshake) fn read_socks5_request(client: &mut TcpStream) -> io::Result<Vec<u8>> {
+pub(in crate::runtime::handshake) fn read_socks5_request(
+    client: &mut TcpStream,
+    deadline: Instant,
+) -> io::Result<Vec<u8>> {
+    let result = read_socks5_request_inner(client, deadline);
+    let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
+    result
+}
+
+fn read_socks5_request_inner(client: &mut TcpStream, deadline: Instant) -> io::Result<Vec<u8>> {
     let mut header = [0u8; 4];
-    client.read_exact(&mut header)?;
+    read_exact_by(client, &mut header, deadline)?;
     let mut out = header.to_vec();
     if let Some(tail_len) = RuntimeState::socks5_fixed_address_tail_len(header[3]) {
         let mut tail = vec![0u8; tail_len];
-        client.read_exact(&mut tail)?;
+        read_exact_by(client, &mut tail, deadline)?;
         out.extend_from_slice(&tail);
     } else if RuntimeState::is_socks5_domain_address_type(header[3]) {
         let mut len = [0u8; 1];
-        client.read_exact(&mut len)?;
+        read_exact_by(client, &mut len, deadline)?;
         if len[0] == 0 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "empty SOCKS5 domain name"));
         }
         out.extend_from_slice(&len);
         let mut tail = vec![0u8; len[0] as usize + 2];
-        client.read_exact(&mut tail)?;
+        read_exact_by(client, &mut tail, deadline)?;
         out.extend_from_slice(&tail);
     } else if RuntimeState::is_socks5_resolved_domain_address_type(header[3]) {
         let mut len = [0u8; 1];
-        client.read_exact(&mut len)?;
+        read_exact_by(client, &mut len, deadline)?;
         if len[0] == 0 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "empty RIPDPI resolved domain name"));
         }
         out.extend_from_slice(&len);
         let mut host = vec![0u8; len[0] as usize];
-        client.read_exact(&mut host)?;
+        read_exact_by(client, &mut host, deadline)?;
         out.extend_from_slice(&host);
         let mut ip_type = [0u8; 1];
-        client.read_exact(&mut ip_type)?;
+        read_exact_by(client, &mut ip_type, deadline)?;
         out.extend_from_slice(&ip_type);
         let tail_len = RuntimeState::socks5_fixed_address_tail_len(ip_type[0])
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid resolved SOCKS5 IP type"))?;
         let mut tail = vec![0u8; tail_len];
-        client.read_exact(&mut tail)?;
+        read_exact_by(client, &mut tail, deadline)?;
         out.extend_from_slice(&tail);
     } else {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 address type"));
@@ -72,25 +98,45 @@ pub(in crate::runtime::handshake) fn read_socks5_request(client: &mut TcpStream)
     Ok(out)
 }
 
-pub(in crate::runtime::handshake) fn read_socks4_request(client: &mut TcpStream, version: u8) -> io::Result<Vec<u8>> {
+pub(in crate::runtime::handshake) fn read_socks4_request(
+    client: &mut TcpStream,
+    version: u8,
+    deadline: Instant,
+) -> io::Result<Vec<u8>> {
+    let result = read_socks4_request_inner(client, version, deadline);
+    let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
+    result
+}
+
+fn read_socks4_request_inner(client: &mut TcpStream, version: u8, deadline: Instant) -> io::Result<Vec<u8>> {
     let mut out = vec![version];
     let mut fixed = [0u8; 7];
-    client.read_exact(&mut fixed)?;
+    read_exact_by(client, &mut fixed, deadline)?;
     out.extend_from_slice(&fixed);
 
-    read_until_nul(client, &mut out)?;
+    read_until_nul(client, &mut out, deadline)?;
     let is_domain = out[4] == 0 && out[5] == 0 && out[6] == 0 && out[7] != 0;
     if is_domain {
-        read_until_nul(client, &mut out)?;
+        read_until_nul(client, &mut out, deadline)?;
     }
     Ok(out)
 }
 
-pub(in crate::runtime::handshake) fn read_http_connect_request(client: &mut TcpStream) -> io::Result<Vec<u8>> {
+pub(in crate::runtime::handshake) fn read_http_connect_request(
+    client: &mut TcpStream,
+    deadline: Instant,
+) -> io::Result<Vec<u8>> {
+    let result = read_http_connect_request_inner(client, deadline);
+    let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
+    result
+}
+
+fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) -> io::Result<Vec<u8>> {
     const MAX_HEADER: usize = 64 * 1024;
     let mut out = Vec::new();
     let mut chunk = [0u8; 512];
     loop {
+        arm_read_timeout(client, deadline)?;
         let n = client.peek(&mut chunk)?;
         if n == 0 {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected eof during http connect request"));
@@ -105,7 +151,7 @@ pub(in crate::runtime::handshake) fn read_http_connect_request(client: &mut TcpS
             return Err(io::Error::new(io::ErrorKind::InvalidData, "http connect request too large"));
         }
         out.truncate(end.unwrap_or(out.len()));
-        client.read_exact(&mut out[consumed..])?;
+        read_exact_by(client, &mut out[consumed..], deadline)?;
         if end.is_some() {
             return Ok(out);
         }
@@ -123,22 +169,23 @@ fn read_socks5_userpass_auth(
     client: &mut TcpStream,
     token: &str,
     allow_attempt_token: bool,
+    deadline: Instant,
 ) -> io::Result<Option<AttemptCorrelationId>> {
     let mut sub_ver = [0u8; 1];
-    client.read_exact(&mut sub_ver)?;
+    read_exact_by(client, &mut sub_ver, deadline)?;
     if sub_ver[0] != 0x01 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported socks5 auth sub-negotiation version"));
     }
 
     let mut ulen = [0u8; 1];
-    client.read_exact(&mut ulen)?;
+    read_exact_by(client, &mut ulen, deadline)?;
     let mut username = vec![0u8; ulen[0] as usize];
-    client.read_exact(&mut username)?;
+    read_exact_by(client, &mut username, deadline)?;
 
     let mut plen = [0u8; 1];
-    client.read_exact(&mut plen)?;
+    read_exact_by(client, &mut plen, deadline)?;
     let mut password = vec![0u8; plen[0] as usize];
-    client.read_exact(&mut password)?;
+    read_exact_by(client, &mut password, deadline)?;
 
     if !constant_time_bytes_eq(&password, token.as_bytes()) {
         client.write_all(&[0x01, 0x01])?;
@@ -157,10 +204,10 @@ fn constant_time_bytes_eq(candidate: &[u8], expected: &[u8]) -> bool {
     constant_time_eq::constant_time_eq(candidate, expected)
 }
 
-fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>) -> io::Result<()> {
+fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>, deadline: Instant) -> io::Result<()> {
     loop {
         let mut byte = [0u8; 1];
-        client.read_exact(&mut byte)?;
+        read_exact_by(client, &mut byte, deadline)?;
         out.push(byte[0]);
         if byte[0] == 0 {
             return Ok(());
@@ -169,4 +216,46 @@ fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>) -> io::Result<()> {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "request too large"));
         }
     }
+}
+
+/// Sets the client read timeout to the time left before `deadline`.
+///
+/// Fails with `TimedOut` when the deadline has already passed.
+pub(in crate::runtime::handshake) fn arm_read_timeout(client: &TcpStream, deadline: Instant) -> io::Result<()> {
+    let remaining = deadline
+        .checked_duration_since(Instant::now())
+        .filter(|left| !left.is_zero())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "handshake deadline exceeded"))?;
+    client.set_read_timeout(Some(remaining))
+}
+
+/// `read` bounded by an absolute deadline.
+pub(in crate::runtime::handshake) fn read_by(
+    client: &mut TcpStream,
+    buf: &mut [u8],
+    deadline: Instant,
+) -> io::Result<usize> {
+    loop {
+        arm_read_timeout(client, deadline)?;
+        match client.read(buf) {
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
+            other => return other,
+        }
+    }
+}
+
+/// `read_exact` bounded by an absolute deadline rather than a per-read timeout.
+pub(in crate::runtime::handshake) fn read_exact_by(
+    client: &mut TcpStream,
+    buf: &mut [u8],
+    deadline: Instant,
+) -> io::Result<()> {
+    let mut filled = 0;
+    while filled < buf.len() {
+        match read_by(client, &mut buf[filled..], deadline)? {
+            0 => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "failed to fill whole buffer")),
+            n => filled += n,
+        }
+    }
+    Ok(())
 }

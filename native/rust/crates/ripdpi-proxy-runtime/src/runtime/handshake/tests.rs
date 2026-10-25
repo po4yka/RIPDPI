@@ -11,7 +11,11 @@ use ripdpi_proxy_runtime_adapter::model::session::{
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+fn test_deadline() -> Instant {
+    Instant::now() + Duration::from_secs(5)
+}
 
 fn connected_pair() -> (TcpStream, TcpStream) {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
@@ -139,7 +143,7 @@ fn read_socks5_request_reads_domain_target() {
         [S_VER5, S_CMD_CONN, 0, 0x03, 11, b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'c', b'o', b'm', 0x01, 0xbb];
     writer.write_all(&request).expect("write socks5 request");
 
-    assert_eq!(read_socks5_request(&mut reader).expect("read socks5 request"), request);
+    assert_eq!(read_socks5_request(&mut reader, test_deadline()).expect("read socks5 request"), request);
 }
 
 #[test]
@@ -159,7 +163,49 @@ fn read_http_connect_request_reads_delimiter_split_across_chunks() {
     request.extend_from_slice(b"\r\n\r\n");
     writer.write_all(&request).expect("write http connect request");
 
-    assert_eq!(read_http_connect_request(&mut reader).expect("read http connect request"), request);
+    assert_eq!(read_http_connect_request(&mut reader, test_deadline()).expect("read http connect request"), request);
+}
+
+#[test]
+fn read_http_connect_request_enforces_total_deadline_against_trickled_bytes() {
+    let (mut reader, mut writer) = connected_pair();
+    // Each read arrives well inside any per-read timeout; only an absolute
+    // deadline can stop this peer.
+    let trickle = thread::spawn(move || {
+        for byte in b"CONNECT example.com:443 HTTP/1.1\r\n" {
+            if writer.write_all(&[*byte]).is_err() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(60));
+        }
+    });
+    let started = Instant::now();
+    let err = read_http_connect_request(&mut reader, Instant::now() + Duration::from_millis(400))
+        .expect_err("a trickling peer must hit the total deadline");
+    assert!(matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock), "unexpected error: {err}");
+    assert!(started.elapsed() < Duration::from_millis(1500), "deadline overran: {:?}", started.elapsed());
+    drop(reader);
+    trickle.join().expect("trickle thread");
+}
+
+#[test]
+fn read_socks4_request_enforces_total_deadline_against_trickled_bytes() {
+    let (mut reader, mut writer) = connected_pair();
+    let trickle = thread::spawn(move || {
+        for byte in [0x01u8, 0x00, 0x50, 0x7f, 0, 0, 1, b'u', b's', b'e', b'r'] {
+            if writer.write_all(&[byte]).is_err() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(60));
+        }
+    });
+    let started = Instant::now();
+    let err = read_socks4_request(&mut reader, 0x04, Instant::now() + Duration::from_millis(300))
+        .expect_err("a trickling peer must hit the total deadline");
+    assert!(matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock), "unexpected error: {err}");
+    assert!(started.elapsed() < Duration::from_millis(1500), "deadline overran: {:?}", started.elapsed());
+    drop(reader);
+    trickle.join().expect("trickle thread");
 }
 
 #[test]
@@ -168,7 +214,7 @@ fn read_http_connect_request_preserves_early_tunnel_data() {
     reader.set_read_timeout(Some(Duration::from_secs(1))).expect("read timeout");
     let request = b"CONNECT example.com:443 HTTP/1.1\r\n\r\n";
     writer.write_all(&[request.as_slice(), b"early-data"].concat()).expect("write request and data");
-    assert_eq!(read_http_connect_request(&mut reader).expect("read request"), request);
+    assert_eq!(read_http_connect_request(&mut reader, test_deadline()).expect("read request"), request);
     let mut data = [0; 10];
     reader.read_exact(&mut data).expect("read early data");
     assert_eq!(&data, b"early-data");
@@ -219,7 +265,8 @@ fn read_shadowsocks_request_returns_fragmented_target_and_first_payload() {
     reader.set_read_timeout(Some(Duration::from_secs(1))).expect("read timeout");
 
     let (target, mut first_payload) =
-        read_shadowsocks_request(&mut reader, S_ATP_I4, &state, resolve_ip_literal).expect("read shadowsocks request");
+        read_shadowsocks_request(&mut reader, S_ATP_I4, &state, resolve_ip_literal, test_deadline())
+            .expect("read shadowsocks request");
 
     assert_eq!(target.addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
     assert!(payload.starts_with(&first_payload));
@@ -236,7 +283,8 @@ fn read_shadowsocks_request_reports_eof_before_complete_target() {
     let (mut reader, writer) = connected_pair();
     drop(writer);
 
-    let err = read_shadowsocks_request(&mut reader, 0x03, &state, resolve_ip_literal).expect_err("expected eof");
+    let err = read_shadowsocks_request(&mut reader, 0x03, &state, resolve_ip_literal, test_deadline())
+        .expect_err("expected eof");
 
     assert_eq!(err.kind(), ErrorKind::UnexpectedEof);
 }
@@ -250,7 +298,8 @@ fn read_shadowsocks_request_rejects_unbounded_unresolved_target() {
         writer.write_all(&vec![b'a'; 70 * 1024]).expect("write oversized unresolved request");
     });
 
-    let err = read_shadowsocks_request(&mut reader, 0x03, &state, |_| None).expect_err("expected request too large");
+    let err = read_shadowsocks_request(&mut reader, 0x03, &state, |_| None, test_deadline())
+        .expect_err("expected request too large");
 
     assert_eq!(err.kind(), ErrorKind::InvalidData);
     writer_thread.join().expect("writer thread finished");
@@ -500,7 +549,8 @@ fn handle_socks5_rejects_invalid_version_when_called_directly() {
     let state = runtime_state(RuntimeConfig::default());
     let (_client, server) = connected_pair();
 
-    let err = super::handle_socks5(server, &state, S_VER4).expect_err("invalid socks5 version should fail");
+    let err =
+        super::handle_socks5(server, &state, S_VER4, test_deadline()).expect_err("invalid socks5 version should fail");
 
     assert_eq!(err.kind(), ErrorKind::InvalidData);
 }
@@ -513,7 +563,7 @@ fn handle_socks4_writes_failure_for_unsupported_command() {
     let request = [S_VER4, 0x02, 0, 80, 127, 0, 0, 1, 0];
     client.write_all(&request).expect("write socks4 bind request");
 
-    super::handle_socks4(server, &state, S_VER4).expect("unsupported socks4 command returns reply");
+    super::handle_socks4(server, &state, S_VER4, test_deadline()).expect("unsupported socks4 command returns reply");
 
     let mut failure = [0u8; 8];
     client.read_exact(&mut failure).expect("read socks4 failure reply");
@@ -529,7 +579,7 @@ fn handle_http_connect_writes_failure_for_invalid_request() {
     client.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
     client.write_all(b"GET / HTTP/1.1\r\n\r\n").expect("write invalid http connect request");
 
-    super::handle_http_connect(server, &state).expect("invalid http connect returns reply");
+    super::handle_http_connect(server, &state, test_deadline()).expect("invalid http connect returns reply");
 
     let mut reply = Vec::new();
     client.read_to_end(&mut reply).expect("read http failure reply");
@@ -572,7 +622,8 @@ fn negotiate_socks5_rejects_unauthenticated_method_when_token_required() {
     let (mut client, mut server) = connected_pair();
     client.write_all(&[0x01, 0x00]).expect("write socks5 methods");
 
-    let err = negotiate_socks5(&mut server, Some("alpha-123")).expect_err("missing userpass method should fail");
+    let err = negotiate_socks5(&mut server, Some("alpha-123"), test_deadline())
+        .expect_err("missing userpass method should fail");
     assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
 
     let mut reply = [0u8; 2];
@@ -590,7 +641,8 @@ fn negotiate_socks5_rejects_wrong_password() {
     request.extend_from_slice(b"wrong");
     client.write_all(&request).expect("write socks5 auth exchange");
 
-    let err = negotiate_socks5(&mut server, Some("alpha-123")).expect_err("wrong password should fail");
+    let err =
+        negotiate_socks5(&mut server, Some("alpha-123"), test_deadline()).expect_err("wrong password should fail");
     assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
 
     let mut method_reply = [0u8; 2];
@@ -613,7 +665,8 @@ fn negotiate_socks5_rejects_wrong_password_prefix_and_suffix() {
         request.extend_from_slice(password.as_bytes());
         client.write_all(&request).expect("write socks5 auth exchange");
 
-        let err = negotiate_socks5(&mut server, Some("alpha-123")).expect_err("wrong password should fail");
+        let err =
+            negotiate_socks5(&mut server, Some("alpha-123"), test_deadline()).expect_err("wrong password should fail");
         assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
         let mut reply = [0u8; 4];
         client.read_exact(&mut reply).expect("read method and auth replies");
