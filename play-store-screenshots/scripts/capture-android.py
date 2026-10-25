@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -12,6 +13,7 @@ import tempfile
 import hashlib
 import subprocess
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
@@ -48,12 +50,18 @@ def home_sample_count(tree: ElementTree.Element, template: str) -> int:
     return max(counts, default=0)
 
 
+class RelayLayoutError(RuntimeError):
+    """A real relay frame could not satisfy the unchanged layout contract."""
+
+
 class CaptureDevice:
     def __init__(self, serial: str) -> None:
         if not serial.startswith("emulator-"):
             raise ValueError("Use a dedicated emulator. This command resets app state.")
         self.serial = serial
         self.receipts = {}
+        self.tree_sequence = 0
+        self.tree_nonce = uuid.uuid4().hex
 
     def adb(self, *args: str, raw: bool = False) -> bytes | str:
         return run(["adb", "-s", self.serial, *args], raw=raw)
@@ -64,8 +72,42 @@ class CaptureDevice:
             raise RuntimeError(f"The actual Android locale does not match {expected}. No frame was saved.")
 
     def tree(self) -> ElementTree.Element:
-        self.adb("shell", "uiautomator", "dump", "/sdcard/ripdpi-docs.xml")
-        return ElementTree.fromstring(self.adb("exec-out", "cat", "/sdcard/ripdpi-docs.xml"))
+        # uiautomator can return success while a recreating Activity has no idle
+        # hierarchy. Never read yesterday's dump or silently accept malformed XML.
+        for attempt in range(3):
+            self.tree_sequence += 1
+            path = f"/sdcard/ripdpi-docs-{self.tree_nonce}-{self.tree_sequence}.xml"
+            dump_output = self.adb("shell", "uiautomator", "dump", path)
+            try:
+                raw = self.adb("exec-out", "cat", path)
+            except subprocess.CalledProcessError as error:
+                decode = lambda value: value.decode(errors="replace") if isinstance(value, bytes) else (value or "")
+                stdout, stderr = decode(error.stdout), decode(error.stderr)
+                self.receipts.setdefault("hierarchyRetries", []).append({
+                    "attempt": attempt + 1, "path": path, "dumpOutput": dump_output,
+                    "rawResponse": stdout, "stderr": stderr, "returncode": error.returncode})
+                # A successful dump command can still fail to create a file when
+                # no idle hierarchy exists. Offline/transport errors are fatal.
+                if error.returncode != 1 or "No such file or directory" not in stdout + stderr:
+                    raise
+                if attempt == 2:
+                    raise RuntimeError("Three fresh UI hierarchy acquisitions failed; no frame accepted.") from error
+                time.sleep(1)
+                continue
+            try:
+                tree = ElementTree.fromstring(raw)
+                if tree.tag != "hierarchy":
+                    raise ElementTree.ParseError("Expected a UI hierarchy root")
+            except ElementTree.ParseError as error:
+                self.receipts.setdefault("hierarchyRetries", []).append({
+                    "attempt": attempt + 1, "path": path, "dumpOutput": dump_output,
+                    "rawResponse": raw, "error": str(error)})
+                if attempt == 2:
+                    raise RuntimeError("Three fresh UI hierarchy acquisitions failed; no frame accepted.") from error
+                time.sleep(1)
+            else:
+                return tree
+        raise AssertionError("Unreachable hierarchy retry state")
 
     @staticmethod
     def tag(tree: ElementTree.Element, name: str) -> ElementTree.Element | None:
@@ -73,7 +115,7 @@ class CaptureDevice:
 
     @staticmethod
     def bounds(node: ElementTree.Element) -> list[int]:
-        return list(map(int, re.findall(r"\d+", node.get("bounds", ""))))
+        return list(map(int, re.findall(r"-?\d+", node.get("bounds", ""))))
 
     def tap(self, node: ElementTree.Element | None) -> None:
         if node is None:
@@ -82,20 +124,21 @@ class CaptureDevice:
         self.adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
         time.sleep(0.6)
 
-    def scroll(self, delta: int, *, x: int = 540) -> None:
+    def scroll(self, delta: int, *, x: int = 540) -> int:
         density = int(re.findall(r"density: ([0-9]+)", self.adb("shell", "wm", "density"))[-1])
         slop = round(density * 8 / 160)
         step = max(-600, min(600, delta + (slop if delta > 0 else -slop)))
         self.adb("shell", "input", "swipe", str(x), "1450" if step > 0 else "750", str(x), str(1450 - step) if step > 0 else str(750 - step), "900")
         time.sleep(0.8)
+        return step
 
     def show_route(self, name: str, route: str, *, reset: bool = False) -> None:
         locale_state = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
         self.locale = re.search(r"\[([a-zA-Z-]+)\]", locale_state)[1]
         profile = display_profile(self.locale, name)
+        self.adb("shell", "am", "force-stop", PACKAGE)
         self.adb("shell", "wm", "density", str(profile["densityDpi"]) if profile["densityDpi"] != DENSITY_DPI else "reset")
         self.adb("shell", "settings", "put", "system", "font_scale", str(profile["fontScale"]))
-        self.adb("shell", "am", "force-stop", PACKAGE)
         args = ["shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity"]
         for suffix in ("ENABLED", "DISABLE_MOTION"):
             args.extend(("--ez", f"{PACKAGE}.automation.{suffix}", "true"))
@@ -257,76 +300,211 @@ class CaptureDevice:
         raise RuntimeError("The actual capture viewport is missing. No frame was saved.")
 
     def align(self, tag_name: str, top: int | None = None, attempts: int = 32) -> None:
+        observations = []
+        unchanged = 0
+        previous_bounds = None
+        boundary_probe = False
+        self.receipts.setdefault("alignment", {})[tag_name] = observations
         for _ in range(attempts):
             tree = self.tree()
             node = self.tag(tree, tag_name)
             if node is None:
-                self.scroll(500)
+                observations.append({"missing": True})
+                intrinsic = self.receipts.get("relayIntrinsic", {}).get(getattr(self, "locale", ""), {})
+                if tag_name == "mode-editor-relay-chip-ru-mobile-relay" and "height" in intrinsic.get("mode-editor-advanced", {}):
+                    # Measurement deliberately ends below this known preset.
+                    self.scroll(-400, x=intrinsic["mode-editor-advanced"]["viewport"][0] + 8)
+                else:
+                    self.scroll(500)
                 continue
             viewport = self.viewport_bounds(tree, node) if top is None else None
             target_top = top if top is not None else viewport[1] + 4
-            delta = self.bounds(node)[1] - target_top
-            if abs(delta) <= 4:
+            bounds = self.bounds(node)
+            delta = bounds[1] - target_top
+            reference = self.receipts.get("relayIntrinsic", {}).get(getattr(self, "locale", ""), {}).get(tag_name, {})
+            expected_height = reference.get("height")
+            complete_height = expected_height is None or bounds[3] - bounds[1] >= expected_height
+            if viewport is not None and not complete_height and bounds[1] == viewport[1]:
+                # Clipped accessibility bounds hide how far the real top is above
+                # the viewport. Use its independently measured full height.
+                delta = -(expected_height - (bounds[3] - bounds[1]) + target_top - viewport[1])
+            observations.append({"bounds": bounds, "viewport": viewport,
+                                 "targetTop": target_top, "delta": delta, "expectedHeight": expected_height})
+            if abs(delta) <= 4 and complete_height:
                 return
-            if viewport is None:
-                self.scroll(delta)
-            else:
+            geometry = (self.bounds(node), viewport)
+            unchanged = unchanged + 1 if geometry == previous_bounds else 0
+            if boundary_probe and geometry == previous_bounds:
+                raise RelayLayoutError(f"Actual scroll boundary prevents complete alignment: {tag_name}")
+            boundary_probe = viewport is not None and unchanged >= 2
+            previous_bounds = geometry
+            kwargs = {}
+            if viewport is not None:
                 # The editor's scroll padding is outside inputs, including the local port.
-                self.scroll(delta, x=viewport[0] + 8)
-        raise RuntimeError(f"Could not align a complete capture section: {tag_name}")
+                kwargs["x"] = viewport[0] + 8
+            stroke = self.scroll((600 if delta > 0 else -600) if boundary_probe else delta, **kwargs)
+            observations[-1]["swipePixels"] = stroke if isinstance(stroke, int) else None
+        raise RelayLayoutError(f"Could not align a complete capture section: {tag_name}")
 
-    def focus_relay_bottom(self) -> None:
-        previous_geometry = None
-        stable_observations = 0
-        for attempt in range(8):
+    def save_failure_diagnostics(self, directory: Path, error: Exception | None) -> None:
+        """Observe before cleanup changes density or recreates the activity."""
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "capture-state.json").write_text(json.dumps(
+            {"outcome": "failed" if error else "validated", "error": str(error) if error else None, "runReceipts": self.receipts}, indent=2) + "\n")
+        commands = {
+            "frame-before-cleanup.png": ("exec-out", "screencap", "-p"),
+            "window-before-cleanup.txt": ("shell", "dumpsys", "window"),
+            "display-before-cleanup.txt": ("shell", "wm", "density"),
+        }
+        for name, command in commands.items():
+            try:
+                (directory / name).write_bytes(self.adb(*command, raw=True))
+            except Exception as diagnostic_error:
+                print(f"Could not collect {name}: {diagnostic_error}", flush=True)
+        try:
+            ElementTree.ElementTree(self.tree()).write(directory / "ui-before-cleanup.xml")
+        except Exception as diagnostic_error:
+            print(f"Could not collect pre-cleanup UI: {diagnostic_error}", flush=True)
+
+    def measure_relay_intrinsic_sizes(self) -> None:
+        """Measure boundary controls fully inside the same real scroll viewport.
+
+        UIAutomator truncates bounds at clipping edges. Interior observations
+        provide independent full sizes before the final screenshot alignment.
+        """
+        measured = {}
+        self.receipts.setdefault("relayIntrinsic", {})[self.locale] = measured
+        for name in ("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"):
+            previous = None
+            stable = 0
+            observations = []
+            measured[name] = {"observations": observations}
+            for _ in range(24):
+                tree = self.tree()
+                node = self.tag(tree, name)
+                if node is None:
+                    viewport_node = next((n for n in tree.iter("node") if n.get("scrollable") == "true"), None)
+                    if viewport_node is None:
+                        raise RuntimeError("Missing real editor viewport during intrinsic measurement.")
+                    viewport = self.bounds(viewport_node)
+                    if len(viewport) != 4:
+                        raise RuntimeError("Invalid real editor viewport during intrinsic measurement.")
+                    observations.append({"missing": True, "viewport": viewport})
+                    self.scroll(400, x=viewport[0] + 8)
+                    previous, stable = None, 0
+                    continue
+                bounds = self.bounds(node)
+                viewport = self.viewport_bounds(tree, node)
+                observations.append({"bounds": bounds, "viewport": viewport})
+                if len(bounds) != 4:
+                    raise RuntimeError("Invalid control bounds during intrinsic measurement.")
+                interior = (viewport[0] + 4 <= bounds[0] < bounds[2] <= viewport[2] - 4
+                            and viewport[1] + 4 <= bounds[1] < bounds[3] <= viewport[3] - 4)
+                if interior:
+                    geometry = (bounds, viewport)
+                    stable = stable + 1 if geometry == previous else 1
+                    previous = geometry
+                    if stable >= 3:
+                        measured[name].update({"width": bounds[2] - bounds[0], "height": bounds[3] - bounds[1],
+                                               "bounds": bounds, "viewport": viewport, "unchangedObservations": stable})
+                        break
+                    time.sleep(0.5)
+                else:
+                    self.scroll(-250 if bounds[1] < viewport[1] + 4 else 250, x=viewport[0] + 8)
+                    previous, stable = None, 0
+            else:
+                raise RelayLayoutError(f"Could not measure complete interior control: {name}")
+
+    def verify_relay_sections(self) -> None:
+        names = ["mode-editor-relay-section-" + section for section in
+                 ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
+        names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
+        previous = None
+        stable = 0
+        for _ in range(8):
             tree = self.tree()
-            tls = self.tag(tree, "mode-editor-relay-section-tls-transports")
-            advanced = self.tag(tree, "mode-editor-advanced")
-            if tls is None or advanced is None:
-                raise RuntimeError("The complete relay end sections are missing. No frame was saved.")
-            viewport = self.viewport_bounds(tree, advanced)
-            tls_bounds, advanced_bounds = self.bounds(tls), self.bounds(advanced)
-            preset = self.tag(tree, "mode-editor-relay-chip-ru-mobile-relay")
-            preset_bounds = self.bounds(preset) if preset is not None else []
-            geometry = (viewport, tls_bounds, advanced_bounds, preset_bounds)
-            stable_observations = stable_observations + 1 if geometry == previous_geometry else 0
-            if stable_observations >= 2:
-                def inside(bounds):
-                    return (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
-                            and viewport[1] <= bounds[1] < bounds[3] <= viewport[3])
-
-                preset_complete = preset is None or (len(preset_bounds) == 4
-                    and preset_bounds[0] < preset_bounds[2] and preset_bounds[1] < preset_bounds[3]
-                    and (preset_bounds[3] <= viewport[1] or inside(preset_bounds)))
-                if not inside(tls_bounds) or not inside(advanced_bounds) or not preset_complete:
-                    raise RuntimeError("The relay end contains a clipped section. No frame was saved.")
-                self.receipts["relayBottomFocus"] = {
-                    "viewportBounds": viewport, "tlsBounds": tls_bounds, "advancedBounds": advanced_bounds,
-                    "precedingPresetBounds": preset_bounds, "unchangedObservations": stable_observations,
-                    "scrollAttempts": attempt, "observedAtUtc": datetime.now(timezone.utc).isoformat(),
-                }
+            observed = {}
+            for name in names:
+                node = self.tag(tree, name)
+                if node is None:
+                    raise RelayLayoutError(f"The complete relay section is missing: {name}")
+                bounds = self.bounds(node)
+                viewport = self.viewport_bounds(tree, node)
+                if not (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
+                        and viewport[1] <= bounds[1] < bounds[3] <= viewport[3]):
+                    raise RelayLayoutError(f"The relay section is clipped: {name}")
+                if name == "mode-editor-relay-chip-ru-mobile-relay" and abs(bounds[1] - viewport[1] - 4) > 4:
+                    raise RelayLayoutError("The complete relay preset lost its required top alignment.")
+                if name in ("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"):
+                    reference = self.receipts.get("relayIntrinsic", {}).get(self.locale, {}).get(name, {})
+                    if "width" not in reference or "height" not in reference:
+                        raise RuntimeError("Full interior relay control dimensions were not observed.")
+                    width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
+                    if not (reference["width"] <= width <= reference["width"] + 1
+                            and reference["height"] <= height <= reference["height"] + 1):
+                        raise RelayLayoutError(f"The relay control is truncated relative to its full interior size: {name}")
+                observed[name] = {"bounds": bounds, "viewport": viewport}
+            stable = stable + 1 if observed == previous else 1
+            if stable >= 3:
+                self.receipts.setdefault("relaySections", {})[self.locale] = {
+                    "unchangedObservations": stable, "sections": observed}
                 return
-            previous_geometry = geometry
-            self.scroll(600, x=viewport[0] + 8)
-        raise RuntimeError("The relay end did not settle within eight observations. No frame was saved.")
+            previous = observed
+            time.sleep(0.5)
+        raise RelayLayoutError("The complete relay sections did not settle within eight observations.")
+
+    def enable_relay_for_capture(self) -> None:
+        tag_name = "mode-editor-relay-enabled"
+        previous = None
+        stable = 0
+        taps = 0
+        observations = []
+        self.receipts.setdefault("relaySwitch", {})[self.locale] = observations
+        for _ in range(24):
+            tree = self.tree()
+            matches = [node for node in tree.iter("node") if node.get("resource-id") == tag_name]
+            if len(matches) > 1:
+                raise RuntimeError("The relay enable switch is ambiguous.")
+            if not matches:
+                self.scroll(400)
+                previous, stable = None, 0
+                continue
+            switch = matches[0]
+            bounds = self.bounds(switch)
+            viewport = self.viewport_bounds(tree, switch)
+            if any(switch.get(key) != "true" for key in ("enabled", "checkable", "clickable")):
+                raise RuntimeError("The tagged relay switch is not an enabled control.")
+            whole = (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
+                     and viewport[1] <= bounds[1] < bounds[3] <= viewport[3])
+            geometry = (bounds, viewport, switch.get("checked"))
+            observations.append({"bounds": bounds, "viewport": viewport, "checked": switch.get("checked")})
+            if len(bounds) != 4:
+                raise RuntimeError("The tagged relay switch has invalid bounds.")
+            if not whole:
+                self.scroll(250 if bounds[3] > viewport[3] else -250, x=viewport[0] + 8)
+                previous, stable = None, 0
+                continue
+            stable = stable + 1 if geometry == previous else 1
+            previous = geometry
+            if stable < 3:
+                time.sleep(0.5)
+                continue
+            if switch.get("checked") == "true":
+                return
+            if switch.get("checked") != "false" or taps >= 3:
+                raise RuntimeError("The relay switch did not become checked after observed taps.")
+            self.tap(switch)
+            taps += 1
+            # Never blindly toggle again: require a fresh stable unchecked readback.
+            previous, stable = None, 0
+        raise RuntimeError("The relay switch did not settle in a complete visible viewport.")
 
     def show_relay_fields(self) -> None:
         self.tap(self.tag(self.tree(), "config-mode-proxy"))
-        for _ in range(14):
-            tree = self.tree()
-            switch = next((node for node in tree.iter("node")
-                           if node.get("checkable") == "true" and node.get("clickable") == "true"
-                           and not node.get("resource-id")), None)
-            if switch is not None:
-                if switch.get("checked") == "false":
-                    self.tap(switch)
-                self.align("mode-editor-relay-chip-ru-mobile-relay")
-                if self.locale == "zh-CN":
-                    # Here the natural end shows TLS and Advanced whole, with presets above the header.
-                    self.focus_relay_bottom()
-                return
-            self.scroll(550)
-        raise RuntimeError("The relay editor switch is missing.")
+        self.enable_relay_for_capture()
+        self.measure_relay_intrinsic_sizes()
+        self.align("mode-editor-relay-chip-ru-mobile-relay")
+        self.verify_relay_sections()
 
     def show_dns_editor(self) -> None:
         for _ in range(16):
@@ -364,6 +542,109 @@ class CaptureDevice:
             "requestedScrollPixels": offset, "observedScrollPixels": observed,
             "observedAtUtc": datetime.now(timezone.utc).isoformat()}
 
+    @staticmethod
+    def locale_migration_complete(package_state: str) -> bool:
+        enabled = False
+        for line in package_state.splitlines():
+            value = line.strip()
+            if value == "enabledComponents:":
+                enabled = True
+            elif enabled and value == "androidx.appcompat.app.AppLocalesMetadataHolderService":
+                return True
+            elif value.endswith(":"):
+                enabled = False
+        return False
+
+    def initialize_calibration_app(self) -> None:
+        """Let first-install AppCompat locale migration finish before shell locales.
+
+        Observe its enabled metadata component; never mutate that marker or the
+        app's secure-window policy. This does not start a VPN or claim a scan.
+        """
+        self.adb("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity",
+                 "--ez", f"{PACKAGE}.automation.ENABLED", "true",
+                 "--ez", f"{PACKAGE}.automation.RESET_STATE", "true",
+                 "--ez", f"{PACKAGE}.automation.DISABLE_MOTION", "true",
+                 "--es", f"{PACKAGE}.automation.START_ROUTE", "home",
+                 "--es", f"{PACKAGE}.automation.PERMISSION_PRESET", "granted",
+                 "--es", f"{PACKAGE}.automation.SERVICE_PRESET", "live",
+                 "--es", f"{PACKAGE}.automation.DATA_PRESET", "settings_ready")
+        previous = None
+        stable = 0
+        observations = []
+        self.receipts["calibrationInitialization"] = observations
+        for _ in range(30):
+            tree = self.tree()
+            home = self.tag(tree, "connection-actuator-button") is not None
+            migrated = self.locale_migration_complete(self.adb("shell", "dumpsys", "package", PACKAGE))
+            locale = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
+            observations.append({"homeReady": home, "localeMigrationComplete": migrated, "localeReadback": locale})
+            state = (home, migrated, locale)
+            stable = stable + 1 if state == previous else 1
+            if home and migrated and stable >= 3:
+                self.adb("shell", "am", "force-stop", PACKAGE)
+                return
+            previous = state
+            time.sleep(1)
+        raise RuntimeError("Initial Home and AppCompat locale migration did not settle before calibration.")
+
+    def approve_vpn_consent(self) -> None:
+        """Accept only Android's real VPN dialog on an explicitly disposable emulator."""
+        self.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", "en")
+        self.adb("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity",
+                 "--ez", f"{PACKAGE}.automation.ENABLED", "true",
+                 "--ez", f"{PACKAGE}.automation.RESET_STATE", "true",
+                 "--ez", f"{PACKAGE}.automation.DISABLE_MOTION", "true",
+                 "--es", f"{PACKAGE}.automation.START_ROUTE", "home",
+                 "--es", f"{PACKAGE}.automation.PERMISSION_PRESET", "granted",
+                 "--es", f"{PACKAGE}.automation.SERVICE_PRESET", "live",
+                 "--es", f"{PACKAGE}.automation.DATA_PRESET", "settings_ready")
+        for _ in range(30):
+            if self.tag(self.tree(), "connection-actuator-button") is not None:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError("The settings seed did not finish before normal VPN consent.")
+        # The debug permission preset intentionally intercepts consent. Keep its
+        # persisted settings, but restart without automation for the real OS flow.
+        self.adb("shell", "am", "force-stop", PACKAGE)
+        self.adb("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity")
+        for _ in range(30):
+            button = self.tag(self.tree(), "connection-actuator-button")
+            if button is not None:
+                self.tap(button)
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError("The real Home connection control did not appear for VPN consent.")
+        rationale_accepted = False
+        for _ in range(30):
+            dialog = self.tree()
+            rationale = self.tag(dialog, "vpn-permission-dialog-continue")
+            if rationale is not None and rationale.get("package") == PACKAGE and not rationale_accepted:
+                self.tap(rationale)
+                rationale_accepted = True
+                time.sleep(1)
+                continue
+            button = next((node for node in dialog.iter("node")
+                           if node.get("package") == "com.android.vpndialogs"
+                           and node.get("resource-id") == "android:id/button1"
+                           and node.get("clickable") == "true"), None)
+            if button is not None:
+                self.tap(button)
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError("Android's normal VPN consent dialog did not appear; no permission was changed.")
+        for _ in range(10):
+            if "ACTIVATE_VPN: allow" in self.adb("shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"):
+                self.receipts["vpnConsent"] = {
+                    "method": "Normal Android VPN consent dialog accepted on disposable emulator",
+                    "observedAtUtc": datetime.now(timezone.utc).isoformat()}
+                return
+            time.sleep(1)
+        raise RuntimeError("Android did not record the normal VPN consent.")
+
     def clear_statusbar_demo(self) -> None:
         # Keep Android's current time and real service/network indicators.
         self.adb("shell", "am", "broadcast", "-a", "com.android.systemui.demo", "-e", "command", "exit")
@@ -388,6 +669,7 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
         "schemaVersion": 1,
         "capturedAtUtc": datetime.now(timezone.utc).isoformat(),
         "builtFromRevision": build_revision,
+        "capturedWithRevision": run(["git", "rev-parse", "HEAD"]),
         "apk": {"variant": VARIANT, "filename": apk.name, "sha256": sha256(apk)},
         "libXray": {"manifestSha256": sha256(xray_artifacts / "libxray-artifact.json"),
                     "aarSha256": sha256(xray_artifacts / "libxray.aar"), "verification": "verify-libxray-artifacts.sh --release passed"},
@@ -414,15 +696,131 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
     MANIFEST.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
 
 
+def show_capture_route(device: CaptureDevice, locale: str, name: str, route: str, *,
+                       reset: bool, diagnostics: Path | None, failures: list[str]) -> bool:
+    try:
+        device.show_route(name, route, reset=reset)
+    except RuntimeError as error:
+        # Live connection/scan failures are not independent presentation failures.
+        if name in ("home", "diagnostics"):
+            raise
+        failures.append(f"{locale}/{name}: {error}")
+        if diagnostics:
+            device.save_failure_diagnostics(diagnostics / "routes" / locale / name, error)
+        print(f"Capture failed for {locale}/{name}: {error}", flush=True)
+        return False
+    return True
+
+
+def require_complete_capture(failures: list[str]) -> None:
+    if failures:
+        raise RuntimeError("Incomplete source capture; no manifest written: " + "; ".join(failures))
+
+
+# Finite diagnostic search only. Normal capture never changes committed profiles.
+RELAY_CALIBRATION_DENSITIES = {
+    "en": (271, 270, 272, 269, 273),
+    **{locale: (267, 268, 266, 269, 265, 270, 264, 271, 263, 262, 261, 260, 259, 258, 257, 256, 255, 254, 253)
+       for locale in ("ru", "es", "de", "fr")},
+    "fa": (243, 242, 241, 240, 244, 245, 246, 247, 248, 249, 250, 251, 252),
+    "zh-CN": (252, 251, 250, 253, 254, 255, 249, 248),
+}
+
+
+def calibrate_relay_profiles(device: CaptureDevice, directory: Path, apk: Path,
+                             build_revision: str, inputs: dict[str, str]) -> dict:
+    directory.mkdir(parents=True, exist_ok=True)
+    report = {"kind": "diagnostic-only; not source captures", "complete": False,
+              "builtFromRevision": build_revision, "captureToolRevision": run(["git", "rev-parse", "HEAD"]),
+              "apkSha256": sha256(apk), "uiInputsSha256": inputs_sha256(inputs), "uiInputs": inputs,
+              "buildBundle": device.receipts.get("buildBundle"),
+              "candidates": RELAY_CALIBRATION_DENSITIES, "selectedProfiles": {}, "trials": []}
+    saved_overrides = copy.deepcopy(DISPLAY_OVERRIDES)
+    originals = {locale: dict(display_profile(locale, "relay")) for locale in LOCALES}
+    try:
+        for locale in LOCALES:
+            device.adb("shell", "am", "force-stop", PACKAGE)
+            device.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", locale)
+            device.verify_locale(locale)
+            for density in RELAY_CALIBRATION_DENSITIES[locale]:
+                profile = {**originals[locale], "densityDpi": density}
+                DISPLAY_OVERRIDES[locale]["relay"] = profile
+                passed = True
+                # A candidate must establish the switch/layout twice from a fresh route.
+                for repetition in range(2):
+                    trial = {"locale": locale, "requestedProfile": profile, "repetition": repetition,
+                             "observedAtUtc": datetime.now(timezone.utc).isoformat()}
+                    for key in ("alignment", "relaySections", "relaySwitch", "relayIntrinsic", "calibrationTrial"):
+                        device.receipts.pop(key, None)
+                    trial_dir = directory / locale / f"{density}-{repetition}"
+                    error = None
+                    try:
+                        device.show_route("relay", "mode_editor", reset=False)
+                        observed = {"densityDpi": int(re.findall(r"density: ([0-9]+)", device.adb("shell", "wm", "density"))[-1]),
+                                    "fontScale": float(device.adb("shell", "settings", "get", "system", "font_scale"))}
+                        trial["observedProfile"] = observed
+                        if observed != profile or device.adb("shell", "wm", "size") != "Physical size: 1080x1800":
+                            raise RuntimeError("Calibration display readback differs from the requested physical profile.")
+                        device.verify_locale(locale)
+                    except Exception as caught:
+                        error = caught
+                        passed = False
+                    trial["displayReadback"] = {
+                        "density": device.adb("shell", "wm", "density"),
+                        "size": device.adb("shell", "wm", "size"),
+                        "fontScale": device.adb("shell", "settings", "get", "system", "font_scale"),
+                        "locale": device.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE),
+                    }
+                    trial.update({"passed": passed, "error": str(error) if error else None})
+                    device.receipts["calibrationTrial"] = trial
+                    device.save_failure_diagnostics(trial_dir, error)
+                    raw = (trial_dir / "frame-before-cleanup.png").read_bytes()
+                    if raw[:8] != b"\x89PNG\r\n\x1a\n" or len(raw) < 24:
+                        raise RuntimeError("Calibration raw PNG evidence is missing or invalid.")
+                    if (int.from_bytes(raw[16:20], "big"), int.from_bytes(raw[20:24], "big")) != FRAME_SIZE:
+                        raise RuntimeError("Calibration raw PNG dimensions changed.")
+                    ElementTree.parse(trial_dir / "ui-before-cleanup.xml")
+                    for evidence in ("window-before-cleanup.txt", "display-before-cleanup.txt"):
+                        if not (trial_dir / evidence).read_bytes():
+                            raise RuntimeError("Calibration raw diagnostics are incomplete.")
+                    report["trials"].append(trial)
+                    (directory / "calibration.json").write_text(json.dumps(report, indent=2) + "\n")
+                    print(f"Calibration {locale} {density} dpi trial {repetition + 1}: {'PASS' if passed else error}", flush=True)
+                    if error is not None and not isinstance(error, RelayLayoutError):
+                        raise error
+                    if not passed:
+                        break
+                if passed:
+                    report["selectedProfiles"][locale] = profile
+                    break
+        report["complete"] = set(report["selectedProfiles"]) == set(LOCALES)
+        if input_hashes() != inputs:
+            raise RuntimeError("Android inputs changed during layout calibration.")
+        (directory / "calibration.json").write_text(json.dumps(report, indent=2) + "\n")
+        if not report["complete"]:
+            raise RuntimeError("Finite relay calibration exhausted without complete validated profiles.")
+        return report
+    finally:
+        DISPLAY_OVERRIDES.clear()
+        DISPLAY_OVERRIDES.update(saved_overrides)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--serial", required=True, help="Dedicated 1080x1800, 360 dpi emulator; its app state is reset")
     parser.add_argument("--prebuilt-jni-libs", type=Path, help="Optional native outputs from the same source revision")
-    parser.add_argument("--xray-artifacts", required=True, type=Path, help="Real producer artifacts; the release verifier must pass")
+    parser.add_argument("--xray-artifacts", type=Path, help="Real producer artifacts; the release verifier must pass")
+    parser.add_argument("--approve-vpn-consent", action="store_true",
+                        help="Accept the normal Android VPN dialog on this disposable emulator")
+    parser.add_argument("--failure-diagnostics", type=Path, help="Keep raw partial frames and pre-cleanup failure evidence, never a source manifest")
+    parser.add_argument("--build-bundle", type=Path, help="Verified sealed capture build; its original producer revision is preserved")
+    parser.add_argument("--calibrate-relay", action="store_true", help="Diagnostic-only finite relay profile trials; never writes source frames or manifest")
     args = parser.parse_args()
+    if args.calibrate_relay and not args.failure_diagnostics:
+        parser.error("Calibration requires a diagnostics directory.")
+    if not args.build_bundle and not args.xray_artifacts:
+        parser.error("Provide a sealed build bundle or real Xray producer artifacts.")
     device = CaptureDevice(args.serial)
-    if "ACTIVATE_VPN: allow" not in device.adb("shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"):
-        parser.error("Grant actual Android VPN consent through the normal app before capture.")
     device.adb("shell", "wm", "density", "reset")
     device.adb("shell", "settings", "put", "system", "font_scale", "1.0")
     if device.adb("shell", "wm", "size") != "Physical size: 1080x1800" or device.adb("shell", "wm", "density") != "Physical density: 360":
@@ -430,17 +828,26 @@ def main() -> None:
     abi = device.adb("shell", "getprop", "ro.product.cpu.abi")
     if abi not in ("arm64-v8a", "x86_64"):
         parser.error("Use an arm64-v8a or x86_64 emulator.")
-    xray_artifacts = args.xray_artifacts.resolve()
+    inputs = input_hashes()
+    if args.build_bundle:
+        if abi != "x86_64":
+            parser.error("Sealed capture builds require the original x86_64 emulator ABI.")
+        from capture_build import verify
+        bundle = verify(args.build_bundle)
+        apk, xray_artifacts, revision = bundle["apk"], bundle["xray"], bundle["builtFromRevision"]
+        device.receipts["buildBundle"] = {"builtFromRevision": revision,
+                                           "manifestSha256": sha256(args.build_bundle / "capture-build.json")}
+    else:
+        xray_artifacts = args.xray_artifacts.resolve()
+        revision = run(["git", "rev-parse", "HEAD"])
+        build_args = ["./gradlew", ":app:assembleGithubFullDebug", f"-Pripdpi.nativeAbisOverride={abi}",
+                      f"-Pripdpi.prebuiltXrayAarDir={xray_artifacts}"]
+        if args.prebuilt_jni_libs:
+            build_args.append(f"-Pripdpi.prebuiltJniLibsDir={args.prebuilt_jni_libs.resolve()}")
+        subprocess.run(build_args, cwd=ROOT, check=True)
+        apk = ROOT / f"app/build/outputs/apk/githubFull/debug/app-github-full-{abi}-debug.apk"
     subprocess.run(["bash", "scripts/native/verify-libxray-artifacts.sh", "--release"],
                    cwd=ROOT, env={**os.environ, "RIPDPI_XRAY_AAR_DIR": str(xray_artifacts)}, check=True)
-    revision = run(["git", "rev-parse", "HEAD"])
-    inputs = input_hashes()
-    build_args = ["./gradlew", ":app:assembleGithubFullDebug", f"-Pripdpi.localNativeAbis={abi}",
-                  f"-Pripdpi.prebuiltXrayAarDir={xray_artifacts}"]
-    if args.prebuilt_jni_libs:
-        build_args.append(f"-Pripdpi.prebuiltJniLibsDir={args.prebuilt_jni_libs.resolve()}")
-    subprocess.run(build_args, cwd=ROOT, check=True)
-    apk = ROOT / f"app/build/outputs/apk/githubFull/debug/app-github-full-{abi}-debug.apk"
     device.adb("install", "-r", str(apk))
     api = int(device.adb("shell", "getprop", "ro.build.version.sdk"))
     for permission in runtime_permissions(api):
@@ -448,6 +855,10 @@ def main() -> None:
     package_state = device.adb("shell", "dumpsys", "package", PACKAGE)
     if not all(f"{permission}: granted=true" in package_state for permission in runtime_permissions(api)):
         raise RuntimeError("Required real Android runtime permissions were not granted.")
+    if not args.calibrate_relay and "ACTIVATE_VPN: allow" not in device.adb("shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"):
+        if not args.approve_vpn_consent:
+            parser.error("Grant actual Android VPN consent through the normal app before capture, or explicitly use --approve-vpn-consent on a disposable emulator.")
+        device.approve_vpn_consent()
     device.receipts["permissions"] = {"api": api, "granted": list(runtime_permissions(api)),
                                       "observedAtUtc": datetime.now(timezone.utc).isoformat()}
     device.adb("shell", "cmd", "uimode", "night", "no")
@@ -458,12 +869,21 @@ def main() -> None:
     device.adb("shell", "input", "keyevent", "KEYCODE_MENU")
     device.clear_statusbar_demo()
     try:
+        if args.calibrate_relay:
+            device.initialize_calibration_app()
+            calibrate_relay_profiles(device, args.failure_diagnostics / "calibration", apk, revision, inputs)
+            print("Calibration only: inspect proposed profiles and raw trials, then run fixed-profile capture.", flush=True)
+            return
         first = True
+        presentation_failures = []
         for locale in LOCALES:
+            device.adb("shell", "am", "force-stop", PACKAGE)
             device.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", locale)
             device.verify_locale(locale)
             for name, (route, source_name) in SCREENS.items():
-                device.show_route(name, route, reset=first)
+                if not show_capture_route(device, locale, name, route, reset=first,
+                                          diagnostics=args.failure_diagnostics, failures=presentation_failures):
+                    continue
                 first = False
                 path = PROJECT / f"public/screenshots/{locale}/{source_name}.png"
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -477,6 +897,10 @@ def main() -> None:
                     **profile, "physicalDensityDpi": density_values[0], "screen": "1080x1800"}
                 device.verify_locale(locale)
                 path.write_bytes(device.adb("exec-out", "screencap", "-p", raw=True))
+                if args.failure_diagnostics:
+                    partial = args.failure_diagnostics / "partial-frames" / locale / f"{name}.png"
+                    partial.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(path, partial)
                 direct = ROOT / f"docs/screenshots/ui/{locale}/{name}.png"
                 direct.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, direct)
@@ -485,7 +909,15 @@ def main() -> None:
                 print(f"Captured {locale}/{name}", flush=True)
                 if name == "home":
                     device.disconnect_live()
+        require_complete_capture(presentation_failures)
         record_manifest(device, apk, xray_artifacts, revision, inputs)
+    except Exception as error:
+        if args.failure_diagnostics:
+            try:
+                device.save_failure_diagnostics(args.failure_diagnostics, error)
+            except Exception as diagnostic_error:
+                print(f"Could not save failure diagnostics: {diagnostic_error}", flush=True)
+        raise
     finally:
         device.clear_statusbar_demo()
         device.adb("shell", "wm", "density", "reset")

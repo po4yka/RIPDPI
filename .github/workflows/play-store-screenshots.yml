@@ -12,7 +12,24 @@ on:
       - "play-store-screenshots/**"
       - "docs/screenshots/**"
       - ".github/workflows/play-store-screenshots.yml"
+      - "scripts/ci/capture_kvm_access.py"
+      - "scripts/ci/start-android-emulator.sh"
+      - "scripts/tests/test_capture_kvm_access.py"
+      - "scripts/tests/test_android_emulator_image.py"
   workflow_dispatch:
+    inputs:
+      recapture_android:
+        description: Build and capture real Android source frames on a disposable emulator
+        type: boolean
+        default: false
+      calibrate_relay:
+        description: Diagnostic-only bounded relay viewport trials; no source or marketing captures
+        type: boolean
+        default: false
+      reuse_capture_run:
+        description: Trusted completed run ID with an android-capture-build artifact; inputs must still match
+        type: string
+        default: ""
   schedule:
     # Daily at 04:41 UTC -- after the nightly Rust/CI bursts (02:00, 03:00) so
     # we don't compete for runner concurrency with `ci.yml` / `fuzz-nightly.yml`.
@@ -26,7 +43,203 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  android-sources:
+    name: Capture Android frames or calibration diagnostics
+    if: github.event_name == 'workflow_dispatch' && (inputs.recapture_android || inputs.calibrate_relay || inputs.reuse_capture_run != '')
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GOTOOLCHAIN: go1.27.2
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout exact requested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test capture integrity and temporary KVM access contracts
+        run: |
+          python3 -m unittest discover -s play-store-screenshots/scripts -p 'test_capture_build.py'
+          python3 -m unittest discover -s play-store-screenshots/scripts -p 'test_source_captures.py'
+          python3 -m unittest discover -s play-store-screenshots/scripts -p 'test_relay_calibration.py'
+          python3 -m unittest scripts.tests.test_capture_kvm_access
+
+      - name: Validate trusted build artifact origin before download
+        if: inputs.reuse_capture_run != ''
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RUN: ${{ inputs.reuse_capture_run }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_RUN" =~ ^[1-9][0-9]*$ ]] || { echo "Expected a numeric workflow run ID" >&2; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > "$RUNNER_TEMP/current-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$REQUESTED_RUN" > "$RUNNER_TEMP/reuse-run.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$REQUESTED_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/reuse-artifacts.json"
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"])
+          current = json.loads((root / "current-run.json").read_text())
+          source = json.loads((root / "reuse-run.json").read_text())
+          repo = os.environ["GITHUB_REPOSITORY"]
+          if not (
+              source["id"] == int(os.environ["REQUESTED_RUN"])
+              and source["repository"]["full_name"] == repo
+              and source["head_repository"]["full_name"] == repo
+              and source["workflow_id"] == current["workflow_id"]
+              and source["event"] == "workflow_dispatch"
+              and source["head_branch"] in ("fix/play-store-capture-ci", "main")
+              and source["status"] == "completed"
+          ):
+              raise SystemExit("Rejected build artifact origin: expected completed trusted same-repository workflow dispatch")
+          artifacts = [artifact for page in json.loads((root / "reuse-artifacts.json").read_text())
+                       for artifact in page["artifacts"] if artifact["name"] == "android-capture-build"]
+          if len(artifacts) != 1 or artifacts[0]["expired"]:
+              raise SystemExit("Expected exactly one unexpired android-capture-build artifact")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"run-id={source['id']}\n")
+              output.write(f"artifact-id={artifacts[0]['id']}\n")
+              output.write(f"head-sha={source['head_sha']}\n")
+          PYTHON
+
+      - name: Download validated sealed Android build
+        if: inputs.reuse_capture_run != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ steps.reuse.outputs.artifact-id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/android-capture-build
+          run-id: ${{ steps.reuse.outputs.run-id }}
+          github-token: ${{ github.token }}
+
+      - name: Grant capture user temporary KVM access
+        run: python3 scripts/ci/capture_kvm_access.py enable --state "$RUNNER_TEMP/capture-kvm-state.json"
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: screenshot-android
+          rust-cache-save: "false"
+
+      - name: Resolve the pinned Go toolchain for build and reuse
+        run: go version
+
+      - uses: ./.github/actions/build-xray
+        if: inputs.reuse_capture_run == ''
+
+      - name: Build actual current app before booting emulator
+        if: inputs.reuse_capture_run == ''
+        run: >-
+          ./gradlew :app:assembleGithubFullDebug
+          -Pripdpi.nativeAbisOverride=x86_64
+          -Pripdpi.prebuiltXrayAarDir=${{ github.workspace }}/native/xray/artifacts
+          -Pripdpi.pluggableTransportAssetsMode=source
+          -Pripdpi.pluggableTransportAssetsStrictFailures=true
+
+      - name: Verify producer outputs and seal the new Android build
+        if: inputs.reuse_capture_run == ''
+        run: |
+          bash scripts/native/verify-libxray-artifacts.sh --release
+          python3 play-store-screenshots/scripts/capture_build.py seal "$RUNNER_TEMP/android-capture-build" \
+            --apk app/build/outputs/apk/githubFull/debug/app-github-full-x86_64-debug.apk \
+            --xray-artifacts native/xray/artifacts
+
+      - name: Verify sealed bytes, build inputs, and toolchain equivalence
+        env:
+          EXPECTED_REVISION: ${{ steps.reuse.outputs.head-sha || github.sha }}
+        run: |
+          python3 play-store-screenshots/scripts/capture_build.py verify "$RUNNER_TEMP/android-capture-build" \
+            --expected-revision "$EXPECTED_REVISION"
+          RIPDPI_XRAY_AAR_DIR="$RUNNER_TEMP/android-capture-build/xray" \
+            bash scripts/native/verify-libxray-artifacts.sh --release
+
+      - name: Preserve the verified build before emulator trials
+        if: inputs.reuse_capture_run == ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-capture-build
+          path: ${{ runner.temp }}/android-capture-build/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Start disposable physical capture viewport
+        run: >-
+          bash scripts/ci/start-android-emulator.sh --fresh
+          --avd store-source-capture --api 37 --arch x86_64 --target google_apis
+          --screen-width 1080 --screen-height 1800 --screen-density 360
+          --ram 2048M --heap 512M --boot-timeout 600
+
+      - name: Capture actual app or diagnostic-only relay trials
+        env:
+          CALIBRATE_RELAY: ${{ inputs.calibrate_relay }}
+        run: |
+          set -euo pipefail
+          serial="$(adb devices | awk '/^emulator-.*device$/ {print $1}')"
+          test "$(printf '%s\n' "$serial" | wc -l)" -eq 1
+          test -n "$serial"
+          calibration_args=()
+          if [ "$CALIBRATE_RELAY" = "true" ]; then
+            calibration_args+=(--calibrate-relay)
+          fi
+          python3 play-store-screenshots/scripts/capture-android.py \
+            --serial "$serial" --approve-vpn-consent \
+            --failure-diagnostics "$RUNNER_TEMP/capture-diagnostics" \
+            --build-bundle "$RUNNER_TEMP/android-capture-build" "${calibration_args[@]}"
+          if [ "$CALIBRATE_RELAY" != "true" ]; then
+            python3 play-store-screenshots/scripts/validate-source-captures.py
+          fi
+
+      - name: Upload relay calibration diagnostics (never source captures)
+        if: always() && inputs.calibrate_relay
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-relay-calibration-diagnostics
+          path: ${{ runner.temp }}/capture-diagnostics/calibration/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Collect failure diagnostics from the disposable emulator
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/capture-diagnostics"
+          timeout 20 adb logcat -d > "$RUNNER_TEMP/capture-diagnostics/logcat.txt" 2>&1 || true
+          timeout 20 adb shell uiautomator dump /sdcard/capture-failure.xml || true
+          timeout 20 adb pull /sdcard/capture-failure.xml "$RUNNER_TEMP/capture-diagnostics/ui.xml" || true
+          timeout 20 adb exec-out screencap -p > "$RUNNER_TEMP/capture-diagnostics/frame.png" || true
+          cp "$HOME/.android/store-source-capture/emulator.log" "$RUNNER_TEMP/capture-diagnostics/" || true
+
+      - name: Upload failed-run diagnostics (not publishable source captures)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-capture-failure-diagnostics
+          path: ${{ runner.temp }}/capture-diagnostics/**
+          retention-days: 7
+
+      - name: Stop owned capture emulator
+        if: always()
+        run: bash scripts/ci/stop-android-emulator.sh --avd store-source-capture
+
+      - name: Restore original KVM device access
+        if: always()
+        run: python3 scripts/ci/capture_kvm_access.py restore --state "$RUNNER_TEMP/capture-kvm-state.json"
+
+      - name: Upload actual source captures and provenance
+        if: success() && !inputs.calibrate_relay
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-source-captures
+          path: |
+            play-store-screenshots/public/screenshots/**
+            docs/screenshots/ui/**
+          if-no-files-found: error
+          retention-days: 14
+
   capture:
+    needs: android-sources
+    if: always() && !inputs.calibrate_relay && (needs.android-sources.result == 'success' || needs.android-sources.result == 'skipped')
     name: Capture marketing screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -36,6 +249,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test source freshness and disposable device contracts
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 -m unittest discover -s play-store-screenshots/scripts -p 'test_source_captures.py'
+          python3 -m unittest discover -s play-store-screenshots/scripts -p 'test_relay_calibration.py'
+          python3 -m unittest discover -s play-store-screenshots/scripts -p 'test_capture_build.py'
+          python3 -m unittest scripts.tests.test_capture_kvm_access scripts.tests.test_android_emulator_image
+
+      - name: Restore newly captured Android frames
+        if: needs.android-sources.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-source-captures
+          path: .
 
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -64,6 +292,7 @@ jobs:
           "$CHROME_PATH" --version
 
       - name: Regenerate marketing screenshots
+        id: regenerate
         run: bun run capture:prod
         env:
           # Headless Chromium needs a writable cache directory inside the
@@ -79,7 +308,9 @@ jobs:
           {
             echo "## Play Store screenshot drift"
             echo
-            if git diff --quiet -- docs/screenshots; then
+            if [ "${{ steps.regenerate.outcome }}" != "success" ]; then
+              echo "_Regeneration did not succeed. Existing files are not evidence of a successful capture or no drift._"
+            elif git diff --quiet -- docs/screenshots; then
               echo "_No drift -- regenerated assets match the committed copies._"
             else
               echo "Files that changed:"
@@ -93,7 +324,7 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload regenerated screenshots
-        if: always()
+        if: success()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: play-store-screenshots

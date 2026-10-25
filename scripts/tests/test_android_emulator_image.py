@@ -9,6 +9,21 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AndroidEmulatorImageTest(unittest.TestCase):
+    def test_custom_display_rejects_partial_or_invalid_dimensions_before_install(self):
+        for dimensions in (("1080", "", "360"), ("-1", "1800", "360"),
+                           ("1080", "1800", "0"), ("1080", "1800", "360;echo bad")):
+            with self.subTest(dimensions=dimensions):
+                result = subprocess.run(
+                    ["bash", "scripts/ci/start-android-emulator.sh", "--fresh",
+                     "--avd", "store-source-capture", "--api", "37", "--arch", "x86_64",
+                     "--target", "google_apis", "--screen-width", dimensions[0],
+                     "--screen-height", dimensions[1], "--screen-density", dimensions[2]],
+                    cwd=ROOT, env={**os.environ, "CI": "true"}, text=True, capture_output=True,
+                )
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("Custom physical display", result.stderr)
+                self.assertNotIn("Installing emulator", result.stdout)
+
     def test_detached_start_requires_explicit_isolated_ci(self):
         with tempfile.TemporaryDirectory() as directory:
             avd = Path(directory) / "avd" / "keep-me.avd"

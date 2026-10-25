@@ -61,6 +61,9 @@ disk="8G"
 boot_timeout="600"
 no_wait=false
 fresh=false
+screen_width=""
+screen_height=""
+screen_density=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -82,6 +85,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --target)
       target="$2"
+      shift 2
+      ;;
+    --screen-width)
+      screen_width="$2"
+      shift 2
+      ;;
+    --screen-height)
+      screen_height="$2"
+      shift 2
+      ;;
+    --screen-density)
+      screen_density="$2"
       shift 2
       ;;
     --ram)
@@ -125,6 +140,15 @@ fi
 if [[ ! "$avd_name" =~ ^[A-Za-z0-9_.-]+$ || "$avd_name" == .* || "$avd_name" == RIPDPI_* ]]; then
   echo "Unsafe or reserved local AVD name: $avd_name" >&2
   exit 1
+fi
+
+if [[ -n "$screen_width$screen_height$screen_density" ]]; then
+  for dimension in "$screen_width" "$screen_height" "$screen_density"; do
+    if [[ ! "$dimension" =~ ^[1-9][0-9]{1,3}$ ]]; then
+      echo "Custom physical display requires positive width, height, and density (10..9999)." >&2
+      exit 1
+    fi
+  done
 fi
 
 image_version="$(android_image_version "$api_level")"
@@ -194,6 +218,14 @@ update_ini_property "$config_ini" "disk.dataPartition.size" "$disk"
 update_ini_property "$config_ini" "fastboot.forceColdBoot" "yes"
 update_ini_property "$config_ini" "avd.id" "$avd_name"
 update_ini_property "$config_ini" "avd.name" "$avd_name"
+if [[ -n "$screen_width" ]]; then
+  update_ini_property "$config_ini" "hw.lcd.width" "$screen_width"
+  update_ini_property "$config_ini" "hw.lcd.height" "$screen_height"
+  update_ini_property "$config_ini" "hw.lcd.density" "$screen_density"
+  update_ini_property "$config_ini" "skin.name" "${screen_width}x${screen_height}"
+  update_ini_property "$config_ini" "skin.dynamic" "yes"
+  update_ini_property "$config_ini" "showDeviceFrame" "no"
+fi
 
 cat >"$avd_ini" <<EOF
 avd.ini.encoding=UTF-8

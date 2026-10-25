@@ -38,19 +38,21 @@ python3 scripts/capture-android.py \
 python3 scripts/validate-source-captures.py
 ```
 
-The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy configuration use that profile. Home uses 290 dpi and font scale 0.8 in all locales. Review each frame to confirm that the real strategy description and all measurement captions fit in the phone viewport. The relay picker uses 260 dpi / 1.5 by default, with localized overrides. DNS and backup profiles also depend on the locale. [The owning profile constants](scripts/source_captures.py) define these settings; the manifest records each frame's actual readback. Capture cleanup restores the base density and font scale on success and failure.
+The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy configuration use that profile. Home uses 290 dpi and font scale 0.8 in all locales. Review each frame to confirm that the real strategy description and all measurement captions fit in the phone viewport. The relay picker uses 267 dpi / 1.5 by default, with localized overrides. DNS and backup profiles also depend on the locale. [The owning profile constants](scripts/source_captures.py) define these settings; the manifest records each frame's actual readback. Capture cleanup restores the base density and font scale on success and failure.
 
 | Locale | Relay: dpi / font scale | DNS: dpi / font scale | Backup: dpi / font scale |
 |---|---|---|---|
-| en | 264 / 1.5 | 360 / 1 | 480 / 0.75 |
-| ru | 260 / 1.5 | 300 / 1.18 | 460 / 0.7826087 |
-| es | 260 / 1.5 | 290 / 1.24 | 460 / 0.7826087 |
-| de | 260 / 1.5 | 290 / 1.2 | 430 / 0.8372093 |
-| fr | 260 / 1.5 | 290 / 1.2 | 460 / 0.7826087 |
-| fa | 250 / 1.56 | 300 / 1 | 440 / 0.8181818 |
-| zh-CN | 255 / 1.5294118 | 360 / 0.8571429 | 500 / 0.72 |
+| en | 271 / 1.5 | 360 / 1 | 480 / 0.75 |
+| ru | 267 / 1.5 | 300 / 1.18 | 460 / 0.7826087 |
+| es | 267 / 1.5 | 290 / 1.24 | 460 / 0.7826087 |
+| de | 267 / 1.5 | 290 / 1.2 | 430 / 0.8372093 |
+| fr | 267 / 1.5 | 290 / 1.2 | 460 / 0.7826087 |
+| fa | 241 / 1.56 | 300 / 1 | 440 / 0.8181818 |
+| zh-CN | 251 / 1.5294118 | 360 / 0.8571429 | 500 / 0.72 |
 
 Home capture requires at least two observed RTT samples. Home starts at the top of its content. The manifest records its observed native scroll offset, which must remain within four pixels of zero. DNS capture focuses the complete custom DoH form and IPv6 controls. Its prefilled values are not applied. Native scroll focus is recorded per locale. Backup capture scrolls French by 12 pixels and Chinese by 16 pixels to keep the restore card whole. The import button must move by the requested distance within four pixels; the manifest records the observed offset for every locale.
+
+The English relay density is 271 dpi so the current editor can align the last recommended preset without clipping the preceding preset. Localized relay densities similarly fit the observed current transport groups and Advanced block. Every relay capture checks three stable observations of the last preset, all transport groups and Advanced wholly inside the actual scroll viewport. Chinese uses the same exact preset alignment rather than an additional bottom scroll that would clip it. Failed independent presentation routes are collected for diagnosis across locales, but any failure prevents writing a new manifest; live connection or scan failures abort immediately. Failure artifacts preserve raw partial frames and geometry before display cleanup, and are never publishable source captures.
 
 Inspect all 42 source frames at full size. Check the captured state and whole content blocks, not just the PNG dimensions. In particular, the diagnostics poster must show an actual completed check, not demo results or the run warning screen. Connection data must come from the real service. Do not use a simulated connected preset. A warning that applies to the captured state must stay visible.
 
@@ -59,6 +61,57 @@ Inspect all 42 source frames at full size. Check the captured state and whole co
 Display-only frame retakes retain the original APK/build producer and the other frame hashes. The manifest records each retake in `frameRecaptures`, including the tool revision, actual time, and old/new image hashes. The source validator checks this receipt history as well as all retained images.
 
 Generic user-visible section and built-in profile names are localized in the app. Protocol names and user-defined names remain unchanged. The seven artwork locales use their own Android frames. Hindi and Brazilian Portuguese README galleries retain an explicitly labelled English fallback.
+
+## Hosted source refresh
+
+Run **Play Store Screenshots** manually on the intended branch with
+`recapture_android=true` to build the current app and pinned native artifacts,
+boot a dedicated 1080×1800 / 360 dpi API 37 emulator, accept the normal Android
+VPN consent dialog, and capture real source frames. This is an explicit,
+resource-intensive refresh, not a nightly permission or automatic commit.
+The job has read-only repository permissions and does not publish to a store.
+It temporarily grants only the capture user access to the disposable runner’s
+`/dev/kvm`, records the original owner/mode before mutation, and restores and
+verifies them after emulator shutdown, including on failed capture runs.
+
+Only a successful full capture and source validation produces the
+`android-source-captures` artifact. The renderer consumes those exact frames and
+produces the separate `play-store-screenshots` artifact. Download both artifacts
+from the same successful run, preserve their repository-relative paths, inspect
+all 42 source frames and 49 unique posters/banner assets, and commit the generated
+files with their `source-capture.json` provenance. Then run the normal workflow
+with the input disabled to verify the committed files. Never repair freshness by
+editing hashes or reusing an unrelated APK.
+
+For layout diagnosis only, add `calibrate_relay=true`. This runs the finite,
+committed density candidates twice per accepted locale with unchanged physical
+pixels and font scales. Every trial retains raw PNG/XML/display evidence; the
+switch must be observed enabled and the preset, all transport sections and
+Advanced must be fully visible and stable at the exact required alignment.
+Calibration never writes source frames or a source manifest and never renders
+marketing assets. Review its proposed profiles and commit any validated profile
+changes before a separate, fixed-profile full capture.
+
+The fixed relay profiles above were selected by [real calibration run
+39988504615](https://github.com/po4yka/RIPDPI/actions/runs/39988504615): two
+independent passes per locale, followed by full-size and phone-thumbnail visual
+review of all 14 accepted frames. The guard compares the preset and Advanced
+against their empirically measured full interior dimensions, not merely the
+clipped bounds reported at a viewport edge. It rejected Persian 243/242 dpi and
+Chinese 252 dpi before selecting the complete 241/251 dpi profiles. Calibration
+evidence is not a replacement for the separate full capture and source manifest.
+
+The build job preserves an `android-capture-build` artifact before starting the
+emulator. `reuse_capture_run` may name that completed trusted workflow-dispatch
+run to avoid rebuilding unchanged native code. Reuse rejects different build
+inputs, recipe, toolchains, original producer revision or artifact bytes; it
+never relabels the APK as built from a newer capture-tool commit. The source
+manifest records the original build and current capture revision separately.
+Only the Android job receives read-only Actions access to retrieve this artifact.
+
+The default PR and scheduled modes still fail closed on stale inputs; they never
+implicitly grant consent, run Android captures, or bless old screenshots. A failed
+render no longer reports retained committed files as successfully regenerated.
 
 ## Listing story
 

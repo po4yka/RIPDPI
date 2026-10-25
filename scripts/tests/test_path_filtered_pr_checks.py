@@ -30,6 +30,10 @@ class PathFilteredPullRequestChecksTest(unittest.TestCase):
                 "play-store-screenshots/**",
                 "docs/screenshots/**",
                 ".github/workflows/play-store-screenshots.yml",
+                "scripts/ci/capture_kvm_access.py",
+                "scripts/ci/start-android-emulator.sh",
+                "scripts/tests/test_capture_kvm_access.py",
+                "scripts/tests/test_android_emulator_image.py",
             },
             pull_request_paths("play-store-screenshots.yml"),
         )
