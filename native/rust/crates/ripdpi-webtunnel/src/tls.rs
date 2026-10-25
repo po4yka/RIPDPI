@@ -10,7 +10,11 @@ pub enum WebTunnelTlsError {
     Profile(#[from] ripdpi_tls_profiles::Error),
     #[error("WebTunnel trust root: {0}")]
     TrustRoot(boring::error::ErrorStack),
+    #[error("WebTunnel ALPN: {0}")]
+    Alpn(boring::error::ErrorStack),
 }
+
+const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
 
 /// Build the TLS connector for a WebTunnel bridge.
 ///
@@ -22,7 +26,22 @@ pub enum WebTunnelTlsError {
 /// certificate name against it. Without this, an on-path attacker with any
 /// certificate receives the secret WebTunnel path.
 pub fn build_tls_connector(config: &WebTunnelBridgeConfig) -> Result<SslConnector, WebTunnelTlsError> {
+    build_connector(config, false)
+}
+
+/// Same as [`build_tls_connector`], but the ClientHello offers only
+/// `http/1.1` in ALPN, as Chrome does for a WebSocket connection. The client
+/// uses it when a front selected h2 for the profile ALPN list, because the
+/// WebTunnel upgrade is an HTTP/1.1 request.
+pub fn build_http11_tls_connector(config: &WebTunnelBridgeConfig) -> Result<SslConnector, WebTunnelTlsError> {
+    build_connector(config, true)
+}
+
+fn build_connector(config: &WebTunnelBridgeConfig, http11_only: bool) -> Result<SslConnector, WebTunnelTlsError> {
     let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_profile)?;
+    if http11_only {
+        builder.set_alpn_protos(HTTP11_ALPN).map_err(WebTunnelTlsError::Alpn)?;
+    }
     builder.set_verify(SslVerifyMode::PEER);
     if let Some(root_pem) = &config.root_certificate_pem {
         let root = X509::from_pem(root_pem.as_bytes()).map_err(WebTunnelTlsError::TrustRoot)?;
