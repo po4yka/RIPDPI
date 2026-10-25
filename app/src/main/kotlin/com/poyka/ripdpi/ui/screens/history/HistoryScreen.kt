@@ -31,6 +31,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.activities.HistoryViewModel
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -189,41 +191,50 @@ internal fun HistoryScreen(
                         label = "historySectionContent",
                     ) { section ->
                         sectionStateHolder.SaveableStateProvider(section.name) {
-                            when (section) {
-                                HistorySection.Connections -> {
-                                    ConnectionsSection(
-                                        uiState = uiState,
-                                        onModeFilter = onConnectionModeFilter,
-                                        onStatusFilter = onConnectionStatusFilter,
-                                        onSearch = onConnectionSearch,
-                                        onClearFilters = onClearConnectionFilters,
-                                        onSelectConnection = onSelectConnection,
-                                        onOpenConnection = onOpenConnection,
-                                    )
+                            if (uiState.isLoading) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().padding(top = spacing.xxl),
+                                    contentAlignment = Alignment.TopCenter,
+                                ) {
+                                    RipDpiSpinner(size = RipDpiSpinnerSize.Large)
                                 }
+                            } else {
+                                when (section) {
+                                    HistorySection.Connections -> {
+                                        ConnectionsSection(
+                                            uiState = uiState,
+                                            onModeFilter = onConnectionModeFilter,
+                                            onStatusFilter = onConnectionStatusFilter,
+                                            onSearch = onConnectionSearch,
+                                            onClearFilters = onClearConnectionFilters,
+                                            onSelectConnection = onSelectConnection,
+                                            onOpenConnection = onOpenConnection,
+                                        )
+                                    }
 
-                                HistorySection.Diagnostics -> {
-                                    DiagnosticsSection(
-                                        uiState = uiState,
-                                        onPathFilter = onDiagnosticsPathFilter,
-                                        onStatusFilter = onDiagnosticsStatusFilter,
-                                        onSearch = onDiagnosticsSearch,
-                                        onClearFilters = onClearDiagnosticsFilters,
-                                        onSelectSession = onSelectDiagnosticsSession,
-                                        onOpenDiagnostics = onOpenDiagnostics,
-                                    )
-                                }
+                                    HistorySection.Diagnostics -> {
+                                        DiagnosticsSection(
+                                            uiState = uiState,
+                                            onPathFilter = onDiagnosticsPathFilter,
+                                            onStatusFilter = onDiagnosticsStatusFilter,
+                                            onSearch = onDiagnosticsSearch,
+                                            onClearFilters = onClearDiagnosticsFilters,
+                                            onSelectSession = onSelectDiagnosticsSession,
+                                            onOpenDiagnostics = onOpenDiagnostics,
+                                        )
+                                    }
 
-                                HistorySection.Events -> {
-                                    EventsSection(
-                                        uiState = uiState,
-                                        onToggleFilter = onToggleEventFilter,
-                                        onSearch = onEventSearch,
-                                        onClearFilters = onClearEventFilters,
-                                        onAutoScroll = onEventAutoScroll,
-                                        onSelectEvent = onSelectEvent,
-                                        onOpenConnection = onOpenConnection,
-                                    )
+                                    HistorySection.Events -> {
+                                        EventsSection(
+                                            uiState = uiState,
+                                            onToggleFilter = onToggleEventFilter,
+                                            onSearch = onEventSearch,
+                                            onClearFilters = onClearEventFilters,
+                                            onAutoScroll = onEventAutoScroll,
+                                            onSelectEvent = onSelectEvent,
+                                            onOpenConnection = onOpenConnection,
+                                        )
+                                    }
                                 }
                             }
                         }
