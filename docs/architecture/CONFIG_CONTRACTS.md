@@ -227,7 +227,15 @@ the Xray SOCKS inbound require RFC 1929 username/password credentials.
 - In-app clients that know only a listener address (relay probes, failover,
   acceptance, strategy probes) get the pair from the process-local
   `LocalSocksCredentialRegistry`. The listener owner registers it after
-  readiness and removes it at stop.
+  readiness and removes it at stop or when the runtime exits.
+- Accepted residual: the live Xray inbound keeps the profile's fixed port
+  (default 10808), and the normal relay start keeps the configured relay port
+  (default 11980). Another app can still find a SOCKS listener there by a port
+  scan, but it cannot use it without the session pair. An ephemeral Xray port
+  is not a contained change: the profile port is the route port by design
+  (`XrayProviderRouteBuilder`, `XrayProviderConfig.localInboundPort`), the
+  orchestrator treats a port change as a full replace, and libXray needs the
+  port before it binds, so the app must reserve it with a check-then-bind race.
 
 ---
 
