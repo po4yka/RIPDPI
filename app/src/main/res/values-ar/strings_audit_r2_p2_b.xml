@@ -3,4 +3,5 @@
     <string name="strategy_tuner_vs_probe">تشغيل سريع ومحدود. لمعرفة ما يحجب كل نطاق أيضًا، استخدم «فحص الاستراتيجية».</string>
     <string name="blockcheck_vs_tuner">يجرّب كل الاستراتيجيات ويحدّد ما يحجب كل نطاق. لتشغيل سريع ومحدود، استخدم «ضبط الاستراتيجية».</string>
     <string name="connection_health_measurement_help_title">حول هذه القيم</string>
+    <string name="logs_entry_details">التفاصيل</string>
 </resources>

@@ -3,4 +3,5 @@
     <string name="strategy_tuner_vs_probe">快速、有限的运行。要同时查看阻止每个域名的原因，请使用“策略探测”。</string>
     <string name="blockcheck_vs_tuner">尝试所有策略，并找出阻止每个域名的原因。如需快速、有限的运行，请使用“策略调优”。</string>
     <string name="connection_health_measurement_help_title">关于这些数值</string>
+    <string name="logs_entry_details">详情</string>
 </resources>

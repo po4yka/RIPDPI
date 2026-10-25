@@ -3,4 +3,5 @@
     <string name="strategy_tuner_vs_probe">Ejecución rápida y limitada. Para ver también qué bloquea cada dominio, usa Sondeo de estrategia.</string>
     <string name="blockcheck_vs_tuner">Prueba todas las estrategias y encuentra qué bloquea cada dominio. Para una ejecución rápida y limitada, usa Ajuste de estrategia.</string>
     <string name="connection_health_measurement_help_title">Sobre estos valores</string>
+    <string name="logs_entry_details">Detalles</string>
 </resources>

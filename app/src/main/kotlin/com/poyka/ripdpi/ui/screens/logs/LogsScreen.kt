@@ -575,12 +575,15 @@ private fun LogsStreamEntry(
     }
 }
 
+private const val ShortIdLength = 8
+
 private fun metadataChips(entry: LogEntry): ImmutableList<String> =
     buildList {
         add(entry.source.lowercase())
         add(severityLabelValue(entry.severity))
-        entry.runtimeId?.let { add("runtime:$it") }
-        entry.diagnosticsSessionId?.let { add("scan:$it") }
+        // A short id prefix is enough to tell sessions apart on screen.
+        entry.runtimeId?.let { add("runtime:${it.take(ShortIdLength)}") }
+        entry.diagnosticsSessionId?.let { add("scan:${it.take(ShortIdLength)}") }
         if (entry.isActiveSession) {
             add("active")
         }

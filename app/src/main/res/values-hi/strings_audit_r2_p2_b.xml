@@ -3,4 +3,5 @@
     <string name="strategy_tuner_vs_probe">तेज़, सीमित रन। हर डोमेन को क्या रोकता है, यह भी देखने के लिए रणनीति जाँच का उपयोग करें।</string>
     <string name="blockcheck_vs_tuner">हर रणनीति आज़माता है और पता लगाता है कि हर डोमेन को क्या रोकता है। तेज़, सीमित रन के लिए रणनीति ट्यूनर का उपयोग करें।</string>
     <string name="connection_health_measurement_help_title">इन मानों के बारे में</string>
+    <string name="logs_entry_details">विवरण</string>
 </resources>

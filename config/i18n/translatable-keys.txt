@@ -3608,6 +3608,7 @@ app:logs_copy_entry
 app:logs_empty_body
 app:logs_empty_title
 app:logs_entries_count
+app:logs_entry_details
 app:logs_failed
 app:logs_filtered_empty_body
 app:logs_filtered_empty_title
