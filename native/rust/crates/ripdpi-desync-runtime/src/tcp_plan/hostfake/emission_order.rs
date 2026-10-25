@@ -8,6 +8,42 @@ pub(super) fn needs_custom_ordering(configured_step: &TcpChainStep, midhost: Opt
     ordering.seq_mode != FakeSeqMode::Duplicate || (midhost.is_some() && ordering.order != FakeOrder::BeforeEach)
 }
 
+/// The default order: the whole fake host, the real host (split at
+/// `midhost_split` when set), then the whole fake host again. All of them
+/// start at the host's sequence number.
+pub(super) fn build_default_ordered_segments<'a>(
+    real_host: &'a [u8],
+    fake_host: &'a [u8],
+    midhost_split: Option<usize>,
+    real_ttl: u8,
+    fake_ttl: u8,
+    fake_flags: platform::TcpFlagOverrides,
+    original_flags: platform::TcpFlagOverrides,
+) -> Vec<platform::OrderedTcpSegment<'a>> {
+    let fake = platform::OrderedTcpSegment {
+        payload: fake_host,
+        ttl: fake_ttl,
+        flags: fake_flags,
+        sequence_offset: 0,
+        use_fake_timestamp: true,
+    };
+    let split = midhost_split.unwrap_or(real_host.len());
+    let mut segments = vec![fake];
+    for (sequence_offset, part) in [(0, &real_host[..split]), (split, &real_host[split..])] {
+        if !part.is_empty() {
+            segments.push(platform::OrderedTcpSegment {
+                payload: part,
+                ttl: real_ttl,
+                flags: original_flags,
+                sequence_offset,
+                use_fake_timestamp: false,
+            });
+        }
+    }
+    segments.push(fake);
+    segments
+}
+
 pub(super) fn build_custom_ordered_segments<'a>(
     configured_step: &TcpChainStep,
     real_host: &'a [u8],

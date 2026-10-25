@@ -4,14 +4,15 @@ mod pacing;
 mod privileged_send;
 mod real_write;
 
+use std::io;
 use std::net::TcpStream;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep};
 use ripdpi_desync::{DesyncPlan, resolve_hostfake_span};
 
 use self::construction::HostFakePayload;
-use self::emission_order::{build_custom_ordered_segments, needs_custom_ordering};
-use self::privileged_send::{send_hostfake_ordered_segments, send_hostfake_privileged_pair};
+use self::emission_order::{build_custom_ordered_segments, build_default_ordered_segments, needs_custom_ordering};
+use self::privileged_send::send_hostfake_ordered_segments;
 use self::real_write::{write_hostfake_payload, write_hostfake_payload_with_optional_flags};
 use crate::tcp_fake_family::TcpStepControl;
 use crate::tcp_plan::flags::{step_fake_tcp_flags, step_original_tcp_flags};
@@ -67,100 +68,99 @@ pub(crate) fn execute_tcp_hostfake_step(
     let fake_ttl = ctx.resolved_fake_ttl.or(ctx.group.actions.ttl).unwrap_or(8);
     let fake_flags = step_fake_tcp_flags(configured_step);
     let original_flags = step_original_tcp_flags(configured_step);
+    let midhost_split = span.midhost.map(|midhost| midhost - span.host_start);
 
-    if needs_custom_ordering(configured_step, span.midhost) {
-        let ordered_segments = build_custom_ordered_segments(
+    // The fakes must be injected beside the real host without taking sequence
+    // space, so every order goes through the raw ordered-segment sender.
+    let ordered_segments = if needs_custom_ordering(configured_step, span.midhost) {
+        build_custom_ordered_segments(
             configured_step,
             real_host,
             host_payload.fake_host(),
-            span.midhost.map(|midhost| midhost - span.host_start),
+            midhost_split,
             ctx.real_ttl,
             fake_ttl,
             fake_flags,
             original_flags,
-        );
-        bytes_committed = send_hostfake_ordered_segments(
-            ctx,
-            &ordered_segments,
-            real_host.len(),
-            step_family,
-            step_fallback,
-            bytes_committed,
-        )?;
-        bytes_committed = write_hostfake_suffix(ctx, span.host_end, end, step_family, step_fallback, bytes_committed)?;
-        return Ok((bytes_committed, TcpStepControl::ContinueAt(end)));
-    }
-
-    bytes_committed = send_hostfake_privileged_pair(
+        )
+    } else {
+        build_default_ordered_segments(
+            real_host,
+            host_payload.fake_host(),
+            midhost_split,
+            ctx.real_ttl,
+            fake_ttl,
+            fake_flags,
+            original_flags,
+        )
+    };
+    bytes_committed = match send_hostfake_ordered_segments(
         ctx,
-        real_host,
-        host_payload.fake_host(),
-        fake_ttl,
-        fake_flags,
-        original_flags,
-        None,
+        &ordered_segments,
+        real_host.len(),
         step_family,
         step_fallback,
         bytes_committed,
-    )?;
-
-    bytes_committed = write_real_host_parts(
-        ctx,
-        span.host_start,
-        span.host_end,
-        span.midhost,
-        real_host,
-        step_family,
-        step_fallback,
-        bytes_committed,
-    )?;
-
-    bytes_committed = send_hostfake_privileged_pair(
-        ctx,
-        real_host,
-        host_payload.fake_host(),
-        fake_ttl,
-        fake_flags,
-        original_flags,
-        None,
-        step_family,
-        step_fallback,
-        bytes_committed,
-    )?;
+    ) {
+        Ok(committed) => committed,
+        Err(error) if should_lower_hostfake_to_split(error.kind()) => {
+            tracing::debug!("hostfake raw path unavailable, sending the host as a plain split: {error}");
+            write_real_host_parts(
+                ctx,
+                configured_step,
+                span.host_start,
+                span.host_end,
+                span.midhost,
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?
+        }
+        Err(error) => return Err(error),
+    };
 
     bytes_committed = write_hostfake_suffix(ctx, span.host_end, end, step_family, step_fallback, bytes_committed)?;
     Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
 }
 
+/// Raw-path refusals that happen before any packet leaves, so the host can
+/// still go out as ordinary stream bytes.
+fn should_lower_hostfake_to_split(kind: io::ErrorKind) -> bool {
+    matches!(
+        kind,
+        io::ErrorKind::PermissionDenied
+            | io::ErrorKind::Unsupported
+            | io::ErrorKind::WouldBlock
+            | io::ErrorKind::InvalidInput
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 fn write_real_host_parts(
     ctx: &mut TcpHostFakeExecContext<'_>,
+    configured_step: &TcpChainStep,
     host_start: usize,
     host_end: usize,
     midhost: Option<usize>,
-    real_host: &[u8],
     step_family: &'static str,
     step_fallback: Option<&'static str>,
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
-    if let Some(midhost) = midhost {
-        let bytes_committed = write_hostfake_payload(
-            ctx,
-            &ctx.plan.tampered[host_start..midhost],
-            step_family,
-            step_fallback,
-            bytes_committed,
-        )?;
-        return write_hostfake_payload(
-            ctx,
-            &ctx.plan.tampered[midhost..host_end],
-            step_family,
-            step_fallback,
-            bytes_committed,
-        );
+    let split = midhost.unwrap_or(host_end);
+    let mut bytes_committed = bytes_committed;
+    for range in [host_start..split, split..host_end] {
+        if !range.is_empty() {
+            bytes_committed = write_hostfake_payload_with_optional_flags(
+                ctx,
+                configured_step,
+                &ctx.plan.tampered[range],
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+        }
     }
-
-    write_hostfake_payload(ctx, real_host, step_family, step_fallback, bytes_committed)
+    Ok(bytes_committed)
 }
 
 fn write_hostfake_suffix(

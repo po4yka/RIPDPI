@@ -14,6 +14,7 @@ use crate::types::{TcpExecutionDisposition, TcpFallbackReason, TcpOffsetMarkerBa
 
 enum FaultSpec {
     WaitStage(io::ErrorKind),
+    OrderedSegments(io::ErrorKind),
 }
 
 type FaultQueue = Mutex<VecDeque<FaultSpec>>;
@@ -23,6 +24,8 @@ struct ReceiptTestPlatform {
     faults: FaultQueue,
     /// The socket TTL seen by each fake RST send.
     fake_rst_ttls: Mutex<Vec<u32>>,
+    /// Fake segments handed to the raw ordered-segment sender.
+    ordered_fake_segments: Mutex<usize>,
 }
 
 impl TcpPlatformCapabilities for ReceiptTestPlatform {
@@ -57,9 +60,14 @@ impl TcpSocketOptions for ReceiptTestPlatform {
     }
 
     fn wait_tcp_stage(&self, _stream: &TcpStream, _wait_send: bool, _await_interval: Duration) -> io::Result<()> {
-        match self.faults.lock().expect("receipt fault queue").pop_front() {
-            Some(FaultSpec::WaitStage(kind)) => Err(io::Error::new(kind, "injected stage wait failure")),
-            None => Ok(()),
+        let mut faults = self.faults.lock().expect("receipt fault queue");
+        match faults.front() {
+            Some(FaultSpec::WaitStage(kind)) => {
+                let kind = *kind;
+                faults.pop_front();
+                Err(io::Error::new(kind, "injected stage wait failure"))
+            }
+            _ => Ok(()),
         }
     }
 }
@@ -110,9 +118,21 @@ impl TcpPayloadSender for ReceiptTestPlatform {
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
         _wait: TcpStageWait,
     ) -> io::Result<()> {
+        let mut faults = self.faults.lock().expect("receipt fault queue");
+        if let Some(FaultSpec::OrderedSegments(kind)) = faults.front() {
+            let kind = *kind;
+            faults.pop_front();
+            return Err(io::Error::new(kind, "injected ordered segment failure"));
+        }
+        drop(faults);
+        // Like the raw sender, only genuine bytes take stream sequence space.
         let mut stream = stream;
         for segment in segments {
-            stream.write_all(segment.payload)?;
+            if segment.use_fake_timestamp {
+                *self.ordered_fake_segments.lock().expect("ordered fake segment count") += 1;
+            } else {
+                stream.write_all(segment.payload)?;
+            }
         }
         Ok(())
     }
@@ -1104,4 +1124,72 @@ fn flagged_fake_rst_lowers_the_socket_ttl_around_the_reset() {
     let mut buf = vec![0u8; payload.len()];
     server.read_exact(&mut buf).expect("read relayed payload");
     assert_eq!(&buf, payload);
+}
+
+fn send_http_hostfake(platform: &ReceiptTestPlatform) -> Vec<u8> {
+    let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
+    let mut group = test_group();
+    group
+        .actions
+        .tcp_chain
+        .push(TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0)));
+    let (mut client, mut server) = connected_pair();
+    let progress = OutboundProgress {
+        round: 1,
+        payload_size: payload.len(),
+        stream_start: 0,
+        stream_end: payload.len().saturating_sub(1),
+    };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        Some(8),
+        AdaptivePlannerHints::default(),
+    );
+    send_prepared_with_group(
+        &mut client,
+        platform,
+        &RuntimeConfig::default(),
+        &group,
+        payload,
+        progress,
+        context,
+        Some(8),
+        None,
+        &default_ttl_unavailable(),
+        None,
+    )
+    .expect("hostfake send");
+    drop(client);
+    let mut received = Vec::new();
+    server.read_to_end(&mut received).expect("read relayed payload");
+    received
+}
+
+#[test]
+fn hostfake_sends_fakes_beside_the_stream_and_the_payload_once() {
+    let platform = ReceiptTestPlatform::default();
+
+    let received = send_http_hostfake(&platform);
+
+    assert_eq!(received, b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n");
+    assert_eq!(*platform.ordered_fake_segments.lock().expect("ordered fake segment count"), 2);
+}
+
+#[test]
+fn hostfake_without_the_raw_path_sends_the_host_as_a_plain_split() {
+    let platform = ReceiptTestPlatform::default();
+    platform
+        .faults
+        .lock()
+        .expect("receipt fault queue")
+        .push_back(FaultSpec::OrderedSegments(io::ErrorKind::PermissionDenied));
+
+    let received = send_http_hostfake(&platform);
+
+    assert_eq!(received, b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n");
+    assert_eq!(*platform.ordered_fake_segments.lock().expect("ordered fake segment count"), 0);
 }

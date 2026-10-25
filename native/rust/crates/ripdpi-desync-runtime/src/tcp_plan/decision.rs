@@ -19,8 +19,15 @@ pub(crate) fn requires_special_tcp_execution(
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind().is_tls_prelude()).collect::<Vec<_>>();
     plan.steps.iter().any(|planned| {
         let source_step = planned.source_send_step_index.and_then(|index| send_steps.get(index));
-        matches!(planned.kind, TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
-            || source_step.is_some_and(tcp_step_has_flag_overrides)
+        // HostFake fakes must not take sequence space, which only the raw
+        // ordered-segment sender in the plan executor guarantees.
+        matches!(
+            planned.kind,
+            TcpChainStepKind::MultiDisorder
+                | TcpChainStepKind::Fake
+                | TcpChainStepKind::IpFrag2
+                | TcpChainStepKind::HostFake
+        ) || source_step.is_some_and(tcp_step_has_flag_overrides)
     }) || plan.steps.iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
             && (supports_fake_retransmit
