@@ -25,6 +25,17 @@ fn syn_ack(syn: &[u8]) -> Bytes {
 /// A segment from the virtual peer that answers the interface's `syn` and
 /// acknowledges `acked` sequence numbers the interface sent after its SYN.
 fn peer_segment(syn: &[u8], control: TcpControl, seq: i32, acked: usize, payload: &[u8]) -> Bytes {
+    peer_segment_with_window(syn, control, seq, acked, payload, 32768)
+}
+
+fn peer_segment_with_window(
+    syn: &[u8],
+    control: TcpControl,
+    seq: i32,
+    acked: usize,
+    payload: &[u8],
+    window_len: u16,
+) -> Bytes {
     let ip = Ipv4Packet::new_checked(syn).expect("IPv4 SYN");
     let tcp = TcpPacket::new_checked(ip.payload()).expect("TCP SYN");
     let reply = TcpRepr {
@@ -33,7 +44,7 @@ fn peer_segment(syn: &[u8], control: TcpControl, seq: i32, acked: usize, payload
         control,
         seq_number: TcpSeqNumber(seq),
         ack_number: Some(tcp.seq_number() + 1 + acked),
-        window_len: 32768,
+        window_len,
         window_scale: None,
         max_seg_size: Some(1200),
         sack_permitted: false,
@@ -413,4 +424,55 @@ async fn peer_that_never_acknowledges_upload_is_timed_out() {
     let ended = tokio::time::timeout(Duration::from_secs(3), handler).await;
     worker.abort();
     ended.expect("a silent peer must not hold the session forever").expect("handler task joins").expect("clean end");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its interface task before returning.
+#[tokio::test]
+async fn acknowledged_upload_beyond_the_session_credit_arrives_in_order() {
+    let bus = Bus::new();
+    let mut endpoint = bus.new_endpoint();
+    let interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    let worker = tokio::spawn(interface.run());
+    let pool = VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool");
+    let forward =
+        PortForwardConfig { destination: "10.77.0.1:41001".parse().expect("target"), protocol: PortProtocol::Tcp };
+    let session = bus.open_tcp_session(forward, pool.acquire().expect("TCP lease"));
+    // Four times the session credit, so the upload completes only if credit returns.
+    let expected: Vec<u8> = (0..1usize << 20).map(|index| (index % 251) as u8).collect();
+    let peer = async {
+        let syn = outbound(&mut endpoint).await;
+        let first_byte = TcpPacket::new_checked(Ipv4Packet::new_checked(&syn[..]).expect("IPv4 SYN").payload())
+            .expect("TCP SYN")
+            .seq_number()
+            + 1;
+        endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
+        let mut received = Vec::new();
+        while received.len() < expected.len() {
+            let packet = outbound(&mut endpoint).await;
+            let ip = Ipv4Packet::new_checked(&packet[..]).expect("IPv4 packet");
+            let tcp = TcpPacket::new_checked(ip.payload()).expect("TCP packet");
+            if tcp.payload().is_empty() {
+                continue;
+            }
+            if tcp.seq_number() - first_byte == received.len() {
+                received.extend_from_slice(tcp.payload());
+            }
+            // A small window keeps smoltcp's send buffer partly full, so queued
+            // chunks enter it in parts.
+            let ack = peer_segment_with_window(&syn, TcpControl::None, 12346, received.len(), &[], 4096);
+            endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, ack));
+        }
+        received
+    };
+    let upload = async {
+        for chunk in expected.chunks(48 << 10) {
+            let credit = session.upload_credit().await.expect("upload credit");
+            assert!(session.send_local(credit, Bytes::copy_from_slice(chunk)), "interface accepts the chunk");
+        }
+    };
+    let outcome = tokio::time::timeout(Duration::from_secs(20), async { tokio::join!(peer, upload).0 }).await;
+    worker.abort();
+    assert!(outcome.expect("upload credit must come back as the peer acknowledges") == expected, "bytes in order");
 }
