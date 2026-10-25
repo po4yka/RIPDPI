@@ -81,4 +81,10 @@
     <plurals name="diagnostics_local_overview">
         <item quantity="other">%1$s · %2$d 项条件需检查</item>
     </plurals>
+    <string name="history_ended_reason_process_stopped">应用进程结束时已停止</string>
+    <string name="history_ended_reason_process_ended">应用进程意外结束</string>
+    <string name="history_ended_reason_failed">因错误而停止</string>
+    <string name="detection_tun_probe_mode_auto">自动</string>
+    <string name="detection_tun_probe_mode_strict_same_path">严格同一路径</string>
+    <string name="detection_tun_probe_mode_curl_compatible">兼容 curl</string>
 </resources>

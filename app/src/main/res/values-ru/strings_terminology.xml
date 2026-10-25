@@ -162,4 +162,10 @@
         <item quantity="many">%1$s · %2$d условий для проверки</item>
         <item quantity="other">%1$s · %2$d условия для проверки</item>
     </plurals>
+    <string name="history_ended_reason_process_stopped">Остановлено при завершении процесса приложения</string>
+    <string name="history_ended_reason_process_ended">Процесс приложения неожиданно завершился</string>
+    <string name="history_ended_reason_failed">Остановлено из-за ошибки</string>
+    <string name="detection_tun_probe_mode_auto">Автоматически</string>
+    <string name="detection_tun_probe_mode_strict_same_path">Строго тот же путь</string>
+    <string name="detection_tun_probe_mode_curl_compatible">Совместимо с curl</string>
 </resources>

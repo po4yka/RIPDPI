@@ -216,4 +216,10 @@
         <item quantity="many">%1$s · %2$d حالةً للمراجعة</item>
         <item quantity="other">%1$s · %2$d حالة للمراجعة</item>
     </plurals>
+    <string name="history_ended_reason_process_stopped">توقّف عند انتهاء عملية التطبيق</string>
+    <string name="history_ended_reason_process_ended">انتهت عملية التطبيق بشكل غير متوقع</string>
+    <string name="history_ended_reason_failed">توقّف بعد حدوث خطأ</string>
+    <string name="detection_tun_probe_mode_auto">تلقائي</string>
+    <string name="detection_tun_probe_mode_strict_same_path">المسار نفسه بدقة</string>
+    <string name="detection_tun_probe_mode_curl_compatible">متوافق مع curl</string>
 </resources>

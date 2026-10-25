@@ -90,17 +90,17 @@ class DiagnosticsFrenchPresentationTest {
     fun `five known Live states use French captions and preserve their raw state`() {
         val captions =
             mapOf(
-                "Running" to "en cours",
-                "Stopped" to "arrêté",
-                "Halted" to "interrompu",
-                "Failed" to "échec",
-                "Reconnecting" to "reconnexion",
+                "Running" to "En cours",
+                "Stopped" to "Arrêté",
+                "Halted" to "Interrompu",
+                "Failed" to "Échec",
+                "Reconnecting" to "Reconnexion",
             )
         captions.forEach { (rawState, caption) ->
             val sample = historyTelemetry().copy(connectionState = rawState)
             val model = live("fr", sample)
             assertEquals(caption, model.statusLabel)
-            assertEquals(if (rawState == "Running") "Le trafic passe par wifi" else caption, model.headline)
+            assertEquals(if (rawState == "Running") "Le trafic passe par Wi-Fi" else caption, model.headline)
             assertEquals(rawState, sample.connectionState)
         }
     }
@@ -123,9 +123,9 @@ class DiagnosticsFrenchPresentationTest {
     @Test
     fun `retained Live state follows English French English without modifying the sample`() {
         val sample = historyTelemetry().copy(connectionState = "Reconnecting")
-        assertEquals("reconnecting", live("en", sample).statusLabel)
-        assertEquals("reconnexion", live("fr", sample).statusLabel)
-        assertEquals("reconnecting", live("en", sample).statusLabel)
+        assertEquals("Reconnecting", live("en", sample).statusLabel)
+        assertEquals("Reconnexion", live("fr", sample).statusLabel)
+        assertEquals("Reconnecting", live("en", sample).statusLabel)
         assertEquals("Reconnecting", sample.connectionState)
     }
 
@@ -141,8 +141,8 @@ class DiagnosticsFrenchPresentationTest {
                 ),
             )
         val model = live("fr", sample)
-        assertEquals("arrêté", model.statusLabel)
-        assertEquals("arrêté", model.headline)
+        assertEquals("Arrêté", model.statusLabel)
+        assertEquals("Arrêté", model.headline)
         assertEquals("Stopped", sample.connectionState)
     }
 
@@ -153,7 +153,7 @@ class DiagnosticsFrenchPresentationTest {
         assertEquals("Inactif", missing.statusLabel)
         assertEquals(context.getString(R.string.diagnostics_live_headline_standby), missing.headline)
         val fallback = live("fr", null, historyConnectionSession(state = "Reconnecting"))
-        assertEquals("reconnexion", fallback.statusLabel)
+        assertEquals("Reconnexion", fallback.statusLabel)
         assertEquals(context.getString(R.string.diagnostics_live_headline_standby), fallback.headline)
     }
 
@@ -173,11 +173,11 @@ class DiagnosticsFrenchPresentationTest {
             )
         val degraded = live("fr", sample, session, listOf(error))
         assertEquals(context.getString(R.string.diagnostics_live_headline_error), degraded.headline)
-        assertEquals("arrêté", degraded.statusLabel)
+        assertEquals("Arrêté", degraded.statusLabel)
         assertEquals("Raw_ERROR", degraded.body)
         val failed = live("fr", sample.copy(connectionState = "Failed"), session)
         assertEquals(context.getString(R.string.diagnostics_live_headline_error), failed.headline)
-        assertEquals("échec", failed.statusLabel)
+        assertEquals("Échec", failed.statusLabel)
         val warning = error.copy(level = "warn", message = "Raw_WARNING")
         val attention = live("fr", sample, session, listOf(warning))
         assertEquals(context.getString(R.string.diagnostics_live_headline_attention), attention.headline)

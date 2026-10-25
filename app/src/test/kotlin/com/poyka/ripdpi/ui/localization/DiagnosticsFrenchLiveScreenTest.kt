@@ -110,7 +110,7 @@ class DiagnosticsFrenchLiveScreenTest {
             }
         }
         if (stopped) {
-            val labels = composeRule.onAllNodesWithText("arrêté")
+            val labels = composeRule.onAllNodesWithText("Arrêté")
             assertEquals(2, labels.fetchSemanticsNodes().size)
             labels[0].assertIsDisplayed()
             labels[1].assertIsDisplayed()

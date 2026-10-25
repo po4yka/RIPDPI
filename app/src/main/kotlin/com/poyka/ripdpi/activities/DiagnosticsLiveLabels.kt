@@ -44,7 +44,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveHeadline(
         }
 
         else -> {
-            context.connectionStateLabel(telemetry.connectionState)
+            context.connectionStateTitle(telemetry.connectionState)
         }
     }
 }

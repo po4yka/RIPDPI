@@ -335,7 +335,7 @@
     <string name="biometric_auth_error_title">प्रमाणीकरण विफल</string>
     <string name="notice_pin_key_lost_title">बैकअप PIN रीसेट</string>
     <string name="notice_pin_key_lost_message">आपका बैकअप PIN साफ़ कर दिया गया क्योंकि उपकरण सुरक्षा कुंजी अब उपलब्ध नहीं है। कृपया एक नया बैकअप PIN सेट करें।</string>
-    <string name="about_description">संरक्षित RIPDPI इंजन, सेवा, और DataStore स्टैक के लिए Compose-आधारित स्थानीय कॉन्फ़िगरेशन सतह।</string>
+    <string name="about_description">Android के लिए ऑफ़लाइन नेटवर्क निदान और कनेक्शन टूल।</string>
     <string name="about_build_section">बिल्ड</string>
     <string name="about_version_code">संस्करण कोड</string>
     <string name="about_build_type">बिल्ड प्रकार</string>

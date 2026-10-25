@@ -135,4 +135,10 @@
         <item quantity="many">%1$s · %2$d conditions à vérifier</item>
         <item quantity="other">%1$s · %2$d conditions à vérifier</item>
     </plurals>
+    <string name="history_ended_reason_process_stopped">Arrêté à la fin du processus de l’app</string>
+    <string name="history_ended_reason_process_ended">Le processus de l’app s’est arrêté de façon inattendue</string>
+    <string name="history_ended_reason_failed">Arrêté après une erreur</string>
+    <string name="detection_tun_probe_mode_auto">Automatique</string>
+    <string name="detection_tun_probe_mode_strict_same_path">Même chemin strict</string>
+    <string name="detection_tun_probe_mode_curl_compatible">Compatible curl</string>
 </resources>

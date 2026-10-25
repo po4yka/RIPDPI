@@ -1240,6 +1240,9 @@ app:detection_stealth_score_label
 app:detection_stealth_score_value
 app:detection_tls_keylog_warning_message
 app:detection_tls_keylog_warning_title
+app:detection_tun_probe_mode_auto
+app:detection_tun_probe_mode_curl_compatible
+app:detection_tun_probe_mode_strict_same_path
 app:detection_verdict_adjust_format
 app:detection_verdict_explanation_format
 app:detection_verdict_label
@@ -2970,6 +2973,9 @@ app:history_detail_section_service
 app:history_diagnostics_empty_body
 app:history_diagnostics_empty_title
 app:history_diagnostics_section
+app:history_ended_reason_failed
+app:history_ended_reason_process_ended
+app:history_ended_reason_process_stopped
 app:history_event_occurrence_format
 app:history_event_timestamp_range
 app:history_event_timestamp_single

@@ -65,7 +65,7 @@ class DetectionHistoryPortugueseLocaleTest {
     }
 
     @Test
-    fun `scheduler fallback is translated while actual fingerprints custom ISP and transport names stay intact`() {
+    fun `scheduler fallback is translated, custom ISP names stay intact and transport codes are labeled`() {
         val entries =
             listOf(
                 DetectionHistoryEntry("unknown", "Unknown network", 1L, "NOT_DETECTED", 80, 0),
@@ -84,7 +84,7 @@ class DetectionHistoryPortugueseLocaleTest {
                 RipDpiTheme { HistoryCard(entries) }
             }
         }
-        listOf("Rede desconhecida", "Unknown", "Unknown network", "Unknown ISP", "wifi/wifi").forEach { text ->
+        listOf("Rede desconhecida", "Unknown", "Unknown network", "Unknown ISP", "Wi-Fi").forEach { text ->
             composeRule.onNodeWithText(text).assertIsDisplayed()
         }
         capture("ptbr-detection-history-preserved-names")

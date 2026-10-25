@@ -108,4 +108,10 @@
         <item quantity="one">%1$s · %2$d مورد برای بررسی</item>
         <item quantity="other">%1$s · %2$d مورد برای بررسی</item>
     </plurals>
+    <string name="history_ended_reason_process_stopped">با پایان فرایند برنامه متوقف شد</string>
+    <string name="history_ended_reason_process_ended">فرایند برنامه به‌طور غیرمنتظره پایان یافت</string>
+    <string name="history_ended_reason_failed">پس از یک خطا متوقف شد</string>
+    <string name="detection_tun_probe_mode_auto">خودکار</string>
+    <string name="detection_tun_probe_mode_strict_same_path">همان مسیر، سخت‌گیرانه</string>
+    <string name="detection_tun_probe_mode_curl_compatible">سازگار با curl</string>
 </resources>

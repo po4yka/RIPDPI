@@ -264,6 +264,18 @@ class HistoryConnectionDetailUiFactoryTest {
     }
 
     @Test
+    fun `connection row shows readable end reason and network instead of stored codes`() {
+        val session = historyConnectionSession(state = "Stopped").copy(endedReason = "process_exit:stopped")
+
+        val row = factory.toConnectionRowUiModel(session)
+        val plainStop = factory.toConnectionRowUiModel(session.copy(endedReason = "stopped"))
+
+        assertEquals("Stopped when the app process ended", row.summary)
+        assertTrue(row.subtitle.startsWith("Wi-Fi · "))
+        assertEquals("VPN on Wi-Fi", plainStop.summary)
+    }
+
+    @Test
     fun `connection detail adds remembered policy audit section and row badge`() {
         val row =
             factory.toConnectionRowUiModel(

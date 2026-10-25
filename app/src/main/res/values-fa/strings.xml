@@ -2282,7 +2282,7 @@ fakeddisorder endhost</string>
     <string name="warp_scanner_rtt_title">حداکثر RTT نقطه‌پایانی</string>
     <string name="warp_setup_state_title">وضعیت راه‌اندازی</string>
     <string name="about_category">درباره</string>
-    <string name="about_description">سطح پیکربندی محلی مبتنی بر Compose برای موتور، سرویس و پشته DataStore حفظ‌شده RIPDPI.</string>
+    <string name="about_description">ابزارهای آفلاین برای عیب‌یابی شبکه و تنظیم اتصال در Android.</string>
     <string name="about_project_section">پروژه</string>
     <string name="adaptive_fake_ttl_adaptive_title">TTL جعلی تطبیقی آماده است</string>
     <string name="adaptive_fake_ttl_badge_disoob">DISOOB</string>
@@ -2660,7 +2660,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_loaded_body">توابع ثبت‌شده برای موتور استراتژی بومی در دسترس هستند.</string>
     <string name="strategy_config_lua_path_placeholder">/data/user/0/.../lua/zapret-antidpi.lua</string>
     <string name="strategy_config_lua_valid_body">اسکریپت بدون اجرا با موفقیت تجزیه شد.</string>
-    <string name="strategy_config_path_datastore">DataStore تنظیمات / زنجیره استراتژی</string>
+    <string name="strategy_config_path_datastore">استراتژی دور زدن در تنظیمات برنامه</string>
     <string name="strategy_config_reload_action">بارگذاری مجدد</string>
     <string name="strategy_config_reloaded_title">پیکربندی استراتژی مجدداً بارگذاری شد</string>
     <string name="strategy_config_saved_restarting_body">سرویس در حال راه‌اندازی مجدد است تا پیکربندی راهبرد ذخیره‌شده در مسیر تونل فعال بارگذاری شود.</string>

@@ -28,13 +28,14 @@ internal class HistoryConnectionDetailUiFactory
         fun toConnectionRowUiModel(session: DiagnosticConnectionSession): HistoryConnectionRowUiModel {
             val durationMs =
                 (session.finishedAt ?: session.updatedAt).coerceAtLeast(session.startedAt) - session.startedAt
+            val networkLabel = stringResolver.networkTypeLabel(session.networkType)
             val summary =
                 session.failureMessage
-                    ?: session.endedReason
+                    ?: stringResolver.endedReasonLabel(session.endedReason)
                     ?: stringResolver.getString(
                         R.string.history_connection_summary_format,
                         session.serviceMode,
-                        session.networkType,
+                        networkLabel,
                     )
             return HistoryConnectionRowUiModel(
                 id = session.id,
@@ -47,7 +48,7 @@ internal class HistoryConnectionDetailUiFactory
                 subtitle =
                     stringResolver.getString(
                         R.string.history_connection_subtitle_format,
-                        session.networkType,
+                        networkLabel,
                         coreSupport.formatTimestamp(session.startedAt),
                     ),
                 serviceMode = session.serviceMode,
@@ -105,7 +106,13 @@ internal class HistoryConnectionDetailUiFactory
             val retryTone = if (retryCount > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral
             val errorTone = if (session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral
             return buildList {
-                add(metric(R.string.diagnostics_metric_network, session.networkType, DiagnosticsTone.Info))
+                add(
+                    metric(
+                        R.string.diagnostics_metric_network,
+                        stringResolver.networkTypeLabel(session.networkType),
+                        DiagnosticsTone.Info,
+                    ),
+                )
                 add(
                     metric(
                         R.string.diagnostics_metric_health,

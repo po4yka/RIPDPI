@@ -1036,7 +1036,7 @@ fakeddisorder endhost</string>
     <string name="warp_zero_trust_org_body">当当前活动配置属于 Zero Trust 注册时显示。</string>
     <string name="ws_tunnel_mode_helper">控制 Telegram MTProto 流量何时通过 Telegram web.telegram.org 网关使用 WSS 隧道。</string>
     <string name="about_build_type">构建类型</string>
-    <string name="about_description">基于 Compose 的本地配置界面,服务于保留的 RIPDPI 引擎、服务和 DataStore 栈。</string>
+    <string name="about_description">适用于 Android 的离线网络诊断与连接工具。</string>
     <string name="about_version_code">版本号</string>
     <string name="activation_window_badge_default">默认</string>
     <string name="activation_window_badge_stream">流量门控</string>
@@ -2638,7 +2638,7 @@ fake_burst 3</string>
     <string name="strategy_config_lua_function_placeholder">加载后自动发现</string>
     <string name="strategy_config_lua_loaded_title">Lua 脚本已加载</string>
     <string name="strategy_config_lua_path_required_title">需要脚本路径</string>
-    <string name="strategy_config_path_datastore">设置 DataStore / 绕过策略</string>
+    <string name="strategy_config_path_datastore">应用设置中的绕过策略</string>
     <string name="strategy_config_reload_failed_title">重新加载失败</string>
     <string name="strategy_config_saved_restart_pending_body">服务重启正在应用已保存的策略配置。</string>
     <string name="strategy_config_source_builtin">内置</string>

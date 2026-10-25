@@ -1431,7 +1431,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_source_builtin">مدمج</string>
     <string name="strategy_config_source_yaml">YAML مخصص</string>
     <string name="strategy_config_source_lua">نص Lua برمجي</string>
-    <string name="strategy_config_path_datastore">Settings DataStore / استراتيجية التجاوز</string>
+    <string name="strategy_config_path_datastore">استراتيجية التجاوز في إعدادات التطبيق</string>
     <string name="strategy_config_path_imported">مخزن مؤقت للنص المستورد</string>
     <string name="strategy_config_path_not_selected">لم يُحدد نص برمجي</string>
     <string name="strategy_config_editor_label">استراتيجية التجاوز</string>
@@ -2114,7 +2114,7 @@ fakeddisorder endhost</string>
     <string name="biometric_auth_error_title">فشلت المصادقة</string>
     <string name="notice_pin_key_lost_title">تمت إعادة تعيين رمز PIN الاحتياطي</string>
     <string name="notice_pin_key_lost_message">تم مسح رمز PIN الاحتياطي لأن مفتاح أمان الجهاز لم يعد متاحًا. يرجى تعيين رمز PIN احتياطي جديد.</string>
-    <string name="about_description">واجهة تهيئة محلية مبنية على Compose لمحرك RIPDPI والخدمة وحزمة DataStore المحفوظة.</string>
+    <string name="about_description">أدوات دون اتصال لتشخيص الشبكة وضبط الاتصال على Android.</string>
     <string name="about_build_section">البنية</string>
     <string name="about_version_code">رمز الإصدار</string>
     <string name="about_build_type">نوع البنية</string>

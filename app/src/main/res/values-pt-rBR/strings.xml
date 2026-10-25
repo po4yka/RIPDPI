@@ -1437,7 +1437,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_source_builtin">Integrada</string>
     <string name="strategy_config_source_yaml">YAML personalizado</string>
     <string name="strategy_config_source_lua">Script Lua</string>
-    <string name="strategy_config_path_datastore">DataStore de configurações / estratégia de desvio</string>
+    <string name="strategy_config_path_datastore">Estratégia de desvio nas configurações do app</string>
     <string name="strategy_config_path_imported">Buffer de texto importado</string>
     <string name="strategy_config_path_not_selected">Nenhum script selecionado</string>
     <string name="strategy_config_editor_label">Estratégia de desvio</string>
@@ -2175,7 +2175,7 @@ Fonte: %2$s</string>
     <string name="biometric_auth_error_title">Falha na autenticação</string>
     <string name="notice_pin_key_lost_title">Redefinição do PIN de backup</string>
     <string name="notice_pin_key_lost_message">Seu PIN de backup foi apagado porque a chave de segurança do dispositivo não está mais disponível. Defina um novo PIN de backup.</string>
-    <string name="about_description">Interface local de configuração baseada em Compose para a stack preservada de engine, serviço e DataStore do RIPDPI.</string>
+    <string name="about_description">Ferramentas offline de diagnóstico de rede e ajuste de conexão para Android.</string>
     <string name="about_build_section">Compilação</string>
     <string name="about_version_code">Código da versão</string>
     <string name="about_build_type">Tipo de compilação</string>

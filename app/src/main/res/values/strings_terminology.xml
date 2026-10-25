@@ -108,4 +108,10 @@
         <item quantity="one">%1$s · %2$d condition to review</item>
         <item quantity="other">%1$s · %2$d conditions to review</item>
     </plurals>
+    <string name="history_ended_reason_process_stopped">Stopped when the app process ended</string>
+    <string name="history_ended_reason_process_ended">The app process ended unexpectedly</string>
+    <string name="history_ended_reason_failed">Stopped after an error</string>
+    <string name="detection_tun_probe_mode_auto">Automatic</string>
+    <string name="detection_tun_probe_mode_strict_same_path">Strict same path</string>
+    <string name="detection_tun_probe_mode_curl_compatible">curl-compatible</string>
 </resources>

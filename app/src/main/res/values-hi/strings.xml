@@ -1433,7 +1433,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_source_builtin">अंतर्निहित</string>
     <string name="strategy_config_source_yaml">कस्टम YAML</string>
     <string name="strategy_config_source_lua">Lua स्क्रिप्ट</string>
-    <string name="strategy_config_path_datastore">Settings DataStore / बायपास रणनीति</string>
+    <string name="strategy_config_path_datastore">ऐप सेटिंग में बायपास रणनीति</string>
     <string name="strategy_config_path_imported">आयातित टेक्स्ट बफ़र</string>
     <string name="strategy_config_path_not_selected">कोई स्क्रिप्ट चयनित नहीं</string>
     <string name="strategy_config_editor_label">बायपास रणनीति</string>

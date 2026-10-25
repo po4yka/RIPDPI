@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -28,6 +29,7 @@ import com.poyka.ripdpi.activities.RememberedNetworkStatusTone
 import com.poyka.ripdpi.activities.RememberedNetworkUiModel
 import com.poyka.ripdpi.activities.RememberedNetworksUiState
 import com.poyka.ripdpi.activities.RememberedNetworksViewModel
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.platform.deviceIs24HourFormat
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -40,6 +42,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
+import com.poyka.ripdpi.ui.diagnostics.StrategySignatureValueLabels
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -395,7 +398,8 @@ private fun rememberedModeLabel(modeKey: String): String =
 
 @Composable
 private fun rememberedStrategyLabel(entry: RememberedNetworkUiModel): String? {
-    val parts = listOfNotNull(entry.winningTcpStrategyFamily, entry.winningQuicStrategyFamily)
+    val labels = StrategySignatureValueLabels(AndroidStringResolver(LocalContext.current))
+    val parts = listOfNotNull(entry.winningTcpStrategyFamily, entry.winningQuicStrategyFamily).map(labels::lane)
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
 

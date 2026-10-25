@@ -56,7 +56,7 @@ class DiagnosticsFrenchRuntimeLocaleTest {
                 RipDpiTheme { LiveHeroCard(live) }
             }
         }
-        val stopped = composeRule.onAllNodesWithText("arrêté")
+        val stopped = composeRule.onAllNodesWithText("Arrêté")
         assertEquals("Both the status badge and headline must be translated", 2, stopped.fetchSemanticsNodes().size)
         stopped[0].assertIsDisplayed()
         stopped[1].assertIsDisplayed()

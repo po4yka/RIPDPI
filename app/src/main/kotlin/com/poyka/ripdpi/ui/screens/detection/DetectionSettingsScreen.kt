@@ -290,11 +290,12 @@ private fun DetectionSplitTunnelSettingsSection(
             checked = state.xrayApiScanEnabled,
             onCheckedChange = onXrayApiScanChange,
         )
+        val tunProbeLabels = DetectionTunProbeMode.entries.associateWith { stringResource(it.labelRes) }
         ChipSelector(
             title = stringResource(R.string.detection_settings_tun_probe_mode_title),
             entries = DetectionTunProbeMode.entries,
             selected = state.tunProbeMode,
-            label = DetectionTunProbeMode::displayName,
+            label = tunProbeLabels::getValue,
             onSelect = onTunProbeModeChange,
         )
         ChipSelector(

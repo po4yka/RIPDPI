@@ -1620,7 +1620,7 @@ fakeddisorder endhost</string>
     <string name="biometric_auth_error_title">Ошибка аутентификации</string>
     <string name="notice_pin_key_lost_title">Резервный PIN сброшен</string>
     <string name="notice_pin_key_lost_message">Резервный PIN-код был сброшен, так как ключ безопасности устройства больше недоступен. Установите новый резервный PIN.</string>
-    <string name="about_description">Интерфейс локальной конфигурации на Compose для сохранённого движка RIPDPI, сервиса и стека DataStore.</string>
+    <string name="about_description">Офлайн-инструменты для диагностики сети и настройки соединения на Android.</string>
     <string name="about_build_section">Сборка</string>
     <string name="about_version_code">Код версии</string>
     <string name="about_build_type">Тип сборки</string>
@@ -2481,7 +2481,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_valid_body">Скрипт успешно разобран без выполнения.</string>
     <string name="strategy_config_lua_valid_title">Lua-скрипт корректен</string>
     <string name="strategy_config_native_unavailable">Нативные привязки стратегии недоступны в этом процессе.</string>
-    <string name="strategy_config_path_datastore">DataStore настроек / стратегия обхода</string>
+    <string name="strategy_config_path_datastore">Стратегия обхода в настройках приложения</string>
     <string name="strategy_config_path_imported">Импортированный текстовый буфер</string>
     <string name="strategy_config_path_not_selected">Скрипт не выбран</string>
     <string name="strategy_config_reload_action">Перезагрузить</string>

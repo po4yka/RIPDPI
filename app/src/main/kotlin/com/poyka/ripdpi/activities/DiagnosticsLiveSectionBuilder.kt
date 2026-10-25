@@ -24,7 +24,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         health = health,
         statusLabel =
             (currentTelemetry?.connectionState ?: activeConnectionSession?.connectionState)
-                ?.let { context.connectionStateLabel(it) }
+                ?.let { context.connectionStateTitle(it) }
                 ?: context.getString(R.string.diagnostics_metric_idle),
         statusTone =
             liveStatusTone(

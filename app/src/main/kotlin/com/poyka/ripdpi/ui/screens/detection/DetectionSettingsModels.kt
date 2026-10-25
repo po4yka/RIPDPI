@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import androidx.annotation.StringRes
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.BundledDnsProviderCatalog
 import com.poyka.ripdpi.data.DnsProviderCatalogEntry
@@ -18,11 +20,11 @@ private const val DefaultCustomPortEnd = 1090
 
 enum class DetectionTunProbeMode(
     val wireValue: String,
-    val displayName: String,
+    @param:StringRes val labelRes: Int,
 ) {
-    AUTO("auto", "Auto"),
-    STRICT_SAME_PATH("strict_same_path", "StrictSamePath"),
-    CURL_COMPATIBLE("curl_compatible", "CurlCompatible"),
+    AUTO("auto", R.string.detection_tun_probe_mode_auto),
+    STRICT_SAME_PATH("strict_same_path", R.string.detection_tun_probe_mode_strict_same_path),
+    CURL_COMPATIBLE("curl_compatible", R.string.detection_tun_probe_mode_curl_compatible),
     ;
 
     companion object {

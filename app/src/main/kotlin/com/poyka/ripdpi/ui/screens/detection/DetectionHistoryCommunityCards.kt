@@ -8,13 +8,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.networkTypeLabel
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.community.CommunityStats
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.platform.localizedTimestamp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -58,7 +61,13 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                         if (entry.hasGeneratedUnknownNetwork()) {
                             stringResource(R.string.remembered_networks_transport_unknown)
                         } else {
-                            entry.networkSummary
+                            val strings = AndroidStringResolver(LocalContext.current)
+                            // Only a recognized transport is relabeled; anything else keeps the stored text.
+                            entry
+                                .generatedTransport()
+                                ?.let(strings::networkTypeLabel)
+                                ?.takeIf { it != entry.generatedTransport() }
+                                ?: entry.networkSummary
                         }
                     Text(networkSummary, style = type.body, maxLines = 1)
                     Text(localizedTimestamp(entry.timestamp), style = type.caption, color = colors.mutedForeground)
@@ -84,6 +93,12 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
 // Match their exact sentinels so captured network names and custom summaries stay intact.
 private fun DetectionHistoryEntry.hasGeneratedUnknownNetwork(): Boolean =
     networkFingerprint == "unknown" && (networkSummary == "Unknown" || networkSummary == "Unknown network")
+
+// The producers store "<transport>/<identityKind>", for example "wifi/wifi"; show only the transport.
+private fun DetectionHistoryEntry.generatedTransport(): String? =
+    GeneratedNetworkSummary.matchEntire(networkSummary)?.groupValues?.get(1)
+
+private val GeneratedNetworkSummary = Regex("([a-z_]+)/[a-z_]+")
 
 @Composable
 internal fun CommunityStatsCard(stats: CommunityStats) {

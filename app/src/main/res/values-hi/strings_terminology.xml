@@ -108,4 +108,10 @@
         <item quantity="one">%1$s · जाँचने योग्य स्थितियाँ: %2$d</item>
         <item quantity="other">%1$s · जाँचने योग्य स्थितियाँ: %2$d</item>
     </plurals>
+    <string name="history_ended_reason_process_stopped">ऐप प्रक्रिया समाप्त होने पर रुका</string>
+    <string name="history_ended_reason_process_ended">ऐप प्रक्रिया अनपेक्षित रूप से समाप्त हुई</string>
+    <string name="history_ended_reason_failed">त्रुटि के बाद रुका</string>
+    <string name="detection_tun_probe_mode_auto">स्वचालित</string>
+    <string name="detection_tun_probe_mode_strict_same_path">सख़्ती से वही पथ</string>
+    <string name="detection_tun_probe_mode_curl_compatible">curl-संगत</string>
 </resources>

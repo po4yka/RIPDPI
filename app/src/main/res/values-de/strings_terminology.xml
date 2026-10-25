@@ -108,4 +108,10 @@
         <item quantity="one">%1$s · %2$d Bedingung prüfen</item>
         <item quantity="other">%1$s · %2$d Bedingungen prüfen</item>
     </plurals>
+    <string name="history_ended_reason_process_stopped">Beendet, als der App-Prozess endete</string>
+    <string name="history_ended_reason_process_ended">Der App-Prozess wurde unerwartet beendet</string>
+    <string name="history_ended_reason_failed">Nach einem Fehler beendet</string>
+    <string name="detection_tun_probe_mode_auto">Automatisch</string>
+    <string name="detection_tun_probe_mode_strict_same_path">Strikt gleicher Pfad</string>
+    <string name="detection_tun_probe_mode_curl_compatible">curl-kompatibel</string>
 </resources>
