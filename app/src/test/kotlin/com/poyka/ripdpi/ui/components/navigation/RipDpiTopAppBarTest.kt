@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.components.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
@@ -10,8 +11,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,6 +27,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiSpacing
@@ -200,6 +204,30 @@ class RipDpiTopAppBarTest {
         composeRule.runOnIdle { enabled.value = false }
         composeRule.onNodeWithContentDescription("Back").assertIsNotEnabled().performClick()
         assertEquals(4, backClicks)
+    }
+
+    @Test
+    fun screenTitleAndSharedSectionHeadersAreTalkBackHeadings() {
+        val scale = mutableStateOf(1f)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, scale.value)) {
+                RipDpiTheme {
+                    Column(Modifier.requiredWidth(320.dp)) {
+                        RipDpiTopAppBar("Diagnostics", navigationIcon = RipDpiIcons.Back, onNavigationClick = {})
+                        SettingsCategoryHeader("Network")
+                        RipDpiPanelHeader("Probe results", supporting = "Last run")
+                    }
+                }
+            }
+        }
+        // Font scale 2 moves the bar title to its own row; both layouts must keep the heading.
+        listOf(1f, 2f).forEach { fontScale ->
+            composeRule.runOnIdle { scale.value = fontScale }
+            listOf("Diagnostics", "NETWORK", "Probe results").forEach { heading ->
+                composeRule.onNodeWithText(heading, useUnmergedTree = true).assert(isHeading())
+            }
+            composeRule.onNodeWithText("Last run", useUnmergedTree = true).assert(!isHeading())
+        }
     }
 
     @Test

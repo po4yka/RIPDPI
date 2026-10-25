@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -56,7 +58,11 @@ fun RipDpiScreenSectionHeader(
                 text = title.uppercase(locale),
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = colors.mutedForeground,
-                modifier = Modifier.weight(1f).padding(start = spacing.xs),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(start = spacing.xs)
+                        .semantics { heading() },
             )
             trailingContent?.invoke(this)
         }
@@ -94,7 +100,7 @@ fun RipDpiPanelHeader(
         ) {
             Text(
                 text = title,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).semantics { heading() },
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = colors.foreground,
             )
