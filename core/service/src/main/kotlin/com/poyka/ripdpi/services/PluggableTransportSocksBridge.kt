@@ -116,6 +116,8 @@ private fun parseIpv4Literal(value: String): InetAddress? {
 
 private const val Ipv4AddressByteCount = 4
 private const val Ipv6AddressByteCount = 16
+private const val LocalHandshakeTimeoutMillis = 5_000
+private const val PtConnectReplyTimeoutMillis = 60_000
 
 internal class ManagedClientSocksBridge(
     private val listenHost: String,
@@ -185,18 +187,22 @@ internal class ManagedClientSocksBridge(
     }
 
     private fun handleClient(outer: Socket) {
-        outer.soTimeout = 5_000
+        outer.soTimeout = LocalHandshakeTimeoutMillis
         negotiateOuterHandshake(outer)
         val upstream =
             Socket().apply {
-                connect(upstreamListener, 5_000)
-                soTimeout = 5_000
+                connect(upstreamListener, LocalHandshakeTimeoutMillis)
+                // The PT replies to CONNECT only after it dials and handshakes with the bridge.
+                soTimeout = PtConnectReplyTimeoutMillis
             }
         activeSockets += upstream
         upstream.use { inner ->
             try {
                 connectUpstream(inner)
                 writeOuterReply(outer, replyCode = 0x00)
+                // The relayed flow has no idle limit (RFC 1928 section 6).
+                outer.soTimeout = 0
+                inner.soTimeout = 0
                 pipeBidirectional(outer, inner)
             } catch (error: Throwable) {
                 writeOuterReply(outer, replyCode = 0x01)
@@ -316,13 +322,22 @@ internal class ManagedClientSocksBridge(
                 runCatching {
                     outer.getInputStream().copyTo(inner.getOutputStream())
                     inner.shutdownOutput()
-                }
+                }.onFailure { closeBoth(outer, inner) }
             }
         runCatching {
             inner.getInputStream().copyTo(outer.getOutputStream())
             outer.shutdownOutput()
-        }
+        }.onFailure { closeBoth(outer, inner) }
         upstream.join()
+    }
+
+    // A failed direction cannot half-close, so close both and unblock the peer copy loop.
+    private fun closeBoth(
+        outer: Socket,
+        inner: Socket,
+    ) {
+        runCatching { outer.close() }
+        runCatching { inner.close() }
     }
 
     private fun skipAddress(

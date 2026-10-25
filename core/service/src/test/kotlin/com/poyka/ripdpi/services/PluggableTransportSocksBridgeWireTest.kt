@@ -250,4 +250,61 @@ class PluggableTransportSocksBridgeWireTest {
         }
         assertNull("client failure must not reach the process handler", uncaught.get())
     }
+
+    @Test
+    fun `slow PT connect reply and idle relayed flow survive past the handshake timeout`() {
+        val idleMillis = 6_000L
+        ServerSocket(0).use { fakePt ->
+            val ptThread =
+                Thread {
+                    fakePt.accept().use { pt ->
+                        val input = DataInputStream(pt.getInputStream())
+                        val output = pt.getOutputStream()
+                        input.readFully(ByteArray(3)) // greeting: VER, NMETHODS=1, NO-AUTH
+                        output.write(byteArrayOf(0x05, 0x00))
+                        input.readFully(ByteArray(10)) // CONNECT to an IPv4 target
+                        Thread.sleep(idleMillis) // a slow bridge dial before the reply
+                        output.write(byteArrayOf(0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0))
+                        output.flush()
+                        Thread.sleep(idleMillis) // relayed flow idles before the server answers
+                        output.write("pong".toByteArray())
+                        output.flush()
+                        input.read()
+                    }
+                }.apply {
+                    isDaemon = true
+                    start()
+                }
+            val port = ServerSocket(0).use { it.localPort }
+            val bridge =
+                ManagedClientSocksBridge(
+                    listenHost = "127.0.0.1",
+                    listenPort = port,
+                    upstreamListener = InetSocketAddress("127.0.0.1", fakePt.localPort),
+                    bridgeSpec = ManagedClientSocksBridgeSpec("obfs4", "192.0.2.1", 443, ""),
+                )
+            try {
+                bridge.start()
+                Socket("127.0.0.1", port).use { socket ->
+                    socket.soTimeout = 30_000
+                    val input = DataInputStream(socket.getInputStream())
+                    val output = socket.getOutputStream()
+                    output.write(byteArrayOf(0x05, 0x01, 0x00))
+                    val greeting = ByteArray(2)
+                    input.readFully(greeting)
+                    assertArrayEquals(byteArrayOf(0x05, 0x00), greeting)
+                    output.write(byteArrayOf(0x05, 0x01, 0x00, 0x01, 192.toByte(), 0, 2, 1, 0x01, 0xBB.toByte()))
+                    val reply = ByteArray(10)
+                    input.readFully(reply)
+                    assertEquals("CONNECT reply code", 0x00, reply[1].toInt())
+                    val payload = ByteArray(4)
+                    input.readFully(payload)
+                    assertEquals("pong", String(payload))
+                }
+            } finally {
+                bridge.close()
+                ptThread.join(1_000)
+            }
+        }
+    }
 }
