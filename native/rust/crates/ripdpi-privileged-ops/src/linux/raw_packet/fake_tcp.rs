@@ -105,6 +105,10 @@ pub fn send_fake_tcp(
         }
 
         wait_tcp_stage_fd(fd, wait.0, wait.1)?;
+        // The send queue still references these pages. Put the real bytes in
+        // them before the TTL goes back up, so the kernel retransmits the real
+        // data in place of the lost fake (byedpi restore_state).
+        region.write(original_prefix);
         if md5sig {
             set_tcp_md5sig(stream, 0)?;
         }

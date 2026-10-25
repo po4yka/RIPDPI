@@ -169,3 +169,32 @@ fn send_multi_disorder_tcp_requires_raw_send_path_for_non_empty_payload() {
     )
     .expect_err("non-empty multidisorder TCP payload must not be accepted without raw/protect work");
 }
+
+#[test]
+fn send_fake_tcp_stream_path_leaves_the_real_bytes_in_the_spliced_pages() {
+    use std::io::Read;
+    use std::time::Duration;
+
+    let (client, mut server) = connected_pair();
+    let real = b"GET / HTTP/1.1\r\nHost: real.example\r\n\r\n";
+    let fake = b"GET / HTTP/1.1\r\nHost: fake.example\r\n\r\n";
+
+    // Loopback hands the sender's spliced pages to the peer without a copy,
+    // so the peer reads what the pages hold once the send returns. That is
+    // also what a TCP retransmission of the lost fake would carry.
+    raw_packet::send_fake_tcp(
+        &client,
+        real,
+        fake,
+        8,
+        false,
+        64,
+        crate::FakeTcpOptions::default(),
+        (false, Duration::ZERO),
+    )
+    .expect("stream fake send");
+
+    let mut received = vec![0_u8; real.len()];
+    server.read_exact(&mut received).expect("read spliced bytes");
+    assert_eq!(received, real, "the queued segment must carry the real bytes after the fake send");
+}
