@@ -9,4 +9,5 @@
     <string name="settings_clear_community_cache_body">删除已下载的社区统计数据。您的检查历史会保留。</string>
     <string name="ripdpi_no_domain_body">仅接受 IP 地址。代理会拒绝需要它解析域名的请求。</string>
     <string name="ripdpi_tcp_fast_open_body">在出站连接的第一个数据包中发送数据，以节省一次往返。有些网络会丢弃这类数据包。</string>
+    <string name="advanced_settings_unsaved_change">未保存</string>
 </resources>

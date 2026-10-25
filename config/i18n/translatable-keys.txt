@@ -221,6 +221,7 @@ app:adaptive_split_target_chain_step
 app:adaptive_split_target_legacy
 app:advanced_settings_command_line_disabled
 app:advanced_settings_error_oob_data
+app:advanced_settings_unsaved_change
 app:advanced_settings_visual_controls_disabled
 app:anytls_editor_title
 app:anytls_field_display_name

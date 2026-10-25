@@ -9,4 +9,5 @@
     <string name="settings_clear_community_cache_body">Elimina las estadísticas de la comunidad descargadas. Tu historial de comprobaciones se conserva.</string>
     <string name="ripdpi_no_domain_body">Aceptar solo direcciones IP. El proxy rechaza las solicitudes que le piden resolver un nombre de dominio.</string>
     <string name="ripdpi_tcp_fast_open_body">Enviar datos en el primer paquete de las conexiones salientes para ahorrar un viaje de ida y vuelta. Algunas redes descartan estos paquetes.</string>
+    <string name="advanced_settings_unsaved_change">Sin guardar</string>
 </resources>

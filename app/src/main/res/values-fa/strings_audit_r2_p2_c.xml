@@ -9,4 +9,5 @@
     <string name="settings_clear_community_cache_body">آمار جامعهٔ دانلودشده را حذف می‌کند. تاریخچهٔ بررسی‌های شما باقی می‌ماند.</string>
     <string name="ripdpi_no_domain_body">فقط نشانی‌های IP پذیرفته می‌شوند. پراکسی درخواست‌هایی را که نیاز به تحلیل نام دامنه دارند رد می‌کند.</string>
     <string name="ripdpi_tcp_fast_open_body">داده در نخستین بستهٔ اتصال‌های خروجی فرستاده می‌شود تا یک رفت‌وبرگشت کم شود. برخی شبکه‌ها این بسته‌ها را دور می‌اندازند.</string>
+    <string name="advanced_settings_unsaved_change">ذخیره نشده</string>
 </resources>

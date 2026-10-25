@@ -9,4 +9,5 @@
     <string name="settings_clear_community_cache_body">يحذف إحصاءات المجتمع التي جرى تنزيلها. يبقى سجل الفحوص لديك.</string>
     <string name="ripdpi_no_domain_body">قبول عناوين IP فقط. يرفض الوكيل الطلبات التي تطلب منه تحليل اسم نطاق.</string>
     <string name="ripdpi_tcp_fast_open_body">إرسال البيانات في أول حزمة من الاتصالات الصادرة لتوفير جولة ذهاب وإياب. بعض الشبكات تُسقط هذه الحزم.</string>
+    <string name="advanced_settings_unsaved_change">غير محفوظ</string>
 </resources>
