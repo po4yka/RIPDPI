@@ -138,14 +138,19 @@ internal class DiagnosticsDpiSuiteTlsRunFinalizer(
     }
 }
 
+/**
+ * Returns null for blank input (use the bundled targets). Non-blank input yields its valid host
+ * names, possibly none: the caller must then reject the run, not fall back to the bundled list.
+ */
 internal fun parseCustomDomains(input: String): List<String>? =
-    input
-        .lineSequence()
-        .flatMap { line -> line.split(',', ' ', ';').asSequence() }
-        .mapNotNull(::dpiTargetHostOrNull)
-        .distinct()
-        .toList()
-        .takeIf(List<String>::isNotEmpty)
+    input.takeIf(String::isNotBlank)?.let { text ->
+        text
+            .lineSequence()
+            .flatMap { line -> line.split(',', ' ', ';').asSequence() }
+            .mapNotNull(::dpiTargetHostOrNull)
+            .distinct()
+            .toList()
+    }
 
 internal fun MutableList<DiagnosticsDpiSuiteProbeRowUiModel>.upsert(row: DiagnosticsDpiSuiteProbeRowUiModel) {
     val index = indexOfFirst { existing -> existing.kind == row.kind }

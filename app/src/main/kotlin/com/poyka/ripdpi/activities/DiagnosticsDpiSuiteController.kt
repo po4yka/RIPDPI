@@ -105,6 +105,13 @@ internal class DiagnosticsDpiSuiteController(
         if (current.state == DiagnosticsDpiSuiteState.Running || current.selectedKinds.isEmpty()) {
             return
         }
+        val customDomains = parseCustomDomains(current.customDomainsInput)
+        if (customDomains?.isEmpty() == true) {
+            // An explicit custom run with no valid host must not silently probe the bundled list.
+            _tool.value =
+                current.copy(errorMessage = stringResolver.getString(R.string.strategy_tuner_message_add_domain))
+            return
+        }
         suiteJob?.cancel()
         _tool.value =
             current.copy(
@@ -127,7 +134,7 @@ internal class DiagnosticsDpiSuiteController(
                     val config =
                         DpiSuiteConfig(
                             selection = current.selectedKinds.toSet(),
-                            customDomains = parseCustomDomains(current.customDomainsInput),
+                            customDomains = customDomains,
                             concurrency = current.concurrency,
                             randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
                         )
