@@ -1,12 +1,52 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.net.UnknownHostException
+import java.util.Collections
+import java.util.concurrent.Executors
 
 class DohBootstrapSpoofingDetectorTest {
+    @Test
+    fun resolveAndMetadataLookupRunOnTheIoDispatcher() =
+        runTest {
+            val ioThreads = Executors.newSingleThreadExecutor { task -> Thread(task, IoThreadName) }
+            try {
+                val threads = Collections.synchronizedList(mutableListOf<String>())
+
+                fun recordThread() {
+                    threads += Thread.currentThread().name.substringBefore(" @")
+                }
+
+                val lookup = metadata()
+                val recordingLookup =
+                    object : SubnetMetadataLookup by lookup {
+                        override fun asnForIp(ip: String): Int? {
+                            recordThread()
+                            return lookup.asnForIp(ip)
+                        }
+                    }
+                val detector =
+                    DohBootstrapSpoofingDetector(
+                        resolver = { _ -> listOf("8.8.8.8").also { recordThread() } },
+                        metadata = recordingLookup,
+                        providers = listOf(DohProviderFilter("Google", "dns.google", "as(15169)")),
+                        ioDispatcher = ioThreads.asCoroutineDispatcher(),
+                    )
+
+                detector.checkAll()
+
+                assertTrue(threads.size >= 2)
+                assertEquals(setOf(IoThreadName), threads.toSet())
+            } finally {
+                ioThreads.shutdown()
+            }
+        }
+
     @Test
     fun legitimateGoogleDohIpReturnsOk() =
         runTest {
@@ -195,3 +235,5 @@ class DohBootstrapSpoofingDetectorTest {
                 ),
         )
 }
+
+private const val IoThreadName = "doh-bootstrap-io"

@@ -2,9 +2,12 @@ package com.poyka.ripdpi.diagnostics.dpich
 
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.InetAddress
 
@@ -45,6 +48,7 @@ class DohBootstrapSpoofingDetector(
     private val resolver: DohBootstrapResolver = SystemOnlyDohBootstrapResolver,
     private val metadata: SubnetMetadataLookup,
     private val providers: List<DohProviderFilter>,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     suspend fun checkAll(): Map<String, DohBootstrapResult> =
         coroutineScope {
@@ -54,7 +58,11 @@ class DohBootstrapSpoofingDetector(
                 .toMap()
         }
 
+    // The system resolver and the geo metadata lookup (JNI and file I/O) both block.
     private suspend fun check(provider: DohProviderFilter): DohBootstrapResult =
+        withContext(ioDispatcher) { checkBlocking(provider) }
+
+    private suspend fun checkBlocking(provider: DohProviderFilter): DohBootstrapResult =
         try {
             val bootstrapIp = resolver.resolve(provider.dohHostname).firstOrNull()
             if (bootstrapIp == null) {
