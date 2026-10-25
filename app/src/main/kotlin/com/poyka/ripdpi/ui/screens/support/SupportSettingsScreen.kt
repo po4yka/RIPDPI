@@ -78,28 +78,30 @@ internal fun SupportSettingsScreen(
             }
 
             uiState.storageError && uiState.preview == null -> {
-                SupportSettingsMessageCard(
+                SupportSettingsError(
                     title = stringResource(R.string.strategy_config_import_failed_title),
                     body = stringResource(R.string.config_editor_hydration_failed),
-                )
-                RipDpiButton(
-                    text = stringResource(R.string.strategy_config_restore_retry),
-                    onClick = onRetry,
+                    actionLabel = stringResource(R.string.strategy_config_restore_retry),
+                    onAction = onRetry,
                 )
             }
 
             uiState.invalid || uiState.preview == null -> {
-                SupportSettingsMessageCard(
+                // A broken link cannot be retried, so the next step is to leave the screen.
+                SupportSettingsError(
                     title = stringResource(R.string.support_settings_invalid_title),
                     body = stringResource(R.string.support_settings_invalid_body),
+                    actionLabel = stringResource(R.string.support_settings_back_action),
+                    onAction = onBack,
                 )
             }
 
             else -> {
                 if (uiState.storageError) {
-                    SupportSettingsMessageCard(
+                    WarningBanner(
                         title = stringResource(R.string.strategy_config_import_failed_title),
-                        body = stringResource(R.string.asset_provider_persistence_failed_body),
+                        message = stringResource(R.string.asset_provider_persistence_failed_body),
+                        tone = WarningBannerTone.Error,
                     )
                 }
                 SupportSettingsPreviewContent(
@@ -176,6 +178,23 @@ private fun SupportSettingsChangeRow(change: SupportSettingsFieldChange) {
         modifier = Modifier.fillMaxWidth(),
     )
     Spacer(modifier = Modifier.height(RipDpiThemeTokens.spacing.sm))
+}
+
+/** The app's error state: an error banner with one next step, as on the PCAP screens. */
+@Composable
+private fun SupportSettingsError(
+    title: String,
+    body: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+) {
+    WarningBanner(title = title, message = body, tone = WarningBannerTone.Error)
+    RipDpiButton(
+        text = actionLabel,
+        onClick = onAction,
+        modifier = Modifier.fillMaxWidth(),
+        wrapLabel = true,
+    )
 }
 
 @Composable

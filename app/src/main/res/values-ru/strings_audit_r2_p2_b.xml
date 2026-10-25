@@ -4,4 +4,7 @@
     <string name="blockcheck_vs_tuner">Пробует все стратегии и находит, что блокирует каждый домен. Для быстрого запуска с ограничениями используйте «Подбор стратегии».</string>
     <string name="connection_health_measurement_help_title">Об этих значениях</string>
     <string name="logs_entry_details">Подробнее</string>
+    <string name="vpn_pcap_capture_list_empty_title">Захватов пока нет</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">Не удалось открыть сохранённые файлы захвата.</string>
+    <string name="support_settings_back_action">Назад</string>
 </resources>

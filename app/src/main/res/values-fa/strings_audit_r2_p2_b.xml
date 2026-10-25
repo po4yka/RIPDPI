@@ -4,4 +4,7 @@
     <string name="blockcheck_vs_tuner">همه راهبردها را امتحان می‌کند و پیدا می‌کند چه چیزی هر دامنه را مسدود می‌کند. برای اجرای سریع و محدود، از «تنظیم راهبرد» استفاده کنید.</string>
     <string name="connection_health_measurement_help_title">درباره این مقادیر</string>
     <string name="logs_entry_details">جزئیات</string>
+    <string name="vpn_pcap_capture_list_empty_title">هنوز ضبطی وجود ندارد</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">باز کردن فایل‌های ضبط ذخیره‌شده ممکن نشد.</string>
+    <string name="support_settings_back_action">بازگشت</string>
 </resources>

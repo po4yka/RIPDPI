@@ -4,4 +4,7 @@
     <string name="blockcheck_vs_tuner">हर रणनीति आज़माता है और पता लगाता है कि हर डोमेन को क्या रोकता है। तेज़, सीमित रन के लिए रणनीति ट्यूनर का उपयोग करें।</string>
     <string name="connection_health_measurement_help_title">इन मानों के बारे में</string>
     <string name="logs_entry_details">विवरण</string>
+    <string name="vpn_pcap_capture_list_empty_title">अभी तक कोई कैप्चर नहीं</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">सहेजी गई कैप्चर फ़ाइलें खोली नहीं जा सकीं।</string>
+    <string name="support_settings_back_action">वापस</string>
 </resources>

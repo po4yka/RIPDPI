@@ -3043,7 +3043,7 @@ Source : %2$s</string>
     <string name="vpn_quality_graph_value_ms">%1$d ms</string>
     <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
     <string name="vpn_quality_graph_avg_ms">moy. %1$d ms</string>
-    <string name="vpn_pcap_capture_list_empty">Aucune capture pour l\'instant. Activez la capture de paquets dans les paramètres avancés.</string>
+    <string name="vpn_pcap_capture_list_empty">Activez la capture de paquets dans les paramètres avancés.</string>
     <string name="vpn_pcap_loading">Chargement des captures de paquets…</string>
     <string name="vpn_pcap_read_failed">Impossible de lire les données PCAP.</string>
     <string name="vpn_pcap_truncated">Affichage des 2 000 premiers paquets.</string>

@@ -3,12 +3,11 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.pcap.PcapCaptureMetadata
 import com.poyka.ripdpi.pcap.PcapController
 import com.poyka.ripdpi.pcap.PcapReader
@@ -29,7 +28,9 @@ fun PcapCaptureListRoute(
     val controller = remember(context) { PcapController(context) }
     var captures by remember { mutableStateOf<ImmutableList<PcapCaptureMetadata>?>(null) }
     var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(controller) {
+    var attempt by remember { mutableIntStateOf(0) }
+    LaunchedEffect(controller, attempt) {
+        failed = false
         try {
             captures =
                 withContext(Dispatchers.IO) {
@@ -62,11 +63,8 @@ fun PcapCaptureListRoute(
         onCaptureSelected = onCaptureSelected,
         onBack = onBack,
         onOpenAdvancedSettings = onOpenAdvancedSettings,
-        message =
-            when {
-                failed -> stringResource(R.string.vpn_pcap_read_failed)
-                captures == null -> stringResource(R.string.vpn_pcap_loading)
-                else -> null
-            },
+        loading = captures == null,
+        failed = failed,
+        onRetry = { attempt++ },
     )
 }

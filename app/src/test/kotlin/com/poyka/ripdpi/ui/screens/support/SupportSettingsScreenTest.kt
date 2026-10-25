@@ -75,4 +75,24 @@ class SupportSettingsScreenTest {
         composeRule.onNodeWithText(context.getString(R.string.strategy_config_restore_retry)).performClick()
         assertTrue(retried)
     }
+
+    @Test
+    fun invalidLinkOffersBackAsTheNextStep() {
+        var wentBack = false
+        val context = RuntimeEnvironment.getApplication()
+        composeRule.setContent {
+            RipDpiTheme {
+                SupportSettingsScreen(
+                    uiState = SupportSettingsUiState(invalid = true),
+                    onBack = { wentBack = true },
+                    onApply = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(context.getString(R.string.support_settings_invalid_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.support_settings_back_action)).performClick()
+        assertTrue(wentBack)
+    }
 }

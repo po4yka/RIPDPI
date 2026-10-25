@@ -5044,6 +5044,7 @@ app:subscription_status_unknown
 app:subscription_status_url_format
 app:support_settings_applied_action
 app:support_settings_apply_action
+app:support_settings_back_action
 app:support_settings_change_summary
 app:support_settings_changes_title
 app:support_settings_default_reason
@@ -5206,6 +5207,8 @@ app:vpn_latency_graph_p99_default
 app:vpn_latency_graph_spikes_default
 app:vpn_latency_graph_title
 app:vpn_pcap_capture_list_empty
+app:vpn_pcap_capture_list_empty_title
+app:vpn_pcap_capture_list_read_failed_body
 app:vpn_pcap_loading
 app:vpn_pcap_no_packets
 app:vpn_pcap_open_advanced_settings

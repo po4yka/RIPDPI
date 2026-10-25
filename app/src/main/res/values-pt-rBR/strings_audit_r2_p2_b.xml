@@ -4,4 +4,7 @@
     <string name="blockcheck_vs_tuner">Testa todas as estratégias e descobre o que bloqueia cada domínio. Para uma execução rápida e limitada, use Ajuste de estratégias.</string>
     <string name="connection_health_measurement_help_title">Sobre estes valores</string>
     <string name="logs_entry_details">Detalhes</string>
+    <string name="vpn_pcap_capture_list_empty_title">Nenhuma captura ainda</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">Não foi possível abrir os arquivos de captura salvos.</string>
+    <string name="support_settings_back_action">Voltar</string>
 </resources>

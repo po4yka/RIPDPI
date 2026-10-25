@@ -124,6 +124,9 @@ fun RipDpiEmptyStateCard(
     variant: RipDpiCardVariant = RipDpiCardVariant.Outlined,
     bodyMaxLines: Int = Int.MAX_VALUE,
     bodyOverflow: TextOverflow = TextOverflow.Clip,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+    actionTestTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
 
@@ -139,6 +142,19 @@ fun RipDpiEmptyStateCard(
             maxLines = bodyMaxLines,
             overflow = bodyOverflow,
         )
+        if (actionLabel != null && onAction != null) {
+            // The next step for the empty state, shared by every screen that uses this card.
+            RipDpiButton(
+                text = actionLabel,
+                onClick = onAction,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .then(actionTestTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier),
+                variant = RipDpiButtonVariant.Outline,
+                wrapLabel = true,
+            )
+        }
     }
 }
 

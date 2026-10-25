@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,10 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
@@ -23,14 +20,13 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
@@ -101,43 +97,14 @@ private fun ReplayHistoryEmptyState(
     onRunScan: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
-    val colors = RipDpiThemeTokens.colors
-
-    RipDpiCard(modifier = modifier) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-            horizontalAlignment = Alignment.Start,
-        ) {
-            Icon(
-                imageVector = RipDpiIcons.NetworkCheck,
-                contentDescription = null,
-                tint = colors.mutedForeground,
-                modifier = Modifier.size(RipDpiIconSizes.Large),
-            )
-            Text(
-                text = stringResource(R.string.vpn_replay_history_empty),
-                style = type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            Text(
-                text = stringResource(R.string.history_diagnostics_empty_body),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
-            RipDpiButton(
-                text = stringResource(R.string.diagnostics_overview_run_scan_action),
-                onClick = onRunScan,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = spacing.xs)
-                        .ripDpiTestTag(RipDpiTestTags.ReplayHistoryRunScanAction),
-            )
-        }
-    }
+    RipDpiEmptyStateCard(
+        title = stringResource(R.string.vpn_replay_history_empty),
+        body = stringResource(R.string.history_diagnostics_empty_body),
+        modifier = modifier,
+        actionLabel = stringResource(R.string.diagnostics_overview_run_scan_action),
+        onAction = onRunScan,
+        actionTestTag = RipDpiTestTags.ReplayHistoryRunScanAction,
+    )
 }
 
 @Composable
