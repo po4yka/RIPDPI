@@ -1931,7 +1931,7 @@ Quelle: %2$s</string>
     <string name="onboarding_persona_title">Oberfläche wählen</string>
     <string name="onboarding_persona_body">Später kannst du in den Einstellungen zwischen Geführt und Erweitert wechseln.</string>
     <string name="onboarding_persona_simple_body">Alltagssteuerung bleibt sichtbar, Expertendetails bleiben eingeklappt.</string>
-    <string name="onboarding_persona_advanced_body">Öffnet die vollständige Bedienoberfläche mit Diagnose, Profilen und Detailsteuerung.</string>
+    <string name="onboarding_persona_advanced_body">Zeigt alle Diagnosen, Profile und Low-Level-Einstellungen an.</string>
     <string name="settings_logs_body">Öffnet den Live-Protokollstrom für App, Dienst und Diagnose.</string>
     <string name="settings_subscription_failover_body">Zeigt den aktiven Abonnementserver und die letzten automatischen Serverwechsel an.</string>
     <string name="diagnostics_open_logs_body">Öffnet den Live-Protokollstrom mit Filtern für Dienst, Proxy, Tunnel und Diagnose.</string>

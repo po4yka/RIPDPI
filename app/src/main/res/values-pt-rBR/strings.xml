@@ -34,7 +34,7 @@
     <string name="onboarding_persona_title">Escolha sua interface</string>
     <string name="onboarding_persona_body">Você pode alternar entre Guiado e Avançado depois nas Configurações.</string>
     <string name="onboarding_persona_simple_body">Os controles do dia a dia ficam visíveis enquanto os detalhes técnicos permanecem recolhidos.</string>
-    <string name="onboarding_persona_advanced_body">Abrir toda a superfície de operação com diagnóstico, perfis e controles de baixo nível.</string>
+    <string name="onboarding_persona_advanced_body">Mostra todos os diagnósticos, perfis e configurações de baixo nível.</string>
     <string name="settings_logs_body">Abra o fluxo de logs em tempo real do app, dos serviços e do diagnóstico.</string>
     <string name="settings_subscription_failover_body">Veja qual servidor de assinatura está ativo e as trocas automáticas recentes.</string>
     <string name="diagnostics_open_logs_body">Abra o fluxo de logs em tempo real com filtros para entradas de serviço, proxy, túnel e diagnóstico.</string>

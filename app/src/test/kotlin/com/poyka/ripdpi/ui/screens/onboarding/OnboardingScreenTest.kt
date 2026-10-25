@@ -512,7 +512,7 @@ class OnboardingScreenTest {
         composeRule.waitForIdle()
         listOf(
             "Everyday controls stay visible while expert details stay collapsed.",
-            "Open the full operator surface with diagnostics, profiles, and low-level controls.",
+            "Show all diagnostics, profiles, and low-level settings.",
         ).forEach(::assertCompleteScrollableText)
 
         composeRule.runOnIdle { uiState = uiState.copy(currentPage = OnboardingInfoPageCount + 1) }
