@@ -96,8 +96,16 @@ pub fn decrypt_init_packet(init: &[u8; 64]) -> [u8; 64] {
 
 pub fn extract_dc_from_init(init: &[u8; 64]) -> Option<TelegramDc> {
     let decrypted = decrypt_init_packet(init);
-    let raw_dc = i32::from_le_bytes([decrypted[60], decrypted[61], decrypted[62], decrypted[63]]);
-    TelegramDc::from_raw(raw_dc)
+    TelegramDc::from_raw(raw_dc_from_decrypted(&decrypted))
+}
+
+/// Reads the DC id from a decrypted obfuscated2 init.
+///
+/// The transport spec defines the DC as a signed 16-bit LE value at
+/// `[60..62]`; `[62..64]` is random (tdesktop and TDLib write only an
+/// int16 there). Reading four bytes would mix random bytes into the id.
+fn raw_dc_from_decrypted(decrypted: &[u8; 64]) -> i32 {
+    i32::from(i16::from_le_bytes([decrypted[60], decrypted[61]]))
 }
 
 pub fn classify_mtproto_seed(seed_request: &[u8]) -> MtprotoSeedClassification {
@@ -120,7 +128,7 @@ fn classify_mtproto_init(init: &[u8; 64]) -> MtprotoSeedClassification {
         return MtprotoSeedClassification::NotMtproto;
     }
 
-    let raw_dc = i32::from_le_bytes([decrypted[60], decrypted[61], decrypted[62], decrypted[63]]);
+    let raw_dc = raw_dc_from_decrypted(&decrypted);
     let dc = TelegramDc::from_raw(raw_dc);
     match dc {
         Some(dc) if dc.is_tunnelable() => MtprotoSeedClassification::ValidatedMtproto { dc },
@@ -162,9 +170,17 @@ mod tests {
     }
 
     fn build_test_init_packet_with_tag(raw_dc: i32, tag: [u8; 4]) -> [u8; 64] {
+        build_test_init_packet_with_tail(raw_dc, tag, [0, 0])
+    }
+
+    /// Builds an obfuscated2 init the way real clients do: the DC is a
+    /// signed 16-bit LE value at `[60..62]` and `[62..64]` is random.
+    fn build_test_init_packet_with_tail(raw_dc: i32, tag: [u8; 4], tail: [u8; 2]) -> [u8; 64] {
+        let raw_dc = i16::try_from(raw_dc).expect("test dc fits in i16");
         let mut plaintext = [0u8; 64];
         plaintext[56..60].copy_from_slice(&tag);
-        plaintext[60..64].copy_from_slice(&raw_dc.to_le_bytes());
+        plaintext[60..62].copy_from_slice(&raw_dc.to_le_bytes());
+        plaintext[62..64].copy_from_slice(&tail);
 
         let key: [u8; 32] = [
             0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12,
@@ -232,6 +248,30 @@ mod tests {
     }
 
     #[test]
+    fn classify_mtproto_seed_ignores_random_bytes_after_the_dc_field() {
+        // tdesktop and TDLib write only an int16 DC at [60..62]; [62..64]
+        // stays random. The classifier must not read them as part of the DC.
+        for tail in [[0x5a, 0xc3], [0xff, 0xff], [0x01, 0x00]] {
+            assert_eq!(
+                classify_mtproto_seed(&build_test_init_packet_with_tail(2, [0xee; 4], tail)),
+                MtprotoSeedClassification::ValidatedMtproto { dc: TelegramDc::production(2) },
+                "tail {tail:02x?}",
+            );
+            assert_eq!(
+                extract_dc_from_init(&build_test_init_packet_with_tail(10_005, [0xdd; 4], tail)),
+                Some(TelegramDc::from_raw(10_005).expect("test dc")),
+            );
+            assert_eq!(
+                classify_mtproto_seed(&build_test_init_packet_with_tail(-3, [0xef; 4], tail)),
+                MtprotoSeedClassification::UnmappableDc {
+                    raw_dc: -3,
+                    dc: Some(TelegramDc::from_raw(-3).expect("media dc")),
+                },
+            );
+        }
+    }
+
+    #[test]
     fn classify_mtproto_seed_rejects_short_requests() {
         assert_eq!(classify_mtproto_seed(&[0u8; 12]), MtprotoSeedClassification::NotMtproto);
     }
@@ -260,7 +300,7 @@ mod tests {
         let decrypted = decrypt_init_packet(&init);
 
         assert_eq!(&decrypted[56..60], &[0xdd; 4]);
-        assert_eq!(i32::from_le_bytes(decrypted[60..64].try_into().expect("raw dc")), 10_004);
+        assert_eq!(i16::from_le_bytes(decrypted[60..62].try_into().expect("raw dc")), 10_004);
     }
 
     #[test]

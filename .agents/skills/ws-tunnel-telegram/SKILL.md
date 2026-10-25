@@ -93,7 +93,7 @@ for reliable classification without false positives.
    HTTP methods (GET/HEAD/POST/OPTI), transport tags (0xdddddddd/eeeeeeee/efefefef)
 2. `decrypt_init_packet(init)` -- AES-256-CTR: key=[8..40], IV=[40..56]
 3. `has_allowed_protocol_tag(decrypted)` -- bytes [56..60]: `[0xdd;4]`/`[0xee;4]`/`[0xef;4]`
-4. DC extraction from bytes [60..64] as `i32` LE -> `TelegramDc::from_raw()`
+4. DC extraction from bytes [60..62] as signed `i16` LE (bytes [62..64] are random) -> `TelegramDc::from_raw()`
 
 **Results:** `ValidatedMtproto{dc}` (tunnelable), `NotMtproto` (prefix/tag fail),
 `UnmappableDc{raw_dc, dc}` (valid MTProto but media/CDN or unknown DC).
