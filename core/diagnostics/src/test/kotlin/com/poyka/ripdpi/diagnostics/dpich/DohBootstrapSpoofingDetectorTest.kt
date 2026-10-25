@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -197,7 +199,8 @@ class DohBootstrapSpoofingDetectorTest {
             assertEquals(listOf("dns.google", "8.8.8.8"), resolved)
         }
 
-    private fun detector(
+    // Checks run on the test scheduler, not on a real IO thread.
+    private fun TestScope.detector(
         resolver: DohBootstrapResolver,
         metadata: SubnetMetadataLookup,
         providers: List<DohProviderFilter>,
@@ -206,6 +209,7 @@ class DohBootstrapSpoofingDetectorTest {
             resolver = resolver,
             metadata = metadata,
             providers = providers,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
         )
 
     private fun mapResolver(vararg mappings: Pair<String, List<String>>): DohBootstrapResolver {

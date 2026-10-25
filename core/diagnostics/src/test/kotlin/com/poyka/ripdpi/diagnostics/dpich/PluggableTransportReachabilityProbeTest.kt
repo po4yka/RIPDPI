@@ -1,7 +1,11 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -22,6 +26,7 @@ import java.net.SocketTimeoutException
 import java.util.Collections
 import java.util.concurrent.Executors
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PluggableTransportReachabilityProbeTest {
     @Test
     fun everyLegRunsOnTheIoDispatcher() =
@@ -135,6 +140,8 @@ class PluggableTransportReachabilityProbeTest {
             assertTrue(result.obfs4 is PtVerdict.PtOk)
             assertTrue(result.snowflake is PtVerdict.PtOk)
             assertTrue(result.meek is PtVerdict.PtOk)
+            // The three 50 ms legs ran in parallel on virtual time.
+            assertEquals(50L, currentTime)
         }
 
     @Test
@@ -305,7 +312,8 @@ class PluggableTransportReachabilityProbeTest {
             }
         }
 
-    private fun probe(
+    // Legs run on the test scheduler so delays use virtual time.
+    private fun TestScope.probe(
         obfs4: suspend () -> PtProbeTrace = { PtProbeTrace("obfs4", "bridge", true, 10) },
         snowflakeBroker: suspend () -> PtProbeTrace = { PtProbeTrace("snowflake_broker", "broker", true, 10) },
         snowflakeStun: suspend () -> PtProbeTrace = { PtProbeTrace("snowflake_stun", "stun", true, 10) },
@@ -316,6 +324,7 @@ class PluggableTransportReachabilityProbeTest {
             snowflakeBrokerProbe = FakePtSubprobe(snowflakeBroker),
             snowflakeStunProbe = FakePtSubprobe(snowflakeStun),
             meekProbe = FakePtSubprobe(meek),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
         )
 
     private class FakePtSubprobe(
