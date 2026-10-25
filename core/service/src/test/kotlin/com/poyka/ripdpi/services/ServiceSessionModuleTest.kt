@@ -465,6 +465,7 @@ class ServiceSessionModuleTest {
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
             networkSnapshotProvider: NativeNetworkSnapshotProvider,
+            appliesPendingHostAutolearnErase: Boolean,
         ): ProxyRuntimeSupervisor {
             createCalls += 1
             createdDispatchers += dispatcher

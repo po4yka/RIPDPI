@@ -42,6 +42,7 @@ internal class ProxyRuntimeSupervisor(
     private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
     private val stopTimeoutMillis: Long = 5_000L,
     private val afterForwardingLeaseAcquired: suspend () -> Unit = {},
+    private val beforeNativeStart: () -> Unit = {},
 ) {
     private var proxyRuntime: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
@@ -59,6 +60,8 @@ internal class ProxyRuntimeSupervisor(
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ): ProxyRuntimeStartResult {
         check(proxyJob == null) { "Proxy fields not null" }
+        // This supervisor's previous native run has returned (and flushed its state) here.
+        withContext(dispatcher) { beforeNativeStart() }
 
         val proxyInstance = ripDpiProxyFactory.create()
         val lease = ProxyForwardingLease(proxyInstance)

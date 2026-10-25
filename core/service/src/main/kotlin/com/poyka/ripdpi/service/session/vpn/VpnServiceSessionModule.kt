@@ -246,6 +246,7 @@ internal object VpnServiceSessionModule {
             scope = host.serviceScope,
             dispatcher = dispatchers.io,
             networkSnapshotProvider = dependencies.networkSnapshotProvider,
+            appliesPendingHostAutolearnErase = true,
         )
 
     @Provides

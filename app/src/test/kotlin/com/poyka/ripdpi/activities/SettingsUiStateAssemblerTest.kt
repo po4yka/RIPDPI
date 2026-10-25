@@ -195,6 +195,10 @@ private class FakeHostAutolearnStoreController(
     override fun hasStore(): Boolean = hasStore
 
     override fun clearStore(): Boolean = true
+
+    override fun markErasePending(): Boolean = true
+
+    override fun applyPendingErase(): Boolean = true
 }
 
 private class FakeEnginePlatformCapabilities : EnginePlatformCapabilities {

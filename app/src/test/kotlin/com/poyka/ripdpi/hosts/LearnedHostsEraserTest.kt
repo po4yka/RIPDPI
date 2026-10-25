@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.hosts
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,55 +17,62 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class LearnedHostsEraserTest {
     @Test
-    fun `erase while the engine runs deletes the file the engine rewrites at shutdown`() =
-        runTest(UnconfinedTestDispatcher()) {
-            val store = FileLikeStoreController(present = true)
-            val status = FakeServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
-            val eraser = LearnedHostsEraser(store, status, backgroundScope)
-
-            assertEquals(LearnedHostsEraseResult.ClearedAfterStop, eraser.erase())
-            assertFalse(store.hasStore())
-
-            // The engine's shutdown flush recreates the file from its in-memory hosts.
-            store.present = true
-            status.setStatus(AppStatus.Halted, Mode.VPN)
-
-            assertFalse(store.hasStore())
-        }
-
-    @Test
-    fun `erase while halted clears once and schedules nothing`() =
-        runTest(UnconfinedTestDispatcher()) {
-            val store = FileLikeStoreController(present = true)
-            val status = FakeServiceStateStore()
-            val eraser = LearnedHostsEraser(store, status, backgroundScope)
-
-            assertEquals(LearnedHostsEraseResult.Cleared, eraser.erase())
-            store.present = true
-            status.setStatus(AppStatus.Running, Mode.VPN)
-            status.setStatus(AppStatus.Halted, Mode.VPN)
-
-            assertTrue(store.hasStore())
-        }
-
-    @Test
-    fun `failed delete is reported`() =
+    fun `erase records a pending erase for the next engine start`() =
         runTest {
-            val store = FileLikeStoreController(present = true, deletable = false)
-            val eraser = LearnedHostsEraser(store, FakeServiceStateStore(), backgroundScope)
+            val store = RecordingStoreController(present = true)
+            val status = FakeServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
 
-            assertEquals(LearnedHostsEraseResult.Failed, eraser.erase())
+            assertEquals(LearnedHostsEraseResult.ClearedAfterStop, eraser(store, status).erase())
+            assertFalse(store.present)
+            assertTrue(store.erasePending)
         }
 
-    private class FileLikeStoreController(
+    @Test
+    fun `erase while halted still records the pending erase`() =
+        runTest {
+            // A runtime that is starting still reports Halted and may already hold the hosts.
+            val store = RecordingStoreController(present = true)
+
+            assertEquals(LearnedHostsEraseResult.Cleared, eraser(store, FakeServiceStateStore()).erase())
+            assertFalse(store.present)
+            assertTrue(store.erasePending)
+        }
+
+    @Test
+    fun `failed delete is reported and stays pending`() =
+        runTest {
+            val store = RecordingStoreController(present = true, deletable = false)
+
+            assertEquals(LearnedHostsEraseResult.Failed, eraser(store, FakeServiceStateStore()).erase())
+            assertTrue(store.erasePending)
+        }
+
+    private fun TestScope.eraser(
+        store: HostAutolearnStoreController,
+        status: FakeServiceStateStore,
+    ): LearnedHostsEraser {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        return LearnedHostsEraser(store, status, AppCoroutineDispatchers(dispatcher, dispatcher, dispatcher))
+    }
+
+    private class RecordingStoreController(
         var present: Boolean,
         private val deletable: Boolean = true,
     ) : HostAutolearnStoreController {
+        var erasePending = false
+
         override fun hasStore(): Boolean = present
 
         override fun clearStore(): Boolean {
             if (deletable) present = false
             return !present
         }
+
+        override fun markErasePending(): Boolean {
+            erasePending = true
+            return true
+        }
+
+        override fun applyPendingErase(): Boolean = clearStore().also { if (it) erasePending = false }
     }
 }

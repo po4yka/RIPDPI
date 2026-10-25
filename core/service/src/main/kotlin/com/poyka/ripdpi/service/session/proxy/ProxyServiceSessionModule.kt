@@ -81,6 +81,7 @@ internal object ProxyServiceSessionModule {
             scope = host.serviceScope,
             dispatcher = dispatchers.io,
             networkSnapshotProvider = networkSnapshotProvider,
+            appliesPendingHostAutolearnErase = true,
         )
 
     @Provides

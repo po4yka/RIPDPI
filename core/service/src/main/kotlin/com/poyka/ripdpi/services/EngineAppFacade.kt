@@ -2,8 +2,10 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import com.poyka.ripdpi.core.RipDpiPlatformCapabilities
+import com.poyka.ripdpi.core.applyPendingHostAutolearnErase
 import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.core.hasHostAutolearnStore
+import com.poyka.ripdpi.core.markHostAutolearnErasePending
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -16,6 +18,12 @@ interface HostAutolearnStoreController {
     fun hasStore(): Boolean
 
     fun clearStore(): Boolean
+
+    /** Keeps an erase pending until [applyPendingErase] runs before the next engine start. */
+    fun markErasePending(): Boolean
+
+    /** Deletes the store for a pending erase; false keeps the erase pending. */
+    fun applyPendingErase(): Boolean
 }
 
 interface EnginePlatformCapabilities {
@@ -31,6 +39,10 @@ class DefaultHostAutolearnStoreController
         override fun hasStore(): Boolean = hasHostAutolearnStore(context)
 
         override fun clearStore(): Boolean = clearHostAutolearnStore(context)
+
+        override fun markErasePending(): Boolean = markHostAutolearnErasePending(context)
+
+        override fun applyPendingErase(): Boolean = applyPendingHostAutolearnErase(context)
     }
 
 @Singleton

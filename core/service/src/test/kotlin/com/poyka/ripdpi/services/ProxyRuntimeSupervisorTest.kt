@@ -30,6 +30,32 @@ private const val TestLocalProxyAuth = "alpha-123"
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyRuntimeSupervisorTest {
     @Test
+    fun pendingLearnedHostsEraseRunsBeforeEachNativeStart() =
+        runTest {
+            val events = mutableListOf<String>()
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = CoroutineScope(SupervisorJob() + dispatcher),
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory =
+                        TestRipDpiProxyFactory {
+                            events += "create"
+                            TestProxyRuntime()
+                        },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    beforeNativeStart = { events += "erase" },
+                )
+
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+            supervisor.stop()
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+            supervisor.stop()
+
+            assertEquals(listOf("erase", "create", "erase", "create"), events)
+        }
+
+    @Test
     fun cancellingProxyJobBeforeReadinessStillSignalsNativeStop() =
         runTest {
             val readyGate = CompletableDeferred<Unit>()
