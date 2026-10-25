@@ -49,6 +49,11 @@
 //!   at *minute* granularity (±60 s); Shadowsocks SIP022 at *second* granularity.
 //!   The provider stores whatever precision it is fed; both are far inside the
 //!   protocols' tolerance windows.
+//! - **Suspend is inferred from the wall clock.** [`Instant`] is `CLOCK_MONOTONIC`
+//!   on Linux and Android, which stops while the device sleeps. When the wall
+//!   clock has run ahead of the monotonic clock since the anchor by more than
+//!   [`SUSPEND_GAP_SECS`], that excess is counted as sleep time, so a forward
+//!   wall-clock step after calibration also moves network time forward.
 //! - **No SNTP.** A true external time source is intentionally not used — it
 //!   would be a remote dependency, which the project's offline/no-backend rule
 //!   forbids. The anchor comes only from servers the user already connects to.
@@ -98,12 +103,32 @@ impl Clock for SystemClock {
 /// how far a rogue/misconfigured server can move the shared clock.
 const MAX_PLAUSIBLE_DRIFT_SECS: u64 = 600;
 
+/// How far the wall clock may run ahead of the monotonic clock since the anchor
+/// before the excess counts as device sleep. Far above NTP slew and second
+/// truncation, and below SIP022's 30 s freshness window.
+const SUSPEND_GAP_SECS: i64 = 10;
+
 #[derive(Debug, Clone, Copy)]
 struct Anchor {
     /// Network Unix seconds at the moment of calibration.
     net_unix: i64,
     /// Monotonic reading captured at the same moment.
     mono_nanos: u128,
+    /// Device wall clock captured at the same moment; only its later delta is used.
+    wall_unix: i64,
+}
+
+impl Anchor {
+    fn estimate(&self, clock: &dyn Clock, mono_nanos: u128) -> i64 {
+        let elapsed_nanos = mono_nanos.saturating_sub(self.mono_nanos);
+        let mono_secs = i64::try_from(elapsed_nanos / 1_000_000_000).unwrap_or(i64::MAX);
+        let wall_secs = clock.wall_unix_secs().saturating_sub(self.wall_unix);
+        // CLOCK_MONOTONIC stops in suspend and the wall clock does not, so a large
+        // wall lead is sleep time. shortcut: a forward wall-clock step is counted too;
+        // use CLOCK_BOOTTIME once this crate may depend on a safe clock_gettime wrapper.
+        let elapsed_secs = if wall_secs > mono_secs.saturating_add(SUSPEND_GAP_SECS) { wall_secs } else { mono_secs };
+        self.net_unix.saturating_add(elapsed_secs)
+    }
 }
 
 /// A calibratable, monotonic-from-anchor network-time source. Cheap to share
@@ -156,11 +181,7 @@ impl NetworkTimeProvider {
     pub fn now_unix(&self) -> i64 {
         let guard = self.anchor.lock().unwrap_or_else(PoisonError::into_inner);
         match *guard {
-            Some(anchor) => {
-                let elapsed_nanos = self.clock.monotonic_nanos().saturating_sub(anchor.mono_nanos);
-                let elapsed_secs = i64::try_from(elapsed_nanos / 1_000_000_000).unwrap_or(i64::MAX);
-                anchor.net_unix.saturating_add(elapsed_secs)
-            }
+            Some(anchor) => anchor.estimate(self.clock.as_ref(), self.clock.monotonic_nanos()),
             None => self.clock.wall_unix_secs(),
         }
     }
@@ -190,14 +211,13 @@ impl NetworkTimeProvider {
         // Compute the current estimate under the same lock (calling `now_unix`
         // here would re-lock the non-reentrant mutex and deadlock).
         if let Some(anchor) = *guard {
-            let elapsed_nanos = mono.saturating_sub(anchor.mono_nanos);
-            let elapsed_secs = i64::try_from(elapsed_nanos / 1_000_000_000).unwrap_or(i64::MAX);
-            let estimate = anchor.net_unix.saturating_add(elapsed_secs);
+            let estimate = anchor.estimate(self.clock.as_ref(), mono);
             if observed_network_unix.saturating_sub(estimate).unsigned_abs() > MAX_PLAUSIBLE_DRIFT_SECS {
                 return false;
             }
         }
-        *guard = Some(Anchor { net_unix: observed_network_unix, mono_nanos: mono });
+        *guard =
+            Some(Anchor { net_unix: observed_network_unix, mono_nanos: mono, wall_unix: self.clock.wall_unix_secs() });
         true
     }
 
@@ -276,14 +296,14 @@ mod tests {
 
     #[test]
     fn calibrated_ignores_device_clock_and_advances_monotonically() {
-        let clock = std::sync::Arc::new(TestClock::new(0));
+        let clock = std::sync::Arc::new(TestClock::new(1_000_000));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
         // Server says it is 1_700_000_000 right now.
         provider.calibrate(1_700_000_000);
         assert!(provider.is_calibrated());
         assert_eq!(provider.now_unix(), 1_700_000_000);
 
-        // A wildly wrong device clock must not move network time.
+        // A device clock stepped back to a wildly wrong value must not move network time.
         clock.set_wall(42);
         assert_eq!(provider.now_unix(), 1_700_000_000, "calibrated time ignores the device wall clock");
 
@@ -320,6 +340,35 @@ mod tests {
         assert_eq!(provider.now_unix(), 1_400);
         clock.advance_secs(5);
         assert_eq!(provider.now_unix(), 1_405);
+    }
+
+    #[test]
+    fn device_sleep_advances_calibrated_time_and_keeps_recalibration_open() {
+        let clock = std::sync::Arc::new(TestClock::new(1_700_000_000));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        // The server clock is 120 s ahead of the device clock.
+        assert!(provider.calibrate(1_700_000_120));
+        clock.advance_secs(5);
+        clock.set_wall(1_700_000_005);
+        assert_eq!(provider.now_unix(), 1_700_000_125);
+
+        // Two hours of suspend: CLOCK_MONOTONIC stands still, the wall clock moves on.
+        clock.set_wall(1_700_007_205);
+        assert_eq!(provider.now_unix(), 1_700_007_325, "sleep time must count, with the calibrated offset kept");
+        // A fresh server timestamp after the sleep is within the drift window and re-anchors.
+        assert!(provider.calibrate(1_700_007_326));
+        assert_eq!(provider.now_unix(), 1_700_007_326);
+    }
+
+    #[test]
+    fn small_wall_clock_lead_does_not_count_as_sleep() {
+        let clock = std::sync::Arc::new(TestClock::new(1_000));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        provider.calibrate(5_000);
+        clock.advance_secs(20);
+        // Within SUSPEND_GAP_SECS of the monotonic elapsed time: NTP slew, not sleep.
+        clock.set_wall(1_000 + 20 + SUSPEND_GAP_SECS);
+        assert_eq!(provider.now_unix(), 5_020);
     }
 
     #[test]
