@@ -1027,6 +1027,7 @@ app:detection_color_vision_blue_yellow
 app:detection_color_vision_red_green
 app:detection_color_vision_standard
 app:detection_community_avg_score
+app:detection_community_empty_body
 app:detection_community_error
 app:detection_community_loading
 app:detection_community_local_title

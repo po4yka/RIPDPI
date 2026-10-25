@@ -8,4 +8,5 @@
     <string name="vpn_pcap_capture_list_read_failed_body">无法打开已保存的捕获文件。</string>
     <string name="support_settings_back_action">返回</string>
     <string name="remembered_networks_first_seen">首次发现于 %1$s</string>
+    <string name="detection_community_empty_body">尚未记录任何检查。运行一次检查即可添加第一条记录。</string>
 </resources>

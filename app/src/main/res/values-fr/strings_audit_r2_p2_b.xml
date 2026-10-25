@@ -8,4 +8,5 @@
     <string name="vpn_pcap_capture_list_read_failed_body">Impossible d’ouvrir les fichiers de capture enregistrés.</string>
     <string name="support_settings_back_action">Retour</string>
     <string name="remembered_networks_first_seen">Vu pour la première fois %1$s</string>
+    <string name="detection_community_empty_body">Aucune vérification enregistrée pour le moment. Lancez une vérification pour ajouter la première.</string>
 </resources>

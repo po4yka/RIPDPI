@@ -50,6 +50,27 @@ class DetectionScreenSemanticsTest {
     }
 
     @Test
+    fun communitySectionWithoutReportsShowsAnEmptyState() {
+        composeRule.setContent {
+            RipDpiTheme {
+                DetectionCheckScreen(
+                    uiState = DetectionCheckUiState(),
+                    onStart = {},
+                    onStop = {},
+                    onBack = {},
+                    onDismissOnboarding = {},
+                    onReloadCommunityStats = {},
+                    onRequestPermissions = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithText("No checks recorded yet. Run a check to add the first one.")
+            .fetchSemanticsNode()
+    }
+
+    @Test
     fun detectionCheckScreenShowsConditionalStealthMetric() {
         val result = cleanDetectionResult()
         composeRule.setContent {
