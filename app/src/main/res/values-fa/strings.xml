@@ -3393,7 +3393,7 @@ fakeddisorder endhost</string>
     <string name="xray_capability_dns_protection_desc">نام‌ها را از طریق تونل تبدیل می‌کند، نه شبکه محلی.</string>
     <string name="xray_capability_realtime_media_title">رسانه بلادرنگ</string>
     <string name="xray_capability_realtime_media_desc">تماس‌ها، بازی‌ها و پخش را از طریق تونل منتقل می‌کند.</string>
-    <string name="xray_import_title">وی‌پی‌ان پیشرفته</string>
+    <string name="xray_import_title">اتصال وی‌پی‌ان</string>
     <string name="xray_service_mode_section_title">حالت اتصال</string>
     <string name="xray_service_mode_section_body">نحوه اتصال این دستگاه را انتخاب کنید.</string>
     <string name="xray_import_profile_section_title">وارد کردن نمایه</string>

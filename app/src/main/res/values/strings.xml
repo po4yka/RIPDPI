@@ -3553,7 +3553,7 @@ Source: %2$s</string>
     <string name="xray_capability_dns_protection_desc">Resolves names through the tunnel, not the local network.</string>
     <string name="xray_capability_realtime_media_title">Real-time media</string>
     <string name="xray_capability_realtime_media_desc">Carries calls, games, and streaming over the tunnel.</string>
-    <string name="xray_import_title">Advanced VPN</string>
+    <string name="xray_import_title">VPN connection</string>
     <string name="xray_service_mode_section_title">Connection mode</string>
     <string name="xray_service_mode_section_body">Choose how this device connects.</string>
     <string name="xray_import_profile_section_title">Import profile</string>

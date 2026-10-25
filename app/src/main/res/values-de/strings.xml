@@ -3388,7 +3388,7 @@ Quelle: %2$s</string>
     <string name="xray_capability_dns_protection_desc">Löst Namen über den Tunnel auf, nicht über das lokale Netzwerk.</string>
     <string name="xray_capability_realtime_media_title">Echtzeit-Medien</string>
     <string name="xray_capability_realtime_media_desc">Überträgt Anrufe, Spiele und Streaming über den Tunnel.</string>
-    <string name="xray_import_title">Erweitertes VPN</string>
+    <string name="xray_import_title">VPN-Verbindung</string>
     <string name="xray_service_mode_section_title">Verbindungsmodus</string>
     <string name="xray_service_mode_section_body">Wähle, wie sich dieses Gerät verbindet.</string>
     <string name="xray_import_profile_section_title">Profil importieren</string>

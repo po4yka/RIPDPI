@@ -3388,7 +3388,7 @@ Origen: %2$s</string>
     <string name="xray_capability_dns_protection_desc">Resuelve nombres por el túnel, no por la red local.</string>
     <string name="xray_capability_realtime_media_title">Medios en tiempo real</string>
     <string name="xray_capability_realtime_media_desc">Lleva llamadas, juegos y transmisiones por el túnel.</string>
-    <string name="xray_import_title">VPN avanzada</string>
+    <string name="xray_import_title">Conexión VPN</string>
     <string name="xray_service_mode_section_title">Modo de conexión</string>
     <string name="xray_service_mode_section_body">Elige cómo se conecta este dispositivo.</string>
     <string name="xray_import_profile_section_title">Importar perfil</string>

@@ -3436,7 +3436,7 @@ Fonte: %2$s</string>
     <string name="xray_capability_dns_protection_desc">Resolve nomes pelo túnel, não pela rede local.</string>
     <string name="xray_capability_realtime_media_title">Mídia em tempo real</string>
     <string name="xray_capability_realtime_media_desc">Transporta chamadas, jogos e streaming pelo túnel.</string>
-    <string name="xray_import_title">VPN avançada</string>
+    <string name="xray_import_title">Conexão VPN</string>
     <string name="xray_service_mode_section_title">Modo de conexão</string>
     <string name="xray_service_mode_section_body">Escolha como este dispositivo se conecta.</string>
     <string name="xray_import_profile_section_title">Importar perfil</string>

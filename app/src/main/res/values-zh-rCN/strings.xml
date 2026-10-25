@@ -3380,7 +3380,7 @@ fake_burst 3</string>
     <string name="xray_capability_dns_protection_desc">通过隧道解析域名，而非本地网络。</string>
     <string name="xray_capability_realtime_media_title">实时媒体</string>
     <string name="xray_capability_realtime_media_desc">通过隧道传输通话、游戏和流媒体。</string>
-    <string name="xray_import_title">高级 VPN</string>
+    <string name="xray_import_title">VPN 连接</string>
     <string name="xray_service_mode_section_title">连接模式</string>
     <string name="xray_service_mode_section_body">选择此设备的连接方式。</string>
     <string name="xray_import_profile_section_title">导入配置</string>

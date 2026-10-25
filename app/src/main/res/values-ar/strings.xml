@@ -3272,7 +3272,7 @@ fakeddisorder endhost</string>
     <string name="xray_capability_dns_protection_desc">يحل الأسماء عبر النفق بدلاً من الشبكة المحلية.</string>
     <string name="xray_capability_realtime_media_title">وسائط في الوقت الحقيقي</string>
     <string name="xray_capability_realtime_media_desc">يحمل المكالمات والألعاب والبث عبر النفق.</string>
-    <string name="xray_import_title">VPN متقدم</string>
+    <string name="xray_import_title">اتصال VPN</string>
     <string name="xray_service_mode_section_title">وضع الاتصال</string>
     <string name="xray_service_mode_section_body">اختر طريقة اتصال هذا الجهاز.</string>
     <string name="xray_import_profile_section_title">استيراد ملف تعريف</string>
