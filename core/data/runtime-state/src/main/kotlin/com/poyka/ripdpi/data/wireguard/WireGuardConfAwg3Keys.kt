@@ -75,8 +75,8 @@ internal fun parseKeepaliveRange(
     value: String,
 ): Pair<Int, Int?> {
     val bounds = parseConfRange(key, value).split('-').map(String::toInt)
-    val high = bounds.last().takeIf { it != bounds.first() }
-    require(high == null || bounds.first() > 0) { "WireGuard config key '$key' range must start at 1 or more" }
+    // `0` means "keepalive off"; a `0-N` range reads the same way instead of failing a whole import.
+    val high = bounds.last().takeIf { it != bounds.first() && bounds.first() > 0 }
     return bounds.first() to high
 }
 

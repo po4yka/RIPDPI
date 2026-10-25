@@ -442,17 +442,22 @@ impl WireGuardTunnel {
 /// decrypts and authenticates them, then rejects the zero "IP header" as
 /// `InvalidPacket`. For a well-sized transport packet that is the only source of
 /// `InvalidPacket`, because the size and type checks already passed.
+/// Smallest transport message boringtun decrypts (`DATA_OVERHEAD_SZ`); shorter ones fail before AEAD.
+const MIN_AUTHENTICATED_TRANSPORT: usize = 32;
+
 fn is_padded_keepalive(decoded: &[u8], awg_active: bool) -> bool {
-    awg_active && wireguard_message_type(decoded) == Some(4)
+    // boringtun 0.7.1 reports InvalidPacket for a transport message only before AEAD when it is
+    // shorter than 32 bytes, so the length check keeps an unauthenticated datagram out of here.
+    awg_active && decoded.len() >= MIN_AUTHENTICATED_TRANSPORT && wireguard_message_type(decoded) == Some(4)
 }
 
 /// Whether boringtun accepted `decoded` as an authenticated message (MAC, AEAD, and replay checks).
 fn authenticated_by_boringtun(result: &TunnResult<'_>, decoded: &[u8], awg_active: bool) -> bool {
     match result {
-        TunnResult::WriteToNetwork(_)
-        | TunnResult::WriteToTunnelV4(..)
-        | TunnResult::WriteToTunnelV6(..)
-        | TunnResult::Done => true,
+        TunnResult::WriteToNetwork(_) | TunnResult::WriteToTunnelV4(..) | TunnResult::WriteToTunnelV6(..) => true,
+        // A cookie reply also yields Done; its key derives from the public server key, so only
+        // a transport keepalive proves the peer.
+        TunnResult::Done => wireguard_message_type(decoded) == Some(4),
         TunnResult::Err(WireGuardError::InvalidPacket) => is_padded_keepalive(decoded, awg_active),
         TunnResult::Err(_) => false,
     }
@@ -614,7 +619,8 @@ mod tests {
 
     #[test]
     fn only_boringtun_authenticated_transport_may_teach_the_udp_window() {
-        let transport = [4, 0, 0, 0, 1, 0, 0, 0];
+        let mut transport = [0u8; MIN_AUTHENTICATED_TRANSPORT];
+        transport[0] = 4;
         assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidAeadTag), &transport, true));
         assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::DuplicateCounter), &transport, true));
         assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::NoCurrentSession), &transport, true));
@@ -622,6 +628,20 @@ mod tests {
         assert!(authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &transport, true));
         assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &transport, false));
         assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &[1, 0, 0, 0], true));
+        assert!(
+            !authenticated_by_boringtun(
+                &TunnResult::Err(WireGuardError::InvalidPacket),
+                &[4, 0, 0, 0, 1, 0, 0, 0],
+                true
+            ),
+            "a short transport fails before AEAD and must not count as authenticated",
+        );
+        let mut cookie = [0u8; 64];
+        cookie[0] = 3;
+        assert!(
+            !authenticated_by_boringtun(&TunnResult::Done, &cookie, true),
+            "a forgeable cookie reply is not traffic"
+        );
     }
 
     #[test]

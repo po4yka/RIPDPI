@@ -22,7 +22,9 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
     // A `.conf` range such as `25-35` (AWG 3.x) picks a random interval in that span.
     val keepaliveRange = rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().split('-').map { it.trim().toIntOrNull() }
     val keepalive = keepaliveRange.first()?.takeIf { it >= 0 } ?: 0
-    val keepaliveMax = keepaliveRange.getOrNull(1)?.takeIf { keepaliveRange.size == 2 && it > keepalive } ?: 0
+    // `0-N` means "off", as in the parser.
+    val keepaliveMax =
+        keepaliveRange.getOrNull(1)?.takeIf { keepaliveRange.size == 2 && keepalive > 0 && it > keepalive } ?: 0
     return form.toActivationRequest(
         profileId = profileId,
         interfaceAddressV4 = ipv4.single(),

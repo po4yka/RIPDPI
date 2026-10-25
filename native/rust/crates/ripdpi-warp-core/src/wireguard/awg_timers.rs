@@ -43,7 +43,8 @@ impl AwgTimers {
 
     /// An authenticated packet was sent or received (`timersAnyAuthenticatedPacketTraversal`).
     pub(super) fn mark_traffic(&self) {
-        self.last_traffic.store(self.now(), Ordering::Relaxed);
+        // fetch_max keeps the stamp monotonic when two threads race.
+        self.last_traffic.fetch_max(self.now(), Ordering::Relaxed);
     }
 
     pub(super) fn mark_initiation(&self) {

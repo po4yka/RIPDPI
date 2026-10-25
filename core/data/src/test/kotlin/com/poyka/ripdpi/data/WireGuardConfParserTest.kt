@@ -344,15 +344,15 @@ class WireGuardConfParserTest {
     }
 
     @Test
-    fun `persistent keepalive off means no keepalive and a zero-based range is refused`() {
+    fun `persistent keepalive off and a zero-based range both mean no keepalive`() {
         val off = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = off")).peers.single()
         assertNull(off.persistentKeepalive)
         assertNull(off.persistentKeepaliveMax)
         val zero = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 0")).peers.single()
         assertEquals(0, zero.persistentKeepalive)
-        assertThrows(IllegalArgumentException::class.java) {
-            WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 0-35"))
-        }
+        val zeroRange = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 0-35")).peers.single()
+        assertEquals(0, zeroRange.persistentKeepalive)
+        assertNull(zeroRange.persistentKeepaliveMax)
     }
 
     @Test
