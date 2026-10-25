@@ -6,6 +6,7 @@ use std::time::Instant;
 use tokio::time::timeout;
 
 use super::EncryptedDnsResolver;
+use super::state::build_doq_endpoint_for_endpoint;
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport};
 
 impl EncryptedDnsResolver {
@@ -21,8 +22,14 @@ impl EncryptedDnsResolver {
         let endpoint = self
             .inner
             .doq_endpoint
-            .as_ref()
-            .ok_or_else(|| EncryptedDnsError::Request("DoQ endpoint not initialized".to_string()))?;
+            .get_or_try_init(|| async {
+                build_doq_endpoint_for_endpoint(
+                    &self.inner.endpoint,
+                    &self.inner.connect_hooks,
+                    &self.inner.dot_tls_config,
+                )
+            })
+            .await?;
 
         let conn = self.get_or_connect_doq(endpoint).await?;
         match timeout(self.inner.timeout, exchange_doq_query(conn.clone(), query_bytes, len_prefix)).await {

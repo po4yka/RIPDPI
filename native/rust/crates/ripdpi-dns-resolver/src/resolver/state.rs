@@ -1,10 +1,11 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use rustls::ClientConfig;
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::runtime::Runtime;
+use tokio::sync::{Mutex as AsyncMutex, OnceCell as AsyncOnceCell};
 
 use super::connection::ConnectionPool;
 use super::doq;
@@ -35,8 +36,33 @@ pub(crate) struct ResolverInner {
     pub(crate) connection_pool: ConnectionPool,
     pub(crate) health: Option<HealthRegistry>,
     pub(crate) network_scope: ResolverNetworkScope,
-    pub(crate) doq_endpoint: Option<quinn::Endpoint>,
+    /// Built on first use inside the runtime that drives it: quinn spawns its endpoint driver there.
+    pub(crate) doq_endpoint: AsyncOnceCell<quinn::Endpoint>,
     pub(crate) doq_connection: AsyncMutex<Option<quinn::Connection>>,
+    /// Runtime reused by every blocking exchange, so state such as the DoQ endpoint outlives one call.
+    pub(crate) blocking_runtime: OnceLock<BlockingRuntime>,
+}
+
+/// Owns the blocking-exchange runtime and shuts it down without blocking, so the resolver can drop anywhere.
+#[derive(Debug)]
+pub(crate) struct BlockingRuntime(Option<Runtime>);
+
+impl BlockingRuntime {
+    pub(crate) fn new(runtime: Runtime) -> Self {
+        Self(Some(runtime))
+    }
+
+    pub(crate) fn get(&self) -> Option<&Runtime> {
+        self.0.as_ref()
+    }
+}
+
+impl Drop for BlockingRuntime {
+    fn drop(&mut self) {
+        if let Some(runtime) = self.0.take() {
+            runtime.shutdown_background();
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -67,7 +93,6 @@ pub(crate) fn build_inner(
         tls_verifiers.tls_verifier.as_ref(),
         &connect_hooks,
     )?;
-    let doq_endpoint = build_doq_endpoint_for_endpoint(&normalized, &connect_hooks, dot_tls_config.clone())?;
     let dot_extra_roots = tls_roots.clone();
     let dot_unpinned_custom_verifier_requested =
         tls_verifiers.tls_verifier.is_some() && tls_verifiers.dot_pin_verifier.is_none();
@@ -90,8 +115,9 @@ pub(crate) fn build_inner(
         connection_pool: ConnectionPool::default(),
         health,
         network_scope,
-        doq_endpoint,
+        doq_endpoint: AsyncOnceCell::new(),
         doq_connection: AsyncMutex::new(None),
+        blocking_runtime: OnceLock::new(),
     })
 }
 
@@ -115,16 +141,13 @@ fn build_doh_client_for_endpoint(
     build_doh_client(endpoint, transport, timeout, tls_roots, health, network_scope, tls_verifier).map(Some)
 }
 
-fn build_doq_endpoint_for_endpoint(
+/// Must run inside a Tokio runtime: quinn registers the socket and spawns the endpoint driver on it.
+pub(crate) fn build_doq_endpoint_for_endpoint(
     endpoint: &EncryptedDnsEndpoint,
     connect_hooks: &EncryptedDnsConnectHooks,
-    dot_tls_config: Arc<ClientConfig>,
-) -> Result<Option<quinn::Endpoint>, EncryptedDnsError> {
-    if endpoint.protocol != EncryptedDnsProtocol::Doq {
-        return Ok(None);
-    }
-
-    let mut doq_tls = (*dot_tls_config).clone();
+    dot_tls_config: &ClientConfig,
+) -> Result<quinn::Endpoint, EncryptedDnsError> {
+    let mut doq_tls = dot_tls_config.clone();
     doq_tls.alpn_protocols = vec![b"doq".to_vec()];
     let client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(doq_tls)
@@ -133,5 +156,5 @@ fn build_doq_endpoint_for_endpoint(
     let mut endpoint = doq::build_doq_endpoint(endpoint, connect_hooks)
         .map_err(|err| EncryptedDnsError::Request(format!("DoQ endpoint: {err}")))?;
     endpoint.set_default_client_config(client_config);
-    Ok(Some(endpoint))
+    Ok(endpoint)
 }

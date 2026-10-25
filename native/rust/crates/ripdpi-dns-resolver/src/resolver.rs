@@ -258,10 +258,19 @@ impl EncryptedDnsResolver {
             ));
         }
 
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|err| EncryptedDnsError::TaskJoin(format!("build blocking DNS exchange runtime: {err}")))?;
+        let runtime = match self.inner.blocking_runtime.get() {
+            Some(runtime) => runtime,
+            None => {
+                let runtime = Builder::new_current_thread().enable_all().build().map_err(|err| {
+                    EncryptedDnsError::TaskJoin(format!("build blocking DNS exchange runtime: {err}"))
+                })?;
+                // A concurrent first call may win the race; its runtime is used and this one is dropped.
+                self.inner.blocking_runtime.get_or_init(|| state::BlockingRuntime::new(runtime))
+            }
+        };
+        let runtime = runtime
+            .get()
+            .ok_or_else(|| EncryptedDnsError::TaskJoin("blocking DNS exchange runtime is shut down".to_string()))?;
         runtime.block_on(self.exchange_with_metadata(query_bytes))
     }
 

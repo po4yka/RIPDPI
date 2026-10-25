@@ -833,7 +833,7 @@ fn direct_dnscrypt_connect_hooks_are_used() {
 async fn direct_doq_udp_bind_hooks_are_used() {
     let binds = Arc::new(AtomicUsize::new(0));
     let bind_hook_calls = binds.clone();
-    let resolver = EncryptedDnsResolver::with_connect_hooks(
+    let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
         EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Doq,
             resolver_id: Some("fixture-doq".to_string()),
@@ -847,6 +847,7 @@ async fn direct_doq_udp_bind_hooks_are_used() {
             odoh: None,
         },
         EncryptedDnsTransport::Direct,
+        Duration::from_millis(100),
         EncryptedDnsConnectHooks::new().with_direct_udp_binder(move |bind_addr| {
             bind_hook_calls.fetch_add(1, Ordering::Relaxed);
             std::net::UdpSocket::bind(bind_addr)
@@ -854,8 +855,11 @@ async fn direct_doq_udp_bind_hooks_are_used() {
     )
     .expect("resolver builds");
 
-    let _ = resolver.endpoint();
-    assert_eq!(binds.load(Ordering::Relaxed), 1, "DoQ should use the direct UDP bind hook");
+    // The endpoint is built on first use, inside the runtime that drives it; nothing listens on the port.
+    let query = build_query("fixture.test");
+    let _ = resolver.exchange(&query).await;
+    let _ = resolver.exchange(&query).await;
+    assert_eq!(binds.load(Ordering::Relaxed), 1, "DoQ should bind once through the direct UDP bind hook");
 }
 
 #[tokio::test]
