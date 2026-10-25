@@ -22,7 +22,8 @@ pub(crate) fn connect_hooks(bind_ip: Option<IpAddr>, policy: SocketProtectionPol
 }
 
 /// # Cancel safety:
-/// Cancellation drops the owned socket and its pending connection.
+/// Cancellation drops the owned socket and its pending connection; during the
+/// protect step the blocking task owns the socket and drops it when done.
 async fn connect_tcp(
     target: SocketAddr,
     timeout: Duration,
@@ -30,7 +31,13 @@ async fn connect_tcp(
     policy: SocketProtectionPolicy,
 ) -> io::Result<TcpStream> {
     let socket = if target.is_ipv6() { tokio::net::TcpSocket::new_v6()? } else { tokio::net::TcpSocket::new_v4()? };
-    policy.protect_non_loopback(socket.as_raw_fd(), target)?;
+    // The protect callback is a binder call on Android: keep it off the runtime
+    // thread. The task owns the socket, so its fd cannot be closed and reused
+    // while protect runs.
+    let socket =
+        tokio::task::spawn_blocking(move || policy.protect_non_loopback(socket.as_raw_fd(), target).map(|()| socket))
+            .await
+            .map_err(|error| io::Error::other(format!("ECH bootstrap protect task failed: {error}")))??;
     if let Some(ip) = bind_ip {
         socket.bind(SocketAddr::new(ip, 0))?;
     }

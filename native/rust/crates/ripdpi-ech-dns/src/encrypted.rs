@@ -38,40 +38,89 @@ impl ripdpi_tls_profiles::OutboundEchResolver for EncryptedDnsEchResolver {
     ) -> Result<ripdpi_tls_profiles::EchLookupOutcome, ripdpi_tls_profiles::EchFacadeError> {
         let endpoint = super::encrypted_dns_endpoint_for_resolver_id(self.resolver_id);
         let transport = TransportConfig::Direct { route_experiment: None };
-        match resolve_https_ech_configs_via_encrypted_dns_with_hooks(
+        ech_lookup_outcome(resolve_https_ech_configs_via_encrypted_dns_with_hooks(
             request.inner_name,
             endpoint,
             &transport,
             self.connect_hooks.clone(),
-        ) {
-            EchResolutionOutcome::Available(config_list) => {
-                let public_name = ech_public_name(&config_list).ok_or_else(|| {
-                    ripdpi_tls_profiles::EchFacadeError::LookupFailed("ECH public_name missing".into())
-                })?;
-                Ok(ripdpi_tls_profiles::EchLookupOutcome::Available { public_name, config_list })
-            }
-            EchResolutionOutcome::NotPublished => Ok(ripdpi_tls_profiles::EchLookupOutcome::NotPublished),
-            EchResolutionOutcome::ResolutionFailed(error) => {
-                Ok(ripdpi_tls_profiles::EchLookupOutcome::ResolutionFailed(error))
-            }
+        ))
+    }
+}
+
+/// An HTTPS-record lookup already done by the caller (see
+/// [`resolve_outbound_ech_config_via_encrypted_dns_async`]).
+struct ResolvedEchLookup(EchResolutionOutcome);
+
+impl ripdpi_tls_profiles::OutboundEchResolver for ResolvedEchLookup {
+    fn resolve_https_ech_config_list(
+        &self,
+        _request: &ripdpi_tls_profiles::EchLookupRequest<'_>,
+    ) -> Result<ripdpi_tls_profiles::EchLookupOutcome, ripdpi_tls_profiles::EchFacadeError> {
+        ech_lookup_outcome(self.0.clone())
+    }
+}
+
+fn ech_lookup_outcome(
+    outcome: EchResolutionOutcome,
+) -> Result<ripdpi_tls_profiles::EchLookupOutcome, ripdpi_tls_profiles::EchFacadeError> {
+    match outcome {
+        EchResolutionOutcome::Available(config_list) => {
+            let public_name = ech_public_name(&config_list)
+                .ok_or_else(|| ripdpi_tls_profiles::EchFacadeError::LookupFailed("ECH public_name missing".into()))?;
+            Ok(ripdpi_tls_profiles::EchLookupOutcome::Available { public_name, config_list })
+        }
+        EchResolutionOutcome::NotPublished => Ok(ripdpi_tls_profiles::EchLookupOutcome::NotPublished),
+        EchResolutionOutcome::ResolutionFailed(error) => {
+            Ok(ripdpi_tls_profiles::EchLookupOutcome::ResolutionFailed(error))
         }
     }
 }
 
+fn outbound_ech_config(
+    inner_name: &str,
+    resolver: &impl ripdpi_tls_profiles::OutboundEchResolver,
+) -> Result<Option<ripdpi_tls_profiles::OutboundEchConfig>, ripdpi_tls_profiles::EchFacadeError> {
+    let request =
+        ripdpi_tls_profiles::EchLookupRequest::new(inner_name, ripdpi_tls_profiles::EchLookupTransport::EncryptedDns);
+    match ripdpi_tls_profiles::resolve_outbound_ech(&request, ripdpi_tls_profiles::EchPolicy::default(), resolver)? {
+        ripdpi_tls_profiles::EchSetup::Real(config) => Ok(Some(config)),
+        ripdpi_tls_profiles::EchSetup::Grease | ripdpi_tls_profiles::EchSetup::OptedOut => Ok(None),
+    }
+}
+
+/// Blocking ECH bootstrap lookup. It must not run on a thread inside a Tokio
+/// runtime: the blocking exchange then fails at once and the lookup degrades
+/// to GREASE. Async callers use
+/// [`resolve_outbound_ech_config_via_encrypted_dns_async`].
 pub fn resolve_outbound_ech_config_via_encrypted_dns(
     inner_name: &str,
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> Result<Option<ripdpi_tls_profiles::OutboundEchConfig>, ripdpi_tls_profiles::EchFacadeError> {
-    let request =
-        ripdpi_tls_profiles::EchLookupRequest::new(inner_name, ripdpi_tls_profiles::EchLookupTransport::EncryptedDns);
-    match ripdpi_tls_profiles::resolve_outbound_ech(
-        &request,
-        ripdpi_tls_profiles::EchPolicy::default(),
-        &EncryptedDnsEchResolver::adguard(connect_hooks),
-    )? {
-        ripdpi_tls_profiles::EchSetup::Real(config) => Ok(Some(config)),
-        ripdpi_tls_profiles::EchSetup::Grease | ripdpi_tls_profiles::EchSetup::OptedOut => Ok(None),
-    }
+    outbound_ech_config(inner_name, &EncryptedDnsEchResolver::adguard(connect_hooks))
+}
+
+/// Async ECH bootstrap lookup through the same resolver and policy as
+/// [`resolve_outbound_ech_config_via_encrypted_dns`], for callers that run
+/// inside a Tokio runtime.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: it owns its resolver and query; dropping it drops the
+/// in-flight exchange and publishes nothing.
+pub async fn resolve_outbound_ech_config_via_encrypted_dns_async(
+    inner_name: &str,
+    connect_hooks: EncryptedDnsConnectHooks,
+) -> Result<Option<ripdpi_tls_profiles::OutboundEchConfig>, ripdpi_tls_profiles::EchFacadeError> {
+    let endpoint = super::encrypted_dns_endpoint_for_resolver_id("adguard");
+    let transport = TransportConfig::Direct { route_experiment: None };
+    let outcome = match prepare_exchange(inner_name, DNS_RECORD_TYPE_HTTPS, endpoint, &transport, connect_hooks) {
+        Err(error) => EchResolutionOutcome::ResolutionFailed(error),
+        Ok((resolver, packet)) => match resolver.exchange(&packet).await {
+            Err(error) => EchResolutionOutcome::ResolutionFailed(error.to_string()),
+            Ok(response) => https_response_ech_outcome(&response),
+        },
+    };
+    outbound_ech_config(inner_name, &ResolvedEchLookup(outcome))
 }
 
 pub fn resolve_via_encrypted_dns(
@@ -116,11 +165,15 @@ fn resolve_https_ech_configs_via_encrypted_dns_with_hooks(
 ) -> EchResolutionOutcome {
     match exchange_encrypted_dns_query_with_hooks(domain, DNS_RECORD_TYPE_HTTPS, endpoint, transport, connect_hooks) {
         Err(err) => EchResolutionOutcome::ResolutionFailed(err),
-        Ok(response) => match extract_ech_config_list_from_https_response(&response) {
-            Err(err) => EchResolutionOutcome::ResolutionFailed(err),
-            Ok(None) => EchResolutionOutcome::NotPublished,
-            Ok(Some(bytes)) => EchResolutionOutcome::Available(bytes),
-        },
+        Ok(response) => https_response_ech_outcome(&response),
+    }
+}
+
+fn https_response_ech_outcome(response: &[u8]) -> EchResolutionOutcome {
+    match extract_ech_config_list_from_https_response(response) {
+        Err(err) => EchResolutionOutcome::ResolutionFailed(err),
+        Ok(None) => EchResolutionOutcome::NotPublished,
+        Ok(Some(bytes)) => EchResolutionOutcome::Available(bytes),
     }
 }
 
@@ -158,6 +211,9 @@ fn exchange_encrypted_dns_query_with_hooks(
 }
 
 /// Return the exact transmitted query so diagnostic parsing can bind negative replies.
+///
+/// Blocking: it must not run on a thread inside a Tokio runtime, where the
+/// blocking exchange fails at once.
 pub fn exchange_encrypted_dns_query_with_request(
     domain: &str,
     record_type: u16,
@@ -165,6 +221,19 @@ pub fn exchange_encrypted_dns_query_with_request(
     transport: &TransportConfig,
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> Result<(Vec<u8>, Vec<u8>), String> {
+    let (resolver, packet) = prepare_exchange(domain, record_type, endpoint, transport, connect_hooks)?;
+    let response = resolver.exchange_blocking(&packet).map_err(|err| err.to_string())?;
+    Ok((packet, response))
+}
+
+/// Build the resolver and the DNS query for one exchange.
+fn prepare_exchange(
+    domain: &str,
+    record_type: u16,
+    endpoint: EncryptedDnsEndpoint,
+    transport: &TransportConfig,
+    connect_hooks: EncryptedDnsConnectHooks,
+) -> Result<(EncryptedDnsResolver, Vec<u8>), String> {
     let transport = match transport {
         TransportConfig::Direct { .. } => EncryptedDnsTransport::Direct,
         TransportConfig::Socks5 { host, port, credentials } => {
@@ -185,13 +254,7 @@ pub fn exchange_encrypted_dns_query_with_request(
     .map_err(|err| err.to_string())?;
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
     let packet = build_dns_query_with_type(domain, query_id, record_type)?;
-    // `exchange_blocking` refuses to run on a thread inside a Tokio runtime,
-    // and relay backends (the MASQUE ECH bootstrap) are built inside one. A
-    // fresh thread has no runtime context, so the exchange runs in every caller.
-    let response = std::thread::scope(|scope| scope.spawn(|| resolver.exchange_blocking(&packet)).join())
-        .map_err(|_| "encrypted DNS exchange thread panicked".to_string())?
-        .map_err(|err| err.to_string())?;
-    Ok((packet, response))
+    Ok((resolver, packet))
 }
 
 /// Add the DoT TLS profile without replacing caller-owned socket hooks.

@@ -384,36 +384,50 @@ mod protect_tests {
     }
 
     /// The relay builds MASQUE backends inside its Tokio runtime. The ECH
-    /// bootstrap lookup must still reach its (protected) DoH connect there
-    /// instead of failing on the blocking resolver's runtime guard and
-    /// silently degrading to GREASE.
+    /// bootstrap lookup must reach its (protected) DoH connect there, and it
+    /// must not hold the runtime thread while it waits: a slow protect call
+    /// (a binder transaction on Android) has to leave other tasks running.
     #[test]
-    fn ech_lookup_inside_a_tokio_runtime_reaches_the_protected_connect() {
+    fn ech_lookup_inside_a_tokio_runtime_does_not_block_the_runtime() {
         use std::sync::atomic::AtomicUsize;
-        struct CountingReject(AtomicUsize);
-        impl ProtectCallback for CountingReject {
+        use std::time::Duration;
+        struct SlowReject(AtomicUsize);
+        impl ProtectCallback for SlowReject {
             fn protect(&self, _: RawFd) -> io::Result<()> {
                 // Relaxed: a standalone counter read after the lookup returns.
                 self.0.fetch_add(1, Ordering::Relaxed);
+                std::thread::sleep(Duration::from_millis(300));
                 Err(io::Error::new(io::ErrorKind::PermissionDenied, "fixture rejection"))
             }
         }
         let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let cb = Arc::new(CountingReject(AtomicUsize::new(0)));
+        let cb = Arc::new(SlowReject(AtomicUsize::new(0)));
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime");
 
-        let result = runtime.block_on(async {
-            crate::config::resolve_ech_config_via_encrypted_dns(
+        let (result, ticks) = runtime.block_on(async {
+            let ticks = Arc::new(AtomicUsize::new(0));
+            let ticker_ticks = Arc::clone(&ticks);
+            let ticker = tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                    ticker_ticks.fetch_add(1, Ordering::Relaxed);
+                }
+            });
+            let result = crate::config::resolve_ech_config_via_encrypted_dns(
                 "example.com",
                 None,
                 ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
             )
+            .await;
+            ticker.abort();
+            (result, ticks.load(Ordering::Relaxed))
         });
         unregister_protect_callback();
 
         assert!(matches!(result, Ok(None)), "a refused bootstrap degrades to GREASE: {result:?}");
         assert!(cb.0.load(Ordering::Relaxed) > 0, "the lookup never reached the bootstrap connect");
+        assert!(ticks >= 10, "the lookup held the runtime thread: only {ticks} ticks in 10 ms steps");
     }
 
     fn non_loopback() -> SocketAddr {

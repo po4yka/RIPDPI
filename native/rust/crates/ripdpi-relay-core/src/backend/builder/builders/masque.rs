@@ -7,7 +7,8 @@ use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::MasqueSessionFactory;
 
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
-    let masque_config = build_masque_client_config(config, context.outbound_bind_ip)?;
+    // `build_backend` resolved the ECH bootstrap asynchronously beforehand.
+    let masque_config = build_masque_client_config_with_ech_lookup(config, |_| Ok(context.masque_ech_config.clone()))?;
     Ok(RelayBackend::Masque(PooledRelayBackend::new(
         MasqueSessionFactory { config: masque_config, migration: context.quic_migration.clone() },
         context.pool_config,
@@ -15,24 +16,35 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     )))
 }
 
-fn build_masque_client_config(
+/// Resolve the MASQUE proxy's ECH config before the sync builder runs. The
+/// lookup is async encrypted DNS, so it never blocks a runtime thread. Other
+/// relay kinds get `None`. Config rejections come first, so a profile that
+/// [`build`] rejects causes no network I/O.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: dropping it drops the in-flight lookup; nothing is published.
+pub(crate) async fn resolve_ech_before_build(
     config: &ResolvedRelayRuntimeConfig,
     outbound_bind_ip: Option<IpAddr>,
-) -> io::Result<ripdpi_masque::config::MasqueConfig> {
+) -> io::Result<Option<ripdpi_masque::config::OutboundEchConfig>> {
+    let RelayBackendConfig::Masque(masque) = &config.backend else {
+        return Ok(None);
+    };
+    validate_masque_config(config)?;
     // ECH bootstrap sockets need the same protection policy as the carrier.
-    build_masque_client_config_with_ech_lookup(config, move |host| {
-        ripdpi_masque::config::resolve_ech_config_via_encrypted_dns(
-            host,
-            outbound_bind_ip,
-            config.common.socket_protection.into(),
-        )
-    })
+    ripdpi_masque::config::resolve_ech_config_via_encrypted_dns(
+        &masque_url_host(&masque.url)?,
+        outbound_bind_ip,
+        config.common.socket_protection.into(),
+    )
+    .await
 }
 
-fn build_masque_client_config_with_ech_lookup(
+/// Config checks that must reject a profile before any ECH network I/O.
+fn validate_masque_config(
     config: &ResolvedRelayRuntimeConfig,
-    ech_lookup: impl FnOnce(&str) -> io::Result<Option<ripdpi_masque::config::OutboundEchConfig>>,
-) -> io::Result<ripdpi_masque::config::MasqueConfig> {
+) -> io::Result<(&crate::config::MasqueRelayConfig, ripdpi_masque::config::MasqueTcpProtocol)> {
     let RelayBackendConfig::Masque(masque) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected MASQUE config"));
     };
@@ -52,7 +64,15 @@ fn build_masque_client_config_with_ech_lookup(
             "MASQUE Privacy Pass provider fetch cannot protect its HTTP client sockets in VPN mode",
         ));
     }
-    let ech_config = resolve_masque_ech_config(&masque.url, ech_lookup)?;
+    Ok((masque, tcp_protocol))
+}
+
+fn build_masque_client_config_with_ech_lookup(
+    config: &ResolvedRelayRuntimeConfig,
+    ech_lookup: impl FnOnce(&str) -> io::Result<Option<ripdpi_masque::config::OutboundEchConfig>>,
+) -> io::Result<ripdpi_masque::config::MasqueConfig> {
+    let (masque, tcp_protocol) = validate_masque_config(config)?;
+    let ech_config = ech_lookup(&masque_url_host(&masque.url)?)?;
     Ok(ripdpi_masque::config::MasqueConfig {
         socket_protection: config.common.socket_protection.into(),
         url: masque.url.clone(),
@@ -74,14 +94,12 @@ fn build_masque_client_config_with_ech_lookup(
     })
 }
 
-fn resolve_masque_ech_config(
-    url: &str,
-    ech_lookup: impl FnOnce(&str) -> io::Result<Option<ripdpi_masque::config::OutboundEchConfig>>,
-) -> io::Result<Option<ripdpi_masque::config::OutboundEchConfig>> {
+fn masque_url_host(url: &str) -> io::Result<String> {
     let parsed = url::Url::parse(url).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-    let host =
-        parsed.host_str().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))?;
-    ech_lookup(host)
+    parsed
+        .host_str()
+        .map(str::to_owned)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))
 }
 
 #[cfg(test)]
@@ -152,6 +170,22 @@ mod tests {
         );
         assert!(error.to_string().contains("masque_h3_tcp_unsupported"));
         assert!(lookup.requests().is_empty(), "H3 TCP rejection must precede encrypted-DNS network I/O");
+    }
+
+    #[tokio::test]
+    async fn async_ech_prefetch_rejects_h3_tcp_before_lookup() {
+        let mut config = sample_masque_runtime_config();
+        let RelayBackendConfig::Masque(masque) = &mut config.backend else {
+            panic!("expected MASQUE config");
+        };
+        masque.tcp_protocol = "http3".to_string();
+
+        let error = resolve_ech_before_build(&config, None).await.expect_err("H3 TCP must fail before ECH lookup");
+
+        assert_eq!(
+            Some(ripdpi_failure_classifier::FailureClass::MasqueH3TcpUnsupported),
+            crate::error::relay_failure_class(&error),
+        );
     }
 
     fn sample_masque_runtime_config() -> ResolvedRelayRuntimeConfig {

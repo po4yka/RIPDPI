@@ -93,6 +93,7 @@ mod tests {
             socket_protection: ripdpi_relay_tls_transports::SocketProtectionPolicy::Inactive,
             pool_config: RelayPoolConfig::default(),
             quic_migration: QuicMigrationTelemetryState::default(),
+            masque_ech_config: None,
         }
     }
 

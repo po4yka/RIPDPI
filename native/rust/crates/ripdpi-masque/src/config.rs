@@ -101,15 +101,22 @@ impl fmt::Debug for MasqueConfig {
     }
 }
 
-pub fn resolve_ech_config_via_encrypted_dns(
+/// Resolve the proxy's ECH config over encrypted DNS, with bootstrap sockets
+/// under `socket_protection`. Async, so it runs inside the relay runtime.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: dropping it drops the in-flight lookup; nothing is published.
+pub async fn resolve_ech_config_via_encrypted_dns(
     host: &str,
     outbound_bind_ip: Option<IpAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<Option<OutboundEchConfig>> {
-    ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns(
+    ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns_async(
         host,
         crate::ech::connect_hooks(outbound_bind_ip, socket_protection),
     )
+    .await
     .map_err(|error| io::Error::other(format!("MASQUE ECH resolution failed: {error}")))
 }
 

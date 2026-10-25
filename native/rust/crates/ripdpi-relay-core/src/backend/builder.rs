@@ -33,12 +33,14 @@ pub(crate) async fn build_backend_with_socket_protector(
         SocketProtectionPolicy::Inactive => None,
         SocketProtectionPolicy::VpnRequired => Some(XhttpSocketProtector::new(move |fd| socket_protection.protect(fd))),
     });
+    let outbound_bind_ip = parse_outbound_bind_ip(&config.common.outbound_bind_ip)?;
     let context = BuildContext {
-        outbound_bind_ip: parse_outbound_bind_ip(&config.common.outbound_bind_ip)?,
+        outbound_bind_ip,
         socket_protector,
         socket_protection,
         pool_config: pool_config_for_backend(config),
         quic_migration: QuicMigrationTelemetryState::default(),
+        masque_ech_config: builders::resolve_masque_ech_before_build(config, outbound_bind_ip).await?,
     };
 
     match relay_transport_registration(config.kind_id()).and_then(|registration| registration.builder) {
@@ -53,4 +55,7 @@ pub(crate) struct BuildContext {
     pub(crate) socket_protection: SocketProtectionPolicy,
     pub(crate) pool_config: RelayPoolConfig,
     pub(crate) quic_migration: QuicMigrationTelemetryState,
+    /// The MASQUE proxy's ECH config, resolved asynchronously before the sync
+    /// builder runs; `None` for other kinds or when none is published.
+    pub(crate) masque_ech_config: Option<ripdpi_masque::config::OutboundEchConfig>,
 }

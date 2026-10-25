@@ -27,7 +27,7 @@ pub(crate) use chain_relay::build as build_chain_relay;
 pub(crate) use cloudflare_tunnel::build as build_cloudflare_tunnel;
 pub(crate) use common::to_io_error;
 pub(crate) use hysteria2::build as build_hysteria2;
-pub(crate) use masque::build as build_masque;
+pub(crate) use masque::{build as build_masque, resolve_ech_before_build as resolve_masque_ech_before_build};
 pub(crate) use mieru::build as build_mieru;
 pub(crate) use shadowsocks::build as build_shadowsocks;
 pub(crate) use shadowtls::build as build_shadowtls;

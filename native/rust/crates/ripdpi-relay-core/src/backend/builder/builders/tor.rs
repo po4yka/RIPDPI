@@ -66,6 +66,7 @@ mod tests {
             socket_protection: ripdpi_relay_tls_transports::SocketProtectionPolicy::Inactive,
             pool_config: ripdpi_relay_mux::RelayPoolConfig::default(),
             quic_migration: crate::telemetry::QuicMigrationTelemetryState::default(),
+            masque_ech_config: None,
         };
 
         let error = super::build(&sample_config("trojan"), &context)
