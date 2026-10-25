@@ -151,17 +151,25 @@ impl GeoipDatabase {
 
     fn country_code(&self, ip: IpAddr) -> Option<&str> {
         let lookup = self.reader.lookup(ip).ok()?;
-        let country = lookup.decode::<geoip2::Country>().ok()??;
-        country.country.iso_code
+        match lookup.decode::<geoip2::Country>() {
+            Ok(country) => country?.country.iso_code,
+            // sing-geoip (the sing-box geoip.db) stores a bare lowercase code string per network.
+            Err(_) => lookup.decode::<&str>().ok()?,
+        }
     }
 
     fn ip_metadata(&self, ip: IpAddr) -> Option<GeoIpMetadata> {
         let lookup = self.reader.lookup(ip).ok()?;
-        let country_code = lookup
-            .decode::<geoip2::Country>()
-            .ok()
-            .flatten()
-            .and_then(|country| country.country.iso_code.map(ToOwned::to_owned));
+        let country_code = match lookup.decode::<geoip2::Country>() {
+            Ok(country) => country.and_then(|country| country.country.iso_code.map(ToOwned::to_owned)),
+            // sing-geoip leaves also carry non-country tags such as "private" or "telegram".
+            Err(_) => lookup
+                .decode::<&str>()
+                .ok()
+                .flatten()
+                .filter(|code| code.len() == 2 && code.bytes().all(|byte| byte.is_ascii_alphabetic()))
+                .map(str::to_ascii_uppercase),
+        };
         let asn = lookup.decode::<geoip2::Asn>().ok().flatten();
         let asn_number = asn.as_ref().and_then(|record| record.autonomous_system_number);
         let organization = asn.and_then(|record| record.autonomous_system_organization.map(ToOwned::to_owned));
@@ -264,6 +272,10 @@ pub enum GeositeParseError {
     VarintTooLong,
     #[error("invalid utf-8 in protobuf string")]
     InvalidUtf8,
+    #[error("unsupported sing-box geosite version {0}")]
+    UnsupportedSingGeositeVersion(u8),
+    #[error("unsupported sing-box geosite rule type {0}")]
+    UnsupportedSingGeositeRuleType(u8),
 }
 
 fn load_databases(paths: &GeoRuntimePaths) -> Result<LoadedDatabases, GeoRuntimeError> {
@@ -318,6 +330,10 @@ fn mapped_version(path: &Path, len: usize) -> String {
 }
 
 fn parse_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<GeositeDomainRule>>, GeositeParseError> {
+    // A v2ray GeoSiteList starts with a field-1 tag (0x0a); a sing-box geosite.db starts with its version byte.
+    if input.first().is_some_and(|first| *first != GEOSITE_CATALOG_ENTRY_TAG) {
+        return parse_sing_geosite_catalog(input);
+    }
     let mut cursor = ProtoCursor::new(input);
     let mut categories = HashMap::new();
     while !cursor.is_empty() {
@@ -382,6 +398,49 @@ fn parse_geosite_domain(input: &[u8]) -> Result<GeositeDomainRule, GeositeParseE
     Ok(GeositeDomainRule { kind, value })
 }
 
+/// Parses the sing-box `geosite.db` layout: a version byte, a uvarint entry count, one index row per
+/// entry (length-prefixed code, uvarint item offset, uvarint item count), then the items, each a
+/// type byte and a length-prefixed value.
+fn parse_sing_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<GeositeDomainRule>>, GeositeParseError> {
+    let mut cursor = ProtoCursor::new(input);
+    let version = cursor.byte()?;
+    if version != SING_GEOSITE_VERSION {
+        return Err(GeositeParseError::UnsupportedSingGeositeVersion(version));
+    }
+    let entry_count = cursor.varint()?;
+    let mut index = Vec::new();
+    for _ in 0..entry_count {
+        let code = cursor.string(WIRE_LENGTH_DELIMITED)?;
+        let offset = usize::try_from(cursor.varint()?).map_err(|_| GeositeParseError::VarintTooLong)?;
+        let item_count = cursor.varint()?;
+        index.push((code, offset, item_count));
+    }
+    let content = cursor.remaining();
+    let mut categories = HashMap::new();
+    for (code, offset, item_count) in index {
+        let mut items = ProtoCursor::new(content.get(offset..).ok_or(GeositeParseError::UnexpectedEof)?);
+        let mut rules = Vec::new();
+        for _ in 0..item_count {
+            let kind = match items.byte()? {
+                SING_GEOSITE_DOMAIN => GeositeDomainKind::Full,
+                SING_GEOSITE_DOMAIN_SUFFIX => GeositeDomainKind::RootDomain,
+                SING_GEOSITE_DOMAIN_KEYWORD => GeositeDomainKind::Plain,
+                SING_GEOSITE_DOMAIN_REGEX => GeositeDomainKind::Regex,
+                other => return Err(GeositeParseError::UnsupportedSingGeositeRuleType(other)),
+            };
+            let mut value = items.string(WIRE_LENGTH_DELIMITED)?;
+            // sing-geosite writes a v2ray root domain as suffix ".value" (plus a full rule when the
+            // value has a dot); the root-domain rule matches the value and its subdomains.
+            if kind == GeositeDomainKind::RootDomain && value.starts_with('.') {
+                value.remove(0);
+            }
+            rules.push(GeositeDomainRule { kind, value });
+        }
+        categories.insert(code.to_ascii_lowercase(), rules);
+    }
+    Ok(categories)
+}
+
 struct ProtoCursor<'a> {
     input: &'a [u8],
     offset: usize,
@@ -394,6 +453,16 @@ impl<'a> ProtoCursor<'a> {
 
     fn is_empty(&self) -> bool {
         self.offset >= self.input.len()
+    }
+
+    fn remaining(&self) -> &'a [u8] {
+        self.input.get(self.offset..).unwrap_or_default()
+    }
+
+    fn byte(&mut self) -> Result<u8, GeositeParseError> {
+        let byte = *self.input.get(self.offset).ok_or(GeositeParseError::UnexpectedEof)?;
+        self.offset += 1;
+        Ok(byte)
     }
 
     fn varint(&mut self) -> Result<u64, GeositeParseError> {
@@ -447,6 +516,12 @@ impl<'a> ProtoCursor<'a> {
 }
 
 const GEOSITE_CATALOG_ENTRY_FIELD: u64 = 1;
+const GEOSITE_CATALOG_ENTRY_TAG: u8 = 0x0a;
+const SING_GEOSITE_VERSION: u8 = 0;
+const SING_GEOSITE_DOMAIN: u8 = 0;
+const SING_GEOSITE_DOMAIN_SUFFIX: u8 = 1;
+const SING_GEOSITE_DOMAIN_KEYWORD: u8 = 2;
+const SING_GEOSITE_DOMAIN_REGEX: u8 = 3;
 const GEOSITE_ENTRY_COUNTRY_CODE_FIELD: u64 = 1;
 const GEOSITE_ENTRY_DOMAIN_FIELD: u64 = 2;
 const GEOSITE_DOMAIN_TYPE_FIELD: u64 = 1;
@@ -605,6 +680,62 @@ mod tests {
         assert!(result.runtime.country_contains_ip("se", ip("89.160.20.112")));
     }
 
+    #[test]
+    fn geosite_lookup_reads_sing_box_geosite_database() {
+        let dir = temp_dir();
+        let catalog = sing_geosite_catalog(&[
+            ("ru", &[(0, "example.ru"), (1, ".example.ru"), (1, ".su"), (0, "exact.ru")]),
+            ("Test", &[(2, "keyword"), (3, r"^shop\.example\.com$")]),
+        ]);
+        fs::write(dir.join("geosite.db"), catalog).expect("write geosite fixture");
+
+        let runtime = GeoRuntime::load(paths(&dir)).expect("runtime loads sing-box geosite database").runtime;
+
+        assert!(runtime.geosite_contains("ru", "example.ru"));
+        assert!(runtime.geosite_contains("RU", "www.example.ru"));
+        assert!(runtime.geosite_contains("ru", "su"));
+        assert!(runtime.geosite_contains("ru", "mail.su"));
+        assert!(runtime.geosite_contains("ru", "exact.ru"));
+        assert!(!runtime.geosite_contains("ru", "notexample.ru"));
+        assert!(runtime.geosite_contains("test", "a.keyword.example"));
+        assert!(runtime.geosite_contains("test", "shop.example.com"));
+        assert!(!runtime.geosite_contains("test", "example.com"));
+        assert_eq!(None, runtime.geosite_match("missing", "example.ru"));
+    }
+
+    #[test]
+    fn sing_box_geosite_rejects_truncated_input_and_unknown_rule_types() {
+        let mut truncated = sing_geosite_catalog(&[("ru", &[(0, "example.ru")])]);
+        truncated.pop();
+        assert_eq!(Err(GeositeParseError::UnexpectedEof), parse_geosite_catalog(&truncated).map(|_| ()));
+        let unknown = sing_geosite_catalog(&[("ru", &[(9, "example.ru")])]);
+        assert_eq!(
+            Err(GeositeParseError::UnsupportedSingGeositeRuleType(9)),
+            parse_geosite_catalog(&unknown).map(|_| ())
+        );
+    }
+
+    #[test]
+    fn geoip_lookup_reads_sing_geoip_string_records() {
+        let dir = temp_dir();
+        // 0.0.0.0/1 is "se", 128.0.0.0/2 is the non-country tag "telegram", 192.0.0.0/2 has no record.
+        fs::write(dir.join("geoip.db"), sing_geoip_database(&["se", "telegram"])).expect("write geoip fixture");
+
+        let runtime = GeoRuntime::load(paths(&dir)).expect("runtime loads sing-geoip database").runtime;
+
+        assert!(runtime.country_contains_ip("se", ip("89.160.20.112")));
+        assert!(runtime.country_contains_ip("SE", ip("89.160.20.112")));
+        assert!(!runtime.country_contains_ip("ru", ip("89.160.20.112")));
+        assert!(runtime.country_contains_ip("telegram", ip("149.154.167.50")));
+        assert!(!runtime.country_contains_ip("se", ip("203.0.113.1")));
+        assert_eq!(
+            Some(GeoIpMetadata { country_code: Some("SE".to_owned()), asn: None, organization: None }),
+            runtime.ip_metadata(ip("89.160.20.112"))
+        );
+        assert_eq!(None, runtime.ip_metadata(ip("149.154.167.50")));
+        assert!(runtime.versions().geoip.is_some_and(|version| version.contains(":sing-geoip:")));
+    }
+
     fn paths(dir: &Path) -> GeoRuntimePaths {
         GeoRuntimePaths { geoip_db: dir.join("geoip.db"), geosite_db: dir.join("geosite.db") }
     }
@@ -667,6 +798,68 @@ mod tests {
     fn field_varint(out: &mut Vec<u8>, field: u64, value: u64) {
         varint(out, (field << PROTO_TAG_SHIFT) | u64::from(WIRE_VARINT));
         varint(out, value);
+    }
+
+    fn sing_geosite_catalog(entries: &[(&str, &[(u8, &str)])]) -> Vec<u8> {
+        let mut header = vec![0];
+        let mut content = Vec::new();
+        varint(&mut header, entries.len() as u64);
+        for (code, items) in entries {
+            varint(&mut header, code.len() as u64);
+            header.extend_from_slice(code.as_bytes());
+            varint(&mut header, content.len() as u64);
+            varint(&mut header, items.len() as u64);
+            for (kind, value) in *items {
+                content.push(*kind);
+                varint(&mut content, value.len() as u64);
+                content.extend_from_slice(value.as_bytes());
+            }
+        }
+        header.extend_from_slice(&content);
+        header
+    }
+
+    /// A minimal IPv4 MaxMind DB as sing-geoip writes it: string leaves, 24-bit records, two nodes.
+    /// Node 0 splits on the first address bit: left is `codes[0]`, right is node 1. Node 1 splits on
+    /// the second bit: left is `codes[1]`, right is "no record".
+    fn sing_geoip_database(codes: &[&str; 2]) -> Vec<u8> {
+        const NODE_COUNT: u32 = 2;
+        let mut data = Vec::new();
+        let mut pointers = Vec::new();
+        for code in codes {
+            pointers.push(NODE_COUNT + 16 + data.len() as u32);
+            mmdb_string(&mut data, code);
+        }
+        let mut out = Vec::new();
+        for record in [pointers[0], 1, pointers[1], NODE_COUNT] {
+            out.extend_from_slice(&record.to_be_bytes()[1..]);
+        }
+        out.extend_from_slice(&[0; 16]);
+        out.extend_from_slice(&data);
+        out.extend_from_slice(b"\xab\xcd\xefMaxMind.com");
+        out.push(0xe0 | 9);
+        for (key, value) in [
+            ("binary_format_major_version", &[0xa1, 2][..]),
+            ("binary_format_minor_version", &[0xa0][..]),
+            ("build_epoch", &[0x00, 0x02][..]),
+            ("description", &[0xe0][..]),
+            ("ip_version", &[0xa1, 4][..]),
+            ("languages", &[0x00, 0x04][..]),
+            ("node_count", &[0xc1, NODE_COUNT as u8][..]),
+            ("record_size", &[0xa1, 24][..]),
+        ] {
+            mmdb_string(&mut out, key);
+            out.extend_from_slice(value);
+        }
+        mmdb_string(&mut out, "database_type");
+        mmdb_string(&mut out, "sing-geoip");
+        out
+    }
+
+    fn mmdb_string(out: &mut Vec<u8>, value: &str) {
+        assert!(value.len() < 29, "short strings only");
+        out.push(0x40 | value.len() as u8);
+        out.extend_from_slice(value.as_bytes());
     }
 
     fn varint(out: &mut Vec<u8>, mut value: u64) {

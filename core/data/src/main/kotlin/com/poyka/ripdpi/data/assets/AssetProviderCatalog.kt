@@ -26,9 +26,10 @@ enum class GeoAssetKind {
 }
 
 /**
- * A GitHub repository that publishes a sing-box-format `.db` on its Releases page. The asset is
- * always served from the `latest` release, so only `owner/repo` plus the release asset file name
- * are needed to build a download URL.
+ * A GitHub repository that publishes a geo database on its Releases page. `ripdpi-geo` reads a
+ * sing-box `geoip.db` or a MaxMind GeoIP2/GeoLite2 Country `.mmdb` for geoip, and a sing-box
+ * `geosite.db` or a v2ray `geosite.dat` for geosite. The asset is always served from the `latest`
+ * release, so only `owner/repo` plus the release asset file name are needed to build a download URL.
  */
 data class GeoAssetRepo(
     /** GitHub `owner/repo`, e.g. `SagerNet/sing-geoip`. */
@@ -91,21 +92,22 @@ val BuiltInAssetProviders: List<AssetProvider> =
          * RuNet Freedom (russia-v2ray-rules-dat) — de-facto Russia bypass ruleset with frequent
          * updates, more current than antizapret for v2ray/xray geoip/geosite tags.
          *
-         * Format note: runetfreedom/russia-v2ray-rules-dat publishes both v2ray `.dat` and
-         * sing-box-compatible `.db` variants on the same release. We download the `.db` assets
-         * (geoip.db / geosite.db) which are compatible with the sing-box maxminddb/protobuf
-         * format that ripdpi-geo consumes. Releases that ship only the `.dat` variant are
-         * rejected by the existing fail-closed isPlausibleGeoAssetPayload gate — no per-release
-         * checksum pin exists upstream, so integrity is enforced entirely by that gate.
+         * Format note: runetfreedom releases ship no sing-box `.db` files. Their `geoip.dat` is a
+         * v2ray CIDR list that ripdpi-geo cannot read, so geoip comes from the GeoLite2-format
+         * `Country.mmdb`. The full `geosite.dat` exceeds the download size limit, so geosite comes
+         * from `geosite-ru-only.dat` (v2ray format; the RU-BLOCKED, RU-AVAILABLE-ONLY-INSIDE,
+         * CATEGORY-GOV-RU, CATEGORY-ADS-ALL and PRIVATE categories). No per-release checksum pin
+         * exists upstream, so integrity is enforced entirely by isPlausibleGeoAssetPayload.
          *
-         * Provider URL: https://github.com/runetfreedom/russia-v2ray-rules-dat
+         * Provider URLs: https://github.com/runetfreedom/russia-blocked-geoip and
+         * https://github.com/runetfreedom/russia-blocked-geosite
          */
         AssetProvider(
             id = "runetfreedom",
             labelResKey = "asset_provider_runetfreedom_label",
             descriptionResKey = "asset_provider_runetfreedom_desc",
-            geoipRepo = GeoAssetRepo("runetfreedom/russia-v2ray-rules-dat", GeoipDatabaseAssetFileName),
-            geositeRepo = GeoAssetRepo("runetfreedom/russia-v2ray-rules-dat", GeositeDatabaseAssetFileName),
+            geoipRepo = GeoAssetRepo("runetfreedom/russia-blocked-geoip", "Country.mmdb"),
+            geositeRepo = GeoAssetRepo("runetfreedom/russia-blocked-geosite", "geosite-ru-only.dat"),
         ),
         AssetProvider(
             id = CustomAssetProviderId,
