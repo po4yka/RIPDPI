@@ -307,12 +307,14 @@ private fun ActuatorHeadline(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ConnectionStatusFeedback(status = state.status, tint = stateStyle.label)
+            // The state is the header's main status text: foreground ink, with semantic color only for
+            // degraded and fault (the route color), and a per-state symbol so color never carries it alone.
+            ConnectionStatusFeedback(status = state.status, tint = stateStyle.routeLabel)
             Text(
                 modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
                 text = state.statusDescription,
-                style = type.bodyEmphasisBold,
-                color = stateStyle.label,
+                style = type.screenTitleEmphasis,
+                color = stateStyle.routeLabel,
             )
         }
         if (LocalDensity.current.fontScale >= StackedRouteFontScale) {
