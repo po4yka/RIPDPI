@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.core.routing.DestinationDomainMatcherKind
 import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
+import com.poyka.ripdpi.services.lua.relativizeLuaScriptPaths
 import java.util.Locale
 
 private const val TunnelIpv4Cidr = "10.10.10.10/32"
@@ -139,7 +140,10 @@ private fun mapDnsList(
     values: List<String>,
 ): List<String> = if (mapDnsEnabled) values else emptyList()
 
-/** Pure bridge input projection from the immutable settings captured for this TUN generation. */
+/**
+ * Bridge input projection from the immutable settings captured for this TUN generation. Its only
+ * I/O is the canonicalization of absolute Lua script paths.
+ */
 internal fun buildConsumedVpnTunConfig(
     settings: com.poyka.ripdpi.proto.AppSettings,
     environment: VpnTunnelRuntimeEnvironment,
@@ -160,7 +164,7 @@ internal fun buildConsumedVpnTunConfig(
         tunnelMtu = tunnelMtu,
         logContext = logContext,
         encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
-        strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
+        strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() }?.jailedFor(environment),
         protectPath = environment.protectPath,
         rootHelperSocketPath = rootSocket,
         luaScriptBaseDir = environment.luaScriptBaseDir,
@@ -169,3 +173,8 @@ internal fun buildConsumedVpnTunConfig(
         geositeDbPath = environment.geositeDbPath,
     )
 }
+
+// The tun2socks Lua loader is jailed like the proxy runtime, so saved absolute in-jail script paths
+// load in their jail-relative form here too.
+private fun String.jailedFor(environment: VpnTunnelRuntimeEnvironment): String =
+    environment.luaScriptBaseDir?.let { baseDir -> relativizeLuaScriptPaths(this, baseDir) } ?: this

@@ -11,7 +11,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 
 class VpnTunnelRuntimeTest {
     internal companion object {
@@ -348,6 +350,44 @@ class VpnTunnelRuntimeTest {
             assertEquals(yaml, bridge.startedConfig?.strategyChainYaml)
             assertEquals("/data/app/files/lua", bridge.startedConfig?.luaScriptBaseDir)
             assertEquals(true, bridge.startedConfig?.luaSocketOwned)
+        }
+
+    @Test
+    fun savedAbsoluteInJailLuaScriptPathReachesTunnelAsJailRelative() =
+        runTest {
+            val jail = Files.createTempDirectory("lua-jail").toFile()
+            try {
+                File(jail, "candidate.lua").writeText("-- script")
+                val settings =
+                    AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setStrategyChainYaml(
+                            "strategies:\n  - script_paths:\n      - \"${jail.path}/candidate.lua\"\n",
+                        ).build()
+                val bridge = TestTun2SocksBridge()
+                val runtime =
+                    VpnTunnelRuntime(
+                        vpnHost = TestVpnServiceHost(backgroundScope),
+                        appSettingsRepository = TestAppSettingsRepository(settings),
+                        proxyGroupRepository = TestProxyGroupRepository(),
+                        tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                        vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                        environment = VpnTunnelRuntimeEnvironment(luaScriptBaseDir = jail.path),
+                    )
+                runtime.start(
+                    activeDns = settings.activeDnsSettings(),
+                    overrideReason = null,
+                    logContext = null,
+                    localProxyEndpoint = localProxyEndpoint,
+                    configurationInput = runtime.captureConfigurationInput(),
+                )
+                assertEquals(
+                    "strategies:\n  - script_paths:\n      - \"candidate.lua\"\n",
+                    bridge.startedConfig?.strategyChainYaml,
+                )
+            } finally {
+                jail.deleteRecursively()
+            }
         }
 
     @Test

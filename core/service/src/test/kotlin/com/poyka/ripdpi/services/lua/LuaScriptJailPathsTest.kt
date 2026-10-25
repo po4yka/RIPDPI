@@ -30,6 +30,22 @@ class LuaScriptJailPathsTest {
     }
 
     @Test
+    fun `script_paths key that opens a list item is recognized`() {
+        val root = Files.createTempDirectory("lua-jail").toFile()
+        try {
+            File(root, "candidate.lua").writeText("-- script")
+            val saved = "strategies:\n  - script_paths:\n      - ${root.path}/candidate.lua\n"
+
+            assertEquals(
+                "strategies:\n  - script_paths:\n      - candidate.lua\n",
+                relativizeLuaScriptPaths(saved, root.path),
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `saved absolute in-jail script paths load as jail-relative paths`() {
         val root = Files.createTempDirectory("lua-jail").toFile()
         try {

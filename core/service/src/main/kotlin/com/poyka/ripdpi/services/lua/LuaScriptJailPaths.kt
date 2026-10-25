@@ -2,7 +2,8 @@ package com.poyka.ripdpi.services.lua
 
 import java.io.File
 
-private val ScriptPathsKey = Regex("""^(\s*)script_paths:\s*$""")
+// The key may open a list item ("- script_paths:"); its column is then after the dash.
+private val ScriptPathsKey = Regex("""^(\s*(?:-\s+)?)script_paths:\s*$""")
 private val AbsolutePathListItem = Regex("""^(\s*)-\s*("?)(/[^"]*?)\2\s*$""")
 private const val IndentGroup = 1
 private const val PathGroup = 3
