@@ -1,6 +1,7 @@
 use std::io;
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::sync::Arc;
+use std::task::{Context, Poll, Wake, Waker};
 
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
@@ -25,6 +26,10 @@ pub struct ShadowTlsStream<S> {
     read_frame_offset: usize,
     write_frame: Vec<u8>,
     write_frame_offset: usize,
+    /// Waker of a write, flush or shutdown waiting for the queued frame to
+    /// drain. A read that drains the frame wakes it too, so the carrier's
+    /// single write-readiness slot never loses the writer's wakeup.
+    write_waker: Option<Waker>,
     eof: bool,
 }
 
@@ -45,6 +50,7 @@ impl<S> ShadowTlsStream<S> {
             read_frame_offset: 0,
             write_frame: Vec::new(),
             write_frame_offset: 0,
+            write_waker: None,
             eof: false,
         }
     }
@@ -78,6 +84,40 @@ where
         self.write_frame_offset = 0;
         Poll::Ready(Ok(()))
     }
+
+    /// [`Self::poll_drain_write_frame`] for a writer that waits on the result:
+    /// remembers its waker while the drain is pending.
+    fn poll_drain_write_frame_for_writer(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let result = self.poll_drain_write_frame(cx);
+        self.write_waker = if result.is_pending() { Some(cx.waker().clone()) } else { None };
+        result
+    }
+}
+
+/// Wakes the reader and the waiting writer together.
+struct ReaderAndWriterWaker {
+    reader: Waker,
+    writer: Waker,
+}
+
+impl Wake for ReaderAndWriterWaker {
+    fn wake(self: Arc<Self>) {
+        self.wake_by_ref();
+    }
+
+    fn wake_by_ref(self: &Arc<Self>) {
+        self.reader.wake_by_ref();
+        self.writer.wake_by_ref();
+    }
+}
+
+fn reader_and_writer_waker(reader: &Waker, writer: Option<&Waker>) -> Waker {
+    match writer {
+        Some(writer) if !writer.will_wake(reader) => {
+            Waker::from(Arc::new(ReaderAndWriterWaker { reader: reader.clone(), writer: writer.clone() }))
+        }
+        _ => reader.clone(),
+    }
 }
 
 impl<S> AsyncRead for ShadowTlsStream<S>
@@ -86,6 +126,19 @@ where
 {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let this = self.as_mut().get_mut();
+
+        // A write-through that hit Pending leaves a frame queued, and a caller
+        // that only reads next (a server-first protocol) would never send it.
+        if this.write_frame_offset < this.write_frame.len() {
+            let waker = reader_and_writer_waker(cx.waker(), this.write_waker.as_ref());
+            match this.poll_drain_write_frame(&mut Context::from_waker(&waker)) {
+                Poll::Ready(Ok(())) => {}
+                // The carrier wakes this reader and any waiting writer when writable.
+                Poll::Pending => {}
+                // The frame stays queued; the next write, flush or shutdown retries it and reports the error.
+                Poll::Ready(Err(_)) => {}
+            }
+        }
 
         if !this.pending_plaintext.is_empty() {
             let copy_len = buf.remaining().min(this.pending_plaintext.len());
@@ -188,7 +241,7 @@ where
 {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         let this = self.as_mut().get_mut();
-        match this.poll_drain_write_frame(cx) {
+        match this.poll_drain_write_frame_for_writer(cx) {
             Poll::Ready(Ok(())) => {}
             Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
             Poll::Pending => return Poll::Pending,
@@ -202,7 +255,7 @@ where
         // accepted, so this call reports success in every case.
         match this.poll_drain_write_frame(cx) {
             Poll::Ready(Ok(())) => {}
-            // The carrier registered our waker; the next write, flush or shutdown sends the rest.
+            // No writer waits now; the next read, write, flush or shutdown sends the rest.
             Poll::Pending => {}
             // The frame stays queued; the next write, flush or shutdown retries it and reports the error.
             Poll::Ready(Err(_)) => {}
@@ -212,7 +265,7 @@ where
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let this = self.as_mut().get_mut();
-        match this.poll_drain_write_frame(cx) {
+        match this.poll_drain_write_frame_for_writer(cx) {
             Poll::Ready(Ok(())) => Pin::new(&mut this.stream).poll_flush(cx),
             other => other,
         }

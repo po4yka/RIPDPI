@@ -67,6 +67,84 @@ async fn write_reaches_the_carrier_without_flush() {
     assert_eq!(usize::from(u16::from_be_bytes([header[3], header[4]])), HMAC_LEN + b"vless request".len());
 }
 
+/// A carrier whose first `poll_write` returns `Pending` (with a wake), so the
+/// write-through leaves the whole frame queued.
+struct PendingOnceCarrier {
+    inner: tokio::io::DuplexStream,
+    write_pending_once: bool,
+}
+
+impl tokio::io::AsyncRead for PendingOnceCarrier {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
+    }
+}
+
+impl tokio::io::AsyncWrite for PendingOnceCarrier {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        if std::mem::take(&mut self.write_pending_once) {
+            cx.waker().wake_by_ref();
+            return std::task::Poll::Pending;
+        }
+        std::pin::Pin::new(&mut self.inner).poll_write(cx, buf)
+    }
+
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+/// After a write-through that hit `Pending`, a caller that only reads next
+/// (VLESS to a server-first protocol) must still send the queued frame, or
+/// the server never answers.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the test owns both in-memory halves and bounds every wait.
+#[tokio::test]
+async fn read_sends_a_write_frame_left_pending() {
+    let (mut peer, carrier) = tokio::io::duplex(1024);
+    let carrier = PendingOnceCarrier { inner: carrier, write_pending_once: true };
+    let mut stream = ShadowTlsStream::new(carrier, ShadowTlsHmac::new(b"secret"), ShadowTlsHmac::new(b"secret"), None);
+    stream.write_all(b"vless request").await.expect("write");
+
+    let server = tokio::spawn(async move {
+        let mut header = [0u8; TLS_HEADER_LEN];
+        peer.read_exact(&mut header).await.expect("request frame header");
+        let mut body = vec![0u8; usize::from(u16::from_be_bytes([header[3], header[4]]))];
+        peer.read_exact(&mut body).await.expect("request frame body");
+        let banner = frame_payload(&mut ShadowTlsHmac::new(b"secret"), b"220 banner").expect("banner frame");
+        peer.write_all(&banner).await.expect("banner");
+        peer
+    });
+
+    let mut banner = [0u8; 10];
+    tokio::time::timeout(std::time::Duration::from_secs(1), stream.read_exact(&mut banner))
+        .await
+        .expect("the queued request frame must leave while the caller reads")
+        .expect("read banner");
+    assert_eq!(&banner, b"220 banner");
+    drop(server.await.expect("server task"));
+}
+
 #[test]
 fn client_hello_modification_signs_session_id() {
     let original = sample_client_hello();
