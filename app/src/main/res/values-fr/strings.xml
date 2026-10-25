@@ -3525,7 +3525,6 @@ Source : %2$s</string>
     <string name="relay_webtunnel_url_label">URL WebTunnel</string>
     <string name="detection_tls_keylog_warning_title">Journal des clés TLS activé</string>
     <string name="detection_tls_keylog_warning_message">Secrets écrits dans %1$s. Désactivez une fois le débogage terminé.</string>
-    <string name="detection_cdn_trace_mitm_label">Trace CDN et vérification MITM TLS</string>
     <string name="detection_check_copy_diagnostics">Copier les diagnostics</string>
     <string name="detection_check_share_dialog_title">Partager le rapport de détection</string>
     <string name="detection_check_export_format_markdown">Markdown</string>
@@ -3699,7 +3698,6 @@ Source : %2$s</string>
     <string name="detection_narrative_discovered_heading">Ce qui a été découvert</string>
     <string name="detection_narrative_reason_heading">Pourquoi ce verdict</string>
     <string name="detection_probe_outcome_format">Résultat de la sonde : %1$d/%2$d signaux exposés</string>
-    <string name="detection_protanopia_unlocked_message">Le mode rouge/vert adapté à la protanopie est débloqué.</string>
     <string name="detection_settings_call_transport_subtitle">Sonder MTProto et STUN via un proxy détecté</string>
     <string name="detection_settings_call_transport_title">Sonde de transport d\'appel</string>
     <string name="detection_settings_cancel">Annuler</string>

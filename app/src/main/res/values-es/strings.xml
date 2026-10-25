@@ -3525,7 +3525,6 @@ Origen: %2$s</string>
     <string name="relay_webtunnel_url_label">URL de WebTunnel</string>
     <string name="detection_tls_keylog_warning_title">Registro de claves TLS activado</string>
     <string name="detection_tls_keylog_warning_message">Secretos escritos en %1$s. Desactívalo cuando termines de depurar.</string>
-    <string name="detection_cdn_trace_mitm_label">Traza de CDN y comprobación de MITM de TLS</string>
     <string name="detection_check_copy_diagnostics">Copiar diagnósticos</string>
     <string name="detection_check_share_dialog_title">Compartir informe de detección</string>
     <string name="detection_check_export_format_markdown">Markdown</string>
@@ -3699,7 +3698,6 @@ Origen: %2$s</string>
     <string name="detection_narrative_discovered_heading">Qué se descubrió</string>
     <string name="detection_narrative_reason_heading">Por qué este veredicto</string>
     <string name="detection_probe_outcome_format">Resultado de la sonda: %1$d/%2$d señales expuestas</string>
-    <string name="detection_protanopia_unlocked_message">El modo rojo/verde seguro para protanopía está desbloqueado.</string>
     <string name="detection_settings_call_transport_subtitle">Sondea MTProto y STUN a través de un proxy detectado</string>
     <string name="detection_settings_call_transport_title">Sonda de transporte de llamadas</string>
     <string name="detection_settings_cancel">Cancelar</string>

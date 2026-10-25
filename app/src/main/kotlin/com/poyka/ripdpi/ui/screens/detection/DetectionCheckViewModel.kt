@@ -109,19 +109,19 @@ class DetectionCheckViewModel
                 onTerminalResult = { _effects.emit(it) },
             )
 
-        private val onboardingShown = detectionCheckPreferences.wasOnboardingShown()
+        private var startAfterPermissionResult = false
 
         init {
-            if (!onboardingShown) {
-                reducer.mutate { it.copy(showOnboarding = true) }
-            }
             permissionStateOwner.refreshPermissionState()
             auxStateOwner.observeDetectionSettings()
             auxStateOwner.loadHistory()
             auxStateOwner.loadCommunityState()
         }
 
-        fun startCheck() = runCoordinator.startCheck()
+        fun startCheck() {
+            if (permissionStateOwner.showRationaleBeforeCheck()) return
+            runCoordinator.startCheck()
+        }
 
         fun stopCheck() = runCoordinator.stopCheck()
 
@@ -129,17 +129,26 @@ class DetectionCheckViewModel
 
         fun dismissOnboarding() = auxStateOwner.dismissOnboarding()
 
-        fun onPermissionsResult() = permissionStateOwner.onPermissionsResult()
+        fun skipOnboarding() {
+            auxStateOwner.dismissOnboarding()
+            runCoordinator.startCheck()
+        }
+
+        /** The screen requests the permissions next; the check starts once Android answers. */
+        fun acceptOnboarding() {
+            auxStateOwner.dismissOnboarding()
+            startAfterPermissionResult = true
+        }
+
+        fun onPermissionsResult() {
+            permissionStateOwner.onPermissionsResult()
+            if (startAfterPermissionResult) {
+                startAfterPermissionResult = false
+                runCoordinator.startCheck()
+            }
+        }
 
         fun refreshPermissionState() = permissionStateOwner.refreshPermissionState()
-
-        val setPrivacyModeEnabled: (Boolean) -> Unit = auxStateOwner.setPrivacyModeEnabled
-
-        val setCdnPullingEnabled: (Boolean) -> Unit = auxStateOwner.setCdnPullingEnabled
-
-        val setDebugModeEnabled: (Boolean) -> Unit = auxStateOwner.setDebugModeEnabled
-
-        val setColorVisionMode: (DetectionColorVisionMode) -> Unit = auxStateOwner.setColorVisionMode
 
         val unlockProtanopiaVariant: () -> Unit = auxStateOwner.unlockProtanopiaVariant
 

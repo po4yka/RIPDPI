@@ -311,31 +311,4 @@ class DetectionAuxStateOwnerTest {
             assertEquals("unknown", history.saved.first().networkFingerprint)
             assertEquals("Unknown", history.saved.first().networkSummary)
         }
-
-    @Test
-    fun `set lambdas write the matching settings field`() =
-        runTest {
-            val (_, red) = reducer()
-            val settingsRepo = FakeDetectionAppSettingsRepository()
-            val owner =
-                DetectionAuxStateOwner(
-                    scope = testScope,
-                    reducer = red,
-                    appSettingsRepository = settingsRepo,
-                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
-                    historyStore = FakeDetectionHistoryRepository(),
-                    communityStatsRepository = FakeCommunityStatsRepository(),
-                    detectionCheckPreferences = FakeDetectionCheckPreferenceStore(),
-                )
-
-            owner.setPrivacyModeEnabled(true)
-            owner.setCdnPullingEnabled(true)
-            owner.setDebugModeEnabled(true)
-            advanceUntilIdle()
-
-            val snapshot = settingsRepo.snapshot()
-            assertTrue(snapshot.detectionCheckPrivacyModeEnabled)
-            assertTrue(snapshot.detectionCheckCdnPullingEnabled)
-            assertTrue(snapshot.detectionCheckDebugModeEnabled)
-        }
 }

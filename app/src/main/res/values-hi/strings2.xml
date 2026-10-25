@@ -1710,7 +1710,6 @@
     <string name="relay_webtunnel_url_label">WebTunnel URL</string>
     <string name="detection_tls_keylog_warning_title">TLS keylog सक्षम है</string>
     <string name="detection_tls_keylog_warning_message">सीक्रेट्स %1$s में लिखे गए। डीबगिंग पूरी होने पर अक्षम करें।</string>
-    <string name="detection_cdn_trace_mitm_label">CDN trace और TLS MITM जाँच</string>
     <string name="detection_check_copy_diagnostics">डायग्नोस्टिक्स कॉपी करें</string>
     <string name="detection_check_share_dialog_title">डिटेक्शन रिपोर्ट साझा करें</string>
     <string name="detection_check_export_format_markdown">Markdown</string>
@@ -1884,7 +1883,6 @@
     <string name="detection_narrative_discovered_heading">क्या पता चला</string>
     <string name="detection_narrative_reason_heading">यह फ़ैसला क्यों</string>
     <string name="detection_probe_outcome_format">प्रोब परिणाम: %2$d में से %1$d संकेत उजागर</string>
-    <string name="detection_protanopia_unlocked_message">प्रोटानोपिया-सुरक्षित लाल/हरा मोड अनलॉक हो गया है।</string>
     <string name="detection_settings_call_transport_subtitle">पहचाने गए प्रॉक्सी के ज़रिए MTProto और STUN प्रोब करें</string>
     <string name="detection_settings_call_transport_title">कॉल ट्रांसपोर्ट प्रोब</string>
     <string name="detection_settings_cancel">रद्द करें</string>

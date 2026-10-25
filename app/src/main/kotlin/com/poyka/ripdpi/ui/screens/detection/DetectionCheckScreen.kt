@@ -8,7 +8,6 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,7 +27,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -58,8 +56,6 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
-import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -108,10 +104,8 @@ internal fun DetectionCheckRoute(
             onOpenSettings = onOpenSettings,
             onOpenRecommendation = onOpenRecommendation,
             onDismissOnboarding = remember(viewModel) { viewModel::dismissOnboarding },
-            onPrivacyModeChange = remember(viewModel) { viewModel.setPrivacyModeEnabled },
-            onCdnPullingChange = remember(viewModel) { viewModel.setCdnPullingEnabled },
-            onDebugModeChange = remember(viewModel) { viewModel.setDebugModeEnabled },
-            onColorVisionModeChange = remember(viewModel) { viewModel.setColorVisionMode },
+            onSkipOnboarding = remember(viewModel) { viewModel::skipOnboarding },
+            onAcceptOnboarding = remember(viewModel) { viewModel::acceptOnboarding },
             onUnlockProtanopiaVariant = remember(viewModel) { viewModel.unlockProtanopiaVariant },
             onReloadCommunityStats = remember(viewModel) { viewModel::reloadCommunityStats },
             onRequestPermissions = onRequestPermissions,
@@ -162,10 +156,8 @@ internal fun DetectionCheckScreen(
     onOpenSettings: () -> Unit = {},
     onOpenRecommendation: (RecommendationDestination) -> Unit = {},
     onDismissOnboarding: () -> Unit,
-    onPrivacyModeChange: (Boolean) -> Unit,
-    onCdnPullingChange: (Boolean) -> Unit = {},
-    onDebugModeChange: (Boolean) -> Unit = {},
-    onColorVisionModeChange: (DetectionColorVisionMode) -> Unit = {},
+    onSkipOnboarding: () -> Unit = onDismissOnboarding,
+    onAcceptOnboarding: () -> Unit = onDismissOnboarding,
     onUnlockProtanopiaVariant: () -> Unit = {},
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
@@ -179,6 +171,8 @@ internal fun DetectionCheckScreen(
         showOnboarding = uiState.showOnboarding,
         onDismissMethodology = { showMethodologyDialog = false },
         onDismissOnboarding = onDismissOnboarding,
+        onSkipOnboarding = onSkipOnboarding,
+        onAcceptOnboarding = onAcceptOnboarding,
         onRequestPermissions = onRequestPermissions,
     )
 
@@ -218,10 +212,6 @@ internal fun DetectionCheckScreen(
                 onStart = onStart,
                 onStop = onStop,
                 onOpenRecommendation = onOpenRecommendation,
-                onPrivacyModeChange = onPrivacyModeChange,
-                onCdnPullingChange = onCdnPullingChange,
-                onDebugModeChange = onDebugModeChange,
-                onColorVisionModeChange = onColorVisionModeChange,
                 onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
                 onReloadCommunityStats = onReloadCommunityStats,
                 onRequestPermissions = onRequestPermissions,
@@ -237,10 +227,6 @@ private fun DetectionCheckScreenContent(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onOpenRecommendation: (RecommendationDestination) -> Unit,
-    onPrivacyModeChange: (Boolean) -> Unit,
-    onCdnPullingChange: (Boolean) -> Unit,
-    onDebugModeChange: (Boolean) -> Unit,
-    onColorVisionModeChange: (DetectionColorVisionMode) -> Unit,
     onUnlockProtanopiaVariant: () -> Unit,
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
@@ -263,13 +249,8 @@ private fun DetectionCheckScreenContent(
             style = type.secondaryBody,
             color = colors.mutedForeground,
         )
-        DetectionCheckSettingsControls(
-            uiState = uiState,
-            onPrivacyModeChange = onPrivacyModeChange,
-            onCdnPullingChange = onCdnPullingChange,
-            onDebugModeChange = onDebugModeChange,
-            onColorVisionModeChange = onColorVisionModeChange,
-        )
+        // Detection settings (top-bar gear) owns the toggles; only the keylog warning stays here.
+        DetectionTlsKeylogWarning(path = uiState.tlsKeylogWarningPath)
         DetectionPermissionWarning(
             missingPermissions = uiState.missingPermissions,
             permissionAction = uiState.permissionAction,
@@ -312,37 +293,6 @@ private fun DetectionCheckScreenContent(
 }
 
 @Composable
-private fun DetectionCheckSettingsControls(
-    uiState: DetectionCheckUiState,
-    onPrivacyModeChange: (Boolean) -> Unit,
-    onCdnPullingChange: (Boolean) -> Unit,
-    onDebugModeChange: (Boolean) -> Unit,
-    onColorVisionModeChange: (DetectionColorVisionMode) -> Unit,
-) {
-    DetectionPrivacyModeToggle(
-        enabled = uiState.privacyModeEnabled,
-        onEnabledChange = onPrivacyModeChange,
-    )
-    DetectionCdnPullingToggle(
-        enabled = uiState.cdnPullingEnabled,
-        onEnabledChange = onCdnPullingChange,
-        controlEnabled = !uiState.isRunning,
-    )
-    DetectionDebugModeToggle(
-        enabled = uiState.debugModeEnabled,
-        onEnabledChange = onDebugModeChange,
-        controlEnabled = !uiState.isRunning,
-    )
-    DetectionTlsKeylogWarning(path = uiState.tlsKeylogWarningPath)
-    DetectionColorVisionControls(
-        selectedMode = uiState.colorVisionMode,
-        protanopiaVariantUnlocked = uiState.redGreenAltEnabled,
-        onModeChange = onColorVisionModeChange,
-        controlEnabled = !uiState.isRunning,
-    )
-}
-
-@Composable
 private fun DetectionTlsKeylogWarning(path: String?) {
     if (path.isNullOrBlank()) return
 
@@ -354,95 +304,13 @@ private fun DetectionTlsKeylogWarning(path: String?) {
 }
 
 @Composable
-private fun DetectionColorVisionControls(
-    selectedMode: DetectionColorVisionMode,
-    protanopiaVariantUnlocked: Boolean,
-    onModeChange: (DetectionColorVisionMode) -> Unit,
-    controlEnabled: Boolean,
-) {
-    val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-        Text(
-            text = stringResource(R.string.detection_status_visuals_title),
-            style = type.sectionTitle,
-            color = colors.mutedForeground,
-        )
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DetectionColorVisionMode.entries.forEach { mode ->
-                RipDpiChip(
-                    text = mode.displayLabel(),
-                    selected = selectedMode == mode,
-                    enabled = controlEnabled,
-                    onClick = { onModeChange(mode) },
-                )
-            }
-        }
-        StatusVisualPreviewRow(mode = selectedMode)
-        if (protanopiaVariantUnlocked) {
-            Text(
-                text = stringResource(R.string.detection_protanopia_unlocked_message),
-                style = type.caption,
-                color = colors.mutedForeground,
-            )
-        }
-    }
-}
-
-@Composable
-private fun DetectionPrivacyModeToggle(
-    enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
-) {
-    RipDpiSwitch(
-        checked = enabled,
-        onCheckedChange = onEnabledChange,
-        label = stringResource(R.string.detection_privacy_mode),
-    )
-}
-
-@Composable
-private fun DetectionCdnPullingToggle(
-    enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
-    controlEnabled: Boolean,
-) {
-    RipDpiSwitch(
-        checked = enabled,
-        onCheckedChange = onEnabledChange,
-        enabled = controlEnabled,
-        label = stringResource(R.string.detection_cdn_trace_mitm_label),
-    )
-}
-
-@Composable
-private fun DetectionDebugModeToggle(
-    enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
-    controlEnabled: Boolean,
-) {
-    RipDpiSwitch(
-        checked = enabled,
-        onCheckedChange = onEnabledChange,
-        enabled = controlEnabled,
-        label = stringResource(R.string.detection_debug_diagnostics_label),
-    )
-}
-
-@Composable
 private fun DetectionDialogHost(
     showMethodologyDialog: Boolean,
     showOnboarding: Boolean,
     onDismissMethodology: () -> Unit,
     onDismissOnboarding: () -> Unit,
+    onSkipOnboarding: () -> Unit,
+    onAcceptOnboarding: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
     if (showMethodologyDialog) {
@@ -468,13 +336,13 @@ private fun DetectionDialogHost(
             dismissAction =
                 RipDpiDialogAction(
                     label = stringResource(R.string.detection_onboarding_skip),
-                    onClick = onDismissOnboarding,
+                    onClick = onSkipOnboarding,
                 ),
             confirmAction =
                 RipDpiDialogAction(
                     label = stringResource(R.string.detection_onboarding_allow),
                     onClick = {
-                        onDismissOnboarding()
+                        onAcceptOnboarding()
                         onRequestPermissions()
                     },
                 ),

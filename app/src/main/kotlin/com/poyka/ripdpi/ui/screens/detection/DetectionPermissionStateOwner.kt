@@ -42,6 +42,21 @@ internal class DetectionPermissionStateOwner(
         }
     }
 
+    /**
+     * Opens the permission rationale instead of a check when the user has never seen it and the
+     * permissions can still be requested, so the rationale appears when a check needs it, not on
+     * screen entry. Returns true when the check must wait for the user's answer.
+     */
+    fun showRationaleBeforeCheck(): Boolean {
+        val action = reducer.value.permissionAction
+        val canRequest =
+            action == DetectionPermissionPlanner.Action.REQUEST ||
+                action == DetectionPermissionPlanner.Action.SHOW_RATIONALE
+        if (!canRequest || preferences.wasOnboardingShown()) return false
+        reducer.mutate { it.copy(showOnboarding = true) }
+        return true
+    }
+
     private fun markPermissionsRequested() {
         preferences.markPermissionsRequested(requiredPermissions())
     }

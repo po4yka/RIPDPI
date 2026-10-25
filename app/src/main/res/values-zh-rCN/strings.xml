@@ -3517,7 +3517,6 @@ fake_burst 3</string>
     <string name="relay_webtunnel_url_label">WebTunnel URL</string>
     <string name="detection_tls_keylog_warning_title">已启用 TLS keylog</string>
     <string name="detection_tls_keylog_warning_message">密钥已写入 %1$s。调试完成后请禁用。</string>
-    <string name="detection_cdn_trace_mitm_label">CDN 跟踪与 TLS MITM 检查</string>
     <string name="detection_check_copy_diagnostics">复制诊断信息</string>
     <string name="detection_check_share_dialog_title">分享检测报告</string>
     <string name="detection_check_export_format_markdown">Markdown</string>
@@ -3689,7 +3688,6 @@ fake_burst 3</string>
     <string name="detection_narrative_discovered_heading">发现了什么</string>
     <string name="detection_narrative_reason_heading">为何得出此结论</string>
     <string name="detection_probe_outcome_format">探针结果：暴露 %1$d/%2$d 个信号</string>
-    <string name="detection_protanopia_unlocked_message">已解锁红绿色盲安全的红/绿模式。</string>
     <string name="detection_settings_call_transport_subtitle">通过检测到的代理探测 MTProto 和 STUN</string>
     <string name="detection_settings_call_transport_title">通话传输探针</string>
     <string name="detection_settings_cancel">取消</string>

@@ -3541,7 +3541,6 @@ fakeddisorder endhost</string>
     <string name="relay_webtunnel_url_label">عنوان URL لـ WebTunnel</string>
     <string name="detection_tls_keylog_warning_title">تسجيل مفاتيح TLS مُفعّل</string>
     <string name="detection_tls_keylog_warning_message">تُكتب الأسرار إلى %1$s. عطّله عند الانتهاء من التصحيح.</string>
-    <string name="detection_cdn_trace_mitm_label">تتبّع CDN وفحص MITM لـ TLS</string>
     <string name="detection_check_copy_diagnostics">نسخ التشخيصات</string>
     <string name="detection_check_share_dialog_title">مشاركة تقرير الكشف</string>
     <string name="detection_check_export_format_markdown">Markdown</string>
@@ -3723,7 +3722,6 @@ fakeddisorder endhost</string>
     <string name="detection_narrative_discovered_heading">ما الذي اكتُشف</string>
     <string name="detection_narrative_reason_heading">سبب هذا الحكم</string>
     <string name="detection_probe_outcome_format">نتيجة المسبار: %1$d/%2$d إشارات مكشوفة</string>
-    <string name="detection_protanopia_unlocked_message">تم فتح وضع الأحمر/الأخضر الآمن لعمى الألوان البروتاني.</string>
     <string name="detection_settings_call_transport_subtitle">اختبر MTProto وSTUN عبر وكيل مكتشف</string>
     <string name="detection_settings_call_transport_title">مسبار نقل المكالمات</string>
     <string name="detection_settings_cancel">إلغاء</string>

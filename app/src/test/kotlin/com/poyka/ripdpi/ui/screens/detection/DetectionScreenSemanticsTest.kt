@@ -40,7 +40,6 @@ class DetectionScreenSemanticsTest {
                     onStop = {},
                     onBack = {},
                     onDismissOnboarding = {},
-                    onPrivacyModeChange = {},
                     onReloadCommunityStats = {},
                     onRequestPermissions = {},
                 )
@@ -66,7 +65,6 @@ class DetectionScreenSemanticsTest {
                     onStop = {},
                     onBack = {},
                     onDismissOnboarding = {},
-                    onPrivacyModeChange = {},
                     onReloadCommunityStats = {},
                     onRequestPermissions = {},
                 )
@@ -105,7 +103,6 @@ class DetectionScreenSemanticsTest {
                     onStop = {},
                     onBack = {},
                     onDismissOnboarding = {},
-                    onPrivacyModeChange = {},
                     onReloadCommunityStats = {},
                     onRequestPermissions = {},
                 )

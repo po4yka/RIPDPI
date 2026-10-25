@@ -43,7 +43,6 @@ class DetectionResultFeedbackTest {
                             onStop = {},
                             onBack = {},
                             onDismissOnboarding = {},
-                            onPrivacyModeChange = {},
                             onReloadCommunityStats = {},
                             onRequestPermissions = {},
                         )

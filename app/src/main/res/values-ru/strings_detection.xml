@@ -111,7 +111,6 @@
     <string name="detection_resistance_tls_fingerprint_title">Профиль TLS-отпечатка</string>
     <string name="detection_tls_keylog_warning_title">Журнал ключей TLS включён</string>
     <string name="detection_tls_keylog_warning_message">Секреты записываются в %1$s. Отключите после завершения отладки.</string>
-    <string name="detection_cdn_trace_mitm_label">Трассировка CDN и проверка TLS MITM</string>
     <string name="detection_check_copy_diagnostics">Копировать диагностику</string>
     <string name="detection_check_share_dialog_title">Поделиться отчётом обнаружения</string>
     <string name="detection_check_export_format_markdown">Markdown</string>
@@ -138,7 +137,6 @@
     <string name="detection_narrative_discovered_heading">Что обнаружено</string>
     <string name="detection_narrative_reason_heading">Почему такой вердикт</string>
     <string name="detection_probe_outcome_format">Результат зонда: раскрыто сигналов %1$d/%2$d</string>
-    <string name="detection_protanopia_unlocked_message">Безопасный для протанопии красно-зелёный режим разблокирован.</string>
     <string name="detection_settings_call_transport_subtitle">Проверять MTProto и STUN через обнаруженный прокси</string>
     <string name="detection_settings_call_transport_title">Зонд транспорта звонков</string>
     <string name="detection_settings_cancel">Отмена</string>

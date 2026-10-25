@@ -3530,7 +3530,6 @@ fakeddisorder endhost</string>
     <string name="relay_webtunnel_url_label">نشانی WebTunnel</string>
     <string name="detection_tls_keylog_warning_title">ثبت کلید TLS فعال است</string>
     <string name="detection_tls_keylog_warning_message">رازها در %1$s نوشته می‌شوند. پس از پایان اشکال‌زدایی غیرفعال کنید.</string>
-    <string name="detection_cdn_trace_mitm_label">ردیابی CDN و بررسی TLS MITM</string>
     <string name="detection_check_copy_diagnostics">رونوشت تشخیص‌ها</string>
     <string name="detection_check_share_dialog_title">هم‌رسانی گزارش تشخیص</string>
     <string name="detection_check_export_format_markdown">Markdown</string>
@@ -3704,7 +3703,6 @@ fakeddisorder endhost</string>
     <string name="detection_narrative_discovered_heading">چه چیزی کشف شد</string>
     <string name="detection_narrative_reason_heading">چرا این حکم</string>
     <string name="detection_probe_outcome_format">نتیجهٔ کاوش: %1$d/%2$d سیگنال افشاشده</string>
-    <string name="detection_protanopia_unlocked_message">حالت قرمز/سبز ایمن برای پروتانوپیا باز شد.</string>
     <string name="detection_settings_call_transport_subtitle">کاوش MTProto و STUN از طریق یک پروکسی شناسایی‌شده</string>
     <string name="detection_settings_call_transport_title">کاوش انتقال تماس</string>
     <string name="detection_settings_cancel">لغو</string>

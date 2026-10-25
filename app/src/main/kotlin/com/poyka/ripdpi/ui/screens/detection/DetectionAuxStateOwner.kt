@@ -156,38 +156,6 @@ internal class DetectionAuxStateOwner(
         loadHistory()
     }
 
-    val setPrivacyModeEnabled: (Boolean) -> Unit = { enabled ->
-        scope.launch {
-            appSettingsRepository.update {
-                detectionCheckPrivacyModeEnabled = enabled
-            }
-        }
-    }
-
-    val setCdnPullingEnabled: (Boolean) -> Unit = { enabled ->
-        scope.launch {
-            appSettingsRepository.update {
-                detectionCheckCdnPullingEnabled = enabled
-            }
-        }
-    }
-
-    val setDebugModeEnabled: (Boolean) -> Unit = { enabled ->
-        scope.launch {
-            appSettingsRepository.update {
-                detectionCheckDebugModeEnabled = enabled
-            }
-        }
-    }
-
-    val setColorVisionMode: (DetectionColorVisionMode) -> Unit = { mode ->
-        scope.launch {
-            appSettingsRepository.update {
-                detectionCheckColorVisionMode = mode.wireValue
-            }
-        }
-    }
-
     val unlockProtanopiaVariant: () -> Unit = {
         scope.launch {
             appSettingsRepository.update {

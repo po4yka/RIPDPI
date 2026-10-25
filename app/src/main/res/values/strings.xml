@@ -3647,7 +3647,6 @@ Source: %2$s</string>
     <!-- l10n-sweep: detection screens -->
     <string name="detection_tls_keylog_warning_title">TLS keylog enabled</string>
     <string name="detection_tls_keylog_warning_message">Secrets written to %1$s. Disable when done debugging.</string>
-    <string name="detection_cdn_trace_mitm_label">CDN trace and TLS MITM check</string>
     <string name="detection_check_copy_diagnostics">Copy diagnostics</string>
     <string name="detection_check_share_dialog_title">Share detection report</string>
     <string name="detection_check_export_format_markdown">Markdown</string>
@@ -3829,7 +3828,6 @@ Source: %2$s</string>
     <string name="detection_narrative_discovered_heading">What was discovered</string>
     <string name="detection_narrative_reason_heading">Why this verdict</string>
     <string name="detection_probe_outcome_format">Probe outcome: %1$d/%2$d signals exposed</string>
-    <string name="detection_protanopia_unlocked_message">Protanopia-safe red/green mode is unlocked.</string>
     <string name="detection_settings_call_transport_subtitle">Probe MTProto and STUN through a detected proxy</string>
     <string name="detection_settings_call_transport_title">Call transport probe</string>
     <string name="detection_settings_cancel">Cancel</string>

@@ -4,6 +4,7 @@ import android.Manifest
 import com.poyka.ripdpi.core.detection.DetectionPermissionPlanner
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,9 +25,10 @@ class DetectionPermissionStateOwnerTest {
     private fun harness(
         granted: Set<String> = emptySet(),
         requested: Set<String> = emptySet(),
+        onboardingShown: Boolean = false,
     ): Harness {
         val flow = MutableStateFlow(DetectionCheckUiState())
-        val prefs = FakeDetectionCheckPreferenceStore(requestedPermissions = requested)
+        val prefs = FakeDetectionCheckPreferenceStore(onboardingShown, requestedPermissions = requested)
         val stateOwner =
             DetectionPermissionStateOwner(
                 reducer = DetectionCheckStateReducer(flow),
@@ -114,6 +116,31 @@ class DetectionPermissionStateOwnerTest {
             h.flow.value.missingPermissions
                 .isEmpty(),
         )
+    }
+
+    @Test
+    @Config(sdk = [33])
+    fun `first check with missing permissions opens the rationale instead of running`() {
+        val h = harness()
+        h.owner.refreshPermissionState()
+        assertFalse(h.flow.value.showOnboarding)
+
+        assertTrue(h.owner.showRationaleBeforeCheck())
+        assertTrue(h.flow.value.showOnboarding)
+    }
+
+    @Test
+    @Config(sdk = [33])
+    fun `check runs without the rationale once it was shown or nothing is missing`() {
+        val seen = harness(onboardingShown = true)
+        seen.owner.refreshPermissionState()
+        assertFalse(seen.owner.showRationaleBeforeCheck())
+        assertFalse(seen.flow.value.showOnboarding)
+
+        val granted = harness(granted = DetectionPermissionStateOwner.requiredPermissions().toSet())
+        granted.owner.refreshPermissionState()
+        assertFalse(granted.owner.showRationaleBeforeCheck())
+        assertFalse(granted.flow.value.showOnboarding)
     }
 
     private fun commonManifestFile(): File =

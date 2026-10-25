@@ -130,7 +130,6 @@ class DetectionRecommendationActionsTest {
                     onOpenSettings = { toolbarOpened++ },
                     onOpenRecommendation = { error("Toolbar cannot open a recommendation") },
                     onDismissOnboarding = {},
-                    onPrivacyModeChange = {},
                     onReloadCommunityStats = {},
                     onRequestPermissions = {},
                 )
