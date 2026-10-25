@@ -23,6 +23,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchControls
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchEmpty
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchFilter
@@ -111,11 +112,7 @@ internal fun ProfileUtilityScreen(
             else -> {
                 catalog.sections.forEach { section ->
                     item(key = "section:${section.key}", contentType = "section") {
-                        Text(
-                            sectionTitle(section.titleProfile),
-                            style = RipDpiThemeTokens.type.sectionTitle,
-                            color = RipDpiThemeTokens.colors.foreground,
-                        )
+                        SettingsCategoryHeader(title = sectionTitle(section.titleProfile))
                     }
                     items(
                         section.profiles,

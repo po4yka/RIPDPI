@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -352,11 +353,7 @@ private fun DiagnosisSummaryCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Elevated) {
-        Text(
-            text = title.uppercase(),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = colors.foreground,
-        )
+        RipDpiPanelHeader(title = title)
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             diagnoses.forEach { diagnosis ->
                 RipDpiCard(variant = RipDpiCardVariant.Tonal) {

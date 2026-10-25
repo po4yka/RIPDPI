@@ -28,6 +28,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -251,10 +252,8 @@ private fun RecentImportsSection(
             color = colors.divider,
         )
         Spacer(modifier = Modifier.height(spacing.sm))
-        Text(
-            text = stringResource(R.string.strategy_import_recent_title),
-            style = type.sectionTitle,
-            color = colors.mutedForeground,
+        SettingsCategoryHeader(
+            title = stringResource(R.string.strategy_import_recent_title),
             modifier = Modifier.padding(bottom = spacing.xs),
         )
         entries.forEachIndexed { index, entry ->

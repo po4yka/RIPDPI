@@ -35,6 +35,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
@@ -285,11 +286,7 @@ private fun DiagnosticsSimpleFunnelCard(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSimpleFunnel),
     ) {
         scan.latestSession?.let { session ->
-            Text(
-                text = session.title,
-                style = RipDpiThemeTokens.type.sectionTitle,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
+            RipDpiPanelHeader(title = session.title)
             Text(
                 text = stringResource(R.string.diagnostics_outcome_time_format, session.startedAtLabel),
                 style = RipDpiThemeTokens.type.caption,
@@ -330,11 +327,7 @@ private fun RememberedNetworkPoliciesCard(policies: List<DiagnosticsRememberedNe
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     RipDpiCard {
-        androidx.compose.material3.Text(
-            text = stringResource(R.string.diagnostics_remembered_networks_title).uppercase(),
-            style = type.sectionTitle,
-            color = colors.mutedForeground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.diagnostics_remembered_networks_title))
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             policies.forEachIndexed { index, policy ->
                 if (index > 0) {

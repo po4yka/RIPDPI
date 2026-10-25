@@ -131,7 +131,7 @@ private fun SubscriptionStatusCard(
     migrationContent: @Composable () -> Unit,
 ) {
     RipDpiCard {
-        Text(item.groupName, style = RipDpiThemeTokens.type.sectionTitle)
+        Text(item.groupName, style = RipDpiThemeTokens.type.cardTitle)
         Text(statusText(item), style = RipDpiThemeTokens.type.body)
         Text(
             pluralStringResource(R.plurals.subscription_status_profiles_format, item.memberCount, item.memberCount),

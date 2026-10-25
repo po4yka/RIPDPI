@@ -35,6 +35,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenu
 import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenuAction
@@ -119,11 +120,7 @@ private fun VpnSimpleCard(
     val vpnEnabled = uiState.runningMode == Mode.VPN
 
     RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSimple)) {
-        Text(
-            text = stringResource(R.string.config_vpn_simple_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.config_vpn_simple_title))
         Text(
             text = stringResource(R.string.config_vpn_simple_body),
             style = RipDpiThemeTokens.type.body,
@@ -170,11 +167,7 @@ internal fun ConfigRelayProfileChoices(
     onPasteServerLink: () -> Unit,
 ) {
     RipDpiCard {
-        Text(
-            text = stringResource(R.string.config_vpn_profiles_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.config_vpn_profiles_title))
         VpnAddProfileAction(actions.create)
         RipDpiButton(
             text = stringResource(R.string.config_vpn_add_server_paste),

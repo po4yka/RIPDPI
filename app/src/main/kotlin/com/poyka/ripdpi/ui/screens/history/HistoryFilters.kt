@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -76,11 +77,7 @@ internal fun FilterCard(
         stringResource(if (expanded) R.string.semantic_state_expanded else R.string.semantic_state_collapsed)
 
     RipDpiCard(modifier = modifier) {
-        Text(
-            text = title,
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+        RipDpiPanelHeader(title = title)
         RipDpiTextField(
             value = searchValue,
             onValueChange = onSearch,

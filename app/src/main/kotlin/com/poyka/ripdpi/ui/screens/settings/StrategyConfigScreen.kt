@@ -24,6 +24,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
@@ -179,11 +180,7 @@ private fun StrategyConfigRecoveryCard(
 ) {
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-            Text(
-                text = stringResource(R.string.strategy_config_restore_failed_title),
-                style = RipDpiThemeTokens.type.sectionTitle,
-                color = RipDpiThemeTokens.colors.foreground,
-            )
+            RipDpiPanelHeader(title = stringResource(R.string.strategy_config_restore_failed_title))
             Text(
                 text = stringResource(R.string.strategy_config_restore_failed_body),
                 style = RipDpiThemeTokens.type.body,

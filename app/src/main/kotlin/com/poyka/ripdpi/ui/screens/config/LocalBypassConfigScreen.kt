@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -105,11 +106,7 @@ private fun LocalBypassSimpleCard(
     val localBypassEnabled = uiState.runningMode == Mode.Proxy
 
     RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSimple)) {
-        Text(
-            text = stringResource(R.string.config_local_bypass_simple_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.config_local_bypass_simple_title))
         Text(
             text = stringResource(R.string.config_local_bypass_simple_body),
             style = RipDpiThemeTokens.type.body,

@@ -53,6 +53,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
@@ -319,16 +320,7 @@ internal fun VerdictNarrativeCard(
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.detection_verdict_narrative_title),
-                style = type.sectionTitle,
-                color = colors.mutedForeground,
-            )
+        RipDpiPanelHeader(title = stringResource(R.string.detection_verdict_narrative_title)) {
             StatusIndicator(
                 label = narrative.exposureStatus.displayLabel(),
                 tone = narrative.exposureStatus.indicatorTone(),
@@ -426,11 +418,7 @@ internal fun DetectionRecommendations(
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-        Text(
-            text = stringResource(R.string.detection_check_recommendations).uppercase(),
-            style = type.sectionTitle,
-            color = colors.mutedForeground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.detection_check_recommendations))
         for (rawRecommendation in recommendations) {
             val rec = rawRecommendation.localized(AndroidStringResolver(LocalContext.current))
             Column {

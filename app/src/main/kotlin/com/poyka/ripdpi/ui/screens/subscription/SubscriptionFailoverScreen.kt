@@ -19,6 +19,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -91,11 +92,7 @@ fun SubscriptionFailoverScreen(
 @Composable
 private fun SubscriptionFailoverSummary(uiState: SubscriptionFailoverUiState) {
     RipDpiCard(variant = RipDpiCardVariant.Tonal) {
-        Text(
-            text = stringResource(R.string.subscription_failover_summary_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.subscription_failover_summary_title))
         Text(
             text = uiState.summary,
             style = RipDpiThemeTokens.type.body,
@@ -146,11 +143,7 @@ internal fun SubscriptionServerRow(server: SubscriptionServerUiState) {
 @Composable
 private fun SubscriptionFailoverTimeline(events: List<SubscriptionFailoverEventUiState>) {
     RipDpiCard {
-        Text(
-            text = stringResource(R.string.subscription_failover_timeline_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.subscription_failover_timeline_title))
         if (events.isEmpty()) {
             Text(
                 text = stringResource(R.string.subscription_failover_timeline_empty),

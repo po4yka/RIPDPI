@@ -43,6 +43,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -107,11 +108,7 @@ private fun StrategyReportHeader(
         label = presentation.statusLabel,
         tone = statusTone(presentation.statusTone),
     )
-    Text(
-        text = presentation.matrixTitle.uppercase(),
-        style = RipDpiThemeTokens.type.sectionTitle,
-        color = colors.foreground,
-    )
+    RipDpiPanelHeader(title = presentation.matrixTitle)
     report.recommendation?.let { recommendation ->
         Text(
             text = recommendation.headline,

@@ -20,6 +20,7 @@ import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.RipDpiCompactMetrics
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -123,11 +124,7 @@ private fun ConnectionHealthSummary(uiState: ConnectionHealthUiState) {
             }
         }
     RipDpiCard(variant = RipDpiCardVariant.Tonal) {
-        Text(
-            text = stringResource(R.string.connection_health_summary_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.connection_health_summary_title))
         Text(
             text = qualityLine,
             style = RipDpiThemeTokens.type.body,
@@ -225,11 +222,7 @@ private fun LatencyDistributionsCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
-        Text(
-            text = stringResource(R.string.connection_health_latency_section_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = colors.foreground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.connection_health_latency_section_title))
         Text(
             text = stringResource(R.string.connection_health_latency_caption),
             style = RipDpiThemeTokens.type.caption,
@@ -306,11 +299,7 @@ private fun DnsCountersCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
-        Text(
-            text = stringResource(R.string.connection_health_dns_section_title),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = colors.foreground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.connection_health_dns_section_title))
         MeasurementCaption(stringResource(R.string.measurement_runtime_scope))
         MeasurementSource(source)
         counters.cacheHitRatePercent?.let { rate ->

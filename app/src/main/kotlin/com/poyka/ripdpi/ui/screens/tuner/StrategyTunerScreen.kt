@@ -18,6 +18,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -97,11 +98,7 @@ fun StrategyTunerScreen(
             }
         }
         RipDpiCard {
-            Text(
-                text = stringResource(R.string.strategy_tuner_leaderboard_title),
-                style = RipDpiThemeTokens.type.sectionTitle,
-                color = RipDpiThemeTokens.colors.foreground,
-            )
+            RipDpiPanelHeader(title = stringResource(R.string.strategy_tuner_leaderboard_title))
             if (state.rankedStrategies.isEmpty()) {
                 Text(
                     text = stringResource(R.string.strategy_tuner_empty_results),

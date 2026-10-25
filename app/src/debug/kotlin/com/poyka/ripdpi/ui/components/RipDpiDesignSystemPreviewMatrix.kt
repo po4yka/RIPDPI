@@ -52,6 +52,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteAvailabilityState
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteCapabilityKind
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteCapabilityPill
@@ -1138,11 +1139,7 @@ private fun PreviewSection(
     val spacing = RipDpiThemeTokens.spacing
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-        Text(
-            text = title,
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = colors.foreground,
-        )
+        SettingsCategoryHeader(title = title)
         content()
     }
 }

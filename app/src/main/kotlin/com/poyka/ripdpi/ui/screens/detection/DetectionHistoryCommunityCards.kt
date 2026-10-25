@@ -23,6 +23,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -39,11 +40,7 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
     val colors = RipDpiThemeTokens.colors
     val limited = entries.take(historyEntryLimit)
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-        Text(
-            text = stringResource(R.string.detection_history_title).uppercase(),
-            style = type.sectionTitle,
-            color = colors.mutedForeground,
-        )
+        RipDpiPanelHeader(title = stringResource(R.string.detection_history_title))
         for (entry in limited) {
             val scoreColor =
                 when {
@@ -111,7 +108,7 @@ internal fun CommunityStatsCard(stats: CommunityStats) {
             stringResource(R.string.detection_community_title)
         }
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-        Text(text = title.uppercase(), style = type.sectionTitle, color = colors.mutedForeground)
+        RipDpiPanelHeader(title = title)
         Text(
             text =
                 pluralStringResource(R.plurals.detection_community_reports, stats.totalReports, stats.totalReports),

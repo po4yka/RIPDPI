@@ -21,6 +21,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -61,14 +62,8 @@ fun ReplayFailureScreen(
         onNavigationClick = onBack,
     ) {
         RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-            Text(
-                text =
-                    stringResource(
-                        R.string.vpn_replay_failure_header_format,
-                        timestampLabel,
-                    ),
-                style = type.sectionTitle,
-                color = colors.foreground,
+            RipDpiPanelHeader(
+                title = stringResource(R.string.vpn_replay_failure_header_format, timestampLabel),
             )
             Text(
                 text = probeSummary,

@@ -934,7 +934,7 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).assertDoesNotExist()
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyProbeReport).fetchSemanticsNode()
-        composeRule.onNodeWithText("RESOLVER RECOMMENDATION").assertExists()
+        composeRule.onNodeWithText("Resolver recommendation").assertExists()
     }
 
     @Test
@@ -977,7 +977,7 @@ class DiagnosticsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningPath).assertDoesNotExist()
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyProbeReport).fetchSemanticsNode()
-        composeRule.onNodeWithText("INCOMPLETE AUDIT").assertExists()
+        composeRule.onNodeWithText("Incomplete audit").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner).fetchSemanticsNode()
     }
 

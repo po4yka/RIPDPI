@@ -107,7 +107,7 @@ class DiagnosticsPersianStrategyRenderTest {
                 }
             }
         }
-        assertText(requireNotNull(report.presentation).matrixTitle.uppercase(), ViewportTag)
+        assertText(requireNotNull(report.presentation).matrixTitle, ViewportTag)
         assertText(requireNotNull(report.recommendation).headline, ViewportTag)
         capture("report-$name-header", ViewportTag)
         assertText(report.suiteLabel, ViewportTag)

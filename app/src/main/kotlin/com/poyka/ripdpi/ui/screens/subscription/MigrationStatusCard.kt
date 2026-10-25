@@ -14,6 +14,7 @@ import com.poyka.ripdpi.subscription.MigrationCheckResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -24,7 +25,7 @@ internal fun MigrationStatusCard(
     onExport: () -> Unit,
 ) {
     var url by rememberSaveable(state.deliveryId) { mutableStateOf(state.probeUrl) }
-    Text(stringResource(R.string.migration_title), style = RipDpiThemeTokens.type.sectionTitle)
+    SettingsCategoryHeader(title = stringResource(R.string.migration_title))
     Text(
         stringResource(if (state.tested) R.string.migration_tested else R.string.migration_received),
         style = RipDpiThemeTokens.type.body,
