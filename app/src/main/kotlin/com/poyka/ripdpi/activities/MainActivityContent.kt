@@ -21,6 +21,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -239,7 +240,7 @@ private fun MainActivityEffects(
                     event.supportText?.let { supportText ->
                         context
                             .getSystemService(ClipboardManager::class.java)
-                            ?.setPrimaryClip(ClipData.newPlainText(clipboardLabel, supportText))
+                            ?.setPrimaryClip(ClipData.newPlainText(clipboardLabel, supportText.withoutBidiIsolates()))
                         Toast.makeText(context, R.string.diagnostics_support_details_copied, Toast.LENGTH_SHORT).show()
                     }
                 }

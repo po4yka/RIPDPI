@@ -12,7 +12,7 @@
     <string name="diagnostics_telegram_status_unreachable">غیرقابل دسترس</string>
     <string name="diagnostics_share_session_format">نشست %1$s · %2$s · %3$s</string>
     <string name="diagnostics_share_network_format">شبکه %1$s</string>
-    <string name="diagnostics_share_context_format">زمینه %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_context_format">زمینه %1$s · %2$s · ⁨Android⁩ %3$s</string>
     <string name="diagnostics_share_permissions_format">مجوزها %1$s VPN · %2$s اعلان‌ها</string>
     <string name="diagnostics_share_live_format">زنده %1$s · %2$s</string>
     <string name="diagnostics_share_engine_analysis_format">تحلیل موتور: %1$s</string>

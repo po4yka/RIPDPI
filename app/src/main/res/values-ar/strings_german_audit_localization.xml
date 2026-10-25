@@ -12,7 +12,7 @@
     <string name="diagnostics_telegram_status_unreachable">يتعذر الوصول إليه</string>
     <string name="diagnostics_share_session_format">الجلسة %1$s · %2$s · %3$s</string>
     <string name="diagnostics_share_network_format">الشبكة %1$s</string>
-    <string name="diagnostics_share_context_format">السياق %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_context_format">السياق %1$s · %2$s · ⁨Android⁩ %3$s</string>
     <string name="diagnostics_share_permissions_format">الأذونات %1$s VPN · %2$s الإشعارات</string>
     <string name="diagnostics_share_live_format">مباشر %1$s · %2$s</string>
     <string name="diagnostics_share_engine_analysis_format">تحليل المحرك: %1$s</string>

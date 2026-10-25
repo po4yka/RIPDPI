@@ -17,7 +17,7 @@
     <string name="diagnostics_matrix_caution">لا تثبت هذه الملاحظات سياسة مزود الخدمة. تحد أخطاء الخوادم والردود الناقصة وغياب أهداف المقارنة وتغير الشبكة من الاستنتاج.</string>
     <string name="diagnostics_matrix_attempt_count">المحاولات المكتملة: %1$s / %2$s</string>
     <string name="diagnostics_matrix_attempt">المحاولة %1$s · %2$s مللي ثانية</string>
-    <string name="diagnostics_matrix_http_code">حالة HTTP: %1$s</string>
+    <string name="diagnostics_matrix_http_code">حالة ⁨HTTP⁩: %1$s</string>
     <string name="diagnostics_matrix_body_complete">محتوى مكتمل: %1$s بايت</string>
     <string name="diagnostics_matrix_body_partial">محتوى ناقص أو غير مقاس: %1$s بايت</string>
     <string name="diagnostics_matrix_failure_stage">مرحلة الفشل: %1$s</string>

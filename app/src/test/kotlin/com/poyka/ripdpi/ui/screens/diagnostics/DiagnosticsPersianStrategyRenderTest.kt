@@ -166,8 +166,9 @@ class DiagnosticsPersianStrategyRenderTest {
         composeRule.runOnIdle { showApproach.value = false }
         val candidateTag = RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet
         assertText(candidate.label, candidateTag)
+        // The sheet formats this subtitle with stringResource, not with the factory resolver.
         val subtitle =
-            factory.context.getString(
+            RuntimeEnvironment.getApplication().getString(
                 R.string.diagnostics_candidate_subtitle_format,
                 candidate.familyLabel,
                 candidate.suiteLabel,

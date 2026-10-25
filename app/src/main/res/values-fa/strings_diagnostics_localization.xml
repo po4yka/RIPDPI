@@ -100,11 +100,11 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">دامنه‌های علامت‌گذاری‌شده: %1$d/%2$d؛ IP ساختگی: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">حل‌کننده‌های در دسترس: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">دامنه‌های در دسترس: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">هدف‌های دارای الگوی بسته‌شدن TCP16: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_tcp16_format">هدف‌های دارای الگوی بسته‌شدن ⁨TCP16⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">گروه‌های ASN بررسی‌شده: %1$d</string>
-    <string name="diagnostics_dpi_suite_quic_format">هدف‌های پذیرفته‌شده در بررسی اثر انگشت QUIC Initial: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_ech_format">هدف‌های پذیرفته‌شده با ECH: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_telegram_format">دریافت: %1$s، ارسال: %2$s، DC: %3$d/%4$d</string>
+    <string name="diagnostics_dpi_suite_quic_format">هدف‌های پذیرفته‌شده در بررسی اثر انگشت ⁨QUIC Initial⁩: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_ech_format">هدف‌های پذیرفته‌شده با ⁨ECH⁩: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_telegram_format">دریافت: %1$s، ارسال: %2$s، ⁨DC⁩: %3$d/%4$d</string>
     <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 هیچ ASN مسدودی شناسایی نکرد</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI شناسایی شد</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">دخالت در DNS</string>

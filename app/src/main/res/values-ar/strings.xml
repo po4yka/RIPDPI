@@ -43,7 +43,7 @@
     <string name="title_subscription_failover">خوادم الاشتراك</string>
     <string name="connection_health_open_action">فتح صحة الاتصال</string>
     <string name="connection_health_summary_title">قياسات الاتصال</string>
-    <string name="connection_health_quality_format">الخسارة المقدرة: %1$s%% · RTT p50 %2$d مللي ثانية.</string>
+    <string name="connection_health_quality_format">الخسارة المقدرة: %1$s%% · ⁨RTT p50⁩ %2$d مللي ثانية.</string>
     <string name="connection_health_quality_loss_format">الخسارة المقدرة: %1$s%%.</string>
     <string name="connection_health_quality_waiting">بانتظار قياسات الجودة.</string>
     <string name="connection_health_empty_title">بانتظار حركة مصنفة</string>
@@ -1439,7 +1439,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_path_required_body">حدد مسار نص Lua البرمجي أو أدخله قبل التحقق منه أو تحميله.</string>
     <string name="strategy_config_lua_function_required_title">اسم الدالة مطلوب</string>
     <string name="strategy_config_lua_function_required_body">أدخل دالة Lua التي ينبغي تشغيلها في إعداد استراتيجية النفق.</string>
-    <string name="strategy_config_lua_function_missing">لم تُسجَّل دالة Lua %1$s بواسطة النص البرمجي المحدد.</string>
+    <string name="strategy_config_lua_function_missing">لم تُسجَّل دالة ⁨Lua⁩ %1$s بواسطة النص البرمجي المحدد.</string>
     <string name="title_biometric_prompt">المصادقة</string>
     <string name="title_app_icon">أيقونة التطبيق</string>
     <string name="dns_active_section_title">المحلل النشط</string>
@@ -1843,8 +1843,8 @@ fakeddisorder endhost</string>
     <string name="warp_amnezia_preset_body">اختر إعداداً مسبقاً لإخفاء WARP مدعوماً بـ PayloadGen أو تبديل إلى مخصص لتعديل قيم AmneziaWG الخام.</string>
     <string name="warp_amnezia_profile_title">ملف AmneziaWG المطبق</string>
     <string name="warp_amnezia_preset_off_summary">تشكيل AmneziaWG معطّل لـ WARP.</string>
-    <string name="warp_amnezia_preset_profile_summary">ملف مدمج. JC %1$d، Jmin %2$d، Jmax %3$d.</string>
-    <string name="warp_amnezia_preset_custom_summary">ملف مخصص. JC %1$d، Jmin %2$d، Jmax %3$d.</string>
+    <string name="warp_amnezia_preset_profile_summary">ملف مدمج. ⁨JC⁩ %1$d، ⁨Jmin⁩ %2$d، ⁨Jmax⁩ %3$d.</string>
+    <string name="warp_amnezia_preset_custom_summary">ملف مخصص. ⁨JC⁩ %1$d، ⁨Jmin⁩ %2$d، ⁨Jmax⁩ %3$d.</string>
     <string name="warp_amnezia_suggested_preset">يوصى بـ %1$s للمشغّل الحالي. هذا الاقتراح للاسترشاد فقط.</string>
     <string name="warp_amnezia_jc_title">Amnezia JC</string>
     <string name="warp_amnezia_jmin_title">Amnezia Jmin</string>
@@ -2418,7 +2418,7 @@ fakeddisorder endhost</string>
     <string name="detection_resistance_badge_quic_migrate">إعادة ربط UDP</string>
     <string name="detection_resistance_summary_tls">ملف مصافحة TLS</string>
     <string name="detection_resistance_summary_entropy">تشكيل حركة المرور</string>
-    <string name="detection_resistance_summary_entropy_value">Popcount %1$d، Shannon %2$d</string>
+    <string name="detection_resistance_summary_entropy_value">⁨Popcount⁩ %1$d، ⁨Shannon⁩ %2$d</string>
     <string name="detection_resistance_summary_exploration">استكشاف تكيّفي</string>
     <string name="detection_resistance_summary_epsilon_value">Epsilon %1$.2f</string>
     <string name="detection_resistance_summary_quic">نقل QUIC</string>
@@ -2502,7 +2502,7 @@ fakeddisorder endhost</string>
     <string name="owned_stack_browser_backend_http_engine">Android HttpEngine</string>
     <string name="owned_stack_browser_backend_native_fallback">بديل RIPDPI الأصلي</string>
     <string name="owned_stack_browser_status_value">HTTP %1$d · %2$s</string>
-    <string name="owned_stack_browser_tls_profile_value">ملف TLS: %1$s</string>
+    <string name="owned_stack_browser_tls_profile_value">ملف ⁨TLS⁩: %1$s</string>
     <string name="owned_stack_browser_trace_confirmed_ech">يستخدم مسار منصة Android مع سياسة جهة موثوقة قادرة على ECH.</string>
     <string name="owned_stack_browser_trace_opportunistic_platform">يستخدم مسار منصة Android بشكل انتهازي؛ لا توجد جهة موثوقة قادرة على ECH مخزّنة مؤقتاً لهذا المضيف.</string>
     <string name="owned_stack_browser_trace_h2_retry">أُعيدت المحاولة باستخدام مكدس المنصة H2 فقط بعد فشل المحاولة القادرة على QUIC.</string>
@@ -2645,7 +2645,7 @@ fakeddisorder endhost</string>
     <string name="update_downloading_action">جارٍ تنزيل التحديث...</string>
     <string name="update_no_update">هذا الإصدار محدَّث.</string>
     <string name="update_available_title_format">الإصدار %1$s (%2$d) متاح.</string>
-    <string name="update_size_format">حجم APK: %1$s</string>
+    <string name="update_size_format">حجم ⁨APK⁩: %1$s</string>
     <string name="update_changelog_title">سجل التغييرات</string>
     <string name="update_permission_required">اسمح بالتثبيت من هذا التطبيق، ثم عُد للمتابعة.</string>
     <string name="update_install_started">تم فتح مثبِّت Android.</string>
@@ -3107,7 +3107,7 @@ fakeddisorder endhost</string>
     <string name="asset_provider_import_geoip">استيراد geoip.db</string>
     <string name="asset_provider_import_geosite">استيراد geosite.db</string>
     <string name="asset_provider_updated_title">تم تحديث الأصول</string>
-    <string name="asset_provider_updated_body">geoip %1$s، geosite %2$s. أعد تشغيل الخدمة لتطبيق التغييرات.</string>
+    <string name="asset_provider_updated_body">⁨geoip⁩ %1$s، ⁨geosite⁩ %2$s. أعد تشغيل الخدمة لتطبيق التغييرات.</string>
     <string name="asset_provider_uptodate_title">محدَّث بالفعل</string>
     <string name="asset_provider_uptodate_body">قواعد البيانات على القرص تطابق أحدث إصدار.</string>
     <string name="asset_provider_imported_title">تم استيراد الأصل</string>
@@ -3797,8 +3797,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_dns_availability_metric_servers">خوادم</string>
     <string name="diagnostics_dns_availability_running">جارٍ مسح محلّلات DNS العامة…</string>
     <string name="diagnostics_dns_integrity_complete_clean">لم يُكتشف استبدال DNS عبر %1$d نطاقًا مُجمّعًا.</string>
-    <string name="diagnostics_dns_integrity_complete_flagged">تحذيرات سلامة DNS: النطاقات %1$d/%2$d، فحوص DoQ %3$d، فحوص إقلاع DoH %4$d.</string>
-    <string name="diagnostics_dns_integrity_doh_bootstrap_label">إقلاع DoH %1$s: %2$s</string>
+    <string name="diagnostics_dns_integrity_complete_flagged">تحذيرات سلامة DNS: النطاقات %1$d/%2$d، فحوص ⁨DoQ⁩ %3$d، فحوص إقلاع ⁨DoH⁩ %4$d.</string>
+    <string name="diagnostics_dns_integrity_doh_bootstrap_label">إقلاع ⁨DoH⁩ %1$s: %2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s: %3$s</string>
     <string name="diagnostics_dns_integrity_failed">فشل فحص سلامة DNS.</string>
     <string name="diagnostics_dns_integrity_metric_bootstrap_flagged">إقلاع معلّم</string>
@@ -3896,7 +3896,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: فشل تحليل النظام</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">غير مُتحقَّق منه</string>
-    <string name="diagnostics_tcp16_complete_detected">الأهداف ذات أنماط إغلاق TCP16: %1$d؛ عمليات التحقق الفاشلة بإعادة الاتصال: %2$d.</string>
+    <string name="diagnostics_tcp16_complete_detected">الأهداف ذات أنماط إغلاق ⁨TCP16⁩: %1$d؛ عمليات التحقق الفاشلة بإعادة الاتصال: %2$d.</string>
     <string name="diagnostics_tcp16_failed">فشل مسبار ترويسة TCP16 الكبيرة.</string>
     <string name="diagnostics_tcp16_metric_detected">مكتشف</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">مقبس مفرد غير صالح</string>

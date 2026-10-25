@@ -7,7 +7,7 @@
     <string name="profile_utility_check">فحص</string>
     <string name="profile_utility_check_select">فحص واختيار</string>
     <string name="profile_utility_checking">جارٍ الفحص…</string>
-    <string name="profile_utility_measured">HTTP: %1$s مللي ثانية</string>
+    <string name="profile_utility_measured">⁨HTTP⁩: %1$s مللي ثانية</string>
     <string name="profile_utility_not_checked">لم يُفحص</string>
     <string name="profile_utility_unsupported">لا يمكن فحص هذا الملف هنا.</string>
     <string name="profile_utility_environment_changed">تغيرت الشبكة أو السياسة أو الملف. افحص مرة أخرى.</string>

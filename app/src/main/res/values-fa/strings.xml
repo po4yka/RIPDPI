@@ -41,7 +41,7 @@
     <string name="title_subscription_failover">سرورهای اشتراک</string>
     <string name="connection_health_open_action">باز کردن سلامت اتصال</string>
     <string name="connection_health_summary_title">اندازه‌گیری اتصال</string>
-    <string name="connection_health_quality_format">اتلاف برآوردشده: %1$s%% · RTT p50 %2$d میلی‌ثانیه.</string>
+    <string name="connection_health_quality_format">اتلاف برآوردشده: %1$s%% · ⁨RTT p50⁩ %2$d میلی‌ثانیه.</string>
     <string name="connection_health_quality_loss_format">اتلاف برآوردشده: %1$s%%.</string>
     <string name="connection_health_quality_waiting">در انتظار اندازه‌گیری کیفیت.</string>
     <string name="connection_health_empty_title">در انتظار ترافیک دسته‌بندی‌شده</string>
@@ -1810,7 +1810,7 @@ fakeddisorder endhost</string>
     <string name="warp_account_kind_title">نوع حساب</string>
     <string name="warp_amnezia_h3_title">Amnezia H3</string>
     <string name="warp_amnezia_jmax_title">Amnezia Jmax</string>
-    <string name="warp_amnezia_preset_custom_summary">نمایه سفارشی. JC %1$d، Jmin %2$d، Jmax %3$d.</string>
+    <string name="warp_amnezia_preset_custom_summary">نمایه سفارشی. ⁨JC⁩ %1$d، ⁨Jmin⁩ %2$d، ⁨Jmax⁩ %3$d.</string>
     <string name="warp_amnezia_preset_title">نمایه شکل‌دهی AmneziaWG</string>
     <string name="warp_amnezia_s2_title">Amnezia S2</string>
     <string name="warp_amnezia_suggested_preset">%1$s برای راهنمایی فعلی اپراتور توصیه می‌شود. این پیشنهاد فقط جنبه اطلاع‌رسانی دارد.</string>
@@ -2061,7 +2061,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_privacy_body">بدون تله‌متری، بدون ردیابی، بدون حساب کاربری. تنظیمات و سابقهٔ عیب‌یابی روی دستگاه شما می‌مانند مگر اینکه آن‌ها را صریحاً صادر کنید.</string>
     <string name="onboarding_setup_dns_cloudflare_body">حل‌کننده DNS سریع و همه‌منظوره.</string>
     <string name="onboarding_setup_dns_system_body">از سرورهای DNS شبکه‌تان همان‌طور که هستند استفاده کنید.</string>
-    <string name="onboarding_setup_dns_provider_body">resolver %1$s که از %2$s به‌عنوان نشانی اصلی استفاده می‌کند.</string>
+    <string name="onboarding_setup_dns_provider_body">⁨resolver⁩ %1$s که از %2$s به‌عنوان نشانی اصلی استفاده می‌کند.</string>
     <string name="onboarding_setup_finish">پایان</string>
     <string name="onboarding_setup_mode_title">حالت ترافیک را انتخاب کنید</string>
     <string name="config_traffic_mode_title">حالت ترافیک را انتخاب کنید</string>
@@ -2077,7 +2077,7 @@ fakeddisorder endhost</string>
     <string name="owned_stack_browser_backend_native_fallback">بازگشت بومی RIPDPI</string>
     <string name="owned_stack_browser_banner_platform">HttpEngine پلتفرم Android در اینجا در دسترس است، اما ECH پلتفرم Android 17 در دسترس نیست. RIPDPI همچنان می‌تواند به‌صورت فرصت‌طلبانه از HttpEngine استفاده کند و در صورت نیاز به TLS اختصاصی بومی بازمی‌گردد.</string>
     <string name="owned_stack_browser_error_title">درخواست owned-stack ناموفق بود</string>
-    <string name="owned_stack_browser_tls_profile_value">نمایه TLS: %1$s</string>
+    <string name="owned_stack_browser_tls_profile_value">نمایه ⁨TLS⁩: %1$s</string>
     <string name="owned_stack_browser_trace_native_ech_missing">تأیید شد که ECH در Android 17 برای این authority در دسترس نیست، بنابراین RIPDPI از TLS اختصاصی بومی استفاده کرد.</string>
     <string name="owned_stack_browser_trace_opportunistic_platform">استفاده از مسیر پلتفرم Android به‌صورت فرصت‌طلبانه؛ هیچ authority با قابلیت ECH تأییدشده برای این میزبان در کش وجود ندارد.</string>
     <string name="permissions_background_activity_body_huawei">دستگاه‌های Huawei ممکن است RIPDPI را در پس‌زمینه متوقف کنند. به Settings &gt; Battery &gt; App launch بروید، RIPDPI را پیدا کنید، مدیریت خودکار را غیرفعال کنید و Auto-launch، Secondary launch و Run in background را فعال کنید.</string>
@@ -2198,7 +2198,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_import_empty">فایل انتخاب‌شده خالی است.</string>
     <string name="strategy_config_import_unreadable">فایل انتخاب‌شده قابل خواندن نبود.</string>
     <string name="strategy_config_invalid_title">پیکربندی اعتبارسنجی نشد</string>
-    <string name="strategy_config_lua_function_missing">تابع Lua %1$s توسط اسکریپت انتخاب‌شده ثبت نشده بود.</string>
+    <string name="strategy_config_lua_function_missing">تابع ⁨Lua⁩ %1$s توسط اسکریپت انتخاب‌شده ثبت نشده بود.</string>
     <string name="strategy_config_lua_function_required_title">نام تابع لازم است</string>
     <string name="strategy_config_lua_path_label">مسیر اسکریپت Lua</string>
     <string name="strategy_config_lua_path_required_title">مسیر اسکریپت لازم است</string>
@@ -2329,7 +2329,7 @@ fakeddisorder endhost</string>
     <string name="detection_resistance_quic_migrate_title">اتصال مجدد مسیر UDP پروتکل QUIC پس از دست‌دهی</string>
     <string name="detection_resistance_section_body">شکل‌دهی آنتروپی، اکتشاف تطبیقی و رفتار مسیر QUIC را تنظیم کنید تا اثرانگشت‌گذاری و اطمینان طبقه‌بندی‌کننده در شبکه‌های متخاصم کاهش یابد.</string>
     <string name="detection_resistance_shannon_title">هدف شانون (در هزار)</string>
-    <string name="detection_resistance_summary_entropy_value">Popcount %1$d، Shannon %2$d</string>
+    <string name="detection_resistance_summary_entropy_value">⁨Popcount⁩ %1$d، ⁨Shannon⁩ %2$d</string>
     <string name="detection_resistance_summary_exploration">اکتشاف تطبیقی</string>
     <string name="detection_resistance_summary_quic_migrate">اتصال مجدد پس از دست‌دهی</string>
     <string name="detection_resistance_tls_fingerprint_body">برای اتصالات HTTPS و TLS که خود برنامه آغاز می‌کند اعمال می‌شود، شامل تأمین، تازه‌سازی کاتالوگ، بررسی‌های شروع به کار، جستجوهای فراداده تشخیص و مرورگر داخلی RIPDPI. اندروید 17 یا جدیدتر برای ECH پلتفرم در آن مسیر مرورگر پشته اختصاصی لازم است.</string>
@@ -2646,7 +2646,7 @@ fakeddisorder endhost</string>
     <string name="warp_amnezia_h2_title">Amnezia H2</string>
     <string name="warp_amnezia_jc_title">Amnezia JC</string>
     <string name="warp_amnezia_preset_body">یک پیش‌تنظیم مبهم‌سازی WARP پشتیبانی‌شده توسط PayloadGen انتخاب کنید یا برای ویرایش مقادیر خام AmneziaWG به سفارشی تغییر دهید.</string>
-    <string name="warp_amnezia_preset_profile_summary">نمایه داخلی. JC %1$d، Jmin %2$d، Jmax %3$d.</string>
+    <string name="warp_amnezia_preset_profile_summary">نمایه داخلی. ⁨JC⁩ %1$d، ⁨Jmin⁩ %2$d، ⁨Jmax⁩ %3$d.</string>
     <string name="warp_amnezia_s1_title">Amnezia S1</string>
     <string name="warp_amnezia_s4_title">Amnezia S4</string>
     <string name="warp_builtin_rules_title">قوانین داخلی Cloudflare</string>
@@ -2692,7 +2692,7 @@ fakeddisorder endhost</string>
     <string name="update_downloading_action">در حال دانلود به‌روزرسانی…</string>
     <string name="update_no_update">این نسخه به‌روز است.</string>
     <string name="update_available_title_format">نسخهٔ %1$s (%2$d) در دسترس است.</string>
-    <string name="update_size_format">اندازهٔ APK: %1$s</string>
+    <string name="update_size_format">اندازهٔ ⁨APK⁩: %1$s</string>
     <string name="update_changelog_title">فهرست تغییرات</string>
     <string name="update_permission_required">نصب از این برنامه را مجاز کنید، سپس برای ادامه بازگردید.</string>
     <string name="update_install_started">نصب‌کنندهٔ Android باز شد.</string>
@@ -3225,7 +3225,7 @@ fakeddisorder endhost</string>
     <string name="asset_provider_import_geoip">وارد کردن geoip.db</string>
     <string name="asset_provider_import_geosite">وارد کردن geosite.db</string>
     <string name="asset_provider_updated_title">داده‌ها به‌روزرسانی شد</string>
-    <string name="asset_provider_updated_body">geoip %1$s، geosite %2$s. برای اعمال، سرویس را دوباره راه‌اندازی کنید.</string>
+    <string name="asset_provider_updated_body">⁨geoip⁩ %1$s، ⁨geosite⁩ %2$s. برای اعمال، سرویس را دوباره راه‌اندازی کنید.</string>
     <string name="asset_provider_uptodate_title">از قبل به‌روز است</string>
     <string name="asset_provider_uptodate_body">پایگاه‌های داده محلی با آخرین نسخه مطابقت دارند.</string>
     <string name="asset_provider_imported_title">داده‌ها وارد شد</string>
@@ -3778,8 +3778,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_dns_availability_metric_servers">سرورها</string>
     <string name="diagnostics_dns_availability_running">در حال بررسی حل‌کننده‌های عمومی DNS...</string>
     <string name="diagnostics_dns_integrity_complete_clean">در %1$d دامنهٔ همراه‌شده هیچ جایگزینی DNS شناسایی نشد.</string>
-    <string name="diagnostics_dns_integrity_complete_flagged">هشدارهای یکپارچگی DNS: دامنه‌ها %1$d/%2$d، بررسی‌های DoQ %3$d، بررسی‌های راه‌انداز DoH %4$d.</string>
-    <string name="diagnostics_dns_integrity_doh_bootstrap_label">راه‌انداز DoH %1$s: %2$s</string>
+    <string name="diagnostics_dns_integrity_complete_flagged">هشدارهای یکپارچگی DNS: دامنه‌ها %1$d/%2$d، بررسی‌های ⁨DoQ⁩ %3$d، بررسی‌های راه‌انداز ⁨DoH⁩ %4$d.</string>
+    <string name="diagnostics_dns_integrity_doh_bootstrap_label">راه‌انداز ⁨DoH⁩ %1$s: %2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s: %3$s</string>
     <string name="diagnostics_dns_integrity_failed">بررسی یکپارچگی DNS ناموفق بود.</string>
     <string name="diagnostics_dns_integrity_metric_bootstrap_flagged">راه‌انداز نشانه‌گذاری‌شده</string>
@@ -3877,7 +3877,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: تفکیک نام سیستم ناموفق بود</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">تأییدنشده</string>
-    <string name="diagnostics_tcp16_complete_detected">اهداف دارای الگوی بسته‌شدن TCP16: %1$d؛ تأییدهای ناموفق اتصال مجدد: %2$d.</string>
+    <string name="diagnostics_tcp16_complete_detected">اهداف دارای الگوی بسته‌شدن ⁨TCP16⁩: %1$d؛ تأییدهای ناموفق اتصال مجدد: %2$d.</string>
     <string name="diagnostics_tcp16_failed">کاوش سرآیند چاق TCP16 ناموفق بود.</string>
     <string name="diagnostics_tcp16_metric_detected">شناسایی‌شده</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">تک‌سوکت نامعتبر</string>

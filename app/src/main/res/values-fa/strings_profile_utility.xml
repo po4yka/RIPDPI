@@ -7,7 +7,7 @@
     <string name="profile_utility_check">بررسی</string>
     <string name="profile_utility_check_select">بررسی و انتخاب</string>
     <string name="profile_utility_checking">در حال بررسی…</string>
-    <string name="profile_utility_measured">HTTP: %1$s میلی‌ثانیه</string>
+    <string name="profile_utility_measured">⁨HTTP⁩: %1$s میلی‌ثانیه</string>
     <string name="profile_utility_not_checked">بررسی نشده</string>
     <string name="profile_utility_unsupported">این نمایه در اینجا قابل بررسی نیست.</string>
     <string name="profile_utility_environment_changed">شبکه، سیاست یا نمایه تغییر کرده است. دوباره بررسی کنید.</string>

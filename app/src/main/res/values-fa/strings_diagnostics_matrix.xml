@@ -17,7 +17,7 @@
     <string name="diagnostics_matrix_caution">این مشاهدات سیاست ارائه‌دهنده را ثابت نمی‌کنند. خطاهای سرور، پاسخ‌های ناقص، نبود اهداف کنترل و تغییر شبکه نتیجه‌گیری را محدود می‌کنند.</string>
     <string name="diagnostics_matrix_attempt_count">تلاش‌های کامل‌شده: %1$s / %2$s</string>
     <string name="diagnostics_matrix_attempt">تلاش %1$s · %2$s میلی‌ثانیه</string>
-    <string name="diagnostics_matrix_http_code">وضعیت HTTP: %1$s</string>
+    <string name="diagnostics_matrix_http_code">وضعیت ⁨HTTP⁩: %1$s</string>
     <string name="diagnostics_matrix_body_complete">بدنه کامل: %1$s بایت</string>
     <string name="diagnostics_matrix_body_partial">بدنه ناقص یا اندازه‌گیری‌نشده: %1$s بایت</string>
     <string name="diagnostics_matrix_failure_stage">مرحله شکست: %1$s</string>

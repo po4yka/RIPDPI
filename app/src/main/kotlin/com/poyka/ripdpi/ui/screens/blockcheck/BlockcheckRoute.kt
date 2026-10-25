@@ -23,6 +23,7 @@ import com.poyka.ripdpi.core.detection.BlockLayer
 import com.poyka.ripdpi.core.detection.BypassStrategyClass
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
+import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -70,7 +71,7 @@ fun BlockcheckRoute(
             val intent =
                 Intent(Intent.ACTION_SEND)
                     .setType("application/json")
-                    .putExtra(Intent.EXTRA_TEXT, report)
+                    .putExtra(Intent.EXTRA_TEXT, report.withoutBidiIsolates())
                     .putExtra(Intent.EXTRA_SUBJECT, exportSubject)
             context.startActivity(Intent.createChooser(intent, exportTitle))
         },

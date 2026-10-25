@@ -286,7 +286,8 @@ class DiagnosticsStrategyPersianPresentationTest {
         assertEquals("عملیاتی با روت", winner.metrics[4].value)
         assertEquals("اجرای دقیق با روت", winner.metrics[5].value)
         assertEquals("برنده", winner.metrics[6].value)
-        assertEquals("نتایج HTTPS", winner.resultGroups.single().title)
+        // The resolver isolates the Latin argument so it cannot capture a neighbouring number.
+        assertEquals("نتایج \u2068HTTPS\u2069", winner.resultGroups.single().title)
         assertEquals(
             listOf("one.example", "two.example"),
             winner.resultGroups

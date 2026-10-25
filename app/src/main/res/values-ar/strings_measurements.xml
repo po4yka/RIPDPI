@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="measurement_quality_rtt">RTT p50: %1$d مللي ثانية.</string>
+    <string name="measurement_quality_rtt">⁨RTT p50⁩: %1$d مللي ثانية.</string>
     <string name="measurement_quality_meaning">RTT هو زمن الذهاب والإياب؛ والتذبذب هو تغيره. تُقدّر الخسارة من فشل الاتصال وإعادة الإرسال، لا من معدل فشل كل موقع.</string>
     <string name="measurement_quality_window">بداية نافذة الجودة: %1$s</string>
     <string name="measurement_window_unknown">بداية نافذة الجودة غير متاحة</string>
@@ -21,7 +21,7 @@
     <string name="measurement_dns_last">آخر زمن DNS منشور؛ قد يكون القياس أقدم من اللقطة</string>
     <string name="measurement_proxy">الوكيل</string>
     <string name="measurement_tunnel">النفق</string>
-    <string name="measurement_quality_p95">RTT p95: %1$d مللي ثانية.</string>
+    <string name="measurement_quality_p95">⁨RTT p95⁩: %1$d مللي ثانية.</string>
     <string name="measurement_session_total">إجمالي الاتصال المسجل</string>
     <string name="home_quality_measurements_title">قياسات الاتصال</string>
     <string name="home_quality_waiting">لا توجد قياسات للجودة بعد. إجمالي حركة البيانات لا يدل على جودة الاتصال.</string>

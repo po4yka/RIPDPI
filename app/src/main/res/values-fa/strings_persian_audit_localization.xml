@@ -97,9 +97,9 @@
     <string name="home_generated_epsilon">اپسیلون %1$s</string>
     <string name="home_generated_reality_rationale">دست‌دهی Reality در %1$s مقصد مجزا بدون دادهٔ برنامه کامل شد؛ پاسخ QUIC Initial مشاهده شد. علت خرابی مشخص نیست.</string>
     <string name="home_generated_strategy_rationale">%1$s%2$s%3$s شناسایی شد. تغییر به %4$s توصیه می‌شود.</string>
-    <string name="home_generated_tcp_probes">" (آزمون‌های TCP: %1$s)"</string>
+    <string name="home_generated_tcp_probes">" (آزمون‌های ⁨TCP⁩: %1$s)"</string>
     <string name="home_generated_blocked_services">" (سرویس‌های مسدود: %1$s)"</string>
-    <string name="home_generated_dns_rationale">DNS %1$s نتیجهٔ %2$s را نشان داد، در حالی که %3$s %4$s را از طریق %5$s برگرداند. تعداد آزمون‌ها: %6$s؛ میانگین تأخیر: %7$s میلی‌ثانیه.</string>
+    <string name="home_generated_dns_rationale">⁨DNS⁩ %1$s نتیجهٔ %2$s را نشان داد، در حالی که %3$s %4$s را از طریق %5$s برگرداند. تعداد آزمون‌ها: %6$s؛ میانگین تأخیر: %7$s میلی‌ثانیه.</string>
     <string name="home_generated_dns_bootstrap">دسترسی‌پذیری راه‌انداز تأیید شد. تعداد آزمون‌ها: %1$s.</string>
     <string name="home_generated_dns_avoided">از IPهای راه‌انداز مسدودشده با DPI پرهیز شد: %1$s.</string>
     <string name="home_generated_dns_preferred">این شبکه قبلاً این مسیر DNS رمزگذاری‌شده را ترجیح داده بود.</string>
@@ -134,8 +134,8 @@
     <string name="home_generated_prepared_strategy">توصیهٔ راهبرد آماده شد</string>
     <string name="home_generated_internal_worker">عیب‌یابی ناموفق بود: خطای داخلی پردازشگر</string>
     <string name="home_generated_progress_preparing">آماده‌سازی %1$s</string>
-    <string name="home_generated_progress_tcp">آزمودن نامزد TCP: %1$s</string>
-    <string name="home_generated_progress_quic">آزمودن نامزد QUIC: %1$s</string>
+    <string name="home_generated_progress_tcp">آزمودن نامزد ⁨TCP⁩: %1$s</string>
+    <string name="home_generated_progress_quic">آزمودن نامزد ⁨QUIC⁩: %1$s</string>
     <string name="home_generated_progress_skip">رد شد: %1$s</string>
     <string name="home_generated_progress_service">سرویس %1$s</string>
     <string name="home_generated_progress_reachability">دسترسی‌پذیری %1$s</string>
