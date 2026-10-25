@@ -117,6 +117,21 @@ def exact_success(output, name):
     return len(marker.findall(output)) == 1 and len(summary.findall(output)) == 1
 
 
+def awg_success(output, name):
+    """Require one exact test in each of the eight scheduled AWG sessions."""
+    sessions = list(re.finditer(r"^MTU ([^\n]+), session ([^\n]+)$", output, re.MULTILINE))
+    expected = [(str(mtu), str(cycle)) for mtu in (1280, 1420) for cycle in range(4)]
+    if [match.groups() for match in sessions] != expected:
+        return False
+    if re.search(r"^test ", output[:sessions[0].start()], re.MULTILINE):
+        return False
+    return all(
+        exact_success(output[match.end():sessions[index + 1].start()
+                             if index + 1 < len(sessions) else len(output)], name)
+        for index, match in enumerate(sessions)
+    )
+
+
 @contextmanager
 def capture(path):
     """Capture both Python output and inherited child descriptors in private artifacts."""
@@ -412,12 +427,21 @@ def main(argv=None):
                 peer_cleanup = result.pop("_peer_cleanup", {"passed": True})
                 result["cleanup"]["passed"] = ledger.verified and peer_cleanup["passed"]
         output = (args.out_dir / "test.log").read_text(errors="replace")
+        verify_execution = awg_success if case["driver"] == "awg" else exact_success
         result["checks"].append(
-            {"id": "exact-test-executed", "passed": exact_success(output, case["test"])}
+            {"id": "exact-test-executed", "passed": verify_execution(output, case["test"])}
         )
         if case["tier"] == "independent-peer":
             identity = result["peer_identity"].get("sha256")
-            if not identity:
+            if case["driver"] == "awg":
+                pin = case["peer_identity"]
+                expected = f"{pin['implementation']} {pin['version']} ({pin['revision']})"
+                banners = re.findall(r"^Independent peer: (.*)$", output, re.MULTILINE)
+                match = re.fullmatch(re.escape(expected) + r"; sha256=([0-9a-f]{64})", banners[0]) if len(banners) == 1 else None
+                identity = match.group(1) if match else None
+                if identity:
+                    result["peer_identity"]["sha256"] = identity
+            elif not identity:
                 match = re.search(r"(?:peer |; )sha256=([0-9a-f]{64})", output)
                 identity = match.group(1) if match else None
                 if identity:

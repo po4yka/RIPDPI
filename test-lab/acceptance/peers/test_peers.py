@@ -80,6 +80,58 @@ class ExactExecutionTest(unittest.TestCase):
                 self.assertIn("pinned-peer-identity", case["checks"])
 
 
+class AwgExecutionTest(unittest.TestCase):
+    TEST = "standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer"
+    IDENTITY = "Independent peer: amneziawg-go v3.1.20260828 (b5928efb6ca19f0153958460c3d141f04abc5c2e); sha256=" + "a" * 64 + "\n"
+
+    def session(self, mtu, cycle):
+        return (f"MTU {mtu}, session {cycle}\n"
+                f"test {self.TEST} ... ok\n"
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s\n")
+
+    def matrix(self):
+        return self.IDENTITY + "".join(self.session(mtu, cycle)
+                                      for mtu in (1280, 1420) for cycle in range(4))
+
+    def run_adapter(self, output):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "result"
+            with patch.object(runner, "execute", side_effect=lambda *_: print(output, end="")):
+                code = runner.main(["--scenario", "independent-awg-tcp-udp",
+                                    "--run-id", "awg-regression", "--out-dir", str(out)])
+            return code, json.loads((out / "result.json").read_text())
+
+    def test_all_eight_exact_sessions_pass(self):
+        code, result = self.run_adapter(self.matrix())
+        self.assertEqual(code, 0)
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["peer_identity"]["version"], "v3.1.20260828")
+        self.assertEqual(result["peer_identity"]["revision"], "b5928efb6ca19f0153958460c3d141f04abc5c2e")
+
+    def test_partial_duplicate_failed_or_unpinned_matrix_cannot_pass(self):
+        output = self.matrix()
+        invalid = {
+            "one-session": self.IDENTITY + self.session(1280, 0),
+            "missing-session": output.removesuffix(self.session(1420, 3)),
+            "duplicate-session": output.replace("MTU 1420, session 3", "MTU 1420, session 2"),
+            "wrong-mtu": output.replace("MTU 1420, session 3", "MTU 1421, session 3"),
+            "failed-session": output.replace("... ok", "... FAILED", 1),
+            "ignored-session": output.replace("... ok", "... ignored", 1),
+            "wrong-test": output.replace(self.TEST, "different", 1),
+            "extra-result": output + self.session(1420, 3),
+            "unscoped-result": self.session(1280, 0).split("\n", 1)[1] + output,
+            "missing-pin": output.removeprefix(self.IDENTITY),
+            "wrong-pin": output.replace("v3.1.20260828", "v0.2.18"),
+            "wrong-revision": output.replace("b5928efb6ca19f0153958460c3d141f04abc5c2e", "b" * 40),
+            "duplicate-pin": self.IDENTITY + output,
+        }
+        for reason, transcript in invalid.items():
+            with self.subTest(reason=reason):
+                code, result = self.run_adapter(transcript)
+                self.assertEqual(code, 2)
+                self.assertEqual(result["status"], "failed")
+
+
 class HoppingFailureEvidenceTest(unittest.TestCase):
     def test_shared_hysteria_cases_use_the_verified_binary_pin(self):
         for case in catalog.SCENARIOS.values():

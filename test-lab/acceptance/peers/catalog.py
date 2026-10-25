@@ -202,8 +202,8 @@ SCENARIOS["independent-awg-tcp-udp"] = {
     "checks": ["exact-test-executed", "pinned-peer-identity"],
     "peer_identity": {
         "implementation": "amneziawg-go",
-        "version": "v0.2.18",
-        "revision": "f4f4c999267437c3eb909e8d0e5278fb4596d9a7",
+        "version": "v3.1.20260828",
+        "revision": "b5928efb6ca19f0153958460c3d141f04abc5c2e",
     },
 }
 for purpose, test in {
