@@ -16,5 +16,5 @@
     <string name="config_xray_import_title">نمایه VPN پیشرفته</string>
     <string name="config_xray_import_body">یک نمایه Xray را برای ارائه‌دهنده داخلی وارد یا بررسی کنید.</string>
     <string name="onboarding_setup_mode_xray_title">راه‌اندازی VPN پیشرفته</string>
-    <string name="onboarding_setup_mode_xray_body">پیش از آزمایش حالت VPN، یک نمایه Xray وارد کنید.</string>
+    <string name="onboarding_setup_mode_xray_body">به‌جای VPN داخلی، از یک نمایه Xray واردشده استفاده کنید.</string>
 </resources>

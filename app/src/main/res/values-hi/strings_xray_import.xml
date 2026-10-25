@@ -16,5 +16,5 @@
     <string name="config_xray_import_title">उन्नत VPN प्रोफ़ाइल</string>
     <string name="config_xray_import_body">एम्बेडेड प्रदाता के लिए Xray प्रोफ़ाइल आयात करें या देखें।</string>
     <string name="onboarding_setup_mode_xray_title">उन्नत VPN सेट अप करें</string>
-    <string name="onboarding_setup_mode_xray_body">VPN मोड का परीक्षण करने से पहले Xray प्रोफ़ाइल आयात करें।</string>
+    <string name="onboarding_setup_mode_xray_body">अंतर्निहित VPN के बजाय आयात की गई Xray प्रोफ़ाइल का उपयोग करें।</string>
 </resources>

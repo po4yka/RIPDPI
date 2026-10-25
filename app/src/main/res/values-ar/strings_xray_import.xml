@@ -16,5 +16,5 @@
     <string name="config_xray_import_title">ملف VPN متقدم</string>
     <string name="config_xray_import_body">استورد أو راجع ملف Xray للموفر المدمج.</string>
     <string name="onboarding_setup_mode_xray_title">إعداد VPN متقدم</string>
-    <string name="onboarding_setup_mode_xray_body">استورد ملف Xray قبل اختبار وضع VPN.</string>
+    <string name="onboarding_setup_mode_xray_body">استخدم ملف Xray مستورداً بدلاً من VPN المدمج.</string>
 </resources>

@@ -520,7 +520,7 @@ class OnboardingScreenTest {
         listOf(
             "Routes all app traffic through a local on-device VPN. Full coverage, no manual setup.",
             "Runs a local proxy for apps or clients that support manual proxy configuration.",
-            "Import an Xray profile before testing the VPN mode.",
+            "Use an imported Xray profile instead of the built-in VPN.",
         ).forEach(::assertCompleteScrollableText)
     }
 
