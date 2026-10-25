@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import kotlinx.serialization.Serializable
 
 /**
@@ -12,6 +13,8 @@ import kotlinx.serialization.Serializable
  *   [i1]..[i5]: server-coordinated, rewritten wholesale by [applyCohortPreset]
  *   when a cohort preset is selected. `s3`/`s4` remain in the model for wire
  *   compatibility but activation requires both to be zero (amneziawg-go#110).
+ *   [v3] carries the AWG 3.x keys (header protection, padding, trailers, timer
+ *   ranges); it belongs to the obfuscation group.
  *
  * [cohortId] tags which preset the obfuscation fields came from, or `"Custom"`
  * when they were hand-entered / imported without a match. Applying a preset
@@ -47,6 +50,7 @@ data class AwgProfileForm(
     val i3: String = "",
     val i4: String = "",
     val i5: String = "",
+    val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
     val cohortId: String = CUSTOM_COHORT_ID,
     val carrier: String = AwgActivationRequest.CARRIER_UDP,
     val carrierWsUrl: String = "",

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.requireAmneziaWgArm64Safe
 import kotlinx.serialization.Serializable
@@ -41,6 +42,8 @@ data class AwgActivationRequest(
     val allowedIps: List<String> = listOf("0.0.0.0/0"),
     val mtu: Int = DEFAULT_MTU,
     val persistentKeepalive: Int = 0,
+    /** High bound of an AWG 3.x keepalive range; `0` = the fixed [persistentKeepalive] interval. */
+    val persistentKeepaliveMax: Int = 0,
     val obfuscation: AwgActivationObfuscation = AwgActivationObfuscation(),
     /**
      * Transport carrier the WireGuard datagrams egress over. [CARRIER_UDP]
@@ -79,6 +82,12 @@ fun AwgActivationRequest.requireRuntimeReady() {
     require(endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }
     require(endpointPort in ValidEndpointPorts) { "AmneziaWG endpoint port invalid" }
     require(mtu in ValidAmneziaWgMtu) { "AmneziaWG MTU must be between 1280 and 1420" }
+    require(persistentKeepalive in ValidKeepalive && persistentKeepaliveMax in ValidKeepalive) {
+        "AmneziaWG persistent keepalive must be in 0..65535"
+    }
+    require(persistentKeepaliveMax == 0 || persistentKeepaliveMax >= persistentKeepalive) {
+        "AmneziaWG persistent keepalive range is inverted"
+    }
     require(interfaceAddressV4.isIpv4Cidr()) { "AmneziaWG interface address must be an IPv4 CIDR" }
     require(interfaceAddressV6.isEmpty() || interfaceAddressV6.isIpv6Cidr()) {
         "AmneziaWG IPv6 interface address must be an IPv6 CIDR"
@@ -144,6 +153,7 @@ private fun String.isIpv6Address(): Boolean {
 
 private val ValidEndpointPorts = 1..65_535
 internal val ValidAmneziaWgMtu = 1280..1420
+private val ValidKeepalive = 0..AmneziaWgV3Parameters.MaximumRange
 private val Ipv4PrefixRange = 0..32
 private val Ipv6PrefixRange = 0..128
 private val Ipv4OctetRange = 0..255
@@ -158,9 +168,9 @@ private const val Ipv4OctetCount = 4
  * padding, `s1`..`s4` the per-message-type junk-size knobs (`s1`/`s2` the
  * handshake-init/response prefixes, `s3`/`s4` the AWG-2.x cookie/transport
  * padding), `h1`..`h4` the uint32 header ranges, and `i1`..`i5` the optional
- * AWG 3.1 signature programs (empty = unused). All knobs carry through to
- * the native runtime; the additive `s3`/`s4` default to `0` and must remain
- * zero for Android arm64 safety (amneziawg-go#110).
+ * AWG 3.1 signature programs (empty = unused), and [v3] the AWG 3.x keys. All
+ * knobs carry through to the native runtime; the additive `s3`/`s4` default to
+ * `0` and must remain zero for Android arm64 safety (amneziawg-go#110).
  */
 @Serializable
 data class AwgActivationObfuscation(
@@ -181,8 +191,12 @@ data class AwgActivationObfuscation(
     val i3: String = "",
     val i4: String = "",
     val i5: String = "",
+    val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
 ) {
-    /** Rejects the known Android arm64 transport-drop configuration from amneziawg-go#110. */
+    /**
+     * Rejects malformed knobs, then the known Android arm64 transport-drop configuration from
+     * amneziawg-go#110 with [com.poyka.ripdpi.data.wireguard.AmneziaWgArm64S34FloorException].
+     */
     fun requireSupportedProfile() {
         AmneziaWgWireProfile
             .requireScalars(jc, jmin, jmax, s1, s2)
@@ -191,7 +205,8 @@ data class AwgActivationObfuscation(
             listOf(h1, h2, h3, h4),
             listOf(i1, i2, i3, i4, i5),
         )
-        requireAmneziaWgArm64Safe(s3 = s3, s4 = s4)
+        v3.requireValid(listOf(s1, s2, s3, s4))
+        requireAmneziaWgArm64Safe(s3 = s3, s4 = s4, headerProtection = v3.headerProtectionEnabled)
     }
 }
 
@@ -216,6 +231,7 @@ fun AwgProfileForm.toActivationRequest(
     allowedIps: List<String> = emptyList(),
     mtu: Int = AwgActivationRequest.DEFAULT_MTU,
     persistentKeepalive: Int = 0,
+    persistentKeepaliveMax: Int = 0,
 ): AwgActivationRequest =
     AwgActivationRequest(
         profileId = profileId,
@@ -233,6 +249,7 @@ fun AwgProfileForm.toActivationRequest(
             },
         mtu = mtu,
         persistentKeepalive = persistentKeepalive,
+        persistentKeepaliveMax = persistentKeepaliveMax,
         carrier = carrier,
         carrierWsUrl = carrierWsUrl,
         obfuscation =
@@ -254,5 +271,6 @@ fun AwgProfileForm.toActivationRequest(
                 i3 = i3,
                 i4 = i4,
                 i5 = i5,
+                v3 = v3,
             ),
     )

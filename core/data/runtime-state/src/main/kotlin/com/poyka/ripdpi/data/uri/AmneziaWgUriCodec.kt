@@ -20,12 +20,18 @@ import java.net.URLEncoder
  * amneziawg://<private-key>@<host>:<port>
  *   ?wire_profile=awg-3.1-ranges-v1&public_key=<key>
  *   &preshared_key=<key>
+ *   &address=<cidr,cidr>
  *   &allowed_ips=<cidr,cidr>
  *   &dns=<ip,ip>
  *   &mtu=<n>
+ *   &persistent_keepalive=<range>
  *   &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=0&s4=0
  *   &h1=<range>&h2=<range>&h3=<range>&h4=<range>
  *   &i1=<program>&i2=<program>&i3=<program>&i4=<program>&i5=<program>
+ *   &header_protection_key=<key>&content_padding_addition=<range>
+ *   &rekey_after_time=<range>&rekey_timeout=<range>&reject_after_time=<range>
+ *   &keepalive_timeout=<range>&max_handshake_attempts=<range>
+ *   &random_trailers=on&disable_cookies=on
  *   #<name>
  * ```
  *
@@ -34,7 +40,8 @@ import java.net.URLEncoder
  * the round-trip is lossless. [decode] never throws: an unrecognised scheme, a
  * structurally broken URI, or a missing mandatory field yields `null`; a
  * malformed obfuscation field rejects the URI. A profile with non-zero
- * `s3` or `s4` is rejected for Android arm64 safety (amneziawg-go#110).
+ * `s3` or `s4` is rejected for Android arm64 safety (amneziawg-go#110). The
+ * AWG 3.x keys are optional and omitted when unset.
  */
 object AmneziaWgUriCodec {
     private const val SCHEME = "amneziawg"
@@ -67,9 +74,13 @@ object AmneziaWgUriCodec {
         buildList {
             add("public_key" to profile.publicKey)
             profile.presharedKey?.let { add("preshared_key" to it) }
+            profile.address.takeIf { it.isNotEmpty() }?.let { add("address" to it.joinToString(",")) }
             profile.allowedIps.takeIf { it.isNotEmpty() }?.let { add("allowed_ips" to it.joinToString(",")) }
             profile.dns.takeIf { it.isNotEmpty() }?.let { add("dns" to it.joinToString(",")) }
             profile.mtu?.let { add("mtu" to it.toString()) }
+            profile.persistentKeepalive?.let { low ->
+                add("persistent_keepalive" to (profile.persistentKeepaliveMax?.let { "$low-$it" } ?: "$low"))
+            }
         }
 
     /** The AmneziaWG obfuscation query params, in declared order, omitting absent fields. */
@@ -92,7 +103,7 @@ object AmneziaWgUriCodec {
             awg.i3?.let { "i3" to it },
             awg.i4?.let { "i4" to it },
             awg.i5?.let { "i5" to it },
-        )
+        ) + awg.v3.toUriParams()
 
     /**
      * Decodes [uri] into an [AmneziaWgProfile], or returns `null` when the
@@ -127,7 +138,7 @@ object AmneziaWgUriCodec {
                     "i3",
                     "i4",
                     "i5",
-                )
+                ) + AmneziaWgUriAwg3Keys
             if (params.keys.any { it !in allowed }) return@let null
             if (listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").any { key ->
                     key in params && params[key]?.toIntOrNull()?.let { it >= 0 } != true
@@ -136,6 +147,8 @@ object AmneziaWgUriCodec {
                 return@let null
             }
             if (listOf("i1", "i2", "i3", "i4", "i5").any { it in params && params[it].isNullOrEmpty() }) return@let null
+            val keepalive = parseUriKeepalive(params["persistent_keepalive"]) ?: return@let null
+            val v3 = parseUriAwg3(params) ?: return@let null
             val awg =
                 AmneziaWgParameters(
                     wireProfile = requireNotNull(params["wire_profile"]),
@@ -155,6 +168,7 @@ object AmneziaWgUriCodec {
                     i3 = params["i3"],
                     i4 = params["i4"],
                     i5 = params["i5"],
+                    v3 = v3,
                 )
             runCatching {
                 awg.requireSupportedProfile()
@@ -169,6 +183,9 @@ object AmneziaWgUriCodec {
                     dns = splitList(params["dns"]),
                     mtu = params["mtu"]?.toIntOrNull(),
                     awg = awg,
+                    address = splitList(params["address"]),
+                    persistentKeepalive = keepalive.low,
+                    persistentKeepaliveMax = keepalive.high,
                 )
             }.getOrNull()
         }

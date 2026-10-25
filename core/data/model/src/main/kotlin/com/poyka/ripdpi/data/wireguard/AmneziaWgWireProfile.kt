@@ -24,7 +24,8 @@ object AmneziaWgWireProfile {
         value.split('-').takeIf { parts -> parts.size in 1..2 && parts.all { Decimal.matches(it) } }?.let { parts ->
             val low = parts[0].toLongOrNull()?.takeIf { it <= MaximumHeader }
             val high = parts.last().toLongOrNull()?.takeIf { it <= MaximumHeader }
-            if (low == null || high == null) null else (low..high).takeIf { parts.size == 1 || low < high }
+            // amneziawg-go accepts `x-x`; only `hi < lo` is invalid.
+            if (low == null || high == null) null else (low..high).takeIf { low <= high }
         }
 
     fun headerIsValid(

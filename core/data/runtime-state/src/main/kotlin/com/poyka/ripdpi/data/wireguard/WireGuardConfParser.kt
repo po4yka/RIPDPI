@@ -1,12 +1,23 @@
 package com.poyka.ripdpi.data.wireguard
 
 /**
+ * A `.conf` key that RIPDPI does not know. The message names the section and key, never the value.
+ */
+class WireGuardConfUnknownKeyException(
+    val section: String,
+    val key: String,
+) : IllegalArgumentException("Unsupported WireGuard [$section] key: $key")
+
+/**
  * Minimal WireGuard `.conf` INI parser with the AmneziaWG extension.
  *
  * The `.conf` format is the standard WireGuard INI: `[Interface]` / `[Peer]`
  * section headers followed by `Key = Value` pairs. AmneziaWG adds obfuscation
  * keys (`Jc`, `Jmin`, `Jmax`, `S1`..`S4`, `H1`..`H4`, `I1`..`I5`) on the
- * `[Interface]` block.
+ * `[Interface]` block, and AWG 3.x adds `HeaderProtectionKey`,
+ * `ContentPaddingAddition`, `RekeyAfterTime`, `RekeyTimeout`, `RejectAfterTime`,
+ * `KeepaliveTimeout`, `MaxHandshakeAttempts`, `RandomTrailers`, `DisableCookies`,
+ * and `[Peer] PersistentKeepalive = lo-hi` ranges.
  *
  * - A `.conf` with **no** AmneziaWG keys parses to a [WireGuardConfig].
  * - A `.conf` with **any** AmneziaWG key parses to an [AmneziaWgConfig].
@@ -15,24 +26,17 @@ package com.poyka.ripdpi.data.wireguard
  * rules are ported from amnezia-vpn/amneziawg-android
  * (`tunnel/.../config/Interface.java`, Apache-2.0).
  *
- * Unknown keys are ignored (not a hard error). Structurally malformed input —
- * a non-comment line with no `=`, a `Key = Value` pair before any section
- * header, an empty file, or a field that fails validation — throws
- * [IllegalArgumentException].
+ * `#` and `;` start a comment. The wg-quick host keys (`Table`, `PreUp`, `PostUp`,
+ * `PreDown`, `PostDown`, `SaveConfig`, `FwMark`) are ignored; any other unknown key
+ * throws [WireGuardConfUnknownKeyException]. Structurally malformed input — a
+ * non-comment line with no `=`, a `Key = Value` pair before any section header,
+ * an empty file, or a field that fails validation — throws
+ * [IllegalArgumentException]. S3/S4 are carried as parsed: the Android arm64
+ * S3/S4 floor is enforced at activation with [AmneziaWgArm64S34FloorException].
  */
 object WireGuardConfParser {
-    private val UnsupportedOptions =
-        setOf(
-            "headerprotectionkey",
-            "contentpaddingaddition",
-            "rekeyaftertime",
-            "rekeytimeout",
-            "rejectaftertime",
-            "keepalivetimeout",
-            "maxhandshakeattempts",
-            "randomtrailers",
-            "disablecookies",
-        )
+    /** wg-quick keys that configure the host, not the tunnel data plane. */
+    private val WgQuickHostKeys = setOf("table", "preup", "postup", "predown", "postdown", "saveconfig", "fwmark")
 
     private enum class Section { NONE, INTERFACE, PEER }
 
@@ -73,6 +77,7 @@ object WireGuardConfParser {
         var i3: String? = null
         var i4: String? = null
         var i5: String? = null
+        var v3 = AmneziaWgV3Parameters()
 
         fun build(): AmneziaWgParameters =
             AmneziaWgParameters(
@@ -92,6 +97,7 @@ object WireGuardConfParser {
                 i3 = i3,
                 i4 = i4,
                 i5 = i5,
+                v3 = v3,
             )
     }
 
@@ -102,6 +108,7 @@ object WireGuardConfParser {
         var allowedIps: List<String> = emptyList()
         var endpoint: String? = null
         var persistentKeepalive: Int? = null
+        var persistentKeepaliveMax: Int? = null
 
         fun build(): WireGuardPeer =
             WireGuardPeer(
@@ -110,6 +117,7 @@ object WireGuardConfParser {
                 allowedIps = allowedIps,
                 endpoint = endpoint,
                 persistentKeepalive = persistentKeepalive,
+                persistentKeepaliveMax = persistentKeepaliveMax,
             )
     }
 
@@ -160,9 +168,6 @@ object WireGuardConfParser {
                 val key = line.substring(0, separator).trim()
                 val value = line.substring(separator + 1).trim()
                 require(key.isNotEmpty()) { "Malformed WireGuard config line (empty key): $line" }
-                require(key.lowercase().replace("_", "") !in UnsupportedOptions) {
-                    "Unsupported AmneziaWG option: $key"
-                }
 
                 when (section) {
                     Section.INTERFACE -> {
@@ -192,7 +197,7 @@ object WireGuardConfParser {
         return if (awg.isEmpty) {
             WireGuardConfig(interfaceSection = interfaceSection, peers = peers)
         } else {
-            awg.requireSupportedProfile()
+            awg.requireWellFormed()
             AmneziaWgConfig(interfaceSection = interfaceSection, awg = awg, peers = peers)
         }
     }
@@ -228,7 +233,8 @@ object WireGuardConfParser {
             "i3" -> builder.awg.i3 = parseSignature(key, value)
             "i4" -> builder.awg.i4 = parseSignature(key, value)
             "i5" -> builder.awg.i5 = parseSignature(key, value)
-            else -> Unit // Unrelated WireGuard hooks are not runtime obfuscation fields.
+            in WgQuickHostKeys -> Unit
+            else -> builder.awg.v3 = builder.awg.v3.withConfKey(key, value)
         }
     }
 
@@ -238,18 +244,37 @@ object WireGuardConfParser {
         value: String,
     ) {
         when (key.lowercase()) {
-            "publickey" -> builder.publicKey = value
-            "presharedkey" -> builder.presharedKey = value
-            "allowedips" -> builder.allowedIps = splitList(value)
-            "endpoint" -> builder.endpoint = value
-            "persistentkeepalive" -> builder.persistentKeepalive = parseNonNegativeInt(key, value)
-            else -> Unit // Unknown key: ignored, not a hard error.
+            "publickey" -> {
+                builder.publicKey = value
+            }
+
+            "presharedkey" -> {
+                builder.presharedKey = value
+            }
+
+            "allowedips" -> {
+                builder.allowedIps = splitList(value)
+            }
+
+            "endpoint" -> {
+                builder.endpoint = value
+            }
+
+            "persistentkeepalive" -> {
+                val range = parseConfRange(key, value).split('-').map(String::toInt)
+                builder.persistentKeepalive = range.first()
+                builder.persistentKeepaliveMax = range.getOrNull(1)?.takeIf { it != range.first() }
+            }
+
+            else -> {
+                throw WireGuardConfUnknownKeyException("Peer", key)
+            }
         }
     }
 
     private fun stripComment(line: String): String {
-        val hash = line.indexOf('#')
-        return if (hash >= 0) line.substring(0, hash) else line
+        val comment = line.indexOfFirst { it == '#' || it == ';' }
+        return if (comment >= 0) line.substring(0, comment) else line
     }
 
     private fun splitList(value: String): List<String> = value.split(',').map { it.trim() }.filter { it.isNotEmpty() }

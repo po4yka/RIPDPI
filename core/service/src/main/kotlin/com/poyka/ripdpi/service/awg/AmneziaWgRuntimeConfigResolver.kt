@@ -47,6 +47,7 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
                 interfaceAddressV6 = request.interfaceAddressV6,
                 mtu = request.mtu,
                 persistentKeepalive = request.persistentKeepalive,
+                persistentKeepaliveMax = request.persistentKeepaliveMax,
                 amnezia = request.obfuscation.toObfuscationConfig(),
                 carrier = carrier,
                 carrierWsUrl = request.carrierWsUrl,
@@ -107,6 +108,7 @@ private fun com.poyka.ripdpi.data.awg.AwgActivationObfuscation.toObfuscationConf
         i3 = i3,
         i4 = i4,
         i5 = i5,
+        v3 = v3,
     )
 
 @Module

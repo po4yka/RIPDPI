@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.SubscriptionAwgWrite
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
+import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.flow.Flow
@@ -56,12 +57,13 @@ data class SavedAwgProfile(
  * (network-fingerprint-privacy.md). The endpoint host/port are serialized inside
  * the blob as user config but never logged or exported.
  *
- * **At-rest secrets:** the WireGuard `privateKey` and `presharedKey` are NEVER
- * persisted in the Room blob. They are sealed in [AwgCredentialStore] (AES-256-GCM
- * via AndroidKeyStore, mirroring the WARP credential split) keyed by the stable
- * profile id, then re-injected into the rehydrated request on load. The serialized
- * blob therefore carries no `privateKey`, `presharedKey`, or `profileId` -- the id
- * is authoritative on the row, and the secrets are authoritative in the keystore.
+ * **At-rest secrets:** the WireGuard `privateKey` and `presharedKey`, and the AWG 3.x
+ * `obfuscation.v3.headerProtectionKey`, are NEVER persisted in the Room blob. They
+ * are sealed in [AwgCredentialStore] (AES-256-GCM via AndroidKeyStore, mirroring the
+ * WARP credential split) keyed by the stable profile id, then re-injected into the
+ * rehydrated request on load. The serialized blob therefore carries no `privateKey`,
+ * `presharedKey`, header protection key, or `profileId` -- the id is authoritative
+ * on the row, and the secrets are authoritative in the keystore.
  *
  * The stored obfuscation contract is checked before tolerant request decoding.
  * Unsupported rows remain intact and are excluded from activation until refresh or
@@ -273,7 +275,15 @@ class AwgProfileRepository
             origin: JsonElement?,
         ): SubscriptionAwgWrite {
             request.obfuscation.requireSupportedProfile()
-            val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")
+            val obfuscation = request.obfuscation
+            val sanitized =
+                request.copy(
+                    profileId = "",
+                    privateKey = "",
+                    presharedKey = "",
+                    obfuscation =
+                        obfuscation.copy(v3 = obfuscation.v3.copy(headerProtectionKey = AwgHeaderProtectionKey.None)),
+                )
             val fields = encodeJson.encodeToJsonElement(sanitized).jsonObject.toMutableMap()
             if (origin != null) fields[SubscriptionOriginKey] = origin
             return SubscriptionAwgWrite(
@@ -283,7 +293,11 @@ class AwgProfileRepository
                     requestJson = JsonObject(fields).toString(),
                     updatedAt = System.currentTimeMillis(),
                 ),
-                AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
+                AwgSecrets(
+                    privateKey = request.privateKey,
+                    presharedKey = request.presharedKey,
+                    headerProtectionKey = obfuscation.v3.headerProtectionKey.value,
+                ),
             )
         }
 
@@ -318,6 +332,13 @@ class AwgProfileRepository
                         profileId = id,
                         privateKey = secrets.privateKey,
                         presharedKey = secrets.presharedKey,
+                        obfuscation =
+                            decoded.obfuscation.copy(
+                                v3 =
+                                    decoded.obfuscation.v3.copy(
+                                        headerProtectionKey = AwgHeaderProtectionKey(secrets.headerProtectionKey),
+                                    ),
+                            ),
                     ),
             )
         }
@@ -366,6 +387,7 @@ class AwgProfileRepository
                     "i3",
                     "i4",
                     "i5",
+                    "v3",
                 )
 
             /**

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -30,7 +31,9 @@ internal const val defaultAmneziaWgReadyTimeoutMs = 5_000L
  * `s1`..`s4` the per-message-type junk-size knobs (`s1`/`s2` the
  * handshake-init/response prefixes, `s3`/`s4` the AWG-2.x cookie/transport
  * padding), `h1`..`h4` canonical unsigned header values or inclusive ranges, and
- * `i1`..`i5` the optional packet templates (empty string = unused).
+ * `i1`..`i5` the optional packet templates (empty string = unused). [v3] is the
+ * nested Rust `AwgV3Config` object (AWG 3.x keys); its default emits nothing
+ * under `encodeDefaults = false`, so 1.x/2.0 JSON stays byte-identical.
  */
 @Serializable
 data class RipDpiAmneziaWgObfuscationConfig(
@@ -61,6 +64,7 @@ data class RipDpiAmneziaWgObfuscationConfig(
     val i3: String = "",
     val i4: String = "",
     val i5: String = "",
+    val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
 )
 
 /**
@@ -109,6 +113,8 @@ data class ResolvedRipDpiAmneziaWgConfig(
     val interfaceAddressV6: String = "",
     val mtu: Int = DefaultAmneziaWgTunnelMtu,
     val persistentKeepalive: Int = 0,
+    /** High bound of an AWG 3.x keepalive range; `0` = fixed [persistentKeepalive]. */
+    val persistentKeepaliveMax: Int = 0,
     val amnezia: RipDpiAmneziaWgObfuscationConfig = RipDpiAmneziaWgObfuscationConfig(),
     val carrier: RipDpiAmneziaWgCarrierKind = RipDpiAmneziaWgCarrierKind.Udp,
     val carrierWsUrl: String = "",

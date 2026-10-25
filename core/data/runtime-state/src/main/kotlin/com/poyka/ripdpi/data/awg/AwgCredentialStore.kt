@@ -21,12 +21,14 @@ import javax.inject.Singleton
  *
  * Mirrors the WARP credential split (`WarpCredentials`): the Room row keeps the
  * non-secret user config (endpoint host/port, addresses, obfuscation knobs) and
- * these two fields live encrypted at rest, keyed by the opaque profile id.
+ * these fields live encrypted at rest, keyed by the opaque profile id.
  */
 @Serializable
 data class AwgSecrets(
     val privateKey: String = "",
     val presharedKey: String = "",
+    /** AWG 3.x `HeaderProtectionKey` (base64); empty for 1.x/2.0 profiles and older entries. */
+    val headerProtectionKey: String = "",
 )
 
 /**

@@ -33,6 +33,8 @@ data class WireGuardSubscriptionProfile(
     val peerPresharedKey: String?,
     val allowedIps: List<String>,
     val persistentKeepalive: Int?,
+    /** High bound of an AWG 3.x `PersistentKeepalive = lo-hi` range; null = fixed. */
+    val persistentKeepaliveMax: Int? = null,
     val dnsSpecified: Boolean = dns.isNotEmpty(),
     val allowedIpsSpecified: Boolean = allowedIps.isNotEmpty(),
 )
@@ -61,6 +63,8 @@ data class AmneziaWgSubscriptionProfile(
     val allowedIps: List<String>,
     val persistentKeepalive: Int?,
     val awg: AmneziaWgParameters,
+    /** High bound of an AWG 3.x `PersistentKeepalive = lo-hi` range; null = fixed. */
+    val persistentKeepaliveMax: Int? = null,
     /**
      * Server-stamped fingerprint of [awg] (`ripdpi.amneziawg[].cohort_fingerprint`),
      * or `null` when the bundle predates the field. Compare against
@@ -152,15 +156,18 @@ object WireGuardIniSubscriptionParser {
         // every peer. A malformed interface-scope key cannot be salvaged
         // per-peer, so validate it once up front and fail the whole
         // subscription with a single typed warning if it does not parse.
-        runCatching { WireGuardConfParser.parse(sections.interfaceBlock + "\n[Peer]\nPublicKey = probe") }
-            .onFailure { error ->
-                return failure(
-                    line = "[Interface]",
-                    reason =
-                        "malformed WireGuard INI config: the [Interface] block could not be parsed: " +
-                            (error.message ?: "unknown error"),
-                )
-            }
+        // Subscriptions persist profiles, so the arm64 S3/S4 floor applies here, not only at activation.
+        runCatching {
+            val probe = WireGuardConfParser.parse(sections.interfaceBlock + "\n[Peer]\nPublicKey = probe")
+            (probe as? AmneziaWgConfig)?.awg?.requireSupportedProfile()
+        }.onFailure { error ->
+            return failure(
+                line = "[Interface]",
+                reason =
+                    "malformed WireGuard INI config: the [Interface] block could not be parsed: " +
+                        (error.message ?: "unknown error"),
+            )
+        }
 
         val accumulator = SubscriptionAccumulator()
         sections.peerBlocks.forEachIndexed { index, peerBlock ->
@@ -265,6 +272,7 @@ object WireGuardIniSubscriptionParser {
                             peerPresharedKey = peer.presharedKey,
                             allowedIps = peer.allowedIps,
                             persistentKeepalive = peer.persistentKeepalive,
+                            persistentKeepaliveMax = peer.persistentKeepaliveMax,
                             dnsSpecified = dnsSpecified,
                             allowedIpsSpecified = allowedIpsSpecified,
                             awg = model.awg,
@@ -286,6 +294,7 @@ object WireGuardIniSubscriptionParser {
                             peerPresharedKey = peer.presharedKey,
                             allowedIps = peer.allowedIps,
                             persistentKeepalive = peer.persistentKeepalive,
+                            persistentKeepaliveMax = peer.persistentKeepaliveMax,
                             dnsSpecified = dnsSpecified,
                             allowedIpsSpecified = allowedIpsSpecified,
                         )

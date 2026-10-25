@@ -38,8 +38,18 @@ class RipDpiAmneziaWgLifecycleTest {
                                 "i3",
                                 "i4",
                                 "i5",
+                                // AWG 3.x keys; the bridge encodes defaults, and Rust accepts the all-off object.
+                                "v3",
                             ),
                             obfuscation.keys,
+                        )
+                        assertEquals(
+                            false,
+                            obfuscation
+                                .getValue("v3")
+                                .jsonObject["randomTrailers"]
+                                ?.toString()
+                                ?.toBoolean(),
                         )
                         assertEquals(JsonPrimitive("awg-3.1-ranges-v1"), obfuscation["wireProfile"])
                         return 1L

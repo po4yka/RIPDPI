@@ -2,14 +2,30 @@ package com.poyka.ripdpi.data.wireguard
 
 import kotlinx.serialization.Serializable
 
+/**
+ * The Android arm64 S3/S4 floor rejected this profile. The floor stays until a physical device
+ * revalidation records a safe upstream version; a release-note claim never lifts it.
+ */
+class AmneziaWgArm64S34FloorException(
+    val s3: Int,
+    val s4: Int,
+    headerProtection: Boolean,
+) : IllegalArgumentException(
+        "AmneziaWG S3/S4 must be 0 (got S3=$s3, S4=$s4): the Android arm64 S3/S4 floor is active because " +
+            "non-zero values can silently drop transport data (amneziawg-go#110)" +
+            if (headerProtection) {
+                ". AmneziaWG 3.x header protection needs S3/S4 >= 12, so this profile cannot start"
+            } else {
+                ""
+            },
+    )
+
 internal fun requireAmneziaWgArm64Safe(
     s3: Int?,
     s4: Int?,
+    headerProtection: Boolean = false,
 ) {
-    require((s3 ?: 0) == 0 && (s4 ?: 0) == 0) {
-        "AmneziaWG S3/S4 must be 0: non-zero values can silently drop transport data on Android arm64 " +
-            "(amneziawg-go#110)"
-    }
+    if ((s3 ?: 0) != 0 || (s4 ?: 0) != 0) throw AmneziaWgArm64S34FloorException(s3 ?: 0, s4 ?: 0, headerProtection)
 }
 
 /*
@@ -51,6 +67,8 @@ data class WireGuardPeer(
     val allowedIps: List<String> = emptyList(),
     val endpoint: String? = null,
     val persistentKeepalive: Int? = null,
+    /** High bound of an AWG 3.x `PersistentKeepalive = lo-hi` range; null = a fixed interval. */
+    val persistentKeepaliveMax: Int? = null,
 )
 
 /**
@@ -66,6 +84,7 @@ data class WireGuardPeer(
  *   Android arm64 safety; [requireSupportedProfile] enforces amneziawg-go#110.
  * - `h1`..`h4`: 4-byte unsigned magic-header values, stored as canonical decimal strings or inclusive ranges.
  * - `i1`..`i5`: special-junk payloads, stored as bounded signature programs.
+ * - `v3`: the AmneziaWG 3.x keys (header protection, padding, trailers, timers).
  */
 @Serializable
 data class AmneziaWgParameters(
@@ -86,13 +105,22 @@ data class AmneziaWgParameters(
     val i3: String? = null,
     val i4: String? = null,
     val i5: String? = null,
+    val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
 ) {
-    /** Rejects the known Android arm64 transport-drop configuration from amneziawg-go#110. */
-    fun requireSupportedProfile() {
-        com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
-            .requireScalars(jc, jmin, jmax, s1, s2)
+    /** Validates the field set without the platform floor; import paths carry S3/S4 through this check. */
+    fun requireWellFormed() {
+        AmneziaWgWireProfile.requireScalars(jc, jmin, jmax, s1, s2)
+        require(listOf(s3, s4).all { (it ?: 0) in 0..AmneziaWgWireProfile.MaximumPacket }) {
+            "AmneziaWG packet sizes must be in 0..1280"
+        }
         AmneziaWgWireProfile.requireValid(wireProfile, listOf(h1, h2, h3, h4), listOf(i1, i2, i3, i4, i5))
-        requireAmneziaWgArm64Safe(s3 = s3, s4 = s4)
+        v3.requireValid(listOf(s1, s2, s3, s4))
+    }
+
+    /** [requireWellFormed] plus the Android arm64 S3/S4 floor from amneziawg-go#110. */
+    fun requireSupportedProfile() {
+        requireWellFormed()
+        requireAmneziaWgArm64Safe(s3 = s3, s4 = s4, headerProtection = v3.headerProtectionEnabled)
     }
 
     /** True when no AmneziaWG key was present. */
@@ -101,7 +129,8 @@ data class AmneziaWgParameters(
             jc == null && jmin == null && jmax == null && s1 == null && s2 == null &&
                 s3 == null && s4 == null &&
                 h1 == null && h2 == null && h3 == null && h4 == null &&
-                i1 == null && i2 == null && i3 == null && i4 == null && i5 == null
+                i1 == null && i2 == null && i3 == null && i4 == null && i5 == null &&
+                !v3.isSet
 
     /**
      * SHA-256 fingerprint of this resolved obfuscation parameter set, in the

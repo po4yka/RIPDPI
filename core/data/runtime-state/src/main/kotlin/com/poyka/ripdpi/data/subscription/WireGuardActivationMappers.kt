@@ -31,6 +31,7 @@ fun AmneziaWgSubscriptionProfile.toActivationRequest(): AwgActivationRequest =
         allowedIps = if (allowedIpsSpecified) allowedIps else listOf("0.0.0.0/0"),
         mtu = mtu ?: AwgActivationRequest.DEFAULT_MTU,
         persistentKeepalive = persistentKeepalive ?: 0,
+        persistentKeepaliveMax = persistentKeepaliveMax ?: 0,
         obfuscation =
             AwgActivationObfuscation(
                 wireProfile = awg.wireProfile,
@@ -50,6 +51,7 @@ fun AmneziaWgSubscriptionProfile.toActivationRequest(): AwgActivationRequest =
                 i3 = awg.i3.orEmpty(),
                 i4 = awg.i4.orEmpty(),
                 i5 = awg.i5.orEmpty(),
+                v3 = awg.v3,
             ),
     )
 
@@ -76,5 +78,6 @@ fun WireGuardSubscriptionProfile.toActivationRequest(): AwgActivationRequest =
         allowedIps = if (allowedIpsSpecified) allowedIps else listOf("0.0.0.0/0"),
         mtu = mtu ?: AwgActivationRequest.DEFAULT_MTU,
         persistentKeepalive = persistentKeepalive ?: 0,
+        persistentKeepaliveMax = persistentKeepaliveMax ?: 0,
         obfuscation = AwgActivationObfuscation(),
     )

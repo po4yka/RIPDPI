@@ -12,7 +12,9 @@ class AmneziaWgWireProfileTest {
     fun `range boundaries and canonical grammar are strict`() {
         assertEquals(100L..199L, AmneziaWgWireProfile.headerRange("100-199"))
         assertEquals(4_294_967_295L..4_294_967_295L, AmneziaWgWireProfile.headerRange("4294967295"))
-        listOf("", "01", "+1", " 1", "1 ", "1-1", "2-1", "1-02", "4294967296", "1-2-3").forEach {
+        // amneziawg-go accepts `x-x` as a one-value range.
+        assertEquals(7L..7L, AmneziaWgWireProfile.headerRange("7-7"))
+        listOf("", "01", "+1", " 1", "1 ", "2-1", "1-02", "4294967296", "1-2-3").forEach {
             assertNull(it, AmneziaWgWireProfile.headerRange(it))
         }
         assertTrue(AmneziaWgWireProfile.headerIsValid("1", 1))
@@ -83,7 +85,7 @@ class AmneziaWgWireProfileTest {
     }
 
     @Test
-    fun `conf preserves ranges and signatures and rejects unsupported options`() {
+    fun `conf preserves ranges and signatures and fails closed on unknown keys`() {
         val conf =
             """
             [Interface]
@@ -97,22 +99,22 @@ class AmneziaWgWireProfileTest {
         val parsed = WireGuardConfParser.parse(conf) as AmneziaWgConfig
         assertEquals("100-199", parsed.awg.h1)
         assertEquals("<b 0x01><r 4><rd 2><rc 2><t>", parsed.awg.i1)
-        listOf(
-            "HeaderProtectionKey",
-            "ContentPaddingAddition",
-            "RandomTrailers",
-            "DisableCookies",
-            "RekeyAfterTime",
-            "RekeyTimeout",
-            "RejectAfterTime",
-            "KeepaliveTimeout",
-            "MaxHandshakeAttempts",
-        ).forEach {
-            assertThrows(it, IllegalArgumentException::class.java) { WireGuardConfParser.parse("$conf\n$it = 1") }
-            assertThrows(
-                it,
-                IllegalArgumentException::class.java,
-            ) { WireGuardConfParser.parse("$conf\n[Peer]\n$it = 1") }
+        listOf("SomeFutureKey", "AdvancedSecurity").forEach { key ->
+            val inInterface =
+                assertThrows(key, WireGuardConfUnknownKeyException::class.java) {
+                    WireGuardConfParser.parse("$conf\n$key = secret-looking-value")
+                }
+            assertEquals("Interface" to key, inInterface.section to inInterface.key)
+            assertFalse(inInterface.message.orEmpty().contains("secret-looking-value"))
+            val inPeer =
+                assertThrows(key, WireGuardConfUnknownKeyException::class.java) {
+                    WireGuardConfParser.parse("$conf\n[Peer]\nPublicKey = peer\n$key = 1")
+                }
+            assertEquals("Peer", inPeer.section)
+        }
+        // AWG 3.x keys on [Peer] are not peer keys.
+        assertThrows(WireGuardConfUnknownKeyException::class.java) {
+            WireGuardConfParser.parse("$conf\n[Peer]\nPublicKey = peer\nRandomTrailers = on")
         }
     }
 }

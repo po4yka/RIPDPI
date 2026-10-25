@@ -14,7 +14,10 @@ import kotlinx.serialization.Serializable
  *
  * - [privateKey] / [publicKey] / [presharedKey] are base64 key material exactly
  *   as they appear in a `.conf`.
- * - [allowedIps] and [dns] are CIDR / IP lists.
+ * - [address], [allowedIps], and [dns] are CIDR / IP lists ([address] is the
+ *   `[Interface] Address`).
+ * - [persistentKeepalive] / [persistentKeepaliveMax] are the `[Peer]
+ *   PersistentKeepalive` value or AWG 3.x `lo-hi` range (max null = fixed).
  * - [awg] carries the obfuscation parameters; an empty [AmneziaWgParameters]
  *   means a vanilla WireGuard peer shared over the AmneziaWG scheme.
  */
@@ -30,4 +33,7 @@ data class AmneziaWgProfile(
     val dns: List<String> = emptyList(),
     val mtu: Int? = null,
     val awg: AmneziaWgParameters = AmneziaWgParameters(),
+    val address: List<String> = emptyList(),
+    val persistentKeepalive: Int? = null,
+    val persistentKeepaliveMax: Int? = null,
 )

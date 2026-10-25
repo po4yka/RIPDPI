@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.wireguard.AmneziaWgArm64S34FloorException
 import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
+import com.poyka.ripdpi.data.wireguard.WireGuardConfUnknownKeyException
 import com.poyka.ripdpi.data.wireguard.WireGuardConfig
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -133,7 +136,7 @@ class WireGuardConfParserTest {
     }
 
     @Test
-    fun `conf rejects non-zero S3 or S4 for Android arm64 safety`() {
+    fun `conf carries non-zero S3 or S4 and activation names the arm64 floor`() {
         fun conf(
             s3: Int,
             s4: Int,
@@ -148,11 +151,105 @@ class WireGuardConfParserTest {
             Endpoint = awg.example.com:51820
             """.trimIndent()
 
-        val s3Error = assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(conf(1, 0)) }
-        val s4Error = assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(conf(0, 1)) }
+        val s3 = WireGuardConfParser.parse(conf(1, 0)) as AmneziaWgConfig
+        val s4 = WireGuardConfParser.parse(conf(0, 1)) as AmneziaWgConfig
+        assertEquals(1 to 0, s3.awg.s3 to s3.awg.s4)
+        assertEquals(0 to 1, s4.awg.s3 to s4.awg.s4)
 
+        val s3Error = assertThrows(AmneziaWgArm64S34FloorException::class.java) { s3.awg.requireSupportedProfile() }
+        val s4Error = assertThrows(AmneziaWgArm64S34FloorException::class.java) { s4.awg.requireSupportedProfile() }
         assertTrue(s3Error.message.orEmpty().contains("amneziawg-go#110"))
-        assertTrue(s4Error.message.orEmpty().contains("amneziawg-go#110"))
+        assertTrue(s4Error.message.orEmpty().contains("S3/S4"))
+    }
+
+    /** The AmneziaVPN 5.0.3.0 `awg/template.conf` with its AWG 3.1 defaults filled in. */
+    private val awg31Conf =
+        """
+        [Interface]
+        Address = 10.8.1.2/32
+        DNS = 1.1.1.1, 1.0.0.1
+        PrivateKey = YXdnMzEtY2xpZW50LXByaXZhdGUta2V5LWZpeHR1cmU=
+        Jc = 5
+        Jmin = 10
+        Jmax = 50
+        S1 = 12
+        S2 = 12
+        S3 = 12
+        S4 = 12
+        H1 = 1
+        H2 = 2
+        H3 = 3
+        H4 = 4
+        I1 = <r 2><b 0x858000010001000000000669636c6f756403636f6d0000010001c00c000100010000105a00044d583737>
+        I2 =
+        I3 =
+        I4 =
+        I5 =
+        HeaderProtectionKey = AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=
+        ContentPaddingAddition = 10-100
+        RekeyAfterTime = 100-120
+        RekeyTimeout = 3-7
+        RejectAfterTime = 150-180
+        KeepaliveTimeout = 5-15
+        MaxHandshakeAttempts = 15-20
+        RandomTrailers = on
+        DisableCookies = on
+
+        [Peer]
+        PublicKey = YXdnMzEtc2VydmVyLXB1YmxpYy1rZXktZml4dHVyZTA=
+        PresharedKey = YXdnMzEtcHJlc2hhcmVkLWtleS1maXh0dXJlLTAwMDA=
+        AllowedIPs = 0.0.0.0/0, ::/0
+        Endpoint = 203.0.113.9:51820
+        PersistentKeepalive = 25-35
+        """.trimIndent()
+
+    @Test
+    fun `amnezia client 5 awg 3_1 template parses every key`() {
+        val parsed = WireGuardConfParser.parse(awg31Conf) as AmneziaWgConfig
+        val v3 = parsed.awg.v3
+
+        assertEquals("AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=", v3.headerProtectionKey.value)
+        assertEquals(
+            listOf("10-100", "100-120", "3-7", "150-180", "5-15", "15-20"),
+            v3.ranges.map { it.second },
+        )
+        assertTrue(v3.randomTrailers && v3.disableCookies && v3.headerProtectionEnabled)
+        assertEquals(listOf(12, 12, 12, 12), listOf(parsed.awg.s1, parsed.awg.s2, parsed.awg.s3, parsed.awg.s4))
+        assertEquals(
+            25 to 35,
+            parsed.peers.single().persistentKeepalive to parsed.peers.single().persistentKeepaliveMax,
+        )
+        assertFalse("toString must not show the key", parsed.toString().contains(v3.headerProtectionKey.value))
+        // The arm64 S3/S4 floor still blocks activation, now with a typed reason.
+        val floor = assertThrows(AmneziaWgArm64S34FloorException::class.java) { parsed.awg.requireSupportedProfile() }
+        assertTrue(floor.message.orEmpty().contains("header protection"))
+    }
+
+    @Test
+    fun `awg 3_x booleans, single-value keepalive, and malformed values`() {
+        fun conf(extra: String) = "[Interface]\nPrivateKey = k\n$extra\n[Peer]\nPublicKey = p\n"
+        val off = WireGuardConfParser.parse(conf("RandomTrailers = off\nDisableCookies = 0\nJc = 1")) as AmneziaWgConfig
+        assertFalse(off.awg.v3.randomTrailers || off.awg.v3.disableCookies)
+        val numeric = WireGuardConfParser.parse(conf("RandomTrailers = 1")) as AmneziaWgConfig
+        assertTrue(numeric.awg.v3.randomTrailers)
+        val fixed = WireGuardConfParser.parse(conf("") + "PersistentKeepalive = 25-25")
+        assertEquals(
+            25 to null,
+            fixed.peers.single().persistentKeepalive to fixed.peers.single().persistentKeepaliveMax,
+        )
+        listOf(
+            "RandomTrailers = maybe",
+            "RekeyTimeout = 7-3",
+            "ContentPaddingAddition = 70000",
+            "HeaderProtectionKey = c2VjcmV0LW1hdGVyaWFs",
+        ).forEach { line ->
+            val error =
+                assertThrows(line, IllegalArgumentException::class.java) { WireGuardConfParser.parse(conf(line)) }
+            assertFalse(error.message.orEmpty().contains("c2VjcmV0LW1hdGVyaWFs"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            WireGuardConfParser.parse(conf("") + "PersistentKeepalive = 35-25")
+        }
     }
 
     @Test
@@ -182,7 +279,7 @@ class WireGuardConfParserTest {
     }
 
     @Test
-    fun `unknown keys are ignored, not a hard error`() {
+    fun `unknown keys fail closed with a typed error and wg-quick host keys are ignored`() {
         val withUnknownKey =
             """
             [Interface]
@@ -197,12 +294,30 @@ class WireGuardConfParserTest {
             AnotherUnknownPeerKey = ignored
             """.trimIndent()
 
-        val parsed = WireGuardConfParser.parse(withUnknownKey)
+        val error =
+            assertThrows(WireGuardConfUnknownKeyException::class.java) { WireGuardConfParser.parse(withUnknownKey) }
+        assertEquals("Interface" to "SomeFutureKey", error.section to error.key)
+        assertFalse(error.message.orEmpty().contains("whatever-value"))
 
+        val wgQuick =
+            withUnknownKey
+                .replace("SomeFutureKey = whatever-value", "Table = off\nPostUp = iptables -A x ; true\nFwMark = 51820")
+                .replace("AnotherUnknownPeerKey = ignored\n", "")
+                .replace("AnotherUnknownPeerKey = ignored", "")
+        val parsed = WireGuardConfParser.parse(wgQuick)
         assertTrue(parsed is WireGuardConfig)
-        parsed as WireGuardConfig
         assertEquals("10.0.0.2/32", parsed.interfaceSection.address.single())
         assertEquals(1, parsed.peers.size)
+    }
+
+    @Test
+    fun `semicolon comments are skipped like hash comments`() {
+        val parsed =
+            WireGuardConfParser.parse(
+                "; leading comment\n[Interface]\nPrivateKey = k ; trailing\nJc = 3 ; junk\n[Peer]\nPublicKey = p\n",
+            ) as AmneziaWgConfig
+        assertEquals("k", parsed.interfaceSection.privateKey)
+        assertEquals(3, parsed.awg.jc)
     }
 
     @Test

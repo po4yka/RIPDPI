@@ -219,6 +219,22 @@ IPs on ports 53 and 853 use the AWG upstream. Other IPs and ports retain their
 original result. The persisted destination rules and canonical digest do not
 change. Physical acceptance must retain the default LAN Direct rules.
 
+### AmneziaWG 3.x profile fields
+
+The standalone AWG runtime JSON (`ResolvedRipDpiAmneziaWgConfig` -> Rust
+`AmneziaWgProfileConfig`) carries the AWG 3.x keys as an optional nested
+`amnezia.v3` object (Kotlin `AmneziaWgV3Parameters`, Rust `AwgV3Config`:
+`headerProtectionKey`, `contentPaddingAddition`, `rekeyAfterTime`,
+`rekeyTimeout`, `rejectAfterTime`, `keepaliveTimeout`, `maxHandshakeAttempts`,
+`randomTrailers`, `disableCookies`) and a top-level `persistentKeepaliveMax`
+for `PersistentKeepalive = lo-hi`. Both are additive: Kotlin omits defaults,
+Rust defaults an absent key, and `AwgV3Config` denies unknown keys. The wire
+profile stays `awg-3.1-ranges-v1`. Room keeps `obfuscation.v3` in the request
+blob without the header protection key; `AwgSecrets.headerProtectionKey` holds
+it in the keystore. `RipDpiAmneziaWgConfigSerializationTest` and the
+`amneziawg_runtime` JSON test pin both sides. Wire rules:
+[AmneziaWG 3.x wire semantics](../native/amneziawg-3x-wire-semantics.md).
+
 ## 3. Rust config deserialization / defaulting rules
 
 Owner: `ripdpi-proxy-config` (entry points `parse_proxy_config_json`,

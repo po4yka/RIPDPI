@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
+import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 import com.poyka.ripdpi.serialization.RipDpiJson
 import com.poyka.ripdpi.serialization.RipDpiNoExplicitNullsJson
 import kotlinx.serialization.encodeToString
@@ -50,6 +52,7 @@ class RipDpiAmneziaWgConfigSerializationTest {
             interfaceAddressV6 = "fd00::2/128",
             mtu = 1280,
             persistentKeepalive = 25,
+            persistentKeepaliveMax = 35,
             amnezia =
                 RipDpiAmneziaWgObfuscationConfig(
                     jc = 4,
@@ -68,6 +71,21 @@ class RipDpiAmneziaWgConfigSerializationTest {
                     i3 = "<b 0x03>",
                     i4 = "<b 0x04>",
                     i5 = "<b 0x05>",
+                    v3 =
+                        AmneziaWgV3Parameters(
+                            headerProtectionKey =
+                                AwgHeaderProtectionKey(
+                                    "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
+                                ),
+                            contentPaddingAddition = "10-100",
+                            rekeyAfterTime = "100-120",
+                            rekeyTimeout = "3-7",
+                            rejectAfterTime = "150-180",
+                            keepaliveTimeout = "5-15",
+                            maxHandshakeAttempts = "15-20",
+                            randomTrailers = true,
+                            disableCookies = true,
+                        ),
                 ),
             // Non-default carrier so the additive keys surface under
             // RipDpiJson (encodeDefaults = false omits default-valued fields).
@@ -96,6 +114,7 @@ class RipDpiAmneziaWgConfigSerializationTest {
                 "interfaceAddressV6",
                 "mtu",
                 "persistentKeepalive",
+                "persistentKeepaliveMax",
                 "amnezia",
                 "carrier",
                 "carrierWsUrl",
@@ -150,9 +169,38 @@ class RipDpiAmneziaWgConfigSerializationTest {
                 "i3",
                 "i4",
                 "i5",
+                "v3",
             )
 
         assertEquals(expectedAmnezia, (amnezia as JsonObject).keys)
+    }
+
+    @Test
+    fun `nested v3 keys match the Rust AwgV3Config field names`() {
+        val amnezia = RipDpiJson.parseToJsonElement(RipDpiJson.encodeToString(fullConfig)).jsonObject["amnezia"]
+        val v3 = (amnezia as JsonObject)["v3"] as JsonObject
+        assertEquals(
+            setOf(
+                "headerProtectionKey",
+                "contentPaddingAddition",
+                "rekeyAfterTime",
+                "rekeyTimeout",
+                "rejectAfterTime",
+                "keepaliveTimeout",
+                "maxHandshakeAttempts",
+                "randomTrailers",
+                "disableCookies",
+            ),
+            v3.keys,
+        )
+        // The value class serializes as the plain base64 string the native side decodes.
+        assertEquals(JsonPrimitive("AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="), v3["headerProtectionKey"])
+        assertEquals(JsonPrimitive(true), v3["randomTrailers"])
+        // A config without 3.x keys emits no v3 object, keeping AWG 1.x/2.0 JSON unchanged.
+        val legacy = fullConfig.copy(amnezia = fullConfig.amnezia.copy(v3 = AmneziaWgV3Parameters()))
+        val legacyAmnezia = RipDpiJson.parseToJsonElement(RipDpiJson.encodeToString(legacy)).jsonObject["amnezia"]
+        assertTrue("v3" !in (legacyAmnezia as JsonObject).keys)
+        assertTrue("<redacted>" in fullConfig.toString())
     }
 
     @Test

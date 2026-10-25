@@ -183,6 +183,10 @@ fun applyCohortPreset(
         i3 = preset.i3.orEmpty(),
         i4 = preset.i4.orEmpty(),
         i5 = preset.i5.orEmpty(),
+        // Presets predate AWG 3.x and pin no 3.x keys.
+        v3 =
+            com.poyka.ripdpi.data.wireguard
+                .AmneziaWgV3Parameters(),
         cohortId = preset.id,
     )
 
@@ -242,7 +246,9 @@ private fun AwgCohortPreset.matches(awg: com.poyka.ripdpi.data.wireguard.Amnezia
         pinnedEquals(i2, awg.i2) &&
         pinnedEquals(i3, awg.i3) &&
         pinnedEquals(i4, awg.i4) &&
-        pinnedEquals(i5, awg.i5)
+        pinnedEquals(i5, awg.i5) &&
+        // A preset carries no AWG 3.x keys, so a 3.x `.conf` is always Custom.
+        !awg.v3.isSet
 
 /**
  * Cohort-match rule for a nullable extension param: a `null` [pinned] value (the

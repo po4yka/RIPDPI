@@ -84,6 +84,44 @@ class AmneziaWgRuntimeConfigResolverTest {
     }
 
     @Test
+    fun `awg 3x keys and the keepalive range copy through and S3-S4 floor blocks header protection`() {
+        val v3 =
+            com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters(
+                contentPaddingAddition = "10-100",
+                rekeyAfterTime = "100-120",
+                randomTrailers = true,
+                disableCookies = true,
+            )
+        val ranged = request().copy(persistentKeepaliveMax = 35, obfuscation = request().obfuscation.copy(v3 = v3))
+        val config = resolver.resolve(ranged)
+        assertEquals(25 to 35, config.persistentKeepalive to config.persistentKeepaliveMax)
+        assertEquals(v3, config.amnezia.v3)
+
+        val key =
+            com.poyka.ripdpi.data.wireguard
+                .AwgHeaderProtectionKey("AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=")
+        val protected =
+            ranged.copy(
+                obfuscation =
+                    ranged.obfuscation.copy(
+                        s1 = 12,
+                        s2 = 24,
+                        s3 = 12,
+                        s4 = 12,
+                        v3 = v3.copy(headerProtectionKey = key),
+                    ),
+            )
+        val floor =
+            assertThrows(com.poyka.ripdpi.data.wireguard.AmneziaWgArm64S34FloorException::class.java) {
+                resolver.resolve(protected)
+            }
+        assertEquals(true, floor.message.orEmpty().contains("S3/S4"))
+        assertThrows(
+            IllegalArgumentException::class.java,
+        ) { resolver.resolve(ranged.copy(persistentKeepaliveMax = 10)) }
+    }
+
+    @Test
     fun `the local SOCKS inbound binds to loopback`() {
         val config = resolver.resolve(request())
 
