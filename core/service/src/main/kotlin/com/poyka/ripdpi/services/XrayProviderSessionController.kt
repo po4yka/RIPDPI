@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.HandoffOutcome
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ProviderRoute
 import com.poyka.ripdpi.core.TunnelUpstream
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
@@ -80,6 +81,12 @@ internal class XrayProviderSessionController(
     private var consumedInputIdentity: RuntimeConfigurationIdentity? = null
     private var readyConfiguration: RuntimeStartEvidence.ProviderReady? = null
 
+    /**
+     * RFC 1929 credentials of the Xray SOCKS inbound. A fresh pair per provider session; restart and handover
+     * keep the pair so an unchanged profile still matches the consumed input.
+     */
+    private var inboundCredentials: LocalSocksCredentials? = null
+
     fun requireReadyConfiguration(): RuntimeStartEvidence.ProviderReady = checkNotNull(readyConfiguration)
 
     private val _snapshots = MutableSharedFlow<XrayProviderSnapshot>(replay = 1, extraBufferCapacity = 1)
@@ -142,6 +149,7 @@ internal class XrayProviderSessionController(
         renderedConfigSink(null)
         consumedInputIdentity = null
         readyConfiguration = null
+        inboundCredentials = null
         startParamsHolder.current = null
         probeCoordinator?.clear()
         if (clearSnapshotState) {
@@ -169,9 +177,16 @@ internal class XrayProviderSessionController(
     ): HandoffOutcome {
         val outcome =
             try {
-                when (val resolved = routeBuilder.build(selected.profile)) {
+                val credentials = inboundCredentials?.takeIf { isActive } ?: LocalSocksCredentials.generate()
+                when (val resolved = routeBuilder.build(selected.profile, credentials)) {
                     is XrayProviderRouteBuilder.Result.Resolved -> {
-                        startResolvedProfile(selected, params, forceReplacement, resolved)
+                        inboundCredentials = credentials
+                        startResolvedProfile(
+                            selected,
+                            params.copy(inboundCredentials = credentials),
+                            forceReplacement,
+                            resolved,
+                        )
                     }
 
                     is XrayProviderRouteBuilder.Result.Rejected -> {
@@ -333,8 +348,18 @@ internal class XrayProviderSessionController(
     fun currentLocalProxyEndpoint(): LocalProxyEndpoint? =
         orchestrator.currentRoute?.takeIf { isActive }?.let { route ->
             when (val upstream = XrayTunnelHandoff.resolveUpstream(route.kind, route.xrayConfig)) {
-                TunnelUpstream.Native -> null
-                is TunnelUpstream.Xray -> LocalProxyEndpoint(host = upstream.host, port = upstream.port)
+                TunnelUpstream.Native -> {
+                    null
+                }
+
+                is TunnelUpstream.Xray -> {
+                    LocalProxyEndpoint(
+                        host = upstream.host,
+                        port = upstream.port,
+                        username = inboundCredentials?.username,
+                        password = inboundCredentials?.password,
+                    )
+                }
             }
         }
 

@@ -317,8 +317,54 @@ class XrayNativeBridgeLibXrayImplTest {
         }
     }
 
+    @Test
+    fun `readiness authenticates with the session credentials of a password inbound`() {
+        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
+            server.soTimeout = 2000
+            val exchanged = CompletableFuture<ByteArray>()
+            val peer =
+                Thread {
+                    try {
+                        server.accept().use { socket ->
+                            socket.soTimeout = 2000
+                            val input = java.io.DataInputStream(socket.getInputStream())
+                            val greeting = ByteArray(3).also(input::readFully)
+                            socket.getOutputStream().write(byteArrayOf(5, 2))
+                            val userpass = ByteArray(USERPASS_REQUEST_BYTES).also(input::readFully)
+                            socket.getOutputStream().write(byteArrayOf(1, 0))
+                            exchanged.complete(greeting + userpass)
+                        }
+                    } catch (error: Exception) {
+                        exchanged.completeExceptionally(error)
+                    }
+                }.apply {
+                    isDaemon = true
+                    start()
+                }
+            val bridge = XrayNativeBridgeLibXrayImpl(DAT_DIR, FakeLibXrayFfi(xrayStateValue = true))
+            bridge.registerProtect { true }
+            val config =
+                CONFIG_WITH_SECRET
+                    .replace("10808", server.localPort.toString())
+                    .replace(
+                        "\"protocol\":\"socks\"",
+                        "\"protocol\":\"socks\",\"settings\":{\"auth\":\"password\"," +
+                            "\"accounts\":[{\"user\":\"session-user\",\"pass\":\"session-pass\"}]}",
+                    )
+            assertEquals(0, bridge.start(config))
+            assertTrue(bridge.listenerReady())
+            assertEquals(
+                listOf(5, 1, 2, 1, 12) + "session-user".map(Char::code) + 12 + "session-pass".map(Char::code),
+                exchanged.get(2, java.util.concurrent.TimeUnit.SECONDS).map(Byte::toInt),
+            )
+            peer.join(2000)
+            bridge.stop()
+        }
+    }
+
     private companion object {
         const val DAT_DIR = "/data/user/0/com.poyka.ripdpi/files/geo"
+        const val USERPASS_REQUEST_BYTES = 27
         const val CONFIG_WITH_SECRET =
             """{"dns":{"servers":["127.0.0.1"]},"inbounds": """ +
                 """[{"listen":"127.0.0.1","port":10808,"protocol":"socks"}],"outbounds": """ +

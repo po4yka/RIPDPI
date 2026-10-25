@@ -51,7 +51,12 @@ internal object CandidateConfigurationProofs {
                 inbounds.map { value ->
                     val inbound = value.jsonObject
                     if (inbound["tag"] == JsonPrimitive("socks-in")) {
-                        JsonObject(inbound + mapOf("listen" to JsonPrimitive(""), "port" to JsonPrimitive(0)))
+                        // Listener address and per-session credentials do not identify the measured path.
+                        val settings = (inbound["settings"] as? JsonObject)?.let { JsonObject(it - "accounts") }
+                        JsonObject(
+                            inbound + mapOf("listen" to JsonPrimitive(""), "port" to JsonPrimitive(0)) +
+                                (settings?.let { mapOf("settings" to it) } ?: emptyMap()),
+                        )
                     } else {
                         inbound
                     }

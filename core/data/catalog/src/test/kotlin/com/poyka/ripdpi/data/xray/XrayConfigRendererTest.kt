@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.xray
 
 import com.poyka.ripdpi.data.XrayConfigValidator
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -246,6 +247,31 @@ class XrayConfigRendererTest {
             }
             """.trimIndent()
         assertEquals(expected, canonical.encodeToString(JsonObject.serializer(), config))
+    }
+
+    @Test
+    fun `session credentials make the SOCKS inbound require username and password`() {
+        val config =
+            successConfig(
+                XrayConfigRenderer().render(
+                    realityProfile(),
+                    stableTag,
+                    inboundUsername = "session-user",
+                    inboundPassword = "pass-1",
+                ),
+            )
+        val settings = ((config["inbounds"] as JsonArray).single() as JsonObject)["settings"]
+        assertEquals(
+            """{"auth":"password","accounts":[{"user":"session-user","pass":"pass-1"}],"udp":true}""",
+            settings.toString(),
+        )
+        assertTrue(
+            XrayConfigRenderer().render(
+                realityProfile(),
+                stableTag,
+                inboundUsername = "session-user",
+            ) is XrayConfigRenderer.Result.Rejected,
+        )
     }
 
     @Test

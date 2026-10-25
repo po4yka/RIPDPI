@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.DnsLoopOwner
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.TunnelUpstream
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -26,6 +27,7 @@ class XrayManagedTunnelTest {
                     com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
                     emptyList(),
                 ),
+            inboundCredentials = LocalSocksCredentials("session-user", "session-pass"),
         )
 
     @Test
@@ -39,9 +41,9 @@ class XrayManagedTunnelTest {
             val endpoint = driver.startedEndpoints.single()
             assertEquals("127.0.0.1", endpoint.host)
             assertEquals(10808, endpoint.port)
-            // Local SOCKS inbound is no-auth.
-            assertEquals(null, endpoint.username)
-            assertEquals(null, endpoint.password)
+            // The local SOCKS inbound requires the session credentials.
+            assertEquals("session-user", endpoint.username)
+            assertEquals("session-pass", endpoint.password)
             assertEquals(params, driver.startedParams.single())
         }
 

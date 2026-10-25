@@ -40,6 +40,20 @@ class CandidateConfigurationProofTest {
         assertTrue(proof.matches(CandidateConfigurationProofs.relay(measured)))
     }
 
+    @Test fun `xray proof ignores the inbound address and session credentials but binds the outbound`() {
+        fun rendered(
+            port: Int,
+            password: String,
+            server: String = "192.0.2.1",
+        ) = """{"inbounds":[{"tag":"socks-in","listen":"127.0.0.1","port":$port,"protocol":"socks",""" +
+            """"settings":{"auth":"password","accounts":[{"user":"u-$password","pass":"$password"}],"udp":true}}],""" +
+            """"outbounds":[{"tag":"proxy","settings":{"vnext":[{"address":"$server"}]}}]}"""
+        val measured = CandidateConfigurationProofs.xray(rendered(41_000, "candidate"))
+
+        assertTrue(measured.matches(CandidateConfigurationProofs.xray(rendered(10_808, "session"))))
+        assertFalse(measured.matches(CandidateConfigurationProofs.xray(rendered(10_808, "session", "192.0.2.9"))))
+    }
+
     @Test fun `actual consumed B is rejected even after live input returns to A`() {
         val original = sampleResolvedRelayConfig()
         val measured = CandidateConfigurationProofs.relay(original)

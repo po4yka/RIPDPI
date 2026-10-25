@@ -203,6 +203,34 @@ that the session owns and that unauthenticated loopback clients can use.
 
 ---
 
+### Loopback relay and Xray listener credentials
+
+Every installed app can connect to loopback. Thus the native relay listener and
+the Xray SOCKS inbound require RFC 1929 username/password credentials.
+
+- Kotlin makes a new `LocalSocksCredentials` pair (CSPRNG) for each native relay
+  runtime and each Xray provider session. Xray restart and handover keep the
+  pair while the provider stays active. Do not log, persist, export, or put the
+  pair in telemetry.
+- Relay wire: `localSocksUsername` / `localSocksPassword` on
+  `ResolvedRipDpiRelayConfig` (Rust `FlatResolvedRelayRuntimeConfig`) and on
+  the proxy `upstreamRelay` section (Rust `ProxyUiRelayConfig`). The fields are
+  additive and optional: Kotlin omits them when they are `null`, so fixed-input
+  fixtures stay byte-identical. Set both or neither; Rust rejects a half-set or
+  empty pair. `ProxyUiRelayConfig` reads them but never serializes them, so
+  reports and recommendations cannot contain them.
+- Subprocess and helper relays (NaiveProxy, Apps Script, Cloudflare publish,
+  pluggable transports) own listeners that do not check credentials, so they
+  get no pair.
+- Xray: `XrayConfigRenderer.render` puts `auth: password` and one account in the
+  `socks-in` inbound. The readiness probe and tun2socks use the same pair.
+- In-app clients that know only a listener address (relay probes, failover,
+  acceptance, strategy probes) get the pair from the process-local
+  `LocalSocksCredentialRegistry`. The listener owner registers it after
+  readiness and removes it at stop.
+
+---
+
 ### Active AWG resolver authority
 
 `warp.awgDnsServers` is an additive runtime-only list of numeric resolver IPs.

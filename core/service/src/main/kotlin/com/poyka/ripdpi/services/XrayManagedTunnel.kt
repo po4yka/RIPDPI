@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ManagedTunnel
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.TunnelUpstream
@@ -19,6 +20,8 @@ internal data class XrayTunnelStartParams(
     val forceTunnelDns: Boolean,
     val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     val configurationInput: VpnTunnelConfigurationInput,
+    /** Session credentials of the Xray SOCKS inbound; the provider controller sets them per session. */
+    val inboundCredentials: LocalSocksCredentials? = null,
 )
 
 /**
@@ -147,13 +150,16 @@ internal class XrayManagedTunnel(
             }
 
         // The Xray inbound binds loopback by construction (TunnelUpstream.Xray
-        // enforces host == 127.0.0.1); no auth on the local SOCKS inbound.
+        // enforces host == 127.0.0.1) and requires the session credentials.
+        val params = startParamsProvider()
         val endpoint =
             LocalProxyEndpoint(
                 host = xrayUpstream.host,
                 port = xrayUpstream.port,
+                username = params.inboundCredentials?.username,
+                password = params.inboundCredentials?.password,
             )
-        driver.start(startParamsProvider(), endpoint)
+        driver.start(params, endpoint)
     }
 
     override suspend fun quiesce() {

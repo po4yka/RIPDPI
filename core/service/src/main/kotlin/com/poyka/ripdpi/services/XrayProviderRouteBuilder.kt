@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ProviderRoute
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayConfigRenderer
@@ -69,12 +70,15 @@ internal class XrayProviderRouteBuilder(
      * rendering is pure. An invalid config is reported as findings, never as a renderable or
      * thrown secret.
      */
-    suspend fun build(profile: XrayProfile?): Result {
+    suspend fun build(
+        profile: XrayProfile?,
+        inboundCredentials: LocalSocksCredentials,
+    ): Result {
         if (profile == null) return Result.NoProfile
         // Validate before any DNS I/O; use a transient copy so durable identity never changes.
-        val initial = renderer.render(profile, upstreamTag = upstreamTag)
+        val initial = render(profile, inboundCredentials)
         val prepared = if (initial is XrayConfigRenderer.Result.Success) resolveProfileEndpoint(profile) else profile
-        return when (val rendered = renderer.render(prepared, upstreamTag = upstreamTag)) {
+        return when (val rendered = render(prepared, inboundCredentials)) {
             is XrayConfigRenderer.Result.Success -> {
                 Result.Resolved(
                     route = routeFor(profile),
@@ -90,6 +94,18 @@ internal class XrayProviderRouteBuilder(
             }
         }
     }
+
+    /** The local inbound requires [inboundCredentials]: every installed app can reach loopback. */
+    private fun render(
+        profile: XrayProfile,
+        inboundCredentials: LocalSocksCredentials,
+    ): XrayConfigRenderer.Result =
+        renderer.render(
+            profile,
+            upstreamTag = upstreamTag,
+            inboundUsername = inboundCredentials.username,
+            inboundPassword = inboundCredentials.password,
+        )
 
     private suspend fun resolveProfileEndpoint(profile: XrayProfile): XrayProfile {
         val outbound = profile.outbound

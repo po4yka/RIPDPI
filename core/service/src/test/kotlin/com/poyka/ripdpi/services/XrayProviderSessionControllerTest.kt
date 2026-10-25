@@ -285,10 +285,16 @@ internal class XrayProviderSessionControllerTest : XrayProviderSessionTestFixtur
         runTest {
             selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
             profileStore.save("default", profile)
+            val ctrl = controller()
 
-            val outcome = controller().start(params())
+            val outcome = ctrl.start(params())
 
             assertTrue(outcome is HandoffOutcome.Running)
+            // The loopback inbound requires this session's credentials, and the tunnel endpoint carries them.
+            val credentials = checkNotNull(startParamsHolder.current?.inboundCredentials)
+            assertTrue(bridge.startedConfig.orEmpty().contains("\"pass\":\"${credentials.password}\""))
+            assertEquals(credentials.password, ctrl.currentLocalProxyEndpoint()?.password)
+            assertEquals(credentials.username, ctrl.currentLocalProxyEndpoint()?.username)
             // Protect registered BEFORE start, and start BEFORE the tunnel points
             // at the inbound.
             val registerIdx = bridge.callLog.indexOf("registerProtect")
@@ -772,7 +778,8 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
             assertTrue(failure is IllegalStateException)
             assertEquals(stopsBeforeRestart, bridge.stopCount)
             assertTrue(ctrl.isActive)
-            assertEquals(initialParams, startParamsHolder.current)
+            assertEquals(initialParams, startParamsHolder.current?.copy(inboundCredentials = null))
+            assertNotNull(startParamsHolder.current?.inboundCredentials)
         }
 
     @Test

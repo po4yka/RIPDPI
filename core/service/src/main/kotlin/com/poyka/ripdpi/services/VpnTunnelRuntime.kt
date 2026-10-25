@@ -134,8 +134,10 @@ internal class VpnTunnelRuntime(
         session: VpnRuntimeSession,
         endpoint: LocalProxyEndpoint,
     ) {
-        val hasCredentials = !endpoint.username.isNullOrBlank() && !endpoint.password.isNullOrBlank()
-        if (hasCredentials) {
+        // Only the native proxy listener serves the in-path lease. A provider inbound (Xray) also requires
+        // credentials, but they are its own session pair, not an in-path route.
+        val nativeProxyListener = endpoint.username == VpnLocalProxyUsername && !endpoint.password.isNullOrBlank()
+        if (nativeProxyListener) {
             session.publishInPathLease(endpoint, checkNotNull(activeRouteLifecycleGeneration))
         } else {
             session.revokeInPathLease()

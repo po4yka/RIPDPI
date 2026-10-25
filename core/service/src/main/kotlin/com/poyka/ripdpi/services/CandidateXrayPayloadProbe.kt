@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.RipDpiXrayRuntime
 import com.poyka.ripdpi.core.StopCause
 import com.poyka.ripdpi.core.XrayProtectController
@@ -83,7 +85,14 @@ class CandidateXrayPayloadProbe internal constructor(
             val controller = protect ?: XrayProtectController { protection.current() == null }
             val port = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
             val candidate = profile.copy(inbound = profile.inbound.copy(listen = "127.0.0.1", port = port))
-            val rendered = XrayConfigRenderer().render(candidate, XrayProviderBuildInfo.upstreamTag)
+            val inboundCredentials = LocalSocksCredentials.generate()
+            val rendered =
+                XrayConfigRenderer().render(
+                    candidate,
+                    XrayProviderBuildInfo.upstreamTag,
+                    inboundUsername = inboundCredentials.username,
+                    inboundPassword = inboundCredentials.password,
+                )
             if (rendered !is XrayConfigRenderer.Result.Success) return@withLock CandidateRelayMeasurement.Unsupported
             val runtime = RipDpiXrayRuntime(owner, XrayProviderConfig(localInboundPort = port))
             pending = runtime
@@ -103,10 +112,15 @@ class CandidateXrayPayloadProbe internal constructor(
                         CandidateRelayMeasurement.EnvironmentChanged
                     } else {
                         stage = CandidateMeasurementStage.Http
+                        LocalSocksCredentialRegistry.register("127.0.0.1", port, inboundCredentials)
                         val result =
-                            withTimeoutOrNull(
-                                deadlineMillis,
-                            ) { probe(RelayProbeEndpoint("127.0.0.1", port)) }
+                            try {
+                                withTimeoutOrNull(
+                                    deadlineMillis,
+                                ) { probe(RelayProbeEndpoint("127.0.0.1", port)) }
+                            } finally {
+                                LocalSocksCredentialRegistry.unregister("127.0.0.1", port, inboundCredentials)
+                            }
                         when {
                             result == null -> {
                                 CandidateRelayMeasurement.TimedOut(stage)

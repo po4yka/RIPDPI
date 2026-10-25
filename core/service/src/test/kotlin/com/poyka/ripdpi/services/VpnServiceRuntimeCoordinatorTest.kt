@@ -861,7 +861,9 @@ class VpnServiceRuntimeCoordinatorTest {
             val initialTunnelConfig = requireNotNull(env.bridgeFactory.bridge.startedConfig)
             assertEquals("127.0.0.1", initialTunnelConfig.socks5Address)
             assertEquals(inboundPort, initialTunnelConfig.socks5Port)
-            assertNull(initialTunnelConfig.password)
+            // tun2socks authenticates to the Xray inbound with the session credentials in its rendered config.
+            val inboundPassword = checkNotNull(initialTunnelConfig.password)
+            assertTrue(xrayBridge.startedConfig.orEmpty().contains("\"pass\":\"$inboundPassword\""))
 
             val updatedSettings =
                 AppSettingsSerializer.defaultValue
@@ -891,7 +893,7 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.bridgeFactory.bridge.startedConfigs.size)
             assertEquals("127.0.0.1", refreshedTunnelConfig.socks5Address)
             assertEquals(inboundPort, refreshedTunnelConfig.socks5Port)
-            assertNull(refreshedTunnelConfig.password)
+            assertEquals(inboundPassword, refreshedTunnelConfig.password)
             assertNull(env.runtimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease)
             assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
             assertFalse(env.tunnelProvider.session.closed)

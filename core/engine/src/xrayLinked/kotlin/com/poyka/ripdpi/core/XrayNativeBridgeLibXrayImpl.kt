@@ -137,7 +137,7 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
     private val protectController = AtomicReference<XrayProtectController?>()
     private var dialerRegistered = false
     private var listenerRegistered = false
-    private var inboundPort: Int? = null
+    private var inbound: XrayBridgeConfig? = null
     private val adapter =
         object : libXray.DialerController {
             override fun protectFd(fd: Long): Boolean {
@@ -165,8 +165,7 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
         // Never log jsonConfig — it carries UUIDs / REALITY private keys.
         return try {
             check(protectController.get() != null) { "Xray protection is not registered" }
-            val config = XrayBridgeConfig.parse(jsonConfig)
-            inboundPort = config.inboundPort
+            inbound = XrayBridgeConfig.parse(jsonConfig)
             // Relay endpoints are resolved by the service's eligible-underlay callback.
             // Any remaining Go system lookup is denied before socket I/O, without plaintext fallback.
             ffi.initDns(
@@ -189,7 +188,7 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
         protectController.set(null)
         check(parseCallResponseSuccess(ffi.stopXray())) { "Xray native cleanup failed" }
         ffi.resetDns()
-        inboundPort = null
+        inbound = null
     }
 
     override fun version(): String {
@@ -198,13 +197,18 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
     }
 
     override fun listenerReady(): Boolean {
-        val port = inboundPort ?: return false
+        val config = inbound ?: return false
         return runCatching {
             Socket().use { socket ->
-                socket.connect(InetSocketAddress("127.0.0.1", port), ReadinessTimeoutMillis)
+                socket.connect(InetSocketAddress("127.0.0.1", config.inboundPort), ReadinessTimeoutMillis)
                 socket.soTimeout = ReadinessTimeoutMillis
-                socket.getOutputStream().write(byteArrayOf(5, 1, 0))
-                socket.getInputStream().read() == 5 && socket.getInputStream().read() == 0
+                // Ready means the inbound accepts this session's credentials, not merely that it is bound.
+                LocalSocks5Client.authenticate(
+                    socket.getInputStream(),
+                    socket.getOutputStream(),
+                    config.inboundCredentials,
+                )
+                true
             }
         }.getOrDefault(false)
     }

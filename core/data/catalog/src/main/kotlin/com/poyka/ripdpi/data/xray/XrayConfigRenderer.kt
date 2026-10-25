@@ -60,13 +60,20 @@ class XrayConfigRenderer(
      * Render [profile], validate it for [upstreamTag], run it through the
      * injected [tester], and return [Result.Success] only if every gate
      * passes. An invalid config is NEVER returned as a renderable artifact.
+     *
+     * [inboundUsername] / [inboundPassword] are the session's RFC 1929 credentials for the local SOCKS
+     * inbound. Every installed app can reach loopback, so a running session always passes them; the
+     * inbound then rejects clients without them. Both or neither must be set.
      */
     fun render(
         profile: XrayProfile,
         upstreamTag: String,
+        inboundUsername: String? = null,
+        inboundPassword: String? = null,
     ): Result {
-        XrayProfileValidation.error(profile)?.let { return rejectProfile(it) }
-        val config = build(profile)
+        (XrayProfileValidation.error(profile) ?: inboundCredentialsError(inboundUsername, inboundPassword))
+            ?.let { return rejectProfile(it) }
+        val config = build(profile, inboundUsername, inboundPassword)
         val errors = XrayConfigValidator.validate(config, XrayConfigValidator.Context(upstreamTag))
         return when {
             profile.inbound.listen != "127.0.0.1" || profile.inbound.port !in 1..MaxPort -> {
@@ -90,6 +97,14 @@ class XrayConfigRenderer(
             }
         }
     }
+
+    private fun inboundCredentialsError(
+        username: String?,
+        password: String?,
+    ): String? =
+        "Provider SOCKS listener credentials are incomplete.".takeIf {
+            (username == null) != (password == null) || username?.isEmpty() == true || password?.isEmpty() == true
+        }
 
     private fun rejectProfile(message: String): Result.Rejected =
         Result.Rejected(
@@ -126,10 +141,17 @@ class XrayConfigRenderer(
         }
     }
 
-    private fun build(profile: XrayProfile): JsonObject =
+    private fun build(
+        profile: XrayProfile,
+        inboundUsername: String?,
+        inboundPassword: String?,
+    ): JsonObject =
         buildJsonObject {
             put("dns", renderDns(profile.dns))
-            put("inbounds", buildJsonArray { add(renderInbound(profile.inbound)) })
+            put(
+                "inbounds",
+                buildJsonArray { add(renderInbound(profile.inbound, inboundUsername, inboundPassword)) },
+            )
             put(
                 "outbounds",
                 buildJsonArray {
@@ -149,7 +171,11 @@ class XrayConfigRenderer(
             put("queryStrategy", dns.queryStrategy)
         }
 
-    private fun renderInbound(inbound: XrayProfile.LocalInbound): JsonObject =
+    private fun renderInbound(
+        inbound: XrayProfile.LocalInbound,
+        username: String?,
+        password: String?,
+    ): JsonObject =
         buildJsonObject {
             put("tag", "socks-in")
             put("listen", inbound.listen)
@@ -158,7 +184,22 @@ class XrayConfigRenderer(
             put(
                 "settings",
                 buildJsonObject {
-                    put("auth", "noauth")
+                    if (username != null && password != null) {
+                        put("auth", "password")
+                        put(
+                            "accounts",
+                            buildJsonArray {
+                                add(
+                                    buildJsonObject {
+                                        put("user", username)
+                                        put("pass", password)
+                                    },
+                                )
+                            },
+                        )
+                    } else {
+                        put("auth", "noauth")
+                    }
                     put("udp", inbound.udpEnabled)
                 },
             )
