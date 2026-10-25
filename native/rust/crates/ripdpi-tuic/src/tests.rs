@@ -291,5 +291,7 @@ async fn tuic_client_sends_heartbeats_only_while_tasks_are_active() {
 
     stream_opened_rx.await.expect("server saw an idle client");
     let _tcp = client.tcp_connect("echo.example:443").await.expect("tcp connect");
+    // The open stream, not the client handle, keeps the heartbeat alive.
+    drop(client);
     server_task.await.expect("server task");
 }

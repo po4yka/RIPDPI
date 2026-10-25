@@ -44,9 +44,6 @@ pub struct TuicClient {
     /// Keeps the datagram-dispatch task alive and aborts it when the last
     /// `TuicClient` clone is dropped. `None` when UDP was disabled at connect time.
     _dispatch_guard: Option<Arc<AbortOnDrop>>,
-    /// Keeps the heartbeat task alive; `None` when the connection has no
-    /// datagram support.
-    _heartbeat_guard: Option<Arc<AbortOnDrop>>,
 }
 
 impl TuicClient {
@@ -97,10 +94,14 @@ impl TuicClient {
             None
         };
 
-        let heartbeat_guard =
-            max_datagram_size.map(|_| Arc::new(AbortOnDrop(tokio::spawn(send_heartbeats(Arc::clone(&inner))))));
+        if max_datagram_size.is_some() {
+            // Detached on purpose: open streams and UDP sessions keep
+            // `ClientInner` alive after the last `TuicClient` drops, and they
+            // still need heartbeats. The task ends with `ClientInner`.
+            tokio::spawn(send_heartbeats(Arc::downgrade(&inner)));
+        }
 
-        Ok(Self { inner, _dispatch_guard: dispatch_guard, _heartbeat_guard: heartbeat_guard })
+        Ok(Self { inner, _dispatch_guard: dispatch_guard })
     }
 
     pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
@@ -213,13 +214,16 @@ impl Drop for ActiveTask {
 ///
 /// # Cancel safety
 ///
-/// Cancel-safe: it holds no state besides the connection handle, and
-/// `AbortOnDrop` cancels it when the last `TuicClient` clone drops.
-async fn send_heartbeats(inner: Arc<ClientInner>) {
+/// Cancel-safe: it holds only a weak connection handle and returns once the
+/// client, its streams and its UDP sessions are all gone.
+async fn send_heartbeats(inner: std::sync::Weak<ClientInner>) {
     let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
         ticker.tick().await;
+        let Some(inner) = inner.upgrade() else {
+            return;
+        };
         // Ordering: Relaxed — see `ActiveTask::new`.
         if inner.active_tasks.load(Ordering::Relaxed) == 0 {
             continue;
