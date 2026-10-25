@@ -67,8 +67,11 @@ const CMD_DIRECT: u8 = 0x02;
 
 /// TLS record content types used to find the handshake -> application-data
 /// transition that ends padding.
+const TLS_CHANGE_CIPHER_SPEC: u8 = 0x14;
 const TLS_HANDSHAKE: u8 = 0x16;
 const TLS_APPLICATION_DATA: u8 = 0x17;
+/// Major version byte of every TLS 1.0-1.3 record header.
+const TLS_RECORD_MAJOR_VERSION: u8 = 0x03;
 const TLS_RECORD_HEADER_LEN: usize = 5;
 
 /// Maximum content bytes per chunk — xray's `buf.Size - 21` (8192 minus the
@@ -79,7 +82,7 @@ const MAX_CHUNK_CONTENT: usize = 8192 - 21;
 /// Stop padding a non-TLS stream after this many chunks without a ClientHello,
 /// mirroring xray's bounded TLS-detection window. A real TLS handshake flags
 /// itself on its first record, so this only trips for non-TLS traffic (which
-/// still works — it is simply sent raw after a short padded prefix).
+/// still works — it is sent unpadded inside the outer Reality TLS).
 const NON_TLS_CHUNK_LIMIT: u32 = 4;
 
 /// Scratch size when pulling padded bytes from the inner stream.
@@ -105,6 +108,8 @@ pub struct VisionStream<S> {
     w_direct: bool,
     w_uuid_sent: bool,
     w_seen_handshake: bool,
+    /// Set once the uplink shows a header that no TLS record can have.
+    w_not_tls: bool,
     w_chunks: u32,
     w_rec_remaining: usize,
     w_hdr: [u8; TLS_RECORD_HEADER_LEN],
@@ -156,6 +161,7 @@ impl<S> VisionStream<S> {
             w_direct: false,
             w_uuid_sent: false,
             w_seen_handshake: false,
+            w_not_tls: false,
             w_chunks: 0,
             w_rec_remaining: 0,
             w_hdr: [0u8; TLS_RECORD_HEADER_LEN],
@@ -220,6 +226,9 @@ impl<S> VisionStream<S> {
     /// (after at least one handshake record) begins in this buffer — the signal
     /// to stop padding.
     fn note_records(&mut self, buf: &[u8]) -> bool {
+        if self.w_not_tls {
+            return false;
+        }
         let mut pos = 0;
         let mut reached = false;
         while pos < buf.len() {
@@ -238,6 +247,15 @@ impl<S> VisionStream<S> {
                 break;
             }
             let record_type = self.w_hdr[0];
+            // Only real TLS framing may arm the splice: a stray 0x16/0x17 byte in
+            // plaintext must not send the rest of the stream outside Reality TLS.
+            if self.w_hdr[1] != TLS_RECORD_MAJOR_VERSION
+                || !(TLS_CHANGE_CIPHER_SPEC..=TLS_APPLICATION_DATA).contains(&record_type)
+            {
+                self.w_not_tls = true;
+                self.w_seen_handshake = false;
+                return false;
+            }
             let record_len = usize::from(u16::from_be_bytes([self.w_hdr[3], self.w_hdr[4]]));
             if record_type == TLS_APPLICATION_DATA && self.w_seen_handshake {
                 reached = true;
@@ -433,12 +451,15 @@ impl<S: XtlsDirectWrite> AsyncWrite for VisionStream<S> {
         this.w_chunks += 1;
         let reached_appdata = this.note_records(buf);
         let stop = reached_appdata || (!this.w_seen_handshake && this.w_chunks >= NON_TLS_CHUNK_LIMIT);
-        let final_cmd = if this.allow_direct { CMD_DIRECT } else { CMD_END };
+        // Direct removes the outer Reality TLS, so only inner TLS may take it;
+        // non-TLS bytes end with End and stay encrypted. Unlike xray, this does
+        // not also wait for a TLS 1.3 ServerHello, so inner TLS 1.2 is spliced too.
+        let final_cmd = if this.allow_direct && reached_appdata { CMD_DIRECT } else { CMD_END };
         let cmd = if stop { final_cmd } else { CMD_CONTINUE };
         this.encode_outgoing(buf, cmd);
         if stop {
             this.w_padding = false;
-            this.w_direct = this.allow_direct;
+            this.w_direct = final_cmd == CMD_DIRECT;
         }
 
         // Best-effort flush; remaining bytes stay buffered for the next poll.
@@ -690,6 +711,34 @@ mod tests {
             writer.inner.outer_tls.ends_with(b"xudp-secret-five"),
             "post-End payloads must be written without Vision framing"
         );
+    }
+
+    #[tokio::test]
+    async fn direct_capable_vision_keeps_non_tls_payload_inside_outer_tls() {
+        let mut writer =
+            VisionStream::new_vision(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
+
+        for payload in [b"POST / HTTP/1.1\r\n".as_slice(), b"Host: a\r\n", b"\r\n", b"body-one", b"plain-secret"] {
+            writer.write_all(payload).await.expect("write plaintext payload");
+        }
+        writer.flush().await.expect("flush outer TLS transport");
+
+        assert!(writer.inner.direct.is_empty(), "non-TLS payload must never bypass Reality TLS");
+        assert!(writer.inner.outer_tls.ends_with(b"plain-secret"), "post-End payload must stay on outer TLS");
+    }
+
+    #[tokio::test]
+    async fn non_tls_bytes_that_look_like_record_types_stay_inside_outer_tls() {
+        let mut writer =
+            VisionStream::new_vision(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
+
+        // Handshake and application-data type bytes at parsed boundaries, but no TLS version.
+        writer.write_all(&[TLS_HANDSHAKE, 0x00, 0x00, 0x00, 0x01, b'a']).await.expect("write first frame");
+        writer.write_all(&[TLS_APPLICATION_DATA, 0x00, 0x00, 0x00, 0x01, b'b']).await.expect("write second frame");
+        writer.write_all(b"plain-secret").await.expect("write plaintext");
+        writer.flush().await.expect("flush outer TLS transport");
+
+        assert!(writer.inner.direct.is_empty(), "lookalike record bytes must not enable Direct");
     }
 
     #[tokio::test]
