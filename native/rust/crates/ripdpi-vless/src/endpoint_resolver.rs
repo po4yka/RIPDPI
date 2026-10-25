@@ -68,10 +68,7 @@ async fn resolve_hostname_via_protected_doh(
 ) -> io::Result<SocketAddr> {
     let protect = std::sync::Arc::new(protect);
     let hooks = EncryptedDnsConnectHooks::new().require_direct_tcp_connector().with_direct_tcp_connector(
-        move |target, timeout| {
-            let protect = protect.clone();
-            async move { connect_protected_tcp_socket(target, bind_ip, timeout, protect.as_ref()) }
-        },
+        move |target, timeout| connect_protected_bootstrap(target, bind_ip, timeout, protect.clone()),
     );
     let primary_id = resolver_ids.first().ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, "protected relay DNS needs a primary resolver id")
@@ -98,6 +95,25 @@ async fn resolve_hostname_via_protected_doh(
         .find(|ip| bind_ip.is_none_or(|bind_ip| ip.is_ipv4() == bind_ip.is_ipv4()))
         .map(|ip| SocketAddr::new(ip, port))
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "protected relay DNS returned no usable address"))
+}
+
+/// Runs the protect callback (a binder call on Android) and the blocking
+/// connect on the blocking pool, so a blackholed bootstrap IP cannot park a
+/// Tokio worker and the resolver's request timeout can preempt the await.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: dropping the future detaches the blocking connect, which
+/// ends within `timeout` and closes its socket.
+async fn connect_protected_bootstrap(
+    target: SocketAddr,
+    bind_ip: Option<IpAddr>,
+    timeout: Duration,
+    protect: std::sync::Arc<Box<SocketProtectFn>>,
+) -> io::Result<std::net::TcpStream> {
+    tokio::task::spawn_blocking(move || connect_protected_tcp_socket(target, bind_ip, timeout, protect.as_ref()))
+        .await
+        .map_err(|error| io::Error::other(format!("protected DNS bootstrap connect task failed: {error}")))?
 }
 
 fn connect_protected_tcp_socket(
@@ -159,6 +175,33 @@ mod tests {
         .expect_err("protected hostname resolution must fail closed through the protector");
 
         assert!(err.to_string().contains("protected resolver sentinel"), "unexpected protected resolver error: {err}",);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn protected_bootstrap_connect_does_not_block_the_runtime() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind bootstrap fixture");
+        let address = listener.local_addr().expect("bootstrap fixture address");
+        // VpnService.protect is a binder call and connect_timeout can block for
+        // seconds on a blackholed bootstrap IP; neither may run on a worker.
+        let protect: Box<SocketProtectFn> = Box::new(|_| {
+            std::thread::sleep(Duration::from_millis(1500));
+            Ok(())
+        });
+        let protect = std::sync::Arc::new(protect);
+        let started = std::time::Instant::now();
+
+        let result = tokio::time::timeout(
+            Duration::from_millis(100),
+            connect_protected_bootstrap(address, None, PROTECTED_DNS_TIMEOUT, protect),
+        )
+        .await;
+
+        assert!(result.is_err(), "the bootstrap connect must still be pending at the deadline");
+        assert!(
+            started.elapsed() < Duration::from_secs(1),
+            "the connect blocked the Tokio worker for {:?}",
+            started.elapsed()
+        );
     }
 
     #[tokio::test]
