@@ -1422,7 +1422,6 @@ Origen: %2$s</string>
     <string name="logs_service_failure_format">%1$s: el servicio no pudo iniciarse: %2$s</string>
     <string name="logs_severity_warn">WARN</string>
     <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
-    <string name="mode_setting">Modo</string>
     <string name="network_strategy_memory_enabled_title">Recordar política por red</string>
     <string name="notice_activation_window_reset_next_start_title">Ventana de activación restablecida para el próximo inicio</string>
     <string name="notice_adaptive_ttl_reset_title">TTL falso adaptativo restablecido</string>
@@ -1660,7 +1659,6 @@ Origen: %2$s</string>
     <string name="config_error_invalid_chain">Introduce una cadena DSL de estrategia válida.</string>
     <string name="config_error_out_of_range">El valor está fuera del rango permitido.</string>
     <string name="config_listen_address_summary">Dónde se vincula el receptor proxy local</string>
-    <string name="config_mode_summary">Ruta de enrutamiento VPN local o proxy</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_port_helper">Usa un puerto de %1$d a %2$d.</string>

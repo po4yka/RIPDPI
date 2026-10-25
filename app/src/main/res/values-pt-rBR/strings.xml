@@ -658,7 +658,6 @@
     <string name="config_preset_proxy_body">Perfil para o modo de desvio de DPI local com o mesmo ajuste de referência.</string>
     <string name="config_preset_custom_title">Perfil manual</string>
     <string name="config_preset_custom_body">Perfil para DNS manual, endpoint de proxy, valores do mecanismo e sobreposições opcionais de linha de comando.</string>
-    <string name="config_mode_summary">Caminho de roteamento de VPN local ou proxy</string>
     <string name="config_dns_summary_enabled">Usado para interceptar o DNS do dispositivo no modo VPN quando o resolvedor é compatível.</string>
     <string name="config_dns_summary_disabled">O modo Proxy pode resolver nomes com DNS criptografado. Interceptar o DNS do dispositivo exige um resolvedor VPN compatível.</string>
     <string name="config_listen_address_summary">Endereço onde o listener do proxy local fica vinculado</string>
@@ -1695,7 +1694,6 @@ fakeddisorder endhost</string>
     <string name="debug_bundle_failed">Falha ao preparar o pacote de suporte</string>
     <string name="proxy_address">%1$s:%2$s</string>
     <string name="theme_settings">Tema</string>
-    <string name="mode_setting">Modo</string>
     <string name="bye_dpi_proxy_ip_setting">Endereço de escuta</string>
     <string name="ripdpi_proxy_port_setting">Porta</string>
     <string name="ripdpi_max_connections_setting">Número máximo de conexões</string>

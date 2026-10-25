@@ -656,7 +656,6 @@ app:config_local_bypass_turn_off
 app:config_local_bypass_turn_on
 app:config_max_connections_helper
 app:config_mode_section
-app:config_mode_summary
 app:config_network_section
 app:config_overflow_more_options
 app:config_overrides_section
@@ -3699,7 +3698,6 @@ app:migration_received
 app:migration_tested
 app:migration_title
 app:migration_url
-app:mode_setting
 app:navigation_back
 app:network_strategy_memory_clear_action
 app:network_strategy_memory_enabled_body

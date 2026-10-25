@@ -502,7 +502,6 @@
     <string name="home_mode_proxy">Локальный прокси</string>
     <string name="home_route_local">На устройстве</string>
     <string name="config_overview_title">Профиль</string>
-    <string name="config_mode_summary">Локальный VPN или прокси-маршрут</string>
     <string name="config_mode_section">Режим</string>
     <string name="config_presets_section">Профили</string>
     <string name="config_summary_section">Текущие значения</string>
@@ -1217,7 +1216,6 @@ fakeddisorder endhost</string>
     <string name="debug_bundle_failed">Не удалось подготовить пакет поддержки</string>
     <string name="proxy_address">%1$s:%2$s</string>
     <string name="theme_settings">Тема</string>
-    <string name="mode_setting">Режим</string>
     <string name="bye_dpi_proxy_ip_setting">Адрес прослушивания</string>
     <string name="ripdpi_proxy_port_setting">Порт</string>
     <string name="ripdpi_max_connections_setting">Максимальное количество подключений</string>

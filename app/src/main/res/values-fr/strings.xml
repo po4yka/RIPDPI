@@ -1422,7 +1422,6 @@ Source : %2$s</string>
     <string name="logs_service_failure_format">Le service %1$s n\'a pas démarré : %2$s</string>
     <string name="logs_severity_warn">AVERT</string>
     <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
-    <string name="mode_setting">Mode</string>
     <string name="network_strategy_memory_enabled_title">Mémoriser la politique par réseau</string>
     <string name="notice_activation_window_reset_next_start_title">Fenêtre d\'activation réinitialisée au prochain démarrage</string>
     <string name="notice_adaptive_ttl_reset_title">TTL factice adaptatif réinitialisé</string>
@@ -1660,7 +1659,6 @@ Source : %2$s</string>
     <string name="config_error_invalid_chain">Saisissez un DSL de stratégie de contournement valide.</string>
     <string name="config_error_out_of_range">La valeur est hors de la plage autorisée.</string>
     <string name="config_listen_address_summary">Où l\'écouteur du proxy local se lie</string>
-    <string name="config_mode_summary">Chemin de routage VPN local ou proxy</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_port_helper">Utilisez un port de %1$d à %2$d.</string>

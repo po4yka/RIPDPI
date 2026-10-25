@@ -1422,7 +1422,6 @@ Quelle: %2$s</string>
     <string name="logs_service_failure_format">%1$s-Dienst konnte nicht gestartet werden: %2$s</string>
     <string name="logs_severity_warn">WARN</string>
     <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
-    <string name="mode_setting">Modus</string>
     <string name="network_strategy_memory_enabled_title">Richtlinie pro Netzwerk merken</string>
     <string name="notice_activation_window_reset_next_start_title">Aktivierungsfenster für den nächsten Start zurückgesetzt</string>
     <string name="notice_adaptive_ttl_reset_title">Adaptive Fake-TTL zurückgesetzt</string>
@@ -1660,7 +1659,6 @@ Quelle: %2$s</string>
     <string name="config_error_invalid_chain">Geben Sie eine gültige Bypass-Strategie-DSL ein.</string>
     <string name="config_error_out_of_range">Wert liegt außerhalb des zulässigen Bereichs.</string>
     <string name="config_listen_address_summary">Wo der lokale Proxy-Listener bindet</string>
-    <string name="config_mode_summary">Lokaler VPN- oder Proxy-Routingpfad</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_port_helper">Verwenden Sie einen Port von %1$d bis %2$d.</string>

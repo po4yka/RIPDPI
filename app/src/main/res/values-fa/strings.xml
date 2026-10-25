@@ -658,7 +658,6 @@
     <string name="config_preset_proxy_body">نمایه‌ای برای حالت عبور محلی با همان تنظیم پایه.</string>
     <string name="config_preset_custom_title">نمایه دستی</string>
     <string name="config_preset_custom_body">نمایه‌ای برای DNS دستی، نقطه پایانی پروکسی، مقدارهای موتور و بازنویسی‌های اختیاری خط فرمان.</string>
-    <string name="config_mode_summary">مسیر مسیریابی VPN محلی یا پراکسی</string>
     <string name="config_dns_summary_enabled">در حالت VPN و با حل‌کننده سازگار، برای رهگیری DNS دستگاه استفاده می‌شود.</string>
     <string name="config_dns_summary_disabled">حالت پروکسی می‌تواند نام‌ها را با DNS رمزگذاری‌شده حل کند. رهگیری DNS دستگاه به حل‌کننده سازگار VPN نیاز دارد.</string>
     <string name="config_listen_address_summary">جایی که شنوندهٔ پراکسی محلی متصل می‌شود</string>
@@ -2069,7 +2068,6 @@ fakeddisorder endhost</string>
     <string name="logs_status_empty">در انتظار فعالیت</string>
     <string name="logs_stream_title">ورودی‌های اخیر</string>
     <string name="logs_subsystem_service">SERVICE</string>
-    <string name="mode_setting">حالت</string>
     <string name="notice_activation_window_reset_next_start_title">پنجره فعال‌سازی برای راه‌اندازی بعدی بازنشانی شد</string>
     <string name="notice_adaptive_ttl_reset_next_start_message">RIPDPI پس از راه‌اندازی مجدد یا اتصال مجدد بعدی، برای گروه فعال به یک fake TTL ثابت بازخواهد گشت.</string>
     <string name="notice_fake_payload_reset_message">RIPDPI در راه‌اندازی بعدی از پیش‌فرض‌های fake payload سازگار برای HTTP، TLS و UDP استفاده خواهد کرد.</string>

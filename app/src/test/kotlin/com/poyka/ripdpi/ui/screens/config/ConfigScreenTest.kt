@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsEnabled
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -167,7 +169,7 @@ class ConfigScreenTest {
     }
 
     @Test
-    fun `local bypass section renders mode listen dns and desync rows`() {
+    fun `local bypass section renders listen dns and desync rows`() {
         setConfigScreen(
             initialModeSection = ConfigModeSection.LocalBypass,
             uiPersona = "advanced",
@@ -176,7 +178,8 @@ class ConfigScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassMode).assertExists()
+        // The mode chips are the one place that shows the mode.
+        composeRule.onAllNodesWithText("Local proxy").assertCountEquals(1)
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync).assertExists()
@@ -186,7 +189,7 @@ class ConfigScreenTest {
     fun `vpn mode hides the internal proxy listen address`() {
         setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass, activeMode = Mode.VPN)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassMode).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertDoesNotExist()
     }
 

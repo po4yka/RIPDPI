@@ -1663,7 +1663,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_local_bypass_turn_on">开启</string>
     <string name="config_local_bypass_turn_off">关闭</string>
     <string name="config_local_bypass_retest_strategies">打开诊断并重新测试</string>
-    <string name="config_mode_summary">本地 VPN 或代理路由路径</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
 hostfake endhost+8 midhost=midsld host=googlevideo.com
@@ -2462,7 +2461,6 @@ fake_burst 3</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_status_live">实时缓冲</string>
     <string name="logs_subsystem_proxy">PROXY</string>
-    <string name="mode_setting">模式</string>
     <string name="network_strategy_memory_enabled_title">按网络记忆策略</string>
     <string name="notice_activation_window_reset_next_start_message">活动 绕过策略 组已恢复为始终激活的限定模式。请重启 RIPDPI 以从运行中的会话移除已保存的激活窗口。</string>
     <string name="notice_adaptive_ttl_reset_next_start_message">下次重启或重新连接后,RIPDPI 会为活动组恢复为固定伪 TTL。</string>

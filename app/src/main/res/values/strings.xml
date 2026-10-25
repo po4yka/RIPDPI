@@ -668,7 +668,6 @@
     <string name="config_preset_proxy_body">Profile for the local bypass mode with the same baseline tuning.</string>
     <string name="config_preset_custom_title">Manual profile</string>
     <string name="config_preset_custom_body">Profile for manual DNS, proxy endpoint, engine values, and optional command line overrides.</string>
-    <string name="config_mode_summary">Local VPN or proxy routing path</string>
     <string name="config_dns_summary_enabled">Used for device DNS interception in VPN mode when the resolver is supported.</string>
     <string name="config_dns_summary_disabled">Proxy mode can resolve local proxy target names with encrypted DNS. Device DNS interception needs a supported VPN resolver.</string>
     <string name="config_listen_address_summary">Where the local proxy listener binds</string>
@@ -1727,7 +1726,6 @@ fakeddisorder endhost</string>
     <string name="debug_bundle_failed">Failed to prepare support bundle</string>
     <string name="proxy_address">%1$s:%2$s</string>
     <string name="theme_settings">Theme</string>
-    <string name="mode_setting">Mode</string>
     <string name="dbs_ip_setting" translatable="false">DNS</string>
     <string name="bye_dpi_proxy_ip_setting">Listen address</string>
     <string name="ripdpi_proxy_port_setting">Port</string>

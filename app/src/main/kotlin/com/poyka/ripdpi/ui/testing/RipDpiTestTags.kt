@@ -116,7 +116,6 @@ internal object RipDpiTestTags {
     const val ConfigLocalBypassStrategyAuto = "config-local-bypass-strategy-auto"
     const val ConfigLocalBypassRetest = "config-local-bypass-retest"
     const val ConfigLocalBypassPrecedenceNote = "config-local-bypass-precedence-note"
-    const val ConfigLocalBypassMode = "config-local-bypass-mode"
     const val ConfigLocalBypassListenAddress = "config-local-bypass-listen-address"
     const val ConfigLocalBypassDesync = "config-local-bypass-desync"
     const val ConfigVpnSummary = "config-vpn-summary"

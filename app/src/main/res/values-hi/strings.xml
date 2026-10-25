@@ -656,7 +656,6 @@
     <string name="config_preset_proxy_body">उसी आधारभूत ट्यूनिंग के साथ लोकल बायपास मोड के लिए प्रोफ़ाइल।</string>
     <string name="config_preset_custom_title">मैनुअल प्रोफ़ाइल</string>
     <string name="config_preset_custom_body">मैनुअल DNS, प्रॉक्सी एंडपॉइंट, इंजन मानों और वैकल्पिक कमांड लाइन ओवरराइड के लिए प्रोफ़ाइल।</string>
-    <string name="config_mode_summary">लोकल VPN या प्रॉक्सी रूटिंग पथ</string>
     <string name="config_dns_summary_enabled">समर्थित रिज़ॉल्वर के साथ VPN मोड में डिवाइस DNS अनुरोधों को संभालने के लिए उपयोग किया जाता है।</string>
     <string name="config_dns_summary_disabled">प्रॉक्सी मोड स्थानीय प्रॉक्सी के लक्ष्य नाम एन्क्रिप्टेड DNS से हल कर सकता है। डिवाइस DNS अनुरोधों को संभालने के लिए समर्थित VPN रिज़ॉल्वर चाहिए।</string>
     <string name="config_listen_address_summary">जहाँ लोकल प्रॉक्सी श्रोता बाइंड होता है</string>
@@ -1692,7 +1691,6 @@ fakeddisorder endhost</string>
     <string name="debug_bundle_failed">सहायता बंडल तैयार करने में विफल</string>
     <string name="proxy_address">%1$s:%2$s</string>
     <string name="theme_settings">थीम</string>
-    <string name="mode_setting">मोड</string>
     <string name="bye_dpi_proxy_ip_setting">सुनने का पता</string>
     <string name="ripdpi_proxy_port_setting">पोर्ट</string>
     <string name="ripdpi_max_connections_setting">कनेक्शनों की अधिकतम संख्या</string>
