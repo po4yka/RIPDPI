@@ -106,6 +106,20 @@ class RipDpiXrayRuntimeTest {
         }
 
     @Test
+    fun `bootstrap lookup for a restart runs while the live session holds its lease`() =
+        runBlocking {
+            val owner = XrayRuntimeOwner(FakeXrayNativeBridge(), Dispatchers.Unconfined)
+            val runtime = RipDpiXrayRuntime(owner)
+            runtime.start(secretConfig, protect)
+            runtime.awaitReady()
+
+            assertEquals(listOf("192.0.2.7"), owner.resolveEndpoint { listOf("192.0.2.7") }.await())
+
+            assertEquals(StopCause.Clean, runtime.stop())
+            assertFalse(owner.isOccupied)
+        }
+
+    @Test
     fun `start registers protect before invoking native start`() =
         runTest {
             val bridge = FakeXrayNativeBridge()

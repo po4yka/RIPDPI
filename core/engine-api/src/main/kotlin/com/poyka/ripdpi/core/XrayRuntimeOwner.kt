@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
@@ -20,9 +21,11 @@ import java.util.concurrent.atomic.AtomicReference
 class XrayRuntimeOwner(
     private val bridge: XrayNativeBridge,
     dispatcher: CoroutineDispatcher = NativeDispatcher,
+    resolveDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val lock = Any()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val resolveScope = CoroutineScope(SupervisorJob() + resolveDispatcher)
     private var active: XrayRuntimeLease? = null
     private var nextGeneration = 0L
     private var endpointResolution: Deferred<List<String>>? = null
@@ -30,12 +33,15 @@ class XrayRuntimeOwner(
     val isOccupied: Boolean
         get() = synchronized(lock) { active != null || endpointResolution != null }
 
-    /** One detached relay bootstrap lookup. Cancellation cannot enqueue unbounded blocking DNS jobs. */
+    /**
+     * One detached relay bootstrap lookup. Cancellation cannot enqueue unbounded blocking DNS jobs.
+     * It runs off the native lane, so a restart can resolve while the live session holds its lease.
+     */
     fun resolveEndpoint(resolve: () -> List<String>): Deferred<List<String>> {
         val operation =
             synchronized(lock) {
-                check(active == null && endpointResolution == null) { "Xray native lane is still owned" }
-                scope
+                check(endpointResolution == null) { "Xray bootstrap lookup is still running" }
+                resolveScope
                     .async(start = CoroutineStart.LAZY) {
                         try {
                             resolve()
