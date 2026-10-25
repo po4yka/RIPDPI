@@ -4145,6 +4145,7 @@ app:remembered_networks_delete_confirm_dismiss
 app:remembered_networks_delete_confirm_title
 app:remembered_networks_empty_body
 app:remembered_networks_empty_title
+app:remembered_networks_first_seen
 app:remembered_networks_header_helper
 app:remembered_networks_intro_body
 app:remembered_networks_intro_title

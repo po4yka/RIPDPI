@@ -136,6 +136,8 @@ data class RememberedNetworkUiModel(
     val successCount: Int,
     val failureCount: Int,
     val updatedLabel: String,
+    /** When the network was first observed; with [updatedLabel] it tells two networks of one transport apart. */
+    val firstSeenLabel: String = "",
 )
 
 internal fun DiagnosticsRememberedPolicy.toRememberedNetworkUiModel(
@@ -163,4 +165,5 @@ internal fun DiagnosticsRememberedPolicy.toRememberedNetworkUiModel(
         successCount = successCount,
         failureCount = failureCount,
         updatedLabel = formatTimestamp(updatedAt),
+        firstSeenLabel = firstObservedAt.takeIf { it > 0L }?.let(formatTimestamp).orEmpty(),
     )

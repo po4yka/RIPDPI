@@ -7,4 +7,5 @@
     <string name="vpn_pcap_capture_list_empty_title">Aún no hay capturas</string>
     <string name="vpn_pcap_capture_list_read_failed_body">No se pudieron abrir los archivos de captura guardados.</string>
     <string name="support_settings_back_action">Volver</string>
+    <string name="remembered_networks_first_seen">Vista por primera vez %1$s</string>
 </resources>
