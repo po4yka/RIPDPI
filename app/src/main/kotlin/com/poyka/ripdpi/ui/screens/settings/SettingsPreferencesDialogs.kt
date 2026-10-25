@@ -117,3 +117,31 @@ private fun ResetConfirmDialog(
             ),
     )
 }
+
+@Composable
+internal fun ClearBackupPinConfirmDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.settings_backup_pin_clear_dialog_title),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.settings_backup_pin_clear_dialog_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.settings_backup_pin_clear),
+                onClick = onConfirm,
+                testTag = RipDpiTestTags.SettingsBackupPinClearConfirm,
+                destructive = true,
+            ),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.config_cancel),
+                onClick = onDismiss,
+            ),
+    )
+}

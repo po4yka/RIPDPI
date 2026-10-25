@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">बैकअप PIN साफ़ करें?</string>
+    <string name="settings_backup_pin_clear_dialog_body">PIN इस डिवाइस से हटा दिया जाएगा। इसके बाद आप इसे फ़ॉलबैक प्रमाणीकरण के लिए उपयोग नहीं कर पाएंगे।</string>
+</resources>

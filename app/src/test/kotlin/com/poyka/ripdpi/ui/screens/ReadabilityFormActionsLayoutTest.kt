@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -29,6 +30,7 @@ import com.poyka.ripdpi.ui.screens.settings.CommunityApiUrlEditor
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassEditorCard
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListScreenState
 import com.poyka.ripdpi.ui.screens.settings.WsTunnelWorkerSettingsUi
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -100,6 +102,9 @@ class ReadabilityFormActionsLayoutTest {
         val labels = listOf(R.string.settings_backup_pin_save, R.string.settings_backup_pin_clear)
         assertMatrix(labels) { BackupPinEditor("1234", null, true, {}, { saves++ }, { clears++ }, true) }
         labels.forEach { composeRule.onNodeWithText(text(it)).performScrollTo().performClick() }
+        // Clearing the PIN removes backup protection, so it waits for confirmation.
+        composeRule.runOnIdle { assertEquals(0, clears) }
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsBackupPinClearConfirm).performClick()
         composeRule.runOnIdle {
             assertEquals(1, saves)
             assertEquals(1, clears)

@@ -4616,6 +4616,8 @@ app:settings_append_http_proxy_title
 app:settings_backup_body
 app:settings_backup_pin_body
 app:settings_backup_pin_clear
+app:settings_backup_pin_clear_dialog_body
+app:settings_backup_pin_clear_dialog_title
 app:settings_backup_pin_error
 app:settings_backup_pin_helper_saved
 app:settings_backup_pin_save

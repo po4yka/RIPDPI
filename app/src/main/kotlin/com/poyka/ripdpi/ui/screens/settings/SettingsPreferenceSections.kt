@@ -16,7 +16,11 @@ import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringArrayResource
@@ -625,16 +629,30 @@ internal fun BackupPinEditor(
                         .ripDpiTestTag(RipDpiTestTags.SettingsBackupPinSave),
             )
             if (hasSavedPin) {
-                RipDpiButton(
-                    text = stringResource(R.string.settings_backup_pin_clear),
-                    onClick = onClear,
-                    modifier =
-                        Modifier
-                            .ripDpiTestTag(RipDpiTestTags.SettingsBackupPinClear),
-                    variant = RipDpiButtonVariant.Outline,
-                )
+                BackupPinClearButton(onClear = onClear)
             }
         }
+    }
+}
+
+/** Clearing the PIN removes the fallback authentication, so it asks first. */
+@Composable
+private fun BackupPinClearButton(onClear: () -> Unit) {
+    var showClearConfirm by rememberSaveable { mutableStateOf(false) }
+    RipDpiButton(
+        text = stringResource(R.string.settings_backup_pin_clear),
+        onClick = { showClearConfirm = true },
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.SettingsBackupPinClear),
+        variant = RipDpiButtonVariant.Destructive,
+    )
+    if (showClearConfirm) {
+        ClearBackupPinConfirmDialog(
+            onDismiss = { showClearConfirm = false },
+            onConfirm = {
+                showClearConfirm = false
+                onClear()
+            },
+        )
     }
 }
 

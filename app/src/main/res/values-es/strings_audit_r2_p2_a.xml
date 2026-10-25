@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">¿Borrar el PIN de respaldo?</string>
+    <string name="settings_backup_pin_clear_dialog_body">El PIN se eliminará de este dispositivo. Ya no podrás usarlo para la autenticación de respaldo.</string>
+</resources>

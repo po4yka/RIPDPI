@@ -211,6 +211,7 @@ internal object RipDpiTestTags {
     const val SettingsBackupPinField = "settings-backup-pin-field"
     const val SettingsBackupPinSave = "settings-backup-pin-save"
     const val SettingsBackupPinClear = "settings-backup-pin-clear"
+    const val SettingsBackupPinClearConfirm = "settings-backup-pin-clear-confirm"
     const val SettingsBackupPinWarning = "settings-backup-pin-warning"
     const val SettingsHapticFeedback = "settings-haptic-feedback"
     const val SettingsThemeDropdown = "settings-theme-dropdown"

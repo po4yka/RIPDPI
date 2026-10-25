@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">Backup-PIN löschen?</string>
+    <string name="settings_backup_pin_clear_dialog_body">Die PIN wird von diesem Gerät entfernt. Sie können sie danach nicht mehr für die Fallback-Authentifizierung verwenden.</string>
+</resources>
