@@ -19,6 +19,7 @@ import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
+import com.poyka.ripdpi.activities.connectionStateTitle
 import com.poyka.ripdpi.activities.displayTriggerClassification
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.platform.AndroidStringResolver
@@ -46,7 +47,7 @@ internal fun ConnectionSessionCard(
         variant = RipDpiCardVariant.Elevated,
     ) {
         StatusIndicator(
-            label = session.connectionState,
+            label = AndroidStringResolver(LocalContext.current).connectionStateTitle(session.connectionState),
             tone = statusTone(session.tone),
         )
         session.rememberedPolicyBadge?.let { badge ->

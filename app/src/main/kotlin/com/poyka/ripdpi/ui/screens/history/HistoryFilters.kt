@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -27,6 +28,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.connectionStateTitle
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -253,7 +256,10 @@ private fun historyFilterLabel(option: String): String =
             )
         }
 
+        // Connection states are stored capitalized ("Running", "Stopped"); unknown options stay raw.
         else -> {
-            option.replaceFirstChar { it.uppercase() }
+            AndroidStringResolver(LocalContext.current)
+                .connectionStateTitle(option)
+                .replaceFirstChar { it.uppercase() }
         }
     }

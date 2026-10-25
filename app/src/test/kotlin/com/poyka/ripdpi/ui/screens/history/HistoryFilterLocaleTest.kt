@@ -5,8 +5,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -30,6 +33,9 @@ class HistoryFilterLocaleTest {
                 "running" to "Выполняется",
                 "failed" to "Ошибка",
                 "cancelled" to "Отменено",
+                // Connection sessions store their state capitalized.
+                "Stopped" to "Остановлено",
+                "Reconnecting" to "Переподключение",
             )
         val empty = HistoryFilterChipsConfig(emptyList(), null, {}, { it })
         composeRule.setContent {
@@ -56,5 +62,30 @@ class HistoryFilterLocaleTest {
             composeRule.onNodeWithText(label).assertIsDisplayed().performClick()
             composeRule.runOnIdle { assertEquals(key, selected) }
         }
+    }
+
+    @Test
+    fun connectionCardShowsLocalizedState() {
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionSessionCard(
+                    session =
+                        HistoryConnectionRowUiModel(
+                            id = "connection-1",
+                            title = "VPN",
+                            subtitle = "wifi",
+                            serviceMode = "VPN",
+                            connectionState = "Running",
+                            networkType = "wifi",
+                            startedAtLabel = "",
+                            summary = null,
+                            metrics = persistentListOf(),
+                            tone = DiagnosticsTone.Positive,
+                        ),
+                    onClick = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("Работает").assertIsDisplayed()
     }
 }
