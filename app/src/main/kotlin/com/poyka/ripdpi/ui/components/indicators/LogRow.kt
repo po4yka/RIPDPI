@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,11 +48,11 @@ fun LogRow(
     modifier: Modifier = Modifier,
     tone: LogRowTone = LogRowTone.Connection,
     metadataChips: ImmutableList<String> = persistentListOf(),
+    action: (@Composable () -> Unit)? = null,
 ) {
     val components = RipDpiThemeTokens.components
     val spacing = RipDpiThemeTokens.spacing
     val palette = logRowPalette(tone)
-    val stacksMessage = LocalDensity.current.fontScale >= StackedMessageFontScale
 
     Column(
         modifier =
@@ -65,21 +64,8 @@ fun LogRow(
                 },
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        if (stacksMessage) {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                LogRowHeader(timestamp = timestamp, type = type, palette = palette, tone = tone)
-                LogRowMessage(message = message, palette = palette, modifier = Modifier.fillMaxWidth())
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalAlignment = Alignment.Top,
-            ) {
-                LogRowHeader(timestamp = timestamp, type = type, palette = palette, tone = tone)
-                LogRowMessage(message = message, palette = palette, modifier = Modifier.weight(1f))
-            }
-        }
+        LogRowHeader(timestamp = timestamp, type = type, palette = palette, tone = tone, action = action)
+        LogRowMessage(message = message, palette = palette, modifier = Modifier.fillMaxWidth())
         if (metadataChips.isNotEmpty()) {
             LogMetadataChips(metadataChips)
         }
@@ -92,6 +78,7 @@ private fun LogRowHeader(
     type: String,
     palette: LogRowPalette,
     tone: LogRowTone,
+    action: (@Composable () -> Unit)?,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
@@ -102,29 +89,38 @@ private fun LogRowHeader(
     val badgeResolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.logBadge(tone), CommonStyle, styleState)
 
     Row(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        androidx.compose.material3.Text(
-            text = timestamp,
-            style = typeScale.monoLog,
-            color = colors.mutedForeground,
-        )
-        Box(
-            modifier =
-                Modifier
-                    .ripDpiStyleSurface(badgeResolver, shape = RipDpiThemeTokens.shapes.xxl)
-                    .padding(
-                        horizontal = components.rows.compactPillHorizontalPadding,
-                        vertical = components.rows.compactPillVerticalPadding,
-                    ),
+        FlowRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             androidx.compose.material3.Text(
-                text = type.uppercase(locale),
-                style = typeScale.smallLabel,
-                color = palette.badgeContent,
+                text = timestamp,
+                style = typeScale.monoLog,
+                color = colors.mutedForeground,
             )
+            Box(
+                modifier =
+                    Modifier
+                        .ripDpiStyleSurface(badgeResolver, shape = RipDpiThemeTokens.shapes.xxl)
+                        .padding(
+                            horizontal = components.rows.compactPillHorizontalPadding,
+                            vertical = components.rows.compactPillVerticalPadding,
+                        ),
+            ) {
+                androidx.compose.material3.Text(
+                    text = type.uppercase(locale),
+                    style = typeScale.smallLabel,
+                    color = palette.badgeContent,
+                )
+            }
         }
+        action?.invoke()
     }
 }
 
@@ -224,8 +220,6 @@ private fun logRowPalette(tone: LogRowTone): LogRowPalette {
         }
     }
 }
-
-private const val StackedMessageFontScale = 1.5f
 
 @Preview(showBackground = true)
 @Composable

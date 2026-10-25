@@ -127,6 +127,11 @@ class LogsScreenTest {
                 .onNodeWithTag(RipDpiTestTags.logsEntryCopy(entry.id))
                 .fetchSemanticsNode()
                 .boundsInRoot
+        val messageBounds =
+            composeRule
+                .onNodeWithText(entry.message, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
         val runtimeBounds =
             composeRule
                 .onNodeWithText(runtimeChip, useUnmergedTree = true)
@@ -146,6 +151,8 @@ class LogsScreenTest {
         assertTrue(scanBounds.right <= entryBounds.right)
         assertTrue(entryBounds.height <= MaximumEntryHeightPx)
         assertTrue(copyBounds.top <= entryBounds.top + MaximumCopyTopOffsetPx)
+        assertTrue(messageBounds.top >= copyBounds.bottom)
+        assertEquals(entryBounds.width, messageBounds.width, LayoutTolerancePx)
     }
 
     @Test
@@ -188,8 +195,8 @@ class LogsScreenTest {
 
         assertTrue(messageBounds.width >= MinimumReadableMessageWidthPx)
         assertTrue(messageBounds.top >= maxOf(timestampBounds.bottom, typeBounds.bottom))
-        assertTrue(messageBounds.left >= entryBounds.left)
-        assertTrue(messageBounds.right <= copyBounds.left)
+        assertTrue(messageBounds.top >= copyBounds.bottom)
+        assertEquals(entryBounds.width, messageBounds.width, LayoutTolerancePx)
         assertTrue(copyBounds.right <= entryBounds.right)
         assertTrue(copyBounds.width >= MinimumTouchTargetPx)
         assertTrue(copyBounds.height >= MinimumTouchTargetPx)
@@ -202,9 +209,10 @@ class LogsScreenTest {
         const val LongRuntimeId = "5d8e4a11-5067-44b2-9a17-e84826709d28"
         const val LongScanId = "f87bba7f-d81f-4376-af1e-7282c4c55f62"
         const val MaximumChipHeightPx = 32f
-        const val MaximumEntryHeightPx = 160f
+        const val MaximumEntryHeightPx = 176f
         const val MaximumCopyTopOffsetPx = 32f
         const val MinimumReadableMessageWidthPx = 160f
         const val MinimumTouchTargetPx = 48f
+        const val LayoutTolerancePx = 0.5f
     }
 }

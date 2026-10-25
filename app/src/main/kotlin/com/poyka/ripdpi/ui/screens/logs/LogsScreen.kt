@@ -544,26 +544,22 @@ private fun LogsStreamEntry(
                 .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id)),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-        ) {
-            LogRow(
-                timestamp = entry.timestamp,
-                type = subsystemLabel(entry.subsystem),
-                message = entry.message,
-                modifier = Modifier.weight(1f),
-                tone = logRowTone(entry),
-                metadataChips = metadataChips(entry),
-            )
-            RipDpiIconButton(
-                icon = RipDpiIcons.Copy,
-                contentDescription = copyContentDescription,
-                onClick = onCopy,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.logsEntryCopy(entry.id)),
-                density = RipDpiControlDensity.Compact,
-            )
-        }
+        LogRow(
+            timestamp = entry.timestamp,
+            type = subsystemLabel(entry.subsystem),
+            message = entry.message,
+            tone = logRowTone(entry),
+            metadataChips = metadataChips(entry),
+            action = {
+                RipDpiIconButton(
+                    icon = RipDpiIcons.Copy,
+                    contentDescription = copyContentDescription,
+                    onClick = onCopy,
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.logsEntryCopy(entry.id)),
+                    density = RipDpiControlDensity.Compact,
+                )
+            },
+        )
         if (showDivider) {
             HorizontalDivider(color = colors.divider)
         }
