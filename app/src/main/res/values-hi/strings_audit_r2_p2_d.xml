@@ -2,4 +2,8 @@
 <resources>
     <string name="relay_editor_section_credentials">क्रेडेंशियल</string>
     <string name="relay_editor_save_incomplete_hint">सहेजने के लिए सर्वर, पोर्ट और क्रेडेंशियल भरें, और अमान्य फ़ील्ड ठीक करें।</string>
+    <string name="relay_editor_range_helper">%1$d से %2$d तक</string>
+    <string name="awg_keepalive_helper">keepalive पैकेट के बीच सेकंड। बंद करने के लिए खाली छोड़ें या 0 डालें।</string>
+    <string name="awg_obfuscation_show_values">मान दिखाएँ</string>
+    <string name="awg_obfuscation_hide_values">मान छिपाएँ</string>
 </resources>

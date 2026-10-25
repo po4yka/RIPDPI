@@ -2,4 +2,12 @@
 <resources>
     <string name="relay_editor_section_credentials">Credentials</string>
     <string name="relay_editor_save_incomplete_hint">To save, fill in the server, port, and credentials, and fix any field marked as invalid.</string>
+    <string name="relay_editor_range_helper">From %1$d to %2$d</string>
+    <string name="awg_keepalive_helper">Seconds between keepalive packets. Leave empty or enter 0 to turn it off.</string>
+    <string name="awg_obfuscation_show_values">Show values</string>
+    <string name="awg_obfuscation_hide_values">Hide values</string>
+    <string name="awg_address_placeholder" translatable="false">10.8.0.2/32</string>
+    <string name="awg_dns_placeholder" translatable="false">1.1.1.1, 1.0.0.1</string>
+    <string name="awg_allowed_ips_placeholder" translatable="false">0.0.0.0/0, ::/0</string>
+    <string name="awg_keepalive_placeholder" translatable="false">25</string>
 </resources>

@@ -2,4 +2,8 @@
 <resources>
     <string name="relay_editor_section_credentials">اطلاعات ورود</string>
     <string name="relay_editor_save_incomplete_hint">برای ذخیره، سرور، درگاه و اطلاعات ورود را وارد کنید و فیلدهای نامعتبر را اصلاح کنید.</string>
+    <string name="relay_editor_range_helper">از %1$d تا %2$d</string>
+    <string name="awg_keepalive_helper">فاصلهٔ بسته‌های keepalive به ثانیه. برای خاموش کردن، خالی بگذارید یا ۰ وارد کنید.</string>
+    <string name="awg_obfuscation_show_values">نمایش مقادیر</string>
+    <string name="awg_obfuscation_hide_values">پنهان کردن مقادیر</string>
 </resources>

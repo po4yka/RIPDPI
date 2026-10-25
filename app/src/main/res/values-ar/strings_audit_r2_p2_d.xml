@@ -2,4 +2,8 @@
 <resources>
     <string name="relay_editor_section_credentials">بيانات الاعتماد</string>
     <string name="relay_editor_save_incomplete_hint">للحفظ، أدخل الخادم والمنفذ وبيانات الاعتماد، وصحّح أي حقل غير صالح.</string>
+    <string name="relay_editor_range_helper">من %1$d إلى %2$d</string>
+    <string name="awg_keepalive_helper">عدد الثواني بين حزم الإبقاء على الاتصال. اتركه فارغًا أو أدخل 0 لإيقافه.</string>
+    <string name="awg_obfuscation_show_values">عرض القيم</string>
+    <string name="awg_obfuscation_hide_values">إخفاء القيم</string>
 </resources>

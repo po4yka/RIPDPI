@@ -2,4 +2,8 @@
 <resources>
     <string name="relay_editor_section_credentials">Учётные данные</string>
     <string name="relay_editor_save_incomplete_hint">Чтобы сохранить, укажите сервер, порт и учётные данные и исправьте поля с ошибками.</string>
+    <string name="relay_editor_range_helper">От %1$d до %2$d</string>
+    <string name="awg_keepalive_helper">Интервал между пакетами keepalive в секундах. Оставьте поле пустым или укажите 0, чтобы отключить.</string>
+    <string name="awg_obfuscation_show_values">Показать значения</string>
+    <string name="awg_obfuscation_hide_values">Скрыть значения</string>
 </resources>

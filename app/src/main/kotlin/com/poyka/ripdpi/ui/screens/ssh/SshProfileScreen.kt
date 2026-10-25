@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
 import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
 import com.poyka.ripdpi.ui.screens.profiles.RelaySecretField
+import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -152,6 +153,7 @@ private fun EndpointSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            helperText = relayPortRangeHelper(),
         )
     }
 }
@@ -239,6 +241,8 @@ private fun PlainField(
     editor: SshProfileEditorState,
     onFieldChanged: (SshEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null,
+    helperText: String? = null,
     readOnly: Boolean = false,
 ) {
     val hasError = editor.hasFieldError(field)
@@ -249,6 +253,8 @@ private fun PlainField(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(labelRes),
+                placeholder = placeholder,
+                helperText = helperText,
                 errorText = if (hasError) stringResource(R.string.ssh_field_invalid) else null,
             ),
         behavior =

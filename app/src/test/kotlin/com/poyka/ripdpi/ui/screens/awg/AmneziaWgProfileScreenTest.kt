@@ -257,7 +257,7 @@ class AmneziaWgProfileScreenTest {
     }
 
     @Test
-    fun `obfuscation fields are enabled while custom and disabled after a preset`() {
+    fun `obfuscation fields show while custom and collapse behind a preset`() {
         val viewModel = viewModel()
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
 
@@ -268,6 +268,13 @@ class AmneziaWgProfileScreenTest {
 
         composeRule.runOnUiThread { viewModel.onCohortSelected("rtk_south") }
 
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.awgField(AwgEditorField.JC.name))
+            .assertDoesNotExist()
+        composeRule
+            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.awg_obfuscation_show_values))
+            .performScrollTo()
+            .performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.awgField(AwgEditorField.JC.name))
             .performScrollTo()
@@ -281,6 +288,22 @@ class AmneziaWgProfileScreenTest {
             .onNodeWithTag(RipDpiTestTags.awgField(AwgEditorField.JC.name))
             .performScrollTo()
             .assertIsEnabled()
+    }
+
+    @Test
+    fun `fields show their format and range`() {
+        val viewModel = viewModel()
+        composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
+        val app = RuntimeEnvironment.getApplication()
+
+        listOf(
+            app.getString(R.string.relay_editor_range_helper, 1, 65_535),
+            "10.8.0.2/32",
+            "0.0.0.0/0, ::/0",
+            app.getString(R.string.awg_keepalive_helper),
+        ).forEach { text ->
+            composeRule.onNodeWithText(text).performScrollTo().assertExists()
+        }
     }
 
     @Test

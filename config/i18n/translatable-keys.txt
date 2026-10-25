@@ -329,6 +329,9 @@ app:awg_field_s3
 app:awg_field_s4
 app:awg_field_server
 app:awg_field_server_port
+app:awg_keepalive_helper
+app:awg_obfuscation_hide_values
+app:awg_obfuscation_show_values
 app:awg_paste_conf_action
 app:awg_section_carrier
 app:awg_section_carrier_body
@@ -4118,6 +4121,7 @@ app:relay_cloudflare_tunnel_token_label
 app:relay_editor_activation_failed
 app:relay_editor_profile_not_found_body
 app:relay_editor_profile_not_found_title
+app:relay_editor_range_helper
 app:relay_editor_save_incomplete_hint
 app:relay_editor_section_credentials
 app:relay_finalmask_fragment_max_bytes_label

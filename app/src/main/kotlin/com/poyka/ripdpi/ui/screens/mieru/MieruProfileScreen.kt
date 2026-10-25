@@ -11,6 +11,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayMieruMtuDefault
+import com.poyka.ripdpi.data.RelayMieruMtuMax
+import com.poyka.ripdpi.data.RelayMieruMtuMin
 import com.poyka.ripdpi.data.RelayMieruMultiplexingHigh
 import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
 import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
@@ -32,6 +35,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
 import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
+import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -170,6 +174,7 @@ private fun EndpointSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            helperText = relayPortRangeHelper(),
         )
     }
 }
@@ -224,6 +229,8 @@ private fun TransportSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            placeholder = RelayMieruMtuDefault.toString(),
+            helperText = stringResource(R.string.relay_editor_range_helper, RelayMieruMtuMin, RelayMieruMtuMax),
         )
     }
 }
@@ -235,6 +242,8 @@ private fun PlainField(
     editor: MieruProfileEditorState,
     onFieldChanged: (MieruEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null,
+    helperText: String? = null,
     readOnly: Boolean = false,
 ) {
     val hasError = editor.hasFieldError(field)
@@ -245,6 +254,8 @@ private fun PlainField(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(labelRes),
+                placeholder = placeholder,
+                helperText = helperText,
                 errorText = if (hasError) stringResource(R.string.mieru_field_invalid) else null,
             ),
         behavior =

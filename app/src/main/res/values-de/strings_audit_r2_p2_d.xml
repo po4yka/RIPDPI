@@ -2,4 +2,8 @@
 <resources>
     <string name="relay_editor_section_credentials">Anmeldedaten</string>
     <string name="relay_editor_save_incomplete_hint">Geben Sie zum Speichern Server, Port und Anmeldedaten ein und korrigieren Sie ungültige Felder.</string>
+    <string name="relay_editor_range_helper">Von %1$d bis %2$d</string>
+    <string name="awg_keepalive_helper">Sekunden zwischen Keepalive-Paketen. Lassen Sie das Feld leer oder geben Sie 0 ein, um es auszuschalten.</string>
+    <string name="awg_obfuscation_show_values">Werte anzeigen</string>
+    <string name="awg_obfuscation_hide_values">Werte ausblenden</string>
 </resources>

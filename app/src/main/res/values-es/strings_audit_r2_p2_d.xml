@@ -2,4 +2,8 @@
 <resources>
     <string name="relay_editor_section_credentials">Credenciales</string>
     <string name="relay_editor_save_incomplete_hint">Para guardar, completa el servidor, el puerto y las credenciales, y corrige los campos no válidos.</string>
+    <string name="relay_editor_range_helper">De %1$d a %2$d</string>
+    <string name="awg_keepalive_helper">Segundos entre paquetes keepalive. Déjalo vacío o escribe 0 para desactivarlo.</string>
+    <string name="awg_obfuscation_show_values">Mostrar valores</string>
+    <string name="awg_obfuscation_hide_values">Ocultar valores</string>
 </resources>

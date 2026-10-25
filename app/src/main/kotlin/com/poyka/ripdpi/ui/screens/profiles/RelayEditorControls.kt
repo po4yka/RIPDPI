@@ -23,6 +23,13 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val MinPort = 1
+private const val MaxPort = 65_535
+
+/** Helper text for every server-port field. */
+@Composable
+internal fun relayPortRangeHelper(): String = stringResource(R.string.relay_editor_range_helper, MinPort, MaxPort)
+
 /** The one secret field of every profile editor: masked until the user taps Reveal. */
 @Composable
 internal fun RelaySecretField(

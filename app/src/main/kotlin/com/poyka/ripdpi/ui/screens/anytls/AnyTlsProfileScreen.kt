@@ -20,6 +20,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
+import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -98,6 +99,7 @@ private fun EndpointSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            helperText = relayPortRangeHelper(),
         )
     }
 }
@@ -142,6 +144,8 @@ private fun PlainField(
     editor: AnyTlsProfileEditorState,
     onFieldChanged: (AnyTlsEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null,
+    helperText: String? = null,
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
@@ -151,6 +155,8 @@ private fun PlainField(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(labelRes),
+                placeholder = placeholder,
+                helperText = helperText,
                 errorText = if (hasError) stringResource(R.string.anytls_field_invalid) else null,
             ),
         behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = keyboardType)),
