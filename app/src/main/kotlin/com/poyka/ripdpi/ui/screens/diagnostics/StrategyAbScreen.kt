@@ -265,7 +265,7 @@ private fun TargetRow(
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = target.latencyMs?.let { "$it ms" } ?: "—",
+            text = target.latencyMs?.let { stringResource(R.string.unit_milliseconds_format, it) } ?: "—",
             style = type.monoSmall,
             color = colors.mutedForeground,
         )

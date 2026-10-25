@@ -161,7 +161,7 @@ private fun DoqProbeResult.toUiModel(stringResolver: StringResolver): Diagnostic
             },
         detail =
             errorDetail
-                ?: latencyMs?.let { "$it ms" }
+                ?: latencyMs?.let { stringResolver.getString(R.string.unit_milliseconds_format, it) }
                 ?: stringResolver.getString(R.string.diagnostics_value_complete),
         tone = verdict.tone(),
     )

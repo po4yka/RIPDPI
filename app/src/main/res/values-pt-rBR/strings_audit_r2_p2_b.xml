@@ -9,4 +9,5 @@
     <string name="support_settings_back_action">Voltar</string>
     <string name="remembered_networks_first_seen">Vista pela primeira vez em %1$s</string>
     <string name="detection_community_empty_body">Nenhuma verificação registrada ainda. Execute uma verificação para adicionar a primeira.</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
 </resources>

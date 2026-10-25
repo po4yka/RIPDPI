@@ -282,7 +282,7 @@ class DiagnosticsStrategyPersianPresentationTest {
             ),
             winner.metrics.map { it.label },
         )
-        assertEquals(listOf("1/2", "10/20", "7", "17 ms"), winner.metrics.take(4).map { it.value })
+        assertEquals(listOf("1/2", "10/20", "7", "۱۷ ms"), winner.metrics.take(4).map { it.value })
         assertEquals("عملیاتی با روت", winner.metrics[4].value)
         assertEquals("اجرای دقیق با روت", winner.metrics[5].value)
         assertEquals("برنده", winner.metrics[6].value)

@@ -9,4 +9,5 @@
     <string name="support_settings_back_action">Back</string>
     <string name="remembered_networks_first_seen">First seen %1$s</string>
     <string name="detection_community_empty_body">No checks recorded yet. Run a check to add the first one.</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
 </resources>

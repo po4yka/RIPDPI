@@ -5134,6 +5134,7 @@ app:ui_rule_load_failed_body
 app:ui_rule_load_failed_title
 app:ui_rule_save_failed_body
 app:ui_rule_save_failed_title
+app:unit_milliseconds_format
 app:unsaved_changes_body
 app:unsaved_changes_discard
 app:unsaved_changes_keep_editing

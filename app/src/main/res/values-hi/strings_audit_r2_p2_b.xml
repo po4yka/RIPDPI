@@ -9,4 +9,5 @@
     <string name="support_settings_back_action">वापस</string>
     <string name="remembered_networks_first_seen">%1$s को पहली बार देखा गया</string>
     <string name="detection_community_empty_body">अभी तक कोई जाँच दर्ज नहीं की गई। पहली जाँच जोड़ने के लिए जाँच चलाएँ।</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
 </resources>

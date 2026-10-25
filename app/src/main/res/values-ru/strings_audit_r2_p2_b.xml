@@ -9,4 +9,5 @@
     <string name="support_settings_back_action">Назад</string>
     <string name="remembered_networks_first_seen">Впервые замечена %1$s</string>
     <string name="detection_community_empty_body">Пока не записано ни одной проверки. Запустите проверку, чтобы добавить первую.</string>
+    <string name="unit_milliseconds_format">%1$d мс</string>
 </resources>

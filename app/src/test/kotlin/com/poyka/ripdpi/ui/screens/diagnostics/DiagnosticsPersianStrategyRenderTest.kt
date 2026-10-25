@@ -179,7 +179,7 @@ class DiagnosticsPersianStrategyRenderTest {
         capture("candidate-$name-notes", candidateTag)
         assertEquals("tcp-0012", candidate.id)
         assertEquals("User note 0012", candidate.notes.first())
-        assertEquals(listOf("1/2", "10/20", "7", "17 ms"), candidate.metrics.take(4).map { it.value })
+        assertEquals(listOf("1/2", "10/20", "7", "۱۷ ms"), candidate.metrics.take(4).map { it.value })
     }
 
     private fun configureFont(fontScale: Float) {

@@ -238,8 +238,8 @@ class RelayFieldsTest {
                                 ),
                             relayChainHopStatus =
                                 RelayChainHopStatusUiState(
-                                    entry = RelayChainHopUiState(statusLabel = "Connected", latencyLabel = "24 ms"),
-                                    exit = RelayChainHopUiState(statusLabel = "Connecting", latencyLabel = "61 ms"),
+                                    entry = RelayChainHopUiState(statusLabel = "Connected", latencyMs = 24L),
+                                    exit = RelayChainHopUiState(statusLabel = "Connecting", latencyMs = 61L),
                                 ),
                             relayChainTrustWarning = RelayTrustDomainWarning(sharedJurisdiction = "RU"),
                         ),

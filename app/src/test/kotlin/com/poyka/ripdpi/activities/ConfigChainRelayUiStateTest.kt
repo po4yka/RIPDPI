@@ -172,9 +172,9 @@ class ConfigChainRelayUiStateTest {
             )
 
         assertEquals("Connected", status.entry.statusLabel)
-        assertEquals("24 ms", status.entry.latencyLabel)
+        assertEquals(24L, status.entry.latencyMs)
         assertEquals("Connecting", status.exit.statusLabel)
-        assertEquals("61 ms", status.exit.latencyLabel)
+        assertEquals(61L, status.exit.latencyMs)
     }
 
     @Test
@@ -198,9 +198,9 @@ class ConfigChainRelayUiStateTest {
         // Intermediate hops are surfaced in hop order (sorted by hopIndex), no longer blank.
         assertEquals(2, status.intermediate.size)
         assertEquals("Connected", status.intermediate[0].statusLabel)
-        assertEquals("21 ms", status.intermediate[0].latencyLabel)
+        assertEquals(21L, status.intermediate[0].latencyMs)
         assertEquals("Connecting", status.intermediate[1].statusLabel)
-        assertEquals("33 ms", status.intermediate[1].latencyLabel)
+        assertEquals(33L, status.intermediate[1].latencyMs)
         // hopStatusAt maps intermediate positions (1..hopCount-2) to the matching entry.
         assertEquals("Connected", status.hopStatusAt(1, hopCount = 4).statusLabel)
         assertEquals("Connecting", status.hopStatusAt(2, hopCount = 4).statusLabel)

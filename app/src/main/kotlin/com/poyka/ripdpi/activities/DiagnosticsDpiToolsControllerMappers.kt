@@ -65,10 +65,10 @@ internal fun List<DnsServerResult>.toDnsAvailabilityUiModel(
             map { result ->
                 DiagnosticsDnsAvailabilityServerUiModel(
                     name = result.name,
-                    type = result.type.name.lowercase(Locale.US),
+                    type = result.type.label(stringResolver),
                     availability = "${result.availableDomains}/${result.totalDomains}",
                     latency =
-                        result.avgLatencyMs?.let { "$it ms" }
+                        result.avgLatencyMs?.let { stringResolver.getString(R.string.unit_milliseconds_format, it) }
                             ?: stringResolver.getString(R.string.diagnostics_dns_unknown),
                     tone = if (result.availableDomains > 0) DiagnosticsTone.Positive else DiagnosticsTone.Warning,
                     dnsResponses = result.responseGroups(stringResolver).toPersistentList(),
@@ -431,3 +431,9 @@ private fun DnsServerResult.responseGroups(strings: StringResolver): List<Diagno
         dnsResponseGroup(strings, source, response).let { it.copy(title = "${it.title} · $domain") }
     }
 }
+
+private fun DnsServerType.label(strings: StringResolver): String =
+    when (this) {
+        DnsServerType.UDP -> strings.getString(R.string.dns_mode_plain)
+        DnsServerType.DOH_WIRE -> strings.getString(R.string.dns_protocol_doh)
+    }

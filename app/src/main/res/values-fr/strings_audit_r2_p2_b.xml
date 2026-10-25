@@ -9,4 +9,5 @@
     <string name="support_settings_back_action">Retour</string>
     <string name="remembered_networks_first_seen">Vu pour la première fois %1$s</string>
     <string name="detection_community_empty_body">Aucune vérification enregistrée pour le moment. Lancez une vérification pour ajouter la première.</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
 </resources>
