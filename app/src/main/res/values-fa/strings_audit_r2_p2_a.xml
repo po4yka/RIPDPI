@@ -4,4 +4,10 @@
     <string name="settings_backup_pin_clear_dialog_body">PIN از این دستگاه حذف می‌شود. دیگر نمی‌توانید از آن برای احراز هویت بازگشتی استفاده کنید.</string>
     <string name="routes_edit_rule">ویرایش قانون</string>
     <string name="home_quality_measure">اندازه‌گیری</string>
+    <string name="home_strategy_details">جزئیات</string>
+    <string name="home_strategy_hide_details">پنهان کردن جزئیات</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">%d اعلان دیگر</item>
+        <item quantity="other">%d اعلان دیگر</item>
+    </plurals>
 </resources>

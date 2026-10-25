@@ -3011,7 +3011,6 @@ app:history_no_results_title
 app:history_open_action
 app:history_title
 app:home
-app:home_advisories_more_format
 app:home_approach_cta
 app:home_approach_title
 app:home_connection_actuator_action_activate
@@ -3463,6 +3462,8 @@ app:home_status_disconnected_title
 app:home_status_error_body
 app:home_status_error_title
 app:home_status_section
+app:home_strategy_details
+app:home_strategy_hide_details
 app:host_autolearn_action_group_penalized
 app:host_autolearn_action_host_blocked
 app:host_autolearn_action_host_promoted

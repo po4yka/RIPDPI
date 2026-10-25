@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -201,7 +202,7 @@ private fun AdvisoryDisclosure(
         // Lines the label up with the advisory titles above it.
         Spacer(Modifier.width(RipDpiIconSizes.Default))
         Text(
-            text = stringResource(R.string.home_advisories_more_format, count),
+            text = pluralStringResource(R.plurals.home_advisories_more, count, count),
             modifier = Modifier.weight(1f),
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,

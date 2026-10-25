@@ -4,4 +4,10 @@
     <string name="settings_backup_pin_clear_dialog_body">The PIN is removed from this device. You can no longer use it for fallback authentication.</string>
     <string name="routes_edit_rule">Edit rule</string>
     <string name="home_quality_measure">Measure</string>
+    <string name="home_strategy_details">Details</string>
+    <string name="home_strategy_hide_details">Hide details</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">%d more notice</item>
+        <item quantity="other">%d more notices</item>
+    </plurals>
 </resources>

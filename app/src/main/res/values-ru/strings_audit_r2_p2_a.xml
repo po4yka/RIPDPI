@@ -4,4 +4,12 @@
     <string name="settings_backup_pin_clear_dialog_body">PIN-код будет удалён с этого устройства. Вы больше не сможете использовать его для резервной аутентификации.</string>
     <string name="routes_edit_rule">Изменить правило</string>
     <string name="home_quality_measure">Измерить</string>
+    <string name="home_strategy_details">Подробнее</string>
+    <string name="home_strategy_hide_details">Скрыть подробности</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">Ещё %d уведомление</item>
+        <item quantity="few">Ещё %d уведомления</item>
+        <item quantity="many">Ещё %d уведомлений</item>
+        <item quantity="other">Ещё %d уведомления</item>
+    </plurals>
 </resources>

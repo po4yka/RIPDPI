@@ -4,4 +4,9 @@
     <string name="settings_backup_pin_clear_dialog_body">PIN 将从本设备中删除，之后无法再用于备用身份验证。</string>
     <string name="routes_edit_rule">编辑规则</string>
     <string name="home_quality_measure">测量</string>
+    <string name="home_strategy_details">详情</string>
+    <string name="home_strategy_hide_details">隐藏详情</string>
+    <plurals name="home_advisories_more">
+        <item quantity="other">另有 %d 条提示</item>
+    </plurals>
 </resources>

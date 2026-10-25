@@ -54,6 +54,8 @@ class HomeAdvisorySlotTest {
     fun `expanding the card reaches every advisory it holds`() {
         setHome()
 
+        // The disclosure names what it hides, not only how many.
+        composeRule.onNodeWithText("1 more notice").assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
 
         composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails).performScrollTo().assertIsDisplayed()
