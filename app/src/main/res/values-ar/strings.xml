@@ -3079,7 +3079,7 @@ fakeddisorder endhost</string>
     <string name="rule_editor_network_both">TCP و UDP</string>
     <string name="rule_editor_process_label">اسم العملية</string>
     <string name="rule_editor_apps_label">التطبيقات</string>
-    <string name="rule_editor_apps_selected">%1$d محدد</string>
+    <string name="rule_editor_apps_selected">التطبيقات: %1$d محدد</string>
     <string name="rule_editor_outbound_label">الاتجاه الصادر</string>
     <string name="rule_editor_outbound_proxy">وكيل</string>
     <string name="rule_editor_outbound_bypass">تجاوز (مباشر)</string>

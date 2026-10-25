@@ -15,4 +15,5 @@
     <string name="root_mode_access_denied">root 权限被拒绝。请在 root 管理器中允许 RIPDPI，然后重新开启 root 模式。</string>
     <string name="root_mode_access_unavailable">此设备没有 root 权限，因此这些策略无法生效。</string>
     <string name="domain_bypass_move_requires_save">请先保存列表，再将其移至规则。</string>
+    <string name="title_rule_editor_new">新建规则</string>
 </resources>

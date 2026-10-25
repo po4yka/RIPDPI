@@ -5113,6 +5113,7 @@ app:title_replay_history
 app:title_root_mode_strategies
 app:title_routes
 app:title_rule_editor
+app:title_rule_editor_new
 app:title_shared_diagnostic_result
 app:title_split_tunnel
 app:title_state_machine

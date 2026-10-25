@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.RememberedNetworksUiState
@@ -230,6 +232,39 @@ class SetupInteractionQualityTest {
         }
         composeRule.onNodeWithText(text(R.string.ui_rule_save_failed_title)).assertExists()
         composeRule.onNodeWithText("retained.example").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun `new empty rule is titled new and warns only after a save attempt`() {
+        var saves = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                RuleEditorScreen(
+                    state = RuleEditorUiState(loaded = true),
+                    onBack = {},
+                    onNameChange = {},
+                    onEnabledChange = {},
+                    onDomainsChange = {},
+                    onIpCidrsChange = {},
+                    onPortsChange = {},
+                    onSourcePortsChange = {},
+                    onNetworkChange = {},
+                    onProcessNameChange = {},
+                    onPackagesChange = {},
+                    onOutboundChange = {},
+                    persistenceActions = RuleEditorPersistenceActions(save = { saves++ }),
+                )
+            }
+        }
+        composeRule.onNodeWithText(text(R.string.title_rule_editor_new)).assertExists()
+        composeRule.onNodeWithText(text(R.string.rule_editor_empty_error_title)).assertDoesNotExist()
+
+        composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("rule_editor_actions")
+        composeRule.onNodeWithTag(RipDpiTestTags.RuleEditorSave).performClick()
+
+        composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("rule_editor_empty_warning")
+        composeRule.onNodeWithText(text(R.string.rule_editor_empty_error_title)).assertExists()
+        assertEquals(0, saves)
     }
 
     @Test

@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,13 +107,15 @@ internal fun RuleEditorScreen(
     modifier: Modifier = Modifier,
 ) {
     var showAppPicker by remember { mutableStateOf(false) }
+    // The empty-rule warning waits for a save attempt, so a new rule does not open with an error.
+    var saveAttempted by rememberSaveable { mutableStateOf(false) }
 
     RipDpiSettingsScaffold(
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.RuleEditor()))
                 .fillMaxSize(),
-        title = stringResource(R.string.title_rule_editor),
+        title = stringResource(if (state.ruleId == 0L) R.string.title_rule_editor_new else R.string.title_rule_editor),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
     ) {
@@ -124,15 +127,6 @@ internal fun RuleEditorScreen(
         if (!state.loaded && state.failure == null) {
             item(key = "rule_editor_loading") { RipDpiSpinner() }
         } else if (state.loaded) {
-            if (state.isEmpty) {
-                item(key = "rule_editor_empty_warning") {
-                    WarningBanner(
-                        title = stringResource(R.string.rule_editor_empty_error_title),
-                        message = stringResource(R.string.rule_editor_empty_error_body),
-                        tone = WarningBannerTone.Warning,
-                    )
-                }
-            }
             identitySection(state = state, onNameChange = onNameChange, onEnabledChange = onEnabledChange)
             matchersSection(
                 state = state,
@@ -148,7 +142,24 @@ internal fun RuleEditorScreen(
                 onOpenAppPicker = { showAppPicker = true },
             )
             outboundSection(state = state, onOutboundChange = onOutboundChange)
-            actionsSection(state = state, onBack = onBack, onSave = persistenceActions.save)
+            if (saveAttempted && state.isEmpty) {
+                // Next to Save, where the user looks after the attempt.
+                item(key = "rule_editor_empty_warning") {
+                    WarningBanner(
+                        title = stringResource(R.string.rule_editor_empty_error_title),
+                        message = stringResource(R.string.rule_editor_empty_error_body),
+                        tone = WarningBannerTone.Warning,
+                    )
+                }
+            }
+            actionsSection(
+                state = state,
+                onBack = onBack,
+                onSave = {
+                    saveAttempted = true
+                    if (!state.isEmpty) persistenceActions.save()
+                },
+            )
         }
     }
 
@@ -355,7 +366,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.actionsSection(
                 text = stringResource(R.string.rule_editor_save),
                 onClick = onSave,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RuleEditorSave),
-                enabled = state.loaded && !state.saving && !state.isEmpty,
+                enabled = state.loaded && !state.saving,
             )
         }
     }

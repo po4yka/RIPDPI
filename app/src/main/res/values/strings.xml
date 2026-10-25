@@ -3356,7 +3356,7 @@ Source: %2$s</string>
     <string name="rule_editor_network_both">TCP and UDP</string>
     <string name="rule_editor_process_label">Process name</string>
     <string name="rule_editor_apps_label">Apps</string>
-    <string name="rule_editor_apps_selected">%1$d selected</string>
+    <string name="rule_editor_apps_selected">Apps: %1$d selected</string>
     <string name="rule_editor_outbound_label">Outbound</string>
     <string name="rule_editor_outbound_proxy">Proxy</string>
     <string name="rule_editor_outbound_bypass">Bypass (direct)</string>

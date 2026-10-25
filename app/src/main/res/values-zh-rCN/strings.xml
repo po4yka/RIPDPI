@@ -3184,7 +3184,7 @@ fake_burst 3</string>
     <string name="rule_editor_network_both">TCP 和 UDP</string>
     <string name="rule_editor_process_label">进程名称</string>
     <string name="rule_editor_apps_label">应用</string>
-    <string name="rule_editor_apps_selected">已选择 %1$d 个</string>
+    <string name="rule_editor_apps_selected">应用：已选择 %1$d 个</string>
     <string name="rule_editor_outbound_label">出站</string>
     <string name="rule_editor_outbound_proxy">代理</string>
     <string name="rule_editor_outbound_bypass">绕过（直连）</string>

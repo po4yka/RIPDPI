@@ -15,4 +15,5 @@
     <string name="root_mode_access_denied">دسترسی روت رد شد. در مدیر روت به RIPDPI اجازه دهید و سپس دوباره حالت روت را روشن کنید.</string>
     <string name="root_mode_access_unavailable">این دستگاه دسترسی روت ندارد، بنابراین این راهبردها کار نمی‌کنند.</string>
     <string name="domain_bypass_move_requires_save">ابتدا فهرست را ذخیره کنید تا بتوانید آن را به قوانین منتقل کنید.</string>
+    <string name="title_rule_editor_new">قانون جدید</string>
 </resources>

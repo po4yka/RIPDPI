@@ -3049,7 +3049,7 @@ fakeddisorder endhost</string>
     <string name="rule_editor_network_both">TCP и UDP</string>
     <string name="rule_editor_process_label">Имя процесса</string>
     <string name="rule_editor_apps_label">Приложения</string>
-    <string name="rule_editor_apps_selected">Выбрано: %1$d</string>
+    <string name="rule_editor_apps_selected">Приложения: выбрано %1$d</string>
     <string name="rule_editor_outbound_label">Исходящий</string>
     <string name="rule_editor_outbound_proxy">Прокси</string>
     <string name="rule_editor_outbound_bypass">В обход (напрямую)</string>

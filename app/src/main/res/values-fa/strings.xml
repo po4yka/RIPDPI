@@ -3197,7 +3197,7 @@ fakeddisorder endhost</string>
     <string name="rule_editor_network_both">TCP و UDP</string>
     <string name="rule_editor_process_label">نام فرایند</string>
     <string name="rule_editor_apps_label">برنامه‌ها</string>
-    <string name="rule_editor_apps_selected">%1$d انتخاب‌شده</string>
+    <string name="rule_editor_apps_selected">برنامه‌ها: %1$d انتخاب‌شده</string>
     <string name="rule_editor_outbound_label">خروجی</string>
     <string name="rule_editor_outbound_proxy">پروکسی</string>
     <string name="rule_editor_outbound_bypass">دور زدن (مستقیم)</string>

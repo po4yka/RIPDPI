@@ -3192,7 +3192,7 @@ Source : %2$s</string>
     <string name="rule_editor_network_both">TCP et UDP</string>
     <string name="rule_editor_process_label">Nom du processus</string>
     <string name="rule_editor_apps_label">Applications</string>
-    <string name="rule_editor_apps_selected">%1$d sélectionnée(s)</string>
+    <string name="rule_editor_apps_selected">Applications : %1$d sélectionnée(s)</string>
     <string name="rule_editor_outbound_label">Sortie</string>
     <string name="rule_editor_outbound_proxy">Proxy</string>
     <string name="rule_editor_outbound_bypass">Contourner (direct)</string>

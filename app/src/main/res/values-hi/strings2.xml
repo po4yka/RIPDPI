@@ -1447,7 +1447,7 @@
     <string name="rule_editor_network_both">TCP और UDP</string>
     <string name="rule_editor_process_label">प्रोसेस नाम</string>
     <string name="rule_editor_apps_label">ऐप</string>
-    <string name="rule_editor_apps_selected">%1$d चयनित</string>
+    <string name="rule_editor_apps_selected">ऐप्स: %1$d चयनित</string>
     <string name="rule_editor_outbound_label">आउटबाउंड</string>
     <string name="rule_editor_outbound_proxy">प्रॉक्सी</string>
     <string name="rule_editor_outbound_bypass">बायपास (सीधा)</string>
