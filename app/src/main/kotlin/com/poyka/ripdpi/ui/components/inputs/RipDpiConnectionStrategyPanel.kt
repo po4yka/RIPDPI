@@ -69,8 +69,9 @@ internal fun RipDpiConnectionStrategyPanel(
             modifier
                 .fillMaxWidth()
                 .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorStrategyPanel)
+                // Fill without an outline: an outlined box with a chevron reads as a dropdown field.
                 .ripDpiScreenSurface(
-                    RipDpiThemeTokens.styles.screens.mutedPanel,
+                    RipDpiThemeTokens.styles.screens.mutedBackground,
                     RipDpiThemeTokens.shapes.md,
                     clip = true,
                 ),

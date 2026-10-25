@@ -82,7 +82,6 @@ class ConnectionStrategyPanelScreenshotTest {
             persistentListOf(
                 HomeModeSummaryFacet("Protocols", "HTTP, HTTPS, UDP"),
                 HomeModeSummaryFacet("Host learning", "On"),
-                HomeModeSummaryFacet("TCP", "Split"),
                 HomeModeSummaryFacet("QUIC", "Disabled"),
                 HomeModeSummaryFacet("DNS", "AdGuard DNS DoH"),
             )

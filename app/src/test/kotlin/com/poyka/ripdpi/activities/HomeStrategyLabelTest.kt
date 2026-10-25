@@ -36,7 +36,6 @@ class HomeStrategyLabelTest {
             listOf(
                 "Protocols" to "HTTP, HTTPS, UDP",
                 "Host learning" to "On",
-                "TCP" to "Split",
                 "QUIC" to "Disabled",
                 "DNS" to "Cloudflare DoH",
                 "TLS record split" to "On",

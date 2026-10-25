@@ -35,7 +35,7 @@ internal fun BypassStrategySignature.localizedHomeStrategyFacets(
                 },
             ),
         )
-        tcpStrategyFamily?.let { facet("TCP", strategyLaneFamilyLabel(it)) }
+        // No TCP row: the panel title is the chain summary, which always names the TCP steps.
         quicStrategyFamily?.let {
             facet(
                 "QUIC",
