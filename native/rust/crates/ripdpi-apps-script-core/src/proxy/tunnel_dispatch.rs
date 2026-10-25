@@ -29,7 +29,7 @@ pub(crate) async fn dispatch(
     hosts: HashMap<String, String>,
 ) -> io::Result<()> {
     if let Some(upstream) = hosts_override(&hosts, host).map(ToOwned::to_owned) {
-        return mitm_rewrite::sni_rewrite_tunnel(stream, host, port, upstream, mitm, telemetry).await;
+        return mitm_rewrite::sni_rewrite_tunnel(stream, host, port, upstream, relay, mitm, telemetry).await;
     }
 
     let mut peek = [0u8; 8];

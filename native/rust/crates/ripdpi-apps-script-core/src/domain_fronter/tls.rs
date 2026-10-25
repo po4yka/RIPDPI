@@ -27,6 +27,7 @@ pub(super) fn client_config_with_ech_setup(setup: &EchSetup) -> Result<ClientCon
 pub(super) async fn connect_fronted_stream(
     connector: &TlsConnector,
     connect_host: &str,
+    port: u16,
     front_domain: &str,
 ) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
     // PROTECT INVARIANT: no `protect_socket(fd)` is required here. The Apps Script
@@ -36,7 +37,7 @@ pub(super) async fn connect_fronted_stream(
     // SOCKS listener and owns its transport sockets"; the relay registers no VPN-protect
     // callback). With no TUN to capture outbound traffic, this front connection cannot loop
     // back into the tunnel, so the `vpnservice-protect-invariant.md` rule does not apply.
-    let stream = TcpStream::connect((connect_host, 443)).await?;
+    let stream = TcpStream::connect((connect_host, port)).await?;
     stream.set_nodelay(true)?;
     let server_name = ServerName::try_from(front_domain.to_string())?;
     Ok(connector.connect(server_name, stream).await?)

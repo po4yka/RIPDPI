@@ -108,7 +108,24 @@ impl AppsScriptDomainFronter {
     /// handshake; cancellation mid-handshake leaves a partially negotiated TLS
     /// session that is dropped without a clean close_notify.
     async fn open_fronted_stream(&self) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
-        tls::connect_fronted_stream(&self.tls_connector, &self.connect_host, &self.front_domain).await
+        tls::connect_fronted_stream(&self.tls_connector, &self.connect_host, 443, &self.front_domain).await
+    }
+
+    /// Open a verified TLS stream to an SNI-rewrite `upstream`, presenting the
+    /// front domain as SNI.
+    ///
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: same multi-step TCP + TLS handshake as
+    /// `open_fronted_stream`.
+    pub(crate) async fn open_rewrite_stream(
+        &self,
+        upstream: &str,
+        port: u16,
+    ) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
+        timeout(RELAY_TIMEOUT, tls::connect_fronted_stream(&self.tls_connector, upstream, port, &self.front_domain))
+            .await
+            .map_err(|_| FronterError::Timeout)?
     }
 
     fn next_script_id(&self) -> String {

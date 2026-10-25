@@ -386,6 +386,12 @@ Profile:
 }
 ```
 
+Traffic to `appsScriptDirectHosts` is decrypted locally and then sent to
+`appsScriptGoogleIp` over a new TLS connection. That connection uses
+`appsScriptFrontDomain` as SNI, and the server certificate must be valid for
+that name. A host override that points at a server without such a certificate
+fails to connect.
+
 Credentials:
 
 ```json
