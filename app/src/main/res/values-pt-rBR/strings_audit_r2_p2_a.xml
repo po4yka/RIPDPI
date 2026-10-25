@@ -2,4 +2,5 @@
 <resources>
     <string name="settings_backup_pin_clear_dialog_title">Limpar o PIN de backup?</string>
     <string name="settings_backup_pin_clear_dialog_body">O PIN será removido deste dispositivo. Você não poderá mais usá-lo para autenticação alternativa.</string>
+    <string name="routes_edit_rule">Editar regra</string>
 </resources>

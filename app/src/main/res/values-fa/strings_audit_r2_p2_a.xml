@@ -2,4 +2,5 @@
 <resources>
     <string name="settings_backup_pin_clear_dialog_title">PIN پشتیبان پاک شود؟</string>
     <string name="settings_backup_pin_clear_dialog_body">PIN از این دستگاه حذف می‌شود. دیگر نمی‌توانید از آن برای احراز هویت بازگشتی استفاده کنید.</string>
+    <string name="routes_edit_rule">ویرایش قانون</string>
 </resources>

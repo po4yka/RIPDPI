@@ -2,4 +2,5 @@
 <resources>
     <string name="settings_backup_pin_clear_dialog_title">Effacer le PIN de secours ?</string>
     <string name="settings_backup_pin_clear_dialog_body">Le PIN sera supprimé de cet appareil. Vous ne pourrez plus l\'utiliser pour l\'authentification de secours.</string>
+    <string name="routes_edit_rule">Modifier la règle</string>
 </resources>

@@ -5,7 +5,10 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -84,6 +87,9 @@ class SetupInteractionQualityTest {
             ).performClick()
         assertEquals(1, toggles)
         assertEquals(0, edits)
+
+        composeRule.onNodeWithText(text(R.string.routes_edit_rule)).performClick()
+        assertEquals(1, edits)
     }
 
     @Test
@@ -104,11 +110,11 @@ class SetupInteractionQualityTest {
             }
         }
         val deleteLabel = text(R.string.rule_editor_delete)
-        composeRule.onNode(hasContentDescription(deleteLabel)).performClick()
+        composeRule.onNodeWithText(deleteLabel).performClick()
         composeRule.onNodeWithText(text(R.string.routes_delete_confirm_title)).assertExists()
         assertEquals(emptyList<RuleEntity>(), deleted)
 
-        composeRule.onNodeWithText(deleteLabel).performClick()
+        composeRule.onNode(hasText(deleteLabel) and hasAnyAncestor(isDialog())).performClick()
         composeRule.runOnIdle { assertEquals(listOf(rule), deleted) }
     }
 

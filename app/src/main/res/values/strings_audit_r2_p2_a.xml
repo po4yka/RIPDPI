@@ -2,4 +2,5 @@
 <resources>
     <string name="settings_backup_pin_clear_dialog_title">Clear backup PIN?</string>
     <string name="settings_backup_pin_clear_dialog_body">The PIN is removed from this device. You can no longer use it for fallback authentication.</string>
+    <string name="routes_edit_rule">Edit rule</string>
 </resources>
