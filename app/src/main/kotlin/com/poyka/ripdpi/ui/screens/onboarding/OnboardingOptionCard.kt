@@ -114,7 +114,7 @@ internal fun OnboardingOptionCard(
         }
         Text(
             text = description,
-            style = type.secondaryBody,
+            style = type.body,
             color = colors.mutedForeground,
             maxLines = if (showCompleteText) Int.MAX_VALUE else 3,
             overflow = if (showCompleteText) TextOverflow.Clip else TextOverflow.Ellipsis,

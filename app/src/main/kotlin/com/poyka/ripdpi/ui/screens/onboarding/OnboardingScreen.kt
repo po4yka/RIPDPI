@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.displayCutoutPadding
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
@@ -614,20 +616,23 @@ private fun OnboardingGuaranteeGrid(
             )
         }
     } else {
-        Row(
-            modifier = gridModifier,
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        ) {
-            OnboardingGuaranteeColumn(
-                headerRes = R.string.onboarding_guarantee_header_privacy,
-                labels = privacyLabels,
-                modifier = Modifier.weight(1f),
-            )
-            OnboardingGuaranteeColumn(
-                headerRes = R.string.onboarding_guarantee_header_local,
-                labels = localLabels,
-                modifier = Modifier.weight(1f),
-            )
+        // Size the block to its content and center it so short labels do not look left-heavy.
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Row(
+                modifier = modifier.widthIn(max = introLayout.guaranteeGridMaxWidth).width(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            ) {
+                OnboardingGuaranteeColumn(
+                    headerRes = R.string.onboarding_guarantee_header_privacy,
+                    labels = privacyLabels,
+                    modifier = Modifier.weight(1f),
+                )
+                OnboardingGuaranteeColumn(
+                    headerRes = R.string.onboarding_guarantee_header_local,
+                    labels = localLabels,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -682,7 +687,7 @@ private fun OnboardingGuaranteeItem(
         )
         Text(
             text = text,
-            style = type.secondaryBody,
+            style = type.body,
             color = colors.mutedForeground,
             // Constrain to the remaining column width so long translated labels wrap, never clip.
             modifier = Modifier.weight(1f),
