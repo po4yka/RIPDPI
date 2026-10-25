@@ -7,7 +7,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.DataInputStream
 import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -210,5 +214,40 @@ class PluggableTransportSocksBridgeWireTest {
     fun `encodeManagedClientSocksConnectRequest domain host longer than 255 bytes throws IllegalArgumentException`() {
         // 256 ASCII chars = 256 UTF-8 bytes → exceeds limit
         encodeManagedClientSocksConnectRequest("a".repeat(256), 443)
+    }
+
+    @Test
+    fun `malformed client handshake ends only its own client thread`() {
+        val uncaught = AtomicReference<Throwable?>()
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, error -> uncaught.set(error) }
+        val port = ServerSocket(0).use { it.localPort }
+        val bridge =
+            ManagedClientSocksBridge(
+                listenHost = "127.0.0.1",
+                listenPort = port,
+                upstreamListener = InetSocketAddress("127.0.0.1", 9),
+                bridgeSpec = ManagedClientSocksBridgeSpec("obfs4", "192.0.2.1", 443, ""),
+            )
+        try {
+            bridge.start()
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 5_000
+                socket.getOutputStream().write(0x04) // SOCKS4 version byte: rejected
+                assertEquals(-1, socket.getInputStream().read())
+            }
+            // A second client still gets the SOCKS5 greeting, so the bridge survived.
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 5_000
+                socket.getOutputStream().write(byteArrayOf(0x05, 0x01, 0x00))
+                val reply = ByteArray(2)
+                DataInputStream(socket.getInputStream()).readFully(reply)
+                assertArrayEquals(byteArrayOf(0x05, 0x00), reply)
+            }
+        } finally {
+            bridge.close()
+            Thread.setDefaultUncaughtExceptionHandler(previous)
+        }
+        assertNull("client failure must not reach the process handler", uncaught.get())
     }
 }

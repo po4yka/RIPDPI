@@ -10,6 +10,7 @@ package com.poyka.ripdpi.services
 
 import android.net.InetAddresses
 import android.os.Build
+import co.touchlab.kermit.Logger
 import java.io.Closeable
 import java.io.EOFException
 import java.io.IOException
@@ -172,6 +173,9 @@ internal class ManagedClientSocksBridge(
                 client.use { outer ->
                     try {
                         handleClient(outer)
+                    } catch (error: Exception) {
+                        // A bad or aborted client ends only its own thread, never the process.
+                        Logger.d { "PT SOCKS bridge client closed: ${error.javaClass.simpleName}" }
                     } finally {
                         activeSockets -= outer
                     }
