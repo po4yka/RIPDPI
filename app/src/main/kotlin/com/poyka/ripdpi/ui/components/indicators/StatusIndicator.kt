@@ -17,6 +17,9 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -31,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private const val IdleBarHeightDivisor = 3f
 
 enum class StatusIndicatorTone {
     Active,
@@ -193,18 +198,14 @@ private fun DrawScope.drawStatusMarker(
         }
 
         StatusIndicatorTone.Idle -> {
-            val centerX = size.width / 2f
-            val centerY = size.height / 2f
-            val radius = size.width / 2f
-            val path =
-                Path().apply {
-                    moveTo(centerX, centerY - radius)
-                    lineTo(centerX + radius, centerY)
-                    lineTo(centerX, centerY + radius)
-                    lineTo(centerX - radius, centerY)
-                    close()
-                }
-            drawPath(path, color)
+            // A short bar, like "Neutral" in the detection status legend; the diamond there means "Detected".
+            val barHeight = size.height / IdleBarHeightDivisor
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(0f, (size.height - barHeight) / 2f),
+                size = Size(size.width, barHeight),
+                cornerRadius = CornerRadius(barHeight / 2f),
+            )
         }
     }
 }
