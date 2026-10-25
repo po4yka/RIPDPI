@@ -3792,7 +3792,6 @@ app:onboarding_setup_mode_vpn_meta
 app:onboarding_setup_mode_vpn_title
 app:onboarding_setup_mode_xray_body
 app:onboarding_setup_mode_xray_title
-app:onboarding_setup_next
 app:onboarding_setup_test_failed
 app:onboarding_setup_test_hint
 app:onboarding_setup_test_run

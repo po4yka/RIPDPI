@@ -1630,7 +1630,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_confirm_continue">Continue setup</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_get_started">Get started</string>
-    <string name="onboarding_setup_next">Next</string>
     <string name="onboarding_setup_finish">Finish</string>
 
     <string name="onboarding_local_first_title">Private by design</string>

@@ -925,7 +925,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="onboarding_privacy_body">Keine Telemetrie, kein Tracking, keine Konten. Einstellungen und Diagnoseverlauf bleiben auf Ihrem Gerät, sofern Sie sie nicht ausdrücklich exportieren.</string>
     <string name="onboarding_setup_dns_quad9_body">Sicherheitsorientierter DNS-Resolver.</string>
     <string name="onboarding_setup_mode_proxy_body">Führt einen lokalen Proxy für Apps oder Clients aus, die eine manuelle Proxy-Konfiguration unterstützen.</string>
-    <string name="onboarding_setup_next">Weiter</string>
     <string name="onboarding_setup_test_success">Verbunden in %1$d ms</string>
     <string name="onboarding_validation_checking_vpn">Datenverkehr im VPN-Modus wird geprüft…</string>
     <string name="onboarding_validation_finish_keep_running">Fertigstellen und weiterlaufen lassen</string>

@@ -1599,7 +1599,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_confirm_continue">متابعة الإعداد</string>
     <string name="onboarding_continue">متابعة</string>
     <string name="onboarding_get_started">ابدأ الآن</string>
-    <string name="onboarding_setup_next">التالي</string>
     <string name="onboarding_setup_finish">إنهاء</string>
     <string name="onboarding_local_first_title">خاص بحكم التصميم</string>
     <string name="onboarding_local_first_body">كل شيء يعمل على جهازك.</string>

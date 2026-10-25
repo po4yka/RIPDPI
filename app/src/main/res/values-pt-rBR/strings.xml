@@ -1605,7 +1605,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_confirm_continue">Continuar configuração</string>
     <string name="onboarding_continue">Continuar</string>
     <string name="onboarding_get_started">Começar</string>
-    <string name="onboarding_setup_next">Avançar</string>
     <string name="onboarding_setup_finish">Concluir</string>
 
     <string name="onboarding_local_first_title">Privado por design</string>

@@ -1387,7 +1387,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_dns_system">系统默认</string>
     <string name="dns_unknown_provider">未知提供商</string>
     <string name="onboarding_setup_mode_proxy_title">代理模式</string>
-    <string name="onboarding_setup_next">下一步</string>
     <string name="onboarding_setup_test_running">正在检查连接…</string>
     <string name="onboarding_skip">稍后设置</string>
     <string name="onboarding_set_up_later">稍后设置</string>

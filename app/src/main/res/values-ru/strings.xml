@@ -1183,7 +1183,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_bypass_modes_body">Направляйте трафик через локальный VPN для полного покрытия или через локальный прокси для более точного контроля.</string>
     <string name="onboarding_privacy_title">Прозрачность по умолчанию</string>
     <string name="onboarding_privacy_body">Никакой телеметрии, отслеживания или аккаунтов. Настройки и история диагностики остаются на устройстве, если вы явно не экспортируете их.</string>
-    <string name="onboarding_setup_next">Далее</string>
     <string name="onboarding_setup_finish">Завершить</string>
     <string name="onboarding_setup_mode_title">Выберите режим трафика</string>
     <string name="onboarding_setup_mode_vpn_title">Режим VPN</string>
