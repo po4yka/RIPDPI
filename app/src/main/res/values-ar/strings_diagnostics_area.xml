@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_tool_matrix_summary">يقارن بين المواقع المحلية والأجنبية التي تفتح على هذه الشبكة.</string>
+    <string name="diagnostics_guided_tool_throttling_summary">يقارن سرعة التنزيل من YouTube بخوادم محايدة لاكتشاف إبطاء الاتصال.</string>
+</resources>

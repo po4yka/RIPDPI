@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_tool_matrix_summary">مقایسه می‌کند کدام سایت‌های داخلی و خارجی در این شبکه باز می‌شوند.</string>
+    <string name="diagnostics_guided_tool_throttling_summary">سرعت دانلود از YouTube را با سرورهای بی‌طرف مقایسه می‌کند تا کندسازی را پیدا کند.</string>
+</resources>

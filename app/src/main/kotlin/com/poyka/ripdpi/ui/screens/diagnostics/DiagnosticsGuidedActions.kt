@@ -1,8 +1,12 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,6 +24,8 @@ import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
@@ -46,12 +52,15 @@ internal fun DiagnosticsExpertToggle(
         selected = expanded,
         role = Role.Button,
         onClick = { onExpandedChange(!expanded) },
-        modifier =
-            Modifier
-                .padding(horizontal = RipDpiThemeTokens.layout.horizontalPadding)
-                .ripDpiTestTag(RipDpiTestTags.DiagnosticsExpertToggle),
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsExpertToggle),
     )
 }
+
+private val guidedToolSummaries =
+    mapOf(
+        "selective-availability-matrix" to R.string.diagnostics_guided_tool_matrix_summary,
+        "ru-throttling" to R.string.diagnostics_guided_tool_throttling_summary,
+    )
 
 @Composable
 internal fun DiagnosticsGuidedTools(
@@ -59,35 +68,38 @@ internal fun DiagnosticsGuidedTools(
     busy: Boolean,
     onSelectProfile: (String) -> Unit,
     onSelectSection: (DiagnosticsSection) -> Unit,
-    onExpand: () -> Unit,
+    header: @Composable () -> Unit,
 ) {
+    val guidedProfiles = scan.profiles.filter { it.id in guidedToolSummaries }
     Column(
-        modifier = Modifier.padding(RipDpiThemeTokens.layout.horizontalPadding),
-        verticalArrangement =
-            androidx.compose.foundation.layout.Arrangement
-                .spacedBy(RipDpiThemeTokens.spacing.md),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    horizontal = RipDpiThemeTokens.layout.horizontalPadding,
+                    vertical = RipDpiThemeTokens.spacing.sm,
+                ),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
     ) {
-        val guidedProfiles =
-            scan.profiles.filter {
-                it.id == "selective-availability-matrix" || it.id == "ru-throttling"
+        header()
+        if (guidedProfiles.isNotEmpty()) {
+            RipDpiCard {
+                guidedProfiles.forEachIndexed { index, profile ->
+                    SettingsRow(
+                        title = profile.name,
+                        subtitle = stringResource(guidedToolSummaries.getValue(profile.id)),
+                        onClick = {
+                            onSelectProfile(profile.id)
+                            onSelectSection(DiagnosticsSection.Scan)
+                        },
+                        enabled = !busy,
+                        showChevron = true,
+                        showDivider = index < guidedProfiles.lastIndex,
+                    )
+                }
             }
-        guidedProfiles.forEach { profile ->
-            RipDpiButton(
-                text = profile.name,
-                onClick = {
-                    onSelectProfile(profile.id)
-                    onSelectSection(DiagnosticsSection.Scan)
-                },
-                enabled = !busy,
-                variant = RipDpiButtonVariant.Outline,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
-        RipDpiButton(
-            text = stringResource(R.string.diagnostics_technical_details),
-            onClick = onExpand,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 

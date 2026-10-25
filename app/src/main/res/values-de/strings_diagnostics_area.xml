@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_tool_matrix_summary">Vergleicht, welche inländischen und ausländischen Websites in diesem Netz laden.</string>
+    <string name="diagnostics_guided_tool_throttling_summary">Vergleicht die Downloadgeschwindigkeit von YouTube mit neutralen Servern, um Drosselung zu erkennen.</string>
+</resources>

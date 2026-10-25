@@ -250,7 +250,6 @@ private fun DiagnosticsScreenFrame(
                     onSelectSection = actions.onSelectSection,
                     modifier = Modifier.padding(horizontal = layout.horizontalPadding),
                 )
-                DiagnosticsExpertToggle(expertMode, onExpertModeChange)
                 if (showDebugInfo) {
                     uiState.performance?.let { performance ->
                         DiagnosticsPerformanceCard(
@@ -334,8 +333,11 @@ private fun DiagnosticsScreenPager(
     pcapRecording: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    // The toggle scrolls with each page's content instead of staying pinned above the pager.
+    val expertToggle: @Composable () -> Unit = { DiagnosticsExpertToggle(expertMode, onExpertModeChange) }
     HorizontalPager(
         state = pagerState,
+        verticalAlignment = Alignment.Top,
         modifier =
             modifier
                 .fillMaxWidth()
@@ -357,6 +359,7 @@ private fun DiagnosticsScreenPager(
                     onStartVerifiedVpn = actions.onStartVerifiedVpn,
                     onSelectSession = actions.onSelectSession,
                     onOpenHistory = actions.onOpenHistory,
+                    header = expertToggle,
                 )
             }
 
@@ -380,6 +383,7 @@ private fun DiagnosticsScreenPager(
                     expertMode = expertMode,
                     compositeRunBusy = homeDiagnostics.compositeRunBusy,
                     admissionBusy = homeDiagnostics.diagnosticsAdmissionBusy,
+                    header = expertToggle,
                 )
             }
 
@@ -390,7 +394,7 @@ private fun DiagnosticsScreenPager(
                         busy = homeDiagnostics.diagnosticsAdmissionBusy || uiState.scan.isBusy,
                         onSelectProfile = actions.onSelectProfile,
                         onSelectSection = actions.onSelectSection,
-                        onExpand = { onExpertModeChange(true) },
+                        header = expertToggle,
                     )
                 } else {
                     DiagnosticsToolsPagerPage(
@@ -399,6 +403,7 @@ private fun DiagnosticsScreenPager(
                         tools = tools,
                         rootModeEnabled = rootModeEnabled,
                         pcapRecording = pcapRecording,
+                        header = expertToggle,
                     )
                 }
             }
@@ -413,6 +418,7 @@ private fun DiagnosticsToolsPagerPage(
     tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
     pcapRecording: Boolean,
+    header: @Composable () -> Unit,
 ) {
     ToolsSection(
         approaches = uiState.approaches,
@@ -431,6 +437,7 @@ private fun DiagnosticsToolsPagerPage(
         rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
         onTogglePcapRecording = actions.onTogglePcapRecording,
+        header = header,
     )
 }
 

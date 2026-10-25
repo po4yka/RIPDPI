@@ -66,6 +66,7 @@ internal fun ScanSection(
     expertMode: Boolean = true,
     compositeRunBusy: Boolean = false,
     admissionBusy: Boolean = false,
+    header: (@Composable () -> Unit)? = null,
 ) {
     TrackRecomposition("ScanSection")
     val spacing = RipDpiThemeTokens.spacing
@@ -148,6 +149,7 @@ internal fun ScanSection(
             ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
+        header?.let { item(key = "header", contentType = "header") { it() } }
         if (scan.diagnoses.isNotEmpty()) {
             item {
                 DiagnosisSummaryCard(

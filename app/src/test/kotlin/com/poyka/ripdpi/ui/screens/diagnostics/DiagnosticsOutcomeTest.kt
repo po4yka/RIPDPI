@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
+import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScreenUiState
 import com.poyka.ripdpi.activities.DiagnosticsSection
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.activities.HomeDiagnosticsLatestAuditUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -59,6 +61,55 @@ class DiagnosticsOutcomeTest {
         }
 
         composeRule.onAllNodesWithText("Measured audit").assertCountEquals(1)
+    }
+
+    @Test
+    fun `guided tools list each tool with its purpose and one technical details control`() {
+        val selectedProfiles = mutableListOf<String>()
+        val selectedSections = mutableListOf<DiagnosticsSection>()
+        composeRule.setContent {
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsScreenUiState(
+                            uiPersona = "simple",
+                            selectedSection = DiagnosticsSection.Tools,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    profiles =
+                                        persistentListOf(
+                                            DiagnosticsProfileOptionUiModel("default", "Default", "bundled"),
+                                            DiagnosticsProfileOptionUiModel(
+                                                "ru-throttling",
+                                                "Throttling tool",
+                                                "bundled",
+                                            ),
+                                        ),
+                                ),
+                        ),
+                    pagerState =
+                        rememberPagerState(initialPage = DiagnosticsSection.Tools.ordinal) {
+                            DiagnosticsSection.entries.size
+                        },
+                    actions =
+                        DiagnosticsScreenActions(
+                            onSelectProfile = { selectedProfiles += it },
+                            onSelectSection = { selectedSections += it },
+                        ),
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithText("Technical details").assertCountEquals(1)
+        composeRule.onAllNodesWithText("Default").assertCountEquals(0)
+        composeRule
+            .onNodeWithText("Compares YouTube download speed with neutral servers to spot throttling.")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Throttling tool").performClick()
+        composeRule.runOnIdle {
+            assertEquals(listOf("ru-throttling"), selectedProfiles)
+            assertEquals(listOf(DiagnosticsSection.Scan), selectedSections)
+        }
     }
 
     @Test

@@ -129,6 +129,7 @@ internal fun OverviewSection(
     homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
     onStartVerifiedVpn: () -> Unit = {},
     runNetworkCheck: Boolean = false,
+    header: (@Composable () -> Unit)? = null,
 ) {
     TrackRecomposition("DiagnosticsOverview")
     val spacing = RipDpiThemeTokens.spacing
@@ -142,6 +143,7 @@ internal fun OverviewSection(
             ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
+        header?.let { item(key = "header", contentType = "header") { it() } }
         item(key = "outcome", contentType = "outcome") {
             DiagnosticsOutcomeCard(
                 outcome = diagnosticsOutcome(overview, scan, homeDiagnostics, isActiveScan),

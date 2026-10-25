@@ -123,6 +123,7 @@ internal fun ToolsSection(
     rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
+    header: (@Composable () -> Unit)? = null,
 ) {
     TrackRecomposition("ToolsSection")
     val spacing = RipDpiThemeTokens.spacing
@@ -136,6 +137,7 @@ internal fun ToolsSection(
             ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
+        header?.let { item(key = "header", contentType = "header") { it() } }
         approachItems(approaches, onSelectApproachMode, onSelectApproach)
         if (rootModeEnabled) {
             captureItem(pcapRecording, onTogglePcapRecording)

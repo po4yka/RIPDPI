@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_tool_matrix_summary">Compare les sites nationaux et étrangers qui s’ouvrent sur ce réseau.</string>
+    <string name="diagnostics_guided_tool_throttling_summary">Compare la vitesse de téléchargement de YouTube à celle de serveurs neutres pour repérer un bridage.</string>
+</resources>
