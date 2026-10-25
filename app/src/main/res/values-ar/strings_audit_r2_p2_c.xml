@@ -17,4 +17,6 @@
     <string name="domain_bypass_move_requires_save">احفظ القائمة أولًا لنقلها إلى القواعد.</string>
     <string name="title_rule_editor_new">قاعدة جديدة</string>
     <string name="import_subscription_confirm_empty_body">هذا الرابط لا يحتوي على رابط اشتراك.</string>
+    <string name="relay_editor_profile_not_found_title">لم يُعثر على الملف</string>
+    <string name="relay_editor_profile_not_found_body">حُذف هذا الملف أو أن الرابط الذي فتحه غير صحيح. ارجع واختر ملفًا من القائمة.</string>
 </resources>

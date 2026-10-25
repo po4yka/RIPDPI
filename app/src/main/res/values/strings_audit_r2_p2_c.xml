@@ -17,4 +17,6 @@
     <string name="domain_bypass_move_requires_save">Save the list first to move it to rules.</string>
     <string name="title_rule_editor_new">New rule</string>
     <string name="import_subscription_confirm_empty_body">This link does not contain a subscription URL.</string>
+    <string name="relay_editor_profile_not_found_title">Profile not found</string>
+    <string name="relay_editor_profile_not_found_body">This profile was deleted or the link that opened it is wrong. Go back and choose a profile from the list.</string>
 </resources>

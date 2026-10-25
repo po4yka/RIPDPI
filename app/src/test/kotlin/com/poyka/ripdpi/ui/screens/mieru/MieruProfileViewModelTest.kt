@@ -197,6 +197,7 @@ class MieruProfileViewModelTest {
             val viewModel = viewModel(profiles, FakeRelayCredentialStore(), FakeAppSettingsRepository())
             viewModel.loadProfile("missing")
             advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.notFound)
             viewModel.onFieldChanged(MieruEditorField.SERVER, "mieru.example")
             viewModel.onFieldChanged(MieruEditorField.SERVER_PORT, "443")
             viewModel.onFieldChanged(MieruEditorField.USERNAME, usernameFixture)
@@ -204,6 +205,21 @@ class MieruProfileViewModelTest {
             viewModel.onSave()
             advanceUntilIdle()
             assertTrue(profiles.list().isEmpty())
+        }
+
+    @Test
+    fun `a corrupt Mieru profile keeps the load error instead of not found`() =
+        runTest {
+            val corruptProfiles =
+                object : RelayProfileStore by FakeRelayProfileStore() {
+                    override suspend fun load(profileId: String): RelayProfileRecord? =
+                        throw IllegalArgumentException("corrupt fixture record")
+                }
+            val viewModel = viewModel(corruptProfiles, FakeRelayCredentialStore(), FakeAppSettingsRepository())
+            viewModel.loadProfile("mieru-1")
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.notFound)
+            assertEquals(R.string.relay_editor_activation_failed, viewModel.uiState.value.errorMessage)
         }
 }
 

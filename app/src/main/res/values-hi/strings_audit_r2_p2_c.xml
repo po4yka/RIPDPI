@@ -17,4 +17,6 @@
     <string name="domain_bypass_move_requires_save">इसे नियमों में ले जाने के लिए पहले सूची सहेजें।</string>
     <string name="title_rule_editor_new">नया नियम</string>
     <string name="import_subscription_confirm_empty_body">इस लिंक में सब्सक्रिप्शन URL नहीं है।</string>
+    <string name="relay_editor_profile_not_found_title">प्रोफ़ाइल नहीं मिली</string>
+    <string name="relay_editor_profile_not_found_body">यह प्रोफ़ाइल हटा दी गई है या इसे खोलने वाला लिंक गलत है। वापस जाएँ और सूची से कोई प्रोफ़ाइल चुनें।</string>
 </resources>

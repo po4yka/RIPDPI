@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -115,9 +116,15 @@ internal fun MieruProfileScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier =
             modifier.ripDpiTestTag(
-                RipDpiTestTags.screen(if (uiState.editing) Route.MieruProfileEdit() else Route.MieruProfile),
+                RipDpiTestTags.screen(
+                    if (uiState.editing || uiState.notFound) Route.MieruProfileEdit() else Route.MieruProfile,
+                ),
             ),
     ) {
+        if (uiState.notFound) {
+            RelayProfileNotFoundCard()
+            return@RipDpiContentScreenScaffold
+        }
         WarningBanner(
             title = stringResource(R.string.mieru_experimental_title),
             message = stringResource(R.string.mieru_experimental_body),

@@ -17,4 +17,6 @@
     <string name="domain_bypass_move_requires_save">Enregistrez d\'abord la liste pour la déplacer vers les règles.</string>
     <string name="title_rule_editor_new">Nouvelle règle</string>
     <string name="import_subscription_confirm_empty_body">Ce lien ne contient pas d\'URL d\'abonnement.</string>
+    <string name="relay_editor_profile_not_found_title">Profil introuvable</string>
+    <string name="relay_editor_profile_not_found_body">Ce profil a été supprimé ou le lien qui l\'a ouvert est incorrect. Revenez en arrière et choisissez un profil dans la liste.</string>
 </resources>

@@ -17,4 +17,6 @@
     <string name="domain_bypass_move_requires_save">Salve a lista primeiro para movê-la para regras.</string>
     <string name="title_rule_editor_new">Nova regra</string>
     <string name="import_subscription_confirm_empty_body">Este link não contém uma URL de assinatura.</string>
+    <string name="relay_editor_profile_not_found_title">Perfil não encontrado</string>
+    <string name="relay_editor_profile_not_found_body">Este perfil foi excluído ou o link que o abriu está errado. Volte e escolha um perfil da lista.</string>
 </resources>

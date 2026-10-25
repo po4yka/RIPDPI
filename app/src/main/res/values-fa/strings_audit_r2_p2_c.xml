@@ -17,4 +17,6 @@
     <string name="domain_bypass_move_requires_save">ابتدا فهرست را ذخیره کنید تا بتوانید آن را به قوانین منتقل کنید.</string>
     <string name="title_rule_editor_new">قانون جدید</string>
     <string name="import_subscription_confirm_empty_body">این پیوند شامل URL اشتراک نیست.</string>
+    <string name="relay_editor_profile_not_found_title">نمایه پیدا نشد</string>
+    <string name="relay_editor_profile_not_found_body">این نمایه حذف شده یا پیوندی که آن را باز کرده نادرست است. برگردید و یک نمایه از فهرست انتخاب کنید.</string>
 </resources>
