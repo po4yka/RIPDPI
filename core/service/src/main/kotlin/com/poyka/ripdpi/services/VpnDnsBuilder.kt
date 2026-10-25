@@ -28,6 +28,23 @@ internal fun vpnDnsAddressForProfile(
 ): String = if (isSecureVpnDnsProfile(dnsMode, forceTunnelDns)) VpnInterceptorDnsAddress else plainDnsIp
 
 /**
+ * DNS servers for [android.net.VpnService.Builder.addDnsServer].
+ *
+ * A DNS server implicitly allows its address family on the VPN network. A family that the
+ * tunnel does not route then falls through to the underlying network, so an IPv6 server
+ * without IPv6 tunnel routing fails the start instead of leaking.
+ */
+internal fun vpnBuilderDnsServers(
+    dns: String,
+    ipv6: Boolean,
+    profileInterface: VpnProfileInterface?,
+): List<String> =
+    profileInterface?.effectiveDnsServers(dns)
+        ?: listOf(dns).filter(String::isNotBlank).also { servers ->
+            require(ipv6 || servers.none { ':' in it }) { "IPv6 DNS server requires IPv6 tunnel routing" }
+        }
+
+/**
  * Returns true when [dnsMode] identifies a secure (encrypted) VPN profile
  * that must use the interceptor DNS and may never fall back to the system resolver.
  */

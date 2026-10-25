@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -113,5 +114,26 @@ class VpnDnsBuilderTest {
             "Encrypted profile must not expose plain DNS IP $plainIp to the VPN builder",
             result != plainIp,
         )
+    }
+
+    @Test
+    fun `plain IPv6 dns literal is rejected when the tunnel routes no IPv6`() {
+        val dns = vpnDnsAddressForProfile(dnsMode = "plain_udp", plainDnsIp = "2606:4700:4700::1111")
+        assertThrows(IllegalArgumentException::class.java) {
+            vpnBuilderDnsServers(dns, ipv6 = false, profileInterface = null)
+        }
+    }
+
+    @Test
+    fun `plain IPv6 dns literal is kept when the tunnel routes IPv6`() {
+        assertEquals(
+            listOf("2606:4700:4700::1111"),
+            vpnBuilderDnsServers("2606:4700:4700::1111", ipv6 = true, profileInterface = null),
+        )
+    }
+
+    @Test
+    fun `IPv4 dns is kept when the tunnel routes no IPv6`() {
+        assertEquals(listOf("1.1.1.1"), vpnBuilderDnsServers("1.1.1.1", ipv6 = false, profileInterface = null))
     }
 }

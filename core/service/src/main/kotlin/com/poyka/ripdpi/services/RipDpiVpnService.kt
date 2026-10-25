@@ -428,6 +428,7 @@ class RipDpiVpnService :
         networkParameters: VpnTunnelNetworkParameters = currentTunnelNetworkParameters(),
         profileInterface: VpnProfileInterface? = null,
     ): Builder {
+        val dnsServers = vpnBuilderDnsServers(dns, ipv6, profileInterface)
         Logger.v { "DNS configured" }
         val builder = Builder()
         underlyingNetworkBinder.applyToBuilder(builder, preparedDirectDnsUnderlayToken)
@@ -444,8 +445,7 @@ class RipDpiVpnService :
 
         builder.applyTunnelRoutePlan(profileInterface?.routePlan(dns) ?: vpnTunnelRoutePlan(ipv6))
 
-        val dnsServers = profileInterface?.effectiveDnsServers(dns) ?: listOf(dns)
-        dnsServers.filter(String::isNotBlank).forEach(builder::addDnsServer)
+        dnsServers.forEach(builder::addDnsServer)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(networkParameters.metered)
             if (httpProxyPort != null) {
