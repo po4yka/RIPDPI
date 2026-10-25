@@ -414,7 +414,6 @@ private fun OnboardingBottomBar(
         RipDpiPageIndicators(
             currentPage = settledPage,
             pageCount = pageCount,
-            sectionBreakAfter = OnboardingInfoPageCount,
             accessibilityLabel =
                 stringResource(
                     R.string.onboarding_step_progress,
@@ -435,25 +434,32 @@ private fun OnboardingBottomBar(
                     .fillMaxWidth()
                     .heightIn(min = introLayout.footerButtonMinHeight),
         )
-        if (validationState is OnboardingValidationState.Success) {
-            RipDpiTextAction(
-                text = stringResource(R.string.onboarding_validation_finish_disconnected),
-                onClick = onFinishDisconnected,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
-                textStyle = type.introAction,
-                color = colors.mutedForeground,
-                minHeight = introLayout.footerButtonMinHeight,
-            )
-        }
-        if (showIdleSkipTest) {
-            RipDpiTextAction(
-                text = stringResource(R.string.onboarding_skip_test),
-                onClick = onFinishAnyway,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingSkipTest),
-                textStyle = type.introAction,
-                color = colors.mutedForeground,
-                minHeight = introLayout.footerButtonMinHeight,
-            )
+        // Minimum-height slot, reserved on every page, so the indicator and CTA never shift when a
+        // secondary action appears.
+        Box(
+            modifier = Modifier.fillMaxWidth().heightIn(min = introLayout.footerButtonMinHeight),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (validationState is OnboardingValidationState.Success) {
+                RipDpiTextAction(
+                    text = stringResource(R.string.onboarding_validation_finish_disconnected),
+                    onClick = onFinishDisconnected,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
+                    textStyle = type.introAction,
+                    color = colors.mutedForeground,
+                    minHeight = introLayout.footerButtonMinHeight,
+                )
+            }
+            if (showIdleSkipTest) {
+                RipDpiTextAction(
+                    text = stringResource(R.string.onboarding_skip_test),
+                    onClick = onFinishAnyway,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingSkipTest),
+                    textStyle = type.introAction,
+                    color = colors.mutedForeground,
+                    minHeight = introLayout.footerButtonMinHeight,
+                )
+            }
         }
     }
 }

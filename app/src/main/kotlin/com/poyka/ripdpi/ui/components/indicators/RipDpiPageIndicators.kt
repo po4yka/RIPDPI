@@ -6,9 +6,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.runtime.Composable
@@ -32,14 +30,12 @@ fun RipDpiPageIndicators(
     currentPage: Int,
     pageCount: Int,
     modifier: Modifier = Modifier,
-    sectionBreakAfter: Int? = null,
     accessibilityLabel: String? = null,
 ) {
     RipDpiPageIndicators(
         currentPage = currentPage,
         pageCount = pageCount,
         modifier = modifier,
-        sectionBreakAfter = sectionBreakAfter,
         accessibilityLabel = accessibilityLabel,
         visualStyle = CommonStyle,
     )
@@ -50,7 +46,6 @@ fun RipDpiPageIndicators(
     currentPage: Int,
     pageCount: Int,
     modifier: Modifier = Modifier,
-    sectionBreakAfter: Int? = null,
     accessibilityLabel: String? = null,
     visualStyle: CommonStyle = CommonStyle,
 ) {
@@ -70,9 +65,6 @@ fun RipDpiPageIndicators(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(pageCount.coerceAtLeast(0)) { index ->
-            if (sectionBreakAfter != null && index == sectionBreakAfter) {
-                Spacer(modifier = Modifier.width(introLayout.indicatorSpacing))
-            }
             val selected = index == currentPage
             val styleState = rememberUpdatedStyleState(null) { it.isSelected = selected }
             val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.pageIndicator, visualStyle, styleState)
