@@ -16,7 +16,7 @@ rand = { workspace = true }
 ripdpi-subprocess-protect = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 rustls.workspace = true
-tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-rustls.workspace = true
 webpki-roots.workspace = true
 
@@ -27,6 +27,7 @@ rcgen.workspace = true
 ripdpi-packets = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
 workspace = true

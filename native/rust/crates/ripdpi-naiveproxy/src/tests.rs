@@ -202,6 +202,74 @@ async fn helper_reconnects_after_upstream_h2_stream_failure() {
     server.abort();
 }
 
+/// A local app that connects and sends nothing must not pin a helper task
+/// forever: the helper closes it after the client setup deadline.
+#[tokio::test(start_paused = true)]
+async fn silent_client_is_closed_after_setup_deadline() {
+    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let local_addr = local_listener.local_addr().expect("local addr");
+    let server = tokio::spawn(serve_listener(local_listener, Arc::new(naive_config_with_auth())));
+
+    let client = TcpStream::connect(local_addr).await.expect("connect local listener");
+    let mut byte = [0u8; 1];
+    let closed = read_within_virtual_secs(&client, &mut byte, 120).await;
+
+    assert_eq!(closed, Some(0), "helper must close a client that never sends a request");
+    server.abort();
+}
+
+/// Reads once `client` has data, advancing paused time one second per step
+/// so socket events are seen before a later deadline. Returns `None` if
+/// nothing arrived within `secs`, and `Some(0)` on EOF or reset.
+async fn read_within_virtual_secs(client: &TcpStream, buf: &mut [u8], secs: u64) -> Option<usize> {
+    for _ in 0..secs {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        match client.try_read(buf) {
+            Ok(read) => return Some(read),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(_) => return Some(0),
+        }
+    }
+    None
+}
+
+/// An upstream that accepts TCP and never answers the TLS ClientHello (the
+/// censored-path case) must fail the CONNECT instead of holding the client.
+#[tokio::test(start_paused = true)]
+async fn stalled_upstream_tls_fails_socks_connect_after_deadline() {
+    let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind blackhole upstream");
+    let upstream_port = upstream.local_addr().expect("upstream addr").port();
+    let blackhole = tokio::spawn(async move {
+        let mut held = Vec::new();
+        loop {
+            let (socket, _) = upstream.accept().await.expect("accept upstream");
+            held.push(socket);
+        }
+    });
+    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let local_addr = local_listener.local_addr().expect("local addr");
+    let config = NaiveProxyConfig {
+        server: "127.0.0.1".to_owned(),
+        server_port: upstream_port,
+        server_name: "proxy.example".to_owned(),
+        ..naive_config_with_auth()
+    };
+    let server = tokio::spawn(serve_listener(local_listener, Arc::new(config)));
+
+    let mut client = TcpStream::connect(local_addr).await.expect("connect local socks");
+    client.write_all(&[0x05, 0x01, 0x00]).await.expect("write greeting");
+    let mut auth_reply = [0u8; 2];
+    client.read_exact(&mut auth_reply).await.expect("read greeting reply");
+    client.write_all(&build_socks_connect_request("127.0.0.1", 443)).await.expect("write connect request");
+    let mut connect_reply = [0u8; 10];
+    let replied = read_within_virtual_secs(&client, &mut connect_reply, 120).await;
+
+    assert_eq!(replied, Some(10), "helper must answer CONNECT when the upstream TLS handshake stalls");
+    assert_eq!(connect_reply[1], 0x01, "stalled upstream must yield a SOCKS general failure");
+    server.abort();
+    blackhole.abort();
+}
+
 #[test]
 fn padding_frame_encodes_big_endian_length_and_zero_padding() {
     let mut encoder = PaddingEncoder::default();
