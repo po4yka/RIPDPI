@@ -15,16 +15,33 @@ pub(super) fn write_padded_head_request(
     stream.write_all(payload.as_bytes()).and_then(|_| stream.flush())
 }
 
-/// Reads one response head and returns whether the server announced that it closes the connection.
-pub(super) fn read_response_headers(stream: &mut ConnectionStream) -> Result<bool, String> {
-    read_http_headers(stream, MAX_HTTP_BYTES).map(|headers| response_closes_connection(&headers))
+/// The parts of a response head the probe acts on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct ResponseHead {
+    /// Status code from the status line, when it parses.
+    pub(super) status: Option<u16>,
+    /// `Connection: close`, or an HTTP/1.0 response without `Connection: keep-alive` (RFC 9112 section 9.3).
+    pub(super) closes: bool,
 }
 
-/// `Connection: close`, or an HTTP/1.0 response without `Connection: keep-alive` (RFC 9112 section 9.3).
-fn response_closes_connection(headers: &[u8]) -> bool {
+impl ResponseHead {
+    /// A 4xx or 5xx answer: the server or a middlebox refused the request.
+    pub(super) fn is_error(self) -> bool {
+        self.status.is_some_and(|status| status >= 400)
+    }
+}
+
+/// Reads one response head.
+pub(super) fn read_response_headers(stream: &mut ConnectionStream) -> Result<ResponseHead, String> {
+    read_http_headers(stream, MAX_HTTP_BYTES).map(|headers| parse_response_head(&headers))
+}
+
+fn parse_response_head(headers: &[u8]) -> ResponseHead {
     let text = String::from_utf8_lossy(headers);
     let mut lines = text.split("\r\n");
-    let http_1_0 = lines.next().is_some_and(|status| status.starts_with("HTTP/1.0"));
+    let status_line = lines.next().unwrap_or_default();
+    let http_1_0 = status_line.starts_with("HTTP/1.0");
+    let status = status_line.split_whitespace().nth(1).and_then(|code| code.parse().ok());
     let mut close = false;
     let mut keep_alive = false;
     for line in lines {
@@ -36,7 +53,7 @@ fn response_closes_connection(headers: &[u8]) -> bool {
             }
         }
     }
-    close || (http_1_0 && !keep_alive)
+    ResponseHead { status, closes: close || (http_1_0 && !keep_alive) }
 }
 
 /// The Host value to send: the caller's value when it is a plausible host, otherwise the target IP.

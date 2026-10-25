@@ -8,7 +8,7 @@ use crate::util::{FAT_HEADER_REQUESTS, fat_threshold_reached};
 
 use super::classification::{classify_fat_error_message, classify_fat_io_error};
 use super::request_io::{
-    effective_host_header, padded_head_request_len, read_response_headers, write_padded_head_request,
+    ResponseHead, effective_host_header, padded_head_request_len, read_response_headers, write_padded_head_request,
 };
 use super::status_types::{FatHeaderObservation, FatHeaderStatus};
 use super::timing::ProbeTiming;
@@ -83,12 +83,12 @@ fn run_padded_head_sequence(
         timing.mark_io_success();
 
         match read_response_headers(&mut probe_result.stream) {
-            Ok(server_closes) => {
+            Ok(head) => {
                 counters.responses_seen += 1;
                 timing.mark_io_success();
-                if server_closes && index + 1 < requests {
+                if head.closes && (index + 1 < requests || head.is_error()) {
                     probe_result.stream.shutdown();
-                    return server_closed_observation(counters, syn_ack_latency_ms);
+                    return server_closed_observation(counters, head, syn_ack_latency_ms);
                 }
             }
             Err(err) => {
@@ -112,17 +112,24 @@ fn run_padded_head_sequence(
 }
 
 /// The server ended the sequence on its own, so the close says nothing about a middlebox cutoff.
-/// Past the threshold the path already carried the fat headers; before it the probe is
-/// inconclusive, which `ConnectFailed` (`tcp_connect_failed`) reports.
-fn server_closed_observation(counters: FatHeaderCounters, syn_ack_latency_ms: Option<u64>) -> FatHeaderObservation {
-    if fat_threshold_reached(counters.bytes_sent) {
+/// A success answer past the threshold means the path carried the fat headers. Anything else is
+/// inconclusive, which `ConnectFailed` (`tcp_connect_failed`) reports; a 4xx/5xx with a close may
+/// be an injected block page, so it never counts as success. The error text carries the status and
+/// the reason into the probe's `lastError` detail.
+fn server_closed_observation(
+    counters: FatHeaderCounters,
+    head: ResponseHead,
+    syn_ack_latency_ms: Option<u64>,
+) -> FatHeaderObservation {
+    if !head.is_error() && fat_threshold_reached(counters.bytes_sent) {
         return FatHeaderObservation::success(counters.bytes_sent, counters.responses_seen, syn_ack_latency_ms);
     }
+    let status = head.status.map_or_else(|| "with an unparsed status".to_string(), |status| format!("HTTP {status}"));
     FatHeaderObservation::io_failed(
         FatHeaderStatus::ConnectFailed,
         format!(
-            "server announced connection close after response {} before the fat-header threshold",
-            counters.responses_seen
+            "server closed the connection: {status} with Connection: close after response {} and {} bytes sent",
+            counters.responses_seen, counters.bytes_sent
         ),
         syn_ack_latency_ms,
         None,

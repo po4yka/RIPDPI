@@ -158,39 +158,48 @@ fn fat_status_label_all_variants() {
     assert_eq!(fat_status_label(&FatHeaderStatus::HandshakeFailed), "tls_failed");
 }
 
-/// Serves one plaintext fat-header connection like a strict origin: answer the first request with
-/// `400` and `Connection: close`, then close. Returns the Host header of every request it read.
-fn serve_close_after_first_response() -> (u16, std::thread::JoinHandle<Vec<String>>) {
+/// Serves one plaintext fat-header connection: answers request N with `responses[N]`, then closes
+/// after the last one. Returns the Host header of every request it read.
+fn serve_responses(responses: Vec<&'static [u8]>) -> (u16, std::thread::JoinHandle<Vec<String>>) {
     use std::io::{Read, Write};
 
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind fixture");
     let port = listener.local_addr().expect("fixture addr").port();
     let handle = std::thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("accept probe");
-        let mut request = Vec::new();
+        let mut hosts = Vec::new();
+        let mut pending = Vec::new();
         let mut chunk = [0u8; 4096];
-        while !request.windows(4).any(|window| window == b"\r\n\r\n") {
-            let read = stream.read(&mut chunk).expect("read request");
-            assert_ne!(read, 0, "probe closed before sending a full request");
-            request.extend_from_slice(&chunk[..read]);
+        for response in responses {
+            let end = loop {
+                if let Some(end) = pending.windows(4).position(|window| window == b"\r\n\r\n") {
+                    break end + 4;
+                }
+                let read = stream.read(&mut chunk).expect("read request");
+                assert_ne!(read, 0, "probe closed before sending a full request");
+                pending.extend_from_slice(&chunk[..read]);
+            };
+            let request: Vec<u8> = pending.drain(..end).collect();
+            hosts.extend(
+                String::from_utf8_lossy(&request)
+                    .lines()
+                    .filter_map(|line| line.strip_prefix("Host: ").map(str::to_owned)),
+            );
+            stream.write_all(response).expect("write response");
         }
-        stream
-            .write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
-            .expect("write response");
-        String::from_utf8_lossy(&request)
-            .lines()
-            .filter_map(|line| line.strip_prefix("Host: ").map(str::to_owned))
-            .collect()
+        hosts
     });
     (port, handle)
 }
 
-#[test]
-fn server_announced_close_is_not_reported_as_a_16kb_cutoff() {
-    let (port, server) = serve_close_after_first_response();
-    let target = crate::types::TcpTarget {
+const OK_KEEP_ALIVE: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+const BAD_REQUEST_CLOSE: &[u8] = b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+const FORBIDDEN_CLOSE: &[u8] = b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+
+fn local_target(port: u16, provider: &str) -> crate::types::TcpTarget {
+    crate::types::TcpTarget {
         id: "CDN-01".to_string(),
-        provider: "CDN77 #1 HTTP".to_string(),
+        provider: provider.to_string(),
         ip: "127.0.0.1".to_string(),
         port,
         sni: None,
@@ -198,7 +207,13 @@ fn server_announced_close_is_not_reported_as_a_16kb_cutoff() {
         host_header: None,
         fat_header_requests: None,
         alt_port: None,
-    };
+    }
+}
+
+#[test]
+fn server_announced_close_is_not_reported_as_a_16kb_cutoff() {
+    let (port, server) = serve_responses(vec![BAD_REQUEST_CLOSE]);
+    let target = local_target(port, "CDN77 #1 HTTP");
     let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
 
     // The runner falls back to the provider label when the target has no host header or SNI.
@@ -208,6 +223,25 @@ fn server_announced_close_is_not_reported_as_a_16kb_cutoff() {
     assert_eq!(observation.responses_seen, 1);
     assert_ne!(observation.status, FatHeaderStatus::ThresholdCutoff);
     assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+    let reason = observation.error.expect("the close reason reaches the probe detail");
+    assert!(reason.contains("server closed") && reason.contains("HTTP 400"), "unexpected reason: {reason}");
+}
+
+#[test]
+fn error_status_with_close_past_the_threshold_stays_inconclusive() {
+    // Two keep-alive answers carry the probe past the threshold; then a block-page style 403 closes.
+    let (port, server) = serve_responses(vec![OK_KEEP_ALIVE, OK_KEEP_ALIVE, FORBIDDEN_CLOSE]);
+    let target = local_target(port, "Fixture");
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+
+    let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
+
+    server.join().expect("fixture thread");
+    assert_eq!(observation.responses_seen, 3);
+    assert!(crate::util::fat_threshold_reached(observation.bytes_sent), "fixture must pass the threshold");
+    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+    let reason = observation.error.expect("the close reason reaches the probe detail");
+    assert!(reason.contains("HTTP 403"), "unexpected reason: {reason}");
 }
 
 #[test]
