@@ -2,14 +2,10 @@ package com.poyka.ripdpi.ui.screens.tuner
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -90,9 +86,6 @@ fun StrategyTunerScreen(
             onCancel = onCancel,
         )
         StrategyTunerBudgetCard(budget = state.budget)
-        if (state.isRunning) {
-            RipDpiProgressBar(progress = state.progress)
-        }
         val resolvedMessage = state.messageRes?.let { stringResource(it) } ?: state.message
         resolvedMessage?.let { message ->
             RipDpiCard(variant = RipDpiCardVariant.Tonal) {
@@ -142,35 +135,11 @@ private fun StrategyTunerControls(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(spacing.sm),
-                itemVerticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text =
-                        stringResource(
-                            R.string.strategy_tuner_status_format,
-                            state.results.size,
-                            state.totalExpectedResults,
-                        ),
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = RipDpiThemeTokens.colors.foreground,
-                )
-                RipDpiButton(
-                    text =
-                        if (state.isRunning) {
-                            stringResource(R.string.strategy_tuner_cancel)
-                        } else {
-                            stringResource(R.string.strategy_tuner_run)
-                        },
-                    onClick = if (state.isRunning) onCancel else onRun,
-                    variant = if (state.isRunning) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
-                    wrapLabel = true,
-                    modifier = Modifier.width(IntrinsicSize.Max),
-                )
-            }
+            Text(
+                text = stringResource(R.string.strategy_tuner_purpose),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
             RipDpiTextField(
                 value = state.domainsText,
                 onValueChange = onDomainsChanged,
@@ -178,6 +147,32 @@ private fun StrategyTunerControls(
                 behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp, enabled = !state.isRunning),
                 modifier = Modifier.fillMaxWidth(),
             )
+            RipDpiButton(
+                text =
+                    if (state.isRunning) {
+                        stringResource(R.string.strategy_tuner_cancel)
+                    } else {
+                        stringResource(R.string.strategy_tuner_run)
+                    },
+                onClick = if (state.isRunning) onCancel else onRun,
+                variant = if (state.isRunning) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (state.isRunning || state.results.isNotEmpty()) {
+                Text(
+                    text =
+                        stringResource(
+                            R.string.strategy_tuner_status_format,
+                            state.results.size,
+                            state.totalExpectedResults,
+                        ),
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+            if (state.isRunning) {
+                RipDpiProgressBar(progress = state.progress)
+            }
         }
     }
 }

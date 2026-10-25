@@ -3,4 +3,7 @@
     <string name="diagnostics_guided_tool_matrix_summary">तुलना करता है कि इस नेटवर्क पर कौन-सी देसी और विदेशी साइटें खुलती हैं।</string>
     <string name="diagnostics_guided_tool_throttling_summary">थ्रॉटलिंग पहचानने के लिए YouTube की डाउनलोड गति की तुलना तटस्थ सर्वरों से करता है।</string>
     <string name="history_connection_duration_running">जारी है</string>
+    <string name="strategy_tuner_purpose">नीचे दिए डोमेन पर हर बायपास रणनीति आज़माता है और रणनीतियों को इस आधार पर रैंक करता है कि कितने डोमेन खुलते हैं।</string>
+    <string name="blockcheck_purpose">नीचे दिए डोमेन को हर बायपास रणनीति से जाँचता है, दिखाता है कि उन्हें क्या रोकता है, और रणनीतियों को रैंक करता है।</string>
+    <string name="blockcheck_diagnosis_title_sites">साइटें क्यों अवरुद्ध हैं</string>
 </resources>

@@ -95,27 +95,12 @@ internal fun BlockcheckScreen(
         onNavigationClick = onBack,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.Blockcheck)),
     ) {
-        RipDpiCard {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                BlockcheckHeader(state = state, onRun = onRun, onCancel = onCancel)
-                RipDpiTextField(
-                    value = state.domains.joinToString("\n"),
-                    onValueChange = onDomainsChanged,
-                    decoration =
-                        RipDpiTextFieldDecoration(
-                            label = stringResource(R.string.blockcheck_domains_label),
-                        ),
-                    behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (state.isRunning) {
-                    RipDpiProgressBar(progress = state.progress)
-                }
-                state.message?.let {
-                    Text(text = it, style = RipDpiThemeTokens.type.secondaryBody)
-                }
-            }
-        }
+        BlockcheckControlsCard(
+            state = state,
+            onDomainsChanged = onDomainsChanged,
+            onRun = onRun,
+            onCancel = onCancel,
+        )
         if (state.noStrategiesRegistered) {
             RipDpiCard {
                 Text(
@@ -156,6 +141,64 @@ internal fun BlockcheckScreen(
 }
 
 @Composable
+private fun BlockcheckControlsCard(
+    state: BlockcheckUiState,
+    onDomainsChanged: (String) -> Unit,
+    onRun: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+            Text(
+                text = stringResource(R.string.blockcheck_purpose),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            RipDpiTextField(
+                value = state.domains.joinToString("\n"),
+                onValueChange = onDomainsChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.blockcheck_domains_label),
+                    ),
+                behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RipDpiButton(
+                text =
+                    if (state.isRunning) {
+                        stringResource(R.string.blockcheck_cancel)
+                    } else {
+                        stringResource(R.string.blockcheck_run)
+                    },
+                onClick = if (state.isRunning) onCancel else onRun,
+                variant = if (state.isRunning) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (state.isRunning || state.results.isNotEmpty()) {
+                Text(
+                    text =
+                        stringResource(
+                            R.string.blockcheck_status_format,
+                            state.results.size,
+                            state.totalExpectedResults,
+                        ),
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+            if (state.isRunning) {
+                RipDpiProgressBar(progress = state.progress)
+            }
+            state.message?.let {
+                Text(text = it, style = RipDpiThemeTokens.type.secondaryBody)
+            }
+        }
+    }
+}
+
+@Composable
 private fun BlockcheckDiagnosisCard(
     state: BlockcheckUiState,
     onApplyRecommended: () -> Unit,
@@ -165,7 +208,14 @@ private fun BlockcheckDiagnosisCard(
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Text(
-                text = stringResource(R.string.blockcheck_diagnosis_title),
+                text =
+                    stringResource(
+                        if (state.diagnoses.size == 1) {
+                            R.string.blockcheck_diagnosis_title
+                        } else {
+                            R.string.blockcheck_diagnosis_title_sites
+                        },
+                    ),
                 style = RipDpiThemeTokens.type.sheetTitle,
             )
             if (primary == null) {
@@ -214,35 +264,6 @@ private fun BlockcheckDiagnosisRow(diagnosis: BlockcheckSiteDiagnosis) {
                 ),
             style = RipDpiThemeTokens.type.caption,
             color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-    }
-}
-
-@Composable
-private fun BlockcheckHeader(
-    state: BlockcheckUiState,
-    onRun: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(
-            text = stringResource(R.string.blockcheck_status_format, state.results.size, state.totalExpectedResults),
-            style = RipDpiThemeTokens.type.sheetTitle,
-            modifier = Modifier.weight(1f),
-        )
-        RipDpiButton(
-            text =
-                if (state.isRunning) {
-                    stringResource(R.string.blockcheck_cancel)
-                } else {
-                    stringResource(R.string.blockcheck_run)
-                },
-            onClick = if (state.isRunning) onCancel else onRun,
-            variant = if (state.isRunning) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
         )
     }
 }

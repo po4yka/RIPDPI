@@ -3,4 +3,7 @@
     <string name="diagnostics_guided_tool_matrix_summary">Compares which domestic and foreign sites open on this network.</string>
     <string name="diagnostics_guided_tool_throttling_summary">Compares YouTube download speed with neutral servers to spot throttling.</string>
     <string name="history_connection_duration_running">In progress</string>
+    <string name="strategy_tuner_purpose">Tries each bypass strategy on the domains below and ranks the strategies by how many domains open.</string>
+    <string name="blockcheck_purpose">Checks the domains below with each bypass strategy, shows what blocks them and ranks the strategies.</string>
+    <string name="blockcheck_diagnosis_title_sites">Why sites are blocked</string>
 </resources>

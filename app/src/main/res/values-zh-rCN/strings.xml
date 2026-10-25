@@ -82,7 +82,7 @@
     <string name="strategy_tuner_status_format">%1$d/%2$d 次探测</string>
     <string name="strategy_tuner_run">运行扫描</string>
     <string name="strategy_tuner_cancel">取消</string>
-    <string name="strategy_tuner_budget_title">安静预算</string>
+    <string name="strategy_tuner_budget_title">扫描限制</string>
     <string name="strategy_tuner_budget_format">%1$d 个策略 x %2$d 个域名，最多 %3$d 次探测，间隔 %4$d ms。</string>
     <string name="strategy_tuner_leaderboard_title">排行榜</string>
     <string name="strategy_tuner_empty_results">还没有策略排名</string>

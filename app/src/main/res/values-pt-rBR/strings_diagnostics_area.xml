@@ -3,4 +3,7 @@
     <string name="diagnostics_guided_tool_matrix_summary">Compara quais sites nacionais e estrangeiros abrem nesta rede.</string>
     <string name="diagnostics_guided_tool_throttling_summary">Compara a velocidade de download do YouTube com servidores neutros para detectar limitação.</string>
     <string name="history_connection_duration_running">Em andamento</string>
+    <string name="strategy_tuner_purpose">Testa cada estratégia de contorno nos domínios abaixo e classifica as estratégias pelo número de domínios que abrem.</string>
+    <string name="blockcheck_purpose">Verifica os domínios abaixo com cada estratégia de contorno, mostra o que os bloqueia e classifica as estratégias.</string>
+    <string name="blockcheck_diagnosis_title_sites">Por que os sites estão bloqueados</string>
 </resources>

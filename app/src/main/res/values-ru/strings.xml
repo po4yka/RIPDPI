@@ -83,7 +83,7 @@
     <string name="strategy_tuner_status_format">%1$d/%2$d проб</string>
     <string name="strategy_tuner_run">Запустить</string>
     <string name="strategy_tuner_cancel">Отмена</string>
-    <string name="strategy_tuner_budget_title">Тихий бюджет</string>
+    <string name="strategy_tuner_budget_title">Ограничения проверки</string>
     <string name="strategy_tuner_budget_format">%1$d стратегии x %2$d домена, максимум %3$d проб, пауза %4$d мс.</string>
     <string name="strategy_tuner_leaderboard_title">Рейтинг</string>
     <string name="strategy_tuner_empty_results">Пока нет рейтинга стратегий</string>

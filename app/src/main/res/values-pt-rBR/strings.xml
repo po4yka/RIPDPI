@@ -84,7 +84,7 @@
     <string name="strategy_tuner_status_format">%1$d/%2$d sondagens</string>
     <string name="strategy_tuner_run">Executar varredura</string>
     <string name="strategy_tuner_cancel">Cancelar</string>
-    <string name="strategy_tuner_budget_title">Limite discreto</string>
+    <string name="strategy_tuner_budget_title">Limites da varredura</string>
     <string name="strategy_tuner_budget_format">%1$d estratégias x %2$d domínios, máximo de %3$d sondagens, intervalo de %4$d ms.</string>
     <string name="strategy_tuner_leaderboard_title">Classificação</string>
     <string name="strategy_tuner_empty_results">Ainda sem estratégias classificadas</string>

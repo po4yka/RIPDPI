@@ -3,4 +3,7 @@
     <string name="diagnostics_guided_tool_matrix_summary">Compare les sites nationaux et étrangers qui s’ouvrent sur ce réseau.</string>
     <string name="diagnostics_guided_tool_throttling_summary">Compare la vitesse de téléchargement de YouTube à celle de serveurs neutres pour repérer un bridage.</string>
     <string name="history_connection_duration_running">En cours</string>
+    <string name="strategy_tuner_purpose">Essaie chaque stratégie de contournement sur les domaines ci-dessous et les classe selon le nombre de domaines qui s’ouvrent.</string>
+    <string name="blockcheck_purpose">Vérifie les domaines ci-dessous avec chaque stratégie de contournement, montre ce qui les bloque et classe les stratégies.</string>
+    <string name="blockcheck_diagnosis_title_sites">Pourquoi des sites sont bloqués</string>
 </resources>

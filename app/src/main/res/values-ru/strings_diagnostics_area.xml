@@ -3,4 +3,7 @@
     <string name="diagnostics_guided_tool_matrix_summary">Сравнивает, какие местные и зарубежные сайты открываются в этой сети.</string>
     <string name="diagnostics_guided_tool_throttling_summary">Сравнивает скорость загрузки с YouTube и с нейтральных серверов, чтобы найти замедление.</string>
     <string name="history_connection_duration_running">Продолжается</string>
+    <string name="strategy_tuner_purpose">Пробует каждую стратегию обхода на доменах ниже и ранжирует стратегии по числу открывшихся доменов.</string>
+    <string name="blockcheck_purpose">Проверяет домены ниже с каждой стратегией обхода, показывает, что их блокирует, и ранжирует стратегии.</string>
+    <string name="blockcheck_diagnosis_title_sites">Почему сайты заблокированы</string>
 </resources>

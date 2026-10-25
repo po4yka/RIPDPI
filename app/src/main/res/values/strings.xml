@@ -84,7 +84,7 @@
     <string name="strategy_tuner_status_format">%1$d/%2$d probes</string>
     <string name="strategy_tuner_run">Run sweep</string>
     <string name="strategy_tuner_cancel">Cancel</string>
-    <string name="strategy_tuner_budget_title">Quiet budget</string>
+    <string name="strategy_tuner_budget_title">Sweep limits</string>
     <string name="strategy_tuner_budget_format">%1$d strategies x %2$d domains, %3$d probes max, %4$d ms spacing.</string>
     <string name="strategy_tuner_leaderboard_title">Leaderboard</string>
     <string name="strategy_tuner_empty_results">No ranked strategies yet</string>

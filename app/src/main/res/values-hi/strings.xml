@@ -83,7 +83,7 @@
     <string name="strategy_tuner_status_format">%1$d/%2$d प्रोब</string>
     <string name="strategy_tuner_run">स्वीप चलाएँ</string>
     <string name="strategy_tuner_cancel">रद्द करें</string>
-    <string name="strategy_tuner_budget_title">शांत बजट</string>
+    <string name="strategy_tuner_budget_title">स्वीप की सीमाएँ</string>
     <string name="strategy_tuner_budget_format">%1$d रणनीतियाँ x %2$d डोमेन, अधिकतम %3$d प्रोब, %4$d ms अंतराल।</string>
     <string name="strategy_tuner_leaderboard_title">लीडरबोर्ड</string>
     <string name="strategy_tuner_empty_results">अभी तक कोई रैंक की गई रणनीति नहीं</string>

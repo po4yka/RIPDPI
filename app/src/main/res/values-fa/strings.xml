@@ -82,7 +82,7 @@
     <string name="strategy_tuner_status_format">%1$d/%2$d کاوش</string>
     <string name="strategy_tuner_run">اجرای پویش</string>
     <string name="strategy_tuner_cancel">لغو</string>
-    <string name="strategy_tuner_budget_title">بودجه آرام</string>
+    <string name="strategy_tuner_budget_title">محدودیت‌های پویش</string>
     <string name="strategy_tuner_budget_format">%1$d راهبرد x %2$d دامنه، حداکثر %3$d کاوش، فاصله %4$d ms.</string>
     <string name="strategy_tuner_leaderboard_title">رتبه‌بندی</string>
     <string name="strategy_tuner_empty_results">هنوز راهبردی رتبه‌بندی نشده</string>

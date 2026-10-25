@@ -433,6 +433,7 @@ app:blockcheck_diagnosis_empty
 app:blockcheck_diagnosis_layer_format
 app:blockcheck_diagnosis_strategy_format
 app:blockcheck_diagnosis_title
+app:blockcheck_diagnosis_title_sites
 app:blockcheck_dns_warning
 app:blockcheck_domains_label
 app:blockcheck_empty_results
@@ -451,6 +452,7 @@ app:blockcheck_message_probe_complete
 app:blockcheck_message_strategy_applied
 app:blockcheck_message_strategy_unregistered
 app:blockcheck_no_strategies
+app:blockcheck_purpose
 app:blockcheck_result_detail_format
 app:blockcheck_results_title
 app:blockcheck_run
@@ -4941,6 +4943,7 @@ app:strategy_tuner_message_strategy_applied
 app:strategy_tuner_message_sweep_cancelled
 app:strategy_tuner_message_sweep_complete
 app:strategy_tuner_open_action
+app:strategy_tuner_purpose
 app:strategy_tuner_rate_format
 app:strategy_tuner_result_detail_format
 app:strategy_tuner_run

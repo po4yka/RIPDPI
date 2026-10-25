@@ -3,4 +3,7 @@
     <string name="diagnostics_guided_tool_matrix_summary">比较在此网络上可以打开哪些国内和国外网站。</string>
     <string name="diagnostics_guided_tool_throttling_summary">将 YouTube 的下载速度与中立服务器对比，以发现限速。</string>
     <string name="history_connection_duration_running">进行中</string>
+    <string name="strategy_tuner_purpose">在下方域名上逐一尝试每种绕过策略，并按能打开的域名数量对策略排名。</string>
+    <string name="blockcheck_purpose">用每种绕过策略检查下方域名，显示阻止它们的原因，并对策略排名。</string>
+    <string name="blockcheck_diagnosis_title_sites">网站为何被阻止</string>
 </resources>
