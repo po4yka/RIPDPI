@@ -8,10 +8,13 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextLayoutResult
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.screens.mieru.MieruEditorField
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileEditorState
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileScreen
@@ -27,6 +30,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -124,6 +128,42 @@ class AnyTlsPasswordPresentationTest {
         field.performTextReplacement("new-secret")
         assertEquals("new-secret", edited)
     }
+
+    @Test
+    fun `password can be revealed and a disabled save says why`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                AnyTlsProfileScreen(
+                    uiState =
+                        AnyTlsProfileUiState(
+                            editor =
+                                AnyTlsProfileEditorState.initial().updateField(
+                                    AnyTlsEditorField.PASSWORD,
+                                    "secret",
+                                ),
+                        ),
+                    onBack = {},
+                    onFieldChanged = { _, _ -> },
+                    onSave = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText(string(R.string.relay_editor_save_incomplete_hint)).performScrollTo()
+        composeRule.onNodeWithText(string(R.string.ssh_reveal_secret_action)).performScrollTo().performClick()
+
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNode(hasSetTextAction() and hasText("secret"))
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(
+            "secret",
+            layouts
+                .single()
+                .layoutInput.text.text,
+        )
+    }
+
+    private fun string(id: Int): String = RuntimeEnvironment.getApplication().getString(id)
 
     private fun assertRenderedPasswordMasked(field: SemanticsNodeInteraction) {
         val layouts = mutableListOf<TextLayoutResult>()

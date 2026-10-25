@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">بيانات الاعتماد</string>
+    <string name="relay_editor_save_incomplete_hint">للحفظ، أدخل الخادم والمنفذ وبيانات الاعتماد، وصحّح أي حقل غير صالح.</string>
+</resources>

@@ -2832,7 +2832,6 @@ fake_burst 3</string>
     <string name="awg_cohort_custom">自定义</string>
     <string name="awg_cohort_locked_hint">混淆字段由所选群组设定。选择“自定义”可编辑这些字段。</string>
     <string name="awg_paste_conf_action">粘贴 .conf</string>
-    <string name="awg_reveal_secret_action">显示</string>
     <string name="awg_connect_action">连接</string>
     <string name="awg_connect_ready_hint">已准备好连接。</string>
     <string name="awg_connect_incomplete_hint">填写服务器、端口、私钥、对端公钥和地址以进行连接。</string>

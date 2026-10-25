@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">Anmeldedaten</string>
+    <string name="relay_editor_save_incomplete_hint">Geben Sie zum Speichern Server, Port und Anmeldedaten ein und korrigieren Sie ungültige Felder.</string>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">凭据</string>
+    <string name="relay_editor_save_incomplete_hint">要保存，请填写服务器、端口和凭据，并修正无效的字段。</string>
+</resources>

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.mieru
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,7 +18,6 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -31,6 +29,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
+import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
 import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -139,11 +139,11 @@ internal fun MieruProfileScreen(
         EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
         CredentialsSection(uiState.editor, onFieldChanged)
         TransportSection(uiState.editor, onFieldChanged, onProtocolSelected, onMultiplexingSelected)
-        RipDpiButton(
+        RelayEditorActionRow(
             text = stringResource(R.string.mieru_save_action),
             onClick = onSave,
-            modifier = Modifier.fillMaxWidth(),
             enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
+            hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
         )
     }
 }
@@ -182,12 +182,14 @@ private fun CredentialsSection(
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.mieru_section_credentials))
         PlainField(MieruEditorField.USERNAME, R.string.mieru_field_username, editor, onFieldChanged)
-        PlainField(
-            MieruEditorField.PASSWORD,
-            R.string.mieru_field_password,
-            editor,
-            onFieldChanged,
-            keyboardType = KeyboardType.Password,
+        RelayPasswordField(
+            label = stringResource(R.string.mieru_field_password),
+            value = editor.rawText(MieruEditorField.PASSWORD),
+            onValueChange = { onFieldChanged(MieruEditorField.PASSWORD, it) },
+            errorText =
+                stringResource(R.string.mieru_field_invalid).takeIf {
+                    editor.hasFieldError(MieruEditorField.PASSWORD)
+                },
         )
     }
 }
@@ -248,8 +250,6 @@ private fun PlainField(
         behavior =
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                textObfuscationMode =
-                    if (keyboardType == KeyboardType.Password) TextObfuscationMode.Hidden else null,
                 readOnly = readOnly,
             ),
     )

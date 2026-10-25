@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">क्रेडेंशियल</string>
+    <string name="relay_editor_save_incomplete_hint">सहेजने के लिए सर्वर, पोर्ट और क्रेडेंशियल भरें, और अमान्य फ़ील्ड ठीक करें।</string>
+</resources>

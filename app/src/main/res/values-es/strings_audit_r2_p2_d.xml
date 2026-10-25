@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">Credenciales</string>
+    <string name="relay_editor_save_incomplete_hint">Para guardar, completa el servidor, el puerto y las credenciales, y corrige los campos no válidos.</string>
+</resources>

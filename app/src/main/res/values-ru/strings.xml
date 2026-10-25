@@ -2709,7 +2709,6 @@ fakeddisorder endhost</string>
     <string name="awg_cohort_custom">Свой</string>
     <string name="awg_cohort_locked_hint">Поля обфускации заданы выбранной когортой. Выберите \"Свой\", чтобы их изменить.</string>
     <string name="awg_paste_conf_action">Вставить .conf</string>
-    <string name="awg_reveal_secret_action">Показать</string>
     <string name="awg_connect_action">Подключиться</string>
     <string name="awg_connect_ready_hint">Готово к подключению.</string>
     <string name="awg_connect_incomplete_hint">Укажите сервер, порт, приватный ключ, публичный ключ узла и адрес, чтобы подключиться.</string>

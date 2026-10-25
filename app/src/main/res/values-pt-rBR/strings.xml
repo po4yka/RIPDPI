@@ -2912,7 +2912,6 @@ Fonte: %2$s</string>
     <string name="awg_cohort_custom">Personalizado</string>
     <string name="awg_cohort_locked_hint">Os campos de ofuscação são definidos pela coorte selecionada. Escolha \"Personalizado\" para editá-los.</string>
     <string name="awg_paste_conf_action">Colar .conf</string>
-    <string name="awg_reveal_secret_action">Revelar</string>
     <string name="awg_connect_action">Conectar</string>
     <string name="awg_connect_ready_hint">Pronto para conectar.</string>
     <string name="awg_connect_incomplete_hint">Preencha servidor, porta, chave privada, chave pública do par e endereço para conectar.</string>

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.ssh
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,8 +14,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
@@ -27,7 +24,10 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
+import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
 import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
+import com.poyka.ripdpi.ui.screens.profiles.RelaySecretField
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -121,11 +121,11 @@ internal fun SshProfileScreen(
         EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
         AuthSection(uiState.editor, onFieldChanged, onAuthTypeSelected, onRevealPrivateKey, onRevealPassphrase)
         HostKeySection(uiState.editor, onFieldChanged, onStrictHostKeyChanged)
-        RipDpiButton(
+        RelayEditorActionRow(
             text = stringResource(R.string.ssh_save_action),
             onClick = onSave,
-            modifier = Modifier.fillMaxWidth(),
             enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
+            hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
         )
     }
 }
@@ -153,7 +153,6 @@ private fun EndpointSection(
             onFieldChanged,
             keyboardType = KeyboardType.Number,
         )
-        PlainField(SshEditorField.USERNAME, R.string.ssh_field_username, editor, onFieldChanged)
     }
 }
 
@@ -170,6 +169,7 @@ private fun AuthSection(
             title = stringResource(R.string.ssh_section_auth),
             supporting = stringResource(R.string.ssh_section_auth_body),
         )
+        PlainField(SshEditorField.USERNAME, R.string.ssh_field_username, editor, onFieldChanged)
         RipDpiDropdown(
             options = rememberSshAuthTypeDropdownOptions(),
             selectedValue = editor.authType,
@@ -177,14 +177,14 @@ private fun AuthSection(
             label = stringResource(R.string.ssh_field_auth_type),
         )
         if (editor.authType == RelaySshAuthTypePrivateKey) {
-            SecretField(
+            RelaySecretField(
                 label = stringResource(R.string.ssh_field_private_key),
                 value = editor.rawText(SshEditorField.PRIVATE_KEY),
                 revealed = editor.privateKeyRevealed,
                 onValueChange = { onFieldChanged(SshEditorField.PRIVATE_KEY, it) },
                 onReveal = onRevealPrivateKey,
             )
-            SecretField(
+            RelaySecretField(
                 label = stringResource(R.string.ssh_field_private_key_passphrase),
                 value = editor.rawText(SshEditorField.PRIVATE_KEY_PASSPHRASE),
                 revealed = editor.passphraseRevealed,
@@ -192,12 +192,14 @@ private fun AuthSection(
                 onReveal = onRevealPassphrase,
             )
         } else {
-            PlainField(
-                SshEditorField.PASSWORD,
-                R.string.ssh_field_password,
-                editor,
-                onFieldChanged,
-                keyboardType = KeyboardType.Password,
+            RelayPasswordField(
+                label = stringResource(R.string.ssh_field_password),
+                value = editor.rawText(SshEditorField.PASSWORD),
+                onValueChange = { onFieldChanged(SshEditorField.PASSWORD, it) },
+                errorText =
+                    stringResource(R.string.ssh_field_invalid).takeIf {
+                        editor.hasFieldError(SshEditorField.PASSWORD)
+                    },
             )
         }
     }
@@ -252,41 +254,7 @@ private fun PlainField(
         behavior =
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                textObfuscationMode =
-                    if (keyboardType == KeyboardType.Password) TextObfuscationMode.Hidden else null,
                 readOnly = readOnly,
             ),
-    )
-}
-
-@Composable
-private fun SecretField(
-    label: String,
-    value: String,
-    revealed: Boolean,
-    onValueChange: (String) -> Unit,
-    onReveal: () -> Unit,
-) {
-    RipDpiTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = label,
-            ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                textObfuscationMode =
-                    if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
-            ),
-        trailingContent = {
-            RipDpiButton(
-                text = stringResource(R.string.ssh_reveal_secret_action),
-                onClick = onReveal,
-                variant = RipDpiButtonVariant.Secondary,
-                leadingIcon = RipDpiIcons.Visibility,
-            )
-        },
     )
 }

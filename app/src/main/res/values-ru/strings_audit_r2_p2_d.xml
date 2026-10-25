@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">Учётные данные</string>
+    <string name="relay_editor_save_incomplete_hint">Чтобы сохранить, укажите сервер, порт и учётные данные и исправьте поля с ошибками.</string>
+</resources>

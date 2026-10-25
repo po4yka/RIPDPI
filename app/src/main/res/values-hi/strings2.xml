@@ -1093,7 +1093,6 @@
     <string name="awg_cohort_custom">कस्टम</string>
     <string name="awg_cohort_locked_hint">Obfuscation फ़ील्ड चुने गए cohort द्वारा सेट किए जाते हैं। इन्हें संपादित करने के लिए \"कस्टम\" चुनें।</string>
     <string name="awg_paste_conf_action">.conf पेस्ट करें</string>
-    <string name="awg_reveal_secret_action">दिखाएँ</string>
     <string name="awg_connect_action">कनेक्ट करें</string>
     <string name="awg_connect_ready_hint">कनेक्ट करने के लिए तैयार।</string>
     <string name="awg_connect_incomplete_hint">कनेक्ट करने के लिए सर्वर, पोर्ट, private key, peer public key, और पता भरें।</string>

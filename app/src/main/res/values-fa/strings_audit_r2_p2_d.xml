@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">اطلاعات ورود</string>
+    <string name="relay_editor_save_incomplete_hint">برای ذخیره، سرور، درگاه و اطلاعات ورود را وارد کنید و فیلدهای نامعتبر را اصلاح کنید.</string>
+</resources>
