@@ -245,6 +245,37 @@ fn error_status_with_close_past_the_threshold_stays_inconclusive() {
 }
 
 #[test]
+fn error_status_without_close_is_inconclusive() {
+    let (port, server) =
+        serve_responses(vec![b"HTTP/1.1 451 Unavailable For Legal Reasons\r\nContent-Length: 0\r\n\r\n"]);
+    let target = local_target(port, "Fixture");
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+
+    let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
+
+    server.join().expect("fixture thread");
+    assert_eq!(observation.responses_seen, 1);
+    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+    let reason = observation.error.expect("the status reaches the probe detail");
+    assert!(reason.contains("HTTP 451") && !reason.contains("closed"), "unexpected reason: {reason}");
+}
+
+#[test]
+fn unparsed_status_line_is_inconclusive() {
+    let (port, server) = serve_responses(vec![b"NOT-HTTP\r\nContent-Length: 0\r\n\r\n"]);
+    let target = local_target(port, "Fixture");
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+
+    let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
+
+    server.join().expect("fixture thread");
+    assert_eq!(observation.responses_seen, 1);
+    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+    let reason = observation.error.expect("the reason reaches the probe detail");
+    assert!(reason.contains("without a valid HTTP status line"), "unexpected reason: {reason}");
+}
+
+#[test]
 fn host_header_falls_back_to_the_target_ip_for_labels_and_invalid_values() {
     use super::request_io::effective_host_header;
 

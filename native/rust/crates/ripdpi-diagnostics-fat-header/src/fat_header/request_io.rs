@@ -25,9 +25,10 @@ pub(super) struct ResponseHead {
 }
 
 impl ResponseHead {
-    /// A 4xx or 5xx answer: the server or a middlebox refused the request.
-    pub(super) fn is_error(self) -> bool {
-        self.status.is_some_and(|status| status >= 400)
+    /// A parsed status below 400. A 4xx/5xx means the server or a middlebox refused the
+    /// request, and a missing status means the answer is not plain HTTP.
+    pub(super) fn is_success_class(self) -> bool {
+        self.status.is_some_and(|status| status < 400)
     }
 }
 

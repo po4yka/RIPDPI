@@ -86,9 +86,20 @@ fn run_padded_head_sequence(
             Ok(head) => {
                 counters.responses_seen += 1;
                 timing.mark_io_success();
-                if head.closes && (index + 1 < requests || head.is_error()) {
+                if !head.is_success_class() {
                     probe_result.stream.shutdown();
-                    return server_closed_observation(counters, head, syn_ack_latency_ms);
+                    return inconclusive_response(counters, head, syn_ack_latency_ms);
+                }
+                if head.closes && index + 1 < requests {
+                    probe_result.stream.shutdown();
+                    if fat_threshold_reached(counters.bytes_sent) {
+                        return FatHeaderObservation::success(
+                            counters.bytes_sent,
+                            counters.responses_seen,
+                            syn_ack_latency_ms,
+                        );
+                    }
+                    return inconclusive_response(counters, head, syn_ack_latency_ms);
                 }
             }
             Err(err) => {
@@ -111,26 +122,24 @@ fn run_padded_head_sequence(
     FatHeaderObservation::success(counters.bytes_sent, counters.responses_seen, syn_ack_latency_ms)
 }
 
-/// The server ended the sequence on its own, so the close says nothing about a middlebox cutoff.
-/// A success answer past the threshold means the path carried the fat headers. Anything else is
-/// inconclusive, which `ConnectFailed` (`tcp_connect_failed`) reports; a 4xx/5xx with a close may
-/// be an injected block page, so it never counts as success. The error text carries the status and
-/// the reason into the probe's `lastError` detail.
-fn server_closed_observation(
+/// A response that ends the sequence without saying anything about a middlebox cutoff: a
+/// 4xx/5xx (which may be an injected block page), a head without a valid status line, or a
+/// server-announced close before the threshold. It is inconclusive, which `ConnectFailed`
+/// (`tcp_connect_failed`) reports. The error text carries the status and the reason into the
+/// probe's `lastError` detail.
+fn inconclusive_response(
     counters: FatHeaderCounters,
     head: ResponseHead,
     syn_ack_latency_ms: Option<u64>,
 ) -> FatHeaderObservation {
-    if !head.is_error() && fat_threshold_reached(counters.bytes_sent) {
-        return FatHeaderObservation::success(counters.bytes_sent, counters.responses_seen, syn_ack_latency_ms);
-    }
-    let status = head.status.map_or_else(|| "with an unparsed status".to_string(), |status| format!("HTTP {status}"));
+    let answer = head.status.map_or_else(
+        || "answer without a valid HTTP status line".to_string(),
+        |status| format!("HTTP {status} answer"),
+    );
+    let close = if head.closes { ", server closed the connection," } else { "" };
     FatHeaderObservation::io_failed(
         FatHeaderStatus::ConnectFailed,
-        format!(
-            "server closed the connection: {status} with Connection: close after response {} and {} bytes sent",
-            counters.responses_seen, counters.bytes_sent
-        ),
+        format!("{answer}{close} after response {} and {} bytes sent", counters.responses_seen, counters.bytes_sent),
         syn_ack_latency_ms,
         None,
         counters.bytes_sent,
