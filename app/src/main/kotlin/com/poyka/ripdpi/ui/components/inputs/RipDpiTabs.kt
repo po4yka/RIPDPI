@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SecondaryTabRow
@@ -8,7 +9,14 @@ import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -80,6 +88,32 @@ fun RipDpiTabs(
         }
     }
 }
+
+/**
+ * Fades the edge of a scrollable tab row that hides more tabs, so a cut-off tab reads as
+ * "scroll for more" instead of a clipped label.
+ */
+internal fun Modifier.tabOverflowFade(
+    scrollState: ScrollState,
+    color: Color,
+    width: Dp,
+): Modifier =
+    drawWithContent {
+        drawContent()
+        val fade = width.toPx().coerceAtMost(size.width / 2)
+        val endIsRight = layoutDirection == LayoutDirection.Ltr
+        val clear = color.copy(alpha = 0f)
+        if (scrollState.canScrollForward) {
+            val left = if (endIsRight) size.width - fade else 0f
+            val colors = if (endIsRight) listOf(clear, color) else listOf(color, clear)
+            drawRect(Brush.horizontalGradient(colors, left, left + fade), Offset(left, 0f), Size(fade, size.height))
+        }
+        if (scrollState.canScrollBackward) {
+            val left = if (endIsRight) 0f else size.width - fade
+            val colors = if (endIsRight) listOf(color, clear) else listOf(clear, color)
+            drawRect(Brush.horizontalGradient(colors, left, left + fade), Offset(left, 0f), Size(fade, size.height))
+        }
+    }
 
 @Preview(showBackground = true, name = "RipDpiTabs (light)")
 @Composable
