@@ -4,4 +4,5 @@
     <string name="routes_delete_confirm_title">Diese Regel löschen?</string>
     <string name="routes_delete_confirm_body">Der Datenverkehr folgt dieser Regel dann nicht mehr. Dies kann nicht rückgängig gemacht werden.</string>
     <string name="profile_utility_empty_import">Profil importieren</string>
+    <string name="vpn_pcap_open_advanced_settings">Erweiterte Einstellungen öffnen</string>
 </resources>

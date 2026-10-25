@@ -4,4 +4,5 @@
     <string name="routes_delete_confirm_title">Excluir esta regra?</string>
     <string name="routes_delete_confirm_body">O tráfego deixará de seguir esta regra. Não é possível desfazer.</string>
     <string name="profile_utility_empty_import">Importar um perfil</string>
+    <string name="vpn_pcap_open_advanced_settings">Abrir Configurações avançadas</string>
 </resources>

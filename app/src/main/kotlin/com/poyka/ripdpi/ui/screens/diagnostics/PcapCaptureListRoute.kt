@@ -23,6 +23,7 @@ import java.io.File
 fun PcapCaptureListRoute(
     onCaptureSelected: (PcapCaptureMetadata) -> Unit,
     onBack: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
 ) {
     val context = LocalContext.current.applicationContext
     val controller = remember(context) { PcapController(context) }
@@ -60,6 +61,7 @@ fun PcapCaptureListRoute(
         captures = captures ?: persistentListOf(),
         onCaptureSelected = onCaptureSelected,
         onBack = onBack,
+        onOpenAdvancedSettings = onOpenAdvancedSettings,
         message =
             when {
                 failed -> stringResource(R.string.vpn_pcap_read_failed)

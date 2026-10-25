@@ -5177,6 +5177,7 @@ app:vpn_latency_graph_title
 app:vpn_pcap_capture_list_empty
 app:vpn_pcap_loading
 app:vpn_pcap_no_packets
+app:vpn_pcap_open_advanced_settings
 app:vpn_pcap_read_failed
 app:vpn_pcap_truncated
 app:vpn_pcap_viewer_col_dst

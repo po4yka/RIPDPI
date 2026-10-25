@@ -831,6 +831,7 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
                 navController.navigate(Route.PcapViewer(File(capture.path).name)) { launchSingleTop = true }
             },
             onBack = { navController.navigateUp() },
+            onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
         )
     }
     composable<Route.ReplayHistory> { backStackEntry ->

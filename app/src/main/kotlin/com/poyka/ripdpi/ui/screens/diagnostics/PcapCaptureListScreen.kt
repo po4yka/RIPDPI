@@ -18,6 +18,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.pcap.PcapCaptureMetadata
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
@@ -30,9 +32,9 @@ import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Lists previously-captured .pcap files for the user to view or export.
- * Capture-start happens elsewhere via the Settings -> Developer toggle.
+ * Capture-start happens elsewhere via the Advanced settings -> Developer toggle.
  *
- * Empty-state shows the toggle-enablement hint. Each row surfaces
+ * Empty-state links to that toggle. Each row surfaces
  * file size + packet count + drops warning when capture was lossy.
  */
 @Composable
@@ -40,6 +42,7 @@ fun PcapCaptureListScreen(
     captures: ImmutableList<PcapCaptureMetadata>,
     onCaptureSelected: (PcapCaptureMetadata) -> Unit,
     onBack: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     modifier: Modifier = Modifier,
     message: String? = null,
 ) {
@@ -57,6 +60,7 @@ fun PcapCaptureListScreen(
         PcapCaptureListContent(
             captures = captures,
             onCaptureSelected = onCaptureSelected,
+            onOpenAdvancedSettings = onOpenAdvancedSettings,
             message = message,
             modifier = Modifier.padding(innerPadding),
         )
@@ -67,6 +71,7 @@ fun PcapCaptureListScreen(
 private fun PcapCaptureListContent(
     captures: ImmutableList<PcapCaptureMetadata>,
     onCaptureSelected: (PcapCaptureMetadata) -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     message: String?,
     modifier: Modifier = Modifier,
 ) {
@@ -79,12 +84,22 @@ private fun PcapCaptureListContent(
                 modifier
                     .fillMaxWidth()
                     .padding(horizontal = RipDpiThemeTokens.layout.horizontalPadding, vertical = spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             Text(
                 text = message ?: stringResource(R.string.vpn_pcap_capture_list_empty),
                 style = type.body,
                 color = colors.mutedForeground,
             )
+            if (message == null) {
+                RipDpiButton(
+                    text = stringResource(R.string.vpn_pcap_open_advanced_settings),
+                    onClick = onOpenAdvancedSettings,
+                    variant = RipDpiButtonVariant.Outline,
+                    trailingIcon = RipDpiIcons.ChevronRight,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         return
     }

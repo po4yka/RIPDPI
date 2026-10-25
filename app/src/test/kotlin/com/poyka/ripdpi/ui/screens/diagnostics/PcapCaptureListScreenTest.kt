@@ -30,6 +30,7 @@ class PcapCaptureListScreenTest {
     @Test
     fun emptyStateShowsContextAndNavigatesBack() {
         var backRequested = false
+        var advancedSettingsOpened = false
 
         composeRule.setContent {
             RipDpiTheme {
@@ -37,13 +38,17 @@ class PcapCaptureListScreenTest {
                     captures = persistentListOf(),
                     onCaptureSelected = {},
                     onBack = { backRequested = true },
+                    onOpenAdvancedSettings = { advancedSettingsOpened = true },
                 )
             }
         }
 
         composeRule.onNodeWithText("Packet captures").assertIsDisplayed()
+        // The capture switch lives in Advanced settings, so the empty state links there.
+        composeRule.onNodeWithText("Open Advanced settings").assertIsDisplayed().performClick()
         composeRule.onNodeWithContentDescription("Navigate back").assertIsDisplayed().performClick()
 
+        assertTrue(advancedSettingsOpened)
         assertTrue(backRequested)
     }
 
@@ -64,7 +69,12 @@ class PcapCaptureListScreenTest {
 
         composeRule.setContent {
             RipDpiTheme {
-                PcapCaptureListScreen(captures = captures, onCaptureSelected = {}, onBack = {})
+                PcapCaptureListScreen(
+                    captures = captures,
+                    onCaptureSelected = {},
+                    onBack = {},
+                    onOpenAdvancedSettings = {},
+                )
             }
         }
 
