@@ -67,14 +67,13 @@ class ScanAdmissionService
                 requireNotNull(profileCatalog.getProfile(profileId)) {
                     "Unknown diagnostics profile: $profileId"
                 }
-            val access =
-                try {
-                    json.decodeProfileSpecWire(profile.requestJson).resolveLegalSafetyPolicy().access
-                } catch (_: IllegalArgumentException) {
-                    // SerializationException included: an unreadable profile has no known policy.
-                    throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ProfileUnreadable)
+            val access = legalSafetyAccess(profile.requestJson)
+            val rejectionReason =
+                if (access == null) {
+                    DiagnosticsScanStartRejectionReason.ProfileUnreadable
+                } else {
+                    resolveRejectionReason(access, allowSensitiveProfileStart)
                 }
-            val rejectionReason = resolveRejectionReason(access, allowSensitiveProfileStart)
             if (rejectionReason != null) {
                 throw DiagnosticsScanStartRejectedException(rejectionReason)
             }
@@ -84,6 +83,15 @@ class ScanAdmissionService
                 ManualStartAdmission.Admitted(settings = settings, profile = profile)
             }
         }
+
+        /** Null when the stored request cannot be decoded, so its legal-safety policy is unknown. */
+        private fun legalSafetyAccess(requestJson: String): DiagnosticsJurisdictionProfileAccess? =
+            try {
+                json.decodeProfileSpecWire(requestJson).resolveLegalSafetyPolicy().access
+            } catch (_: IllegalArgumentException) {
+                // SerializationException is an IllegalArgumentException.
+                null
+            }
 
         private fun resolveRejectionReason(
             access: DiagnosticsJurisdictionProfileAccess,
