@@ -272,11 +272,14 @@ private fun TextStrategyConfigCard(
     val editingEnabled = !state.isHydrating && !state.isFinalizingSave
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-            Text(
-                text = stringResource(R.string.strategy_config_editor_label),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = RipDpiThemeTokens.colors.foreground,
-            )
+            Column {
+                Text(
+                    text = stringResource(R.string.strategy_config_editor_label),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                ChainEditorCollapsibleDescription()
+            }
             RipDpiConfigTextField(
                 value = state.configText,
                 onValueChange = onConfigTextChanged,

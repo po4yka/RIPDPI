@@ -24,8 +24,6 @@ import com.poyka.ripdpi.data.IpIdModeDefault
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isValidFakeOffsetExpression
 import com.poyka.ripdpi.data.isValidOffsetExpression
-import com.poyka.ripdpi.data.parseStrategyChainDsl
-import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -74,6 +72,7 @@ internal data class DesyncSectionActions(
     val onResetAdaptiveFakeTtlProfile: () -> Unit,
     val onResetFakePayloadLibrary: () -> Unit,
     val onResetFakeTlsProfile: () -> Unit,
+    val onOpenStrategyConfig: () -> Unit,
 )
 
 internal data class DesyncSectionModel(
@@ -147,12 +146,6 @@ private fun DesyncCoreControls(model: DesyncSectionModel) {
         onConfirm = model.actions.onTextConfirmed,
         showDivider = true,
     )
-    Text(
-        text = stringResource(R.string.config_chain_summary_label, uiState.desync.chainSummary),
-        style = RipDpiThemeTokens.type.caption,
-        color = colors.mutedForeground,
-    )
-    HorizontalDivider(color = colors.divider)
     AdaptiveSplitProfileCard(
         uiState = uiState,
         onResetAdaptiveSplit = model.actions.onResetAdaptiveSplit,
@@ -198,10 +191,9 @@ private fun SplitMarkerSetting(model: DesyncSectionModel) {
 @Composable
 private fun DesyncChainProfileControls(model: DesyncSectionModel) {
     val uiState = model.uiState
-    ChainEditorWithCollapsibleHelp(
-        uiState = uiState,
-        visualEditorEnabled = model.visualEditorEnabled,
-        onTextConfirmed = model.actions.onTextConfirmed,
+    ChainEditorLink(
+        chainDsl = uiState.desync.chainDsl,
+        onOpenStrategyConfig = model.actions.onOpenStrategyConfig,
         showDivider =
             model.visibility.showHostFakeSection ||
                 model.visibility.showSeqOverlapSection ||
@@ -615,42 +607,24 @@ private fun OobDataSetting(model: DesyncSectionModel) {
     )
 }
 
+/** The raw chain has one editor, on the Strategy config screen; this row only shows it and links there. */
 @Composable
-private fun ChainEditorWithCollapsibleHelp(
-    uiState: SettingsUiState,
-    visualEditorEnabled: Boolean,
-    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+private fun ChainEditorLink(
+    chainDsl: String,
+    onOpenStrategyConfig: () -> Unit,
     showDivider: Boolean,
 ) {
-    AdvancedTextSetting(
+    SettingsRow(
         title = stringResource(R.string.config_chain_editor_label),
-        descriptionContent = { ChainEditorCollapsibleDescription() },
-        value = uiState.desync.chainDsl,
-        placeholder = stringResource(R.string.config_placeholder_chain_dsl),
-        enabled = visualEditorEnabled,
-        multiline = true,
-        validator = { value ->
-            parseStrategyChainDsl(value)
-                .map { chain ->
-                    validateStrategyChainUsage(
-                        tcpSteps = chain.tcpSteps,
-                        udpSteps = chain.udpSteps,
-                        mode = uiState.selectedMode,
-                        useCommandLineSettings = uiState.enableCmdSettings,
-                    )
-                }.isSuccess
-        },
-        invalidMessage = stringResource(R.string.config_error_invalid_chain),
-        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-        setting = AdvancedTextSetting.ChainDsl,
-        onConfirm = onTextConfirmed,
+        subtitle = chainDsl.lines().filter(String::isNotBlank).joinToString(" · "),
+        onClick = onOpenStrategyConfig,
+        showChevron = true,
         showDivider = showDivider,
     )
 }
 
 @Composable
-private fun ChainEditorCollapsibleDescription() {
+internal fun ChainEditorCollapsibleDescription() {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
