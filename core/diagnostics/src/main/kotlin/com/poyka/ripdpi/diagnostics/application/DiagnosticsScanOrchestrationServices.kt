@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -86,10 +87,19 @@ class ScanAdmissionService
 
         /** Null when the stored request cannot be decoded, so its legal-safety policy is unknown. */
         private fun legalSafetyAccess(requestJson: String): DiagnosticsJurisdictionProfileAccess? =
+            readStoredRequest(requestJson) { request -> request.resolveLegalSafetyPolicy().access }
+
+        /**
+         * Decodes a stored profile request and reads it with [read]; null when either step fails
+         * (SerializationException, or a missing required policy, are IllegalArgumentException).
+         */
+        private inline fun <T : Any> readStoredRequest(
+            requestJson: String,
+            read: (ProfileSpecWire) -> T,
+        ): T? =
             try {
-                json.decodeProfileSpecWire(requestJson).resolveLegalSafetyPolicy().access
+                read(json.decodeProfileSpecWire(requestJson))
             } catch (_: IllegalArgumentException) {
-                // SerializationException is an IllegalArgumentException.
                 null
             }
 
@@ -123,12 +133,13 @@ class ScanAdmissionService
                 return null
             }
             val profile = profileCatalog.getProfile(AutomaticProbeProfileId) ?: return null
-            val request = json.decodeProfileSpecWire(profile.requestJson)
-            val policy = request.resolveLegalSafetyPolicy()
-            return profile.takeIf {
-                request.normalizedExecutionPolicy().allowBackground &&
-                    policy.access == DiagnosticsJurisdictionProfileAccess.ALLOWED
-            }
+            // An undecodable profile fails closed: no automatic probe.
+            val allowed =
+                readStoredRequest(profile.requestJson) { request ->
+                    request.normalizedExecutionPolicy().allowBackground &&
+                        request.resolveLegalSafetyPolicy().access == DiagnosticsJurisdictionProfileAccess.ALLOWED
+                } == true
+            return profile.takeIf { allowed }
         }
 
         fun hasActiveHomeRun(): Boolean = homeRunLease.isActive()

@@ -256,6 +256,25 @@ class DiagnosticsExecutionPolicyTest {
         }
 
     @Test
+    fun `automatic admission skips an undecodable automatic-probe profile`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.upsertProfile(
+                com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity(
+                    id = "automatic-probing",
+                    name = "Automatic probing",
+                    source = "test",
+                    version = 1,
+                    requestJson = """{"profileId":"automatic-probing"}""",
+                    updatedAt = 1L,
+                ),
+            )
+            val service = scanAdmissionService(stores, activeScanRegistry(stores, backgroundScope, json), json)
+
+            assertNull(service.admitAutomaticProbe(defaultDiagnosticsAppSettings()))
+        }
+
+    @Test
     fun `manual admission rejects hidden automatic probe explicitly`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
