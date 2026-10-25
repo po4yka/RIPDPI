@@ -14,6 +14,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -616,21 +617,26 @@ private fun OnboardingGuaranteeGrid(
             )
         }
     } else {
-        // Size the block to its content and center it so short labels do not look left-heavy.
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        // Size each column to its own content (at most half the grid, so long labels wrap) and
+        // center the pair. Equal-width columns left the narrower one with a wider right margin.
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            val columnModifier =
+                Modifier
+                    .widthIn(max = (minOf(maxWidth, introLayout.guaranteeGridMaxWidth) - spacing.md) / 2)
+                    .width(IntrinsicSize.Max)
             Row(
-                modifier = modifier.widthIn(max = introLayout.guaranteeGridMaxWidth).width(IntrinsicSize.Max),
+                modifier = modifier,
                 horizontalArrangement = Arrangement.spacedBy(spacing.md),
             ) {
                 OnboardingGuaranteeColumn(
                     headerRes = R.string.onboarding_guarantee_header_privacy,
                     labels = privacyLabels,
-                    modifier = Modifier.weight(1f),
+                    modifier = columnModifier,
                 )
                 OnboardingGuaranteeColumn(
                     headerRes = R.string.onboarding_guarantee_header_local,
                     labels = localLabels,
-                    modifier = Modifier.weight(1f),
+                    modifier = columnModifier,
                 )
             }
         }
