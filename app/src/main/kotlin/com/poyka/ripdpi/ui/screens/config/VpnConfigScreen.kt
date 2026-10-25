@@ -181,7 +181,7 @@ internal fun ConfigRelayProfileChoices(
             onClick = onPasteServerLink,
             modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnAddServerPaste),
             variant = RipDpiButtonVariant.Outline,
-            leadingIcon = RipDpiIcons.Copy,
+            leadingIcon = RipDpiIcons.Paste,
         )
         RipDpiButton(
             text = stringResource(R.string.config_vpn_add_server_scan),
@@ -347,7 +347,7 @@ private fun VpnSimpleActions(
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.ConfigVpnAddServerPaste),
                 variant = RipDpiButtonVariant.Outline,
-                leadingIcon = RipDpiIcons.Copy,
+                leadingIcon = RipDpiIcons.Paste,
             )
             RipDpiButton(
                 text = stringResource(R.string.config_vpn_add_server_scan),

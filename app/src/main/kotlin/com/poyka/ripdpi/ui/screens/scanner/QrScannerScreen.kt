@@ -161,6 +161,7 @@ internal fun QrScannerScreen(
                     title = stringResource(R.string.scanner_permission_denied_title),
                     message = stringResource(R.string.scanner_permission_denied_body),
                     tone = WarningBannerTone.Restricted,
+                    icon = RipDpiIcons.CameraOff,
                 )
             }
         }

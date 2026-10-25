@@ -88,7 +88,7 @@ internal fun ConfigSavedConnectionCard(
                     .ripDpiTestTag(RipDpiTestTags.ConfigProfileChange)
                     .semantics { stateDescription = expansionState },
             variant = RipDpiButtonVariant.Outline,
-            leadingIcon = RipDpiIcons.Settings,
+            leadingIcon = RipDpiIcons.Edit,
         )
     }
 }

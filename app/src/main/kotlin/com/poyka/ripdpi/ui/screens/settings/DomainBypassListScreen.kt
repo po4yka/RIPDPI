@@ -249,7 +249,7 @@ internal fun DomainBypassEditorCard(
                     onClick = onPasteFromClipboard,
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
-                    leadingIcon = RipDpiIcons.Copy,
+                    leadingIcon = RipDpiIcons.Paste,
                 )
             }
             FlowRow(
@@ -262,7 +262,7 @@ internal fun DomainBypassEditorCard(
                     onClick = onCopyToClipboard,
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
-                    leadingIcon = RipDpiIcons.Share,
+                    leadingIcon = RipDpiIcons.Copy,
                 )
                 RipDpiButton(
                     text = stringResource(R.string.domain_bypass_move_to_editor),
@@ -270,7 +270,7 @@ internal fun DomainBypassEditorCard(
                     variant = RipDpiButtonVariant.Ghost,
                     density = RipDpiControlDensity.Compact,
                     enabled = state.hasRule,
-                    leadingIcon = RipDpiIcons.Advanced,
+                    leadingIcon = RipDpiIcons.MoveTo,
                 )
             }
         }

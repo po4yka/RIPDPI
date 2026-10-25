@@ -129,7 +129,7 @@ sealed class Route {
     data object StrategyTuner : Route() {
         override val stableRoute = "strategy_tuner"
         override val titleRes = R.string.title_strategy_tuner
-        override val icon: ImageVector? = RipDpiIcons.Advanced
+        override val icon: ImageVector? = RipDpiIcons.Tuner
     }
 
     @Serializable

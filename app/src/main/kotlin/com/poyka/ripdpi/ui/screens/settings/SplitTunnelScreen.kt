@@ -160,7 +160,7 @@ private fun SplitTunnelSystemManagedCard(onOpenSystemSettings: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 variant = RipDpiButtonVariant.Outline,
                 density = RipDpiControlDensity.Compact,
-                leadingIcon = RipDpiIcons.Config,
+                leadingIcon = RipDpiIcons.OpenExternal,
             )
         }
     }

@@ -117,7 +117,7 @@ internal fun RoutesScreen(
         onNavigationClick = onBack,
         actions = {
             RipDpiIconButton(
-                icon = RipDpiIcons.Config,
+                icon = RipDpiIcons.Add,
                 contentDescription = stringResource(R.string.routes_add_rule),
                 onClick = onAddRule,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RoutesAddRule),

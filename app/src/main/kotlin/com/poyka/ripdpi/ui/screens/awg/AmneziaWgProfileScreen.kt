@@ -301,7 +301,7 @@ private fun ObfuscationSection(
                     text = stringResource(R.string.awg_paste_conf_action),
                     onClick = onPasteConf,
                     variant = RipDpiButtonVariant.Secondary,
-                    leadingIcon = RipDpiIcons.Copy,
+                    leadingIcon = RipDpiIcons.Paste,
                 )
             },
         )

@@ -56,7 +56,7 @@ fun ConfigImportMenu(
                 persistentListOf(
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.import_clipboard_action),
-                        icon = RipDpiIcons.Copy,
+                        icon = RipDpiIcons.Paste,
                         testTag = RipDpiTestTags.ConfigImportClipboardMenuItem,
                         // The clipboard read happens here — and only here — on the user's tap.
                         onClick = onImportFromClipboard,

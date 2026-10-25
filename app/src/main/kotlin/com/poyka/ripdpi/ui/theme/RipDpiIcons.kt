@@ -3,16 +3,22 @@ package com.poyka.ripdpi.ui.theme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FileOpen
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
@@ -23,12 +29,15 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NetworkCheck
+import androidx.compose.material.icons.outlined.NoPhotography
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.ReportProblem
+import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
@@ -94,4 +103,13 @@ object RipDpiIcons {
     val Archive: ImageVector = Icons.Outlined.Archive
     val Delete: ImageVector = Icons.Outlined.Delete
     val Add: ImageVector = Icons.Outlined.Add
+    val Paste: ImageVector = Icons.Outlined.ContentPaste
+    val Import: ImageVector = Icons.Outlined.FileOpen
+    val OpenExternal: ImageVector = Icons.AutoMirrored.Outlined.OpenInNew
+    val MoveTo: ImageVector = Icons.AutoMirrored.Outlined.DriveFileMove
+    val Restore: ImageVector = Icons.Outlined.Restore
+    val History: ImageVector = Icons.Outlined.History
+    val Edit: ImageVector = Icons.Outlined.Edit
+    val Tuner: ImageVector = Icons.Outlined.Science
+    val CameraOff: ImageVector = Icons.Outlined.NoPhotography
 }

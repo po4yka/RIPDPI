@@ -312,7 +312,7 @@ private fun DiagnosticsTopBar(
             )
             topBarExtraActions()
             RipDpiIconButton(
-                icon = RipDpiIcons.Logs,
+                icon = RipDpiIcons.History,
                 contentDescription = stringResource(R.string.history_open_action),
                 onClick = actions.onOpenHistory,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsTopHistoryAction),

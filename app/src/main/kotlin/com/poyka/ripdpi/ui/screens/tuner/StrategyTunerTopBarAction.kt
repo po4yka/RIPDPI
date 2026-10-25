@@ -19,7 +19,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 @Composable
 fun StrategyTunerTopBarAction(onOpen: () -> Unit) {
     RipDpiIconButton(
-        icon = RipDpiIcons.Advanced,
+        icon = RipDpiIcons.Tuner,
         contentDescription = stringResource(R.string.strategy_tuner_open_action),
         onClick = onOpen,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyTunerAction),

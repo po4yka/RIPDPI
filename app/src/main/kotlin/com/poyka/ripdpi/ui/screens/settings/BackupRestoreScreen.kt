@@ -766,6 +766,7 @@ private fun BackupResetCard(
                     title = stringResource(R.string.backup_reset_warning_title),
                     message = stringResource(R.string.backup_reset_warning_body),
                     tone = WarningBannerTone.Restricted,
+                    icon = RipDpiIcons.Warning,
                 )
                 RipDpiButton(
                     text = stringResource(R.string.backup_reset_action),
@@ -808,7 +809,7 @@ private fun BackupImportCard(
                     variant = RipDpiButtonVariant.Outline,
                     loading = state.importing,
                     enabled = !state.importing && !state.restoring,
-                    leadingIcon = RipDpiIcons.Logs,
+                    leadingIcon = RipDpiIcons.Restore,
                 )
             }
         }
@@ -972,7 +973,7 @@ private fun BackupImportPreviewSheet(
                 variant = RipDpiButtonVariant.Destructive,
                 loading = restoring,
                 enabled = !restoring && selection.any,
-                leadingIcon = RipDpiIcons.Logs,
+                leadingIcon = RipDpiIcons.Restore,
             )
         }
     }

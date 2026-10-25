@@ -439,7 +439,7 @@ private fun AssetProviderActionsCard(
                     variant = RipDpiButtonVariant.Outline,
                     loading = state.activeOperation == AssetProviderOperation.ImportGeoip,
                     enabled = !operationInProgress,
-                    leadingIcon = RipDpiIcons.Advanced,
+                    leadingIcon = RipDpiIcons.Import,
                 )
                 RipDpiButton(
                     text = stringResource(R.string.asset_provider_import_geosite),
@@ -448,7 +448,7 @@ private fun AssetProviderActionsCard(
                     variant = RipDpiButtonVariant.Outline,
                     loading = state.activeOperation == AssetProviderOperation.ImportGeosite,
                     enabled = !operationInProgress,
-                    leadingIcon = RipDpiIcons.Advanced,
+                    leadingIcon = RipDpiIcons.Import,
                 )
             }
         }

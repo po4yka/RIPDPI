@@ -305,13 +305,13 @@ private fun TextStrategyConfigCard(
                 onPrimary = onSave,
                 primaryLoading = state.isSaving,
                 secondaryLabel = stringResource(R.string.strategy_config_reload_action),
-                secondaryIcon = RipDpiIcons.NetworkCheck,
+                secondaryIcon = RipDpiIcons.Refresh,
                 onSecondary = onReload,
                 enabled = editingEnabled,
             )
             StrategyConfigActionRows(
                 primaryLabel = stringResource(R.string.config_relay_import),
-                primaryIcon = RipDpiIcons.Public,
+                primaryIcon = RipDpiIcons.Import,
                 onPrimary = onImport,
                 secondaryLabel = stringResource(R.string.strategy_config_export_action),
                 secondaryIcon = RipDpiIcons.Share,
@@ -397,7 +397,7 @@ private fun LuaStrategyConfigCard(
                     onClick = onReload,
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
-                    leadingIcon = RipDpiIcons.NetworkCheck,
+                    leadingIcon = RipDpiIcons.Refresh,
                     enabled = editingEnabled,
                 )
             }
