@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.platform.userMessage
 import com.poyka.ripdpi.services.OwnedStackBrowserBackend
 import com.poyka.ripdpi.services.OwnedStackBrowserPage
 import com.poyka.ripdpi.services.OwnedStackBrowserService
@@ -19,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
+import java.net.URISyntaxException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -79,14 +79,22 @@ class OwnedStackBrowserViewModel
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: IOException) {
-                    _uiState.update { state ->
-                        state.copy(
-                            isLoading = false,
-                            errorMessage =
-                                stringResolver.userMessage(error, R.string.owned_stack_browser_request_failed),
-                        )
-                    }
+                    showError(error.message)
+                } catch (error: IllegalArgumentException) {
+                    // URL validation rejects blank, non-HTTPS and host-less input with a user-facing message.
+                    showError(error.message)
+                } catch (_: URISyntaxException) {
+                    showError(null)
                 }
+            }
+        }
+
+        private fun showError(message: String?) {
+            _uiState.update { state ->
+                state.copy(
+                    isLoading = false,
+                    errorMessage = message ?: stringResolver.getString(R.string.owned_stack_browser_request_failed),
+                )
             }
         }
     }
