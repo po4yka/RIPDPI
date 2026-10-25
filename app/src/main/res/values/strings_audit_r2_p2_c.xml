@@ -14,4 +14,5 @@
     <string name="root_mode_access_granted">Root access is available on this device.</string>
     <string name="root_mode_access_denied">Root access was denied. Allow RIPDPI in your root manager, then turn root mode on again.</string>
     <string name="root_mode_access_unavailable">This device has no root access, so these strategies will not work.</string>
+    <string name="domain_bypass_move_requires_save">Save the list first to move it to rules.</string>
 </resources>

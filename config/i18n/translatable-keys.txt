@@ -2873,6 +2873,7 @@ app:domain_bypass_error_line
 app:domain_bypass_errors_title
 app:domain_bypass_intro_body
 app:domain_bypass_intro_title
+app:domain_bypass_move_requires_save
 app:domain_bypass_move_to_editor
 app:domain_bypass_moved
 app:domain_bypass_moved_rule_name

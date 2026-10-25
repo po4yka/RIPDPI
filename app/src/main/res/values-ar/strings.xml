@@ -3002,9 +3002,9 @@ fakeddisorder endhost</string>
     <string name="title_domain_bypass_list">قائمة تجاوز النطاقات</string>
     <string name="settings_domain_bypass_body">إبقاء النطاقات المختارة خارج الوكيل (مباشر)</string>
     <string name="domain_bypass_intro_title">النطاقات المباشرة</string>
-    <string name="domain_bypass_intro_body">النطاقات المدرجة هنا تتجاوز الوكيل وتتصل مباشرةً. واحد في كل سطر. يقبل النطاقات العادية (example.com) ولواحق النطاقات (.example.com) والبادئات domain:‏ وdomain_suffix:‏ وdomain_regex:‏.</string>
+    <string name="domain_bypass_intro_body">النطاقات المدرجة هنا تتجاوز الوكيل وتتصل مباشرةً. يقبل النطاقات العادية (example.com) ولواحق النطاقات (.example.com) والبادئات domain:‏ وdomain_suffix:‏ وdomain_regex:‏.</string>
     <string name="domain_bypass_editor_label">النطاقات (واحد في كل سطر)</string>
-    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_placeholder">على سبيل المثال:\nexample.com\n.bank.example</string>
     <string name="domain_bypass_errors_title">%1$d سطر غير صالح</string>
     <string name="domain_bypass_error_line">السطر %1$d: %2$s</string>
     <string name="domain_bypass_paste">لصق</string>

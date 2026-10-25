@@ -3134,9 +3134,9 @@ Origen: %2$s</string>
     <string name="title_domain_bypass_list">Lista de dominios directos</string>
     <string name="settings_domain_bypass_body">Mantener dominios elegidos fuera del proxy (directo)</string>
     <string name="domain_bypass_intro_title">Dominios directos</string>
-    <string name="domain_bypass_intro_body">Los dominios aquí listados se conectan directamente sin pasar por el proxy. Uno por línea. Acepta dominios simples (example.com), sufijos (.example.com) y los prefijos domain:, domain_suffix: y domain_regex:.</string>
+    <string name="domain_bypass_intro_body">Los dominios aquí listados se conectan directamente sin pasar por el proxy. Acepta dominios simples (example.com), sufijos (.example.com) y los prefijos domain:, domain_suffix: y domain_regex:.</string>
     <string name="domain_bypass_editor_label">Dominios (uno por línea)</string>
-    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_placeholder">Por ejemplo:\nexample.com\n.bank.example</string>
     <string name="domain_bypass_errors_title">%1$d línea(s) no válida(s)</string>
     <string name="domain_bypass_error_line">Línea %1$d: %2$s</string>
     <string name="domain_bypass_paste">Pegar</string>

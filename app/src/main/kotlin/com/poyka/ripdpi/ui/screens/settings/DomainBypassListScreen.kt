@@ -257,28 +257,50 @@ internal fun DomainBypassEditorCard(
                     leadingIcon = RipDpiIcons.Paste,
                 )
             }
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-            ) {
-                RipDpiButton(
-                    text = stringResource(R.string.domain_bypass_copy),
-                    onClick = onCopyToClipboard,
-                    variant = RipDpiButtonVariant.Outline,
-                    density = RipDpiControlDensity.Compact,
-                    leadingIcon = RipDpiIcons.Copy,
-                )
-                RipDpiButton(
-                    text = stringResource(R.string.domain_bypass_move_to_editor),
-                    onClick = onMoveToRuleEditor,
-                    variant = RipDpiButtonVariant.Ghost,
-                    density = RipDpiControlDensity.Compact,
-                    enabled = state.hasRule,
-                    leadingIcon = RipDpiIcons.MoveTo,
-                )
-            }
+            DomainBypassTransferActions(
+                state = state,
+                onCopyToClipboard = onCopyToClipboard,
+                onMoveToRuleEditor = onMoveToRuleEditor,
+            )
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DomainBypassTransferActions(
+    state: DomainBypassListScreenState,
+    onCopyToClipboard: () -> Unit,
+    onMoveToRuleEditor: () -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
+        RipDpiButton(
+            text = stringResource(R.string.domain_bypass_copy),
+            onClick = onCopyToClipboard,
+            enabled = state.text.isNotBlank(),
+            variant = RipDpiButtonVariant.Outline,
+            density = RipDpiControlDensity.Compact,
+            leadingIcon = RipDpiIcons.Copy,
+        )
+        RipDpiButton(
+            text = stringResource(R.string.domain_bypass_move_to_editor),
+            onClick = onMoveToRuleEditor,
+            variant = RipDpiButtonVariant.Ghost,
+            density = RipDpiControlDensity.Compact,
+            enabled = state.hasRule,
+            leadingIcon = RipDpiIcons.MoveTo,
+        )
+    }
+    if (!state.hasRule) {
+        Text(
+            text = stringResource(R.string.domain_bypass_move_requires_save),
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
     }
 }
 

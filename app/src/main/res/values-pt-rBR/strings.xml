@@ -3185,9 +3185,9 @@ Fonte: %2$s</string>
     <string name="title_domain_bypass_list">Lista de domínios de desvio</string>
     <string name="settings_domain_bypass_body">Manter domínios escolhidos fora do proxy (direto)</string>
     <string name="domain_bypass_intro_title">Domínios diretos</string>
-    <string name="domain_bypass_intro_body">Domínios listados aqui ficam fora do proxy e conectam diretamente. Um por linha. Aceita domínios simples (example.com), sufixos (.example.com) e os prefixos domain:, domain_suffix: e domain_regex:.</string>
+    <string name="domain_bypass_intro_body">Domínios listados aqui ficam fora do proxy e conectam diretamente. Aceita domínios simples (example.com), sufixos (.example.com) e os prefixos domain:, domain_suffix: e domain_regex:.</string>
     <string name="domain_bypass_editor_label">Domínios (um por linha)</string>
-    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_placeholder">Por exemplo:\nexample.com\n.bank.example</string>
     <string name="domain_bypass_errors_title">%1$d linha(s) inválida(s)</string>
     <string name="domain_bypass_error_line">Linha %1$d: %2$s</string>
     <string name="domain_bypass_paste">Colar</string>

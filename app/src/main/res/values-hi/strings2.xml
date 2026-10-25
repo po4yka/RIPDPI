@@ -1390,9 +1390,9 @@
     <string name="title_domain_bypass_list">डोमेन बायपास सूची</string>
     <string name="settings_domain_bypass_body">चुने गए डोमेन को प्रॉक्सी से बाहर रखें (सीधा)</string>
     <string name="domain_bypass_intro_title">सीधे डोमेन</string>
-    <string name="domain_bypass_intro_body">यहाँ सूचीबद्ध डोमेन प्रॉक्सी से बाहर रहते हैं और सीधे कनेक्ट होते हैं। प्रति पंक्ति एक। सादे डोमेन (example.com), प्रत्यय (.example.com), और domain:, domain_suffix: तथा domain_regex: उपसर्ग स्वीकार करता है।</string>
+    <string name="domain_bypass_intro_body">यहाँ सूचीबद्ध डोमेन प्रॉक्सी से बाहर रहते हैं और सीधे कनेक्ट होते हैं। सादे डोमेन (example.com), प्रत्यय (.example.com), और domain:, domain_suffix: तथा domain_regex: उपसर्ग स्वीकार करता है।</string>
     <string name="domain_bypass_editor_label">डोमेन (प्रति पंक्ति एक)</string>
-    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_placeholder">उदाहरण के लिए:\nexample.com\n.bank.example</string>
     <string name="domain_bypass_errors_title">%1$d अमान्य पंक्ति(याँ)</string>
     <string name="domain_bypass_error_line">पंक्ति %1$d: %2$s</string>
     <string name="domain_bypass_paste">चिपकाएँ</string>

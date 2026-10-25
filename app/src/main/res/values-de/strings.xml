@@ -3134,9 +3134,9 @@ Quelle: %2$s</string>
     <string name="title_domain_bypass_list">Domain-Ausschlussliste</string>
     <string name="settings_domain_bypass_body">Ausgewählte Domains am Proxy vorbei (direkt) leiten</string>
     <string name="domain_bypass_intro_title">Direkte Domains</string>
-    <string name="domain_bypass_intro_body">Hier aufgeführte Domains verbinden sich direkt am Proxy vorbei. Eine pro Zeile. Akzeptiert einfache Domains (example.com), Suffixe (.example.com) sowie die Präfixe domain:, domain_suffix: und domain_regex:.</string>
+    <string name="domain_bypass_intro_body">Hier aufgeführte Domains verbinden sich direkt am Proxy vorbei. Akzeptiert einfache Domains (example.com), Suffixe (.example.com) sowie die Präfixe domain:, domain_suffix: und domain_regex:.</string>
     <string name="domain_bypass_editor_label">Domains (eine pro Zeile)</string>
-    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_placeholder">Zum Beispiel:\nexample.com\n.bank.example</string>
     <string name="domain_bypass_errors_title">%1$d ungültige Zeile(n)</string>
     <string name="domain_bypass_error_line">Zeile %1$d: %2$s</string>
     <string name="domain_bypass_paste">Einfügen</string>

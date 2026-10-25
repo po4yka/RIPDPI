@@ -14,4 +14,5 @@
     <string name="root_mode_access_granted">Auf diesem Gerät ist Root-Zugriff verfügbar.</string>
     <string name="root_mode_access_denied">Root-Zugriff wurde verweigert. Erlauben Sie RIPDPI in Ihrer Root-Verwaltung und schalten Sie den Root-Modus erneut ein.</string>
     <string name="root_mode_access_unavailable">Dieses Gerät hat keinen Root-Zugriff, daher funktionieren diese Strategien nicht.</string>
+    <string name="domain_bypass_move_requires_save">Speichern Sie die Liste zuerst, um sie zu den Regeln zu verschieben.</string>
 </resources>

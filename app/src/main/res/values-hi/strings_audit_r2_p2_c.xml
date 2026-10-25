@@ -14,4 +14,5 @@
     <string name="root_mode_access_granted">इस डिवाइस पर रूट एक्सेस उपलब्ध है।</string>
     <string name="root_mode_access_denied">रूट एक्सेस अस्वीकार कर दिया गया। अपने रूट मैनेजर में RIPDPI को अनुमति दें, फिर रूट मोड दोबारा चालू करें।</string>
     <string name="root_mode_access_unavailable">इस डिवाइस पर रूट एक्सेस नहीं है, इसलिए ये रणनीतियाँ काम नहीं करेंगी।</string>
+    <string name="domain_bypass_move_requires_save">इसे नियमों में ले जाने के लिए पहले सूची सहेजें।</string>
 </resources>

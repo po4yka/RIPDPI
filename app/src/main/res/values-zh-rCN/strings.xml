@@ -3131,9 +3131,9 @@ fake_burst 3</string>
     <string name="title_domain_bypass_list">域名直连列表</string>
     <string name="settings_domain_bypass_body">让所选域名绕过代理(直连)</string>
     <string name="domain_bypass_intro_title">直连域名</string>
-    <string name="domain_bypass_intro_body">此处列出的域名将绕过代理直接连接。每行一个。支持普通域名(example.com)、后缀(.example.com)以及 domain:、domain_suffix: 和 domain_regex: 前缀。</string>
+    <string name="domain_bypass_intro_body">此处列出的域名将绕过代理直接连接。支持普通域名(example.com)、后缀(.example.com)以及 domain:、domain_suffix: 和 domain_regex: 前缀。</string>
     <string name="domain_bypass_editor_label">域名(每行一个)</string>
-    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_placeholder">例如：\nexample.com\n.bank.example</string>
     <string name="domain_bypass_errors_title">%1$d 行无效</string>
     <string name="domain_bypass_error_line">第 %1$d 行:%2$s</string>
     <string name="domain_bypass_paste">粘贴</string>
