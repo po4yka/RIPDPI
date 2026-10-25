@@ -3,10 +3,16 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.filter
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -143,6 +149,28 @@ class AdvancedSettingsSectionsTest {
         composeRule.onNodeWithText(targetLabel).assertDoesNotExist()
         composeRule.onNodeWithText(app.getString(R.string.action_learn_more)).performClick()
         composeRule.onNodeWithText(targetLabel).assertExists()
+    }
+
+    @Test
+    fun `split presets are radio cards without a selected tag`() {
+        val uiState = SettingsUiState()
+        composeRule.setContent {
+            RipDpiTheme {
+                AdaptiveSplitPresetSelector(
+                    uiState = uiState,
+                    presets = rememberAdaptiveSplitPresetOptions(uiState),
+                    enabled = true,
+                    onPresetSelected = {},
+                )
+            }
+        }
+        val app = RuntimeEnvironment.getApplication()
+
+        composeRule.onNodeWithText(app.getString(R.string.adaptive_split_preset_selected)).assertDoesNotExist()
+        composeRule
+            .onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .filter(isSelected())
+            .assertCountEquals(1)
     }
 
     @Test

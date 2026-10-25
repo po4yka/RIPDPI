@@ -13,6 +13,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AdaptiveSplitPresetCustom
 import com.poyka.ripdpi.activities.AdaptiveSplitPresetManual
@@ -24,6 +28,7 @@ import com.poyka.ripdpi.data.formatOffsetExpressionLabel
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.RadioIndicator
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
@@ -31,7 +36,6 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
-import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -132,7 +136,7 @@ internal fun AdaptiveSplitProfileCard(
         Text(
             text = status.label,
             style = type.bodyEmphasis,
-            color = colors.foreground,
+            color = if (status.tone == StatusIndicatorTone.Warning) colors.warning else colors.foreground,
         )
         Text(
             text = status.body,
@@ -433,6 +437,7 @@ internal fun AdaptiveSplitPresetSelector(
     }
 }
 
+/** A radio card, like the DNS and VPN mode pickers: the radio marks the selection, not a fill or tag. */
 @Composable
 private fun AdaptiveSplitPresetCard(
     preset: AdaptiveSplitPresetUiModel,
@@ -441,23 +446,22 @@ private fun AdaptiveSplitPresetCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val badgeLabel =
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val note =
         when {
-            selected -> stringResource(R.string.adaptive_split_preset_selected)
             preset.isRecommended -> stringResource(R.string.adaptive_split_preset_recommended)
             preset.value == AdaptiveSplitPresetCustom -> stringResource(R.string.adaptive_split_preset_dsl_only)
             else -> null
         }
-    val badgeTone =
-        when {
-            selected -> StatusIndicatorTone.Active
-            preset.isRecommended -> StatusIndicatorTone.Idle
-            else -> StatusIndicatorTone.Idle
-        }
 
     RipDpiCard(
-        modifier = modifier,
-        variant = if (selected) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        modifier =
+            modifier.semantics {
+                role = Role.RadioButton
+                this.selected = selected
+            },
+        variant = RipDpiCardVariant.Outlined,
         enabled = enabled,
         onClick = onClick,
     ) {
@@ -466,25 +470,27 @@ private fun AdaptiveSplitPresetCard(
             horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
             verticalAlignment = Alignment.Top,
         ) {
+            RadioIndicator(selected = selected)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
             ) {
                 Text(
                     text = preset.title,
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = RipDpiThemeTokens.colors.foreground,
+                    style = type.bodyEmphasis,
+                    color = colors.foreground,
                 )
+                note?.let {
+                    Text(
+                        text = it,
+                        style = type.caption,
+                        color = colors.mutedForeground,
+                    )
+                }
                 Text(
                     text = preset.body,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-            }
-            badgeLabel?.let {
-                StatusIndicator(
-                    label = it,
-                    tone = badgeTone,
+                    style = type.secondaryBody,
+                    color = colors.mutedForeground,
                 )
             }
         }
