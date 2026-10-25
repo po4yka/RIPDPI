@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="detection_community_detected_count">
+        <item quantity="one">VPN در %1$d از %2$d بررسی شناسایی شد</item>
+        <item quantity="other">VPN در %1$d از %2$d بررسی شناسایی شد</item>
+    </plurals>
+</resources>

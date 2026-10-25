@@ -1750,7 +1750,6 @@ fake_burst 3</string>
     <string name="detection_check_category_webrtc">WebRTC 泄漏</string>
     <string name="detection_check_share">分享</string>
     <string name="detection_check_verdict_detected">已检测到</string>
-    <string name="detection_community_detected_pct">%d%% 的检查检测到</string>
     <string name="detection_error_retry">重试</string>
     <string name="detection_history_title">历史记录</string>
     <string name="detection_onboarding_skip">跳过</string>

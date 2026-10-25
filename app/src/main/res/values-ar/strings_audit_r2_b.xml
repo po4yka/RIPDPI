@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="detection_community_detected_count">
+        <item quantity="zero">تم اكتشاف VPN في %1$d من %2$d فحوصات</item>
+        <item quantity="one">تم اكتشاف VPN في %1$d من %2$d فحص</item>
+        <item quantity="two">تم اكتشاف VPN في %1$d من %2$d فحصين</item>
+        <item quantity="few">تم اكتشاف VPN في %1$d من %2$d فحوصات</item>
+        <item quantity="many">تم اكتشاف VPN في %1$d من %2$d فحصًا</item>
+        <item quantity="other">تم اكتشاف VPN في %1$d من %2$d فحص</item>
+    </plurals>
+</resources>

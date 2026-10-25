@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="detection_community_detected_count">
+        <item quantity="one">VPN détecté lors de %1$d vérification sur %2$d</item>
+        <item quantity="many">VPN détecté lors de %1$d des %2$d vérifications</item>
+        <item quantity="other">VPN détecté lors de %1$d des %2$d vérifications</item>
+    </plurals>
+</resources>

@@ -2562,7 +2562,6 @@ fakeddisorder endhost</string>
     <string name="detection_community_title">المجتمع</string>
     <string name="detection_community_local_title">إحصاءاتك</string>
     <string name="detection_community_avg_score">متوسط نقاط التخفي: %d/100</string>
-    <string name="detection_community_detected_pct">%d%% من الفحوصات مكتشفة</string>
     <string name="detection_community_loading">جارٍ تحميل إحصاءات المجتمع…</string>
     <string name="detection_community_error">تعذّر تحميل إحصاءات المجتمع</string>
     <string name="detection_community_retry">إعادة المحاولة</string>

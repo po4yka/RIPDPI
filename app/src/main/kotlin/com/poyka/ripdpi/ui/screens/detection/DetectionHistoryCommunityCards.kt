@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.networkTypeLabel
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
+import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.platform.localizedTimestamp
@@ -26,13 +27,22 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
+import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val historyEntryLimit = 5
-private const val highStealthScoreThreshold = 70
-private const val mediumStealthScoreThreshold = 40
-private const val detectedPercentageAlertThreshold = 50
-private const val percentScale = 100.0
+
+// Score and verdict measure different things: the score sums weighted exposure signals, while the
+// verdict applies detection rules, so a check can score 87 and still be detected. One color rule
+// keeps them from contradicting each other here: only the verdict carries tone; the score stays neutral.
+private fun verdictStatus(verdict: String): Pair<Int, StatusIndicatorTone>? =
+    when (verdict) {
+        Verdict.DETECTED.name -> R.string.detection_check_verdict_detected to StatusIndicatorTone.Error
+        Verdict.NEEDS_REVIEW.name -> R.string.detection_check_verdict_needs_review to StatusIndicatorTone.Warning
+        Verdict.NOT_DETECTED.name -> R.string.detection_check_verdict_not_detected to StatusIndicatorTone.Active
+        else -> null
+    }
 
 @Composable
 internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
@@ -42,12 +52,6 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         RipDpiPanelHeader(title = stringResource(R.string.detection_history_title))
         for (entry in limited) {
-            val scoreColor =
-                when {
-                    entry.stealthScore >= highStealthScoreThreshold -> colors.success
-                    entry.stealthScore >= mediumStealthScoreThreshold -> colors.warning
-                    else -> colors.destructive
-                }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -70,14 +74,18 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                     Text(localizedTimestamp(entry.timestamp), style = type.caption, color = colors.mutedForeground)
                 }
                 Row(
+                    horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    verdictStatus(entry.verdict)?.let { (label, tone) ->
+                        StatusIndicator(label = stringResource(label), tone = tone)
+                    }
                     val stealthScoreDescription =
                         stringResource(R.string.detection_stealth_score_a11y, entry.stealthScore)
                     Text(
                         "${entry.stealthScore}",
                         style = type.bodyEmphasis,
-                        color = scoreColor,
+                        color = colors.foreground,
                         modifier = Modifier.semantics { contentDescription = stealthScoreDescription },
                     )
                 }
@@ -121,13 +129,18 @@ internal fun CommunityStatsCard(stats: CommunityStats) {
                 color = colors.mutedForeground,
             )
         }
-        val detected = stats.verdictDistribution["DETECTED"] ?: 0
+        val detected = stats.verdictDistribution[Verdict.DETECTED.name] ?: 0
         if (stats.totalReports > 0) {
-            val pct = (detected * percentScale / stats.totalReports).toInt()
             Text(
-                text = stringResource(R.string.detection_community_detected_pct, pct),
+                text =
+                    pluralStringResource(
+                        R.plurals.detection_community_detected_count,
+                        stats.totalReports,
+                        detected,
+                        stats.totalReports,
+                    ),
                 style = type.bodyEmphasis,
-                color = if (pct > detectedPercentageAlertThreshold) colors.destructive else colors.success,
+                color = if (detected > 0) colors.destructive else colors.success,
             )
         }
     }

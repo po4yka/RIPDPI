@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="detection_community_detected_count">
+        <item quantity="one">VPN обнаружен в %1$d из %2$d проверки</item>
+        <item quantity="few">VPN обнаружен в %1$d из %2$d проверок</item>
+        <item quantity="many">VPN обнаружен в %1$d из %2$d проверок</item>
+        <item quantity="other">VPN обнаружен в %1$d из %2$d проверки</item>
+    </plurals>
+</resources>

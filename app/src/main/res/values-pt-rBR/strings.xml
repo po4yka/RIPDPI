@@ -2659,7 +2659,6 @@ Fonte: %2$s</string>
     <string name="detection_community_title">Comunidade</string>
     <string name="detection_community_local_title">Suas estatísticas</string>
     <string name="detection_community_avg_score">Pontuação média de furtividade: %d/100</string>
-    <string name="detection_community_detected_pct">%d%% das verificações detectadas</string>
     <string name="detection_community_loading">Carregando estatísticas da comunidade…</string>
     <string name="detection_community_error">Não foi possível carregar as estatísticas da comunidade</string>
     <string name="detection_community_retry">Tentar novamente</string>

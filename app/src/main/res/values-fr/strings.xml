@@ -1703,7 +1703,6 @@ Source : %2$s</string>
     <string name="detection_check_category_rtt_triangulation">Triangulation RTT</string>
     <string name="detection_check_recommendations">Recommandations</string>
     <string name="detection_check_subtitle">Vérifier la visibilité de votre configuration VPN/proxy.</string>
-    <string name="detection_community_detected_pct">%d %% des vérifications détectées</string>
     <string name="detection_community_retry">Réessayer</string>
     <string name="detection_finding_ok">OK</string>
     <string name="detection_onboarding_body">La détection peut demander à Android les autorisations téléphone et localisation, car l’identité Wi-Fi et cellulaire aide à distinguer le comportement réseau. RIPDPI ne les utilise pas pour le suivi, les identifiants bruts ne sont pas stockés et les exports de diagnostic masquent les identifiants sensibles.</string>

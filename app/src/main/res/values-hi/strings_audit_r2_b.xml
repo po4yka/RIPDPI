@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="detection_community_detected_count">
+        <item quantity="one">%2$d जाँच में से %1$d में VPN पहचाना गया</item>
+        <item quantity="other">%2$d जाँचों में से %1$d में VPN पहचाना गया</item>
+    </plurals>
+</resources>

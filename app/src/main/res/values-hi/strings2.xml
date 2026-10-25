@@ -826,7 +826,6 @@
     <string name="detection_community_title">समुदाय</string>
     <string name="detection_community_local_title">आपके आँकड़े</string>
     <string name="detection_community_avg_score">औसत स्टेल्थ स्कोर: %d/100</string>
-    <string name="detection_community_detected_pct">%d%% जाँचें पकड़ी गईं</string>
     <string name="detection_community_loading">समुदाय आँकड़े लोड हो रहे हैं…</string>
     <string name="detection_community_error">समुदाय आँकड़े लोड नहीं हो सके</string>
     <string name="detection_community_retry">पुनः प्रयास करें</string>

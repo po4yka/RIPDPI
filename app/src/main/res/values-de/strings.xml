@@ -1703,7 +1703,6 @@ Quelle: %2$s</string>
     <string name="detection_check_category_rtt_triangulation">RTT-Triangulation</string>
     <string name="detection_check_recommendations">Empfehlungen</string>
     <string name="detection_check_subtitle">Prüfen Sie, wie sichtbar Ihre VPN-/Proxy-Konfiguration ist.</string>
-    <string name="detection_community_detected_pct">%d %% der Prüfungen erkannt</string>
     <string name="detection_community_retry">Erneut versuchen</string>
     <string name="detection_finding_ok">OK</string>
     <string name="detection_onboarding_body">Die Erkennung kann Android nach Telefon- und Standortberechtigungen fragen, weil Wi-Fi- und Mobilfunkidentität helfen, Netzwerkverhalten zu unterscheiden. RIPDPI nutzt sie nicht zum Tracking. Rohkennungen werden nicht gespeichert und Diagnoseexporte machen sensible Kennungen unkenntlich.</string>

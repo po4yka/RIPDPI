@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="detection_community_detected_count">
+        <item quantity="other">在 %2$d 次检查中有 %1$d 次检测到 VPN</item>
+    </plurals>
+</resources>

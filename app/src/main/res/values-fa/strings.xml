@@ -2341,7 +2341,6 @@ fakeddisorder endhost</string>
     <string name="detection_check_running">در حال اجرای بررسی‌های تشخیص…</string>
     <string name="detection_check_stop">توقف</string>
     <string name="detection_check_verdict_needs_review">نیاز به بررسی</string>
-    <string name="detection_community_detected_pct">%d٪ از بررسی‌ها شناسایی شدند</string>
     <string name="detection_community_local_title">آمار شما</string>
     <string name="detection_community_title">انجمن</string>
     <string name="detection_finding_detected">شناسایی شد</string>

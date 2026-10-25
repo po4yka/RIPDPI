@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
+import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -89,6 +91,33 @@ class DetectionHistoryPortugueseLocaleTest {
         }
         capture("ptbr-detection-history-preserved-names")
         assertEquals(original, entries.map { it.networkFingerprint to it.networkSummary })
+    }
+
+    @Test
+    fun `history rows name each verdict and the summary counts detected checks`() {
+        val entries =
+            listOf(
+                DetectionHistoryEntry("network-1", "Home", 2L, "DETECTED", 87, 3),
+                DetectionHistoryEntry("network-2", "Office", 1L, "NOT_DETECTED", 95, 0),
+            )
+        val stats =
+            CommunityStats(
+                totalReports = 2,
+                verdictDistribution = mapOf("DETECTED" to 1, "NOT_DETECTED" to 1),
+                averageStealthScore = 91.0,
+                isLocalOnly = true,
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    HistoryCard(entries)
+                    CommunityStatsCard(stats)
+                }
+            }
+        }
+        composeRule.onNodeWithText("Detected").assertIsDisplayed()
+        composeRule.onNodeWithText("Not detected").assertIsDisplayed()
+        composeRule.onNodeWithText("VPN detected in 1 of 2 checks").assertIsDisplayed()
     }
 
     @Test
