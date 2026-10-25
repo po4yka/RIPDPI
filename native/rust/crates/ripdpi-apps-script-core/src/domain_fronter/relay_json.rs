@@ -51,9 +51,10 @@ pub(super) fn parse(body: &[u8]) -> Result<Vec<u8>, FronterError> {
     let mut output = Vec::with_capacity(body.len() + 256);
     output.extend_from_slice(format!("HTTP/1.1 {status} {}\r\n", status_text(status)).as_bytes());
     if let Some(headers) = response.headers {
+        let connection_tokens = connection_tokens(&headers);
         for (key, value) in headers {
             let lower = key.to_ascii_lowercase();
-            if matches!(lower.as_str(), "connection" | "keep-alive" | "content-length" | "content-encoding") {
+            if is_skipped_response_header(&lower) || connection_tokens.contains(&lower) {
                 continue;
             }
             if let Some(value) = header_value_from_json(&value) {
@@ -64,6 +65,37 @@ pub(super) fn parse(body: &[u8]) -> Result<Vec<u8>, FronterError> {
     output.extend_from_slice(format!("Content-Length: {}\r\n\r\n", body.len()).as_bytes());
     output.extend_from_slice(&body);
     Ok(output)
+}
+
+/// Response fields that must not reach the client. The body is already
+/// decoded and is framed only by the Content-Length written here, so the
+/// origin's framing and encoding fields are dropped, together with the RFC
+/// 9110 section 7.6.1 hop-by-hop fields. A kept Transfer-Encoding would
+/// override Content-Length (RFC 9112 section 6.3) and break the client.
+fn is_skipped_response_header(lower: &str) -> bool {
+    matches!(
+        lower,
+        "connection"
+            | "keep-alive"
+            | "content-length"
+            | "content-encoding"
+            | "transfer-encoding"
+            | "trailer"
+            | "te"
+            | "upgrade"
+    ) || lower.starts_with("proxy-")
+}
+
+/// Lowercase field names listed in the origin's Connection header, which are
+/// hop-by-hop too.
+fn connection_tokens(headers: &serde_json::Map<String, Value>) -> Vec<String> {
+    headers
+        .iter()
+        .filter(|(key, _)| key.eq_ignore_ascii_case("connection"))
+        .filter_map(|(_, value)| header_value_from_json(value))
+        .flat_map(|value| value.split(',').map(|token| token.trim().to_ascii_lowercase()).collect::<Vec<_>>())
+        .filter(|token| !token.is_empty())
+        .collect()
 }
 
 fn header_value_from_json(value: &Value) -> Option<String> {
@@ -96,5 +128,35 @@ pub(super) fn status_text(status: u16) -> &'static str {
         503 => "Service Unavailable",
         504 => "Gateway Timeout",
         _ => "Response",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn envelope(headers: &str, body: &[u8]) -> Vec<u8> {
+        format!(r#"{{"s":200,"h":{headers},"b":"{}"}}"#, BASE64_STANDARD.encode(body)).into_bytes()
+    }
+
+    /// Splits a synthesized response into its header lines and body.
+    fn split(response: &[u8]) -> (Vec<String>, Vec<u8>) {
+        let end = response.windows(4).position(|window| window == b"\r\n\r\n").expect("header terminator");
+        let head = std::str::from_utf8(&response[..end]).expect("utf-8 head");
+        let lines = head.split("\r\n").skip(1).map(str::to_owned).collect();
+        (lines, response[end + 4..].to_vec())
+    }
+
+    #[test]
+    fn hop_by_hop_response_headers_are_not_relayed() {
+        let headers = r#"{"Transfer-Encoding":"chunked","Content-Type":"text/html","Trailer":"Expires",
+            "TE":"trailers","Upgrade":"h2c","Proxy-Authenticate":"Basic","Proxy-Connection":"keep-alive",
+            "Connection":"X-Hop","X-Hop":"1","Keep-Alive":"timeout=5"}"#;
+
+        let (lines, body) = split(&parse(&envelope(headers, b"hello")).expect("parse envelope"));
+
+        // The body is already decoded, so Content-Length is the only framing.
+        assert_eq!(lines, vec!["Content-Type: text/html".to_owned(), "Content-Length: 5".to_owned()]);
+        assert_eq!(body, b"hello");
     }
 }
