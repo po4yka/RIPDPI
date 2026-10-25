@@ -26,6 +26,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
@@ -123,51 +124,55 @@ internal fun AdaptiveSplitProfileCard(
     val summary = adaptiveSplitSummaryLines(uiState)
     val badges = adaptiveSplitBadges(uiState)
 
-    RipDpiCard(
-        modifier = modifier,
-        variant = RipDpiCardVariant.Elevated,
+    // Plain column, not a nested card: the section already sits in a card.
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        StatusIndicator(
-            label = status.label,
-            tone = status.tone,
+        Text(
+            text = status.label,
+            style = type.bodyEmphasis,
+            color = colors.foreground,
         )
         Text(
             text = status.body,
             style = type.secondaryBody,
-            color = colors.foreground,
-        )
-        SummaryCapsuleFlow(items = badges)
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_split_summary_label_profile),
-                value = summary.profile,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_split_summary_label_target),
-                value = summary.target,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_split_summary_label_focus),
-                value = summary.focus,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_split_summary_label_protocols),
-                value = summary.protocols,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_split_summary_label_scope),
-                value = summary.scope,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_split_summary_label_dsl),
-                value = summary.dsl,
-            )
-        }
-        Text(
-            text = stringResource(R.string.adaptive_split_editor_note),
-            style = type.caption,
             color = colors.mutedForeground,
         )
+        SummaryCapsuleFlow(items = badges)
+        AdvancedSection(title = stringResource(R.string.action_learn_more)) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                ProfileSummaryLine(
+                    label = stringResource(R.string.adaptive_split_summary_label_profile),
+                    value = summary.profile,
+                )
+                ProfileSummaryLine(
+                    label = stringResource(R.string.adaptive_split_summary_label_target),
+                    value = summary.target,
+                )
+                ProfileSummaryLine(
+                    label = stringResource(R.string.adaptive_split_summary_label_focus),
+                    value = summary.focus,
+                )
+                ProfileSummaryLine(
+                    label = stringResource(R.string.adaptive_split_summary_label_protocols),
+                    value = summary.protocols,
+                )
+                ProfileSummaryLine(
+                    label = stringResource(R.string.adaptive_split_summary_label_scope),
+                    value = summary.scope,
+                )
+                ProfileSummaryLine(
+                    label = stringResource(R.string.adaptive_split_summary_label_dsl),
+                    value = summary.dsl,
+                )
+                Text(
+                    text = stringResource(R.string.adaptive_split_editor_note),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
         if (uiState.canResetAdaptiveSplitPreset) {
             AdaptiveSplitResetAction(
                 onResetAdaptiveSplit = onResetAdaptiveSplit,

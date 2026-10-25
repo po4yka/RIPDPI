@@ -7,4 +7,6 @@
     <string name="settings_community_source_body">Detection check downloads shared statistics from this address to compare your results. Nothing is uploaded.</string>
     <string name="settings_community_source_default">Default</string>
     <string name="settings_clear_community_cache_body">Deletes downloaded community statistics. Your check history stays.</string>
+    <string name="ripdpi_no_domain_body">Accept only IP addresses. The proxy rejects requests that ask it to resolve a domain name.</string>
+    <string name="ripdpi_tcp_fast_open_body">Send data in the first packet of outgoing connections to save a round trip. Some networks drop these packets.</string>
 </resources>

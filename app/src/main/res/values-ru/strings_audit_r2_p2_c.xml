@@ -7,4 +7,6 @@
     <string name="settings_community_source_body">Проверка обнаружения загружает общую статистику с этого адреса, чтобы сравнить ваши результаты. Ничего не отправляется.</string>
     <string name="settings_community_source_default">По умолчанию</string>
     <string name="settings_clear_community_cache_body">Удаляет загруженную статистику сообщества. История проверок сохраняется.</string>
+    <string name="ripdpi_no_domain_body">Принимать только IP-адреса. Прокси отклоняет запросы, в которых нужно разрешить доменное имя.</string>
+    <string name="ripdpi_tcp_fast_open_body">Отправлять данные в первом пакете исходящих соединений, чтобы сэкономить один круг обмена. Некоторые сети отбрасывают такие пакеты.</string>
 </resources>

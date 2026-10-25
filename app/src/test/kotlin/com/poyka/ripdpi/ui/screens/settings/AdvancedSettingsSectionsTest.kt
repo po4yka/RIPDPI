@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AdaptiveFallbackUiState
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
@@ -26,6 +27,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -119,6 +121,28 @@ class AdvancedSettingsSectionsTest {
     fun `proxy no domain toggle reflects state`() {
         setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(noDomain = true)))
         composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain)).assertIsOn()
+    }
+
+    @Test
+    fun `proxy no domain and tcp fast open toggles explain what they do`() {
+        setProxySection(uiState = SettingsUiState())
+        val app = RuntimeEnvironment.getApplication()
+
+        composeRule.onNodeWithText(app.getString(R.string.ripdpi_no_domain_body)).performScrollTo().assertExists()
+        composeRule.onNodeWithText(app.getString(R.string.ripdpi_tcp_fast_open_body)).performScrollTo().assertExists()
+    }
+
+    @Test
+    fun `adaptive split explainer stays behind learn more`() {
+        composeRule.setContent {
+            RipDpiTheme { AdaptiveSplitProfileCard(uiState = SettingsUiState(), onResetAdaptiveSplit = {}) }
+        }
+        val app = RuntimeEnvironment.getApplication()
+        val targetLabel = app.getString(R.string.adaptive_split_summary_label_target)
+
+        composeRule.onNodeWithText(targetLabel).assertDoesNotExist()
+        composeRule.onNodeWithText(app.getString(R.string.action_learn_more)).performClick()
+        composeRule.onNodeWithText(targetLabel).assertExists()
     }
 
     @Test

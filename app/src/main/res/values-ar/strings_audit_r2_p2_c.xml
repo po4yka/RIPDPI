@@ -7,4 +7,6 @@
     <string name="settings_community_source_body">يُنزّل فحص الكشف إحصاءات مشتركة من هذا العنوان لمقارنة نتائجك. لا يُرفع أي شيء.</string>
     <string name="settings_community_source_default">الافتراضي</string>
     <string name="settings_clear_community_cache_body">يحذف إحصاءات المجتمع التي جرى تنزيلها. يبقى سجل الفحوص لديك.</string>
+    <string name="ripdpi_no_domain_body">قبول عناوين IP فقط. يرفض الوكيل الطلبات التي تطلب منه تحليل اسم نطاق.</string>
+    <string name="ripdpi_tcp_fast_open_body">إرسال البيانات في أول حزمة من الاتصالات الصادرة لتوفير جولة ذهاب وإياب. بعض الشبكات تُسقط هذه الحزم.</string>
 </resources>

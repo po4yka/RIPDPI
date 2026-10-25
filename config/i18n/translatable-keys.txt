@@ -4364,6 +4364,7 @@ app:ripdpi_ip_id_mode_body
 app:ripdpi_ip_id_mode_title
 app:ripdpi_max_connections_setting
 app:ripdpi_md5sig_setting
+app:ripdpi_no_domain_body
 app:ripdpi_no_domain_setting
 app:ripdpi_protocols_category
 app:ripdpi_protocols_hint
@@ -4398,6 +4399,7 @@ app:ripdpi_seqovl_summary_scope_none
 app:ripdpi_seqovl_unsupported_body
 app:ripdpi_seqovl_unsupported_title
 app:ripdpi_split_marker_setting
+app:ripdpi_tcp_fast_open_body
 app:ripdpi_tcp_fast_open_setting
 app:ripdpi_tls_prelude_badge_https_only
 app:ripdpi_tls_prelude_badge_random

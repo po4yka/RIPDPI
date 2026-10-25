@@ -7,4 +7,6 @@
     <string name="settings_community_source_body">Die Erkennungsprüfung lädt gemeinsame Statistiken von dieser Adresse herunter, um Ihre Ergebnisse zu vergleichen. Es wird nichts hochgeladen.</string>
     <string name="settings_community_source_default">Standard</string>
     <string name="settings_clear_community_cache_body">Löscht heruntergeladene Community-Statistiken. Ihr Prüfverlauf bleibt erhalten.</string>
+    <string name="ripdpi_no_domain_body">Nur IP-Adressen annehmen. Der Proxy lehnt Anfragen ab, für die er einen Domainnamen auflösen müsste.</string>
+    <string name="ripdpi_tcp_fast_open_body">Daten im ersten Paket ausgehender Verbindungen senden, um einen Roundtrip zu sparen. Manche Netze verwerfen solche Pakete.</string>
 </resources>

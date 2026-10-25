@@ -7,4 +7,6 @@
     <string name="settings_community_source_body">La vérification de détection télécharge des statistiques partagées depuis cette adresse pour comparer vos résultats. Rien n\'est envoyé.</string>
     <string name="settings_community_source_default">Par défaut</string>
     <string name="settings_clear_community_cache_body">Supprime les statistiques communautaires téléchargées. Votre historique de vérifications est conservé.</string>
+    <string name="ripdpi_no_domain_body">N\'accepter que des adresses IP. Le proxy refuse les requêtes qui lui demandent de résoudre un nom de domaine.</string>
+    <string name="ripdpi_tcp_fast_open_body">Envoyer des données dans le premier paquet des connexions sortantes pour économiser un aller-retour. Certains réseaux rejettent ces paquets.</string>
 </resources>

@@ -7,4 +7,6 @@
     <string name="settings_community_source_body">पहचान जाँच आपके परिणामों की तुलना के लिए इस पते से साझा आँकड़े डाउनलोड करती है। कुछ भी अपलोड नहीं किया जाता।</string>
     <string name="settings_community_source_default">डिफ़ॉल्ट</string>
     <string name="settings_clear_community_cache_body">डाउनलोड किए गए कम्युनिटी आँकड़े हटाता है। आपका जाँच इतिहास बना रहता है।</string>
+    <string name="ripdpi_no_domain_body">केवल IP पते स्वीकार करें। प्रॉक्सी उन अनुरोधों को अस्वीकार करता है जिनमें उसे डोमेन नाम रिज़ॉल्व करना हो।</string>
+    <string name="ripdpi_tcp_fast_open_body">एक राउंड ट्रिप बचाने के लिए आउटगोइंग कनेक्शन के पहले पैकेट में डेटा भेजें। कुछ नेटवर्क ऐसे पैकेट गिरा देते हैं।</string>
 </resources>

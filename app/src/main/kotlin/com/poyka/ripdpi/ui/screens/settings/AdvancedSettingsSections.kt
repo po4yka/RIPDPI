@@ -449,6 +449,32 @@ private fun ProxyCapacitySettings(
 }
 
 @Composable
+private fun ProxyTransportToggles(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.ripdpi_no_domain_setting),
+        subtitle = stringResource(R.string.ripdpi_no_domain_body),
+        checked = uiState.proxy.noDomain,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
+        enabled = visualEditorEnabled,
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain),
+    )
+    SettingsRow(
+        title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
+        subtitle = stringResource(R.string.ripdpi_tcp_fast_open_body),
+        checked = uiState.proxy.tcpFastOpen,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
+        enabled = visualEditorEnabled,
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen),
+    )
+}
+
+@Composable
 private fun ProxyToggleSettings(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -468,22 +494,7 @@ private fun ProxyToggleSettings(
         )
     }
 
-    SettingsRow(
-        title = stringResource(R.string.ripdpi_no_domain_setting),
-        checked = uiState.proxy.noDomain,
-        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
-        enabled = visualEditorEnabled,
-        showDivider = true,
-        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain),
-    )
-    SettingsRow(
-        title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
-        checked = uiState.proxy.tcpFastOpen,
-        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
-        enabled = visualEditorEnabled,
-        showDivider = true,
-        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen),
-    )
+    ProxyTransportToggles(uiState, visualEditorEnabled, onToggleChanged)
     SettingsRow(
         title = stringResource(R.string.settings_mixed_inbound_title),
         subtitle = stringResource(R.string.settings_mixed_inbound_body),
