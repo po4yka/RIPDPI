@@ -101,6 +101,8 @@ fun RipDpiProgressBar(
             modifier = baseModifier,
             color = foreground,
             trackColor = track,
+            // The RDS bar has no end marker; the Material stop dot reads as a stray artifact.
+            drawStopIndicator = {},
         )
     }
 }

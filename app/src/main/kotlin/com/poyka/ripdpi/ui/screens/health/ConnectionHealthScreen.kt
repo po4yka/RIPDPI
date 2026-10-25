@@ -79,7 +79,8 @@ fun ConnectionHealthScreen(
                     ?: stringResource(R.string.diagnostics_field_unknown),
             ),
         )
-        uiState.rows.forEach { row ->
+        // A destination without samples has nothing to show; the empty state below stands in for blank cards.
+        uiState.rows.filter { it.totalCount > 0L }.forEach { row ->
             ConnectionHealthRow(row = row)
         }
         if (!uiState.hasData) {

@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
@@ -59,6 +60,55 @@ class ConnectionHealthScreenTest {
         }
         composeRule.onNodeWithText("p50 RTT: 18 ms.").assertIsDisplayed()
         composeRule.onNodeWithText("Waiting for quality measurements.").assertDoesNotExist()
+        composeRule.onNodeWithText("Waiting for classified traffic").assertDoesNotExist()
+    }
+
+    @Test
+    fun destinationsWithoutSamplesCollapseIntoOneEmptyState() {
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionHealthScreen(
+                    uiState =
+                        ConnectionHealthUiState(
+                            rows =
+                                ConnectionHealthDestinationClass.entries
+                                    .map { ConnectionHealthRowUiState(destinationClass = it) }
+                                    .toPersistentList(),
+                        ),
+                    onBack = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("Waiting for classified traffic").assertIsDisplayed()
+        composeRule.onNodeWithText("VK").assertDoesNotExist()
+        composeRule.onNodeWithText("SAMPLES").assertDoesNotExist()
+    }
+
+    @Test
+    fun onlyDestinationsWithSamplesGetACard() {
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionHealthScreen(
+                    uiState =
+                        ConnectionHealthUiState(
+                            rows =
+                                persistentListOf(
+                                    ConnectionHealthRowUiState(
+                                        destinationClass = ConnectionHealthDestinationClass.VK,
+                                        successCount = 3,
+                                        failureCount = 1,
+                                    ),
+                                    ConnectionHealthRowUiState(
+                                        destinationClass = ConnectionHealthDestinationClass.TELEGRAM,
+                                    ),
+                                ),
+                        ),
+                    onBack = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("VK").assertIsDisplayed()
+        composeRule.onNodeWithText("Telegram").assertDoesNotExist()
         composeRule.onNodeWithText("Waiting for classified traffic").assertDoesNotExist()
     }
 
