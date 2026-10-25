@@ -3004,7 +3004,7 @@ Quelle: %2$s</string>
     <string name="vpn_pcap_viewer_hex_label">HEX-DUMP</string>
     <string name="vpn_confirm_disconnect_title">Jetzt trennen?</string>
     <string name="vpn_confirm_disconnect_session_format">Aktive Sitzung · %1$s</string>
-    <string name="vpn_confirm_disconnect_body">Beim Trennen werden laufende Downloads abgebrochen und der Analyzer zurückgesetzt. Aktive Anrufe können unterbrochen werden.</string>
+    <string name="vpn_confirm_disconnect_body">Apps verlieren die Umgehung, bis Sie sich wieder verbinden. Aktive Anrufe und Downloads können abbrechen.</string>
     <string name="vpn_confirm_disconnect_stay">Verbunden bleiben</string>
     <string name="vpn_confirm_disconnect_disconnect">Trennen</string>
     <string name="vpn_export_consent_title_format">%1$s exportieren</string>

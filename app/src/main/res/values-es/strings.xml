@@ -3004,7 +3004,7 @@ Origen: %2$s</string>
     <string name="vpn_pcap_viewer_hex_label">VOLCADO HEX</string>
     <string name="vpn_confirm_disconnect_title">¿Desconectar ahora?</string>
     <string name="vpn_confirm_disconnect_session_format">Sesión activa · %1$s</string>
-    <string name="vpn_confirm_disconnect_body">Desconectar interrumpirá las descargas en curso y reiniciará el estado del analizador. Las llamadas activas pueden cortarse.</string>
+    <string name="vpn_confirm_disconnect_body">Las apps pierden la evasión hasta que vuelvas a conectar. Las llamadas y descargas activas pueden detenerse.</string>
     <string name="vpn_confirm_disconnect_stay">Mantener conexión</string>
     <string name="vpn_confirm_disconnect_disconnect">Desconectar</string>
     <string name="vpn_export_consent_title_format">Exportar %1$s</string>

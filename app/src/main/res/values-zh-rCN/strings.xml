@@ -3001,7 +3001,7 @@ fake_burst 3</string>
     <string name="vpn_pcap_viewer_hex_label">十六进制</string>
     <string name="vpn_confirm_disconnect_title">立即断开？</string>
     <string name="vpn_confirm_disconnect_session_format">当前会话 · %1$s</string>
-    <string name="vpn_confirm_disconnect_body">断开连接将中断正在进行的下载并重置分析器状态。通话可能会被中断。</string>
+    <string name="vpn_confirm_disconnect_body">在你重新连接之前，应用将失去绕过功能。进行中的通话和下载可能会中断。</string>
     <string name="vpn_confirm_disconnect_stay">保持连接</string>
     <string name="vpn_confirm_disconnect_disconnect">断开连接</string>
     <string name="vpn_export_consent_title_format">导出 %1$s</string>

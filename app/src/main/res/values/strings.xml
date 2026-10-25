@@ -3162,7 +3162,7 @@ Source: %2$s</string>
     <string name="vpn_pcap_viewer_hex_label">HEX DUMP</string>
     <string name="vpn_confirm_disconnect_title">Disconnect now?</string>
     <string name="vpn_confirm_disconnect_session_format">Active session · %1$s</string>
-    <string name="vpn_confirm_disconnect_body">Disconnecting will drop any open downloads and reset the analyzer state. Active calls may be interrupted.</string>
+    <string name="vpn_confirm_disconnect_body">Apps lose the bypass until you connect again. Active calls and downloads may stop.</string>
     <string name="vpn_confirm_disconnect_stay">Stay connected</string>
     <string name="vpn_confirm_disconnect_disconnect">Disconnect</string>
     <string name="vpn_export_consent_title_format">Export %1$s</string>

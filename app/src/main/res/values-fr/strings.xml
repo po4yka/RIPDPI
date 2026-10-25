@@ -3004,7 +3004,7 @@ Source : %2$s</string>
     <string name="vpn_pcap_viewer_hex_label">VIDAGE HEX</string>
     <string name="vpn_confirm_disconnect_title">Déconnecter maintenant ?</string>
     <string name="vpn_confirm_disconnect_session_format">Session active · %1$s</string>
-    <string name="vpn_confirm_disconnect_body">La déconnexion interrompra les téléchargements en cours et réinitialisera l\'analyseur. Les appels actifs peuvent être coupés.</string>
+    <string name="vpn_confirm_disconnect_body">Les applications perdent le contournement jusqu\'à la reconnexion. Les appels et téléchargements en cours peuvent s\'arrêter.</string>
     <string name="vpn_confirm_disconnect_stay">Rester connecté</string>
     <string name="vpn_confirm_disconnect_disconnect">Déconnecter</string>
     <string name="vpn_export_consent_title_format">Exporter %1$s</string>

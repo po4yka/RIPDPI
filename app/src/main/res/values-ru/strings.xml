@@ -2869,7 +2869,7 @@ fakeddisorder endhost</string>
     <string name="vpn_pcap_viewer_hex_label">HEX-ДАМП</string>
     <string name="vpn_confirm_disconnect_title">Отключиться сейчас?</string>
     <string name="vpn_confirm_disconnect_session_format">Активный сеанс · %1$s</string>
-    <string name="vpn_confirm_disconnect_body">Отключение прервёт текущие загрузки и сбросит состояние анализатора. Активные звонки могут быть прерваны.</string>
+    <string name="vpn_confirm_disconnect_body">Приложения потеряют обход, пока вы снова не подключитесь. Активные звонки и загрузки могут прерваться.</string>
     <string name="vpn_confirm_disconnect_stay">Остаться на связи</string>
     <string name="vpn_confirm_disconnect_disconnect">Отключить</string>
     <string name="vpn_export_consent_title_format">Экспорт %1$s</string>
