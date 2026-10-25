@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_prompt_device_credential_title">از قفل صفحه استفاده کنید</string>
+    <string name="biometric_prompt_device_credential_body">هیچ اثر انگشت یا چهره‌ای روی این دستگاه تنظیم نشده است. با پین، الگو یا گذرواژهٔ دستگاه قفل را باز کنید.</string>
+    <string name="biometric_prompt_no_lock_title">قفل برنامه فعال نیست</string>
+    <string name="biometric_prompt_no_lock_body">این دستگاه اثر انگشت، چهره یا قفل صفحه ندارد، بنابراین RIPDPI نمی‌تواند هویت شما را تأیید کند. برای محافظت از برنامه، در تنظیمات سیستم یک قفل صفحه تنظیم کنید.</string>
+</resources>

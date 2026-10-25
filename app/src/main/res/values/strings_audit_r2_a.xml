@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_prompt_device_credential_title">Use your screen lock</string>
+    <string name="biometric_prompt_device_credential_body">No fingerprint or face is set up on this device. Unlock with your device PIN, pattern, or password.</string>
+    <string name="biometric_prompt_no_lock_title">App lock is not active</string>
+    <string name="biometric_prompt_no_lock_body">This device has no fingerprint, face, or screen lock, so RIPDPI cannot verify you. Set up a screen lock in system settings to protect the app.</string>
+</resources>

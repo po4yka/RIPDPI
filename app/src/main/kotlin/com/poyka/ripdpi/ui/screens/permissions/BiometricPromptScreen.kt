@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.ui.screens.permissions
 
-import androidx.biometric.BiometricManager
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,9 +28,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.security.AppLockAuthenticator
+import com.poyka.ripdpi.security.AppLockStart
 import com.poyka.ripdpi.security.BiometricAuthManager
 import com.poyka.ripdpi.security.BiometricAuthResult
 import com.poyka.ripdpi.security.PinVerifyResult
+import com.poyka.ripdpi.security.appLockPromptAuthenticators
+import com.poyka.ripdpi.security.appLockStart
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -76,6 +80,7 @@ fun BiometricPromptRoute(
     var pinError by rememberSaveable { mutableStateOf<String?>(null) }
     var lockoutRemainingMs by rememberSaveable { mutableLongStateOf(0L) }
     var biometricError by rememberSaveable { mutableStateOf<String?>(null) }
+    var authenticator by remember { mutableStateOf(biometricAuthManager.appLockAuthenticator(context)) }
 
     val launchBiometric: () -> Unit =
         launchBiometricCallback(
@@ -85,6 +90,7 @@ fun BiometricPromptRoute(
             biometricTitle = biometricTitle,
             biometricSubtitle = biometricSubtitle,
             biometricCancel = biometricCancel,
+            onAuthenticatorChange = { authenticator = it },
             onAuthenticated = onAuthenticated,
             onError = { biometricError = it },
         )
@@ -93,8 +99,7 @@ fun BiometricPromptRoute(
         uiState = uiState,
         stage = stage,
         lockoutRemainingMs = lockoutRemainingMs,
-        context = context,
-        biometricAuthManager = biometricAuthManager,
+        appLockAuthenticator = { biometricAuthManager.appLockAuthenticator(context).also { authenticator = it } },
         isPinLockedOut = viewModel::isPinLockedOut,
         pinLockoutRemainingMs = viewModel::pinLockoutRemainingMs,
         onAuthenticated = onAuthenticated,
@@ -110,8 +115,17 @@ fun BiometricPromptRoute(
         pinError = pinError,
         lockoutRemainingMs = lockoutRemainingMs,
         biometricError = biometricError,
+        authenticator = authenticator,
         modifier = modifier,
-        onAuthenticate = launchBiometric,
+        onAuthenticate = {
+            // Re-read the device state at tap time: a screen lock added since the screen opened must be used.
+            val current = biometricAuthManager.appLockAuthenticator(context).also { authenticator = it }
+            if (uiState.isHydrated && appLockStart(current, uiState.hasBackupPin) == AppLockStart.ExplainNoLock) {
+                onAuthenticated()
+            } else {
+                launchBiometric()
+            }
+        },
         onUseBackupPin = {
             stage = BiometricPromptStage.Pin
             pinError = null
@@ -127,20 +141,10 @@ fun BiometricPromptRoute(
             pinError = null
         },
         onSubmitPin = {
-            when (val result = viewModel.verifyBackupPin(pin)) {
-                is PinVerifyResult.Success -> {
-                    onAuthenticated()
-                }
-
-                is PinVerifyResult.Failed -> {
-                    pinError = pinErrorText
-                }
-
-                is PinVerifyResult.LockedOut -> {
-                    lockoutRemainingMs = result.remainingMs
-                    pinError = null
-                }
-            }
+            val result = viewModel.verifyBackupPin(pin)
+            pinError = if (result is PinVerifyResult.Failed) pinErrorText else null
+            if (result is PinVerifyResult.LockedOut) lockoutRemainingMs = result.remainingMs
+            if (result is PinVerifyResult.Success) onAuthenticated()
         },
     )
 }
@@ -152,11 +156,16 @@ private fun launchBiometricCallback(
     biometricTitle: String,
     biometricSubtitle: String,
     biometricCancel: String,
+    onAuthenticatorChange: (AppLockAuthenticator) -> Unit,
     onAuthenticated: () -> Unit,
     onError: (String?) -> Unit,
 ): () -> Unit =
-    {
+    launch@{
         onError(null)
+        // Re-read the device state: the user may have removed fingerprints or the screen lock meanwhile.
+        val authenticator = biometricAuthManager.appLockAuthenticator(context)
+        onAuthenticatorChange(authenticator)
+        if (authenticator == AppLockAuthenticator.None) return@launch
         coroutineScope.launch {
             val result =
                 biometricAuthManager.authenticate(
@@ -164,6 +173,7 @@ private fun launchBiometricCallback(
                     biometricTitle,
                     biometricSubtitle,
                     biometricCancel,
+                    appLockPromptAuthenticators(authenticator, Build.VERSION.SDK_INT),
                 )
             if (result is BiometricAuthResult.Success) {
                 onAuthenticated()
@@ -178,8 +188,7 @@ private fun BiometricPromptEffects(
     uiState: SettingsUiState,
     stage: BiometricPromptStage,
     lockoutRemainingMs: Long,
-    context: android.content.Context,
-    biometricAuthManager: BiometricAuthManager,
+    appLockAuthenticator: () -> AppLockAuthenticator,
     isPinLockedOut: () -> Boolean,
     pinLockoutRemainingMs: () -> Long,
     onAuthenticated: () -> Unit,
@@ -193,10 +202,10 @@ private fun BiometricPromptEffects(
 
     LaunchedEffect(stage, uiState.isHydrated) {
         if (!uiState.isHydrated || stage != BiometricPromptStage.Biometric) return@LaunchedEffect
-        if (biometricAuthManager.canAuthenticate(context) != BiometricManager.BIOMETRIC_SUCCESS) {
-            if (uiState.hasBackupPin) onStageChange(BiometricPromptStage.Pin)
-        } else {
-            launchBiometric()
+        when (appLockStart(appLockAuthenticator(), uiState.hasBackupPin)) {
+            AppLockStart.LaunchPrompt -> launchBiometric()
+            AppLockStart.UseBackupPin -> onStageChange(BiometricPromptStage.Pin)
+            AppLockStart.ExplainNoLock -> Unit
         }
     }
 
@@ -227,6 +236,7 @@ fun BiometricPromptScreen(
     modifier: Modifier = Modifier,
     lockoutRemainingMs: Long = 0L,
     biometricError: String? = null,
+    authenticator: AppLockAuthenticator = AppLockAuthenticator.StrongBiometric,
 ) {
     val isLockedOut = lockoutRemainingMs > 0L
     val hasBackupPin = uiState.hasBackupPin
@@ -264,6 +274,7 @@ fun BiometricPromptScreen(
                 hasBackupPin = hasBackupPin,
                 lockoutRemainingMs = lockoutRemainingMs,
                 biometricError = biometricError,
+                authenticator = authenticator,
             )
         },
         content = {
@@ -281,6 +292,7 @@ fun BiometricPromptScreen(
                 isPinStage = isPinStage,
                 isLockedOut = isLockedOut,
                 hasBackupPin = hasBackupPin,
+                hasAuthenticator = authenticator != AppLockAuthenticator.None,
                 onSubmitPin = onSubmitPin,
                 onAuthenticate = onAuthenticate,
                 onBackToBiometric = onBackToBiometric,
@@ -297,6 +309,7 @@ private fun BiometricPromptBanner(
     hasBackupPin: Boolean,
     lockoutRemainingMs: Long,
     biometricError: String?,
+    authenticator: AppLockAuthenticator,
 ) {
     if (isPinStage && isLockedOut) {
         val remainingSeconds = ((lockoutRemainingMs + MsPerSecond - 1) / MsPerSecond).toInt()
@@ -316,6 +329,18 @@ private fun BiometricPromptBanner(
             message = biometricError,
             tone = WarningBannerTone.Restricted,
         )
+    } else if (!isPinStage && authenticator == AppLockAuthenticator.None) {
+        WarningBanner(
+            title = stringResource(R.string.biometric_prompt_no_lock_title),
+            message = stringResource(R.string.biometric_prompt_no_lock_body),
+            tone = WarningBannerTone.Warning,
+        )
+    } else if (!isPinStage && authenticator == AppLockAuthenticator.DeviceCredential) {
+        WarningBanner(
+            title = stringResource(R.string.biometric_prompt_device_credential_title),
+            message = stringResource(R.string.biometric_prompt_device_credential_body),
+            tone = WarningBannerTone.Info,
+        )
     } else if (!isPinStage && !hasBackupPin) {
         WarningBanner(
             title = stringResource(R.string.biometric_prompt_no_pin_title),
@@ -330,6 +355,7 @@ private fun BiometricPromptFooter(
     isPinStage: Boolean,
     isLockedOut: Boolean,
     hasBackupPin: Boolean,
+    hasAuthenticator: Boolean,
     onSubmitPin: () -> Unit,
     onAuthenticate: () -> Unit,
     onBackToBiometric: () -> Unit,
@@ -338,7 +364,10 @@ private fun BiometricPromptFooter(
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
 
     RipDpiButton(
-        text = stringResource(R.string.biometric_prompt_action),
+        text =
+            stringResource(
+                if (isPinStage || hasAuthenticator) R.string.biometric_prompt_action else R.string.onboarding_continue,
+            ),
         onClick = if (isPinStage) onSubmitPin else onAuthenticate,
         enabled = !isPinStage || !isLockedOut,
         modifier =

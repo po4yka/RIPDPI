@@ -400,6 +400,10 @@ app:biometric_dialog_subtitle
 app:biometric_dialog_title
 app:biometric_prompt_action
 app:biometric_prompt_body
+app:biometric_prompt_device_credential_body
+app:biometric_prompt_device_credential_title
+app:biometric_prompt_no_lock_body
+app:biometric_prompt_no_lock_title
 app:biometric_prompt_no_pin_body
 app:biometric_prompt_no_pin_title
 app:biometric_prompt_pin_body

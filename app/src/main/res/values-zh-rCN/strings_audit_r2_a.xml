@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_prompt_device_credential_title">使用屏幕锁定</string>
+    <string name="biometric_prompt_device_credential_body">此设备未设置指纹或人脸。请使用设备的 PIN 码、图案或密码解锁。</string>
+    <string name="biometric_prompt_no_lock_title">应用锁未生效</string>
+    <string name="biometric_prompt_no_lock_body">此设备没有指纹、人脸或屏幕锁定，因此 RIPDPI 无法验证您的身份。请在系统设置中设置屏幕锁定以保护应用。</string>
+</resources>

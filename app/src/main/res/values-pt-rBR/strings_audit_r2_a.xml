@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_prompt_device_credential_title">Use o bloqueio de tela</string>
+    <string name="biometric_prompt_device_credential_body">Nenhuma impressão digital ou rosto está configurado neste dispositivo. Desbloqueie com o PIN, o padrão ou a senha do dispositivo.</string>
+    <string name="biometric_prompt_no_lock_title">O bloqueio do app não está ativo</string>
+    <string name="biometric_prompt_no_lock_body">Este dispositivo não tem impressão digital, rosto nem bloqueio de tela, então o RIPDPI não consegue verificar sua identidade. Configure um bloqueio de tela nas configurações do sistema para proteger o app.</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_prompt_device_credential_title">Usa el bloqueo de pantalla</string>
+    <string name="biometric_prompt_device_credential_body">Este dispositivo no tiene huella digital ni rostro configurados. Desbloquea con el PIN, el patrón o la contraseña del dispositivo.</string>
+    <string name="biometric_prompt_no_lock_title">El bloqueo de la aplicación no está activo</string>
+    <string name="biometric_prompt_no_lock_body">Este dispositivo no tiene huella digital, rostro ni bloqueo de pantalla, así que RIPDPI no puede verificar tu identidad. Configura un bloqueo de pantalla en los ajustes del sistema para proteger la aplicación.</string>
+</resources>

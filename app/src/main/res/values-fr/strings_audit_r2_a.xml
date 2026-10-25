@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_prompt_device_credential_title">Utilisez le verrouillage de l\'écran</string>
+    <string name="biometric_prompt_device_credential_body">Aucune empreinte digitale ni aucun visage n\'est configuré sur cet appareil. Déverrouillez avec le code, le schéma ou le mot de passe de l\'appareil.</string>
+    <string name="biometric_prompt_no_lock_title">Le verrouillage de l\'application n\'est pas actif</string>
+    <string name="biometric_prompt_no_lock_body">Cet appareil n\'a ni empreinte digitale, ni visage, ni verrouillage de l\'écran : RIPDPI ne peut donc pas vous identifier. Configurez un verrouillage de l\'écran dans les paramètres système pour protéger l\'application.</string>
+</resources>

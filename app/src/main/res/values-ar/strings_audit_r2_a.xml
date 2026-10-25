@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_prompt_device_credential_title">استخدم قفل الشاشة</string>
+    <string name="biometric_prompt_device_credential_body">لم يتم إعداد بصمة إصبع أو وجه على هذا الجهاز. افتح القفل باستخدام رقم التعريف الشخصي أو النقش أو كلمة مرور الجهاز.</string>
+    <string name="biometric_prompt_no_lock_title">قفل التطبيق غير نشط</string>
+    <string name="biometric_prompt_no_lock_body">لا يحتوي هذا الجهاز على بصمة إصبع أو وجه أو قفل شاشة، لذلك لا يستطيع RIPDPI التحقق من هويتك. اضبط قفل الشاشة في إعدادات النظام لحماية التطبيق.</string>
+</resources>

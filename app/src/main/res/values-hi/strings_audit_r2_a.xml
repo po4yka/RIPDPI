@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_prompt_device_credential_title">अपने स्क्रीन लॉक का उपयोग करें</string>
+    <string name="biometric_prompt_device_credential_body">इस उपकरण पर कोई फ़िंगरप्रिंट या चेहरा सेट नहीं है। उपकरण के पिन, पैटर्न या पासवर्ड से अनलॉक करें।</string>
+    <string name="biometric_prompt_no_lock_title">ऐप लॉक सक्रिय नहीं है</string>
+    <string name="biometric_prompt_no_lock_body">इस उपकरण पर कोई फ़िंगरप्रिंट, चेहरा या स्क्रीन लॉक नहीं है, इसलिए RIPDPI आपकी पहचान सत्यापित नहीं कर सकता। ऐप को सुरक्षित रखने के लिए सिस्टम सेटिंग्स में स्क्रीन लॉक सेट करें।</string>
+</resources>
