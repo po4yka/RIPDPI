@@ -22,9 +22,9 @@ pub(crate) use options::{TcpRepairOptionsSnapshot, TcpWindowScaleSnapshot, decod
 pub(crate) use replacement::{build_replacement_tcp_socket, sequence_after_payload};
 pub(crate) use settings::capture_stream_socket_settings;
 pub(crate) use snapshot::{TcpRepairSnapshot, snapshot_tcp_repair_state};
-#[cfg(test)]
-pub(crate) use sockopt::TcpRepairWindow;
 pub(crate) use sockopt::{TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue};
+#[cfg(test)]
+pub(crate) use sockopt::{TcpRepairWindow, read_tcp_timestamp, set_tcp_timestamp};
 
 pub(crate) fn probe_tcp_repair(protect_path: Option<&str>) -> io::Result<()> {
     let (client, _server) = connected_loopback_pair()?;

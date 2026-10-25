@@ -73,8 +73,8 @@ pub(crate) fn get_tcp_queue_seq(fd: libc::c_int) -> io::Result<u32> {
 }
 
 pub(crate) fn read_tcp_timestamp(fd: libc::c_int) -> io::Result<u32> {
-    let value = get_c_int_sockopt(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP)?;
-    u32::try_from(value).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative TCP timestamp"))
+    // The kernel returns the u32 TSval in an int, so values >= 2^31 come back negative.
+    Ok(get_c_int_sockopt(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP)?.cast_unsigned())
 }
 
 pub(crate) fn set_tcp_timestamp(fd: libc::c_int, value: u32, usec_ts: bool) -> io::Result<()> {
@@ -82,9 +82,8 @@ pub(crate) fn set_tcp_timestamp(fd: libc::c_int, value: u32, usec_ts: bool) -> i
     if usec_ts {
         encoded |= 1;
     }
-    let encoded =
-        i32::try_from(encoded).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "TCP timestamp exceeds i32"))?;
-    set_c_int_sockopt(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP, encoded)
+    // The kernel reads the int back as the u32 TSval bit pattern.
+    set_c_int_sockopt(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP, encoded.cast_signed())
 }
 
 pub(crate) fn get_tcp_repair_window(fd: libc::c_int) -> io::Result<TcpRepairWindow> {

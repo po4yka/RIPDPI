@@ -71,3 +71,29 @@ fn probe_tcp_repair_requires_kernel_or_protect_path_work() {
     probe_tcp_repair(Some(&protect_path))
         .expect_err("TCP_REPAIR probe must not succeed without protect/capability work");
 }
+
+#[test]
+fn tcp_timestamp_round_trips_tsvals_above_i32_max() {
+    use std::os::fd::AsRawFd;
+
+    use crate::linux::tcp_repair::{
+        TCP_REPAIR_ON, disable_tcp_repair, read_tcp_timestamp, set_tcp_repair, set_tcp_timestamp,
+    };
+
+    let (client, _server) = super::connected_pair();
+    let fd = client.as_raw_fd();
+    // The kernel picks a random TSval offset per address pair, so about half
+    // of all connections report a TSval with the top bit set.
+    read_tcp_timestamp(fd).expect("read the TSval of a live connection");
+
+    // Writing the TSval needs TCP_REPAIR (CAP_NET_ADMIN); without it only the
+    // read above runs.
+    if set_tcp_repair(fd, TCP_REPAIR_ON).is_err() {
+        return;
+    }
+    let written = 0x9000_0000_u32;
+    let result = set_tcp_timestamp(fd, written, false).and_then(|()| read_tcp_timestamp(fd));
+    let _ = disable_tcp_repair(fd);
+    let read_back = result.expect("TSval above i32::MAX round-trips");
+    assert!(read_back.wrapping_sub(written) < 10_000, "read back {read_back:#x}, wrote {written:#x}");
+}
