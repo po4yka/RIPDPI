@@ -85,6 +85,7 @@ class DiagnosticsUiCoreSupportTest {
                     override val locale: Locale = Locale.US
                     override val timestampLocale: Locale = Locale.US
                     override val zoneId: ZoneId = ZoneId.of("America/New_York")
+                    override val is24HourFormat: Boolean = true
                 },
             )
 
@@ -98,12 +99,13 @@ class DiagnosticsUiCoreSupportTest {
             testDiagnosticsUiCoreSupport(
                 object : DiagnosticsUiFormatter(application) {
                     override val zoneId: ZoneId = ZoneId.of("UTC")
+                    override val is24HourFormat: Boolean = true
                 },
             )
         val configuration = Configuration(application.resources.configuration)
         listOf(
-            "ru" to "окт. 10, 00:00",
-            "fa" to "اکتبر 10, 00:00",
+            "ru" to "10 окт., 00:00",
+            "fa" to "۱۰ اکتبر، ۰:۰۰",
             "en" to "Oct 10, 00:00",
         ).forEach { (tag, expected) ->
             RuntimeEnvironment.setQualifiers("+$tag")

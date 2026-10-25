@@ -7,10 +7,6 @@ import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyAutomatic
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 internal fun strategyPackRefreshEnabled(strategyPackCatalog: StrategyPackCatalogUiState): Boolean =
     !strategyPackCatalog.isRefreshing
@@ -149,11 +145,3 @@ internal fun strategyPackRefreshPolicyLabelResId(policy: String): Int =
     } else {
         R.string.strategy_pack_badge_policy_manual
     }
-
-internal fun formatStrategyPackFetchedAt(
-    timestampMillis: Long,
-    locale: Locale,
-): String =
-    DateTimeFormatter
-        .ofPattern("MMM d, HH:mm", locale)
-        .format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))

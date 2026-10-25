@@ -11,7 +11,10 @@ import com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepKind
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
+import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.TimestampTimeMillis
+import com.poyka.ripdpi.platform.TimestampTimeSeconds
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -24,9 +27,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -54,6 +54,7 @@ class ReplayFailureViewModel
         private val replayService: ProbeReplayService,
         private val replayResultStore: ReplayResultStore,
         private val stringResolver: StringResolver,
+        private val timestamps: LocalizedTimestampFormatter,
     ) : ViewModel() {
         private val mutableUiState = MutableStateFlow(ReplayFailureUiState())
         val uiState: StateFlow<ReplayFailureUiState> = mutableUiState.asStateFlow()
@@ -269,25 +270,11 @@ class ReplayFailureViewModel
                 },
             )
 
-        private fun currentTimestamp(): String =
-            requireNotNull(TIMESTAMP_FORMAT.get()).format(Date(System.currentTimeMillis()))
+        private fun currentTimestamp(): String = timestamps.format(System.currentTimeMillis(), TimestampTimeSeconds)
 
-        private fun formatTime(epochMs: Long): String = requireNotNull(STEP_TIME_FORMAT.get()).format(Date(epochMs))
+        private fun formatTime(epochMs: Long): String = timestamps.format(epochMs, TimestampTimeMillis)
 
         companion object {
             const val DEFAULT_TIMEOUT_MS: Long = 15_000L
-
-            // ThreadLocal<T>.get() is declared nullable in Kotlin's stubs
-            // even when initialValue() is overridden to a non-null value.
-            // requireNotNull() at call sites documents the invariant.
-            private val TIMESTAMP_FORMAT: ThreadLocal<SimpleDateFormat> =
-                object : ThreadLocal<SimpleDateFormat>() {
-                    override fun initialValue(): SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.US)
-                }
-
-            private val STEP_TIME_FORMAT: ThreadLocal<SimpleDateFormat> =
-                object : ThreadLocal<SimpleDateFormat>() {
-                    override fun initialValue(): SimpleDateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
-                }
         }
     }

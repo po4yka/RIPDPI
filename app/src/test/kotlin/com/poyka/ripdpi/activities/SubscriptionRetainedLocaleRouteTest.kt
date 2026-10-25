@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverUiState
@@ -64,7 +65,13 @@ class SubscriptionRetainedLocaleRouteTest {
         val telemetry = telemetryFixture()
         val service = FakeServiceStateStore().apply { updateTelemetry(telemetry) }
         val viewModel =
-            SubscriptionFailoverViewModel(service, groupRepository, profileStore, AndroidStringResolver(context))
+            SubscriptionFailoverViewModel(
+                service,
+                groupRepository,
+                profileStore,
+                AndroidStringResolver(context),
+                LocalizedTimestampFormatter(context),
+            )
         val configuration = mutableStateOf(Configuration(context.resources.configuration))
         composeRule.setContent {
             CompositionLocalProvider(

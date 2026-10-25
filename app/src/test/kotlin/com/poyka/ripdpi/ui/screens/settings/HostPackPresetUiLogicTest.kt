@@ -17,8 +17,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.Locale
-import java.util.TimeZone
 
 class HostPackPresetUiLogicTest {
     @Test
@@ -69,19 +67,6 @@ class HostPackPresetUiLogicTest {
             "runetfreedom/russia-blocked-geosite @ abcdef1",
             hostPackSourceSummary(preset),
         )
-    }
-
-    @Test
-    fun `formatting helpers render local timestamps`() {
-        val previousTimeZone = TimeZone.getDefault()
-        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Tbilisi"))
-
-        try {
-            assertEquals("Mar 12, 13:00", formatHostPackGeneratedAt("2026-03-12T09:00:00Z", Locale.ENGLISH))
-            assertEquals("Mar 12, 13:00", formatHostPackFetchedAt(1_773_306_000_000, Locale.ENGLISH))
-        } finally {
-            TimeZone.setDefault(previousTimeZone)
-        }
     }
 
     @Test

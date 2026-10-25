@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,10 +10,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
+import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -54,13 +57,14 @@ internal fun StrategyPackCatalogStatusCard(
     val type = RipDpiThemeTokens.type
     val status = rememberStrategyPackCatalogStatus(strategyPackCatalog)
     val locale = LocalConfiguration.current.locales[0]
+    val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
     val lastFetchedAt =
-        remember(strategyPackCatalog.lastFetchedAtEpochMillis, locale) {
-            strategyPackCatalog.lastFetchedAtEpochMillis?.let { formatStrategyPackFetchedAt(it, locale) }
+        remember(strategyPackCatalog.lastFetchedAtEpochMillis, locale, is24Hour) {
+            strategyPackCatalog.lastFetchedAtEpochMillis?.let { formatLocalizedTimestamp(it, locale, is24Hour) }
         }
     val lastRefreshAttempt =
-        remember(strategyPackCatalog.lastRefreshAttemptAtEpochMillis, locale) {
-            strategyPackCatalog.lastRefreshAttemptAtEpochMillis?.let { formatStrategyPackFetchedAt(it, locale) }
+        remember(strategyPackCatalog.lastRefreshAttemptAtEpochMillis, locale, is24Hour) {
+            strategyPackCatalog.lastRefreshAttemptAtEpochMillis?.let { formatLocalizedTimestamp(it, locale, is24Hour) }
         }
     val downloadedBadge = stringResource(R.string.strategy_pack_badge_downloaded)
     val bundledBadge = stringResource(R.string.strategy_pack_badge_bundled)

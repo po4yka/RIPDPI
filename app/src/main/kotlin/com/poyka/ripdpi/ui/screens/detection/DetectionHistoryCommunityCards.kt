@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.community.CommunityStats
+import com.poyka.ripdpi.platform.localizedTimestamp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -21,10 +22,6 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 private const val historyEntryLimit = 5
 private const val highStealthScoreThreshold = 70
@@ -63,7 +60,7 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                             entry.networkSummary
                         }
                     Text(networkSummary, style = type.body, maxLines = 1)
-                    Text(formatTimestamp(entry.timestamp), style = type.caption, color = colors.mutedForeground)
+                    Text(localizedTimestamp(entry.timestamp), style = type.caption, color = colors.mutedForeground)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -166,12 +163,4 @@ internal fun CommunityStatsErrorCard(
             variant = RipDpiButtonVariant.Outline,
         )
     }
-}
-
-private fun formatTimestamp(millis: Long): String {
-    val formatter =
-        DateTimeFormatter
-            .ofPattern("dd MMM HH:mm", Locale.getDefault())
-            .withZone(ZoneId.systemDefault())
-    return formatter.format(Instant.ofEpochMilli(millis))
 }

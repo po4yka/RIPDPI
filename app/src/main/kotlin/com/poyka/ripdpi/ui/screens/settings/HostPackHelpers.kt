@@ -9,11 +9,10 @@ import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.HostPackTargetBlacklist
 import com.poyka.ripdpi.data.HostPackTargetWhitelist
+import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 internal fun defaultHostPackTargetMode(uiState: SettingsUiState): String =
@@ -114,20 +113,11 @@ internal fun hostPackSourceSummary(preset: HostPackPreset): String =
 internal fun formatHostPackGeneratedAt(
     timestamp: String,
     locale: Locale,
+    is24Hour: Boolean,
 ): String? =
-    runCatching {
-        DateTimeFormatter
-            .ofPattern("MMM d, HH:mm", locale)
-            .format(Instant.parse(timestamp).atZone(ZoneId.systemDefault()))
-    }.getOrNull()
-
-internal fun formatHostPackFetchedAt(
-    timestampMillis: Long,
-    locale: Locale,
-): String =
-    DateTimeFormatter
-        .ofPattern("MMM d, HH:mm", locale)
-        .format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))
+    runCatching { Instant.parse(timestamp) }
+        .getOrNull()
+        ?.let { formatLocalizedTimestamp(it.toEpochMilli(), locale, is24Hour) }
 
 // Match the catalog's canonical description as well as its ID so custom copy stays intact.
 internal fun hostPackDescriptionResId(preset: HostPackPreset): Int? =

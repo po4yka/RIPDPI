@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.provider.Settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
@@ -80,6 +81,7 @@ class SettingsHindiLocalizationTest {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Tbilisi"))
         try {
             val app = RuntimeEnvironment.getApplication()
+            Settings.System.putString(app.contentResolver, Settings.System.TIME_12_24, "24")
             val configuration =
                 mutableStateOf(
                     Configuration(app.resources.configuration).apply {
@@ -106,7 +108,7 @@ class SettingsHindiLocalizationTest {
                     }
                 }
             }
-            listOf("en" to "Mar 12, 13:00", "hi" to "मार्च 12, 13:00", "en" to "Mar 12, 13:00")
+            listOf("en" to "Mar 12, 13:00", "hi" to "12 मार्च, 13:00", "en" to "Mar 12, 13:00")
                 .forEach { (tag, expected) ->
                     composeRule.runOnIdle {
                         configuration.value =

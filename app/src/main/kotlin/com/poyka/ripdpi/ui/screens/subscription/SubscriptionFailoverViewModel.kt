@@ -13,7 +13,9 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.SubscriptionClientSignal
 import com.poyka.ripdpi.data.actionableSubscriptionSignals
+import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.TimestampTime
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -24,8 +26,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 
@@ -83,6 +83,7 @@ class SubscriptionFailoverViewModel
         proxyGroupRepository: ProxyGroupRepository,
         private val relayProfileStore: RelayProfileStore,
         private val stringResolver: StringResolver,
+        private val timestamps: LocalizedTimestampFormatter,
     ) : ViewModel() {
         private val profiles = MutableStateFlow<List<RelayProfileRecord>>(emptyList())
         private val localeState = MutableStateFlow("")
@@ -100,6 +101,7 @@ class SubscriptionFailoverViewModel
                     snapshot = telemetry.relayTelemetry,
                     nowMillis = System.currentTimeMillis(),
                     strings = stringResolver,
+                    formatTime = { timestamps.format(it, TimestampTime) },
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -132,6 +134,7 @@ internal object SubscriptionFailoverMapper {
         snapshot: NativeRuntimeSnapshot,
         nowMillis: Long,
         strings: StringResolver,
+        formatTime: (Long) -> String,
     ): SubscriptionFailoverUiState {
         val subscriptionAlert = subscriptionAlert(groups, nowMillis, strings)
         val orderedProfiles = profiles.sortedBy { it.id }
@@ -152,8 +155,9 @@ internal object SubscriptionFailoverMapper {
                 capturedAt = capturedAt,
                 nowMillis = nowMillis,
                 strings = strings,
+                formatTime = formatTime,
             )
-        val events = failoverEvents(snapshot, activeProfile, activeIndex, strings)
+        val events = failoverEvents(snapshot, activeProfile, activeIndex, strings, formatTime)
         val recentEvent =
             events.firstOrNull()?.message
                 ?: strings.getString(R.string.subscription_failover_no_switchovers)
@@ -233,13 +237,14 @@ internal object SubscriptionFailoverMapper {
         activeProfile: RelayProfileRecord,
         activeIndex: Int,
         strings: StringResolver,
+        formatTime: (Long) -> String,
     ): List<SubscriptionFailoverEventUiState> =
         buildList {
             if (activeIndex > 0) {
                 add(
                     SubscriptionFailoverEventUiState(
                         message = strings.getString(R.string.subscription_failover_event_switched_to_backup),
-                        timeLabel = timeLabel(snapshot.capturedAt, strings),
+                        timeLabel = timeLabel(snapshot.capturedAt, strings, formatTime),
                     ),
                 )
             }
@@ -251,7 +256,7 @@ internal object SubscriptionFailoverMapper {
                 add(
                     SubscriptionFailoverEventUiState(
                         message = fallbackMessage(snapshot, activeProfile, strings),
-                        timeLabel = timeLabel(snapshot.capturedAt, strings),
+                        timeLabel = timeLabel(snapshot.capturedAt, strings, formatTime),
                     ),
                 )
             }
@@ -265,7 +270,7 @@ internal object SubscriptionFailoverMapper {
                             event.message.ifBlank {
                                 strings.getString(R.string.subscription_failover_event_switch_recorded)
                             },
-                        timeLabel = timeLabel(event.createdAt, strings),
+                        timeLabel = timeLabel(event.createdAt, strings, formatTime),
                     )
                 }
         }.distinctBy { it.message to it.timeLabel }
@@ -304,6 +309,7 @@ internal object SubscriptionFailoverMapper {
         capturedAt: Long?,
         nowMillis: Long,
         strings: StringResolver,
+        formatTime: (Long) -> String,
     ): String {
         if (capturedAt == null || capturedAt <= 0L) {
             return strings.getString(R.string.subscription_failover_last_check_unknown)
@@ -326,7 +332,7 @@ internal object SubscriptionFailoverMapper {
             else -> {
                 strings.getString(
                     R.string.subscription_failover_last_check_at,
-                    timeLabel(capturedAt, strings),
+                    timeLabel(capturedAt, strings, formatTime),
                 )
             }
         }
@@ -335,11 +341,12 @@ internal object SubscriptionFailoverMapper {
     private fun timeLabel(
         epochMillis: Long,
         strings: StringResolver,
+        formatTime: (Long) -> String,
     ): String =
         if (epochMillis <= 0L) {
             strings.getString(R.string.subscription_failover_time_unknown)
         } else {
-            SimpleDateFormat("HH:mm", Locale.US).format(Date(epochMillis))
+            formatTime(epochMillis)
         }
 
     private const val MaxNativeEvents = 4

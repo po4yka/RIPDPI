@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
+import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,17 +15,23 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class RememberedNetworksViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
     private val source = RecordingRememberedPolicySource()
 
-    private fun viewModel() = RememberedNetworksViewModel(source).apply { updateLocale(Locale.ENGLISH) }
+    private fun viewModel() =
+        RememberedNetworksViewModel(source).apply { updateLocale(Locale.ENGLISH, is24Hour = true) }
 
     @Test
     fun `maps policies to privacy-safe ui models`() =
@@ -55,11 +62,19 @@ class RememberedNetworksViewModelTest {
         try {
             Locale.setDefault(Locale.ENGLISH)
             assertEquals(
-                "5月 30, 14:05",
-                formatRememberedNetworkTimestamp(timestamp, Locale.SIMPLIFIED_CHINESE, ZoneId.of("UTC")),
+                "5月30日 14:05",
+                formatLocalizedTimestamp(
+                    timestamp,
+                    Locale.SIMPLIFIED_CHINESE,
+                    is24Hour = true,
+                    zoneId = ZoneId.of("UTC"),
+                ),
             )
             Locale.setDefault(Locale.SIMPLIFIED_CHINESE)
-            assertEquals("May 30, 14:05", formatRememberedNetworkTimestamp(timestamp, Locale.ENGLISH, ZoneId.of("UTC")))
+            assertEquals(
+                "May 30, 14:05",
+                formatLocalizedTimestamp(timestamp, Locale.ENGLISH, is24Hour = true, zoneId = ZoneId.of("UTC")),
+            )
         } finally {
             Locale.setDefault(original)
         }
@@ -81,13 +96,13 @@ class RememberedNetworksViewModelTest {
                         .updatedLabel
                         .startsWith("May 30,"),
                 )
-                model.updateLocale(Locale.SIMPLIFIED_CHINESE)
+                model.updateLocale(Locale.SIMPLIFIED_CHINESE, is24Hour = true)
                 val chinese = awaitItem()
                 assertTrue(
                     chinese.entries
                         .single()
                         .updatedLabel
-                        .startsWith("5月 30,"),
+                        .startsWith("5月30日"),
                 )
                 assertEquals(
                     english.entries.single().copy(updatedLabel = chinese.entries.single().updatedLabel),
@@ -113,7 +128,7 @@ class RememberedNetworksViewModelTest {
             val model = RememberedNetworksViewModel(source)
             model.uiState.test {
                 assertTrue(awaitItem().loading)
-                model.updateLocale(Locale.SIMPLIFIED_CHINESE)
+                model.updateLocale(Locale.SIMPLIFIED_CHINESE, is24Hour = true)
                 val chinese = awaitItem()
                 assertFalse(chinese.loading)
                 assertTrue(

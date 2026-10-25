@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.subscription
 
+import android.content.ContextWrapper
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
@@ -21,6 +22,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
+import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -143,6 +145,7 @@ class SubscriptionFailoverViewModelTest {
                             ),
                         ),
                     stringResolver = ResourceStringResolver(),
+                    timestamps = FixedTimestampFormatter(),
                 )
 
             viewModel.uiState.test {
@@ -173,6 +176,7 @@ class SubscriptionFailoverViewModelTest {
                     proxyGroupRepository = repository,
                     relayProfileStore = FakeRelayProfileStore(emptyList()),
                     stringResolver = ResourceStringResolver(),
+                    timestamps = FixedTimestampFormatter(),
                 )
 
             viewModel.uiState.test {
@@ -214,6 +218,7 @@ class SubscriptionFailoverViewModelTest {
                 snapshot = NativeRuntimeSnapshot.idle("relay"),
                 nowMillis = now,
                 strings = strings,
+                formatTime = { "12:00" },
             )
         assertEquals(null, healthyUi.subscriptionAlert)
 
@@ -240,10 +245,19 @@ class SubscriptionFailoverViewModelTest {
                 snapshot = NativeRuntimeSnapshot.idle("relay"),
                 nowMillis = now,
                 strings = strings,
+                formatTime = { "12:00" },
             )
         assertEquals(SubscriptionAlertTone.ERROR, terminalUi.subscriptionAlert?.tone)
         assertEquals("Subscription revoked", terminalUi.subscriptionAlert?.title)
     }
+}
+
+// Skips the Android clock lookup: these tests cover failover state, not timestamp formatting.
+private class FixedTimestampFormatter : LocalizedTimestampFormatter(ContextWrapper(null)) {
+    override fun format(
+        timestampMillis: Long,
+        skeleton: String,
+    ): String = "12:00"
 }
 
 private suspend fun app.cash.turbine.ReceiveTurbine<SubscriptionFailoverUiState>.awaitItemUntil(

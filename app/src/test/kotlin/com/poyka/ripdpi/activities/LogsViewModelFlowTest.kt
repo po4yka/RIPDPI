@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.ui.logs.LogEntryMapper
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineDispatcher
@@ -20,6 +21,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 class LogsViewModelFlowTest {
@@ -31,7 +33,8 @@ class LogsViewModelFlowTest {
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         defaultDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     ): LogsViewModel {
-        val mapper = LogEntryMapper(FakeStringResolver())
+        val mapper =
+            LogEntryMapper(FakeStringResolver(), LocalizedTimestampFormatter(RuntimeEnvironment.getApplication()))
         return LogsViewModel(
             dependencies =
                 LogsViewModelDependencies(

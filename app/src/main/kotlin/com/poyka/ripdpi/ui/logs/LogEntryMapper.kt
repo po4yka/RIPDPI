@@ -11,10 +11,9 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import com.poyka.ripdpi.platform.TimestampTimeSeconds
 import java.util.Locale
 import javax.inject.Inject
 
@@ -22,12 +21,8 @@ class LogEntryMapper
     @Inject
     constructor(
         private val stringResolver: StringResolver,
+        private val timestamps: LocalizedTimestampFormatter,
     ) {
-        private val timestampFormatter =
-            DateTimeFormatter
-                .ofPattern("HH:mm:ss", Locale.US)
-                .withZone(ZoneId.systemDefault())
-
         fun manualEntry(
             message: String,
             type: LogType,
@@ -130,8 +125,7 @@ class LogEntryMapper
             )
         }
 
-        private fun formatTimestamp(timestampMs: Long): String =
-            timestampFormatter.format(Instant.ofEpochMilli(timestampMs))
+        private fun formatTimestamp(timestampMs: Long): String = timestamps.format(timestampMs, TimestampTimeSeconds)
     }
 
 private fun LogType.defaultSubsystem(): LogSubsystem =

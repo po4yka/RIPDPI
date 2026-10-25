@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
+import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -17,9 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
@@ -28,16 +26,6 @@ internal const val RememberedNetworksInspectorLimit = 200
 
 /** Number of leading scope-hash characters surfaced as a privacy-safe scope identifier. */
 private const val ScopeKeyDisplayLength = 12
-
-internal fun formatRememberedNetworkTimestamp(
-    timestamp: Long,
-    locale: Locale,
-    zoneId: ZoneId = ZoneId.systemDefault(),
-): String =
-    DateTimeFormatter
-        .ofPattern("MMM d, HH:mm", locale)
-        .withZone(zoneId)
-        .format(Instant.ofEpochMilli(timestamp))
 
 /**
  * Drives the per-network policy inspector. The screen lists every remembered network policy by a
@@ -52,17 +40,19 @@ class RememberedNetworksViewModel
     constructor(
         private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
     ) : ViewModel() {
-        // The route supplies its app configuration locale, including app-specific language overrides.
-        private val displayLocale = MutableStateFlow<Locale?>(null)
+        // The route supplies its app configuration locale, including app-specific language overrides,
+        // and the device 12/24-hour setting.
+        private val displayFormat = MutableStateFlow<Pair<Locale, Boolean>?>(null)
 
         val uiState: StateFlow<RememberedNetworksUiState> =
             combine(
                 rememberedPolicySource.observePolicies(limit = RememberedNetworksInspectorLimit),
-                displayLocale,
-            ) { policies, locale ->
-                if (locale == null) {
+                displayFormat,
+            ) { policies, format ->
+                if (format == null) {
                     RememberedNetworksUiState(loading = true)
                 } else {
+                    val (locale, is24Hour) = format
                     RememberedNetworksUiState(
                         loading = false,
                         localeTag = locale.toLanguageTag(),
@@ -70,7 +60,7 @@ class RememberedNetworksViewModel
                             policies
                                 .map { policy ->
                                     policy.toRememberedNetworkUiModel { timestamp ->
-                                        formatRememberedNetworkTimestamp(timestamp, locale)
+                                        formatLocalizedTimestamp(timestamp, locale, is24Hour)
                                     }
                                 }.toImmutableList(),
                     )
@@ -81,8 +71,11 @@ class RememberedNetworksViewModel
                 initialValue = RememberedNetworksUiState(loading = true),
             )
 
-        fun updateLocale(locale: Locale) {
-            displayLocale.value = locale
+        fun updateLocale(
+            locale: Locale,
+            is24Hour: Boolean,
+        ) {
+            displayFormat.value = locale to is24Hour
         }
 
         fun deletePolicy(entry: RememberedNetworkUiModel) {

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -56,7 +58,8 @@ fun RememberedNetworksRoute(
     viewModel: RememberedNetworksViewModel = hiltViewModel(),
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    LaunchedEffect(viewModel, locale) { viewModel.updateLocale(locale) }
+    val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
+    LaunchedEffect(viewModel, locale, is24Hour) { viewModel.updateLocale(locale, is24Hour) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     RememberedNetworksScreen(
         uiState = if (uiState.localeTag == locale.toLanguageTag()) uiState else RememberedNetworksUiState(),

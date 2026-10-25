@@ -9,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.replay.ReplayProbeRequest
 import com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
+import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
@@ -30,6 +31,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -47,6 +49,8 @@ class ReplayFailureRouteAutoStartTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    private val formatter = LocalizedTimestampFormatter(RuntimeEnvironment.getApplication())
 
     private class RecordingProbeReplayService : ProbeReplayService {
         val requests = mutableListOf<ReplayProbeRequest>()
@@ -118,7 +122,7 @@ class ReplayFailureRouteAutoStartTest {
             try {
                 val service = SuspendedFirstProbeReplayService()
                 val store = ReplayResultStore()
-                val viewModel = ReplayFailureViewModel(service, store, FakeStringResolver())
+                val viewModel = ReplayFailureViewModel(service, store, FakeStringResolver(), formatter)
 
                 viewModel.ensureStarted(domain = "a.example", strategyId = "s1")
                 runCurrent()
@@ -148,7 +152,7 @@ class ReplayFailureRouteAutoStartTest {
     @Test
     fun `changing probe target restarts auto start`() {
         val service = RecordingProbeReplayService()
-        val viewModel = ReplayFailureViewModel(service, ReplayResultStore(), FakeStringResolver())
+        val viewModel = ReplayFailureViewModel(service, ReplayResultStore(), FakeStringResolver(), formatter)
         var domain by mutableStateOf("a.example")
 
         composeRule.setContent {
@@ -171,7 +175,7 @@ class ReplayFailureRouteAutoStartTest {
     @Test
     fun `ensure started skips retained target and starts new target`() {
         val service = RecordingProbeReplayService()
-        val viewModel = ReplayFailureViewModel(service, ReplayResultStore(), FakeStringResolver())
+        val viewModel = ReplayFailureViewModel(service, ReplayResultStore(), FakeStringResolver(), formatter)
 
         viewModel.ensureStarted(domain = "a.example", strategyId = "s1")
         viewModel.ensureStarted(domain = "a.example", strategyId = "s1")

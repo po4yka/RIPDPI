@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.profiles
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -8,10 +9,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.platform.TimestampYearDateTime
+import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -19,8 +23,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import java.text.DateFormat
-import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -108,7 +110,14 @@ private fun ProfileUtilityDate(text: String) {
     Text(text, style = RipDpiThemeTokens.type.caption, color = RipDpiThemeTokens.colors.mutedForeground)
 }
 
+@Composable
 private fun formatDate(
     time: Long,
     locale: Locale,
-): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale).format(Date(time))
+): String =
+    formatLocalizedTimestamp(
+        timestampMillis = time,
+        locale = locale,
+        is24Hour = DateFormat.is24HourFormat(LocalContext.current),
+        skeleton = TimestampYearDateTime,
+    )

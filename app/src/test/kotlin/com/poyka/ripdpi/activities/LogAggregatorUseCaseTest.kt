@@ -1,13 +1,21 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.ui.logs.LogEntryMapper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class LogAggregatorUseCaseTest {
-    private val aggregator = LogAggregatorUseCase(LogEntryMapper(FakeStringResolver()))
+    private val aggregator =
+        LogAggregatorUseCase(
+            LogEntryMapper(FakeStringResolver(), LocalizedTimestampFormatter(RuntimeEnvironment.getApplication())),
+        )
 
     @Test
     fun `merge preserves first source precedence and stable equal timestamp order`() {

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Context
+import android.text.format.DateFormat
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DirectModeVerdictResult
@@ -17,12 +18,11 @@ import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import com.poyka.ripdpi.diagnostics.toConnectionStageScale
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.toImmutableList
-import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
@@ -39,12 +39,11 @@ internal open class DiagnosticsUiFormatter
         open val timestampLocale: Locale
             get() = locale
         open val zoneId: ZoneId = ZoneId.systemDefault()
+        open val is24HourFormat: Boolean
+            get() = DateFormat.is24HourFormat(context)
 
         open fun formatTimestamp(timestamp: Long): String =
-            DateTimeFormatter
-                .ofPattern("MMM d, HH:mm", timestampLocale)
-                .withZone(zoneId)
-                .format(Instant.ofEpochMilli(timestamp))
+            formatLocalizedTimestamp(timestamp, timestampLocale, is24HourFormat, zoneId = zoneId)
 
         open fun formatBytes(bytes: Long): String =
             when {
