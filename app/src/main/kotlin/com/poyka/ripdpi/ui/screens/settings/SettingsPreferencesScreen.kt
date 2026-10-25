@@ -174,6 +174,7 @@ internal fun SettingsScreen(
         }
         item {
             SettingsSupportSection(
+                communityApiUrl = uiState.communityApiUrl,
                 communityApiUrlDraft = localState.communityApiUrlDraft,
                 appVersionName = BuildConfig.VERSION_NAME,
                 actions = actions,

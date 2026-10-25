@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">Captura de paquetes</string>
     <string name="data_transparency_packet_capture_body">Un archivo PCAP solo se crea cuando inicias el control avanzado de captura de paquetes. Puede contener bytes de datos de paquetes sin procesar y no se censura. Compártelo solo con personas de confianza.</string>
     <string name="data_transparency_open_controls">Ajustes de retención y monitorización</string>
+    <string name="settings_community_source_title">Estadísticas de la comunidad</string>
+    <string name="settings_community_source_body">La comprobación de detección descarga estadísticas compartidas desde esta dirección para comparar tus resultados. No se envía nada.</string>
+    <string name="settings_community_source_default">Predeterminada</string>
+    <string name="settings_clear_community_cache_body">Elimina las estadísticas de la comunidad descargadas. Tu historial de comprobaciones se conserva.</string>
 </resources>

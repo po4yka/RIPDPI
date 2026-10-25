@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">数据包捕获</string>
     <string name="data_transparency_packet_capture_body">只有在您启动高级数据包捕获控件时才会创建 PCAP 文件。它可能包含原始数据包载荷字节，且不会脱敏。请只与您信任的人分享。</string>
     <string name="data_transparency_open_controls">保留与监控设置</string>
+    <string name="settings_community_source_title">社区统计</string>
+    <string name="settings_community_source_body">检测检查会从此地址下载共享统计数据，用于比较您的结果。不会上传任何内容。</string>
+    <string name="settings_community_source_default">默认</string>
+    <string name="settings_clear_community_cache_body">删除已下载的社区统计数据。您的检查历史会保留。</string>
 </resources>

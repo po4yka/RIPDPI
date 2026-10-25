@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">Packet capture</string>
     <string name="data_transparency_packet_capture_body">A PCAP file is created only when you start the advanced packet capture control. It can contain raw packet payload bytes and is not redacted. Share it only with people you trust.</string>
     <string name="data_transparency_open_controls">Retention and monitoring settings</string>
+    <string name="settings_community_source_title">Community statistics</string>
+    <string name="settings_community_source_body">Detection check downloads shared statistics from this address to compare your results. Nothing is uploaded.</string>
+    <string name="settings_community_source_default">Default</string>
+    <string name="settings_clear_community_cache_body">Deletes downloaded community statistics. Your check history stays.</string>
 </resources>

@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">التقاط الحزم</string>
     <string name="data_transparency_packet_capture_body">لا يُنشأ ملف PCAP إلا عند تشغيل أداة التقاط الحزم المتقدمة. قد يحتوي على بيانات خام من حمولة الحزم ولا يخضع للتنقيح. شاركه فقط مع أشخاص تثق بهم.</string>
     <string name="data_transparency_open_controls">إعدادات الاحتفاظ والمراقبة</string>
+    <string name="settings_community_source_title">إحصاءات المجتمع</string>
+    <string name="settings_community_source_body">يُنزّل فحص الكشف إحصاءات مشتركة من هذا العنوان لمقارنة نتائجك. لا يُرفع أي شيء.</string>
+    <string name="settings_community_source_default">الافتراضي</string>
+    <string name="settings_clear_community_cache_body">يحذف إحصاءات المجتمع التي جرى تنزيلها. يبقى سجل الفحوص لديك.</string>
 </resources>

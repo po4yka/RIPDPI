@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">Capture des paquets</string>
     <string name="data_transparency_packet_capture_body">Un fichier PCAP n\'est créé que lorsque vous lancez le contrôle avancé de capture des paquets. Il peut contenir les octets bruts de la charge utile des paquets et n\'est pas expurgé. Ne le partagez qu\'avec des personnes de confiance.</string>
     <string name="data_transparency_open_controls">Paramètres de conservation et de surveillance</string>
+    <string name="settings_community_source_title">Statistiques communautaires</string>
+    <string name="settings_community_source_body">La vérification de détection télécharge des statistiques partagées depuis cette adresse pour comparer vos résultats. Rien n\'est envoyé.</string>
+    <string name="settings_community_source_default">Par défaut</string>
+    <string name="settings_clear_community_cache_body">Supprime les statistiques communautaires téléchargées. Votre historique de vérifications est conservé.</string>
 </resources>

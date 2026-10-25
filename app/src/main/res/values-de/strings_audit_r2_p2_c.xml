@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">Paketaufzeichnung</string>
     <string name="data_transparency_packet_capture_body">Eine PCAP-Datei wird nur erstellt, wenn Sie die erweiterte Paketaufzeichnung starten. Sie kann rohe Paketnutzdaten enthalten und wird nicht geschwärzt. Teilen Sie sie nur mit Personen, denen Sie vertrauen.</string>
     <string name="data_transparency_open_controls">Einstellungen für Aufbewahrung und Überwachung</string>
+    <string name="settings_community_source_title">Community-Statistiken</string>
+    <string name="settings_community_source_body">Die Erkennungsprüfung lädt gemeinsame Statistiken von dieser Adresse herunter, um Ihre Ergebnisse zu vergleichen. Es wird nichts hochgeladen.</string>
+    <string name="settings_community_source_default">Standard</string>
+    <string name="settings_clear_community_cache_body">Löscht heruntergeladene Community-Statistiken. Ihr Prüfverlauf bleibt erhalten.</string>
 </resources>

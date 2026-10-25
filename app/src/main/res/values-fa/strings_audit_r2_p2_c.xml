@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">ضبط بسته</string>
     <string name="data_transparency_packet_capture_body">فایل PCAP فقط وقتی ساخته می‌شود که کنترل پیشرفتهٔ ضبط بسته را شروع کنید. این فایل ممکن است شامل بایت‌های خام بار دادهٔ بسته‌ها باشد و پنهان‌سازی نمی‌شود. آن را فقط با افراد مورد اعتماد هم‌رسانی کنید.</string>
     <string name="data_transparency_open_controls">تنظیمات نگهداری و پایش</string>
+    <string name="settings_community_source_title">آمار جامعه</string>
+    <string name="settings_community_source_body">بررسی شناسایی آمار مشترک را از این نشانی دانلود می‌کند تا نتایج شما را مقایسه کند. هیچ چیزی بارگذاری نمی‌شود.</string>
+    <string name="settings_community_source_default">پیش‌فرض</string>
+    <string name="settings_clear_community_cache_body">آمار جامعهٔ دانلودشده را حذف می‌کند. تاریخچهٔ بررسی‌های شما باقی می‌ماند.</string>
 </resources>

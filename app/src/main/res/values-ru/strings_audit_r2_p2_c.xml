@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">Захват пакетов</string>
     <string name="data_transparency_packet_capture_body">Файл PCAP создаётся только при запуске расширенного управления захватом пакетов. Он может содержать необработанные байты полезной нагрузки пакетов и не обезличивается. Передавайте его только тем, кому доверяете.</string>
     <string name="data_transparency_open_controls">Настройки хранения и мониторинга</string>
+    <string name="settings_community_source_title">Статистика сообщества</string>
+    <string name="settings_community_source_body">Проверка обнаружения загружает общую статистику с этого адреса, чтобы сравнить ваши результаты. Ничего не отправляется.</string>
+    <string name="settings_community_source_default">По умолчанию</string>
+    <string name="settings_clear_community_cache_body">Удаляет загруженную статистику сообщества. История проверок сохраняется.</string>
 </resources>

@@ -3,4 +3,8 @@
     <string name="data_transparency_packet_capture_section">पैकेट कैप्चर</string>
     <string name="data_transparency_packet_capture_body">PCAP फ़ाइल केवल तभी बनती है जब आप उन्नत पैकेट कैप्चर नियंत्रण शुरू करते हैं। इसमें कच्चे पैकेट पेलोड बाइट्स हो सकते हैं और इसे रिडैक्ट नहीं किया जाता। इसे केवल भरोसेमंद लोगों के साथ साझा करें।</string>
     <string name="data_transparency_open_controls">प्रतिधारण और निगरानी सेटिंग्स</string>
+    <string name="settings_community_source_title">कम्युनिटी आँकड़े</string>
+    <string name="settings_community_source_body">पहचान जाँच आपके परिणामों की तुलना के लिए इस पते से साझा आँकड़े डाउनलोड करती है। कुछ भी अपलोड नहीं किया जाता।</string>
+    <string name="settings_community_source_default">डिफ़ॉल्ट</string>
+    <string name="settings_clear_community_cache_body">डाउनलोड किए गए कम्युनिटी आँकड़े हटाता है। आपका जाँच इतिहास बना रहता है।</string>
 </resources>
