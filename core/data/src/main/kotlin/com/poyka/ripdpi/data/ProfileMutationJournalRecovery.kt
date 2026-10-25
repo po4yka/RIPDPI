@@ -71,9 +71,7 @@ internal class ProfileMutationJournalRecovery(
                 if (activation != null) pauseAuthority.cancelPendingActivation(activation)
             }
 
-            else -> {
-                Unit
-            }
+            else -> {}
         }
     }
 
@@ -104,9 +102,7 @@ internal class ProfileMutationJournalRecovery(
                 if (receipt != null) pauseAuthority.cancelPendingActivation(receipt)
             }
 
-            else -> {
-                Unit
-            } // reconstructed Claim is already terminated by mandatory initialization
+            else -> {} // reconstructed Claim is already terminated by mandatory initialization
         }
     }
 }

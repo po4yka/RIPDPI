@@ -475,7 +475,7 @@ internal fun publishCommittedWarpRevision(
         is WarpUpsertIntent -> {
             if (!before.sameRuntimeProvisioningMaterial(intent.credentials) ||
                 beforeProfile?.accountKind != intent.profile.accountKind ||
-                beforeProfile?.zeroTrustOrg != intent.profile.zeroTrustOrg
+                beforeProfile.zeroTrustOrg != intent.profile.zeroTrustOrg
             ) {
                 warpRevisions.changed(intent.profile.id)
             }
@@ -493,9 +493,7 @@ internal fun publishCommittedWarpRevision(
             warpRevisions.invalidateAll()
         }
 
-        else -> {
-            Unit
-        }
+        else -> {}
     }
 }
 

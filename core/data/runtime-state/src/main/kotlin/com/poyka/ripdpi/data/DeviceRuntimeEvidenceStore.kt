@@ -229,9 +229,7 @@ class DefaultDeviceRuntimeEvidenceStore
                     }
                 }
 
-                else -> {
-                    Unit
-                }
+                else -> {}
             }
         }
     }

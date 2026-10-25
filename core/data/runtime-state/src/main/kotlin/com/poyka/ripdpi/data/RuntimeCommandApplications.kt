@@ -157,18 +157,18 @@ internal class CheckedRuntimeCommandApplications(
                 return@locked false
             }
             if (command.phase is RuntimeActivationPhase.Applied) {
-                val applied = command.phase as RuntimeActivationPhase.Applied
+                val applied = command.phase
                 if (applied.identity != receipt.identity || !original.matchesClaim(applied.kind, receipt.recordsUse)) {
                     return@locked false
                 }
                 return@locked before.profileUtility.acceptApplied(receipt) == before.profileUtility
             }
             if (command.phase !is RuntimeActivationPhase.Claimed ||
-                (command.phase as RuntimeActivationPhase.Claimed).identity != receipt.identity
+                command.phase.identity != receipt.identity
             ) {
                 return@locked false
             }
-            val claim = command.phase as RuntimeActivationPhase.Claimed
+            val claim = command.phase
             if (!original.matchesClaim(claim.kind, receipt.recordsUse)) return@locked false
             if (!original.matchesAppliedState(before, command, receipt.identity)) return@locked false
             val utility = before.profileUtility.acceptApplied(receipt)
