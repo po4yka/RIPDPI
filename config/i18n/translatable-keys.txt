@@ -3608,8 +3608,9 @@ app:logs_mode_vpn
 app:logs_overview_body
 app:logs_overview_section
 app:logs_overview_title
-app:logs_service_action_format
 app:logs_service_failure_format
+app:logs_service_started_format
+app:logs_service_stopped_format
 app:logs_severity_debug
 app:logs_severity_error
 app:logs_severity_info

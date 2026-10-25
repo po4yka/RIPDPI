@@ -4,4 +4,6 @@
     <string name="biometric_prompt_device_credential_body">Auf diesem Gerät ist kein Fingerabdruck und keine Gesichtserkennung eingerichtet. Entsperren Sie mit der PIN, dem Muster oder dem Passwort des Geräts.</string>
     <string name="biometric_prompt_no_lock_title">App-Sperre ist nicht aktiv</string>
     <string name="biometric_prompt_no_lock_body">Dieses Gerät hat keinen Fingerabdruck, keine Gesichtserkennung und keine Displaysperre, daher kann RIPDPI Sie nicht überprüfen. Richten Sie in den Systemeinstellungen eine Displaysperre ein, um die App zu schützen.</string>
+    <string name="logs_service_started_format">%1$s-Dienst gestartet</string>
+    <string name="logs_service_stopped_format">%1$s-Dienst gestoppt</string>
 </resources>

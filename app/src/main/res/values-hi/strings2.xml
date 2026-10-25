@@ -189,12 +189,12 @@
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">मिश्रित inbound (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">एक ही लोकल लिसनर SOCKS5 और HTTP CONNECT दोनों कनेक्शन स्वीकार करता है; डिफ़ॉल्ट पोर्ट 2080।</string>
-    <string name="settings_append_http_proxy_title">सिस्टम को HTTP proxy की जानकारी दें</string>
-    <string name="settings_append_http_proxy_body">Android 10+ पर VPN मोड में, सिस्टम को HTTP proxy ट्रैफ़िक को लोकल लिसनर के माध्यम से रूट करने के लिए कहता है। proxy मोड में इसका कोई प्रभाव नहीं होता।</string>
+    <string name="settings_append_http_proxy_title">सिस्टम को HTTP प्रॉक्सी की जानकारी दें</string>
+    <string name="settings_append_http_proxy_body">Android 10+ पर VPN मोड में, सिस्टम को HTTP प्रॉक्सी ट्रैफ़िक को लोकल लिसनर के माध्यम से रूट करने के लिए कहता है। प्रॉक्सी मोड में इसका कोई प्रभाव नहीं होता।</string>
     <string name="settings_proxy_allow_lan_title">LAN एक्सेस की अनुमति दें</string>
-    <string name="settings_proxy_allow_lan_body">लोकल proxy को आपके नेटवर्क के अन्य डिवाइसों के लिए उपलब्ध कराता है।</string>
+    <string name="settings_proxy_allow_lan_body">लोकल प्रॉक्सी को आपके नेटवर्क के अन्य डिवाइसों के लिए उपलब्ध कराता है।</string>
     <string name="settings_proxy_allow_lan_warn_title">LAN एक्सेस की अनुमति दें?</string>
-    <string name="settings_proxy_allow_lan_warn_message">proxy आपके लोकल नेटवर्क के अन्य डिवाइसों से कनेक्शन स्वीकार करेगा। एक्सेस टोकन को निजी रखें — जिसके पास भी यह होगा वह इस डिवाइस के माध्यम से ट्रैफ़िक रूट कर सकता है।</string>
+    <string name="settings_proxy_allow_lan_warn_message">प्रॉक्सी आपके लोकल नेटवर्क के अन्य डिवाइसों से कनेक्शन स्वीकार करेगा। एक्सेस टोकन को निजी रखें — जिसके पास भी यह होगा वह इस डिवाइस के माध्यम से ट्रैफ़िक रूट कर सकता है।</string>
     <string name="settings_proxy_allow_lan_warn_confirm">सक्षम करें</string>
     <string name="settings_proxy_allow_lan_warn_dismiss">रद्द करें</string>
     <string name="settings_proxy_lan_token_label">एक्सेस टोकन (कॉपी करने के लिए टैप करें)</string>
@@ -244,10 +244,10 @@
     <string name="settings_permissions_vpn_needed">RIPDPI द्वारा स्थानीय VPN पथ शुरू करने से पहले Android VPN सहमति प्रदान करें।</string>
     <string name="settings_permissions_battery_ready">Android पहले से ही RIPDPI को Doze बैटरी ऑप्टिमाइज़ेशन की अनदेखी करने दे रहा है।</string>
     <string name="settings_permissions_battery_needed">अनुशंसित ताकि RIPDPI के बैकग्राउंड में चलते समय Doze द्वारा उसे रोके जाने की संभावना कम हो।</string>
-    <string name="settings_permissions_always_on_title">Always-on VPN</string>
-    <string name="settings_permissions_always_on_ready">Android को RIPDPI को always-on VPN के रूप में चयनित रखने हेतु कॉन्फ़िगर किया गया है।</string>
-    <string name="settings_permissions_always_on_needed">जब आपको पुख्ता लीक रोकथाम की आवश्यकता हो, तो Android VPN सेटिंग्स में RIPDPI के लिए Always-on VPN सक्षम करें।</string>
-    <string name="settings_permissions_always_on_unknown">Android ने अभी तक Always-on VPN स्थिति की रिपोर्ट नहीं की है। इसकी पुष्टि के लिए VPN सेटिंग्स खोलें।</string>
+    <string name="settings_permissions_always_on_title">हमेशा चालू VPN</string>
+    <string name="settings_permissions_always_on_ready">Android को RIPDPI को हमेशा चालू VPN के रूप में चयनित रखने हेतु कॉन्फ़िगर किया गया है।</string>
+    <string name="settings_permissions_always_on_needed">जब आपको पुख्ता लीक रोकथाम की आवश्यकता हो, तो Android VPN सेटिंग्स में RIPDPI के लिए हमेशा चालू VPN सक्षम करें।</string>
+    <string name="settings_permissions_always_on_unknown">Android ने अभी तक हमेशा चालू VPN स्थिति की रिपोर्ट नहीं की है। इसकी पुष्टि के लिए VPN सेटिंग्स खोलें।</string>
     <string name="settings_connectivity_dns_body">रिज़ॉल्वर मोड, प्रोटोकॉल, IPv6, और स्थानीय टनल DNS व्यवहार।</string>
     <string name="settings_connectivity_dns_body_proxy">एन्क्रिप्टेड DNS स्थानीय प्रॉक्सी के लक्ष्य नाम हल कर सकता है। डिवाइस DNS नहीं बदलता।</string>
     <string name="settings_advanced_body">निम्न-स्तरीय RIPDPI फ़्लैग, प्रॉक्सी लिसनर, और प्रोटोकॉल ओवरराइड</string>
@@ -631,7 +631,6 @@
     <string name="diagnostics_telegram_error">त्रुटि</string>
 
     <!-- Logs -->
-    <string name="logs_service_action_format">%1$s सेवा %2$s</string>
     <string name="logs_service_failure_format">%1$s सेवा शुरू होने में विफल: %2$s</string>
 
     <!-- DNS settings placeholders -->
@@ -1375,12 +1374,12 @@
     <string name="diagnostics_pcap_captures_description">रिकॉर्ड की गई PCAP फ़ाइलें ब्राउज़ और निर्यात करें</string>
     <string name="diagnostics_past_replays_label">पिछले रीप्ले</string>
     <string name="diagnostics_past_replays_description">संग्रहित रीप्ले सत्रों की समीक्षा करें</string>
-    <string name="home_hard_kill_switch_enabled_summary">हार्ड किल स्विच का स्वामित्व Android के पास है। जब तक lockdown VPN जीवनचक्र को सिस्टम द्वारा प्रबंधित रखता है, तब तक डिस्कनेक्ट नियंत्रण सीमित रहते हैं।</string>
-    <string name="home_hard_kill_switch_enabled_title">सिस्टम lockdown सक्षम</string>
+    <string name="home_hard_kill_switch_enabled_summary">हार्ड किल स्विच का स्वामित्व Android के पास है। जब तक लॉकडाउन VPN जीवनचक्र को सिस्टम द्वारा प्रबंधित रखता है, तब तक डिस्कनेक्ट नियंत्रण सीमित रहते हैं।</string>
+    <string name="home_hard_kill_switch_enabled_title">सिस्टम लॉकडाउन सक्षम</string>
     <string name="home_hard_kill_switch_not_enabled_summary">RIPDPI चल सकता है, लेकिन यदि टनल रुक जाए तो Android VPN के बाहर के ट्रैफ़िक को अवरुद्ध नहीं कर रहा है।</string>
-    <string name="home_hard_kill_switch_not_enabled_title">सिस्टम lockdown सक्षम नहीं</string>
-    <string name="home_hard_kill_switch_unknown_summary">RIPDPI ने अभी तक Android Always-on और lockdown स्थिति नहीं देखी है। हार्ड किल स्विच की पुष्टि के लिए VPN सेटिंग्स खोलें।</string>
-    <string name="home_hard_kill_switch_unknown_title">सिस्टम lockdown अज्ञात</string>
+    <string name="home_hard_kill_switch_not_enabled_title">सिस्टम लॉकडाउन सक्षम नहीं</string>
+    <string name="home_hard_kill_switch_unknown_summary">RIPDPI ने अभी तक Android की हमेशा चालू VPN और लॉकडाउन स्थिति नहीं देखी है। हार्ड किल स्विच की पुष्टि के लिए VPN सेटिंग्स खोलें।</string>
+    <string name="home_hard_kill_switch_unknown_title">सिस्टम लॉकडाउन अज्ञात</string>
     <string name="settings_permission_action_open_vpn_settings">VPN सेटिंग्स खोलें</string>
     <string name="settings_permission_status_unknown">अज्ञात</string>
     <string name="settings_permissions_lockdown_needed">हार्ड किल-स्विच व्यवहार के लिए Android VPN सेटिंग्स में \"VPN के बिना कनेक्शन अवरुद्ध करें\" सक्षम करें।</string>

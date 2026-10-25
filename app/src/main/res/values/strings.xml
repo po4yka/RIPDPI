@@ -2525,7 +2525,6 @@ Source: %2$s</string>
     <string name="diagnostics_telegram_error">Error</string>
 
     <!-- Logs -->
-    <string name="logs_service_action_format">%1$s service %2$s</string>
     <string name="logs_service_failure_format">%1$s service failed to start: %2$s</string>
 
     <!-- DNS settings placeholders -->

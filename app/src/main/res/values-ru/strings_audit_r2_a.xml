@@ -4,4 +4,6 @@
     <string name="biometric_prompt_device_credential_body">На этом устройстве не настроены отпечаток пальца или распознавание лица. Разблокируйте с помощью PIN-кода, графического ключа или пароля устройства.</string>
     <string name="biometric_prompt_no_lock_title">Блокировка приложения не работает</string>
     <string name="biometric_prompt_no_lock_body">На этом устройстве нет отпечатка пальца, распознавания лица или блокировки экрана, поэтому RIPDPI не может вас проверить. Настройте блокировку экрана в системных настройках, чтобы защитить приложение.</string>
+    <string name="logs_service_started_format">Сервис %1$s запущен</string>
+    <string name="logs_service_stopped_format">Сервис %1$s остановлен</string>
 </resources>

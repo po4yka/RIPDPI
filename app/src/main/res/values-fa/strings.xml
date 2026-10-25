@@ -414,7 +414,7 @@
     <string name="home_network_condition_captive_action">باز کردن صفحه ورود</string>
     <string name="home_network_condition_whitelist_title">ممکن است شبکه ترافیک را فیلتر کند</string>
     <string name="home_network_condition_whitelist_body">سایت‌های خارجی ناموفق هستند در حالی که سایت‌های محلی کار می‌کنند. این شبکه ممکن است فقط مقصدهای تأییدشده را مجاز کند.</string>
-    <string name="home_network_condition_whitelist_relay_suggestion">نمایه relay فهرست سفید ذخیره‌شده خود را امتحان کنید.</string>
+    <string name="home_network_condition_whitelist_relay_suggestion">نمایه رله فهرست سفید ذخیره‌شده خود را امتحان کنید.</string>
     <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">بدون اتصال</string>
     <string name="home_network_condition_no_connectivity_body">این شبکه مسیر فعالی ندارد. اتصال خود را بررسی کنید و دوباره تلاش کنید.</string>
@@ -587,7 +587,7 @@
     <string name="home_connection_actuator_state_vpn_unavailable">فرایندهای محلی در حال اجرا هستند؛ اتصال VPN در دسترس نیست</string>
     <string name="home_mode_card_connecting">در حال شروع...</string>
     <string name="home_mode_card_remote_relay_disabled">رله غیرفعال</string>
-    <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
+    <string name="home_mode_card_remote_relay_disabled_hint">برای روشن کردن این گزینه، یک رله را در «اتصال» فعال کنید.</string>
     <string name="home_mode_card_remote_server_unknown">سرور پیکربندی نشده</string>
     <string name="home_mode_card_diagnostic_empty">هنوز هیچ تحلیلی نیست</string>
     <string name="home_mode_card_status_active">فعال</string>
@@ -1645,7 +1645,6 @@ fakeddisorder endhost</string>
     <string name="logs_filters_helper">برای تمرکز بر زمان اجرایی که در حال اشکال‌زدایی آن هستید، بر اساس زیرسیستم یا شدت فیلتر کنید.</string>
     <string name="logs_latest_empty">هنوز هیچ رویداد محلی ثبت نشده.</string>
     <string name="logs_overview_body">آخرین فعالیت DNS، اتصال، هشدار و خطای محلی ثبت‌شده توسط RIPDPI روی این دستگاه را بررسی کنید.</string>
-    <string name="logs_service_action_format">%1$s سرویس %2$s</string>
     <string name="logs_severity_error">ERROR</string>
     <string name="logs_severity_warn">WARN</string>
     <string name="logs_stream_section">جریان گزارش</string>
@@ -2189,7 +2188,7 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_pin_required_title">PIN پشتیبان لازم است</string>
     <string name="settings_clear_community_cache">پاک کردن کش اجتماع</string>
     <string name="settings_community_api_url_reset">بازنشانی به پیش‌فرض</string>
-    <string name="settings_connectivity_dns_body">حالت resolver، پروتکل، IPv6 و رفتار DNS تونل محلی.</string>
+    <string name="settings_connectivity_dns_body">حالت حل‌کننده، پروتکل، IPv6 و رفتار DNS تونل محلی.</string>
     <string name="settings_danger_section">منطقه خطر</string>
     <string name="settings_exclude_russian_apps_title">مستثنا کردن برنامه‌های روسی</string>
     <string name="settings_full_tunnel_helper">وقتی فعال است، تمام ترافیک از تونل عبور می‌کند. استثناهای برنامه‌ها در این حالت غیرفعال هستند.</string>

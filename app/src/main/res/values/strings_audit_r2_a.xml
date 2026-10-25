@@ -4,4 +4,6 @@
     <string name="biometric_prompt_device_credential_body">No fingerprint or face is set up on this device. Unlock with your device PIN, pattern, or password.</string>
     <string name="biometric_prompt_no_lock_title">App lock is not active</string>
     <string name="biometric_prompt_no_lock_body">This device has no fingerprint, face, or screen lock, so RIPDPI cannot verify you. Set up a screen lock in system settings to protect the app.</string>
+    <string name="logs_service_started_format">%1$s service started</string>
+    <string name="logs_service_stopped_format">%1$s service stopped</string>
 </resources>

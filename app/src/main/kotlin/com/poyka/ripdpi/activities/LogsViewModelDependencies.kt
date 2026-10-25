@@ -52,11 +52,15 @@ class LogsServiceEventObserver
 
                     when {
                         currentStatus.first == AppStatus.Running -> {
-                            appendServiceEntry(serviceLifecycleEntry(currentStatus.second, "started", LogSeverity.Info))
+                            appendServiceEntry(
+                                serviceLifecycleEntry(currentStatus.second, started = true, LogSeverity.Info),
+                            )
                         }
 
                         lastStatus.first == AppStatus.Running && currentStatus.first == AppStatus.Halted -> {
-                            appendServiceEntry(serviceLifecycleEntry(lastStatus.second, "stopped", LogSeverity.Info))
+                            appendServiceEntry(
+                                serviceLifecycleEntry(lastStatus.second, started = false, LogSeverity.Info),
+                            )
                         }
                     }
                 }
@@ -80,12 +84,12 @@ class LogsServiceEventObserver
 
         private fun serviceLifecycleEntry(
             mode: Mode,
-            action: String,
+            started: Boolean,
             severity: LogSeverity,
         ): LogEntry =
             logEntryMapper.serviceLifecycleEntry(
                 mode = mode,
-                action = action,
+                started = started,
                 severity = severity,
                 createdAtMs = System.currentTimeMillis(),
             )

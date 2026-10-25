@@ -899,7 +899,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="logs_empty_body">Inicia RIPDPI o activa un evento de diagnóstico para poblar el flujo en el dispositivo.</string>
     <string name="logs_filtered_empty_title">Ninguna entrada coincide con los filtros actuales</string>
     <string name="logs_latest_none">Inactivo</string>
-    <string name="logs_service_action_format">%1$s servicio %2$s</string>
     <string name="logs_severity_title">Severidad</string>
     <string name="logs_stream_title">Entradas recientes</string>
     <string name="logs_subsystems_title">Subsistemas</string>

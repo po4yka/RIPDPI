@@ -2469,7 +2469,6 @@ Fonte: %2$s</string>
     <string name="diagnostics_telegram_transferred">Transferido</string>
     <string name="diagnostics_telegram_error">Erro</string>
 
-    <string name="logs_service_action_format">Serviço %1$s %2$s</string>
     <string name="logs_service_failure_format">Falha ao iniciar o serviço %1$s: %2$s</string>
 
     <string name="dns_placeholder_resolver_example">resolver.example</string>

@@ -41,11 +41,12 @@ class LogEntryMapper
 
         fun serviceLifecycleEntry(
             mode: Mode,
-            action: String,
+            started: Boolean,
             severity: LogSeverity,
             createdAtMs: Long,
-        ): LogEntry =
-            LogEntry(
+        ): LogEntry {
+            val action = if (started) "started" else "stopped"
+            return LogEntry(
                 id = "service-$createdAtMs-${mode.name.lowercase(Locale.ROOT)}-$action",
                 createdAtMs = createdAtMs,
                 timestamp = formatTimestamp(createdAtMs),
@@ -53,13 +54,13 @@ class LogEntryMapper
                 severity = severity,
                 message =
                     stringResolver.getString(
-                        R.string.logs_service_action_format,
+                        if (started) R.string.logs_service_started_format else R.string.logs_service_stopped_format,
                         mode.displayName(stringResolver),
-                        action,
                     ),
                 source = "service",
                 isActiveSession = true,
             )
+        }
 
         fun failureEntry(
             sender: Sender,

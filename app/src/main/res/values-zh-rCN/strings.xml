@@ -413,7 +413,7 @@
     <string name="home_network_condition_captive_action">打开登录页面</string>
     <string name="home_network_condition_whitelist_title">网络可能正在过滤流量</string>
     <string name="home_network_condition_whitelist_body">境外站点失败而本地站点正常。此网络可能仅允许已批准的目标。</string>
-    <string name="home_network_condition_whitelist_relay_suggestion">尝试你保存的白名单 relay 配置。</string>
+    <string name="home_network_condition_whitelist_relay_suggestion">尝试你保存的白名单中继配置。</string>
     <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">无连接</string>
     <string name="home_network_condition_no_connectivity_body">此网络没有可用路由。请检查你的连接并重试。</string>
@@ -2458,7 +2458,6 @@ fake_burst 3</string>
     <string name="logs_failed">收集日志失败</string>
     <string name="logs_filters_section">过滤器</string>
     <string name="logs_latest_title">最新事件</string>
-    <string name="logs_service_action_format">%1$s 服务 %2$s</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_status_live">实时缓冲</string>
     <string name="logs_subsystem_proxy">PROXY</string>

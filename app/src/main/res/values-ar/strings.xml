@@ -583,7 +583,7 @@
     <string name="home_connection_actuator_state_vpn_unavailable">العمليات المحلية قيد التشغيل؛ اتصال VPN غير متاح</string>
     <string name="home_mode_card_connecting">جارٍ البدء...</string>
     <string name="home_mode_card_remote_relay_disabled">الترحيل معطّل</string>
-    <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
+    <string name="home_mode_card_remote_relay_disabled_hint">فعّل الترحيل في «الاتصال» لتشغيل هذا الخيار.</string>
     <string name="home_mode_card_remote_server_unknown">الخادم غير مُهيَّأ</string>
     <string name="home_mode_card_diagnostic_empty">لا يوجد تحليل بعد</string>
     <string name="home_mode_card_status_active">نشط</string>
@@ -2389,7 +2389,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_telegram_peak_speed">الذروة القصوى</string>
     <string name="diagnostics_telegram_transferred">المنقول</string>
     <string name="diagnostics_telegram_error">خطأ</string>
-    <string name="logs_service_action_format">خدمة %1$s %2$s</string>
     <string name="logs_service_failure_format">فشل تشغيل خدمة %1$s: %2$s</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
@@ -3001,7 +3000,7 @@ fakeddisorder endhost</string>
     <string name="home_hard_kill_switch_enabled_title">قفل النظام مُفعَّل</string>
     <string name="home_hard_kill_switch_not_enabled_summary">يمكن لـ RIPDPI العمل، لكن Android لا يحجب الحركة خارج VPN إذا توقف النفق.</string>
     <string name="home_hard_kill_switch_not_enabled_title">قفل النظام غير مُفعَّل</string>
-    <string name="home_hard_kill_switch_unknown_summary">لم يرصد RIPDPI بعد حالة Always-on وقفل Android. افتح إعدادات VPN للتحقق من مفتاح الإيقاف الصارم.</string>
+    <string name="home_hard_kill_switch_unknown_summary">لم يرصد RIPDPI بعد حالة VPN دائم التشغيل وقفل Android. افتح إعدادات VPN للتحقق من مفتاح الإيقاف الصارم.</string>
     <string name="home_hard_kill_switch_unknown_title">حالة قفل النظام غير معروفة</string>
     <string name="settings_permission_action_open_vpn_settings">فتح إعدادات VPN</string>
     <string name="settings_permission_status_unknown">غير معروف</string>
