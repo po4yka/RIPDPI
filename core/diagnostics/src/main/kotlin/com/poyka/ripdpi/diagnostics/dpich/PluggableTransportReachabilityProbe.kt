@@ -2,8 +2,11 @@ package com.poyka.ripdpi.diagnostics.dpich
 
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -68,6 +71,7 @@ class PluggableTransportReachabilityProbe(
     private val snowflakeBrokerProbe: PtSubprobe = SnowflakeBrokerReachabilityProbe(),
     private val snowflakeStunProbe: PtSubprobe = SnowflakeStunReachabilityProbe(),
     private val meekProbe: PtSubprobe = MeekReachabilityProbe(),
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     suspend fun run(timeoutMs: Long = DefaultTimeoutMs): PluggableTransportResult =
         coroutineScope {
@@ -90,7 +94,8 @@ class PluggableTransportReachabilityProbe(
 
     private suspend fun runLeg(block: suspend () -> PtProbeTrace): PtProbeTrace =
         runCatching {
-            block()
+            // Every leg does blocking socket, OkHttp or DNS I/O; callers may be on Main.
+            withContext(ioDispatcher) { block() }
         }.getOrElse { error ->
             error.throwIfCancellation()
             PtProbeTrace(

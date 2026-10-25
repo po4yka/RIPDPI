@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -18,8 +19,30 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketAddress
 import java.net.SocketTimeoutException
+import java.util.Collections
+import java.util.concurrent.Executors
 
 class PluggableTransportReachabilityProbeTest {
+    @Test
+    fun everyLegRunsOnTheIoDispatcher() =
+        runTest {
+            val ioThreads = Executors.newSingleThreadExecutor { task -> Thread(task, PtIoThreadName) }
+            try {
+                val threads = Collections.synchronizedList(mutableListOf<String>())
+                val leg =
+                    PtSubprobe {
+                        threads += Thread.currentThread().name.substringBefore(" @")
+                        PtProbeTrace("obfs4", "bridge", true, 1)
+                    }
+
+                PluggableTransportReachabilityProbe(leg, leg, leg, leg, ioThreads.asCoroutineDispatcher()).run()
+
+                assertEquals(List(4) { PtIoThreadName }, threads.toList())
+            } finally {
+                ioThreads.shutdown()
+            }
+        }
+
     @Test
     fun allThreePtsReachableReturnsAllOk() =
         runTest {
@@ -348,3 +371,5 @@ class PluggableTransportReachabilityProbeTest {
         }
     }
 }
+
+private const val PtIoThreadName = "pt-probe-io"
