@@ -17,7 +17,7 @@ import com.poyka.ripdpi.services.ActiveAwgMigrationProbe
 import com.poyka.ripdpi.services.AwgMigrationMeasurement
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -46,7 +46,7 @@ class DeviceMigrationCoordinator internal constructor(
         awg: AwgProfileRepository,
         relay: CandidateRelayMeasurements,
         activeAwg: ActiveAwgMigrationProbe,
-        network: CandidateRelayNetworkEpoch,
+        network: PhysicalNetworkObserver,
         clock: SubscriptionExpiryClock,
         mutations: ProfileMutationGenerationSource,
     ) : this(

@@ -68,6 +68,22 @@ class CheckoutDoctorTest(unittest.TestCase):
             entry["path"] for entry in report["worktrees"] if entry["usable"]
         })
 
+    def test_text_report_lists_usable_worktrees_only_without_a_checkout(self) -> None:
+        linked = self.directory / "linked tree"
+        self.git(self.root, "worktree", "add", "-b", "job", str(linked))
+        text = subprocess.run(
+            [sys.executable, str(SCRIPT), str(self.root)],
+            env=self.environment, capture_output=True, text=True, check=True,
+        ).stdout
+        self.assertIn("worktrees: 2 usable of 2", text)
+        self.assertNotIn("[usable]", text)
+        self.git(self.root, "config", "core.bare", "true")
+        text = subprocess.run(
+            [sys.executable, str(SCRIPT), str(self.root)],
+            env=self.environment, capture_output=True, text=True, check=False,
+        ).stdout
+        self.assertIn(f"[usable] {linked}", text)
+
     def test_bare_repository_lists_usable_worktree_without_changing_config(self) -> None:
         bare = self.directory / "repository.git"
         linked = self.directory / "actual source"

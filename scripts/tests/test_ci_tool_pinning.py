@@ -8,20 +8,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def ci_jobs(source: str) -> dict[str, str]:
+    jobs = source.split("\njobs:\n", 1)[-1]
+    return {
+        match[1]: match[0]
+        for match in re.finditer(r"(?ms)^  ([\w-]+):\n.*?(?=^  [\w-]+:\n|\Z)", jobs)
+    }
+
+
 class CiToolPinningTest(unittest.TestCase):
-    def test_sccache_workflows_enable_persistent_backend_for_all_steps(self) -> None:
-        workflows = []
-        for path in sorted((ROOT / ".github/workflows").glob("*.yml")):
-            source = path.read_text(encoding="utf-8")
-            if "RUSTC_WRAPPER: sccache" not in source:
-                continue
-            workflows.append(path.name)
-            with self.subTest(workflow=path.name):
-                env = re.search(r"(?ms)^env:\n(.*?)(?=^\S|\Z)", source)
-                self.assertIsNotNone(env)
-                self.assertIn('  SCCACHE_GHA_ENABLED: "true"\n', env[1])
-                self.assertEqual(1, source.count("SCCACHE_GHA_ENABLED:"))
-        self.assertTrue(workflows, "No workflows use sccache")
+    def test_ci_does_not_wrap_rustc_with_sccache(self) -> None:
+        # The GHA sccache backend measured 0% hits while Swatinem/rust-cache
+        # already restores target/; it only added cache entries and latency.
+        paths = [*(ROOT / ".github/workflows").glob("*.yml"), *(ROOT / ".github/actions").glob("*/action.yml")]
+        for path in sorted(paths):
+            with self.subTest(path=path.name):
+                self.assertNotIn("sccache", path.read_text(encoding="utf-8").lower())
 
     def test_compose_reports_require_explicit_gradle_opt_in(self) -> None:
         source = (
@@ -108,21 +110,22 @@ class CiToolPinningTest(unittest.TestCase):
             "the CI fixture bundle must be committed next to the action that copies it",
         )
 
-        for job_name in (
-            "build-android-tests",
-            "verify-roborazzi",
-            "release-verification",
-            "android-instrumentation-apks",
+        secret_bundle = "${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}"
+        simple_shard_bundle = (
+            "${{ matrix.shard.experience == 'simple' && "
+            "secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}"
+        )
+        for job_name, expected in (
+            ("build-android-tests", secret_bundle),
+            ("verify-roborazzi", secret_bundle),
+            ("release-verification", simple_shard_bundle),
+            ("android-instrumentation-apks", secret_bundle),
         ):
             with self.subTest(job_name=job_name):
                 job = re.search(rf"(?ms)^  {job_name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)
                 self.assertIsNotNone(job)
                 assert job is not None
-                self.assertIn(
-                    "embedded-relay-bundle-base64: "
-                    "${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}",
-                    job.group(0),
-                )
+                self.assertIn(f"embedded-relay-bundle-base64: {expected}", job.group(0))
 
     def test_jni_symbol_guard_uses_shared_android_rust_setup(self) -> None:
         source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text(
@@ -209,22 +212,49 @@ class CiToolPinningTest(unittest.TestCase):
         restore_keys = re.findall(r"(?m)^          (.+-)$", cache_steps)
         self.assertEqual(2, len(keys))
         self.assertEqual(4, len(restore_keys))
-        namespaces = []
-        for name in ("kotlin-coverage", "pluggable-transport-assets"):
-            job = re.search(rf"(?ms)^  {name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)[0]
+        namespaces = {}
+        for name, job in ci_jobs(ci).items():
+            read_only = re.search(r"(?m)^          gradle-cache-read-only: (.+)$", job)
+            if read_only is None or read_only[1] == '"true"':
+                continue
             prefix = re.search(r"(?m)^          gradle-cache-key-prefix: (.+)$", job)
             prefix = prefix[1] if prefix else default_prefix
-            rendered = [
-                key.replace("${{ inputs.gradle-cache-key-prefix }}", prefix)
-                for key in keys + restore_keys
+            shards = [
+                dict(re.findall(r"(\w+): ([\w-]+)", entry))
+                for entry in re.findall(r"(?m)^\s+- \{ (id: .+) \}$", job)
+            ] + [
+                {"id": shard_id}
+                for shard_id in re.findall(r"(?m)^\s+- id: ([\w-]+)$", job)
             ]
-            self.assertEqual(rendered[0], rendered[1])
-            self.assertEqual(rendered[2:4], rendered[4:6])
-            namespaces.append(rendered)
+            for shard in shards or [{}]:
+                rendered = []
+                for key in keys + restore_keys:
+                    key = key.replace("${{ inputs.gradle-cache-key-prefix }}", prefix)
+                    for field, value in shard.items():
+                        key = key.replace(f"${{{{ matrix.shard.{field} }}}}", value)
+                    rendered.append(key)
+                self.assertNotIn("${{ matrix.", rendered[0])
+                self.assertEqual(rendered[0], rendered[1])
+                self.assertEqual(rendered[2:4], rendered[4:6])
+                owner = namespaces.get(rendered[0], (name, rendered))[0]
+                self.assertEqual(name, owner, f"{name} shares a writer key")
+                namespaces[rendered[0]] = (name, rendered)
+        self.assertIn("kotlin-coverage", {owner for owner, _ in namespaces.values()})
+        self.assertIn(
+            "pluggable-transport-assets",
+            {owner for owner, _ in namespaces.values()},
+        )
         candidate = (ROOT / ".github/workflows/release-candidate.yml").read_text()
-        self.assertIn(f"gradle-cache-key-prefix: {prefix}\n", candidate)
-        for own, other in (namespaces, namespaces[::-1]):
-            self.assertFalse(any(own[0].startswith(key) for key in other[2:]))
+        self.assertIn(
+            "gradle-cache-key-prefix: gradle-pluggable-transport-build-cache\n",
+            candidate,
+        )
+        for own_key, (owner, _) in namespaces.items():
+            for other_owner, other in namespaces.values():
+                if other[0] == own_key:
+                    continue
+                with self.subTest(writer=owner, other=other_owner):
+                    self.assertFalse(any(own_key.startswith(key) for key in other[2:]))
 
     def test_gradle_build_cache_writers_are_trusted_main_only(self) -> None:
         action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
@@ -240,41 +270,43 @@ class CiToolPinningTest(unittest.TestCase):
             ci,
         )
 
-        writer = re.search(r"(?ms)^  kotlin-coverage:\n.*?(?=^  [\w-]+:\n|\Z)", ci)
-        self.assertIsNotNone(writer)
-        assert writer is not None
-        self.assertIn(
-            "gradle-cache-read-only: ${{ github.ref != 'refs/heads/main' }}",
-            writer.group(0),
-        )
-        pt_writer = re.search(
-            r"(?ms)^  pluggable-transport-assets:\n.*?(?=^  [\w-]+:\n|\Z)", ci
-        )
-        self.assertIsNotNone(pt_writer)
-        assert pt_writer is not None
-        self.assertIn(
-            "gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}",
-            pt_writer.group(0),
-        )
-
-        writable = []
+        writers = {}
         for workflow in workflows:
-            for value in re.findall(
-                r"(?m)^\s+gradle-cache-read-only: ([^\n]+)$",
-                workflow.read_text(encoding="utf-8"),
-            ):
-                if value != '"true"':
-                    writable.append((workflow.name, value))
+            for name, job in ci_jobs(workflow.read_text(encoding="utf-8")).items():
+                for value in re.findall(r"(?m)^\s+gradle-cache-read-only: ([^\n]+)$", job):
+                    if value != '"true"':
+                        writers[(workflow.name, name)] = value
+        main_push = "${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}"
         self.assertEqual(
-            [
-                (
-                    "ci.yml",
-                    "${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}",
+            {
+                ("ci.yml", "kotlin-coverage"): "${{ github.ref != 'refs/heads/main' }}",
+                ("ci.yml", "pluggable-transport-assets"): main_push,
+                ("ci.yml", "gradle-static-analysis"): main_push,
+                ("ci.yml", "build-android-debug"): main_push,
+                ("ci.yml", "release-verification"): (
+                    "${{ matrix.shard.experience != 'full' || "
+                    "github.event_name != 'push' || github.ref != 'refs/heads/main' }}"
                 ),
-                ("ci.yml", "${{ github.ref != 'refs/heads/main' }}"),
-            ],
-            writable,
+            },
+            writers,
         )
+        # Pull requests can restore caches written on main, so a writer must
+        # never see the embedded relay bundle secret.
+        for _, name in writers:
+            with self.subTest(writer=name):
+                bundle = re.findall(
+                    r"(?m)^          embedded-relay-bundle-base64: (.+)$", ci_jobs(ci)[name]
+                )
+                if name == "release-verification":
+                    self.assertEqual(
+                        [
+                            "${{ matrix.shard.experience == 'simple' && "
+                            "secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}"
+                        ],
+                        bundle,
+                    )
+                else:
+                    self.assertEqual([], bundle)
 
 
 if __name__ == "__main__":

@@ -29,10 +29,10 @@ class AmneziaWgEditorStateTest {
             jmax = 70,
             s1 = 50,
             s2 = 100,
-            h1 = 1_000_000_001L,
-            h2 = 1_000_000_002L,
-            h3 = 1_000_000_003L,
-            h4 = 1_000_000_004L,
+            h1 = "1000000001",
+            h2 = "1000000002",
+            h3 = "1000000003",
+            h4 = "1000000004",
             randomizeHeaders = false,
         )
     private val catalog = AwgCohortCatalogData(presets = listOf(rtkSouth))
@@ -62,7 +62,7 @@ class AmneziaWgEditorStateTest {
         assertEquals("rtk_south", state.form.cohortId)
         assertEquals(4, state.form.jc)
         assertEquals(70, state.form.jmax)
-        assertEquals(1_000_000_001L, state.form.h1)
+        assertEquals("1000000001", state.form.h1)
     }
 
     @Test
@@ -130,14 +130,16 @@ class AmneziaWgEditorStateTest {
     fun `h-field rejects a value over the 4-byte unsigned ceiling`() {
         assertNull(AwgEditorField.H1.validate("4294967296"))
         assertNull(AwgEditorField.H1.validate("-1"))
-        assertEquals(4_294_967_295L, AwgEditorField.H1.validate("4294967295"))
+        assertEquals("4294967295", AwgEditorField.H1.validate("4294967295"))
+        assertEquals("100-199", AwgEditorField.H1.validate("100-199"))
     }
 
     @Test
-    fun `i-field accepts only hex strings`() {
+    fun `i-field accepts bounded signature programs and an unused slot`() {
         assertNull(AwgEditorField.I1.validate("zzzz"))
-        assertNull(AwgEditorField.I1.validate(""))
-        assertEquals("deadbeef", AwgEditorField.I1.validate("DEADBEEF"))
+        assertEquals("", AwgEditorField.I1.validate(""))
+        assertNull(AwgEditorField.I1.validate("DEADBEEF"))
+        assertEquals("<b 0xdeadbeef><r 4>", AwgEditorField.I1.validate("<b 0xdeadbeef><r 4>"))
     }
 
     @Test
@@ -172,7 +174,7 @@ class AmneziaWgEditorStateTest {
             H2 = 1000000002
             H3 = 1000000003
             H4 = 1000000004
-            I1 = ab12
+            I1 = <b 0xab12>
 
             [Peer]
             PublicKey = peerpub==
@@ -186,7 +188,7 @@ class AmneziaWgEditorStateTest {
         assertEquals("vpn.example.com", state.form.server)
         assertEquals(51_820, state.form.serverPort)
         assertEquals(4, state.form.jc)
-        assertEquals("ab12", state.rawText(AwgEditorField.I1))
+        assertEquals("<b 0xab12>", state.rawText(AwgEditorField.I1))
         // The conf's obfuscation params byte-match rtk_south, so the cohort is detected.
         assertEquals("rtk_south", state.form.cohortId)
         assertTrue(state.obfuscationLocked)
@@ -329,15 +331,15 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `an inverted junk range is tolerated when no junk packets are emitted`() {
+    fun `an inverted junk range blocks activation even when no junk packets are emitted`() {
         val state =
             activatableState()
                 .updateField(AwgEditorField.JC, "0")
                 .updateField(AwgEditorField.JMIN, "70")
                 .updateField(AwgEditorField.JMAX, "40")
 
-        assertTrue(state.obfuscationConsistent())
-        assertTrue(state.isActivatable())
+        assertFalse(state.obfuscationConsistent())
+        assertFalse(state.isActivatable())
     }
 
     @Test

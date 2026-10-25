@@ -66,7 +66,6 @@ fn elapsed(started: Instant) -> u64 {
 }
 /// # Cancel safety:
 /// cancel-safe: timer cancellation drops the timer without changing the borrowed flag.
-// cancel-safe: only timer awaits and a shared cancellation read.
 async fn cancelled(cancel: &AtomicBool) {
     loop {
         // Acquire observes cancellation published by the scan owner.
@@ -80,7 +79,6 @@ async fn cancelled(cancel: &AtomicBool) {
 /// conditionally cancel-safe: DNS wait drops its receiver; the fixed resolver pool
 /// owns pending lookup work. Socket/connection waits discard local resources and
 /// retain already committed facts. The caller drops the dedicated Quinn runtime.
-// cancel-safe: no per-probe blocking threads; runtime owns every Quinn task.
 async fn execute(
     config: &PmtuProbeConfig,
     ipv6: bool,
@@ -153,7 +151,6 @@ fn client_config(
 /// connection resources. Drop retains last sampled evidence; the caller must drop
 /// its dedicated runtime to abort all Quinn driver tasks. Partial H3 control frames
 /// can reach the peer; no HTTP request or application payload is sent.
-// cancel-safe: all network resources are confined to the dedicated probe runtime.
 async fn observe(
     config: &PmtuProbeConfig,
     verifier: Option<&Arc<dyn ServerCertVerifier>>,

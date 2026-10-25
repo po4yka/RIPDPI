@@ -66,21 +66,16 @@ val coverageExecutionData =
     }
 
 val jacocoAgentEnabled =
-    providers
-        .gradleProperty("ripdpi.jacoco.enabled")
-        .map { it.toBooleanStrict() }
-        .orElse(
-            providers.provider {
-                gradle.startParameter.taskNames.any { taskName ->
-                    taskName == "coverageReport" ||
-                        taskName.endsWith(":coverageReport") ||
-                        taskName.endsWith("jacocoDebugUnitTestReport") ||
-                        taskName.endsWith("jacocoDebugUnitTestCoverageVerification") ||
-                        taskName.endsWith("kotlinCoverageReport") ||
-                        taskName.endsWith("kotlinCoverageVerification")
-                }
-            },
-        )
+    providers.provider {
+        gradle.startParameter.taskNames.any { taskName ->
+            taskName == "coverageReport" ||
+                taskName.endsWith(":coverageReport") ||
+                taskName.endsWith("jacocoDebugUnitTestReport") ||
+                taskName.endsWith("jacocoDebugUnitTestCoverageVerification") ||
+                taskName.endsWith("kotlinCoverageReport") ||
+                taskName.endsWith("kotlinCoverageVerification")
+        }
+    }
 
 tasks.withType<Test>().configureEach {
     extensions.configure<JacocoTaskExtension> {

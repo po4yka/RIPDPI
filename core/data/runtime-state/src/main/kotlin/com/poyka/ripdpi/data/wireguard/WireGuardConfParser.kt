@@ -21,8 +21,18 @@ package com.poyka.ripdpi.data.wireguard
  * [IllegalArgumentException].
  */
 object WireGuardConfParser {
-    private const val FOUR_BYTE_UNSIGNED_MAX = 0xFFFF_FFFFL
-    private val HEX_REGEX = Regex("[0-9a-fA-F]+")
+    private val UnsupportedOptions =
+        setOf(
+            "headerprotectionkey",
+            "contentpaddingaddition",
+            "rekeyaftertime",
+            "rekeytimeout",
+            "rejectaftertime",
+            "keepalivetimeout",
+            "maxhandshakeattempts",
+            "randomtrailers",
+            "disablecookies",
+        )
 
     private enum class Section { NONE, INTERFACE, PEER }
 
@@ -54,10 +64,10 @@ object WireGuardConfParser {
         var s2: Int? = null
         var s3: Int? = null
         var s4: Int? = null
-        var h1: Long? = null
-        var h2: Long? = null
-        var h3: Long? = null
-        var h4: Long? = null
+        var h1: String? = null
+        var h2: String? = null
+        var h3: String? = null
+        var h4: String? = null
         var i1: String? = null
         var i2: String? = null
         var i3: String? = null
@@ -150,6 +160,9 @@ object WireGuardConfParser {
                 val key = line.substring(0, separator).trim()
                 val value = line.substring(separator + 1).trim()
                 require(key.isNotEmpty()) { "Malformed WireGuard config line (empty key): $line" }
+                require(key.lowercase().replace("_", "") !in UnsupportedOptions) {
+                    "Unsupported AmneziaWG option: $key"
+                }
 
                 when (section) {
                     Section.INTERFACE -> {
@@ -179,7 +192,7 @@ object WireGuardConfParser {
         return if (awg.isEmpty) {
             WireGuardConfig(interfaceSection = interfaceSection, peers = peers)
         } else {
-            awg.requireArm64Safe()
+            awg.requireSupportedProfile()
             AmneziaWgConfig(interfaceSection = interfaceSection, awg = awg, peers = peers)
         }
     }
@@ -206,16 +219,16 @@ object WireGuardConfParser {
             "s2" -> builder.awg.s2 = parseNonNegativeInt(key, value)
             "s3" -> builder.awg.s3 = parseNonNegativeInt(key, value)
             "s4" -> builder.awg.s4 = parseNonNegativeInt(key, value)
-            "h1" -> builder.awg.h1 = parseFourByteUnsigned(key, value)
-            "h2" -> builder.awg.h2 = parseFourByteUnsigned(key, value)
-            "h3" -> builder.awg.h3 = parseFourByteUnsigned(key, value)
-            "h4" -> builder.awg.h4 = parseFourByteUnsigned(key, value)
-            "i1" -> builder.awg.i1 = parseHexString(key, value)
-            "i2" -> builder.awg.i2 = parseHexString(key, value)
-            "i3" -> builder.awg.i3 = parseHexString(key, value)
-            "i4" -> builder.awg.i4 = parseHexString(key, value)
-            "i5" -> builder.awg.i5 = parseHexString(key, value)
-            else -> Unit // Unknown key: ignored, not a hard error.
+            "h1" -> builder.awg.h1 = parseHeader(key, value)
+            "h2" -> builder.awg.h2 = parseHeader(key, value)
+            "h3" -> builder.awg.h3 = parseHeader(key, value)
+            "h4" -> builder.awg.h4 = parseHeader(key, value)
+            "i1" -> builder.awg.i1 = parseSignature(key, value)
+            "i2" -> builder.awg.i2 = parseSignature(key, value)
+            "i3" -> builder.awg.i3 = parseSignature(key, value)
+            "i4" -> builder.awg.i4 = parseSignature(key, value)
+            "i5" -> builder.awg.i5 = parseSignature(key, value)
+            else -> Unit // Unrelated WireGuard hooks are not runtime obfuscation fields.
         }
     }
 
@@ -252,28 +265,19 @@ object WireGuardConfParser {
         return parsed
     }
 
-    private fun parseFourByteUnsigned(
-        key: String,
-        value: String,
-    ): Long {
-        val parsed =
-            value.toLongOrNull()
-                ?: throw IllegalArgumentException(
-                    "AmneziaWG key '$key' expects an unsigned 32-bit integer, got: $value",
-                )
-        require(parsed in 0L..FOUR_BYTE_UNSIGNED_MAX) {
-            "AmneziaWG key '$key' must be a 4-byte unsigned value (0..$FOUR_BYTE_UNSIGNED_MAX), got: $value"
-        }
-        return parsed
-    }
-
-    private fun parseHexString(
+    private fun parseHeader(
         key: String,
         value: String,
     ): String {
-        require(value.isNotEmpty() && HEX_REGEX.matches(value)) {
-            "AmneziaWG key '$key' expects a hex string, got: $value"
-        }
-        return value.lowercase()
+        require(AmneziaWgWireProfile.headerIsValid(value, key.last().digitToInt())) { "Invalid AmneziaWG $key" }
+        return value
+    }
+
+    private fun parseSignature(
+        key: String,
+        value: String,
+    ): String {
+        require(AmneziaWgWireProfile.signatureSize(value) != null) { "Invalid AmneziaWG $key" }
+        return value
     }
 }

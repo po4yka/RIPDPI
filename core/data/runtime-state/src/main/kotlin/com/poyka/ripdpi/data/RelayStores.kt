@@ -31,6 +31,7 @@ data class RelayProfileRecord(
     val server: String = "",
     val serverPort: Int = 443,
     val serverName: String = "",
+    val hysteriaPortHopping: Hysteria2PortHopping? = null,
     val securityLayer: String = RelaySecurityLayerReality,
     val realityPublicKey: String = "",
     val realityShortId: String = "",

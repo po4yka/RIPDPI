@@ -5,7 +5,8 @@ use std::time::Instant;
 use crate::runtime::adaptive::note_server_ttl_for_route;
 use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
-use crate::runtime::relay::first_exchange::{FirstResponse, read_first_response};
+use crate::runtime::relay::first_exchange::{FirstResponse, FirstResponseReader, read_first_response};
+use crate::runtime::relay::pending_response::PendingFirstResponse;
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeConnectionRoute;
@@ -13,6 +14,7 @@ use crate::runtime::types::RuntimeConnectionRoute;
 pub(super) enum FirstResponseDecision {
     Complete { recorded_success: bool },
     Retry { failure: RuntimeClassifiedFailure, response_bytes: Option<Vec<u8>> },
+    Continue(Box<PendingFirstResponse>),
 }
 
 pub(super) struct FirstResponseContext<'a> {
@@ -32,7 +34,26 @@ pub(super) fn handle_first_response(
     session_state: &mut FirstOutboundSession,
     context: FirstResponseContext<'_>,
 ) -> io::Result<FirstResponseDecision> {
-    match read_first_response(context.state, context.target, context.host, upstream, context.original_request)? {
+    let reader = FirstResponseReader::new(context.state, context.original_request);
+    match read_first_response(
+        context.state,
+        context.target,
+        context.host,
+        upstream,
+        context.original_request,
+        Some(client),
+        reader,
+    )? {
+        FirstResponse::Continuation(reader) => Ok(FirstResponseDecision::Continue(Box::new(PendingFirstResponse {
+            reader: *reader,
+            target: context.target,
+            route: context.route.clone(),
+            host: context.host.map(str::to_owned),
+            original_request: context.original_request.to_vec(),
+            success_strategy_family: context.success_strategy_family,
+            primary_strategy_family: context.primary_strategy_family,
+            tls_send_start: context.tls_send_start,
+        }))),
         FirstResponse::Forward(bytes, server_ttl) => {
             if let Some(start) = context.tls_send_start {
                 context.state.note_tls_handshake_completed(context.target, start.elapsed().as_millis() as u64);

@@ -3,10 +3,7 @@ use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
 use crate::types::DnsTarget;
 use crate::util::{DEFAULT_DOH_HOST, DEFAULT_DOH_URL};
 
-use super::catalog::{
-    bootstrap_strings_for_resolver, default_bootstrap_strings, default_port, resolver_catalog_entry,
-    resolver_entry_endpoint,
-};
+use super::catalog::{bootstrap_strings_for_resolver, default_port, resolver_catalog_entry, resolver_entry_endpoint};
 use super::parse::{encrypted_dns_protocol, parse_bootstrap_ips, parse_url_host};
 
 pub fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(EncryptedDnsEndpoint, Vec<String>), String> {
@@ -53,9 +50,4 @@ pub fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(Encrypte
 
 pub fn encrypted_dns_endpoint_for_resolver_id(resolver_id: &str) -> EncryptedDnsEndpoint {
     resolver_entry_endpoint(resolver_catalog_entry(resolver_id))
-}
-
-#[allow(dead_code)]
-pub(super) fn default_bootstrap_strings_for_target() -> Vec<String> {
-    default_bootstrap_strings()
 }

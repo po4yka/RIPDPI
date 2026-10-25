@@ -105,6 +105,11 @@ data class ResolvedChainRelayHopConfig(
     val vlessUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    val hysteriaInsecure: Boolean = false,
+    val hysteriaPinSha256: String? = null,
+    val hysteriaPortHopPorts: String? = null,
+    val hysteriaPortHopIntervalMillis: Long? = null,
+    val hysteriaPortHopIntervalMaxMillis: Long? = null,
     @SerialName("anytlsPassword")
     val anyTlsPassword: String? = null,
     val tuicUuid: String? = null,
@@ -227,6 +232,9 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    val hysteriaPortHopPorts: String? = null,
+    val hysteriaPortHopIntervalMillis: Long? = null,
+    val hysteriaPortHopIntervalMaxMillis: Long? = null,
     val hysteriaInsecure: Boolean = false,
     /** Hysteria2 leaf-certificate SHA-256 pin, 64 lowercase hex characters; `null` = no pin. */
     val hysteriaPinSha256: String? = null,
@@ -452,6 +460,9 @@ private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section 
         hysteriaSalamanderKey = hysteriaSalamanderKey,
         hysteriaInsecure = hysteriaInsecure,
         hysteriaPinSha256 = hysteriaPinSha256,
+        hysteriaPortHopPorts = hysteriaPortHopPorts,
+        hysteriaPortHopIntervalMillis = hysteriaPortHopIntervalMillis,
+        hysteriaPortHopIntervalMaxMillis = hysteriaPortHopIntervalMaxMillis,
     )
 
 private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
@@ -694,10 +705,6 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         vlessUuid = vless.vlessUuid,
         chainEntryUuid = chain.entryHop.uuid,
         chainExitUuid = chain.exitHop.uuid,
-        hysteriaPassword = hysteria2.hysteriaPassword,
-        hysteriaSalamanderKey = hysteria2.hysteriaSalamanderKey,
-        hysteriaInsecure = hysteria2.hysteriaInsecure,
-        hysteriaPinSha256 = hysteria2.hysteriaPinSha256,
         anyTlsPassword = anyTls.anyTlsPassword,
         tuicUuid = tuic.tuicUuid,
         tuicPassword = tuic.tuicPassword,
@@ -726,4 +733,16 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         appsScriptDirectHosts = appsScript.appsScriptDirectHosts,
         appsScriptAuthKey = appsScript.appsScriptAuthKey,
         finalmask = finalmask,
+    ).withHysteria2(hysteria2)
+
+/** Copy the Hysteria section as one unit, including optional hopping policy. */
+private fun ResolvedRipDpiRelayConfig.withHysteria2(section: RelayHysteria2Section): ResolvedRipDpiRelayConfig =
+    copy(
+        hysteriaPassword = section.hysteriaPassword,
+        hysteriaSalamanderKey = section.hysteriaSalamanderKey,
+        hysteriaInsecure = section.hysteriaInsecure,
+        hysteriaPinSha256 = section.hysteriaPinSha256,
+        hysteriaPortHopPorts = section.hysteriaPortHopPorts,
+        hysteriaPortHopIntervalMillis = section.hysteriaPortHopIntervalMillis,
+        hysteriaPortHopIntervalMaxMillis = section.hysteriaPortHopIntervalMaxMillis,
     )

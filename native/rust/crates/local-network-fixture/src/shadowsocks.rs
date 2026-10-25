@@ -22,8 +22,7 @@ pub struct ShadowsocksLoopback {
 
 impl ShadowsocksLoopback {
     /// # Cancel safety:
-    /// This future has no await points. Startup returns the owner of all fixture resources.
-    // cancel-safe: cancellation before polling allocates no resources.
+    /// cancel-safe: this future has no await points. Startup returns the owner of all fixture resources.
     pub async fn start(method: &str, password: &str) -> io::Result<Self> {
         let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
         let (listener, udp) = bind_udp_pair(listener)?;
@@ -160,9 +159,8 @@ async fn serve_shadowsocks(listener: TcpListener, udp: UdpSocket, method: String
 }
 
 /// # Cancel safety:
-/// Not cancel-safe after pumps start: cancellation leaves those tasks running.
+/// NOT cancel-safe: after pumps start, cancellation leaves those tasks running.
 /// The caller must stop the fixture runtime when cancelling this handler.
-// NOT cancel-safe: spawned fixture pumps can outlive the handler future.
 async fn handle_tcp_connection(mut socket: TcpStream, cipher: Cipher, password: String) -> io::Result<()> {
     let secret = SecretString::new(password.clone());
     let mut request_salt = vec![0_u8; cipher.salt_len()];

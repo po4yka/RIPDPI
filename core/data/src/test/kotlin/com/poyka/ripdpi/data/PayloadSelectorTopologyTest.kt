@@ -44,7 +44,7 @@ class PayloadSelectorTopologyTest {
         val source = """{"outbounds":[
           {"type":"selector","tag":"select","outbounds":["direct"]},
           {"type":"direct","tag":"direct"}
-        ],"route":{"final":"select"},"ripdpi":{"schema_version":1,"amneziawg":$awg}}
+        ],"route":{"final":"select"},"ripdpi":{"schema_version":2,"amneziawg":$awg}}
         """
         val withoutPolicy = SelectorUrltestGroupImport.import(source, "awg")
         assertTrue("$withoutPolicy", withoutPolicy is SelectorUrltestImportResult.Success)
@@ -77,6 +77,6 @@ class PayloadSelectorTopologyTest {
           {"type":"selector","tag":"select","outbounds":["nested"]},
           {"type":"selector","tag":"nested","outbounds":["auto"]},
           {"type":"urltest","tag":"auto","outbounds":["core"],"url":"https://probe.test/204"}
-        ],"route":{"final":"select"},"ripdpi":{"schema_version":1,"payload_failover":${policy()}}}
+        ],"route":{"final":"select"},"ripdpi":{"schema_version":2,"payload_failover":${policy()}}}
         """
 }

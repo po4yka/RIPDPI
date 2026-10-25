@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-24
+goal: PRX-1792849175606125 Forward request continuation during first-response
+  observation

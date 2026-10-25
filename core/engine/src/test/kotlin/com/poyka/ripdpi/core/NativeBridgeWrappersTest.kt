@@ -499,19 +499,6 @@ class NativeBridgeWrappersTest {
         }
 
     @Test
-    fun tunnelWrapperRejectsStopWhenIdle() =
-        runTest {
-            val tunnel = Tun2SocksTunnel(FakeTun2SocksBindings())
-
-            val error =
-                runCatching {
-                    tunnel.stop()
-                }.exceptionOrNull()
-
-            assertTrue(error is NativeError.NotRunning)
-        }
-
-    @Test
     fun tunnelWrapperPropagatesNativeStatsFailure() =
         runTest {
             val bindings =

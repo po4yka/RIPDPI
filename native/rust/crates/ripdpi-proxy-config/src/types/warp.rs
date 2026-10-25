@@ -27,8 +27,9 @@ impl Default for ProxyUiWarpManualEndpointConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProxyUiWarpAmneziaConfig {
+    pub wire_profile: String,
     #[serde(default)]
     pub enabled: bool,
     #[serde(default)]
@@ -37,14 +38,10 @@ pub struct ProxyUiWarpAmneziaConfig {
     pub jmin: i32,
     #[serde(default)]
     pub jmax: i32,
-    #[serde(default)]
-    pub h1: i64,
-    #[serde(default)]
-    pub h2: i64,
-    #[serde(default)]
-    pub h3: i64,
-    #[serde(default)]
-    pub h4: i64,
+    pub h1: String,
+    pub h2: String,
+    pub h3: String,
+    pub h4: String,
     #[serde(default)]
     pub s1: i32,
     #[serde(default)]
@@ -53,7 +50,7 @@ pub struct ProxyUiWarpAmneziaConfig {
     pub s3: i32,
     #[serde(default)]
     pub s4: i32,
-    /// AmneziaWG 2.0 `I1..I5` special-junk frames as hex strings. Empty = unset.
+    /// AmneziaWG 3.1 `I1..I5` signature programs. Empty = unset.
     #[serde(default)]
     pub i1: String,
     #[serde(default)]
@@ -78,13 +75,14 @@ impl Default for ProxyUiWarpAmneziaConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            wire_profile: "awg-3.1-ranges-v1".into(),
             jc: 0,
             jmin: 0,
             jmax: 0,
-            h1: 0,
-            h2: 0,
-            h3: 0,
-            h4: 0,
+            h1: "1".into(),
+            h2: "2".into(),
+            h3: "3".into(),
+            h4: "4".into(),
             s1: 0,
             s2: 0,
             s3: 0,
@@ -107,6 +105,8 @@ fn default_warp_persistent_keepalive() -> u16 {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyUiWarpConfig {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub awg_dns_servers: Vec<String>,
     #[serde(default)]
     pub enabled: bool,
     #[serde(default = "default_warp_route_mode")]
@@ -136,6 +136,7 @@ pub struct ProxyUiWarpConfig {
 impl Default for ProxyUiWarpConfig {
     fn default() -> Self {
         Self {
+            awg_dns_servers: Vec::new(),
             enabled: false,
             route_mode: default_warp_route_mode(),
             route_hosts: String::new(),

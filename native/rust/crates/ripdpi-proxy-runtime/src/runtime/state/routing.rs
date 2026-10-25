@@ -60,12 +60,20 @@ impl RuntimeState {
         host: Option<&str>,
         transport: RuntimeTransportProtocol,
     ) -> DestinationEgress {
-        self.destination_routing.evaluate(
+        let policy = self.destination_routing.evaluate(
             target,
             host,
             transport,
             self.geo_matcher.as_deref().map(|matcher| matcher as &dyn GeoMatcher),
-        )
+        );
+        if policy != DestinationEgress::Block
+            && matches!(target.port(), 53 | 853)
+            && self.awg_dns_servers.contains(&target.ip())
+        {
+            DestinationEgress::Tunneled
+        } else {
+            policy
+        }
     }
     pub(in crate::runtime) fn destination_policy_may_need_host(&self) -> bool {
         self.destination_routing.is_active() && self.destination_routing.may_need_host()
@@ -181,5 +189,104 @@ impl RuntimeState {
         host: Option<String>,
     ) {
         PolicySelectionPort::store_route(&self.services, dest, group_index, attempted_mask, host);
+    }
+}
+
+#[cfg(test)]
+mod awg_dns_tests {
+    use super::*;
+    use ripdpi_proxy_runtime_adapter::model::config::{
+        DestinationIpMatcher, DestinationIpMatcherKind, DestinationRoutingAction, DestinationRoutingNetwork,
+        DestinationRoutingPolicy, DestinationRoutingRule, UpstreamSocksConfig,
+    };
+
+    fn lan_rule(action: DestinationRoutingAction) -> DestinationRoutingRule {
+        DestinationRoutingRule {
+            action,
+            network: DestinationRoutingNetwork::Both,
+            domains: Vec::new(),
+            ip_ranges: ["10.0.0.0/8", "fc00::/7"]
+                .into_iter()
+                .map(|value| DestinationIpMatcher { kind: DestinationIpMatcherKind::Cidr, value: value.into() })
+                .collect(),
+            destination_ports: Vec::new(),
+        }
+    }
+
+    fn state(actions: &[DestinationRoutingAction], active: bool) -> RuntimeState {
+        let mut config = RuntimeConfig {
+            destination_routing: DestinationRoutingPolicy {
+                rules: actions.iter().copied().map(lan_rule).collect(),
+                ..DestinationRoutingPolicy::default()
+            },
+            awg_dns_servers: if active {
+                vec!["10.77.0.1".parse().unwrap(), "fd77::1".parse().unwrap()]
+            } else {
+                Vec::new()
+            },
+            ..RuntimeConfig::default()
+        };
+        config.groups[0].policy.ext_socks = Some(UpstreamSocksConfig { addr: "127.0.0.1:10809".parse().unwrap() });
+        RuntimeState::test(config)
+    }
+
+    #[test]
+    fn awg_resolver_ports_keep_tcp_and_udp_upstreams_despite_lan_direct() {
+        let state = state(&[DestinationRoutingAction::Direct], true);
+        for ip in ["10.77.0.1", "fd77::1"] {
+            for port in [53, 853] {
+                for transport in [RuntimeTransportProtocol::Tcp, RuntimeTransportProtocol::Udp] {
+                    let target = SocketAddr::new(ip.parse().unwrap(), port);
+                    let egress = state.destination_egress(target, None, transport);
+                    assert_eq!(egress, DestinationEgress::Tunneled);
+                    let expected = Some("127.0.0.1:10809".parse().unwrap());
+                    assert_eq!(
+                        state.route_connect_policy(0, None, false, egress).unwrap().upstream_socks_addr,
+                        expected
+                    );
+                    assert_eq!(state.udp_flow_group_policy(0, egress).unwrap().upstream_socks_addr, expected);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn unrelated_lan_and_inactive_resolvers_keep_direct_routing() {
+        for active in [true, false] {
+            let state = state(&[DestinationRoutingAction::Direct], active);
+            let targets = if active {
+                vec!["10.77.0.1:443", "[fd77::1]:443", "10.77.0.2:53", "[fd77::2]:853"]
+            } else {
+                vec!["10.77.0.1:53", "[fd77::1]:853"]
+            };
+            for target in targets {
+                for transport in [RuntimeTransportProtocol::Tcp, RuntimeTransportProtocol::Udp] {
+                    let egress = state.destination_egress(target.parse().unwrap(), None, transport);
+                    assert_eq!(egress, DestinationEgress::Direct);
+                    assert!(state.route_connect_policy(0, None, false, egress).unwrap().upstream_socks_addr.is_none());
+                    assert!(state.udp_flow_group_policy(0, egress).unwrap().upstream_socks_addr.is_none());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn resolver_override_preserves_effective_block_and_first_match_order() {
+        use DestinationRoutingAction::{Block, Direct};
+        for (actions, expected) in
+            [(vec![Block, Direct], DestinationEgress::Block), (vec![Direct, Block], DestinationEgress::Tunneled)]
+        {
+            let state = state(&actions, true);
+            for target in ["10.77.0.1:53", "[fd77::1]:853"] {
+                for transport in [RuntimeTransportProtocol::Tcp, RuntimeTransportProtocol::Udp] {
+                    let egress = state.destination_egress(target.parse().unwrap(), None, transport);
+                    assert_eq!(egress, expected);
+                    if egress == DestinationEgress::Block {
+                        assert!(state.route_connect_policy(0, None, false, egress).is_none());
+                        assert!(state.udp_flow_group_policy(0, egress).is_none());
+                    }
+                }
+            }
+        }
     }
 }

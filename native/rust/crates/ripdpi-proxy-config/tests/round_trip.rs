@@ -83,3 +83,17 @@ fn destination_routing_mixed_fixture_uses_canonical_kind_ranks() {
     assert_eq!(config.destination_routing.rules[0].domains.len(), 3);
     assert_eq!(config.destination_routing.rules[0].ip_ranges.len(), 2);
 }
+
+#[test]
+fn outer_ui_config_rejects_unknown_awg_options() {
+    let original: serde_json::Value = serde_json::from_str(&read_fixture("round-trip-tcp-heavy.json")).unwrap();
+    for field in ["disableCookies", "headerProtectionKey", "contentPaddingAddition", "randomTrailers"] {
+        let mut value = original.clone();
+        let amnezia = value.pointer_mut("/warp/amnezia").expect("fixture AWG config");
+        amnezia.as_object_mut().unwrap().insert(field.into(), serde_json::json!(true));
+        assert!(
+            parse_proxy_config_json(&value.to_string()).is_err(),
+            "unsupported {field} must survive no parse layer"
+        );
+    }
+}

@@ -1,0 +1,149 @@
+package com.poyka.ripdpi.data
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.IOException
+
+class FailureReasonTest {
+    // -- displayMessage ---------------------------------------------------
+
+    @Test
+    fun `displayMessage returns message for NativeError`() {
+        val reason = FailureReason.NativeError("proxy crashed")
+        assertEquals("proxy crashed", reason.displayMessage)
+    }
+
+    @Test
+    fun `displayMessage returns fixed text for TunnelEstablishmentFailed`() {
+        assertEquals("Tunnel establishment failed", FailureReason.TunnelEstablishmentFailed.displayMessage)
+    }
+
+    @Test
+    fun `displayMessage returns cause message for Unexpected`() {
+        val reason = FailureReason.Unexpected(RuntimeException("boom"))
+        assertEquals("boom", reason.displayMessage)
+    }
+
+    @Test
+    fun `displayMessage returns fallback when Unexpected cause has null message`() {
+        val reason = FailureReason.Unexpected(RuntimeException())
+        assertEquals("Unexpected error", reason.displayMessage)
+    }
+
+    // -- classifyFailureReason --------------------------------------------
+
+    @Test
+    fun `classifyFailureReason maps NativeError AlreadyRunning to FailureReason NativeError`() {
+        val result = classifyFailureReason(NativeError.AlreadyRunning("proxy"))
+        assertTrue(result is FailureReason.NativeError)
+        assertEquals("proxy is already running", (result as FailureReason.NativeError).message)
+    }
+
+    @Test
+    fun `classifyFailureReason maps NativeError NativeIoError to FailureReason NativeError`() {
+        val result = classifyFailureReason(NativeError.NativeIoError("read failed", IOException("fd closed")))
+        assertTrue(result is FailureReason.NativeError)
+        assertEquals("read failed", (result as FailureReason.NativeError).message)
+    }
+
+    @Test
+    fun `classifyFailureReason maps IOException to FailureReason NativeError`() {
+        val result = classifyFailureReason(IOException("socket reset"))
+        assertTrue(result is FailureReason.NativeError)
+        assertEquals("socket reset", (result as FailureReason.NativeError).message)
+    }
+
+    @Test
+    fun `classifyFailureReason maps IllegalStateException with VPN in tunnel context to TunnelEstablishmentFailed`() {
+        val result = classifyFailureReason(IllegalStateException("VPN field not null"), isTunnelContext = true)
+        assertTrue(result is FailureReason.TunnelEstablishmentFailed)
+    }
+
+    @Test
+    fun `classifyFailureReason maps IllegalStateException with VPN in proxy context to NativeError`() {
+        val result = classifyFailureReason(IllegalStateException("VPN field not null"), isTunnelContext = false)
+        assertTrue(result is FailureReason.NativeError)
+    }
+
+    @Test
+    fun `classifyFailureReason maps IllegalStateException without tunnel keyword in tunnel context to NativeError`() {
+        val result = classifyFailureReason(IllegalStateException("something else"), isTunnelContext = true)
+        assertTrue(result is FailureReason.NativeError)
+    }
+
+    @Test
+    fun `classifyFailureReason maps plain IllegalStateException to NativeError`() {
+        val result = classifyFailureReason(IllegalStateException("bad state"))
+        assertTrue(result is FailureReason.NativeError)
+        assertEquals("bad state", (result as FailureReason.NativeError).message)
+    }
+
+    @Test
+    fun `classifyFailureReason maps unknown Exception to Unexpected`() {
+        val ex = UnsupportedOperationException("nope")
+        val result = classifyFailureReason(ex)
+        assertTrue(result is FailureReason.Unexpected)
+        assertEquals(ex, (result as FailureReason.Unexpected).cause)
+    }
+
+    // -- classifyFailureReason: null-message fallbacks -----------------------
+
+    @Test
+    fun `classifyFailureReason maps NativeError SessionCreationFailed to NativeError reason`() {
+        val result = classifyFailureReason(NativeError.SessionCreationFailed("proxy"))
+        assertTrue(result is FailureReason.NativeError)
+        assertEquals("Native proxy session was not created", (result as FailureReason.NativeError).message)
+    }
+
+    @Test
+    fun `classifyFailureReason maps NativeError NotRunning to NativeError reason`() {
+        val result = classifyFailureReason(NativeError.NotRunning("tunnel"))
+        assertTrue(result is FailureReason.NativeError)
+        assertEquals("tunnel is not running", (result as FailureReason.NativeError).message)
+    }
+
+    @Test
+    fun `classifyFailureReason maps IOException with null message to fallback text`() {
+        val result = classifyFailureReason(IOException())
+        assertTrue(result is FailureReason.NativeError)
+        assertEquals("I/O error", (result as FailureReason.NativeError).message)
+    }
+
+    @Test
+    fun `classifyFailureReason maps ISE with tunnel keyword in tunnel context to TunnelEstablishmentFailed`() {
+        val result =
+            classifyFailureReason(
+                IllegalStateException("tunnel session not established"),
+                isTunnelContext = true,
+            )
+        assertTrue(result is FailureReason.TunnelEstablishmentFailed)
+    }
+
+    @Test
+    fun `classifyFailureReason maps IllegalStateException with null message to NativeError with fallback`() {
+        val result = classifyFailureReason(IllegalStateException())
+        assertTrue(result is FailureReason.NativeError)
+        assertEquals("Native error", (result as FailureReason.NativeError).message)
+    }
+
+    // -- NativeError hierarchy -----------------------------------------------
+
+    @Test
+    fun `NativeError AlreadyRunning is both IllegalStateException and NativeError`() {
+        val error: Throwable = NativeError.AlreadyRunning("proxy")
+        assertTrue(error is IllegalStateException)
+        assertTrue(error is NativeError)
+        assertEquals("proxy is already running", error.message)
+    }
+
+    @Test
+    fun `NativeError NativeIoError preserves cause chain`() {
+        val cause = IOException("fd closed")
+        val error: Throwable = NativeError.NativeIoError("read failed", cause)
+        assertTrue(error is IOException)
+        assertTrue(error is NativeError)
+        assertEquals("read failed", error.message)
+        assertEquals(cause, error.cause)
+    }
+}

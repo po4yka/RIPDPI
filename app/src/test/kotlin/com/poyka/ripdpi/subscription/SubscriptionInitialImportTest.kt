@@ -230,8 +230,8 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
 
     private companion object {
         const val AwgPayload =
-            """{"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
-              "tag":"initial-awg","private_key":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            """{"outbounds":[],"ripdpi":{"schema_version":2,"amneziawg":[{
+              "tag":"initial-awg","wire_profile":"awg-3.1-ranges-v1","jc":0,"jmin":0,"jmax":0,"s1":0,"s2":0,"h1":"1","h2":"2","h3":"3","h4":"4","private_key":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
               "address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,"peer":{
                 "public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
                 "endpoint":"192.0.2.10:51820","allowed_ips":["0.0.0.0/0"]

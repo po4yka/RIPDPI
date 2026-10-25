@@ -109,3 +109,5 @@ jobs:
           scripts.tests.test_check_harness_manifests
           scripts.tests.test_network_surface_scanner
           scripts.tests.test_checkout_doctor
+          scripts.tests.test_cargo_guarded
+          scripts.tests.test_staged_rust_crates

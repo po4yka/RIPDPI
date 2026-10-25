@@ -139,14 +139,10 @@ provisioner:
 
 Then a sha256 update or X25519 keypair regeneration lands in one file,
 not many. The RIPDPI-side `test-lab/vpn-deploy/start.sh` pre-flights
-this fixture before converge — see `llm-rust-prompts.md` for the
-forbidden-input list.
+this fixture before converge.
 
 ### Cross-references
 
-- `.claude/rules/llm-rust-prompts.md` — sentinel patterns for the
-  routing-rule and inventory-shape failures above; the diff-acceptance
-  gate covers AI-generated Ansible/Jinja2 diffs too.
 - ripdpi-vpn-deploy `../ripdpi-vpn-deploy/scripts/check-templates-render.py` — programmatic
   xray template lint with semantic validation via `xray -test`.
 - ripdpi-vpn-deploy `../ripdpi-vpn-deploy/scripts/validate-secrets.py` — schema gate for the

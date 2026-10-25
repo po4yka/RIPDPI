@@ -26,7 +26,9 @@ internal fun resolveLocalProxyEndpoint(
         }
 
     val uri = URI("socks://$listenerAddress")
-    val host = requireNotNull(uri.host) { "Proxy listener address is missing a host: $listenerAddress" }
+    val host =
+        requireNotNull(uri.host) { "Proxy listener address is missing a host: $listenerAddress" }
+            .removeSurrounding("[", "]")
     require(uri.port in 1..MaxTcpPort) { "Proxy listener address is missing a valid port: $listenerAddress" }
     val port = uri.port
     val password = authToken?.takeIf { it.isNotBlank() }

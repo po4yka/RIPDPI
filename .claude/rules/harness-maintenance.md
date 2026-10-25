@@ -19,7 +19,7 @@ paths:
 
 # Harness maintenance
 
-Applies when editing agent instructions, skills, subagents, rules, hooks, or their CI. Validate every such change with `just harness-check`; the blocking `harness-validation` workflow runs the same checks.
+Applies when editing agent instructions, skills, subagents, rules, hooks, or their CI. Run `just harness-check` once after a batch of such changes; the blocking `harness-validation` workflow runs the same checks.
 
 The link audit checks source pointers in inline code and Markdown links across entry points, local skills and their Markdown references, rules, and Claude/Codex agents. File names, suffix paths, globs, and `...` must resolve to tracked files in the current checkout. Qualify symbols with `path:Symbol()` or `path#Symbol`; Rust, Kotlin, Python, and protobuf declaration checks require one matching file. Numeric `:line` and `#Lline` references must fit that file. Supported source extensions live in `scripts/ci/check_harness_links.py:_RE_SOURCE`. Code fences, template placeholders, external `../` paths, and vendored library examples are outside the source audit; use concrete local pointers for repository guidance. Source changes also trigger the CI audit; the pre-commit audit is blocking.
 
@@ -43,11 +43,12 @@ A library-reference skill can declare `<!-- harness-source-scope: external -->` 
 - Frontmatter keys must be valid Claude Code keys (CI-checked); `user-invocable` defaults to true and is spelled with a `c`.
 - Skills listed in `tools/tasking/generated-assets.lock.json` (`sdd`, `mdtask*`, `openspec-*`) are generated and hash-locked; change them only by regenerating through their owning tool.
 - Centralized Rust skills are symlinks into `.agents/vendor/rust-skills`; never copy or edit them here. Exposure is deliberate: every upstream skill is either symlinked or listed with its reason in `EXCLUDED_VENDOR_SKILLS` in `scripts/ci/check_harness_manifests.py`. After a submodule bump, decide for each new skill; re-expose an excluded one when the repository gains its surface.
+- Ponytail skills are verbatim upstream copies under `.agents/vendor/ponytail/`, exposed through the same symlink pattern; CI skips frontmatter and description-length checks for symlinked upstream skills. Never edit them here; update them as `.agents/vendor/ponytail/README.md` describes, and keep its `LICENSE`.
 
 ## Subagents
 
 - Add a subagent only when separate context helps: independent review or audit, long test or benchmark runs, broad read-only investigation, or isolated writes. Persona agents that restate general engineering practice do not earn their context cost.
 - Every `.claude/agents/<name>.md` has a `.codex/agents/<name>.toml` counterpart with the same intent (CI-checked). Codex cannot preload skills, so the counterpart's `developer_instructions` must name each skill the Claude agent lists under `skills:` (CI-checked).
 - Omit `model` in Claude agents so they inherit the session model; a pinned value must be a Claude Code alias or `claude-*` ID (CI-checked). Pin a Codex `model` only with a stated reason.
-- Every Codex agent declares `sandbox_mode`: `read-only` for auditors and reviewers, `workspace-write` for agents that build or write artifacts. Auditors and reviewers are listed in `READ_ONLY_AGENTS` in `scripts/ci/check_harness_manifests.py`, which requires `read-only` in Codex and no `Write`/`Edit` tools in Claude Code (CI-checked). Agents that write tracked files (`golden-blesser`, `native-verifier`, `ripdpi-vault-sync`) declare `isolation: worktree` in Claude Code.
+- Every Codex agent declares `sandbox_mode`: `read-only` for auditors and reviewers, `workspace-write` for agents that build or write artifacts. Auditors and reviewers are listed in `READ_ONLY_AGENTS` in `scripts/ci/check_harness_manifests.py`, which requires `read-only` in Codex and no `Write`/`Edit` tools in Claude Code (CI-checked). Agents that write tracked files (`golden-blesser`, `native-verifier`) declare `isolation: worktree` in Claude Code.
 - Descriptions follow the skill description rule: what the agent does and when to delegate to it.

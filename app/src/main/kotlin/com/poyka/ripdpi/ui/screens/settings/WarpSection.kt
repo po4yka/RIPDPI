@@ -473,34 +473,34 @@ private fun WarpAmneziaHeaderFields(
 ) {
     warpAmneziaTextSetting(
         title = stringResource(R.string.warp_amnezia_h1_title),
-        value = uiState.warp.amneziaH1.toString(),
+        value = uiState.warp.amneziaH1,
         setting = AdvancedTextSetting.WarpAmneziaH1,
         onTextConfirmed = onTextConfirmed,
-        keyboardOptions = keyboardOptions,
+        keyboardOptions = keyboardOptions.copy(keyboardType = KeyboardType.Text),
         disabledMessage = disabledMessage,
     )
     warpAmneziaTextSetting(
         title = stringResource(R.string.warp_amnezia_h2_title),
-        value = uiState.warp.amneziaH2.toString(),
+        value = uiState.warp.amneziaH2,
         setting = AdvancedTextSetting.WarpAmneziaH2,
         onTextConfirmed = onTextConfirmed,
-        keyboardOptions = keyboardOptions,
+        keyboardOptions = keyboardOptions.copy(keyboardType = KeyboardType.Text),
         disabledMessage = disabledMessage,
     )
     warpAmneziaTextSetting(
         title = stringResource(R.string.warp_amnezia_h3_title),
-        value = uiState.warp.amneziaH3.toString(),
+        value = uiState.warp.amneziaH3,
         setting = AdvancedTextSetting.WarpAmneziaH3,
         onTextConfirmed = onTextConfirmed,
-        keyboardOptions = keyboardOptions,
+        keyboardOptions = keyboardOptions.copy(keyboardType = KeyboardType.Text),
         disabledMessage = disabledMessage,
     )
     warpAmneziaTextSetting(
         title = stringResource(R.string.warp_amnezia_h4_title),
-        value = uiState.warp.amneziaH4.toString(),
+        value = uiState.warp.amneziaH4,
         setting = AdvancedTextSetting.WarpAmneziaH4,
         onTextConfirmed = onTextConfirmed,
-        keyboardOptions = keyboardOptions,
+        keyboardOptions = keyboardOptions.copy(keyboardType = KeyboardType.Text),
         disabledMessage = disabledMessage,
     )
 }
@@ -606,7 +606,7 @@ private fun warpAmneziaTextSetting(
     AdvancedTextSetting(
         title = title,
         value = value,
-        validator = { it.toLongOrNull() != null },
+        validator = { warpAmneziaInputIsValid(setting, it) },
         invalidMessage = stringResource(R.string.config_error_out_of_range),
         disabledMessage = disabledMessage,
         keyboardOptions = keyboardOptions,

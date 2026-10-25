@@ -61,10 +61,13 @@ impl MitmCertManager {
     /// after — never across the signing work. See
     /// `.claude/rules/llm-rust-prompts.md` and the `rust-async-internals`
     /// skill: no Mutex is held across CPU-bound work.
-    // cancel-safe: the only awaits are the two short mutex acquisitions and the
-    // spawn_blocking join. Cancellation at any await point leaves only the
-    // (idempotent) per-domain cache untouched or populated by a racing task;
-    // no partial external state is produced.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the only awaits are the two short mutex acquisitions and the
+    /// spawn_blocking join. Cancellation at any await point leaves only the
+    /// (idempotent) per-domain cache untouched or populated by a racing task;
+    /// no partial external state is produced.
     pub async fn get_server_config(manager: &Arc<Mutex<Self>>, domain: &str) -> Result<Arc<ServerConfig>, MitmError> {
         // Fast path: take a short lock, return a cached config, and clone the
         // CA material the blocking task needs as Send + 'static inputs.

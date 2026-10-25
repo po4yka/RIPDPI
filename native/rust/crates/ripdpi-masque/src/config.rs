@@ -41,7 +41,8 @@ pub struct MasqueConfig {
     pub tcp_protocol: MasqueTcpProtocol,
     /// Whether an H3 CONNECT-UDP failure may fall back to H2 capsules.
     pub use_http2_fallback: bool,
-    /// Auth mode: `"bearer"`, `"preshared"`, `"privacy_pass"`, or legacy `"token"`.
+    /// Auth mode: `"bearer"`, `"preshared"`, `"privacy_pass"`, or `"cloudflare_mtls"`.
+    /// Kotlin maps the legacy `"token"` value to `"bearer"` before it reaches native code.
     pub auth_mode: Option<String>,
     /// Shared secret used by bearer and preshared auth modes.
     pub auth_token: Option<String>,
@@ -115,7 +116,7 @@ pub fn resolve_ech_config_via_encrypted_dns(
 impl MasqueConfig {
     pub fn effective_auth_mode(&self) -> MasqueAuthMode {
         match self.auth_mode.as_deref().map(str::trim).map(str::to_ascii_lowercase).as_deref() {
-            Some("bearer" | "token") => MasqueAuthMode::Bearer,
+            Some("bearer") => MasqueAuthMode::Bearer,
             Some("preshared") => MasqueAuthMode::Preshared,
             Some("privacy_pass") => MasqueAuthMode::PrivacyPass,
             Some("cloudflare_mtls") => MasqueAuthMode::CloudflareMtls,

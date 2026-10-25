@@ -2,6 +2,8 @@
 // are compiled out under the loom feature. Skip the entire file under loom.
 #![cfg(not(feature = "loom"))]
 
+#[path = "network_e2e/first_response_duplex.rs"]
+mod first_response_duplex;
 mod support;
 
 use local_network_fixture::{
@@ -686,6 +688,8 @@ struct RecordingTelemetry {
     started: AtomicUsize,
     stopped: AtomicUsize,
     accepted: AtomicUsize,
+    finished: AtomicUsize,
+    failures: AtomicUsize,
     routes: Mutex<Vec<RouteEvent>>,
     autolearn_states: Mutex<Vec<AutolearnStateEvent>>,
     autolearn_events: Mutex<Vec<AutolearnEvent>>,
@@ -758,7 +762,9 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
         self.accepted.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn on_client_finished(&self) {}
+    fn on_client_finished(&self) {
+        self.finished.fetch_add(1, Ordering::Relaxed);
+    }
 
     fn on_client_error(&self, _error: &std::io::Error) {}
 
@@ -768,6 +774,7 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
         _failure: &ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure,
         _host: Option<&str>,
     ) {
+        self.failures.fetch_add(1, Ordering::Relaxed);
     }
 
     fn on_route_selected(&self, target: SocketAddr, group_index: usize, host: Option<&str>, phase: &'static str) {
@@ -1527,7 +1534,9 @@ mod socks5_udp_adapter {
     use std::task::{Context, Poll};
     use tokio::net::UdpSocket as TokioUdpSocket;
 
-    // NOT cancel-safe: poll_recv surfaces one datagram per poll; test-only adapter.
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: poll_recv surfaces one datagram per poll; test-only adapter.
     #[derive(Debug)]
     pub(super) struct Socks5UdpAdapter {
         /// UDP socket connected to the SOCKS5 relay (127.0.0.1:<relay_port>).

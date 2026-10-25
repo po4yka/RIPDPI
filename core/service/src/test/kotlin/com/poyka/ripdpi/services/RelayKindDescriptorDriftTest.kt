@@ -4,15 +4,21 @@ import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayVlessFlowVision
+import com.poyka.ripdpi.data.RelayVlessFlowVisionUdp443
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -187,6 +193,42 @@ class RelayKindDescriptorDriftTest {
         assertThrows(IllegalArgumentException::class.java) {
             validateSharedRelayTransportFeatures(
                 RipDpiRelayConfig(kind = RelayKindVlessReality, udpEnabled = true, vlessFlow = ""),
+            )
+        }
+    }
+
+    @Test
+    fun `profile UDP capability preserves the Reality transport flow and toggle gates`() {
+        val flows = listOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443, "", " ", "unsupported-flow")
+        val transports = listOf(RelayVlessTransportRealityTcp, RelayVlessTransportXhttp, "unknown")
+        for (transport in transports) {
+            for ((index, flow) in flows.withIndex()) {
+                for (enabled in listOf(true, false)) {
+                    assertEquals(
+                        "transport=$transport flow=$flow enabled=$enabled",
+                        enabled && transport == RelayVlessTransportRealityTcp && index < 2,
+                        relayProfileSupportsUdpAssociation(RelayKindVlessReality, enabled, transport, flow),
+                    )
+                }
+            }
+        }
+        assertTrue(
+            relayProfileSupportsUdpAssociation(
+                RelayKindVlessReality,
+                true,
+                RelayVlessTransportRealityTcp,
+                " $RelayVlessFlowVision ",
+            ),
+        )
+    }
+
+    @Test
+    fun `Reality flow cannot enable UDP for TLS VLESS SSH or Mieru`() {
+        listOf(RelayKindVless, RelayKindSsh, RelayKindMieru).forEach { kind ->
+            assertEquals(
+                kind,
+                false,
+                relayProfileSupportsUdpAssociation(kind, true, RelayVlessTransportRealityTcp, RelayVlessFlowVision),
             )
         }
     }

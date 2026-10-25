@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod continuation_tests;
 mod copy_halves;
 mod freeze;
 mod observers;
@@ -31,16 +33,25 @@ pub(super) struct RelayOutboundContext {
     pub(super) group_index: usize,
 }
 
+pub(super) fn shutdown_relay_pair(upstream: &TcpStream, client: &TcpStream) {
+    for socket in [upstream, client] {
+        // Stop writes even when a peer FIN makes a combined shutdown fail.
+        let _ = socket.shutdown(Shutdown::Write);
+        let _ = socket.shutdown(Shutdown::Read);
+    }
+}
+
 pub(super) fn relay_streams(
     client: TcpStream,
     upstream: TcpStream,
     state: &RuntimeState,
     group_index: usize,
     settings: RelayStreamSettings,
-    session_seed: RelaySession,
+    mut session_seed: RelaySession,
     remembered_host_seed: Option<String>,
 ) -> io::Result<RelaySession> {
-    let rotation_state = session_seed.rotation_controller(settings.rotation_seed.clone());
+    let rotation_state = RelaySession::rotation_controller(settings.rotation_seed.clone());
+    let pending_response = session_seed.take_pending_response();
     let session_state = session_seed.into_shared();
     let _ = (client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), client.set_write_timeout(None));
     let _ = (upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), upstream.set_write_timeout(None));
@@ -49,8 +60,8 @@ pub(super) fn relay_streams(
         move |e| io::Error::other(format!("clone {role} socket for relay: {e}"))
     }
     let client_reader = client.try_clone().map_err(clone_err("client"))?;
-    let client_writer = client.try_clone().map_err(clone_err("client"))?;
-    let upstream_reader = upstream.try_clone().map_err(clone_err("upstream"))?;
+    let mut client_writer = client.try_clone().map_err(clone_err("client"))?;
+    let mut upstream_reader = upstream.try_clone().map_err(clone_err("upstream"))?;
     let upstream_writer = upstream.try_clone().map_err(clone_err("upstream"))?;
     let outbound_session = session_state.clone();
     let inbound_session = session_state.clone();
@@ -73,17 +84,27 @@ pub(super) fn relay_streams(
         .spawn(move || {
             let detector =
                 FreezeDetector::new(timeouts.freeze_window_ms, timeouts.freeze_min_bytes, timeouts.freeze_max_stalls);
-            copy_inbound_half(
-                upstream_reader,
-                client_writer,
-                &inbound_state,
-                inbound_session,
-                inbound_host,
-                inbound_rotation,
-                down_done,
-                detector,
-                freeze_flag,
-            )
+            let result = (|| {
+                if let Some(pending) = pending_response {
+                    pending.finish(&inbound_state, &mut upstream_reader, &mut client_writer, &inbound_session)?;
+                }
+                copy_inbound_half(
+                    &mut upstream_reader,
+                    &mut client_writer,
+                    &inbound_state,
+                    inbound_session,
+                    inbound_host,
+                    inbound_rotation,
+                    down_done.clone(),
+                    detector,
+                    freeze_flag,
+                )
+            })();
+            if result.is_err() {
+                down_done.store(true, Ordering::Release);
+                shutdown_relay_pair(&upstream_reader, &client_writer);
+            }
+            result
         })
         .map_err(|err| io::Error::other(format!("failed to spawn inbound relay thread: {err}")))?;
 
@@ -101,16 +122,14 @@ pub(super) fn relay_streams(
     );
     if up_result.is_err() {
         peer_done.store(true, Ordering::Release);
-        let _ = upstream.shutdown(Shutdown::Both);
-        let _ = client.shutdown(Shutdown::Both);
+        shutdown_relay_pair(&upstream, &client);
     }
     let down_result = down.join().map_err(|_| io::Error::other("downstream thread panicked"))?;
 
     // Ensure both sockets are fully closed regardless of how relay threads exited.
     // The per-direction shutdown in each thread may be skipped on error paths;
     // this guarantees FIN is sent so sockets don't linger in CLOSE_WAIT.
-    let _ = upstream.shutdown(Shutdown::Both);
-    let _ = client.shutdown(Shutdown::Both);
+    shutdown_relay_pair(&upstream, &client);
 
     if settings.group.drop_sack() {
         let _ = relay_platform::detach_drop_sack(&upstream);

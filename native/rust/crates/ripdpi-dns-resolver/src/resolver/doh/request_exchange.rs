@@ -69,7 +69,9 @@ pub(super) async fn exchange_binary_post(
     read_limited_response_body(response).await
 }
 
-// cancel-safe: the response and accumulated bytes are owned by this call and dropped on cancellation.
+/// # Cancel safety
+///
+/// cancel-safe: the response and accumulated bytes are owned by this call and dropped on cancellation.
 async fn read_limited_response_body(mut response: reqwest::Response) -> Result<Vec<u8>, EncryptedDnsError> {
     if response.content_length().is_some_and(|length| length > MAX_DOH_RESPONSE_BYTES as u64) {
         return Err(EncryptedDnsError::Request("DoH response Content-Length exceeds maximum size".to_string()));
@@ -94,7 +96,9 @@ mod tests {
     use crate::types::EncryptedDnsError;
 
     #[tokio::test]
-    // cancel-safe: the test owns the local listener and response; cancellation drops both.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns the local listener and response; cancellation drops both.
     async fn reqwest_response_rejects_oversized_chunked_body() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
         let address = listener.local_addr().expect("listener address");

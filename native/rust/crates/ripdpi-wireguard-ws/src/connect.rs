@@ -91,11 +91,14 @@ where
 /// transport [`WsCarrier::new`](crate::WsCarrier::new) (via the TLS layer the
 /// caller adds) expects.
 ///
-// cancel-safe: dropping this future before it resolves drops the in-flight
-// `TcpSocket`/`connect` future, which closes the fd. No caller-visible state is
-// published before the `Ok` return, so a cancelled connect leaves nothing
-// behind beyond a closed socket — there is never a half-protected fd handed
-// out.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping this future before it resolves drops the in-flight
+/// `TcpSocket`/`connect` future, which closes the fd. No caller-visible state is
+/// published before the `Ok` return, so a cancelled connect leaves nothing
+/// behind beyond a closed socket — there is never a half-protected fd handed
+/// out.
 pub async fn connect_protected_carrier<P>(target: SocketAddr, protector: &P) -> io::Result<TcpStream>
 where
     P: CarrierSocketProtector + ?Sized,

@@ -66,8 +66,10 @@ fn redact_upstream_connect_error(error: io::Error) -> io::Error {
     io::Error::new(error.kind(), "upstream connect failed")
 }
 
-// NOT cancel-safe: a timeout drops any partial header already consumed from the
-// channel; the whole unauthenticated session is discarded on expiry.
+/// # Cancel safety
+///
+/// NOT cancel-safe: a timeout drops any partial header already consumed from the
+/// channel; the whole unauthenticated session is discarded on expiry.
 async fn read_request_header_with_timeout(
     inbound_rx: &mut mpsc::Receiver<Bytes>,
     deadline: Duration,
@@ -120,7 +122,9 @@ mod tests {
         assert_eq!(redacted.to_string(), "upstream connect failed");
     }
     #[tokio::test]
-    // cancel-safe: the test owns only an in-memory channel.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns only an in-memory channel.
     async fn incomplete_vless_header_times_out_without_closing_post_body() {
         let (_sender, mut receiver) = tokio::sync::mpsc::channel(1);
         let error = read_request_header_with_timeout(&mut receiver, std::time::Duration::from_millis(10))

@@ -87,10 +87,9 @@ class HookPolicyTest(unittest.TestCase):
         expected_matchers = {".claude/settings.json": "Edit|Write", ".codex/hooks.json": "Edit|Write|apply_patch"}
         for relative, matcher in expected_matchers.items():
             hooks = json.loads((ROOT / relative).read_text())["hooks"]
-            self.assertEqual(set(hooks), {"PreToolUse", "PostToolUse", "SubagentStop"})
+            self.assertEqual(set(hooks), {"PreToolUse", "SubagentStop"})
             self.assertIn("pre_tool_policy.py", hooks["PreToolUse"][0]["hooks"][0]["command"])
-            for event in ("PreToolUse", "PostToolUse"):
-                self.assertEqual(hooks[event][0]["matcher"], matcher, f"{relative} {event}")
+            self.assertEqual(hooks["PreToolUse"][0]["matcher"], matcher, relative)
 
     def test_committed_hook_commands_reference_existing_scripts(self) -> None:
         for manifest in (ROOT / ".claude/settings.json", ROOT / ".codex/hooks.json"):

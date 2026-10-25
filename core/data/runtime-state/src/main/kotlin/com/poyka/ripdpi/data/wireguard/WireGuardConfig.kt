@@ -63,13 +63,13 @@ data class WireGuardPeer(
  * - `jc`, `jmin`, `jmax`, `s1`, `s2`: non-negative integers (junk packet
  *   counts / sizes).
  * - `s3`, `s4`: retained for wire compatibility but must resolve to zero for
- *   Android arm64 safety; [requireArm64Safe] enforces amneziawg-go#110.
- * - `h1`..`h4`: 4-byte unsigned magic-header values, stored as [Long] in the
- *   `0..0xFFFFFFFF` range.
- * - `i1`..`i5`: special-junk payloads, stored as lowercase hex strings.
+ *   Android arm64 safety; [requireSupportedProfile] enforces amneziawg-go#110.
+ * - `h1`..`h4`: 4-byte unsigned magic-header values, stored as canonical decimal strings or inclusive ranges.
+ * - `i1`..`i5`: special-junk payloads, stored as bounded signature programs.
  */
 @Serializable
 data class AmneziaWgParameters(
+    val wireProfile: String = "awg-3.1-ranges-v1",
     val jc: Int? = null,
     val jmin: Int? = null,
     val jmax: Int? = null,
@@ -77,10 +77,10 @@ data class AmneziaWgParameters(
     val s2: Int? = null,
     val s3: Int? = null,
     val s4: Int? = null,
-    val h1: Long? = null,
-    val h2: Long? = null,
-    val h3: Long? = null,
-    val h4: Long? = null,
+    val h1: String? = null,
+    val h2: String? = null,
+    val h3: String? = null,
+    val h4: String? = null,
     val i1: String? = null,
     val i2: String? = null,
     val i3: String? = null,
@@ -88,7 +88,10 @@ data class AmneziaWgParameters(
     val i5: String? = null,
 ) {
     /** Rejects the known Android arm64 transport-drop configuration from amneziawg-go#110. */
-    fun requireArm64Safe() {
+    fun requireSupportedProfile() {
+        com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
+            .requireScalars(jc, jmin, jmax, s1, s2)
+        AmneziaWgWireProfile.requireValid(wireProfile, listOf(h1, h2, h3, h4), listOf(i1, i2, i3, i4, i5))
         requireAmneziaWgArm64Safe(s3 = s3, s4 = s4)
     }
 
@@ -112,14 +115,14 @@ data class AmneziaWgParameters(
      * `contract/cohort-fingerprint.golden.json` (committed identically in this
      * repo and ripdpi-vpn-deploy) and implemented server-side in
      * `ripdpi_cohort_fingerprint.py`. Pre-image (UTF-8, no trailing newline):
-     * `jc=<jc>&jmin=<jmin>&...&h4=<h4>&i1=<i1>&...&i5=<i5>`, each value base-10
-     * (jc..h4) or lowercase hex (i1..i5), an absent value rendering as "".
+     * `wire_profile=<id>&jc=<jc>&...&h4=<h4>&i1=<i1>&...&i5=<i5>`.
+     * Header ranges and signature programs use their canonical text. An absent value is "".
      * Keep byte-for-byte in sync with the Python implementation.
      */
     fun cohortFingerprint(): String {
         fun v(value: Any?): String = value?.toString() ?: ""
         val preimage =
-            "jc=${v(jc)}&jmin=${v(jmin)}&jmax=${v(jmax)}&s1=${v(s1)}&s2=${v(s2)}" +
+            "wire_profile=$wireProfile&jc=${v(jc)}&jmin=${v(jmin)}&jmax=${v(jmax)}&s1=${v(s1)}&s2=${v(s2)}" +
                 "&h1=${v(h1)}&h2=${v(h2)}&h3=${v(h3)}&h4=${v(h4)}" +
                 "&i1=${v(i1)}&i2=${v(i2)}&i3=${v(i3)}&i4=${v(i4)}&i5=${v(i5)}"
         val digest =

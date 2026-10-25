@@ -1,8 +1,13 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
+import com.poyka.ripdpi.serialization.RipDpiJson
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SelectorRelayProfileMappingTest {
@@ -50,6 +55,115 @@ class SelectorRelayProfileMappingTest {
         assertEquals(true, credentials.hysteriaInsecure)
         assertEquals(pin, credentials.hysteriaPinSha256)
     }
+
+    @Test
+    fun `stored imported Reality Vision profiles preserve UDP capability`() {
+        listOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443).forEach { flow ->
+            val imported = importedReality(flow)
+            val stored = storedProfile(imported)
+            val mapped = checkNotNull(mapRelayProfile(stored))
+
+            assertEquals(imported, stored)
+            assertEquals(RelayKindVlessReality, mapped.profile.kind)
+            assertEquals(RelayVlessTransportRealityTcp, mapped.profile.vlessTransport)
+            assertEquals(flow, mapped.profile.vlessFlow)
+            assertTrue(flow, mapped.profile.udpEnabled)
+            assertEquals(imported.uuid, mapped.credentials.vlessUuid)
+        }
+    }
+
+    @Test
+    fun `Reality modes without native XUDP remain disabled after storage`() {
+        val reality = importedReality(RelayVlessFlowVision)
+        val unsupported =
+            listOf(
+                reality.copy(flow = ""),
+                reality.copy(flow = " "),
+                reality.copy(flow = "unsupported-flow"),
+                reality.copy(xhttpPath = "/stream"),
+                reality.copy(xhttpHost = "front.example"),
+                reality.copy(xhttpPath = ""),
+                reality.copy(xhttpHost = "", flow = RelayVlessFlowVisionUdp443),
+            )
+        unsupported.forEach { profile ->
+            assertFalse(checkNotNull(mapRelayProfile(storedProfile(profile))).profile.udpEnabled)
+        }
+    }
+
+    @Test
+    fun `TLS VLESS SSH and Mieru mappings remain TCP only`() {
+        val profiles =
+            listOf(
+                ProxyProfile.Vless(
+                    id = "tls",
+                    displayName = "TLS",
+                    groupId = "group-a",
+                    server = "relay.example",
+                    serverPort = 443,
+                    uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                    serverName = "relay.example",
+                    xhttpPath = "/stream",
+                    flow = RelayVlessFlowVision,
+                ),
+                ProxyProfile.Ssh(
+                    id = "ssh",
+                    displayName = "SSH",
+                    groupId = "group-a",
+                    server = "relay.example",
+                    serverPort = 22,
+                    username = "fixture",
+                ),
+                ProxyProfile.Mieru(
+                    id = "mieru",
+                    displayName = "Mieru",
+                    groupId = "group-a",
+                    server = "relay.example",
+                    serverPort = 443,
+                    username = "fixture",
+                    password = "fixture",
+                ),
+            )
+        profiles.forEach { profile ->
+            assertFalse(checkNotNull(mapRelayProfile(storedProfile(profile))).profile.udpEnabled)
+        }
+    }
+
+    @Test
+    fun `hysteria hopping is public profile configuration and affects selector identity`() {
+        val hopping = Hysteria2PortHopping("5000-5002", 5000, 15000)
+        val scalar = ProxyProfile.Hysteria2("hy", "hy", "group", "peer.example", 443, "fixture-password")
+        val configured = scalar.copy(portHopping = hopping)
+        val mapped = checkNotNull(mapRelayProfile(configured))
+        assertEquals(hopping, mapped.profile.hysteriaPortHopping)
+        assertEquals(checkNotNull(mapRelayProfile(scalar)).credentials, mapped.credentials)
+        assertNotEquals(checkNotNull(mapRelayProfile(scalar)).profile, mapped.profile)
+        val restored =
+            RipDpiEncodeDefaultsJson.decodeFromString(
+                RelayProfileRecord.serializer(),
+                RipDpiEncodeDefaultsJson.encodeToString(RelayProfileRecord.serializer(), mapped.profile),
+            )
+        assertEquals(mapped.profile, restored)
+    }
+
+    private fun importedReality(flow: String): ProxyProfile.VlessReality {
+        val source =
+            """
+            {"outbounds":[{
+              "type":"vless","tag":"reality","server":"relay.example","server_port":443,
+              "uuid":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","flow":"$flow",
+              "tls":{"enabled":true,"server_name":"relay.example",
+                "reality":{"enabled":true,"public_key":"${"A".repeat(43)}","short_id":"abcd"}}
+            }]}
+            """.trimIndent()
+        val imported = SingBoxSubscriptionParser.parse(source, "group-a") as SingBoxParseResult.Success
+        return imported.profiles.single() as ProxyProfile.VlessReality
+    }
+
+    private fun storedProfile(profile: ProxyProfile): ProxyProfile =
+        RipDpiJson.decodeFromString(
+            ProxyProfile.serializer(),
+            RipDpiJson.encodeToString(ProxyProfile.serializer(), profile),
+        )
 
     private fun member(label: String) =
         ProxyProfile.Trojan(

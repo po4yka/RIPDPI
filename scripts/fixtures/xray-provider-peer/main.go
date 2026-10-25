@@ -24,12 +24,14 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/xtls/reality"
+	"github.com/xtls/xray-core/common/uuid"
 	"github.com/xtls/xray-core/core"
 	_ "github.com/xtls/xray-core/main/distro/all"
 	"golang.org/x/net/dns/dnsmessage"
@@ -41,6 +43,7 @@ const destination = "192.0.2.77:80"
 const ownedDNSName = "owned.test."
 
 type peerManifest struct {
+	QualityPort        int    `json:"qualityPort"`
 	QualityBytes       int    `json:"qualityBytes"`
 	QualitySHA256      string `json:"qualitySha256"`
 	QualityCertificate string `json:"qualityCertificate"`
@@ -48,9 +51,12 @@ type peerManifest struct {
 	RunID              string `json:"runId"`
 	TCPPort            int    `json:"tcpPort"`
 	XHTTPPort          int    `json:"xhttpPort"`
+	TLSBackendPort     int    `json:"tlsBackendPort,omitempty"`
+	TransportPort      int    `json:"transportPort"`
 	DirectPort         int    `json:"directPort"`
 	DNSPort            int    `json:"dnsPort,omitempty"`
 	DNSHTTPPort        int    `json:"dnsHttpPort"`
+	HysteriaSOCKSPort  int    `json:"hysteriaSocksPort"`
 	PublicKey          string `json:"publicKey"`
 	UUID               string `json:"uuid"`
 }
@@ -63,6 +69,7 @@ type peer struct {
 	dnsHTTPCount atomic.Int64
 	dnsLastQuery atomic.Value
 	requests     requestReceipts
+	transfers    transportReceipts
 	closers      []io.Closer
 	options      peerOptions
 	instanceMu   sync.Mutex
@@ -78,6 +85,8 @@ type peerOptions struct {
 	AdvertiseHost string
 	RunID         string
 	Debug         bool
+	TLSDirectory  string
+	ClientID      string
 }
 
 func validateLocalHost(host string) error {
@@ -93,6 +102,12 @@ func startPeer(ctx context.Context) (*peer, error) {
 }
 
 func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, error) {
+	if options.ClientID == "" {
+		options.ClientID = peerID
+	}
+	if _, err := uuid.ParseString(options.ClientID); err != nil {
+		return nil, fmt.Errorf("invalid peer client UUID: %w", err)
+	}
 	if err := validateLocalHost(options.BindHost); err != nil {
 		return nil, err
 	}
@@ -134,6 +149,10 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	}
 	echo := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+			if strings.HasPrefix(request.URL.Path, "/transport/") {
+				p.serveTransportTransaction(w, request)
+				return
+			}
 			p.count.Add(1)
 			p.requests.record("Provider", request.URL.Path)
 			w.Header().Set("Connection", "close")
@@ -198,23 +217,41 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 		return nil, err
 	}
 	defer privateXHTTP.Close()
+	// This host-only SOCKS ingress preserves the synthetic UDP destination until
+	// the exact owned DNS route below applies its finalRules redirect.
+	socksTCP, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	defer socksTCP.Close()
+	socksPort := socksTCP.Addr().(*net.TCPAddr).Port
+	socksUDP, err := net.ListenPacket("udp4", socksTCP.Addr().String())
+	if err != nil {
+		return nil, err
+	}
+	defer socksUDP.Close()
 	p.backends = []string{privateTCP.Addr().String(), privateXHTTP.Addr().String()}
 	p.manifest = peerManifest{
-		Version:     core.Version(),
-		RunID:       options.RunID,
-		TCPPort:     tcp.Addr().(*net.TCPAddr).Port,
-		XHTTPPort:   xhttp.Addr().(*net.TCPAddr).Port,
-		DirectPort:  directListener.Addr().(*net.TCPAddr).Port,
-		DNSPort:     dnsListener.LocalAddr().(*net.UDPAddr).Port,
-		DNSHTTPPort: dnsHTTPListener.Addr().(*net.TCPAddr).Port,
-		PublicKey:   base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
-		UUID:        peerID,
+		Version:           core.Version(),
+		RunID:             options.RunID,
+		TCPPort:           tcp.Addr().(*net.TCPAddr).Port,
+		XHTTPPort:         xhttp.Addr().(*net.TCPAddr).Port,
+		DirectPort:        directListener.Addr().(*net.TCPAddr).Port,
+		DNSPort:           dnsListener.LocalAddr().(*net.UDPAddr).Port,
+		DNSHTTPPort:       dnsHTTPListener.Addr().(*net.TCPAddr).Port,
+		HysteriaSOCKSPort: socksPort,
+		TransportPort:     echoListener.Addr().(*net.TCPAddr).Port,
+		PublicKey:         base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
+		UUID:              options.ClientID,
 	}
 	qualityListener, err := p.startQualityOrigin(certificate)
 	if err != nil {
 		return nil, err
 	}
-	inbounds := []any{}
+	inbounds := []any{map[string]any{
+		"tag": "hysteria-dns", "listen": "127.0.0.1", "port": socksPort, "protocol": "socks",
+		"settings": map[string]any{"auth": "noauth", "udp": true, "ip": "127.0.0.1"},
+	}}
 	for _, network := range []string{"tcp", "xhttp"} {
 		port, flow := privateTCP.Addr().(*net.TCPAddr).Port, "xtls-rprx-vision"
 		if network == "xhttp" {
@@ -222,7 +259,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 		}
 		inbounds = append(inbounds, map[string]any{
 			"tag": network, "listen": "127.0.0.1", "port": port, "protocol": "vless",
-			"settings": map[string]any{"decryption": "none", "clients": []any{map[string]any{"id": peerID, "flow": flow}}},
+			"settings": map[string]any{"decryption": "none", "clients": []any{map[string]any{"id": options.ClientID, "flow": flow}}},
 			"streamSettings": map[string]any{
 				"network": network, "security": "reality",
 				"realitySettings": map[string]any{
@@ -232,6 +269,17 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 				"xhttpSettings": map[string]any{"path": "/owned-xhttp", "mode": "auto"},
 			},
 		})
+	}
+	var tlsIngress net.Listener
+	if options.TLSDirectory != "" {
+		inbound, public, private, err := p.prepareTLSFrontend(certificate)
+		if err != nil {
+			return nil, err
+		}
+		inbounds = append(inbounds, inbound)
+		tlsIngress = public
+		defer private.Close()
+		_ = private.Close()
 	}
 	logLevel := "none"
 	if options.Debug {
@@ -247,15 +295,18 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			map[string]any{"tag": "owned-doh", "protocol": "freedom", "settings": ownedRedirect("tcp", dnsHTTPListener.Addr().(*net.TCPAddr).AddrPort())},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
-			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "domain": []string{"full:quality-a.example.test", "full:quality-b.example.test"}, "port": "443", "outboundTag": "owned-quality"},
-			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
-			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
+			map[string]any{"type": "field", "inboundTag": []string{"hysteria-dns"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": fmt.Sprint(p.manifest.DNSPort), "outboundTag": "owned-dns"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:quality-a.example.test", "full:quality-b.example.test"}, "port": fmt.Sprintf("443,%d", p.manifest.QualityPort), "outboundTag": "owned-quality"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
 			// Host tests and the emulator alias reach only this owned HTTP port.
-			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
 		}},
 	}
 	_ = privateTCP.Close()
 	_ = privateXHTTP.Close()
+	_ = socksTCP.Close()
+	_ = socksUDP.Close()
 	instance, err := startInstance(config)
 	if err != nil {
 		return nil, err
@@ -263,6 +314,9 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	p.instance = instance
 	p.config = config
 	p.ingress = []*tcpIngress{startTCPIngress(p.traceIngress(tcp, "tcp", p.epoch), p.backends[0]), startTCPIngress(p.traceIngress(xhttp, "xhttp", p.epoch), p.backends[1])}
+	if tlsIngress != nil {
+		p.ingress = append(p.ingress, startTCPIngress(p.traceIngress(tlsIngress, "xhttp-tls", p.epoch), p.backends[2]))
+	}
 	if err := awaitRealityMetadata(ctx, decoyListener.Addr().String()); err != nil {
 		return nil, err
 	}
@@ -426,8 +480,8 @@ func (p *peer) setRunning(running bool) error {
 		return err
 	}
 	var ingress []*tcpIngress
-	for i, port := range []int{p.manifest.TCPPort, p.manifest.XHTTPPort} {
-		listener, err := net.Listen("tcp4", net.JoinHostPort(p.options.BindHost, fmt.Sprint(port)))
+	for i, address := range p.frontendAddresses() {
+		listener, err := net.Listen("tcp4", address)
 		if err != nil {
 			for _, opened := range ingress {
 				_ = opened.Close()
@@ -435,7 +489,7 @@ func (p *peer) setRunning(running bool) error {
 			_ = instance.Close()
 			return err
 		}
-		ingress = append(ingress, startTCPIngress(p.traceIngress(listener, []string{"tcp", "xhttp"}[i], p.epoch+1), p.backends[i]))
+		ingress = append(ingress, startTCPIngress(p.traceIngress(listener, frontendName(i), p.epoch+1), p.backends[i]))
 	}
 	p.instance = instance
 	p.ingress = ingress
@@ -483,6 +537,9 @@ func (p *peer) close() {
 
 func (p *peer) controlHandler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /transport-receipts", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(p.transfers.snapshot())
+	})
 	for path, running := range map[string]bool{"/peer/start": true, "/peer/stop": false} {
 		mux.HandleFunc("POST "+path, func(w http.ResponseWriter, _ *http.Request) {
 			if err := p.setRunning(running); err != nil {
@@ -540,6 +597,8 @@ func main() {
 	controlHost := flag.String("control-host", "127.0.0.1", "Private IPv4 address on the separate management path")
 	controlPort := flag.Int("control-port", 0, "Management port; zero allocates a port")
 	debug := flag.Bool("debug", false, "Enable local native and ingress diagnostic logs")
+	tlsDirectory := flag.String("tls-directory", "", "Exclusive private directory for the owned nginx TLS fixture")
+	clientID := flag.String("client-id", peerID, "Client UUID for this independent peer")
 	runID := flag.String("run-id", "", "Acceptance run identity")
 	flag.Parse()
 	if validateLocalHost(*controlHost) != nil || *controlPort < 0 || *controlPort > 65535 {
@@ -558,7 +617,7 @@ func main() {
 		}
 		defer output.Close()
 	}
-	p, err := startPeerWithOptions(ctx, peerOptions{BindHost: *bindHost, AdvertiseHost: *advertiseHost, RunID: *runID, Debug: *debug})
+	p, err := startPeerWithOptions(ctx, peerOptions{BindHost: *bindHost, AdvertiseHost: *advertiseHost, RunID: *runID, Debug: *debug, TLSDirectory: *tlsDirectory, ClientID: *clientID})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "owned Xray peer startup failed")
 		os.Exit(1)

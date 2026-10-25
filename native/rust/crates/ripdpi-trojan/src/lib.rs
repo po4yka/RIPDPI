@@ -411,7 +411,10 @@ where
 }
 
 /// Read one Trojan UDP ASSOCIATE packet from a stream.
-// NOT cancel-safe: partial reads consume a frame prefix; callers must discard the stream on cancellation.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe: partial reads consume a frame prefix; callers must discard the stream on cancellation.
 pub async fn read_udp_packet<S>(stream: &mut S) -> Result<TrojanUdpPacket, TrojanError>
 where
     S: AsyncRead + Unpin,
@@ -621,7 +624,9 @@ mod tests {
         assert!(decode_udp_packet(&packet).is_err());
     }
 
-    // cancel-safe: the in-memory reader is dropped with the test on cancellation.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the in-memory reader is dropped with the test on cancellation.
     #[tokio::test]
     async fn udp_stream_rejects_invalid_domain_utf8() {
         let (mut writer, mut reader) = duplex(64);

@@ -94,11 +94,11 @@ class WireGuardConfParserTest {
             H2 = 2345678
             H3 = 3456789
             H4 = 4567890
-            I1 = deadbeef
-            I2 = cafebabe
-            I3 = 0badf00d
-            I4 = feedface
-            I5 = 8badf00d
+            I1 = <b 0xdeadbeef>
+            I2 = <b 0xcafebabe>
+            I3 = <b 0x0badf00d>
+            I4 = <b 0xfeedface>
+            I5 = <b 0x8badf00d>
 
             [Peer]
             PublicKey = YXdnLXBlZXItcHVibGljLWtleS1maXh0dXJlLTAwMDE=
@@ -117,15 +117,15 @@ class WireGuardConfParserTest {
         assertEquals(50, parsed.awg.s2)
         assertEquals(0, parsed.awg.s3)
         assertEquals(0, parsed.awg.s4)
-        assertEquals(1234567L, parsed.awg.h1)
-        assertEquals(2345678L, parsed.awg.h2)
-        assertEquals(3456789L, parsed.awg.h3)
-        assertEquals(4567890L, parsed.awg.h4)
-        assertEquals("deadbeef", parsed.awg.i1)
-        assertEquals("cafebabe", parsed.awg.i2)
-        assertEquals("0badf00d", parsed.awg.i3)
-        assertEquals("feedface", parsed.awg.i4)
-        assertEquals("8badf00d", parsed.awg.i5)
+        assertEquals("1234567", parsed.awg.h1)
+        assertEquals("2345678", parsed.awg.h2)
+        assertEquals("3456789", parsed.awg.h3)
+        assertEquals("4567890", parsed.awg.h4)
+        assertEquals("<b 0xdeadbeef>", parsed.awg.i1)
+        assertEquals("<b 0xcafebabe>", parsed.awg.i2)
+        assertEquals("<b 0x0badf00d>", parsed.awg.i3)
+        assertEquals("<b 0xfeedface>", parsed.awg.i4)
+        assertEquals("<b 0x8badf00d>", parsed.awg.i5)
         // The vanilla WireGuard field set is still parsed.
         assertEquals(listOf("10.8.0.2/32"), parsed.interfaceSection.address)
         assertEquals(1280, parsed.interfaceSection.mtu)
@@ -366,7 +366,7 @@ class WireGuardConfParserTest {
             Jc = 4
             S1 = 30
             H1 = 1234567
-            I1 = deadbeef
+            I1 = <b 0xdeadbeef>
 
             [Peer]
             PublicKey = c2VyaWFsaXplLWF3Zy1jb25mLXBlZXItcHVibGljLWtleQ==

@@ -12,7 +12,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -79,7 +79,7 @@ internal class ProfileUtilityMeasurementCoordinator
         private val xrayMetadata: com.poyka.ripdpi.data.xray.XrayProfileMetadataStore,
         private val xraySecrets: com.poyka.ripdpi.data.xray.XrayProfileSecretStore,
         private val network: NetworkFingerprintProvider,
-        private val networkEpoch: CandidateRelayNetworkEpoch,
+        private val networkEpoch: PhysicalNetworkObserver,
         private val runtimes: ServiceRuntimeRegistry,
         private val applied: AppliedRuntimeConfigurationSource,
     ) {

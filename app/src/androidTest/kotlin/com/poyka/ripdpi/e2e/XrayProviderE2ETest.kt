@@ -12,6 +12,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import androidx.test.uiautomator.UiDevice
 import com.poyka.ripdpi.activities.DiagnosticsXrayProviderController
 import com.poyka.ripdpi.core.XrayBridgeModule
 import com.poyka.ripdpi.core.XrayDatDir
@@ -34,11 +35,17 @@ import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
 import com.poyka.ripdpi.data.ProfileQualityStore
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
@@ -53,9 +60,9 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
 import com.poyka.ripdpi.services.CandidateXrayMeasurements
 import com.poyka.ripdpi.services.MeasuredProfileActivationCoordinator
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.SplitTunnelMode
@@ -104,6 +111,8 @@ import org.junit.Test
 import org.junit.rules.TestRule
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -112,10 +121,26 @@ import javax.inject.Singleton
 @HiltAndroidTest
 @UninstallModules(VpnTunnelSessionProviderModule::class, XrayBridgeModule::class)
 class XrayProviderE2ETest {
+    @BindValue
+    @JvmField
+    val automaticPayloadHttp =
+        com.poyka.ripdpi.services.OwnedQualityProbeFactory.http(
+            { manifest.getString("qualityCertificate") },
+            { manifest.getInt("qualityPort") },
+        )
+
     // JUnit creates a fresh test instance, so each case has its own eight-event budget.
     @BindValue
     @JvmField
     val vpnTunnelSessionProvider: VpnTunnelSessionProvider = ObservedVpnTunnelSessionProvider()
+
+    @BindValue
+    @JvmField
+    val fixtureTlsTrust = FixtureTlsTrust()
+
+    class FixtureTlsTrust {
+        @Volatile var includeFixtureRoot = true
+    }
 
     // Nested test modules keep the production lazy singleton construction timing.
     @Module
@@ -132,8 +157,9 @@ class XrayProviderE2ETest {
         @Singleton
         fun provideXrayNativeBridge(
             @XrayDatDir datDir: String,
+            fixtureTlsTrust: FixtureTlsTrust,
         ): XrayNativeBridge {
-            val bridge = XrayBridgeModule.provideXrayNativeBridge(datDir)
+            val bridge = FixtureTrustXrayNativeBridge(XrayBridgeModule.provideXrayNativeBridge(datDir), fixtureTlsTrust)
             return if (InstrumentationRegistry.getArguments().getString("ripdpi.xrayDebug") == "true") {
                 TracedXrayNativeBridge(bridge)
             } else {
@@ -159,6 +185,10 @@ class XrayProviderE2ETest {
         }
 
     @Inject lateinit var controller: ServiceController
+
+    @Inject lateinit var relayProfiles: RelayProfileStore
+
+    @Inject lateinit var relayCredentials: RelayCredentialStore
 
     @Inject lateinit var settings: AppSettingsRepository
 
@@ -186,9 +216,17 @@ class XrayProviderE2ETest {
 
     @Inject lateinit var utilityApplied: AppliedRuntimeConfigurationSource
 
+    @Inject lateinit var selectorGroups: com.poyka.ripdpi.data.ProxyGroupRepository
+
+    @Inject lateinit var selectorSelections: com.poyka.ripdpi.data.selector.SelectorSelectionStore
+
+    @Inject lateinit var selectorActive: com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
+
+    @Inject lateinit var selectorMutationStores: com.poyka.ripdpi.data.ProfileMutationStores
+
     @Inject lateinit var utilityPause: TimedPauseController
 
-    @Inject lateinit var utilityEpoch: CandidateRelayNetworkEpoch
+    @Inject lateinit var utilityEpoch: PhysicalNetworkObserver
 
     @Inject lateinit var qualityXrayOwner: XrayRuntimeOwner
 
@@ -214,6 +252,7 @@ class XrayProviderE2ETest {
     private var fixtureHost = "10.0.2.2"
     private var controlHost = "10.0.2.2"
     private var failureJob: Job? = null
+    private var udpBridge: TestUdpBridge? = null
 
     @Volatile private var lastFailure: String? = null
     private val context: Context get() = ApplicationProvider.getApplicationContext()
@@ -222,7 +261,12 @@ class XrayProviderE2ETest {
     fun prepare() {
         val configuredPort = InstrumentationRegistry.getArguments().getString("ripdpi.xrayFixturePort")
         assumeTrue("Requires independent owned Xray fixture", configuredPort != null)
-        check(isLikelyEmulator()) { "This acceptance lane only targets the owned emulator" }
+        check(
+            isLikelyEmulator() ||
+                InstrumentationRegistry.getArguments().getString("ripdpi.authorizedPhysicalDevice") == "true",
+        ) {
+            "Physical acceptance requires explicit device authorization"
+        }
         controlPort = requireNotNull(configuredPort).toInt().also { require(it in 1..65_535) }
         fixtureHost = InstrumentationRegistry.getArguments().getString("ripdpi.xrayFixtureHost") ?: "10.0.2.2"
         controlHost = InstrumentationRegistry.getArguments().getString("ripdpi.xrayControlHost") ?: fixtureHost
@@ -248,6 +292,7 @@ class XrayProviderE2ETest {
         }
         ensureVpnConsentGranted(context)
         manifest = readControl("manifest")
+        udpBridge = TestUdpBridge.fromArguments()
         val dnsHttpPort = manifest.getInt("dnsHttpPort").also { require(it in 1..65_535) }
         runBlocking {
             settings.update {
@@ -303,9 +348,14 @@ class XrayProviderE2ETest {
                 settings.replace(previousSettings)
             }
         } finally {
+            fixtureTlsTrust.includeFixtureRoot = true
             diagnosticsScope.cancel()
             failureJob?.cancel()
-            clearTestProbeNetworkEligibility()
+            try {
+                udpBridge?.close()
+            } finally {
+                clearTestProbeNetworkEligibility()
+            }
         }
     }
 
@@ -574,6 +624,333 @@ class XrayProviderE2ETest {
                     }
             }
         }
+
+    @Test
+    fun nginxTlsAndRealityCompleteBoundedTransfersAndRecover() {
+        check(InstrumentationRegistry.getArguments().getString("ripdpi.usbDataScope") != "true")
+        exerciseTransportTransactions()
+    }
+
+    @Test
+    fun usbNginxTlsAndRealityCompleteBoundedTransfersAndRecover() {
+        check(InstrumentationRegistry.getArguments().getString("ripdpi.usbDataScope") == "true")
+        exerciseTransportTransactions()
+    }
+
+    private fun exerciseTransportTransactions() {
+        for (network in listOf("tcp", "xhttp-tls")) {
+            start(network, wrongIdentity = false)
+            awaitOwnedPeerEcho(network)
+            assertOwnedDnsThroughProvider()
+            bindTestProcessDnsProbeService(10_000).use { probe ->
+                assertTrue("Probe UID must use the VPN default network", probe.awaitVpnDefaultNetwork(10_000))
+
+                assertTransportPayload(probe, network, "download", "download")
+                assertTransportPayload(probe, network, "upload", "upload")
+                assertTransportPayload(probe, network, "stream", "stream")
+                readControl("peer/stop", "POST")
+                try {
+                    assertFalse(
+                        probe
+                            .transfer(
+                                "download",
+                                "$network-stopped-${SystemClock.elapsedRealtime()}",
+                            ).getBoolean("ok"),
+                    )
+                } finally {
+                    readControl("peer/start", "POST")
+                }
+                awaitOwnedPeerEcho("$network-recovered")
+                assertOwnedDnsThroughProvider()
+                assertTransportPayload(probe, network, "download", "recovered")
+                assertEquals(0, readControl("direct-receipts").getInt("count"))
+                assertTrue(state.telemetry.value.tunnelStats.txPackets > 0)
+                assertTrue(state.telemetry.value.tunnelStats.rxPackets > 0)
+            }
+            runBlocking { controller.stop() }
+            awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
+        }
+        exerciseTlsRejections()
+    }
+
+    private fun assertTransportPayload(
+        probe: TestProcessDnsProbeServiceHandle,
+        network: String,
+        operation: String,
+        suffix: String,
+    ) {
+        val id = "$network-$suffix-${SystemClock.elapsedRealtime()}"
+        val result = probe.transfer(operation, id)
+        assertTrue("Transfer failed: $result", result.getBoolean("ok"))
+        assertTrue(result.getInt("uid") != Process.myUid())
+        if (operation == "stream") assertTrue(result.getLong("elapsedMs") >= 59_000)
+        awaitUntil {
+            val receipts = readControl("transport-receipts").getJSONArray("receipts")
+            (0 until receipts.length()).any { index ->
+                val receipt = receipts.getJSONObject(index)
+                receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
+                    receipt.getString("sha256") == result.getString("sha256")
+            }
+        }
+    }
+
+    private fun exerciseTlsRejections() {
+        for (wrongIdentity in listOf(true, false)) {
+            val label = if (wrongIdentity) "wrong-identity" else "wrong-trust"
+            withTlsProbe(wrongIdentity = false, includeFixtureRoot = true) { probe ->
+                awaitOwnedPeerEcho("before-$label")
+                assertTransportPayload(probe, "xhttp-tls", "download", "before-$label")
+            }
+            val receiptsBefore = readControl("transport-receipts").getJSONArray("receipts").length()
+            val echoReceiptsBefore = readControl("receipts").getInt("count")
+            val directBefore = readControl("direct-receipts").getInt("count")
+            withTlsProbe(wrongIdentity, includeFixtureRoot = wrongIdentity) { probe ->
+                val expectedUid =
+                    InstrumentationRegistry
+                        .getInstrumentation()
+                        .context.applicationInfo.uid
+                assertTrue("Negative traffic must originate outside the app UID", expectedUid != Process.myUid())
+                val echo = exchange("xhttp-tls-$label")
+                assertEquals("Negative echo must use the separate test UID", expectedUid, echo.probeUid)
+                assertTrue("P1 $label must return no application response", echo.response.isNullOrEmpty())
+                val result = probe.transfer("download", "xhttp-tls-$label-${SystemClock.elapsedRealtime()}")
+                assertEquals("Negative traffic must use the separate test UID", expectedUid, result.getInt("uid"))
+                assertFalse("P1 $label must reject the payload: $result", result.getBoolean("ok"))
+            }
+            assertEquals(receiptsBefore, readControl("transport-receipts").getJSONArray("receipts").length())
+            assertEquals(echoReceiptsBefore, readControl("receipts").getInt("count"))
+            assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
+            withTlsProbe(wrongIdentity = false, includeFixtureRoot = true) { probe ->
+                awaitOwnedPeerEcho("after-$label")
+                assertTransportPayload(probe, "xhttp-tls", "download", "after-$label")
+            }
+        }
+    }
+
+    private fun withTlsProbe(
+        wrongIdentity: Boolean,
+        includeFixtureRoot: Boolean,
+        verify: (TestProcessDnsProbeServiceHandle) -> Unit,
+    ) {
+        check(state.status.value.first == AppStatus.Halted)
+        fixtureTlsTrust.includeFixtureRoot = includeFixtureRoot
+        try {
+            start("xhttp-tls", wrongIdentity)
+            bindTestProcessDnsProbeService(10_000).use { probe ->
+                assertTrue("Probe UID must use the VPN default network", probe.awaitVpnDefaultNetwork(10_000))
+                verify(probe)
+                assertTrue("Probe UID must retain the VPN default network", probe.isVpnDefaultNetwork())
+                assertEquals(AppStatus.Running, state.status.value.first)
+            }
+        } finally {
+            try {
+                runBlocking { controller.stop() }
+                awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
+            } finally {
+                fixtureTlsTrust.includeFixtureRoot = true
+            }
+        }
+    }
+
+    @Test
+    fun hysteriaCompletesTransfersSleepWakeAndUdpFailureFallsBackToSavedTcp() {
+        check(InstrumentationRegistry.getArguments().getString("ripdpi.usbDataScope") != "true")
+        exerciseHysteriaTransactions()
+    }
+
+    @Test
+    fun usbHysteriaCompletesTransfersSleepWakeAndUdpFailureFallsBackToSavedTcp() {
+        check(InstrumentationRegistry.getArguments().getString("ripdpi.usbDataScope") == "true")
+        assertUsbDatagramBridgeFlowIsolation()
+        exerciseHysteriaTransactions()
+    }
+
+    private fun exerciseHysteriaTransactions() {
+        val relayId = "owned-hysteria-acceptance"
+        val oldProfile = runBlocking { relayProfiles.load(relayId) }
+        val oldCredentials = runBlocking { relayCredentials.load(relayId) }
+        val transportPort = manifest.getInt("transportPort")
+        val automatic =
+            OwnedHysteriaSelector(
+                selectorGroups,
+                selectorSelections,
+                selectorActive,
+                utilityMutations,
+                selectorMutationStores,
+                utilityApplied,
+                manifest,
+                fixtureHost,
+                udpBridge?.port ?: manifest.getInt("hysteriaPort"),
+            )
+
+        fun startHysteria(
+            pin: String,
+            automaticSelection: Boolean = false,
+        ) {
+            runBlocking { controller.stop() }
+            awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
+            runBlocking {
+                relayProfiles.save(
+                    RelayProfileRecord(
+                        id = relayId,
+                        kind = RelayKindHysteria2,
+                        server = manifest.getString("hysteriaHost"),
+                        serverPort = udpBridge?.port ?: manifest.getInt("hysteriaPort"),
+                        serverName = "fixture.test",
+                        udpEnabled = true,
+                        tcpFallbackEnabled = false,
+                    ),
+                )
+                relayCredentials.save(
+                    RelayCredentialRecord(
+                        profileId = relayId,
+                        hysteriaPassword = manifest.getString("hysteriaPassword"),
+                        hysteriaSalamanderKey = manifest.getString("hysteriaSalamander"),
+                        hysteriaInsecure = true,
+                        hysteriaPinSha256 = pin,
+                    ),
+                )
+                selection.update(XrayProviderSelectionRecord())
+                settings.update {
+                    relayEnabled = true
+                    relayKind = RelayKindHysteria2
+                    relayProfileId = relayId
+                    tlsFingerprintProfile = TlsFingerprintProfileFirefoxStable
+                }
+                if (automaticSelection) automatic.selectPrimaryBeforeStart()
+                assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
+            }
+            awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
+        }
+        try {
+            automatic.prepareStandalonePreflight()
+            // Save and exercise the TCP reserve before the UDP path is disrupted.
+            start("tcp", wrongIdentity = false)
+            awaitOwnedPeerEcho("predelivered-reserve")
+            runBlocking { controller.stop() }
+            awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
+            startHysteria("0".repeat(64))
+            bindTestProcessDnsProbeService(10_000).use { probe ->
+                assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                val before = readControl("transport-receipts").getJSONArray("receipts").length()
+                assertFalse(probe.transfer("download", "hysteria-wrong-pin", port = transportPort).getBoolean("ok"))
+                assertEquals(before, readControl("transport-receipts").getJSONArray("receipts").length())
+            }
+            val qualityBefore = completedQualityProbeCount()
+            startHysteria(manifest.getString("hysteriaCertificatePin"), automaticSelection = true)
+            val primaryApplied = automatic.awaitPrimary()
+            bindTestProcessDnsProbeService(10_000).use { probe ->
+                assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+
+                fun transfer(
+                    operation: String,
+                    suffix: String,
+                    port: Int = transportPort,
+                ) {
+                    val id = "hysteria-$suffix-${SystemClock.elapsedRealtime()}"
+                    val result = probe.transfer(operation, id, port = port)
+                    assertTrue("Hysteria transfer failed: $result", result.getBoolean("ok"))
+                    if (operation == "stream") assertTrue(result.getLong("elapsedMs") >= 59_000)
+                    assertTrue(result.getInt("uid") != Process.myUid())
+                    awaitUntil {
+                        val receipts = readControl("transport-receipts").getJSONArray("receipts")
+                        (0 until receipts.length()).any { index ->
+                            val receipt = receipts.getJSONObject(index)
+                            receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
+                                receipt.getString("sha256") == result.getString("sha256")
+                        }
+                    }
+                }
+                val dnsBefore = readControl("dns-receipts").getInt("count")
+                val dns =
+                    testProcessDnsProbe(
+                        queryHost = "owned.test",
+                        serverHost = "192.0.2.53",
+                        serverPort = manifest.getInt("dnsPort"),
+                        timeoutMs = 5_000,
+                    )
+                assertTrue("Hysteria UDP DNS failed", dns.ok)
+                assertEquals(listOf("192.0.2.77"), dns.answers)
+                assertTrue(dns.probeUid != null && dns.probeUid != Process.myUid())
+                assertEquals(dnsBefore + 1, readControl("dns-receipts").getInt("count"))
+                transfer("download", "download")
+                transfer("upload", "upload")
+                val executor = Executors.newSingleThreadExecutor()
+                val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                val wasAwake = device.isScreenOn
+                try {
+                    device.wakeUp()
+                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not wake before the stream" }) {
+                        device.isScreenOn
+                    }
+                    val stream = executor.submit { transfer("stream", "sleep-wake") }
+                    SystemClock.sleep(2_000)
+                    assertFalse("Stream ended before sleep", stream.isDone)
+                    device.sleep()
+                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not turn off during the stream" }) {
+                        !device.isScreenOn
+                    }
+                    SystemClock.sleep(2_000)
+                    device.wakeUp()
+                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not wake during the stream" }) {
+                        device.isScreenOn
+                    }
+                    stream.get(100, TimeUnit.SECONDS)
+                } finally {
+                    executor.shutdownNow()
+                    if (wasAwake) device.wakeUp() else device.sleep()
+                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Original screen state was not restored" }) {
+                        device.isScreenOn == wasAwake
+                    }
+                }
+                awaitUntil(timeoutMs = 60_000) { completedQualityProbeCount() > qualityBefore }
+                assertEquals(primaryApplied.runtimeId, automatic.awaitPrimary().runtimeId)
+                readControl("peer/stop", "POST")
+                try {
+                    assertFalse(
+                        probe.transfer("download", "hysteria-udp-blocked", port = transportPort).getBoolean("ok"),
+                    )
+                    assertTrue(readControl("udp-receipts").getInt("dropped") > 0)
+                    automatic.awaitAutomaticReserve(primaryApplied)
+                    awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
+                    awaitOwnedPeerEcho("udp-blocked-tcp-reserve")
+                    transfer("download", "tcp-reserve", port = 80)
+                    assertOwnedDnsThroughProvider()
+                } finally {
+                    readControl("peer/start", "POST")
+                }
+                // A separate explicit recovery phase begins only after automatic reserve proof is complete.
+                automatic.prepareStandalonePreflight()
+                startHysteria(manifest.getString("hysteriaCertificatePin"))
+                assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                transfer("download", "explicit-udp-recovered")
+            }
+            assertTrue(state.telemetry.value.tunnelStats.txPackets > 0)
+            assertTrue(state.telemetry.value.tunnelStats.rxPackets > 0)
+        } finally {
+            try {
+                runBlocking {
+                    controller.stop()
+                    awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
+                    if (oldProfile == null) relayProfiles.clear(relayId) else relayProfiles.save(oldProfile)
+                    if (oldCredentials ==
+                        null
+                    ) {
+                        relayCredentials.clear(relayId)
+                    } else {
+                        relayCredentials.save(oldCredentials)
+                    }
+                }
+            } finally {
+                automatic.close()
+            }
+        }
+    }
+
+    private fun completedQualityProbeCount(): Int {
+        val receipts = readControl("request-receipts").getJSONArray("receipts")
+        return (0 until receipts.length()).count { receipts.getJSONObject(it).getString("target") == "QualityComplete" }
+    }
 
     @Test
     fun bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart() {
@@ -931,11 +1308,19 @@ class XrayProviderE2ETest {
         wrongIdentity: Boolean,
     ) {
         val identity = if (wrongIdentity) "00000000-0000-4000-8000-000000000001" else manifest.getString("uuid")
-        val port = manifest.getInt(if (network == "tcp") "tcpPort" else "xhttpPort")
+        val tls = network == "xhttp-tls"
+        val wireNetwork = if (tls) "xhttp" else network
+        val port =
+            if (tls) {
+                requireNotNull(InstrumentationRegistry.getArguments().getString("ripdpi.nginxTlsPort")).toInt()
+            } else {
+                manifest.getInt(if (network == "tcp") "tcpPort" else "xhttpPort")
+            }
         val link =
-            "vless://$identity@$fixtureHost:$port?type=$network&security=reality" +
-                "&sni=fixture.test&pbk=${manifest.getString("publicKey")}&sid=ab12&fp=chrome" +
-                if (network == "xhttp") "&path=%2Fowned-xhttp&mode=auto" else "&flow=xtls-rprx-vision"
+            "vless://$identity@$fixtureHost:$port?type=$wireNetwork&security=${if (tls) "tls" else "reality"}" +
+                "&sni=fixture.test&fp=chrome" +
+                (if (tls) "" else "&pbk=${manifest.getString("publicKey")}&sid=ab12") +
+                if (wireNetwork == "xhttp") "&path=%2Fowned-xhttp&mode=auto" else "&flow=xtls-rprx-vision"
         val accepted = XrayImportParser().parse(link, XrayProviderBuildInfo.upstreamTag)
         check(accepted is XrayImportParser.Result.Accepted) { "Owned profile failed typed validation" }
         val profile = accepted.profile.copy(inbound = accepted.profile.inbound.copy(port = reserveLoopbackPort()))
@@ -1014,9 +1399,52 @@ class XrayProviderE2ETest {
             connection.readTimeout = 3_000
             connection.instanceFollowRedirects = false
             check(connection.responseCode == 200)
-            JSONObject(connection.inputStream.use { it.readBytes().decodeToString() })
+            connection.inputStream.use { stream ->
+                val body = stream.readBytes().decodeToString()
+                if (path in setOf("transport-receipts", "request-receipts")) {
+                    JSONObject().put("receipts", org.json.JSONArray(body))
+                } else {
+                    JSONObject(body)
+                }
+            }
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /** Choose fixture-only or strict system roots; the real native engine and protect path remain active. */
+    private class FixtureTrustXrayNativeBridge(
+        private val delegate: XrayNativeBridge,
+        private val fixtureTlsTrust: FixtureTlsTrust,
+    ) : XrayNativeBridge by delegate {
+        override fun start(jsonConfig: String): Int {
+            val encoded =
+                InstrumentationRegistry.getArguments().getString("ripdpi.nginxCertificate")
+                    ?: return delegate.start(jsonConfig)
+            val includeFixtureRoot = fixtureTlsTrust.includeFixtureRoot
+            val config = JSONObject(jsonConfig)
+            val outbounds = config.getJSONArray("outbounds")
+            for (index in 0 until outbounds.length()) {
+                val stream = outbounds.getJSONObject(index).optJSONObject("streamSettings") ?: continue
+                if (stream.optString("security") != "tls") continue
+                val tls = stream.getJSONObject("tlsSettings")
+                check(!tls.optBoolean("allowInsecure", false))
+                tls.put("disableSystemRoot", includeFixtureRoot)
+                if (!includeFixtureRoot) {
+                    tls.remove("certificates")
+                    continue
+                }
+                val pem = listOf("-----BEGIN CERTIFICATE-----") + encoded.chunked(64) + "-----END CERTIFICATE-----"
+                tls.put(
+                    "certificates",
+                    org.json.JSONArray().put(
+                        JSONObject()
+                            .put("usage", "verify")
+                            .put("certificate", org.json.JSONArray(pem)),
+                    ),
+                )
+            }
+            return delegate.start(config.toString())
         }
     }
 

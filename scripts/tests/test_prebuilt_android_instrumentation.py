@@ -161,6 +161,14 @@ INSTRUMENTATION_CODE: -1
         self.assertIn(["-e", "clearPackageData", "true"], [tokens[i:i + 3] for i in range(len(tokens))])
         self.assertEqual("androidx.test.orchestrator/.AndroidTestOrchestrator", tokens[-1])
 
+    def test_orchestrator_preserves_comma_separated_exact_method_selection(self):
+        target = "com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner"
+        selected = "example.Test#first,example.Test#second"
+        command = orchestrator_command(target, {"class": selected})
+        tokens = shlex.split(command.split("ShellMain ", 1)[1])
+        class_index = tokens.index("class")
+        self.assertEqual(["-e", "class", selected], tokens[class_index - 1:class_index + 2])
+
     def test_bundle_binds_both_apk_pairs_and_utilities_to_source_sha(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

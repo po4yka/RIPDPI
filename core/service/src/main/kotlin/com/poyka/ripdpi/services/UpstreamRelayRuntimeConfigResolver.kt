@@ -450,6 +450,9 @@ private class ResolvedRelayConfigBuilder(
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
             hysteriaInsecure = credentials?.hysteriaInsecure ?: false,
             hysteriaPinSha256 = credentials?.hysteriaPinSha256,
+            hysteriaPortHopPorts = effectiveConfig.hysteriaPortHopping?.ports,
+            hysteriaPortHopIntervalMillis = effectiveConfig.hysteriaPortHopping?.intervalMillis,
+            hysteriaPortHopIntervalMaxMillis = effectiveConfig.hysteriaPortHopping?.intervalMaxMillis,
         )
 
     // Mieru reuses the common server/serverPort as its endpoint (the native

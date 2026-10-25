@@ -121,8 +121,12 @@ def display(report: dict) -> None:
     print(f"rust_skills: {report['rust_skills']['state']}")
     if report["ignored_git_environment"]:
         print(f"ignored_git_environment: {', '.join(report['ignored_git_environment'])}")
-    print("worktrees:")
+    # A resolved checkout needs only the problem entries; listing every usable worktree costs agent context.
+    usable = sum(entry["usable"] for entry in report["worktrees"])
+    print(f"worktrees: {usable} usable of {len(report['worktrees'])} (--json lists all)")
     for entry in report["worktrees"]:
+        if report["root"] and entry["usable"]:
+            continue
         state = "usable" if entry["usable"] else "bare" if entry["bare"] else "unavailable"
         print(f"  [{state}] {entry['path']} ({entry['branch'] or 'detached HEAD'})")
     for issue in report["issues"]:

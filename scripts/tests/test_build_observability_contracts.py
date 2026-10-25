@@ -27,7 +27,7 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             "rust-native-x86_64": 1,
             "pluggable-transport-assets": 1,
             "build-android-debug": 1,
-            "build-android-tests": 2,
+            "build-android-tests": 1,
             "verify-roborazzi": 1,
             "release-verification": 1,
             "gradle-static-analysis": 2,
@@ -51,7 +51,6 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             "build-android-tests": "build-observability-android-tests",
             "verify-roborazzi": "build-observability-roborazzi",
             "release-verification": "build-observability-release-${{ matrix.shard.id }}",
-            "diagnostics-probes-facade": "build-observability-diagnostics-probes",
             "rust-lint": "build-observability-rust-lint",
             "rust-cross-check": "build-observability-rust-cross-check",
             "rust-workspace-tests": "build-observability-rust-workspace-tests",
@@ -81,11 +80,10 @@ class BuildObservabilityContractsTest(unittest.TestCase):
                 source = (ROOT / "scripts/ci" / script_name).read_text(encoding="utf-8")
                 self.assertIn("--profile", source)
 
-    def test_observability_action_captures_profiles_and_cache_stats(self) -> None:
+    def test_observability_action_captures_profiles(self) -> None:
         source = OBSERVABILITY_ACTION.read_text(encoding="utf-8")
 
         self.assertIn("build/reports/profile", source)
-        self.assertIn("sccache --show-stats", source)
         self.assertIn("name: Upload build observability\n      if: always()", source)
         self.assertIn("if-no-files-found: warn", source)
         self.assertIn("retention-days: 7", source)

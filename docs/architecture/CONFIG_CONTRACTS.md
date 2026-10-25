@@ -131,6 +131,31 @@ consumed by Rust `serde` — the two serializers must agree on every key.
 - The config-translation JSON is covered by golden tests — treat a golden diff
   as a wire-contract change ([`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md)).
 
+### Resolved relay projection before proxy startup
+
+`SharedProxyRuntimeStack` must project the relay that actually became ready into
+the proxy envelope. `UpstreamRelaySupervisor.start` returns the resolved kind,
+profile ID, UDP policy, and bound SOCKS endpoint from that runtime slot. Normal
+startup and race promotion use the same renderer and check every projected field
+before starting the proxy. Global preferences and remembered JSON are not the
+authority for a saved profile's effective UDP policy or listener endpoint.
+
+The supervisor reads the listener after readiness inside its guarded cleanup
+path. Subprocess relays first confirm their SOCKS listener through the readiness
+probe, then report a valid URI authority, including brackets for IPv6. The parsed
+endpoint removes those brackets before the host enters proxy JSON. Missing or
+invalid listener telemetry must fail startup; it must not fall back to a requested
+port. A failed stop keeps the runtime owned for cleanup retry.
+
+Imported profile mapping and service admission share the VLESS sub-mode UDP
+predicate. Reality TCP with Vision or Vision UDP443 supports UDP; XHTTP, flowless
+Reality, plain TLS VLESS, SSH, and Mieru do not. A profile that lacks required UDP
+must still fail before the proxy starts. Engine normalization must retain the resolved
+UDP flag for every supported kind, including AnyTLS, Trojan, and Shadowsocks.
+Raw unsupported Reality sub-modes must remain ineligible before defaults apply.
+The native proxy's UDP requirement guard
+remains authoritative at the JSON boundary.
+
 ### System HTTP proxy service mode — listener fields
 
 The "System HTTP proxy service mode" feature adds two `listen`-section keys and
@@ -177,6 +202,22 @@ argument of `VpnTunnelSessionProvider.establish` stay available for a listener
 that the session owns and that unauthenticated loopback clients can use.
 
 ---
+
+### Active AWG resolver authority
+
+`warp.awgDnsServers` is an additive runtime-only list of numeric resolver IPs.
+Kotlin omits the empty default with `@EncodeDefault(NEVER)`; Rust defaults an
+absent key to an empty list. This field is not an `AppSettings` preference.
+The service copies it from the same captured standalone AWG request that starts
+the tunnel and clears remembered authority before each runtime composition.
+A nonempty list requires the enabled AWG all-traffic marker and a valid numeric
+loopback SOCKS endpoint; malformed or inconsistent authority fails closed.
+
+The native proxy first evaluates the original ordered destination policy. An
+effective Block remains Block. Otherwise, TCP and UDP to exact captured resolver
+IPs on ports 53 and 853 use the AWG upstream. Other IPs and ports retain their
+original result. The persisted destination rules and canonical digest do not
+change. Physical acceptance must retain the default LAN Direct rules.
 
 ## 3. Rust config deserialization / defaulting rules
 
@@ -404,6 +445,27 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   `RelayNativeConfigTest` (Kotlin `chainHops` 3-hop trip) and
   `ripdpi-relay-core::tests` (`chain_relay_three_hop_list_round_trips_through_flat_wire`,
   `chain_relay_wire_rejects_out_of_range_hop_count`).
+- Hysteria2 uses one validated `Hysteria2PortHopping` value across subscription
+  import, stored profiles, backup restore, selector projection, and activation.
+  Its ports are a canonical comma-separated set of single ports and hyphen
+  ranges. Cadence is exact whole milliseconds: minimum 5000, maximum
+  9223372036854, with an optional larger randomized maximum. The nominal
+  `serverPort` never expands a configured hopping destination set. The flat
+  relay and each chain hop carry `hysteriaPortHopPorts`,
+  `hysteriaPortHopIntervalMillis`, and `hysteriaPortHopIntervalMaxMillis`.
+  Chain entries also retain `hysteriaInsecure` and `hysteriaPinSha256`.
+  Without hopping all three fields are absent. A schema bump is not required
+  for these optional fields; Kotlin and Rust must be released together.
+  Stored legacy `portHopPorts` / `portHopInterval` values migrate before typed
+  group decode and must persist before exposure. Pending refresh journals and
+  explicit backups use the same conversion. Migration does not recreate
+  receipt authority; a changed content fingerprint requires refresh or reimport
+  of the delivery, followed by a new path check. This also applies to old
+  Hysteria profiles whose dormant hopping fields were null.
+  Sing-box uses `server_ports` and duration strings; Clash uses `ports` and
+  second-based `hop-interval`. Official Hysteria URI multiport authorities use
+  commas and hyphens. URI `hopInterval` or paired `minHopInterval` /
+  `maxHopInterval` are explicit application extensions for cadence.
 - Relay native runtime config also carries the additive `socketProtection` enum (`inactive` / `vpn_required`). It is runtime-owned rather than persisted profile state: the proxy service always writes `inactive`, the VPN service always writes `vpn_required`, and Rust defaults a missing field to `inactive`. Schema 10 retains this inert default; only TLS fingerprint identity became mandatory. Dialers must use the value as policy; callback presence is only lifecycle state and must never decide whether protection is required.
 - The **proxy native config** carries `schemaVersion` on every
   `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust
@@ -459,6 +521,14 @@ only, imported atomically through `SelectorUrltestGroupImport` into
 rejected before any member mutation. The enclosing bundle schema is unchanged.
 The canonical producer schema and example are mirrored under
 `core/data/src/test/resources/contract/`.
+
+Previously accepted local schema-1 health policies upgrade inside
+`ProxyGroupSchema.read`, before the strict current model decodes the catalogue.
+Both stored group schema versions use this boundary. The sealed store checks the
+complete catalogue and commits changed bytes before returning them, including
+when the outer group schema is already current. The upgrade preserves credentials,
+unrelated raw fields and current ownership generations. Failed writes publish no
+catalogue. This local upgrade does not admit schema 1 at the external import boundary.
 
 Each of the two distinct HTTPS origins supplies a 32 KiB–1 MiB body with an exact
 length and SHA-256. Existing candidate runtime owners verify the body through

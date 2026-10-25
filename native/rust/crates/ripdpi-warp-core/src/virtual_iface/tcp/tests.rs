@@ -7,7 +7,9 @@ use super::*;
 use crate::ports::{PortForwardConfig, VirtualPortPool};
 use crate::virtual_iface::bus::BusEndpoint;
 
-// cancel-safe: broadcast receives consume complete events, never partial packet bytes.
+/// # Cancel safety
+///
+/// cancel-safe: broadcast receives consume complete events, never partial packet bytes.
 async fn outbound(endpoint: &mut BusEndpoint) -> Bytes {
     loop {
         if let Event::OutboundInternetPacket(packet) = endpoint.recv().await {
@@ -60,7 +62,9 @@ enum CloseMode {
     PendingData,
 }
 
-// NOT cancel-safe: this helper always shuts down and joins its owned interface before returning.
+/// # Cancel safety
+///
+/// NOT cancel-safe: this helper always shuts down and joins its owned interface before returning.
 async fn exercise_interface(mode: CloseMode) -> TcpSeqNumber {
     let bus = Bus::new();
     let mut endpoint = bus.new_endpoint();
@@ -140,7 +144,9 @@ async fn exercise_interface(mode: CloseMode) -> TcpSeqNumber {
     observed.expect("outbound TCP deadline")
 }
 
-// NOT cancel-safe: each iteration owns and fully shuts down its interface.
+/// # Cancel safety
+///
+/// NOT cancel-safe: each iteration owns and fully shuts down its interface.
 #[tokio::test]
 async fn recreated_interfaces_do_not_repeat_initial_tcp_sequence() {
     let mut sequences = HashSet::new();
@@ -150,25 +156,33 @@ async fn recreated_interfaces_do_not_repeat_initial_tcp_sequence() {
     assert!(sequences.len() > 1, "recreated stacks must not reuse a fixed TCP sequence seed");
 }
 
-// NOT cancel-safe: the owned interface is shut down even if the packet deadline expires.
+/// # Cancel safety
+///
+/// NOT cancel-safe: the owned interface is shut down even if the packet deadline expires.
 #[tokio::test]
 async fn local_eof_drains_accepted_payload_and_emits_fin() {
     exercise_interface(CloseMode::Graceful).await;
 }
 
-// NOT cancel-safe: helper always shuts down its owned interface after observing the FIN.
+/// # Cancel safety
+///
+/// NOT cancel-safe: helper always shuts down its owned interface after observing the FIN.
 #[tokio::test]
 async fn lost_eof_marker_is_reset_by_cleanup_deadline() {
     exercise_interface(CloseMode::LostWakeup).await;
 }
 
-// NOT cancel-safe: helper always joins its interface after observing the cleanup RST.
+/// # Cancel safety
+///
+/// NOT cancel-safe: helper always joins its interface after observing the cleanup RST.
 #[tokio::test]
 async fn unanswered_fin_is_reset_before_its_socket_is_removed() {
     exercise_interface(CloseMode::Deadline).await;
 }
 
-// NOT cancel-safe: helper always joins its interface after the ordered close exchange.
+/// # Cancel safety
+///
+/// NOT cancel-safe: helper always joins its interface after the ordered close exchange.
 #[tokio::test]
 async fn shared_eof_state_does_not_overtake_pending_payload() {
     exercise_interface(CloseMode::PendingData).await;

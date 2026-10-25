@@ -18,7 +18,7 @@ pub(crate) use decision::{
 };
 #[cfg(test)]
 #[allow(unused_imports)]
-pub(crate) use execution::{execute_tcp_fakerst_step, execute_tcp_ipfrag2_step, execute_tcp_plan_step};
+pub(crate) use execution::execute_tcp_plan_step;
 #[cfg(test)]
 #[allow(unused_imports)]
 pub(crate) use fake_packets::build_tcp_fake_packets;

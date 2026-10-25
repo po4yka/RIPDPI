@@ -26,7 +26,10 @@ internal class SubprocessRelayTelemetryProjector {
             source = "relay",
             state = if (inputs.running) "running" else "idle",
             health = if (inputs.running) "running" else "idle",
-            listenerAddress = inputs.config?.let { "${it.localSocksHost}:${it.localSocksPort}" },
+            listenerAddress =
+                inputs.config?.let {
+                    URI(null, null, it.localSocksHost, it.localSocksPort, null, null, null).rawAuthority
+                },
             upstreamAddress = inputs.launchSpec?.upstreamAddress?.let(::redactUpstreamAddress),
             profileId = inputs.config?.profileId,
             protocolKind = inputs.config?.kind,

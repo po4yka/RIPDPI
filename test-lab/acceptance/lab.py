@@ -46,6 +46,12 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--run-id")
     cli.add_argument("--out-dir", type=Path)
     cli.add_argument("--serial")
+    cli.add_argument("--physical-device", action="store_true")
+    cli.add_argument("--physical-adb-bridge", action="store_true")
+    cli.add_argument("--physical-host")
+    cli.add_argument("--physical-peer")
+    cli.add_argument("--owned-installation", type=Path)
+    cli.add_argument("--hysteria-binary", type=Path)
     cli.add_argument(
         "--min-free-gib",
         type=int,
@@ -166,6 +172,10 @@ def main(argv=None) -> int:
                         "--serial is required for Android preparation",
                     )
                     command += ["--run-id", run_id, "--serial", args.serial]
+                    if args.physical_device:
+                        command.append("--physical-device")
+                    if args.physical_adb_bridge:
+                        command.append("--physical-adb-bridge")
                     if args.xray_artifact_dir:
                         command += [
                             "--xray-artifact-dir",

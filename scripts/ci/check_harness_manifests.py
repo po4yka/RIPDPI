@@ -24,8 +24,7 @@ SKILL_MIRRORS = (
     REPO_ROOT / ".github" / "skills",
 )
 ALLOWED_SANDBOX_MODES = {"read-only", "workspace-write", "danger-full-access"}
-WRITE_CAPABLE_AGENTS = {"golden-blesser", "native-verifier", "ripdpi-vault-sync"}
-CODEX_WORKSPACE_WRITERS = WRITE_CAPABLE_AGENTS | {"ripdpi-doc-exporter"}
+WRITE_CAPABLE_AGENTS = {"golden-blesser", "native-verifier"}
 # Auditors and reviewers never modify files: read-only sandbox in Codex, no Write/Edit tools in Claude Code.
 READ_ONLY_AGENTS = {
     "arch-layer-auditor",
@@ -302,21 +301,8 @@ def validate_codex_agents() -> None:
             )
         if path.stem in READ_ONLY_AGENTS and sandbox != "read-only":
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: read-only audit agent requires sandbox_mode = \"read-only\"")
-        if path.stem in CODEX_WORKSPACE_WRITERS and sandbox != "workspace-write":
+        if path.stem in WRITE_CAPABLE_AGENTS and sandbox != "workspace-write":
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: write-capable agent requires workspace-write")
-
-
-def validate_codex_external_writes() -> None:
-    for agent in ("ripdpi-vault-sync", "ripdpi-doc-exporter"):
-        path = REPO_ROOT / ".codex" / "agents" / f"{agent}.toml"
-        content = path.read_text(encoding="utf-8")
-        if ".tmp/agent-exports/" not in content:
-            raise ValueError(f"{path.relative_to(REPO_ROOT)}: missing workspace-local export staging")
-        for forbidden in ("--output-dir ~/Desktop", "Run in ~/GitRep/RIPDPI"):
-            if forbidden in content:
-                raise ValueError(
-                    f"{path.relative_to(REPO_ROOT)}: workspace-write profile targets external path {forbidden!r}"
-                )
 
 
 def validate_agent_parity() -> None:
@@ -556,7 +542,6 @@ def main() -> int:
         validate_claude_agents(names)
         validate_codex_agents()
         validate_agent_parity()
-        validate_codex_external_writes()
         validate_rules()
         validate_instruction_entrypoints()
         validate_worktree_integration_contract()

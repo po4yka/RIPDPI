@@ -16,13 +16,17 @@ import kotlin.concurrent.thread
 class StrictPayloadSocksFixture(
     responses: List<String>,
     private val stall: Boolean = false,
+    certificateNames: List<String> = listOf("control-a.example.test", "control-b.example.test"),
 ) : AutoCloseable {
     private val certificate =
         HeldCertificate
             .Builder()
-            .addSubjectAlternativeName("control-a.example.test")
-            .addSubjectAlternativeName("control-b.example.test")
+            .apply { certificateNames.forEach(::addSubjectAlternativeName) }
             .build()
+    val certificateBase64: String =
+        java.util.Base64
+            .getEncoder()
+            .encodeToString(certificate.certificate.encoded)
     private val serverTls = HandshakeCertificates.Builder().heldCertificate(certificate).build()
     private val clientTls = HandshakeCertificates.Builder().addTrustedCertificate(certificate.certificate).build()
     private val listener = ServerSocket(0, 2, InetAddress.getByName("127.0.0.1"))

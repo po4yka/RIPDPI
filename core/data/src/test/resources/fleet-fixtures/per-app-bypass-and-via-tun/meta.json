@@ -1,8 +1,8 @@
 {
   "scenario": "per-app-bypass-and-via-tun",
   "description": "Both --per-app-bypass and --per-app-via-tun set; route.rules carry package_name",
-  "deployer_git_sha": "ff0ae2198aa82648a03203a0ab52d5cdac485df3",
+  "deployer_git_sha": "0462413b9332830826bef68d849600d6adcbe8b0",
   "provenance": "emitted",
-  "generated_at": "2026-05-14T00:00:00Z",
-  "frozen_secret_set": "all UUIDs/keys are fixed -fixture test values, never production tokens"
+  "generated_at": "2026-10-23T00:00:00Z",
+  "frozen_secret_set": "Fixed synthetic UUIDs, allowlisted short IDs and byte-pattern AWG keys; no production credentials"
 }

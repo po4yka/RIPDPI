@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.serialization.RipDpiJson
+import com.poyka.ripdpi.serialization.RipDpiNoExplicitNullsJson
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -19,6 +20,21 @@ import org.junit.Test
  * if the wire contract changes.
  */
 class RipDpiAmneziaWgConfigSerializationTest {
+    @Test
+    fun `default AWG fields required by Rust are emitted by both native encoders`() {
+        val required = setOf("wireProfile", "jc", "jmin", "jmax", "h1", "h2", "h3", "h4", "s1", "s2")
+        for (json in listOf(RipDpiJson, RipDpiNoExplicitNullsJson)) {
+            val standalone = json.parseToJsonElement(json.encodeToString(RipDpiAmneziaWgObfuscationConfig())).jsonObject
+            assertEquals(required, standalone.keys)
+            val warp = json.parseToJsonElement(json.encodeToString(RipDpiWarpAmneziaConfig())).jsonObject
+            assertEquals(required + setOf("enabled", "s3", "s4"), warp.keys)
+            assertEquals(JsonPrimitive(false), warp["enabled"])
+            assertEquals(JsonPrimitive(0), warp["s3"])
+            assertEquals(JsonPrimitive(0), warp["s4"])
+            assertEquals(JsonPrimitive("awg-3.1-ranges-v1"), warp["wireProfile"])
+        }
+    }
+
     private val fullConfig =
         ResolvedRipDpiAmneziaWgConfig(
             enabled = true,
@@ -43,10 +59,10 @@ class RipDpiAmneziaWgConfigSerializationTest {
                     s2 = 30,
                     s3 = 45,
                     s4 = 60,
-                    h1 = 1_111_111_111L,
-                    h2 = 2_222_222_222L,
-                    h3 = 3_333_333_333L,
-                    h4 = 4_444_444_444L,
+                    h1 = "1111111111",
+                    h2 = "2222222222",
+                    h3 = "3333333333",
+                    h4 = "4444444444",
                     i1 = "<b 0x01>",
                     i2 = "<b 0x02>",
                     i3 = "<b 0x03>",
@@ -124,6 +140,7 @@ class RipDpiAmneziaWgConfigSerializationTest {
                 "s2",
                 "s3",
                 "s4",
+                "wireProfile",
                 "h1",
                 "h2",
                 "h3",
@@ -139,15 +156,15 @@ class RipDpiAmneziaWgConfigSerializationTest {
     }
 
     @Test
-    fun `h1 through h4 serialize as numeric Long values`() {
+    fun `h1 through h4 serialize as canonical strings`() {
         val amnezia =
             RipDpiJson
                 .parseToJsonElement(RipDpiJson.encodeToString(fullConfig))
                 .jsonObject["amnezia"] as JsonObject
 
-        // Long fields must not become strings or floats; assert the exact wire token.
-        assertEquals(JsonPrimitive(1_111_111_111L), amnezia["h1"])
-        assertEquals(JsonPrimitive(4_444_444_444L), amnezia["h4"])
+        // Header intervals use canonical strings on the native boundary.
+        assertEquals(JsonPrimitive("1111111111"), amnezia["h1"])
+        assertEquals(JsonPrimitive("4444444444"), amnezia["h4"])
         assertEquals("4444444444", (amnezia["h4"] as JsonPrimitive).content)
     }
 

@@ -12,15 +12,17 @@ LLM-generated Rust can pass build and test gates while still containing UB, dead
 
 1. **Pin versions in the prompt.** Quote each relevant package and version from the current `Cargo.lock`, never from a stored example or memory.
 2. **Specify runtime flavor.** `multi_thread(N)` vs `current_thread`. The cancel-safety rules differ.
-3. **Require cancel-safety annotation on every async fn.** Phrase as: "For each async fn you produce, prefix with `// cancel-safe: <reason>` or `// NOT cancel-safe: <reason>`." This walks every function. "Write cancel-safe code" alone is ignored.
+3. **Require a cancel-safety annotation on every async fn.** Phrase as: "Give each async fn you produce a `# Cancel safety:` rustdoc section that starts with `cancel-safe: <reason>` or `NOT cancel-safe: <reason>`." This walks every function, and it is the form the `async-cancel-safety` agent checks. "Write cancel-safe code" alone is ignored.
 4. **Require `// SAFETY:` blocks for every `unsafe` block.** List invariants per-pointer/per-fd, matching the format in the `rust-unsafe` skill.
 5. **Require a call-site usage example for non-trivial lifetime signatures.** Forces the model out of local optimization; surfaces lifetime laundering at write time.
 6. **Do not delegate trait hierarchy design.** Write the trait + doc contract by hand, then delegate implementations. Strategic errors here are expensive to undo.
 7. **Do not delegate `unsafe` byte-buffer parsing without explicit alignment context.** Specify the source of bytes ("from network, alignment unknown" or "from `Vec<u8>`, 8-byte aligned"). See the `rust-unsafe` skill section on "Pointer reads from untrusted byte buffers".
 
+Give the delegate a concrete oracle (the failing test, compiler output, or gate command). Before you or a delegate guess a type, lifetime, or trait bound, query rust-analyzer. Without a rust-analyzer server, `cargo doc --locked --no-deps` answers cross-crate signatures and `cargo expand -p <crate> <module>` answers macro questions.
+
 ### Diff acceptance gate
 
-Any AI-generated diff that touches **any** of the following requires a separate `pr-reviewer` agent pass before commit:
+Any AI-generated diff that touches **any** of the following requires a separate read-only `pr-reviewer` pass (add `rust-api-auditor`, `unsafe-code-auditor`, or `async-cancel-safety` where they match) before commit; the author then fixes the findings:
 
 - `unsafe` block (any)
 - `.unwrap()` or `.expect()` outside tests
@@ -32,14 +34,10 @@ Any AI-generated diff that touches **any** of the following requires a separate 
 - Custom `PartialEq` without matching custom `Hash`
 - Manual `impl Drop` on a struct containing async resources
 
-No exceptions. The reviewer pass costs minutes; an unaudited bug from this list costs days.
-
 ### CI infrastructure expectations
 
-- **Miri nightly** for every crate without `#![forbid(unsafe_code)]`. The 10× test slowdown is the price; LLM-generated `unsafe` code has a materially higher UB rate than hand-written code in this codebase's experience, which is why Miri coverage on AI-authored `unsafe` is non-negotiable rather than aspirational. Run as a scheduled (nightly) job, not on every PR.
-- **`clippy::pedantic` + selected nursery lints** for substantially AI-authored code. Adopt this **per-crate** (crate-root `#![warn(clippy::pedantic)]` opt-in), not as a workspace-wide group flip; `ripdpi-tor/src/lib.rs` is the maintained demonstration.
-- **`cargo deny --locked` on every PR** — already wired in RIPDPI; do not regress.
-- **`cargo audit` daily on `main`** to catch published advisories against pinned deps.
+- **Miri nightly** for every crate without `#![forbid(unsafe_code)]`; `scripts/ci/run-rust-miri.sh` tracks the covered set and the triaged gap list. LLM-generated `unsafe` has a materially higher UB rate here than hand-written code.
+- **`clippy::pedantic` + selected nursery lints** for substantially AI-authored code, opted in **per crate** at the crate root, not as a workspace-wide group flip; `ripdpi-tor/src/lib.rs` is the maintained demonstration.
 
 ### Sentinel patterns for review attention
 
@@ -68,53 +66,14 @@ Skim AI-generated Rust diffs first for these patterns. Each one is a 70%+ predic
 - `NetdClient.h::protectFromVpn` reference → non-ABI API, breaks between Android releases.
 - `serde_json::to_writer` to a path under `~/data` or `/data/data/.../files` without an explicit `fsync` call → state loss on LMK SIGKILL.
 
-**Deploy-stack adjacent (sibling `ripdpi-vpn-deploy` repo):**
+### `--locked` discipline
 
-- xray `routing.rules` entry with `"type": "field"` and NO selector field (`domain`/`ip`/`port`/`network`/`source`/`user`/`inboundTag`/`protocol`/`attrs`) → xray v26+ rejects with `app/router: this rule has no effective fields` at start-test. A catch-all "default" rule must be expressed as `"network": "tcp,udp"`; the intuitively-empty form is invalid. See `ansible-molecule.md` Rule 3.
-- ansible molecule `scenario.yml` where the platform name appears at the top of `inventory.hosts.<name>` (no group nesting) → playbook `hosts: vpn` matches nothing, converge logs `PLAY RECAP : ok=0 changed=0` and exits 0. See `ansible-molecule.md` Rule 1.
-- ansible molecule scenario that references a variable from `ansible/group_vars/all.yml` without mirroring it under the scenario's `inventory.group_vars.all` block → role aborts with `<var> is undefined` mid-converge even though the variable *is* defined for the real playbook. See `ansible-molecule.md` Rule 2.
-
-### Author and verifier separation
-
-For high-risk Rust work, separate authorship from verification when the active runtime exposes a suitable specialist. Use only agents present in `.claude/agents/`, `.codex/agents/`, and the current tool catalog; do not route through invented aliases or dated model snapshots.
-
-1. A write-capable implementation agent produces the narrow diff and its focused tests in an isolated worktree.
-2. A read-only specialist such as `rust-api-auditor`, `unsafe-code-auditor`, `async-cancel-safety`, or `pr-reviewer` reviews the diff against concrete oracle output.
-3. The author resolves actionable findings, then the integration verifier reruns the required `cargo ... --locked` gates on the rebased tree.
-
-Respect the model and sandbox declared by the selected profile rather than overriding them from this rule.
-
-### `--locked` discipline in agentic flows
-
-Every cargo invocation issued by an agent — sub-agent Bash command, hook script, slash command, manual diagnostic — MUST pass `--locked`. Rationale:
-
-- Without `--locked`, cargo may transparently bump a dependency that was previously vetted by `cargo deny --locked check`. The vetting becomes stale silently.
-- Agentic loops that run `cargo build` repeatedly without `--locked` can drift `Cargo.lock` across iterations, producing diffs unrelated to the task.
-- The `rust-toolchain.toml` pin (`rust-toolchain-pin.md` rule) provides the channel guarantee; `--locked` provides the dependency-version guarantee. They are complementary.
-
-Exception: `cargo update -p <crate> --precise <version>` and `cargo update --workspace` are the only valid ways to bump deps, and they must be in their own PR.
-
-### rust-analyzer MCP — query before guessing
-
-When a model would otherwise need to "guess" a Rust type, lifetime, trait bound, or signature, the model MUST first query rust-analyzer (via MCP, when available) for `hover` / `find_references` / `goto_definition` on the relevant identifier. Querying the real signature instead of guessing measurably cuts borrow-checker retry loops.
-
-Hook this into sub-agent dispatch: any agent whose prompt involves a type or borrow-checker question should be told "consult rust-analyzer MCP before guessing." For any agent class focused on borrow-checker error review, this is mandatory; for general code generation, it is strongly preferred.
-
-No rust-analyzer MCP server is committed in this repository's `.mcp.json` today, so the fallback below is the default path in a fresh checkout, not a rarely-used exception. When rust-analyzer MCP is not configured, the fallback is `cargo expand -p <crate> <module>` (for macro-related questions) and reading the `cargo doc --locked --no-deps --message-format=json` output (for cross-crate types). Never let the model guess a signature when one of these tools can answer in < 5 seconds.
-
-### When the LLM disagrees with this rule file
-
-The LLM is wrong. The rules are derived from production failures, not theory. Push back; do not accept "but the code compiles" as an answer.
+Every agent-issued Cargo command passes `--locked`, so a dependency vetted by `cargo deny --locked check` cannot drift silently and `Cargo.lock` gains no unrelated diff. Only `cargo update -p <crate> --precise <version>` and `cargo update --workspace` bump dependencies, each in its own PR; `rust-toolchain-pin.md` covers the toolchain channel.
 
 ### Cross-references
 
-- `rust-discipline` skill — items 22–25 cover the lifetime/blanket-impl/stack-array sentinels above.
-- `rust-lints` skill — canonical `[workspace.lints]` and `clippy.toml` template that catches the sentinels at build time.
-- `rust-unsafe` skill — pointer reads from untrusted byte buffers section; lint floor for unsafe crates.
-- `rust-async-internals` skill — cancel-safety annotation discipline, library Drop contracts, async closures, extended `CancellationToken` patterns.
-- `rust-test-tools` skill — cargo-careful / loom / proptest / fuzz / mutants beyond the standard `cargo test --locked`.
-- `rust-sanitizers-miri` skill — Miri configuration for the nightly UB-detection job.
-- `rust-security` skill — RUSTSEC triage SLA for advisories surfacing via `cargo audit`.
-- `rust-toolchain-pin.md` rule — toolchain channel pin and `--locked` discipline.
-- `ansible-molecule.md` rule — molecule scenario inventory / group_vars / xray routing-rule discipline for diffs touching the sibling `ripdpi-vpn-deploy` repo.
-- `async-cancel-safety` sub-agent — the automated audit for the cancel-safety requirements in this file.
+- `rust-discipline` skill — lifetime, blanket-impl, and stack-array sentinels.
+- `rust-lints` skill — `[workspace.lints]` and `clippy.toml` that catch the sentinels at build time.
+- `rust-async-internals` skill — cancel-safety annotations, Drop contracts, `CancellationToken` patterns.
+- `rust-test-tools` and `rust-sanitizers-miri` skills — loom, proptest, fuzz, mutants, and the Miri job.
+- `rust-security` skill — RUSTSEC triage SLA for `cargo audit` advisories.

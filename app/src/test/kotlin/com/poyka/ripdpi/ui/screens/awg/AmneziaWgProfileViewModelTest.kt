@@ -70,10 +70,10 @@ class AmneziaWgProfileViewModelTest {
             jmax = 70,
             s1 = 50,
             s2 = 100,
-            h1 = 1_000_000_001L,
-            h2 = 1_000_000_002L,
-            h3 = 1_000_000_003L,
-            h4 = 1_000_000_004L,
+            h1 = "1000000001",
+            h2 = "1000000002",
+            h3 = "1000000003",
+            h4 = "1000000004",
             randomizeHeaders = false,
         )
     private val catalog = AwgCohortCatalogData(presets = listOf(rtkSouth))
@@ -409,7 +409,7 @@ class AmneziaWgProfileViewModelTest {
                     .obfuscation
             assertEquals(4, obf.jc)
             assertEquals(70, obf.jmax)
-            assertEquals(1_000_000_001L, obf.h1)
+            assertEquals("1000000001", obf.h1)
         }
 
     @Test

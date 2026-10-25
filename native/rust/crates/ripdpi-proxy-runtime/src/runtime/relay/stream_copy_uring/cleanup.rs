@@ -27,11 +27,6 @@ pub(super) fn clone_relay_sockets(client: &TcpStream, upstream: &TcpStream) -> i
     })
 }
 
-pub(super) fn shutdown_relay_pair(upstream: &TcpStream, client: &TcpStream) {
-    let _ = upstream.shutdown(Shutdown::Both);
-    let _ = client.shutdown(Shutdown::Both);
-}
-
 pub(super) fn shutdown_direction(writer: &TcpStream, reader: &TcpStream) {
     let _ = writer.shutdown(Shutdown::Write);
     let _ = reader.shutdown(Shutdown::Read);

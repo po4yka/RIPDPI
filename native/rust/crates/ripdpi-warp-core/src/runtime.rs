@@ -157,7 +157,7 @@ impl WarpRuntime {
                     // resolved WARP config's own `i1..i5` hex fields. Empty
                     // strings mean unset, preserving prior behavior when the
                     // config does not configure them.
-                    special_junk_hex: self.config.amnezia.special_junk_hex(),
+                    signature_programs: self.config.amnezia.signature_programs(),
                     // WARP always egresses over plain WireGuard UDP; the
                     // WG-over-WebSocket carrier is a generic-AmneziaWG-profile
                     // opt-in. `None` keeps the tunnel binding its own UDP socket.
@@ -172,7 +172,6 @@ impl WarpRuntime {
         // AmneziaWG handshake prelude (special-junk frames + Jc junk packets)
         // is sent before the first WireGuard handshake to defeat protocol
         // fingerprinting. A no-op when AWG obfuscation is disabled.
-        tunnel.send_amnezia_junk().await;
         let bus = Bus::new();
         let mut tasks = Vec::<JoinHandle<()>>::new();
         let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp)?);

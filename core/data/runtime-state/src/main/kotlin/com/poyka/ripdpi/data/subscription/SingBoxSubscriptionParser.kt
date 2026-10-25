@@ -15,7 +15,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.longOrNull
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -70,7 +69,6 @@ sealed interface SingBoxParseResult {
 enum class SingBoxSkipReason {
     UNSUPPORTED_TRANSPORT,
     UNSUPPORTED_OBFUSCATION,
-    UNSUPPORTED_PORT_HOPPING,
     UNSUPPORTED_FINGERPRINT,
     INVALID_NETWORK_POLICY,
 }
@@ -123,12 +121,11 @@ object SingBoxSubscriptionParser {
     val NON_PROFILE_OUTBOUND_TYPES: Set<String> = setOf("selector", "urltest", "direct", "block", "dns")
 
     /**
-     * The only `ripdpi.schema_version` this parser understands. Post-1 fields
-     * are additive and optional, so this stays 1; a future breaking change
-     * bumps it in lockstep with the server. Must equal `x-contract-version` in
+     * The only supported bundle version. Version 2 requires the named AWG wire
+     * profile and canonical string headers. It changes with the server contract. Must equal `x-contract-version` in
      * `contract/ripdpi-bundle.schema.json` — `RipdpiBundleContractTest` pins it.
      */
-    const val RIPDPI_SCHEMA_VERSION: Int = 1
+    const val RIPDPI_SCHEMA_VERSION: Int = 2
 
     /**
      * Parses [payload] into a [SingBoxParseResult]. Every produced
@@ -142,8 +139,7 @@ object SingBoxSubscriptionParser {
      * - `ripdpi.hysteria_extras` entries are matched by tag to already-parsed
      *   [ProxyProfile.Hysteria2] profiles and the salamander obfs password /
      *   insecure / port-hopping fields are merged onto those profiles.
-     * - An unknown or missing `schema_version` causes the `ripdpi` block to be
-     *   ignored (forward-compatible); standard outbounds are still imported.
+     * - An unknown or missing `schema_version` rejects the recognized bundle.
      */
     fun parse(
         payload: String,
@@ -182,6 +178,12 @@ object SingBoxSubscriptionParser {
         rootElement: JsonElement,
         groupId: String,
     ): SingBoxParseResult {
+        if (rootElement is JsonObject && "ripdpi" in rootElement) {
+            val extension = rootElement["ripdpi"] as? JsonObject
+            require(extension?.get("schema_version") == JsonPrimitive(RIPDPI_SCHEMA_VERSION)) {
+                "Unsupported RIPDPI bundle schema version"
+            }
+        }
         val routeResult =
             if (rootElement is JsonObject) {
                 SingBoxRouteRulesParser.parse(rootElement, groupId)
@@ -334,13 +336,8 @@ private fun unsupportedHysteria2Option(
     label: String,
 ): SingBoxSkippedNode? {
     if (type != "hysteria2") return null
-    val hasPortHopping = obj["server_ports"] != null || obj["hop_interval"] != null || obj["hop_interval_max"] != null
     val obfsType = (obj["obfs"] as? JsonObject)?.string("type")?.lowercase()
     return when {
-        hasPortHopping -> {
-            SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_PORT_HOPPING, "server_ports")
-        }
-
         obfsType != null && obfsType != "salamander" -> {
             SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
         }
@@ -571,20 +568,26 @@ private fun mapHysteria2(
     port: Int?,
     name: String,
 ): ProxyProfile {
+    val hopping = singBoxHysteria2PortHopping(obj)
+    val selectedPort = port ?: hopping?.firstPort
+    require(
+        !obj.containsKey("server_port") || (port != null && port in 1..MaxPort),
+    ) { "Hysteria server port is invalid" }
     val password = obj.string("password")
     val tls = obj["tls"] as? JsonObject
     val obfs = obj["obfs"] as? JsonObject
-    return if (server != null && port != null && !password.isNullOrBlank()) {
+    return if (server != null && selectedPort != null && !password.isNullOrBlank()) {
         ProxyProfile.Hysteria2(
             id = newId(),
             displayName = name,
             groupId = groupId,
             server = server,
-            serverPort = port,
+            serverPort = selectedPort,
             password = password,
             serverName = tls?.string("server_name"),
             obfsPassword = obfs?.rawString("password"),
             insecure = (tls?.get("insecure") as? JsonPrimitive)?.booleanOrNull,
+            portHopping = hopping,
         )
     } else {
         rawConfig(name, groupId, obj)
@@ -708,6 +711,27 @@ private fun parseRipdpiTopology(obj: JsonObject?): RipdpiTopology? {
     )
 }
 
+private fun awgParameters(obj: JsonObject): AmneziaWgParameters =
+    AmneziaWgParameters(
+        wireProfile = requireNotNull(obj.string("wire_profile")),
+        jc = obj.int("jc"),
+        jmin = obj.int("jmin"),
+        jmax = obj.int("jmax"),
+        s1 = obj.int("s1"),
+        s2 = obj.int("s2"),
+        s3 = obj.int("s3"),
+        s4 = obj.int("s4"),
+        h1 = obj.string("h1"),
+        h2 = obj.string("h2"),
+        h3 = obj.string("h3"),
+        h4 = obj.string("h4"),
+        i1 = obj.string("i1"),
+        i2 = obj.string("i2"),
+        i3 = obj.string("i3"),
+        i4 = obj.string("i4"),
+        i5 = obj.string("i5"),
+    )
+
 /**
  * Maps one entry from `ripdpi.amneziawg[]` to an [AmneziaWgSubscriptionProfile].
  *
@@ -766,27 +790,18 @@ private fun mapRipdpiAwg(
 
     val mtu = obj.int("mtu")
 
+    val invalidWireField = invalidAwgWireField(obj)
+    if (invalidWireField != null) {
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, invalidWireField)
+        return null
+    }
+
     // AmneziaWG obfuscation parameters.
-    val awg =
-        AmneziaWgParameters(
-            jc = obj.int("jc"),
-            jmin = obj.int("jmin"),
-            jmax = obj.int("jmax"),
-            s1 = obj.int("s1"),
-            s2 = obj.int("s2"),
-            s3 = obj.int("s3"),
-            s4 = obj.int("s4"),
-            h1 = obj.long("h1"),
-            h2 = obj.long("h2"),
-            h3 = obj.long("h3"),
-            h4 = obj.long("h4"),
-            i1 = obj.string("i1"),
-            i2 = obj.string("i2"),
-            i3 = obj.string("i3"),
-            i4 = obj.string("i4"),
-            i5 = obj.string("i5"),
-        )
-    runCatching { awg.requireArm64Safe() }.getOrElse { return null }
+    val awg = awgParameters(obj)
+    runCatching { awg.requireSupportedProfile() }.getOrElse {
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, "wire_profile")
+        return null
+    }
     if ("cohort_fingerprint" in obj && !matchesCohortFingerprint(obj["cohort_fingerprint"], awg)) {
         skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, "cohort_fingerprint")
         return null
@@ -839,6 +854,15 @@ private fun applyHysteriaExtras(
     hyExtras: JsonObject,
 ): List<ProxyProfile> {
     if (hyExtras.isEmpty()) return profiles
+    hyExtras.forEach { (tag, element) ->
+        val extras = requireNotNull(element as? JsonObject) { "Hysteria extras must be an object" }
+        if ("port_hopping" in extras) {
+            bundleHysteria2PortHopping(extras)
+            require(profiles.count { it is ProxyProfile.Hysteria2 && it.displayName == tag } == 1) {
+                "Hysteria hopping metadata has no unique supported outbound"
+            }
+        }
+    }
     return profiles.map { profile ->
         if (profile !is ProxyProfile.Hysteria2) return@map profile
         val extras = hyExtras[profile.displayName] as? JsonObject ?: return@map profile
@@ -846,15 +870,15 @@ private fun applyHysteriaExtras(
         val obfsType = obfsObj?.string("type")?.lowercase()
         val obfsPassword = if (obfsType == "salamander") obfsObj.string("password") else null
         val insecure = extras.bool("insecure")
-        val portHopObj = extras["port_hopping"] as? JsonObject
-        val portHopPorts = portHopObj?.string("ports")
-        val portHopInterval = portHopObj?.string("interval")
+        val hopping = bundleHysteria2PortHopping(extras)
+        require(hopping == null || profile.portHopping == null || hopping == profile.portHopping) {
+            "Hysteria hopping metadata conflicts with the outbound"
+        }
         val salamanderUpstreamTag = extras.string("salamander_upstream_tag")
         profile.copy(
             obfsPassword = obfsPassword ?: profile.obfsPassword,
             insecure = insecure ?: profile.insecure,
-            portHopPorts = portHopPorts ?: profile.portHopPorts,
-            portHopInterval = portHopInterval ?: profile.portHopInterval,
+            portHopping = hopping ?: profile.portHopping,
             salamanderUpstreamTag = salamanderUpstreamTag ?: profile.salamanderUpstreamTag,
         )
     }
@@ -879,11 +903,6 @@ private fun JsonObject.nestedString(
 private fun JsonObject.int(key: String): Int? {
     val primitive = this[key] as? JsonPrimitive ?: return null
     return primitive.intOrNull ?: primitive.contentOrNull?.toIntOrNull()
-}
-
-private fun JsonObject.long(key: String): Long? {
-    val primitive = this[key] as? JsonPrimitive ?: return null
-    return primitive.longOrNull ?: primitive.contentOrNull?.toLongOrNull()
 }
 
 private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.booleanOrNull

@@ -359,7 +359,7 @@ private fun runningTelemetry(
  * are empty strings — the real store strips them on save and re-stamps on load.
  */
 private const val MINIMAL_AWG_REQUEST_JSON =
-    """{"profileId":"","privateKey":"","peerPublicKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","endpointHost":"10.0.0.1","endpointPort":51820,"interfaceAddressV4":"10.8.0.2/32"}"""
+    """{"profileId":"","privateKey":"","peerPublicKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","endpointHost":"10.0.0.1","endpointPort":51820,"interfaceAddressV4":"10.8.0.2/32","obfuscation":{"wireProfile":"awg-3.1-ranges-v1","jc":0,"jmin":0,"jmax":0,"s1":0,"s2":0,"h1":"1","h2":"2","h3":"3","h4":"4"}}"""
 
 private fun buildCoordinator(
     stateStore: FakeServiceStateStore = FakeServiceStateStore(),

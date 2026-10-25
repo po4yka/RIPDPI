@@ -110,7 +110,11 @@ def unpack(source, manifest, work):
                 target = (work / member.name).resolve()
                 if not target.is_relative_to(work) or not (member.isfile() or member.isdir()):
                     raise ValueError(f"Unsafe archive entry: {member.name}")
-            archive.extractall(work, filter="data")
+            if hasattr(tarfile, "data_filter"):
+                archive.extractall(work, filter="data")
+            else:
+                # macOS /usr/bin/python3 (3.9.6) lacks extraction filters; the member check above covers it.
+                archive.extractall(work)
     shutil.copytree(source / "upstream" / "nfq2", work / "nfq2")
 
 

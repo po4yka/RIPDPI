@@ -10,7 +10,7 @@ import sys
 import zipfile
 
 VERSION = "android_awg_native_interop_v1"
-PEER_COMMIT = "2e3f7d122ca8ef61e403fddc48a9db8fccd95dbf"
+PEER_COMMIT = "b5928efb6ca19f0153958460c3d141f04abc5c2e"
 METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreExchangesDualStackPayloads"
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -38,7 +38,7 @@ def validate(path, nonce, source_sha):
     require(data["source_sha"] == source_sha and re.fullmatch(r"[0-9a-f]{40}", source_sha), "source mismatch")
     require(data["scope"] == "native_core" and data["device_class"] == "emulator", "unsupported evidence scope")
     require(data["abi"] == "arm64-v8a" and type(data["api"]) is int and data["api"] >= 27, "invalid Android identity")
-    require(data["peer"] == {"version": "v0.2.12", "commit": PEER_COMMIT, "go": "go1.27.1"}, "peer identity mismatch")
+    require(data["peer"] == {"version": "v3.1.20260828", "commit": PEER_COMMIT, "go": "go1.27.3"}, "peer identity mismatch")
     base = Path(path).parent
     require(set(data["artifacts"]) == {"native_library", "test_apk", "peer_binary"}, "missing native artifact identity")
     for record in data["artifacts"].values():

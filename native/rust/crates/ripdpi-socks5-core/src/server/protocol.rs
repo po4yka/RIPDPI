@@ -230,7 +230,9 @@ impl<T: AsyncRead + Unpin> PasswordAuthenticationImpl<T, password_states::Starte
 mod tests {
     use super::*;
 
-    // cancel-safe: cancellation drops the local mock and protocol state.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops the local mock and protocol state.
     #[tokio::test(flavor = "current_thread")]
     async fn replies_complete_short_writes() {
         let address = "127.0.0.1:443".parse().expect("address");
@@ -580,8 +582,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::CommandR
     /// Reply success to the client according to the RFC.
     /// This consumes the wrapper as after this message actual proxying should begin.
     /// # Cancel safety:
-    /// Cancel-safe: cancellation drops the owned stream after any partial reply.
-    // cancel-safe: cancellation drops the owned stream and protocol state.
+    /// cancel-safe: cancellation drops the owned stream after any partial reply.
     pub async fn reply_success(mut self, sock_addr: SocketAddr) -> Result<T, SocksServerError> {
         self.inner
             .write_all(&new_reply(&ReplyError::Succeeded, sock_addr))
@@ -596,8 +597,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::CommandR
 
     /// Reply error to the client with the reply code according to the RFC.
     /// # Cancel safety:
-    /// Cancel-safe: cancellation drops the owned stream after any partial reply.
-    // cancel-safe: cancellation drops the owned stream and protocol state.
+    /// cancel-safe: cancellation drops the owned stream after any partial reply.
     pub async fn reply_error(mut self, error: &ReplyError) -> Result<(), SocksServerError> {
         let reply = new_reply(error, "0.0.0.0:0".parse().unwrap());
         debug!("reply error to be written: {:?}", reply);

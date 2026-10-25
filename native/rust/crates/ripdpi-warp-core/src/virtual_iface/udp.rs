@@ -30,12 +30,11 @@ impl DynamicUdpInterface {
     }
 
     /// # Cancel safety:
-    /// Not cancel-safe for continuation: the receive arm consumes bus packets
+    /// NOT cancel-safe: the receive arm consumes bus packets
     /// and polling mutates virtual sockets. The receive and timer waits in
     /// `select!` are individually cancel-safe when another arm completes.
     /// Terminal cancellation drops this interface, its startup subscription, and
     /// all owned virtual sockets.
-    // NOT cancel-safe: the runtime aborts only during complete interface teardown.
     pub(crate) async fn run(self) -> anyhow::Result<()> {
         let mut sockets = SocketSet::new([]);
         let mut device = VirtualIpDevice::new(PortProtocol::Udp, self.bus.clone(), self.mtu);
@@ -148,11 +147,10 @@ mod tests {
         assert_eq!(sockets.iter().count(), 1, "cleanup is idempotent");
     }
     /// # Cancel safety:
-    /// Not cancel-safe for continuation: cancelling the joined exchange skips
+    /// NOT cancel-safe: cancelling the joined exchange skips
     /// shutdown. Normal success and timeout send shutdown and join the interface
     /// before assertions; terminal cancellation requires test-runtime teardown
     /// to stop the virtual device's spawned worker.
-    // NOT cancel-safe: terminal cancellation tears down this complete test runtime.
     #[tokio::test]
     async fn datagram_queued_during_startup_reaches_the_real_udp_interface() {
         let bus = Bus::new();

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.fleet.FleetCompatHarness
 import com.poyka.ripdpi.data.fleet.FleetFixture
+import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -48,10 +50,10 @@ class FleetCompatGoldenFileTest {
     }
 
     @Test
-    fun `p0-only REALITY Vision bundle imports primary and fallback VLESS profiles`() {
+    fun `p0-only REALITY Vision bundle imports its primary VLESS profile`() {
         val result = FleetCompatHarness.run("p0-only")
         assertTrue(result.diff, result.matches)
-        assertEquals(2, result.importedProfiles.size)
+        assertEquals(1, result.importedProfiles.size)
     }
 
     @Test
@@ -67,17 +69,35 @@ class FleetCompatGoldenFileTest {
     }
 
     @Test
-    fun `p2a hysteria port-hop bundle is rejected until native projection supports it`() {
-        val result = FleetCompatHarness.run("p2a-hysteria-port-hop")
-        assertTrue(result.diff, result.matches)
-        assertTrue(result.importedProfiles.isEmpty())
+    fun `current producer range profiles preserve signatures and recompute their fingerprints`() {
+        listOf("p2a-hysteria-only", "multi-cohort-p0-p1-p2a").forEach { scenario ->
+            val parsed = SingBoxSubscriptionParser.parse(FleetFixture.load(scenario).bundleJson, "fleet-compat")
+            assertTrue(parsed is SingBoxParseResult.Success)
+            val awg = (parsed as SingBoxParseResult.Success).amneziaWgProfiles.single()
+            assertEquals("awg-3.1-ranges-v1", awg.awg.wireProfile)
+            assertEquals("100-199", awg.awg.h1)
+            assertEquals("400-499", awg.awg.h4)
+            assertEquals("<b 0xf0f1><r 16><rd 8><rc 8><t>", awg.awg.i1)
+            assertEquals(awg.cohortFingerprint, awg.awg.cohortFingerprint())
+        }
     }
 
     @Test
-    fun `multi-cohort p0 p1 p2a bundle imports primary fallback and web UDP transports`() {
+    fun `p2a hysteria port-hop bundle preserves the canonical destination set and cadence`() {
+        val result = FleetCompatHarness.run("p2a-hysteria-port-hop")
+        assertTrue(result.diff, result.matches)
+        val profile = result.importedProfiles.single() as ProxyProfile.Hysteria2
+        assertEquals(443, profile.serverPort)
+        assertEquals(Hysteria2PortHopping("20000-21000", 30_000L), profile.portHopping)
+        assertEquals("hop.fixture-host.example", profile.serverName)
+        assertEquals(profile.portHopping, checkNotNull(mapRelayProfile(profile)).profile.hysteriaPortHopping)
+    }
+
+    @Test
+    fun `multi-cohort p0 p1 p2a bundle imports primary web and UDP transports`() {
         val result = FleetCompatHarness.run("multi-cohort-p0-p1-p2a")
         assertTrue(result.diff, result.matches)
-        assertEquals(4, result.importedProfiles.size)
+        assertEquals(3, result.importedProfiles.size)
         assertTrue("a selector group is expected", result.importedGroup != null)
     }
 

@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.data.subscription.FailoverPolicy
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
@@ -31,7 +32,6 @@ import com.poyka.ripdpi.services.InitialRelayTransportClass
 import com.poyka.ripdpi.services.RelayHealthScope
 import com.poyka.ripdpi.services.RelayProbePlan
 import com.poyka.ripdpi.services.RelayTargetCategory
-import com.poyka.ripdpi.services.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.services.relayTransportCapabilities
 import dagger.Binds
 import dagger.Module

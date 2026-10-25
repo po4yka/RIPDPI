@@ -199,9 +199,11 @@ internal class NetworkHandoverProcessor<TSession>(
         }
 
         val fingerprintHash = context.fingerprint.scopeKey()
+        val physicalSignature = context.fingerprint.physicalNetworkSignature
         val isCoolingDown =
             context.command.event.classification != "connectivity_restore" &&
                 context.session.lastSuccessfulHandoverFingerprintHash == fingerprintHash &&
+                context.session.lastSuccessfulHandoverPhysicalSignature == physicalSignature &&
                 context.appliedAt - context.session.lastSuccessfulHandoverAt < handoverCooldownMillis
         if (isCoolingDown) {
             updateHandoverState(NetworkHandoverStates.Revalidated)
@@ -250,6 +252,7 @@ internal class NetworkHandoverProcessor<TSession>(
     ) {
         if (isCurrent(context.command)) {
             context.session.lastSuccessfulHandoverFingerprintHash = appliedFingerprintHash
+            context.session.lastSuccessfulHandoverPhysicalSignature = context.fingerprint.physicalNetworkSignature
             context.session.lastSuccessfulHandoverAt = context.appliedAt
             updateHandoverState(NetworkHandoverStates.Revalidated)
         }

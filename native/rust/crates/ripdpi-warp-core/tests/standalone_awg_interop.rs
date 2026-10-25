@@ -15,8 +15,7 @@ use tokio::sync::Notify;
 use tokio::time::timeout;
 
 /// # Cancel safety
-/// Cancel-safe: cancellation drops the owned socket and its partial SOCKS exchange.
-// cancel-safe: no partially negotiated socket escapes on cancellation.
+/// cancel-safe: cancellation drops the owned socket and its partial SOCKS exchange.
 async fn socks_request(address: SocketAddr, command: u8, target: SocketAddr) -> Result<(TcpStream, SocketAddr)> {
     let mut stream = TcpStream::connect(address).await?;
     stream.write_all(&[5, 1, 0]).await?;
@@ -54,8 +53,7 @@ fn udp_frame(port: u16, payload: &[u8]) -> Vec<u8> {
 }
 
 /// # Cancel safety
-/// Cancel-safe: all client sockets are owned here and dropped on timeout; the owner stops the runtime.
-// cancel-safe: a failed exchange never reuses a partially consumed stream.
+/// cancel-safe: all client sockets are owned here and dropped on timeout; the owner stops the runtime.
 async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketAddr, TcpStream)> {
     ready.notified().await;
     let telemetry = runtime.telemetry();
@@ -125,8 +123,7 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketA
 }
 
 /// # Cancel safety
-/// Not cancel-safe: this test owns a runtime task and explicitly stops, aborts if needed, and joins it.
-// NOT cancel-safe: libtest owns this complete lifecycle; no select wraps the test.
+/// NOT cancel-safe: this test owns a runtime task and explicitly stops, aborts if needed, and joins it.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() -> Result<()> {
     let endpoint: SocketAddr = std::env::var("RIPDPI_AWG_INTEROP_ENDPOINT")
@@ -144,7 +141,7 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
         endpoint_port: i32::from(endpoint.port()),
         interface_address_v4: "10.77.0.2/32".into(),
         interface_address_v6: "fd77::2/128".into(),
-        mtu: 1420,
+        mtu: std::env::var("RIPDPI_AWG_INTEROP_MTU")?.parse()?,
         local_socks_host: "127.0.0.1".into(),
         local_socks_port: 0,
         amnezia: AmneziaWgObfuscation {
@@ -153,11 +150,15 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
             jmax: 96,
             s1: 8,
             s2: 12,
-            h1: 268435457,
-            h2: 268435458,
-            h3: 268435459,
-            h4: 268435460,
-            i1: "deadbeef".into(),
+            h1: "100-199".into(),
+            h2: "200-299".into(),
+            h3: "300-399".into(),
+            h4: "400-499".into(),
+            i1: "<b 0xf0f1><r 16><rd 8><rc 8><t>".into(),
+            i2: "<b 0xf2>".into(),
+            i3: "<b 0xf3>".into(),
+            i4: "<b 0xf4>".into(),
+            i5: "<b 0xf5>".into(),
             ..Default::default()
         },
         ..Default::default()

@@ -30,6 +30,8 @@ pub struct RuntimeConfig {
     pub adaptive: RuntimeAdaptiveSettings,
     pub host_autolearn: HostAutolearnSettings,
     pub destination_routing: DestinationRoutingPolicy,
+    /// Exact resolver addresses captured from the active standalone AWG profile.
+    pub awg_dns_servers: Vec<IpAddr>,
     pub groups: Vec<DesyncGroup>,
     /// Maximum number of route-advance retries before giving up. Prevents
     /// unbounded retry loops when many desync groups are configured but the

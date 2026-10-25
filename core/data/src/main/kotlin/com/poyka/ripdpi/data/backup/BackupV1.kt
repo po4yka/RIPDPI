@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.WarpCredentials
 import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.migrateStoredHysteriaPortHopping
+import com.poyka.ripdpi.data.migrateStoredHysteriaProfile
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
@@ -212,8 +214,7 @@ object BackupAllowlist {
                 // secret, and SHARE must keep it: an exported insecure profile
                 // without its pin accepts any certificate.
                 "pinSha256" to Classification.PUBLIC,
-                "portHopPorts" to Classification.PUBLIC,
-                "portHopInterval" to Classification.PUBLIC,
+                "portHopping" to Classification.PUBLIC,
                 // Non-secret upstream Hysteria2 release tag (e.g. "v2.9.0"); same
                 // sensitivity class as the other RIPDPI-extras transport metadata.
                 "salamanderUpstreamTag" to Classification.PUBLIC,
@@ -476,10 +477,14 @@ object BackupImporter {
         ) {
             throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
         }
-        // A genuine older-but-known version is migrated forward before decoding.
-        // v1 is currently both oldest and current, so this is the identity
-        // transform; add migrateVNToVN+1 steps here as new versions land.
-        return backupJson.decodeFromJsonElement(raw)
+        // Upgrade embedded profiles before typed group decoding. Top-level profiles
+        // are validated independently by BackupRestoreDecoder during restore.
+        val migratedGroups =
+            raw["groups"]?.let {
+                backupJson.parseToJsonElement(migrateStoredHysteriaPortHopping(it.toString()))
+            }
+        val migrated = if (migratedGroups == null) raw else JsonObject(raw + ("groups" to migratedGroups))
+        return backupJson.decodeFromJsonElement(migrated)
     }
 }
 
@@ -527,7 +532,7 @@ object BackupRestoreDecoder {
                     ?: obj["id"]?.jsonPrimitive?.content
                     ?: "(unnamed)"
             runCatching {
-                backupJson.decodeFromJsonElement(ProxyProfile.serializer(), obj)
+                backupJson.decodeFromJsonElement(ProxyProfile.serializer(), migrateStoredHysteriaProfile(obj))
             }.fold(
                 onSuccess = { ProfileDecodeResult.Decoded(it) },
                 onFailure = { e ->

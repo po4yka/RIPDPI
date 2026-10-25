@@ -1,5 +1,6 @@
 use std::fmt;
 use std::io;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use http::Request;
@@ -8,6 +9,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
+use crate::hopping_socket::HoppingSocket;
 use crate::quic_transport::{self, QuicTransportConfig};
 use crate::salamander::SalamanderUdpSocket;
 
@@ -82,10 +84,22 @@ pub(crate) fn build_endpoint(
     config: &Config,
     tls_config: rustls::ClientConfig,
     socket_spec: ClientSocketSpec,
-) -> Result<(quinn::Endpoint, std::net::UdpSocket)> {
+    server_addr: SocketAddr,
+) -> Result<(quinn::Endpoint, Option<std::net::UdpSocket>, Option<Arc<HoppingSocket>>)> {
     let socket = build_client_udp_socket(&socket_spec)?;
-    let socket_clone = socket.try_clone()?;
-    let mut endpoint = if let Some(key) = config.salamander_key.as_ref() {
+    let socket_clone = if config.port_hopping.is_none() { Some(socket.try_clone()?) } else { None };
+    let mut hopping_socket = None;
+    let mut endpoint = if let Some(policy) = &config.port_hopping {
+        let wrapped = Arc::new(HoppingSocket::new(server_addr, policy.clone(), socket_spec, socket)?);
+        let endpoint = quinn::Endpoint::new_with_abstract_socket(
+            quinn::EndpointConfig::default(),
+            None,
+            wrapped.clone(),
+            Arc::new(quinn::TokioRuntime),
+        )?;
+        hopping_socket = Some(wrapped);
+        endpoint
+    } else if let Some(key) = config.salamander_key.as_ref() {
         let wrapped = SalamanderUdpSocket::new(socket, key.as_bytes().to_vec())?;
         quinn::Endpoint::new_with_abstract_socket(
             quinn::EndpointConfig::default(),
@@ -101,7 +115,7 @@ pub(crate) fn build_endpoint(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?,
     )));
-    Ok((endpoint, socket_clone))
+    Ok((endpoint, socket_clone, hopping_socket))
 }
 
 /// Bind a UDP socket for the Hysteria2 QUIC client.
@@ -123,7 +137,11 @@ pub(crate) fn rebind_endpoint(
     endpoint: &quinn::Endpoint,
     socket_spec: &ClientSocketSpec,
     socket: std::net::UdpSocket,
+    hopping_socket: Option<&HoppingSocket>,
 ) -> io::Result<()> {
+    if let Some(hopping) = hopping_socket {
+        return hopping.rebind(socket);
+    }
     if let Some(key) = socket_spec.salamander_key.as_ref() {
         endpoint.rebind_abstract(Arc::new(SalamanderUdpSocket::new(socket, key.as_bytes().to_vec())?))
     } else {
@@ -163,6 +181,39 @@ mod tests {
     use tokio::sync::oneshot;
 
     use super::DriverAbortGuard;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn salamander_endpoint_builds_and_rebinds_blocking_socket() {
+        let mut config =
+            crate::config::Config::from_parts("fixture-auth".into(), "127.0.0.1", 443, "fixture.example".into())
+                .expect("client config");
+        config.salamander_key = Some("fixture-key".into());
+        let socket_spec = super::ClientSocketSpec {
+            ipv6: false,
+            bind_low_port: false,
+            salamander_key: config.salamander_key.clone(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        };
+        let tls_config = super::build_tls_config(&config).expect("TLS config");
+        let server_addr = "127.0.0.1:443".parse().expect("server address");
+        let (endpoint, original_socket, hopping_socket) =
+            super::build_endpoint(&config, tls_config, socket_spec.clone(), server_addr)
+                .expect("initial Salamander endpoint");
+        assert!(hopping_socket.is_none());
+        let original_socket = original_socket.expect("non-hopping socket clone");
+        assert_eq!(
+            endpoint.local_addr().expect("initial endpoint address"),
+            original_socket.local_addr().expect("original socket address"),
+        );
+
+        let rebound_socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("bind replacement socket");
+        rebound_socket.set_nonblocking(false).expect("explicit blocking replacement");
+        let rebound_addr = rebound_socket.local_addr().expect("replacement address");
+        super::rebind_endpoint(&endpoint, &socket_spec, rebound_socket, None).expect("rebind Salamander endpoint");
+        assert_eq!(endpoint.local_addr().expect("rebound endpoint address"), rebound_addr);
+        endpoint.close(0u32.into(), b"test complete");
+        tokio::time::timeout(Duration::from_secs(2), endpoint.wait_idle()).await.expect("endpoint driver stops");
+    }
 
     struct DropNotice(Option<oneshot::Sender<()>>);
 

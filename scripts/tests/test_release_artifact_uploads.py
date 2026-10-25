@@ -33,19 +33,23 @@ def release_verification_job(source: str) -> str:
 
 
 class ReleaseArtifactUploadsTest(unittest.TestCase):
-    def test_ci_release_verification_uses_measured_two_variant_shards(self) -> None:
+    def test_ci_release_verification_uses_one_variant_per_shard(self) -> None:
         source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         job = release_verification_job(source)
         self.assertIn("matrix:\n        shard:", job)
-        self.assertEqual(3, job.count("id: "))
         shards = re.findall(
-            r"(?m)^          - \{ id: ([\w-]+), tasks: '([^']+)' \}$", job
+            r"(?m)^          - \{ id: ([\w-]+), store: (\w+), experience: (\w+), task: '([^']+)' \}$",
+            job,
         )
-        self.assertEqual(3, len(shards))
-        self.assertTrue(
-            all(len(tasks.split(",")) == 2 for _, tasks in shards),
-            "each release shard must contain exactly two builds",
-        )
+        self.assertEqual(6, len(shards))
+        self.assertEqual(6, job.count("id: "))
+        for shard_id, store, experience, task in shards:
+            with self.subTest(shard=shard_id):
+                self.assertEqual(f"{store}-{experience}", shard_id)
+                self.assertEqual(
+                    f":app:assemble{store.capitalize()}{experience.capitalize()}Release",
+                    task,
+                )
         for task in (
             ":app:assembleFdroidFullRelease",
             ":app:assembleFdroidSimpleRelease",
@@ -55,10 +59,8 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             ":app:assemblePlaySimpleRelease",
         ):
             self.assertEqual(1, len(re.findall(rf"{re.escape(task)}(?![A-Za-z])", job)))
-        self.assertIn("IFS=',' read -r -a release_tasks", job)
-        self.assertIn('for task in "${release_tasks[@]}"', job)
+        self.assertIn('task="${{ matrix.shard.task }}"', job)
         self.assertIn("printf '### %s release build", job)
-        self.assertIn("./gradlew --stop", job)
         self.assertIn(
             "needs: [change-routing, rust-native-packaging, rust-native-x86_64, "
             "owned-stack-tls-fingerprint, pluggable-transport-assets, xray-native]",
@@ -95,7 +97,7 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         self.assertIsNotNone(build_step)
         assert build_step is not None
         release_test = build_step.group(0)
-        self.assertIn('if [[ "${{ matrix.shard.id }}" == github ]]', release_test)
+        self.assertIn('if [[ "${{ matrix.shard.id }}" == github-full ]]', release_test)
         self.assertIn(":app:assembleGithubFullReleaseAndroidTest", release_test)
         self.assertIn("-Pripdpi.testBuildType=release", release_test)
         self.assertEqual(2, release_test.count('"${common_args[@]}"'))
@@ -126,7 +128,7 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertEqual(1, ci_source.count("name: release-native-symbols\n"))
-        self.assertIn("matrix.shard.id == 'github'", ci_source)
+        self.assertIn("matrix.shard.id == 'github-full'", ci_source)
         for source in (ci_source, candidate_source):
             self.assertIn("python3 scripts/ci/package_native_symbols.py", source)
             block = upload_block(source, "Upload release native symbols")

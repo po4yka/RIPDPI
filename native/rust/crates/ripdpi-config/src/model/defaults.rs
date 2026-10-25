@@ -131,6 +131,7 @@ impl Default for RuntimeConfig {
             adaptive: RuntimeAdaptiveSettings::default(),
             host_autolearn: HostAutolearnSettings::default(),
             destination_routing: DestinationRoutingPolicy::default(),
+            awg_dns_servers: Vec::new(),
             groups: vec![DesyncGroup::new(0)],
             max_route_retries: 8,
         }

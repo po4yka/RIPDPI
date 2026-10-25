@@ -33,10 +33,10 @@ data class WarpPayloadGenPresetDefinition(
     val jc: Int,
     val jmin: Int,
     val jmax: Int,
-    val h1: Long,
-    val h2: Long,
-    val h3: Long,
-    val h4: Long,
+    val h1: String,
+    val h2: String,
+    val h3: String,
+    val h4: String,
     val s1: Int,
     val s2: Int,
     val s3: Int,
@@ -99,10 +99,10 @@ fun builtInWarpPayloadGenPresets(): List<WarpPayloadGenPresetDefinition> =
         """
         {
           "presets": [
-            { "id": "random", "label": "Random", "jc": 0, "jmin": 0, "jmax": 0, "h1": 0, "h2": 0, "h3": 0, "h4": 0, "s1": 0, "s2": 0, "s3": 0, "s4": 0 },
-            { "id": "quic_imitation", "label": "QUIC imitation", "jc": 3, "jmin": 16, "jmax": 64, "h1": 1, "h2": 2, "h3": 3, "h4": 4, "s1": 8, "s2": 12, "s3": 16, "s4": 20 },
-            { "id": "tls_imitation", "label": "TLS imitation", "jc": 2, "jmin": 24, "jmax": 96, "h1": 11, "h2": 12, "h3": 13, "h4": 14, "s1": 10, "s2": 14, "s3": 18, "s4": 22 },
-            { "id": "dns_imitation", "label": "DNS imitation", "jc": 1, "jmin": 8, "jmax": 24, "h1": 21, "h2": 22, "h3": 23, "h4": 24, "s1": 4, "s2": 6, "s3": 8, "s4": 10 }
+            { "id": "random", "label": "Random", "jc": 0, "jmin": 0, "jmax": 0, "h1": "1", "h2": "2", "h3": "3", "h4": "4", "s1": 0, "s2": 0, "s3": 0, "s4": 0 },
+            { "id": "quic_imitation", "label": "QUIC imitation", "jc": 3, "jmin": 16, "jmax": 64, "h1": "1", "h2": "2", "h3": "3", "h4": "4", "s1": 8, "s2": 12, "s3": 0, "s4": 0 },
+            { "id": "tls_imitation", "label": "TLS imitation", "jc": 2, "jmin": 24, "jmax": 96, "h1": "11", "h2": "12", "h3": "13", "h4": "14", "s1": 10, "s2": 14, "s3": 0, "s4": 0 },
+            { "id": "dns_imitation", "label": "DNS imitation", "jc": 1, "jmin": 8, "jmax": 24, "h1": "21", "h2": "22", "h3": "23", "h4": "24", "s1": 4, "s2": 6, "s3": 0, "s4": 0 }
           ]
         }
         """.trimIndent(),

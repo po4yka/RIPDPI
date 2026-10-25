@@ -1,14 +1,5 @@
 package com.poyka.ripdpi.services
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.net.ConnectivityManager
-import android.net.ConnectivityManager.NetworkCallback
-import android.net.LinkProperties
-import android.net.Network
-import android.net.NetworkCapabilities
-import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -16,16 +7,14 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -46,7 +35,7 @@ typealias NetworkHandoverMonitor = SharedNetworkHandoverMonitor
 class DefaultNetworkHandoverMonitor
     @Inject
     constructor(
-        @param:ApplicationContext private val context: Context,
+        private val physicalNetworkObserver: PhysicalNetworkObserver,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         @param:ApplicationScope private val scope: kotlinx.coroutines.CoroutineScope,
     ) : NetworkHandoverMonitor {
@@ -55,12 +44,9 @@ class DefaultNetworkHandoverMonitor
             private const val StopTimeoutMs = 5_000L
         }
 
-        private val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
         override val events: SharedFlow<NetworkHandoverEvent> =
             observeNetworkHandoverEvents(
-                signals = networkSignals(),
+                signals = physicalNetworkObserver.changes.map { Unit },
                 captureFingerprint = networkFingerprintProvider::capture,
                 debounceMs = DebounceWindowMs,
                 clock = System::currentTimeMillis,
@@ -71,55 +57,6 @@ class DefaultNetworkHandoverMonitor
                         .WhileSubscribed(stopTimeoutMillis = StopTimeoutMs),
                 replay = 0,
             )
-
-        @android.annotation.SuppressLint("MissingPermission")
-        private fun networkSignals(): Flow<Unit> =
-            callbackFlow {
-                val callback =
-                    object : NetworkCallback() {
-                        override fun onAvailable(network: Network) {
-                            trySend(Unit)
-                        }
-
-                        override fun onCapabilitiesChanged(
-                            network: Network,
-                            networkCapabilities: NetworkCapabilities,
-                        ) {
-                            trySend(Unit)
-                        }
-
-                        override fun onLinkPropertiesChanged(
-                            network: Network,
-                            linkProperties: LinkProperties,
-                        ) {
-                            trySend(Unit)
-                        }
-
-                        override fun onLost(network: Network) {
-                            trySend(Unit)
-                        }
-                    }
-
-                runCatching {
-                    if (hasNetworkStatePermission()) {
-                        connectivityManager.registerDefaultNetworkCallback(callback)
-                    } else {
-                        error("android.permission.ACCESS_NETWORK_STATE is required to observe network handover events")
-                    }
-                }.onFailure {
-                    close(it)
-                }
-
-                awaitClose {
-                    runCatching {
-                        connectivityManager.unregisterNetworkCallback(callback)
-                    }
-                }
-            }
-
-        private fun hasNetworkStatePermission(): Boolean =
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_NETWORK_STATE) ==
-                PackageManager.PERMISSION_GRANTED
     }
 
 internal fun observeNetworkHandoverEvents(
@@ -178,6 +115,7 @@ private fun networkHandoverChangedFields(
         "cellular" to (previous?.cellular != current?.cellular),
         "metered" to (previous?.metered != current?.metered),
         "leaseToken" to (previous?.directDnsUnderlayGeneration != current?.directDnsUnderlayGeneration),
+        "physical" to (previous?.physicalNetworkSignature != current?.physicalNetworkSignature),
     ).filter { it.second }.joinToString(",") { it.first }.ifEmpty { "none" }
 
 @OptIn(FlowPreview::class)

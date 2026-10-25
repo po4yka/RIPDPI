@@ -2,17 +2,17 @@
 #
 # Syntax is .gitignore-style. Only paths that match a pattern AND are
 # gitignored are copied, so tracked files are never duplicated. Without this,
-# a fresh worktree has no Android SDK path and no agent permission allowlist,
-# so the native/Gradle build and `android:*` CLI calls fail on first run.
+# a fresh worktree has no Android SDK path, so the native/Gradle build fails
+# on first run. Run `just setup` in the new worktree for the remaining tools.
 #
-# See docs/contributor/build-performance.md "Parallel agent builds" and
-# AGENTS.md "Git Worktree & Commit Workflow".
+# See docs/contributor/build-performance.md "Worktree builds" and
+# AGENTS.md "Worktree and commit workflow".
 
 # Android SDK location — Gradle/native build cannot resolve the SDK without it.
 local.properties
 
-# Claude Code per-machine permission allowlist (carries Bash(android:*)).
-.claude/settings.json
+# Personal Claude Code permissions, plugins, and MCP servers.
+.claude/settings.local.json
 
 # Local environment overrides, if present.
 .env

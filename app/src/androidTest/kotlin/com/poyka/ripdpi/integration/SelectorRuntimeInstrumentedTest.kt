@@ -36,10 +36,10 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.services.CandidateMeasurementStage
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
-import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
 import com.poyka.ripdpi.services.CandidateRelayPayloadProbe
 import com.poyka.ripdpi.services.CandidateXrayMeasurements
 import com.poyka.ripdpi.services.MeasuredProfileActivationCoordinator
+import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.TimedPauseController
@@ -131,7 +131,7 @@ class SelectorRuntimeInstrumentedTest {
 
     @Inject lateinit var pause: TimedPauseController
 
-    @Inject lateinit var networkEpoch: CandidateRelayNetworkEpoch
+    @Inject lateinit var networkEpoch: PhysicalNetworkObserver
 
     @Inject lateinit var measurements: CandidateRelayMeasurements
 

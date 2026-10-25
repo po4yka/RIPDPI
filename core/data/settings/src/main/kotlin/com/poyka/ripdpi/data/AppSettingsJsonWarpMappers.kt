@@ -30,6 +30,12 @@ internal fun AppSettingsSnapshot.withWarpSnapshot(settings: AppSettings): AppSet
                 warpAmneziaJc = settings.warpAmneziaJc,
                 warpAmneziaJmin = settings.warpAmneziaJmin,
                 warpAmneziaJmax = settings.warpAmneziaJmax,
+                warpAmneziaWireProfile = settings.warpAmneziaWireProfile,
+                warpAmneziaI1 = settings.warpAmneziaI1,
+                warpAmneziaI2 = settings.warpAmneziaI2,
+                warpAmneziaI3 = settings.warpAmneziaI3,
+                warpAmneziaI4 = settings.warpAmneziaI4,
+                warpAmneziaI5 = settings.warpAmneziaI5,
                 warpAmneziaH1 = settings.warpAmneziaH1,
                 warpAmneziaH2 = settings.warpAmneziaH2,
                 warpAmneziaH3 = settings.warpAmneziaH3,
@@ -49,6 +55,28 @@ internal fun AppSettingsSnapshot.withWarpSnapshot(settings: AppSettings): AppSet
 @Suppress("LongMethod")
 internal fun AppSettings.Builder.applyWarpSnapshot(snapshot: AppSettingsSnapshot): AppSettings.Builder {
     val warp = snapshot.warp
+    if (warp.warpAmneziaEnabled || warp.warpAmneziaPreset !in setOf("", WarpAmneziaPresetOff)) {
+        WarpAmneziaSettings(
+            wireProfile = warp.warpAmneziaWireProfile,
+            enabled = warp.warpAmneziaEnabled,
+            jc = warp.warpAmneziaJc,
+            jmin = warp.warpAmneziaJmin,
+            jmax = warp.warpAmneziaJmax,
+            h1 = warp.warpAmneziaH1,
+            h2 = warp.warpAmneziaH2,
+            h3 = warp.warpAmneziaH3,
+            h4 = warp.warpAmneziaH4,
+            s1 = warp.warpAmneziaS1,
+            s2 = warp.warpAmneziaS2,
+            s3 = warp.warpAmneziaS3,
+            s4 = warp.warpAmneziaS4,
+            i1 = warp.warpAmneziaI1,
+            i2 = warp.warpAmneziaI2,
+            i3 = warp.warpAmneziaI3,
+            i4 = warp.warpAmneziaI4,
+            i5 = warp.warpAmneziaI5,
+        ).requireSupportedProfile()
+    }
     return setWarpEnabled(warp.warpEnabled)
         .setWarpRouteMode(normalizeWarpRouteMode(warp.warpRouteMode))
         .setWarpRouteHosts(warp.warpRouteHosts)
@@ -70,6 +98,12 @@ internal fun AppSettings.Builder.applyWarpSnapshot(snapshot: AppSettingsSnapshot
         .setWarpAmneziaJc(warp.warpAmneziaJc)
         .setWarpAmneziaJmin(warp.warpAmneziaJmin)
         .setWarpAmneziaJmax(warp.warpAmneziaJmax)
+        .setWarpAmneziaWireProfile(warp.warpAmneziaWireProfile)
+        .setWarpAmneziaI1(warp.warpAmneziaI1)
+        .setWarpAmneziaI2(warp.warpAmneziaI2)
+        .setWarpAmneziaI3(warp.warpAmneziaI3)
+        .setWarpAmneziaI4(warp.warpAmneziaI4)
+        .setWarpAmneziaI5(warp.warpAmneziaI5)
         .setWarpAmneziaH1(warp.warpAmneziaH1)
         .setWarpAmneziaH2(warp.warpAmneziaH2)
         .setWarpAmneziaH3(warp.warpAmneziaH3)
@@ -82,6 +116,12 @@ internal fun AppSettings.Builder.applyWarpSnapshot(snapshot: AppSettingsSnapshot
             inferWarpAmneziaPreset(
                 warp.warpAmneziaPreset,
                 WarpAmneziaSettings(
+                    wireProfile = warp.warpAmneziaWireProfile,
+                    i1 = warp.warpAmneziaI1,
+                    i2 = warp.warpAmneziaI2,
+                    i3 = warp.warpAmneziaI3,
+                    i4 = warp.warpAmneziaI4,
+                    i5 = warp.warpAmneziaI5,
                     enabled = warp.warpAmneziaEnabled,
                     jc = warp.warpAmneziaJc,
                     jmin = warp.warpAmneziaJmin,

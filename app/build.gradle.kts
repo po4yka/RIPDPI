@@ -256,8 +256,7 @@ extensions.configure<ApplicationExtension> {
         versionName = ripdpiVersionName
 
         testInstrumentationRunner = "com.poyka.ripdpi.HiltTestRunner"
-        testInstrumentationRunnerArguments["clearPackageData"] =
-            providers.gradleProperty("ripdpi.androidTestClearPackageData").orElse("true").get()
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
         forwardedInstrumentationArguments.forEach { argumentName ->
             providers
                 .gradleProperty("android.testInstrumentationRunnerArguments.$argumentName")

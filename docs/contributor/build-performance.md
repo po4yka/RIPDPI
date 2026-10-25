@@ -83,7 +83,9 @@ ripdpi.nativeCpuBudget=4
 
 ## Local Rust sccache
 
-CI already wires `RUSTC_WRAPPER=sccache`. Local dev does not.
+CI does not use sccache: its GitHub Actions backend measured a 0 % hit
+rate next to `Swatinem/rust-cache`, which already restores `target/`.
+Locally, sccache shares compiles across worktrees:
 
 ```sh
 brew install sccache
@@ -93,8 +95,8 @@ export SCCACHE_DIR="$HOME/.cache/sccache"
 export SCCACHE_CACHE_SIZE=20G
 ```
 
-`aws-lc-sys` and `boring-sys` C compilation is not wrapped — same
-limitation as CI (`scripts/ci/run-rust-native-checks.sh`).
+`aws-lc-sys` and `boring-sys` C compilation is not wrapped for Android
+cross-checks (`scripts/ci/run-rust-native-checks.sh`).
 
 Check cache hit rate any time with `sccache --show-stats`.
 

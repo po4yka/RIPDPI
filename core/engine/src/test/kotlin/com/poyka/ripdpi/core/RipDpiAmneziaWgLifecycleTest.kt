@@ -2,6 +2,9 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeError
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,7 +15,35 @@ class RipDpiAmneziaWgLifecycleTest {
         runTest {
             val bindings =
                 object : RipDpiAmneziaWgBindings {
-                    override fun create(configJson: String): Long = 1L
+                    override fun create(configJson: String): Long {
+                        val payload = Json.parseToJsonElement(configJson).jsonObject
+                        assertEquals(JsonPrimitive(1330), payload["mtu"])
+                        val obfuscation = payload.getValue("amnezia").jsonObject
+                        assertEquals(
+                            setOf(
+                                "wireProfile",
+                                "jc",
+                                "jmin",
+                                "jmax",
+                                "s1",
+                                "s2",
+                                "s3",
+                                "s4",
+                                "h1",
+                                "h2",
+                                "h3",
+                                "h4",
+                                "i1",
+                                "i2",
+                                "i3",
+                                "i4",
+                                "i5",
+                            ),
+                            obfuscation.keys,
+                        )
+                        assertEquals(JsonPrimitive("awg-3.1-ranges-v1"), obfuscation["wireProfile"])
+                        return 1L
+                    }
 
                     override fun start(handle: Long): Int = 0
 

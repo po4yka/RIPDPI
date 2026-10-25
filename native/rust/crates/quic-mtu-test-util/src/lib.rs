@@ -266,7 +266,9 @@ mod tests {
     use super::MtuDropSocket;
 
     #[tokio::test]
-    // cancel-safe: the bound socket is test-owned and has no externally visible state.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the bound socket is test-owned and has no externally visible state.
     async fn mtu_drop_socket_supports_ipv6_loopback() {
         let (_socket, _threshold, address) = MtuDropSocket::bind_localhost_v6().expect("bind IPv6 MTU-drop socket");
         assert!(address.is_ipv6());
@@ -274,7 +276,9 @@ mod tests {
     }
 
     #[tokio::test]
-    // cancel-safe: socket, peer, threshold, and counters are confined to this test future.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: socket, peer, threshold, and counters are confined to this test future.
     async fn mtu_drop_socket_reports_redacted_drop_evidence() {
         let (socket, threshold, _address) = MtuDropSocket::bind_localhost().expect("bind MTU-drop socket");
         let peer = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind peer");

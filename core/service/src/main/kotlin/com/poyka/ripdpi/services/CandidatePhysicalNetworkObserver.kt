@@ -21,6 +21,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
     private var activeRegistration: Long? = null
     private val entries = linkedMapOf<T, Entry>()
     private var selected: T? = null
+    private var callbackSelected: T? = null
     private val epoch = MutableStateFlow(0L)
     val changes = epoch.asStateFlow()
 
@@ -29,6 +30,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         activeRegistration = registration
         entries.clear()
         selected = null
+        callbackSelected = null
         advance()
         return registration
     }
@@ -38,6 +40,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         activeRegistration = null
         entries.clear()
         selected = null
+        callbackSelected = null
         advance()
     }
 
@@ -50,6 +53,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         advance()
         entries[network] = Entry(preferred, blocked = if (requireBlockedObservation) null else false)
         if (preferred || selected == null) selected = network
+        if (preferred) callbackSelected = network
     }
 
     @Synchronized fun capabilities(
@@ -106,6 +110,21 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         advance()
         entries.remove(network)
         if (selected == network) selected = null
+        if (callbackSelected == network) callbackSelected = null
+    }
+
+    /** Handover uses selected semantics; probe epochs still include all callback invalidations. */
+    @Synchronized fun selectedSnapshot(): SelectedPhysicalNetwork<T>? {
+        val current = activeRegistration ?: return null
+        val network =
+            if (entries.values.any { it.preferred }) callbackSelected else entries.keys.singleOrNull()
+        return entries[network]?.takeIf { it.ready() }?.let { entry ->
+            SelectedPhysicalNetwork(
+                current,
+                checkNotNull(network),
+                checkNotNull(entry.capabilities) + ":" + checkNotNull(entry.links),
+            )
+        }
     }
 
     @Synchronized fun capture(): CandidatePhysicalNetworkToken? {
@@ -134,6 +153,14 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
     private fun advance() {
         epoch.value = Math.addExact(epoch.value, 1)
     }
+}
+
+internal data class SelectedPhysicalNetwork<T : Any>(
+    val registration: Long,
+    val network: T,
+    val fingerprint: String,
+) {
+    override fun toString() = "SelectedPhysicalNetwork([REDACTED])"
 }
 
 /** Transient and redacted. Tokens compare full callback evidence, including external A→B→A. */

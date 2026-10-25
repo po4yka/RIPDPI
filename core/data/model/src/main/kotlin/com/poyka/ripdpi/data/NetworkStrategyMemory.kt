@@ -71,6 +71,8 @@ data class NetworkFingerprint(
     val metered: Boolean = false,
     /** Ephemeral binder-issued underlay snapshot token; excluded from persistence and scope hashing. */
     @Transient val directDnsUnderlayGeneration: Long? = null,
+    /** Selected physical callback semantics; never persisted or included in the remembered-network key. */
+    @Transient val physicalNetworkSignature: String? = null,
 ) {
     fun scopeKey(): String =
         canonicalParts()

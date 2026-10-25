@@ -68,9 +68,12 @@ fn build_h2_connect_tcp_request(
 /// Loopback-skip and fail-closed are handled by [`protect_outbound_socket`].
 /// The H3 datapath does not pass through here; its QUIC socket is protected
 /// inside `ripdpi_hysteria2::build_client_udp_socket` (see `crate::h3::socket`).
-// cancel-safe: holds no cross-await state and owns the freshly built socket; if
-// the caller is dropped at the `.connect().await` point the socket fd is closed
-// on drop, so no protected-but-leaked fd survives cancellation.
+///
+/// # Cancel safety
+///
+/// cancel-safe: holds no cross-await state and owns the freshly built socket; if
+/// the caller is dropped at the `.connect().await` point the socket fd is closed
+/// on drop, so no protected-but-leaked fd survives cancellation.
 async fn connect_proxy_tcp(
     proxy_addr: SocketAddr,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,

@@ -12,7 +12,7 @@ import javax.inject.Singleton
 internal abstract class AndroidRuntimeEvidenceModule {
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsNetworkEpochProvider(epoch: CandidateRelayNetworkEpoch): DiagnosticsNetworkEpochProvider
+    abstract fun bindDiagnosticsNetworkEpochProvider(epoch: PhysicalNetworkObserver): DiagnosticsNetworkEpochProvider
 
     @Binds
     @Singleton

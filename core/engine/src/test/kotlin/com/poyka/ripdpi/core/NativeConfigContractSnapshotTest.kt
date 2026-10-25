@@ -1076,10 +1076,10 @@ class NativeConfigContractSnapshotTest {
         amneziaJc: Int = 0,
         amneziaJmin: Int = 0,
         amneziaJmax: Int = 0,
-        amneziaH1: Long = 0L,
-        amneziaH2: Long = 0L,
-        amneziaH3: Long = 0L,
-        amneziaH4: Long = 0L,
+        amneziaH1: String = "1",
+        amneziaH2: String = "2",
+        amneziaH3: String = "3",
+        amneziaH4: String = "4",
         amneziaS1: Int = 0,
         amneziaS2: Int = 0,
         amneziaS3: Int = 0,
@@ -1116,6 +1116,7 @@ class NativeConfigContractSnapshotTest {
             put(
                 "amnezia",
                 buildJsonObject {
+                    put("wireProfile", JsonPrimitive("awg-3.1-ranges-v1"))
                     put("enabled", JsonPrimitive(amneziaEnabled))
                     put("jc", JsonPrimitive(amneziaJc))
                     put("jmin", JsonPrimitive(amneziaJmin))

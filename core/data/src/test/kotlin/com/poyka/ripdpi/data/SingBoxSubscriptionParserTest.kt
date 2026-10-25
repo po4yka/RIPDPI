@@ -19,7 +19,7 @@ class SingBoxSubscriptionParserTest {
 
     @Test
     fun `rejects insecure subscription mirror metadata as a unit`() {
-        val payload = """{"outbounds":[],"ripdpi":{"schema_version":1,"subscription_mirrors":[
+        val payload = """{"outbounds":[],"ripdpi":{"schema_version":2,"subscription_mirrors":[
             {"id":"direct","url":"http://mirror.example/sub/device","token":"device-token","transport":"direct"}
         ]}}"""
 
@@ -30,7 +30,7 @@ class SingBoxSubscriptionParserTest {
     fun `invalid known Cloudflare classification rejects the complete bundle`() {
         for (tags in listOf("[42]", "[\"missing\"]", "[\"edge\",\"edge\"]", "{}")) {
             val payload = """{"outbounds":[{"type":"trojan","tag":"edge","server":"edge.example",
-              "server_port":443,"password":"fixture"}],"ripdpi":{"schema_version":1,
+              "server_port":443,"password":"fixture"}],"ripdpi":{"schema_version":2,
               "cloudflare_outbound_tags":$tags}}"""
             assertTrue(SingBoxSubscriptionParser.parse(payload, groupId) is SingBoxParseResult.Error)
         }
@@ -349,7 +349,7 @@ class SingBoxSubscriptionParserTest {
     }
 
     @Test
-    fun `unsupported hysteria obfs and port hopping are typed skips`() {
+    fun `unsupported hysteria obfs is skipped while hopping is selectable`() {
         val json =
             """
             { "outbounds": [
@@ -361,9 +361,9 @@ class SingBoxSubscriptionParserTest {
 
         val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
 
-        assertTrue(parsed.profiles.isEmpty())
-        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, parsed.skipped[0].reason)
-        assertEquals(SingBoxSkipReason.UNSUPPORTED_PORT_HOPPING, parsed.skipped[1].reason)
+        val hopping = parsed.profiles.single() as ProxyProfile.Hysteria2
+        assertEquals(Hysteria2PortHopping("20000-30000"), hopping.portHopping)
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, parsed.skipped.single().reason)
     }
 
     @Test

@@ -80,6 +80,7 @@ pub(super) fn record_relay_result(
 ) -> io::Result<()> {
     if let Ok(final_state) = relay_result
         && !context.success_recorded
+        && final_state.permits_success()
         && final_state.has_inbound_payload()
     {
         record_stream_relay_success(

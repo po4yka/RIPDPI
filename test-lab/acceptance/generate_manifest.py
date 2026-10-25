@@ -37,9 +37,14 @@ def generate():
             {
                 "id": identity,
                 "adapter": "android",
-                "protocol": "vless-reality-xhttp"
-                if identity == "android-xray"
-                else "direct-tun-dns",
+                "protocol": {
+                    "android-xray": "vless-reality-xhttp",
+                    "android-transactions": "vless-reality-nginx-tls-xhttp",
+                    "android-hysteria": "hysteria2-salamander-tcp-reserve",
+                    "android-awg": "amneziawg-3.1-tun",
+                    "android-migration": "https-refresh-vless-migration",
+                    "android-network": "direct-tun-dns",
+                }[identity.replace("android-usb-", "android-")],
                 "tier": "android-tun",
                 "platforms": ["darwin", "linux"],
                 "timeout_seconds": 7200,
@@ -62,7 +67,13 @@ def generate():
         )
     profiles = {
         "native": [r["id"] for r in rows if r["adapter"] == "peers"],
-        "android": [r["id"] for r in rows if r["adapter"] == "android"],
+        "hysteria-hopping": [r["id"] for r in rows if r["id"].startswith("independent-hysteria2-hopping-")],
+        "android": [
+            r["id"]
+            for r in rows
+            if r["adapter"] == "android" and not r["id"].startswith("android-usb-")
+        ],
+        "android-usb": [r["id"] for r in rows if r["id"].startswith("android-usb-")],
         "routed": [
             r["id"] for r in rows if r["adapter"] == "vm" and r["id"] != "packet-engine"
         ],
@@ -76,7 +87,7 @@ def generate():
             "independent-awg-tcp-udp",
             "routed-baseline-drop-recovery",
         ],
-        "full": [r["id"] for r in rows],
+        "full": [r["id"] for r in rows if not r["id"].startswith("android-usb-")],
     }
     boundaries = [
         {"id": key.replace("_", "-"), "reason": value}

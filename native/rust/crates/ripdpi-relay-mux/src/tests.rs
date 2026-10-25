@@ -347,7 +347,9 @@ impl RelaySessionFactory for StaleFirstCarrierFactory {
         RelayCapabilities { tcp: true, udp: true, reusable: true }
     }
 
-    // cancel-safe: a cancelled construction leaves no session or worker behind.
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a cancelled construction leaves no session or worker behind.
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let generation = self.creations.fetch_add(1, Ordering::SeqCst);
         if generation == 1
@@ -384,7 +386,9 @@ async fn stale_cached_carrier_failure_is_retried_once_on_a_fresh_session() {
     assert_eq!(2, creations.load(Ordering::SeqCst), "exactly one fresh-carrier retry must happen");
 }
 
-// cancel-safe: the test owns both pending opens and cancels them before returning.
+/// # Cancel safety
+///
+/// cancel-safe: the test owns both pending opens and cancels them before returning.
 #[tokio::test(flavor = "current_thread")]
 async fn cancelling_retry_waiting_for_permit_keeps_lease_count_correct() {
     let creations = Arc::new(AtomicUsize::new(0));

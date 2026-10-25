@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.services
 
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
 import android.net.IpPrefix
 import android.os.Build
 import androidx.annotation.Keep
@@ -129,8 +127,9 @@ class RipDpiVpnService :
     @Volatile
     internal var activeRecoveryGeneration: String? = null
     internal lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
-    private val connectivityManager: ConnectivityManager
-        get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+    @Inject
+    internal lateinit var physicalNetworkObserver: PhysicalNetworkObserver
     override val serviceScope = lifecycleScope
 
     @Inject lateinit var liveVpnLockdownReader: LiveVpnLockdownReader
@@ -482,10 +481,8 @@ class RipDpiVpnService :
 
     @android.annotation.SuppressLint("MissingPermission")
     override fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters {
-        val network = connectivityManager.activeNetwork
-        val linkProperties = network?.let(connectivityManager::getLinkProperties)
-        val capabilities = network?.let(connectivityManager::getNetworkCapabilities)
-        return VpnTunnelNetworkPolicy.parameters(linkProperties, capabilities)
+        val physical = physicalNetworkObserver.selectedPhysicalSnapshot()
+        return VpnTunnelNetworkPolicy.parameters(physical?.links, physical?.capabilities)
     }
 
     internal fun isUserStopAllowed(action: String): Boolean = refreshHardKillSwitchState().allowsServiceStop(action)

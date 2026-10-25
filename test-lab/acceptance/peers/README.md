@@ -1,8 +1,14 @@
 # Native acceptance peers
 
-`run.py` executes one exact test and writes `result.json`. Exit zero requires the
-named test to run once, with no ignored result, and requires all scenario checks.
+`run.py` executes exact native tests and writes `result.json`. Exit zero requires
+the named test to run once per session, with no ignored result, and requires all scenario checks.
 The parent acceptance runner validates the source SHA, run ID, and artifact hashes.
+
+AWG requires all eight ordered sessions: MTU 1280 and 1420, with sessions 0 through
+3 for each MTU. Each session must contain exactly one successful named Rust test.
+Missing, duplicate, failed, ignored or extra sessions cannot pass. The peer banner
+must match the catalog's version and revision and contain one binary SHA-256.
+All other adapters still require exactly one test execution for the whole scenario.
 
 ```sh
 python3 test-lab/acceptance/peers/run.py --list
@@ -47,7 +53,7 @@ compiler fails closed; run preparation again to rebuild its identity record.
 
 ## Hysteria
 
-The peer is the unchanged Hysteria `app/v2.9.0` release binary. The catalog contains
+The peer is the unchanged Hysteria `app/v2.13.0` release binary. The catalog contains
 GitHub release asset SHA-256 values for Linux ARM64, Linux AMD64, and macOS ARM64.
 The adapter checks the digest on preparation and on every run. OpenSSL creates
 a one-day local certificate in a temporary private directory. The peer binds

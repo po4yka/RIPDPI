@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -27,32 +28,19 @@ class WarpSettingsTest {
     }
 
     @Test
-    fun `custom amnezia settings are normalized before launch`() {
-        val normalized =
-            normalizeWarpAmneziaSettings(
-                WarpAmneziaSettings(
-                    enabled = true,
-                    jc = 99,
-                    jmin = 400,
-                    jmax = 100,
-                    h1 = 0,
-                    h2 = 2,
-                    h3 = 2,
-                    h4 = 0,
-                    s1 = 64,
-                    s2 = 120,
-                    s3 = -1,
-                    s4 = -5,
-                ),
+    fun `custom wire parameters are preserved and invalid values fail admission`() {
+        val raw =
+            WarpAmneziaSettings(
+                enabled = true,
+                jc = 99,
+                jmin = 400,
+                jmax = 100,
+                h1 = "100-199",
+                h2 = "150-250",
+                s1 = 64,
+                s2 = 120,
             )
-
-        assertEquals(10, normalized.jc)
-        assertEquals(400, normalized.jmin)
-        assertEquals(400, normalized.jmax)
-        assertEquals(listOf(1L, 2L, 3L, 4L), listOf(normalized.h1, normalized.h2, normalized.h3, normalized.h4))
-        assertEquals(64, normalized.s1)
-        assertEquals(121, normalized.s2)
-        assertEquals(0, normalized.s3)
-        assertEquals(0, normalized.s4)
+        assertEquals(raw, resolveWarpAmneziaProfile(WarpAmneziaPresetCustom, raw).settings)
+        assertThrows(IllegalArgumentException::class.java) { raw.requireSupportedProfile() }
     }
 }

@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-10-24
+goal: RTE-1792840535644306 Route active AWG profile DNS through its tunnel

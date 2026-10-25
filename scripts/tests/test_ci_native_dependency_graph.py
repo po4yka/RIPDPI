@@ -151,8 +151,16 @@ class NativeDependencyGraphTest(unittest.TestCase):
         self.assertIn("name: android-instrumentation-apks", source)
         self.assertEqual(4, source.count("prebuilt_android_instrumentation.py run"))
         self.assertEqual(4, source.count('--sha "$GITHUB_SHA"'))
-        for api in (27, 33, 35, 36, 37):
-            self.assertIn(f"api: {api}\n", source)
+        self.assertIn(
+            "include: ${{ fromJSON(needs.change-routing.outputs.instrumented_devices) }}",
+            source,
+        )
+        routing = job_source("change-routing")
+        for api, pull_request in ((27, "true"), (33, "false"), (35, "true"), (36, "false"), (37, "true")):
+            self.assertRegex(
+                routing,
+                rf'"api": {api}, "system-image": "[\w]+", "pull_request": {pull_request}\}}',
+            )
         producer = job_source("android-instrumentation-apks")
         self.assertNotIn("matrix:", producer)
         self.assertEqual(1, producer.count(":app:stageCiInstrumentationApks"))
@@ -339,7 +347,8 @@ class NativeDependencyGraphTest(unittest.TestCase):
 
     def test_xray_action_builds_pinned_sources_without_checksum_bypass(self) -> None:
         action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
-        self.assertIn("GOTOOLCHAIN: go1.27.2", action)
+        self.assertIn('json.load(open("native/xray/patches/manifest.json"))["goVersion"]', action)
+        self.assertIn('export GOTOOLCHAIN=', action)
         self.assertIn("GOSUMDB: sum.golang.org", action)
         self.assertIn("gradle/libs.versions.toml", action)
         self.assertIn("ripdpi.nativeNdkVersion", action)
@@ -468,15 +477,11 @@ class NativeDependencyGraphTest(unittest.TestCase):
             with self.subTest(job=job_name):
                 source = job_source(job_name)
                 self.assertIn('setup-rust: "false"', source)
-                self.assertIn('setup-sccache: "false"', source)
                 self.assertIn('setup-android-ndk: "false"', source)
-                self.assertNotIn("RUSTC_WRAPPER: sccache", source)
 
         release = job_source("release-verification")
         self.assertIn('setup-rust: "false"', release)
-        self.assertIn('setup-sccache: "false"', release)
-        self.assertIn("setup-android-ndk: ${{ matrix.shard.id == 'github' }}", release)
-        self.assertNotIn("RUSTC_WRAPPER: sccache", release)
+        self.assertIn("setup-android-ndk: ${{ matrix.shard.id == 'github-full' }}", release)
 
     def test_pt_producer_is_source_only_and_consumers_bind_manifest_digest(self) -> None:
         producer = job_source("pluggable-transport-assets")

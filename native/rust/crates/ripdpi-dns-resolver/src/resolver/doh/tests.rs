@@ -34,7 +34,9 @@ async fn read_chunked_doh_body_rejects_chunk_larger_than_limit() {
 }
 
 #[tokio::test]
-// cancel-safe: the empty stream owns no state across an await.
+/// # Cancel safety
+///
+/// cancel-safe: the empty stream owns no state across an await.
 async fn read_chunked_doh_body_rejects_maximum_chunk_size() {
     let error = read_chunked_doh_body(&mut tokio::io::empty(), b"ffffffffffffffff\r\n".to_vec())
         .await

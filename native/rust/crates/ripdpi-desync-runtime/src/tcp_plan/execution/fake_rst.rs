@@ -1,36 +1,9 @@
-#[cfg(test)]
-use ripdpi_config::{TcpChainStep, TcpChainStepKind};
-
 use super::{TcpPlanStepExecContext, TcpPlanStepInput};
 use crate::platform;
 use crate::tcp_fake_family::TcpStepControl;
 use crate::tcp_plan::flags::{step_fake_tcp_flags, step_original_tcp_flags};
 use crate::transport_io::write_strategy_payload_with_optional_flags_named;
 use crate::types::OutboundSendError;
-
-#[cfg(test)]
-#[allow(dead_code)]
-pub(crate) fn execute_tcp_fakerst_step(
-    ctx: &mut TcpPlanStepExecContext<'_>,
-    configured_step: &TcpChainStep,
-    chunk: &[u8],
-    end: usize,
-    step_family: &'static str,
-    step_fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<(usize, TcpStepControl), OutboundSendError> {
-    let input = TcpPlanStepInput {
-        kind: TcpChainStepKind::FakeRst,
-        configured_step,
-        chunk,
-        start: 0,
-        end,
-        step_family,
-        step_fallback,
-        bytes_committed,
-    };
-    execute(ctx, &input)
-}
 
 pub(super) fn execute(
     ctx: &mut TcpPlanStepExecContext<'_>,

@@ -294,7 +294,9 @@ async fn relay_runtime_builds_anytls_udp_over_tcp_fixture() {
     assert_eq!(fixture.observed().udp_magic_targets, vec!["sp.v2.udp-over-tcp.arpa:0".to_string()]);
 }
 
-// cancel-safe: cancellation drops local session state and fixture runtime.
+/// # Cancel safety
+///
+/// cancel-safe: cancellation drops local session state and fixture runtime.
 #[tokio::test(flavor = "current_thread")]
 async fn relay_runtime_builds_shadowsocks_backend_and_connects_tcp_fixture() {
     const PAYLOAD: &[u8] = b"relay-core shadowsocks tcp payload";
@@ -331,7 +333,9 @@ async fn relay_runtime_builds_shadowsocks_backend_and_connects_tcp_fixture() {
     }
 }
 
-// cancel-safe: cancellation drops local session state and fixture runtime.
+/// # Cancel safety
+///
+/// cancel-safe: cancellation drops local session state and fixture runtime.
 #[tokio::test(flavor = "current_thread")]
 async fn relay_runtime_builds_shadowsocks_udp_associate_fixture() {
     const PAYLOAD: &[u8] = b"relay-core shadowsocks udp payload";
