@@ -33,12 +33,11 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
-import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -120,10 +119,9 @@ internal fun RememberedNetworksScreen(
         onNavigationClick = onBack,
     ) {
         item(key = "remembered_networks_intro") {
-            WarningBanner(
+            RipDpiPanelHeader(
                 title = stringResource(R.string.remembered_networks_intro_title),
-                message = stringResource(R.string.remembered_networks_intro_body),
-                tone = WarningBannerTone.Info,
+                supporting = stringResource(R.string.remembered_networks_intro_body),
             )
         }
 

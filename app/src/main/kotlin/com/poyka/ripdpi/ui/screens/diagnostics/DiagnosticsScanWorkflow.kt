@@ -21,6 +21,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.DiagnosticsRemediationLadderCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -118,7 +119,7 @@ private fun WorkflowScopeGuidance(
     isFullAudit: Boolean,
 ) {
     scan.runRawHint?.let { hint ->
-        WarningBanner(
+        WorkflowScopeHint(
             title =
                 if (isFullAudit) {
                     stringResource(R.string.diagnostics_audit_profile_title)
@@ -127,17 +128,12 @@ private fun WorkflowScopeGuidance(
                 } else {
                     stringResource(R.string.diagnostics_scope_direct_label)
                 },
-            message = hint,
-            tone =
-                if (scan.runRawEnabled) {
-                    WarningBannerTone.Info
-                } else {
-                    WarningBannerTone.Restricted
-                },
+            hint = hint,
+            available = scan.runRawEnabled,
         )
     }
     scan.runInPathHint?.let { hint ->
-        WarningBanner(
+        WorkflowScopeHint(
             title =
                 stringResource(
                     if (scan.runInPathEnabled) {
@@ -146,9 +142,23 @@ private fun WorkflowScopeGuidance(
                         R.string.diagnostics_probe_path_title
                     },
                 ),
-            message = hint,
-            tone = if (scan.runInPathEnabled) WarningBannerTone.Info else WarningBannerTone.Restricted,
+            hint = hint,
+            available = scan.runInPathEnabled,
         )
+    }
+}
+
+// An available scope only needs an explanation; an unavailable one is a real condition.
+@Composable
+private fun WorkflowScopeHint(
+    title: String,
+    hint: String,
+    available: Boolean,
+) {
+    if (available) {
+        RipDpiPanelHeader(title = title, supporting = hint)
+    } else {
+        WarningBanner(title = title, message = hint, tone = WarningBannerTone.Restricted)
     }
 }
 

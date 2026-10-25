@@ -29,6 +29,7 @@ import com.poyka.ripdpi.data.assets.GeoAssetKind
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
@@ -220,10 +221,9 @@ internal fun AssetProviderScreen(
             }
         }
         item(key = "asset_provider_intro") {
-            WarningBanner(
+            RipDpiPanelHeader(
                 title = stringResource(R.string.asset_provider_intro_title),
-                message = stringResource(R.string.asset_provider_intro_body),
-                tone = WarningBannerTone.Info,
+                supporting = stringResource(R.string.asset_provider_intro_body),
             )
         }
         if (state.hasPersistenceError) {

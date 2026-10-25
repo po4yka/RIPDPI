@@ -20,8 +20,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
-import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -129,10 +128,9 @@ internal fun RootModeStrategiesScreen(
         onNavigationClick = onBack,
     ) {
         item(key = "root_mode_strategies_intro") {
-            WarningBanner(
+            RipDpiPanelHeader(
                 title = stringResource(R.string.root_mode_strategies_intro_title),
-                message = stringResource(R.string.root_mode_strategies_intro_body),
-                tone = WarningBannerTone.Info,
+                supporting = stringResource(R.string.root_mode_strategies_intro_body),
             )
         }
 

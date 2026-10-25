@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -209,15 +210,14 @@ internal fun SettingsSecuritySection(
 @Composable
 private fun SettingsVpnSecurityWarnings(visible: Boolean) {
     if (!visible) return
-    WarningBanner(
+    // Static VPN caveats, not live conditions: neutral notes instead of tinted banners.
+    RipDpiPanelHeader(
         title = stringResource(R.string.settings_vpn_flag_warning_title),
-        message = stringResource(R.string.settings_vpn_flag_warning_body),
-        tone = WarningBannerTone.Info,
+        supporting = stringResource(R.string.settings_vpn_flag_warning_body),
     )
-    WarningBanner(
+    RipDpiPanelHeader(
         title = stringResource(R.string.settings_tethering_dns_warning_title),
-        message = stringResource(R.string.settings_tethering_dns_warning_body),
-        tone = WarningBannerTone.Warning,
+        supporting = stringResource(R.string.settings_tethering_dns_warning_body),
     )
 }
 

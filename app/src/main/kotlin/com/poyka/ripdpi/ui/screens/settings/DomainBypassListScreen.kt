@@ -32,6 +32,7 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
@@ -163,10 +164,9 @@ internal fun DomainBypassListScreen(
         onNavigationClick = onBack,
     ) {
         item(key = "domain_bypass_intro") {
-            WarningBanner(
+            RipDpiPanelHeader(
                 title = stringResource(R.string.domain_bypass_intro_title),
-                message = stringResource(R.string.domain_bypass_intro_body),
-                tone = WarningBannerTone.Info,
+                supporting = stringResource(R.string.domain_bypass_intro_body),
             )
         }
         if (state.errors.isNotEmpty()) {

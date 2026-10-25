@@ -45,6 +45,7 @@ import com.poyka.ripdpi.security.BiometricAuthManager
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
@@ -849,10 +850,9 @@ internal fun BackupRestoreScreen(
                 }
             }
             item(key = "backup_intro") {
-                WarningBanner(
+                RipDpiPanelHeader(
                     title = stringResource(R.string.backup_export_intro_title),
-                    message = stringResource(R.string.backup_export_intro_body),
-                    tone = WarningBannerTone.Info,
+                    supporting = stringResource(R.string.backup_export_intro_body),
                 )
             }
             if (state.exportDisabledByPolicy) {
