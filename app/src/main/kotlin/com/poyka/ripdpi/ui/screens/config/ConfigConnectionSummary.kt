@@ -113,14 +113,8 @@ internal fun ConfigPrimaryRuntimeAction(
                 ),
             onClick = { onRuntimeModeToggle(runningMode ?: uiState.activeMode, !connected) },
             modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigRuntimeAction),
-            leadingIcon =
-                if ((runningMode ?: uiState.activeMode) ==
-                    Mode.VPN
-                ) {
-                    RipDpiIcons.Vpn
-                } else {
-                    RipDpiIcons.NetworkCheck
-                },
+            // Same treatment as the Home actuator: filled to connect, outlined to disconnect.
+            variant = if (connected) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
             enabled = uiState.runtimeOperation == null,
             loading = uiState.runtimeOperation != null,
         )

@@ -301,7 +301,7 @@ private fun TextStrategyConfigCard(
             )
             StrategyConfigActionRows(
                 primaryLabel = stringResource(R.string.config_save),
-                primaryIcon = RipDpiIcons.Check,
+                primaryIcon = null,
                 onPrimary = onSave,
                 primaryLoading = state.isSaving,
                 secondaryLabel = stringResource(R.string.strategy_config_reload_action),
@@ -408,7 +408,7 @@ private fun LuaStrategyConfigCard(
 @Composable
 private fun StrategyConfigActionRows(
     primaryLabel: String,
-    primaryIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    primaryIcon: androidx.compose.ui.graphics.vector.ImageVector?,
     onPrimary: () -> Unit,
     secondaryLabel: String,
     secondaryIcon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -461,7 +461,7 @@ private fun StrategyConfigActionRows(
 @Composable
 private fun StrategyConfigActionButtons(
     primaryLabel: String,
-    primaryIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    primaryIcon: androidx.compose.ui.graphics.vector.ImageVector?,
     onPrimary: () -> Unit,
     secondaryLabel: String,
     secondaryIcon: androidx.compose.ui.graphics.vector.ImageVector,

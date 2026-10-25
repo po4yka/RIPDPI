@@ -77,7 +77,6 @@
     <string name="connection_health_dns_failures">Сбои</string>
     <string name="connection_health_home_title">Здоровье соединения</string>
     <string name="connection_health_home_subtitle">Открыть успех стратегий по классам назначений.</string>
-    <string name="connection_health_home_value">Открыть</string>
     <string name="title_strategy_tuner">Подбор стратегии</string>
     <string name="strategy_tuner_open_action">Открыть подбор стратегии</string>
     <string name="strategy_tuner_domains_label">Заблокированные домены</string>
@@ -1596,7 +1595,6 @@ fakeddisorder endhost</string>
     <string name="settings_support_debug_bundle_title">Поделиться пакетом поддержки</string>
     <string name="settings_support_debug_bundle_body">Создать диагностический ZIP с logcat приложения, недавней отладочной информацией, метаданными архива, примечаниями о полноте и хешами целостности, а затем после выбора получателя отправить его через системное меню «Поделиться» Android. Захваты пакетов не встраиваются.</string>
     <string name="settings_about_body">Версия, авторы и документация проекта.</string>
-    <string name="settings_share_debug_bundle_action">Поделиться</string>
     <string name="settings_manage_action">Управление</string>
     <string name="customization_current_icon_caption">Текущий значок</string>
     <string name="customization_available_icons_section">Доступные значки</string>

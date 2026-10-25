@@ -76,7 +76,6 @@
     <string name="connection_health_dns_failures">失败</string>
     <string name="connection_health_home_title">连接健康</string>
     <string name="connection_health_home_subtitle">查看按策略和目标类别的成功率。</string>
-    <string name="connection_health_home_value">打开</string>
     <string name="title_strategy_tuner">策略调优</string>
     <string name="strategy_tuner_open_action">打开策略调优</string>
     <string name="strategy_tuner_domains_label">被阻止的域名</string>
@@ -971,7 +970,6 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_section">权限</string>
     <string name="settings_reset_action">重置</string>
     <string name="settings_reset_dialog_title">重置所有设置?</string>
-    <string name="settings_share_debug_bundle_action">分享</string>
     <string name="settings_support_debug_bundle_title">分享支持包</string>
     <string name="settings_tethering_dns_warning_body">当热点共享处于活动状态时,Android 会运行一个绕过 VPN 的本地 DNS 服务器。应用可能利用此机制在隧道之外发送跟踪信标</string>
     <string name="settings_vpn_flag_warning_body">所有 Android 配置文件(包括工作资料和 Knox)中的应用都能检测到 VPN 正在使用中。要实现完全隔离,请为俄罗斯应用使用单独的设备</string>

@@ -783,7 +783,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="connection_health_dns_failures">Errores</string>
     <string name="connection_health_home_title">Salud de la conexión</string>
     <string name="connection_health_home_subtitle">Ver el éxito por estrategia y clase de destino.</string>
-    <string name="connection_health_home_value">Abrir</string>
     <string name="title_strategy_tuner">Ajuste de estrategia</string>
     <string name="strategy_tuner_open_action">Abrir ajuste de estrategia</string>
     <string name="strategy_tuner_domains_label">Dominios bloqueados</string>
@@ -2679,7 +2678,6 @@ Origen: %2$s</string>
     <string name="settings_permissions_battery_ready">Android ya permite que RIPDPI ignore la optimización de batería Doze.</string>
     <string name="settings_permissions_vpn_needed">Concede el consentimiento de VPN de Android antes de que RIPDPI pueda iniciar la ruta de VPN local.</string>
     <string name="settings_reset_dialog_body">Esto restaurará todos los ajustes a sus valores predeterminados. Tu conexión se detendrá y se perderán todas las personalizaciones.</string>
-    <string name="settings_share_debug_bundle_action">Compartir</string>
     <string name="settings_support_section">Soporte</string>
     <string name="settings_theme_body">Elige si la aplicación sigue el tema del sistema o se mantiene fijo.</string>
     <string name="settings_warning_backup_pin_title">PIN de respaldo recomendado</string>

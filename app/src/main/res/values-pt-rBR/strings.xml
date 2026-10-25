@@ -78,7 +78,6 @@
     <string name="connection_health_dns_failures">Falhas</string>
     <string name="connection_health_home_title">Saúde da conexão</string>
     <string name="connection_health_home_subtitle">Veja o sucesso por estratégia e classe de destino.</string>
-    <string name="connection_health_home_value">Abrir</string>
     <string name="title_strategy_tuner">Ajuste de estratégias</string>
     <string name="strategy_tuner_open_action">Abrir ajuste de estratégias</string>
     <string name="strategy_tuner_domains_label">Domínios bloqueados</string>
@@ -2148,7 +2147,6 @@ Fonte: %2$s</string>
     <string name="settings_support_debug_bundle_title">Compartilhar pacote de suporte</string>
     <string name="settings_support_debug_bundle_body">Gera um ZIP de diagnóstico com logcat escopado ao app, informações de depuração recentes, metadados do arquivo, notas de completude e hashes de integridade, e depois o envia pelo menu de compartilhamento do Android após você escolher um destinatário. Captações de pacotes não são incorporadas.</string>
     <string name="settings_about_body">Versão, créditos e documentação do projeto.</string>
-    <string name="settings_share_debug_bundle_action">Compartilhar</string>
     <string name="settings_manage_action">Gerenciar</string>
     <string name="customization_current_icon_caption">Ícone atual</string>
     <string name="customization_available_icons_section">Ícones disponíveis</string>

@@ -899,7 +899,6 @@ app:connection_health_empty_title
 app:connection_health_failures
 app:connection_health_home_subtitle
 app:connection_health_home_title
-app:connection_health_home_value
 app:connection_health_latency_caption
 app:connection_health_latency_dns
 app:connection_health_latency_range_format
@@ -4728,7 +4727,6 @@ app:settings_root_mode_strategies_body
 app:settings_routing_rules_body
 app:settings_security_section
 app:settings_seqovl_unsupported_reason
-app:settings_share_debug_bundle_action
 app:settings_split_tunnel_body
 app:settings_start_on_boot_battery_warning
 app:settings_start_on_boot_body

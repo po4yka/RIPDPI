@@ -76,7 +76,6 @@
     <string name="connection_health_dns_failures">خطاها</string>
     <string name="connection_health_home_title">سلامت اتصال</string>
     <string name="connection_health_home_subtitle">مشاهده موفقیت بر اساس راهبرد و کلاس مقصد.</string>
-    <string name="connection_health_home_value">باز کردن</string>
     <string name="title_strategy_tuner">تنظیم راهبرد</string>
     <string name="strategy_tuner_open_action">باز کردن تنظیم راهبرد</string>
     <string name="strategy_tuner_domains_label">دامنه‌های مسدود</string>
@@ -1791,7 +1790,6 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_vpn_needed">قبل از اینکه RIPDPI بتواند مسیر VPN محلی را شروع کند، رضایت VPN Android را اعطا کنید.</string>
     <string name="settings_reset_body">بازگرداندن همه تنظیمات به مقادیر پیش‌فرض</string>
     <string name="settings_reset_dialog_title">همه تنظیمات بازنشانی شود؟</string>
-    <string name="settings_share_debug_bundle_action">اشتراک‌گذاری</string>
     <string name="settings_support_section">پشتیبانی</string>
     <string name="settings_theme_body">انتخاب کنید آیا برنامه از تم سیستم پیروی کند یا ثابت بماند.</string>
     <string name="settings_vpn_flag_warning_title">پرچم VPN قابل‌مشاهده است</string>

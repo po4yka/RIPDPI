@@ -220,7 +220,6 @@ private fun HomeConnectionHealthEntry(onOpenConnectionHealth: () -> Unit) {
         SettingsRow(
             title = stringResource(R.string.connection_health_home_title),
             subtitle = stringResource(R.string.connection_health_home_subtitle),
-            value = stringResource(R.string.connection_health_home_value),
             onClick = onOpenConnectionHealth,
             leadingIcon = RipDpiIcons.NetworkCheck,
             showChevron = true,

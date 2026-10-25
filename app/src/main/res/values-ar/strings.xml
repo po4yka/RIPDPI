@@ -78,7 +78,6 @@
     <string name="connection_health_dns_failures">إخفاقات</string>
     <string name="connection_health_home_title">صحة الاتصال</string>
     <string name="connection_health_home_subtitle">عرض النجاح حسب الاستراتيجية وفئة الوجهة.</string>
-    <string name="connection_health_home_value">فتح</string>
     <string name="title_strategy_tuner">ضبط الاستراتيجية</string>
     <string name="strategy_tuner_open_action">فتح ضبط الاستراتيجية</string>
     <string name="strategy_tuner_domains_label">النطاقات المحجوبة</string>
@@ -2087,7 +2086,6 @@ fakeddisorder endhost</string>
     <string name="settings_support_debug_bundle_title">مشاركة حزمة الدعم</string>
     <string name="settings_support_debug_bundle_body">أنشئ ملف ZIP للتشخيصات يحتوي على logcat الخاص بالتطبيق، ومعلومات تصحيح حديثة، وبيانات وصف الأرشيف، وملاحظات الاكتمال، وبصمات السلامة، ثم أرسله عبر ورقة المشاركة في Android بعد اختيار المستلم. لا يتم تضمين التقاطات الحزم.</string>
     <string name="settings_about_body">الإصدار والتقدير وتوثيق المشروع.</string>
-    <string name="settings_share_debug_bundle_action">مشاركة</string>
     <string name="settings_manage_action">إدارة</string>
     <string name="customization_current_icon_caption">الأيقونة الحالية</string>
     <string name="customization_available_icons_section">الأيقونات المتاحة</string>

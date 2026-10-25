@@ -78,7 +78,6 @@
     <string name="connection_health_dns_failures">Failures</string>
     <string name="connection_health_home_title">Connection health</string>
     <string name="connection_health_home_subtitle">See per-strategy success by destination class.</string>
-    <string name="connection_health_home_value">Open</string>
     <string name="title_strategy_tuner">Strategy tuner</string>
     <string name="strategy_tuner_open_action">Open strategy tuner</string>
     <string name="strategy_tuner_domains_label">Blocked domains</string>
@@ -2184,7 +2183,6 @@ Source: %2$s</string>
     <string name="settings_support_debug_bundle_title">Share support bundle</string>
     <string name="settings_support_debug_bundle_body">Build a diagnostics ZIP with app-scoped logcat, recent debug information, archive metadata, completeness notes, and integrity hashes, then send it through the Android share sheet after you choose a recipient. Packet captures are not embedded.</string>
     <string name="settings_about_body">Version, credits, and project documentation.</string>
-    <string name="settings_share_debug_bundle_action">Share</string>
     <string name="settings_manage_action">Manage</string>
     <string name="customization_current_icon_caption">Current icon</string>
     <string name="customization_available_icons_section">Available icons</string>

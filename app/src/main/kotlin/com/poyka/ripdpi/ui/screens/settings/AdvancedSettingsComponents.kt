@@ -31,7 +31,6 @@ import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -44,7 +43,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
@@ -217,8 +215,6 @@ internal fun AdvancedTextSetting(
                 text = stringResource(R.string.config_save),
                 onClick = { onConfirm(setting, normalizedInput) },
                 enabled = enabled && isDirty && isValid,
-                variant = RipDpiButtonVariant.Outline,
-                trailingIcon = RipDpiIcons.Check,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.advancedSave(setting)),
             )
         }
@@ -369,8 +365,6 @@ private fun ActivationRangeSaveAction(
             text = stringResource(R.string.config_save),
             onClick = { onSave(parseOptionalRangeValue(startInput), parseOptionalRangeValue(endInput)) },
             enabled = enabled,
-            variant = RipDpiButtonVariant.Outline,
-            trailingIcon = RipDpiIcons.Check,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.activationSave(dimension)),
         )
     }

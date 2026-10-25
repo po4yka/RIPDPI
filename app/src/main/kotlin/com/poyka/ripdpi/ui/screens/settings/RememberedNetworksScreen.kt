@@ -213,9 +213,9 @@ private fun RememberedNetworksHeader(
                 RipDpiButton(
                     text = stringResource(R.string.remembered_networks_clear_all_action),
                     onClick = onClearAll,
-                    variant = RipDpiButtonVariant.Outline,
+                    variant = RipDpiButtonVariant.Destructive,
                     density = RipDpiControlDensity.Compact,
-                    trailingIcon = RipDpiIcons.Delete,
+                    leadingIcon = RipDpiIcons.Delete,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RememberedNetworksClearAll),
                 )
             }
@@ -329,9 +329,9 @@ private fun RememberedNetworkCardFooter(
         RipDpiButton(
             text = stringResource(R.string.remembered_networks_delete_action),
             onClick = onDelete,
-            variant = RipDpiButtonVariant.Outline,
+            variant = RipDpiButtonVariant.Destructive,
             density = RipDpiControlDensity.Compact,
-            trailingIcon = RipDpiIcons.Delete,
+            leadingIcon = RipDpiIcons.Delete,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.rememberedNetworkDelete(entry.id)),
         )
     }

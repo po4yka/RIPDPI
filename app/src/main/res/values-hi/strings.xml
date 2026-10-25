@@ -77,7 +77,6 @@
     <string name="connection_health_dns_failures">विफलताएँ</string>
     <string name="connection_health_home_title">कनेक्शन स्वास्थ्य</string>
     <string name="connection_health_home_subtitle">गंतव्य श्रेणी के अनुसार प्रति-रणनीति सफलता देखें।</string>
-    <string name="connection_health_home_value">खोलें</string>
     <string name="title_strategy_tuner">रणनीति ट्यूनर</string>
     <string name="strategy_tuner_open_action">रणनीति ट्यूनर खोलें</string>
     <string name="strategy_tuner_domains_label">अवरुद्ध डोमेन</string>

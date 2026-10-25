@@ -41,6 +41,7 @@ import com.poyka.ripdpi.ui.screens.dns.localizedSummary
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
 
@@ -444,8 +445,8 @@ internal fun SettingsSupportSection(
         SettingsRow(
             title = stringResource(R.string.settings_support_debug_bundle_title),
             subtitle = stringResource(R.string.settings_support_debug_bundle_body),
-            value = stringResource(R.string.settings_share_debug_bundle_action),
             onClick = actions.onShareDebugBundle,
+            showChevron = true,
             showDivider = true,
             testTag = RipDpiTestTags.SettingsSupportBundle,
         )
@@ -508,8 +509,13 @@ private fun SettingsMaintenanceRows(
     SettingsRow(
         title = stringResource(R.string.settings_reset_title),
         subtitle = stringResource(R.string.settings_reset_body),
-        value = stringResource(R.string.settings_reset_action),
+    )
+    RipDpiButton(
+        text = stringResource(R.string.settings_reset_action),
         onClick = onResetClick,
+        modifier = Modifier.fillMaxWidth(),
+        variant = RipDpiButtonVariant.Destructive,
+        leadingIcon = RipDpiIcons.Warning,
     )
 }
 

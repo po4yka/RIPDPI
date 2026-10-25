@@ -356,7 +356,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.actionsSection(
                 onClick = onSave,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RuleEditorSave),
                 enabled = state.loaded && !state.saving && !state.isEmpty,
-                leadingIcon = RipDpiIcons.Check,
             )
         }
     }
