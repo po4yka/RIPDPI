@@ -53,6 +53,12 @@ pub(super) fn runtime_detect_telegram_dc(target: SocketAddr) -> Option<u8> {
     detect_telegram_dc(target)
 }
 
+/// DC of `target` only when it is one of Telegram's exact bootstrap
+/// addresses; never a subnet guess.
+pub(super) fn runtime_exact_telegram_dc(target: SocketAddr) -> Option<RuntimeTelegramDc> {
+    ripdpi_ws_transport_port::exact_dc_from_ip(target.ip()).map(RuntimeTelegramDc::from_adapter)
+}
+
 pub(super) fn runtime_telegram_dc_host(dc: u8) -> String {
     telegram_dc_host(dc)
 }

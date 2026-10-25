@@ -52,6 +52,7 @@ pub fn ripdpi_ws_transport_port::WsTransport::relay(&self, std::net::tcp::TcpStr
 pub fn ripdpi_ws_transport_port::classify_target(core::net::ip_addr::IpAddr) -> ripdpi_ws_transport_port::WsTunnelDecision
 pub fn ripdpi_ws_transport_port::dc_from_ip(core::net::ip_addr::Ipv4Addr) -> core::option::Option<ripdpi_ws_transport_port::TelegramDc>
 pub fn ripdpi_ws_transport_port::dc_from_ipv6(core::net::ip_addr::Ipv6Addr) -> core::option::Option<ripdpi_ws_transport_port::TelegramDc>
+pub fn ripdpi_ws_transport_port::exact_dc_from_ip(core::net::ip_addr::IpAddr) -> core::option::Option<ripdpi_ws_transport_port::TelegramDc>
 pub fn ripdpi_ws_transport_port::is_telegram_ip(core::net::ip_addr::IpAddr) -> bool
 pub fn ripdpi_ws_transport_port::ws_host(ripdpi_ws_transport_port::TelegramDc) -> core::option::Option<alloc::string::String>
 pub fn ripdpi_ws_transport_port::ws_url(ripdpi_ws_transport_port::TelegramDc) -> core::option::Option<alloc::string::String>

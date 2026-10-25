@@ -12,7 +12,7 @@ use std::time::Duration;
 
 pub use dc::{
     TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED, TELEGRAM_DC_IPV4_TABLE_SOURCE, TelegramDc, TelegramDcClass, dc_from_ip,
-    dc_from_ipv6, is_telegram_ip, ws_host, ws_url,
+    dc_from_ipv6, exact_dc_from_ip, is_telegram_ip, ws_host, ws_url,
 };
 pub use worker_route::{CloudflareWorkerRoute, WorkerBearer};
 

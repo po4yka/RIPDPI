@@ -72,8 +72,9 @@ impl TelegramDc {
     }
 }
 
-/// Map a known Telegram IPv4 address to its DC.
-pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
+/// Map a Telegram IPv4 address to its DC using only the exact bootstrap
+/// address table (no subnet guess).
+fn exact_dc_from_ipv4(ip: Ipv4Addr) -> Option<TelegramDc> {
     let octets = ip.octets();
     let test_dc = match octets {
         [149, 154, 175, 10] => Some(1),
@@ -92,9 +93,15 @@ pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
         [149, 154, 171, 5] => Some(5),
         _ => None,
     };
-    if let Some(number) = known_dc {
-        return Some(TelegramDc::production(number));
+    known_dc.map(TelegramDc::production)
+}
+
+/// Map a known Telegram IPv4 address to its DC.
+pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
+    if let Some(dc) = exact_dc_from_ipv4(ip) {
+        return Some(dc);
     }
+    let octets = ip.octets();
     // ponytail: subnet fallback is heuristic; replace with signed DC-to-IP updates if exact routing becomes required.
     let number = match (octets[0], octets[1]) {
         (149, 154) => Some(match octets[2] {
@@ -116,19 +123,9 @@ pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
     Some(TelegramDc::production(number))
 }
 
-/// Map a known Telegram IPv6 address to its DC.
-///
-/// The recognised supernets come from Telegram's published infrastructure
-/// documentation at `https://core.telegram.org`:
-///
-/// - `2001:67c:4e8::/48` - Amsterdam (DC2/DC4 prefix)
-/// - `2001:b28:f23c::/46` - Miami/Singapore (DC1/DC3/DC5 family)
-///
-/// Mapping is intentionally conservative: a Telegram-owned supernet is mapped
-/// to one representative production DC, matching the IPv4 fallback for
-/// unmatched sub-prefixes. IPv4 and IPv6 share the quarterly review obligation
-/// tracked by [`TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED`].
-pub fn dc_from_ipv6(ip: Ipv6Addr) -> Option<TelegramDc> {
+/// Map a Telegram IPv6 address to its DC using only the exact bootstrap
+/// address table (no supernet guess).
+fn exact_dc_from_ipv6(ip: Ipv6Addr) -> Option<TelegramDc> {
     let segments = ip.segments();
     let test_dc = match segments {
         [0x2001, 0x0b28, 0xf23d, 0xf001, 0, 0, 0, 0x000e] => Some(1),
@@ -147,9 +144,26 @@ pub fn dc_from_ipv6(ip: Ipv6Addr) -> Option<TelegramDc> {
         [0x2001, 0x0b28, 0xf23f, 0xf005, 0, 0, 0, 0x000a] => Some(5),
         _ => None,
     };
-    if let Some(number) = known_dc {
-        return Some(TelegramDc::production(number));
+    known_dc.map(TelegramDc::production)
+}
+
+/// Map a known Telegram IPv6 address to its DC.
+///
+/// The recognised supernets come from Telegram's published infrastructure
+/// documentation at `https://core.telegram.org`:
+///
+/// - `2001:67c:4e8::/48` - Amsterdam (DC2/DC4 prefix)
+/// - `2001:b28:f23c::/46` - Miami/Singapore (DC1/DC3/DC5 family)
+///
+/// Mapping is intentionally conservative: a Telegram-owned supernet is mapped
+/// to one representative production DC, matching the IPv4 fallback for
+/// unmatched sub-prefixes. IPv4 and IPv6 share the quarterly review obligation
+/// tracked by [`TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED`].
+pub fn dc_from_ipv6(ip: Ipv6Addr) -> Option<TelegramDc> {
+    if let Some(dc) = exact_dc_from_ipv6(ip) {
+        return Some(dc);
     }
+    let segments = ip.segments();
     if segments[0] == 0x2001 && segments[1] == 0x067c && segments[2] == 0x04e8 {
         return Some(TelegramDc::production(2));
     }
@@ -157,6 +171,17 @@ pub fn dc_from_ipv6(ip: Ipv6Addr) -> Option<TelegramDc> {
         return Some(TelegramDc::production(3));
     }
     None
+}
+
+/// Map a Telegram address to its DC only when it is one of the exact
+/// bootstrap addresses. Unlike [`dc_from_ip`] and [`dc_from_ipv6`] this never
+/// guesses from a subnet, so a caller can trust it as the DC of a dialed
+/// address when the client did not name a valid DC itself.
+pub fn exact_dc_from_ip(ip: IpAddr) -> Option<TelegramDc> {
+    match ip {
+        IpAddr::V4(ip) => exact_dc_from_ipv4(ip),
+        IpAddr::V6(ip) => exact_dc_from_ipv6(ip),
+    }
 }
 
 /// Check whether an IP address belongs to a known Telegram DC range.
@@ -262,6 +287,22 @@ mod tests {
         for (ip, number) in [("2001:b28:f23d:f001::e", 1), ("2001:67c:4e8:f002::e", 2), ("2001:b28:f23d:f003::e", 3)] {
             assert_eq!(dc_from_ipv6(ip.parse().unwrap()), TelegramDc::from_raw(10_000 + number));
         }
+    }
+
+    #[test]
+    fn exact_dc_from_ip_maps_only_bootstrap_addresses() {
+        let v4 = |a, b, c, d| IpAddr::V4(Ipv4Addr::new(a, b, c, d));
+        assert_eq!(exact_dc_from_ip(v4(149, 154, 167, 51)), Some(TelegramDc::production(2)));
+        assert_eq!(exact_dc_from_ip(v4(149, 154, 167, 91)), Some(TelegramDc::production(4)));
+        assert_eq!(exact_dc_from_ip(v4(149, 154, 175, 10)), TelegramDc::from_raw(10_001));
+        let v6: IpAddr = "2001:b28:f23f:f005::a".parse().expect("v6");
+        assert_eq!(exact_dc_from_ip(v6), Some(TelegramDc::production(5)));
+
+        // Subnet and supernet guesses are not exact.
+        assert_eq!(exact_dc_from_ip(v4(149, 154, 165, 10)), None);
+        assert_eq!(exact_dc_from_ip(v4(91, 108, 56, 100)), None);
+        assert_eq!(exact_dc_from_ip("2001:67c:4e8::1".parse().expect("v6")), None);
+        assert_eq!(exact_dc_from_ip(v4(203, 0, 113, 10)), None);
     }
 
     #[test]

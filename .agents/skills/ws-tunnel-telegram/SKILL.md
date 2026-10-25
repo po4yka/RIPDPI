@@ -98,6 +98,15 @@ for reliable classification without false positives.
 **Results:** `ValidatedMtproto{dc}` (tunnelable), `NotMtproto` (prefix/tag fail),
 `UnmappableDc{raw_dc, dc}` (valid MTProto but media/CDN or unknown DC).
 
+The DC field is reliable only when the client fills it (tdesktop, TDLib,
+MTProxy clients). The official Android client leaves all of [60..64] random on
+direct connections, so its init names no valid DC (`dc: None`). For that case
+`with_dialed_dc_fallback()` in
+`ripdpi-proxy-runtime/src/runtime/handshake/ws_tunnel.rs` uses the DC of the
+dialed address, but only when the address is in the exact bootstrap table
+(`exact_dc_from_ip()`), never a subnet guess. A random field can still, rarely,
+decode to a wrong valid DC; that case is not detected.
+
 ## 5. VPN Socket Protection (`protect.rs`)
 
 On Android, outgoing sockets must be "protected" to prevent VPN routing loops.

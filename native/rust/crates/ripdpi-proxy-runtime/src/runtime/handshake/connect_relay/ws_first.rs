@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use super::super::super::state::RuntimeState;
-use super::super::ws_tunnel::{WsTunnelResult, should_ws_tunnel_first};
+use super::super::ws_tunnel::{WsTunnelResult, should_ws_tunnel_first, with_dialed_dc_fallback};
 use super::ConnectRelayError;
 use super::reply::SuccessReply;
 
@@ -30,6 +30,7 @@ where
 
     write_success_reply_fn(client, reply, None).map_err(|err| ConnectRelayError::new(err, false))?;
     let result = run_ws_tunnel_fn(client.try_clone().map_err(|err| ConnectRelayError::new(err, true))?, state);
+    let result = with_dialed_dc_fallback(result, client, target, state);
     Ok(Some(always_ws_outcome(result)))
 }
 

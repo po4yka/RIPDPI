@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use super::super::super::state::RuntimeState;
-use super::super::ws_tunnel::{WsTunnelResult, should_ws_tunnel_fallback};
+use super::super::ws_tunnel::{WsTunnelResult, should_ws_tunnel_fallback, with_dialed_dc_fallback};
 use super::ConnectRelayError;
 use super::reply::SuccessReply;
 
@@ -49,6 +49,7 @@ where
     let Some(result) = ws_result else {
         return Err(err);
     };
+    let result = with_dialed_dc_fallback(result, client, target, state);
 
     if handle_ws_fallback_result(target, state, result) { Ok(()) } else { Err(err) }
 }
