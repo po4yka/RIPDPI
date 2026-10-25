@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,11 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
+import com.poyka.ripdpi.platform.deviceIs24HourFormat
 import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -57,7 +56,7 @@ internal fun StrategyPackCatalogStatusCard(
     val type = RipDpiThemeTokens.type
     val status = rememberStrategyPackCatalogStatus(strategyPackCatalog)
     val locale = LocalConfiguration.current.locales[0]
-    val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
+    val is24Hour = deviceIs24HourFormat()
     val lastFetchedAt =
         remember(strategyPackCatalog.lastFetchedAtEpochMillis, locale, is24Hour) {
             strategyPackCatalog.lastFetchedAtEpochMillis?.let { formatLocalizedTimestamp(it, locale, is24Hour) }

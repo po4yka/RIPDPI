@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
@@ -22,6 +20,7 @@ import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.HostPackTargetBlacklist
 import com.poyka.ripdpi.data.HostPackTargetWhitelist
+import com.poyka.ripdpi.platform.deviceIs24HourFormat
 import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -212,7 +211,7 @@ internal fun HostPackCatalogStatusCard(
 @Composable
 private fun rememberHostPackCatalogMetadata(hostPackCatalog: HostPackCatalogUiState): HostPackCatalogMetadata {
     val locale = LocalConfiguration.current.locales[0]
-    val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
+    val is24Hour = deviceIs24HourFormat()
     val generatedAt =
         remember(hostPackCatalog.snapshot.catalog.generatedAt, locale, is24Hour) {
             formatHostPackGeneratedAt(hostPackCatalog.snapshot.catalog.generatedAt, locale, is24Hour)

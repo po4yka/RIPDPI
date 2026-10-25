@@ -1,10 +1,16 @@
 package com.poyka.ripdpi.platform
 
+import android.provider.Settings
+import androidx.compose.material3.Text
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.time.Instant
 import java.time.ZoneId
@@ -13,6 +19,8 @@ import java.util.Locale
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class LocalizedTimestampsTest {
+    @get:Rule val composeRule = createComposeRule()
+
     private val timestamp = Instant.parse("2026-10-25T13:38:50Z").toEpochMilli()
     private val utc = ZoneId.of("UTC")
 
@@ -76,6 +84,29 @@ class LocalizedTimestampsTest {
         assertEquals("Oct 25, 1:38:50 PM", formatAt(now = "2026-12-31T23:59:59Z"))
         // CLDR en-US "MMM d, y, h:mm:ss a".
         assertEquals("Oct 25, 2026, 1:38:50 PM", formatAt(now = "2027-01-01T00:00:00Z"))
+    }
+
+    @Test
+    fun `a change of the device hour cycle reformats composed timestamps`() {
+        val resolver = RuntimeEnvironment.getApplication().contentResolver
+        Settings.System.putString(resolver, Settings.System.TIME_12_24, "12")
+        composeRule.setContent {
+            ProvideDeviceHourCycle { Text(localizedTimestamp(timestamp, TimestampTime)) }
+        }
+        val zone = ZoneId.systemDefault()
+        composeRule
+            .onNodeWithText(
+                formatLocalizedTimestamp(timestamp, Locale.US, false, TimestampTime, zone),
+            ).assertExists()
+
+        // The Settings provider notifies observers of the changed setting; no configuration change follows.
+        Settings.System.putString(resolver, Settings.System.TIME_12_24, "24")
+        resolver.notifyChange(Settings.System.getUriFor(Settings.System.TIME_12_24), null)
+
+        composeRule
+            .onNodeWithText(
+                formatLocalizedTimestamp(timestamp, Locale.US, true, TimestampTime, zone),
+            ).assertExists()
     }
 
     @Test

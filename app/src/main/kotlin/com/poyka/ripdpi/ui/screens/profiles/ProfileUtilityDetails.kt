@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.profiles
 
-import android.text.format.DateFormat
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -9,12 +8,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.TimestampYearDateTime
+import com.poyka.ripdpi.platform.deviceIs24HourFormat
 import com.poyka.ripdpi.platform.formatLocalizedTimestamp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -118,6 +117,6 @@ private fun formatDate(
     formatLocalizedTimestamp(
         timestampMillis = time,
         locale = locale,
-        is24Hour = DateFormat.is24HourFormat(LocalContext.current),
+        is24Hour = deviceIs24HourFormat(),
         skeleton = TimestampYearDateTime,
     )

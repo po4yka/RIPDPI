@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.support.SupportSettingsDeepLinkParseResult
 import com.poyka.ripdpi.data.support.SupportSettingsDeepLinkParser
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
+import com.poyka.ripdpi.platform.ProvideDeviceHourCycle
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
 import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
@@ -117,7 +118,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         setContent {
-            MainActivityContent(viewModel = viewModel, controller = shellController, exportPreview = exportPreview)
+            ProvideDeviceHourCycle {
+                MainActivityContent(viewModel = viewModel, controller = shellController, exportPreview = exportPreview)
+            }
         }
     }
 
