@@ -179,11 +179,12 @@ fun isAssetUpdateAvailable(
 }
 
 /**
- * Minimal validity gate for a downloaded `.db` payload before it goes live. We fail closed: a
- * corrupt or blocked download (zero-length, or not a sing-box `SRS`/`SG`-style binary) must never
- * replace a working database. sing-box geo databases begin with the ASCII magic `SAGENET` /
- * `SRS` family; we accept any non-empty binary that is at least [MinGeoAssetBytes] and is not a
- * captured HTML error/redirect page (which a blocking middlebox typically returns).
+ * Minimal validity gate for a downloaded geo database before it goes live. We fail closed: a
+ * corrupt or blocked download must never replace a working database. The accepted formats (a
+ * sing-box `geoip.db` or a MaxMind `.mmdb`, a sing-box `geosite.db` or a v2ray `geosite.dat`) share
+ * no common magic, so this gate accepts any binary of at least [MinGeoAssetBytes] that is not a
+ * captured HTML error/redirect page (which a blocking middlebox typically returns). It does not
+ * parse the format; a file the native loader (`ripdpi-geo`) cannot parse still fails at load time.
  */
 fun isPlausibleGeoAssetPayload(payload: ByteArray): Boolean {
     if (payload.size < MinGeoAssetBytes) {
