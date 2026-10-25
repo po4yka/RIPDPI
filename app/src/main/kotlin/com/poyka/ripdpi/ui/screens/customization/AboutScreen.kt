@@ -259,7 +259,11 @@ private fun AboutUpdatesSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = stringResource(R.string.updates_section_title))
-        RipDpiCard(paddingValues = PaddingValues(horizontal = layout.cardPadding, vertical = 0.dp)) {
+        // The first row brings its own top padding; the closing button needs the card's bottom padding.
+        RipDpiCard(
+            paddingValues =
+                PaddingValues(start = layout.cardPadding, end = layout.cardPadding, bottom = layout.cardPadding),
+        ) {
             SettingsRow(
                 title = stringResource(R.string.update_channel_title),
                 subtitle = stringResource(updateUiState.channelBodyRes()),
