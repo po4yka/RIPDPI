@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
+use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind, UpstreamSocksAuth};
 use ripdpi_runtime_decision_ports::policy_ports::ConnectionRoute;
 
 use super::{connect_timeout, protect_path_owned, selected_desync_group};
@@ -67,11 +67,29 @@ pub struct TcpRouteConnectProfile {
 #[derive(Clone)]
 pub struct TcpRouteConnectSettingsTable {
     groups: Vec<TcpRouteConnectProfile>,
+    /// RFC 1929 credentials keyed by upstream listener; the TCP CONNECT and UDP ASSOCIATE clients share them.
+    upstream_socks_auth: Vec<(SocketAddr, UpstreamSocksAuth)>,
+}
+
+impl TcpRouteConnectSettingsTable {
+    /// Credentials the upstream SOCKS5 listener at `upstream` requires, or `None` for NO-AUTH.
+    pub fn upstream_socks_auth(&self, upstream: SocketAddr) -> Option<&UpstreamSocksAuth> {
+        self.upstream_socks_auth.iter().find(|(addr, _)| *addr == upstream).map(|(_, auth)| auth)
+    }
 }
 
 pub fn tcp_route_connect_settings_table(config: &RuntimeConfig) -> TcpRouteConnectSettingsTable {
+    let mut upstream_socks_auth: Vec<(SocketAddr, UpstreamSocksAuth)> = Vec::new();
+    for upstream in config.groups.iter().filter_map(|group| group.policy.ext_socks.as_ref()) {
+        if let Some(auth) = &upstream.auth
+            && !upstream_socks_auth.iter().any(|(addr, _)| *addr == upstream.addr)
+        {
+            upstream_socks_auth.push((upstream.addr, auth.clone()));
+        }
+    }
     TcpRouteConnectSettingsTable {
         groups: config.groups.iter().map(|group| tcp_route_connect_profile(config, group)).collect(),
+        upstream_socks_auth,
     }
 }
 
@@ -84,7 +102,7 @@ fn tcp_route_connect_profile(config: &RuntimeConfig, group: &DesyncGroup) -> Tcp
     TcpRouteConnectProfile {
         tfo_enabled: tcp_fast_open_enabled(config),
         direct_syn_data_tfo: group_uses_direct_syn_data_tfo(group),
-        upstream_socks_addr: group.policy.ext_socks.map(|upstream| upstream.addr),
+        upstream_socks_addr: group.policy.ext_socks.as_ref().map(|upstream| upstream.addr),
         pre_connect_rcvbuf,
         connect_timeout: connect_timeout(config),
         protect_path: protect_path_owned(config),
@@ -156,7 +174,8 @@ mod tests {
         assert!(!group_requests_direct_syn_data_tfo(&group, None));
         assert!(!group_requests_direct_syn_data_tfo(&group, Some(&[])));
 
-        group.policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)) });
+        group.policy.ext_socks =
+            Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)), auth: None });
         assert!(!group_uses_direct_syn_data_tfo(&group));
         assert!(!group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
     }
@@ -235,5 +254,23 @@ mod tests {
         assert!(with_payload.tfo_enabled);
         assert!(!tfo_disallowed.tfo_enabled);
         assert!(tcp_route_connect_settings_with(&table, 1, Some(b"x"), true).is_none());
+    }
+
+    #[test]
+    fn tcp_route_connect_settings_table_keys_upstream_auth_by_listener() {
+        let relay = SocketAddr::from(([127, 0, 0, 1], 11980));
+        let warp = SocketAddr::from(([127, 0, 0, 1], 11888));
+        let auth = UpstreamSocksAuth { username: "session-user".to_string(), password: "session-pass".to_string() };
+        let mut relay_group = DesyncGroup::new(0);
+        relay_group.policy.ext_socks = Some(UpstreamSocksConfig { addr: relay, auth: Some(auth.clone()) });
+        let mut warp_group = DesyncGroup::new(1);
+        warp_group.policy.ext_socks = Some(UpstreamSocksConfig { addr: warp, auth: None });
+        let config = RuntimeConfig { groups: vec![relay_group, warp_group], ..Default::default() };
+
+        let table = tcp_route_connect_settings_table(&config);
+
+        assert_eq!(table.upstream_socks_auth(relay), Some(&auth));
+        assert_eq!(table.upstream_socks_auth(warp), None);
+        assert_eq!(table.upstream_socks_auth(SocketAddr::from(([127, 0, 0, 1], 1080))), None);
     }
 }

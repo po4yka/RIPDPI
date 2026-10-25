@@ -223,6 +223,11 @@ data class ResolvedRipDpiRelayConfig(
     val torTransports: List<ResolvedTorPluggableTransportConfig> = emptyList(),
     val localSocksHost: String,
     val localSocksPort: Int,
+    /** Per-session RFC 1929 credentials the native listener requires; omitted from the wire when absent. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val localSocksUsername: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val localSocksPassword: String? = null,
     val udpEnabled: Boolean,
     val tcpFallbackEnabled: Boolean,
     val quicBindLowPort: Boolean = false,
@@ -359,6 +364,8 @@ private fun ResolvedRipDpiRelayConfig.commonSection(): RelayCommonSection =
         serverName = serverName,
         localSocksHost = localSocksHost,
         localSocksPort = localSocksPort,
+        localSocksUsername = localSocksUsername,
+        localSocksPassword = localSocksPassword,
         udpEnabled = udpEnabled,
         tcpFallbackEnabled = tcpFallbackEnabled,
         quicBindLowPort = quicBindLowPort,
@@ -698,6 +705,8 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         torTransports = tor.torTransports,
         localSocksHost = common.localSocksHost,
         localSocksPort = common.localSocksPort,
+        localSocksUsername = common.localSocksUsername,
+        localSocksPassword = common.localSocksPassword,
         udpEnabled = common.udpEnabled,
         tcpFallbackEnabled = common.tcpFallbackEnabled,
         quicBindLowPort = common.quicBindLowPort,

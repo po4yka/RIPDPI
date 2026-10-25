@@ -607,9 +607,6 @@ mod state_coverage_tests {
         assert_eq!(state.handshake_protect_path(), None);
         assert!(!state.delayed_connect_enabled());
         assert!(state.delayed_connect_buffer_size() > 0);
-        assert_eq!(RuntimeState::upstream_socks_auth_request(), [S_VER5, 1, S_AUTH_NONE]);
-        assert!(RuntimeState::upstream_socks_auth_accepted([S_VER5, S_AUTH_NONE]));
-        assert!(!RuntimeState::upstream_socks_auth_accepted([S_VER5, S_AUTH_BAD]));
         assert!(RuntimeState::upstream_socks_connect_succeeded(&[S_VER5, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]));
         // Reply VER must be SOCKS5 even when REP signals success.
         assert!(!RuntimeState::upstream_socks_connect_succeeded(&[0x04, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]));

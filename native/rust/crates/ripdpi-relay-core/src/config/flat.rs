@@ -61,6 +61,13 @@ pub(crate) fn validate_schema_version(found: u32) -> Result<(), RelayConfigError
 }
 
 pub(crate) fn validate_required_relay_identity(flat: &FlatResolvedRelayRuntimeConfig) -> Result<(), RelayConfigError> {
+    // A half-set or oversized RFC 1929 pair must fail closed, never degrade the listener to NO-AUTH.
+    let credential_len_valid = |value: &String| (1..=255).contains(&value.len());
+    match (&flat.local_socks_username, &flat.local_socks_password) {
+        (None, None) => {}
+        (Some(username), Some(password)) if credential_len_valid(username) && credential_len_valid(password) => {}
+        _ => return Err(RelayConfigError::InvalidLocalSocksCredentials),
+    }
     if flat.kind == "chain_relay" && flat.chain_hops.is_empty() {
         if flat.chain_entry.is_none() {
             return Err(RelayConfigError::MissingResolvedChainHop { role: "entry" });
@@ -81,6 +88,7 @@ pub(crate) fn validate_required_relay_identity(flat: &FlatResolvedRelayRuntimeCo
 pub(crate) enum RelayConfigError {
     UnsupportedSchemaVersion { found: u32 },
     MissingResolvedChainHop { role: &'static str },
+    InvalidLocalSocksCredentials,
 }
 
 impl std::fmt::Display for RelayConfigError {
@@ -94,6 +102,9 @@ impl std::fmt::Display for RelayConfigError {
             RelayConfigError::MissingResolvedChainHop { role } => write!(
                 formatter,
                 "relay schemaVersion {SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION} requires resolved chain {role} config with explicit tlsFingerprintProfile"
+            ),
+            RelayConfigError::InvalidLocalSocksCredentials => formatter.write_str(
+                "relay localSocksUsername and localSocksPassword must both be set, each 1..=255 bytes, or both be absent",
             ),
         }
     }
@@ -221,6 +232,10 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub tor_transports: Vec<TorPluggableTransportConfig>,
     pub local_socks_host: String,
     pub local_socks_port: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_socks_username: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_socks_password: Option<String>,
     pub udp_enabled: bool,
     pub tcp_fallback_enabled: bool,
     #[serde(default)]
@@ -382,6 +397,51 @@ mod tests {
                 .expect_err("retired schema version should be rejected");
 
             assert!(err.to_string().contains(&format!("schemaVersion {version}")));
+        }
+    }
+
+    #[test]
+    fn kotlin_local_socks_credentials_reach_the_listener_config_and_round_trip() {
+        let mut object = relay_config_json_object();
+        object.insert("localSocksUsername".to_string(), json!("session-user"));
+        object.insert("localSocksPassword".to_string(), json!(DEBUG_SECRET));
+
+        let config: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(Value::Object(object)).expect("payload with listener credentials");
+
+        let auth = config.common.local_socks_auth.as_ref().expect("listener credentials");
+        assert_eq!("session-user", auth.username);
+        assert_eq!(DEBUG_SECRET, auth.password);
+        assert_debug_redacts(&config.common);
+        let round_trip = serde_json::to_value(&config).expect("serialize");
+        assert_eq!(json!("session-user"), round_trip["localSocksUsername"]);
+        assert_eq!(json!(DEBUG_SECRET), round_trip["localSocksPassword"]);
+    }
+
+    #[test]
+    fn payload_without_local_socks_credentials_keeps_no_auth_and_omits_the_fields() {
+        let config: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(Value::Object(relay_config_json_object())).expect("payload without credentials");
+
+        assert!(config.common.local_socks_auth.is_none());
+        let round_trip = serde_json::to_value(&config).expect("serialize");
+        assert!(round_trip.get("localSocksUsername").is_none());
+        assert!(round_trip.get("localSocksPassword").is_none());
+    }
+
+    #[test]
+    fn half_set_or_empty_local_socks_credentials_are_rejected() {
+        for (username, password) in
+            [(json!("user"), Value::Null), (Value::Null, json!("pass")), (json!(""), json!("pass"))]
+        {
+            let mut object = relay_config_json_object();
+            object.insert("localSocksUsername".to_string(), username);
+            object.insert("localSocksPassword".to_string(), password);
+
+            let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
+                .expect_err("invalid listener credentials must fail closed");
+
+            assert!(err.to_string().contains("localSocksUsername"), "unexpected error: {err}");
         }
     }
 

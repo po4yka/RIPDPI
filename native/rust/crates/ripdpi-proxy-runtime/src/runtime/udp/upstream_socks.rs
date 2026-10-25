@@ -1,4 +1,4 @@
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::time::Duration;
 
@@ -43,7 +43,7 @@ pub(super) fn open_upstream_udp_associate(
     control.set_read_timeout(connect_timeout)?;
     control.set_write_timeout(connect_timeout)?;
 
-    let mut relay_endpoint = run_udp_associate_handshake(&mut control, state)?;
+    let mut relay_endpoint = run_udp_associate_handshake(&mut control, upstream, state)?;
     if relay_endpoint.ip().is_unspecified() {
         relay_endpoint.set_ip(control.peer_addr()?.ip());
     }
@@ -53,13 +53,12 @@ pub(super) fn open_upstream_udp_associate(
     Ok(UpstreamUdpSocks { _control: control, relay_endpoint })
 }
 
-fn run_udp_associate_handshake(control: &mut TcpStream, state: &RuntimeState) -> io::Result<SocketAddr> {
-    control.write_all(&RuntimeState::upstream_socks_auth_request())?;
-    let mut auth = [0u8; 2];
-    control.read_exact(&mut auth)?;
-    if !RuntimeState::upstream_socks_auth_accepted(auth) {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "upstream socks auth failed"));
-    }
+fn run_udp_associate_handshake(
+    control: &mut TcpStream,
+    upstream: SocketAddr,
+    state: &RuntimeState,
+) -> io::Result<SocketAddr> {
+    state.negotiate_upstream_socks_auth(control, upstream)?;
 
     control.write_all(&encode_udp_associate_request())?;
     let reply = RuntimeState::read_upstream_socks_reply(control)?;
@@ -178,6 +177,45 @@ mod tests {
         assert_eq!(session.relay_endpoint, SocketAddr::from(([127, 0, 0, 1], 5300)));
         drop(session);
         server.join().expect("join associate server");
+    }
+
+    #[test]
+    fn udp_associate_presents_configured_listener_credentials() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind associate server");
+        let upstream = listener.local_addr().expect("listener addr");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept associate client");
+            let mut greeting = [0u8; 3];
+            stream.read_exact(&mut greeting).expect("read greeting");
+            stream.write_all(&[0x05, 0x02]).expect("select username/password");
+            let mut userpass = [0u8; 13];
+            stream.read_exact(&mut userpass).expect("read RFC 1929 request");
+            stream.write_all(&[0x01, 0x00]).expect("accept credentials");
+            let mut request = [0u8; 10];
+            stream.read_exact(&mut request).expect("read associate request");
+            stream.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0x14, 0xb4]).expect("write associate reply");
+            let mut sink = [0u8; 1];
+            let _ = stream.read(&mut sink);
+            (greeting, userpass)
+        });
+        let mut config = crate::runtime::config::RuntimeConfig::default();
+        config.groups[0].policy.ext_socks = Some(ripdpi_proxy_runtime_adapter::model::config::UpstreamSocksConfig {
+            addr: upstream,
+            auth: Some(ripdpi_proxy_runtime_adapter::model::config::UpstreamSocksAuth {
+                username: "user".to_string(),
+                password: "secret".to_string(),
+            }),
+        });
+        let state = RuntimeState::test(config);
+
+        let session = open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state)
+            .expect("authenticated associate");
+
+        assert_eq!(session.relay_endpoint, SocketAddr::from(([127, 0, 0, 1], 5300)));
+        drop(session);
+        let (greeting, userpass) = server.join().expect("join associate server");
+        assert_eq!(greeting, [0x05, 0x01, 0x02], "only username/password is offered");
+        assert_eq!(&userpass, b"\x01\x04user\x06secret");
     }
 
     #[test]

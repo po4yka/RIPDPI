@@ -2,6 +2,8 @@
 
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.RipDpiRelayConfig
@@ -69,7 +71,24 @@ class UpstreamRelaySupervisorTest {
             assertEquals(RelayKindHysteria2, started.kind)
             assertEquals("saved-hysteria", started.profileId)
             assertEquals(true, started.udpEnabled)
-            assertEquals(LocalProxyEndpoint("127.0.0.2", 19_005), started.endpoint)
+            // Every installed app can reach loopback: the native listener gets fresh session credentials,
+            // the in-app endpoint carries them, and probes that know only the address can look them up.
+            val consumed = checkNotNull(runtime.lastConfig)
+            val username = checkNotNull(consumed.localSocksUsername)
+            val password = checkNotNull(consumed.localSocksPassword)
+            assertEquals(LocalProxyEndpoint("127.0.0.2", 19_005, username, password), started.endpoint)
+            assertEquals(
+                LocalSocksCredentials(username, password),
+                LocalSocksCredentialRegistry.lookup("127.0.0.2", 19_005),
+            )
+            supervisor.stop()
+            assertNull(LocalSocksCredentialRegistry.lookup("127.0.0.2", 19_005))
+
+            val restarted = supervisor.startEndpointFixture()
+            assertFalse(
+                "each runtime session must get its own credentials",
+                restarted.endpoint.password == password,
+            )
             supervisor.stop()
         }
 
@@ -1087,6 +1106,13 @@ class UpstreamRelaySupervisorTest {
             assertEquals(listOf(requestedConfig to quicMigrationConfig), runtimeConfigResolver.requests)
             assertEquals(1, naiveFactory.runtimes.size)
             assertEquals(0, relayFactory.runtimes.size)
+            // A subprocess relay owns a listener that cannot check RFC 1929 credentials.
+            assertNull(
+                naiveFactory.runtimes
+                    .single()
+                    .lastConfig
+                    ?.localSocksPassword,
+            )
 
             supervisor.stop()
         }

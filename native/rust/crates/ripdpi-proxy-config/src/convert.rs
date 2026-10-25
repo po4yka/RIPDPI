@@ -159,13 +159,13 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     warp::append_routed_group(&mut groups, &warp)?;
 
     let relay_upstream = relay::build_upstream(&upstream_relay)?;
-    relay::attach_upstream_to_existing_groups(&mut groups, relay_upstream);
+    relay::attach_upstream_to_existing_groups(&mut groups, relay_upstream.as_ref());
 
     let (mut primary_group, group_protocol_state) =
         protocol::build_primary_group(groups.len(), &hosts, &protocols, &quic, &parser_evasions)?;
     chain::apply_chain_section(&mut primary_group, &chains)?;
     fake_packet::apply_fake_packet_section(&mut primary_group, &fake_packets, root_mode)?;
-    relay::attach_upstream_to_group(&mut primary_group, relay_upstream);
+    relay::attach_upstream_to_group(&mut primary_group, relay_upstream.as_ref());
 
     let primary_group_snapshot = primary_group.clone();
     groups.push(primary_group);
@@ -180,7 +180,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     // UDP and adaptive fallback groups are synthesized after the initial
     // relay pass. Fill only missing upstreams so WARP/AWG routing keeps its
     // explicitly configured SOCKS endpoint.
-    relay::attach_upstream_to_existing_groups(&mut groups, relay_upstream);
+    relay::attach_upstream_to_existing_groups(&mut groups, relay_upstream.as_ref());
     // The internal AmneziaWG marker means every route must use the AWG
     // loopback egress. Apply it after all synthesized groups so no earlier
     // TCP/UDP/adaptive match can fall through to a direct socket.

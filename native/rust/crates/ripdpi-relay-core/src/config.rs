@@ -33,5 +33,5 @@ pub use backend::{
 pub use finalmask::ResolvedRelayFinalmaskConfig;
 pub(crate) use flat::*;
 pub(crate) use kind::*;
-pub use runtime::{CommonRelayConfig, ResolvedRelayRuntimeConfig, SocketProtection};
+pub use runtime::{CommonRelayConfig, LocalSocksAuth, ResolvedRelayRuntimeConfig, SocketProtection};
 pub use shadowtls_inner::ResolvedShadowTlsInnerRelayConfig;

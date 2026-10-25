@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
@@ -14,6 +17,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.toActiveDnsSettings
@@ -207,6 +211,43 @@ class DiagnosticsScanRequestFactoryTest {
             assertEquals(defaultDns.providerId, runtimeDns.resolverId)
             assertEquals(defaultDns.encryptedDnsProtocol, runtimeDns.protocol)
             assertEquals(defaultDns.encryptedDnsHost, runtimeDns.host)
+        }
+
+    @Test
+    fun `strategy probe chaining through the live relay presents its session credentials`() =
+        runTest {
+            val relay =
+                RipDpiRelayConfig(
+                    enabled = true,
+                    kind = RelayKindHysteria2,
+                    profileId = "relay",
+                    localSocksHost = "127.0.0.1",
+                    localSocksPort = 41_980,
+                )
+            val base = RipDpiProxyUIPreferences(relay = relay).toNativeConfigJson()
+            val credentials = LocalSocksCredentials.generate()
+
+            suspend fun probedRelay() =
+                requireNotNull(
+                    decodeRipDpiProxyUiPreferences(
+                        requireNotNull(
+                            prepareStrategyProbeRequest(
+                                settings = defaultDiagnosticsAppSettings(),
+                                baseProxyConfigJson = base,
+                            ).strategyProbe?.baseProxyConfigJson,
+                        ),
+                    ),
+                ).relay
+
+            assertNull("no live listener, no credentials", probedRelay().localSocksPassword)
+            LocalSocksCredentialRegistry.register("127.0.0.1", 41_980, credentials)
+            try {
+                val probed = probedRelay()
+                assertEquals(credentials.username, probed.localSocksUsername)
+                assertEquals(credentials.password, probed.localSocksPassword)
+            } finally {
+                LocalSocksCredentialRegistry.unregister("127.0.0.1", 41_980, credentials)
+            }
         }
 
     @Test

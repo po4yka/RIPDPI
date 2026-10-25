@@ -258,7 +258,7 @@ mod tests {
         let unavailable_socks_addr = unavailable_socks.local_addr().expect("socks addr");
         drop(unavailable_socks);
         let mut group = DesyncGroup::new(0);
-        group.policy.ext_socks = Some(UpstreamSocksConfig { addr: unavailable_socks_addr });
+        group.policy.ext_socks = Some(UpstreamSocksConfig { addr: unavailable_socks_addr, auth: None });
         let config = RuntimeConfig {
             groups: vec![group],
             destination_routing: policy_for_host(DestinationRoutingAction::Direct, "direct.example"),

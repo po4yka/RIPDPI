@@ -1,16 +1,9 @@
-use std::net::SocketAddr;
-
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 
 use super::{
     ActivationFilter, FakePacketSource, FilterSet, IpIdMode, NumericRange, OffsetExpr, RotationPolicy, TcpChainStep,
-    UdpChainStep,
+    UdpChainStep, UpstreamSocksConfig,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UpstreamSocksConfig {
-    pub addr: SocketAddr,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AutoTtlConfig {

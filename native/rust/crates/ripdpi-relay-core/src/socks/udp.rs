@@ -439,6 +439,7 @@ mod tests {
                 tcp_idle: Duration::from_secs(300),
                 udp_idle,
             },
+            local_socks_auth: None,
         }
     }
 

@@ -1031,6 +1031,9 @@ fn active_awg_dns_snapshot_reaches_runtime_without_rewriting_destination_policy(
     assert_eq!(config.destination_routing.canonical_digest, digest);
     assert_eq!(config.destination_routing.rules.len(), 1);
     assert!(
-        config.groups.iter().all(|group| group.policy.ext_socks.unwrap().addr == "127.0.0.1:10809".parse().unwrap())
+        config
+            .groups
+            .iter()
+            .all(|group| group.policy.ext_socks.as_ref().unwrap().addr == "127.0.0.1:10809".parse().unwrap())
     );
 }

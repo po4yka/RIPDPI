@@ -143,7 +143,7 @@ fn desync_group_is_actionable_with_port_filter() {
 fn desync_group_is_actionable_with_ext_socks() {
     let mut group = DesyncGroup::new(0);
     group.policy.ext_socks =
-        Some(UpstreamSocksConfig { addr: SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 1081) });
+        Some(UpstreamSocksConfig { addr: SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 1081), auth: None });
     assert!(group.is_actionable());
 }
 
@@ -313,6 +313,7 @@ fn desync_group_nested_buckets_round_trip() {
     let policy_settings = DesyncGroupPolicySettings {
         ext_socks: Some(UpstreamSocksConfig {
             addr: SocketAddr::new(IpAddr::from_str("127.0.0.1").expect("proxy ip"), 1081),
+            auth: None,
         }),
         label: "primary".to_string(),
         pri: 7,

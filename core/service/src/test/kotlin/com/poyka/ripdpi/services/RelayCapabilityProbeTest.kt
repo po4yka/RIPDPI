@@ -144,6 +144,28 @@ class RelayCapabilityProbeTest {
     }
 
     @Test
+    fun `socks udp probe presents the registered listener credentials`() {
+        val credentials =
+            com.poyka.ripdpi.core.LocalSocksCredentials
+                .generate()
+        SocksUdpFixture(Behavior.Respond, credentials, probeTimeoutMillis = LivenessTimeoutMillis).use { fixture ->
+            assertFalse("an unauthenticated probe must not open the association", fixture.probeUdp().succeeded)
+
+            com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+                .register("127.0.0.1", fixture.port, credentials)
+            try {
+                val result = fixture.probeUdp()
+
+                assertTrue(result.succeeded)
+                assertNull(result.failure)
+            } finally {
+                com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+                    .unregister("127.0.0.1", fixture.port, credentials)
+            }
+        }
+    }
+
+    @Test
     fun `socks udp probe adds question entropy beyond transaction id`() {
         SocksUdpFixture(Behavior.Respond, probeTimeoutMillis = LivenessTimeoutMillis).use { fixture ->
             repeat(2) {
@@ -468,6 +490,7 @@ private enum class Behavior {
 
 private class SocksUdpFixture(
     private val behavior: Behavior,
+    private val credentials: com.poyka.ripdpi.core.LocalSocksCredentials? = null,
     private val payloadAckMaxBytes: Int = Int.MAX_VALUE,
     private val failPreControl: Boolean = false,
     probeTimeoutMillis: Int = MismatchTimeoutMillis,
@@ -516,8 +539,21 @@ private class SocksUdpFixture(
             val input = DataInputStream(client.getInputStream())
             val output = DataOutputStream(client.getOutputStream())
             input.use {
-                assertEquals(listOf(5, 1, 0), input.readNBytes(3).map(Byte::toInt))
-                output.write(byteArrayOf(5, 0))
+                if (credentials == null) {
+                    assertEquals(listOf(5, 1, 0), input.readNBytes(3).map(Byte::toInt))
+                    output.write(byteArrayOf(5, 0))
+                } else {
+                    assertEquals(listOf(5, 1, 2), input.readNBytes(3).map(Byte::toInt))
+                    output.write(byteArrayOf(5, 2))
+                    output.flush()
+                    assertEquals(1, input.readUnsignedByte())
+                    val username = String(input.readNBytes(input.readUnsignedByte()))
+                    val password = String(input.readNBytes(input.readUnsignedByte()))
+                    val accepted = username == credentials.username && password == credentials.password
+                    output.write(byteArrayOf(1, if (accepted) 0 else 1))
+                    output.flush()
+                    if (!accepted) return@runCatching
+                }
                 output.flush()
                 assertEquals(5, input.readUnsignedByte())
                 assertEquals(3, input.readUnsignedByte())

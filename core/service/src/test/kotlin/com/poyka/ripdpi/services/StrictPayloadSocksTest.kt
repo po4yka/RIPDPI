@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.PayloadProbeControl
 import kotlinx.coroutines.async
@@ -32,6 +34,25 @@ class StrictPayloadSocksTest {
                 assertTrue(fixture.probe(control()))
                 assertEquals(listOf("control-a.example.test"), fixture.hosts)
                 assertTrue(fixture.requestHeaders.any { it.equals("Accept-Encoding: identity", ignoreCase = true) })
+            }
+        }
+
+    @Test
+    fun `strict HTTPS presents the registered credentials of an app-owned listener`() =
+        runBlocking {
+            val credentials = LocalSocksCredentials.generate()
+            StrictPayloadSocksFixture(listOf(complete()), credentials = credentials).use { fixture ->
+                LocalSocksCredentialRegistry.register(fixture.endpoint.host, fixture.endpoint.port, credentials)
+                try {
+                    assertTrue(fixture.probe(control()))
+                } finally {
+                    LocalSocksCredentialRegistry.unregister(fixture.endpoint.host, fixture.endpoint.port, credentials)
+                }
+                assertEquals(listOf("control-a.example.test"), fixture.hosts)
+            }
+            StrictPayloadSocksFixture(listOf(complete()), credentials = credentials).use { fixture ->
+                assertFalse("a NO-AUTH client must not traverse the listener", fixture.probe(control()))
+                assertTrue(fixture.hosts.isEmpty())
             }
         }
 

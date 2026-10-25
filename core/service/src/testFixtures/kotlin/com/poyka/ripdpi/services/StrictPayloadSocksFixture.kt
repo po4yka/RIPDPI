@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.data.PayloadProbeControl
 import okhttp3.OkHttpClient
 import okhttp3.tls.HandshakeCertificates
@@ -17,6 +18,8 @@ class StrictPayloadSocksFixture(
     responses: List<String>,
     private val stall: Boolean = false,
     certificateNames: List<String> = listOf("control-a.example.test", "control-b.example.test"),
+    /** When set, the listener accepts only RFC 1929 with these credentials, like an app-owned listener. */
+    private val credentials: LocalSocksCredentials? = null,
 ) : AutoCloseable {
     private val certificate =
         HeldCertificate
@@ -55,8 +58,25 @@ class StrictPayloadSocksFixture(
             val input = DataInputStream(accepted.getInputStream())
             val output = accepted.getOutputStream()
             check(input.readUnsignedByte() == 5)
-            repeat(input.readUnsignedByte()) { input.readUnsignedByte() }
-            output.write(byteArrayOf(5, 0))
+            val methods = List(input.readUnsignedByte()) { input.readUnsignedByte() }
+            if (credentials == null) {
+                output.write(byteArrayOf(5, 0))
+            } else {
+                if (2 !in methods) {
+                    output.write(byteArrayOf(5, -1))
+                    throw java.io.IOException("client offered no username/password method")
+                }
+                output.write(byteArrayOf(5, 2))
+                output.flush()
+                check(input.readUnsignedByte() == 1)
+                val username = ByteArray(input.readUnsignedByte()).also(input::readFully).toString(Charsets.UTF_8)
+                val password = ByteArray(input.readUnsignedByte()).also(input::readFully).toString(Charsets.UTF_8)
+                if (username != credentials.username || password != credentials.password) {
+                    output.write(byteArrayOf(1, 1))
+                    throw java.io.IOException("client presented wrong credentials")
+                }
+                output.write(byteArrayOf(1, 0))
+            }
             output.flush()
             check(input.readUnsignedByte() == 5 && input.readUnsignedByte() == 1)
             input.readUnsignedByte()

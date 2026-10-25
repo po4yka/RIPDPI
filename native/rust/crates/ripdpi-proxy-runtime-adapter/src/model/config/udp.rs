@@ -68,7 +68,7 @@ pub fn udp_group_packet_settings(config: &RuntimeConfig, group_index: usize) -> 
 /// (`tcp_connect::TcpRouteConnectProfile::upstream_socks_addr`). `None` means
 /// the flow egresses directly to its target.
 pub fn udp_upstream_socks_addr(config: &RuntimeConfig, group_index: usize) -> Option<SocketAddr> {
-    config.groups.get(group_index).and_then(|group| group.policy.ext_socks.map(|upstream| upstream.addr))
+    config.groups.get(group_index).and_then(|group| group.policy.ext_socks.as_ref().map(|upstream| upstream.addr))
 }
 
 #[derive(Clone, Copy)]

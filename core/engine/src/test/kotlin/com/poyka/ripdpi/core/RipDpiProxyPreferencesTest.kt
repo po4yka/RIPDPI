@@ -992,12 +992,18 @@ class RipDpiProxyPreferencesTest {
                         enabled = true,
                         kind = RelayKindHysteria2,
                         profileId = "promoted-relay",
+                        localSocksUsername = "session-user",
+                        localSocksPassword = "pass-1",
                     ),
                 localSocksHost = "127.0.0.1",
                 localSocksPort = 41255,
             )
         val payload = routed.toNativeConfigJson().parseJsonObject()
         val relay = payload.objectAt("upstreamRelay")
+        // The native proxy authenticates to the started relay listener with its session credentials.
+        assertEquals("session-user", relay.string("localSocksUsername"))
+        assertEquals("pass-1", relay.string("localSocksPassword"))
+        assertEquals("pass-1", routed.relayConfigOrNull()?.localSocksPassword)
         val overrides = payload.objectAt("sessionOverrides")
         val logContext = payload.objectAt("logContext")
 

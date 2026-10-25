@@ -48,6 +48,7 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
         server_name: "relay.example".to_string(),
         local_socks_host: "127.0.0.1".to_string(),
         local_socks_port: 10_80,
+        local_socks_auth: None,
         udp_enabled: false,
         tcp_fallback_enabled: true,
         quic_bind_low_port: false,

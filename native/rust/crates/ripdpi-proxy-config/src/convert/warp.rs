@@ -56,7 +56,8 @@ pub(crate) fn append_routed_group(
 
     let mut warp_group = DesyncGroup::new(groups.len());
     warp_group.matches.filters.hosts = route_hosts;
-    warp_group.policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::new(local_socks_ip, local_socks_port) });
+    warp_group.policy.ext_socks =
+        Some(UpstreamSocksConfig { addr: SocketAddr::new(local_socks_ip, local_socks_port), auth: None });
     warp_group.policy.label = "warp_routed".to_string();
     groups.push(warp_group);
     Ok(())
@@ -79,10 +80,10 @@ pub(crate) fn attach_all_traffic_upstream(
     if local_socks_port == 0 {
         return Err(ProxyConfigError::InvalidConfig("Invalid warp.localSocksPort".to_string()));
     }
-    let upstream = UpstreamSocksConfig { addr: SocketAddr::new(local_socks_ip, local_socks_port) };
+    let upstream = UpstreamSocksConfig { addr: SocketAddr::new(local_socks_ip, local_socks_port), auth: None };
 
     for group in groups {
-        group.policy.ext_socks = Some(upstream);
+        group.policy.ext_socks = Some(upstream.clone());
     }
     Ok(())
 }

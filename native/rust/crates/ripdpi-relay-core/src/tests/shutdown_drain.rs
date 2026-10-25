@@ -119,7 +119,7 @@ pub(super) async fn relay_runtime_stop_drains_in_flight_sessions_within_grace_wi
 
 /// Pre-reply drain: a client that connects but never sends the SOCKS5 greeting
 /// parks the session inside `handle_client`'s pre-reply negotiation
-/// (`negotiate_no_auth`'s `read_exact`). After the cancel-token redesign — which
+/// (`negotiate_method`'s `read_exact`). After the cancel-token redesign — which
 /// removed the outer drop-on-cancel `select!` in `spawn_socks_session` and moved
 /// cancellation *into* `handle_client` — shutdown must still unwind such a
 /// pre-reply session within the bounded drain grace window. This locks the
@@ -153,7 +153,7 @@ pub(super) async fn relay_runtime_stop_drains_pre_reply_sessions_within_grace_wi
         .expect("relay listener must bind");
 
     // Connect SESSION_COUNT clients that send *nothing* — each session parks in
-    // the pre-reply `read_exact` of `negotiate_no_auth`, before any SOCKS5 reply.
+    // the pre-reply `read_exact` of `negotiate_method`, before any SOCKS5 reply.
     let mut clients = Vec::with_capacity(SESSION_COUNT);
     for _ in 0..SESSION_COUNT {
         let client = tokio::net::TcpStream::connect(socks_addr).await.expect("connect slowloris client");
@@ -175,7 +175,7 @@ pub(super) async fn relay_runtime_stop_drains_pre_reply_sessions_within_grace_wi
     assert_eq!(
         0,
         runtime.telemetry().active_sessions,
-        "pre-reply sessions must drain to zero after stop() — the cancel token reaches negotiate_no_auth",
+        "pre-reply sessions must drain to zero after stop() — the cancel token reaches negotiate_method",
     );
 
     // The relay closed the client half: a read observes EOF/reset, not a hang.

@@ -1,4 +1,9 @@
+use std::io::Write;
+
 use super::*;
+
+/// RFC 1929 sub-negotiation version.
+const UPSTREAM_SOCKS_USERPASS_VERSION: u8 = 0x01;
 
 impl RuntimeState {
     pub(in crate::runtime) fn proxy_protocol_mode(&self) -> RuntimeProxyProtocolMode {
@@ -32,11 +37,46 @@ impl RuntimeState {
     pub(in crate::runtime) fn read_upstream_socks_reply(reader: &mut impl Read) -> io::Result<Vec<u8>> {
         read_upstream_socks_reply(reader)
     }
-    pub(in crate::runtime) fn upstream_socks_auth_request() -> [u8; 3] {
-        [S_VER5, 1, S_AUTH_NONE]
-    }
-    pub(in crate::runtime) fn upstream_socks_auth_accepted(reply: [u8; 2]) -> bool {
-        reply == [S_VER5, S_AUTH_NONE]
+    /// RFC 1928 method negotiation with the upstream SOCKS5 listener at `upstream`, followed by the RFC 1929
+    /// username/password exchange when the configuration carries that listener's credentials. Only the
+    /// method that matches the configuration is offered, so a listener that requires credentials never
+    /// downgrades to NO-AUTH. The TCP CONNECT and UDP ASSOCIATE paths share this handshake.
+    pub(in crate::runtime) fn negotiate_upstream_socks_auth<S: Read + Write>(
+        &self,
+        stream: &mut S,
+        upstream: SocketAddr,
+    ) -> io::Result<()> {
+        let auth = self.route_connect_settings.upstream_socks_auth(upstream);
+        let method = if auth.is_some() { S_AUTH_USERPASS } else { S_AUTH_NONE };
+        stream.write_all(&[S_VER5, 1, method])?;
+        let mut selected = [0u8; 2];
+        stream.read_exact(&mut selected)?;
+        if selected != [S_VER5, method] {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "upstream socks auth failed"));
+        }
+        let Some(auth) = auth else {
+            return Ok(());
+        };
+        let field_len = |value: &str| {
+            u8::try_from(value.len())
+                .ok()
+                .filter(|len| *len > 0)
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "upstream socks credential length"))
+        };
+        let username_len = field_len(&auth.username)?;
+        let password_len = field_len(&auth.password)?;
+        let mut request = Vec::with_capacity(3 + auth.username.len() + auth.password.len());
+        request.extend_from_slice(&[UPSTREAM_SOCKS_USERPASS_VERSION, username_len]);
+        request.extend_from_slice(auth.username.as_bytes());
+        request.push(password_len);
+        request.extend_from_slice(auth.password.as_bytes());
+        stream.write_all(&request)?;
+        let mut status = [0u8; 2];
+        stream.read_exact(&mut status)?;
+        if status != [UPSTREAM_SOCKS_USERPASS_VERSION, 0x00] {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "upstream socks auth failed"));
+        }
+        Ok(())
     }
     pub(in crate::runtime) fn upstream_socks_connect_succeeded(reply: &[u8]) -> bool {
         reply.first().copied() == Some(S_VER5) && reply.get(1).copied().unwrap_or(S_ER_GEN) == 0

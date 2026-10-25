@@ -13,8 +13,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
-import java.net.InetSocketAddress
-import java.net.Proxy
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
@@ -32,7 +30,7 @@ internal class QualityHttpPayloadProbe(
         coroutineScope {
             val client =
                 clientBuilder()
-                    .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress.createUnresolved(endpoint.host, endpoint.port)))
+                    .localSocksProxy(endpoint)
                     .followRedirects(false)
                     .followSslRedirects(false)
                     .retryOnConnectionFailure(false)

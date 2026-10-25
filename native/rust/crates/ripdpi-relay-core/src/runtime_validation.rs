@@ -158,9 +158,10 @@ pub(crate) fn describe_runtime_health(state: &str, backend: Option<&RelayBackend
 }
 
 pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {
-    // The SOCKS listener serves NO-AUTH by design and is meant only for this
-    // device's own VPN client. A non-loopback bind host would publish an
-    // unauthenticated open proxy to the local network — fail closed.
+    // The SOCKS listener is meant only for this app's own clients: they present
+    // the per-session RFC 1929 credentials when the config carries them. A
+    // non-loopback bind host would publish the relay to the local network —
+    // fail closed.
     let socks_host = config.common.local_socks_host.trim();
     let is_loopback =
         socks_host == "localhost" || socks_host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback());

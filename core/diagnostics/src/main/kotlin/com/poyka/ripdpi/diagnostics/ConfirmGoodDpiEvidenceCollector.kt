@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.LocalSocks5Client
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.NativeConfirmGoodDpiEvidence
 import com.poyka.ripdpi.data.NativeConfirmGoodDpiEvidenceSource
@@ -9,7 +11,6 @@ import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
-import java.net.Proxy
 import java.net.Socket
 import java.net.SocketTimeoutException
 import javax.net.ssl.SSLSocket
@@ -106,12 +107,14 @@ private fun probeRealityControl(
 ): Boolean {
     var relayConnected = false
     return try {
-        val proxy = Proxy(Proxy.Type.SOCKS, relayAddress)
-        Socket(proxy).use { socket ->
+        Socket().use { socket ->
             socket.soTimeout = ConfirmGoodControlTimeoutMs
-            socket.connect(
+            socket.connect(relayAddress, ConfirmGoodControlTimeoutMs)
+            // The relay listener requires the session credentials its owner registered.
+            LocalSocks5Client.connect(
+                socket,
                 InetSocketAddress.createUnresolved(target.host, target.httpsPort ?: DefaultHttpsPort),
-                ConfirmGoodControlTimeoutMs,
+                LocalSocksCredentialRegistry.lookup(relayAddress.hostString, relayAddress.port),
             )
             relayConnected = true
             val tlsFactory = SSLSocketFactory.getDefault() as SSLSocketFactory

@@ -302,6 +302,9 @@ data class RipDpiRelayConfig(
     val ptSnowflakeFrontDomain: String = "",
     val localSocksHost: String = DefaultRelayLocalSocksHost,
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
+    /** Session credentials of the started relay listener; set only at runtime, never persisted. */
+    val localSocksUsername: String? = null,
+    val localSocksPassword: String? = null,
     val udpEnabled: Boolean = false,
     val tcpFallbackEnabled: Boolean = true,
     val finalmask: RipDpiRelayFinalmaskConfig = RipDpiRelayFinalmaskConfig(),

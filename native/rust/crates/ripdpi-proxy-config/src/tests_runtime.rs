@@ -330,7 +330,7 @@ fn amneziawg_route_marker_creates_all_traffic_upstream_group() {
 
     assert!(warp_group.matches.filters.host_filters_empty());
     assert_eq!(
-        warp_group.policy.ext_socks.map(|upstream| upstream.addr),
+        warp_group.policy.ext_socks.as_ref().map(|upstream| upstream.addr),
         Some(std::net::SocketAddr::from(([127, 0, 0, 1], 10809))),
     );
 }
@@ -349,7 +349,7 @@ fn amneziawg_route_marker_covers_all_generated_groups() {
     assert!(config.groups.len() >= 5, "fixture must include TCP, UDP, and adaptive groups");
     for group in &config.groups {
         assert_eq!(
-            group.policy.ext_socks.map(|upstream| upstream.addr),
+            group.policy.ext_socks.as_ref().map(|upstream| upstream.addr),
             Some(awg),
             "group {} must not bypass the configured AmneziaWG egress",
             group.id,
@@ -497,17 +497,54 @@ fn relay_upstream_covers_all_generated_fallback_groups() {
     ui.upstream_relay.kind = "hysteria2".to_string();
     ui.upstream_relay.udp_enabled = true;
     ui.upstream_relay.local_socks_port = 11_980;
+    ui.upstream_relay.local_socks_username = Some("session-user".to_string());
+    ui.upstream_relay.local_socks_password = Some("session-pass".to_string());
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
     let relay = std::net::SocketAddr::from(([127, 0, 0, 1], 11_980));
+    let auth =
+        ripdpi_config::UpstreamSocksAuth { username: "session-user".to_string(), password: "session-pass".to_string() };
 
     assert!(config.groups.len() >= 7, "fixture must include UDP, adaptive, and runtime-preset fallback groups");
     for group in &config.groups {
         assert_eq!(
-            group.policy.ext_socks.map(|upstream| upstream.addr),
-            Some(relay),
-            "group {} must not bypass the configured relay",
+            group.policy.ext_socks.as_ref().map(|upstream| (upstream.addr, upstream.auth.as_ref())),
+            Some((relay, Some(&auth))),
+            "group {} must not bypass the configured relay or its listener credentials",
             group.id,
+        );
+    }
+}
+
+#[test]
+fn relay_listener_credentials_are_read_from_kotlin_json_but_never_serialized() {
+    let relay: crate::types::ProxyUiRelayConfig = serde_json::from_value(serde_json::json!({
+        "enabled": true,
+        "kind": "hysteria2",
+        "localSocksUsername": "session-user",
+        "localSocksPassword": "session-pass",
+    }))
+    .expect("relay section with listener credentials");
+
+    assert_eq!(relay.local_socks_username.as_deref(), Some("session-user"));
+    assert_eq!(relay.local_socks_password.as_deref(), Some("session-pass"));
+    let serialized = serde_json::to_value(&relay).expect("serialize relay section");
+    assert!(serialized.get("localSocksUsername").is_none());
+    assert!(serialized.get("localSocksPassword").is_none());
+}
+
+#[test]
+fn relay_upstream_rejects_half_set_listener_credentials() {
+    for (username, password) in [(Some("user"), None), (None, Some("pass")), (Some(""), Some("pass"))] {
+        let mut ui = minimal_ui();
+        ui.upstream_relay.enabled = true;
+        ui.upstream_relay.kind = "hysteria2".to_string();
+        ui.upstream_relay.local_socks_username = username.map(str::to_string);
+        ui.upstream_relay.local_socks_password = password.map(str::to_string);
+
+        assert!(
+            runtime_config_from_payload(ui_payload(ui)).is_err(),
+            "invalid relay listener credentials must fail closed instead of degrading to NO-AUTH",
         );
     }
 }
@@ -528,7 +565,7 @@ fn relay_upstream_preserves_warp_routed_group() {
     let warp_group = config.groups.iter().find(|group| group.policy.label == "warp_routed").expect("WARP-routed group");
 
     assert_eq!(
-        warp_group.policy.ext_socks.map(|upstream| upstream.addr),
+        warp_group.policy.ext_socks.as_ref().map(|upstream| upstream.addr),
         Some(std::net::SocketAddr::from(([127, 0, 0, 1], 10_809))),
     );
 }

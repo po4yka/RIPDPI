@@ -242,7 +242,7 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
                 control.connect(InetSocketAddress(endpoint.host, endpoint.port), timeoutMillis)
                 val input = DataInputStream(control.getInputStream())
                 val output = DataOutputStream(control.getOutputStream())
-                negotiateNoAuthentication(input, output)
+                negotiateLocalSocksAuthentication(endpoint, input, output)
                 val udpRelay = openUdpAssociation(control.inetAddress, input, output)
                 openUdpProbeSocket(control.localAddress, udpRelay.address).use { udp ->
                     udp.soTimeout = timeoutMillis

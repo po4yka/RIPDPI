@@ -28,6 +28,8 @@ internal object CandidateConfigurationProofs {
             config.copy(
                 localSocksHost = "",
                 localSocksPort = 0,
+                localSocksUsername = null,
+                localSocksPassword = null,
                 socketProtection = RelaySocketProtection.Inactive,
             )
         val material =

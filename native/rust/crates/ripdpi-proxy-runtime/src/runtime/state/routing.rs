@@ -226,7 +226,8 @@ mod awg_dns_tests {
             },
             ..RuntimeConfig::default()
         };
-        config.groups[0].policy.ext_socks = Some(UpstreamSocksConfig { addr: "127.0.0.1:10809".parse().unwrap() });
+        config.groups[0].policy.ext_socks =
+            Some(UpstreamSocksConfig { addr: "127.0.0.1:10809".parse().unwrap(), auth: None });
         RuntimeState::test(config)
     }
 

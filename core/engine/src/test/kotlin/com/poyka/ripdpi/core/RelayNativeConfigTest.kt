@@ -429,6 +429,8 @@ class RelayNativeConfigTest {
             cloudflareCredentialsRef = "credentials-ref",
             cloudflareTunnelToken = relayNativePlaceholder(7),
             cloudflareTunnelCredentialsJson = "{\"cloudflare\":\"credentials\"}",
+            localSocksUsername = "session-user",
+            localSocksPassword = relayNativePlaceholder(12),
         )
 
     private fun appsScriptConfig(): ResolvedRipDpiRelayConfig =
@@ -567,6 +569,8 @@ class RelayNativeConfigTest {
             masquePrivacyPassProviderAuthToken = relayNativePlaceholder(7),
             cloudflareTunnelToken = relayNativePlaceholder(8),
             cloudflareTunnelCredentialsJson = "{\"cloudflare\":\"credentials\"}",
+            localSocksUsername = "session-user",
+            localSocksPassword = relayNativePlaceholder(12),
         )
 
     private fun ResolvedRipDpiRelayConfig.withAppsScriptAndFinalmaskFixture(): ResolvedRipDpiRelayConfig =
@@ -628,6 +632,8 @@ class RelayNativeConfigTest {
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
+                "localSocksUsername",
+                "localSocksPassword",
                 "vlessTransport",
                 "xhttpPath",
                 "xhttpHost",

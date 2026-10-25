@@ -192,7 +192,8 @@ fn classified_response_after_continuation_is_not_replayed_or_learned_as_success(
     config.host_autolearn.enabled = true;
     let mut fallback = DesyncGroup::new(1);
     fallback.matches.detect = DETECT_HTTP_BLOCKPAGE;
-    fallback.policy.ext_socks = Some(UpstreamSocksConfig { addr: alternate.local_addr().expect("alternate address") });
+    fallback.policy.ext_socks =
+        Some(UpstreamSocksConfig { addr: alternate.local_addr().expect("alternate address"), auth: None });
     config.groups.push(fallback);
     let telemetry = Arc::new(super::RecordingTelemetry::default());
     let proxy = start_proxy(config, Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>));

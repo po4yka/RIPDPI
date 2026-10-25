@@ -47,6 +47,9 @@ pub struct CommonRelayConfig {
     pub server_name: String,
     pub local_socks_host: String,
     pub local_socks_port: i32,
+    /// Per-session RFC 1929 credentials the SOCKS listener requires; `None` keeps NO-AUTH.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_socks_auth: Option<LocalSocksAuth>,
     pub udp_enabled: bool,
     pub tcp_fallback_enabled: bool,
     pub quic_bind_low_port: bool,
@@ -54,6 +57,21 @@ pub struct CommonRelayConfig {
     pub tls_fingerprint_profile: String,
     #[serde(default)]
     pub finalmask: ResolvedRelayFinalmaskConfig,
+}
+
+/// RFC 1929 username/password for the relay's loopback SOCKS listener. Android loopback is
+/// reachable by every installed app, so the app issues a fresh pair per runtime session.
+#[derive(Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalSocksAuth {
+    pub username: String,
+    pub password: String,
+}
+
+impl std::fmt::Debug for LocalSocksAuth {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(crate::config::REDACTED_CREDENTIALS)
+    }
 }
 
 /// Wire representation of the runtime-owned socket-protection policy.

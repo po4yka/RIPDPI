@@ -19,6 +19,8 @@ data class RelayCommonSection(
     val serverName: String,
     val localSocksHost: String,
     val localSocksPort: Int,
+    val localSocksUsername: String? = null,
+    val localSocksPassword: String? = null,
     val udpEnabled: Boolean,
     val tcpFallbackEnabled: Boolean,
     val quicBindLowPort: Boolean,

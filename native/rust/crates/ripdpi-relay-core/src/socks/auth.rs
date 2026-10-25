@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
 use crate::backend::RelayBackend;
+use crate::config::LocalSocksAuth;
 use crate::socks::connect::handle_connect;
 use crate::socks::reply::write_reply;
 use crate::socks::target::RelayTargetAddr;
@@ -17,6 +18,10 @@ use crate::socks::udp::handle_udp_associate;
 
 const SOCKS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const SOCKS_HANDSHAKE_TIMEOUT_MESSAGE: &str = "relay SOCKS handshake timed out";
+const SOCKS_METHOD_NO_AUTH: u8 = 0x00;
+const SOCKS_METHOD_USERPASS: u8 = 0x02;
+/// RFC 1929 sub-negotiation version.
+const SOCKS_USERPASS_VERSION: u8 = 0x01;
 
 #[derive(Debug)]
 enum PreReplyNegotiation {
@@ -38,6 +43,7 @@ enum PreReplyNegotiation {
 /// NOT cancel-safe: the deadline and cancellation arms may drop `read_exact` or `write_all` after partial progress. This is valid only before a SOCKS command success reply exists: the caller returns immediately and drops the client socket, so no established relay or UDP association is abandoned.
 async fn negotiate_request<S>(
     client: &mut S,
+    auth: Option<&LocalSocksAuth>,
     deadline: Duration,
     cancel: &CancellationToken,
 ) -> io::Result<PreReplyNegotiation>
@@ -45,7 +51,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let negotiation = async {
-        negotiate_no_auth(client).await?;
+        negotiate_method(client, auth).await?;
 
         let mut request_header = [0u8; 4];
         client.read_exact(&mut request_header).await?;
@@ -97,7 +103,14 @@ pub(crate) async fn handle_client<T>(
 where
     T: SocksTelemetry + ?Sized,
 {
-    let (command, target) = match negotiate_request(&mut client, SOCKS_HANDSHAKE_TIMEOUT, &cancel).await {
+    let (command, target) = match negotiate_request(
+        &mut client,
+        config.local_socks_auth.as_ref(),
+        SOCKS_HANDSHAKE_TIMEOUT,
+        &cancel,
+    )
+    .await
+    {
         Ok(PreReplyNegotiation::Cancelled) => return Ok(()),
         Ok(PreReplyNegotiation::Request { command, target }) => (command, target),
         Ok(PreReplyNegotiation::Rejected { reply_code, cause }) => {
@@ -141,14 +154,17 @@ where
 }
 
 /// Reads the SOCKS5 method-selection greeting and performs RFC 1928 method
-/// negotiation. Replies `[0x05, 0x00]` (NO AUTH) when the client offers
-/// method `0x00`; replies `[0x05, 0xFF]` (NO ACCEPTABLE METHODS) and returns
-/// an error otherwise, as required by RFC 1928 §3.
+/// negotiation. Without listener credentials it replies `[0x05, 0x00]` (NO AUTH)
+/// when the client offers method `0x00`. With credentials it accepts only method
+/// `0x02` and then runs the RFC 1929 username/password exchange: Android loopback
+/// is reachable by every installed app, so NO-AUTH would let any of them egress
+/// through the relay. Any other offer gets `[0x05, 0xFF]` (NO ACCEPTABLE METHODS)
+/// and an error, as RFC 1928 §3 requires.
 ///
 /// # Cancel safety
 ///
 /// NOT cancel-safe in isolation: it reads the greeting then writes the server's method choice; a cancel between the read and the write leaves the client without a method reply. The production caller, [`negotiate_request`], drives it inside a pre-reply `select!`; abandoning it there is valid because no SOCKS5 command reply has been written and the client socket is immediately dropped. Do not call it under a cancellation scope that expects a clean handshake after a partial run.
-async fn negotiate_no_auth<S>(stream: &mut S) -> io::Result<()>
+async fn negotiate_method<S>(stream: &mut S, auth: Option<&LocalSocksAuth>) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -162,15 +178,52 @@ where
     let mut methods = vec![0u8; method_count];
     stream.read_exact(&mut methods).await?;
 
-    if methods.contains(&0x00) {
-        stream.write_all(&[0x05, 0x00]).await?;
-        Ok(())
-    } else {
+    let required_method = if auth.is_some() { SOCKS_METHOD_USERPASS } else { SOCKS_METHOD_NO_AUTH };
+    if !methods.contains(&required_method) {
         // RFC 1928 §3: if no offered method is acceptable the server replies
         // with 0xFF and MUST close the connection.
         stream.write_all(&[0x05, 0xFF]).await?;
-        Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS5 client offered no acceptable auth method"))
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS5 client offered no acceptable auth method"));
     }
+    stream.write_all(&[0x05, required_method]).await?;
+    match auth {
+        Some(auth) => verify_userpass(stream, auth).await,
+        None => Ok(()),
+    }
+}
+
+/// RFC 1929 username/password sub-negotiation against the session credentials.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe in isolation, for the same reason as [`negotiate_method`]; only that pre-reply caller drives it.
+async fn verify_userpass<S>(stream: &mut S, auth: &LocalSocksAuth) -> io::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    if stream.read_u8().await? != SOCKS_USERPASS_VERSION {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 username/password version"));
+    }
+    let mut username = vec![0u8; usize::from(stream.read_u8().await?)];
+    stream.read_exact(&mut username).await?;
+    let mut password = vec![0u8; usize::from(stream.read_u8().await?)];
+    stream.read_exact(&mut password).await?;
+    // Evaluate both comparisons so a wrong username does not answer faster than a wrong password.
+    let username_ok = constant_time_eq(&username, auth.username.as_bytes());
+    let password_ok = constant_time_eq(&password, auth.password.as_bytes());
+    if username_ok & password_ok {
+        stream.write_all(&[SOCKS_USERPASS_VERSION, 0x00]).await?;
+        Ok(())
+    } else {
+        stream.write_all(&[SOCKS_USERPASS_VERSION, 0x01]).await?;
+        Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS5 client presented invalid credentials"))
+    }
+}
+
+/// Compares secrets without an early exit on the first differing byte.
+fn constant_time_eq(candidate: &[u8], expected: &[u8]) -> bool {
+    candidate.len() == expected.len()
+        && candidate.iter().zip(expected).fold(0u8, |diff, (left, right)| diff | (left ^ right)) == 0
 }
 
 /// Reads the SOCKS5 target address (IPv4 / domain / IPv6) following the request
@@ -238,8 +291,9 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
     use tokio_util::sync::CancellationToken;
 
-    use super::{PreReplyNegotiation, negotiate_no_auth, negotiate_request};
+    use super::{PreReplyNegotiation, negotiate_method, negotiate_request};
     use crate::backend::RelayBackend;
+    use crate::config::LocalSocksAuth;
     use crate::socks::target::RelayTargetAddr;
     use crate::socks::telemetry::{RelaySessionTimeouts, SocksSessionConfig, SocksTelemetry};
 
@@ -248,7 +302,7 @@ mod tests {
         let (_client_end, mut server_end) = duplex(64);
         let cancel = CancellationToken::new();
 
-        let error = negotiate_request(&mut server_end, Duration::from_millis(10), &cancel)
+        let error = negotiate_request(&mut server_end, None, Duration::from_millis(10), &cancel)
             .await
             .expect_err("stalled negotiation must time out");
 
@@ -261,8 +315,9 @@ mod tests {
         let cancel = CancellationToken::new();
         cancel.cancel();
 
-        let outcome =
-            negotiate_request(&mut server_end, Duration::ZERO, &cancel).await.expect("cancellation must be clean");
+        let outcome = negotiate_request(&mut server_end, None, Duration::ZERO, &cancel)
+            .await
+            .expect("cancellation must be clean");
 
         assert!(matches!(outcome, PreReplyNegotiation::Cancelled));
     }
@@ -276,7 +331,7 @@ mod tests {
             .await
             .expect("write complete greeting and request");
 
-        let outcome = negotiate_request(&mut server_end, Duration::from_millis(100), &cancel)
+        let outcome = negotiate_request(&mut server_end, None, Duration::from_millis(100), &cancel)
             .await
             .expect("complete negotiation must parse");
 
@@ -300,7 +355,7 @@ mod tests {
         // Write greeting: VER=5, NMETHODS=1, METHOD=0x00
         tokio::io::AsyncWriteExt::write_all(&mut client_end, &[0x05, 0x01, 0x00]).await.expect("write greeting");
 
-        negotiate_no_auth(&mut server_end).await.expect("NO-AUTH must be accepted");
+        negotiate_method(&mut server_end, None).await.expect("NO-AUTH must be accepted");
 
         let mut reply = [0u8; 2];
         tokio::io::AsyncReadExt::read_exact(&mut client_end, &mut reply).await.expect("read reply");
@@ -315,13 +370,75 @@ mod tests {
         // Write greeting: VER=5, NMETHODS=1, METHOD=0x02 (username/password)
         tokio::io::AsyncWriteExt::write_all(&mut client_end, &[0x05, 0x01, 0x02]).await.expect("write greeting");
 
-        let result = negotiate_no_auth(&mut server_end).await;
+        let result = negotiate_method(&mut server_end, None).await;
         assert!(result.is_err(), "server must reject greeting without NO-AUTH");
 
         let mut reply = [0u8; 2];
         tokio::io::AsyncReadExt::read_exact(&mut client_end, &mut reply).await.expect("read reply");
         assert_eq!(reply, [0x05, 0xFF], "server must reply with 0xFF (NO ACCEPTABLE METHODS)");
     }
+    fn session_auth() -> LocalSocksAuth {
+        LocalSocksAuth { username: "session-user".to_string(), password: "session-pass".to_string() }
+    }
+
+    fn userpass_request(username: &[u8], password: &[u8]) -> Vec<u8> {
+        let mut request = vec![0x01, u8::try_from(username.len()).expect("username length")];
+        request.extend_from_slice(username);
+        request.push(u8::try_from(password.len()).expect("password length"));
+        request.extend_from_slice(password);
+        request
+    }
+
+    #[tokio::test]
+    async fn credentialed_listener_rejects_noauth_offer() {
+        let (mut client_end, mut server_end) = duplex(64);
+        client_end.write_all(&[0x05, 0x01, 0x00]).await.expect("write NO-AUTH greeting");
+
+        let auth = session_auth();
+        let error = negotiate_method(&mut server_end, Some(&auth)).await.expect_err("NO-AUTH must be refused");
+
+        assert_eq!(io::ErrorKind::PermissionDenied, error.kind());
+        let mut reply = [0u8; 2];
+        client_end.read_exact(&mut reply).await.expect("read method reply");
+        assert_eq!(reply, [0x05, 0xFF], "a credentialed listener must not accept NO AUTH");
+    }
+
+    #[tokio::test]
+    async fn credentialed_listener_accepts_session_credentials() {
+        let (mut client_end, mut server_end) = duplex(128);
+        let mut handshake = vec![0x05, 0x02, 0x00, 0x02];
+        handshake.extend(userpass_request(b"session-user", b"session-pass"));
+        handshake.extend_from_slice(&[0x05, 0x01, 0x00, 0x01, 127, 0, 0, 1, 0x1f, 0x90]);
+        client_end.write_all(&handshake).await.expect("write authenticated CONNECT");
+        let cancel = CancellationToken::new();
+
+        let auth = session_auth();
+        let outcome = negotiate_request(&mut server_end, Some(&auth), Duration::from_secs(2), &cancel)
+            .await
+            .expect("valid credentials must negotiate");
+
+        assert!(matches!(outcome, PreReplyNegotiation::Request { command: 0x01, .. }));
+        let mut replies = [0u8; 4];
+        client_end.read_exact(&mut replies).await.expect("read method and auth replies");
+        assert_eq!(replies, [0x05, 0x02, 0x01, 0x00]);
+    }
+
+    #[tokio::test]
+    async fn credentialed_listener_rejects_wrong_password() {
+        let (mut client_end, mut server_end) = duplex(128);
+        let mut handshake = vec![0x05, 0x01, 0x02];
+        handshake.extend(userpass_request(b"session-user", b"guessed-pass"));
+        client_end.write_all(&handshake).await.expect("write wrong credentials");
+
+        let auth = session_auth();
+        let error = negotiate_method(&mut server_end, Some(&auth)).await.expect_err("wrong password must fail");
+
+        assert_eq!(io::ErrorKind::PermissionDenied, error.kind());
+        let mut replies = [0u8; 4];
+        client_end.read_exact(&mut replies).await.expect("read method and auth replies");
+        assert_eq!(replies, [0x05, 0x02, 0x01, 0x01], "RFC 1929 failure status must be non-zero");
+    }
+
     #[derive(Default)]
     struct RecordingTelemetry {
         targets: Mutex<Vec<String>>,
@@ -358,6 +475,7 @@ mod tests {
             backend_kind: "trojan".to_string(),
             confirm_good_eligible: false,
             timeouts: RelaySessionTimeouts::production(),
+            local_socks_auth: None,
         };
         let backend = Arc::new(RelayBackend::Unsupported { kind: "trojan".to_string() });
         let cancel = CancellationToken::new();
@@ -384,7 +502,7 @@ mod tests {
 
         let outcome = tokio::time::timeout(
             Duration::from_secs(2),
-            negotiate_request(&mut server_end, Duration::from_secs(5), &cancel),
+            negotiate_request(&mut server_end, None, Duration::from_secs(5), &cancel),
         )
         .await
         .expect("negotiation hung")
@@ -411,7 +529,7 @@ mod tests {
 
         let outcome = tokio::time::timeout(
             Duration::from_secs(2),
-            negotiate_request(&mut server_end, Duration::from_secs(5), &cancel),
+            negotiate_request(&mut server_end, None, Duration::from_secs(5), &cancel),
         )
         .await
         .expect("negotiation hung")

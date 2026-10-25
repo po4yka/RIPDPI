@@ -2,6 +2,8 @@
 
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
@@ -200,11 +202,19 @@ internal class UpstreamRelaySupervisor(
                     localNetworkDependent = false,
                 )
             }
+        // Loopback is reachable by every installed app: the native listener requires per-session RFC 1929
+        // credentials. Helper and subprocess relays own listeners that cannot check them.
+        val listenerCredentials =
+            LocalSocksCredentials.generate().takeIf { helperRuntimeFactory(configResolution.config) == null }
         val resolvedConfig =
             configResolution.config
                 .let { resolved ->
                     if (localPortOverride == null) resolved else resolved.copy(localSocksPort = localPortOverride)
                 }.withNetworkMode(networkMode)
+                .copy(
+                    localSocksUsername = listenerCredentials?.username,
+                    localSocksPassword = listenerCredentials?.password,
+                )
         validateRelayEgressRequirements(resolvedConfig, requirements)
         val runtime = createRuntime(resolvedConfig)
         val stopRequested = AtomicBoolean(false)
@@ -238,6 +248,7 @@ internal class UpstreamRelaySupervisor(
                 udpEnabled = resolvedConfig.udpEnabled,
                 localNetworkDependent = configResolution.localNetworkDependent,
                 consumedConfiguration = ConsumedUpstreamConfiguration.relay(resolvedConfig),
+                listenerCredentials = listenerCredentials,
             )
 
         job.invokeOnCompletion {
@@ -255,7 +266,12 @@ internal class UpstreamRelaySupervisor(
         @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
-            slot.endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
+            val endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
+            slot.endpoint =
+                listenerCredentials?.let { credentials ->
+                    LocalSocksCredentialRegistry.register(endpoint.host, endpoint.port, credentials)
+                    endpoint.copy(username = credentials.username, password = credentials.password)
+                } ?: endpoint
             return slot
         } catch (readinessError: CancellationException) {
             cleanupFailedStart(slot)
@@ -321,6 +337,7 @@ internal class UpstreamRelaySupervisor(
         }
         if (activeSlot === slot) activeSlot = null
         pendingSlots.remove(slot)
+        slot.releaseListenerCredentials()
         outcome.getOrThrow()
     }
 
@@ -330,6 +347,7 @@ internal class UpstreamRelaySupervisor(
 
     fun detach() {
         activeSlot?.shouldReportExit?.set(false)
+        activeSlot?.releaseListenerCredentials()
         activeSlot = null
     }
 
@@ -348,20 +366,38 @@ internal class UpstreamRelaySupervisor(
     }
 
     private fun createRuntime(config: ResolvedRipDpiRelayConfig): RipDpiRelayRuntime =
-        if (config.kind == RelayKindNaiveProxy) {
-            naiveProxyRuntimeFactory.create()
-        } else if (config.kind == RelayKindGoogleAppsScript) {
-            googleAppsScriptRelayRuntimeFactory.create()
-        } else if (
+        helperRuntimeFactory(config)?.invoke() ?: relayFactory.create()
+
+    /** The non-native runtime for [config], or `null` when the native relay serves it. */
+    private fun helperRuntimeFactory(config: ResolvedRipDpiRelayConfig): (() -> RipDpiRelayRuntime)? =
+        when {
+            config.kind == RelayKindNaiveProxy -> {
+                naiveProxyRuntimeFactory::create
+            }
+
+            config.kind == RelayKindGoogleAppsScript -> {
+                googleAppsScriptRelayRuntimeFactory::create
+            }
+
             config.kind == RelayKindCloudflareTunnel &&
-            config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin
-        ) {
-            cloudflarePublishRuntimeFactory.create()
-        } else if (isPluggableTransportRelay(config.kind)) {
-            pluggableTransportRuntimeFactory.create()
-        } else {
-            relayFactory.create()
+                config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin -> {
+                cloudflarePublishRuntimeFactory::create
+            }
+
+            isPluggableTransportRelay(config.kind) -> {
+                pluggableTransportRuntimeFactory::create
+            }
+
+            else -> {
+                null
+            }
         }
+
+    private fun RelayRuntimeSlot.releaseListenerCredentials() {
+        val endpoint = endpoint ?: return
+        val credentials = listenerCredentials ?: return
+        LocalSocksCredentialRegistry.unregister(endpoint.host, endpoint.port, credentials)
+    }
 
     private suspend fun promoteSlot(slot: RelayRuntimeSlot) {
         slot.shouldReportExit.set(true)

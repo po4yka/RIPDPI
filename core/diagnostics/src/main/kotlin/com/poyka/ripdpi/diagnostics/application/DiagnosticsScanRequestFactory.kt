@@ -2,11 +2,15 @@ package com.poyka.ripdpi.diagnostics.application
 
 import android.content.Context
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
 import com.poyka.ripdpi.core.RipDpiLogContext
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
+import com.poyka.ripdpi.core.withRelayRuntimeSelection
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
@@ -446,6 +450,7 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
             ?.let { explicitBaseConfig ->
                 decodeRipDpiProxyUiPreferences(explicitBaseConfig)
                     ?.withSessionOverrides(runtimeContext = runtimeContext)
+                    ?.withLiveRelayListenerCredentials()
                     ?.toNativeConfigJson()
                     ?: run {
                         RequestFactoryLog.d {
@@ -458,13 +463,32 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
             .fromSettings(
                 settings = settings,
                 runtimeContext = runtimeContext,
-            ).toNativeConfigJson()
+            ).withLiveRelayListenerCredentials()
+            .toNativeConfigJson()
     return copy(
         strategyProbe =
             strategyProbe.copy(
                 baseProxyConfigJson = baseProxyConfigJson,
             ),
     )
+}
+
+/**
+ * Probe runtimes that chain through the live native relay must present its session credentials. The native
+ * monitor reads them as input only; reports and recommendations never serialize them.
+ */
+private fun RipDpiProxyPreferences.withLiveRelayListenerCredentials(): RipDpiProxyPreferences {
+    val relay = relayConfigOrNull()
+    val credentials = relay?.let { LocalSocksCredentialRegistry.lookup(it.localSocksHost, it.localSocksPort) }
+    return if (relay == null || credentials == null) {
+        this
+    } else {
+        withRelayRuntimeSelection(
+            relay.copy(localSocksUsername = credentials.username, localSocksPassword = credentials.password),
+            relay.localSocksHost,
+            relay.localSocksPort,
+        )
+    }
 }
 
 private fun EngineScanRequestWire.withActiveProbeSafetyBudget(

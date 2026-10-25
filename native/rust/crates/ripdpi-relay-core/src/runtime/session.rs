@@ -32,6 +32,7 @@ pub(super) fn spawn_socks_session(
                 backend_kind: session_runtime.config.kind_id().to_string(),
                 confirm_good_eligible: session_runtime.confirm_good_dpi_eligible(),
                 timeouts: RelaySessionTimeouts::production(),
+                local_socks_auth: session_runtime.config.common.local_socks_auth.clone(),
             };
             // `handle_client` owns the shutdown token and honors it at the right
             // boundaries: it abandons pre-reply negotiation by drop, but once a

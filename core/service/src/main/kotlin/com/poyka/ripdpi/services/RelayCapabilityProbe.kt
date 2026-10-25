@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocks5Client
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
 import com.poyka.ripdpi.data.PayloadProbeControl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +21,6 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ProtocolException
-import java.net.Proxy
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
@@ -205,12 +206,8 @@ internal class OkHttpRelayTcpProbe(
         require(expectedPayload == null || expectedPayload.url == url)
         val client =
             clientBuilder()
-                .proxy(
-                    Proxy(
-                        Proxy.Type.SOCKS,
-                        InetSocketAddress.createUnresolved(endpoint.host, endpoint.port),
-                    ),
-                ).followRedirects(false)
+                .localSocksProxy(endpoint)
+                .followRedirects(false)
                 .followSslRedirects(false)
                 .retryOnConnectionFailure(false)
                 .callTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
@@ -362,7 +359,7 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
                 control.connect(InetSocketAddress(endpoint.host, endpoint.port), timeoutMillis)
                 val input = DataInputStream(control.getInputStream())
                 val output = DataOutputStream(control.getOutputStream())
-                negotiateNoAuthentication(input, output)
+                negotiateLocalSocksAuthentication(endpoint, input, output)
                 val udpRelay = openUdpAssociation(control.inetAddress, input, output)
                 associationOpened = true
                 openUdpProbeSocket(control.localAddress, udpRelay.address).use { udp ->
@@ -411,16 +408,16 @@ private fun probeSingleDnsDatagram(
     }
 }
 
-internal fun negotiateNoAuthentication(
+/** Presents the session credentials the listener's owner registered; NO-AUTH when it registered none. */
+internal fun negotiateLocalSocksAuthentication(
+    endpoint: RelayProbeEndpoint,
     input: DataInputStream,
     output: DataOutputStream,
 ) {
-    output.write(byteArrayOf(SocksVersion, SocksNoAuthMethodCount, NoAuthentication))
-    output.flush()
-    requireSocksProtocol(
-        input.readUnsignedByte() == SocksVersion.toInt() &&
-            input.readUnsignedByte() == NoAuthentication.toInt(),
-        "SOCKS authentication negotiation failed",
+    LocalSocks5Client.authenticate(
+        input,
+        output,
+        LocalSocksCredentialRegistry.lookup(endpoint.host, endpoint.port),
     )
 }
 
@@ -570,8 +567,6 @@ private const val ByteBits = 8
 private const val LowByteOffset = 1
 private const val DnsNonceLabelBytes = 12
 private const val SocksVersion: Byte = 5
-private const val NoAuthentication: Byte = 0
-private const val SocksNoAuthMethodCount: Byte = 1
 private const val SocksReserved: Byte = 0
 private const val SocksPortZero = 0
 private const val UdpAssociateCommand: Byte = 3

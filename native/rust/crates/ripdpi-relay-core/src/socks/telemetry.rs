@@ -39,6 +39,8 @@ pub(crate) struct SocksSessionConfig {
     pub(crate) backend_kind: String,
     pub(crate) confirm_good_eligible: bool,
     pub(crate) timeouts: RelaySessionTimeouts,
+    /// Credentials every client must present; `None` keeps NO-AUTH.
+    pub(crate) local_socks_auth: Option<crate::config::LocalSocksAuth>,
 }
 
 pub(crate) trait SocksTelemetry {

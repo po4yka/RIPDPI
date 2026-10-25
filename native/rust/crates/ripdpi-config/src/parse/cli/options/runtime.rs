@@ -97,7 +97,7 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             let value = next_value(args, idx, arg)?;
             let (ip, port) = parse_numeric_addr(value)?;
             let port = port.ok_or_else(|| ConfigError::invalid(arg, Some(value)))?;
-            state.group().policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::new(ip, port) });
+            state.group().policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::new(ip, port), auth: None });
             state.config.network.delay_conn = true;
         }
         "--connect-timeout" => {

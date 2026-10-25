@@ -6,13 +6,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CandidateConfigurationProofTest {
-    @Test fun `only listener and protection ownership differences are normalized`() {
+    @Test fun `only listener, session credential and protection ownership differences are normalized`() {
         val measured = sampleResolvedRelayConfig()
         val proof = CandidateConfigurationProofs.relay(measured)
         val actual =
             measured.copy(
                 localSocksHost = "::1",
                 localSocksPort = 18181,
+                localSocksUsername = "session-user",
+                localSocksPassword = "pass-1",
                 socketProtection = RelaySocketProtection.VpnRequired,
             )
         assertTrue(proof.matches(CandidateConfigurationProofs.relay(actual)))

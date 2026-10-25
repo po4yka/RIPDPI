@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
@@ -119,12 +121,17 @@ class CandidateRelayPayloadProbe internal constructor(
             }
             val before: CandidateRelayProbeEnvironment
             val config: ResolvedRipDpiRelayConfig
+            val listenerCredentials = LocalSocksCredentials.generate()
             try {
                 before = captureEnvironment()
                 config =
                     resolve(profile, credentials, before)
-                        .copy(localSocksHost = "127.0.0.1", localSocksPort = 0)
-                        .withNetworkMode(
+                        .copy(
+                            localSocksHost = "127.0.0.1",
+                            localSocksPort = 0,
+                            localSocksUsername = listenerCredentials.username,
+                            localSocksPassword = listenerCredentials.password,
+                        ).withNetworkMode(
                             if (before.vpnProtectionRequired) {
                                 RelayRuntimeNetworkMode.Vpn
                             } else {
@@ -139,7 +146,7 @@ class CandidateRelayPayloadProbe internal constructor(
             } catch (_: Exception) {
                 return@withLock CandidateRelayMeasurement.Failed(CandidateMeasurementStage.Configuration)
             }
-            measureResolved(config, before, httpDeadlineMillis, probe)
+            measureResolved(config, listenerCredentials, before, httpDeadlineMillis, probe)
         }
 
     private fun createRuntimeOrNull() =
@@ -153,6 +160,7 @@ class CandidateRelayPayloadProbe internal constructor(
 
     private suspend fun measureResolved(
         config: ResolvedRipDpiRelayConfig,
+        listenerCredentials: LocalSocksCredentials,
         before: CandidateRelayProbeEnvironment,
         httpDeadlineMillis: Long,
         probe: suspend (RelayProbeEndpoint) -> CandidateHttpPayloadEvidence,
@@ -187,9 +195,14 @@ class CandidateRelayPayloadProbe internal constructor(
                     val endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
                     require(endpoint.host == "127.0.0.1" || endpoint.host == "::1")
                     stage = CandidateMeasurementStage.Http
+                    LocalSocksCredentialRegistry.register(endpoint.host, endpoint.port, listenerCredentials)
                     val result =
-                        withTimeoutOrNull(httpDeadlineMillis) {
-                            probe(RelayProbeEndpoint(endpoint.host, endpoint.port))
+                        try {
+                            withTimeoutOrNull(httpDeadlineMillis) {
+                                probe(RelayProbeEndpoint(endpoint.host, endpoint.port))
+                            }
+                        } finally {
+                            LocalSocksCredentialRegistry.unregister(endpoint.host, endpoint.port, listenerCredentials)
                         }
                     when {
                         result == null -> {

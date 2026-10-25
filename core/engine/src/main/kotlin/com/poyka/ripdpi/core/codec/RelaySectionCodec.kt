@@ -74,6 +74,10 @@ internal data class NativeRelayConfig(
     val appsScriptDirectHosts: List<String> = emptyList(),
     val localSocksHost: String = "127.0.0.1",
     val localSocksPort: Int = 11980,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val localSocksUsername: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val localSocksPassword: String? = null,
     val udpEnabled: Boolean = false,
     val tcpFallbackEnabled: Boolean = true,
     val finalmask: NativeRelayFinalmaskConfig = NativeRelayFinalmaskConfig(),
@@ -135,6 +139,8 @@ internal object RelaySectionCodec {
             appsScriptDirectHosts = value.appsScriptDirectHosts,
             localSocksHost = value.localSocksHost,
             localSocksPort = value.localSocksPort,
+            localSocksUsername = value.localSocksUsername,
+            localSocksPassword = value.localSocksPassword,
             udpEnabled = value.udpEnabled,
             tcpFallbackEnabled = value.tcpFallbackEnabled,
             finalmask =
@@ -205,6 +211,8 @@ internal object RelaySectionCodec {
             appsScriptDirectHosts = value.appsScriptDirectHosts,
             localSocksHost = value.localSocksHost,
             localSocksPort = value.localSocksPort,
+            localSocksUsername = value.localSocksUsername,
+            localSocksPassword = value.localSocksPassword,
             udpEnabled = value.udpEnabled,
             tcpFallbackEnabled = value.tcpFallbackEnabled,
             finalmask =

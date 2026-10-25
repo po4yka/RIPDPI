@@ -176,6 +176,13 @@ class SharedProxyRuntimeStackTest {
             assertEquals(true, renderedRelay?.udpEnabled)
             assertEquals("127.0.0.1", renderedRelay?.localSocksHost)
             assertEquals(HysteriaRacePort, renderedRelay?.localSocksPort)
+            // The proxy's upstream client presents the session credentials the winning listener requires.
+            val winnerConfig =
+                fixture.relayFactory.runtimes
+                    .mapNotNull { it.lastConfig }
+                    .single { it.localSocksPassword == renderedRelay?.localSocksPassword }
+            assertEquals(winnerConfig.localSocksUsername, renderedRelay?.localSocksUsername)
+            assertTrue(renderedRelay?.localSocksPassword?.isNotEmpty() == true)
             assertEquals(HysteriaProfileId, selected.single().selectedCandidate.profileId)
             fixture.stack.stop(skipRuntimeShutdown = false)
         }

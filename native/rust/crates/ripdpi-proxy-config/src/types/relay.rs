@@ -109,6 +109,13 @@ pub struct ProxyUiRelayConfig {
     pub local_socks_host: String,
     #[serde(default = "default_relay_local_socks_port")]
     pub local_socks_port: i32,
+    /// Per-session RFC 1929 credentials of the relay listener; absent for listeners without auth.
+    /// Input only: reports and recommendations serialize this config, and the session secret must not
+    /// reach them.
+    #[serde(default, skip_serializing)]
+    pub local_socks_username: Option<String>,
+    #[serde(default, skip_serializing)]
+    pub local_socks_password: Option<String>,
     #[serde(default)]
     pub udp_enabled: bool,
     #[serde(default = "super::common::default_true")]
@@ -148,6 +155,8 @@ impl Default for ProxyUiRelayConfig {
             finalmask: ProxyUiRelayFinalmaskConfig::default(),
             local_socks_host: default_relay_local_socks_host(),
             local_socks_port: default_relay_local_socks_port(),
+            local_socks_username: None,
+            local_socks_password: None,
             udp_enabled: false,
             tcp_fallback_enabled: true,
         }
