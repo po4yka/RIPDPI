@@ -11,7 +11,7 @@ use std::time::Duration;
 use thiserror::Error;
 
 use crate::bridge_line::{BridgeLineError, WebTunnelBridgeConfig, parse_bridge_line};
-use crate::client::{WebTunnelStream, connect_webtunnel};
+use crate::client::connect_webtunnel_async;
 
 const TRANSPORT_NAME: &str = "webtunnel";
 const SUPPORTED_MANAGED_VERSION: &str = "1";
@@ -27,6 +27,8 @@ const SOCKS_GENERAL_FAILURE: u8 = 0x01;
 const RFC1929_VERSION: u8 = 0x01;
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
 const ACCEPT_POLL: Duration = Duration::from_millis(50);
+/// Budget for TCP connect, TLS (with the h2 retry) and the HTTP Upgrade.
+const BRIDGE_CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManagedClientEnvironment {
@@ -241,16 +243,46 @@ fn handle_socks_client(mut stream: TcpStream) -> io::Result<()> {
     let Some(bridge) = request.bridge else {
         return write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE);
     };
-    match connect_webtunnel(&bridge) {
-        Ok(mut webtunnel) => {
-            write_socks_reply(&mut stream, 0x00)?;
-            relay_socks_over_webtunnel(&mut stream, &mut webtunnel)
+    connect_and_relay(stream, &bridge)
+}
+
+/// Connects to the bridge, sends the SOCKS reply, and relays until both sides
+/// are done.
+///
+/// The relay runs on a per-connection current-thread runtime so each direction
+/// is driven only when it has data (`copy_bidirectional`), and EOF on one side
+/// shuts down the write half of the other. A single thread that polled both
+/// blocking sockets with read timeouts capped a one-way transfer at one buffer
+/// per timeout and never propagated EOF.
+fn connect_and_relay(stream: TcpStream, bridge: &WebTunnelBridgeConfig) -> io::Result<()> {
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_io().enable_time().build()?;
+    runtime.block_on(connect_and_relay_async(stream, bridge))
+}
+
+/// # Cancel safety
+///
+/// cancel-safe: the future owns the app and bridge streams; dropping it
+/// closes both, and no state outlives it.
+async fn connect_and_relay_async(stream: TcpStream, bridge: &WebTunnelBridgeConfig) -> io::Result<()> {
+    use tokio::io::AsyncWriteExt;
+
+    stream.set_nonblocking(true)?;
+    let mut client = tokio::net::TcpStream::from_std(stream)?;
+    let connected = tokio::time::timeout(BRIDGE_CONNECT_TIMEOUT, connect_webtunnel_async(bridge)).await;
+    let mut webtunnel = match connected {
+        Ok(Ok(webtunnel)) => webtunnel,
+        Ok(Err(error)) => {
+            let _ = client.write_all(&socks_reply(SOCKS_GENERAL_FAILURE)).await;
+            return Err(io::Error::other(error.to_string()));
         }
-        Err(error) => {
-            let _ = write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE);
-            Err(io::Error::other(error.to_string()))
+        Err(_elapsed) => {
+            let _ = client.write_all(&socks_reply(SOCKS_GENERAL_FAILURE)).await;
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "WebTunnel bridge connect timed out"));
         }
-    }
+    };
+    client.write_all(&socks_reply(0x00)).await?;
+    tokio::io::copy_bidirectional(&mut client, &mut webtunnel).await?;
+    Ok(())
 }
 
 fn read_socks5_request(stream: &mut TcpStream) -> io::Result<SocksConnectRequest> {
@@ -334,45 +366,12 @@ fn read_socks_host(stream: &mut TcpStream) -> io::Result<String> {
 }
 
 fn write_socks_reply(stream: &mut TcpStream, reply: u8) -> io::Result<()> {
-    stream.write_all(&[SOCKS_VERSION, reply, 0x00, SOCKS_ATYP_IPV4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])?;
+    stream.write_all(&socks_reply(reply))?;
     stream.flush()
 }
 
-fn relay_socks_over_webtunnel(client: &mut TcpStream, webtunnel: &mut WebTunnelStream) -> io::Result<()> {
-    client.set_read_timeout(Some(Duration::from_millis(100)))?;
-    webtunnel.get_mut().set_read_timeout(Some(Duration::from_millis(100)))?;
-    let mut client_closed = false;
-    let mut bridge_closed = false;
-    let mut buffer = [0_u8; 8192];
-    while !client_closed || !bridge_closed {
-        if !client_closed {
-            match client.read(&mut buffer) {
-                Ok(0) => client_closed = true,
-                Ok(read) => {
-                    webtunnel.write_all(&buffer[..read])?;
-                    webtunnel.flush()?;
-                }
-                Err(error) if is_retryable_io(&error) => {}
-                Err(error) => return Err(error),
-            }
-        }
-        if !bridge_closed {
-            match webtunnel.read(&mut buffer) {
-                Ok(0) => bridge_closed = true,
-                Ok(read) => {
-                    client.write_all(&buffer[..read])?;
-                    client.flush()?;
-                }
-                Err(error) if is_retryable_io(&error) => {}
-                Err(error) => return Err(error),
-            }
-        }
-    }
-    Ok(())
-}
-
-fn is_retryable_io(error: &io::Error) -> bool {
-    matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut)
+fn socks_reply(reply: u8) -> [u8; 10] {
+    [SOCKS_VERSION, reply, 0x00, SOCKS_ATYP_IPV4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 }
 
 fn read_u8(stream: &mut TcpStream) -> io::Result<u8> {
@@ -389,4 +388,146 @@ fn read_u16(stream: &mut TcpStream) -> io::Result<u16> {
 
 fn invalid_data(error: impl fmt::Display) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{Read, Write};
+    use std::net::{Shutdown, TcpListener, TcpStream};
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    use boring::asn1::Asn1Time;
+    use boring::bn::BigNum;
+    use boring::ec::{EcGroup, EcKey};
+    use boring::hash::MessageDigest;
+    use boring::nid::Nid;
+    use boring::pkey::{PKey, Private};
+    use boring::ssl::{SslAcceptor, SslMethod};
+    use boring::x509::extension::SubjectAlternativeName;
+    use boring::x509::{X509, X509NameBuilder};
+    use local_network_fixture::WebTunnelFixture;
+
+    use super::connect_and_relay;
+    use crate::bridge_line::{WebTunnelBridgeConfig, parse_bridge_line};
+
+    const SOCKS_REPLY_LEN: usize = 10;
+
+    fn bridge_for(addr: std::net::SocketAddr, url: &str, root_pem: &str) -> WebTunnelBridgeConfig {
+        let mut bridge = parse_bridge_line(&format!(
+            "Bridge webtunnel 192.0.2.3:1 url={url} addr={addr} servername=localhost utls=hellochrome_auto"
+        ))
+        .expect("bridge line");
+        bridge.root_certificate_pem = Some(root_pem.to_owned());
+        bridge
+    }
+
+    /// Runs `connect_and_relay` for one accepted app connection and returns
+    /// the app side after the SOCKS success reply.
+    fn relay_client(bridge: WebTunnelBridgeConfig) -> TcpStream {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind relay listener");
+        let addr = listener.local_addr().expect("relay addr");
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept app connection");
+            let _ = connect_and_relay(stream, &bridge);
+        });
+        let mut client = TcpStream::connect(addr).expect("connect relay");
+        client.set_read_timeout(Some(Duration::from_secs(5))).expect("client read timeout");
+        let mut reply = [0_u8; SOCKS_REPLY_LEN];
+        client.read_exact(&mut reply).expect("read SOCKS reply");
+        assert_eq!(reply[1], 0x00, "SOCKS CONNECT must succeed");
+        client
+    }
+
+    fn self_signed_localhost() -> (X509, PKey<Private>) {
+        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).expect("ec group");
+        let key = PKey::from_ec_key(EcKey::generate(&group).expect("ec key")).expect("pkey");
+        let mut name = X509NameBuilder::new().expect("name builder");
+        name.append_entry_by_nid(Nid::COMMONNAME, "localhost").expect("common name");
+        let name = name.build();
+        let mut builder = X509::builder().expect("x509 builder");
+        builder.set_version(2).expect("version");
+        builder
+            .set_serial_number(&BigNum::from_u32(1).expect("bn").to_asn1_integer().expect("serial"))
+            .expect("serial");
+        builder.set_subject_name(&name).expect("subject");
+        builder.set_issuer_name(&name).expect("issuer");
+        builder.set_pubkey(&key).expect("pubkey");
+        builder.set_not_before(&Asn1Time::days_from_now(0).expect("not before")).expect("not before");
+        builder.set_not_after(&Asn1Time::days_from_now(1).expect("not after")).expect("not after");
+        let san =
+            SubjectAlternativeName::new().dns("localhost").build(&builder.x509v3_context(None, None)).expect("san");
+        builder.append_extension(&san).expect("append san");
+        builder.sign(&key, MessageDigest::sha256()).expect("sign");
+        (builder.build(), key)
+    }
+
+    /// A bridge that accepts the upgrade, pushes `bytes` downstream, then
+    /// closes. The app never writes after its request, as in a download.
+    fn start_push_bridge(bytes: usize) -> WebTunnelBridgeConfig {
+        let (cert, key) = self_signed_localhost();
+        let root_pem = String::from_utf8(cert.to_pem().expect("cert pem")).expect("pem utf8");
+        let mut acceptor = SslAcceptor::mozilla_intermediate(SslMethod::tls()).expect("acceptor");
+        acceptor.set_certificate(&cert).expect("cert");
+        acceptor.set_private_key(&key).expect("key");
+        let acceptor = acceptor.build();
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind bridge");
+        let addr = listener.local_addr().expect("bridge addr");
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept relay");
+            let mut tls = acceptor.accept(stream).expect("bridge TLS accept");
+            let mut head = Vec::new();
+            let mut byte = [0_u8; 1];
+            while !head.ends_with(b"\r\n\r\n") {
+                tls.read_exact(&mut byte).expect("read upgrade request");
+                head.push(byte[0]);
+            }
+            tls.write_all(b"HTTP/1.1 101 Switching Protocols\r\nConnection: upgrade\r\nUpgrade: websocket\r\n\r\n")
+                .expect("write 101");
+            let chunk = [0x5a_u8; 16 * 1024];
+            let mut left = bytes;
+            while left > 0 {
+                let len = left.min(chunk.len());
+                tls.write_all(&chunk[..len]).expect("push payload");
+                left -= len;
+            }
+            let _ = tls.shutdown();
+        });
+        bridge_for(addr, &format!("https://localhost:{}/secret", addr.port()), &root_pem)
+    }
+
+    #[test]
+    fn download_is_not_throttled_by_the_idle_upload_direction() {
+        const TOTAL: usize = 4 * 1024 * 1024;
+        let mut client = relay_client(start_push_bridge(TOTAL));
+
+        let started = Instant::now();
+        let mut received = 0;
+        let mut buffer = [0_u8; 64 * 1024];
+        while received < TOTAL {
+            match client.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(read) => received += read,
+                Err(error) => panic!("download stalled after {received} bytes: {error}"),
+            }
+            assert!(started.elapsed() < Duration::from_secs(5), "download too slow: {received} bytes");
+        }
+
+        assert_eq!(received, TOTAL);
+    }
+
+    #[test]
+    fn app_eof_reaches_the_bridge_and_bridge_eof_reaches_the_app() {
+        let fixture = WebTunnelFixture::start("/secret").expect("start WebTunnel fixture");
+        let mut client = relay_client(bridge_for(fixture.addr(), &fixture.url(), fixture.root_certificate_pem()));
+
+        client.write_all(b"ping").expect("write tunnel payload");
+        client.shutdown(Shutdown::Write).expect("half-close app side");
+
+        // The echo bridge closes only after it sees EOF, so the app reads
+        // the echo and then EOF only if the relay propagated both.
+        let mut echoed = Vec::new();
+        client.read_to_end(&mut echoed).expect("read echo and EOF");
+        assert_eq!(echoed, b"ping");
+    }
 }

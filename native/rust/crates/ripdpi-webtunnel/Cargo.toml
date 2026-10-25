@@ -11,7 +11,8 @@ ripdpi-tls-profiles = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 # Async WebTunnel client (connect_webtunnel_async): tokio TCP + tokio-boring TLS.
-tokio = { workspace = true, features = ["io-util", "net"] }
+# The PT helper relays each connection on a current-thread runtime.
+tokio = { workspace = true, features = ["io-util", "net", "rt", "time"] }
 tokio-boring = { workspace = true }
 url.workspace = true
 
