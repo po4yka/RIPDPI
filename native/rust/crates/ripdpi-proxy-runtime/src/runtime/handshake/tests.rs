@@ -182,10 +182,23 @@ fn read_http_connect_request_enforces_total_deadline_against_trickled_bytes() {
     let started = Instant::now();
     let err = read_http_connect_request(&mut reader, Instant::now() + Duration::from_millis(400))
         .expect_err("a trickling peer must hit the total deadline");
-    assert!(matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock), "unexpected error: {err}");
+    assert_eq!(err.kind(), ErrorKind::TimedOut, "unexpected error: {err}");
     assert!(started.elapsed() < Duration::from_millis(1500), "deadline overran: {:?}", started.elapsed());
     drop(reader);
     trickle.join().expect("trickle thread");
+}
+
+#[test]
+fn handshake_readers_report_a_silent_peer_as_timed_out() {
+    let (mut reader, _writer) = connected_pair();
+    // The socket timeout fires inside the read, which the OS reports as
+    // WouldBlock; the reader must surface the deadline kind instead.
+    let err = read_socks5_request(&mut reader, Instant::now() + Duration::from_millis(100))
+        .expect_err("a silent peer must hit the deadline");
+    assert_eq!(err.kind(), ErrorKind::TimedOut, "unexpected error: {err}");
+    let err = read_http_connect_request(&mut reader, Instant::now() + Duration::from_millis(100))
+        .expect_err("a silent peer must hit the deadline");
+    assert_eq!(err.kind(), ErrorKind::TimedOut, "unexpected error: {err}");
 }
 
 #[test]
@@ -202,7 +215,7 @@ fn read_socks4_request_enforces_total_deadline_against_trickled_bytes() {
     let started = Instant::now();
     let err = read_socks4_request(&mut reader, 0x04, Instant::now() + Duration::from_millis(300))
         .expect_err("a trickling peer must hit the total deadline");
-    assert!(matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock), "unexpected error: {err}");
+    assert_eq!(err.kind(), ErrorKind::TimedOut, "unexpected error: {err}");
     assert!(started.elapsed() < Duration::from_millis(1500), "deadline overran: {:?}", started.elapsed());
     drop(reader);
     trickle.join().expect("trickle thread");

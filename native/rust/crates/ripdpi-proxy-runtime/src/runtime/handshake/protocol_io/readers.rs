@@ -136,8 +136,7 @@ fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) ->
     let mut out = Vec::new();
     let mut chunk = [0u8; 512];
     loop {
-        arm_read_timeout(client, deadline)?;
-        let n = client.peek(&mut chunk)?;
+        let n = peek_by(client, &mut chunk, deadline)?;
         if n == 0 {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected eof during http connect request"));
         }
@@ -221,7 +220,7 @@ fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>, deadline: Instant) 
 /// Sets the client read timeout to the time left before `deadline`.
 ///
 /// Fails with `TimedOut` when the deadline has already passed.
-pub(in crate::runtime::handshake) fn arm_read_timeout(client: &TcpStream, deadline: Instant) -> io::Result<()> {
+fn arm_read_timeout(client: &TcpStream, deadline: Instant) -> io::Result<()> {
     let remaining = deadline
         .checked_duration_since(Instant::now())
         .filter(|left| !left.is_zero())
@@ -235,10 +234,33 @@ pub(in crate::runtime::handshake) fn read_by(
     buf: &mut [u8],
     deadline: Instant,
 ) -> io::Result<usize> {
+    by_deadline(client, deadline, |client| client.read(buf))
+}
+
+/// `peek` bounded by an absolute deadline.
+pub(in crate::runtime::handshake) fn peek_by(
+    client: &mut TcpStream,
+    buf: &mut [u8],
+    deadline: Instant,
+) -> io::Result<usize> {
+    by_deadline(client, deadline, |client| client.peek(buf))
+}
+
+/// Runs one read-like call with the timeout left before `deadline`. The
+/// socket timeout (`WouldBlock` from `SO_RCVTIMEO`) is reported as
+/// `TimedOut`, the same kind as a deadline that has already passed.
+fn by_deadline(
+    client: &mut TcpStream,
+    deadline: Instant,
+    mut read: impl FnMut(&mut TcpStream) -> io::Result<usize>,
+) -> io::Result<usize> {
     loop {
         arm_read_timeout(client, deadline)?;
-        match client.read(buf) {
+        match read(client) {
             Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                return Err(io::Error::new(io::ErrorKind::TimedOut, "handshake deadline exceeded"));
+            }
             other => return other,
         }
     }

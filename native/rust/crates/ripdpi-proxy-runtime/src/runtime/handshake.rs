@@ -17,7 +17,7 @@ use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
 use connect_relay::{ConnectPolicyRejection, ConnectRelayError, SuccessReply, connect_and_relay};
 use protocol_io::{
-    arm_read_timeout, negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request,
+    negotiate_socks5, peek_by, read_exact_by, read_http_connect_request, read_shadowsocks_request, read_socks4_request,
     read_socks5_request,
 };
 
@@ -68,8 +68,7 @@ fn handle_mixed(
     deadline: Instant,
 ) -> io::Result<()> {
     let mut first = [0u8; 1];
-    arm_read_timeout(&client, deadline)?;
-    let peeked = client.peek(&mut first)?;
+    let peeked = peek_by(&mut client, &mut first, deadline)?;
     if peeked == 0 {
         return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "empty mixed handshake"));
     }
@@ -95,10 +94,9 @@ fn handle_mixed(
 
 /// Reads the protocol-selecting first byte under the handshake deadline.
 fn read_first_byte(client: &mut TcpStream, first: &mut [u8; 1], deadline: Instant) -> io::Result<()> {
-    arm_read_timeout(client, deadline)?;
-    client.read_exact(first)?;
+    let result = read_exact_by(client, first, deadline);
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
-    Ok(())
+    result
 }
 
 fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
