@@ -112,7 +112,13 @@ class ResponsivenessActivity : ComponentActivity() {
     private fun Workload(modifier: Modifier) {
         when (workload) {
             "logs", "logs_fresh" -> {
-                LogsRoute({}, {}, modifier, logsViewModel)
+                LogsRoute(
+                    onBack = {},
+                    onSaveLogs = {},
+                    onShareSupportBundle = {},
+                    modifier = modifier,
+                    viewModel = logsViewModel,
+                )
             }
 
             "catalog" -> {

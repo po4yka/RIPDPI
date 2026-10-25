@@ -238,7 +238,6 @@ private fun NavDestination.topLevelRoute(): Route? =
     Route.topLevel.firstOrNull { matchesRoute(it) }
         ?: when (stableRouteKey()) {
             in configSubRouteStableKeys -> Route.Config
-            Route.Logs.stableRoute -> Route.Diagnostics()
             else -> null
         }
 
@@ -488,6 +487,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     }
     composable<Route.Logs> {
         LogsRoute(
+            onBack = { navController.popBackStack() },
             onSaveLogs = actions.onSaveLogs,
             onShareSupportBundle = actions.onShareDebugBundle,
         )
@@ -976,11 +976,12 @@ internal fun NavDestination.stableRouteKey(): String? =
 
 internal fun NavDestination.matchesRoute(route: Route): Boolean = stableRouteKey() == route.stableRoute
 
+// Only variants of the Connection tab itself (the same screen with a preselected section).
+// Sub-screens such as editors and Logs show a back arrow and no bottom bar.
 private val configSubRouteStableKeys =
     setOf(
         Route.LocalBypassConfig.stableRoute,
         Route.VpnConfig.stableRoute,
-        Route.XrayImport.stableRoute,
     )
 
 private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>> =

@@ -79,6 +79,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LogsRoute(
+    onBack: () -> Unit,
     onSaveLogs: () -> Unit,
     onShareSupportBundle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -96,6 +97,7 @@ fun LogsRoute(
         onSaveLogs = onSaveLogs,
         onShareSupportBundle = onShareSupportBundle,
         modifier = modifier,
+        onBack = onBack,
     )
 }
 
@@ -111,6 +113,7 @@ internal fun LogsScreen(
     onSaveLogs: () -> Unit,
     onShareSupportBundle: () -> Unit,
     modifier: Modifier = Modifier,
+    onBack: () -> Unit = {},
 ) {
     TrackRecomposition("LogsScreen")
     val snackbarHostState = remember { SnackbarHostState() }
@@ -126,7 +129,13 @@ internal fun LogsScreen(
                 .fillMaxSize()
                 .ripDpiScreenBackground(),
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
-        topBar = { RipDpiTopAppBar(title = stringResource(R.string.logs)) },
+        topBar = {
+            RipDpiTopAppBar(
+                title = stringResource(R.string.logs),
+                navigationIcon = RipDpiIcons.Back,
+                onNavigationClick = onBack,
+            )
+        },
     ) { innerPadding ->
         LogsContent(
             uiState = uiState,
