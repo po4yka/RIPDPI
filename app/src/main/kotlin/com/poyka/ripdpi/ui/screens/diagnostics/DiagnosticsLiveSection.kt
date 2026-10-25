@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +18,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -37,7 +39,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
-private const val liveHighlightsMaxCount = 4
+internal const val liveHighlightsMaxCount = 4
 
 /**
  * Active foreground telemetry poll cadence, mirroring
@@ -52,6 +54,8 @@ private const val HighlightCardHorizontalPaddingDp = 14
 private const val HighlightCardVerticalPaddingDp = 12
 private const val HighlightCardContentSpacingDp = 4
 private const val HighlightCardLabelAlpha = 0.72f
+private const val HighlightLargeFontScale = 1.5f
+private val HighlightTwoColumnMinWidth = 280.dp
 
 @Composable
 internal fun LiveSection(live: DiagnosticsLiveUiModel) {
@@ -238,21 +242,26 @@ private fun FreshnessIndicator(live: DiagnosticsLiveUiModel) {
 internal fun LiveHighlightsGrid(highlights: ImmutableList<DiagnosticsMetricUiModel>) {
     TrackRecomposition("LiveHighlightsGrid")
     val spacing = RipDpiThemeTokens.spacing
-    val rows = remember(highlights) { highlights.chunked(2) }
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        rows.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                row.forEach { metric ->
-                    LiveHighlightCard(
-                        metric = metric,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (row.size == 1) {
-                    Box(modifier = Modifier.weight(1f))
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // Stack the tiles when two side by side cannot hold their values and captions.
+        val columns = if (maxWidth < HighlightTwoColumnMinWidth || fontScale >= HighlightLargeFontScale) 1 else 2
+        val rows = remember(highlights, columns) { highlights.chunked(columns) }
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            rows.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                ) {
+                    row.forEach { metric ->
+                        LiveHighlightCard(
+                            metric = metric,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (row.size < columns) {
+                        Box(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }

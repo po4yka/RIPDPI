@@ -81,6 +81,7 @@ data class RipDpiInputMetrics(
     val fieldFocusedHorizontalPadding: Dp = 18.dp,
     val textFieldLabelGap: Dp = 6.dp,
     val multilineFieldMinHeight: Dp = 96.dp,
+    val multilineFieldVerticalPadding: Dp = 12.dp,
     val chipHorizontalPadding: Dp = 17.dp,
     val chipFocusedHorizontalPaddingOffset: Dp = 4.dp,
     val chipVerticalPadding: Dp = 6.dp,

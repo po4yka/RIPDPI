@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,7 +63,8 @@ fun ProfileShareDialog(
         viewModel.onShareDismissed()
         onDismiss()
     }, properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn)) {
-        RipDpiCard(modifier = modifier) {
+        // The QR code, link and actions can exceed a short screen; keep the actions reachable.
+        RipDpiCard(modifier = modifier.verticalScroll(rememberScrollState())) {
             val shareUri = uiState.shareUri
             when {
                 uiState.warningVisible -> {

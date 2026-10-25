@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -124,6 +125,7 @@ class ProfileShareDialogTest {
         composeRule.waitForIdle()
         composeRule
             .onNodeWithText("Copy link")
+            .performScrollTo()
             .assertIsDisplayed()
             .assertIsEnabled()
             .performClick()

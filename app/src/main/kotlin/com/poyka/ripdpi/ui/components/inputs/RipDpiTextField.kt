@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.StyleResolver
 import androidx.compose.foundation.style.StyleState
@@ -134,7 +135,9 @@ fun RipDpiTextField(
                 minHeight = behavior.minHeight ?: components.inputs.controlHeight,
                 trailingContent = trailingContent,
             ) {
-                Box(modifier = Modifier.weight(1f)) {
+                // The shell has no vertical padding, so give wrapped lines an inset from the border.
+                val textInset = if (behavior.singleLine) 0.dp else components.inputs.multilineFieldVerticalPadding
+                Box(modifier = Modifier.weight(1f).padding(vertical = textInset)) {
                     if (isEmpty && decoration.placeholder != null) {
                         Text(
                             text = decoration.placeholder,

@@ -42,6 +42,7 @@ import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 internal enum class DiagnosticsSimpleFunnelAction {
     Inspect,
@@ -179,7 +180,7 @@ internal fun OverviewSection(
                         tone = statusTone(live.statusTone),
                         pulsing = live.health != DiagnosticsHealth.Idle,
                     )
-                    MetricsRow(metrics = live.highlights)
+                    LiveHighlightsGrid(highlights = live.highlights.take(liveHighlightsMaxCount).toImmutableList())
                 }
             }
         }
