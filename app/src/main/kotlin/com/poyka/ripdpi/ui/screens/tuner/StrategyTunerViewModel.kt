@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.min
@@ -122,6 +124,10 @@ class StrategyTunerViewModel
 
         private var probeJob: Job? = null
 
+        // A cancelled sweep restores the user's settings only when its probe reaches a
+        // suspension point; the next sweep or apply must not touch settings before that.
+        private val settingsMutex = Mutex()
+
         fun updateDomainsText(value: String) {
             mutableUiState.update { state ->
                 if (state.isRunning) {
@@ -149,63 +155,67 @@ class StrategyTunerViewModel
             probeJob?.cancel()
             probeJob =
                 viewModelScope.launch {
-                    var collected = persistentListOf<StrategyProbeResult>()
-                    val rankingAccumulator = StrategyProbeRankingAccumulator()
-                    runner
-                        .run(domains)
-                        .catch { error ->
-                            if (error is CancellationException) {
-                                throw error
-                            }
+                    settingsMutex.withLock { collectSweep(domains) }
+                }
+        }
+
+        private suspend fun collectSweep(domains: List<String>) {
+            var collected = persistentListOf<StrategyProbeResult>()
+            val rankingAccumulator = StrategyProbeRankingAccumulator()
+            runner
+                .run(domains)
+                .catch { error ->
+                    if (error is CancellationException) {
+                        throw error
+                    }
+                    mutableUiState.update {
+                        it.copy(
+                            runState = StrategyTunerRunState.Error,
+                            message = stringResolver.userMessage(error),
+                            messageRes = null,
+                        )
+                    }
+                }.collect { event ->
+                    when (event) {
+                        StrategyTunerEvent.Complete -> {
                             mutableUiState.update {
                                 it.copy(
-                                    runState = StrategyTunerRunState.Error,
-                                    message = stringResolver.userMessage(error),
+                                    runState = StrategyTunerRunState.Complete,
                                     messageRes = null,
+                                    message =
+                                        stringResolver.getString(
+                                            R.string.strategy_tuner_message_sweep_complete,
+                                        ),
                                 )
                             }
-                        }.collect { event ->
-                            when (event) {
-                                StrategyTunerEvent.Complete -> {
-                                    mutableUiState.update {
-                                        it.copy(
-                                            runState = StrategyTunerRunState.Complete,
-                                            messageRes = null,
-                                            message =
-                                                stringResolver.getString(
-                                                    R.string.strategy_tuner_message_sweep_complete,
-                                                ),
-                                        )
-                                    }
-                                }
+                        }
 
-                                is StrategyTunerEvent.Result -> {
-                                    collected = collected.adding(event.result)
-                                    rankingAccumulator.add(event.result)
-                                    mutableUiState.update {
-                                        it.copy(
-                                            results = collected,
-                                            rankedStrategies = rankingAccumulator.rankedStrategies().toImmutableList(),
-                                        )
-                                    }
-                                }
-
-                                is StrategyTunerEvent.Started -> {
-                                    mutableUiState.update {
-                                        it.copy(
-                                            runState = StrategyTunerRunState.Running,
-                                            activeDomains = event.domains.toImmutableList(),
-                                            results = persistentListOf(),
-                                            rankedStrategies = persistentListOf(),
-                                            totalExpectedResults = event.totalExpectedResults,
-                                            message = null,
-                                            messageRes = null,
-                                            appliedStrategyId = null,
-                                        )
-                                    }
-                                }
+                        is StrategyTunerEvent.Result -> {
+                            collected = collected.adding(event.result)
+                            rankingAccumulator.add(event.result)
+                            mutableUiState.update {
+                                it.copy(
+                                    results = collected,
+                                    rankedStrategies = rankingAccumulator.rankedStrategies().toImmutableList(),
+                                )
                             }
                         }
+
+                        is StrategyTunerEvent.Started -> {
+                            mutableUiState.update {
+                                it.copy(
+                                    runState = StrategyTunerRunState.Running,
+                                    activeDomains = event.domains.toImmutableList(),
+                                    results = persistentListOf(),
+                                    rankedStrategies = persistentListOf(),
+                                    totalExpectedResults = event.totalExpectedResults,
+                                    message = null,
+                                    messageRes = null,
+                                    appliedStrategyId = null,
+                                )
+                            }
+                        }
+                    }
                 }
         }
 
@@ -228,7 +238,7 @@ class StrategyTunerViewModel
         fun apply(strategyId: String) {
             if (uiState.value.isRunning) return
             viewModelScope.launch {
-                val error = runner.apply(strategyId)
+                val error = settingsMutex.withLock { runner.apply(strategyId) }
                 mutableUiState.update {
                     it.copy(
                         runState = if (error == null) it.runState else StrategyTunerRunState.Error,

@@ -5,13 +5,16 @@ import com.poyka.ripdpi.activities.FakeStringResolver
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -166,6 +169,69 @@ class StrategyTunerViewModelTest {
             assertEquals(R.string.error_user_generic.toString(), viewModel.uiState.value.message)
             assertEquals(StrategyTunerRunState.Error, viewModel.uiState.value.runState)
         }
+
+    @Test
+    fun `apply after cancel lands after the cancelled sweep restores settings`() =
+        runTest {
+            val runner = SettingsMutatingTunerRunner()
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
+            viewModel.start()
+            viewModel.cancel()
+
+            viewModel.apply("tls")
+            runner.restoreGate.complete(Unit)
+
+            assertEquals("tls", runner.settings)
+        }
+
+    @Test
+    fun `restart after cancel snapshots the restored user settings`() =
+        runTest {
+            val runner = SettingsMutatingTunerRunner()
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
+            viewModel.start()
+            viewModel.cancel()
+
+            viewModel.start()
+            runner.restoreGate.complete(Unit)
+            viewModel.cancel()
+
+            assertEquals(SettingsMutatingTunerRunner.UserSettings, runner.settings)
+        }
+}
+
+/**
+ * Models the probe service: each sweep installs a candidate into the live settings and
+ * restores its snapshot in a non-cancellable finally that waits on [restoreGate], like a
+ * blocking DNS lookup that delays the cancelled sweep's restore.
+ */
+private class SettingsMutatingTunerRunner : StrategyTunerRunner {
+    var settings: String = UserSettings
+    val restoreGate = CompletableDeferred<Unit>()
+    override val budget: StrategyTunerBudget = StrategyTunerBudget()
+
+    override fun run(domains: List<String>): Flow<StrategyTunerEvent> =
+        flow {
+            val snapshot = settings
+            try {
+                settings = "candidate"
+                awaitCancellation()
+            } finally {
+                withContext(NonCancellable) {
+                    restoreGate.await()
+                    settings = snapshot
+                }
+            }
+        }
+
+    override suspend fun apply(strategyId: String): String? {
+        settings = strategyId
+        return null
+    }
+
+    companion object {
+        const val UserSettings = "user"
+    }
 }
 
 private class FakeStrategyTunerRunner(
