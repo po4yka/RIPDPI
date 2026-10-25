@@ -157,3 +157,82 @@ fn fat_status_label_all_variants() {
     assert_eq!(fat_status_label(&FatHeaderStatus::ConnectFailed), "connect_failed");
     assert_eq!(fat_status_label(&FatHeaderStatus::HandshakeFailed), "tls_failed");
 }
+
+/// Serves one plaintext fat-header connection like a strict origin: answer the first request with
+/// `400` and `Connection: close`, then close. Returns the Host header of every request it read.
+fn serve_close_after_first_response() -> (u16, std::thread::JoinHandle<Vec<String>>) {
+    use std::io::{Read, Write};
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind fixture");
+    let port = listener.local_addr().expect("fixture addr").port();
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept probe");
+        let mut request = Vec::new();
+        let mut chunk = [0u8; 4096];
+        while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+            let read = stream.read(&mut chunk).expect("read request");
+            assert_ne!(read, 0, "probe closed before sending a full request");
+            request.extend_from_slice(&chunk[..read]);
+        }
+        stream
+            .write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            .expect("write response");
+        String::from_utf8_lossy(&request)
+            .lines()
+            .filter_map(|line| line.strip_prefix("Host: ").map(str::to_owned))
+            .collect()
+    });
+    (port, handle)
+}
+
+#[test]
+fn server_announced_close_is_not_reported_as_a_16kb_cutoff() {
+    let (port, server) = serve_close_after_first_response();
+    let target = crate::types::TcpTarget {
+        id: "CDN-01".to_string(),
+        provider: "CDN77 #1 HTTP".to_string(),
+        ip: "127.0.0.1".to_string(),
+        port,
+        sni: None,
+        asn: None,
+        host_header: None,
+        fat_header_requests: None,
+        alt_port: None,
+    };
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+
+    // The runner falls back to the provider label when the target has no host header or SNI.
+    let observation = run_fat_header_attempt(&target, &transport, "", &target.provider);
+
+    assert_eq!(server.join().expect("fixture thread"), vec!["127.0.0.1".to_string()]);
+    assert_eq!(observation.responses_seen, 1);
+    assert_ne!(observation.status, FatHeaderStatus::ThresholdCutoff);
+    assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
+}
+
+#[test]
+fn host_header_falls_back_to_the_target_ip_for_labels_and_invalid_values() {
+    use super::request_io::effective_host_header;
+
+    let mut target = crate::types::TcpTarget {
+        id: "T".to_string(),
+        provider: "Cloudflare".to_string(),
+        ip: "2001:db8::1".to_string(),
+        port: 80,
+        sni: None,
+        asn: None,
+        host_header: None,
+        fat_header_requests: None,
+        alt_port: None,
+    };
+    assert_eq!(effective_host_header(&target, "Cloudflare"), "[2001:db8::1]");
+    assert_eq!(effective_host_header(&target, ""), "[2001:db8::1]");
+    assert_eq!(effective_host_header(&target, "Hetzner Cloud 2"), "[2001:db8::1]");
+    assert_eq!(effective_host_header(&target, "example.com"), "example.com");
+    target.ip = "192.0.2.7".to_string();
+    assert_eq!(effective_host_header(&target, "CDN77 #1 HTTP"), "192.0.2.7");
+    assert_eq!(effective_host_header(&target, "www.example.com:8080"), "www.example.com:8080");
+    // A target whose explicit host header equals its label keeps it.
+    target.host_header = Some("Cloudflare".to_string());
+    assert_eq!(effective_host_header(&target, "Cloudflare"), "Cloudflare");
+}

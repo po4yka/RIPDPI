@@ -4,11 +4,11 @@ use crate::tls::ProbeStreamResult;
 use crate::tls::TlsKeyLogCallback;
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::types::TcpTarget;
-use crate::util::FAT_HEADER_REQUESTS;
+use crate::util::{FAT_HEADER_REQUESTS, fat_threshold_reached};
 
 use super::classification::{classify_fat_error_message, classify_fat_io_error};
 use super::request_io::{
-    normalized_host_header, padded_head_request_len, read_response_headers, write_padded_head_request,
+    effective_host_header, padded_head_request_len, read_response_headers, write_padded_head_request,
 };
 use super::status_types::{FatHeaderObservation, FatHeaderStatus};
 use super::timing::ProbeTiming;
@@ -61,7 +61,8 @@ fn run_padded_head_sequence(
     let requests = target.fat_header_requests.unwrap_or(FAT_HEADER_REQUESTS).max(1);
     let mut counters = FatHeaderCounters::default();
     let mut timing = ProbeTiming::start();
-    let host_header = normalized_host_header(host_header);
+    let host_header = effective_host_header(target, host_header);
+    let host_header = host_header.as_str();
 
     for index in 0..requests {
         if let Err(err) = write_padded_head_request(&mut probe_result.stream, index, host_header) {
@@ -82,9 +83,13 @@ fn run_padded_head_sequence(
         timing.mark_io_success();
 
         match read_response_headers(&mut probe_result.stream) {
-            Ok(()) => {
+            Ok(server_closes) => {
                 counters.responses_seen += 1;
                 timing.mark_io_success();
+                if server_closes && index + 1 < requests {
+                    probe_result.stream.shutdown();
+                    return server_closed_observation(counters, syn_ack_latency_ms);
+                }
             }
             Err(err) => {
                 let status = classify_fat_error_message(&err, counters.bytes_sent, counters.responses_seen);
@@ -104,6 +109,26 @@ fn run_padded_head_sequence(
 
     probe_result.stream.shutdown();
     FatHeaderObservation::success(counters.bytes_sent, counters.responses_seen, syn_ack_latency_ms)
+}
+
+/// The server ended the sequence on its own, so the close says nothing about a middlebox cutoff.
+/// Past the threshold the path already carried the fat headers; before it the probe is
+/// inconclusive, which `ConnectFailed` (`tcp_connect_failed`) reports.
+fn server_closed_observation(counters: FatHeaderCounters, syn_ack_latency_ms: Option<u64>) -> FatHeaderObservation {
+    if fat_threshold_reached(counters.bytes_sent) {
+        return FatHeaderObservation::success(counters.bytes_sent, counters.responses_seen, syn_ack_latency_ms);
+    }
+    FatHeaderObservation::io_failed(
+        FatHeaderStatus::ConnectFailed,
+        format!(
+            "server announced connection close after response {} before the fat-header threshold",
+            counters.responses_seen
+        ),
+        syn_ack_latency_ms,
+        None,
+        counters.bytes_sent,
+        counters.responses_seen,
+    )
 }
 
 #[derive(Default)]
