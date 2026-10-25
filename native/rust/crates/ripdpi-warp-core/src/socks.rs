@@ -57,10 +57,8 @@ async fn handle_tcp_connect(
     target: SocketAddr,
 ) -> io::Result<()> {
     let lease = tcp_pool.acquire()?;
-    let virtual_port = lease.port();
     let port_forward = PortForwardConfig { destination: target, protocol: PortProtocol::Tcp };
-    let mut endpoint = bus.new_endpoint();
-    endpoint.send(Event::ClientConnectionInitiated(port_forward, lease.clone()));
+    let mut session = bus.open_tcp_session(port_forward, lease.clone());
     let result = async {
         write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
 
@@ -77,7 +75,9 @@ async fn handle_tcp_connect(
                     match readable_result {
                         Ok(_) => match client.try_read_buf(&mut buffer) {
                             Ok(size) if size > 0 => {
-                                endpoint.send(Event::LocalData(port_forward, virtual_port, Bytes::copy_from_slice(&buffer[..size])));
+                                if !session.send_local(Bytes::copy_from_slice(&buffer[..size])) {
+                                    break;
+                                }
                                 buffer.clear();
                             }
                             Ok(_) => break,
@@ -87,21 +87,19 @@ async fn handle_tcp_connect(
                         Err(error) => return Err(error),
                     }
                 }
-                event = endpoint.recv() => match event {
-                    Event::Shutdown => break,
-                    Event::ClientConnectionDropped(event_port) if event_port == virtual_port => break,
-                    Event::RemoteData(event_port, data) if event_port == virtual_port => {
-                        pending_write = Some(data);
-                    }
-                    _ => {}
+                remote = session.recv_remote() => match remote {
+                    Some(data) => pending_write = Some(data),
+                    // The virtual socket closed, or the interface stopped.
+                    None => break,
                 }
             }
         }
 
         Ok(())
-    }.await;
+    }
+    .await;
     lease.request_close();
-    endpoint.send(Event::ClientConnectionDropped(virtual_port));
+    drop(session);
     result
 }
 
@@ -281,6 +279,7 @@ pub(crate) fn ensure_loopback_socks_host(host: &str) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::virtual_iface::TcpCommand;
     use tokio::net::TcpListener;
     use tokio::time::{Duration, timeout};
 
@@ -347,7 +346,7 @@ mod tests {
         let (mut server, _) = server.expect("server");
         server.shutdown().await.expect("close write half to force reply failure");
         let bus = Bus::new();
-        let mut observer = bus.new_endpoint();
+        let (mut commands, _drained) = bus.take_tcp_commands();
         let pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP port entropy"));
         let result = timeout(
             Duration::from_secs(2),
@@ -356,11 +355,12 @@ mod tests {
         .await
         .expect("handler exits");
         assert!(result.is_err(), "closed write half must reject the SOCKS reply");
-        let Event::ClientConnectionInitiated(_, lease) = observer.recv().await else { panic!("expected allocation") };
+        let Some(TcpCommand::Open(_, lease, _)) = commands.recv().await else { panic!("expected allocation") };
         let port = lease.port();
         drop(lease);
-        let dropped = timeout(Duration::from_millis(100), observer.recv()).await.expect("virtual socket cleanup event");
-        assert!(matches!(dropped, Event::ClientConnectionDropped(actual) if actual == port));
+        let closed =
+            timeout(Duration::from_millis(100), commands.recv()).await.expect("virtual socket cleanup command");
+        assert!(matches!(closed, Some(TcpCommand::Close(actual)) if actual == port));
         let leases: Vec<_> = (crate::ports::MIN_VIRTUAL_PORT..crate::ports::MAX_VIRTUAL_PORT)
             .map(|_| pool.acquire().expect("entire port pool must be available after failed reply"))
             .collect();

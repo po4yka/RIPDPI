@@ -19,21 +19,27 @@ async fn outbound(endpoint: &mut BusEndpoint) -> Bytes {
 }
 
 fn syn_ack(syn: &[u8]) -> Bytes {
+    peer_segment(syn, TcpControl::Syn, 12345, 0, &[])
+}
+
+/// A segment from the virtual peer that answers the interface's `syn` and
+/// acknowledges `acked` sequence numbers the interface sent after its SYN.
+fn peer_segment(syn: &[u8], control: TcpControl, seq: i32, acked: usize, payload: &[u8]) -> Bytes {
     let ip = Ipv4Packet::new_checked(syn).expect("IPv4 SYN");
     let tcp = TcpPacket::new_checked(ip.payload()).expect("TCP SYN");
     let reply = TcpRepr {
         src_port: tcp.dst_port(),
         dst_port: tcp.src_port(),
-        control: TcpControl::Syn,
-        seq_number: TcpSeqNumber(12345),
-        ack_number: Some(tcp.seq_number() + 1),
+        control,
+        seq_number: TcpSeqNumber(seq),
+        ack_number: Some(tcp.seq_number() + 1 + acked),
         window_len: 32768,
         window_scale: None,
         max_seg_size: Some(1200),
         sack_permitted: false,
         sack_ranges: [None; 3],
         timestamp: None,
-        payload: &[],
+        payload,
     };
     let repr = Ipv4Repr {
         src_addr: ip.dst_addr(),
@@ -57,7 +63,6 @@ fn syn_ack(syn: &[u8]) -> Bytes {
 enum CloseMode {
     KeepOpen,
     Graceful,
-    LostWakeup,
     Deadline,
     PendingData,
 }
@@ -69,20 +74,19 @@ async fn exercise_interface(mode: CloseMode) -> TcpSeqNumber {
     let bus = Bus::new();
     let mut endpoint = bus.new_endpoint();
     let mut interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
-    if matches!(mode, CloseMode::Deadline | CloseMode::LostWakeup) {
+    if matches!(mode, CloseMode::Deadline) {
         interface.close_grace = Duration::from_millis(50);
     }
     let mut worker = Box::pin(interface.run());
     let pool = VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool");
     let lease = pool.acquire().expect("TCP lease");
-    let port = lease.port();
     let forward =
         PortForwardConfig { destination: "10.77.0.1:41001".parse().expect("target"), protocol: PortProtocol::Tcp };
+    let mut session = Some(bus.open_tcp_session(forward, lease.clone()));
     let observed = tokio::select! {
         biased;
         result = &mut worker => panic!("interface stopped early: {result:?}"),
         result = tokio::time::timeout(Duration::from_secs(2), async {
-            endpoint.send(Event::ClientConnectionInitiated(forward, lease.clone()));
             let syn = outbound(&mut endpoint).await;
             let ip = Ipv4Packet::new_checked(&syn[..]).expect("IPv4 SYN");
             let tcp = TcpPacket::new_checked(ip.payload()).expect("TCP SYN");
@@ -97,29 +101,17 @@ async fn exercise_interface(mode: CloseMode) -> TcpSeqNumber {
                     assert!(tokio::time::timeout(Duration::from_millis(20), outbound(&mut endpoint)).await.is_err(),
                         "shared EOF state must not overtake ordered pending data");
                 }
-                endpoint.send(Event::LocalData(forward, port, Bytes::from_static(b"before-eof")));
+                assert!(session.as_ref().expect("open session").send_local(Bytes::from_static(b"before-eof")));
                 let mut payload = Vec::new();
-                if matches!(mode, CloseMode::LostWakeup) {
-                    let sent = outbound(&mut endpoint).await;
-                    let ip = Ipv4Packet::new_checked(&sent[..]).expect("accepted IPv4 data");
-                    let tcp = TcpPacket::new_checked(ip.payload()).expect("accepted TCP data");
-                    payload.extend_from_slice(tcp.payload());
-                    assert_eq!(payload, b"before-eof");
-                }
                 lease.request_close();
-                endpoint.send(Event::ClientConnectionDropped(port));
-                if matches!(mode, CloseMode::LostWakeup) {
-                    for _ in 0..1100 {
-                        endpoint.send(Event::RemoteData(port, Bytes::new()));
-                    }
-                }
+                drop(session.take());
                 let mut saw_fin = false;
                 loop {
                     let packet = outbound(&mut endpoint).await;
                     let ip = Ipv4Packet::new_checked(&packet[..]).expect("IPv4 close packet");
                     let tcp = TcpPacket::new_checked(ip.payload()).expect("TCP close packet");
                     if tcp.rst() {
-                        assert!(matches!(mode, CloseMode::Deadline | CloseMode::LostWakeup), "normal EOF must preserve accepted payload");
+                        assert!(matches!(mode, CloseMode::Deadline), "normal EOF must preserve accepted payload");
                         if matches!(mode, CloseMode::Deadline) {
                             assert!(saw_fin, "cleanup reset must follow the graceful FIN attempt");
                         }
@@ -127,7 +119,6 @@ async fn exercise_interface(mode: CloseMode) -> TcpSeqNumber {
                     }
                     payload.extend_from_slice(tcp.payload());
                     if tcp.fin() {
-                        assert!(!matches!(mode, CloseMode::LostWakeup), "the EOF marker was evicted from the bus");
                         assert_eq!(payload, b"before-eof");
                         saw_fin = true;
                         if !matches!(mode, CloseMode::Deadline) {
@@ -166,14 +157,6 @@ async fn local_eof_drains_accepted_payload_and_emits_fin() {
 
 /// # Cancel safety
 ///
-/// NOT cancel-safe: helper always shuts down its owned interface after observing the FIN.
-#[tokio::test]
-async fn lost_eof_marker_is_reset_by_cleanup_deadline() {
-    exercise_interface(CloseMode::LostWakeup).await;
-}
-
-/// # Cancel safety
-///
 /// NOT cancel-safe: helper always joins its interface after observing the cleanup RST.
 #[tokio::test]
 async fn unanswered_fin_is_reset_before_its_socket_is_removed() {
@@ -186,4 +169,102 @@ async fn unanswered_fin_is_reset_before_its_socket_is_removed() {
 #[tokio::test]
 async fn shared_eof_state_does_not_overtake_pending_payload() {
     exercise_interface(CloseMode::PendingData).await;
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the owned interface is shut down after the payload deadline.
+#[tokio::test]
+async fn acked_remote_payload_survives_packet_bus_overflow() {
+    let bus = Bus::new();
+    let mut endpoint = bus.new_endpoint();
+    let interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    let mut worker = Box::pin(interface.run());
+    let pool = VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool");
+    let lease = pool.acquire().expect("TCP lease");
+    let forward =
+        PortForwardConfig { destination: "10.77.0.1:41001".parse().expect("target"), protocol: PortProtocol::Tcp };
+    let mut session = bus.open_tcp_session(forward, lease);
+    let received = tokio::select! {
+        biased;
+        result = &mut worker => panic!("interface stopped early: {result:?}"),
+        result = tokio::time::timeout(Duration::from_secs(2), async {
+            let syn = outbound(&mut endpoint).await;
+            endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
+            let _handshake_ack = outbound(&mut endpoint).await;
+            endpoint.send(Event::InboundInternetPacket(
+                PortProtocol::Tcp,
+                peer_segment(&syn, TcpControl::Psh, 12346, 0, b"remote-bytes"),
+            ));
+            // Once smoltcp ACKs the payload, the peer will not resend it.
+            let ack = outbound(&mut endpoint).await;
+            let ip = Ipv4Packet::new_checked(&ack[..]).expect("IPv4 ACK");
+            let tcp = TcpPacket::new_checked(ip.payload()).expect("TCP ACK");
+            assert_eq!(tcp.ack_number(), TcpSeqNumber(12346 + 12));
+            // A slow handler sees the packet bus overflow before it reads.
+            for _ in 0..1100 {
+                endpoint.send(Event::VirtualDeviceFed(PortProtocol::Udp));
+            }
+            session.recv_remote().await.expect("remote payload")
+        }) => result,
+    };
+    assert_eq!(&received.expect("payload deadline")[..], b"remote-bytes");
+    bus.shutdown();
+    worker.await.expect("interface shutdown");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the owned interface is shut down after the drain deadline.
+#[tokio::test]
+async fn peer_close_keeps_payload_buffered_behind_a_full_session_queue() {
+    let bus = Bus::new();
+    let mut endpoint = bus.new_endpoint();
+    let interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    let mut worker = Box::pin(interface.run());
+    let pool = VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool");
+    let lease = pool.acquire().expect("TCP lease");
+    let forward =
+        PortForwardConfig { destination: "10.77.0.1:41001".parse().expect("target"), protocol: PortProtocol::Tcp };
+    let mut session = bus.open_tcp_session(forward, lease);
+    // More chunks than the session queue holds, so the tail waits in smoltcp.
+    let chunks: Vec<Vec<u8>> = (0..12).map(|index| format!("chunk-{index:02};").into_bytes()).collect();
+    let expected = chunks.concat();
+    let received = tokio::select! {
+        biased;
+        result = &mut worker => panic!("interface stopped early: {result:?}"),
+        result = tokio::time::timeout(Duration::from_secs(5), async {
+            let syn = outbound(&mut endpoint).await;
+            endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
+            let _handshake_ack = outbound(&mut endpoint).await;
+            let mut seq = 12346;
+            for chunk in &chunks {
+                endpoint.send(Event::InboundInternetPacket(
+                    PortProtocol::Tcp,
+                    peer_segment(&syn, TcpControl::Psh, seq, 0, chunk),
+                ));
+                seq += i32::try_from(chunk.len()).expect("chunk length");
+                let _ack = outbound(&mut endpoint).await;
+            }
+            endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, peer_segment(&syn, TcpControl::Fin, seq, 0, &[])));
+            loop {
+                let packet = outbound(&mut endpoint).await;
+                let ip = Ipv4Packet::new_checked(&packet[..]).expect("IPv4 packet");
+                if TcpPacket::new_checked(ip.payload()).expect("TCP packet").fin() {
+                    break;
+                }
+            }
+            // ACK the interface's FIN: the socket reaches Closed with data still buffered.
+            endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, peer_segment(&syn, TcpControl::None, seq + 1, 1, &[])));
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            let mut received = Vec::new();
+            while let Some(data) = session.recv_remote().await {
+                received.extend_from_slice(&data);
+            }
+            received
+        }) => result,
+    };
+    assert_eq!(received.expect("drain deadline"), expected, "the peer's ACKed tail must reach the handler");
+    bus.shutdown();
+    worker.await.expect("interface shutdown");
 }

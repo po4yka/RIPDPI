@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::net::{IpAddr, Ipv6Addr};
+use std::sync::Arc;
 
 use anyhow::Context;
 use bytes::Bytes;
@@ -7,11 +8,12 @@ use smoltcp::iface::{Config as IfaceConfig, Interface, SocketHandle, SocketSet};
 use smoltcp::socket::tcp;
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress};
+use tokio::sync::{Notify, mpsc};
 use tokio::time::Duration;
 
 use crate::ports::{PortProtocol, VirtualPort, VirtualPortLease};
 
-use super::bus::{Bus, Event};
+use super::bus::{Bus, Event, TcpCommand};
 use super::device::VirtualIpDevice;
 use super::socket_factory::{configure_interface, new_tcp_client_socket, select_source};
 
@@ -20,6 +22,8 @@ mod tests;
 
 pub(crate) struct DynamicTcpInterface {
     bus: Bus,
+    commands: mpsc::UnboundedReceiver<TcpCommand>,
+    drained: Arc<Notify>,
     source_peer_ip: IpAddr,
     source_peer_ipv6: Option<Ipv6Addr>,
     mtu: usize,
@@ -28,13 +32,14 @@ pub(crate) struct DynamicTcpInterface {
 
 impl DynamicTcpInterface {
     pub(crate) fn new(bus: Bus, source_peer_ip: IpAddr, source_peer_ipv6: Option<Ipv6Addr>, mtu: usize) -> Self {
-        Self { bus, source_peer_ip, source_peer_ipv6, mtu, close_grace: Duration::from_secs(30) }
+        let (commands, drained) = bus.take_tcp_commands();
+        Self { bus, commands, drained, source_peer_ip, source_peer_ipv6, mtu, close_grace: Duration::from_secs(30) }
     }
 
     /// # Cancel safety
     /// NOT cancel-safe: interface polling consumes bus packets.
     /// Terminal cancellation drops this interface and all owned virtual sockets.
-    pub(crate) async fn run(self) -> anyhow::Result<()> {
+    pub(crate) async fn run(mut self) -> anyhow::Result<()> {
         let mut sockets = SocketSet::new([]);
         let mut device = VirtualIpDevice::new(PortProtocol::Tcp, self.bus.clone(), self.mtu);
         let mut config = IfaceConfig::new(HardwareAddress::Ip);
@@ -43,7 +48,9 @@ impl DynamicTcpInterface {
         configure_interface(&mut iface, self.source_peer_ip, self.source_peer_ipv6)?;
         let mut endpoint = self.bus.new_endpoint();
         let mut next_poll: Option<tokio::time::Instant> = None;
-        let mut port_client_handle_map: HashMap<VirtualPort, (SocketHandle, VirtualPortLease)> = HashMap::new();
+        // Dropping a session's sender ends its handler after the queued chunks.
+        let mut port_client_handle_map: HashMap<VirtualPort, (SocketHandle, VirtualPortLease, mpsc::Sender<Bytes>)> =
+            HashMap::new();
         let mut send_queue: HashMap<VirtualPort, VecDeque<Bytes>> = HashMap::new();
         let mut graceful_closing = HashSet::new();
 
@@ -56,7 +63,7 @@ impl DynamicTcpInterface {
                 } => {
                     let loop_start = Instant::now();
                     let close_now = tokio::time::Instant::now();
-                    for (client_handle, lease) in port_client_handle_map.values() {
+                    for (client_handle, lease, _) in port_client_handle_map.values() {
                         let expired = lease.close_requested_at()
                             .map_or(true, |requested| requested.is_some_and(|at| close_now >= at + self.close_grace));
                         if expired {
@@ -65,10 +72,11 @@ impl DynamicTcpInterface {
                     }
                     // Poll aborted sockets before removal so their RST reaches the peer.
                     let _ = iface.poll(loop_start, &mut device, &mut sockets);
-                    port_client_handle_map.retain(|virtual_port, (client_handle, _lease)| {
+                    port_client_handle_map.retain(|virtual_port, (client_handle, _lease, remote)| {
                         let client_socket = sockets.get_mut::<tcp::Socket>(*client_handle);
-                        if client_socket.state() == tcp::State::Closed {
-                            endpoint.send(Event::ClientConnectionDropped(*virtual_port));
+                        // A closed socket may still hold ACKed bytes behind a full session queue.
+                        let undelivered = client_socket.can_recv() && !remote.is_closed();
+                        if client_socket.state() == tcp::State::Closed && !undelivered {
                             send_queue.remove(virtual_port);
                             graceful_closing.remove(virtual_port);
                             sockets.remove(*client_handle);
@@ -78,7 +86,7 @@ impl DynamicTcpInterface {
                         }
                     });
 
-                    for (virtual_port, (client_handle, _lease)) in &port_client_handle_map {
+                    for (virtual_port, (client_handle, _lease, remote)) in &port_client_handle_map {
                         let client_socket = sockets.get_mut::<tcp::Socket>(*client_handle);
                         if client_socket.can_send()
                             && let Some(queue) = send_queue.get_mut(virtual_port) {
@@ -92,32 +100,40 @@ impl DynamicTcpInterface {
                                     client_socket.close();
                                 }}
                             }
-                        if client_socket.can_recv()
-                            && let Ok(data) = client_socket.recv(|buffer| (buffer.len(), Bytes::copy_from_slice(buffer)))
+                        if client_socket.can_recv() {
+                            if remote.is_closed() {
+                                // The handler is gone: discard so the peer is not stalled.
+                                let _ = client_socket.recv(|buffer| (buffer.len(), ()));
+                            } else if let Ok(permit) = remote.try_reserve()
+                                && let Ok(data) = client_socket.recv(|buffer| (buffer.len(), Bytes::copy_from_slice(buffer)))
                                 && !data.is_empty() {
-                                    endpoint.send(Event::RemoteData(*virtual_port, data));
+                                    // Read only into reserved queue space: a slow handler then closes
+                                    // the TCP window instead of losing bytes smoltcp already ACKed.
+                                    permit.send(data);
                                 }
+                        }
                     }
                     next_poll = iface
                         .poll_delay(loop_start, &sockets)
                         .map(|delay| tokio::time::Instant::now() + Duration::from_millis(delay.total_millis()));
                     if !port_client_handle_map.is_empty() {
-                        // EOF is stored in the lease; a lost broadcast wakeup cannot
-                        // suppress close processing or its absolute cleanup deadline.
+                        // Close deadlines and a missed drain wakeup are rechecked on this
+                        // bounded period.
                         let control_poll = tokio::time::Instant::now() + Duration::from_millis(100);
                         next_poll = Some(next_poll.map_or(control_poll, |poll| poll.min(control_poll)));
                     }
                 }
-                event = endpoint.recv() => match event {
-                    Event::Shutdown => break,
-                    Event::ClientConnectionInitiated(port_forward, lease) if matches!(port_forward.protocol, PortProtocol::Tcp) => {
+                command = self.commands.recv() => match command {
+                    // The bus keeps a sender, so the channel stays open while this task runs.
+                    None => break,
+                    Some(TcpCommand::Open(port_forward, lease, remote)) => {
                         let virtual_port = lease.port();
+                        // Without a source the session is dropped, which ends its handler.
                         let Some(source) = select_source(self.source_peer_ip, self.source_peer_ipv6, port_forward.destination.ip()) else {
-                            endpoint.send(Event::ClientConnectionDropped(virtual_port));
                             continue;
                         };
                         let client_handle = sockets.add(new_tcp_client_socket());
-                        port_client_handle_map.insert(virtual_port, (client_handle, lease));
+                        port_client_handle_map.insert(virtual_port, (client_handle, lease, remote));
                         send_queue.insert(virtual_port, VecDeque::new());
                         let client_socket = sockets.get_mut::<tcp::Socket>(client_handle);
                         client_socket
@@ -129,19 +145,25 @@ impl DynamicTcpInterface {
                             .context("TCP virtual connect failed")?;
                         next_poll = None;
                     }
-                    Event::ClientConnectionDropped(virtual_port) => {
-                        if let Some((_, lease)) = port_client_handle_map.get(&virtual_port) {
+                    Some(TcpCommand::Close(virtual_port)) => {
+                        if let Some((_, lease, _)) = port_client_handle_map.get(&virtual_port) {
                             lease.request_close();
-                            // This ordered marker follows every accepted LocalData event.
-                            // The shared timestamp alone may overtake queued bus data.
+                            // This ordered marker follows every accepted Data command.
+                            // The shared timestamp alone may overtake queued data.
                             graceful_closing.insert(virtual_port);
                             next_poll = None;
                         }
                     }
-                    Event::LocalData(_, virtual_port, data) if send_queue.contains_key(&virtual_port) => {
-                        send_queue.get_mut(&virtual_port).expect("queue exists").push_back(data);
-                        next_poll = None;
+                    Some(TcpCommand::Data(virtual_port, data)) => {
+                        if let Some(queue) = send_queue.get_mut(&virtual_port) {
+                            queue.push_back(data);
+                            next_poll = None;
+                        }
                     }
+                },
+                () = self.drained.notified() => next_poll = None,
+                event = endpoint.recv() => match event {
+                    Event::Shutdown => break,
                     Event::VirtualDeviceFed(PortProtocol::Tcp) => next_poll = None,
                     _ => {}
                 }
