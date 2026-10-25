@@ -4,17 +4,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
+import com.poyka.ripdpi.activities.foldIdentical
 import com.poyka.ripdpi.diagnostics.exit.ProcessExitCorrelationKind
 import com.poyka.ripdpi.diagnostics.exit.processExitCorrelationKind
 
+/**
+ * The watch list as the current mode shows it. Guided mode shows several raw events with the same text (for
+ * example, every unexpected exit reads "closed unexpectedly"), so it folds the rows that it shows the same.
+ */
 @Composable
-internal fun diagnosticWarningPresentation(
-    warning: DiagnosticsEventUiModel,
+internal fun diagnosticWarningsPresentation(
+    warnings: List<DiagnosticsEventUiModel>,
     expertMode: Boolean,
-): DiagnosticsEventUiModel {
-    if (expertMode) return warning
-    return processExitPresentation(warning) ?: dnsIntegrityPresentation(warning)
+): List<DiagnosticsEventUiModel> {
+    if (expertMode) return warnings
+    return warnings.map { guidedWarningPresentation(it) }.foldIdentical()
 }
+
+@Composable
+private fun guidedWarningPresentation(warning: DiagnosticsEventUiModel): DiagnosticsEventUiModel =
+    processExitPresentation(warning) ?: dnsIntegrityPresentation(warning)
 
 @Composable
 private fun processExitPresentation(warning: DiagnosticsEventUiModel): DiagnosticsEventUiModel? {

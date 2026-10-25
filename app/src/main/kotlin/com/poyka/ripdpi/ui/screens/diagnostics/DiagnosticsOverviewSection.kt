@@ -238,8 +238,8 @@ internal fun OverviewSection(
             item(key = "warnings", contentType = "warnings") {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_attention_section))
-                    overview.warnings.forEach { warning ->
-                        EventRow(event = diagnosticWarningPresentation(warning, expertMode), onClick = null)
+                    diagnosticWarningsPresentation(overview.warnings, expertMode).forEach { warning ->
+                        EventRow(event = warning, onClick = null)
                     }
                 }
             }

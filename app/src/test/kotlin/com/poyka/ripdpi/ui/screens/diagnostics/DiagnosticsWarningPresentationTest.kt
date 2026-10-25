@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
@@ -89,26 +91,59 @@ class DiagnosticsWarningPresentationTest {
         assertVisibleWarning("Application_exit_correlation", warning.message)
     }
 
-    private fun processExitWarning(reason: String) =
-        DiagnosticsEventUiModel(
-            id = "exit-warning",
-            source = "Application_exit_correlation",
-            severity = "WARN",
-            message =
-                "event=process_exit_correlation verdict=inconclusive evidence=last_exit_inspector_v1 " +
-                    "reason=$reason subtype=none importance=foreground",
-            createdAtLabel = "13:36",
-            tone = DiagnosticsTone.Warning,
+    @Test
+    fun guidedWatchlistFoldsExitReasonsThatReadTheSame() {
+        renderOverview(
+            processExitWarning(reason = "crash", id = "exit-crash"),
+            processExitWarning(reason = "anr", id = "exit-anr").copy(occurrences = 2),
+            processExitWarning(reason = "crash_native", id = "exit-native"),
+            processExitWarning(reason = "low_memory", id = "exit-pressure"),
+            expertMode = false,
         )
+        assertSingleWarningRow("The app closed unexpectedly while the VPN was on.")
+        composeRule.onNodeWithText("×4").assertIsDisplayed()
+        assertSingleWarningRow("Android closed the app to free resources while the VPN was on.")
+        composeRule.onAllNodesWithText("App stopped").assertCountEquals(2)
+    }
+
+    @Test
+    fun advancedWatchlistKeepsDistinctExitReasonsApart() {
+        val crash = processExitWarning(reason = "crash", id = "exit-crash")
+        val anr = processExitWarning(reason = "anr", id = "exit-anr")
+        renderOverview(crash, anr, expertMode = true)
+        assertSingleWarningRow(crash.message)
+        assertSingleWarningRow(anr.message)
+        composeRule.onAllNodesWithText("Application_exit_correlation").assertCountEquals(2)
+    }
+
+    private fun assertSingleWarningRow(message: String) {
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(message))
+        composeRule.onAllNodesWithText(message).assertCountEquals(1)
+        composeRule.onNodeWithText(message).assertIsDisplayed()
+    }
+
+    private fun processExitWarning(
+        reason: String,
+        id: String = "exit-warning",
+    ) = DiagnosticsEventUiModel(
+        id = id,
+        source = "Application_exit_correlation",
+        severity = "WARN",
+        message =
+            "event=process_exit_correlation verdict=inconclusive evidence=last_exit_inspector_v1 " +
+                "reason=$reason subtype=none importance=foreground",
+        createdAtLabel = "13:36",
+        tone = DiagnosticsTone.Warning,
+    )
 
     private fun renderOverview(
-        warning: DiagnosticsEventUiModel,
+        vararg warnings: DiagnosticsEventUiModel,
         expertMode: Boolean,
     ) {
         composeRule.setContent {
             RipDpiTheme {
                 OverviewSection(
-                    overview = DiagnosticsOverviewUiModel(warnings = persistentListOf(warning)),
+                    overview = DiagnosticsOverviewUiModel(warnings = persistentListOf(*warnings)),
                     scan = DiagnosticsScanUiModel(),
                     live = DiagnosticsLiveUiModel(),
                     isActiveScan = false,
