@@ -234,12 +234,7 @@ impl UdpSession {
     /// are mutually exclusive single-shot outcomes with no teardown arm to
     /// protect from starvation.
     pub async fn recv_from(&self, cancel: CancellationToken) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
-        let recv_fut = async {
-            let mut buf = self.memory_budget.receive_pool.acquire().await?;
-            let n = self.udp.recv(buf.as_mut_slice()).await?;
-            let (from, data) = decode_udp_frame(&buf.as_mut_slice()[..n])?;
-            Ok::<_, io::Error>((from, data.to_vec()))
-        };
+        let recv_fut = self.recv_frame(decode_udp_frame);
 
         let timeout_fut = tokio::time::sleep(self.recv_timeout);
 
@@ -264,12 +259,7 @@ impl UdpSession {
         &self,
         cancel: CancellationToken,
     ) -> io::Result<Option<(Vec<u8>, TargetAddr)>> {
-        let recv_fut = async {
-            let mut buf = self.memory_budget.receive_pool.acquire().await?;
-            let n = self.udp.recv(buf.as_mut_slice()).await?;
-            let (from, data) = decode_udp_target_frame(&buf.as_mut_slice()[..n])?;
-            Ok::<_, io::Error>((from, data.to_vec()))
-        };
+        let recv_fut = self.recv_frame(decode_udp_target_frame);
         tokio::select! {
             result = recv_fut => {
                 let (from, data) = result?;
@@ -277,6 +267,35 @@ impl UdpSession {
             }
             _ = tokio::time::sleep(self.recv_timeout) => Ok(None),
             _ = cancel.cancelled() => Ok(None),
+        }
+    }
+
+    /// Receive and decode one relay datagram.
+    ///
+    /// The shared receive buffer is taken only once the socket is readable, so an
+    /// idle association waiting for a reply does not hold one of the tunnel-wide
+    /// buffers that other associations need to read replies that have arrived.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe. `readable` and the buffer acquisition consume nothing, and
+    /// `try_recv` plus the decode are synchronous, so cancellation cannot consume
+    /// and lose a datagram.
+    async fn recv_frame<T>(
+        &self,
+        decode: impl for<'a> Fn(&'a [u8]) -> io::Result<(T, &'a [u8])>,
+    ) -> io::Result<(T, Vec<u8>)> {
+        loop {
+            self.udp.readable().await?;
+            let mut buf = self.memory_budget.receive_pool.acquire().await?;
+            let n = match self.udp.try_recv(buf.as_mut_slice()) {
+                Ok(n) => n,
+                // Readiness was spurious or another reader took the datagram.
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => continue,
+                Err(error) => return Err(error),
+            };
+            let (from, data) = decode(&buf.as_mut_slice()[..n])?;
+            return Ok((from, data.to_vec()));
         }
     }
 
@@ -333,6 +352,33 @@ mod tests {
         drop(first);
 
         assert!(budget.try_reserve_queued_bytes(5).is_some(), "dropping queued datagram must release its bytes");
+    }
+
+    #[tokio::test]
+    async fn idle_receiver_does_not_hold_a_shared_receive_buffer() {
+        // One shared receive buffer: an idle association waiting for a reply must
+        // not keep another association from reading the reply that has arrived.
+        let budget = UdpMemoryBudget::new(1500, 1, DEFAULT_QUEUED_UDP_BYTES);
+        let (idle_proxy, _, _) = spawn_stub_proxy(0, false).await;
+        let (busy_proxy, busy_echo, _) = spawn_stub_proxy(1, false).await;
+        let idle = UdpSession::connect_with_memory_budget(idle_proxy, Auth::NoAuth, None, budget.clone())
+            .await
+            .expect("idle session");
+        let busy =
+            UdpSession::connect_with_memory_budget(busy_proxy, Auth::NoAuth, None, budget).await.expect("busy session");
+        let cancel = CancellationToken::new();
+        let idle_cancel = cancel.clone();
+        let idle_recv = tokio::spawn(async move { idle.recv_from(idle_cancel).await });
+        tokio::task::yield_now().await;
+
+        let reply = tokio::time::timeout(Duration::from_secs(2), busy.relay_once(busy_echo, b"ping", cancel.clone()))
+            .await
+            .expect("the reply must not wait for the idle association")
+            .expect("relay succeeds");
+
+        assert_eq!(reply.map(|(payload, _)| payload), Some(b"ping".to_vec()));
+        cancel.cancel();
+        assert!(idle_recv.await.expect("idle task").expect("idle recv").is_none());
     }
 
     /// Start a minimal SOCKS5 proxy stub that:
