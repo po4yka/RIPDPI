@@ -247,6 +247,7 @@ internal fun navigationRouteFrom(intent: Intent?): Route? =
                 "diagnostics" -> Route.Diagnostics()
                 "settings" -> Route.Settings
                 "subscription-failover" -> Route.SubscriptionFailover
+                "detection-check" -> Route.DetectionCheck
                 else -> null
             }
         }

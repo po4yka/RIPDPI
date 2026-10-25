@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_alert_channel_name">تنبيهات الكشف</string>
+    <string name="detection_alert_channel_description">تنبيهات عندما يمكن كشف VPN على الشبكة الحالية</string>
+    <string name="detection_alert_title_detected">تم كشف VPN: النقاط %1$d/100</string>
+    <string name="detection_alert_title_needs_review">قد يكون VPN مرئيًا: النقاط %1$d/100</string>
+    <string name="detection_alert_body">انقر لفتح فحص الكشف وعرض التفاصيل والحلول.</string>
+</resources>

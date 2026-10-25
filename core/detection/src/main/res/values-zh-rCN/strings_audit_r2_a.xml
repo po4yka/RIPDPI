@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_alert_channel_name">检测提醒</string>
+    <string name="detection_alert_channel_description">当前网络可检测到 VPN 时发出提醒</string>
+    <string name="detection_alert_title_detected">已检测到 VPN：评分 %1$d/100</string>
+    <string name="detection_alert_title_needs_review">VPN 可能可见：评分 %1$d/100</string>
+    <string name="detection_alert_body">点按以打开检测检查，查看详情和修复方法。</string>
+</resources>

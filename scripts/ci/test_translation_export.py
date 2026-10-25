@@ -16,6 +16,7 @@ class TranslationExportTest(unittest.TestCase):
         shutil.copy2(pathlib.Path(__file__).with_name(self.script.name), self.script)
         self.write("app", "strings.xml", '<string name="base">Base</string>')
         self.write("core/service", "strings.xml", '<string name="status">Status</string>')
+        self.write("core/detection", "strings.xml", '<string name="alert">Alert</string>')
 
     def write(self, module, filename, body):
         path = self.root / module / "src/main/res/values" / filename
@@ -41,7 +42,7 @@ class TranslationExportTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stderr)
         manifest = self.root / "config/i18n/translatable-keys.txt"
         self.assertEqual(
-            ["app:base", "app:multiline", "app:xray", "service:connected", "service:status"],
+            ["app:base", "app:multiline", "app:xray", "detection:alert", "service:connected", "service:status"],
             manifest.read_text().splitlines(),
         )
         first = manifest.read_bytes()

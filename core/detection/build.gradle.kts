@@ -10,6 +10,10 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.detection"
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {

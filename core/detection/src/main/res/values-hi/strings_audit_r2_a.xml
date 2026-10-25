@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_alert_channel_name">पहचान अलर्ट</string>
+    <string name="detection_alert_channel_description">जब मौजूदा नेटवर्क पर VPN पहचाना जा सके, तब अलर्ट</string>
+    <string name="detection_alert_title_detected">VPN पहचाना गया: स्कोर %1$d/100</string>
+    <string name="detection_alert_title_needs_review">VPN दिख सकता है: स्कोर %1$d/100</string>
+    <string name="detection_alert_body">विवरण और समाधान के लिए पहचान जाँच खोलने हेतु टैप करें।</string>
+</resources>

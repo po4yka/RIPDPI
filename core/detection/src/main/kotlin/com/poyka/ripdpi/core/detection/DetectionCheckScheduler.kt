@@ -4,7 +4,10 @@ package com.poyka.ripdpi.core.detection
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.poyka.ripdpi.data.AppStatus
@@ -51,10 +54,10 @@ class DetectionCheckScheduler
                 val channel =
                     NotificationChannel(
                         CHANNEL_ID,
-                        "Detection Alerts",
+                        appContext.getString(R.string.detection_alert_channel_name),
                         NotificationManager.IMPORTANCE_DEFAULT,
                     ).apply {
-                        description = "Alerts when VPN bypass is detectable"
+                        description = appContext.getString(R.string.detection_alert_channel_description)
                     }
                 nm.createNotificationChannel(channel)
             }
@@ -156,18 +159,34 @@ class DetectionCheckScheduler
 
             val title =
                 when (verdict) {
-                    Verdict.DETECTED -> "VPN detected - Score: $score/100"
-                    Verdict.NEEDS_REVIEW -> "VPN may be visible - Score: $score/100"
+                    Verdict.DETECTED -> context.getString(R.string.detection_alert_title_detected, score)
+                    Verdict.NEEDS_REVIEW -> context.getString(R.string.detection_alert_title_needs_review, score)
                     Verdict.NOT_DETECTED -> return
+                }
+            // The launcher activity reads this link; core:detection cannot reference the app's activity class.
+            val openDetectionCheck =
+                context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                    action = Intent.ACTION_VIEW
+                    data = Uri.parse(DETECTION_CHECK_DEEP_LINK)
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 }
 
             val notification =
                 NotificationCompat
                     .Builder(context, CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                    .setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle(title)
-                    .setContentText("Open Detection Check for details and fixes")
-                    .setAutoCancel(true)
+                    .setContentText(context.getString(R.string.detection_alert_body))
+                    .setContentIntent(
+                        openDetectionCheck?.let {
+                            PendingIntent.getActivity(
+                                context,
+                                NOTIFICATION_ID,
+                                it,
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                            )
+                        },
+                    ).setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                     .build()
 
@@ -177,6 +196,7 @@ class DetectionCheckScheduler
         companion object {
             private const val CHANNEL_ID = "detection_alerts"
             private const val NOTIFICATION_ID = 9001
+            const val DETECTION_CHECK_DEEP_LINK = "ripdpi://detection-check"
         }
     }
 

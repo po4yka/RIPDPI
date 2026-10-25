@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_alert_channel_name">هشدارهای شناسایی</string>
+    <string name="detection_alert_channel_description">هشدار هنگامی که VPN در شبکهٔ فعلی قابل شناسایی است</string>
+    <string name="detection_alert_title_detected">VPN شناسایی شد: امتیاز %1$d/100</string>
+    <string name="detection_alert_title_needs_review">VPN ممکن است قابل مشاهده باشد: امتیاز %1$d/100</string>
+    <string name="detection_alert_body">برای دیدن جزئیات و راه‌حل‌ها بزنید تا «بررسی شناسایی» باز شود.</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_alert_channel_name">Detection alerts</string>
+    <string name="detection_alert_channel_description">Alerts when the VPN can be detected on the current network</string>
+    <string name="detection_alert_title_detected">VPN detected: score %1$d/100</string>
+    <string name="detection_alert_title_needs_review">VPN may be visible: score %1$d/100</string>
+    <string name="detection_alert_body">Tap to open Detection check for details and fixes.</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_alert_channel_name">Erkennungswarnungen</string>
+    <string name="detection_alert_channel_description">Warnungen, wenn das VPN im aktuellen Netzwerk erkennbar ist</string>
+    <string name="detection_alert_title_detected">VPN erkannt: Bewertung %1$d/100</string>
+    <string name="detection_alert_title_needs_review">VPN möglicherweise sichtbar: Bewertung %1$d/100</string>
+    <string name="detection_alert_body">Tippen Sie, um die Erkennungsprüfung mit Details und Lösungen zu öffnen.</string>
+</resources>

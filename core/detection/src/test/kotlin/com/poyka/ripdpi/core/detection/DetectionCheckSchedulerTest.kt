@@ -1,6 +1,12 @@
 package com.poyka.ripdpi.core.detection
 
+import android.app.Notification
+import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
@@ -15,6 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -54,6 +61,55 @@ class DetectionCheckSchedulerTest {
             assertEquals(1, runs)
             assertTrue(history.isEmpty())
             scheduler.stopObserving()
+        }
+
+    @Test
+    fun `detected alert is localized and opens the detection check route`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val launcher = ComponentName(context, "com.example.Launcher")
+            shadowOf(context.packageManager).apply {
+                addActivityIfNotPresent(launcher)
+                addIntentFilterForActivity(
+                    launcher,
+                    IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) },
+                )
+            }
+            val state = DefaultServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
+            val fingerprint =
+                object : NetworkFingerprintProvider {
+                    override fun capture(): NetworkFingerprint = network("wifi")
+                }
+            val runner =
+                object : DetectionCheckRunner {
+                    override suspend fun run(
+                        context: Context,
+                        config: DetectionRunnerConfig,
+                        onProgress: (suspend (DetectionProgress) -> Unit)?,
+                    ): DetectionCheckResult = cleanResult().copy(verdict = Verdict.DETECTED)
+                }
+            val scheduler =
+                DetectionCheckScheduler(context, state, fingerprint, runner, recordingHistory(mutableListOf()))
+
+            scheduler.startObserving(context, this)
+            advanceUntilIdle()
+            scheduler.stopObserving()
+
+            val notification =
+                shadowOf(
+                    context.getSystemService(NotificationManager::class.java),
+                ).allNotifications.single()
+            val title = notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString()
+            assertTrue(title, title.startsWith("VPN detected: score "))
+            assertEquals(
+                "Tap to open Detection check for details and fixes.",
+                notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString(),
+            )
+            assertEquals(R.drawable.ic_notification, notification.smallIcon.resId)
+            val opened = shadowOf(notification.contentIntent).savedIntent
+            assertEquals(launcher, opened.component)
+            assertEquals(Intent.ACTION_VIEW, opened.action)
+            assertEquals(Uri.parse("ripdpi://detection-check"), opened.data)
         }
 
     private fun network(transport: String) = NetworkFingerprint(transport, true, false, "system", emptyList())

@@ -115,6 +115,10 @@ class MainActivityPermissionTest {
             Route.SubscriptionFailover,
             navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://subscription-failover"))),
         )
+        assertEquals(
+            Route.DetectionCheck,
+            navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://detection-check"))),
+        )
         assertEquals(null, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect"))))
         assertEquals(null, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://settings/other"))))
         assertEquals(null, navigationRouteFrom(Intent("untrusted", Uri.parse("ripdpi://settings"))))

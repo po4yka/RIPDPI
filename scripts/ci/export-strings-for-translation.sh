@@ -2,10 +2,11 @@
 # export-strings-for-translation.sh -- regenerate the canonical translatable-key
 # manifest from source.
 #
-# Extracts every translatable <string name="..."> key from the two source string
+# Extracts every translatable <string name="..."> key from the source string
 # resource directories, EXCLUDING any string carrying translatable="false", sorts -u, and
 # writes the result to config/i18n/translatable-keys.txt. App keys are prefixed
-# with "app:" and core/service keys with "service:".
+# with "app:", core/service keys with "service:", and core/detection keys with
+# "detection:".
 #
 # The manifest is the contract between the in-repo source strings and the
 # translation-export pipeline. check-translation-export.sh diffs a fresh
@@ -33,6 +34,7 @@ keys = set()
 for prefix, resource_dir in (
     ("app", "app/src/main/res/values"),
     ("service", "core/service/src/main/res/values"),
+    ("detection", "core/detection/src/main/res/values"),
 ):
     directory = pathlib.Path(resource_dir)
     if not directory.is_dir():

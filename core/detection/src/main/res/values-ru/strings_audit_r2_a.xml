@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_alert_channel_name">Оповещения об обнаружении</string>
+    <string name="detection_alert_channel_description">Оповещения, когда VPN можно обнаружить в текущей сети</string>
+    <string name="detection_alert_title_detected">VPN обнаружен: оценка %1$d/100</string>
+    <string name="detection_alert_title_needs_review">VPN может быть заметен: оценка %1$d/100</string>
+    <string name="detection_alert_body">Нажмите, чтобы открыть «Проверку обнаружения» с подробностями и исправлениями.</string>
+</resources>

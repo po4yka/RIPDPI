@@ -9,6 +9,7 @@ on:
     paths:
       - "app/src/main/res/values/*.xml"
       - "core/service/src/main/res/values/*.xml"
+      - "core/detection/src/main/res/values/*.xml"
       - "config/i18n/translatable-keys.txt"
       - "scripts/ci/export-strings-for-translation.sh"
       - "scripts/ci/check-translation-export.sh"
@@ -19,6 +20,7 @@ on:
     paths:
       - "app/src/main/res/values/*.xml"
       - "core/service/src/main/res/values/*.xml"
+      - "core/detection/src/main/res/values/*.xml"
       - "config/i18n/translatable-keys.txt"
       - "scripts/ci/export-strings-for-translation.sh"
       - "scripts/ci/check-translation-export.sh"
