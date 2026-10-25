@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-25
+goal: TRN-1792949035079937 Run AmneziaWG 3.x configs in the native engine and
+  the Kotlin contract

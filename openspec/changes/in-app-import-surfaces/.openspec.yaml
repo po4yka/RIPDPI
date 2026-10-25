@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-25
+goal: AND-1792945974437056 Import subscriptions, WireGuard/AmneziaWG configs and
+  AmneziaVPN keys from every in-app surface
