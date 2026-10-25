@@ -3419,7 +3419,6 @@ Origen: %2$s</string>
     <string name="onboarding_skip_test">Omitir prueba</string>
     <!-- mode badges -->
     <string name="onboarding_badge_recommended">Recomendado</string>
-    <string name="onboarding_badge_advanced">Avanzado</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Resolutor DNS centrado en la privacidad.</string>
     <string name="onboarding_dns_advanced">Configuración avanzada de DNS</string>

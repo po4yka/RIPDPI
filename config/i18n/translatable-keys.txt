@@ -3743,7 +3743,7 @@ app:notice_strategy_packs_refreshed_message
 app:notice_strategy_packs_refreshed_title
 app:notice_telemetry_salt_reset_message
 app:notice_telemetry_salt_reset_title
-app:onboarding_badge_advanced
+app:onboarding_badge_manual_setup
 app:onboarding_badge_recommended
 app:onboarding_bypass_modes_body
 app:onboarding_bypass_modes_title

@@ -2257,4 +2257,5 @@
     <string name="diagnostics_tool_state_running">चल रहा है</string>
     <string name="diagnostics_tool_state_complete">पूर्ण</string>
     <string name="diagnostics_tool_state_failed">विफल</string>
+    <string name="onboarding_badge_manual_setup">मैन्युअल सेटअप के लिए</string>
 </resources>

@@ -1676,7 +1676,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_use_recommended">Usar recomendado</string>
     <string name="onboarding_skip_test">Pular teste</string>
     <string name="onboarding_badge_recommended">Recomendado</string>
-    <string name="onboarding_badge_advanced">Avançado</string>
     <string name="onboarding_setup_dns_mullvad_body">Resolvedor DNS focado em privacidade.</string>
     <string name="onboarding_dns_advanced">Configurações avançadas de DNS</string>
     <string name="onboarding_setup_mode_subtitle">Selecione como o RIPDPI deve rotear o tráfego neste dispositivo.</string>

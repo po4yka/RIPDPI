@@ -71,7 +71,7 @@ internal fun OnboardingModeSelectionContent(
         OnboardingOptionCard(
             title = stringResource(R.string.onboarding_setup_mode_proxy_title),
             description = stringResource(R.string.onboarding_setup_mode_proxy_body),
-            badgeText = stringResource(R.string.onboarding_badge_advanced),
+            badgeText = stringResource(R.string.onboarding_badge_manual_setup),
             selected = selectedMode == Mode.Proxy,
             onClick = { onModeSelected(Mode.Proxy) },
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingModeProxy),
@@ -109,7 +109,6 @@ internal fun OnboardingPersonaSelectionContent(
         OnboardingOptionCard(
             title = stringResource(R.string.persona_advanced),
             description = stringResource(R.string.onboarding_persona_advanced_body),
-            badgeText = stringResource(R.string.onboarding_badge_advanced),
             selected = persona == OnboardingPersona.Advanced,
             onClick = { onPersonaSelected(OnboardingPersona.Advanced.id) },
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaAdvanced),
