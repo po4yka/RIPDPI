@@ -23,20 +23,8 @@ class LogAggregatorUseCase
             tunnelEvents: List<NativeRuntimeEvent>,
         ): List<LogEntry> =
             (
-                proxyEvents.map { event ->
-                    logEntryMapper.runtimeEvent(
-                        event = event,
-                        defaultSubsystem = LogSubsystem.Proxy,
-                        isActiveSession = true,
-                    )
-                } +
-                    tunnelEvents.map { event ->
-                        logEntryMapper.runtimeEvent(
-                            event = event,
-                            defaultSubsystem = LogSubsystem.Tunnel,
-                            isActiveSession = true,
-                        )
-                    }
+                logEntryMapper.runtimeEvents(proxyEvents, LogSubsystem.Proxy, isActiveSession = true) +
+                    logEntryMapper.runtimeEvents(tunnelEvents, LogSubsystem.Tunnel, isActiveSession = true)
             ).dedupeAndSort()
 
         fun diagnosticLogs(
@@ -57,20 +45,8 @@ class LogAggregatorUseCase
             activeSessionIds: Set<String>,
         ): List<LogEntry> =
             (
-                persisted.map { event ->
-                    logEntryMapper.diagnosticEvent(
-                        event = event,
-                        activeSessionIds = activeSessionIds,
-                        isLiveEvent = false,
-                    )
-                } +
-                    live.map { event ->
-                        logEntryMapper.diagnosticEvent(
-                            event = event,
-                            activeSessionIds = activeSessionIds,
-                            isLiveEvent = true,
-                        )
-                    }
+                logEntryMapper.diagnosticEvents(persisted, activeSessionIds, isLiveEvent = false) +
+                    logEntryMapper.diagnosticEvents(live, activeSessionIds, isLiveEvent = true)
             ).dedupeAndSort()
 
         fun merge(

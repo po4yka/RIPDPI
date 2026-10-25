@@ -82,16 +82,35 @@ class LogEntryMapper
                 isActiveSession = true,
             )
 
-        fun runtimeEvent(
+        fun runtimeEvents(
+            events: List<NativeRuntimeEvent>,
+            defaultSubsystem: LogSubsystem,
+            isActiveSession: Boolean,
+        ): List<LogEntry> {
+            val timestampSnapshot = timestamps.snapshot()
+            return events.map { event -> runtimeEvent(event, defaultSubsystem, isActiveSession, timestampSnapshot) }
+        }
+
+        fun diagnosticEvents(
+            events: List<DiagnosticEvent>,
+            activeSessionIds: Set<String>,
+            isLiveEvent: Boolean,
+        ): List<LogEntry> {
+            val timestampSnapshot = timestamps.snapshot()
+            return events.map { event -> diagnosticEvent(event, activeSessionIds, isLiveEvent, timestampSnapshot) }
+        }
+
+        private fun runtimeEvent(
             event: NativeRuntimeEvent,
             defaultSubsystem: LogSubsystem,
             isActiveSession: Boolean,
+            timestampSnapshot: LocalizedTimestampFormatter.Snapshot,
         ): LogEntry {
             val subsystem = normalizeLogSubsystem(event.subsystem, event.source, defaultSubsystem)
             return LogEntry(
                 id = "runtime-${event.createdAt}-${event.source}-${event.message.hashCode()}",
                 createdAtMs = event.createdAt,
-                timestamp = formatTimestamp(event.createdAt),
+                timestamp = timestampSnapshot.format(event.createdAt, TimestampTimeSeconds),
                 subsystem = subsystem,
                 severity = severityFromLevel(event.level),
                 message = event.message,
@@ -102,10 +121,11 @@ class LogEntryMapper
             )
         }
 
-        fun diagnosticEvent(
+        private fun diagnosticEvent(
             event: DiagnosticEvent,
             activeSessionIds: Set<String>,
             isLiveEvent: Boolean,
+            timestampSnapshot: LocalizedTimestampFormatter.Snapshot,
         ): LogEntry {
             val diagnosticsSessionId = event.sessionId ?: event.connectionSessionId
             val isActive =
@@ -114,7 +134,7 @@ class LogEntryMapper
             return LogEntry(
                 id = event.id,
                 createdAtMs = event.createdAt,
-                timestamp = formatTimestamp(event.createdAt),
+                timestamp = timestampSnapshot.format(event.createdAt, TimestampTimeSeconds),
                 subsystem = normalizeLogSubsystem(event.subsystem, event.source, LogSubsystem.Diagnostics),
                 severity = severityFromLevel(event.level),
                 message = event.message,

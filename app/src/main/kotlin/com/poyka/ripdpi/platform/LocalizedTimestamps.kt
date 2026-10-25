@@ -70,14 +70,28 @@ open class LocalizedTimestampFormatter
         open fun format(
             timestampMillis: Long,
             skeleton: String,
-        ): String =
-            formatLocalizedTimestamp(
-                timestampMillis = timestampMillis,
+        ): String = snapshot().format(timestampMillis, skeleton)
+
+        /**
+         * Reads the app language and the 12/24-hour setting once, for a batch of timestamps. On API 32 and
+         * below, reading the app language creates a configuration context, so do not repeat it per item.
+         */
+        fun snapshot(): Snapshot =
+            Snapshot(
                 locale =
                     ContextCompat
                         .getContextForLanguage(context)
                         .resources.configuration.locales[0],
                 is24Hour = DateFormat.is24HourFormat(context),
-                skeleton = skeleton,
             )
+
+        class Snapshot internal constructor(
+            private val locale: Locale,
+            private val is24Hour: Boolean,
+        ) {
+            fun format(
+                timestampMillis: Long,
+                skeleton: String,
+            ): String = formatLocalizedTimestamp(timestampMillis, locale, is24Hour, skeleton)
+        }
     }
