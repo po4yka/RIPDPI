@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -23,6 +24,7 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -34,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -52,7 +53,7 @@ class BottomNavBarTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun maximumFontKeepsNonOverlappingFullLabelsAndAccessibilityNames() {
+    fun everyFontScaleKeepsOneRowOfFourTabsWithAccessibilityNames() {
         val fontScale = mutableStateOf(1f)
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale.value)) {
@@ -72,79 +73,26 @@ class BottomNavBarTest {
             }
         }
 
-        mapOf(
-            1f to listOf("Status", "Connection", "Diagnostics", "Settings"),
-            1.5f to listOf("Status", "Connection", "Diagnostics", "Settings"),
-            2f to listOf("Status", "Connection", "Diagnostics", "Settings"),
-        ).forEach { (scale, expectedLabels) ->
-            assertBottomNavAtScale(fontScale, scale, expectedLabels)
+        val labels = listOf("Status", "Connection", "Diagnostics", "Settings")
+        listOf(1f, 1.5f, 2f).forEach { scale ->
+            composeRule.runOnIdle { fontScale.value = scale }
+            composeRule.waitForIdle()
+            assertOneRow(LayoutDirection.Ltr)
+            assertFullAccessibilityNames(labels)
+            if (scale < 1.5f) {
+                labels.forEach(::assertSingleLineLabelInsideItsTab)
+            } else {
+                labels.forEach(::assertLabelHidden)
+            }
         }
         composeRule.onNodeWithTag(RipDpiTestTags.BottomNavBar).assertIsDisplayed()
     }
 
-    private fun assertBottomNavAtScale(
-        fontScale: androidx.compose.runtime.MutableState<Float>,
-        scale: Float,
-        expectedLabels: List<String>,
-    ) {
-        composeRule.runOnIdle { fontScale.value = scale }
-        composeRule.waitForIdle()
-        assertLabelsDoNotOverlap(expectedLabels.map(::assertVisibleUnclippedLabel))
-        assertFullAccessibilityNames()
-    }
-
-    private fun assertLabelsDoNotOverlap(labels: List<androidx.compose.ui.semantics.SemanticsNode>) {
-        labels.zipWithNext().forEach { (left, right) ->
-            assertTrue(
-                left.boundsInRoot.right <= right.boundsInRoot.left ||
-                    right.boundsInRoot.right <= left.boundsInRoot.left ||
-                    left.boundsInRoot.bottom <= right.boundsInRoot.top,
-            )
-        }
-    }
-
-    private fun assertFullAccessibilityNames() {
-        Route.topLevel.zip(listOf("Status", "Connection", "Diagnostics", "Settings")).forEach { (route, label) ->
-            composeRule
-                .onAllNodesWithContentDescription(label, useUnmergedTree = true)
-                .assertCountEquals(1)
-            val node =
-                composeRule
-                    .onNodeWithTag(RipDpiTestTags.bottomNav(route))
-                    .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Text))
-                    .assertHasClickAction()
-            if (route == Route.Home) node.assertIsSelected() else node.assertIsNotSelected()
-        }
-    }
-
-    private fun assertVisibleUnclippedLabel(label: String) =
-        mutableListOf<TextLayoutResult>().let { layouts ->
-            composeRule
-                .onNodeWithText(label, useUnmergedTree = true)
-                .assertIsDisplayed()
-                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(layouts) }
-                .fetchSemanticsNode()
-                .also {
-                    val layout = layouts.single()
-                    assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
-                    assertTrue((0 until layout.lineCount).all { line -> layout.getLineLeft(line) >= -1f })
-                    assertTrue(
-                        "$label layout=${layout.size} constraints=${layout.layoutInput.constraints} " +
-                            "lines=" +
-                            (0 until layout.lineCount).map { "${layout.getLineLeft(it)}..${layout.getLineRight(it)}" },
-                        (0 until layout.lineCount).all { line ->
-                            layout.getLineRight(line) <= layout.size.width + 1f
-                        },
-                    )
-                }
-        }
+    @Test
+    fun narrowLargeFontNavigationKeepsEveryTabAndCallback() = assertResponsiveNavigation()
 
     @Test
-    fun narrowLargeFontNavigationKeepsEveryLabelAndCallback() = assertResponsiveNavigation()
-
-    @Test
-    fun maximumFontFallbackKeepsCompactTargetsAndFullLabelsInBothDirections() {
-        val width = mutableStateOf(360)
+    fun maximumFontKeepsOneRowOfCompactTargetsInBothDirections() {
         val direction = mutableStateOf(LayoutDirection.Ltr)
         var selected by mutableStateOf<Route>(Route.Home)
         val navigated = mutableListOf<Route>()
@@ -154,7 +102,7 @@ class BottomNavBarTest {
                 LocalLayoutDirection provides direction.value,
             ) {
                 RipDpiTheme {
-                    Box(Modifier.requiredWidth(width.value.dp).height(900.dp)) {
+                    Box(Modifier.requiredWidth(360.dp).height(900.dp)) {
                         BottomNavBar(selected, {
                             selected = it
                             navigated += it
@@ -168,24 +116,15 @@ class BottomNavBarTest {
             composeRule.waitForIdle()
             val bar = composeRule.onNodeWithTag(RipDpiTestTags.BottomNavBar).fetchSemanticsNode().boundsInRoot
             assertTrue("360dp/font2 navigation height is ${bar.height}", bar.height <= 112f)
-            val targets =
-                Route.topLevel.map { route ->
-                    val target = composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(route))
-                    target
-                        .assertIsDisplayed()
-                        .assertHasClickAction()
-                        .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
-                        .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.RequestFocus))
-                    val bounds = target.fetchSemanticsNode().boundsInRoot
-                    assertTrue("$route has a 48dp target", bounds.height >= 48f && bounds.width >= 48f)
-                    bounds
-                }
-            assertEquals(targets[0].top, targets[1].top, 1f)
-            assertTrue(targets[2].top >= targets[0].bottom - 1f)
-            assertEquals(targets[2].top, targets[3].top, 1f)
-            assertEquals(layoutDirection == LayoutDirection.Ltr, targets[0].left < targets[1].left)
+            assertOneRow(layoutDirection).forEach { (route, bounds) ->
+                assertTrue("$route has a 48dp target", bounds.height >= 48f && bounds.width >= 48f)
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                    .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+                    .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.RequestFocus))
+            }
             Route.topLevel.forEach { route ->
-                assertVisibleUnclippedLabel(RuntimeEnvironment.getApplication().getString(route.titleRes))
+                assertLabelHidden(RuntimeEnvironment.getApplication().getString(route.titleRes))
                 composeRule
                     .onNodeWithTag(RipDpiTestTags.bottomNav(route))
                     .performClick()
@@ -196,26 +135,12 @@ class BottomNavBarTest {
                 assertEquals(route, navigated.last())
             }
         }
-        composeRule.runOnIdle { width.value = 96 }
-        composeRule.waitForIdle()
-        val narrowLayouts =
-            Route.topLevel.map { route ->
-                val layouts = mutableListOf<TextLayoutResult>()
-                composeRule
-                    .onNodeWithText(
-                        RuntimeEnvironment.getApplication().getString(route.titleRes),
-                        useUnmergedTree = true,
-                    ).assertIsDisplayed()
-                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-                layouts.single().also { assertFalse("Extreme narrow label remains complete", it.hasVisualOverflow) }
-            }
-        assertTrue("Extreme narrow labels can wrap", narrowLayouts.any { it.lineCount > 1 })
         assertEquals(8, navigated.size)
     }
 
     @Test
     @Config(qualifiers = "ar-rEG-w360dp-h1200dp")
-    fun arabicMaximumFontNavigationKeepsCompleteLabelsWithinCompactHeight() {
+    fun arabicMaximumFontNavigationKeepsOneRowWithinCompactHeight() {
         var selected by mutableStateOf<Route>(Route.Home)
         val navigated = mutableListOf<Route>()
         composeRule.setContent {
@@ -235,8 +160,10 @@ class BottomNavBarTest {
         }
         val bar = composeRule.onNodeWithTag(RipDpiTestTags.BottomNavBar).fetchSemanticsNode().boundsInRoot
         assertTrue("Arabic360dp/font2 navigation height is ${bar.height}", bar.height <= 112f)
+        val labels = Route.topLevel.map { RuntimeEnvironment.getApplication().getString(it.titleRes) }
+        assertOneRow(LayoutDirection.Rtl)
+        assertFullAccessibilityNames(labels)
         Route.topLevel.forEach { route ->
-            val label = RuntimeEnvironment.getApplication().getString(route.titleRes)
             val target = composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(route))
             target
                 .assertIsDisplayed()
@@ -244,19 +171,8 @@ class BottomNavBarTest {
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
                 .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.RequestFocus))
             val targetBounds = target.fetchSemanticsNode().boundsInRoot
-            assertTrue("$label retains a 48dp target", targetBounds.height >= 48f && targetBounds.width >= 48f)
-            val layouts = mutableListOf<TextLayoutResult>()
-            val text =
-                composeRule
-                    .onNodeWithText(label, useUnmergedTree = true)
-                    .assertIsDisplayed()
-                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-                    .fetchSemanticsNode()
-            assertFalse("$label remains complete", layouts.single().hasVisualOverflow)
-            assertTrue("$label stays inside its target", targetBounds.contains(text.boundsInRoot.topLeft))
-            assertTrue("$label stays inside its target", targetBounds.contains(text.boundsInRoot.bottomRight))
-            assertTrue("$label stays inside the bar", bar.contains(text.boundsInRoot.topLeft))
-            assertTrue("$label stays inside the bar", bar.contains(text.boundsInRoot.bottomRight))
+            assertTrue("$route retains a 48dp target", targetBounds.height >= 48f && targetBounds.width >= 48f)
+            assertTrue("$route stays inside the bar", bar.contains(targetBounds.center))
             target.performClick().assertIsSelected()
             Route.topLevel.filter { it != route }.forEach {
                 composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(it)).assertIsNotSelected()
@@ -268,7 +184,7 @@ class BottomNavBarTest {
 
     @Test
     @Config(qualifiers = "ru-rRU-w420dp-h1200dp")
-    fun russianLargeFontNavigationKeepsEveryLabelAndCallback() = assertResponsiveNavigation()
+    fun russianLargeFontNavigationKeepsEveryTabAndCallback() = assertResponsiveNavigation()
 
     private fun assertResponsiveNavigation() {
         val labels = Route.topLevel.map { RuntimeEnvironment.getApplication().getString(it.titleRes) }
@@ -305,31 +221,86 @@ class BottomNavBarTest {
                 direction.value = layoutDirection
             }
             composeRule.waitForIdle()
-            labels.forEach { label ->
-                val layouts = mutableListOf<TextLayoutResult>()
-                composeRule
-                    .onNodeWithText(label, useUnmergedTree = true)
-                    .assertIsDisplayed()
-                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-                assertFalse(
-                    "$screenWidth/$fontScale/$layoutDirection/$label layout=${layouts.single().size} " +
-                        "constraints=${layouts.single().layoutInput.constraints} " +
-                        "lines=${layouts.single().lineCount} height=${layouts.single().multiParagraph.height}",
-                    layouts.single().hasVisualOverflow,
-                )
-                assertEquals(1, layouts.single().lineCount)
+            assertOneRow(layoutDirection)
+            assertFullAccessibilityNames(labels)
+            if (fontScale < 1.5f) {
+                labels.forEach(::assertSingleLineLabelInsideItsTab)
+            } else {
+                labels.forEach(::assertLabelHidden)
             }
             Route.topLevel.forEach { route ->
-                val target = composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(route))
-                target
+                composeRule
+                    .onNodeWithTag(RipDpiTestTags.bottomNav(route))
                     .assertIsDisplayed()
                     .assertHasClickAction()
                     .performClick()
                     .assertIsSelected()
-                assertEquals(route, navigated.last())
+                assertEquals("$screenWidth/$fontScale/$layoutDirection", route, navigated.last())
             }
         }
         assertEquals(32, navigated.size)
+    }
+
+    /** Asserts that the four tabs share one row in reading order and returns their bounds. */
+    private fun assertOneRow(direction: LayoutDirection): List<Pair<Route, Rect>> {
+        val tabs =
+            Route.topLevel.map { route ->
+                route to
+                    composeRule
+                        .onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                        .assertIsDisplayed()
+                        .fetchSemanticsNode()
+                        .boundsInRoot
+            }
+        tabs.zipWithNext().forEach { (first, second) ->
+            // Centres, not edges: the selected tab is drawn slightly scaled up.
+            assertEquals(
+                "${first.first} and ${second.first} share one row",
+                first.second.center.y,
+                second.second.center.y,
+                1f,
+            )
+            assertEquals(
+                "${first.first} precedes ${second.first} in $direction",
+                direction == LayoutDirection.Ltr,
+                first.second.center.x < second.second.center.x,
+            )
+        }
+        return tabs
+    }
+
+    private fun assertFullAccessibilityNames(labels: List<String>) {
+        Route.topLevel.zip(labels).forEach { (route, label) ->
+            composeRule
+                .onAllNodesWithContentDescription(label, useUnmergedTree = true)
+                .assertCountEquals(1)
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf(label)))
+                .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Text))
+                .assertHasClickAction()
+        }
+    }
+
+    private fun assertSingleLineLabelInsideItsTab(label: String) {
+        val layouts = mutableListOf<TextLayoutResult>()
+        val text =
+            composeRule
+                .onNodeWithText(label, useUnmergedTree = true)
+                .assertIsDisplayed()
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                .fetchSemanticsNode()
+                .boundsInRoot
+        assertEquals("$label stays on one line", 1, layouts.single().lineCount)
+        val tab =
+            Route.topLevel
+                .map { composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(it)).fetchSemanticsNode().boundsInRoot }
+                .single { it.contains(text.center) }
+        assertTrue("$label stays inside its tab", text.left >= tab.left - 1f && text.right <= tab.right + 1f)
+    }
+
+    private fun assertLabelHidden(label: String) {
+        composeRule.onAllNodesWithText(label, useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test
