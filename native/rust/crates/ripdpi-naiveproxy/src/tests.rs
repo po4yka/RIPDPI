@@ -270,6 +270,59 @@ async fn stalled_upstream_tls_fails_socks_connect_after_deadline() {
     blackhole.abort();
 }
 
+/// When the upstream open fails or times out after the H2 handshake, the
+/// spawned H2 driver must not keep the upstream TLS socket open.
+#[tokio::test]
+async fn abandoned_upstream_open_closes_the_upstream_socket() {
+    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+
+    crate::tls::ensure_rustls_provider();
+    let certified = rcgen::generate_simple_self_signed(vec!["proxy.example".to_owned()]).expect("self-signed cert");
+    let cert_der = certified.cert.der().clone();
+    let key_der = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der()));
+    let mut server_config = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert_der.clone()], key_der)
+        .expect("server config");
+    server_config.alpn_protocols = vec![b"h2".to_vec()];
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(cert_der).expect("trust fixture cert");
+    let mut client_config = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
+    client_config.alpn_protocols = vec![b"h2".to_vec()];
+
+    // An upstream that completes TLS and then never answers the H2 CONNECT.
+    let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
+    let upstream_port = upstream.local_addr().expect("upstream addr").port();
+    let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
+    let (closed_tx, closed_rx) = tokio::sync::oneshot::channel();
+    let silent = tokio::spawn(async move {
+        let (socket, _) = upstream.accept().await.expect("accept upstream");
+        let mut tls = acceptor.accept(socket).await.expect("upstream TLS accept");
+        let mut sink = [0u8; 1024];
+        while matches!(tls.read(&mut sink).await, Ok(read) if read > 0) {}
+        let _ = closed_tx.send(());
+    });
+    let config = NaiveProxyConfig {
+        server: "127.0.0.1".to_owned(),
+        server_port: upstream_port,
+        server_name: "proxy.example".to_owned(),
+        tls_config: Arc::new(client_config),
+        ..naive_config_with_auth()
+    };
+
+    let target = SocksTarget::Domain("example.com".to_owned(), 443);
+    let opened = tokio::time::timeout(
+        std::time::Duration::from_millis(500),
+        crate::connect_tunnel::open_https_connect_tunnel(&config, &target),
+    )
+    .await;
+    assert!(opened.is_err(), "the silent upstream must not complete the CONNECT");
+
+    let closed = tokio::time::timeout(std::time::Duration::from_secs(3), closed_rx).await;
+    assert!(matches!(closed, Ok(Ok(()))), "the abandoned upstream socket must be closed");
+    silent.abort();
+}
+
 #[test]
 fn padding_frame_encodes_big_endian_length_and_zero_padding() {
     let mut encoder = PaddingEncoder::default();

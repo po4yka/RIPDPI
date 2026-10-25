@@ -22,6 +22,12 @@ use crate::socks5::SocksTarget;
 pub trait AsyncTunnel: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> AsyncTunnel for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 
+/// Opens an H2 CONNECT tunnel to `target` through the NaiveProxy server.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it before the upgrade drops the TCP/TLS stream or,
+/// once the H2 driver runs, aborts the driver, which owns the upstream socket.
 pub(crate) async fn open_https_connect_tunnel(
     config: &NaiveProxyConfig,
     target: &SocksTarget,
@@ -45,11 +51,14 @@ pub(crate) async fn open_https_connect_tunnel(
         hyper::client::conn::http2::handshake(TokioExecutor::new(), io).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate NaiveProxy H2: {error}"))
         })?;
-    tokio::spawn(async move {
+    // The driver owns the upstream TLS socket. If the open fails or its
+    // deadline drops this future before the upgrade, the guard aborts the
+    // driver so the socket closes now, not at the peer's or kernel's timeout.
+    let driver = DriverAbortGuard(Some(tokio::spawn(async move {
         if let Err(error) = connection.await {
             eprintln!("naiveproxy h2 connection closed: {error}");
         }
-    });
+    })));
 
     let request = build_h2_connect_request(config, target, generate_connect_padding_header())?;
     let response = sender.send_request(request).await.map_err(|error| {
@@ -67,10 +76,29 @@ pub(crate) async fn open_https_connect_tunnel(
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to upgrade NaiveProxy H2 CONNECT: {error}"))
     })?;
     let stream = TokioIo::new(upgraded);
+    driver.defuse();
 
     match padding_mode {
         PayloadPaddingMode::Plain => Ok(Box::new(stream)),
         PayloadPaddingMode::Variant1 => Ok(Box::new(NaivePaddingStream::new(stream))),
+    }
+}
+
+/// Aborts the H2 connection driver on drop unless [`Self::defuse`] ran.
+struct DriverAbortGuard(Option<tokio::task::JoinHandle<()>>);
+
+impl DriverAbortGuard {
+    /// The tunnel is open: the driver must keep running for its lifetime.
+    fn defuse(mut self) {
+        self.0 = None;
+    }
+}
+
+impl Drop for DriverAbortGuard {
+    fn drop(&mut self) {
+        if let Some(driver) = self.0.take() {
+            driver.abort();
+        }
     }
 }
 
