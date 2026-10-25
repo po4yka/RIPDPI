@@ -2067,7 +2067,6 @@ fakeddisorder endhost</string>
     <string name="settings_backup_pin_clear">مسح رمز PIN</string>
     <string name="settings_appearance_section">الواجهة</string>
     <string name="settings_theme_body">اختر ما إذا كان التطبيق يتبع سمة النظام أم يبقى ثابتًا.</string>
-    <string name="settings_theme_helper">تُحدَّث الواجهة فور تغيير هذا الإعداد.</string>
     <string name="settings_customization_body">خيارات أيقونة التطبيق والشكل التكيفي والأيقونة ذات السمة.</string>
     <string name="settings_support_section">الدعم</string>
     <string name="settings_support_debug_bundle_title">مشاركة حزمة الدعم</string>

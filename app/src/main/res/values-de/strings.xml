@@ -443,7 +443,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="settings_reset_dialog_title">Alle Einstellungen zurücksetzen?</string>
     <string name="settings_strategy_pack_allow_rollback_override_body">Nur für Debug. Erlaubt gleiche oder niedrigere heruntergeladene Strategie-Paket-Sequenzen für die lokale Validierung. Signatur-, Kompatibilitäts- und Aktualitätsprüfungen gelten weiterhin.</string>
     <string name="settings_telemetry_salt_reset_action">Telemetrie-Salt zurücksetzen</string>
-    <string name="settings_theme_helper">Die Oberfläche wird sofort aktualisiert, nachdem Sie diese Einstellung wechseln.</string>
     <string name="settings_webrtc_body">Reduziert Peer-Discovery-Leaks, die den lokalen Tunnel umgehen können.</string>
     <string name="settings_start_on_boot_title">Beim Hochfahren starten</string>
     <string name="settings_start_on_boot_body">Stellt den zuletzt aktiven Modus nach einem Neustart des Geräts automatisch wieder her.</string>

@@ -288,7 +288,6 @@
     <string name="settings_backup_pin_clear">PIN साफ़ करें</string>
     <string name="settings_appearance_section">इंटरफ़ेस</string>
     <string name="settings_theme_body">चुनें कि ऐप सिस्टम थीम का अनुसरण करे या स्थिर रहे।</string>
-    <string name="settings_theme_helper">इस प्राथमिकता को बदलने के तुरंत बाद इंटरफ़ेस अपडेट हो जाता है।</string>
     <string name="settings_customization_body">ऐप आइकन, अनुकूली आकार, और थीम वाले आइकन विकल्प।</string>
     <string name="settings_support_section">सहायता</string>
     <string name="settings_support_debug_bundle_title">सहायता बंडल साझा करें</string>

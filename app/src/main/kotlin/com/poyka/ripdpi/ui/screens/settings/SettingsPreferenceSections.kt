@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -17,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -344,21 +346,13 @@ internal fun SettingsAppearanceSection(
     SettingsSection(title = stringResource(R.string.settings_appearance_section)) {
         SettingsLanguagePreference()
         HorizontalDivider(color = colors.divider)
-        Text(
-            text = stringResource(R.string.theme_settings),
-            style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = colors.foreground,
-        )
-        Text(
-            text = stringResource(R.string.settings_theme_body),
-            style = RipDpiThemeTokens.type.body,
-            color = colors.mutedForeground,
-        )
+        // Same label/helper typography as the adjacent haptic feedback dropdown.
         RipDpiDropdown(
             options = themeOptions,
             selectedValue = uiState.appTheme,
             onValueSelected = actions.onThemeSelected,
-            helperText = stringResource(R.string.settings_theme_helper),
+            label = stringResource(R.string.theme_settings),
+            helperText = stringResource(R.string.settings_theme_body),
             testTag = RipDpiTestTags.SettingsThemeDropdown,
             optionTagForValue = { value ->
                 RipDpiTestTags.dropdownOption(RipDpiTestTags.SettingsThemeDropdown, value)
@@ -475,13 +469,12 @@ internal fun SettingsSupportSection(
                 actions.onCommunityApiUrlChanged("")
             },
         )
-        RipDpiButton(
-            text = stringResource(R.string.settings_clear_community_cache),
-            onClick = actions.onClearCommunityCache,
-            modifier = Modifier.fillMaxWidth(),
-            variant = RipDpiButtonVariant.Outline,
-        )
         HorizontalDivider(color = colors.divider)
+        SettingsRow(
+            title = stringResource(R.string.settings_clear_community_cache),
+            onClick = actions.onClearCommunityCache,
+            showDivider = true,
+        )
         SettingsRow(
             title = stringResource(R.string.about_category),
             subtitle = stringResource(R.string.settings_about_body),
@@ -665,7 +658,6 @@ private fun FullTunnelHelperFooter(
     HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CommunityApiUrlEditor(
     value: String,
@@ -673,16 +665,21 @@ internal fun CommunityApiUrlEditor(
     onSave: () -> Unit,
     onReset: () -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
+    val save: @Composable (Modifier) -> Unit = {
+        RipDpiButton(text = stringResource(R.string.settings_community_api_url_save), onClick = onSave, modifier = it)
+    }
+    val reset: @Composable (Modifier) -> Unit = {
+        RipDpiButton(
+            text = stringResource(R.string.settings_community_api_url_reset),
+            onClick = onReset,
+            modifier = it,
+            enabled = value.isNotBlank(),
+            variant = RipDpiButtonVariant.Outline,
+        )
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        Text(
-            text = stringResource(R.string.settings_community_api_url_label),
-            style = type.bodyEmphasis,
-            color = colors.foreground,
-        )
         RipDpiTextField(
             value = value,
             onValueChange = onValueChange,
@@ -702,21 +699,17 @@ internal fun CommunityApiUrlEditor(
                     onKeyboardAction = KeyboardActionHandler { onSave() },
                 ),
         )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            RipDpiButton(
-                text = stringResource(R.string.settings_community_api_url_save),
-                onClick = onSave,
-            )
-            RipDpiButton(
-                text = stringResource(R.string.settings_community_api_url_reset),
-                onClick = onReset,
-                enabled = value.isNotBlank(),
-                variant = RipDpiButtonVariant.Outline,
-            )
+        // One equal-width action row; stack at large font scales like dialog actions.
+        if (LocalDensity.current.fontScale >= StackedFormActionsFontScale) {
+            save(Modifier.fillMaxWidth())
+            reset(Modifier.fillMaxWidth())
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                save(Modifier.weight(1f))
+                reset(Modifier.weight(1f))
+            }
         }
     }
 }
+
+private const val StackedFormActionsFontScale = 1.3f

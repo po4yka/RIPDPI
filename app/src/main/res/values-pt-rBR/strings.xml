@@ -2128,7 +2128,6 @@ Fonte: %2$s</string>
     <string name="settings_backup_pin_clear">Limpar PIN</string>
     <string name="settings_appearance_section">Interface</string>
     <string name="settings_theme_body">Escolha se o app segue o tema do sistema ou permanece fixo.</string>
-    <string name="settings_theme_helper">A interface é atualizada imediatamente após você mudar esta preferência.</string>
     <string name="settings_customization_body">Opções de ícone do app, forma adaptativa e ícone temático.</string>
     <string name="settings_support_section">Suporte</string>
     <string name="settings_support_debug_bundle_title">Compartilhar pacote de suporte</string>

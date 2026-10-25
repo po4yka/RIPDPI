@@ -2617,7 +2617,6 @@ fake_burst 3</string>
     <string name="settings_seqovl_unsupported_reason">序列重叠需要原始套接字访问权限,本设备不可用。请在设置中启用 Root 模式以使用此功能。</string>
     <string name="settings_support_debug_bundle_body">将最近的日志和诊断信息打包为 ZIP 文件分享给支持人员。不包含数据包捕获。</string>
     <string name="settings_telemetry_salt_reset_body">重置用于哈希网络指纹的每次安装盐值。之前记录的哈希将无法再与未来会话关联。</string>
-    <string name="settings_theme_helper">切换此偏好后界面会立即更新。</string>
     <string name="settings_warning_backup_pin_title">建议设置备用 PIN</string>
     <string name="shortcut_diagnostics_short">诊断</string>
     <string name="shortcut_quick_connect">快速连接</string>

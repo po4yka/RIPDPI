@@ -443,7 +443,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="settings_reset_dialog_title">Réinitialiser tous les paramètres ?</string>
     <string name="settings_strategy_pack_allow_rollback_override_body">Débogage uniquement. Autoriser des séquences téléchargées de packs de stratégies égales ou inférieures pour la validation locale. Les vérifications de signature, de compatibilité et de fraîcheur s\'appliquent toujours.</string>
     <string name="settings_telemetry_salt_reset_action">Réinitialiser le sel de télémétrie</string>
-    <string name="settings_theme_helper">L\'interface se met à jour immédiatement après avoir changé cette préférence.</string>
     <string name="settings_webrtc_body">Réduire les fuites de découverte de pairs qui peuvent contourner le tunnel local.</string>
     <string name="settings_start_on_boot_title">Démarrer au démarrage</string>
     <string name="settings_start_on_boot_body">Reconnecte automatiquement le dernier mode actif après le redémarrage de l\'appareil.</string>

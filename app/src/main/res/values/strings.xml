@@ -2164,7 +2164,6 @@ Source: %2$s</string>
     <string name="settings_backup_pin_clear">Clear PIN</string>
     <string name="settings_appearance_section">Interface</string>
     <string name="settings_theme_body">Choose whether the app follows the system theme or stays fixed.</string>
-    <string name="settings_theme_helper">The interface updates immediately after you switch this preference.</string>
     <string name="settings_customization_body">App icon, adaptive shape, and themed icon options.</string>
     <string name="settings_support_section">Support</string>
     <string name="settings_support_debug_bundle_title">Share support bundle</string>

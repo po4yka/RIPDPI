@@ -4728,7 +4728,6 @@ app:settings_telemetry_salt_reset_body
 app:settings_tethering_dns_warning_body
 app:settings_tethering_dns_warning_title
 app:settings_theme_body
-app:settings_theme_helper
 app:settings_vpn_flag_warning_body
 app:settings_vpn_flag_warning_title
 app:settings_warning_backup_pin_body

@@ -1579,7 +1579,6 @@ fakeddisorder endhost</string>
     <string name="settings_backup_pin_clear">Удалить PIN</string>
     <string name="settings_appearance_section">Интерфейс</string>
     <string name="settings_theme_body">Выберите, следует ли приложение системной теме или остаётся фиксированным.</string>
-    <string name="settings_theme_helper">Интерфейс обновится сразу после изменения этого параметра.</string>
     <string name="settings_customization_body">Значок приложения, адаптивная форма и параметры тематического значка.</string>
     <string name="settings_support_section">Поддержка</string>
     <string name="settings_support_debug_bundle_title">Поделиться пакетом поддержки</string>
