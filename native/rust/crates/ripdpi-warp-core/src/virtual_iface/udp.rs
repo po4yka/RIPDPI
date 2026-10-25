@@ -155,6 +155,42 @@ mod tests {
         assert_eq!(sockets.iter().count(), 1, "cleanup is idempotent");
     }
     /// # Cancel safety:
+    /// NOT cancel-safe: the interface is shut down only after the exchange.
+    #[tokio::test]
+    async fn refused_bind_drops_only_its_datagram() {
+        let bus = Bus::new();
+        let mut observer = bus.new_endpoint();
+        let interface = DynamicUdpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+        let sender = bus.new_endpoint();
+        let target = crate::ports::PortForwardConfig {
+            destination: "10.77.0.1:41002".parse().expect("target"),
+            protocol: PortProtocol::Udp,
+        };
+        // smoltcp refuses to bind local port 0.
+        sender.send(Event::LocalData(target, VirtualPort::new(0, PortProtocol::Udp), Bytes::from_static(b"refused")));
+        sender.send(Event::LocalData(target, VirtualPort::new(1000, PortProtocol::Udp), Bytes::from_static(b"valid")));
+
+        let (run, outbound) = tokio::join!(interface.run(), async {
+            let outcome = tokio::time::timeout(Duration::from_secs(1), async {
+                loop {
+                    if let Event::OutboundInternetPacket(packet) = observer.recv().await {
+                        break packet;
+                    }
+                }
+            })
+            .await;
+            bus.shutdown();
+            outcome
+        });
+        run.expect("a refused bind must not stop the interface");
+        let packet = outbound.expect("the valid datagram still goes out");
+        let ip = smoltcp::wire::Ipv4Packet::new_checked(packet.as_ref()).expect("IPv4 packet");
+        let udp = smoltcp::wire::UdpPacket::new_checked(ip.payload()).expect("UDP packet");
+        assert_eq!(udp.src_port(), 1000);
+        assert_eq!(udp.payload(), b"valid");
+    }
+
+    /// # Cancel safety:
     /// NOT cancel-safe: cancelling the joined exchange skips
     /// shutdown. Normal success and timeout send shutdown and join the interface
     /// before assertions; terminal cancellation requires test-runtime teardown
