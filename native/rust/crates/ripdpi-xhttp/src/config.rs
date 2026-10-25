@@ -162,8 +162,7 @@ pub struct XhttpTlsConfig {
     pub xmux: XmuxConfig,
     pub finalmask: FinalmaskConfig,
     /// VLESS flow negotiated inside the xHTTP tunnel. Defaults to
-    /// [`VlessFlow::Vision`] for back-compatibility with profiles that
-    /// have not opted in to per-flow selection.
+    /// [`VlessFlow::None`]: Xray does not accept XTLS Vision over xHTTP.
     pub flow: VlessFlow,
     /// xHTTP protocol mode. Defaults to [`XhttpProtocolMode::StreamUp`].
     pub protocol_mode: XhttpProtocolMode,
@@ -199,7 +198,7 @@ impl XhttpTlsConfig {
             tls_fingerprint_profile: tls_fingerprint_profile.to_owned(),
             xmux: XmuxConfig::default(),
             finalmask: FinalmaskConfig::default(),
-            flow: VlessFlow::default(),
+            flow: VlessFlow::None,
             protocol_mode: XhttpProtocolMode::default(),
             ech_config: None,
             kem_groups: None,
@@ -217,7 +216,7 @@ impl XhttpTlsConfig {
     }
 
     /// Replace the flow selection (builder style). The default is
-    /// [`VlessFlow::Vision`] to preserve historical client behavior.
+    /// [`VlessFlow::None`].
     pub fn with_flow(mut self, flow: VlessFlow) -> Self {
         self.flow = flow;
         self

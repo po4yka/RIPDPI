@@ -122,6 +122,25 @@ fn xhttp_tls_config_defaults_to_stream_up() {
     assert_eq!(XhttpProtocolMode::StreamUp, cfg.protocol_mode);
 }
 
+/// Vision is not defined over xHTTP: Xray answers a Vision request on an
+/// xHTTP inbound with "not able to use the flow" or "XTLS only supports TLS
+/// and REALITY directly". A caller that sets no flow (the Cloudflare Tunnel
+/// builder) must send empty addons.
+#[test]
+fn xhttp_tls_config_defaults_to_empty_addons() {
+    let cfg = XhttpTlsConfig::from_strings(
+        "edge.example",
+        443,
+        "edge.example",
+        "550e8400-e29b-41d4-a716-446655440000",
+        "/api",
+        "origin.example",
+        "chrome_stable",
+    )
+    .expect("config");
+    assert_eq!(cfg.flow.as_addons_bytes(), b"");
+}
+
 #[test]
 fn with_protocol_mode_threads_choice_through() {
     let cfg = XhttpTlsConfig::from_strings(
