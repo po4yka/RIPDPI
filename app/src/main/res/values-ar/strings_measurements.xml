@@ -2,7 +2,6 @@
 <resources>
     <string name="measurement_quality_rtt">RTT p50: %1$d مللي ثانية.</string>
     <string name="measurement_quality_meaning">RTT هو زمن الذهاب والإياب؛ والتذبذب هو تغيره. تُقدّر الخسارة من فشل الاتصال وإعادة الإرسال، لا من معدل فشل كل موقع.</string>
-    <string name="measurement_quality_samples">%1$d عينة RTT · تذبذب %2$s مللي ثانية</string>
     <string name="measurement_quality_window">بداية نافذة الجودة: %1$s</string>
     <string name="measurement_window_unknown">بداية نافذة الجودة غير متاحة</string>
     <string name="measurement_observation_scope">أحداث الوجهات: نافذة %1$d دقائق حتى %3$s، بحد أقصى %2$d حدثًا. تُحسب إشارات المسار المباشر المرصودة فقط.</string>
@@ -29,5 +28,4 @@
     <string name="home_quality_partial">القياسات المتاحة معروضة أدناه. يحتاج تقييم الجودة إلى المزيد من عينات RTT الحالية.</string>
     <string name="home_quality_last_values">آخر قياسات تم الإبلاغ عنها؛ لا تصف جودة الاتصال الحالية.</string>
     <string name="home_quality_traffic_total">إجمالي البيانات</string>
-    <string name="home_quality_samples">%1$d عينة RTT</string>
 </resources>

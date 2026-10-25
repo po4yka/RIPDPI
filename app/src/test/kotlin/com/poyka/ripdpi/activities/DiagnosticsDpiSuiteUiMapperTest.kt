@@ -131,7 +131,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
         assertEquals(DpiProbeKind.ECH_READINESS, row.kind)
         assertEquals("ECH readiness", row.label)
         assertEquals("ok", row.status)
-        assertEquals("1/1 targets accepted ECH", row.detail)
+        assertEquals("Targets that accepted ECH: 1/1", row.detail)
         assertEquals(1, row.detailRows.size)
         assertEquals("cloudflare.com", row.detailRows.single().label)
         assertEquals("ECH ok | HTTPS RR yes | negotiated yes | vanilla blocked | 42 ms", row.detailRows.single().detail)

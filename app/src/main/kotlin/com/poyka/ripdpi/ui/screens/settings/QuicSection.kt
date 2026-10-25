@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
@@ -217,7 +218,11 @@ private fun quicFakeScopeSummary(uiState: SettingsUiState): String =
 @Composable
 private fun quicFakeBurstSummary(uiState: SettingsUiState): String =
     if (uiState.desync.hasUdpFakeBurst) {
-        stringResource(R.string.quic_fake_profile_burst_configured, uiState.desync.udpFakeCount)
+        pluralStringResource(
+            R.plurals.quic_fake_profile_burst_configured,
+            uiState.desync.udpFakeCount,
+            uiState.desync.udpFakeCount,
+        )
     } else {
         stringResource(R.string.quic_fake_profile_burst_missing)
     }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
@@ -228,7 +229,11 @@ private fun udpFakeProfileScope(uiState: SettingsUiState): String =
         }
 
         uiState.udpFakeProfileActiveInStrategy -> {
-            stringResource(R.string.udp_fake_profile_scope_live, uiState.desync.udpFakeCount)
+            pluralStringResource(
+                R.plurals.udp_fake_profile_scope_live,
+                uiState.desync.udpFakeCount,
+                uiState.desync.udpFakeCount,
+            )
         }
 
         else -> {

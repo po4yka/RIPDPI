@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -202,7 +203,13 @@ private fun VerdictOutcomeHierarchy(
         )
     }
     Text(
-        text = stringResource(R.string.detection_probe_outcome_format, probeSummary.detected, probeSummary.total),
+        text =
+            pluralStringResource(
+                R.plurals.detection_probe_outcome_format,
+                probeSummary.total,
+                probeSummary.detected,
+                probeSummary.total,
+            ),
         style = type.caption,
         color = colors.mutedForeground,
     )

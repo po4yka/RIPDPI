@@ -41,5 +41,4 @@
     <string name="diagnostics_dns_none">Не указано</string>
     <string name="diagnostics_dns_show">Показать факты ответов DNS</string>
     <string name="diagnostics_dns_hide">Скрыть факты ответов DNS</string>
-    <string name="diagnostics_dns_complete_agree">Ответы DNS с адресами совпадают для %1$d встроенных доменов.</string>
 </resources>

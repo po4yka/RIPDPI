@@ -106,7 +106,11 @@ class HomeLatencyDetailsAcceptanceTest {
         origin().assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)).performClick()
         detailText(R.string.measurement_quality_rtt, 0L).assertIsDisplayed()
         detailText(R.string.measurement_quality_p95, 0L).assertIsDisplayed()
-        detailText(R.string.measurement_quality_samples, 1L, "0").assertIsDisplayed()
+        compose
+            .onNode(
+                hasText(strings.resources.getQuantityString(R.plurals.measurement_quality_samples, 1, 1L, "0")) and
+                    hasAnyAncestor(hasTestTag(RipDpiTestTags.LatencyDetailDialog)),
+            ).assertIsDisplayed()
     }
 
     @Test
@@ -276,7 +280,13 @@ class HomeLatencyDetailsAcceptanceTest {
         listOf(
             "detail-p50" to strings.getString(R.string.measurement_quality_rtt, 32L),
             "detail-p95" to strings.getString(R.string.measurement_quality_p95, 64L),
-            "detail-samples" to strings.getString(R.string.measurement_quality_samples, 12L, "4"),
+            "detail-samples" to
+                strings.resources.getQuantityString(
+                    R.plurals.measurement_quality_samples,
+                    12,
+                    12L,
+                    "4",
+                ),
             "detail-source" to
                 strings.getString(R.string.measurement_source, strings.getString(R.string.measurement_proxy)),
         ).forEach { (stage, text) ->

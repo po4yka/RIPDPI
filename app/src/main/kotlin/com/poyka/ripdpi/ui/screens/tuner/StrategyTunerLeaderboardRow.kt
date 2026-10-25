@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
@@ -43,8 +44,9 @@ internal fun StrategyTunerRankedRow(
             )
             Text(
                 text =
-                    stringResource(
-                        R.string.strategy_tuner_result_detail_format,
+                    pluralStringResource(
+                        R.plurals.strategy_tuner_result_detail_format,
+                        result.total,
                         result.successes,
                         result.total,
                         result.averageLatencyMs,

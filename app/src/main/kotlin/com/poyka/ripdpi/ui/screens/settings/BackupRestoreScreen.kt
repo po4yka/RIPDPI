@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -920,8 +921,9 @@ private fun BackupImportPreviewSheet(
                 WarningBanner(
                     title = stringResource(R.string.backup_import_shareable_title),
                     message =
-                        stringResource(
-                            R.string.backup_import_shareable_body,
+                        pluralStringResource(
+                            R.plurals.backup_import_shareable_body,
+                            summary.undecodableProfiles.size,
                             summary.undecodableProfiles.size,
                         ),
                     tone = WarningBannerTone.Restricted,

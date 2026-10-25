@@ -2,7 +2,6 @@
 <resources>
     <string name="measurement_quality_rtt">RTT p50: %1$d میلی‌ثانیه.</string>
     <string name="measurement_quality_meaning">RTT زمان رفت‌وبرگشت و جیتر تغییر آن است. اتلاف از خطاهای اتصال و ارسال مجدد برآورد می‌شود، نه نرخ خطای هر سایت.</string>
-    <string name="measurement_quality_samples">%1$d نمونهٔ RTT · جیتر %2$s میلی‌ثانیه</string>
     <string name="measurement_quality_window">آغاز پنجرهٔ کیفیت: %1$s</string>
     <string name="measurement_window_unknown">آغاز پنجرهٔ کیفیت مشخص نیست</string>
     <string name="measurement_observation_scope">رویدادهای مقصد: پنجرهٔ %1$d دقیقه تا %3$s، حداکثر %2$d رویداد. فقط سیگنال‌های مشاهده‌شدهٔ مسیر مستقیم شمرده می‌شوند.</string>
@@ -29,5 +28,4 @@
     <string name="home_quality_partial">اندازه‌گیری‌های موجود در زیر آمده‌اند. ارزیابی کیفیت به نمونه‌های تازهٔ بیشتری از RTT نیاز دارد.</string>
     <string name="home_quality_last_values">آخرین اندازه‌گیری‌های گزارش‌شده؛ این مقادیر کیفیت فعلی اتصال را نشان نمی‌دهند.</string>
     <string name="home_quality_traffic_total">کل ترافیک</string>
-    <string name="home_quality_samples">%1$d نمونهٔ RTT</string>
 </resources>

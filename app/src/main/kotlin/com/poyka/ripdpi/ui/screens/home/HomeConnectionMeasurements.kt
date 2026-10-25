@@ -17,6 +17,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ConnectionQualitySnapshot
@@ -100,7 +101,7 @@ internal fun HomeConnectionMeasurements(
                     ),
                 sinceLabel =
                     observed?.takeIf { it.sampleCount > 0L }?.let {
-                        stringResource(R.string.home_quality_samples, it.sampleCount)
+                        pluralStringResource(R.plurals.home_quality_samples, it.sampleCount.toInt(), it.sampleCount)
                     } ?: stringResource(R.string.measurement_byte_total),
                 primaryAction = measureAction(measured = observed != null, onMeasure = onReprobe),
                 secondaryAction = null,

@@ -12,8 +12,6 @@
     <string name="ripdpi_http_parser_badge_default">डिफ़ॉल्ट</string>
     <string name="ripdpi_http_parser_badge_custom">कस्टम</string>
     <string name="ripdpi_http_parser_badge_http_only">केवल HTTP</string>
-    <string name="ripdpi_http_parser_badge_safe_count">%1$d सुरक्षित</string>
-    <string name="ripdpi_http_parser_badge_aggressive_count">%1$d आक्रामक</string>
     <string name="ripdpi_http_parser_badge_nginx_biased">Nginx-झुकाव वाला</string>
     <string name="ripdpi_http_parser_reset_action">पार्सर एविज़न रीसेट करें</string>
     <string name="ripdpi_http_parser_safe_group_title">सुरक्षित पार्सर समायोजन</string>
@@ -579,7 +577,6 @@
     <string name="diagnostics_live_handover_state_format">नेटवर्क हैंडओवर स्थिति: %1$s</string>
     <string name="diagnostics_live_handover_format">हाल ही में नेटवर्क हैंडओवर पाया गया: %1$s</string>
     <string name="diagnostics_live_winning_strategy_format">विजयी रणनीति परिवार: %1$s</string>
-    <string name="diagnostics_live_mode_summary_format">%1$s मोड · %2$s स्थानांतरित · %3$d पैकेट देखे गए</string>
     <string name="diagnostics_live_signal_format">%1$s भेजा गया · %2$s प्राप्त हुआ</string>
     <string name="diagnostics_live_no_transfer">अभी तक कोई स्थानांतरण नहीं देखा गया</string>
     <string name="diagnostics_live_feed_quiet">रनटाइम फ़ीड शांत है</string>
@@ -616,9 +613,6 @@
     <string name="diagnostics_autolearn_penalized">विफल रूट को दंडित किया</string>
     <string name="diagnostics_autolearn_host_blocked">अवरुद्ध होस्ट का पता चला</string>
     <string name="diagnostics_autolearn_store_reset">संग्रहीत होस्ट रीसेट किए</string>
-    <string name="diagnostics_autolearn_learned_format">%1$d सीखे गए</string>
-    <string name="diagnostics_autolearn_penalized_format">%1$d दंडित</string>
-    <string name="diagnostics_autolearn_blocked_format">%1$d अवरुद्ध</string>
 
     <!-- Diagnostics Telegram card -->
     <string name="diagnostics_telegram_download">डाउनलोड</string>
@@ -846,7 +840,7 @@
     <string name="detection_stealth_score_a11y">स्टेल्थ स्कोर %1$d</string>
     <string name="routing_protection_section_title">ऐप रूटिंग सुरक्षा</string>
     <string name="routing_protection_summary_title">रूटिंग सुझाव केवल इंस्टॉल किए गए ऐप मिलानों का उपयोग करते हैं</string>
-    <string name="routing_protection_summary_body">%2$d सक्षम प्रीसेट में %1$d जोखिमपूर्ण ऐप पकड़े गए।</string>
+    <string name="routing_protection_summary_body">पकड़े गए जोखिमपूर्ण ऐप: %1$d। सक्षम प्रीसेट: %2$d।</string>
     <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="routing_protection_full_tunnel_active">फ़ुल टनल मोड सक्रिय है, इसलिए ऐप बहिष्करण और एंटी-कोरिलेशन संकेत फ़िलहाल दबा दिए गए हैं।</string>
     <string name="routing_protection_policy_title">सुझाव मोड</string>
@@ -1392,13 +1386,11 @@
     <string name="domain_bypass_intro_body">यहाँ सूचीबद्ध डोमेन प्रॉक्सी से बाहर रहते हैं और सीधे कनेक्ट होते हैं। सादे डोमेन (example.com), प्रत्यय (.example.com), और domain:, domain_suffix: तथा domain_regex: उपसर्ग स्वीकार करता है।</string>
     <string name="domain_bypass_editor_label">डोमेन (प्रति पंक्ति एक)</string>
     <string name="domain_bypass_placeholder">उदाहरण के लिए:\nexample.com\n.bank.example</string>
-    <string name="domain_bypass_errors_title">%1$d अमान्य पंक्ति(याँ)</string>
     <string name="domain_bypass_error_line">पंक्ति %1$d: %2$s</string>
     <string name="domain_bypass_paste">चिपकाएँ</string>
     <string name="domain_bypass_copy">कॉपी करें</string>
     <string name="domain_bypass_move_to_editor">नियमों में ले जाएँ</string>
     <string name="domain_bypass_moved_rule_name">डोमेन बायपास सूची</string>
-    <string name="domain_bypass_saved">%1$d डोमेन सहेजे गए</string>
     <string name="domain_bypass_cleared">बायपास सूची साफ़ की गई</string>
     <string name="domain_bypass_copied">क्लिपबोर्ड पर कॉपी किया गया</string>
     <string name="domain_bypass_clipboard_empty">क्लिपबोर्ड खाली है</string>
@@ -1548,8 +1540,7 @@
     <string name="backup_import_preview_title">बैकअप की समीक्षा करें</string>
     <string name="backup_import_preview_schema">बैकअप संस्करण %1$d, ऐप %2$s द्वारा बनाया गया</string>
     <string name="backup_import_shareable_title">साझा करने योग्य बैकअप</string>
-    <string name="backup_import_shareable_body">%1$d प्रोफ़ाइल पुनर्स्थापित नहीं की जा सकतीं क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</string>
-    <string name="backup_import_category_profiles">प्रोफ़ाइल और समूह (%1$d प्रोफ़ाइल, %2$d समूह)</string>
+    <string name="backup_import_category_profiles">प्रोफ़ाइल और समूह (प्रोफ़ाइल: %1$d, समूह: %2$d)</string>
     <string name="backup_import_category_routes">रूटिंग नियम (%1$d)</string>
     <string name="backup_import_category_settings">सेटिंग्स (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">अनचयनित श्रेणियाँ अपने वर्तमान मान बनाए रखती हैं।</string>
@@ -1878,7 +1869,6 @@
     <string name="detection_headline_ordinary_https">आप सामान्य HTTPS ट्रैफ़िक जैसे दिखते हैं</string>
     <string name="detection_narrative_discovered_heading">क्या पता चला</string>
     <string name="detection_narrative_reason_heading">यह फ़ैसला क्यों</string>
-    <string name="detection_probe_outcome_format">प्रोब परिणाम: %2$d में से %1$d संकेत उजागर</string>
     <string name="detection_settings_call_transport_subtitle">पहचाने गए प्रॉक्सी के ज़रिए MTProto और STUN प्रोब करें</string>
     <string name="detection_settings_call_transport_title">कॉल ट्रांसपोर्ट प्रोब</string>
     <string name="detection_settings_cancel">रद्द करें</string>
@@ -1931,7 +1921,6 @@
     <string name="detection_verdict_reason_format">कारण: %1$s</string>
     <string name="diagnostics_allowlist_sni_failed">SNI संगतता खोजक विफल रहा।</string>
     <string name="diagnostics_allowlist_sni_no_flagged">पहले TCP16 चलाएँ; अभी कोई फ़्लैग किया गया ASN उपलब्ध नहीं है।</string>
-    <string name="diagnostics_allowlist_sni_ready">%1$d TCP16-फ़्लैग किए गए लक्ष्यों के लिए तैयार।</string>
     <string name="diagnostics_allowlist_sni_run_after_tcp16">TCP16 द्वारा फ़्लैग किए गए ASN मिलने के बाद चलाएँ।</string>
     <string name="diagnostics_allowlist_sni_running">TCP16-फ़्लैग किए गए ASN के लिए SNI अनुकूलता की जाँच की जा रही है...</string>
     <string name="diagnostics_approach_metric_runtime">रनटाइम</string>
@@ -1961,7 +1950,6 @@
     <string name="diagnostics_audit_winner_coverage_label">विजेता कवरेज</string>
     <string name="diagnostics_byoh_check_failed">होस्ट अनुकूलता जाँच विफल रही।</string>
     <string name="diagnostics_byoh_checking_domain">%1$s की जाँच की जा रही है (%2$d/%3$d)...</string>
-    <string name="diagnostics_byoh_complete">%2$d में से %1$d होस्टनामों ने कॉन्फ़िगर किया गया स्थानांतरण पूरा किया।</string>
     <string name="diagnostics_byoh_destination_ip_label">गंतव्य IP</string>
     <string name="diagnostics_byoh_dst_ip_required">उपयोगकर्ता-नियंत्रित सर्वर के लिए एक गंतव्य IP दर्ज करें।</string>
     <string name="diagnostics_byoh_metric_bytes">बाइट</string>
@@ -1989,19 +1977,17 @@
     <string name="diagnostics_cidr_whitelist_title">CIDR व्हाइटलिस्ट पहचान</string>
     <string name="diagnostics_cidr_whitelist_verdict_detected_label">cidr व्हाइटलिस्ट</string>
     <string name="diagnostics_cidr_whitelist_verdict_no_internet_label">इंटरनेट नहीं</string>
-    <string name="diagnostics_compression_complete">%3$s के लिए %2$d में से %1$d कम्प्रेशन कोडेक उपयोग योग्य हैं।</string>
     <string name="diagnostics_compression_failed">HTTP कम्प्रेशन प्रोब विफल रहा।</string>
     <string name="diagnostics_compression_metric_target">लक्ष्य</string>
     <string name="diagnostics_compression_metric_usable">उपयोग योग्य</string>
     <string name="diagnostics_compression_metric_zstd">zstd</string>
     <string name="diagnostics_compression_running">HTTP कम्प्रेशन समर्थन की जाँच की जा रही है...</string>
-    <string name="diagnostics_dns_availability_complete">%2$d में से %1$d सार्वजनिक DNS रिज़ॉल्वर ने प्रतिक्रिया दी।</string>
     <string name="diagnostics_dns_availability_failed">DNS उपलब्धता सर्वेक्षण विफल रहा।</string>
     <string name="diagnostics_dns_availability_metric_available">उपलब्ध</string>
     <string name="diagnostics_dns_availability_metric_servers">सर्वर</string>
     <string name="diagnostics_dns_availability_running">सार्वजनिक DNS रिज़ॉल्वर का सर्वेक्षण किया जा रहा है...</string>
     <string name="diagnostics_dns_integrity_complete_clean">%1$d बंडल किए गए डोमेन में कोई DNS प्रतिस्थापन नहीं पाया गया।</string>
-    <string name="diagnostics_dns_integrity_complete_flagged">%2$d में से %1$d डोमेन, %3$d DoQ जाँच, और %4$d DoH बूटस्ट्रैप जाँचों ने DNS अखंडता चेतावनियाँ दिखाईं।</string>
+    <string name="diagnostics_dns_integrity_complete_flagged">DNS अखंडता चेतावनियाँ: डोमेन %1$d/%2$d, DoQ जाँच %3$d, DoH बूटस्ट्रैप जाँच %4$d।</string>
     <string name="diagnostics_dns_integrity_doh_bootstrap_label">DoH बूटस्ट्रैप %1$s: %2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s: %3$s</string>
     <string name="diagnostics_dns_integrity_failed">DNS अखंडता जाँच विफल रही.</string>
@@ -2014,13 +2000,10 @@
     <string name="diagnostics_dns_integrity_metric_flagged">फ़्लैग किया गया</string>
     <string name="diagnostics_dns_integrity_metric_stub_ips">stub IP</string>
     <string name="diagnostics_dns_integrity_running">UDP/53 उत्तरों की DoH नियंत्रणों से जाँच की जा रही है...</string>
-    <string name="diagnostics_domain_reachability_complete_clean">%1$d बंडल किए गए डोमेन में कोई पहुँच अवरोध नहीं मिला.</string>
-    <string name="diagnostics_domain_reachability_complete_flagged">%2$d में से %1$d डोमेन में पहुँच चेतावनियाँ दिखीं.</string>
     <string name="diagnostics_domain_reachability_failed">डोमेन पहुँच स्कैन विफल रहा.</string>
     <string name="diagnostics_domain_reachability_metric_checked">जाँचा गया</string>
     <string name="diagnostics_domain_reachability_metric_flagged">फ़्लैग किया गया</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">stub IP</string>
-    <string name="diagnostics_domain_reachability_running">%1$d DNS stub IP के साथ पहुँच की जाँच की जा रही है...</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH तैयारी</string>
     <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial फ़िंगरप्रिंट</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16 फैट हेडर</string>
@@ -2031,12 +2014,9 @@
     <string name="diagnostics_dpi_suite_title">DPI-CH व्यापक</string>
     <string name="diagnostics_ipv4_whitelist_cache">सबनेट कैश करें</string>
     <string name="diagnostics_ipv4_whitelist_cache_failed">सबनेट कैश विफल रहा.</string>
-    <string name="diagnostics_ipv4_whitelist_cached_complete">%1$d संभावित /24 रेंज कैश की गईं.</string>
-    <string name="diagnostics_ipv4_whitelist_cached_provider">%2$s के लिए %1$d /24 रेंज कैश की गईं.</string>
     <string name="diagnostics_ipv4_whitelist_caching">कैश किया जा रहा है...</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">कैश किए गए सबनेट जाँचें</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">सबनेट जाँच विफल रही.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_progress">%2$d में से %1$d कैश किए गए सबनेट जाँचे गए.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">IPv4 whitelist subnets.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">घोषित IPv4 उपसर्ग प्राप्त किए जा रहे हैं...</string>
     <string name="diagnostics_ipv4_whitelist_hide_results">सबनेट परिणाम छिपाएँ</string>
@@ -2090,7 +2070,7 @@
     <string name="diagnostics_resolver_save_setting">DNS सेटिंग के रूप में सहेजें</string>
     <string name="diagnostics_resolver_switch_dns">DNS को %1$s पर बदलें</string>
     <string name="diagnostics_results_section_count">%1$s (%2$d)</string>
-    <string name="diagnostics_rkn_complete">%1$d नियंत्रण लक्ष्य और %2$d ब्लैकलिस्ट लक्ष्य जाँचे गए।</string>
+    <string name="diagnostics_rkn_complete">जाँचे गए नियंत्रण लक्ष्य: %1$d; ब्लैकलिस्ट लक्ष्य: %2$d।</string>
     <string name="diagnostics_rkn_failed">RKN ब्लॉक निदान विफल।</string>
     <string name="diagnostics_rkn_group_control">नियंत्रण</string>
     <string name="diagnostics_rkn_group_test">परीक्षण</string>
@@ -2106,8 +2086,7 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: सिस्टम रिज़ॉल्यूशन विफल</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">सत्यापित नहीं</string>
-    <string name="diagnostics_tcp16_complete_clean">%1$d लक्ष्यों में कोई TCP16 fat-header क्लोज़र पैटर्न नहीं मिला।</string>
-    <string name="diagnostics_tcp16_complete_detected">%1$d लक्ष्यों ने TCP16 क्लोज़र पैटर्न दिखाए; %2$d पुनः-कनेक्ट सत्यापन विफल रहे।</string>
+    <string name="diagnostics_tcp16_complete_detected">TCP16 क्लोज़र पैटर्न वाले लक्ष्य: %1$d; विफल पुनः-कनेक्ट सत्यापन: %2$d।</string>
     <string name="diagnostics_tcp16_failed">TCP16 fat-header probe विफल।</string>
     <string name="diagnostics_tcp16_metric_detected">पता चला</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">single-socket अमान्य</string>

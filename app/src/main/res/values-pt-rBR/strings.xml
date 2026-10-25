@@ -69,7 +69,6 @@
     <string name="connection_health_latency_tcp">Conexão TCP</string>
     <string name="connection_health_latency_tls">Handshake TLS</string>
     <string name="connection_health_latency_value_ms">%1$d ms</string>
-    <string name="connection_health_latency_range_format">mín %1$d · máx %2$d · %3$d amostras</string>
     <string name="connection_health_dns_section_title">Resolvedor DNS</string>
     <string name="connection_health_dns_hit_rate_format">%1$d%% de taxa de acertos do cache</string>
     <string name="connection_health_dns_queries">Consultas</string>
@@ -81,14 +80,12 @@
     <string name="title_strategy_tuner">Ajuste de estratégias</string>
     <string name="strategy_tuner_open_action">Abrir ajuste de estratégias</string>
     <string name="strategy_tuner_domains_label">Domínios de teste</string>
-    <string name="strategy_tuner_status_format">%1$d/%2$d sondagens</string>
     <string name="strategy_tuner_run">Executar</string>
     <string name="strategy_tuner_cancel">Cancelar</string>
     <string name="strategy_tuner_budget_title">Limites da varredura</string>
-    <string name="strategy_tuner_budget_format">%1$d estratégias x %2$d domínios, máximo de %3$d sondagens, intervalo de %4$d ms.</string>
+    <string name="strategy_tuner_budget_format">Estratégias: %1$d × domínios: %2$d, máximo de sondagens: %3$d, intervalo: %4$d ms.</string>
     <string name="strategy_tuner_leaderboard_title">Resultados classificados</string>
     <string name="strategy_tuner_empty_results">Ainda sem estratégias classificadas</string>
-    <string name="strategy_tuner_result_detail_format">%1$d/%2$d domínios OK • média de %3$d ms</string>
     <string name="strategy_tuner_best_badge">Melhor</string>
     <string name="strategy_tuner_rate_format">%1$d%%</string>
     <string name="strategy_tuner_apply">Aplicar</string>
@@ -183,8 +180,6 @@
     <string name="diagnostics_profile_audit_running_body">O RIPDPI testa a matriz completa de estratégias com candidatos temporários. A VPN ou o proxy ativo para; a restauração segue a configuração de retomada automática e pode falhar.</string>
     <string name="diagnostics_profile_audit_ready_body">A última auditoria automática terminou com a matriz completa, evidências por candidato e uma recomendação manual.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">Adulteração de DNS foi detectada antes da execução da matriz de auditoria. O RIPDPI interrompeu os testes alternativos mais cedo e retornou um resultado orientado a resolvedor, de baixa confiança.</string>
-    <string name="diagnostics_profile_probe_partial_results_body">A varredura esgotou o tempo antes que todos os candidatos fossem testados. Os resultados são baseados em %1$d de %2$d candidatos.</string>
-    <string name="diagnostics_profile_audit_partial_results_body">A auditoria esgotou o tempo antes que todos os candidatos fossem testados. Os resultados são baseados em %1$d de %2$d candidatos.</string>
     <string name="diagnostics_profile_audit_unavailable_body">A auditoria automática funciona apenas com as configurações visuais do RIPDPI. Desative o modo de linha de comando antes de executar este fluxo.</string>
     <string name="diagnostics_remediation_command_line_title">Desativar o modo de linha de comando</string>
     <string name="diagnostics_remediation_command_line_step_open_settings">Abra as configurações avançadas.</string>
@@ -319,7 +314,6 @@
     <string name="diagnostics_eta_remaining">Faltando ~%1$s</string>
     <string name="diagnostics_audit_matrix_title">Matriz de auditoria</string>
     <string name="diagnostics_audit_short_circuit_matrix_title">Auditoria incompleta</string>
-    <string name="diagnostics_partial_results_matrix_title">Resultados parciais (%1$d/%2$d candidatos)</string>
     <string name="diagnostics_audit_confidence_title">Confiança da auditoria</string>
     <string name="diagnostics_audit_medium_confidence_note">A confiança é moderada. Revise as evidências do candidato antes de copiar esta estratégia para suas configurações principais.</string>
     <string name="diagnostics_audit_low_confidence_title">Resultado de auditoria com baixa confiança</string>
@@ -544,11 +538,11 @@
     <string name="home_diagnostics_network_ipv6">IPv6</string>
     <string name="home_diagnostics_network_transparent_proxy">Proxy transparente</string>
     <string name="home_diagnostics_effectiveness_section">Efetividade da estratégia de desvio nesta rede</string>
-    <string name="home_diagnostics_effectiveness_row_value">%1$d sucesso / %2$d falha</string>
+    <string name="home_diagnostics_effectiveness_row_value">Sucessos: %1$d / Falhas: %2$d</string>
     <string name="home_diagnostics_routing_sanity_section">Sanidade do roteamento de apps</string>
-    <string name="home_diagnostics_routing_sanity_summary">%1$d apps detectores de VPN conhecidos configurados de %2$d entradas no total.</string>
+    <string name="home_diagnostics_routing_sanity_summary">Apps detectores de VPN conhecidos configurados: %1$d. Total de entradas: %2$d.</string>
     <string name="home_diagnostics_regression_section">Regressão em relação à execução anterior</string>
-    <string name="home_diagnostics_regression_summary">%1$d novas falhas, %2$d novas recuperações, %3$d inalterados.</string>
+    <string name="home_diagnostics_regression_summary">Novas falhas: %1$d, novas recuperações: %2$d, inalterados: %3$d.</string>
     <string name="home_diagnostics_regression_failed_label">Novas falhas</string>
     <string name="home_diagnostics_regression_recovered_label">Novas recuperações</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
@@ -594,8 +588,6 @@
     <string name="home_mode_card_status_busy">Ocupado</string>
     <string name="home_mode_card_diagnostic_status_stale">Rede mudou - execute a varredura novamente</string>
     <string name="home_mode_card_diagnostic_status_actionable">Recomendação pronta</string>
-    <string name="home_mode_card_diagnostic_status_review_format">Revise %1$d/%2$d estágios</string>
-    <string name="home_mode_card_diagnostic_status_complete_format">%1$d/%2$d estágios concluídos</string>
     <string name="home_mode_card_diagnostic_status_review">Revise a auditoria mais recente</string>
     <string name="home_mode_card_enable">Ativar</string>
     <string name="home_mode_card_disable">Desativar</string>
@@ -746,10 +738,7 @@
     <string name="config_relay_chain_hop_remove">Remover salto</string>
     <string name="config_relay_chain_hop_move_up">Mover salto para cima</string>
     <string name="config_relay_chain_hop_move_down">Mover salto para baixo</string>
-    <string name="config_relay_chain_hop_min_reached">Uma cadeia precisa de pelo menos %1$d saltos.</string>
-    <string name="config_relay_chain_hop_max_reached">Uma cadeia pode ter no máximo %1$d saltos.</string>
     <string name="config_relay_chain_cumulative_caveat_title">Cada salto adiciona latência</string>
-    <string name="config_relay_chain_cumulative_caveat_body">O tráfego passa por todos os %1$d saltos em ordem, então cada salto adiciona latência. Mais saltos ampliam a distribuição de confiança entre operadores, mas não fornecem anonimato de nível Tor. Use jurisdições e operadores distintos em cada salto para reduzir a correlação.</string>
     <string name="config_relay_chain_cumulative_latency_caveat">Latência acumulada medida em todos os saltos: %1$d ms.</string>
     <string name="config_relay_masque_url">URL do MASQUE</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
@@ -870,7 +859,7 @@
     <string name="remembered_networks_scope_label">Escopo %1$s</string>
     <string name="remembered_networks_private_dns_label">DNS particular: %1$s</string>
     <string name="remembered_networks_strategy_label">Estratégia: %1$s</string>
-    <string name="remembered_networks_outcomes">%1$d ok · %2$d falhas</string>
+    <string name="remembered_networks_outcomes">OK: %1$d · Falhas: %2$d</string>
     <string name="remembered_networks_updated">Atualizado em %1$s</string>
     <string name="remembered_networks_delete_action">Esquecer</string>
     <string name="remembered_networks_transport_wifi">Wi-Fi</string>
@@ -928,7 +917,6 @@
     <string name="adaptive_fallback_scope_cli">As configurações por linha de comando escolhem o comportamento de fallback ativo.</string>
     <string name="adaptive_fallback_scope_active">Usado quando a estratégia de desvio gerenciada pela UI encontra um gatilho de falha configurado.</string>
     <string name="adaptive_fallback_scope_idle">Salvo para a próxima sessão gerenciada pela UI. Nenhuma estratégia de desvio ativa está usando fallback adaptativo agora.</string>
-    <string name="adaptive_fallback_cache_summary">%1$d segundos · IPv4 /%2$d</string>
     <string name="adaptive_fallback_badge_enabled">Ativado</string>
     <string name="adaptive_fallback_badge_disabled">Desativado</string>
     <string name="adaptive_fallback_badge_auto_sort">Ordenação automática</string>
@@ -956,8 +944,7 @@
     <string name="host_autolearn_store_body">Já existe um armazenamento de hosts aprendidos neste dispositivo. Limpe-o se quiser que o RIPDPI reconstrua as preferências de host do zero.</string>
     <string name="host_autolearn_off_title">O aprendizado de hosts está desativado</string>
     <string name="host_autolearn_off_body">O RIPDPI usará a seleção normal de rotas sem lembrar hosts.</string>
-    <string name="host_autolearn_limits_summary">Janela de penalidade de %1$dh · Limite de %2$d hosts</string>
-    <string name="host_autolearn_runtime_summary">Sessão atual: %1$d aprendidos · %2$d penalizados · %3$d bloqueados</string>
+    <string name="host_autolearn_runtime_summary">Sessão atual: aprendidos %1$d · penalizados %2$d · bloqueados %3$d</string>
     <string name="host_autolearn_store_present_summary">Há rotas de host armazenadas disponíveis neste dispositivo.</string>
     <string name="host_autolearn_last_update_label">Última atualização</string>
     <string name="host_autolearn_action_host_promoted">Melhor rota promovida</string>
@@ -1144,7 +1131,6 @@
     <string name="quic_fake_profile_scope_udp_disabled">A estratégia de desvio de UDP está desativada.</string>
     <string name="quic_fake_profile_scope_needs_burst">Aplica-se apenas quando a cadeia UDP inclui fake_burst.</string>
     <string name="quic_fake_profile_scope_active">Aplica-se apenas ao fake_burst UDP em tráfego QUIC Initial.</string>
-    <string name="quic_fake_profile_burst_configured">%1$d pacotes fake_burst configurados pela cadeia UDP.</string>
     <string name="quic_fake_profile_burst_missing">Nenhuma etapa fake_burst está configurada na cadeia UDP ainda.</string>
     <string name="fake_payload_library_section_title">Biblioteca de payloads fake</string>
     <string name="fake_payload_library_section_body">Escolha os formatos de payload integrados de HTTP, TLS e UDP genérico que o RIPDPI deve usar quando nenhum blob fake personalizado bruto for informado. As predefinições de QUIC Initial ficam na seção QUIC abaixo.</string>
@@ -1211,7 +1197,6 @@
     <string name="tls_fake_profile_scope_ready">Pronto quando a cadeia TCP adicionar uma etapa completa de fake HTTPS.</string>
     <string name="tls_fake_profile_interaction">SNI TLS fake, randomização, duplicação de Session ID, padding e ajuste de tamanho entram em camadas sobre este perfil base.</string>
     <string name="udp_fake_profile_scope_off">A estratégia de desvio de UDP está desativada, então este payload fake genérico está ocioso no momento.</string>
-    <string name="udp_fake_profile_scope_live">Usado para %1$d pacotes genéricos de fake_burst UDP na cadeia atual.</string>
     <string name="udp_fake_profile_scope_ready">Pronto quando a cadeia UDP adicionar fake_burst para tráfego UDP genérico.</string>
     <string name="udp_fake_profile_interaction">Os payloads QUIC Initial ficam na seção separada de perfil fake de QUIC abaixo.</string>
     <string name="udp_fake_profile_interaction_quic_override">O tráfego QUIC Initial usa o perfil fake de QUIC abaixo, enquanto este perfil cobre o restante do tráfego genérico de fake_burst UDP.</string>
@@ -1285,7 +1270,6 @@ fake_burst 3</string>
     <string name="ripdpi_hostfake_summary_label_tls_example">Exemplo TLS</string>
     <string name="ripdpi_hostfake_summary_profile_none">Fora da cadeia atual</string>
     <string name="ripdpi_hostfake_summary_profile_single">1 etapa hostfake</string>
-    <string name="ripdpi_hostfake_summary_profile_multiple">%1$d etapas hostfake</string>
     <string name="ripdpi_hostfake_summary_scope_http_https">Host HTTP e SNI TLS</string>
     <string name="ripdpi_hostfake_summary_scope_http">Somente Host HTTP</string>
     <string name="ripdpi_hostfake_summary_scope_https">Somente SNI TLS</string>
@@ -1348,7 +1332,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_fake_approx_summary_profile_none">Fora da cadeia atual</string>
     <string name="ripdpi_fake_approx_summary_profile_single">1 etapa de aproximação fake</string>
 
-<string name="ripdpi_fake_approx_summary_profile_multiple">%1$d etapas de aproximação falsa</string>
     <string name="ripdpi_fake_approx_summary_scope_http_https">Solicitações HTTP e ClientHello TLS</string>
     <string name="ripdpi_fake_approx_summary_scope_http">Apenas solicitações HTTP</string>
     <string name="ripdpi_fake_approx_summary_scope_https">Apenas ClientHello TLS</string>
@@ -1395,7 +1378,6 @@ fakeddisorder endhost</string>
     <string name="blockcheck_entry_title">Sonda de estratégia</string>
     <string name="blockcheck_entry_body">Execute a sonda de estratégia, revise os resultados classificados e aplique a estratégia mais forte para esta rede.</string>
     <string name="blockcheck_domains_label">Domínios de teste</string>
-    <string name="blockcheck_status_format">%1$d/%2$d checagens</string>
     <string name="blockcheck_run">Executar</string>
     <string name="blockcheck_cancel">Cancelar</string>
     <string name="blockcheck_no_strategies">Nenhuma estratégia registrada</string>
@@ -1422,7 +1404,6 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_high">alta</string>
     <string name="blockcheck_results_title">Resultados classificados</string>
     <string name="blockcheck_empty_results">Ainda sem estratégias classificadas</string>
-    <string name="blockcheck_result_detail_format">%1$d/%2$d domínios OK • média de %3$d ms</string>
     <string name="blockcheck_best_badge">Melhor</string>
     <string name="blockcheck_apply_best">Aplicar melhor</string>
     <string name="blockcheck_export">Exportar</string>
@@ -1545,13 +1526,12 @@ fakeddisorder endhost</string>
     <string name="logs_status_live">Buffer em tempo real</string>
     <string name="logs_status_empty">Aguardando atividade</string>
     <string name="logs_buffer_title">Buffer</string>
-    <string name="logs_buffer_value">%1$d / %2$d entradas</string>
     <string name="logs_latest_title">Evento mais recente</string>
     <string name="logs_latest_empty">Nenhum evento local foi capturado ainda.</string>
     <string name="logs_latest_none">Ocioso</string>
     <string name="logs_filters_section">Filtros</string>
     <string name="logs_filters_helper">Filtre por subsistema ou gravidade para focar no runtime que você está depurando.</string>
-    <string name="logs_filters_summary_compact">%1$d subsistemas • %2$d gravidades</string>
+    <string name="logs_filters_summary_compact">Subsistemas: %1$d • Gravidades: %2$d</string>
     <string name="logs_subsystems_title">Subsistemas</string>
     <string name="logs_subsystem_service">SERVICE</string>
     <string name="logs_subsystem_proxy">PROXY</string>
@@ -1837,8 +1817,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_badge_default">Padrão</string>
     <string name="ripdpi_http_parser_badge_custom">Personalizado</string>
     <string name="ripdpi_http_parser_badge_http_only">Somente HTTP</string>
-    <string name="ripdpi_http_parser_badge_safe_count">%1$d seguros</string>
-    <string name="ripdpi_http_parser_badge_aggressive_count">%1$d agressivas</string>
     <string name="ripdpi_http_parser_badge_nginx_biased">Voltado a Nginx</string>
     <string name="ripdpi_http_parser_reset_action">Redefinir evasões do parser</string>
     <string name="ripdpi_http_parser_safe_group_title">Ajustes seguros do parser</string>
@@ -2409,7 +2387,6 @@ Fonte: %2$s</string>
     <string name="diagnostics_live_handover_state_format">Estado de transição de rede: %1$s</string>
     <string name="diagnostics_live_handover_format">Transição de rede recente detectada: %1$s</string>
     <string name="diagnostics_live_winning_strategy_format">Família de estratégia vencedora: %1$s</string>
-    <string name="diagnostics_live_mode_summary_format">Modo %1$s \u00b7 %2$s transferidos \u00b7 %3$d pacotes observados</string>
     <string name="diagnostics_live_signal_format">%1$s enviados \u00b7 %2$s recebidos</string>
     <string name="diagnostics_live_no_transfer">Nenhuma transferência observada ainda</string>
 
@@ -2447,9 +2424,6 @@ Fonte: %2$s</string>
     <string name="diagnostics_autolearn_penalized">Rota com falha penalizada</string>
     <string name="diagnostics_autolearn_host_blocked">Host bloqueado detectado</string>
     <string name="diagnostics_autolearn_store_reset">Redefinir hosts armazenados</string>
-    <string name="diagnostics_autolearn_learned_format">%1$d aprendidos</string>
-    <string name="diagnostics_autolearn_penalized_format">%1$d penalizados</string>
-    <string name="diagnostics_autolearn_blocked_format">%1$d bloqueados</string>
 
     <string name="diagnostics_telegram_download">Download</string>
     <string name="diagnostics_telegram_upload">Upload</string>
@@ -2670,7 +2644,7 @@ Fonte: %2$s</string>
     <string name="detection_stealth_score_a11y">Pontuação de furtividade %1$d</string>
     <string name="routing_protection_section_title">Proteção de roteamento de apps</string>
     <string name="routing_protection_summary_title">Sugestões de roteamento usam apenas correspondências de apps instalados</string>
-    <string name="routing_protection_summary_body">%1$d apps arriscados detectados em %2$d predefinições ativadas.</string>
+    <string name="routing_protection_summary_body">Apps arriscados detectados: %1$d. Predefinições ativadas: %2$d.</string>
     <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="routing_protection_full_tunnel_active">O modo túnel completo está ativo, então exclusões de apps e dicas de anticorrelação estão suprimidas no momento.</string>
     <string name="routing_protection_policy_title">Modo de sugestões</string>
@@ -3187,13 +3161,11 @@ Fonte: %2$s</string>
     <string name="domain_bypass_intro_body">Domínios listados aqui ficam fora do proxy e conectam diretamente. Aceita domínios simples (example.com), sufixos (.example.com) e os prefixos domain:, domain_suffix: e domain_regex:.</string>
     <string name="domain_bypass_editor_label">Domínios (um por linha)</string>
     <string name="domain_bypass_placeholder">Por exemplo:\nexample.com\n.bank.example</string>
-    <string name="domain_bypass_errors_title">%1$d linha(s) inválida(s)</string>
     <string name="domain_bypass_error_line">Linha %1$d: %2$s</string>
     <string name="domain_bypass_paste">Colar</string>
     <string name="domain_bypass_copy">Copiar</string>
     <string name="domain_bypass_move_to_editor">Mover para regras</string>
     <string name="domain_bypass_moved_rule_name">Lista de domínios de desvio</string>
-    <string name="domain_bypass_saved">%1$d domínio(s) salvo(s)</string>
     <string name="domain_bypass_cleared">Lista de desvio limpa</string>
     <string name="domain_bypass_copied">Copiado para a área de transferência</string>
     <string name="domain_bypass_clipboard_empty">A área de transferência está vazia</string>
@@ -3355,8 +3327,7 @@ Fonte: %2$s</string>
     <string name="backup_import_preview_title">Revisar backup</string>
     <string name="backup_import_preview_schema">Backup versão %1$d, criado pelo app %2$s</string>
     <string name="backup_import_shareable_title">Backup compartilhável</string>
-    <string name="backup_import_shareable_body">%1$d perfil(is) não pode(m) ser restaurado(s) porque as credenciais foram removidas. Grupos, rotas e configurações ainda podem ser restaurados.</string>
-    <string name="backup_import_category_profiles">Perfis e grupos (%1$d perfis, %2$d grupos)</string>
+    <string name="backup_import_category_profiles">Perfis e grupos (perfis: %1$d, grupos: %2$d)</string>
     <string name="backup_import_category_routes">Regras de roteamento (%1$d)</string>
     <string name="backup_import_category_settings">Configurações (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Categorias desmarcadas mantêm os valores atuais.</string>
@@ -3679,7 +3650,6 @@ Fonte: %2$s</string>
     <string name="detection_headline_ordinary_https">Você parece tráfego HTTPS comum</string>
     <string name="detection_narrative_discovered_heading">O que foi descoberto</string>
     <string name="detection_narrative_reason_heading">Por que este veredito</string>
-    <string name="detection_probe_outcome_format">Resultado da sonda: %1$d/%2$d sinais expostos</string>
     <string name="detection_settings_call_transport_subtitle">Sondar MTProto e STUN através de um proxy detectado</string>
     <string name="detection_settings_call_transport_title">Sonda de transporte de chamadas</string>
     <string name="detection_settings_cancel">Cancelar</string>
@@ -3732,7 +3702,6 @@ Fonte: %2$s</string>
     <string name="detection_verdict_reason_format">Motivo: %1$s</string>
     <string name="diagnostics_allowlist_sni_failed">Falha no buscador de compatibilidade de SNI.</string>
     <string name="diagnostics_allowlist_sni_no_flagged">Execute o TCP16 primeiro; ainda não há ASNs sinalizados.</string>
-    <string name="diagnostics_allowlist_sni_ready">Pronto para %1$d alvos sinalizados pelo TCP16.</string>
     <string name="diagnostics_allowlist_sni_run_after_tcp16">Executar depois que o TCP16 encontrar ASNs sinalizados.</string>
     <string name="diagnostics_allowlist_sni_running">Testando compatibilidade de SNI para ASNs sinalizados pelo TCP16...</string>
     <string name="diagnostics_approach_metric_runtime">Tempo de execução</string>
@@ -3762,7 +3731,6 @@ Fonte: %2$s</string>
     <string name="diagnostics_audit_winner_coverage_label">Cobertura da vencedora</string>
     <string name="diagnostics_byoh_check_failed">Falha na verificação de compatibilidade do host.</string>
     <string name="diagnostics_byoh_checking_domain">Verificando %1$s (%2$d/%3$d)...</string>
-    <string name="diagnostics_byoh_complete">%1$d de %2$d hostnames completaram a transferência configurada.</string>
     <string name="diagnostics_byoh_destination_ip_label">IP de destino</string>
     <string name="diagnostics_byoh_dst_ip_required">Informe um IP de destino para o servidor sob seu controle.</string>
     <string name="diagnostics_byoh_metric_bytes">bytes</string>
@@ -3790,19 +3758,17 @@ Fonte: %2$s</string>
     <string name="diagnostics_cidr_whitelist_title">Detecção da lista de permissões CIDR</string>
     <string name="diagnostics_cidr_whitelist_verdict_detected_label">lista de permissões CIDR</string>
     <string name="diagnostics_cidr_whitelist_verdict_no_internet_label">sem internet</string>
-    <string name="diagnostics_compression_complete">%1$d de %2$d codecs de compressão são utilizáveis para %3$s.</string>
     <string name="diagnostics_compression_failed">Falha na sonda de compressão HTTP.</string>
     <string name="diagnostics_compression_metric_target">alvo</string>
     <string name="diagnostics_compression_metric_usable">utilizável</string>
     <string name="diagnostics_compression_metric_zstd">zstd</string>
     <string name="diagnostics_compression_running">Verificando suporte à compressão HTTP...</string>
-    <string name="diagnostics_dns_availability_complete">%1$d de %2$d resolvedores DNS públicos responderam.</string>
     <string name="diagnostics_dns_availability_failed">Falha no levantamento de disponibilidade de DNS.</string>
     <string name="diagnostics_dns_availability_metric_available">disponíveis</string>
     <string name="diagnostics_dns_availability_metric_servers">servidores</string>
     <string name="diagnostics_dns_availability_running">Levantando resolvedores DNS públicos...</string>
     <string name="diagnostics_dns_integrity_complete_clean">Nenhuma substituição de DNS detectada nos %1$d domínios incluídos.</string>
-    <string name="diagnostics_dns_integrity_complete_flagged">%1$d de %2$d domínios, %3$d verificações DoQ e %4$d verificações de bootstrap DoH mostraram avisos de integridade de DNS.</string>
+    <string name="diagnostics_dns_integrity_complete_flagged">Avisos de integridade de DNS: domínios %1$d/%2$d, verificações DoQ %3$d, verificações de bootstrap DoH %4$d.</string>
     <string name="diagnostics_dns_integrity_doh_bootstrap_label">Bootstrap DoH %1$s: %2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s: %3$s</string>
     <string name="diagnostics_dns_integrity_failed">Falha na verificação de integridade de DNS.</string>
@@ -3815,13 +3781,10 @@ Fonte: %2$s</string>
     <string name="diagnostics_dns_integrity_metric_flagged">sinalizado</string>
     <string name="diagnostics_dns_integrity_metric_stub_ips">IPs stub</string>
     <string name="diagnostics_dns_integrity_running">Verificando respostas UDP/53 contra controles DoH...</string>
-    <string name="diagnostics_domain_reachability_complete_clean">Nenhum bloqueio de acessibilidade detectado nos %1$d domínios incluídos.</string>
-    <string name="diagnostics_domain_reachability_complete_flagged">%1$d de %2$d domínios mostraram avisos de acessibilidade.</string>
     <string name="diagnostics_domain_reachability_failed">Falha na varredura de acessibilidade de domínios.</string>
     <string name="diagnostics_domain_reachability_metric_checked">verificados</string>
     <string name="diagnostics_domain_reachability_metric_flagged">sinalizados</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IPs stub</string>
-    <string name="diagnostics_domain_reachability_running">Sondando acessibilidade com %1$d IPs stub de DNS...</string>
     <string name="diagnostics_dpi_probe_kind_ech">Prontidão de ECH</string>
     <string name="diagnostics_dpi_probe_kind_quic_h3">Impressão digital QUIC Initial</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">Cabeçalho grande TCP16</string>
@@ -3832,12 +3795,9 @@ Fonte: %2$s</string>
     <string name="diagnostics_dpi_suite_title">DPI-CH abrangente</string>
     <string name="diagnostics_ipv4_whitelist_cache">Armazenar sub-redes em cache</string>
     <string name="diagnostics_ipv4_whitelist_cache_failed">Falha no cache de sub-redes.</string>
-    <string name="diagnostics_ipv4_whitelist_cached_complete">%1$d faixas /24 candidatas em cache.</string>
-    <string name="diagnostics_ipv4_whitelist_cached_provider">%1$d faixas /24 em cache para %2$s.</string>
     <string name="diagnostics_ipv4_whitelist_caching">Armazenando em cache...</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">Verificar cache</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">Falha na verificação de sub-redes.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_progress">%1$d/%2$d sub-redes em cache verificadas.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">subnets.csv da lista de permissões IPv4</string>
     <string name="diagnostics_ipv4_whitelist_fetching">Buscando prefixos IPv4 anunciados...</string>
     <string name="diagnostics_ipv4_whitelist_hide_results">Ocultar resultados de sub-redes</string>
@@ -3891,7 +3851,7 @@ Fonte: %2$s</string>
     <string name="diagnostics_resolver_save_setting">Salvar como configuração de DNS</string>
     <string name="diagnostics_resolver_switch_dns">Trocar DNS para %1$s</string>
     <string name="diagnostics_results_section_count">%1$s (%2$d)</string>
-    <string name="diagnostics_rkn_complete">Verificados %1$d alvos de controle e %2$d alvos da lista de bloqueio.</string>
+    <string name="diagnostics_rkn_complete">Alvos de controle verificados: %1$d; alvos da lista de bloqueio: %2$d.</string>
     <string name="diagnostics_rkn_failed">Falha no diagnóstico de bloqueio RKN.</string>
     <string name="diagnostics_rkn_group_control">controle</string>
     <string name="diagnostics_rkn_group_test">teste</string>
@@ -3907,8 +3867,7 @@ Fonte: %2$s</string>
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: Falha na resolução do sistema</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">Não validado</string>
-    <string name="diagnostics_tcp16_complete_clean">Nenhum padrão de fechamento de cabeçalho grande TCP16 detectado nos %1$d alvos.</string>
-    <string name="diagnostics_tcp16_complete_detected">%1$d alvos mostraram padrões de fechamento TCP16; %2$d validações de reconexão falharam.</string>
+    <string name="diagnostics_tcp16_complete_detected">Alvos com padrões de fechamento TCP16: %1$d; validações de reconexão com falha: %2$d.</string>
     <string name="diagnostics_tcp16_failed">Falha na sonda de cabeçalho grande TCP16.</string>
     <string name="diagnostics_tcp16_metric_detected">detectado</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">inválido em soquete único</string>
@@ -4042,7 +4001,6 @@ Fonte: %2$s</string>
     <string name="subscription_signal_banner_revoked_title">Assinatura revogada</string>
     <string name="subscription_signal_banner_unavailable_title">Assinatura indisponível</string>
     <string name="subscription_signal_banner_stale_title">O pool de retransmissões pode estar obsoleto</string>
-    <string name="subscription_signal_banner_multiple_message">%1$d assinaturas precisam de atenção. As entradas de retransmissão em cache podem estar desatualizadas.</string>
     <plurals name="subscription_signal_notification_multiple">
         <item quantity="one">%d assinatura precisa de atenção. As entradas de retransmissão em cache podem estar desatualizadas.</item>
         <item quantity="other">%d assinaturas precisam de atenção. As entradas de retransmissão em cache podem estar desatualizadas.</item>
@@ -4067,13 +4025,11 @@ Fonte: %2$s</string>
     <string name="subscription_status_refresh_failed">Falha na atualização</string>
     <string name="subscription_status_url_format">URL da assinatura: %1$s</string>
     <string name="subscription_status_token_format">Token: %1$s</string>
-    <string name="subscription_home_multiple_title">%1$d assinaturas precisam de atenção</string>
     <string name="subscription_home_expiring_title">A assinatura expira em breve</string>
     <string name="subscription_home_expired_title">Assinatura expirada</string>
     <string name="subscription_home_expired_body">%1$s já não consegue mais atualizar. Os perfis existentes permanecem disponíveis.</string>
     <string name="subscription_home_invalidated_title">Assinatura indisponível</string>
     <string name="subscription_home_invalidated_body">%1$s expirou ou foi revogada. Os perfis existentes permanecem disponíveis.</string>
-    <string name="diagnostics_sparkline_chart_description">Tendência de %1$s, %2$d amostras</string>
     <string name="diagnostics_sparkline_selected_state">Amostra %1$d de %2$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">Último valor: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">Amostra anterior</string>

@@ -68,7 +68,6 @@
     <string name="connection_health_latency_tcp">TCP कनेक्ट</string>
     <string name="connection_health_latency_tls">TLS हैंडशेक</string>
     <string name="connection_health_latency_value_ms">%1$d ms</string>
-    <string name="connection_health_latency_range_format">न्यूनतम %1$d · अधिकतम %2$d · %3$d नमूने</string>
     <string name="connection_health_dns_section_title">DNS रिज़ॉल्वर</string>
     <string name="connection_health_dns_hit_rate_format">%1$d%% कैश हिट दर</string>
     <string name="connection_health_dns_queries">क्वेरीज़</string>
@@ -80,14 +79,12 @@
     <string name="title_strategy_tuner">रणनीति ट्यूनर</string>
     <string name="strategy_tuner_open_action">रणनीति ट्यूनर खोलें</string>
     <string name="strategy_tuner_domains_label">परीक्षण डोमेन</string>
-    <string name="strategy_tuner_status_format">%1$d/%2$d प्रोब</string>
     <string name="strategy_tuner_run">चलाएँ</string>
     <string name="strategy_tuner_cancel">रद्द करें</string>
     <string name="strategy_tuner_budget_title">स्वीप की सीमाएँ</string>
-    <string name="strategy_tuner_budget_format">%1$d रणनीतियाँ x %2$d डोमेन, अधिकतम %3$d प्रोब, %4$d ms अंतराल।</string>
+    <string name="strategy_tuner_budget_format">रणनीतियाँ: %1$d × डोमेन: %2$d, अधिकतम प्रोब: %3$d, अंतराल: %4$d ms।</string>
     <string name="strategy_tuner_leaderboard_title">रैंक किए गए परिणाम</string>
     <string name="strategy_tuner_empty_results">अभी तक कोई रैंक की गई रणनीति नहीं</string>
-    <string name="strategy_tuner_result_detail_format">%1$d/%2$d डोमेन OK • औसत %3$d ms</string>
     <string name="strategy_tuner_best_badge">सर्वश्रेष्ठ</string>
     <string name="strategy_tuner_rate_format">%1$d%%</string>
     <string name="strategy_tuner_apply">लागू करें</string>
@@ -182,8 +179,6 @@
     <string name="diagnostics_profile_audit_running_body">RIPDPI अस्थायी विकल्पों के साथ पूरी रणनीति मैट्रिक्स जाँच रहा है। सक्रिय VPN या प्रॉक्सी रुक जाता है; बहाली अपने आप फिर शुरू करने की सेटिंग पर निर्भर करती है और विफल हो सकती है।</string>
     <string name="diagnostics_profile_audit_ready_body">नवीनतम स्वचालित ऑडिट एक पूरे मैट्रिक्स, प्रति-उम्मीदवार साक्ष्य और एक मैन्युअल अनुशंसा के साथ पूरा हुआ।</string>
     <string name="diagnostics_profile_audit_short_circuit_body">ऑडिट मैट्रिक्स चलने से पहले DNS छेड़छाड़ का पता चला। RIPDPI ने फ़ॉलबैक परीक्षण जल्दी रोक दिए और एक कम-विश्वास वाला रिज़ॉल्वर-उन्मुख परिणाम लौटाया।</string>
-    <string name="diagnostics_profile_probe_partial_results_body">सभी उम्मीदवारों का परीक्षण होने से पहले ही स्कैन का समय समाप्त हो गया। परिणाम %2$d में से %1$d उम्मीदवारों पर आधारित हैं।</string>
-    <string name="diagnostics_profile_audit_partial_results_body">सभी उम्मीदवारों का परीक्षण होने से पहले ही ऑडिट का समय समाप्त हो गया। परिणाम %2$d में से %1$d उम्मीदवारों पर आधारित हैं।</string>
     <string name="diagnostics_profile_audit_unavailable_body">स्वचालित ऑडिट केवल विज़ुअल RIPDPI सेटिंग्स के साथ काम करता है। इस वर्कफ़्लो को चलाने से पहले कच्चा कमांड-लाइन मोड बंद करें।</string>
     <string name="diagnostics_remediation_command_line_title">कमांड-लाइन मोड बंद करें</string>
     <string name="diagnostics_remediation_command_line_step_open_settings">उन्नत सेटिंग्स खोलें।</string>
@@ -318,7 +313,6 @@
     <string name="diagnostics_eta_remaining">~%1$s शेष</string>
     <string name="diagnostics_audit_matrix_title">ऑडिट मैट्रिक्स</string>
     <string name="diagnostics_audit_short_circuit_matrix_title">अधूरा ऑडिट</string>
-    <string name="diagnostics_partial_results_matrix_title">आंशिक परिणाम (%1$d/%2$d उम्मीदवार)</string>
     <string name="diagnostics_audit_confidence_title">ऑडिट विश्वास</string>
     <string name="diagnostics_audit_medium_confidence_note">विश्वास मध्यम है। इस रणनीति को अपनी मुख्य सेटिंग्स में कॉपी करने से पहले उम्मीदवार साक्ष्य की समीक्षा करें।</string>
     <string name="diagnostics_audit_low_confidence_title">कम-विश्वास वाला ऑडिट परिणाम</string>
@@ -542,11 +536,11 @@
     <string name="home_diagnostics_network_ipv6">IPv6</string>
     <string name="home_diagnostics_network_transparent_proxy">पारदर्शी प्रॉक्सी</string>
     <string name="home_diagnostics_effectiveness_section">इस नेटवर्क पर बायपास रणनीति की प्रभावशीलता</string>
-    <string name="home_diagnostics_effectiveness_row_value">%1$d पास / %2$d विफल</string>
+    <string name="home_diagnostics_effectiveness_row_value">पास: %1$d / विफल: %2$d</string>
     <string name="home_diagnostics_routing_sanity_section">ऐप रूटिंग जाँच</string>
-    <string name="home_diagnostics_routing_sanity_summary">%2$d कुल प्रविष्टियों में से %1$d ज्ञात VPN-डिटेक्टर ऐप्स कॉन्फ़िगर किए गए.</string>
+    <string name="home_diagnostics_routing_sanity_summary">कॉन्फ़िगर किए गए ज्ञात VPN-डिटेक्टर ऐप्स: %1$d। कुल प्रविष्टियाँ: %2$d।</string>
     <string name="home_diagnostics_regression_section">पिछले रन की तुलना में रिग्रेशन</string>
-    <string name="home_diagnostics_regression_summary">%1$d नए विफल, %2$d नए ठीक हुए, %3$d अपरिवर्तित.</string>
+    <string name="home_diagnostics_regression_summary">नए विफल: %1$d, नए ठीक हुए: %2$d, अपरिवर्तित: %3$d।</string>
     <string name="home_diagnostics_regression_failed_label">नए विफल</string>
     <string name="home_diagnostics_regression_recovered_label">नए ठीक हुए</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
@@ -592,8 +586,6 @@
     <string name="home_mode_card_status_busy">व्यस्त</string>
     <string name="home_mode_card_diagnostic_status_stale">नेटवर्क बदला - स्कैन फिर से चलाएँ</string>
     <string name="home_mode_card_diagnostic_status_actionable">सिफ़ारिश तैयार है</string>
-    <string name="home_mode_card_diagnostic_status_review_format">%1$d/%2$d चरण देखें</string>
-    <string name="home_mode_card_diagnostic_status_complete_format">%1$d/%2$d चरण पूर्ण</string>
     <string name="home_mode_card_diagnostic_status_review">नवीनतम ऑडिट देखें</string>
     <string name="home_mode_card_enable">सक्षम करें</string>
     <string name="home_mode_card_disable">अक्षम करें</string>
@@ -743,10 +735,7 @@
     <string name="config_relay_chain_hop_remove">हॉप हटाएँ</string>
     <string name="config_relay_chain_hop_move_up">हॉप ऊपर ले जाएँ</string>
     <string name="config_relay_chain_hop_move_down">हॉप नीचे ले जाएँ</string>
-    <string name="config_relay_chain_hop_min_reached">एक चेन में कम से कम %1$d हॉप होने चाहिए।</string>
-    <string name="config_relay_chain_hop_max_reached">एक चेन में अधिकतम %1$d हॉप हो सकते हैं।</string>
     <string name="config_relay_chain_cumulative_caveat_title">हर हॉप विलंब बढ़ाता है</string>
-    <string name="config_relay_chain_cumulative_caveat_body">ट्रैफ़िक सभी %1$d हॉप से क्रम में रिले होता है, इसलिए हर हॉप विलंब बढ़ाता है। अधिक हॉप ऑपरेटरों के बीच भरोसे के बँटवारे को व्यापक बनाते हैं, लेकिन Tor-स्तर की गुमनामी नहीं देते। सहसंबंध कम करने के लिए हर हॉप के लिए अलग-अलग अधिकार-क्षेत्र और ऑपरेटर उपयोग करें।</string>
     <string name="config_relay_chain_cumulative_latency_caveat">सभी हॉप में मापा गया संचयी विलंब: %1$d ms।</string>
     <string name="config_relay_masque_url">MASQUE URL</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
@@ -867,7 +856,7 @@
     <string name="remembered_networks_scope_label">स्कोप %1$s</string>
     <string name="remembered_networks_private_dns_label">Private DNS: %1$s</string>
     <string name="remembered_networks_strategy_label">रणनीति: %1$s</string>
-    <string name="remembered_networks_outcomes">%1$d ठीक · %2$d विफल</string>
+    <string name="remembered_networks_outcomes">ठीक: %1$d · विफल: %2$d</string>
     <string name="remembered_networks_updated">%1$s को अपडेट किया गया</string>
     <string name="remembered_networks_delete_action">भूल जाएँ</string>
     <string name="remembered_networks_transport_wifi">Wi-Fi</string>
@@ -925,7 +914,6 @@
     <string name="adaptive_fallback_scope_cli">कमांड लाइन सेटिंग्स सक्रिय फ़ॉलबैक व्यवहार चुनती हैं।</string>
     <string name="adaptive_fallback_scope_active">तब उपयोग होता है जब वर्तमान UI-प्रबंधित बायपास रणनीति किसी कॉन्फ़िगर की गई विफलता ट्रिगर से टकराती है।</string>
     <string name="adaptive_fallback_scope_idle">अगले UI-प्रबंधित सत्र के लिए सहेजा गया। अभी कोई सक्रिय बायपास रणनीति अनुकूली फ़ॉलबैक का उपयोग नहीं कर रही है।</string>
-    <string name="adaptive_fallback_cache_summary">%1$d सेकंड · IPv4 /%2$d</string>
     <string name="adaptive_fallback_badge_enabled">सक्षम</string>
     <string name="adaptive_fallback_badge_disabled">अक्षम</string>
     <string name="adaptive_fallback_badge_auto_sort">स्वतः-क्रमबद्ध</string>
@@ -953,8 +941,7 @@
     <string name="host_autolearn_store_body">इस डिवाइस पर पहले से एक सीखे-गए-होस्ट स्टोर मौजूद है। यदि आप चाहते हैं कि RIPDPI होस्ट प्राथमिकताएँ शुरू से बनाए, तो इसे साफ़ करें।</string>
     <string name="host_autolearn_off_title">होस्ट लर्निंग बंद है</string>
     <string name="host_autolearn_off_body">RIPDPI होस्ट याद रखे बिना सामान्य रूट चयन का उपयोग करेगा।</string>
-    <string name="host_autolearn_limits_summary">पेनल्टी अवधि %1$dh · सीमा %2$d होस्ट</string>
-    <string name="host_autolearn_runtime_summary">वर्तमान सत्र: %1$d सीखे गए · %2$d दंडित · %3$d अवरुद्ध</string>
+    <string name="host_autolearn_runtime_summary">वर्तमान सत्र: सीखे गए %1$d · दंडित %2$d · अवरुद्ध %3$d</string>
     <string name="host_autolearn_store_present_summary">इस डिवाइस पर संग्रहीत होस्ट रूट उपलब्ध हैं।</string>
     <string name="host_autolearn_last_update_label">अंतिम अपडेट</string>
     <string name="host_autolearn_action_host_promoted">सर्वोत्तम रूट को बढ़ावा दिया</string>
@@ -1141,7 +1128,6 @@
     <string name="quic_fake_profile_scope_udp_disabled">UDP बायपास रणनीति अक्षम है।</string>
     <string name="quic_fake_profile_scope_needs_burst">केवल तभी लागू होता है जब UDP चेन में fake_burst शामिल हो।</string>
     <string name="quic_fake_profile_scope_active">केवल QUIC Initial ट्रैफ़िक पर UDP fake_burst के लिए लागू होता है।</string>
-    <string name="quic_fake_profile_burst_configured">UDP चेन द्वारा %1$d fake_burst पैकेट कॉन्फ़िगर किए गए।</string>
     <string name="quic_fake_profile_burst_missing">UDP चेन में अभी कोई fake_burst चरण कॉन्फ़िगर नहीं है।</string>
     <string name="fake_payload_library_section_title">फ़ेक पेलोड लाइब्रेरी</string>
     <string name="fake_payload_library_section_body">जब कोई रॉ कस्टम फ़ेक ब्लॉब न दिया गया हो तब RIPDPI को किन बिल्ट-इन HTTP, TLS, और सामान्य UDP पेलोड आकारों का उपयोग करना चाहिए, चुनें। QUIC Initial प्रीसेट नीचे QUIC अनुभाग में रहते हैं।</string>
@@ -1208,7 +1194,6 @@
     <string name="tls_fake_profile_scope_ready">जब TCP चेन पूर्ण फेक HTTPS स्टेप जोड़ती है, तब तैयार।</string>
     <string name="tls_fake_profile_interaction">फेक TLS SNI, रैंडमाइज़ेशन, Session ID डुप्लिकेशन, पैडिंग, और साइज़ ट्यूनिंग इस आधार प्रोफ़ाइल के ऊपर लागू होते हैं।</string>
     <string name="udp_fake_profile_scope_off">UDP बायपास रणनीति अक्षम है, इसलिए यह जेनेरिक फेक पेलोड अभी निष्क्रिय है।</string>
-    <string name="udp_fake_profile_scope_live">मौजूदा चेन पर %1$d जेनेरिक UDP fake_burst पैकेट के लिए उपयोग किया जाता है।</string>
     <string name="udp_fake_profile_scope_ready">जब UDP चेन जेनेरिक UDP ट्रैफ़िक के लिए fake_burst जोड़ती है, तब तैयार।</string>
     <string name="udp_fake_profile_interaction">QUIC Initial पेलोड नीचे अलग QUIC फेक प्रोफ़ाइल सेक्शन में रहते हैं।</string>
     <string name="udp_fake_profile_interaction_quic_override">QUIC Initial ट्रैफ़िक नीचे दी गई QUIC फेक प्रोफ़ाइल का उपयोग करता है, जबकि यह प्रोफ़ाइल शेष जेनेरिक UDP fake_burst ट्रैफ़िक को कवर करती है।</string>
@@ -1282,7 +1267,6 @@ fake_burst 3</string>
     <string name="ripdpi_hostfake_summary_label_tls_example">TLS उदाहरण</string>
     <string name="ripdpi_hostfake_summary_profile_none">मौजूदा चेन में नहीं</string>
     <string name="ripdpi_hostfake_summary_profile_single">1 hostfake चरण</string>
-    <string name="ripdpi_hostfake_summary_profile_multiple">%1$d hostfake चरण</string>
     <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host और TLS SNI</string>
     <string name="ripdpi_hostfake_summary_scope_http">केवल HTTP Host</string>
     <string name="ripdpi_hostfake_summary_scope_https">केवल TLS SNI</string>
@@ -1344,7 +1328,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_fake_approx_summary_label_tls_example">TLS उदाहरण</string>
     <string name="ripdpi_fake_approx_summary_profile_none">मौजूदा चेन में नहीं है</string>
     <string name="ripdpi_fake_approx_summary_profile_single">1 fake approximation चरण</string>
-    <string name="ripdpi_fake_approx_summary_profile_multiple">%1$d fake approximation चरण</string>
     <string name="ripdpi_fake_approx_summary_scope_http_https">HTTP अनुरोध और TLS ClientHello</string>
     <string name="ripdpi_fake_approx_summary_scope_http">केवल HTTP अनुरोध</string>
     <string name="ripdpi_fake_approx_summary_scope_https">केवल TLS ClientHello</string>
@@ -1391,7 +1374,6 @@ fakeddisorder endhost</string>
     <string name="blockcheck_entry_title">रणनीति जाँच</string>
     <string name="blockcheck_entry_body">रणनीति जाँच चलाएँ, रैंक किए गए परिणामों की समीक्षा करें, और इस नेटवर्क के लिए सबसे मज़बूत रणनीति लागू करें।</string>
     <string name="blockcheck_domains_label">परीक्षण डोमेन</string>
-    <string name="blockcheck_status_format">%1$d/%2$d जाँचें</string>
     <string name="blockcheck_run">चलाएँ</string>
     <string name="blockcheck_cancel">रद्द करें</string>
     <string name="blockcheck_no_strategies">कोई रणनीति पंजीकृत नहीं</string>
@@ -1418,7 +1400,6 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_high">उच्च</string>
     <string name="blockcheck_results_title">रैंक किए गए परिणाम</string>
     <string name="blockcheck_empty_results">अभी तक कोई रैंक की गई रणनीति नहीं</string>
-    <string name="blockcheck_result_detail_format">%1$d/%2$d डोमेन OK • औसत %3$d ms</string>
     <string name="blockcheck_best_badge">सर्वश्रेष्ठ</string>
     <string name="blockcheck_apply_best">सर्वश्रेष्ठ लागू करें</string>
     <string name="blockcheck_export">निर्यात</string>
@@ -1541,13 +1522,12 @@ fakeddisorder endhost</string>
     <string name="logs_status_live">लाइव बफ़र</string>
     <string name="logs_status_empty">गतिविधि की प्रतीक्षा में</string>
     <string name="logs_buffer_title">बफ़र</string>
-    <string name="logs_buffer_value">%1$d / %2$d प्रविष्टियाँ</string>
     <string name="logs_latest_title">नवीनतम इवेंट</string>
     <string name="logs_latest_empty">अभी तक कोई स्थानीय इवेंट कैप्चर नहीं हुआ है।</string>
     <string name="logs_latest_none">निष्क्रिय</string>
     <string name="logs_filters_section">फ़िल्टर</string>
     <string name="logs_filters_helper">जिस रनटाइम को आप डिबग कर रहे हैं उस पर ध्यान केंद्रित करने के लिए सबसिस्टम या गंभीरता के अनुसार फ़िल्टर करें।</string>
-    <string name="logs_filters_summary_compact">%1$d सबसिस्टम • %2$d गंभीरताएँ</string>
+    <string name="logs_filters_summary_compact">सबसिस्टम: %1$d • गंभीरताएँ: %2$d</string>
     <string name="logs_subsystems_title">सबसिस्टम</string>
     <string name="logs_subsystem_service">SERVICE</string>
     <string name="logs_subsystem_proxy">PROXY</string>
@@ -1838,7 +1818,6 @@ fakeddisorder endhost</string>
     <string name="subscription_signal_banner_revoked_title">सदस्यता रद्द की गई</string>
     <string name="subscription_signal_banner_unavailable_title">सदस्यता उपलब्ध नहीं है</string>
     <string name="subscription_signal_banner_stale_title">रिले पूल पुराना हो सकता है</string>
-    <string name="subscription_signal_banner_multiple_message">%1$d सदस्यताओं पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</string>
     <plurals name="subscription_signal_notification_multiple">
         <item quantity="one">%d सदस्यता पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</item>
         <item quantity="other">%d सदस्यताओं पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</item>
@@ -1864,7 +1843,6 @@ fakeddisorder endhost</string>
     <string name="subscription_status_refresh_failed">रीफ़्रेश विफल</string>
     <string name="subscription_status_url_format">सदस्यता URL: %1$s</string>
     <string name="subscription_status_token_format">टोकन: %1$s</string>
-    <string name="subscription_home_multiple_title">%1$d सदस्यताओं पर ध्यान देना आवश्यक है</string>
     <string name="subscription_home_expiring_title">सदस्यता जल्द समाप्त होगी</string>
     <string name="subscription_home_expired_title">सदस्यता समाप्त हो गई</string>
     <string name="subscription_home_expired_body">%1$s अब रीफ़्रेश नहीं हो सकती। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
@@ -1872,7 +1850,6 @@ fakeddisorder endhost</string>
     <string name="subscription_home_invalidated_body">%1$s समाप्त या निरस्त हो गई। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
     <string name="xray_skip_unsupported_transport">%1$s ट्रांसपोर्ट मूल रूप से समर्थित नहीं है।</string>
     <string name="xray_skip_unsupported_fingerprint">%1$s TLS फिंगरप्रिंट मूल रूप से समर्थित नहीं है।</string>
-    <string name="diagnostics_sparkline_chart_description">%1$s का रुझान, %2$d नमूने</string>
     <string name="diagnostics_sparkline_selected_state">%2$d में से नमूना %1$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">नवीनतम मान: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">पिछला नमूना</string>

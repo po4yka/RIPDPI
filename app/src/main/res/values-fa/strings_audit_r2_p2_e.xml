@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="measurement_quality_samples">
+        <item quantity="one">%1$d نمونهٔ RTT · جیتر %2$s میلی‌ثانیه</item>
+        <item quantity="other">%1$d نمونهٔ RTT · جیتر %2$s میلی‌ثانیه</item>
+    </plurals>
+    <plurals name="home_quality_samples">
+        <item quantity="one">%1$d نمونهٔ RTT</item>
+        <item quantity="other">%1$d نمونهٔ RTT</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_min_reached">
+        <item quantity="one">یک زنجیره به حداقل %1$d پرش نیاز دارد.</item>
+        <item quantity="other">یک زنجیره به حداقل %1$d پرش نیاز دارد.</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_max_reached">
+        <item quantity="one">یک زنجیره می‌تواند حداکثر %1$d پرش داشته باشد.</item>
+        <item quantity="other">یک زنجیره می‌تواند حداکثر %1$d پرش داشته باشد.</item>
+    </plurals>
+    <plurals name="config_relay_chain_cumulative_caveat_body">
+        <item quantity="one">ترافیک به‌ترتیب از %1$d پرش عبور می‌کند، بنابراین هر پرش تأخیر اضافه می‌کند. پرش‌های بیشتر اعتماد را میان اپراتورها تقسیم می‌کنند اما گمنامی در حد Tor فراهم نمی‌کنند. برای کاهش همبستگی، در هر پرش از حوزه قضایی و اپراتور متفاوت استفاده کنید.</item>
+        <item quantity="other">ترافیک به‌ترتیب از همه %1$d پرش عبور می‌کند، بنابراین هر پرش تأخیر اضافه می‌کند. پرش‌های بیشتر اعتماد را میان اپراتورها تقسیم می‌کنند اما گمنامی در حد Tor فراهم نمی‌کنند. برای کاهش همبستگی، در هر پرش از حوزه قضایی و اپراتور متفاوت استفاده کنید.</item>
+    </plurals>
+    <plurals name="adaptive_fallback_cache_summary">
+        <item quantity="one">%1$d ثانیه · IPv4 /%2$d</item>
+        <item quantity="other">%1$d ثانیه · IPv4 /%2$d</item>
+    </plurals>
+    <plurals name="host_autolearn_limits_summary">
+        <item quantity="one">پنجرهٔ جریمه %1$dh · حد %2$d میزبان</item>
+        <item quantity="other">پنجرهٔ جریمه %1$dh · حد %2$d میزبان</item>
+    </plurals>
+    <plurals name="quic_fake_profile_burst_configured">
+        <item quantity="one">%1$d بستهٔ fake_burst توسط زنجیرهٔ UDP پیکربندی شده.</item>
+        <item quantity="other">%1$d بستهٔ fake_burst توسط زنجیرهٔ UDP پیکربندی شده.</item>
+    </plurals>
+    <plurals name="udp_fake_profile_scope_live">
+        <item quantity="one">برای %1$d بسته fake_burst عمومی UDP در زنجیرهٔ فعلی استفاده می‌شود.</item>
+        <item quantity="other">برای %1$d بسته fake_burst عمومی UDP در زنجیرهٔ فعلی استفاده می‌شود.</item>
+    </plurals>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="one">%1$d مرحلهٔ hostfake</item>
+        <item quantity="other">%1$d مرحلهٔ hostfake</item>
+    </plurals>
+    <plurals name="ripdpi_fake_approx_summary_profile_multiple">
+        <item quantity="one">%1$d مرحلهٔ تقریب fake</item>
+        <item quantity="other">%1$d مرحلهٔ تقریب fake</item>
+    </plurals>
+    <plurals name="blockcheck_status_format">
+        <item quantity="one">%1$d/%2$d بررسی</item>
+        <item quantity="other">%1$d/%2$d بررسی</item>
+    </plurals>
+    <plurals name="strategy_tuner_status_format">
+        <item quantity="one">%1$d/%2$d کاوش</item>
+        <item quantity="other">%1$d/%2$d کاوش</item>
+    </plurals>
+    <plurals name="strategy_tuner_result_detail_format">
+        <item quantity="one">%1$d/%2$d دامنه موفق • میانگین %3$d ms</item>
+        <item quantity="other">%1$d/%2$d دامنه موفق • میانگین %3$d ms</item>
+    </plurals>
+    <plurals name="blockcheck_result_detail_format">
+        <item quantity="one">%1$d/%2$d دامنه موفق • به‌طور میانگین %3$d میلی‌ثانیه</item>
+        <item quantity="other">%1$d/%2$d دامنه موفق • به‌طور میانگین %3$d میلی‌ثانیه</item>
+    </plurals>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d ورودی</item>
+        <item quantity="other">%1$d / %2$d ورودی</item>
+    </plurals>
+    <plurals name="diagnostics_live_mode_summary_format">
+        <item quantity="one">حالت %1$s · %2$s منتقل شد · %3$d بسته مشاهده شد</item>
+        <item quantity="other">حالت %1$s · %2$s منتقل شد · %3$d بسته مشاهده شد</item>
+    </plurals>
+    <plurals name="domain_bypass_errors_title">
+        <item quantity="one">%1$d خط نامعتبر</item>
+        <item quantity="other">%1$d خط نامعتبر</item>
+    </plurals>
+    <plurals name="domain_bypass_saved">
+        <item quantity="one">%1$d دامنه ذخیره شد</item>
+        <item quantity="other">%1$d دامنه ذخیره شد</item>
+    </plurals>
+    <plurals name="backup_import_shareable_body">
+        <item quantity="one">%1$d نمایه را نمی‌توان بازیابی کرد زیرا اطلاعات ورود حذف شده است. گروه‌ها، مسیرها و تنظیمات همچنان قابل بازیابی هستند.</item>
+        <item quantity="other">%1$d نمایه را نمی‌توان بازیابی کرد زیرا اطلاعات ورود حذف شده است. گروه‌ها، مسیرها و تنظیمات همچنان قابل بازیابی هستند.</item>
+    </plurals>
+    <plurals name="detection_probe_outcome_format">
+        <item quantity="one">نتیجهٔ کاوش: %1$d/%2$d سیگنال افشاشده</item>
+        <item quantity="other">نتیجهٔ کاوش: %1$d/%2$d سیگنال افشاشده</item>
+    </plurals>
+    <plurals name="diagnostics_allowlist_sni_ready">
+        <item quantity="one">آمادهٔ %1$d هدف نشانه‌گذاری‌شده با TCP16.</item>
+        <item quantity="other">آمادهٔ %1$d هدف نشانه‌گذاری‌شده با TCP16.</item>
+    </plurals>
+    <plurals name="diagnostics_byoh_complete">
+        <item quantity="one">%1$d از %2$d نام میزبان انتقال پیکربندی‌شده را کامل کردند.</item>
+        <item quantity="other">%1$d از %2$d نام میزبان انتقال پیکربندی‌شده را کامل کردند.</item>
+    </plurals>
+    <plurals name="diagnostics_compression_complete">
+        <item quantity="one">%1$d از %2$d کدک فشرده‌سازی برای %3$s قابل استفاده‌اند.</item>
+        <item quantity="other">%1$d از %2$d کدک فشرده‌سازی برای %3$s قابل استفاده‌اند.</item>
+    </plurals>
+    <plurals name="diagnostics_dns_availability_complete">
+        <item quantity="one">%1$d از %2$d حل‌کنندهٔ عمومی DNS پاسخ دادند.</item>
+        <item quantity="other">%1$d از %2$d حل‌کنندهٔ عمومی DNS پاسخ دادند.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_clean">
+        <item quantity="one">در %1$d دامنهٔ همراه‌شده هیچ انسداد دسترسی شناسایی نشد.</item>
+        <item quantity="other">در %1$d دامنهٔ همراه‌شده هیچ انسداد دسترسی شناسایی نشد.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_flagged">
+        <item quantity="one">%1$d از %2$d دامنه هشدار دسترس‌پذیری نشان دادند.</item>
+        <item quantity="other">%1$d از %2$d دامنه هشدار دسترس‌پذیری نشان دادند.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_running">
+        <item quantity="one">در حال کاوش دسترس‌پذیری با %1$d آی‌پی stub مربوط به DNS...</item>
+        <item quantity="other">در حال کاوش دسترس‌پذیری با %1$d آی‌پی stub مربوط به DNS...</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_complete">
+        <item quantity="one">%1$d بازهٔ نامزد /24 در حافظهٔ نهان ذخیره شد.</item>
+        <item quantity="other">%1$d بازهٔ نامزد /24 در حافظهٔ نهان ذخیره شد.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_provider">
+        <item quantity="one">%1$d بازهٔ /24 برای %2$s در حافظهٔ نهان ذخیره شد.</item>
+        <item quantity="other">%1$d بازهٔ /24 برای %2$s در حافظهٔ نهان ذخیره شد.</item>
+    </plurals>
+    <plurals name="diagnostics_tcp16_complete_clean">
+        <item quantity="one">در %1$d هدف هیچ الگوی بسته‌شدن سرآیند چاق TCP16 شناسایی نشد.</item>
+        <item quantity="other">در %1$d هدف هیچ الگوی بسته‌شدن سرآیند چاق TCP16 شناسایی نشد.</item>
+    </plurals>
+    <plurals name="subscription_signal_banner_multiple_message">
+        <item quantity="one">%1$d اشتراک نیاز به بررسی دارد. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
+        <item quantity="other">%1$d اشتراک نیاز به بررسی دارند. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
+    </plurals>
+    <plurals name="subscription_home_multiple_title">
+        <item quantity="one">%1$d اشتراک نیاز به توجه دارد</item>
+        <item quantity="other">%1$d اشتراک نیاز به توجه دارد</item>
+    </plurals>
+    <plurals name="diagnostics_sparkline_chart_description">
+        <item quantity="one">روند %1$s، %2$d نمونه</item>
+        <item quantity="other">روند %1$s، %2$d نمونه</item>
+    </plurals>
+    <plurals name="diagnostics_rkn_note_high_format">
+        <item quantity="one">خطاهای %1$d/%2$d سایت فهرست سیاه با الگوهای دارای اطمینان بالا مطابقت دارند (مسموم‌سازی DNS تأییدشده با DoH، HTTP 451 و نشانه‌های شناخته‌شده صفحات مسدودسازی).</item>
+        <item quantity="other">خطاهای %1$d/%2$d سایت فهرست سیاه با الگوهای دارای اطمینان بالا مطابقت دارند (مسموم‌سازی DNS تأییدشده با DoH، HTTP 451 و نشانه‌های شناخته‌شده صفحات مسدودسازی).</item>
+    </plurals>
+    <plurals name="diagnostics_outcome_coverage_format">
+        <item quantity="one">%1$d از %2$d مرحله تکمیل شد؛ %3$d مرحله ناموفق بود</item>
+        <item quantity="other">%1$d از %2$d مرحله تکمیل شد؛ %3$d مرحله ناموفق بود</item>
+    </plurals>
+    <plurals name="diagnostics_dns_complete_agree">
+        <item quantity="one">پاسخ‌های نشانی DNS در %1$d دامنهٔ داخلی یکسان‌اند.</item>
+        <item quantity="other">پاسخ‌های نشانی DNS در %1$d دامنهٔ داخلی یکسان‌اند.</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_review_format">
+        <item quantity="one">بررسی %1$d/%2$d مرحله</item>
+        <item quantity="other">بررسی %1$d/%2$d مرحله</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_complete_format">
+        <item quantity="one">%1$d/%2$d مرحلهٔ تکمیل‌شده</item>
+        <item quantity="other">%1$d/%2$d مرحلهٔ تکمیل‌شده</item>
+    </plurals>
+    <plurals name="diagnostics_profile_probe_partial_results_body">
+        <item quantity="one">پویش پیش از آنکه همهٔ نامزدها آزمایش شوند، زمانش به پایان رسید. نتایج بر اساس %1$d از %2$d نامزد است.</item>
+        <item quantity="other">پویش پیش از آنکه همهٔ نامزدها آزمایش شوند، زمانش به پایان رسید. نتایج بر اساس %1$d از %2$d نامزد است.</item>
+    </plurals>
+    <plurals name="diagnostics_profile_audit_partial_results_body">
+        <item quantity="one">حسابرسی پیش از آنکه همهٔ نامزدها آزمایش شوند، زمانش به پایان رسید. نتایج بر اساس %1$d از %2$d نامزد است.</item>
+        <item quantity="other">حسابرسی پیش از آنکه همهٔ نامزدها آزمایش شوند، زمانش به پایان رسید. نتایج بر اساس %1$d از %2$d نامزد است.</item>
+    </plurals>
+    <plurals name="diagnostics_partial_results_matrix_title">
+        <item quantity="one">نتایج جزئی (%1$d/%2$d نامزد)</item>
+        <item quantity="other">نتایج جزئی (%1$d/%2$d نامزد)</item>
+    </plurals>
+    <plurals name="connection_health_latency_range_format">
+        <item quantity="one">کمینه %1$d · بیشینه %2$d · %3$d نمونه</item>
+        <item quantity="other">کمینه %1$d · بیشینه %2$d · %3$d نمونه</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_learned_format">
+        <item quantity="one">%1$d یادگرفته</item>
+        <item quantity="other">%1$d یادگرفته</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_penalized_format">
+        <item quantity="one">%1$d جریمه‌شده</item>
+        <item quantity="other">%1$d جریمه‌شده</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_blocked_format">
+        <item quantity="one">%1$d مسدودشده</item>
+        <item quantity="other">%1$d مسدودشده</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_safe_count">
+        <item quantity="one">%1$d ایمن</item>
+        <item quantity="other">%1$d ایمن</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_aggressive_count">
+        <item quantity="one">%1$d تهاجمی</item>
+        <item quantity="other">%1$d تهاجمی</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_progress">
+        <item quantity="one">%1$d/%2$d زیرشبکهٔ ذخیره‌شده بررسی شد.</item>
+        <item quantity="other">%1$d/%2$d زیرشبکهٔ ذخیره‌شده بررسی شد.</item>
+    </plurals>
+</resources>

@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -185,8 +186,9 @@ private fun BlockcheckControlsCard(
             if (state.isRunning || state.results.isNotEmpty()) {
                 Text(
                     text =
-                        stringResource(
-                            R.string.blockcheck_status_format,
+                        pluralStringResource(
+                            R.plurals.blockcheck_status_format,
+                            state.totalExpectedResults,
                             state.results.size,
                             state.totalExpectedResults,
                         ),
@@ -340,8 +342,9 @@ private fun BlockcheckRankedRow(
             Text(text = result.strategyLabel, style = RipDpiThemeTokens.type.body)
             Text(
                 text =
-                    stringResource(
-                        R.string.blockcheck_result_detail_format,
+                    pluralStringResource(
+                        R.plurals.blockcheck_result_detail_format,
+                        result.total,
                         result.successes,
                         result.total,
                         result.averageLatencyMs,

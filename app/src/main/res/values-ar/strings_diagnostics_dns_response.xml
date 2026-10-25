@@ -41,5 +41,4 @@
     <string name="diagnostics_dns_none">لم يُبلغ عن شيء</string>
     <string name="diagnostics_dns_show">عرض بيانات استجابات DNS</string>
     <string name="diagnostics_dns_hide">إخفاء بيانات استجابات DNS</string>
-    <string name="diagnostics_dns_complete_agree">تتطابق استجابات عناوين DNS في %1$d نطاقات مضمنة.</string>
 </resources>

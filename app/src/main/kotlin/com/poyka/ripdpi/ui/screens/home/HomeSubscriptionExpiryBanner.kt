@@ -17,7 +17,7 @@ internal fun subscriptionExpiryAdvisory(
     val item = state.attention ?: return null
     val title =
         if (state.affectedCount > 1) {
-            stringResource(R.string.subscription_home_multiple_title, state.affectedCount)
+            pluralStringResource(R.plurals.subscription_home_multiple_title, state.affectedCount, state.affectedCount)
         } else {
             when (item.status) {
                 SubscriptionExpiryStatus.EXPIRING -> stringResource(R.string.subscription_home_expiring_title)

@@ -67,7 +67,6 @@
     <string name="connection_health_latency_tcp">اتصال TCP</string>
     <string name="connection_health_latency_tls">دست‌دهی TLS</string>
     <string name="connection_health_latency_value_ms">%1$d ms</string>
-    <string name="connection_health_latency_range_format">کمینه %1$d · بیشینه %2$d · %3$d نمونه</string>
     <string name="connection_health_dns_section_title">تفکیک‌کننده DNS</string>
     <string name="connection_health_dns_hit_rate_format">%1$d%% نرخ اصابت حافظه پنهان</string>
     <string name="connection_health_dns_queries">پرس‌وجوها</string>
@@ -79,14 +78,12 @@
     <string name="title_strategy_tuner">تنظیم راهبرد</string>
     <string name="strategy_tuner_open_action">باز کردن تنظیم راهبرد</string>
     <string name="strategy_tuner_domains_label">دامنه‌های آزمایش</string>
-    <string name="strategy_tuner_status_format">%1$d/%2$d کاوش</string>
     <string name="strategy_tuner_run">اجرا</string>
     <string name="strategy_tuner_cancel">لغو</string>
     <string name="strategy_tuner_budget_title">محدودیت‌های پویش</string>
-    <string name="strategy_tuner_budget_format">%1$d راهبرد x %2$d دامنه، حداکثر %3$d کاوش، فاصله %4$d ms.</string>
+    <string name="strategy_tuner_budget_format">راهبردها: %1$d × دامنه‌ها: %2$d، حداکثر کاوش: %3$d، فاصله: %4$d ms.</string>
     <string name="strategy_tuner_leaderboard_title">نتایج رتبه‌بندی‌شده</string>
     <string name="strategy_tuner_empty_results">هنوز راهبردی رتبه‌بندی نشده</string>
-    <string name="strategy_tuner_result_detail_format">%1$d/%2$d دامنه موفق • میانگین %3$d ms</string>
     <string name="strategy_tuner_best_badge">بهترین</string>
     <string name="strategy_tuner_rate_format">%1$d%%</string>
     <string name="strategy_tuner_apply">اعمال</string>
@@ -183,8 +180,6 @@
     <string name="diagnostics_profile_audit_running_body">RIPDPI ماتریس کامل راهبردها را با گزینه‌های موقت آزمایش می‌کند. VPN یا پراکسی فعال متوقف می‌شود؛ بازیابی تابع تنظیم ادامه خودکار است و ممکن است ناموفق باشد.</string>
     <string name="diagnostics_profile_audit_ready_body">آخرین حسابرسی خودکار با یک ماتریس کامل، شواهد به ازای هر نامزد و یک توصیهٔ دستی به پایان رسید.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">پیش از اجرای ماتریس حسابرسی، دستکاری DNS شناسایی شد. RIPDPI آزمایش‌های پشتیبان را زودتر متوقف کرد و یک نتیجهٔ کم‌اعتماد متمرکز بر تحلیل‌گر نام برگرداند.</string>
-    <string name="diagnostics_profile_probe_partial_results_body">پویش پیش از آنکه همهٔ نامزدها آزمایش شوند، زمانش به پایان رسید. نتایج بر اساس %1$d از %2$d نامزد است.</string>
-    <string name="diagnostics_profile_audit_partial_results_body">حسابرسی پیش از آنکه همهٔ نامزدها آزمایش شوند، زمانش به پایان رسید. نتایج بر اساس %1$d از %2$d نامزد است.</string>
     <string name="diagnostics_profile_audit_unavailable_body">حسابرسی خودکار فقط با تنظیمات بصری RIPDPI کار می‌کند. قبل از اجرای این جریان کاری، حالت خط فرمان خام را خاموش کنید.</string>
     <string name="diagnostics_remediation_command_line_title">خاموش کردن حالت خط فرمان</string>
     <string name="diagnostics_remediation_command_line_step_open_settings">تنظیمات پیشرفته را باز کنید.</string>
@@ -319,7 +314,6 @@
     <string name="diagnostics_eta_remaining">حدود %1$s باقی‌مانده</string>
     <string name="diagnostics_audit_matrix_title">ماتریس حسابرسی</string>
     <string name="diagnostics_audit_short_circuit_matrix_title">حسابرسی ناقص</string>
-    <string name="diagnostics_partial_results_matrix_title">نتایج جزئی (%1$d/%2$d نامزد)</string>
     <string name="diagnostics_audit_confidence_title">اعتماد حسابرسی</string>
     <string name="diagnostics_audit_medium_confidence_note">اعتماد متوسط است. قبل از کپی کردن این راهبرد به تنظیمات اصلی، شواهد نامزدها را بررسی کنید.</string>
     <string name="diagnostics_audit_low_confidence_title">نتیجهٔ حسابرسی کم‌اعتماد</string>
@@ -544,11 +538,11 @@
     <string name="home_diagnostics_network_ipv6">IPv6</string>
     <string name="home_diagnostics_network_transparent_proxy">پراکسی شفاف</string>
     <string name="home_diagnostics_effectiveness_section">اثربخشی راهبرد عبور در این شبکه</string>
-    <string name="home_diagnostics_effectiveness_row_value">%1$d موفق / %2$d ناموفق</string>
+    <string name="home_diagnostics_effectiveness_row_value">موفق: %1$d / ناموفق: %2$d</string>
     <string name="home_diagnostics_routing_sanity_section">سلامت مسیریابی برنامه</string>
-    <string name="home_diagnostics_routing_sanity_summary">%1$d برنامهٔ شناخته‌شده تشخیص‌دهندهٔ VPN از %2$d ورودی کل پیکربندی شده‌اند.</string>
+    <string name="home_diagnostics_routing_sanity_summary">برنامه‌های شناخته‌شدهٔ تشخیص‌دهندهٔ VPN پیکربندی‌شده: %1$d. کل ورودی‌ها: %2$d.</string>
     <string name="home_diagnostics_regression_section">پسرفت نسبت به اجرای قبلی</string>
-    <string name="home_diagnostics_regression_summary">%1$d تازه شکست‌خورده، %2$d تازه بازیابی‌شده، %3$d بدون تغییر.</string>
+    <string name="home_diagnostics_regression_summary">تازه شکست‌خورده: %1$d، تازه بازیابی‌شده: %2$d، بدون تغییر: %3$d.</string>
     <string name="home_diagnostics_regression_failed_label">تازه شکست‌خورده</string>
     <string name="home_diagnostics_regression_recovered_label">تازه بازیابی‌شده</string>
     <string name="home_diagnostics_bufferbloat_section">تورم بافر</string>
@@ -594,8 +588,6 @@
     <string name="home_mode_card_status_busy">مشغول</string>
     <string name="home_mode_card_diagnostic_status_stale">شبکه تغییر کرد - پویش را دوباره اجرا کنید</string>
     <string name="home_mode_card_diagnostic_status_actionable">توصیه آماده است</string>
-    <string name="home_mode_card_diagnostic_status_review_format">بررسی %1$d/%2$d مرحله</string>
-    <string name="home_mode_card_diagnostic_status_complete_format">%1$d/%2$d مرحلهٔ تکمیل‌شده</string>
     <string name="home_mode_card_diagnostic_status_review">بررسی آخرین حسابرسی</string>
     <string name="home_mode_card_enable">فعال‌سازی</string>
     <string name="home_mode_card_disable">غیرفعال‌سازی</string>
@@ -745,10 +737,7 @@
     <string name="config_relay_chain_hop_remove">حذف پرش</string>
     <string name="config_relay_chain_hop_move_up">انتقال پرش به بالا</string>
     <string name="config_relay_chain_hop_move_down">انتقال پرش به پایین</string>
-    <string name="config_relay_chain_hop_min_reached">یک زنجیره به حداقل %1$d پرش نیاز دارد.</string>
-    <string name="config_relay_chain_hop_max_reached">یک زنجیره می‌تواند حداکثر %1$d پرش داشته باشد.</string>
     <string name="config_relay_chain_cumulative_caveat_title">هر پرش تأخیر اضافه می‌کند</string>
-    <string name="config_relay_chain_cumulative_caveat_body">ترافیک به‌ترتیب از همه %1$d پرش عبور می‌کند، بنابراین هر پرش تأخیر اضافه می‌کند. پرش‌های بیشتر اعتماد را میان اپراتورها تقسیم می‌کنند اما گمنامی در حد Tor فراهم نمی‌کنند. برای کاهش همبستگی، در هر پرش از حوزه قضایی و اپراتور متفاوت استفاده کنید.</string>
     <string name="config_relay_chain_cumulative_latency_caveat">تأخیر تجمعی اندازه‌گیری‌شده در همه پرش‌ها: %1$d میلی‌ثانیه.</string>
     <string name="config_relay_masque_url">URL MASQUE</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
@@ -869,7 +858,7 @@
     <string name="remembered_networks_scope_label">دامنه %1$s</string>
     <string name="remembered_networks_private_dns_label">DNS خصوصی: %1$s</string>
     <string name="remembered_networks_strategy_label">راهبرد: %1$s</string>
-    <string name="remembered_networks_outcomes">%1$d موفق · %2$d ناموفق</string>
+    <string name="remembered_networks_outcomes">موفق: %1$d · ناموفق: %2$d</string>
     <string name="remembered_networks_updated">به‌روزرسانی‌شده %1$s</string>
     <string name="remembered_networks_delete_action">فراموش کردن</string>
     <string name="remembered_networks_transport_wifi">Wi-Fi</string>
@@ -927,7 +916,6 @@
     <string name="adaptive_fallback_scope_cli">تنظیمات خط فرمان رفتار بازگشت فعال را انتخاب می‌کنند.</string>
     <string name="adaptive_fallback_scope_active">وقتی راهبرد عبور عبور مدیریت‌شده توسط رابط کاربری فعلی به یک محرک شکست پیکربندی‌شده برخورد می‌کند، استفاده می‌شود.</string>
     <string name="adaptive_fallback_scope_idle">برای نشست بعدی مدیریت‌شده توسط رابط کاربری ذخیره شده است. هیچ راهبرد عبور عبور فعالی در حال حاضر از بازگشت تطبیقی استفاده نمی‌کند.</string>
-    <string name="adaptive_fallback_cache_summary">%1$d ثانیه · IPv4 /%2$d</string>
     <string name="adaptive_fallback_badge_enabled">فعال</string>
     <string name="adaptive_fallback_badge_disabled">غیرفعال</string>
     <string name="adaptive_fallback_badge_auto_sort">مرتب‌سازی خودکار</string>
@@ -955,8 +943,7 @@
     <string name="host_autolearn_store_body">مخزن میزبان‌های آموخته‌شده از قبل روی این دستگاه وجود دارد. اگر می‌خواهید RIPDPI ترجیحات میزبان را از ابتدا بازسازی کند، آن را پاک کنید.</string>
     <string name="host_autolearn_off_title">یادگیری میزبان خاموش است</string>
     <string name="host_autolearn_off_body">RIPDPI از انتخاب مسیر عادی بدون به یاد سپردن میزبان‌ها استفاده خواهد کرد.</string>
-    <string name="host_autolearn_limits_summary">پنجرهٔ جریمه %1$dh · حد %2$d میزبان</string>
-    <string name="host_autolearn_runtime_summary">نشست فعلی: %1$d یاد گرفته · %2$d جریمه‌شده · %3$d مسدودشده</string>
+    <string name="host_autolearn_runtime_summary">نشست فعلی: یاد گرفته %1$d · جریمه‌شده %2$d · مسدودشده %3$d</string>
     <string name="host_autolearn_store_present_summary">مسیرهای میزبان ذخیره‌شده در این دستگاه در دسترس هستند.</string>
     <string name="host_autolearn_last_update_label">آخرین به‌روزرسانی</string>
     <string name="host_autolearn_action_host_promoted">ارتقای مسیر برتر</string>
@@ -1143,7 +1130,6 @@
     <string name="quic_fake_profile_scope_udp_disabled">راهبرد عبور UDP غیرفعال است.</string>
     <string name="quic_fake_profile_scope_needs_burst">فقط زمانی اعمال می‌شود که زنجیرهٔ UDP شامل fake_burst باشد.</string>
     <string name="quic_fake_profile_scope_active">فقط روی UDP fake_burst در ترافیک QUIC Initial اعمال می‌شود.</string>
-    <string name="quic_fake_profile_burst_configured">%1$d بستهٔ fake_burst توسط زنجیرهٔ UDP پیکربندی شده.</string>
     <string name="quic_fake_profile_burst_missing">هیچ مرحلهٔ fake_burst هنوز در زنجیرهٔ UDP پیکربندی نشده است.</string>
     <string name="fake_payload_library_section_title">کتابخانهٔ بار fake</string>
     <string name="fake_payload_library_section_body">شکل‌های داخلی بار HTTP، TLS و UDP عمومی را که RIPDPI باید وقتی هیچ بلاب fake سفارشی خام ارائه نشده استفاده کند، انتخاب کنید. پیش‌تنظیم‌های QUIC Initial در بخش QUIC در زیر باقی می‌مانند.</string>
@@ -1210,7 +1196,6 @@
     <string name="tls_fake_profile_scope_ready">آماده وقتی زنجیرهٔ TCP یک مرحلهٔ fake کامل HTTPS اضافه کند.</string>
     <string name="tls_fake_profile_interaction">SNI fake TLS، تصادفی‌سازی، تکرار Session ID، padding و تنظیم اندازه روی این پروفایل پایه قرار می‌گیرند.</string>
     <string name="udp_fake_profile_scope_off">راهبرد عبور UDP غیرفعال است، بنابراین این بار fake عمومی در حال حاضر بی‌کار است.</string>
-    <string name="udp_fake_profile_scope_live">برای %1$d بسته fake_burst عمومی UDP در زنجیرهٔ فعلی استفاده می‌شود.</string>
     <string name="udp_fake_profile_scope_ready">آماده وقتی زنجیرهٔ UDP fake_burst را برای ترافیک عمومی UDP اضافه کند.</string>
     <string name="udp_fake_profile_interaction">بارهای QUIC Initial در بخش پروفایل fake QUIC جداگانه در زیر باقی می‌مانند.</string>
     <string name="udp_fake_profile_interaction_quic_override">ترافیک QUIC Initial از پروفایل fake QUIC در زیر استفاده می‌کند، در حالی که این پروفایل ترافیک fake_burst عمومی UDP باقیمانده را پوشش می‌دهد.</string>
@@ -1284,7 +1269,6 @@ fake_burst 3</string>
     <string name="ripdpi_hostfake_summary_label_tls_example">مثال TLS</string>
     <string name="ripdpi_hostfake_summary_profile_none">در زنجیرهٔ فعلی نیست</string>
     <string name="ripdpi_hostfake_summary_profile_single">۱ مرحلهٔ hostfake</string>
-    <string name="ripdpi_hostfake_summary_profile_multiple">%1$d مرحلهٔ hostfake</string>
     <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host و TLS SNI</string>
     <string name="ripdpi_hostfake_summary_scope_http">فقط HTTP Host</string>
     <string name="ripdpi_hostfake_summary_scope_https">فقط TLS SNI</string>
@@ -1346,7 +1330,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_fake_approx_summary_label_tls_example">مثال TLS</string>
     <string name="ripdpi_fake_approx_summary_profile_none">در زنجیرهٔ فعلی نیست</string>
     <string name="ripdpi_fake_approx_summary_profile_single">۱ مرحلهٔ تقریب fake</string>
-    <string name="ripdpi_fake_approx_summary_profile_multiple">%1$d مرحلهٔ تقریب fake</string>
     <string name="ripdpi_fake_approx_summary_scope_http_https">درخواست‌های HTTP و TLS ClientHello</string>
     <string name="ripdpi_fake_approx_summary_scope_http">فقط درخواست‌های HTTP</string>
     <string name="ripdpi_fake_approx_summary_scope_https">فقط TLS ClientHello</string>
@@ -1393,7 +1376,6 @@ fakeddisorder endhost</string>
     <string name="blockcheck_entry_title">کاوش راهبرد</string>
     <string name="blockcheck_entry_body">کاوش راهبرد را اجرا کنید، نتایج رتبه‌بندی‌شده را بررسی کنید، و قوی‌ترین راهبرد را برای این شبکه اعمال کنید.</string>
     <string name="blockcheck_domains_label">دامنه‌های آزمایش</string>
-    <string name="blockcheck_status_format">%1$d/%2$d بررسی</string>
     <string name="blockcheck_run">اجرا</string>
     <string name="blockcheck_cancel">لغو</string>
     <string name="blockcheck_no_strategies">هیچ راهبردی ثبت نشده</string>
@@ -1420,7 +1402,6 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_high">زیاد</string>
     <string name="blockcheck_results_title">نتایج رتبه‌بندی‌شده</string>
     <string name="blockcheck_empty_results">هنوز راهبردی رتبه‌بندی نشده</string>
-    <string name="blockcheck_result_detail_format">%1$d/%2$d دامنه موفق • به‌طور میانگین %3$d میلی‌ثانیه</string>
     <string name="blockcheck_best_badge">بهترین</string>
     <string name="blockcheck_apply_best">اعمال بهترین</string>
 
@@ -1520,7 +1501,6 @@ fakeddisorder endhost</string>
     <string name="detection_resistance_tls_fingerprint_title">نمایه اثرانگشت TLS</string>
     <string name="detection_status_detected">شناسایی شد</string>
     <string name="detection_stealth_score">قابلیت مشاهده</string>
-    <string name="diagnostics_autolearn_blocked_format">%1$d مسدودشده</string>
     <string name="diagnostics_autolearn_none_yet">هنوز هیچ‌کدام</string>
     <string name="diagnostics_autolearn_penalized">مسیر ناموفق جریمه‌شده</string>
     <string name="diagnostics_autolearn_store_reset">بازنشانی میزبان‌های ذخیره‌شده</string>
@@ -1720,7 +1700,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_host_pad_setting">هدر Host Pad</string>
     <string name="ripdpi_http_method_space_setting">فاصله اضافی متد</string>
     <string name="ripdpi_http_parser_aggressive_group_title">parser evasion‌های تهاجمی</string>
-    <string name="ripdpi_http_parser_badge_aggressive_count">%1$d تهاجمی</string>
     <string name="ripdpi_http_parser_badge_http_only">فقط HTTP</string>
     <string name="ripdpi_http_parser_cli_body">کنترل‌های بصری parser-evasion HTTP متوقف هستند تا زمانی که آرگومان‌های خام RIPDPI فعال‌اند. پرچم‌های خط فرمان parser mutation‌های فعال در شروع بعدی را تعیین می‌کنند.</string>
     <string name="ripdpi_http_parser_default_title">مدیریت parser HTTP پیش‌فرض</string>
@@ -1987,7 +1966,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_live_failure_class_format">آخرین کلاس شکست: %1$s</string>
     <string name="diagnostics_live_handover_state_format">وضعیت تحویل شبکه: %1$s</string>
     <string name="diagnostics_live_headline_standby">مانیتور زنده در حالت آماده‌باش</string>
-    <string name="diagnostics_live_mode_summary_format">حالت %1$s · %2$s منتقل شد · %3$d بسته مشاهده شد</string>
     <string name="diagnostics_live_signal_format">%1$s ارسال · %2$s دریافت</string>
     <string name="diagnostics_metric_dns_failures">شکست‌های DNS</string>
     <string name="diagnostics_metric_errors">خطاها</string>
@@ -2052,7 +2030,6 @@ fakeddisorder endhost</string>
     <string name="host_pack_target_title">فهرست هدف</string>
     <string name="host_pack_verification_failed_status_title">آخرین به‌روزرسانی در تأیید ناموفق بود</string>
     <string name="logs_auto_scroll_body">آخرین ورودی منطبق را در حالی که داده‌های تشخیصی جدید می‌رسند، در دید نگه دارید.</string>
-    <string name="logs_buffer_value">%1$d / %2$d ورودی</string>
     <string name="logs_empty_title">هنوز لاگی وجود ندارد</string>
     <string name="logs_filtered_empty_body">برای بررسی رویدادهای دیگر در بافر محلی، فیلترها را باز کنید.</string>
     <string name="logs_filters_section">فیلترها</string>
@@ -2169,7 +2146,7 @@ fakeddisorder endhost</string>
     <string name="routing_protection_dht_title">کاهش تریگر DHT</string>
     <string name="routing_protection_policy_off_body">پیشنهادهای مسیریابی را پنهان کن و خط‌مشی را بدون تغییر باقی بگذار.</string>
     <string name="routing_protection_policy_prompt_title">پرسش</string>
-    <string name="routing_protection_summary_body">%1$d برنامه پرخطر در %2$d پیش‌تنظیم فعال شناسایی شد.</string>
+    <string name="routing_protection_summary_body">برنامه‌های پرخطر شناسایی‌شده: %1$d. پیش‌تنظیم‌های فعال: %2$d.</string>
     <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="semantic_action_collapse">جمع کردن</string>
     <string name="semantic_state_expanded">باز شد</string>
@@ -2359,8 +2336,6 @@ fakeddisorder endhost</string>
     <string name="detection_score_improved">امتیاز بهبود یافت</string>
     <string name="detection_status_review">بررسی</string>
     <string name="diagnostics_autolearn_active">فعال</string>
-    <string name="diagnostics_autolearn_learned_format">%1$d یادگرفته</string>
-    <string name="diagnostics_autolearn_penalized_format">%1$d جریمه‌شده</string>
     <string name="diagnostics_autolearn_route_format">مسیر %1$s</string>
     <string name="diagnostics_body_degraded">رویدادهای اخیر یا نتایج اسکن نشان از افت کیفیت، شکست یا ناپایداری انتقال دارند.</string>
     <string name="diagnostics_error_connect_failure">اتصال ناموفق بود</string>
@@ -2483,7 +2458,7 @@ fakeddisorder endhost</string>
     <string name="logs_entries_count">ورودی‌ها: %1$d</string>
     <string name="logs_copy_entry">کپی گزارش %1$s در %2$s</string>
     <string name="logs_filtered_empty_title">هیچ ورودی با فیلترهای فعلی مطابقت ندارد</string>
-    <string name="logs_filters_summary_compact">%1$d زیرسیستم • %2$d شدت</string>
+    <string name="logs_filters_summary_compact">زیرسیستم‌ها: %1$d • شدت‌ها: %2$d</string>
     <string name="logs_latest_title">آخرین رویداد</string>
     <string name="logs_overview_title">جریان رویداد روی دستگاه</string>
     <string name="logs_severity_debug">DEBUG</string>
@@ -2571,7 +2546,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_aggressive_group_body">فرارهای تهاجمی با گرایش به Nginx. این موارد می‌توانند تجزیه‌کننده‌های HTTP ضعیف‌تر را دور بزنند، اما ممکن است برخی سرورها و CDNها را نیز خراب کنند.</string>
     <string name="ripdpi_http_parser_aggressive_title">فرارهای تهاجمی تجزیه‌کننده آماده است</string>
     <string name="ripdpi_http_parser_badge_default">پیش‌فرض</string>
-    <string name="ripdpi_http_parser_badge_safe_count">%1$d ایمن</string>
     <string name="ripdpi_http_parser_default_body">هیچ فرار اضافی تجزیه‌کننده HTTP فعال نیست. RIPDPI درخواست‌های HTTP را تا زمانی که تغییرات زیر را روشن نکنید از نظر ساختاری عادی نگه می‌دارد.</string>
     <string name="ripdpi_http_parser_group_status_off">خاموش</string>
     <string name="ripdpi_http_parser_http_off_body">راهبرد عبور HTTP در حال حاضر فعال نیست، بنابراین این تغییرات تجزیه‌کننده برای بعد ذخیره می‌شوند و بر ترافیک فعلی اثری ندارند.</string>
@@ -3141,13 +3115,11 @@ fakeddisorder endhost</string>
     <string name="domain_bypass_intro_body">دامنه‌های فهرست‌شده در اینجا بدون عبور از پراکسی مستقیم وصل می‌شوند. دامنه ساده (example.com)، پسوند (.example.com) و پیشوندهای domain:، domain_suffix: و domain_regex: پذیرفته می‌شوند.</string>
     <string name="domain_bypass_editor_label">دامنه‌ها (هر خط یک مورد)</string>
     <string name="domain_bypass_placeholder">برای نمونه:\nexample.com\n.bank.example</string>
-    <string name="domain_bypass_errors_title">%1$d خط نامعتبر</string>
     <string name="domain_bypass_error_line">خط %1$d: %2$s</string>
     <string name="domain_bypass_paste">چسباندن</string>
     <string name="domain_bypass_copy">کپی</string>
     <string name="domain_bypass_move_to_editor">انتقال به قوانین</string>
     <string name="domain_bypass_moved_rule_name">فهرست دامنه‌های مستقیم</string>
-    <string name="domain_bypass_saved">%1$d دامنه ذخیره شد</string>
     <string name="domain_bypass_cleared">فهرست عبور پاک شد</string>
     <string name="domain_bypass_copied">در کلیپ‌بورد کپی شد</string>
     <string name="domain_bypass_clipboard_empty">کلیپ‌بورد خالی است</string>
@@ -3311,8 +3283,7 @@ fakeddisorder endhost</string>
     <string name="backup_import_preview_title">بررسی پشتیبان</string>
     <string name="backup_import_preview_schema">پشتیبان نسخه %1$d، ساخته‌شده توسط برنامه %2$s</string>
     <string name="backup_import_shareable_title">پشتیبان قابل اشتراک‌گذاری</string>
-    <string name="backup_import_shareable_body">%1$d نمایه را نمی‌توان بازیابی کرد زیرا اطلاعات ورود حذف شده است. گروه‌ها، مسیرها و تنظیمات همچنان قابل بازیابی هستند.</string>
-    <string name="backup_import_category_profiles">نمایه‌ها و گروه‌ها (%1$d نمایه، %2$d گروه)</string>
+    <string name="backup_import_category_profiles">نمایه‌ها و گروه‌ها (نمایه‌ها: %1$d، گروه‌ها: %2$d)</string>
     <string name="backup_import_category_routes">قوانین مسیریابی (%1$d)</string>
     <string name="backup_import_category_settings">تنظیمات (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">دسته‌های انتخاب‌نشده مقادیر فعلی خود را حفظ می‌کنند.</string>
@@ -3689,7 +3660,6 @@ fakeddisorder endhost</string>
     <string name="detection_headline_ordinary_https">شما مانند ترافیک معمولی HTTPS به نظر می‌رسید</string>
     <string name="detection_narrative_discovered_heading">چه چیزی کشف شد</string>
     <string name="detection_narrative_reason_heading">چرا این حکم</string>
-    <string name="detection_probe_outcome_format">نتیجهٔ کاوش: %1$d/%2$d سیگنال افشاشده</string>
     <string name="detection_settings_call_transport_subtitle">کاوش MTProto و STUN از طریق یک پروکسی شناسایی‌شده</string>
     <string name="detection_settings_call_transport_title">کاوش انتقال تماس</string>
     <string name="detection_settings_cancel">لغو</string>
@@ -3742,7 +3712,6 @@ fakeddisorder endhost</string>
     <string name="detection_verdict_reason_format">دلیل: %1$s</string>
     <string name="diagnostics_allowlist_sni_failed">یابندهٔ سازگاری SNI ناموفق بود.</string>
     <string name="diagnostics_allowlist_sni_no_flagged">ابتدا TCP16 را اجرا کنید؛ هنوز هیچ ASN نشانه‌گذاری‌شده‌ای در دسترس نیست.</string>
-    <string name="diagnostics_allowlist_sni_ready">آمادهٔ %1$d هدف نشانه‌گذاری‌شده با TCP16.</string>
     <string name="diagnostics_allowlist_sni_run_after_tcp16">پس از آنکه TCP16 ASNهای نشانه‌گذاری‌شده را یافت اجرا کنید.</string>
     <string name="diagnostics_allowlist_sni_running">در حال آزمایش سازگاری SNI برای ASNهای نشانه‌گذاری‌شده با TCP16...</string>
     <string name="diagnostics_approach_metric_runtime">زمان اجرا</string>
@@ -3772,7 +3741,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_audit_winner_coverage_label">پوشش برنده</string>
     <string name="diagnostics_byoh_check_failed">بررسی سازگاری میزبان ناموفق بود.</string>
     <string name="diagnostics_byoh_checking_domain">در حال بررسی %1$s (%2$d/%3$d)...</string>
-    <string name="diagnostics_byoh_complete">%1$d از %2$d نام میزبان انتقال پیکربندی‌شده را کامل کردند.</string>
     <string name="diagnostics_byoh_destination_ip_label">IP مقصد</string>
     <string name="diagnostics_byoh_dst_ip_required">یک IP مقصد برای سرور تحت کنترل کاربر وارد کنید.</string>
     <string name="diagnostics_byoh_metric_bytes">بایت</string>
@@ -3800,19 +3768,17 @@ fakeddisorder endhost</string>
     <string name="diagnostics_cidr_whitelist_title">تشخیص فهرست سفید CIDR</string>
     <string name="diagnostics_cidr_whitelist_verdict_detected_label">فهرست سفید cidr</string>
     <string name="diagnostics_cidr_whitelist_verdict_no_internet_label">بدون اینترنت</string>
-    <string name="diagnostics_compression_complete">%1$d از %2$d کدک فشرده‌سازی برای %3$s قابل استفاده‌اند.</string>
     <string name="diagnostics_compression_failed">کاوش فشرده‌سازی HTTP ناموفق بود.</string>
     <string name="diagnostics_compression_metric_target">هدف</string>
     <string name="diagnostics_compression_metric_usable">قابل استفاده</string>
     <string name="diagnostics_compression_metric_zstd">zstd</string>
     <string name="diagnostics_compression_running">در حال بررسی پشتیبانی از فشرده‌سازی HTTP...</string>
-    <string name="diagnostics_dns_availability_complete">%1$d از %2$d حل‌کنندهٔ عمومی DNS پاسخ دادند.</string>
     <string name="diagnostics_dns_availability_failed">بررسی دسترس‌پذیری DNS ناموفق بود.</string>
     <string name="diagnostics_dns_availability_metric_available">در دسترس</string>
     <string name="diagnostics_dns_availability_metric_servers">سرورها</string>
     <string name="diagnostics_dns_availability_running">در حال بررسی حل‌کننده‌های عمومی DNS...</string>
     <string name="diagnostics_dns_integrity_complete_clean">در %1$d دامنهٔ همراه‌شده هیچ جایگزینی DNS شناسایی نشد.</string>
-    <string name="diagnostics_dns_integrity_complete_flagged">%1$d از %2$d دامنه، %3$d بررسی DoQ و %4$d بررسی راه‌انداز DoH هشدارهای یکپارچگی DNS نشان دادند.</string>
+    <string name="diagnostics_dns_integrity_complete_flagged">هشدارهای یکپارچگی DNS: دامنه‌ها %1$d/%2$d، بررسی‌های DoQ %3$d، بررسی‌های راه‌انداز DoH %4$d.</string>
     <string name="diagnostics_dns_integrity_doh_bootstrap_label">راه‌انداز DoH %1$s: %2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s: %3$s</string>
     <string name="diagnostics_dns_integrity_failed">بررسی یکپارچگی DNS ناموفق بود.</string>
@@ -3825,13 +3791,10 @@ fakeddisorder endhost</string>
     <string name="diagnostics_dns_integrity_metric_flagged">نشانه‌گذاری‌شده</string>
     <string name="diagnostics_dns_integrity_metric_stub_ips">IPهای stub</string>
     <string name="diagnostics_dns_integrity_running">در حال بررسی پاسخ‌های UDP/53 در برابر کنترل‌های DoH...</string>
-    <string name="diagnostics_domain_reachability_complete_clean">در %1$d دامنهٔ همراه‌شده هیچ انسداد دسترسی شناسایی نشد.</string>
-    <string name="diagnostics_domain_reachability_complete_flagged">%1$d از %2$d دامنه هشدار دسترس‌پذیری نشان دادند.</string>
     <string name="diagnostics_domain_reachability_failed">پویش دسترس‌پذیری دامنه ناموفق بود.</string>
     <string name="diagnostics_domain_reachability_metric_checked">بررسی‌شده</string>
     <string name="diagnostics_domain_reachability_metric_flagged">نشانه‌گذاری‌شده</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IPهای stub</string>
-    <string name="diagnostics_domain_reachability_running">در حال کاوش دسترس‌پذیری با %1$d آی‌پی stub مربوط به DNS...</string>
     <string name="diagnostics_dpi_probe_kind_ech">آمادگی ECH</string>
     <string name="diagnostics_dpi_probe_kind_quic_h3">اثرانگشت QUIC Initial</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">سرآیند چاق TCP16</string>
@@ -3842,12 +3805,9 @@ fakeddisorder endhost</string>
     <string name="diagnostics_dpi_suite_title">DPI-CH جامع</string>
     <string name="diagnostics_ipv4_whitelist_cache">ذخیرهٔ زیرشبکه‌ها در حافظهٔ نهان</string>
     <string name="diagnostics_ipv4_whitelist_cache_failed">حافظهٔ نهان زیرشبکه ناموفق بود.</string>
-    <string name="diagnostics_ipv4_whitelist_cached_complete">%1$d بازهٔ نامزد /24 در حافظهٔ نهان ذخیره شد.</string>
-    <string name="diagnostics_ipv4_whitelist_cached_provider">%1$d بازهٔ /24 برای %2$s در حافظهٔ نهان ذخیره شد.</string>
     <string name="diagnostics_ipv4_whitelist_caching">در حال ذخیره در حافظهٔ نهان...</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">بررسی حافظهٔ نهان</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">بررسی زیرشبکه ناموفق بود.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_progress">%1$d/%2$d زیرشبکهٔ ذخیره‌شده بررسی شد.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">زیرشبکه‌های فهرست سفید IPv4.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">در حال دریافت پیشوندهای اعلام‌شدهٔ IPv4...</string>
     <string name="diagnostics_ipv4_whitelist_hide_results">پنهان کردن نتایج زیرشبکه</string>
@@ -3901,7 +3861,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_resolver_save_setting">ذخیره به‌عنوان تنظیم DNS</string>
     <string name="diagnostics_resolver_switch_dns">تغییر DNS به %1$s</string>
     <string name="diagnostics_results_section_count">%1$s (%2$d)</string>
-    <string name="diagnostics_rkn_complete">%1$d هدف کنترلی و %2$d هدف فهرست سیاه بررسی شد.</string>
+    <string name="diagnostics_rkn_complete">اهداف کنترلی بررسی‌شده: %1$d؛ اهداف فهرست سیاه: %2$d.</string>
     <string name="diagnostics_rkn_failed">تشخیص انسداد RKN ناموفق بود.</string>
     <string name="diagnostics_rkn_group_control">کنترل</string>
     <string name="diagnostics_rkn_group_test">آزمایش</string>
@@ -3917,8 +3877,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: تفکیک نام سیستم ناموفق بود</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">تأییدنشده</string>
-    <string name="diagnostics_tcp16_complete_clean">در %1$d هدف هیچ الگوی بسته‌شدن سرآیند چاق TCP16 شناسایی نشد.</string>
-    <string name="diagnostics_tcp16_complete_detected">%1$d هدف الگوی بسته‌شدن TCP16 نشان دادند؛ %2$d تأیید اتصال مجدد ناموفق بود.</string>
+    <string name="diagnostics_tcp16_complete_detected">اهداف دارای الگوی بسته‌شدن TCP16: %1$d؛ تأییدهای ناموفق اتصال مجدد: %2$d.</string>
     <string name="diagnostics_tcp16_failed">کاوش سرآیند چاق TCP16 ناموفق بود.</string>
     <string name="diagnostics_tcp16_metric_detected">شناسایی‌شده</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">تک‌سوکت نامعتبر</string>
@@ -4052,7 +4011,6 @@ fakeddisorder endhost</string>
     <string name="subscription_signal_banner_revoked_title">اشتراک لغو شده است</string>
     <string name="subscription_signal_banner_unavailable_title">اشتراک در دسترس نیست</string>
     <string name="subscription_signal_banner_stale_title">مجموعهٔ رله‌ها ممکن است قدیمی باشد</string>
-    <string name="subscription_signal_banner_multiple_message">%1$d اشتراک نیاز به بررسی دارند. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</string>
     <plurals name="subscription_signal_notification_multiple">
         <item quantity="one">%d اشتراک نیاز به بررسی دارد. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
         <item quantity="other">%d اشتراک نیاز به بررسی دارند. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
@@ -4077,13 +4035,11 @@ fakeddisorder endhost</string>
     <string name="subscription_status_refresh_failed">تازه‌سازی ناموفق بود</string>
     <string name="subscription_status_url_format">نشانی اشتراک: %1$s</string>
     <string name="subscription_status_token_format">توکن: %1$s</string>
-    <string name="subscription_home_multiple_title">%1$d اشتراک نیاز به توجه دارد</string>
     <string name="subscription_home_expiring_title">اشتراک به‌زودی منقضی می‌شود</string>
     <string name="subscription_home_expired_title">اشتراک منقضی شد</string>
     <string name="subscription_home_expired_body">%1$s دیگر به‌روزرسانی نمی‌شود. نمایه‌های موجود همچنان در دسترس‌اند.</string>
     <string name="subscription_home_invalidated_title">اشتراک در دسترس نیست</string>
     <string name="subscription_home_invalidated_body">%1$s منقضی یا لغو شده است. نمایه‌های موجود همچنان در دسترس‌اند.</string>
-    <string name="diagnostics_sparkline_chart_description">روند %1$s، %2$d نمونه</string>
     <string name="diagnostics_sparkline_selected_state">نمونه %1$d از %2$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">آخرین مقدار: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">نمونه قبلی</string>

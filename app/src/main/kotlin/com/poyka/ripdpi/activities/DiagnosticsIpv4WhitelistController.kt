@@ -43,8 +43,9 @@ internal class DiagnosticsIpv4WhitelistController(
                         DiagnosticsIpv4WhitelistToolUiModel(
                             state = DiagnosticsIpv4WhitelistState.Running,
                             summary =
-                                stringResolver.getString(
-                                    R.string.diagnostics_ipv4_whitelist_cached_provider,
+                                stringResolver.getQuantityString(
+                                    R.plurals.diagnostics_ipv4_whitelist_cached_provider,
+                                    progress.cachedCidrs.size,
                                     progress.cachedCidrs.size,
                                     progress.provider,
                                 ),
@@ -68,8 +69,9 @@ internal class DiagnosticsIpv4WhitelistController(
                     DiagnosticsIpv4WhitelistToolUiModel(
                         state = DiagnosticsIpv4WhitelistState.Complete,
                         summary =
-                            stringResolver.getString(
-                                R.string.diagnostics_ipv4_whitelist_cached_complete,
+                            stringResolver.getQuantityString(
+                                R.plurals.diagnostics_ipv4_whitelist_cached_complete,
+                                cachedCidrs,
                                 cachedCidrs,
                             ),
                         metrics =
@@ -113,8 +115,9 @@ internal class DiagnosticsIpv4WhitelistController(
                             stringResolver = stringResolver,
                             state = DiagnosticsIpv4WhitelistState.Running,
                             summary =
-                                stringResolver.getString(
-                                    R.string.diagnostics_ipv4_whitelist_checked_progress,
+                                stringResolver.getQuantityString(
+                                    R.plurals.diagnostics_ipv4_whitelist_checked_progress,
+                                    progress.totalCount,
                                     progress.checkedCount,
                                     progress.totalCount,
                                 ),

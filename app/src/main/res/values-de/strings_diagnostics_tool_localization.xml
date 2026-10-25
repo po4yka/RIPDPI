@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">nicht gesperrt oder VPN/Proxy aktiv</string>
     <string name="diagnostics_rkn_note_not_blocked">Alle Websites auf der Sperrliste wurden geladen. Du bist außerhalb der Sperrzone oder dein VPN/Proxy leitet den Verkehr weiter.</string>
     <string name="diagnostics_rkn_headline_high">in der Sperrzone: hohe Sicherheit</string>
-    <string name="diagnostics_rkn_note_high_format">Fehler bei %1$d/%2$d Websites auf der Sperrliste entsprechen zuverlässigen Sperrmustern (durch DoH bestätigte DNS-Manipulation, HTTP 451, bekannte Sperrseitenmerkmale).</string>
     <string name="diagnostics_rkn_headline_medium">in der Sperrzone: mittlere Sicherheit</string>
     <string name="diagnostics_rkn_note_medium">Die meisten Fehler auf der Sperrliste entsprechen Sperrmustern (TLS DPI, TCP RST), können aber auch durch Serverprobleme entstehen. Eine Kontrollmessung aus einem anderen Netzwerk würde dies bestätigen.</string>
     <string name="diagnostics_rkn_headline_partial">teilweise Sperren erkannt</string>

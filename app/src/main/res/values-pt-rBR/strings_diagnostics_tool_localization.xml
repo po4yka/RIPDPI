@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">sem bloqueio ou VPN/proxy ativo</string>
     <string name="diagnostics_rkn_note_not_blocked">Todos os sites da lista de bloqueio carregaram. Você está fora da zona de bloqueio ou seu VPN/proxy roteia o tráfego.</string>
     <string name="diagnostics_rkn_headline_high">na zona de bloqueio: alta confiança</string>
-    <string name="diagnostics_rkn_note_high_format">As falhas de %1$d/%2$d sites da lista de bloqueio correspondem a padrões de alta confiança (envenenamento de DNS confirmado por DoH, HTTP 451 e marcadores conhecidos de páginas de bloqueio).</string>
     <string name="diagnostics_rkn_headline_medium">na zona de bloqueio: confiança média</string>
     <string name="diagnostics_rkn_note_medium">A maioria das falhas da lista de bloqueio corresponde a padrões de bloqueio (TLS DPI, TCP RST), mas problemas no servidor também podem causar esses sinais. Uma medição de controle em outra rede permitiria confirmar.</string>
     <string name="diagnostics_rkn_headline_partial">bloqueios parciais detectados</string>

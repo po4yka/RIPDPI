@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">未被封锁，或 VPN/代理已启用</string>
     <string name="diagnostics_rkn_note_not_blocked">所有黑名单网站均已加载。你可能位于封锁区域之外，或流量已通过 VPN/代理转发。</string>
     <string name="diagnostics_rkn_headline_high">处于封锁区域：置信度高</string>
-    <string name="diagnostics_rkn_note_high_format">%1$d/%2$d 次黑名单网站访问失败符合高置信度封锁特征（DoH 确认的 DNS 污染、HTTP 451、已知封锁页面标记）。</string>
     <string name="diagnostics_rkn_headline_medium">处于封锁区域：置信度中等</string>
     <string name="diagnostics_rkn_note_medium">多数黑名单网站访问失败符合封锁特征（TLS DPI、TCP RST），但服务器端问题也可能产生这些信号。来自其他网络的对照测量可用于确认。</string>
     <string name="diagnostics_rkn_headline_partial">检测到部分封锁</string>

@@ -2,7 +2,7 @@
 <resources>
     <string name="diagnostics_matrix_catalog_show">Mostrar destinos de prueba (%1$d)</string>
     <string name="diagnostics_matrix_catalog_hide">Ocultar destinos de prueba</string>
-    <string name="diagnostics_matrix_cohort_coverage">Respuestas completas: %1$d / %2$d intentos · %3$d destinos</string>
+    <string name="diagnostics_matrix_cohort_coverage">Respuestas completas / intentos: %1$d / %2$d · Destinos: %3$d</string>
     <string name="diagnostics_matrix_attempts_show">Mostrar intentos (%1$d)</string>
     <string name="diagnostics_matrix_attempts_hide">Ocultar intentos</string>
     <string name="diagnostics_probe_check_title">Comprobación de red</string>

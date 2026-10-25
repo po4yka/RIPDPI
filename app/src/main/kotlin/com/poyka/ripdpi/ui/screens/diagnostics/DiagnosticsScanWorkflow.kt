@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
@@ -432,12 +433,13 @@ private fun partialWorkflowStatus(
                 },
             ),
         body =
-            stringResource(
+            pluralStringResource(
                 if (audit) {
-                    R.string.diagnostics_profile_audit_partial_results_body
+                    R.plurals.diagnostics_profile_audit_partial_results_body
                 } else {
-                    R.string.diagnostics_profile_probe_partial_results_body
+                    R.plurals.diagnostics_profile_probe_partial_results_body
                 },
+                planned,
                 executed,
                 planned,
             ),

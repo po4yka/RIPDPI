@@ -20,7 +20,7 @@ internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): Diagn
         state = DiagnosticsDnsIntegrityState.Complete,
         summary =
             if (flagged == 0 && doqFlagged == 0 && bootstrapFlagged == 0) {
-                stringResolver.getString(R.string.diagnostics_dns_complete_agree, checked)
+                stringResolver.getQuantityString(R.plurals.diagnostics_dns_complete_agree, checked, checked)
             } else {
                 stringResolver.getString(
                     R.string.diagnostics_dns_integrity_complete_flagged,

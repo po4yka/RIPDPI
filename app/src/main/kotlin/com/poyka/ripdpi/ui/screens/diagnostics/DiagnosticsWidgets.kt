@@ -48,6 +48,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -395,8 +396,9 @@ private fun sparklineAccessibility(
 ): SparklineAccessibility =
     SparklineAccessibility(
         description =
-            stringResource(
-                R.string.diagnostics_sparkline_chart_description,
+            pluralStringResource(
+                R.plurals.diagnostics_sparkline_chart_description,
+                trend.values.size,
                 trend.label,
                 trend.values.size,
             ),

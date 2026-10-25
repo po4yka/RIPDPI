@@ -67,7 +67,6 @@
     <string name="connection_health_latency_tcp">TCP 连接</string>
     <string name="connection_health_latency_tls">TLS 握手</string>
     <string name="connection_health_latency_value_ms">%1$d ms</string>
-    <string name="connection_health_latency_range_format">最小 %1$d · 最大 %2$d · %3$d 个样本</string>
     <string name="connection_health_dns_section_title">DNS 解析器</string>
     <string name="connection_health_dns_hit_rate_format">%1$d%% 缓存命中率</string>
     <string name="connection_health_dns_queries">查询</string>
@@ -79,14 +78,12 @@
     <string name="title_strategy_tuner">策略调优</string>
     <string name="strategy_tuner_open_action">打开策略调优</string>
     <string name="strategy_tuner_domains_label">测试域名</string>
-    <string name="strategy_tuner_status_format">%1$d/%2$d 次探测</string>
     <string name="strategy_tuner_run">运行</string>
     <string name="strategy_tuner_cancel">取消</string>
     <string name="strategy_tuner_budget_title">扫描限制</string>
-    <string name="strategy_tuner_budget_format">%1$d 个策略 x %2$d 个域名，最多 %3$d 次探测，间隔 %4$d ms。</string>
+    <string name="strategy_tuner_budget_format">策略：%1$d × 域名：%2$d，最多探测：%3$d 次，间隔：%4$d ms。</string>
     <string name="strategy_tuner_leaderboard_title">排序结果</string>
     <string name="strategy_tuner_empty_results">还没有策略排名</string>
-    <string name="strategy_tuner_result_detail_format">%1$d/%2$d 个域名正常 • 平均 %3$d ms</string>
     <string name="strategy_tuner_best_badge">最佳</string>
     <string name="strategy_tuner_rate_format">%1$d%%</string>
     <string name="strategy_tuner_apply">应用</string>
@@ -183,8 +180,6 @@
     <string name="diagnostics_profile_audit_running_body">RIPDPI 正使用临时候选配置测试完整策略矩阵。活动 VPN 或代理会停止；恢复取决于自动恢复设置，且可能失败。</string>
     <string name="diagnostics_profile_audit_ready_body">最新的自动审计已完成，提供完整矩阵、每个候选项的证据和手动建议。</string>
     <string name="diagnostics_profile_audit_short_circuit_body">在审计矩阵运行之前检测到 DNS 篡改。RIPDPI 提前停止了备用试验，并返回了低置信度的面向解析器的结果。</string>
-    <string name="diagnostics_profile_probe_partial_results_body">扫描在所有候选项测试完成之前用尽了时间。结果基于 %2$d 个候选项中的 %1$d 个。</string>
-    <string name="diagnostics_profile_audit_partial_results_body">审计在所有候选项测试完成之前用尽了时间。结果基于 %2$d 个候选项中的 %1$d 个。</string>
     <string name="diagnostics_profile_audit_unavailable_body">自动审计仅适用于可视化 RIPDPI 设置。在运行此工作流之前请关闭原始命令行模式。</string>
     <string name="diagnostics_remediation_command_line_title">关闭命令行模式</string>
     <string name="diagnostics_remediation_command_line_step_open_settings">打开高级设置。</string>
@@ -319,7 +314,6 @@
     <string name="diagnostics_eta_remaining">剩余约 %1$s</string>
     <string name="diagnostics_audit_matrix_title">审计矩阵</string>
     <string name="diagnostics_audit_short_circuit_matrix_title">审计不完整</string>
-    <string name="diagnostics_partial_results_matrix_title">部分结果（%1$d/%2$d 个候选项）</string>
     <string name="diagnostics_audit_confidence_title">审计置信度</string>
     <string name="diagnostics_audit_medium_confidence_note">置信度为中等。在将此策略复制到主设置之前查看候选项证据。</string>
     <string name="diagnostics_audit_low_confidence_title">低置信度审计结果</string>
@@ -653,7 +647,6 @@
     <string name="diagnostics_live_dns_override_format">加密 DNS 覆盖已激活:%1$s</string>
     <string name="diagnostics_live_feed_quiet">运行时事件流安静</string>
     <string name="diagnostics_live_headline_error">运行时需要干预</string>
-    <string name="diagnostics_live_mode_summary_format">%1$s 模式 · 已传输 %2$s · 观察到 %3$d 个数据包</string>
     <string name="diagnostics_live_telemetry_error_format">遥测轮询问题:%1$s</string>
     <string name="diagnostics_metric_approach">方式</string>
     <string name="diagnostics_metric_errors">错误</string>
@@ -730,7 +723,6 @@
     <string name="home_diagnostics_verified_sheet_title">已验证 VPN 结果</string>
     <string name="home_history_cta">打开历史记录</string>
     <string name="home_mode_card_connecting">正在启动…</string>
-    <string name="home_mode_card_diagnostic_status_review_format">查看 %1$d/%2$d 个阶段</string>
     <string name="home_mode_card_enable">启用</string>
     <string name="home_mode_card_status_active">活动</string>
     <string name="home_mode_local_dpi_bypass">本地绕过</string>
@@ -754,7 +746,7 @@
     <string name="host_autolearn_pending_disable_body">正在运行的 RIPDPI 会话仍在使用早先启动时的主机学习。</string>
     <string name="host_autolearn_ready_body">主机学习将在下一次 RIPDPI 启动时开始。</string>
     <string name="host_autolearn_reset_hint_ready">如果希望下次 RIPDPI 启动时从零开始重新学习每个主机,请使用此项。</string>
-    <string name="host_autolearn_runtime_summary">当前会话:已学习 %1$d · 已惩罚 %2$d · 已阻止 %3$d</string>
+    <string name="host_autolearn_runtime_summary">当前会话：已学习 %1$d · 已惩罚 %2$d · 已阻止 %3$d</string>
     <string name="host_autolearn_store_title">存储的路由可用</string>
     <string name="host_pack_apply_dialog_title">应用 %1$s 主机包</string>
     <string name="host_pack_badge_downloaded">已下载</string>
@@ -771,7 +763,7 @@
     <string name="logs_auto_scroll_title">自动滚动到最新</string>
     <string name="logs_empty_body">启动 RIPDPI 或触发诊断事件,以填充设备端事件流。</string>
     <string name="logs_filtered_empty_body">打开筛选器，查看本地缓冲区中的其他事件。</string>
-    <string name="logs_filters_summary_compact">%1$d 个子系统 • %2$d 个严重级别</string>
+    <string name="logs_filters_summary_compact">子系统：%1$d • 严重级别：%2$d</string>
     <string name="logs_overview_body">查看 RIPDPI 在本设备上捕获的最新本地 DNS、连接、警告和错误活动。</string>
     <string name="logs_service_failure_format">%1$s 服务启动失败:%2$s</string>
     <string name="logs_severity_title">严重级别</string>
@@ -790,7 +782,7 @@
     <string name="remembered_networks_scope_label">作用域 %1$s</string>
     <string name="remembered_networks_private_dns_label">私人 DNS：%1$s</string>
     <string name="remembered_networks_strategy_label">策略：%1$s</string>
-    <string name="remembered_networks_outcomes">%1$d 成功 · %2$d 失败</string>
+    <string name="remembered_networks_outcomes">成功：%1$d · 失败：%2$d</string>
     <string name="remembered_networks_updated">更新于 %1$s</string>
     <string name="remembered_networks_delete_action">忘记</string>
     <string name="remembered_networks_transport_wifi">Wi-Fi</string>
@@ -880,7 +872,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_approx_summary_label_http_example">HTTP 示例</string>
     <string name="ripdpi_fake_approx_summary_label_scope">流量范围</string>
     <string name="ripdpi_fake_approx_summary_marker_none">使用链 DSL 中的步骤标记</string>
-    <string name="ripdpi_fake_approx_summary_profile_multiple">%1$d 个 fake 近似步骤</string>
     <string name="ripdpi_fake_approx_summary_scope_http">仅限 HTTP 请求</string>
     <string name="ripdpi_fake_approx_summary_transport_fakeddisorder">TTL 1 起初会向远端路径隐藏第一段,然后第二段使用配置的 fake 传输。</string>
     <string name="ripdpi_fake_tls_base_body">默认使用 RIPDPI 内置的假 ClientHello。Original 则在应用 fake-TLS 修改前以真实出站 ClientHello 为起点。</string>
@@ -902,7 +893,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_hostfake_scope_note">Hostfake 仅作用于 Host/SNI 大小的数据块。它不使用完整的 Fake TLS 配置或 fake 偏移标记。</string>
     <string name="ripdpi_hostfake_summary_label_midhost">真实主机分割</string>
     <string name="ripdpi_hostfake_summary_label_tls_example">TLS 示例</string>
-    <string name="ripdpi_hostfake_summary_profile_multiple">%1$d 个 hostfake 步骤</string>
     <string name="ripdpi_hostfake_summary_scope_http">仅 HTTP Host</string>
     <string name="ripdpi_hostfake_summary_transport">Fake TTL %1$d</string>
     <string name="ripdpi_http_host_extra_space_setting">Host 多余空格</string>
@@ -1066,7 +1056,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_targets_disoob">DISOOB 写入</string>
     <string name="adaptive_fallback_auto_sort_body">当后续组在相同目标上持续获胜时,将其在自适应排序中提前,以更快地恢复。</string>
     <string name="adaptive_fallback_badge_enabled">已启用</string>
-    <string name="adaptive_fallback_cache_summary">%1$d 秒 · IPv4 /%2$d</string>
     <string name="adaptive_fallback_cli_title">由命令行控制</string>
     <string name="adaptive_fallback_enabled_body">允许 RIPDPI 在后续组上重试相同目标,并为此网络上类似的 IPv4 子网缓存可用路由。</string>
     <string name="adaptive_fallback_no_triggers_summary">未选择任何触发器。</string>
@@ -1119,8 +1108,6 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_medium">中</string>
     <string name="blockcheck_confidence_high">高</string>
     <string name="blockcheck_entry_title">策略探测</string>
-    <string name="blockcheck_result_detail_format">%1$d/%2$d 个域名正常 • 平均 %3$d 毫秒</string>
-    <string name="blockcheck_status_format">%1$d/%2$d 次检查</string>
     <string name="config_buffer_helper">套接字缓冲区大小(字节)。</string>
     <string name="config_chain_editor_helper">使用 [tcp] 和 [udp] 区段。标记可接受数字或语义偏移量。下方的 HTTPS 区段可以可视化地编写单个 tlsrec 和随机化的 tlsrandrec 步骤;Hostfake 和 fake 近似卡片则解释针对主机名的伪造分片和重传式近似。仅适用于 Linux/Android 的近似可作为 fakedsplit host+1 和 fakeddisorder endhost 用于 HTTP 或 TLS SNI 相邻载荷。</string>
     <string name="config_cli_banner_title">命令行覆盖已启用</string>
@@ -1201,7 +1188,6 @@ fakeddisorder endhost</string>
     <string name="detection_score_unchanged">无变化</string>
     <string name="detection_stealth_score_a11y">隐身评分 %1$d</string>
     <string name="detection_status_review">审查</string>
-    <string name="diagnostics_autolearn_blocked_format">%1$d 个被阻止</string>
     <string name="diagnostics_autolearn_off">关闭</string>
     <string name="diagnostics_autolearn_route_format">路由 %1$s</string>
     <string name="diagnostics_body_healthy">被动遥测和最新报告未显示严重故障。请审查实时计数器是否漂移。</string>
@@ -1301,7 +1287,7 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_no_settings_applied">未自动应用任何设置。</string>
     <string name="home_diagnostics_quick_scan_body">仅策略探测,约 90 秒</string>
     <string name="home_diagnostics_regression_recovered_label">新近恢复</string>
-    <string name="home_diagnostics_routing_sanity_summary">在 %2$d 个条目中已配置 %1$d 个已知 VPN 检测应用。</string>
+    <string name="home_diagnostics_routing_sanity_summary">已配置的已知 VPN 检测应用：%1$d。条目总数：%2$d。</string>
     <string name="home_diagnostics_stage_recommendation_marker">活动建议</string>
     <string name="home_history_title">查看已保存的会话和失败记录</string>
     <string name="home_mode_card_diagnostic_empty">暂无分析</string>
@@ -1683,10 +1669,7 @@ fake_burst 3</string>
     <string name="config_relay_chain_hop_remove">移除跳</string>
     <string name="config_relay_chain_hop_move_up">上移此跳</string>
     <string name="config_relay_chain_hop_move_down">下移此跳</string>
-    <string name="config_relay_chain_hop_min_reached">一条链至少需要 %1$d 跳。</string>
-    <string name="config_relay_chain_hop_max_reached">一条链最多可有 %1$d 跳。</string>
     <string name="config_relay_chain_cumulative_caveat_title">每一跳都会增加延迟</string>
-    <string name="config_relay_chain_cumulative_caveat_body">流量会依次经过全部 %1$d 跳，因此每一跳都会增加延迟。跳数越多，信任越分散到多个运营商，但并不能提供 Tor 级别的匿名性。请为每一跳使用不同的司法管辖区和运营商，以降低关联风险。</string>
     <string name="config_relay_chain_cumulative_latency_caveat">测得的所有跳累计延迟：%1$d 毫秒。</string>
     <string name="config_relay_enable">启用上游中继</string>
     <string name="config_relay_kind_chain">链式中继</string>
@@ -1763,7 +1746,6 @@ fake_burst 3</string>
     <string name="detection_score_improved">评分已提升</string>
     <string name="detection_stealth_score">可见性</string>
     <string name="diagnostics_autolearn_host_blocked">检测到被屏蔽的主机</string>
-    <string name="diagnostics_autolearn_penalized_format">已惩罚 %1$d 个</string>
     <string name="diagnostics_autolearn_store_reset">重置已存储的主机</string>
     <string name="diagnostics_body_idle">启动 RIPDPI 或运行扫描以填充诊断分析。</string>
     <string name="diagnostics_error_timeout">连接超时</string>
@@ -1853,7 +1835,7 @@ fake_burst 3</string>
     <string name="home_diagnostics_detection_local_artifacts">本地痕迹</string>
     <string name="home_diagnostics_detection_network_signs">网络信号</string>
     <string name="home_diagnostics_dns_resolver_poisoning">可能检测到 DNS 投毒。</string>
-    <string name="home_diagnostics_effectiveness_row_value">%1$d 通过 / %2$d 失败</string>
+    <string name="home_diagnostics_effectiveness_row_value">通过：%1$d / 失败：%2$d</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>
     <string name="home_diagnostics_network_section">本网络上</string>
     <string name="home_diagnostics_open_diagnostics_action">打开诊断</string>
@@ -1902,7 +1884,6 @@ fake_burst 3</string>
     <string name="http_fake_profile_body">HTTP fake 数据包的基础载荷。仅改变看似合理的请求形态,不影响传输行为。</string>
     <string name="http_fake_profile_scope_off">HTTP 绕过策略 已禁用,此配置档当前处于空闲状态。</string>
     <string name="logs_active_session_title">仅当前会话</string>
-    <string name="logs_buffer_value">%1$d / %2$d 条</string>
     <string name="logs_entries_count">日志条数：%1$d</string>
     <string name="logs_copy_entry">复制 %2$s 的%1$s日志</string>
     <string name="logs_filters_helper">按子系统或严重程度筛选,以聚焦您正在调试的运行时。</string>
@@ -2000,7 +1981,6 @@ fake_burst 3</string>
     <string name="ripdpi_hosts_mode_setting">主机</string>
     <string name="ripdpi_http_host_tab_setting">Host 制表符分隔</string>
     <string name="ripdpi_http_parser_aggressive_group_body">激进的偏 Nginx 规避手段。可绕过较弱的 HTTP 解析器,但也可能破坏某些服务器和 CDN。</string>
-    <string name="ripdpi_http_parser_badge_aggressive_count">%1$d 项激进</string>
     <string name="ripdpi_http_parser_badge_nginx_biased">偏 Nginx</string>
     <string name="ripdpi_http_parser_default_body">未启用额外的 HTTP 解析器规避。除非您在下方启用调整,否则 RIPDPI 将保持 HTTP 请求结构正常。</string>
     <string name="ripdpi_http_parser_group_status_warning">请谨慎使用</string>
@@ -2304,7 +2284,6 @@ fake_burst 3</string>
     <string name="detection_resistance_tls_fingerprint_body">适用于应用自身发起的 HTTPS 和 TLS 连接,包括配置下发、目录刷新、引导检查、诊断元数据查询以及内置的 RIPDPI 浏览器。该自有栈浏览器路径中的平台 ECH 需要 Android 17 或更新版本。</string>
     <string name="detection_status_detected">已检测到</string>
     <string name="detection_verdict_label">结论</string>
-    <string name="diagnostics_autolearn_learned_format">已学习 %1$d 条</string>
     <string name="diagnostics_autolearn_penalized">已惩罚失败路由</string>
     <string name="diagnostics_body_attention">检测到警告或部分失败。请将最新扫描结果与当前实时监视器进行对比。</string>
     <string name="diagnostics_error_connect_failure">连接失败</string>
@@ -2398,7 +2377,7 @@ fake_burst 3</string>
     <string name="home_diagnostics_network_transparent_proxy">透明代理</string>
     <string name="home_diagnostics_pcap_helper">需要 Root 权限。此操作会将本次运行的原始数据包字节捕获到独立的本地 PCAP 文件中；已脱敏的诊断归档不会嵌入数据包捕获。</string>
     <string name="home_diagnostics_recommendation_label">建议</string>
-    <string name="home_diagnostics_regression_summary">新失败 %1$d 项,新恢复 %2$d 项,未变更 %3$d 项。</string>
+    <string name="home_diagnostics_regression_summary">新失败：%1$d，新恢复：%2$d，未变更：%3$d。</string>
     <string name="home_diagnostics_share_failed">分享分析日志和结果失败。</string>
     <string name="home_diagnostics_copy_support_code">复制以供支持使用</string>
     <string name="home_diagnostics_verification_failed">无法启动短时验证探测。</string>
@@ -2407,7 +2386,6 @@ fake_burst 3</string>
     <string name="home_connection_actuator_state_vpn_checking">本地进程正在运行；正在检查 VPN 连接</string>
     <string name="home_connection_actuator_state_vpn_unverified">本地进程正在运行；VPN 连接尚未验证</string>
     <string name="home_connection_actuator_state_vpn_unavailable">本地进程正在运行；VPN 连接不可用</string>
-    <string name="home_mode_card_diagnostic_status_complete_format">已完成 %1$d/%2$d 个阶段</string>
     <string name="home_mode_card_disable">禁用</string>
     <string name="home_mode_card_run_scan">检查网络</string>
     <string name="home_mode_diagnostic_scan">诊断扫描</string>
@@ -2426,7 +2404,6 @@ fake_burst 3</string>
     <string name="host_autolearn_action_group_penalized">已惩罚失败路由</string>
     <string name="host_autolearn_cli_live_status_body">此会话正通过命令行标志学习主机。请编辑原始 RIPDPI 参数以更改下次启动行为。</string>
     <string name="host_autolearn_enabled_title">按主机学习路由</string>
-    <string name="host_autolearn_limits_summary">惩罚窗口 %1$d 小时 · 上限 %2$d 个主机</string>
     <string name="host_autolearn_max_hosts_title">学习主机数量上限</string>
     <string name="host_autolearn_penalty_ttl_title">惩罚 TTL(小时)</string>
     <string name="host_autolearn_pending_enable_title">将在下次启动时应用</string>
@@ -2495,7 +2472,6 @@ fake_burst 3</string>
     <string name="quic_fake_preset_off_title">关闭</string>
     <string name="quic_fake_preset_selected">已选择</string>
     <string name="quic_fake_profile_badge_host_builtin">内置主机</string>
-    <string name="quic_fake_profile_burst_configured">UDP 链已配置 %1$d 个 fake_burst 数据包。</string>
     <string name="quic_fake_profile_helper">上方的 QUIC 路由和缓存开关仍控制主机名提取。此预设仅更改 UDP fake_burst 发出的伪载荷。</string>
     <string name="quic_fake_profile_ready_body">RIPDPI 将在下一次针对 QUIC Initial 流量的 fake_burst 中使用所选的伪 QUIC Initial 配置。</string>
     <string name="quic_fake_profile_saved_body">QUIC 伪配置已设置,但当前 UDP 链尚无 fake_burst 步骤。请在链编辑器中添加 fake_burst 以发出该载荷。</string>
@@ -2545,7 +2521,6 @@ fake_burst 3</string>
     <string name="ripdpi_http_method_eol_setting">Method EOL 偏移</string>
     <string name="ripdpi_http_parser_aggressive_group_title">激进解析器规避</string>
     <string name="ripdpi_http_parser_badge_custom">自定义</string>
-    <string name="ripdpi_http_parser_badge_safe_count">%1$d 项安全</string>
     <string name="ripdpi_http_parser_default_title">默认 HTTP 解析器处理</string>
     <string name="ripdpi_http_parser_group_summary_label_current">当前选择</string>
     <string name="ripdpi_http_parser_profile_aggressive_only">仅激进规避</string>
@@ -2581,7 +2556,7 @@ fake_burst 3</string>
     <string name="routing_protection_dht_bypass_title">直连绕过</string>
     <string name="routing_protection_full_tunnel_active">全局隧道模式已激活,因此应用排除和反关联提示目前被抑制。</string>
     <string name="routing_protection_policy_prompt_body">当存在风险应用时显示路由建议。</string>
-    <string name="routing_protection_summary_body">在 %2$d 个已启用的预设中检测到 %1$d 个风险应用。</string>
+    <string name="routing_protection_summary_body">检测到的风险应用：%1$d。已启用的预设：%2$d。</string>
     <string name="routing_protection_suggestion_line">%1$s：%2$s</string>
     <string name="semantic_action_expand">展开</string>
     <string name="semantic_state_on">开启</string>
@@ -2659,7 +2634,6 @@ fake_burst 3</string>
     <string name="root_mode_strategies_configure_action">打开策略编辑器</string>
     <string name="tls_fake_profile_scope_hostfake">当前 HTTPS 流量使用 hostfake 分块,而非完整伪 ClientHello。</string>
     <string name="tls_fake_profile_title">TLS 伪载荷</string>
-    <string name="udp_fake_profile_scope_live">用于当前链上的 %1$d 个通用 UDP fake_burst 数据包。</string>
     <string name="use_command_line_settings">使用命令行设置</string>
     <string name="warp_amnezia_h1_title">Amnezia H1</string>
     <string name="warp_amnezia_jc_title">Amnezia JC</string>
@@ -3133,13 +3107,11 @@ fake_burst 3</string>
     <string name="domain_bypass_intro_body">此处列出的域名将绕过代理直接连接。支持普通域名(example.com)、后缀(.example.com)以及 domain:、domain_suffix: 和 domain_regex: 前缀。</string>
     <string name="domain_bypass_editor_label">域名(每行一个)</string>
     <string name="domain_bypass_placeholder">例如：\nexample.com\n.bank.example</string>
-    <string name="domain_bypass_errors_title">%1$d 行无效</string>
     <string name="domain_bypass_error_line">第 %1$d 行:%2$s</string>
     <string name="domain_bypass_paste">粘贴</string>
     <string name="domain_bypass_copy">复制</string>
     <string name="domain_bypass_move_to_editor">移至规则</string>
     <string name="domain_bypass_moved_rule_name">域名直连列表</string>
-    <string name="domain_bypass_saved">已保存 %1$d 个域名</string>
     <string name="domain_bypass_cleared">已清空直连列表</string>
     <string name="domain_bypass_copied">已复制到剪贴板</string>
     <string name="domain_bypass_clipboard_empty">剪贴板为空</string>
@@ -3298,8 +3270,7 @@ fake_burst 3</string>
     <string name="backup_import_preview_title">查看备份</string>
     <string name="backup_import_preview_schema">备份版本 %1$d，由应用 %2$s 创建</string>
     <string name="backup_import_shareable_title">可分享备份</string>
-    <string name="backup_import_shareable_body">由于已移除凭据，%1$d 个配置无法恢复。组、路由和设置仍可恢复。</string>
-    <string name="backup_import_category_profiles">配置和组（%1$d 个配置，%2$d 个组）</string>
+    <string name="backup_import_category_profiles">配置和组（配置：%1$d，组：%2$d）</string>
     <string name="backup_import_category_routes">路由规则（%1$d）</string>
     <string name="backup_import_category_settings">设置（%1$d）</string>
     <string name="backup_import_category_unchecked_hint">未勾选的类别将保留当前值。</string>
@@ -3674,7 +3645,6 @@ fake_burst 3</string>
     <string name="detection_headline_ordinary_https">你看起来像普通的 HTTPS 流量</string>
     <string name="detection_narrative_discovered_heading">发现了什么</string>
     <string name="detection_narrative_reason_heading">为何得出此结论</string>
-    <string name="detection_probe_outcome_format">探针结果：暴露 %1$d/%2$d 个信号</string>
     <string name="detection_settings_call_transport_subtitle">通过检测到的代理探测 MTProto 和 STUN</string>
     <string name="detection_settings_call_transport_title">通话传输探针</string>
     <string name="detection_settings_cancel">取消</string>
@@ -3727,7 +3697,6 @@ fake_burst 3</string>
     <string name="detection_verdict_reason_format">原因：%1$s</string>
     <string name="diagnostics_allowlist_sni_failed">SNI 兼容性查找器失败。</string>
     <string name="diagnostics_allowlist_sni_no_flagged">请先运行 TCP16；目前还没有被标记的 ASN。</string>
-    <string name="diagnostics_allowlist_sni_ready">已就绪，可处理 %1$d 个 TCP16 标记的目标。</string>
     <string name="diagnostics_allowlist_sni_run_after_tcp16">在 TCP16 找到被标记的 ASN 后运行。</string>
     <string name="diagnostics_allowlist_sni_running">正在为 TCP16 标记的 ASN 测试 SNI 兼容性……</string>
     <string name="diagnostics_approach_metric_runtime">运行时长</string>
@@ -3757,7 +3726,6 @@ fake_burst 3</string>
     <string name="diagnostics_audit_winner_coverage_label">优胜者覆盖率</string>
     <string name="diagnostics_byoh_check_failed">主机兼容性检查失败。</string>
     <string name="diagnostics_byoh_checking_domain">正在检查 %1$s (%2$d/%3$d)……</string>
-    <string name="diagnostics_byoh_complete">%2$d 个主机名中有 %1$d 个完成了配置的传输。</string>
     <string name="diagnostics_byoh_destination_ip_label">目标 IP</string>
     <string name="diagnostics_byoh_dst_ip_required">请为用户自有的服务器输入目标 IP。</string>
     <string name="diagnostics_byoh_metric_bytes">字节</string>
@@ -3785,19 +3753,17 @@ fake_burst 3</string>
     <string name="diagnostics_cidr_whitelist_title">CIDR 白名单检测</string>
     <string name="diagnostics_cidr_whitelist_verdict_detected_label">cidr 白名单</string>
     <string name="diagnostics_cidr_whitelist_verdict_no_internet_label">无网络</string>
-    <string name="diagnostics_compression_complete">%2$d 个压缩编解码器中有 %1$d 个可用于 %3$s。</string>
     <string name="diagnostics_compression_failed">HTTP 压缩探针失败。</string>
     <string name="diagnostics_compression_metric_target">目标</string>
     <string name="diagnostics_compression_metric_usable">可用</string>
     <string name="diagnostics_compression_metric_zstd">zstd</string>
     <string name="diagnostics_compression_running">正在检查 HTTP 压缩支持……</string>
-    <string name="diagnostics_dns_availability_complete">%2$d 个公共 DNS 解析器中有 %1$d 个有响应。</string>
     <string name="diagnostics_dns_availability_failed">DNS 可用性调查失败。</string>
     <string name="diagnostics_dns_availability_metric_available">可用</string>
     <string name="diagnostics_dns_availability_metric_servers">服务器</string>
     <string name="diagnostics_dns_availability_running">正在调查公共 DNS 解析器……</string>
     <string name="diagnostics_dns_integrity_complete_clean">在 %1$d 个内置域名中未检测到 DNS 替换。</string>
-    <string name="diagnostics_dns_integrity_complete_flagged">%2$d 个域名中有 %1$d 个、%3$d 项 DoQ 检查以及 %4$d 项 DoH 引导检查显示出 DNS 完整性警告。</string>
+    <string name="diagnostics_dns_integrity_complete_flagged">DNS 完整性警告：域名 %1$d/%2$d，DoQ 检查 %3$d，DoH 引导检查 %4$d。</string>
     <string name="diagnostics_dns_integrity_doh_bootstrap_label">DoH 引导 %1$s：%2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s：%3$s</string>
     <string name="diagnostics_dns_integrity_failed">DNS 完整性检查失败。</string>
@@ -3810,13 +3776,10 @@ fake_burst 3</string>
     <string name="diagnostics_dns_integrity_metric_flagged">被标记</string>
     <string name="diagnostics_dns_integrity_metric_stub_ips">存根 IP</string>
     <string name="diagnostics_dns_integrity_running">正在将 UDP/53 应答与 DoH 对照结果进行比对……</string>
-    <string name="diagnostics_domain_reachability_complete_clean">在 %1$d 个内置域名中未检测到可达性阻断。</string>
-    <string name="diagnostics_domain_reachability_complete_flagged">%2$d 个域名中有 %1$d 个显示出可达性警告。</string>
     <string name="diagnostics_domain_reachability_failed">域名可达性扫描失败。</string>
     <string name="diagnostics_domain_reachability_metric_checked">已检查</string>
     <string name="diagnostics_domain_reachability_metric_flagged">被标记</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">存根 IP</string>
-    <string name="diagnostics_domain_reachability_running">正在用 %1$d 个 DNS 存根 IP 探测可达性……</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH 就绪度</string>
     <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial 指纹</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16 肥头部</string>
@@ -3827,12 +3790,9 @@ fake_burst 3</string>
     <string name="diagnostics_dpi_suite_title">DPI-CH 综合检测</string>
     <string name="diagnostics_ipv4_whitelist_cache">缓存子网</string>
     <string name="diagnostics_ipv4_whitelist_cache_failed">子网缓存失败。</string>
-    <string name="diagnostics_ipv4_whitelist_cached_complete">已缓存 %1$d 个候选 /24 范围。</string>
-    <string name="diagnostics_ipv4_whitelist_cached_provider">已为 %2$s 缓存 %1$d 个 /24 范围。</string>
     <string name="diagnostics_ipv4_whitelist_caching">正在缓存……</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">检查已缓存的</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">子网检查失败。</string>
-    <string name="diagnostics_ipv4_whitelist_checked_progress">已检查 %1$d/%2$d 个缓存的子网。</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">IPv4 白名单子网.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">正在获取已通告的 IPv4 前缀……</string>
     <string name="diagnostics_ipv4_whitelist_hide_results">隐藏子网结果</string>
@@ -3886,7 +3846,7 @@ fake_burst 3</string>
     <string name="diagnostics_resolver_save_setting">保存为 DNS 设置</string>
     <string name="diagnostics_resolver_switch_dns">将 DNS 切换为 %1$s</string>
     <string name="diagnostics_results_section_count">%1$s (%2$d)</string>
-    <string name="diagnostics_rkn_complete">已检查 %1$d 个对照目标和 %2$d 个黑名单目标。</string>
+    <string name="diagnostics_rkn_complete">已检查对照目标：%1$d；黑名单目标：%2$d。</string>
     <string name="diagnostics_rkn_failed">RKN 阻断诊断失败。</string>
     <string name="diagnostics_rkn_group_control">对照</string>
     <string name="diagnostics_rkn_group_test">测试</string>
@@ -3902,8 +3862,7 @@ fake_burst 3</string>
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS：系统解析失败</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI：%1$s</string>
     <string name="diagnostics_scan_network_not_validated">未验证</string>
-    <string name="diagnostics_tcp16_complete_clean">在 %1$d 个目标中未检测到 TCP16 肥头部关闭模式。</string>
-    <string name="diagnostics_tcp16_complete_detected">%1$d 个目标显示出 TCP16 关闭模式；%2$d 项重连验证失败。</string>
+    <string name="diagnostics_tcp16_complete_detected">显示 TCP16 关闭模式的目标：%1$d；失败的重连验证：%2$d。</string>
     <string name="diagnostics_tcp16_failed">TCP16 肥头部探针失败。</string>
     <string name="diagnostics_tcp16_metric_detected">已检测到</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">单套接字无效</string>
@@ -4037,7 +3996,6 @@ fake_burst 3</string>
     <string name="subscription_signal_banner_revoked_title">订阅已撤销</string>
     <string name="subscription_signal_banner_unavailable_title">订阅不可用</string>
     <string name="subscription_signal_banner_stale_title">中继池可能已过时</string>
-    <string name="subscription_signal_banner_multiple_message">%1$d 个订阅需要处理。缓存的中继节点可能已过时。</string>
     <plurals name="subscription_signal_notification_multiple">
         <item quantity="other">%d 个订阅需要处理。缓存的中继节点可能已过时。</item>
     </plurals>
@@ -4061,13 +4019,11 @@ fake_burst 3</string>
     <string name="subscription_status_refresh_failed">刷新失败</string>
     <string name="subscription_status_url_format">订阅网址：%1$s</string>
     <string name="subscription_status_token_format">令牌：%1$s</string>
-    <string name="subscription_home_multiple_title">有 %1$d 个订阅需要处理</string>
     <string name="subscription_home_expiring_title">订阅即将到期</string>
     <string name="subscription_home_expired_title">订阅已到期</string>
     <string name="subscription_home_expired_body">%1$s 已无法更新。现有配置仍可使用。</string>
     <string name="subscription_home_invalidated_title">订阅不可用</string>
     <string name="subscription_home_invalidated_body">%1$s 已到期或被撤销。现有配置仍可使用。</string>
-    <string name="diagnostics_sparkline_chart_description">%1$s 趋势，共 %2$d 个样本</string>
     <string name="diagnostics_sparkline_selected_state">第 %1$d 个样本，共 %2$d 个：%3$s</string>
     <string name="diagnostics_sparkline_latest_state">最新值：%1$s</string>
     <string name="diagnostics_sparkline_previous_sample">上一个样本</string>

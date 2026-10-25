@@ -20,7 +20,6 @@
     <string name="diagnostics_outcome_confidence_unknown">置信度未知</string>
     <string name="diagnostics_outcome_coverage_unknown">检查范围未知</string>
     <string name="diagnostics_outcome_stale">来自其他网络的已保存结果</string>
-    <string name="diagnostics_outcome_coverage_format">已完成 %1$d/%2$d 个阶段；%3$d 个失败</string>
     <string name="diagnostics_outcome_historical">已保存的证据；是否匹配当前网络未知</string>
     <string name="logs_actions_title">日志操作</string>
     <string name="config_scope_device">本地 VPN</string>

@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -313,8 +314,9 @@ private fun httpParserSafeBadges(uiState: SettingsUiState): List<Pair<String, Su
         add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
         if (uiState.httpParser.httpParserSafeCount > 0) {
             add(
-                stringResource(
-                    R.string.ripdpi_http_parser_badge_safe_count,
+                pluralStringResource(
+                    R.plurals.ripdpi_http_parser_badge_safe_count,
+                    uiState.httpParser.httpParserSafeCount,
                     uiState.httpParser.httpParserSafeCount,
                 ) to SummaryCapsuleTone.Active,
             )
@@ -345,8 +347,9 @@ private fun httpParserAggressiveBadges(uiState: SettingsUiState): List<Pair<Stri
         add(stringResource(R.string.ripdpi_http_parser_badge_nginx_biased) to SummaryCapsuleTone.Warning)
         if (uiState.httpParser.httpParserAggressiveCount > 0) {
             add(
-                stringResource(
-                    R.string.ripdpi_http_parser_badge_aggressive_count,
+                pluralStringResource(
+                    R.plurals.ripdpi_http_parser_badge_aggressive_count,
+                    uiState.httpParser.httpParserAggressiveCount,
                     uiState.httpParser.httpParserAggressiveCount,
                 ) to SummaryCapsuleTone.Warning,
             )
@@ -410,16 +413,18 @@ private fun httpParserProfileBadges(uiState: SettingsUiState): List<Pair<String,
         add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
         if (uiState.httpParser.httpParserSafeCount > 0) {
             add(
-                stringResource(
-                    R.string.ripdpi_http_parser_badge_safe_count,
+                pluralStringResource(
+                    R.plurals.ripdpi_http_parser_badge_safe_count,
+                    uiState.httpParser.httpParserSafeCount,
                     uiState.httpParser.httpParserSafeCount,
                 ) to SummaryCapsuleTone.Active,
             )
         }
         if (uiState.httpParser.httpParserAggressiveCount > 0) {
             add(
-                stringResource(
-                    R.string.ripdpi_http_parser_badge_aggressive_count,
+                pluralStringResource(
+                    R.plurals.ripdpi_http_parser_badge_aggressive_count,
+                    uiState.httpParser.httpParserAggressiveCount,
                     uiState.httpParser.httpParserAggressiveCount,
                 ) to SummaryCapsuleTone.Warning,
             )

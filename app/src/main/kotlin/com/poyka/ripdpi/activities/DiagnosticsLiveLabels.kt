@@ -117,7 +117,13 @@ private fun DiagnosticsUiFactorySupport.buildTelemetryBody(telemetry: Diagnostic
             val totalBytes = formatBytes(telemetry.txBytes + telemetry.rxBytes)
             val packetCount = telemetry.txPackets + telemetry.rxPackets
             val modeLabel = telemetry.activeMode ?: context.getString(R.string.diagnostics_metric_idle)
-            context.getString(R.string.diagnostics_live_mode_summary_format, modeLabel, totalBytes, packetCount)
+            context.getQuantityString(
+                R.plurals.diagnostics_live_mode_summary_format,
+                packetCount.toInt(),
+                modeLabel,
+                totalBytes,
+                packetCount,
+            )
         }
     }
 }

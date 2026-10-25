@@ -126,7 +126,6 @@ app:adaptive_fallback_badge_disabled
 app:adaptive_fallback_badge_enabled
 app:adaptive_fallback_cache_prefix_body
 app:adaptive_fallback_cache_prefix_title
-app:adaptive_fallback_cache_summary
 app:adaptive_fallback_cache_ttl_body
 app:adaptive_fallback_cache_ttl_title
 app:adaptive_fallback_cli_body
@@ -372,7 +371,6 @@ app:backup_import_confirm_action
 app:backup_import_legacy_full_warning
 app:backup_import_preview_schema
 app:backup_import_preview_title
-app:backup_import_shareable_body
 app:backup_import_shareable_title
 app:backup_reset_action
 app:backup_reset_cancel_action
@@ -468,11 +466,9 @@ app:blockcheck_message_strategy_applied
 app:blockcheck_message_strategy_unregistered
 app:blockcheck_no_strategies
 app:blockcheck_purpose
-app:blockcheck_result_detail_format
 app:blockcheck_results_title
 app:blockcheck_run
 app:blockcheck_section_title
-app:blockcheck_status_format
 app:blockcheck_try_recommended_strategy
 app:blockcheck_try_recommended_strategy_format
 app:blockcheck_vs_tuner
@@ -697,7 +693,6 @@ app:config_relay_apps_script_proxy_only_title
 app:config_relay_apps_script_sni_hosts
 app:config_relay_apps_script_verify_ssl
 app:config_relay_body
-app:config_relay_chain_cumulative_caveat_body
 app:config_relay_chain_cumulative_caveat_title
 app:config_relay_chain_cumulative_latency_caveat
 app:config_relay_chain_editor_intro
@@ -721,9 +716,7 @@ app:config_relay_chain_hop_add
 app:config_relay_chain_hop_empty_profiles
 app:config_relay_chain_hop_entry
 app:config_relay_chain_hop_exit
-app:config_relay_chain_hop_max_reached
 app:config_relay_chain_hop_middle
-app:config_relay_chain_hop_min_reached
 app:config_relay_chain_hop_move_down
 app:config_relay_chain_hop_move_up
 app:config_relay_chain_hop_profile_label
@@ -914,7 +907,6 @@ app:connection_health_home_subtitle
 app:connection_health_home_title
 app:connection_health_latency_caption
 app:connection_health_latency_dns
-app:connection_health_latency_range_format
 app:connection_health_latency_section_title
 app:connection_health_latency_tcp
 app:connection_health_latency_tls
@@ -1147,7 +1139,6 @@ app:detection_permission_rationale
 app:detection_permission_settings
 app:detection_permission_title
 app:detection_privacy_mode
-app:detection_probe_outcome_format
 app:detection_recommendation_open_advanced
 app:detection_recommendation_open_dns
 app:detection_recommendation_open_mode
@@ -1281,7 +1272,6 @@ app:diagnostics_action_start_probe
 app:diagnostics_allowlist_sni_failed
 app:diagnostics_allowlist_sni_idle_summary
 app:diagnostics_allowlist_sni_no_flagged
-app:diagnostics_allowlist_sni_ready
 app:diagnostics_allowlist_sni_run_after_tcp16
 app:diagnostics_allowlist_sni_running
 app:diagnostics_approach_metric_runtime
@@ -1339,13 +1329,10 @@ app:diagnostics_audit_winning_path_title
 app:diagnostics_audit_winning_quic_title
 app:diagnostics_audit_winning_tcp_title
 app:diagnostics_autolearn_active
-app:diagnostics_autolearn_blocked_format
 app:diagnostics_autolearn_host_blocked
-app:diagnostics_autolearn_learned_format
 app:diagnostics_autolearn_none_yet
 app:diagnostics_autolearn_off
 app:diagnostics_autolearn_penalized
-app:diagnostics_autolearn_penalized_format
 app:diagnostics_autolearn_promoted
 app:diagnostics_autolearn_route_format
 app:diagnostics_autolearn_store_reset
@@ -1359,7 +1346,6 @@ app:diagnostics_bootstrap_spoofed
 app:diagnostics_byoh_bytes_received
 app:diagnostics_byoh_check_failed
 app:diagnostics_byoh_checking_domain
-app:diagnostics_byoh_complete
 app:diagnostics_byoh_connection_error
 app:diagnostics_byoh_copy_csv
 app:diagnostics_byoh_destination_ip_label
@@ -1398,7 +1384,6 @@ app:diagnostics_cidr_whitelist_verdict_detected_label
 app:diagnostics_cidr_whitelist_verdict_no_internet_label
 app:diagnostics_compatible_sni_empty
 app:diagnostics_compression_bytes_format
-app:diagnostics_compression_complete
 app:diagnostics_compression_connection_error
 app:diagnostics_compression_eof_before_min
 app:diagnostics_compression_failed
@@ -1433,7 +1418,6 @@ app:diagnostics_diagnosis_summary_title
 app:diagnostics_dns_aa
 app:diagnostics_dns_ad
 app:diagnostics_dns_answer
-app:diagnostics_dns_availability_complete
 app:diagnostics_dns_availability_failed
 app:diagnostics_dns_availability_idle_summary
 app:diagnostics_dns_availability_metric_available
@@ -1441,7 +1425,6 @@ app:diagnostics_dns_availability_metric_servers
 app:diagnostics_dns_availability_running
 app:diagnostics_dns_caution
 app:diagnostics_dns_cname
-app:diagnostics_dns_complete_agree
 app:diagnostics_dns_disagreement
 app:diagnostics_dns_ede
 app:diagnostics_dns_encrypted_unavailable
@@ -1493,14 +1476,11 @@ app:diagnostics_dns_ttl_min
 app:diagnostics_dns_udp_unavailable
 app:diagnostics_dns_unknown
 app:diagnostics_dns_yes
-app:diagnostics_domain_reachability_complete_clean
-app:diagnostics_domain_reachability_complete_flagged
 app:diagnostics_domain_reachability_failed
 app:diagnostics_domain_reachability_idle_summary
 app:diagnostics_domain_reachability_metric_checked
 app:diagnostics_domain_reachability_metric_flagged
 app:diagnostics_domain_reachability_metric_stub_ips
-app:diagnostics_domain_reachability_running
 app:diagnostics_doq_blocked_quic
 app:diagnostics_doq_dpi_reject
 app:diagnostics_doq_integrity_divergent
@@ -1824,12 +1804,9 @@ app:diagnostics_ip_v6
 app:diagnostics_ipv4_whitelist_alive_format
 app:diagnostics_ipv4_whitelist_cache
 app:diagnostics_ipv4_whitelist_cache_failed
-app:diagnostics_ipv4_whitelist_cached_complete
-app:diagnostics_ipv4_whitelist_cached_provider
 app:diagnostics_ipv4_whitelist_caching
 app:diagnostics_ipv4_whitelist_check_cached
 app:diagnostics_ipv4_whitelist_check_failed
-app:diagnostics_ipv4_whitelist_checked_progress
 app:diagnostics_ipv4_whitelist_csv_title
 app:diagnostics_ipv4_whitelist_fetching
 app:diagnostics_ipv4_whitelist_hide_results
@@ -1856,7 +1833,6 @@ app:diagnostics_live_headline_attention
 app:diagnostics_live_headline_error
 app:diagnostics_live_headline_standby
 app:diagnostics_live_headline_traffic
-app:diagnostics_live_mode_summary_format
 app:diagnostics_live_no_telemetry
 app:diagnostics_live_no_transfer
 app:diagnostics_live_results_title
@@ -2032,7 +2008,6 @@ app:diagnostics_open_history_body
 app:diagnostics_open_history_title
 app:diagnostics_open_logs_body
 app:diagnostics_outcome_confidence_unknown
-app:diagnostics_outcome_coverage_format
 app:diagnostics_outcome_coverage_unknown
 app:diagnostics_outcome_historical
 app:diagnostics_outcome_source_active
@@ -2051,7 +2026,6 @@ app:diagnostics_overview_policy_success
 app:diagnostics_overview_policy_validated
 app:diagnostics_overview_run_scan_action
 app:diagnostics_overview_section
-app:diagnostics_partial_results_matrix_title
 app:diagnostics_passive_events_section
 app:diagnostics_past_replays_description
 app:diagnostics_past_replays_label
@@ -2153,7 +2127,6 @@ app:diagnostics_probe_unavailable_title
 app:diagnostics_probe_unreachable
 app:diagnostics_profile_audit_badge
 app:diagnostics_profile_audit_body
-app:diagnostics_profile_audit_partial_results_body
 app:diagnostics_profile_audit_ready_body
 app:diagnostics_profile_audit_running_body
 app:diagnostics_profile_audit_short_circuit_body
@@ -2186,7 +2159,6 @@ app:diagnostics_profile_manual_run_only
 app:diagnostics_profile_path_comparison_title
 app:diagnostics_profile_probe_badge
 app:diagnostics_profile_probe_body
-app:diagnostics_profile_probe_partial_results_body
 app:diagnostics_profile_probe_ready_body
 app:diagnostics_profile_probe_running_body
 app:diagnostics_profile_probe_short_circuit_body
@@ -2309,7 +2281,6 @@ app:diagnostics_rkn_idle_summary
 app:diagnostics_rkn_metric_flagged
 app:diagnostics_rkn_note_all_timeout
 app:diagnostics_rkn_note_control_down
-app:diagnostics_rkn_note_high_format
 app:diagnostics_rkn_note_medium
 app:diagnostics_rkn_note_not_blocked
 app:diagnostics_rkn_note_partial
@@ -2551,7 +2522,6 @@ app:diagnostics_source_automatic_probing_manual
 app:diagnostics_source_manual_session
 app:diagnostics_source_strategy_probe_manual
 app:diagnostics_source_unknown
-app:diagnostics_sparkline_chart_description
 app:diagnostics_sparkline_clear_selection
 app:diagnostics_sparkline_errors
 app:diagnostics_sparkline_latest_state
@@ -2661,7 +2631,6 @@ app:diagnostics_strategy_tcp_matrix
 app:diagnostics_strategy_verdict_execution_unverified
 app:diagnostics_strategy_verdict_incomplete
 app:diagnostics_support_details_copied
-app:diagnostics_tcp16_complete_clean
 app:diagnostics_tcp16_complete_detected
 app:diagnostics_tcp16_failed
 app:diagnostics_tcp16_idle_summary
@@ -2872,7 +2841,6 @@ app:domain_bypass_copied
 app:domain_bypass_copy
 app:domain_bypass_editor_label
 app:domain_bypass_error_line
-app:domain_bypass_errors_title
 app:domain_bypass_intro_body
 app:domain_bypass_intro_title
 app:domain_bypass_move_requires_save
@@ -2881,7 +2849,6 @@ app:domain_bypass_moved
 app:domain_bypass_moved_rule_name
 app:domain_bypass_paste
 app:domain_bypass_placeholder
-app:domain_bypass_saved
 app:error_user_generic
 app:error_user_no_network
 app:error_user_permission
@@ -3369,9 +3336,7 @@ app:home_mode_card_connected_format
 app:home_mode_card_connecting
 app:home_mode_card_diagnostic_empty
 app:home_mode_card_diagnostic_status_actionable
-app:home_mode_card_diagnostic_status_complete_format
 app:home_mode_card_diagnostic_status_review
-app:home_mode_card_diagnostic_status_review_format
 app:home_mode_card_diagnostic_status_stale
 app:home_mode_card_disable
 app:home_mode_card_enable
@@ -3409,7 +3374,6 @@ app:home_quality_metric_loss_format
 app:home_quality_metric_ms_format
 app:home_quality_offline
 app:home_quality_partial
-app:home_quality_samples
 app:home_quality_traffic_total
 app:home_quality_waiting
 app:home_remediation_browser_relay_step_choose_preset
@@ -3483,7 +3447,6 @@ app:host_autolearn_enabled_title
 app:host_autolearn_forget_action
 app:host_autolearn_helper
 app:host_autolearn_last_update_label
-app:host_autolearn_limits_summary
 app:host_autolearn_live_status_body
 app:host_autolearn_live_status_title
 app:host_autolearn_max_hosts_body
@@ -3609,7 +3572,6 @@ app:logs_active_session_title
 app:logs_auto_scroll_body
 app:logs_auto_scroll_title
 app:logs_buffer_title
-app:logs_buffer_value
 app:logs_clear
 app:logs_copy_entry
 app:logs_empty_body
@@ -3659,7 +3621,6 @@ app:measurement_proxy
 app:measurement_quality_meaning
 app:measurement_quality_p95
 app:measurement_quality_rtt
-app:measurement_quality_samples
 app:measurement_quality_window
 app:measurement_rtt_band
 app:measurement_runtime_scope
@@ -4072,7 +4033,6 @@ app:quic_fake_profile_badge_host_builtin
 app:quic_fake_profile_badge_host_custom
 app:quic_fake_profile_badge_initial_only
 app:quic_fake_profile_body
-app:quic_fake_profile_burst_configured
 app:quic_fake_profile_burst_missing
 app:quic_fake_profile_cli_body
 app:quic_fake_profile_cli_title
@@ -4217,7 +4177,6 @@ app:ripdpi_fake_approx_summary_marker_none
 app:ripdpi_fake_approx_summary_mode_fakeddisorder
 app:ripdpi_fake_approx_summary_mode_fakedsplit
 app:ripdpi_fake_approx_summary_mode_none
-app:ripdpi_fake_approx_summary_profile_multiple
 app:ripdpi_fake_approx_summary_profile_none
 app:ripdpi_fake_approx_summary_profile_single
 app:ripdpi_fake_approx_summary_scope_http
@@ -4306,7 +4265,6 @@ app:ripdpi_hostfake_summary_label_tls_example
 app:ripdpi_hostfake_summary_label_transport
 app:ripdpi_hostfake_summary_midhost_marker
 app:ripdpi_hostfake_summary_midhost_whole
-app:ripdpi_hostfake_summary_profile_multiple
 app:ripdpi_hostfake_summary_profile_none
 app:ripdpi_hostfake_summary_profile_single
 app:ripdpi_hostfake_summary_scope_http
@@ -4328,12 +4286,10 @@ app:ripdpi_http_parser_aggressive_group_body
 app:ripdpi_http_parser_aggressive_group_title
 app:ripdpi_http_parser_aggressive_none
 app:ripdpi_http_parser_aggressive_title
-app:ripdpi_http_parser_badge_aggressive_count
 app:ripdpi_http_parser_badge_custom
 app:ripdpi_http_parser_badge_default
 app:ripdpi_http_parser_badge_http_only
 app:ripdpi_http_parser_badge_nginx_biased
-app:ripdpi_http_parser_badge_safe_count
 app:ripdpi_http_parser_cli_body
 app:ripdpi_http_parser_cli_title
 app:ripdpi_http_parser_default_body
@@ -4992,9 +4948,7 @@ app:strategy_tuner_message_sweep_complete
 app:strategy_tuner_open_action
 app:strategy_tuner_purpose
 app:strategy_tuner_rate_format
-app:strategy_tuner_result_detail_format
 app:strategy_tuner_run
-app:strategy_tuner_status_format
 app:strategy_tuner_strategy_unregistered
 app:strategy_tuner_vs_probe
 app:subscription_add_body
@@ -5032,9 +4986,7 @@ app:subscription_home_expired_title
 app:subscription_home_expiring_title
 app:subscription_home_invalidated_body
 app:subscription_home_invalidated_title
-app:subscription_home_multiple_title
 app:subscription_signal_banner_expired_title
-app:subscription_signal_banner_multiple_message
 app:subscription_signal_banner_revoked_title
 app:subscription_signal_banner_stale_title
 app:subscription_signal_banner_unavailable_title
@@ -5143,7 +5095,6 @@ app:tls_fake_profile_title
 app:udp_fake_profile_body
 app:udp_fake_profile_interaction
 app:udp_fake_profile_interaction_quic_override
-app:udp_fake_profile_scope_live
 app:udp_fake_profile_scope_off
 app:udp_fake_profile_scope_ready
 app:udp_fake_profile_title

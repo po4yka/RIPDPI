@@ -2,7 +2,6 @@
 <resources>
     <string name="measurement_quality_rtt">RTT p50: %1$d мс.</string>
     <string name="measurement_quality_meaning">RTT — время туда и обратно; джиттер — его изменение. Потери оцениваются по ошибкам соединения и повторным передачам, а не по сбоям отдельных сайтов.</string>
-    <string name="measurement_quality_samples">%1$d образцов RTT · джиттер %2$s мс</string>
     <string name="measurement_quality_window">Начало окна качества: %1$s</string>
     <string name="measurement_window_unknown">Начало окна качества неизвестно</string>
     <string name="measurement_observation_scope">События адресатов: окно %1$d мин до %3$s, не более %2$d событий. Учитываются только реальные сигналы прямого пути.</string>
@@ -29,5 +28,4 @@
     <string name="home_quality_partial">Ниже показаны доступные измерения. Для оценки качества нужно больше свежих образцов RTT.</string>
     <string name="home_quality_last_values">Последние полученные измерения не отражают текущее качество соединения.</string>
     <string name="home_quality_traffic_total">Всего трафика</string>
-    <string name="home_quality_samples">Образцов RTT: %1$d</string>
 </resources>

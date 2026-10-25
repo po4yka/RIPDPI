@@ -41,5 +41,4 @@
     <string name="diagnostics_dns_none">कुछ रिपोर्ट नहीं हुआ</string>
     <string name="diagnostics_dns_show">DNS उत्तर के तथ्य दिखाएँ</string>
     <string name="diagnostics_dns_hide">DNS उत्तर के तथ्य छिपाएँ</string>
-    <string name="diagnostics_dns_complete_agree">%1$d शामिल डोमेन के DNS पता उत्तर मेल खाते हैं।</string>
 </resources>

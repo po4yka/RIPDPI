@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">aucun blocage ou VPN/proxy actif</string>
     <string name="diagnostics_rkn_note_not_blocked">Tous les sites de la liste noire ont chargé. Vous êtes hors de la zone de blocage ou votre VPN/proxy achemine le trafic.</string>
     <string name="diagnostics_rkn_headline_high">zone de blocage : confiance élevée</string>
-    <string name="diagnostics_rkn_note_high_format">Les échecs de %1$d/%2$d sites de la liste noire correspondent à des motifs fiables (empoisonnement DNS confirmé par DoH, HTTP 451, marqueurs connus de pages de blocage).</string>
     <string name="diagnostics_rkn_headline_medium">zone de blocage : confiance moyenne</string>
     <string name="diagnostics_rkn_note_medium">La plupart des échecs de la liste noire correspondent à des blocages (TLS DPI, TCP RST), mais des problèmes serveur peuvent aussi les provoquer. Une mesure témoin depuis un autre réseau permettrait de confirmer.</string>
     <string name="diagnostics_rkn_headline_partial">blocages partiels détectés</string>

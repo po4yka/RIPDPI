@@ -81,9 +81,8 @@ class HomeConnectionMeasurementsTest {
         node(R.string.vpn_quality_metric_rtt_p50).assertExists()
         node(R.string.vpn_quality_metric_jitter).assertExists()
         composeRule
-            .onNodeWithText(
-                RuntimeEnvironment.getApplication().getString(R.string.home_quality_samples, 1L),
-            ).assertExists()
+            .onNodeWithText("1 RTT sample")
+            .assertExists()
         node(R.string.home_quality_partial).assertExists()
     }
 

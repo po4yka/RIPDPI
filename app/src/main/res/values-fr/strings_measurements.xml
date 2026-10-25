@@ -2,7 +2,6 @@
 <resources>
     <string name="measurement_quality_rtt">RTT p50 : %1$d ms.</string>
     <string name="measurement_quality_meaning">Le RTT est le temps aller-retour ; la gigue est sa variation. La perte est estimée à partir des échecs de connexion et retransmissions, pas par site.</string>
-    <string name="measurement_quality_samples">%1$d échantillons RTT · gigue %2$s ms</string>
     <string name="measurement_quality_window">Début de fenêtre de qualité : %1$s</string>
     <string name="measurement_window_unknown">Début de fenêtre de qualité indisponible</string>
     <string name="measurement_observation_scope">Événements par destination : fenêtre de %1$d min jusqu’au %3$s, au plus %2$d événements. Seuls les signaux observés du chemin direct sont comptés.</string>
@@ -29,5 +28,4 @@
     <string name="home_quality_partial">Les mesures disponibles sont affichées ci-dessous. Une évaluation de qualité nécessite davantage de mesures RTT actuelles.</string>
     <string name="home_quality_last_values">Dernières mesures reçues ; elles ne décrivent pas la qualité actuelle de la connexion.</string>
     <string name="home_quality_traffic_total">Trafic total</string>
-    <string name="home_quality_samples">%1$d mesures RTT</string>
 </resources>

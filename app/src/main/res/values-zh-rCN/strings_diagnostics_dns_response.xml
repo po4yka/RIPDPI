@@ -41,5 +41,4 @@
     <string name="diagnostics_dns_none">未报告</string>
     <string name="diagnostics_dns_show">显示 DNS 响应信息</string>
     <string name="diagnostics_dns_hide">隐藏 DNS 响应信息</string>
-    <string name="diagnostics_dns_complete_agree">%1$d 个内置域名的 DNS 地址响应一致。</string>
 </resources>

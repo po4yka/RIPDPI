@@ -62,7 +62,7 @@ class HomeLatencyDetailsTest {
         open()
         detailText(R.string.measurement_quality_rtt, 32L).assertExists()
         detailText(R.string.measurement_quality_p95, 64L).assertExists()
-        detailText(R.string.measurement_quality_samples, 12L, "7").assertExists()
+        detailSamples(12L, "7").assertExists()
         detailText(R.string.measurement_source, text(R.string.measurement_proxy)).assertExists()
 
         composeRule.runOnIdle {
@@ -77,7 +77,7 @@ class HomeLatencyDetailsTest {
         open()
         detailText(R.string.measurement_quality_rtt, 55L).assertExists()
         detailText(R.string.measurement_quality_p95, 95L).assertExists()
-        detailText(R.string.measurement_quality_samples, 20L, "9").assertExists()
+        detailSamples(20L, "9").assertExists()
         detailText(R.string.measurement_source, text(R.string.measurement_tunnel)).assertExists()
     }
 
@@ -150,7 +150,7 @@ class HomeLatencyDetailsTest {
         open()
         detailText(R.string.measurement_quality_rtt, 0L).assertExists()
         detailText(R.string.measurement_quality_p95, 0L).assertExists()
-        detailText(R.string.measurement_quality_samples, 1L, "0").assertExists()
+        detailSamples(1L, "0").assertExists()
         detailText(R.string.latency_detail_source_unavailable).assertExists()
         detailText(R.string.measurement_unknown).assertExists()
         detailText(R.string.measurement_window_unknown).assertExists()
@@ -299,6 +299,18 @@ class HomeLatencyDetailsTest {
         resource: Int,
         vararg args: Any,
     ): String = RuntimeEnvironment.getApplication().getString(resource, *args)
+
+    private fun detailSamples(
+        count: Long,
+        jitter: String,
+    ) = composeRule.onNode(
+        hasText(
+            RuntimeEnvironment
+                .getApplication()
+                .resources
+                .getQuantityString(R.plurals.measurement_quality_samples, count.toInt(), count, jitter),
+        ) and hasAnyAncestor(hasTestTag(RipDpiTestTags.LatencyDetailValues)),
+    )
 
     private fun sample() = ConnectionQualitySnapshot(sampleCount = 12L, rttP50Ms = 32L, rttP95Ms = 64L, jitterMs = 7L)
 

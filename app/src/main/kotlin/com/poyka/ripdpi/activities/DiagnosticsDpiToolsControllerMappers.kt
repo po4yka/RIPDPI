@@ -47,7 +47,13 @@ internal fun List<DnsServerResult>.toDnsAvailabilityUiModel(
     val available = count { result -> result.availableDomains > 0 }
     return DiagnosticsDnsAvailabilityToolUiModel(
         state = DiagnosticsDnsAvailabilityState.Complete,
-        summary = stringResolver.getString(R.string.diagnostics_dns_availability_complete, available, size),
+        summary =
+            stringResolver.getQuantityString(
+                R.plurals.diagnostics_dns_availability_complete,
+                size,
+                available,
+                size,
+            ),
         metrics =
             listOf(
                 DiagnosticsMetricUiModel(
@@ -87,9 +93,18 @@ internal fun List<DomainReachabilityResult>.toUiModel(
         state = DiagnosticsDomainReachabilityState.Complete,
         summary =
             if (blocked == 0) {
-                stringResolver.getString(R.string.diagnostics_domain_reachability_complete_clean, checked)
+                stringResolver.getQuantityString(
+                    R.plurals.diagnostics_domain_reachability_complete_clean,
+                    checked,
+                    checked,
+                )
             } else {
-                stringResolver.getString(R.string.diagnostics_domain_reachability_complete_flagged, blocked, checked)
+                stringResolver.getQuantityString(
+                    R.plurals.diagnostics_domain_reachability_complete_flagged,
+                    checked,
+                    blocked,
+                    checked,
+                )
             },
         metrics =
             (
@@ -138,8 +153,9 @@ internal fun CompressionProbeRunResult.toUiModel(
         state = DiagnosticsCompressionProbeState.Complete,
         targetUrl = targetUrl,
         summary =
-            stringResolver.getString(
-                R.string.diagnostics_compression_complete,
+            stringResolver.getQuantityString(
+                R.plurals.diagnostics_compression_complete,
+                results.size,
                 okCount,
                 results.size,
                 targetUrl,
@@ -190,7 +206,7 @@ internal fun List<Tcp16ProbeResult>.toTcp16UiModel(
         state = DiagnosticsTcp16FatHeaderState.Complete,
         summary =
             if (detected == 0 && invalid == 0) {
-                stringResolver.getString(R.string.diagnostics_tcp16_complete_clean, size)
+                stringResolver.getQuantityString(R.plurals.diagnostics_tcp16_complete_clean, size, size)
             } else {
                 stringResolver.getString(R.string.diagnostics_tcp16_complete_detected, detected, invalid)
             },

@@ -162,8 +162,9 @@ internal class DiagnosticsDpiToolsController(
             DiagnosticsDomainReachabilityToolUiModel(
                 state = DiagnosticsDomainReachabilityState.Running,
                 summary =
-                    stringResolver.getString(
-                        R.string.diagnostics_domain_reachability_running,
+                    stringResolver.getQuantityString(
+                        R.plurals.diagnostics_domain_reachability_running,
+                        stubIps.size,
                         stubIps.size,
                     ),
             )
@@ -262,8 +263,9 @@ internal class DiagnosticsDpiToolsController(
                             if (latestTcp16DetectedResults.isEmpty()) {
                                 stringResolver.getString(R.string.diagnostics_allowlist_sni_run_after_tcp16)
                             } else {
-                                stringResolver.getString(
-                                    R.string.diagnostics_allowlist_sni_ready,
+                                stringResolver.getQuantityString(
+                                    R.plurals.diagnostics_allowlist_sni_ready,
+                                    latestTcp16DetectedResults.size,
                                     latestTcp16DetectedResults.size,
                                 )
                             },

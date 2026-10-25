@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -139,8 +140,9 @@ private fun ConnectionHealthSummary(uiState: ConnectionHealthUiState) {
         )
         if (uiState.qualitySampleCount != null) {
             MeasurementCaption(
-                stringResource(
-                    R.string.measurement_quality_samples,
+                pluralStringResource(
+                    R.plurals.measurement_quality_samples,
+                    uiState.qualitySampleCount.toInt(),
                     uiState.qualitySampleCount,
                     uiState.qualityJitterMs?.toString() ?: "—",
                 ),
@@ -251,8 +253,9 @@ private fun LatencyDistributionsCard(
                 PercentileBar(label = "p99", valueMs = distribution.p99Ms, scaleMs = distribution.scaleMs)
                 Text(
                     text =
-                        stringResource(
-                            R.string.connection_health_latency_range_format,
+                        pluralStringResource(
+                            R.plurals.connection_health_latency_range_format,
+                            distribution.count.toInt(),
                             distribution.minMs,
                             distribution.maxMs,
                             distribution.count,

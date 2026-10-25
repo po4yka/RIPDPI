@@ -33,7 +33,12 @@ internal fun RknAggregateVerdict.localizedConfidenceNote(strings: StringResolver
         }
 
         is RknAggregateVerdict.InBlockedZoneHigh -> {
-            strings.getString(R.string.diagnostics_rkn_note_high_format, highConfidenceBlocked, effectiveTotal)
+            strings.getQuantityString(
+                R.plurals.diagnostics_rkn_note_high_format,
+                effectiveTotal,
+                highConfidenceBlocked,
+                effectiveTotal,
+            )
         }
 
         RknAggregateVerdict.InBlockedZoneMedium -> {

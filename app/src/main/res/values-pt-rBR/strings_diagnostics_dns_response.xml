@@ -41,5 +41,4 @@
     <string name="diagnostics_dns_none">Nenhum informado</string>
     <string name="diagnostics_dns_show">Mostrar dados das respostas DNS</string>
     <string name="diagnostics_dns_hide">Ocultar dados das respostas DNS</string>
-    <string name="diagnostics_dns_complete_agree">As respostas DNS com endereços coincidem em %1$d domínios incluídos.</string>
 </resources>

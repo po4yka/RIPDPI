@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="measurement_quality_samples">
+        <item quantity="zero">%1$d عينة RTT · تذبذب %2$s مللي ثانية</item>
+        <item quantity="one">%1$d عينة RTT · تذبذب %2$s مللي ثانية</item>
+        <item quantity="two">%1$d عينتان RTT · تذبذب %2$s مللي ثانية</item>
+        <item quantity="few">%1$d عينات RTT · تذبذب %2$s مللي ثانية</item>
+        <item quantity="many">%1$d عينة RTT · تذبذب %2$s مللي ثانية</item>
+        <item quantity="other">%1$d عينة RTT · تذبذب %2$s مللي ثانية</item>
+    </plurals>
+    <plurals name="home_quality_samples">
+        <item quantity="zero">%1$d عينة RTT</item>
+        <item quantity="one">%1$d عينة RTT</item>
+        <item quantity="two">%1$d عينتان RTT</item>
+        <item quantity="few">%1$d عينات RTT</item>
+        <item quantity="many">%1$d عينة RTT</item>
+        <item quantity="other">%1$d عينة RTT</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_min_reached">
+        <item quantity="zero">تحتاج السلسلة إلى %1$d نقطة على الأقل.</item>
+        <item quantity="one">تحتاج السلسلة إلى %1$d نقطة على الأقل.</item>
+        <item quantity="two">تحتاج السلسلة إلى %1$d نقطتين على الأقل.</item>
+        <item quantity="few">تحتاج السلسلة إلى %1$d نقاط على الأقل.</item>
+        <item quantity="many">تحتاج السلسلة إلى %1$d نقطة على الأقل.</item>
+        <item quantity="other">تحتاج السلسلة إلى %1$d نقطة على الأقل.</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_max_reached">
+        <item quantity="zero">يمكن للسلسلة أن تحتوي على %1$d نقطة كحد أقصى.</item>
+        <item quantity="one">يمكن للسلسلة أن تحتوي على %1$d نقطة كحد أقصى.</item>
+        <item quantity="two">يمكن للسلسلة أن تحتوي على %1$d نقطتين كحد أقصى.</item>
+        <item quantity="few">يمكن للسلسلة أن تحتوي على %1$d نقاط كحد أقصى.</item>
+        <item quantity="many">يمكن للسلسلة أن تحتوي على %1$d نقطة كحد أقصى.</item>
+        <item quantity="other">يمكن للسلسلة أن تحتوي على %1$d نقطة كحد أقصى.</item>
+    </plurals>
+    <plurals name="config_relay_chain_cumulative_caveat_body">
+        <item quantity="zero">يمر الترافيك عبر جميع النقاط الـ %1$d بالترتيب، لذا تضيف كل نقطة تأخيراً. تعزز النقاط الإضافية توزيع الثقة عبر مشغلين مختلفين لكنها لا توفر مجهولية على مستوى Tor. استخدم مناطق قضائية ومشغلين مختلفين لكل نقطة لتقليل الارتباط.</item>
+        <item quantity="one">يمر الترافيك عبر %1$d نقطة بالترتيب، لذا تضيف كل نقطة تأخيراً. تعزز النقاط الإضافية توزيع الثقة عبر مشغلين مختلفين لكنها لا توفر مجهولية على مستوى Tor. استخدم مناطق قضائية ومشغلين مختلفين لكل نقطة لتقليل الارتباط.</item>
+        <item quantity="two">يمر الترافيك عبر النقطتين (%1$d) بالترتيب، لذا تضيف كل نقطة تأخيراً. تعزز النقاط الإضافية توزيع الثقة عبر مشغلين مختلفين لكنها لا توفر مجهولية على مستوى Tor. استخدم مناطق قضائية ومشغلين مختلفين لكل نقطة لتقليل الارتباط.</item>
+        <item quantity="few">يمر الترافيك عبر جميع النقاط الـ %1$d بالترتيب، لذا تضيف كل نقطة تأخيراً. تعزز النقاط الإضافية توزيع الثقة عبر مشغلين مختلفين لكنها لا توفر مجهولية على مستوى Tor. استخدم مناطق قضائية ومشغلين مختلفين لكل نقطة لتقليل الارتباط.</item>
+        <item quantity="many">يمر الترافيك عبر جميع النقاط الـ %1$d بالترتيب، لذا تضيف كل نقطة تأخيراً. تعزز النقاط الإضافية توزيع الثقة عبر مشغلين مختلفين لكنها لا توفر مجهولية على مستوى Tor. استخدم مناطق قضائية ومشغلين مختلفين لكل نقطة لتقليل الارتباط.</item>
+        <item quantity="other">يمر الترافيك عبر جميع النقاط الـ %1$d بالترتيب، لذا تضيف كل نقطة تأخيراً. تعزز النقاط الإضافية توزيع الثقة عبر مشغلين مختلفين لكنها لا توفر مجهولية على مستوى Tor. استخدم مناطق قضائية ومشغلين مختلفين لكل نقطة لتقليل الارتباط.</item>
+    </plurals>
+    <plurals name="adaptive_fallback_cache_summary">
+        <item quantity="zero">%1$d ثانية · IPv4 /%2$d</item>
+        <item quantity="one">%1$d ثانية · IPv4 /%2$d</item>
+        <item quantity="two">%1$d ثانيتان · IPv4 /%2$d</item>
+        <item quantity="few">%1$d ثوانٍ · IPv4 /%2$d</item>
+        <item quantity="many">%1$d ثانية · IPv4 /%2$d</item>
+        <item quantity="other">%1$d ثانية · IPv4 /%2$d</item>
+    </plurals>
+    <plurals name="host_autolearn_limits_summary">
+        <item quantity="zero">نافذة العقوبة %1$dس · الحد %2$d مضيف</item>
+        <item quantity="one">نافذة العقوبة %1$dس · الحد %2$d مضيف</item>
+        <item quantity="two">نافذة العقوبة %1$dس · الحد %2$d مضيفان</item>
+        <item quantity="few">نافذة العقوبة %1$dس · الحد %2$d مضيفين</item>
+        <item quantity="many">نافذة العقوبة %1$dس · الحد %2$d مضيف</item>
+        <item quantity="other">نافذة العقوبة %1$dس · الحد %2$d مضيف</item>
+    </plurals>
+    <plurals name="quic_fake_profile_burst_configured">
+        <item quantity="zero">تم تكوين %1$d حزمة fake_burst بواسطة سلسلة UDP.</item>
+        <item quantity="one">تم تكوين %1$d حزمة fake_burst بواسطة سلسلة UDP.</item>
+        <item quantity="two">تم تكوين %1$d حزمتين fake_burst بواسطة سلسلة UDP.</item>
+        <item quantity="few">تم تكوين %1$d حزم fake_burst بواسطة سلسلة UDP.</item>
+        <item quantity="many">تم تكوين %1$d حزمة fake_burst بواسطة سلسلة UDP.</item>
+        <item quantity="other">تم تكوين %1$d حزمة fake_burst بواسطة سلسلة UDP.</item>
+    </plurals>
+    <plurals name="udp_fake_profile_scope_live">
+        <item quantity="zero">يُستخدم لـ %1$d حزمة UDP عامة fake_burst في السلسلة الحالية.</item>
+        <item quantity="one">يُستخدم لـ %1$d حزمة UDP عامة fake_burst في السلسلة الحالية.</item>
+        <item quantity="two">يُستخدم لـ %1$d حزمتين UDP عامتين fake_burst في السلسلة الحالية.</item>
+        <item quantity="few">يُستخدم لـ %1$d حزم UDP عامة fake_burst في السلسلة الحالية.</item>
+        <item quantity="many">يُستخدم لـ %1$d حزمة UDP عامة fake_burst في السلسلة الحالية.</item>
+        <item quantity="other">يُستخدم لـ %1$d حزمة UDP عامة fake_burst في السلسلة الحالية.</item>
+    </plurals>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="zero">%1$d خطوة hostfake</item>
+        <item quantity="one">%1$d خطوة hostfake</item>
+        <item quantity="two">%1$d خطوتان hostfake</item>
+        <item quantity="few">%1$d خطوات hostfake</item>
+        <item quantity="many">%1$d خطوة hostfake</item>
+        <item quantity="other">%1$d خطوة hostfake</item>
+    </plurals>
+    <plurals name="ripdpi_fake_approx_summary_profile_multiple">
+        <item quantity="zero">%1$d خطوة تقريب وهمية</item>
+        <item quantity="one">%1$d خطوة تقريب وهمية</item>
+        <item quantity="two">%1$d خطوتا تقريب وهميتان</item>
+        <item quantity="few">%1$d خطوات تقريب وهمية</item>
+        <item quantity="many">%1$d خطوة تقريب وهمية</item>
+        <item quantity="other">%1$d خطوة تقريب وهمية</item>
+    </plurals>
+    <plurals name="blockcheck_status_format">
+        <item quantity="zero">%1$d/%2$d فحص</item>
+        <item quantity="one">%1$d/%2$d فحص</item>
+        <item quantity="two">%1$d/%2$d فحصين</item>
+        <item quantity="few">%1$d/%2$d فحوصات</item>
+        <item quantity="many">%1$d/%2$d فحص</item>
+        <item quantity="other">%1$d/%2$d فحص</item>
+    </plurals>
+    <plurals name="strategy_tuner_status_format">
+        <item quantity="zero">%1$d/%2$d فحص</item>
+        <item quantity="one">%1$d/%2$d فحص</item>
+        <item quantity="two">%1$d/%2$d فحصين</item>
+        <item quantity="few">%1$d/%2$d فحوصات</item>
+        <item quantity="many">%1$d/%2$d فحص</item>
+        <item quantity="other">%1$d/%2$d فحص</item>
+    </plurals>
+    <plurals name="strategy_tuner_result_detail_format">
+        <item quantity="zero">%1$d/%2$d نطاق ناجح • متوسط %3$d ms</item>
+        <item quantity="one">%1$d/%2$d نطاق ناجح • متوسط %3$d ms</item>
+        <item quantity="two">%1$d/%2$d نطاقين ناجحين • متوسط %3$d ms</item>
+        <item quantity="few">%1$d/%2$d نطاقات ناجحة • متوسط %3$d ms</item>
+        <item quantity="many">%1$d/%2$d نطاق ناجح • متوسط %3$d ms</item>
+        <item quantity="other">%1$d/%2$d نطاق ناجح • متوسط %3$d ms</item>
+    </plurals>
+    <plurals name="blockcheck_result_detail_format">
+        <item quantity="zero">%1$d/%2$d نطاق ناجح • متوسط %3$d مللي ثانية</item>
+        <item quantity="one">%1$d/%2$d نطاق ناجح • متوسط %3$d مللي ثانية</item>
+        <item quantity="two">%1$d/%2$d نطاقين ناجحين • متوسط %3$d مللي ثانية</item>
+        <item quantity="few">%1$d/%2$d نطاقات ناجحة • متوسط %3$d مللي ثانية</item>
+        <item quantity="many">%1$d/%2$d نطاق ناجح • متوسط %3$d مللي ثانية</item>
+        <item quantity="other">%1$d/%2$d نطاق ناجح • متوسط %3$d مللي ثانية</item>
+    </plurals>
+    <plurals name="logs_buffer_value">
+        <item quantity="zero">%1$d / %2$d إدخال</item>
+        <item quantity="one">%1$d / %2$d إدخال</item>
+        <item quantity="two">%1$d / %2$d إدخالين</item>
+        <item quantity="few">%1$d / %2$d إدخالات</item>
+        <item quantity="many">%1$d / %2$d إدخال</item>
+        <item quantity="other">%1$d / %2$d إدخال</item>
+    </plurals>
+    <plurals name="diagnostics_live_mode_summary_format">
+        <item quantity="zero">وضع %1$s · %2$s منقول · %3$d حزمة مرصودة</item>
+        <item quantity="one">وضع %1$s · %2$s منقول · %3$d حزمة مرصودة</item>
+        <item quantity="two">وضع %1$s · %2$s منقول · %3$d حزمتان مرصودتان</item>
+        <item quantity="few">وضع %1$s · %2$s منقول · %3$d حزم مرصودة</item>
+        <item quantity="many">وضع %1$s · %2$s منقول · %3$d حزمة مرصودة</item>
+        <item quantity="other">وضع %1$s · %2$s منقول · %3$d حزمة مرصودة</item>
+    </plurals>
+    <plurals name="domain_bypass_errors_title">
+        <item quantity="zero">%1$d سطر غير صالح</item>
+        <item quantity="one">%1$d سطر غير صالح</item>
+        <item quantity="two">%1$d سطران غير صالحين</item>
+        <item quantity="few">%1$d أسطر غير صالحة</item>
+        <item quantity="many">%1$d سطر غير صالح</item>
+        <item quantity="other">%1$d سطر غير صالح</item>
+    </plurals>
+    <plurals name="domain_bypass_saved">
+        <item quantity="zero">تم حفظ %1$d نطاق</item>
+        <item quantity="one">تم حفظ %1$d نطاق</item>
+        <item quantity="two">تم حفظ %1$d نطاقين</item>
+        <item quantity="few">تم حفظ %1$d نطاقات</item>
+        <item quantity="many">تم حفظ %1$d نطاق</item>
+        <item quantity="other">تم حفظ %1$d نطاق</item>
+    </plurals>
+    <plurals name="backup_import_shareable_body">
+        <item quantity="zero">لا يمكن استعادة %1$d ملف تعريف لأن بيانات الاعتماد أُزيلت. لا يزال بإمكانك استعادة المجموعات والمسارات والإعدادات.</item>
+        <item quantity="one">لا يمكن استعادة %1$d ملف تعريف لأن بيانات الاعتماد أُزيلت. لا يزال بإمكانك استعادة المجموعات والمسارات والإعدادات.</item>
+        <item quantity="two">لا يمكن استعادة %1$d ملفي تعريف لأن بيانات الاعتماد أُزيلت. لا يزال بإمكانك استعادة المجموعات والمسارات والإعدادات.</item>
+        <item quantity="few">لا يمكن استعادة %1$d ملفات تعريف لأن بيانات الاعتماد أُزيلت. لا يزال بإمكانك استعادة المجموعات والمسارات والإعدادات.</item>
+        <item quantity="many">لا يمكن استعادة %1$d ملف تعريف لأن بيانات الاعتماد أُزيلت. لا يزال بإمكانك استعادة المجموعات والمسارات والإعدادات.</item>
+        <item quantity="other">لا يمكن استعادة %1$d ملف تعريف لأن بيانات الاعتماد أُزيلت. لا يزال بإمكانك استعادة المجموعات والمسارات والإعدادات.</item>
+    </plurals>
+    <plurals name="detection_probe_outcome_format">
+        <item quantity="zero">نتيجة المسبار: %1$d/%2$d إشارة مكشوفة</item>
+        <item quantity="one">نتيجة المسبار: %1$d/%2$d إشارة مكشوفة</item>
+        <item quantity="two">نتيجة المسبار: %1$d/%2$d إشارتان مكشوفتان</item>
+        <item quantity="few">نتيجة المسبار: %1$d/%2$d إشارات مكشوفة</item>
+        <item quantity="many">نتيجة المسبار: %1$d/%2$d إشارة مكشوفة</item>
+        <item quantity="other">نتيجة المسبار: %1$d/%2$d إشارة مكشوفة</item>
+    </plurals>
+    <plurals name="diagnostics_allowlist_sni_ready">
+        <item quantity="zero">جاهز لـ %1$d هدفًا معلّمًا بـ TCP16.</item>
+        <item quantity="one">جاهز لـ %1$d هدف معلّم بـ TCP16.</item>
+        <item quantity="two">جاهز لـ %1$d هدفين معلّمين بـ TCP16.</item>
+        <item quantity="few">جاهز لـ %1$d أهداف معلّمة بـ TCP16.</item>
+        <item quantity="many">جاهز لـ %1$d هدفًا معلّمًا بـ TCP16.</item>
+        <item quantity="other">جاهز لـ %1$d هدفًا معلّمًا بـ TCP16.</item>
+    </plurals>
+    <plurals name="diagnostics_byoh_complete">
+        <item quantity="zero">أكمل %1$d من %2$d اسم مضيف عملية النقل المُعدّة.</item>
+        <item quantity="one">أكمل %1$d من %2$d اسم مضيف عملية النقل المُعدّة.</item>
+        <item quantity="two">أكمل %1$d من اسمي مضيف (%2$d) عملية النقل المُعدّة.</item>
+        <item quantity="few">أكمل %1$d من %2$d أسماء مضيفين عملية النقل المُعدّة.</item>
+        <item quantity="many">أكمل %1$d من %2$d اسم مضيف عملية النقل المُعدّة.</item>
+        <item quantity="other">أكمل %1$d من %2$d اسم مضيف عملية النقل المُعدّة.</item>
+    </plurals>
+    <plurals name="diagnostics_compression_complete">
+        <item quantity="zero">%1$d من %2$d برنامج ترميز ضغط قابلة للاستخدام لـ %3$s.</item>
+        <item quantity="one">%1$d من %2$d برنامج ترميز ضغط قابل للاستخدام لـ %3$s.</item>
+        <item quantity="two">%1$d من برنامجي ترميز الضغط (%2$d) قابلة للاستخدام لـ %3$s.</item>
+        <item quantity="few">%1$d من %2$d برامج ترميز الضغط قابلة للاستخدام لـ %3$s.</item>
+        <item quantity="many">%1$d من %2$d برنامج ترميز ضغط قابلة للاستخدام لـ %3$s.</item>
+        <item quantity="other">%1$d من %2$d برنامج ترميز ضغط قابلة للاستخدام لـ %3$s.</item>
+    </plurals>
+    <plurals name="diagnostics_dns_availability_complete">
+        <item quantity="zero">استجاب %1$d من %2$d محلّل DNS عام.</item>
+        <item quantity="one">استجاب %1$d من %2$d محلّل DNS عام.</item>
+        <item quantity="two">استجاب %1$d من محلّلي DNS العامين (%2$d).</item>
+        <item quantity="few">استجاب %1$d من %2$d محلّلات DNS عامة.</item>
+        <item quantity="many">استجاب %1$d من %2$d محلّل DNS عام.</item>
+        <item quantity="other">استجاب %1$d من %2$d محلّل DNS عام.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_clean">
+        <item quantity="zero">لم تُكتشف أي حواجز وصول عبر %1$d نطاقًا مُجمّعًا.</item>
+        <item quantity="one">لم تُكتشف أي حواجز وصول عبر %1$d نطاق مُجمّع.</item>
+        <item quantity="two">لم تُكتشف أي حواجز وصول عبر %1$d نطاقين مُجمّعين.</item>
+        <item quantity="few">لم تُكتشف أي حواجز وصول عبر %1$d نطاقات مُجمّعة.</item>
+        <item quantity="many">لم تُكتشف أي حواجز وصول عبر %1$d نطاقًا مُجمّعًا.</item>
+        <item quantity="other">لم تُكتشف أي حواجز وصول عبر %1$d نطاقًا مُجمّعًا.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_flagged">
+        <item quantity="zero">أظهر %1$d من %2$d نطاقًا تحذيرات وصول.</item>
+        <item quantity="one">أظهر %1$d من %2$d نطاق تحذيرات وصول.</item>
+        <item quantity="two">أظهر %1$d من النطاقين (%2$d) تحذيرات وصول.</item>
+        <item quantity="few">أظهر %1$d من %2$d نطاقات تحذيرات وصول.</item>
+        <item quantity="many">أظهر %1$d من %2$d نطاقًا تحذيرات وصول.</item>
+        <item quantity="other">أظهر %1$d من %2$d نطاقًا تحذيرات وصول.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_running">
+        <item quantity="zero">جارٍ فحص الوصول باستخدام %1$d عنوان IP بديل لـ DNS…</item>
+        <item quantity="one">جارٍ فحص الوصول باستخدام %1$d عنوان IP بديل لـ DNS…</item>
+        <item quantity="two">جارٍ فحص الوصول باستخدام %1$d عنواني IP بديلين لـ DNS…</item>
+        <item quantity="few">جارٍ فحص الوصول باستخدام %1$d عناوين IP بديلة لـ DNS…</item>
+        <item quantity="many">جارٍ فحص الوصول باستخدام %1$d عنوان IP بديل لـ DNS…</item>
+        <item quantity="other">جارٍ فحص الوصول باستخدام %1$d عنوان IP بديل لـ DNS…</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_complete">
+        <item quantity="zero">تم تخزين %1$d نطاق /24 مرشح مؤقتًا.</item>
+        <item quantity="one">تم تخزين %1$d نطاق /24 مرشح مؤقتًا.</item>
+        <item quantity="two">تم تخزين %1$d نطاقين /24 مرشحين مؤقتًا.</item>
+        <item quantity="few">تم تخزين %1$d نطاقات /24 مرشحة مؤقتًا.</item>
+        <item quantity="many">تم تخزين %1$d نطاق /24 مرشح مؤقتًا.</item>
+        <item quantity="other">تم تخزين %1$d نطاق /24 مرشح مؤقتًا.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_provider">
+        <item quantity="zero">تم تخزين %1$d نطاق /24 لـ %2$s مؤقتًا.</item>
+        <item quantity="one">تم تخزين %1$d نطاق /24 لـ %2$s مؤقتًا.</item>
+        <item quantity="two">تم تخزين %1$d نطاقين /24 لـ %2$s مؤقتًا.</item>
+        <item quantity="few">تم تخزين %1$d نطاقات /24 لـ %2$s مؤقتًا.</item>
+        <item quantity="many">تم تخزين %1$d نطاق /24 لـ %2$s مؤقتًا.</item>
+        <item quantity="other">تم تخزين %1$d نطاق /24 لـ %2$s مؤقتًا.</item>
+    </plurals>
+    <plurals name="diagnostics_tcp16_complete_clean">
+        <item quantity="zero">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفًا.</item>
+        <item quantity="one">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدف.</item>
+        <item quantity="two">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفين.</item>
+        <item quantity="few">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d أهداف.</item>
+        <item quantity="many">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفًا.</item>
+        <item quantity="other">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفًا.</item>
+    </plurals>
+    <plurals name="subscription_signal_banner_multiple_message">
+        <item quantity="zero">هناك %1$d اشتراكًا تحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="one">هناك %1$d اشتراك يحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="two">هناك %1$d اشتراكان يحتاجان إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="few">هناك %1$d اشتراكات تحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="many">هناك %1$d اشتراكًا تحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="other">هناك %1$d اشتراكًا تحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+    </plurals>
+    <plurals name="subscription_home_multiple_title">
+        <item quantity="zero">%1$d اشتراكًا تحتاج إلى الانتباه</item>
+        <item quantity="one">%1$d اشتراك يحتاج إلى الانتباه</item>
+        <item quantity="two">%1$d اشتراكان يحتاجان إلى الانتباه</item>
+        <item quantity="few">%1$d اشتراكات تحتاج إلى الانتباه</item>
+        <item quantity="many">%1$d اشتراكًا تحتاج إلى الانتباه</item>
+        <item quantity="other">%1$d اشتراكًا تحتاج إلى الانتباه</item>
+    </plurals>
+    <plurals name="diagnostics_sparkline_chart_description">
+        <item quantity="zero">اتجاه %1$s، %2$d عينة</item>
+        <item quantity="one">اتجاه %1$s، %2$d عينة</item>
+        <item quantity="two">اتجاه %1$s، %2$d عينتان</item>
+        <item quantity="few">اتجاه %1$s، %2$d عينات</item>
+        <item quantity="many">اتجاه %1$s، %2$d عينة</item>
+        <item quantity="other">اتجاه %1$s، %2$d عينة</item>
+    </plurals>
+    <plurals name="diagnostics_rkn_note_high_format">
+        <item quantity="zero">تطابق إخفاقات %1$d/%2$d من مواقع القائمة السوداء أنماط حظر عالية الثقة (تسميم DNS مؤكد عبر DoH، وHTTP 451، وعلامات صفحات الحظر المعروفة).</item>
+        <item quantity="one">تطابق إخفاقات %1$d/%2$d من موقع القائمة السوداء أنماط حظر عالية الثقة (تسميم DNS مؤكد عبر DoH، وHTTP 451، وعلامات صفحات الحظر المعروفة).</item>
+        <item quantity="two">تطابق إخفاقات %1$d/%2$d من موقعي القائمة السوداء أنماط حظر عالية الثقة (تسميم DNS مؤكد عبر DoH، وHTTP 451، وعلامات صفحات الحظر المعروفة).</item>
+        <item quantity="few">تطابق إخفاقات %1$d/%2$d من مواقع القائمة السوداء أنماط حظر عالية الثقة (تسميم DNS مؤكد عبر DoH، وHTTP 451، وعلامات صفحات الحظر المعروفة).</item>
+        <item quantity="many">تطابق إخفاقات %1$d/%2$d من مواقع القائمة السوداء أنماط حظر عالية الثقة (تسميم DNS مؤكد عبر DoH، وHTTP 451، وعلامات صفحات الحظر المعروفة).</item>
+        <item quantity="other">تطابق إخفاقات %1$d/%2$d من مواقع القائمة السوداء أنماط حظر عالية الثقة (تسميم DNS مؤكد عبر DoH، وHTTP 451، وعلامات صفحات الحظر المعروفة).</item>
+    </plurals>
+    <plurals name="diagnostics_outcome_coverage_format">
+        <item quantity="zero">اكتملت %1$d من %2$d مرحلة؛ عدد المراحل الفاشلة: %3$d</item>
+        <item quantity="one">اكتملت %1$d من %2$d مرحلة؛ عدد المراحل الفاشلة: %3$d</item>
+        <item quantity="two">اكتملت %1$d من المرحلتين (%2$d)؛ عدد المراحل الفاشلة: %3$d</item>
+        <item quantity="few">اكتملت %1$d من %2$d مراحل؛ عدد المراحل الفاشلة: %3$d</item>
+        <item quantity="many">اكتملت %1$d من %2$d مرحلة؛ عدد المراحل الفاشلة: %3$d</item>
+        <item quantity="other">اكتملت %1$d من %2$d مرحلة؛ عدد المراحل الفاشلة: %3$d</item>
+    </plurals>
+    <plurals name="diagnostics_dns_complete_agree">
+        <item quantity="zero">تتطابق استجابات عناوين DNS في %1$d نطاقًا مضمنًا.</item>
+        <item quantity="one">تتطابق استجابات عناوين DNS في %1$d نطاق مضمن.</item>
+        <item quantity="two">تتطابق استجابات عناوين DNS في %1$d نطاقين مضمنين.</item>
+        <item quantity="few">تتطابق استجابات عناوين DNS في %1$d نطاقات مضمنة.</item>
+        <item quantity="many">تتطابق استجابات عناوين DNS في %1$d نطاقًا مضمنًا.</item>
+        <item quantity="other">تتطابق استجابات عناوين DNS في %1$d نطاقًا مضمنًا.</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_review_format">
+        <item quantity="zero">مراجعة %1$d/%2$d مرحلة</item>
+        <item quantity="one">مراجعة %1$d/%2$d مرحلة</item>
+        <item quantity="two">مراجعة %1$d/%2$d مرحلتين</item>
+        <item quantity="few">مراجعة %1$d/%2$d مراحل</item>
+        <item quantity="many">مراجعة %1$d/%2$d مرحلة</item>
+        <item quantity="other">مراجعة %1$d/%2$d مرحلة</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_complete_format">
+        <item quantity="zero">%1$d/%2$d مرحلة مكتملة</item>
+        <item quantity="one">%1$d/%2$d مرحلة مكتملة</item>
+        <item quantity="two">%1$d/%2$d مرحلتان مكتملتان</item>
+        <item quantity="few">%1$d/%2$d مراحل مكتملة</item>
+        <item quantity="many">%1$d/%2$d مرحلة مكتملة</item>
+        <item quantity="other">%1$d/%2$d مرحلة مكتملة</item>
+    </plurals>
+    <plurals name="diagnostics_profile_probe_partial_results_body">
+        <item quantity="zero">نفد وقت الفحص قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحًا.</item>
+        <item quantity="one">نفد وقت الفحص قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشح.</item>
+        <item quantity="two">نفد وقت الفحص قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل مرشحَين (%2$d).</item>
+        <item quantity="few">نفد وقت الفحص قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحين.</item>
+        <item quantity="many">نفد وقت الفحص قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحًا.</item>
+        <item quantity="other">نفد وقت الفحص قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحًا.</item>
+    </plurals>
+    <plurals name="diagnostics_profile_audit_partial_results_body">
+        <item quantity="zero">نفد وقت التدقيق قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحًا.</item>
+        <item quantity="one">نفد وقت التدقيق قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشح.</item>
+        <item quantity="two">نفد وقت التدقيق قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل مرشحَين (%2$d).</item>
+        <item quantity="few">نفد وقت التدقيق قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحين.</item>
+        <item quantity="many">نفد وقت التدقيق قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحًا.</item>
+        <item quantity="other">نفد وقت التدقيق قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحًا.</item>
+    </plurals>
+    <plurals name="diagnostics_partial_results_matrix_title">
+        <item quantity="zero">نتائج جزئية (%1$d/%2$d مرشح)</item>
+        <item quantity="one">نتائج جزئية (%1$d/%2$d مرشح)</item>
+        <item quantity="two">نتائج جزئية (%1$d/%2$d مرشحان)</item>
+        <item quantity="few">نتائج جزئية (%1$d/%2$d مرشحين)</item>
+        <item quantity="many">نتائج جزئية (%1$d/%2$d مرشح)</item>
+        <item quantity="other">نتائج جزئية (%1$d/%2$d مرشح)</item>
+    </plurals>
+    <plurals name="connection_health_latency_range_format">
+        <item quantity="zero">الأدنى %1$d · الأقصى %2$d · %3$d عينة</item>
+        <item quantity="one">الأدنى %1$d · الأقصى %2$d · %3$d عينة</item>
+        <item quantity="two">الأدنى %1$d · الأقصى %2$d · %3$d عينتان</item>
+        <item quantity="few">الأدنى %1$d · الأقصى %2$d · %3$d عينات</item>
+        <item quantity="many">الأدنى %1$d · الأقصى %2$d · %3$d عينة</item>
+        <item quantity="other">الأدنى %1$d · الأقصى %2$d · %3$d عينة</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_learned_format">
+        <item quantity="zero">%1$d تم تعلُّمه</item>
+        <item quantity="one">%1$d تم تعلُّمه</item>
+        <item quantity="two">%1$d تم تعلُّمهما</item>
+        <item quantity="few">%1$d تم تعلُّمها</item>
+        <item quantity="many">%1$d تم تعلُّمه</item>
+        <item quantity="other">%1$d تم تعلُّمه</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_penalized_format">
+        <item quantity="zero">%1$d تمت معاقبته</item>
+        <item quantity="one">%1$d تمت معاقبته</item>
+        <item quantity="two">%1$d تمت معاقبتهما</item>
+        <item quantity="few">%1$d تمت معاقبتها</item>
+        <item quantity="many">%1$d تمت معاقبته</item>
+        <item quantity="other">%1$d تمت معاقبته</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_blocked_format">
+        <item quantity="zero">%1$d محجوب</item>
+        <item quantity="one">%1$d محجوب</item>
+        <item quantity="two">%1$d محجوبان</item>
+        <item quantity="few">%1$d محجوبة</item>
+        <item quantity="many">%1$d محجوب</item>
+        <item quantity="other">%1$d محجوب</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_safe_count">
+        <item quantity="zero">%1$d آمن</item>
+        <item quantity="one">%1$d آمن</item>
+        <item quantity="two">%1$d آمنان</item>
+        <item quantity="few">%1$d آمنة</item>
+        <item quantity="many">%1$d آمن</item>
+        <item quantity="other">%1$d آمن</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_aggressive_count">
+        <item quantity="zero">%1$d عدواني</item>
+        <item quantity="one">%1$d عدواني</item>
+        <item quantity="two">%1$d عدوانيان</item>
+        <item quantity="few">%1$d عدوانية</item>
+        <item quantity="many">%1$d عدواني</item>
+        <item quantity="other">%1$d عدواني</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_progress">
+        <item quantity="zero">تم فحص %1$d/%2$d شبكة فرعية مخزَّنة مؤقتًا.</item>
+        <item quantity="one">تم فحص %1$d/%2$d شبكة فرعية مخزَّنة مؤقتًا.</item>
+        <item quantity="two">تم فحص %1$d/%2$d شبكتين فرعيتين مخزَّنتين مؤقتًا.</item>
+        <item quantity="few">تم فحص %1$d/%2$d شبكات فرعية مخزَّنة مؤقتًا.</item>
+        <item quantity="many">تم فحص %1$d/%2$d شبكة فرعية مخزَّنة مؤقتًا.</item>
+        <item quantity="other">تم فحص %1$d/%2$d شبكة فرعية مخزَّنة مؤقتًا.</item>
+    </plurals>
+</resources>

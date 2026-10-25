@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -468,7 +469,13 @@ private fun LogsActionsSheet(
                     uiState.activeSubsystems.size,
                     uiState.activeSeverities.size,
                 ),
-            value = stringResource(R.string.logs_buffer_value, uiState.filteredLogs.size, uiState.bufferCapacity),
+            value =
+                pluralStringResource(
+                    R.plurals.logs_buffer_value,
+                    uiState.bufferCapacity,
+                    uiState.filteredLogs.size,
+                    uiState.bufferCapacity,
+                ),
             monospaceValue = true,
         )
     }

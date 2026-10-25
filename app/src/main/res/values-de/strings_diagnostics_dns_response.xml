@@ -41,5 +41,4 @@
     <string name="diagnostics_dns_none">Keine gemeldet</string>
     <string name="diagnostics_dns_show">DNS-Antwortdaten anzeigen</string>
     <string name="diagnostics_dns_hide">DNS-Antwortdaten ausblenden</string>
-    <string name="diagnostics_dns_complete_agree">DNS-Adressantworten stimmen bei %1$d enthaltenen Domains überein.</string>
 </resources>

@@ -72,16 +72,18 @@ private fun HomeDiagnosticsLatestAuditUiState.diagnosticStatusLine(stringResolve
         }
 
         failedStageCount > 0 && totalStageCount > 0 -> {
-            stringResolver.getString(
-                R.string.home_mode_card_diagnostic_status_review_format,
+            stringResolver.getQuantityString(
+                R.plurals.home_mode_card_diagnostic_status_review_format,
+                totalStageCount,
                 failedStageCount,
                 totalStageCount,
             )
         }
 
         totalStageCount > 0 -> {
-            stringResolver.getString(
-                R.string.home_mode_card_diagnostic_status_complete_format,
+            stringResolver.getQuantityString(
+                R.plurals.home_mode_card_diagnostic_status_complete_format,
+                totalStageCount,
                 completedStageCount,
                 totalStageCount,
             )

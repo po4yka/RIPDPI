@@ -95,7 +95,7 @@ fun DomainBypassListRoute(
                     if (savedCount == 0) {
                         resources.getString(R.string.domain_bypass_cleared)
                     } else {
-                        resources.getString(R.string.domain_bypass_saved, savedCount)
+                        resources.getQuantityString(R.plurals.domain_bypass_saved, savedCount, savedCount)
                     }
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
@@ -178,7 +178,12 @@ internal fun DomainBypassListScreen(
                         resources.getString(R.string.domain_bypass_error_line, error.lineNumber, error.message)
                     }
                 WarningBanner(
-                    title = stringResource(R.string.domain_bypass_errors_title, state.errors.size),
+                    title =
+                        pluralStringResource(
+                            R.plurals.domain_bypass_errors_title,
+                            state.errors.size,
+                            state.errors.size,
+                        ),
                     message = errorMessage,
                     tone = WarningBannerTone.Error,
                 )

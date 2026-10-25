@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">блокировки нет или работает VPN/прокси</string>
     <string name="diagnostics_rkn_note_not_blocked">Все сайты из чёрного списка загрузились. Вы либо вне зоны блокировки, либо трафик проходит через VPN/прокси.</string>
     <string name="diagnostics_rkn_headline_high">в зоне блокировки: высокая уверенность</string>
-    <string name="diagnostics_rkn_note_high_format">Сбои для %1$d/%2$d сайтов из чёрного списка соответствуют надёжным признакам блокировки (подмена DNS, подтверждённая DoH, HTTP 451, известные маркеры страниц блокировки).</string>
     <string name="diagnostics_rkn_headline_medium">в зоне блокировки: средняя уверенность</string>
     <string name="diagnostics_rkn_note_medium">Большинство сбоев сайтов из чёрного списка соответствуют признакам блокировки (TLS DPI, TCP RST), но такие сигналы могут вызывать и проблемы сервера. Контрольное измерение из другой сети поможет подтвердить результат.</string>
     <string name="diagnostics_rkn_headline_partial">обнаружены частичные блокировки</string>

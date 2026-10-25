@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
@@ -167,8 +168,9 @@ private fun DiagnosticsOutcomeMetadata(outcome: DiagnosticsOutcomeUiModel) {
         )
         Text(
             outcome.coverage ?: if (outcome.totalStages > 0) {
-                stringResource(
-                    R.string.diagnostics_outcome_coverage_format,
+                pluralStringResource(
+                    R.plurals.diagnostics_outcome_coverage_format,
+                    outcome.totalStages,
                     outcome.completedStages,
                     outcome.totalStages,
                     outcome.failedStages,

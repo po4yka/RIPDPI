@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">لا يوجد حظر أو VPN/الوكيل نشط</string>
     <string name="diagnostics_rkn_note_not_blocked">تم تحميل جميع مواقع القائمة السوداء. إما أنك خارج منطقة الحظر أو أن VPN/الوكيل يوجه حركة البيانات.</string>
     <string name="diagnostics_rkn_headline_high">داخل منطقة الحظر: ثقة عالية</string>
-    <string name="diagnostics_rkn_note_high_format">تطابق إخفاقات %1$d/%2$d من مواقع القائمة السوداء أنماط حظر عالية الثقة (تسميم DNS مؤكد عبر DoH، وHTTP 451، وعلامات صفحات الحظر المعروفة).</string>
     <string name="diagnostics_rkn_headline_medium">داخل منطقة الحظر: ثقة متوسطة</string>
     <string name="diagnostics_rkn_note_medium">تطابق معظم إخفاقات القائمة السوداء أنماط الحظر (TLS DPI، TCP RST)، لكن مشاكل الخادم قد تسبب هذه الإشارات أيضًا. يمكن لقياس مرجعي من شبكة أخرى تأكيد النتيجة.</string>
     <string name="diagnostics_rkn_headline_partial">اكتشف حظر جزئي</string>
