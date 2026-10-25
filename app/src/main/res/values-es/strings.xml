@@ -455,7 +455,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="strategy_config_lua_function_missing">La función Lua %1$s no fue registrada por el script seleccionado.</string>
     <string name="strategy_config_lua_loaded_title">Script Lua cargado</string>
     <string name="strategy_config_lua_valid_body">El script se analizó correctamente sin ejecutarse.</string>
-    <string name="strategy_config_path_not_selected">Ningún script seleccionado</string>
     <string name="strategy_config_saved_body">La cadena guardada se aplicará en la próxima sesión gestionada por la interfaz.</string>
     <string name="strategy_config_source_builtin">Integrado</string>
     <string name="strategy_pack_badge_downloaded">Descarga verificada</string>
@@ -2118,7 +2117,6 @@ Origen: %2$s</string>
     <string name="strategy_config_load_action">Cargar</string>
     <string name="strategy_config_lua_function_required_title">Se requiere nombre de función</string>
     <string name="strategy_config_lua_path_required_body">Selecciona o introduce una ruta de script Lua antes de validarlo o cargarlo.</string>
-    <string name="strategy_config_path_datastore">Estrategia de bypass en los ajustes de la app</string>
     <string name="strategy_config_reloaded_body">Los scripts Lua cargados se actualizaron.</string>
     <string name="strategy_config_saved_title">Configuración de estrategia guardada</string>
     <string name="strategy_config_validate_action">Validar</string>
@@ -2667,7 +2665,6 @@ Origen: %2$s</string>
     <string name="strategy_config_lua_function_label">Nombre de la función</string>
     <string name="strategy_config_lua_loaded_body">Las funciones registradas están disponibles para el motor de estrategia nativo.</string>
     <string name="strategy_config_lua_path_required_title">Ruta del script requerida</string>
-    <string name="strategy_config_path_imported">Búfer de texto importado</string>
     <string name="strategy_config_reloaded_title">Configuración de estrategia recargada</string>
     <string name="strategy_config_section_title">Configuración de estrategia</string>
     <string name="strategy_pack_badge_bundled">Incluido</string>

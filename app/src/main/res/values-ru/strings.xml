@@ -2471,9 +2471,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_valid_body">Скрипт успешно разобран без выполнения.</string>
     <string name="strategy_config_lua_valid_title">Lua-скрипт корректен</string>
     <string name="strategy_config_native_unavailable">Нативные привязки стратегии недоступны в этом процессе.</string>
-    <string name="strategy_config_path_datastore">Стратегия обхода в настройках приложения</string>
-    <string name="strategy_config_path_imported">Импортированный текстовый буфер</string>
-    <string name="strategy_config_path_not_selected">Скрипт не выбран</string>
     <string name="strategy_config_reload_action">Перезагрузить</string>
     <string name="strategy_config_reload_failed_title">Перезагрузка не удалась</string>
     <string name="strategy_config_reloaded_body">Загруженные Lua-скрипты обновлены.</string>

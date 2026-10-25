@@ -1796,7 +1796,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_loaded_title">اسکریپت Lua بارگذاری شد</string>
     <string name="strategy_config_lua_path_required_body">قبل از اعتبارسنجی یا بارگذاری، یک مسیر اسکریپت Lua انتخاب یا وارد کنید.</string>
     <string name="strategy_config_lua_valid_title">اسکریپت Lua معتبر است</string>
-    <string name="strategy_config_path_imported">بافر متن واردشده</string>
     <string name="strategy_config_reload_failed_title">بارگذاری مجدد ناموفق بود</string>
     <string name="strategy_config_saved_body">زنجیره ذخیره‌شده در نشست بعدی مدیریت‌شده توسط UI اعمال می‌شود.</string>
     <string name="strategy_config_saved_title">پیکربندی راهبرد ذخیره شد</string>
@@ -2227,7 +2226,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_path_label">مسیر اسکریپت Lua</string>
     <string name="strategy_config_lua_path_required_title">مسیر اسکریپت لازم است</string>
     <string name="strategy_config_native_unavailable">اتصالات بومی استراتژی در این فرآیند در دسترس نیستند.</string>
-    <string name="strategy_config_path_not_selected">اسکریپتی انتخاب نشده است</string>
     <string name="strategy_config_reloaded_body">اسکریپت‌های Lua بارگذاری‌شده به‌روزرسانی شدند.</string>
     <string name="strategy_config_saved_restart_pending_body">راه‌اندازی مجدد سرویس در حال اعمال پیکربندی استراتژی ذخیره‌شده است.</string>
     <string name="strategy_config_source_builtin">داخلی</string>
@@ -2646,7 +2644,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_loaded_body">توابع ثبت‌شده برای موتور استراتژی بومی در دسترس هستند.</string>
     <string name="strategy_config_lua_path_placeholder">/data/user/0/.../lua/zapret-antidpi.lua</string>
     <string name="strategy_config_lua_valid_body">اسکریپت بدون اجرا با موفقیت تجزیه شد.</string>
-    <string name="strategy_config_path_datastore">استراتژی دور زدن در تنظیمات برنامه</string>
     <string name="strategy_config_reload_action">بارگذاری مجدد</string>
     <string name="strategy_config_reloaded_title">پیکربندی استراتژی مجدداً بارگذاری شد</string>
     <string name="strategy_config_saved_restarting_body">سرویس در حال راه‌اندازی مجدد است تا پیکربندی راهبرد ذخیره‌شده در مسیر تونل فعال بارگذاری شود.</string>

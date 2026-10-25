@@ -4896,9 +4896,6 @@ app:strategy_config_lua_path_required_title
 app:strategy_config_lua_valid_body
 app:strategy_config_lua_valid_title
 app:strategy_config_native_unavailable
-app:strategy_config_path_datastore
-app:strategy_config_path_imported
-app:strategy_config_path_not_selected
 app:strategy_config_reload_action
 app:strategy_config_reload_failed_title
 app:strategy_config_reloaded_body

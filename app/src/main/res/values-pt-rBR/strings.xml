@@ -1431,9 +1431,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_source_builtin">Integrada</string>
     <string name="strategy_config_source_yaml">YAML personalizado</string>
     <string name="strategy_config_source_lua">Script Lua</string>
-    <string name="strategy_config_path_datastore">Estratégia de desvio nas configurações do app</string>
-    <string name="strategy_config_path_imported">Buffer de texto importado</string>
-    <string name="strategy_config_path_not_selected">Nenhum script selecionado</string>
     <string name="strategy_config_editor_label">Estratégia de desvio</string>
     <string name="strategy_config_export_action">Exportar</string>
     <string name="strategy_config_export_title">Exportar configuração de estratégia</string>

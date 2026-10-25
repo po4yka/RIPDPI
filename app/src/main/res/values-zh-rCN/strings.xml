@@ -989,7 +989,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_function_required_body">请输入应在隧道策略配置中运行的 Lua 函数。</string>
     <string name="strategy_config_lua_path_label">Lua 脚本路径</string>
     <string name="strategy_config_lua_valid_body">脚本解析成功,未执行。</string>
-    <string name="strategy_config_path_imported">已导入的文本缓冲</string>
     <string name="strategy_config_reloaded_body">已加载的 Lua 脚本已刷新。</string>
     <string name="strategy_config_saved_restarting_body">正在运行的服务正在重启,以便将已保存的策略配置加载到活动隧道路径中。</string>
     <string name="strategy_config_source_lua">Lua 脚本</string>
@@ -1527,7 +1526,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="strategy_config_lua_function_required_title">需要函数名</string>
     <string name="strategy_config_lua_path_placeholder">/data/user/0/.../lua/zapret-antidpi.lua</string>
     <string name="strategy_config_lua_valid_title">Lua 脚本有效</string>
-    <string name="strategy_config_path_not_selected">未选择脚本</string>
     <string name="strategy_config_reloaded_title">策略配置已重新加载</string>
     <string name="strategy_config_saved_title">策略配置已保存</string>
     <string name="strategy_config_source_yaml">自定义 YAML</string>
@@ -2627,7 +2625,6 @@ fake_burst 3</string>
     <string name="strategy_config_lua_function_placeholder">加载后自动发现</string>
     <string name="strategy_config_lua_loaded_title">Lua 脚本已加载</string>
     <string name="strategy_config_lua_path_required_title">需要脚本路径</string>
-    <string name="strategy_config_path_datastore">应用设置中的绕过策略</string>
     <string name="strategy_config_reload_failed_title">重新加载失败</string>
     <string name="strategy_config_saved_restart_pending_body">服务重启正在应用已保存的策略配置。</string>
     <string name="strategy_config_source_builtin">内置</string>

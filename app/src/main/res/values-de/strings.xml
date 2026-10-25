@@ -455,7 +455,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="strategy_config_lua_function_missing">Die Lua-Funktion %1$s wurde vom ausgewählten Skript nicht registriert.</string>
     <string name="strategy_config_lua_loaded_title">Lua-Skript geladen</string>
     <string name="strategy_config_lua_valid_body">Das Skript wurde erfolgreich geparst, ohne ausgeführt zu werden.</string>
-    <string name="strategy_config_path_not_selected">Kein Skript ausgewählt</string>
     <string name="strategy_config_saved_body">Die gespeicherte Kette wird auf die nächste UI-verwaltete Sitzung angewendet.</string>
     <string name="strategy_config_source_builtin">Integriert</string>
     <string name="strategy_pack_badge_downloaded">Verifizierter Download</string>
@@ -2118,7 +2117,6 @@ Quelle: %2$s</string>
     <string name="strategy_config_load_action">Laden</string>
     <string name="strategy_config_lua_function_required_title">Funktionsname erforderlich</string>
     <string name="strategy_config_lua_path_required_body">Wählen oder geben Sie einen Lua-Skriptpfad ein, bevor Sie ihn validieren oder laden.</string>
-    <string name="strategy_config_path_datastore">Bypass-Strategie in den App-Einstellungen</string>
     <string name="strategy_config_reloaded_body">Geladene Lua-Skripte wurden aktualisiert.</string>
     <string name="strategy_config_saved_title">Strategie-Konfiguration gespeichert</string>
     <string name="strategy_config_validate_action">Validieren</string>
@@ -2667,7 +2665,6 @@ Quelle: %2$s</string>
     <string name="strategy_config_lua_function_label">Funktionsname</string>
     <string name="strategy_config_lua_loaded_body">Registrierte Funktionen sind für die native Strategie-Engine verfügbar.</string>
     <string name="strategy_config_lua_path_required_title">Skriptpfad erforderlich</string>
-    <string name="strategy_config_path_imported">Importierter Textpuffer</string>
     <string name="strategy_config_reloaded_title">Strategie-Konfiguration neu geladen</string>
     <string name="strategy_config_section_title">Strategie-Konfiguration</string>
     <string name="strategy_pack_badge_bundled">Mitgeliefert</string>

@@ -1454,9 +1454,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_source_builtin">Built-in</string>
     <string name="strategy_config_source_yaml">Custom YAML</string>
     <string name="strategy_config_source_lua">Lua script</string>
-    <string name="strategy_config_path_datastore">Bypass strategy in app settings</string>
-    <string name="strategy_config_path_imported">Imported text buffer</string>
-    <string name="strategy_config_path_not_selected">No script selected</string>
     <string name="strategy_config_editor_label">Bypass strategy</string>
     <string name="strategy_config_export_action">Export</string>
     <string name="strategy_config_export_title">Export strategy config</string>
