@@ -253,16 +253,9 @@ where
                 // carry DNS lookups and arbitrary endpoints; only aggregate
                 // session counters describe them. The user-visible last-target
                 // marker is reserved for CONNECT authorities (see auth.rs).
-                if let Err(error) = udp_session.send_to(&target, payload).await {
-                    if is_xudp {
-                        termination_reason = if error.kind() == io::ErrorKind::TimedOut {
-                            "write_timeout"
-                        } else {
-                            "write_error"
-                        };
-                        telemetry.record_xudp_write_failure(error.kind() == io::ErrorKind::TimedOut);
-                    }
-                    telemetry.record_handshake_error(error.to_string());
+                if let Err(error) = udp_session.send_to(&target, payload).await
+                    && uplink_send_is_fatal(&error, payload.len(), is_xudp, telemetry, &mut termination_reason)
+                {
                     break Err(error);
                 }
                 if is_xudp {
@@ -336,6 +329,38 @@ where
     };
 
     UdpPumpOutcome { result, termination_reason }
+}
+
+/// Decides whether an uplink `send_to` error ends the association, and records
+/// it when it does.
+fn uplink_send_is_fatal<T: SocksTelemetry + ?Sized>(
+    error: &io::Error,
+    size: usize,
+    is_xudp: bool,
+    telemetry: &T,
+    termination_reason: &mut &'static str,
+) -> bool {
+    // The carrier rejected only this datagram (for example a MASQUE payload
+    // above the current QUIC DATAGRAM limit); the flow stays usable, so drop it
+    // as lossy UDP allows.
+    if error.kind() == io::ErrorKind::InvalidInput {
+        tracing::debug!(
+            ring = "relay",
+            subsystem = "relay",
+            source = "relay",
+            kind = "udp_uplink_dropped",
+            size,
+            error = %error,
+            "dropping uplink datagram the carrier rejected"
+        );
+        return false;
+    }
+    if is_xudp {
+        *termination_reason = if error.kind() == io::ErrorKind::TimedOut { "write_timeout" } else { "write_error" };
+        telemetry.record_xudp_write_failure(error.kind() == io::ErrorKind::TimedOut);
+    }
+    telemetry.record_handshake_error(error.to_string());
+    true
 }
 
 #[cfg(test)]
@@ -771,6 +796,73 @@ mod tests {
             .expect("pump task hung after cancellation")
             .expect("pump task panicked");
         outcome.result.expect("pump must end gracefully");
+        drop(control_peer);
+    }
+
+    /// Carrier that rejects its first uplink datagram as too large, then records.
+    struct RejectFirstUplinkCarrier {
+        rejected: bool,
+        sent: mpsc::UnboundedSender<Vec<u8>>,
+    }
+
+    impl UdpCarrier for RejectFirstUplinkCarrier {
+        async fn send_to(&mut self, _target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
+            if !self.rejected {
+                self.rejected = true;
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "masque_h3_datagram_too_large"));
+            }
+            let _ = self.sent.send(payload.to_vec());
+            Ok(())
+        }
+
+        async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
+            std::future::pending().await
+        }
+    }
+
+    #[tokio::test]
+    async fn udp_pump_drops_an_uplink_datagram_the_carrier_rejects() {
+        let (control, control_peer) = duplex(64);
+        let relay_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let relay_addr = relay_socket.local_addr().expect("relay socket addr");
+        let (sent_tx, mut sent_rx) = mpsc::unbounded_channel();
+        let mut carrier = RejectFirstUplinkCarrier { rejected: false, sent: sent_tx };
+        let telemetry = FakeSocksTelemetry::default();
+        let config = silent_session_config(Duration::from_secs(300));
+        let cancel = CancellationToken::new();
+        let pump_cancel = cancel.clone();
+
+        let pump = tokio::spawn(async move {
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                relay_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            )
+            .await
+        });
+
+        let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind SOCKS client socket");
+        let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9));
+        for payload in [&b"too-large"[..], b"after-reject"] {
+            let frame = crate::socks::encode_udp_frame(&target, payload).expect("encode frame");
+            client.send_to(&frame, relay_addr).await.expect("send frame");
+        }
+
+        let forwarded = tokio::time::timeout(Duration::from_secs(2), sent_rx.recv())
+            .await
+            .expect("the association ended after one rejected datagram");
+        assert_eq!(Some(b"after-reject".to_vec()), forwarded);
+        pump_cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("pump task hung after cancellation")
+            .expect("pump task panicked");
+        outcome.result.expect("a rejected datagram must not end the association as an error");
+        assert_eq!("runtime_cancelled", outcome.termination_reason);
         drop(control_peer);
     }
 
