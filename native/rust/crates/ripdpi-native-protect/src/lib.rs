@@ -50,7 +50,7 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::os::fd::RawFd;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -305,13 +305,48 @@ pub fn resolve_host_via_callback(host: &str) -> io::Result<Vec<IpAddr>> {
 /// when the underlying network has no working DNS.
 const PROTECTED_RESOLVE_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Most lookup threads alive at once. A thread outlives a timed-out waiter
+/// until the platform lookup returns, so retries on a network with dead DNS
+/// would otherwise add one stuck thread (and JNI attachment) per attempt.
+const MAX_PROTECTED_RESOLVE_THREADS: usize = 4;
+
+static PROTECTED_RESOLVE_THREADS: AtomicUsize = AtomicUsize::new(0);
+
+/// Releases one [`PROTECTED_RESOLVE_THREADS`] slot on drop, also on unwind.
+struct ResolveThreadSlot;
+
+impl ResolveThreadSlot {
+    fn acquire() -> Option<Self> {
+        // Relaxed: the counter only bounds the thread count; it publishes no data.
+        PROTECTED_RESOLVE_THREADS
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+                (count < MAX_PROTECTED_RESOLVE_THREADS).then_some(count + 1)
+            })
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for ResolveThreadSlot {
+    fn drop(&mut self) {
+        PROTECTED_RESOLVE_THREADS.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
 /// Run [`resolve_host_via_callback`] on a detached thread and wait at most
 /// `limit` for it. The caller's thread (a blocking-pool thread in
 /// [`SocketProtectionPolicy::resolve_host`]) is released at the deadline even
-/// when the platform lookup keeps running.
+/// when the platform lookup keeps running. At most
+/// [`MAX_PROTECTED_RESOLVE_THREADS`] lookup threads exist at once; when all
+/// are still stuck, the call fails fast with [`io::ErrorKind::TimedOut`].
 fn resolve_host_via_callback_within(host: String, limit: Duration) -> io::Result<Vec<IpAddr>> {
+    let slot = ResolveThreadSlot::acquire().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::TimedOut, "earlier protected DNS lookups are still running; not starting another")
+    })?;
     let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    // On a spawn error the closure, and with it the slot, is dropped here.
     std::thread::Builder::new().name("ripdpi-protect-dns".to_string()).spawn(move || {
+        let _slot = slot;
         // A send error means the waiter timed out and left; nothing to report.
         let _ = sender.send(resolve_host_via_callback(&host));
     })?;
@@ -451,6 +486,75 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(2), "waited {:?}", started.elapsed());
         unregister_protect_callback();
         let _ = release.send(());
+    }
+
+    struct CountingStalledCallback {
+        release: Mutex<std::sync::mpsc::Receiver<()>>,
+        active: AtomicUsize,
+        peak: AtomicUsize,
+        entered: AtomicUsize,
+    }
+
+    impl ProtectCallback for CountingStalledCallback {
+        fn protect(&self, _fd: RawFd) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn resolve_host(&self, _host: &str) -> io::Result<Vec<IpAddr>> {
+            self.entered.fetch_add(1, Ordering::SeqCst);
+            let now = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+            self.peak.fetch_max(now, Ordering::SeqCst);
+            let _ = self.release.lock().expect("release lock").recv();
+            self.active.fetch_sub(1, Ordering::SeqCst);
+            Ok(Vec::new())
+        }
+    }
+
+    fn wait_for_no_lookup_threads() {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while PROTECTED_RESOLVE_THREADS.load(Ordering::SeqCst) != 0 {
+            assert!(std::time::Instant::now() < deadline, "lookup threads did not exit");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn repeated_timeouts_do_not_grow_lookup_threads_past_the_cap() {
+        let _lock = TEST_MUTEX.lock().expect("test mutex");
+        wait_for_no_lookup_threads();
+        let (release, stalled) = std::sync::mpsc::channel();
+        let callback = Arc::new(CountingStalledCallback {
+            release: Mutex::new(stalled),
+            active: AtomicUsize::new(0),
+            peak: AtomicUsize::new(0),
+            entered: AtomicUsize::new(0),
+        });
+        register_protect_callback(callback.clone());
+
+        let attempts = 12;
+        let mut fast_failures = 0;
+        for _ in 0..attempts {
+            let started = std::time::Instant::now();
+            let error = resolve_host_via_callback_within("relay.example".to_string(), Duration::from_millis(30))
+                .expect_err("every lookup stalls");
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            if started.elapsed() < Duration::from_millis(30) {
+                fast_failures += 1;
+            }
+        }
+        // Let each stuck lookup reach the callback before reading the counters.
+        std::thread::sleep(Duration::from_millis(50));
+
+        let started_threads = callback.entered.load(Ordering::SeqCst);
+        assert_eq!(started_threads, 4, "only 4 lookup threads may run at once");
+        assert!(callback.peak.load(Ordering::SeqCst) <= 4);
+        assert_eq!(fast_failures, attempts - 4, "calls over the cap must fail without waiting");
+
+        unregister_protect_callback();
+        for _ in 0..started_threads {
+            let _ = release.send(());
+        }
+        wait_for_no_lookup_threads();
     }
 
     #[test]
