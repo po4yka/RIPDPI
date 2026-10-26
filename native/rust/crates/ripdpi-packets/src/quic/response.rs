@@ -4,6 +4,7 @@ use ring::rand::{SecureRandom, SystemRandom};
 use super::crypto::quic_derive_initial_secret;
 use super::parse::{decrypt_quic_initial_with_secret, parse_quic_initial_response_header};
 use super::{QUIC_FAKE_INITIAL_TARGET_LEN, build_browser_like_quic_initial_seed, packetize_quic_initial};
+use crate::randomize_tls_seeded_inplace;
 use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -13,12 +14,16 @@ pub enum QuicResponseKind {
     VersionNegotiation,
 }
 
-/// Build an active probe with fresh connection IDs. Fake/desync templates remain fixed.
+/// Build an active probe with fresh connection IDs and a fresh ClientHello
+/// random, session ID and key share. Fake/desync templates remain fixed.
 pub fn build_probe_quic_initial(version: u32, host: Option<&str>) -> Option<Vec<u8>> {
     let mut seed = build_browser_like_quic_initial_seed(version, host, QuicInitialBrowserProfile::ChromeAndroid)?;
     let random = SystemRandom::new();
     random.fill(&mut seed.dcid).ok()?;
     random.fill(&mut seed.scid).ok()?;
+    let mut tls_seed = [0u8; 4];
+    random.fill(&mut tls_seed).ok()?;
+    randomize_tls_seeded_inplace(&mut seed.client_hello, u32::from_be_bytes(tls_seed));
     packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(QUIC_FAKE_INITIAL_TARGET_LEN))
 }
 

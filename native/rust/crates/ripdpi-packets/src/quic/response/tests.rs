@@ -67,6 +67,26 @@ fn version_negotiation(request: &[u8]) -> Vec<u8> {
 }
 
 #[test]
+fn probes_carry_fresh_client_hello_random_session_id_and_key_share() {
+    let hellos: Vec<Vec<u8>> = (0..2)
+        .map(|_| {
+            let probe = build_probe_quic_initial(QUIC_V1_VERSION, Some("example.test")).unwrap();
+            assert_eq!(crate::quic::parse_quic_initial(&probe).expect("probe parses").host(), b"example.test");
+            crate::quic::parse_quic_initial_seed(&probe).expect("probe seed").client_hello
+        })
+        .collect();
+    let key_share = |hello: &[u8]| {
+        let parsed = crate::tls_nom::parse_client_hello_record(hello).expect("client hello");
+        crate::tls_nom::find_extension(&parsed, 0x0033).expect("key share").data.to_vec()
+    };
+    let sid_len = usize::from(hellos[0][43]);
+
+    assert_ne!(hellos[0][11..43], hellos[1][11..43], "random");
+    assert_ne!(hellos[0][44..44 + sid_len], hellos[1][44..44 + sid_len], "session id");
+    assert_ne!(key_share(&hellos[0]), key_share(&hellos[1]), "key share");
+}
+
+#[test]
 fn fresh_probe_ids_reject_replay_echo_and_unrelated_versions() {
     let first = build_probe_quic_initial(QUIC_V1_VERSION, Some("example.test")).unwrap();
     let second = build_probe_quic_initial(QUIC_V1_VERSION, Some("example.test")).unwrap();
