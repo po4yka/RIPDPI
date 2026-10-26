@@ -4,6 +4,9 @@ import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 internal class DiagnosticsSelectionActions(
@@ -11,6 +14,18 @@ internal class DiagnosticsSelectionActions(
     private val selection: MutableStateFlow<SelectionState>,
     private val sessionDetail: MutableStateFlow<SessionDetailState>,
 ) {
+    init {
+        // Focus Scan once when a scan starts. A derived "Scan while running" section would ignore
+        // tab taps during the scan and move the pager away from the results when it ends.
+        mutations.launch {
+            diagnosticsTimelineSource.activeScanProgress
+                .map { it != null }
+                .distinctUntilChanged()
+                .filter { it }
+                .collect { selectSection(DiagnosticsSection.Scan) }
+        }
+    }
+
     fun selectSection(section: DiagnosticsSection) {
         selection.update { it.copy(selectedSectionRequest = section) }
     }

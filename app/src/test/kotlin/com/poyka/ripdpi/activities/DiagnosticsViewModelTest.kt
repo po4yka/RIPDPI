@@ -606,7 +606,7 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
-    fun `active scan forces scan section and blocks profile changes`() =
+    fun `active scan focuses scan section once and blocks profile changes`() =
         runTest {
             val manager =
                 FakeDiagnosticsManager().apply {
@@ -642,12 +642,15 @@ class DiagnosticsViewModelTest {
             val viewModel =
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+            assertEquals(DiagnosticsSection.Scan, viewModel.uiState.value.selectedSection)
             viewModel.selectSection(DiagnosticsSection.Tools)
             viewModel.selectProfile("custom")
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertEquals(DiagnosticsSection.Scan, state.selectedSection)
+            // The user's tab choice wins during the scan; the scan only focused Scan when it started.
+            assertEquals(DiagnosticsSection.Tools, state.selectedSection)
             assertNull(manager.lastActiveProfileId)
             assertEquals("default", state.scan.selectedProfileId)
             assertNotNull(state.scan.activeProgress)
@@ -658,6 +661,33 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
             assertEquals("custom", manager.lastActiveProfileId)
             assertEquals("custom", viewModel.uiState.value.scan.selectedProfileId)
+            collector.cancel()
+        }
+
+    @Test
+    fun `scan started from the dashboard keeps the scan section after it ends`() =
+        runTest {
+            val manager = FakeDiagnosticsManager()
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+            assertEquals(DiagnosticsSection.Dashboard, viewModel.uiState.value.selectedSection)
+
+            manager.progressState.value =
+                ScanProgress(
+                    sessionId = "session-running",
+                    phase = "dns",
+                    completedSteps = 1,
+                    totalSteps = 3,
+                    message = "Checking DNS",
+                )
+            advanceUntilIdle()
+            assertEquals(DiagnosticsSection.Scan, viewModel.uiState.value.selectedSection)
+
+            manager.progressState.value = null
+            advanceUntilIdle()
+            assertEquals(DiagnosticsSection.Scan, viewModel.uiState.value.selectedSection)
             collector.cancel()
         }
 

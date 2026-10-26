@@ -81,12 +81,7 @@ internal class DiagnosticsUiInputResolver
                     input.rememberedPolicies.map { policy ->
                         support.toRememberedNetworkUiModel(policy, input.activeConnectionPolicy)
                     },
-                selectedSection =
-                    if (input.progress != null) {
-                        DiagnosticsSection.Scan
-                    } else {
-                        input.selectedSectionRequest
-                    },
+                selectedSection = input.selectedSectionRequest,
                 sessionDetailWithVisibility = sessionDetailWithVisibility,
                 selectedStrategyProbeCandidate =
                     resolveSelectedStrategyProbeCandidate(
