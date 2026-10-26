@@ -440,6 +440,34 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun `out-of-lock failure is reported while a reload holds the lifecycle mutex`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            val gate = CompletableDeferred<Unit>()
+            env.coordinator.handoverRestartGate = gate
+            backgroundScope.launch { handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true } }
+            runCurrent()
+            val failure = FailureReason.NativeError("relay exited")
+
+            env.coordinator.installedFailureCallbacks.single()(failure)
+            runCurrent()
+
+            assertEquals(listOf(failure), env.coordinator.reportedCallbackFailures)
+            assertSame(handle, env.runtimeRegistry.current(Mode.Proxy))
+            gate.complete(Unit)
+            runCurrent()
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertEquals(
+                listOf("callback_barrier", "final_telemetry", "runtime_stop"),
+                env.coordinator.stopLifecycleEvents,
+            )
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
     fun `out-of-lock failure callback fails and stops the session it was installed for`() =
         runTest {
             val env = newEnv()
@@ -1589,6 +1617,15 @@ private class TestCoordinator(
     ) {
     /** Failure callbacks bound at runtime start, the way supervisor exit handlers are installed. */
     val installedFailureCallbacks = mutableListOf<(FailureReason?) -> Unit>()
+    val reportedCallbackFailures = mutableListOf<FailureReason>()
+
+    override fun reportCallbackFailure(failureReason: FailureReason) {
+        reportedCallbackFailures += failureReason
+    }
+
+    override suspend fun beforeCallbackFailureStop() {
+        stopLifecycleEvents += "callback_barrier"
+    }
 
     private val fixtureAuthority =
         com.poyka.ripdpi.data

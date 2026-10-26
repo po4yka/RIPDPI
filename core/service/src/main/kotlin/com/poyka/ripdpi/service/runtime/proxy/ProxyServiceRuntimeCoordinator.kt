@@ -425,6 +425,13 @@ internal class ProxyServiceRuntimeCoordinator(
             session.currentDestinationRoutingDigest != resolution.destinationRoutingDigest
     }
 
+    override fun reportCallbackFailure(failureReason: FailureReason) =
+        reportStatusEffects(
+            ServiceStatus.Failed,
+            failureReason,
+            com.poyka.ripdpi.services.ServiceStatusPublication.Apply,
+        )
+
     private fun updateStatus(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,

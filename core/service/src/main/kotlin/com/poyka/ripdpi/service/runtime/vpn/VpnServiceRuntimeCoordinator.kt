@@ -696,6 +696,17 @@ internal class VpnServiceRuntimeCoordinator(
         }
     }
 
+    override fun reportCallbackFailure(failureReason: FailureReason) {
+        runtimeSession?.revokeInPathLease()
+        reportStatusEffects(
+            ServiceStatus.Failed,
+            failureReason,
+            com.poyka.ripdpi.services.ServiceStatusPublication.Apply,
+        )
+    }
+
+    override suspend fun beforeCallbackFailureStop() = retainProviderFailClosedBarrierIfActiveLocked()
+
     private fun updateStatus(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
