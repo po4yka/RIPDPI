@@ -347,6 +347,15 @@ class ProxyUriCodecTest {
         assertTrue(ProxyUriCodec.parse("$base&type=xhttp&security=tls&encryption=none#ok") is ProxyProfile.Vless)
     }
 
+    @Test
+    fun `anytls uri without a port defaults to 443 and an insecure link is rejected`() {
+        val profile = ProxyUriCodec.parse("anytls://secret@a.example/?sni=s.example#n") as ProxyProfile.AnyTls
+
+        assertEquals(443, profile.serverPort)
+        assertEquals("s.example", profile.serverName)
+        assertNull(ProxyUriCodec.parse("anytls://secret@a.example:443/?insecure=1#n"))
+    }
+
     private companion object {
         val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
         val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")

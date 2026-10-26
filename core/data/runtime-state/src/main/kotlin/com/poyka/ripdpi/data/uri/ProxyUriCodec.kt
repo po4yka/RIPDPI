@@ -30,6 +30,7 @@ object ProxyUriCodec {
     private const val MIERU_MTU_MIN = 1280
     private const val MIERU_MTU_MAX = 1500
     private const val MIERU_MTU_DEFAULT = 1400
+    private const val DEFAULT_TLS_PORT = 443
 
     /** RFC 3986 characters that java.net.URI accepts verbatim in a query or fragment, besides alphanumerics. */
     private const val URI_TAIL_ALLOWED = "-._~!$&'()*+,;=:@/?"
@@ -583,7 +584,12 @@ object ProxyUriCodec {
         val parsed = URI(uri)
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
-        val port = parsed.port.takeIf { it > 0 } ?: return null
+        // anytls-go uri_scheme.md: the port defaults to 443.
+        val port = if (parsed.port == -1) DEFAULT_TLS_PORT else parsed.port.takeIf { it > 0 } ?: return null
+        // The AnyTLS client always verifies the server certificate and has no pin option, so a
+        // link that asks to skip verification would import a profile that can never connect.
+        val insecure = queryValue(parsed.rawQuery, "insecure")
+        if (insecure == "1" || insecure.equals("true", ignoreCase = true)) return null
         // RIPDPI's AnyTLS client has no server-side TLS-fallback support (upstream
         // anytls-go fallback is a server-only knob). Reject a node that advertises
         // a fallback target explicitly rather than silently importing a profile that
