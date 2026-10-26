@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayProfileStore
@@ -44,8 +45,9 @@ class ProfileShareRouteViewModel
                         record?.let { RelayProfileShareMapper.toShareable(it, credentials) }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
-                    } catch (_: Exception) {
+                    } catch (error: Exception) {
                         // An undecodable record (for example after a downgrade) is unshareable, not a crash.
+                        Logger.w { "Relay profile share load failed: ${error.javaClass.simpleName}" }
                         null
                     }
                 _uiState.value =

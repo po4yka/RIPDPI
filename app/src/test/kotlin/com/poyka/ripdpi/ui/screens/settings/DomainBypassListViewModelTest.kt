@@ -37,6 +37,23 @@ class DomainBypassListViewModelTest {
         }
 
     @Test
+    fun `a failed save reports failure instead of a confirmation`() =
+        runTest {
+            // The fake DAO's insert() throws, like a Room write that fails.
+            val viewModel = DomainBypassListViewModel(RuleRepository(FakeRuleDao()))
+            runCurrent()
+            viewModel.updateDraft("example.com")
+            var failures = 0
+            var confirmations = 0
+
+            viewModel.save(onFailed = { failures++ }) { confirmations++ }
+            runCurrent()
+
+            assertEquals(1, failures)
+            assertEquals(0, confirmations)
+        }
+
+    @Test
     fun `repository refresh does not replace unsaved draft`() =
         runTest {
             val dao = FakeRuleDao()

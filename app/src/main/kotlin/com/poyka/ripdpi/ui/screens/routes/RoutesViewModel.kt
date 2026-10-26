@@ -8,11 +8,11 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleRepository
+import com.poyka.ripdpi.ui.screens.settings.launchSettingsWrite
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,30 +92,18 @@ class RoutesViewModel
 
         init {
             // An undecodable relay record must not crash the screen on every open; rules still show.
-            launchIgnoringFailure {
+            launchSettingsWrite {
                 profiles.value = withContext(Dispatchers.IO) { relayProfileStore.list() }
             }
         }
 
         // A failed write leaves the row as the rule flow shows it, so the user sees the action did not apply.
         fun toggleEnabled(rule: RuleEntity) {
-            launchIgnoringFailure { ruleRepository.update(rule.copy(enabled = !rule.enabled)) }
+            launchSettingsWrite { ruleRepository.update(rule.copy(enabled = !rule.enabled)) }
         }
 
         fun delete(rule: RuleEntity) {
-            launchIgnoringFailure { ruleRepository.delete(rule) }
-        }
-
-        private fun launchIgnoringFailure(block: suspend () -> Unit) {
-            viewModelScope.launch {
-                try {
-                    block()
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    // Room and store failures must not reach the uncaught-exception handler.
-                }
-            }
+            launchSettingsWrite { ruleRepository.delete(rule) }
         }
 
         fun reorder(orderedIds: List<Long>) {

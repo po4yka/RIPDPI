@@ -90,7 +90,9 @@ fun DomainBypassListRoute(
         onBack = onBack,
         onTextChanged = viewModel::updateDraft,
         onSave = {
-            viewModel.save { savedCount ->
+            viewModel.save(
+                onFailed = { Toast.makeText(context, R.string.ui_rule_save_failed_title, Toast.LENGTH_SHORT).show() },
+            ) { savedCount ->
                 val message =
                     if (savedCount == 0) {
                         resources.getString(R.string.domain_bypass_cleared)
