@@ -148,21 +148,24 @@ internal class VpnServiceRuntimeCoordinator(
             },
             failAndStop = ::failAndStopFromCallback,
         )
-    private val supervisorExitHandler =
+
+    // Each start installs exit callbacks bound to the session it starts the supervisors for.
+    private fun supervisorExitHandlerFor(session: VpnRuntimeSession) =
         VpnSupervisorExitHandler(
             proxyRuntimeStack = proxyRuntimeStack,
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             markForeignRelayFailed = statusReporter::markForeignRelayFailed,
-            failAndStop = ::failAndStopFromCallback,
+            failAndStop = { reason -> failAndStopFromCallback(session.runtimeId, reason) },
         )
+
     private val runtimeCompositionCoordinator =
         VpnRuntimeCompositionCoordinator(
             proxyRuntimeStack = proxyRuntimeStack,
             rootHelperManager = rootHelperManager,
             vpnTunnelRuntime = vpnTunnelRuntime,
-            supervisorExitHandler = supervisorExitHandler,
+            supervisorExitHandlerFor = ::supervisorExitHandlerFor,
             applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
             providerController = xrayProviderSessionController,
             initialRelayRacePolicy = initialRelayRacePolicy,
@@ -741,7 +744,10 @@ internal class VpnServiceRuntimeCoordinator(
     private fun classifyHandoverFailure(error: Exception): FailureReason =
         classifyFailureReason(error, isTunnelContext = true)
 
-    private fun onPermissionRevoked(event: PermissionChangeEvent) = permissionRevocationHandler.handle(event)
+    private fun onPermissionRevoked(
+        runtimeId: String,
+        event: PermissionChangeEvent,
+    ) = permissionRevocationHandler.handle(runtimeId, event)
 
     private fun onAfterStopCleanup(session: VpnRuntimeSession?) {
         telemetryCoordinator.stopProtectFailureMonitoring()

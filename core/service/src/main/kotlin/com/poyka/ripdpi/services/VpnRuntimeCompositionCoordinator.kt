@@ -25,7 +25,7 @@ internal class VpnRuntimeCompositionCoordinator(
     private val proxyRuntimeStack: SharedProxyRuntimeStack,
     private val rootHelperManager: RootHelperManager,
     private val vpnTunnelRuntime: VpnTunnelRuntime,
-    private val supervisorExitHandler: VpnSupervisorExitHandler,
+    private val supervisorExitHandlerFor: (VpnRuntimeSession) -> VpnSupervisorExitHandler,
     private val applyActiveConnectionPolicy: suspend (
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
@@ -157,7 +157,7 @@ internal class VpnRuntimeCompositionCoordinator(
         proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         currentLocalProxyEndpoint = null
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
-        val proxyStartResult = startProxyRuntime(resolution, logContext)
+        val proxyStartResult = startProxyRuntime(session, resolution, logContext)
         vpnTunnelRuntime.rebuild(
             configurationInput = resolution.requestedConfiguration.tunnelInput,
             activeDns = resolution.activeDns,
@@ -220,7 +220,7 @@ internal class VpnRuntimeCompositionCoordinator(
         }
 
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
-        val proxyStartResult = startProxyRuntime(resolution, logContext)
+        val proxyStartResult = startProxyRuntime(session, resolution, logContext)
         vpnTunnelRuntime.start(
             configurationInput = resolution.requestedConfiguration.tunnelInput,
             activeDns = resolution.activeDns,
@@ -246,9 +246,11 @@ internal class VpnRuntimeCompositionCoordinator(
     }
 
     private suspend fun startProxyRuntime(
+        session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         logContext: RipDpiLogContext,
     ): ProxyRuntimeStartResult {
+        val exits = supervisorExitHandlerFor(session)
         val authToken =
             UUID
                 .randomUUID()
@@ -278,10 +280,10 @@ internal class VpnRuntimeCompositionCoordinator(
                         .proxyPreferences
                         .withLogContext(logContext)
                         .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
-                onRelayExit = supervisorExitHandler::handleRelayExit,
-                onWarpExit = supervisorExitHandler::handleWarpExit,
-                onAwgExit = supervisorExitHandler::handleAwgExit,
-                onProxyExit = supervisorExitHandler::handleProxyExit,
+                onRelayExit = exits::handleRelayExit,
+                onWarpExit = exits::handleWarpExit,
+                onAwgExit = exits::handleAwgExit,
+                onProxyExit = exits::handleProxyExit,
                 initialRelayRacePlan = racePlan,
                 onInitialRelayRaceState = { state -> initialRelayRacePolicy?.onStateChanged(state) },
                 onInitialRelaySelected = { result -> initialRelayRacePolicy?.onSelected(result) },

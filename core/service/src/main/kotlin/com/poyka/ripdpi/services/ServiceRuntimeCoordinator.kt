@@ -194,26 +194,19 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     )
 
     /**
-     * Fails and stops the session that is current when an out-of-lock callback (permission watchdog,
-     * supervisor exit) fires. The guarded stop publishes the failure under the lifecycle mutex and
-     * leaves alone a session that a queued Start brought up in the meantime.
+     * Fails and stops the session with [runtimeId], which an out-of-lock callback (permission watchdog,
+     * supervisor exit) captured when it was installed. A callback that fires after that session ended
+     * does nothing, and the guarded stop leaves alone a session that a queued Start brought up.
      */
-    protected fun failAndStopFromCallback(failureReason: FailureReason?) {
-        val observedSession = runtimeSession
-        host.serviceScope.launch(ioDispatcher) { stopObservedSession(observedSession, failureReason) }
-    }
-
-    protected suspend fun stopObservedSession(
-        observedSession: TSession?,
+    protected fun failAndStopFromCallback(
+        runtimeId: String,
         failureReason: FailureReason?,
     ) {
-        stop(
-            guard =
-                RuntimeStopGuard(
-                    isCurrent = { runtimeSession?.runtimeId == observedSession?.runtimeId },
-                    failureReason = failureReason,
-                ),
-        )
+        val isCurrent = { runtimeSession?.runtimeId == runtimeId }
+        if (!isCurrent()) return
+        host.serviceScope.launch(ioDispatcher) {
+            stop(guard = RuntimeStopGuard(isCurrent = isCurrent, failureReason = failureReason))
+        }
     }
 
     protected fun monitorNfqws(

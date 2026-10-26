@@ -46,7 +46,7 @@ internal class ServiceRuntimeStatusHooks(
 )
 
 internal class ServiceRuntimePermissionHooks(
-    val onPermissionRevoked: suspend (PermissionChangeEvent) -> Unit = {},
+    val onPermissionRevoked: suspend (runtimeId: String, PermissionChangeEvent) -> Unit = { _, _ -> },
 )
 
 internal class ServiceRuntimeSharedState<TSession>(

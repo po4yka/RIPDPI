@@ -7,13 +7,16 @@ import com.poyka.ripdpi.services.PermissionChangeEvent
 
 internal class VpnPermissionRevocationHandler(
     private val isLocalNetworkDependent: () -> Boolean,
-    private val failAndStop: (FailureReason) -> Unit,
+    private val failAndStop: (runtimeId: String, FailureReason) -> Unit,
 ) {
-    fun handle(event: PermissionChangeEvent) {
+    fun handle(
+        runtimeId: String,
+        event: PermissionChangeEvent,
+    ) {
         when (event.kind) {
             PermissionChangeEvent.KIND_VPN_CONSENT -> {
                 Logger.e { "VPN consent revoked while running" }
-                failAndStop(FailureReason.PermissionLost("VPN"))
+                failAndStop(runtimeId, FailureReason.PermissionLost("VPN"))
             }
 
             PermissionChangeEvent.KIND_NOTIFICATIONS -> {
@@ -23,7 +26,7 @@ internal class VpnPermissionRevocationHandler(
             PermissionChangeEvent.KIND_LOCAL_NETWORK -> {
                 if (isLocalNetworkDependent()) {
                     Logger.e { "Local network permission revoked while LAN-dependent VPN runtime is active" }
-                    failAndStop(FailureReason.PermissionLost(LocalNetworkPermission))
+                    failAndStop(runtimeId, FailureReason.PermissionLost(LocalNetworkPermission))
                 }
             }
         }

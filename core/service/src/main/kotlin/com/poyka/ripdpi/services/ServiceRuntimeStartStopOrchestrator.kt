@@ -72,7 +72,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 callbacks.statusHooks.reportConnected()
                 dependencies.handoverProcessor.startMonitoring()
                 callbacks.startModeTelemetryUpdates()
-                dependencies.loopOwner.startPermissionWatchdog()
+                dependencies.loopOwner.startPermissionWatchdog(session.runtimeId)
                 transaction?.onStarted?.invoke()
             }
                 ?: return

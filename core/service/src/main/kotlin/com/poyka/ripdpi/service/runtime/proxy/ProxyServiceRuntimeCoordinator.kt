@@ -117,15 +117,18 @@ internal class ProxyServiceRuntimeCoordinator(
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
             clearForeignRelayFailed = statusReporter::clearForeignRelayFailed,
         )
-    private val supervisorExitHandler =
+
+    // Each start installs exit callbacks bound to the session it starts the supervisors for.
+    private fun supervisorExitHandlerFor(session: ProxyRuntimeSession) =
         ProxySupervisorExitHandler(
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
             markForeignRelayFailed = statusReporter::markForeignRelayFailed,
-            failAndStop = ::failAndStopFromCallback,
+            failAndStop = { reason -> failAndStopFromCallback(session.runtimeId, reason) },
         )
+
     private val telemetryCoordinator =
         ProxyTelemetryCoordinator(
             host = host,
@@ -227,6 +230,7 @@ internal class ProxyServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
     ): RuntimeStartEvidence =
         configurationLifecycle.starting(session) {
+            val exits = supervisorExitHandlerFor(session)
             val startResult =
                 proxyRuntimeStack.start(
                     requestedWarpReference = resolution.requestedConfiguration.warpReference,
@@ -236,10 +240,10 @@ internal class ProxyServiceRuntimeCoordinator(
                         resolution.proxyPreferences.withLogContext(
                             session.buildLogContext(session.currentActiveConnectionPolicy),
                         ),
-                    onRelayExit = supervisorExitHandler::handleRelayExit,
-                    onWarpExit = supervisorExitHandler::handleWarpExit,
-                    onAwgExit = supervisorExitHandler::handleAwgExit,
-                    onProxyExit = supervisorExitHandler::handleProxyExit,
+                    onRelayExit = exits::handleRelayExit,
+                    onWarpExit = exits::handleWarpExit,
+                    onAwgExit = exits::handleAwgExit,
+                    onProxyExit = exits::handleProxyExit,
                 )
             startResult.toRuntimeStartEvidence()
         }
@@ -296,6 +300,7 @@ internal class ProxyServiceRuntimeCoordinator(
             appliedAt = appliedAt,
         )
         proxyRuntimeStack.stop(skipRuntimeShutdown = false)
+        val exits = supervisorExitHandlerFor(session)
         val startResult =
             proxyRuntimeStack.start(
                 requestedWarpReference = resolution.requestedConfiguration.warpReference,
@@ -305,10 +310,10 @@ internal class ProxyServiceRuntimeCoordinator(
                     resolution.proxyPreferences.withLogContext(
                         session.buildLogContext(session.currentActiveConnectionPolicy),
                     ),
-                onRelayExit = supervisorExitHandler::handleRelayExit,
-                onWarpExit = supervisorExitHandler::handleWarpExit,
-                onAwgExit = supervisorExitHandler::handleAwgExit,
-                onProxyExit = supervisorExitHandler::handleProxyExit,
+                onRelayExit = exits::handleRelayExit,
+                onWarpExit = exits::handleWarpExit,
+                onAwgExit = exits::handleAwgExit,
+                onProxyExit = exits::handleProxyExit,
             )
         publishRuntimeStartEvidence(
             session = session,
@@ -463,7 +468,10 @@ internal class ProxyServiceRuntimeCoordinator(
         )
     }
 
-    private fun onPermissionRevoked(event: PermissionChangeEvent) {
+    private fun onPermissionRevoked(
+        runtimeId: String,
+        event: PermissionChangeEvent,
+    ) {
         when (event.kind) {
             PermissionChangeEvent.KIND_NOTIFICATIONS -> {
                 Logger.i { "Notification permission revoked while proxy running" }
@@ -472,7 +480,10 @@ internal class ProxyServiceRuntimeCoordinator(
             PermissionChangeEvent.KIND_LOCAL_NETWORK -> {
                 if (runtimeSession?.localNetworkDependent == true || upstreamRelaySupervisor.localNetworkDependent) {
                     Logger.e { "Local network permission revoked while LAN-dependent proxy runtime is active" }
-                    failAndStopFromCallback(FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission))
+                    failAndStopFromCallback(
+                        runtimeId,
+                        FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission),
+                    )
                 }
             }
         }

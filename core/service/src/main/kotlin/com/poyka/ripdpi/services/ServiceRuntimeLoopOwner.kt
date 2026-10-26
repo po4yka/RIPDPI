@@ -7,7 +7,7 @@ internal class ServiceRuntimeLoopOwner(
     scope: CoroutineScope,
     dispatcher: CoroutineDispatcher,
     permissionWatchdog: PermissionWatchdog,
-    onPermissionRevoked: suspend (PermissionChangeEvent) -> Unit,
+    onPermissionRevoked: suspend (runtimeId: String, PermissionChangeEvent) -> Unit,
 ) {
     private val telemetryLoopCoordinator =
         ServiceTelemetryLoopCoordinator(
@@ -22,8 +22,8 @@ internal class ServiceRuntimeLoopOwner(
             onPermissionRevoked = onPermissionRevoked,
         )
 
-    fun startPermissionWatchdog() {
-        permissionWatchdogCoordinator.start()
+    fun startPermissionWatchdog(runtimeId: String) {
+        permissionWatchdogCoordinator.start(runtimeId)
     }
 
     fun replaceTelemetryJob(block: suspend CoroutineScope.() -> Unit) {

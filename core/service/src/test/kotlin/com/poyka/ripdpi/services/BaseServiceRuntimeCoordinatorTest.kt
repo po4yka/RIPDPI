@@ -409,12 +409,12 @@ class BaseServiceRuntimeCoordinatorTest {
             val env = newEnv()
             env.coordinator.start()
             runCurrent()
-            val failedSession = env.coordinator.currentSessionForTest
+            val staleCallback = env.coordinator.installedFailureCallbacks.single()
             env.coordinator.stop()
             env.coordinator.start()
             runCurrent()
 
-            env.coordinator.stopFromCallbackFor(failedSession, FailureReason.NativeError("relay exited"))
+            staleCallback(FailureReason.NativeError("relay exited"))
             runCurrent()
 
             assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
@@ -422,16 +422,31 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun `out-of-lock failure callback fails and stops the session it observed`() =
+    fun `out-of-lock failure callback after its session ended does not stop the service`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            val staleCallback = env.coordinator.installedFailureCallbacks.single()
+            env.coordinator.stop()
+            runCurrent()
+            val stopRequestsAfterStop = env.host.stopRequests.toList()
+
+            staleCallback(FailureReason.NativeError("relay exited"))
+            runCurrent()
+
+            assertEquals(ServiceStatus.Disconnected, env.coordinator.statusTransitions.last())
+            assertEquals(stopRequestsAfterStop, env.host.stopRequests)
+        }
+
+    @Test
+    fun `out-of-lock failure callback fails and stops the session it was installed for`() =
         runTest {
             val env = newEnv()
             env.coordinator.start()
             runCurrent()
 
-            env.coordinator.stopFromCallbackFor(
-                env.coordinator.currentSessionForTest,
-                FailureReason.NativeError("relay exited"),
-            )
+            env.coordinator.installedFailureCallbacks.single()(FailureReason.NativeError("relay exited"))
             runCurrent()
 
             assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
@@ -1572,12 +1587,8 @@ private class TestCoordinator(
         clock = clock,
         selectorListeners = selectorListeners,
     ) {
-    val currentSessionForTest: ProxyRuntimeSession? get() = runtimeSession
-
-    suspend fun stopFromCallbackFor(
-        observedSession: ProxyRuntimeSession?,
-        failureReason: FailureReason?,
-    ) = stopObservedSession(observedSession, failureReason)
+    /** Failure callbacks bound at runtime start, the way supervisor exit handlers are installed. */
+    val installedFailureCallbacks = mutableListOf<(FailureReason?) -> Unit>()
 
     private val fixtureAuthority =
         com.poyka.ripdpi.data
@@ -1740,6 +1751,7 @@ private class TestCoordinator(
     ): RuntimeStartEvidence {
         startLifecycleEvents += "runtime_start"
         startCalls += 1
+        installedFailureCallbacks += { reason -> failAndStopFromCallback(session.runtimeId, reason) }
         if (failOnStart) {
             error("boom")
         }

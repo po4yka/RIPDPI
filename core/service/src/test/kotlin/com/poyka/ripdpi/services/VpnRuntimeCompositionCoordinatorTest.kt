@@ -110,7 +110,7 @@ class VpnRuntimeCompositionCoordinatorTest {
                     proxyRuntimeStack = runtimeStack,
                     rootHelperManager = RootHelperManager(),
                     vpnTunnelRuntime = tunnelRuntime,
-                    supervisorExitHandler = exitHandler,
+                    supervisorExitHandlerFor = { exitHandler },
                     applyActiveConnectionPolicy = { _, _, _, _ -> },
                 )
 
