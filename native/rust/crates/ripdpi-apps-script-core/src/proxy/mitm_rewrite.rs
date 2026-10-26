@@ -4,12 +4,13 @@ use std::sync::Arc;
 
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
+use tokio::time::timeout;
 use tokio_rustls::rustls::server::Acceptor;
 use tokio_rustls::{LazyConfigAcceptor, TlsAcceptor};
 
 use crate::domain_fronter::AppsScriptDomainFronter;
 use crate::mitm::MitmCertManager;
-use crate::proxy::http_relay;
+use crate::proxy::{HANDSHAKE_TIMEOUT, http_relay};
 use crate::telemetry::SharedTelemetryState;
 
 /// # Cancel safety
@@ -25,8 +26,9 @@ pub(crate) async fn mitm_then_relay(
     mitm: Arc<Mutex<MitmCertManager>>,
     telemetry: SharedTelemetryState,
 ) -> io::Result<()> {
-    let acceptor = LazyConfigAcceptor::new(Acceptor::default(), stream)
+    let acceptor = timeout(HANDSHAKE_TIMEOUT, LazyConfigAcceptor::new(Acceptor::default(), stream))
         .await
+        .map_err(|_| handshake_timed_out())?
         .map_err(|error| io::Error::other(format!("client hello sniff failed: {error}")))?;
     let sni_host = acceptor.client_hello().server_name().filter(|value| !looks_like_ip(value)).map(ToOwned::to_owned);
     let effective_host = sni_host.as_deref().unwrap_or(host).to_string();
@@ -35,9 +37,9 @@ pub(crate) async fn mitm_then_relay(
     let server_config = MitmCertManager::get_server_config(&mitm, &effective_host)
         .await
         .map_err(|error| io::Error::other(error.to_string()))?;
-    let mut tls_stream = acceptor
-        .into_stream(server_config)
+    let mut tls_stream = timeout(HANDSHAKE_TIMEOUT, acceptor.into_stream(server_config))
         .await
+        .map_err(|_| handshake_timed_out())?
         .map_err(|error| io::Error::other(format!("TLS accept failed: {error}")))?;
 
     let mut pending = Vec::new();
@@ -68,9 +70,9 @@ pub(crate) async fn sni_rewrite_tunnel(
 ) -> io::Result<()> {
     let server_config =
         MitmCertManager::get_server_config(&mitm, host).await.map_err(|error| io::Error::other(error.to_string()))?;
-    let inbound = TlsAcceptor::from(server_config)
-        .accept(stream)
+    let inbound = timeout(HANDSHAKE_TIMEOUT, TlsAcceptor::from(server_config).accept(stream))
         .await
+        .map_err(|_| handshake_timed_out())?
         .map_err(|error| io::Error::other(format!("TLS MITM accept failed: {error}")))?;
     // The client's bytes are decrypted here, so the upstream leg must be TLS again.
     let mut outbound = match relay.open_rewrite_stream(&upstream, port).await {
@@ -85,6 +87,10 @@ pub(crate) async fn sni_rewrite_tunnel(
     let _ = tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await?;
     telemetry.record_success(0);
     Ok(())
+}
+
+fn handshake_timed_out() -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, "client TLS handshake timed out")
 }
 
 fn looks_like_ip(value: &str) -> bool {

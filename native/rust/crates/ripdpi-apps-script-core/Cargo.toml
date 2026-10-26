@@ -21,6 +21,7 @@ webpki-roots.workspace = true
 
 [dev-dependencies]
 ripdpi-packets = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
 workspace = true

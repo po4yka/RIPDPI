@@ -1,5 +1,6 @@
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -14,6 +15,9 @@ use crate::telemetry::SharedTelemetryState;
 /// rejected before any reservation; the read loop still bounds actual reads by
 /// the declared length, so this only caps the up-front `Vec::with_capacity`.
 const MAX_REQUEST_BODY_BYTES: usize = 16 * 1024 * 1024;
+/// Longest wait for the next bytes from a client. An idle keep-alive
+/// connection is closed after it; a stalled request fails with `TimedOut`.
+const CLIENT_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// # Cancel safety
 ///
@@ -170,7 +174,10 @@ where
         if pending.len() > 1024 * 1024 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "headers too large"));
         }
-        let read = stream.read(&mut scratch).await?;
+        let read = match read_or_idle_timeout(stream, &mut scratch).await {
+            Err(error) if error.kind() == io::ErrorKind::TimedOut && pending.is_empty() => return Ok(None),
+            result => result?,
+        };
         if read == 0 {
             return if pending.is_empty() {
                 Ok(None)
@@ -250,7 +257,7 @@ where
     body.extend(pending.drain(..buffered));
     let mut scratch = [0u8; 8_192];
     while body.len() < content_length {
-        let read = stream.read(&mut scratch).await?;
+        let read = read_or_idle_timeout(stream, &mut scratch).await?;
         if read == 0 {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "EOF mid-body"));
         }
@@ -323,7 +330,7 @@ where
         if buffer.len() > 8_192 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "chunked request line too long"));
         }
-        let read = stream.read(scratch).await?;
+        let read = read_or_idle_timeout(stream, scratch).await?;
         if read == 0 {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "EOF in chunked body"));
         }
@@ -341,13 +348,26 @@ where
     S: AsyncRead + Unpin,
 {
     while buffer.len() < wanted {
-        let read = stream.read(scratch).await?;
+        let read = read_or_idle_timeout(stream, scratch).await?;
         if read == 0 {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "EOF in chunked body"));
         }
         buffer.extend_from_slice(&scratch[..read]);
     }
     Ok(())
+}
+
+/// # Cancel safety
+///
+/// cancel-safe: a single read under a timeout; a cancelled read consumes no
+/// bytes.
+async fn read_or_idle_timeout<S>(stream: &mut S, buffer: &mut [u8]) -> io::Result<usize>
+where
+    S: AsyncRead + Unpin,
+{
+    tokio::time::timeout(CLIENT_IDLE_TIMEOUT, stream.read(buffer))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "client idle timeout"))?
 }
 
 fn find_headers_end(buffer: &[u8]) -> Option<usize> {

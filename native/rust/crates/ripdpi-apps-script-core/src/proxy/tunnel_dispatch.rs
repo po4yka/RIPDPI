@@ -9,7 +9,7 @@ use tokio::time::timeout;
 
 use crate::domain_fronter::AppsScriptDomainFronter;
 use crate::mitm::MitmCertManager;
-use crate::proxy::{http_relay, mitm_rewrite};
+use crate::proxy::{HANDSHAKE_TIMEOUT, http_relay, mitm_rewrite};
 use crate::telemetry::SharedTelemetryState;
 
 const FIRST_BYTES_TIMEOUT: Duration = Duration::from_millis(300);
@@ -61,7 +61,9 @@ pub(crate) async fn dispatch(
 /// copy_bidirectional await; cancellation just drops both half-duplex copies and
 /// closes the sockets without leaving partial protocol state owned by this fn.
 pub(crate) async fn plain_tcp_passthrough(mut inbound: TcpStream, host: &str, port: u16) -> io::Result<()> {
-    let outbound = TcpStream::connect((host, port)).await?;
+    let outbound = timeout(HANDSHAKE_TIMEOUT, TcpStream::connect((host, port)))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "direct connect timed out"))??;
     outbound.set_nodelay(true)?;
     inbound.set_nodelay(true)?;
     let mut outbound = outbound;

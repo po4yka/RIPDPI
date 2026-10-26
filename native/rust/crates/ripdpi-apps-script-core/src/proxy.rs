@@ -8,6 +8,7 @@ mod tunnel_dispatch;
 use std::io;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::time::Duration;
 
 use tokio::sync::Mutex;
 
@@ -15,6 +16,11 @@ use crate::AppsScriptRuntimeConfig;
 use crate::domain_fronter::AppsScriptDomainFronter;
 use crate::mitm::MitmCertManager;
 use crate::telemetry::SharedTelemetryState;
+
+/// Deadline for a client to finish one handshake (SOCKS5 or TLS) and for a
+/// direct outbound connect. A silent client otherwise holds a task and a
+/// socket forever.
+pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct ProxyServer {
     config: AppsScriptRuntimeConfig,
