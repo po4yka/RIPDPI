@@ -116,16 +116,20 @@ impl ActiveSessions {
         self.bridge_ready.notified()
     }
 
-    /// Resets an active smoltcp socket and keeps it until [`Self::remove_retired_sockets`].
+    /// Resets an active smoltcp socket and keeps it until [`Self::remove_retired_sockets`]; removes
+    /// an inactive socket at once.
     ///
     /// smoltcp sends a queued RST or FIN only from `Interface::poll`; a socket removed before that
-    /// poll goes away silently, and the app's connection stays open with no peer.
+    /// poll goes away silently, and the app's connection stays open with no peer. An inactive socket
+    /// has no RST to send, and a `Listen` one kept through the poll could accept another flow's SYN.
     pub fn retire_socket(&mut self, socket_set: &mut SocketSet<'static>, handle: SocketHandle) {
         let tcp = socket_set.get_mut::<TcpSocket>(handle);
         if tcp.is_active() {
             tcp.abort();
+            self.retired_sockets.push(handle);
+        } else {
+            socket_set.remove(handle);
         }
-        self.retired_sockets.push(handle);
     }
 
     /// Removes the retired sockets. Call it right after an interface poll.

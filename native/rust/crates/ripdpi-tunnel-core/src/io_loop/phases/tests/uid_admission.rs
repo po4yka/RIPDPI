@@ -117,6 +117,11 @@ async fn uid_admission_precedes_tcp_syn_egress_and_returns_denied_reset() {
     }
     assert!(state.sessions.is_empty());
     assert!(state.pending_listens.is_empty(), "denied SYN must retire its listener and lookup");
+    assert_eq!(
+        state.socket_set.iter().count(),
+        0,
+        "a denied LISTEN socket is removed before the next poll can give it another flow's SYN"
+    );
 
     let allowed = build_ipv4_tcp_syn_packet(Ipv4Addr::new(10, 0, 0, 2), Ipv4Addr::new(93, 184, 216, 34), 55_624, 443);
     let allowed_request = ripdpi_flow_app_attribution::FlowResolveRequest {
