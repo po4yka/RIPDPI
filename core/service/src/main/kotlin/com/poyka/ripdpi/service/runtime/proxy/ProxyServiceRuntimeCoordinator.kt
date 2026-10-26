@@ -272,7 +272,7 @@ internal class ProxyServiceRuntimeCoordinator(
         try {
             proxyRuntimeStack.stop(skipRuntimeShutdown)
         } finally {
-            rootHelperManager.stop()
+            rootHelperManager.stopFor(Mode.Proxy)
         }
     }
 

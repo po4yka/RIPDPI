@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.relayConfigOrNull
+import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -95,7 +96,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 throw error
             }
         } finally {
-            rootHelperManager.stop()
+            rootHelperManager.stopFor(Mode.VPN)
         }
     }
 

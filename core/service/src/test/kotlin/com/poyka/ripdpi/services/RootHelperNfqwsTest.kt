@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -55,7 +56,7 @@ class RootHelperNfqwsTest {
                 val activation = runCatching { manager.syncNfqws(context, settings()) }
                 assertEquals(startFails, activation.isFailure)
                 assertThrows(RuntimeCleanupPendingException::class.java) { manager.stop() }
-                manager.stopOnDestroy()
+                manager.stopOnDestroy(Mode.VPN)
                 assertEquals(socket, manager.socketPath)
                 assertTrue(manager.isRunning())
                 assertFalse(manager.nfqwsActive)

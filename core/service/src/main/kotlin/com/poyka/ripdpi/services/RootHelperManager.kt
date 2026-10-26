@@ -86,6 +86,25 @@ open class RootHelperManager
 
         @Volatile private var predecessorsReaped = false
 
+        // Mode whose runtime last prepared the helper. The VPN and proxy services share this singleton,
+        // so a late teardown of one mode must not stop the helper the other mode now uses.
+        @Volatile private var owner: com.poyka.ripdpi.data.Mode? = null
+
+        /** Records that [mode]'s runtime now uses the helper; call before starting or reusing it. */
+        fun claim(mode: com.poyka.ripdpi.data.Mode) {
+            owner = mode
+        }
+
+        /** Stops the helper unless a runtime of another mode has claimed it since [mode] did. */
+        fun stopFor(mode: com.poyka.ripdpi.data.Mode) {
+            val current = owner
+            if (current != null && current != mode) {
+                log.i { "root helper kept: claimed by $current, stop requested by $mode" }
+                return
+            }
+            stop()
+        }
+
         private companion object {
             private val log = Logger.withTag("RootHelperManager")
             private const val HELPER_BINARY_NAME = "ripdpi-root-helper"
@@ -509,9 +528,9 @@ internal class RootHelperLaunchAttempt(
 )
 
 /** Finish local service destruction while the helper retains pending cleanup. */
-internal fun RootHelperManager.stopOnDestroy() {
+internal fun RootHelperManager.stopOnDestroy(mode: com.poyka.ripdpi.data.Mode) {
     try {
-        stop()
+        stopFor(mode)
     } catch (error: RuntimeCleanupPendingException) {
         Logger.withTag("RootHelperManager").w(error) { "root helper retains pending cleanup after service destruction" }
     }

@@ -127,7 +127,7 @@ class RipDpiProxyService :
                     val stateStore = initializer.initialize(Mode.Proxy)
                     val runtimeCoordinator = sessionEntryPoint.coordinator()
                     val ownedRootHelper = rootHelperManager
-                    activeOwnership.own { ownedRootHelper.stopOnDestroy() }
+                    activeOwnership.own { ownedRootHelper.stopOnDestroy(Mode.Proxy) }
                     sessionStateStore = stateStore
                     coordinator = runtimeCoordinator
                     shellDelegate =

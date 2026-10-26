@@ -207,7 +207,7 @@ class RipDpiVpnService :
                     }
                 if (deliverRevoke) createdDelegate.onRevoke()
                 val ownedRootHelper = rootHelperManager
-                activeOwnership.own { ownedRootHelper.stopOnDestroy() }
+                activeOwnership.own { ownedRootHelper.stopOnDestroy(Mode.VPN) }
                 // Start the selector-runtime loops (member hot-reload + latency failover)
                 // for the lifetime of the service. Each listener is idempotent.
                 selectorRuntimeLifecycleListeners.forEach { listener ->
@@ -273,12 +273,20 @@ class RipDpiVpnService :
         activeRecoveryGeneration = null
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
         pauseController.detach(this)
+        val earlierTeardown = previousInstanceTeardown.get()
         destroyCleanupJob =
             kotlinx.coroutines
                 .CoroutineScope(
                     kotlinx.coroutines.Dispatchers.IO,
                 ).launch {
                     withContext(NonCancellable) {
+                        // Only the latest job is published: chain it after the earlier ones, so a newer
+                        // instance never attaches while an older teardown can still stop shared singletons.
+                        earlierTeardown?.let { earlier ->
+                            kotlinx.coroutines.withTimeoutOrNull(previousInstanceTeardownTimeoutMillis) {
+                                earlier.join()
+                            }
+                        }
                         entryMutex.withLock {
                             if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
                             val outcome = runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))

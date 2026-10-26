@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RootSettingsSection
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
@@ -310,6 +311,43 @@ class RootHelperManagerTest {
             manager.start(context)
 
             assertEquals(listOf("reap", "launch", "reap", "launch"), events)
+        }
+
+    @Test
+    fun `a late stop from another mode leaves the helper the newer mode claimed`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val fakeProcess = RecordingProcess()
+            var shutdownRequests = 0
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _, _ ->
+                        listOf(RootHelperLaunchAttempt("test root helper launcher") { fakeProcess })
+                    },
+                    readinessProbe = { _, _, _ -> true },
+                    shutdownRequester = { _, _ -> shutdownRequests += 1 },
+                    rootProcessTerminator = {},
+                )
+            val enabled = RootSettingsSection(rootModeEnabled = true)
+            manager.claim(Mode.Proxy)
+            val socket = manager.syncRootMode(context, enabled)
+            assertNotNull(socket)
+            manager.claim(Mode.VPN)
+            assertEquals(socket, manager.syncRootMode(context, enabled))
+
+            manager.stopFor(Mode.Proxy)
+
+            assertEquals(socket, manager.socketPath)
+            assertFalse(fakeProcess.destroyed)
+            assertEquals(0, shutdownRequests)
+
+            manager.stopFor(Mode.VPN)
+
+            assertNull(manager.socketPath)
+            assertTrue(fakeProcess.destroyed)
+            assertEquals(1, shutdownRequests)
         }
 
     @Test

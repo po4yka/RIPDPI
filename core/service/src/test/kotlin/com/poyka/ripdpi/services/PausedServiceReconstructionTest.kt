@@ -150,6 +150,30 @@ class PausedServiceReconstructionTest {
         }
 
     @Test
+    fun `vpn teardown finishes only after the earlier instance teardown`() =
+        runBlocking {
+            val fixture = Fixture(Mode.VPN)
+            val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
+            val service = lifecycle.get()
+            initializeVpn(service, fixture)
+            lifecycle.create()
+            val earlierTeardown = Job()
+            RipDpiVpnService.previousInstanceTeardown.set(earlierTeardown)
+            try {
+                lifecycle.destroy()
+                val teardown = checkNotNull(ReflectionHelpers.getField<Job?>(service, "destroyCleanupJob"))
+                delay(200)
+                assertFalse("the published job must cover the earlier teardown", teardown.isCompleted)
+
+                earlierTeardown.complete()
+                awaitTrackedDestruction(service)
+            } finally {
+                earlierTeardown.complete()
+                service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+            }
+        }
+
+    @Test
     fun `vpn attach goes ahead when the previous instance teardown hangs`() =
         runBlocking {
             val fixture = Fixture(Mode.VPN)
