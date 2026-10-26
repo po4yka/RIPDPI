@@ -45,9 +45,9 @@ class ProfileShareRouteViewModel
                         record?.let { RelayProfileShareMapper.toShareable(it, credentials) }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
-                    } catch (error: Exception) {
+                    } catch (ignored: Exception) {
                         // An undecodable record (for example after a downgrade) is unshareable, not a crash.
-                        Logger.w { "Relay profile share load failed: ${error.javaClass.simpleName}" }
+                        Logger.w { "Relay profile share load failed: ${ignored.javaClass.simpleName}" }
                         null
                     }
                 _uiState.value =

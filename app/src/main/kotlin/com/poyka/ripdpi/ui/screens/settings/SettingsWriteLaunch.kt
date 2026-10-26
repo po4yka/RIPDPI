@@ -22,8 +22,8 @@ internal fun ViewModel.launchSettingsWrite(
             block()
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (error: Exception) {
-            Logger.w { "Settings storage operation failed: ${error.javaClass.simpleName}" }
+        } catch (ignored: Exception) {
+            Logger.w { "Settings storage operation failed: ${ignored.javaClass.simpleName}" }
             onFailure()
         }
     }

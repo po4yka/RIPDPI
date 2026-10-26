@@ -13,6 +13,7 @@ import com.poyka.ripdpi.services.OwnedStackBrowserSupport
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -35,6 +36,7 @@ import java.security.GeneralSecurityException
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class OwnedStackBrowserViewModelTest {
@@ -240,7 +242,7 @@ private val OnBackground = ThreadLocal<Boolean>()
 
 /** Records whether `Html.fromHtml` ran inside a [OwnedStackBrowserViewModelTest] background block. */
 @Implements(Html::class)
-class RecordingHtmlShadow {
+class RecordingHtmlShadow private constructor() {
     companion object {
         @Volatile
         var parsedOnBackground: Boolean? = null
@@ -249,7 +251,7 @@ class RecordingHtmlShadow {
         @Implementation
         fun fromHtml(
             source: String,
-            flags: Int,
+            ignored: Int,
         ): Spanned {
             parsedOnBackground = OnBackground.get() == true
             return SpannedString(source)
