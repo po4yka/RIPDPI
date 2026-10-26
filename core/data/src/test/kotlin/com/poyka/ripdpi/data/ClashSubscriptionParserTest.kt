@@ -297,4 +297,22 @@ class ClashSubscriptionParserTest {
 
         assertTrue(result.profiles.all { it.groupId == groupId })
     }
+
+    @Test
+    fun `trojan node keeps its sni for an ip server`() {
+        val yaml =
+            """
+            proxies:
+              - name: trojan-sni
+                type: trojan
+                server: 203.0.113.5
+                port: 443
+                password: p
+                sni: cdn.example.com
+            """.trimIndent()
+
+        val trojan = ClashSubscriptionParser.parse(yaml, groupId).profiles.single() as ProxyProfile.Trojan
+
+        assertEquals("cdn.example.com", trojan.serverName)
+    }
 }

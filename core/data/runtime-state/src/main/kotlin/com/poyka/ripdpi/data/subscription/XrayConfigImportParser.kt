@@ -205,7 +205,7 @@ object XrayConfigImportParser {
             "trojan" -> {
                 stream.unsupportedTcpOnlyTransport()?.let {
                     OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, it)
-                } ?: mapTrojan(settings, tag, groupId)
+                } ?: mapTrojan(settings, stream, tag, groupId)
             }
 
             "shadowsocks" -> {
@@ -281,10 +281,12 @@ object XrayConfigImportParser {
 
     private fun mapTrojan(
         settings: JsonObject?,
+        stream: JsonObject?,
         tag: String?,
         groupId: String,
     ): OutboundMapping {
         val creds = firstServerCredentials(settings) ?: return OutboundMapping.Skip(XraySkipReason.MALFORMED)
+        val tls = stream?.get("tlsSettings") as? JsonObject
         return OutboundMapping.Profile(
             ProxyProfile.Trojan(
                 id = newId(),
@@ -293,6 +295,7 @@ object XrayConfigImportParser {
                 server = creds.address,
                 serverPort = creds.port,
                 password = creds.password,
+                serverName = tls?.string("serverName"),
             ),
         )
     }

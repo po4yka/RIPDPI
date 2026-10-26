@@ -127,6 +127,7 @@ object ClashSubscriptionParser {
                     server = node.requireString("server", index),
                     serverPort = node.requirePort("port", index),
                     password = node.requireString("password", index),
+                    serverName = node.string("sni") ?: node.string("servername"),
                 )
             }
 

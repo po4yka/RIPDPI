@@ -456,4 +456,15 @@ class XrayConfigImportParserTest {
         assertEquals("", profile.flow)
         assertEquals("/x", profile.xhttpPath)
     }
+
+    @Test
+    fun `trojan json keeps the tls serverName`() {
+        val config =
+            """{ "outbounds": [ { "protocol": "trojan",
+              "settings": { "servers": [ { "address": "203.0.113.5", "port": 443, "password": "p" } ] },
+              "streamSettings": { "network": "tcp", "security": "tls",
+                "tlsSettings": { "serverName": "cdn.example.com" } } } ] }"""
+        val profile = translate(config).profiles.single() as ProxyProfile.Trojan
+        assertEquals("cdn.example.com", profile.serverName)
+    }
 }
