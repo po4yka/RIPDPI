@@ -93,6 +93,16 @@ class TestBackupMutationCoordinator : ProfileMutationCoordinator {
         profileId: String,
     ): ProfileMutationOutcome = error("Not used by backup fixture")
 
+    override suspend fun upsertRelayEdit(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profile: com.poyka.ripdpi.data.RelayProfileRecord,
+        credentials: com.poyka.ripdpi.data.RelayCredentialRecord,
+        enabled: Boolean,
+        settingsBaseImage: com.poyka.ripdpi.proto.AppSettings,
+        settingsAfterImage: com.poyka.ripdpi.proto.AppSettings,
+        expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Not used by backup fixture")
+
     override suspend fun upsertRelay(
         preparation: ProfileMutationPreparation,
         profile: RelayProfileRecord,

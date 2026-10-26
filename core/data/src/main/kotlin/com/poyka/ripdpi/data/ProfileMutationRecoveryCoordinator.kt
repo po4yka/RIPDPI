@@ -527,16 +527,7 @@ interface RelayUpsertMutationCoordinator {
         settingsBaseImage: AppSettings,
         settingsAfterImage: AppSettings,
         expectedState: ExpectedRelayProfileState,
-    ): ProfileMutationOutcome =
-        upsertRelay(
-            preparation,
-            profile,
-            credentials,
-            enabled = enabled,
-            select = true,
-            settingsAfterImage = settingsAfterImage,
-            expectedState = expectedState,
-        )
+    ): ProfileMutationOutcome
 }
 
 private class RelayUpsertWriter(

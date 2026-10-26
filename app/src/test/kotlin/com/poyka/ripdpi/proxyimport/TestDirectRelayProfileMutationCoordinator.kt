@@ -98,6 +98,28 @@ class TestDirectRelayProfileMutationCoordinator(
         return receipt
     }
 
+    override suspend fun upsertRelayEdit(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profile: com.poyka.ripdpi.data.RelayProfileRecord,
+        credentials: com.poyka.ripdpi.data.RelayCredentialRecord,
+        enabled: Boolean,
+        settingsBaseImage: com.poyka.ripdpi.proto.AppSettings,
+        settingsAfterImage: com.poyka.ripdpi.proto.AppSettings,
+        expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        // Test boundary: the edit is written whole; the production writer merges it field by field.
+        upsertRelay(
+            preparation,
+            profile,
+            credentials,
+            enabled = enabled,
+            select = true,
+            settingsAfterImage = settingsAfterImage,
+            modeAfterImage = null,
+            xraySelectionAfterImage = null,
+            expectedState = expectedState,
+        )
+
     override suspend fun upsertRelay(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: RelayProfileRecord,
