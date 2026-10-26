@@ -19,8 +19,9 @@ enum FirstRequestRead {
     Pending,
 }
 
-/// Maximum time to wait for the first request in delay_conn mode.
-const DELAY_CONN_READ_TIMEOUT: Duration = Duration::from_secs(60);
+/// Time to wait for the first request of a group that needs a payload before the
+/// flow is treated as server-first and connected without one.
+const DELAY_CONN_FIRST_REQUEST_PROBE: Duration = Duration::from_secs(1);
 const DESTINATION_HOST_PROBE_TIMEOUT: Duration = Duration::from_millis(50);
 
 pub(super) fn maybe_delay_connect(
@@ -45,12 +46,11 @@ pub(super) fn maybe_delay_connect(
     if let Some(handshake) = handshake {
         send_success_reply(client, handshake).map_err(|err| ConnectRelayError::new(err, false))?;
     }
-    let first_request = if requires_delay {
-        read_blocking_first_request(client, state.delayed_connect_buffer_size())
-    } else {
-        read_available_first_request(client, state.delayed_connect_buffer_size())
-    }
-    .map_err(|err| ConnectRelayError::new(err, true))?;
+    // A server-first protocol (SMTP, IMAP, FTP) sends nothing until the server speaks, so a
+    // silent client falls back to the immediate path and its server-first handling.
+    let probe = if requires_delay { DELAY_CONN_FIRST_REQUEST_PROBE } else { DESTINATION_HOST_PROBE_TIMEOUT };
+    let first_request = read_first_request(client, state.delayed_connect_buffer_size(), probe)
+        .map_err(|err| ConnectRelayError::new(err, true))?;
     let payload = match first_request {
         FirstRequestRead::Payload(payload) => payload,
         FirstRequestRead::Closed => return Ok(DelayConnect::Closed),
@@ -81,19 +81,6 @@ pub(super) fn maybe_delay_connect(
     };
 
     Ok(DelayConnect::Delayed { route, payload })
-}
-
-fn read_blocking_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<FirstRequestRead> {
-    match read_first_request(client, buffer_size, DELAY_CONN_READ_TIMEOUT)? {
-        FirstRequestRead::Pending => {
-            Err(io::Error::new(io::ErrorKind::TimedOut, "no first request within the delayed-connect timeout"))
-        }
-        read => Ok(read),
-    }
-}
-
-fn read_available_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<FirstRequestRead> {
-    read_first_request(client, buffer_size, DESTINATION_HOST_PROBE_TIMEOUT)
 }
 
 /// Reads the client's first request, waiting up to `idle_timeout` for its first byte.
@@ -274,5 +261,33 @@ mod tests {
         };
         assert_eq!(payload, hello, "the delayed path must keep the whole ClientHello, not its first segment");
         writer.join().expect("writer");
+    }
+    #[test]
+    fn payload_group_falls_back_to_immediate_connect_for_a_server_first_client() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client listener");
+        let client_addr = listener.local_addr().expect("client listener addr");
+        let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
+        let client = std::thread::spawn(move || {
+            let mut client = TcpStream::connect(client_addr).expect("connect client");
+            let mut reply = [0_u8; 10];
+            client.read_exact(&mut reply).expect("read SOCKS5 success");
+            // A server-first client waits for the banner and sends nothing.
+            let _ = done_rx.recv_timeout(Duration::from_secs(10));
+        });
+        let (mut accepted, _) = listener.accept().expect("accept client");
+        let mut config = RuntimeConfig::default();
+        config.network.delay_conn = true;
+        config.groups[0].matches.proto = ripdpi_packets::IS_HTTPS;
+        let target = SocketAddr::from(([192, 0, 2, 25], 25));
+
+        let started = std::time::Instant::now();
+        let delayed =
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks5))
+                .expect("server-first flow must not fail");
+
+        assert!(matches!(delayed, DelayConnect::Immediate { success_reply_sent: true }));
+        assert!(started.elapsed() < Duration::from_secs(3), "waited {:?} for a server-first client", started.elapsed());
+        done_tx.send(()).expect("release client");
+        client.join().expect("client");
     }
 }
