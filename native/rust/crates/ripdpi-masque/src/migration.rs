@@ -3,12 +3,15 @@ use std::time::{Duration, Instant};
 use crate::client::MasqueClientInner;
 
 const MIGRATION_COOLDOWN: Duration = Duration::from_secs(30);
+/// How long new UDP flows go straight to HTTP/2 after an H3 CONNECT-UDP failure.
+pub(crate) const H3_UDP_FAILURE_COOLDOWN: Duration = Duration::from_secs(120);
 
 #[derive(Default)]
 pub(crate) struct QuicMigrationSnapshot {
     pub(crate) status: Option<String>,
     pub(crate) reason: Option<String>,
     pub(crate) cooldown_until: Option<Instant>,
+    pub(crate) h3_udp_cooldown_until: Option<Instant>,
 }
 
 /// Typed migration status code. Mirrors the documented vocabulary in
@@ -78,6 +81,21 @@ impl MasqueClientInner {
             |_| (Some("not_attempted".to_string()), None),
             |snapshot| (snapshot.status.clone(), snapshot.reason.clone()),
         )
+    }
+
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: only reads the snapshot under its lock.
+    pub(crate) async fn h3_udp_in_cooldown(&self) -> bool {
+        self.last_migration_snapshot.lock().await.h3_udp_cooldown_until.is_some_and(|until| Instant::now() < until)
+    }
+
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: one assignment under the snapshot lock.
+    pub(crate) async fn arm_h3_udp_cooldown(&self) {
+        self.last_migration_snapshot.lock().await.h3_udp_cooldown_until =
+            Some(Instant::now() + H3_UDP_FAILURE_COOLDOWN);
     }
 
     pub(crate) async fn record_quic_migration_status(&self, status: &str, reason: Option<&str>) {

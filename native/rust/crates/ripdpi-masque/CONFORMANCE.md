@@ -42,6 +42,8 @@ The current hardening surface is pinned by tests for CONNECT-UDP base-path deriv
 | `http3_connect_failed_<inner>` | H3 CONNECT attempt rejected with an inner-error tag from `classify_attempt_failure`. |
 | `http3_connect_timed_out` | H3 CONNECT attempt exceeded the per-attempt timeout. |
 | `http3_connect_failed` | Generic H3 CONNECT failure when no inner classification is available. |
+| `http3_udp_connect_failed_<inner>` | H3 CONNECT-UDP attempt failed; new UDP flows on this relay skip H3 for 120 s. |
+| `http3_udp_cooldown` | A UDP flow skipped H3 because an H3 CONNECT-UDP attempt failed less than 120 s ago. |
 
 | `reason` when `status == "failed"` | Trigger |
 | --- | --- |

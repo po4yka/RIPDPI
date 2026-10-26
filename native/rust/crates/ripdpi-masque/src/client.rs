@@ -47,6 +47,7 @@ impl MasqueClient {
                     status: Some("not_attempted".to_string()),
                     reason: None,
                     cooldown_until: None,
+                    h3_udp_cooldown_until: None,
                 }),
             }),
         })

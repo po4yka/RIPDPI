@@ -1448,3 +1448,27 @@ async fn udp_flow_open_to_a_silent_proxy_times_out_on_h3_and_h2() {
     assert_eq!(error.kind(), io::ErrorKind::TimedOut, "error: {error}");
     assert_eq!(started.elapsed(), crate::response::CONNECT_ATTEMPT_TIMEOUT * 2);
 }
+
+#[tokio::test]
+async fn new_udp_flows_go_straight_to_http2_after_a_recent_h3_failure() {
+    // The fixture never answers QUIC, so the first flow waits out the H3 bound.
+    let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+    let mut config = h3_connect_udp_proxy_config("127.0.0.1:0".parse().expect("address"), String::new());
+    config.url = fixture.masque_url();
+    config.proxy_socket_addr = None;
+    config.root_certificate_pem = None;
+    config.use_http2_fallback = true;
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+    udp.send_to(&fixture.udp_echo_target(), b"first").await.expect("first flow falls back to HTTP/2");
+
+    let started = std::time::Instant::now();
+    udp.send_to("127.0.0.1:9", b"second").await.expect("second flow opens over HTTP/2");
+
+    assert!(
+        started.elapsed() < crate::response::CONNECT_ATTEMPT_TIMEOUT / 2,
+        "second flow retried HTTP/3 first: {:?}",
+        started.elapsed()
+    );
+    assert_eq!(fixture.observed_requests().len(), 2);
+}
