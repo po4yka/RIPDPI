@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.loadReplaceableCredential
 import com.poyka.ripdpi.data.rollbackStoreMutation
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 
@@ -111,12 +112,12 @@ class TestDirectRelayProfileMutationCoordinator(
         if (expectedState != null) {
             require(
                 profiles.load(profile.id) == expectedState.profile &&
-                    this.credentials.load(profile.id) == expectedState.credentials,
+                    loadReplaceableCredential { this.credentials.load(profile.id) } == expectedState.credentials,
             )
         }
         val outcome = commitMutationIntent(preparation)
         val previousProfile = profiles.load(profile.id)
-        val previousCredentials = this.credentials.load(profile.id)
+        val previousCredentials = loadReplaceableCredential { this.credentials.load(profile.id) }
         val previousSettings = settings.snapshot()
         try {
             profiles.save(profile)

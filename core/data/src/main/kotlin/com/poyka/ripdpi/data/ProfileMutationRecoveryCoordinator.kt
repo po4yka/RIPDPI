@@ -493,7 +493,8 @@ private suspend fun ProfileMutationRuntime.writeRelayUpsert(
             journalRecovery.recover()
             require(
                 stores.relayProfiles.load(profile.id) == expectedState.profile &&
-                    stores.relayCredentials.load(profile.id) == expectedState.credentials,
+                    // The upsert replaces the credentials, so an unreadable old value must not block it.
+                    loadReplaceableCredential { stores.relayCredentials.load(profile.id) } == expectedState.credentials,
             ) { "Relay profile changed since editing began" }
             afterImageWriter.executeRecovered(preparation, intent)
         }

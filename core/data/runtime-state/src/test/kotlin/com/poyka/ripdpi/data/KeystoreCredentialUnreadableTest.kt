@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.awg.KeystoreAwgCredentialStore
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,8 +23,20 @@ class KeystoreCredentialUnreadableTest {
 
             val failure = runCatching { KeystoreRelayCredentialStore(context).load("primary") }
 
-            assertTrue("expected a failure, got ${failure.getOrNull()}", failure.isFailure)
+            assertTrue(
+                "expected an unreadable credential, got $failure",
+                failure.exceptionOrNull() is UnreadableCredentialException,
+            )
             assertEquals(CorruptPayload, preferences.getString("relay-credentials:primary", null))
+        }
+
+    @Test
+    fun `a replacing read opens an unreadable credential as empty`() =
+        runTest {
+            seedCorrupt("relay_credentials_secure", "relay-credentials:primary")
+            val store = KeystoreRelayCredentialStore(context)
+
+            assertNull(loadReplaceableCredential { store.load("primary") })
         }
 
     @Test

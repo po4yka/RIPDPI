@@ -381,6 +381,38 @@ class ConfigRelayArtifactRepositoryTest {
         }
 
     @Test
+    fun `a relay profile whose credentials cannot be decrypted opens saves and selects`() =
+        runTest {
+            val settings = FailingSettingsRepository()
+            val profiles = FailingRelayProfileStore()
+            val credentials = FailingRelayCredentialRepository()
+            val repository =
+                ConfigRelayArtifactRepository(
+                    settings,
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            settings,
+                        ),
+                )
+            val profile = RelayProfileRecord(id = "lost-key", kind = RelayKindTrojan, server = "relay.example")
+            profiles.save(profile)
+            credentials.unreadable += profile.id
+
+            val draft = repository.hydrateProfile(profile.id)
+            assertNull(draft.editingRelayCredentialsAtOpen)
+            repository.persist(draft.copy(relayTrojanPassword = "re-entered-fixture"))
+            assertEquals("re-entered-fixture", credentials.load(profile.id)?.trojanPassword)
+
+            credentials.unreadable += profile.id
+            repository.selectProfile(profile.id)
+            assertEquals(profile.id, settings.snapshot().relayProfileId)
+        }
+
+    @Test
     fun `selecting a saved profile preserves its metadata and credentials`() =
         runTest {
             val settings = FailingSettingsRepository()
@@ -770,9 +802,19 @@ private class FailingRelayCredentialRepository : com.poyka.ripdpi.data.RelayCred
     private val records = linkedMapOf<String, RelayCredentialRecord>()
     var failNextSaveAfterWrite = false
 
-    override suspend fun load(profileId: String): RelayCredentialRecord? = records[profileId]
+    /** Profile ids whose sealed value no longer decrypts. */
+    val unreadable = mutableSetOf<String>()
+
+    override suspend fun load(profileId: String): RelayCredentialRecord? {
+        if (profileId in unreadable) {
+            throw com.poyka.ripdpi.data
+                .UnreadableCredentialException(javax.crypto.AEADBadTagException("fixture"))
+        }
+        return records[profileId]
+    }
 
     override suspend fun save(credentials: RelayCredentialRecord) {
+        unreadable -= credentials.profileId
         records[credentials.profileId] = credentials
         if (failNextSaveAfterWrite) {
             failNextSaveAfterWrite = false

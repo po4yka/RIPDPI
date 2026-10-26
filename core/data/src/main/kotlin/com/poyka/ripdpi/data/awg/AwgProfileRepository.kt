@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.SubscriptionAwgWrite
+import com.poyka.ripdpi.data.loadReplaceableCredential
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 import com.poyka.ripdpi.serialization.RipDpiContractJson
@@ -131,7 +132,9 @@ class AwgProfileRepository
                 }
             }
 
-        private suspend fun secretsFor(id: String): AwgSecrets = credentialStore.load(id) ?: AwgSecrets()
+        // Listing and editing show an unreadable secret as empty so the user can re-enter or delete it.
+        private suspend fun secretsFor(id: String): AwgSecrets =
+            loadReplaceableCredential { credentialStore.load(id) } ?: AwgSecrets()
 
         /**
          * Persists [request] under [name], returning the stable profile id used for the row.
@@ -224,7 +227,8 @@ class AwgProfileRepository
                 val keySource = existingRow ?: previousRow
                 val preserved =
                     if (keySource != null && request.privateKey.isEmpty()) {
-                        request.copy(privateKey = secretsFor(keySource.id).privateKey)
+                        // Strict read: a refresh must not swap an unreadable local key for an empty one.
+                        request.copy(privateKey = (credentialStore.load(keySource.id) ?: AwgSecrets()).privateKey)
                     } else {
                         request
                     }

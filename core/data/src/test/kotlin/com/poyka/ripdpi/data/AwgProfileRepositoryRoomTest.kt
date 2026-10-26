@@ -47,6 +47,20 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
         }
 
     @Test
+    fun `a profile whose secrets cannot be decrypted still lists and accepts re-entered keys`() =
+        runTest {
+            val id = repository.save(name = "home", request = sampleRequest())
+            credentialStore.unreadable += id
+
+            val loaded = requireNotNull(repository.load(id))
+            assertEquals("", loaded.request.privateKey)
+            assertEquals(listOf(id), repository.observeProfiles().first().map { it.id })
+
+            repository.save("home", sampleRequest().copy(privateKey = "re-entered=="), existingId = id)
+            assertEquals("re-entered==", repository.load(id)?.request?.privateKey)
+        }
+
+    @Test
     fun `numeric header rows are quarantined without stopping valid profile observations or erasing keys`() =
         runTest {
             val oldId = repository.save("old contract", sampleRequest())

@@ -283,7 +283,13 @@ internal class InMemoryRelayCredentialStore : RelayCredentialStore {
     var failNextSave = false
     var failSaveAttempts = 0
 
-    override suspend fun load(profileId: String) = values[profileId]
+    /** Profile ids whose stored value behaves like a sealed secret that no longer decrypts. */
+    val unreadable = mutableSetOf<String>()
+
+    override suspend fun load(profileId: String): RelayCredentialRecord? {
+        if (profileId in unreadable) throw unreadableFixture()
+        return values[profileId]
+    }
 
     override suspend fun save(credentials: RelayCredentialRecord) {
         if (failNextSave || failSaveAttempts > 0) {
@@ -291,6 +297,7 @@ internal class InMemoryRelayCredentialStore : RelayCredentialStore {
             if (failSaveAttempts > 0) failSaveAttempts -= 1
             error("simulated credential store failure")
         }
+        unreadable -= credentials.profileId
         values[credentials.profileId] = credentials
     }
 
@@ -351,7 +358,13 @@ internal class InMemoryWarpProfileStore : WarpProfileStore {
 internal class InMemoryWarpCredentialStore : WarpCredentialStore {
     private val values = mutableMapOf<String, WarpCredentials>()
 
-    override suspend fun load(profileId: String) = values[profileId]
+    /** Profile ids whose stored value behaves like a sealed secret that no longer decrypts. */
+    val unreadable = mutableSetOf<String>()
+
+    override suspend fun load(profileId: String): WarpCredentials? {
+        if (profileId in unreadable) throw unreadableFixture()
+        return values[profileId]
+    }
 
     override suspend fun loadAll() = values.values.toList()
 
@@ -359,6 +372,7 @@ internal class InMemoryWarpCredentialStore : WarpCredentialStore {
         profileId: String,
         credentials: WarpCredentials,
     ) {
+        unreadable -= profileId
         values[profileId] = credentials
     }
 
@@ -522,3 +536,5 @@ internal class InMemoryXraySelectionStore : XrayProviderSelectionStore {
         value = record
     }
 }
+
+internal fun unreadableFixture() = UnreadableCredentialException(javax.crypto.AEADBadTagException("fixture"))

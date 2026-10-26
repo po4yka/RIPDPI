@@ -97,7 +97,9 @@ class TestDirectAwgProfileMutationCoordinator(
         secrets: AwgSecrets,
     ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         val previousProfile = dao.getProfile(profile.id)
-        val previousSecrets = credentials.load(profile.id)
+        val previousSecrets =
+            com.poyka.ripdpi.data
+                .loadReplaceableCredential { credentials.load(profile.id) }
         runCatching {
             credentials.save(profile.id, secrets)
             dao.upsertProfile(profile)

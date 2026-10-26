@@ -272,7 +272,7 @@ class KeystoreXrayProfileSecretStore
         override suspend fun load(profileId: String): XrayProfileSecretRecord? =
             withContext(Dispatchers.IO) {
                 blobStore
-                    .getStringStrict(prefKey(profileId))
+                    .getCredentialString(prefKey(profileId))
                     ?.let { json.decodeFromString(XrayProfileSecretRecord.serializer(), it) }
             }
 

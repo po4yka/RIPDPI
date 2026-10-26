@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.applyRelayAfterImage
+import com.poyka.ripdpi.data.loadReplaceableCredential
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -39,7 +40,7 @@ class ConfigRelayArtifactRepository
         suspend fun hydrate(draft: ConfigDraft): ConfigDraft =
             readRecovered {
                 val profileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId }
-                draft.withRelayArtifacts(relayProfileStore.load(profileId), relayCredentialStore.load(profileId))
+                draft.withRelayArtifacts(relayProfileStore.load(profileId), loadEditableCredentials(profileId))
             }
 
         suspend fun hydrateProfile(profileId: String): ConfigDraft =
@@ -52,7 +53,7 @@ class ConfigRelayArtifactRepository
                         .apply { applyRelayAfterImage(profile, enabled = true) }
                         .build()
                         .toConfigDraft()
-                draft.withRelayArtifacts(profile, relayCredentialStore.load(profileId))
+                draft.withRelayArtifacts(profile, loadEditableCredentials(profileId))
             }
 
         suspend fun selectProfile(profileId: String): ConfigDraft {
@@ -63,7 +64,7 @@ class ConfigRelayArtifactRepository
             val captured =
                 readRecovered {
                     val profile = requireNotNull(relayProfileStore.load(profileId)) { "Relay profile no longer exists" }
-                    val credentials = relayCredentialStore.load(profileId)
+                    val credentials = loadEditableCredentials(profileId)
                     profile to credentials
                 }
             profileMutations.upsertRelay(
@@ -112,7 +113,7 @@ class ConfigRelayArtifactRepository
             readRecovered {
                 val profileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId }
                 val profile = relayProfileStore.load(profileId)
-                val credentials = relayCredentialStore.load(profileId)
+                val credentials = loadEditableCredentials(profileId)
                 require(draft.editingRelayProfileId.isBlank() || draft.editingRelayProfileId == profileId) {
                     "A saved relay profile ID cannot be changed"
                 }
@@ -132,6 +133,10 @@ class ConfigRelayArtifactRepository
                 }
             }
         }
+
+        // An unreadable secret opens as empty so the user can re-enter it; a save replaces it.
+        private suspend fun loadEditableCredentials(profileId: String) =
+            loadReplaceableCredential { relayCredentialStore.load(profileId) }
 
         private suspend fun <T> readRecovered(block: suspend () -> T): T = profileMutations.readRecovered(block)
     }

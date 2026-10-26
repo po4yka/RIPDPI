@@ -250,7 +250,7 @@ class KeystoreWarpCredentialStore
         override suspend fun load(profileId: String): WarpCredentials? =
             withContext(Dispatchers.IO) {
                 blobStore
-                    .getStringStrict(prefKey(profileId))
+                    .getCredentialString(prefKey(profileId))
                     ?.let { payload ->
                         json.decodeFromString<WarpCredentials>(payload).copy(profileId = profileId)
                     }
@@ -264,7 +264,7 @@ class KeystoreWarpCredentialStore
                     .asSequence()
                     .filter { it.startsWith(CredentialsEntryPrefix) }
                     .mapNotNull { key ->
-                        blobStore.getStringStrict(key)?.let { payload ->
+                        blobStore.getCredentialString(key)?.let { payload ->
                             runCatching {
                                 json.decodeFromString<WarpCredentials>(payload).copy(
                                     profileId = key.removePrefix(CredentialsEntryPrefix),
@@ -311,7 +311,7 @@ class KeystoreWarpCredentialStore
                 return null
             }
             return blobStore
-                .getStringStrict(LegacyCredentialsEntryKey)
+                .getCredentialString(LegacyCredentialsEntryKey)
                 ?.let { json.decodeFromString<WarpCredentials>(it).copy(profileId = profileId) }
         }
 
@@ -464,6 +464,13 @@ internal class KeystoreEncryptedPreferences(
         withDurableState {
             val payload = preferences.getString(key, null) ?: return@withDurableState null
             decrypt(payload)
+        }
+
+    /** Like [getStringStrict], but a value that cannot be decrypted throws [UnreadableCredentialException]. */
+    fun getCredentialString(key: String): String? =
+        withDurableState {
+            val payload = preferences.getString(key, null) ?: return@withDurableState null
+            runCatching { decrypt(payload) }.getOrElse { throw UnreadableCredentialException(it) }
         }
 
     fun putString(
