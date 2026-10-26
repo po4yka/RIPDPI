@@ -52,6 +52,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::os::fd::RawFd;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 pub trait ProtectCallback: Send + Sync {
     fn protect(&self, fd: RawFd) -> io::Result<()>;
@@ -94,8 +95,15 @@ impl SocketProtectionPolicy {
     }
 
     /// Resolve a relay hostname without sending a DNS query through the app TUN.
-    /// VPN mode delegates to the registered Android underlying-network callback;
-    /// non-VPN mode retains the ordinary system resolver.
+    /// VPN mode delegates to the registered Android underlying-network callback
+    /// and fails with [`io::ErrorKind::TimedOut`] after 10 s; non-VPN mode
+    /// retains the ordinary system resolver.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: no caller-visible state spans an `.await`. A dropped
+    /// resolution leaves at most one detached lookup thread, which exits when
+    /// the platform resolver returns.
     pub async fn resolve_host(self, host: &str, port: u16) -> io::Result<Vec<SocketAddr>> {
         if let Ok(ip) = host.parse::<IpAddr>() {
             return Ok(vec![SocketAddr::new(ip, port)]);
@@ -104,7 +112,7 @@ impl SocketProtectionPolicy {
             Self::Inactive => tokio::net::lookup_host((host, port)).await?.collect::<Vec<_>>(),
             Self::VpnRequired => {
                 let host = host.to_owned();
-                tokio::task::spawn_blocking(move || resolve_host_via_callback(&host))
+                tokio::task::spawn_blocking(move || resolve_host_via_callback_within(host, PROTECTED_RESOLVE_TIMEOUT))
                     .await
                     .map_err(|error| io::Error::other(format!("protected DNS task failed: {error}")))??
                     .into_iter()
@@ -292,6 +300,32 @@ pub fn resolve_host_via_callback(host: &str) -> io::Result<Vec<IpAddr>> {
         .resolve_host(host)
 }
 
+/// Upper bound on one protected (underlying-network) hostname resolution.
+/// `Network.getAllByName` cannot be cancelled and can retry for tens of seconds
+/// when the underlying network has no working DNS.
+const PROTECTED_RESOLVE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Run [`resolve_host_via_callback`] on a detached thread and wait at most
+/// `limit` for it. The caller's thread (a blocking-pool thread in
+/// [`SocketProtectionPolicy::resolve_host`]) is released at the deadline even
+/// when the platform lookup keeps running.
+fn resolve_host_via_callback_within(host: String, limit: Duration) -> io::Result<Vec<IpAddr>> {
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    std::thread::Builder::new().name("ripdpi-protect-dns".to_string()).spawn(move || {
+        // A send error means the waiter timed out and left; nothing to report.
+        let _ = sender.send(resolve_host_via_callback(&host));
+    })?;
+    match receiver.recv_timeout(limit) {
+        Ok(result) => result,
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+            Err(io::Error::new(io::ErrorKind::TimedOut, format!("protected DNS lookup timed out after {limit:?}")))
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+            Err(io::Error::other("protected DNS lookup thread exited without a result"))
+        }
+    }
+}
+
 fn protect_callback_snapshot() -> Option<Arc<dyn ProtectCallback>> {
     let guard = registry_read();
     guard.as_ref().map(|registered| Arc::clone(&registered.callback))
@@ -385,6 +419,38 @@ mod tests {
 
         assert_eq!(addresses, vec!["203.0.113.7:443".parse().expect("address")]);
         unregister_protect_callback();
+    }
+
+    struct StalledResolverCallback {
+        release: Mutex<std::sync::mpsc::Receiver<()>>,
+    }
+
+    impl ProtectCallback for StalledResolverCallback {
+        fn protect(&self, _fd: RawFd) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn resolve_host(&self, _host: &str) -> io::Result<Vec<IpAddr>> {
+            // Blocks like Network.getAllByName on an underlying network with dead DNS.
+            let _ = self.release.lock().expect("release lock").recv();
+            Ok(Vec::new())
+        }
+    }
+
+    #[test]
+    fn protected_resolution_times_out_while_the_platform_lookup_stalls() {
+        let _lock = TEST_MUTEX.lock().expect("test mutex");
+        let (release, stalled) = std::sync::mpsc::channel();
+        register_protect_callback(Arc::new(StalledResolverCallback { release: Mutex::new(stalled) }));
+
+        let started = std::time::Instant::now();
+        let error = resolve_host_via_callback_within("relay.example".to_string(), Duration::from_millis(50))
+            .expect_err("a stalled lookup must time out");
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < Duration::from_secs(2), "waited {:?}", started.elapsed());
+        unregister_protect_callback();
+        let _ = release.send(());
     }
 
     #[test]
