@@ -28,7 +28,7 @@ use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_ws_transport_port::WsTransport;
 
 pub use self::listeners::ProxyRuntimeCleanupReceipt;
-use self::listeners::{RuntimeOwner, build_listener, run_proxy_with_listener_internal};
+use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use self::state::RuntimeState;
 pub use geo::{RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, load_geo_database_versions, load_geoip_metadata};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
@@ -54,8 +54,7 @@ pub fn run_proxy_with_listener(
     listener: TcpListener,
     ws_transport: Arc<dyn WsTransport>,
 ) -> io::Result<()> {
-    run_proxy_with_listener_internal(config, listener, None, ws_transport, RuntimeOwner::Service)
-        .and_then(ordinary_proxy_result)
+    run_proxy_with_listener_internal(config, listener, None, ws_transport).and_then(ordinary_proxy_result)
 }
 
 pub fn run_proxy_with_embedded_control(
@@ -64,8 +63,7 @@ pub fn run_proxy_with_embedded_control(
     control: std::sync::Arc<EmbeddedProxyControl>,
     ws_transport: Arc<dyn WsTransport>,
 ) -> io::Result<()> {
-    run_proxy_with_listener_internal(config, listener, Some(control), ws_transport, RuntimeOwner::Service)
-        .and_then(ordinary_proxy_result)
+    run_proxy_with_listener_internal(config, listener, Some(control), ws_transport).and_then(ordinary_proxy_result)
 }
 
 fn ordinary_proxy_result(receipt: ProxyRuntimeCleanupReceipt) -> io::Result<()> {
@@ -76,16 +74,13 @@ fn ordinary_proxy_result(receipt: ProxyRuntimeCleanupReceipt) -> io::Result<()> 
 }
 
 /// Runs an embedded proxy and returns its terminal worker-cleanup receipt.
-///
-/// This entry point is for stage-owned diagnostic candidate runtimes: it starts no
-/// warmup or network reprobe work that could outlive the stage supervisor.
 pub fn run_proxy_with_embedded_control_receipt(
     config: RuntimeConfig,
     listener: TcpListener,
     control: std::sync::Arc<EmbeddedProxyControl>,
     ws_transport: Arc<dyn WsTransport>,
 ) -> io::Result<ProxyRuntimeCleanupReceipt> {
-    run_proxy_with_listener_internal(config, listener, Some(control), ws_transport, RuntimeOwner::StageCandidate)
+    run_proxy_with_listener_internal(config, listener, Some(control), ws_transport)
 }
 
 #[cfg(all(test, not(feature = "loom")))]

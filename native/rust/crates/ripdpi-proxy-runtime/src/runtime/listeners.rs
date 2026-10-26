@@ -82,27 +82,18 @@ pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> 
     listener_platform::bind_tcp_listener(RuntimeState::listener_bind_addr(config))
 }
 
-/// Who owns a proxy runtime, which decides whether it may start background work.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum RuntimeOwner {
-    /// The long-lived service or CLI runtime; it runs warmup and network reprobe.
-    Service,
-    /// A stage-owned diagnostic candidate; it must not start work that outlives its supervisor.
-    StageCandidate,
-}
-
 pub(super) fn run_proxy_with_listener_internal(
     config: RuntimeConfig,
     listener: TcpListener,
     control: Option<StdArc<EmbeddedProxyControl>>,
     ws_transport: StdArc<dyn WsTransport>,
-    owner: RuntimeOwner,
 ) -> io::Result<ProxyRuntimeCleanupReceipt> {
     let mut config = config;
     super::validate_proxy_config(&config)?;
     RuntimeState::validate_listener_auth(&config, listener.local_addr()?.ip())?;
     RuntimeState::ensure_config_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let _root_helper = RootHelperRegistration::for_config(&config);
+    let embedded_candidate_runtime = control.is_some();
     let state = RuntimeState::new(config, control.clone(), ws_transport)?;
     let client_capacity = state.listener_client_capacity();
     let listener_addr = listener.local_addr()?;
@@ -112,9 +103,11 @@ pub(super) fn run_proxy_with_listener_internal(
     // The policy port's ServicesState::drop handles persistence on shutdown.
     state.drain_autolearn_events();
 
-    // The caller states the owner: the service also passes an embedded control,
-    // so the control alone cannot tell a candidate from the service runtime.
-    if owner == RuntimeOwner::Service {
+    // Candidate diagnostics runtimes are stage-owned: they must not start
+    // fire-and-forget warmup or reprobe work that could outlive their
+    // supervisor. The long-lived service runtime retains these background
+    // optimizations.
+    if !embedded_candidate_runtime {
         super::warmup::spawn_warmup_thread(state.clone());
 
         // Check for network identity changes and trigger a lightweight reprobe
