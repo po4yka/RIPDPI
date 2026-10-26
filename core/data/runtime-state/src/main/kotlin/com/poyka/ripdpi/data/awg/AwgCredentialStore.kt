@@ -84,7 +84,7 @@ class KeystoreAwgCredentialStore
             )
 
         override suspend fun load(profileId: String): AwgSecrets? =
-            blobStore.getString(prefKey(profileId))?.let { payload ->
+            blobStore.getStringStrict(prefKey(profileId))?.let { payload ->
                 runCatching { json.decodeFromString<AwgSecrets>(payload) }.getOrNull()
             }
 

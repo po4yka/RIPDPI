@@ -249,7 +249,7 @@ class KeystoreWarpCredentialStore
 
         override suspend fun load(profileId: String): WarpCredentials? =
             blobStore
-                .getString(prefKey(profileId))
+                .getStringStrict(prefKey(profileId))
                 ?.let { payload ->
                     json.decodeFromString<WarpCredentials>(payload).copy(profileId = profileId)
                 }
@@ -261,7 +261,7 @@ class KeystoreWarpCredentialStore
                 .asSequence()
                 .filter { it.startsWith(CredentialsEntryPrefix) }
                 .mapNotNull { key ->
-                    blobStore.getString(key)?.let { payload ->
+                    blobStore.getStringStrict(key)?.let { payload ->
                         runCatching {
                             json.decodeFromString<WarpCredentials>(payload).copy(
                                 profileId = key.removePrefix(CredentialsEntryPrefix),
@@ -307,7 +307,7 @@ class KeystoreWarpCredentialStore
                 return null
             }
             return blobStore
-                .getString(LegacyCredentialsEntryKey)
+                .getStringStrict(LegacyCredentialsEntryKey)
                 ?.let { json.decodeFromString<WarpCredentials>(it).copy(profileId = profileId) }
         }
 
@@ -455,12 +455,7 @@ internal class KeystoreEncryptedPreferences(
     fun <T> withDurableState(block: () -> T): T =
         if (durability == null) block() else durability.access(preferences, block)
 
-    fun getString(key: String): String? =
-        withDurableState {
-            val payload = preferences.getString(key, null) ?: return@withDurableState null
-            runCatching { decrypt(payload) }.getOrNull()
-        }
-
+    /** Throws when a stored value cannot be decrypted: an unreadable secret is not an absent one. */
     fun getStringStrict(key: String): String? =
         withDurableState {
             val payload = preferences.getString(key, null) ?: return@withDurableState null
