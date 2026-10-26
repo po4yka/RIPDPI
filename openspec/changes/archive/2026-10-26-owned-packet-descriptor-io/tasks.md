@@ -10,7 +10,7 @@ Dependency integration owns native/rust/crates/ripdpi-tunnel-core, native/rust/C
 
 ## Execution
 
-- [ ] VPN-1793035899141801 Implement owned packet I/O and verify byte framing, readiness, ownership, and TUN E2E gates #bug !high @item:VPN-1793035703372515
+- [x] VPN-1793035899141801 Implement owned packet I/O and verify byte framing, readiness, ownership, and TUN E2E gates #bug !high @item:VPN-1793035703372515
 
 ## Verification
 
