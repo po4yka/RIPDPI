@@ -96,6 +96,22 @@ private fun formatHostPort(
     port: Int,
 ): String = if (':' in host) "[$host]:$port" else "$host:$port"
 
+// STUN servers from the upstream Snowflake client torrc. Without ice= the client gathers no
+// server-reflexive candidates and cannot report its NAT type to the broker.
+private const val SnowflakeDefaultIceServers =
+    "stun:stun.antisip.com:3478,stun:stun.epygi.com:3478,stun:stun.uls.co.za:3478," +
+        "stun:stun.voipgate.com:3478,stun:stun.mixvoip.com:3478,stun:stun.nextcloud.com:3478," +
+        "stun:stun.bethesda.net:3478,stun:stun.nextcloud.com:443"
+
+internal fun snowflakePtArguments(config: ResolvedRipDpiRelayConfig): String =
+    encodePtArguments(
+        "url" to config.ptSnowflakeBrokerUrl,
+        "front" to config.ptSnowflakeFrontDomain,
+        "ice" to SnowflakeDefaultIceServers,
+        "utls-imitate" to "hellochrome_auto",
+        "covertdtls-config" to "mimic",
+    )
+
 internal fun encodePtArguments(vararg entries: Pair<String, String?>): String =
     entries
         .filter { (_, value) -> !value.isNullOrBlank() }
@@ -178,13 +194,7 @@ open class PluggableTransportManager
                                 methodName = RelayKindSnowflake,
                                 targetHost = SnowflakeDummyTargetHost,
                                 targetPort = SnowflakeDummyTargetPort,
-                                ptArguments =
-                                    encodePtArguments(
-                                        "url" to config.ptSnowflakeBrokerUrl,
-                                        "front" to config.ptSnowflakeFrontDomain,
-                                        "utls-imitate" to "hellochrome_auto",
-                                        "covertdtls-config" to "mimic",
-                                    ),
+                                ptArguments = snowflakePtArguments(config),
                             ),
                     )
                 }

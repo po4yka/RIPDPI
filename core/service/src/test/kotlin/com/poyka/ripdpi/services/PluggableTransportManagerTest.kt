@@ -5,6 +5,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PluggableTransportManagerTest {
@@ -67,6 +68,18 @@ class PluggableTransportManagerTest {
             names("obfs4 192.0.2.1:443 cert=abcd1234", webTunnelUrl = "https://edge.example/ws"),
         )
         assertEquals(listOf("webtunnel"), names("webtunnel 192.0.2.4:443 url=https://edge.example/ws"))
+    }
+
+    @Test
+    fun `snowflake client arguments carry STUN servers for NAT traversal`() {
+        val arguments =
+            snowflakePtArguments(
+                sampleResolvedRelayConfig(kind = "snowflake").copy(ptSnowflakeBrokerUrl = "https://broker.example/"),
+            ).split(';').associate { it.substringBefore('=') to it.substringAfter('=') }
+
+        assertEquals("https://broker.example/", arguments["url"])
+        val iceServers = arguments["ice"].orEmpty().split(',')
+        assertTrue(iceServers.isNotEmpty() && iceServers.all { it.startsWith("stun:") })
     }
 
     @Test
