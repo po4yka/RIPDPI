@@ -57,6 +57,43 @@ class StrategyPackManualRefreshTest {
             assertEquals("mobile", stateStore.state.value.selectedPackId)
         }
 
+    @Test
+    fun `refreshNow superseded by a channel switch does not publish the old channel catalog`() =
+        runTest {
+            val manualStarted = CompletableDeferred<Unit>()
+            val manualResult = CompletableDeferred<StrategyPackSnapshot>()
+            val stateStore = InMemoryStrategyPackStateStore()
+            val appSettingsRepository = TestAppSettingsRepository()
+            val service =
+                DefaultStrategyPackService(
+                    repository = GatedRepository(manualStarted, manualResult),
+                    appSettingsRepository = appSettingsRepository,
+                    stateStore = stateStore,
+                    clock = StrategyPackClock { testScheduler.currentTime },
+                    refreshSuccessTtlMs = 6L * 60L * 60L * 1000L,
+                    initialFailureBackoffMs = 15L * 60L * 1000L,
+                    maxFailureBackoffMs = 6L * 60L * 60L * 1000L,
+                    applicationScope = backgroundScope,
+                )
+            service.initialize()
+            runCurrent()
+            runCurrent()
+
+            val manual = backgroundScope.async { service.refreshNow() }
+            manualStarted.await()
+            // The user switches to beta; the beta refresh finishes before the stable download.
+            appSettingsRepository.update { setStrategyPackChannel("beta") }
+            runCurrent()
+            runCurrent()
+            assertEquals("beta", stateStore.state.value.snapshot.catalog.channel)
+
+            manualResult.complete(twoPackSnapshot("stable"))
+            manual.await()
+            runCurrent()
+
+            assertEquals("beta", stateStore.state.value.snapshot.catalog.channel)
+        }
+
     /** The first refresh waits for [result]; later refreshes return at once. */
     private class GatedRepository(
         private val started: CompletableDeferred<Unit>,
@@ -71,18 +108,18 @@ class StrategyPackManualRefreshTest {
             allowRollbackOverride: Boolean,
         ): StrategyPackSnapshot {
             refreshes += 1
-            if (refreshes > 1) return twoPackSnapshot()
+            if (refreshes > 1) return twoPackSnapshot(channel)
             started.complete(Unit)
             return result.await()
         }
     }
 
     private companion object {
-        fun twoPackSnapshot(): StrategyPackSnapshot =
+        fun twoPackSnapshot(channel: String = "stable"): StrategyPackSnapshot =
             StrategyPackSnapshot(
                 catalog =
                     StrategyPackCatalog(
-                        channel = "stable",
+                        channel = channel,
                         sequence = 11L,
                         packs =
                             listOf(

@@ -104,18 +104,21 @@ class DefaultStrategyPackService
             runCatching {
                 refreshExecutor.refresh(settings)
             }.onSuccess { snapshot ->
-                // Settings that changed during the download own the key and their own schedule.
-                val supersededBy =
+                val superseded =
                     schedulingMutex.withLock {
-                        consecutiveAutomaticFailures = 0
-                        lastSuccessfulFetchAtEpochMillis = snapshot.lastFetchedAtEpochMillis
-                        val newer = currentRefreshKey.takeIf { it != keyAtStart }
-                        if (newer == null) currentRefreshKey = key
-                        newer
+                        isSupersededLocked(keyAtStart, key).also { superseded ->
+                            if (!superseded) {
+                                consecutiveAutomaticFailures = 0
+                                lastSuccessfulFetchAtEpochMillis = snapshot.lastFetchedAtEpochMillis
+                                currentRefreshKey = key
+                            }
+                        }
                     }
+                // A settings change during the download owns the state; its own refresh publishes for it.
+                if (superseded) return@onSuccess
                 statePublisher.publishSelectionForSnapshot(
                     snapshot = snapshot,
-                    key = supersededBy ?: key,
+                    key = key,
                     lastRefreshAttemptAtEpochMillis = attemptedAt,
                     lastRefreshError = null,
                     lastRefreshFailureCode = null,
@@ -123,28 +126,33 @@ class DefaultStrategyPackService
                     cacheDegradationCode = null,
                     cacheDegradationDetail = null,
                 )
-                if (supersededBy == null) {
-                    scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.ManualRefreshReseed)
-                }
+                scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.ManualRefreshReseed)
             }.onFailure { error ->
                 if (error is CancellationException) {
                     throw error
                 }
                 val currentState = stateStore.state.value
-                val latestKey = schedulingMutex.withLock { currentRefreshKey.takeIf { it != keyAtStart } } ?: key
-                statePublisher.publishSelectionForSnapshot(
-                    snapshot = currentState.snapshot,
-                    key = latestKey,
-                    lastRefreshAttemptAtEpochMillis = attemptedAt,
-                    lastRefreshError = error.message,
-                    lastRefreshFailureCode = error.toFailureCode(),
-                    lastRejectedSequence = error.toRejectedSequence(),
-                    cacheDegradationCode = currentState.cacheDegradationCode,
-                    cacheDegradationDetail = currentState.cacheDegradationDetail,
-                )
+                if (!schedulingMutex.withLock { isSupersededLocked(keyAtStart, key) }) {
+                    statePublisher.publishSelectionForSnapshot(
+                        snapshot = currentState.snapshot,
+                        key = key,
+                        lastRefreshAttemptAtEpochMillis = attemptedAt,
+                        lastRefreshError = error.message,
+                        lastRefreshFailureCode = error.toFailureCode(),
+                        lastRejectedSequence = error.toRejectedSequence(),
+                        cacheDegradationCode = currentState.cacheDegradationCode,
+                        cacheDegradationDetail = currentState.cacheDegradationDetail,
+                    )
+                }
                 throw error
             }
         }
+
+        /** True when a settings change during a manual refresh installed a key that this refresh did not fetch. */
+        private fun isSupersededLocked(
+            keyAtStart: StrategyPackRefreshKey?,
+            fetchedKey: StrategyPackRefreshKey,
+        ): Boolean = currentRefreshKey != keyAtStart && currentRefreshKey != fetchedKey
 
         private suspend fun handleRelevantSettingsChange(key: StrategyPackRefreshKey) {
             Logger.i {
