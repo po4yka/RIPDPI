@@ -1479,20 +1479,46 @@ fn relay_runtime_accepts_finalmask_for_xhttp_vless() {
 }
 
 #[test]
-fn relay_runtime_accepts_finalmask_for_cloudflare_xhttp() {
+fn relay_runtime_accepts_only_fragment_finalmask_for_cloudflare_tunnel() {
     let mut config = sample_config("cloudflare_tunnel");
     config.common.finalmask = ResolvedRelayFinalmaskConfig {
-        r#type: "sudoku".to_string(),
-        sudoku_seed: "fixture-seed".to_string(),
+        r#type: "fragment".to_string(),
+        fragment_packets: 3,
+        fragment_min_bytes: 32,
+        fragment_max_bytes: 96,
         ..ResolvedRelayFinalmaskConfig::default()
     };
+    validate_finalmask_config(&config).expect("fragment keeps the stream valid TLS for the Cloudflare edge");
 
-    validate_finalmask_config(&config).expect("cloudflare xhttp finalmask should validate");
+    // These modes add or rewrite bytes ahead of the ClientHello that the edge cannot remove.
+    for finalmask in [
+        ResolvedRelayFinalmaskConfig {
+            r#type: "noise".to_string(),
+            rand_range: "8-12".to_string(),
+            ..ResolvedRelayFinalmaskConfig::default()
+        },
+        ResolvedRelayFinalmaskConfig {
+            r#type: "header_custom".to_string(),
+            header_hex: "abcd".to_string(),
+            ..ResolvedRelayFinalmaskConfig::default()
+        },
+        ResolvedRelayFinalmaskConfig {
+            r#type: "sudoku".to_string(),
+            sudoku_seed: "fixture-seed".to_string(),
+            ..ResolvedRelayFinalmaskConfig::default()
+        },
+    ] {
+        let mask_type = finalmask.r#type.clone();
+        config.common.finalmask = finalmask;
+        let error = validate_finalmask_config(&config).expect_err("the Cloudflare edge cannot unmask this mode");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported, "{mask_type}");
+    }
 }
 
 #[test]
 fn relay_runtime_accepts_noise_for_xhttp_transports() {
-    let mut config = sample_config("cloudflare_tunnel");
+    let mut config = sample_config("vless_reality");
+    vless_config_mut(&mut config).vless_transport = "xhttp".to_string();
     config.common.finalmask = ResolvedRelayFinalmaskConfig {
         r#type: "noise".to_string(),
         rand_range: "8-12".to_string(),

@@ -7,7 +7,7 @@ RIPDPI applies Finalmask directly in the native xHTTP transport on supported rel
 Supported relay families:
 
 - VLESS Reality with `xhttp`
-- Cloudflare Tunnel profiles that resolve through the xHTTP TLS path
+- Cloudflare Tunnel profiles that resolve through the xHTTP TLS path, with `fragment` only (see below)
 
 Supported modes:
 
@@ -17,6 +17,8 @@ Supported modes:
 - `Sudoku`: wire-compatible with Xray-core's TCP sudoku finalmask for a password with the default entropy layout (no `ascii` or custom table). The uplink uses classic hint tuples from the password table (Go `math/rand` shuffle); the downlink reads Xray's packed 6-bit groups. Server-side padding is accepted.
 
 The current implementation mutates the outbound xHTTP byte stream before the Reality or TLS handshake starts.
+
+Cloudflare Tunnel accepts only `fragment`. Its TLS peer is the Cloudflare edge, not an Xray server, and the edge has no inbound mask: `header-custom`, `noise` and `Sudoku` add or rewrite bytes ahead of the ClientHello, so the edge closes the connection. Rust relay validation rejects these modes for `cloudflare_tunnel`.
 
 ## Control Plane Integration
 
@@ -52,5 +54,5 @@ Use these examples as references for compatible server-side setups and matching 
 
 ## Practical Notes
 
-- Cloudflare Tunnel profiles still force xHTTP and disable UDP, so they can reuse the same Finalmask path as other xHTTP-backed profiles.
+- Cloudflare Tunnel profiles still force xHTTP and disable UDP. They reuse the xHTTP Finalmask path, limited to `fragment`.
 - Finalmask rollout should remain strategy-pack controlled rather than becoming an unconditional default.

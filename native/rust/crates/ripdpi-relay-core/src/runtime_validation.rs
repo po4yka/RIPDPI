@@ -212,6 +212,18 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
         ));
     }
 
+    // Cloudflare's edge, not an Xray server, terminates the TLS that the mask
+    // wraps, and it has no inbound mask. Only fragment keeps the bytes valid TLS.
+    if RelayKind::from_config(config) == RelayKind::CloudflareTunnel && finalmask.r#type != "fragment" {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!(
+                "finalmask {} is unsupported for cloudflare_tunnel: the Cloudflare edge cannot remove it; use fragment",
+                finalmask.r#type
+            ),
+        ));
+    }
+
     match finalmask.r#type.as_str() {
         "header_custom" => {
             if finalmask.header_hex.trim().is_empty() && finalmask.trailer_hex.trim().is_empty() {

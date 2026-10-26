@@ -1,7 +1,7 @@
 {
   "transport": {
     "type": "xhttp",
-    "mode": "packet-up",
+    "mode": "stream-up",
     "xPaddingBytes": "100-1000"
   },
   "cloudflareTunnel": {
@@ -9,7 +9,6 @@
     "origin": "origin.example.com"
   },
   "finalmask": {
-    "type": "noise",
-    "randRange": "16-128"
+    "type": "fragment"
   }
 }
