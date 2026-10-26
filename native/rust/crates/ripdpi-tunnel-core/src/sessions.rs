@@ -202,7 +202,21 @@ impl ActiveSessions {
         if let Some(registration_id) = entry.attribution_id {
             self.closed_flows.push(registration_id.request());
         }
+        self.compact_order_queues();
         Some(entry)
+    }
+
+    /// Drops tombstones of removed sessions once they outnumber live entries. Only capacity eviction
+    /// pops `eviction_order`, so a table that never fills would otherwise keep one per session ever
+    /// created. The threshold keeps the cost amortized O(1) per removal.
+    fn compact_order_queues(&mut self) {
+        let limit = 2 * self.entries.len() + 64;
+        let sequences = &self.sequences;
+        for queue in [&mut self.eviction_order, &mut self.work_order] {
+            if queue.len() > limit {
+                queue.retain(|entry| sequences.get(&entry.handle) == Some(&entry.sequence));
+            }
+        }
     }
 
     /// Takes completed flow identities for strategy-state cleanup.
@@ -365,6 +379,28 @@ mod tests {
         }
 
         assert_eq!(sessions.len(), 100, "unlimited sessions must hold 100 entries");
+    }
+
+    #[tokio::test]
+    async fn removed_sessions_do_not_accumulate_in_the_order_queues() {
+        let mut socket_set = SocketSet::new(vec![]);
+        let mut sessions = ActiveSessions::new(2048);
+        let long_lived = socket_set.add(make_tcp_socket());
+        let (entry, _) = make_entry();
+        sessions.insert(long_lived, entry);
+        let short_lived = socket_set.add(make_tcp_socket());
+
+        // Far below capacity, so capacity eviction never pops the queue.
+        for _ in 0..5_000 {
+            let (entry, _) = make_entry();
+            sessions.insert(short_lived, entry);
+            sessions.remove(short_lived);
+        }
+
+        assert_eq!(sessions.len(), 1);
+        assert!(sessions.eviction_order.len() < 200, "eviction queue holds {} entries", sessions.eviction_order.len());
+        assert!(sessions.work_order.len() < 200, "work queue holds {} entries", sessions.work_order.len());
+        assert_eq!(sessions.pop_oldest_live().map(|entry| entry.handle), Some(long_lived));
     }
 
     #[tokio::test]
