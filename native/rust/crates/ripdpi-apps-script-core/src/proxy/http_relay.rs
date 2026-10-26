@@ -63,13 +63,7 @@ where
     let body = read_body(stream, pending, &headers).await?;
 
     if method.eq_ignore_ascii_case("OPTIONS") {
-        let origin = header_value(&headers, "origin").unwrap_or("*");
-        let request_method = header_value(&headers, "access-control-request-method")
-            .unwrap_or("GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD");
-        let request_headers = header_value(&headers, "access-control-request-headers").unwrap_or("*");
-        let response = format!(
-            "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: {origin}\r\nAccess-Control-Allow-Methods: {request_method}\r\nAccess-Control-Allow-Headers: {request_headers}\r\nAccess-Control-Allow-Credentials: true\r\nAccess-Control-Max-Age: 86400\r\nContent-Length: 0\r\n\r\n"
-        );
+        let response = local_options_response(&headers, host);
         stream.write_all(response.as_bytes()).await?;
         stream.flush().await?;
         let close = header_value(&headers, "connection").is_some_and(|value| value.eq_ignore_ascii_case("close"));
@@ -89,6 +83,57 @@ where
     stream.flush().await?;
     let close = header_value(&headers, "connection").is_some_and(|value| value.eq_ignore_ascii_case("close"));
     Ok(!close)
+}
+
+/// Answers an OPTIONS request locally: Apps Script UrlFetchApp cannot send
+/// OPTIONS, so the request never reaches the origin.
+///
+/// Only a CORS preflight (Origin plus Access-Control-Request-Method) is
+/// approved. Credentials are allowed only when the page and the target share
+/// a site, so a foreign page cannot use the relay to send credentialed
+/// requests that the target's own preflight answer would refuse.
+fn local_options_response(headers: &[(String, String)], host: &str) -> String {
+    let (Some(origin), Some(request_method)) =
+        (header_value(headers, "origin"), header_value(headers, "access-control-request-method"))
+    else {
+        return "HTTP/1.1 501 Not Implemented\r\nContent-Length: 0\r\n\r\n".to_string();
+    };
+    let mut response = format!(
+        "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: {origin}\r\nAccess-Control-Allow-Methods: {request_method}\r\nVary: Origin\r\nAccess-Control-Max-Age: 86400\r\n"
+    );
+    if let Some(request_headers) = header_value(headers, "access-control-request-headers") {
+        response.push_str(&format!("Access-Control-Allow-Headers: {request_headers}\r\n"));
+    }
+    if origin_host(origin).is_some_and(|origin_host| site_key(&origin_host) == site_key(host)) {
+        response.push_str("Access-Control-Allow-Credentials: true\r\n");
+    }
+    response.push_str("\r\n");
+    response
+}
+
+/// Host of a serialized origin such as `https://www.example.com:8443`.
+fn origin_host(origin: &str) -> Option<String> {
+    let authority = origin.split_once("://")?.1;
+    let host = match authority.strip_prefix('[') {
+        Some(bracketed) => bracketed.split_once(']')?.0,
+        None => authority.split(':').next()?,
+    };
+    (!host.is_empty()).then(|| host.to_ascii_lowercase())
+}
+
+/// Approximate registrable domain: the last two labels, or three under a
+/// two-letter country code with a short second level (`example.co.uk`).
+// shortcut: no public suffix list, so private suffixes such as github.io count as one site; use a PSL if one is bundled.
+fn site_key(host: &str) -> String {
+    let host = host.trim_end_matches('.').to_ascii_lowercase();
+    if host.parse::<std::net::IpAddr>().is_ok() {
+        return host;
+    }
+    let labels: Vec<&str> = host.split('.').collect();
+    let country_second_level =
+        labels.len() >= 3 && labels[labels.len() - 1].len() == 2 && labels[labels.len() - 2].len() <= 3;
+    let keep = if country_second_level { 3 } else { 2 };
+    labels[labels.len().saturating_sub(keep)..].join(".")
 }
 
 pub(crate) fn looks_like_http(bytes: &[u8]) -> bool {
@@ -311,7 +356,7 @@ fn expects_100_continue(headers: &[(String, String)]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use tokio::io::{AsyncWriteExt, duplex};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 
     use super::*;
 
@@ -403,5 +448,56 @@ mod tests {
 
         let error = read_body(&mut reader, &mut Vec::new(), &headers).await.expect_err("EOF before full body");
         assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
+    }
+
+    /// Sends one request through `handle_request` and returns the response head.
+    async fn local_response(request: &str, host: &str) -> String {
+        let config = crate::AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#)
+            .expect("config");
+        let relay = AppsScriptDomainFronter::new(&config);
+        let (mut client, mut server) = duplex(4096);
+        client.write_all(request.as_bytes()).await.expect("write request");
+        handle_request(&mut server, &mut Vec::new(), host, 443, "https", &relay).await.expect("local answer");
+        drop(server);
+        let mut response = String::new();
+        client.read_to_string(&mut response).await.expect("read response");
+        response
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn cross_site_preflight_is_not_approved_with_credentials() {
+        let response = local_response(
+            "OPTIONS /x HTTP/1.1\r\nOrigin: https://evil.example\r\nAccess-Control-Request-Method: PUT\r\n\r\n",
+            "api.victim.example",
+        )
+        .await;
+        assert!(response.starts_with("HTTP/1.1 204 "), "{response}");
+        assert!(response.contains("Access-Control-Allow-Origin: https://evil.example\r\n"), "{response}");
+        assert!(!response.contains("Access-Control-Allow-Credentials"), "{response}");
+        assert!(!response.contains("Content-Length"), "RFC 9110 8.6: no Content-Length on 204: {response}");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn same_site_preflight_keeps_credentials() {
+        let response = local_response(
+            "OPTIONS /x HTTP/1.1\r\nOrigin: https://www.example.co.uk\r\nAccess-Control-Request-Method: PUT\r\n\r\n",
+            "api.example.co.uk",
+        )
+        .await;
+        assert!(response.contains("Access-Control-Allow-Credentials: true\r\n"), "{response}");
+
+        let other_site = local_response(
+            "OPTIONS /x HTTP/1.1\r\nOrigin: https://evil.co.uk\r\nAccess-Control-Request-Method: PUT\r\n\r\n",
+            "victim.co.uk",
+        )
+        .await;
+        assert!(!other_site.contains("Access-Control-Allow-Credentials"), "{other_site}");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn options_without_preflight_headers_is_not_faked() {
+        let response = local_response("OPTIONS * HTTP/1.1\r\nHost: dav.example\r\n\r\n", "dav.example").await;
+        assert!(response.starts_with("HTTP/1.1 501 "), "{response}");
+        assert!(!response.contains("Access-Control-"), "{response}");
     }
 }
