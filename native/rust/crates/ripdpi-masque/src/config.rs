@@ -2,6 +2,12 @@ pub use ripdpi_tls_profiles::OutboundEchConfig;
 use std::fmt;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::time::Duration;
+
+/// Bound on the whole ECH config lookup before a proxy connect, all alias
+/// hops included: about one exchange deadline of the bootstrap resolver (two
+/// of its 4 s stage timeouts). After it the connect sends GREASE ECH.
+const ECH_LOOKUP_DEADLINE: Duration = Duration::from_secs(8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MasqueAuthMode {
@@ -114,12 +120,25 @@ pub async fn resolve_ech_config_via_encrypted_dns(
     outbound_bind_ip: Option<IpAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<Option<OutboundEchConfig>> {
-    ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns_async(
-        host,
-        crate::ech::connect_hooks(outbound_bind_ip, socket_protection),
-    )
-    .await
-    .map_err(|error| io::Error::other(format!("MASQUE ECH resolution failed: {error}")))
+    resolve_ech_config_with_hooks(host, crate::ech::connect_hooks(outbound_bind_ip, socket_protection)).await
+}
+
+/// # Cancel safety
+///
+/// Cancel-safe: dropping it drops the in-flight lookup; nothing is published.
+async fn resolve_ech_config_with_hooks(
+    host: &str,
+    connect_hooks: ripdpi_ech_dns::EncryptedDnsConnectHooks,
+) -> io::Result<Option<OutboundEchConfig>> {
+    let lookup = ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns_async(host, connect_hooks);
+    match tokio::time::timeout(ECH_LOOKUP_DEADLINE, lookup).await {
+        Ok(result) => result.map_err(|error| io::Error::other(format!("MASQUE ECH resolution failed: {error}"))),
+        // The same outcome as a failed lookup under the default ECH policy.
+        Err(_) => {
+            tracing::debug!(?ECH_LOOKUP_DEADLINE, "MASQUE ECH lookup timed out; using GREASE ECH");
+            Ok(None)
+        }
+    }
 }
 
 impl MasqueConfig {
@@ -139,6 +158,36 @@ impl MasqueConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn ech_lookup_ends_at_the_deadline_when_its_stages_stack() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        // The resolver never completes the TLS handshake on this listener.
+        let silent = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let silent_addr = silent.local_addr().expect("listener address");
+        let dials = Arc::new(AtomicUsize::new(0));
+        // The first bootstrap IP is blackholed and the second connects slowly, so
+        // the stages stack past the lookup deadline.
+        let hooks = ripdpi_ech_dns::EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |_, _| {
+            let first = dials.fetch_add(1, Ordering::Relaxed) == 0;
+            async move {
+                if first {
+                    std::future::pending::<()>().await;
+                }
+                tokio::time::sleep(Duration::from_secs(3)).await;
+                std::net::TcpStream::connect(silent_addr)
+            }
+        });
+        let started = tokio::time::Instant::now();
+
+        let config = resolve_ech_config_with_hooks("relay.example", hooks).await.expect("GREASE after the deadline");
+
+        assert!(config.is_none());
+        assert_eq!(started.elapsed(), ECH_LOOKUP_DEADLINE);
+        drop(silent);
+    }
 
     #[test]
     fn tcp_protocol_wire_values_are_explicit_and_unknown_values_fail_closed() {
