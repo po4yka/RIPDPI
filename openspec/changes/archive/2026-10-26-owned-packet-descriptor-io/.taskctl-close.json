@@ -1,0 +1,11 @@
+{
+  "change": "owned-packet-descriptor-io",
+  "evidence_summary": "Main 82166c9e357dc30805670f9dbae8faf6c9963a8e passed CI run 40383907052: Rust workspace, coverage, all four native ABIs, Debug and Release, static analysis, and Android API 27/33/35/36/37. Local tunnel-core 326 unit and 7 TUN E2E tests passed; independent reviews passed.",
+  "execution_sha256": "8ad8409df349fe8d370d3ab89a417b7c7421d1f0587c17959a8696ae745555fe",
+  "issue_sha256": "71c402cfac2d9b2ac0d5c93b90f54d9002d6af81bbc3a3ebdbe3c3f31fbba7bd",
+  "outcome": "done",
+  "prepared_at": "2026-10-26T19:48:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "VPN-1793035703372515"
+}
