@@ -7,6 +7,7 @@ use super::flow::{UdpFlowActivationState, UdpFlowKey};
 use super::flow_selection::ensure_udp_flow_selected;
 use super::parse_socks5_udp_packet_with_host;
 use super::upstream_pump::send_udp_flow_payload;
+use crate::runtime::handshake::is_device_local_target_for;
 use crate::runtime::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
@@ -105,6 +106,10 @@ fn decode_udp_client_packet<'a>(
     }
 
     let parsed = parse_socks5_udp_packet_with_host(packet, state)?;
+    // Same rule as TCP targets: an off-device client may not reach device-local services.
+    if is_device_local_target_for(control_peer_ip, parsed.target.ip()) {
+        return None;
+    }
     *udp_client_addr = Some(sender);
     let udp_payload = state.classify_udp_payload(parsed.payload);
     let authoritative_host = parsed.host.is_some();
@@ -155,5 +160,22 @@ mod tests {
         let wrong_ip = SocketAddr::from(([127, 0, 0, 2], 4000));
         assert!(decode_udp_client_packet(&valid, declared, peer_ip, wrong_ip, &mut pinned, &state).is_none());
         assert!(decode_udp_client_packet(&valid, declared, peer_ip, declared, &mut pinned, &state).is_some());
+    }
+
+    #[test]
+    fn lan_udp_client_cannot_reach_device_local_targets() {
+        let state = RuntimeState::test_with_context(RuntimeConfig::default(), None);
+        let lan_peer = SocketAddr::from(([192, 168, 1, 20], 4000));
+        let wildcard = SocketAddr::from(([0, 0, 0, 0], 0));
+        for target in ["127.0.0.1:53", "0.0.0.0:53", "169.254.1.1:53", "[::1]:53", "[fe80::1]:53"] {
+            let packet = RuntimeState::encode_socks5_udp_packet(target.parse().expect("target"), b"dns");
+            let mut pinned = None;
+            let decoded = decode_udp_client_packet(&packet, lan_peer, lan_peer.ip(), wildcard, &mut pinned, &state);
+            assert!(decoded.is_none(), "{target} must be refused");
+            assert_eq!(pinned, None, "a refused datagram must not pin the client");
+        }
+        let public = RuntimeState::encode_socks5_udp_packet(SocketAddr::from(([93, 184, 216, 34], 53)), b"dns");
+        let mut pinned = None;
+        assert!(decode_udp_client_packet(&public, lan_peer, lan_peer.ip(), wildcard, &mut pinned, &state).is_some());
     }
 }

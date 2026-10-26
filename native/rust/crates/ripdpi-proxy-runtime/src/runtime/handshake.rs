@@ -313,17 +313,30 @@ fn reject_forbidden_target(client: &TcpStream, target: SocketAddr) -> io::Result
 
 fn forbidden_target_reason(peer: SocketAddr, local: SocketAddr, target: SocketAddr) -> Option<&'static str> {
     let target_ip = target.ip().to_canonical();
-    if target_ip == local.ip().to_canonical() && target.port() == local.port() {
+    // A listener on a wildcard address also answers on every other local address,
+    // so any local address with the listener port is a self-connect too.
+    if target.port() == local.port() && (target_ip == local.ip().to_canonical() || is_local_address(target_ip)) {
         return Some("proxy target is the proxy listener itself");
     }
-    if peer.ip().to_canonical().is_loopback() {
-        return None;
+    is_device_local_target_for(peer.ip(), target_ip).then_some("proxy target is device-local and the client is not")
+}
+
+/// True when `ip` is assigned to this device: a bind to a foreign address fails.
+/// The bind sends no traffic, so it needs no VPN protection.
+fn is_local_address(ip: IpAddr) -> bool {
+    std::net::UdpSocket::bind((ip, 0)).is_ok()
+}
+
+/// True when a client at `peer_ip`, which is not on this device, targets a loopback,
+/// unspecified or link-local address of the device. Shared by TCP and UDP targets.
+pub(super) fn is_device_local_target_for(peer_ip: IpAddr, target_ip: IpAddr) -> bool {
+    if peer_ip.to_canonical().is_loopback() {
+        return false;
     }
-    let device_local = match target_ip {
+    match target_ip.to_canonical() {
         IpAddr::V4(ip) => ip.is_loopback() || ip.is_unspecified() || ip.is_link_local(),
         IpAddr::V6(ip) => ip.is_loopback() || ip.is_unspecified() || ip.is_unicast_link_local(),
-    };
-    device_local.then_some("proxy target is device-local and the client is not")
+    }
 }
 
 fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
