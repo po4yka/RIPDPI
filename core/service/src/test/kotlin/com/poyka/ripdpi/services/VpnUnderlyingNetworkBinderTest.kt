@@ -232,7 +232,7 @@ class VpnUnderlyingNetworkBinderTest {
         }
 
     @Test
-    fun `private dns on the underlay withholds its resolvers from the direct dns lease`() {
+    fun `only strict private dns withholds the underlay resolvers from the direct dns lease`() {
         val authority = DirectDnsUnderlayAuthority()
         val network = testNetwork(100)
         val epoch = authority.beginCallbackEpoch()
@@ -241,16 +241,22 @@ class VpnUnderlyingNetworkBinderTest {
         authority.onLinkPropertiesChanged(epoch, network, linkProperties("1.1.1.1"))
         assertEquals(setOf(InetAddress.getByName("1.1.1.1")), authority.snapshot(epoch)?.directDnsServers)
 
-        val strict =
+        fun privateDns(serverName: String?) =
             linkProperties("1.1.1.1").also { links ->
                 LinkProperties::class.java
                     .getMethod("setUsePrivateDns", Boolean::class.javaPrimitiveType)
                     .invoke(links, true)
-                LinkProperties::class.java
-                    .getMethod("setPrivateDnsServerName", String::class.java)
-                    .invoke(links, "dns.example")
+                serverName?.let {
+                    LinkProperties::class.java
+                        .getMethod("setPrivateDnsServerName", String::class.java)
+                        .invoke(links, it)
+                }
             }
-        authority.onLinkPropertiesChanged(epoch, network, strict)
+        // Opportunistic (Android's default Automatic mode) keeps plaintext DIRECT DNS working.
+        authority.onLinkPropertiesChanged(epoch, network, privateDns(serverName = null))
+        assertEquals(setOf(InetAddress.getByName("1.1.1.1")), authority.snapshot(epoch)?.directDnsServers)
+
+        authority.onLinkPropertiesChanged(epoch, network, privateDns(serverName = "dns.example"))
 
         val snapshot = checkNotNull(authority.snapshot(epoch))
         assertEquals(network, snapshot.network)

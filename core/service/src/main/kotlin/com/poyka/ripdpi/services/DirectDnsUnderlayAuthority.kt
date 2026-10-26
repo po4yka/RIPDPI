@@ -30,14 +30,15 @@ internal data class DirectDnsUnderlaySnapshot(
     val network: Network,
     val generation: Long,
     val dnsServers: Set<InetAddress>,
-    val privateDnsActive: Boolean = false,
+    val strictPrivateDns: Boolean = false,
 ) {
     /**
-     * Resolvers the plaintext DIRECT DNS plane may use. Android requires apps not to send
-     * unencrypted DNS while the network runs Private DNS, so there are none in that case.
+     * Resolvers the plaintext DIRECT DNS plane may use. In strict Private DNS mode the user named
+     * an encrypted resolver, so plaintext DIRECT queries are withheld. Opportunistic mode is the
+     * Android default and falls back to plaintext itself, so DIRECT DNS keeps working there.
      */
     val directDnsServers: Set<InetAddress>
-        get() = if (privateDnsActive) emptySet() else dnsServers.withoutLinkLocalResolvers()
+        get() = if (strictPrivateDns) emptySet() else dnsServers.withoutLinkLocalResolvers()
 }
 
 private data class DirectDnsCapabilitySnapshot(
@@ -176,7 +177,7 @@ internal class DirectDnsUnderlayAuthority
             val eligible = activeEpoch == epoch && capabilities?.eligible == true
             return currentNetwork?.takeIf { eligible }?.let { selected ->
                 currentDns?.takeIf(Set<InetAddress>::isNotEmpty)?.let { dns ->
-                    DirectDnsUnderlaySnapshot(selected, generation, dns, link?.privateDnsCategory.isPrivateDnsActive())
+                    DirectDnsUnderlaySnapshot(selected, generation, dns, link?.privateDnsCategory == "strict")
                 }
             }
         }
@@ -332,8 +333,6 @@ private fun List<InetAddress>.pathFamilies(): List<String> =
             else -> null
         }
     }.distinct().sorted()
-
-private fun String?.isPrivateDnsActive(): Boolean = this == "opportunistic" || this == "strict"
 
 private fun LinkProperties.privateDnsCategory(): String =
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
