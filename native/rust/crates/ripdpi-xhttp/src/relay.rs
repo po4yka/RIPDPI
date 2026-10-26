@@ -136,10 +136,9 @@ impl PooledConnection {
     ) -> io::Result<XhttpStream> {
         let stream_path = mode.request_path();
         let host_header = mode.host_header();
-        let referer = referer_padding(&host_header, &stream_path);
-        let header_padding = random_padding_value();
-
-        let get_request = build_get_request(&stream_path, &host_header, &referer, &header_padding)?;
+        // Xray carries request padding only in the Referer query and draws it
+        // per request; X-Padding is a response header.
+        let get_request = build_get_request(&stream_path, &host_header, &referer_padding(&host_header, &stream_path))?;
         let get_response = self.send_request(get_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP GET request failed: {error}"))
         })?;
@@ -151,8 +150,12 @@ impl PooledConnection {
         }
 
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
-        let post_request =
-            build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
+        let post_request = build_post_request(
+            &stream_path,
+            &host_header,
+            &referer_padding(&host_header, &stream_path),
+            ChannelBody::new(outgoing_rx),
+        )?;
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
         open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
@@ -200,11 +203,9 @@ impl PooledConnection {
         let stream_path = mode.request_path();
         let host_header = mode.host_header();
         let referer = referer_padding(&host_header, &stream_path);
-        let header_padding = random_padding_value();
 
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
-        let post_request =
-            build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
+        let post_request = build_post_request(&stream_path, &host_header, &referer, ChannelBody::new(outgoing_rx))?;
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
         open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
@@ -517,6 +518,21 @@ mod tests {
                 assert!(!head.headers.contains_key(http::header::HOST), "{protocol_mode:?} sends a Host header");
             }
         }
+    }
+
+    #[tokio::test]
+    async fn request_padding_rides_only_in_a_fresh_referer_per_request() {
+        let heads = received_request_heads(XhttpProtocolMode::StreamUp).await;
+
+        for head in &heads {
+            assert!(!head.headers.contains_key("x-padding"), "{} carries an x-padding request header", head.method);
+            assert!(head.headers.contains_key(http::header::REFERER), "{} lost its padded Referer", head.method);
+        }
+        assert_ne!(
+            heads[0].headers.get(http::header::REFERER),
+            heads[1].headers.get(http::header::REFERER),
+            "GET and POST must draw independent padding"
+        );
     }
 
     #[tokio::test]

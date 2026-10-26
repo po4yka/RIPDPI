@@ -38,17 +38,11 @@ impl Body for ChannelBody {
     }
 }
 
-pub(crate) fn build_get_request(
-    path: &str,
-    host_header: &str,
-    referer: &str,
-    header_padding: &str,
-) -> io::Result<Request<XhttpBody>> {
+pub(crate) fn build_get_request(path: &str, host_header: &str, referer: &str) -> io::Result<Request<XhttpBody>> {
     let request = Request::builder()
         .method("GET")
         .uri(request_uri(host_header, path))
         .header(REFERER, referer)
-        .header("x-padding", header_padding)
         .body(Empty::<Bytes>::new().map_err(|never| match never {}).boxed())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP GET request build: {error}")))?;
     Ok(request)
@@ -58,14 +52,12 @@ pub(crate) fn build_post_request(
     path: &str,
     host_header: &str,
     referer: &str,
-    header_padding: &str,
     body: ChannelBody,
 ) -> io::Result<Request<XhttpBody>> {
     let request = Request::builder()
         .method("POST")
         .uri(request_uri(host_header, path))
         .header(REFERER, referer)
-        .header("x-padding", header_padding)
         .header(CONTENT_TYPE, "application/grpc")
         .body(body.boxed())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP POST request build: {error}")))?;
