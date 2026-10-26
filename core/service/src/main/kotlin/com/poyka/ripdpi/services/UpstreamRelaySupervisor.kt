@@ -225,7 +225,15 @@ internal class UpstreamRelaySupervisor(
             scope.launch(dispatcher, start = CoroutineStart.UNDISPATCHED) {
                 try {
                     val result = runCatching { runtime.start(resolvedConfig) }
-                    exitCause.complete(result.toSupervisorExitCause(stopRequested = stopRequested.get()))
+                    val stopping = stopRequested.get()
+                    // A helper killed by signal exits with 128+signal; a requested stop is never a crash.
+                    exitCause.complete(
+                        if (stopping && result.isSuccess) {
+                            SupervisorExitCause.ExpectedStop
+                        } else {
+                            result.toSupervisorExitCause(stopRequested = stopping)
+                        },
+                    )
                 } finally {
                     if (!exitCause.isCompleted) {
                         exitCause.complete(

@@ -110,6 +110,32 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `requested stop of a helper killed by signal is not reported as a crash`() =
+        runTest {
+            val runtime = TestRelayRuntime().apply { keepRunningOnStop = true }
+            val supervisor = endpointSupervisor(runtime)
+            val exits = mutableListOf<SupervisorExitCause>()
+            supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
+                inputs = testRelayResolutionInputs(),
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "requested"),
+                onUnexpectedExit = { exits += it },
+            )
+
+            val stopping = async { supervisor.stop() }
+            runCurrent()
+            // 128 + SIGTERM: what Process.waitFor() returns after destroy().
+            runtime.complete(143)
+            stopping.await()
+            advanceUntilIdle()
+
+            assertEquals(listOf<SupervisorExitCause>(SupervisorExitCause.ExpectedStop), exits)
+        }
+
+    @Test
     fun `normal start rejects missing or invalid bound endpoint and stops relay`() =
         runTest {
             listOf(null, "", ":19005", "127.0.0.1", "127.0.0.1:0", "127.0.0.1:65536").forEach { listener ->
