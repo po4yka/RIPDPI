@@ -43,12 +43,12 @@ pub fn run_service_probe(
     let media_detail = media.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
     // A failed leg makes the service partial; it is blocked only when the
     // bootstrap itself failed without a server answer. A 3xx or a 4xx/5xx
-    // bootstrap means the server responded, which is not censorship.
+    // bootstrap means the server responded, which is not censorship, but it
+    // is not a healthy bootstrap either, so it is partial.
     let outcome = if is_probe_failure(&bootstrap_status) && !is_server_error(&bootstrap_status) {
         "service_blocked"
-    } else if [&bootstrap_status, &media_status, &gateway.status, &quic.status]
-        .into_iter()
-        .any(|status| is_probe_failure(status))
+    } else if !matches!(bootstrap_status.as_str(), "http_ok" | "not_run")
+        || [&media_status, &gateway.status, &quic.status].into_iter().any(|status| is_probe_failure(status))
     {
         "service_partial"
     } else {
@@ -168,6 +168,31 @@ mod tests {
 
         assert_eq!(detail(&result, "bootstrapStatus"), "http_status_503");
         assert_ne!(detail(&result, "quicStatus"), "quic_response");
+        assert_eq!(result.outcome, "service_partial");
+    }
+
+    // A redirect answer (for example a 302 to an ISP stub page) is not a
+    // healthy bootstrap: the service is partial, not ok.
+    #[test]
+    fn redirect_bootstrap_is_partial() {
+        let bootstrap = HttpTextServer::start_text("HTTP/1.1 302 Found", "moved");
+        let target = ServiceTarget {
+            id: "svc".to_string(),
+            service: "svc".to_string(),
+            bootstrap_url: Some(format!("http://127.0.0.1:{}/", bootstrap.port())),
+            media_url: None,
+            tcp_endpoint_host: None,
+            tcp_endpoint_ip: None,
+            tcp_endpoint_port: 443,
+            tls_server_name: None,
+            quic_host: None,
+            quic_connect_ip: None,
+            quic_port: 443,
+        };
+
+        let result = run_service_probe(&target, &TransportConfig::Direct { route_experiment: None }, None, None);
+
+        assert_eq!(detail(&result, "bootstrapStatus"), "http_status_302");
         assert_eq!(result.outcome, "service_partial");
     }
 }
