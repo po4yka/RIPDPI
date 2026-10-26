@@ -888,6 +888,7 @@ mod tests {
             tun_read_buf: vec![0u8; 1500],
             retransmit_tracker: RetransmitTracker::new(),
             last_loss_emit_iteration: 0,
+            ip_defrag: super::super::defrag::IpDefrag::default(),
         }
     }
 
@@ -995,6 +996,41 @@ mod tests {
         packet[24..26].copy_from_slice(&(udp_len as u16).to_be_bytes());
         packet[28..].copy_from_slice(payload);
         packet
+    }
+
+    /// Splits an IPv4 packet with a 20-byte header into fragments of `chunk` payload bytes.
+    fn ipv4_fragments(packet: &[u8], chunk: usize) -> Vec<Vec<u8>> {
+        let payload = &packet[20..];
+        (0..payload.len())
+            .step_by(chunk)
+            .map(|offset| {
+                let part = &payload[offset..(offset + chunk).min(payload.len())];
+                let mut fragment = packet[..20].to_vec();
+                fragment[2..4].copy_from_slice(&((20 + part.len()) as u16).to_be_bytes());
+                let more = if offset + chunk < payload.len() { 0x2000 } else { 0 };
+                fragment[6..8].copy_from_slice(&(more | (offset / 8) as u16).to_be_bytes());
+                fragment.extend_from_slice(part);
+                fragment
+            })
+            .collect()
+    }
+
+    #[test]
+    fn fragmented_udp_datagram_reaches_the_udp_path_whole() {
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(true, Arc::clone(&seen_packets))));
+        let datagram = ipv4_udp_packet(55000, 4500, &[7u8; 2000]);
+
+        for fragment in ipv4_fragments(&datagram, 1480) {
+            route_tun_packet(&fragment, &mut state);
+        }
+
+        let seen = seen_packets.lock().expect("seen packets");
+        assert_eq!(seen.len(), 1, "the fragments must reach routing as one datagram");
+        match crate::classify::classify_ip_packet(&seen[0], None) {
+            crate::IpClass::Udp { payload, .. } => assert_eq!(payload, &[7u8; 2000][..]),
+            other => panic!("the reassembled datagram must route as UDP, got {other:?}"),
+        }
     }
 
     fn ipv4_tcp_packet(src_port: u16, dst_port: u16) -> Vec<u8> {

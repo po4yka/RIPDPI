@@ -19,6 +19,7 @@ use ripdpi_tunnel_config::Config;
 use crate::{ActiveSessions, Stats, TunDevice};
 
 mod bridge;
+mod defrag;
 pub(crate) mod dns_intercept;
 mod packet;
 mod phases;

@@ -88,5 +88,6 @@ pub(in crate::io_loop) fn setup_io_loop(
         tun_read_buf: vec![0u8; mtu + 64],
         retransmit_tracker: RetransmitTracker::new(),
         last_loss_emit_iteration: 0,
+        ip_defrag: super::defrag::IpDefrag::default(),
     })
 }

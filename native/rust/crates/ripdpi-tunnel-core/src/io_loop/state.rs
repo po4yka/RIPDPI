@@ -51,4 +51,5 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) tun_read_buf: Vec<u8>,
     pub(in crate::io_loop) retransmit_tracker: RetransmitTracker,
     pub(in crate::io_loop) last_loss_emit_iteration: u32,
+    pub(in crate::io_loop) ip_defrag: super::defrag::IpDefrag,
 }

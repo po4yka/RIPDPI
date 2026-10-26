@@ -6,6 +6,7 @@ use crate::IpClass;
 use crate::classify::classify_ip_packet_with_parse_status;
 use crate::uid_policy::{PROTO_TCP, PROTO_UDP, Verdict};
 
+use super::defrag::Reassembly;
 use super::dns_intercept::{
     dns_query_name, resolve_mapped_destination, route_dns_packet, sync_direct_dns_mapping_generation,
 };
@@ -19,7 +20,12 @@ const STUN_HEADER_LEN: usize = 20;
 const STUN_MAGIC_COOKIE: [u8; 4] = 0x2112_A442_u32.to_be_bytes();
 
 pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
-    route_tun_packet_inner(packet, state, None);
+    // UDP fragments wait here until the datagram is whole: the UDP path proxies whole datagrams.
+    match state.ip_defrag.accept(packet, Instant::now()) {
+        Reassembly::NotFragment => route_tun_packet_inner(packet, state, None),
+        Reassembly::Complete(datagram) => route_tun_packet_inner(&datagram, state, None),
+        Reassembly::Held => {}
+    }
 }
 
 fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<(&FlowRegistrationId, Instant)>) {
