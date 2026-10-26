@@ -37,15 +37,38 @@ impl ripdpi_tls_profiles::OutboundEchResolver for EncryptedDnsEchResolver {
         &self,
         request: &ripdpi_tls_profiles::EchLookupRequest<'_>,
     ) -> Result<ripdpi_tls_profiles::EchLookupOutcome, ripdpi_tls_profiles::EchFacadeError> {
-        let endpoint = super::encrypted_dns_endpoint_for_resolver_id(self.resolver_id);
         let transport = TransportConfig::Direct { route_experiment: None };
-        ech_lookup_outcome(resolve_https_ech_configs_via_encrypted_dns_with_hooks(
-            request.inner_name,
-            endpoint,
-            &transport,
-            self.connect_hooks.clone(),
-        ))
+        let mut outcome = no_bootstrap_resolver();
+        for endpoint in ech_bootstrap_endpoints(self.resolver_id) {
+            outcome = resolve_https_ech_configs_via_encrypted_dns_with_hooks(
+                request.inner_name,
+                endpoint,
+                &transport,
+                self.connect_hooks.clone(),
+            );
+            if !matches!(outcome, EchResolutionOutcome::ResolutionFailed(_)) {
+                break;
+            }
+        }
+        ech_lookup_outcome(outcome)
     }
+}
+
+/// Resolvers tried for one ECH bootstrap lookup. Bounds the stall on a network
+/// that blocks all of them to this many exchange deadlines.
+const MAX_ECH_BOOTSTRAP_RESOLVERS: usize = 3;
+
+/// The primary resolver, then the fallback list (other providers and ASNs), so
+/// one blocked resolver does not disable ECH. Only a failed lookup moves on: an
+/// answer without ECH is final.
+fn ech_bootstrap_endpoints(primary: &str) -> impl Iterator<Item = EncryptedDnsEndpoint> {
+    std::iter::once(super::encrypted_dns_endpoint_for_resolver_id(primary))
+        .chain(crate::build_fallback_encrypted_dns_endpoints(Some(primary)))
+        .take(MAX_ECH_BOOTSTRAP_RESOLVERS)
+}
+
+fn no_bootstrap_resolver() -> EchResolutionOutcome {
+    EchResolutionOutcome::ResolutionFailed("no ECH bootstrap resolver".to_string())
 }
 
 /// An HTTPS-record lookup already done by the caller (see
@@ -112,28 +135,45 @@ pub async fn resolve_outbound_ech_config_via_encrypted_dns_async(
     inner_name: &str,
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> Result<Option<ripdpi_tls_profiles::OutboundEchConfig>, ripdpi_tls_profiles::EchFacadeError> {
-    let endpoint = super::encrypted_dns_endpoint_for_resolver_id("adguard");
     let transport = TransportConfig::Direct { route_experiment: None };
-    let mut name = inner_name.to_string();
-    let mut outcome = alias_chain_too_long();
-    for _ in 0..=MAX_HTTPS_ALIAS_HOPS {
-        let step =
-            match prepare_exchange(&name, DNS_RECORD_TYPE_HTTPS, endpoint.clone(), &transport, connect_hooks.clone()) {
-                Err(error) => EchStep::Done(EchResolutionOutcome::ResolutionFailed(error)),
-                Ok((resolver, packet)) => match resolver.exchange(&packet).await {
-                    Err(error) => EchStep::Done(EchResolutionOutcome::ResolutionFailed(error.to_string())),
-                    Ok(response) => https_response_ech_step(&response),
-                },
-            };
-        match step {
-            EchStep::Done(done) => {
-                outcome = done;
-                break;
-            }
-            EchStep::Alias(target) => name = target,
+    let mut outcome = no_bootstrap_resolver();
+    for endpoint in ech_bootstrap_endpoints("adguard") {
+        outcome = lookup_https_ech_async(inner_name, endpoint, &transport, connect_hooks.clone()).await;
+        if !matches!(outcome, EchResolutionOutcome::ResolutionFailed(_)) {
+            break;
         }
     }
     outbound_ech_config(inner_name, &ResolvedEchLookup(outcome))
+}
+
+/// The async twin of [`follow_https_aliases`] for one resolver.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: each hop owns its resolver and query; dropping the future
+/// drops the in-flight exchange and publishes nothing.
+async fn lookup_https_ech_async(
+    domain: &str,
+    endpoint: EncryptedDnsEndpoint,
+    transport: &TransportConfig,
+    connect_hooks: EncryptedDnsConnectHooks,
+) -> EchResolutionOutcome {
+    let mut name = domain.to_string();
+    for _ in 0..=MAX_HTTPS_ALIAS_HOPS {
+        let response =
+            match prepare_exchange(&name, DNS_RECORD_TYPE_HTTPS, endpoint.clone(), transport, connect_hooks.clone()) {
+                Err(error) => return EchResolutionOutcome::ResolutionFailed(error),
+                Ok((resolver, packet)) => match resolver.exchange(&packet).await {
+                    Err(error) => return EchResolutionOutcome::ResolutionFailed(error.to_string()),
+                    Ok(response) => response,
+                },
+            };
+        match https_response_ech_step(&response) {
+            EchStep::Done(outcome) => return outcome,
+            EchStep::Alias(target) => name = target,
+        }
+    }
+    alias_chain_too_long()
 }
 
 pub fn resolve_via_encrypted_dns(
@@ -456,6 +496,33 @@ mod tests {
 
         assert!(matches!(outcome, EchResolutionOutcome::ResolutionFailed(_)));
         assert_eq!(queries, MAX_HTTPS_ALIAS_HOPS + 1);
+    }
+
+    #[test]
+    fn ech_bootstrap_falls_back_to_other_resolvers_when_the_primary_fails() {
+        use std::sync::{Arc, Mutex};
+
+        let dialed = Arc::new(Mutex::new(Vec::new()));
+        let record = dialed.clone();
+        let hooks = EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, _| {
+            record.lock().expect("dialed lock").push(target.ip());
+            async { Err::<std::net::TcpStream, _>(std::io::Error::other("blocked")) }
+        });
+        let request = ripdpi_tls_profiles::EchLookupRequest::new(
+            "relay.example",
+            ripdpi_tls_profiles::EchLookupTransport::EncryptedDns,
+        );
+
+        let outcome = ripdpi_tls_profiles::OutboundEchResolver::resolve_https_ech_config_list(
+            &EncryptedDnsEchResolver::adguard(hooks),
+            &request,
+        )
+        .expect("lookup outcome");
+
+        assert!(matches!(outcome, ripdpi_tls_profiles::EchLookupOutcome::ResolutionFailed(_)));
+        let expected: Vec<std::net::IpAddr> =
+            ["adguard", "dnssb", "google_ip"].into_iter().flat_map(crate::bootstrap_ips_for_resolver).collect();
+        assert_eq!(*dialed.lock().expect("dialed lock"), expected);
     }
 
     #[test]
