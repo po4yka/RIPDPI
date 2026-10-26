@@ -2,14 +2,18 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
+use std::time::Duration;
 
 use hyper::client::conn::http2;
-use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
 use tokio::net::{TcpSocket, TcpStream};
 
 use crate::config::{AsyncIo, XhttpMode, XhttpSocketProtector};
 use crate::finalmask;
 use crate::pool::PooledConnection;
+
+const H2_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(15);
+const H2_KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// NOT cancel-safe: dropping this future mid-flight may abandon a partially
 /// established TCP/TLS/H2 connection without returning it to the pool; the caller
@@ -77,9 +81,28 @@ pub(crate) async fn create_connection(
             Box::new(tls)
         }
     };
-    let io = TokioIo::new(io);
+    handshake_pooled(io, max_concurrent_streams).await
+}
 
-    let (sender, connection) = http2::handshake(TokioExecutor::new(), io)
+/// Start the H2 session over an established carrier and attach its driver.
+/// Keep-alive PINGs let the driver notice a silently dead path (NAT expiry,
+/// network change without RST): the driver then ends and marks the pooled
+/// connection closed, so new streams stop landing on it.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the carrier and partial H2 session are dropped on
+/// cancellation; nothing is published before the handshake completes.
+pub(crate) async fn handshake_pooled<T>(io: T, max_concurrent_streams: usize) -> io::Result<Arc<PooledConnection>>
+where
+    T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    let (sender, connection) = http2::Builder::new(TokioExecutor::new())
+        .timer(TokioTimer::new())
+        .keep_alive_interval(H2_KEEP_ALIVE_INTERVAL)
+        .keep_alive_timeout(H2_KEEP_ALIVE_TIMEOUT)
+        .keep_alive_while_idle(true)
+        .handshake(TokioIo::new(io))
         .await
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}")))?;
 
@@ -145,6 +168,79 @@ mod tests {
 
     use super::*;
     use crate::config::{FinalmaskConfig, XhttpProtocolMode, XhttpRealityConfig, XhttpSocketProtector, XmuxConfig};
+
+    /// Server half that goes silent on demand: reads never complete and writes
+    /// vanish, like a path whose NAT mapping expired without a RST.
+    struct SilentAfter<T> {
+        inner: T,
+        silent: Arc<AtomicBool>,
+    }
+
+    impl<T: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for SilentAfter<T> {
+        fn poll_read(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+            buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> std::task::Poll<io::Result<()>> {
+            if self.silent.load(Ordering::SeqCst) {
+                return std::task::Poll::Pending;
+            }
+            std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
+        }
+    }
+
+    impl<T: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for SilentAfter<T> {
+        fn poll_write(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+            buf: &[u8],
+        ) -> std::task::Poll<io::Result<usize>> {
+            if self.silent.load(Ordering::SeqCst) {
+                return std::task::Poll::Ready(Ok(buf.len()));
+            }
+            std::pin::Pin::new(&mut self.inner).poll_write(cx, buf)
+        }
+
+        fn poll_flush(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<io::Result<()>> {
+            std::pin::Pin::new(&mut self.inner).poll_flush(cx)
+        }
+
+        fn poll_shutdown(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<io::Result<()>> {
+            std::pin::Pin::new(&mut self.inner).poll_shutdown(cx)
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn silently_dead_carrier_is_marked_closed_by_keep_alive() {
+        let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+        let silent = Arc::new(AtomicBool::new(false));
+        let server_io = SilentAfter { inner: server_io, silent: Arc::clone(&silent) };
+        let _server = tokio::spawn(async move {
+            let service = hyper::service::service_fn(|_request: hyper::Request<hyper::body::Incoming>| async {
+                Ok::<_, std::convert::Infallible>(hyper::Response::new(http_body_util::Empty::<bytes::Bytes>::new()))
+            });
+            let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+                .serve_connection(TokioIo::new(server_io), service)
+                .await;
+        });
+        let pooled = handshake_pooled(client_io, 1).await.expect("client H2 handshake");
+        silent.store(true, Ordering::SeqCst);
+
+        let closed = tokio::time::timeout(Duration::from_secs(120), async {
+            while !pooled.is_closed() {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        })
+        .await;
+
+        assert!(closed.is_ok(), "a carrier whose peer stopped answering must be evicted from the pool");
+    }
 
     #[tokio::test]
     async fn tcp_connect_invokes_socket_protector_before_connect() {
