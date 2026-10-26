@@ -189,6 +189,24 @@ class AssetStrategyPackRepositoryTest {
         }
 
     @Test
+    fun `refresh requests the manifest from the documented publishing namespace`() =
+        runTest {
+            val catalogPayload = refreshedCatalogJson(sequence = 7)
+            val service =
+                FakeStrategyPackDownloadService(
+                    manifestPayload = Json.encodeToString(manifestFor(catalogPayload, version = "2026.04.1")),
+                    catalogPayload = catalogPayload,
+                )
+
+            createRepository(service = service).refreshSnapshot(
+                channel = StrategyPackChannelStable,
+                allowRollbackOverride = false,
+            )
+
+            assertEquals(listOf(StableManifestUrl), service.manifestUrls)
+        }
+
+    @Test
     fun `refresh accepts higher sequence and persists the newer snapshot`() =
         runTest {
             val initialPayload = refreshedCatalogJson(sequence = 7)
@@ -249,7 +267,10 @@ class AssetStrategyPackRepositoryTest {
         private val manifestError: Throwable? = null,
         private val catalogError: Throwable? = null,
     ) : StrategyPackDownloadService {
+        val manifestUrls = mutableListOf<String>()
+
         override suspend fun downloadManifest(url: String): ByteArray {
+            manifestUrls += url
             manifestError?.let { throw it }
             return manifestPayload.toByteArray(Charsets.UTF_8)
         }
@@ -289,8 +310,9 @@ internal fun applicationStrategyPackDefaults() =
         .defaultValue
         .toStrategyPackSettingsModel()
 
+// The publishing path documented in docs/strategy-pack-operations.md.
 internal const val StableManifestUrl =
-    "https://raw.githubusercontent.com/poyka/ripdpi-strategy-packs/main/stable/manifest.json"
+    "https://raw.githubusercontent.com/po4yka/ripdpi-strategy-packs/main/stable/manifest.json"
 internal const val RefreshedCatalogSequence = 7L
 internal const val RefreshedCatalogIssuedAt = "2024-04-05T13:00:00Z"
 

@@ -402,7 +402,7 @@ private const val hexRadix = 16
 private const val strategyPackMaxAgeDays = 30L
 const val strategyPackCatalogAssetPath = "strategy-packs/catalog.json"
 const val strategyPackCatalogCachePath = "strategy-packs/catalog.snapshot.json"
-const val strategyPackManifestPathPrefix = "poyka/ripdpi-strategy-packs/main"
+const val strategyPackManifestPathPrefix = "po4yka/ripdpi-strategy-packs/main"
 
 private fun Throwable.isMissingRemoteManifest(): Boolean =
     this is IOException &&
