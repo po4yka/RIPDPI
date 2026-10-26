@@ -12,6 +12,10 @@ use crate::linux::socket_options::{set_c_int_sockopt, setsockopt_raw};
 /// Attach a BPF filter that drops incoming TCP segments containing a SACK
 /// option.
 ///
+/// `SO_ATTACH_FILTER` sees received segments only, and it drops the whole
+/// segment (its ACK and payload too), not just the option. Outbound segments
+/// are not changed.
+///
 /// **Limitation:** The filter checks a fixed offset (0x22) for the SACK option
 /// kind byte rather than performing a full TLV scan of the TCP options field.
 /// This works for the vast majority of Linux TCP stacks where SACK appears at a
@@ -39,12 +43,13 @@ pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
     set_c_int_sockopt(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_DETACH_FILTER, 0)
 }
 
-/// Attach a BPF socket filter that drops outgoing TCP segments containing
-/// the Timestamps option (kind=8).
+/// Attach a BPF socket filter that drops incoming TCP segments whose first
+/// option is Timestamps (kind=8).
 ///
-/// This prevents DPI from using TCP timestamp values for flow-level timing
-/// correlation. The BPF program checks the TCP option kind byte at a fixed
-/// offset (same approach as [`attach_drop_sack`] for SACK kind=5).
+/// `SO_ATTACH_FILTER` sees received segments only, so this does not remove
+/// the option from outbound segments, and the SYN has already carried it.
+/// The program checks only the first option byte; Linux, BSD and Windows
+/// peers put NOP padding before Timestamps, so it rarely matches.
 ///
 /// **Note:** `SO_ATTACH_FILTER` replaces any prior filter. If both `drop_sack`
 /// and `strip_timestamps` are needed, call `attach_drop_sack` first — this

@@ -558,11 +558,11 @@ flowchart LR
 
 #### Drop SACK (`drop_sack`)
 
-When enabled, attaches a kernel-level filter that strips TCP SACK options from outbound segments. Some middlebox implementations use SACK negotiation to fingerprint OS and track connections. Toggled per-step via `AttachDropSack` / `DetachDropSack` actions.
+When enabled, attaches a classic BPF socket filter that drops received TCP segments that carry a SACK option. The filter sees inbound segments only and drops the whole segment, not just the option; outbound segments keep their SACK options. It checks one fixed option offset (the Linux layout with timestamps), so other option layouts pass. Toggled per-step via `AttachDropSack` / `DetachDropSack` actions.
 
 #### Timestamp stripping (`strip_timestamps`)
 
-Removes TCP timestamp option from outbound packets. Prevents timestamp-based RTT estimation and OS fingerprinting on the path.
+Attaches a classic BPF socket filter that drops received TCP segments whose first option is Timestamps. It does not remove the option from outbound packets (a socket filter sees inbound segments only, and the SYN has already carried the option). Common stacks put NOP padding before Timestamps, so the filter rarely matches.
 
 #### OOB data (`oob_data`)
 
