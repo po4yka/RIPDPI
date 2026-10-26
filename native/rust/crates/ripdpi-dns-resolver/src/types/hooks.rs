@@ -49,6 +49,11 @@ impl EncryptedDnsConnectHooks {
         Self::default()
     }
 
+    /// Installs the connector that dials each bootstrap address (for example a
+    /// socket protected from the VPN). The resolver awaits the returned future
+    /// on a Tokio worker under its connect timeout, so the future must not block:
+    /// run a blocking connect or protect call in `tokio::task::spawn_blocking`,
+    /// or the worker stalls and the timeout cannot fire.
     pub fn with_direct_tcp_connector<F, Fut, S>(mut self, connector: F) -> Self
     where
         F: Fn(SocketAddr, Duration) -> Fut + Send + Sync + 'static,
