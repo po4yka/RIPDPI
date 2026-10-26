@@ -619,7 +619,7 @@ strategies:
 }
 
 #[test]
-fn lua_udplen_action_injects_valid_packet_before_consuming_original() {
+fn lua_udplen_action_injects_a_decoy_and_keeps_the_original() {
     let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some("example.org")).expect("QUIC initial");
     let packet = ipv4_udp_packet(443, 443, &payload);
     let script = write_lua_script(
@@ -650,7 +650,9 @@ strategies:
     let mut interceptor =
         TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
-    assert!(interceptor.handle_packet(&packet));
+    // The decoy's UDP length exceeds its bytes, so receivers discard it: it can never stand in for
+    // the app's datagram, which must still reach the flow.
+    assert!(!interceptor.handle_packet(&packet));
 
     let injected = &interceptor.injector.packets[0];
     let udp_len_offset = IPV4_MIN_HEADER_LEN + 4;

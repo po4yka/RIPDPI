@@ -403,6 +403,8 @@ fn execute_registry_action<I: TunPacketInjector>(
     };
 
     let mut injected = false;
+    // A decoy no receiver accepts (udplen) never replaces the original; only DROP consumes it.
+    let mut decoy_sent = false;
     let mut all_injected = true;
     let mut sequence_delta = 0u32;
     let mut ttl = None;
@@ -453,7 +455,7 @@ fn execute_registry_action<I: TunPacketInjector>(
             DesyncAction::UdpLen { delta } => {
                 if let Some(output) = ripdpi_strategy_udp::apply_udplen(packet, delta) {
                     let sent = inject_raw_packet(output, None, injector);
-                    injected |= sent;
+                    decoy_sent |= sent;
                     all_injected &= sent;
                 } else {
                     all_injected = false;
@@ -469,7 +471,7 @@ fn execute_registry_action<I: TunPacketInjector>(
             break;
         }
     }
-    pure_drop || (injected && all_injected && (drop_original || !forward_original))
+    pure_drop || (all_injected && ((injected && (drop_original || !forward_original)) || (drop_original && decoy_sent)))
 }
 
 fn dissect_packet(meta: PacketMeta, payload: &[u8]) -> Dissect {

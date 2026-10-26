@@ -110,7 +110,9 @@ session. Lua `rawsend` consumes the original packet by default. Set
 `forward_original: true` to treat the injected packet as a sidecar; an explicit
 `VERDICT_DROP` without actions consumes the original. A replacement plan consumes
 the original only after every injection succeeds. Injection failure forwards the
-original packet.
+original packet. A Lua `desync.udplen` packet is always a sidecar: its UDP length
+exceeds its bytes, so it cannot replace the original, which only `VERDICT_DROP`
+consumes.
 
 ```mermaid
 flowchart LR
