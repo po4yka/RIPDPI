@@ -160,13 +160,22 @@ impl CircularTcpRotationController {
     }
 
     pub fn append_request_chunk(&mut self, first_response: FirstResponseSettings, round: u32, request_chunk: &[u8]) {
+        let observed_stream_end = self.policy.seq as usize;
         let Some(observation) = self.observed_round.as_mut() else {
             return;
         };
         if observation.round != round {
             return;
         }
-        observation.request_bytes.extend_from_slice(request_chunk);
+        // Keep only the request bytes inside the observed stream window, so a long upload
+        // that gets no early response is not copied into memory.
+        let room = observed_stream_end
+            .saturating_sub(observation.stream_start)
+            .saturating_sub(observation.request_bytes.len());
+        if room == 0 {
+            return;
+        }
+        observation.request_bytes.extend_from_slice(&request_chunk[..request_chunk.len().min(room)]);
         observation.tls_tracker =
             TlsRecordBoundaryTracker::for_first_response(&observation.request_bytes, first_response);
     }
@@ -306,6 +315,22 @@ mod tests {
 
         assert_eq!(controller.active_candidate_index, Some(0));
         assert!(!controller.pending_advance);
+    }
+
+    #[test]
+    fn request_observation_stops_at_the_observed_stream_window() {
+        let mut controller = rotation_controller();
+        let settings = first_response_settings(&RuntimeConfig::default());
+        let window = controller.policy.seq as usize;
+        let chunk = vec![b'a'; 16 * 1024];
+
+        controller.start_round(settings, 2, 1024, &chunk, None, Some("example.org"), None);
+        for _ in 0..64 {
+            controller.append_request_chunk(settings, 2, &chunk);
+        }
+
+        let observed = controller.observed_round().expect("round observed");
+        assert_eq!(observed.request_bytes.len(), window - 1024);
     }
 
     #[test]
