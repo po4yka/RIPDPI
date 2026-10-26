@@ -118,3 +118,23 @@ pub(super) fn expire_udp_flows(
     }
     Ok(())
 }
+
+/// Handles a hard send or receive error on one flow like an unanswered expiry: move to the
+/// next target candidate (for example IPv6 to IPv4 when the device has no IPv6 route), or
+/// record the failure and drop the flow. Other flows of the association keep running.
+pub(super) fn retire_failed_udp_flow(
+    state: &RuntimeState,
+    flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
+    key: &UdpFlowKey,
+    protect_path: Option<&str>,
+    now: Instant,
+) -> io::Result<()> {
+    let Some(mut entry) = flow_state.remove(key) else {
+        return Ok(());
+    };
+    if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {
+        flow_state.insert(key.clone(), entry);
+        return Ok(());
+    }
+    note_udp_flow_timeout_failure(state, &entry)
+}

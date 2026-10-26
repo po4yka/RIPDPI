@@ -950,6 +950,63 @@ fn one_flow_send_error_retires_only_that_flow() {
 }
 
 #[test]
+fn flow_send_error_moves_to_the_next_target_candidate() {
+    let closed = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind closed port");
+    let closed_target = closed.local_addr().expect("closed addr");
+    drop(closed);
+    let fallback = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fallback target");
+    fallback.set_read_timeout(Some(Duration::from_secs(2))).expect("fallback timeout");
+    let fallback_target = fallback.local_addr().expect("fallback addr");
+    // The first candidate fails on send, as a v6 target does on a device without a v6 route.
+    let failing_upstream = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream");
+    failing_upstream.connect(closed_target).expect("connect upstream");
+    failing_upstream.send(b"first").expect("first datagram");
+    std::thread::sleep(Duration::from_millis(50));
+    failing_upstream.set_nonblocking(true).expect("nonblocking upstream");
+
+    let client_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client relay");
+    client_relay.set_read_timeout(Some(Duration::from_secs(2))).expect("relay timeout");
+    let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client");
+    let flow_key = UdpFlowKey {
+        client: client.local_addr().expect("client addr"),
+        target: closed_target,
+        preserve_host_in_response: false,
+    };
+    let mut entry = flow_entry_for(failing_upstream, closed_target);
+    entry.target_candidates = vec![closed_target, fallback_target];
+    let mut flow_state = HashMap::new();
+    flow_state.insert(flow_key.clone(), entry);
+    client
+        .send_to(&encode_socks5_udp_packet(closed_target, b"second"), client_relay.local_addr().expect("relay addr"))
+        .expect("client datagram");
+    let state = test_runtime_state(RuntimeConfig::default());
+    let mut client_buffer = [0u8; 2048];
+    let mut pinned = None;
+
+    let result = super::client_receive::receive_and_forward_udp_client_packet(
+        &client_relay,
+        &mut client_buffer,
+        &mut pinned,
+        super::client_receive::UdpClientReceiveConfig {
+            control_peer_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            requested_udp_source: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+            flow_limit: 16,
+        },
+        &mut flow_state,
+        &state,
+        None,
+        None,
+    );
+
+    assert!(result.is_ok(), "a refused candidate must not end the association: {result:?}");
+    let entry = flow_state.get(&flow_key).expect("the flow moves on instead of being dropped");
+    assert_eq!(entry.current_target, fallback_target);
+    let mut received = [0u8; 64];
+    let (n, _) = fallback.recv_from(&mut received).expect("the failed datagram is resent to the next candidate");
+    assert_eq!(&received[..n], b"second");
+}
+
+#[test]
 fn answered_flow_is_not_rearmed_as_unanswered_by_later_client_datagrams() {
     let peer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind peer");
     let target = peer.local_addr().expect("peer addr");

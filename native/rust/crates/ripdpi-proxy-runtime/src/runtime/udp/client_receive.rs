@@ -3,7 +3,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use super::flow::{UdpFlowActivationState, UdpFlowKey};
+use super::flow::{UdpFlowActivationState, UdpFlowKey, retire_failed_udp_flow};
 use super::flow_selection::ensure_udp_flow_selected;
 use super::parse_socks5_udp_packet_with_host;
 use super::upstream_pump::send_udp_flow_payload;
@@ -78,7 +78,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
                 // pending ICMP error): drop the datagram and keep the other flows going.
                 tracing::debug!(target = %packet.original_target, "UDP flow send failed: {err}");
                 if err.kind() != io::ErrorKind::WouldBlock {
-                    flow_state.remove(&packet.flow_key());
+                    retire_failed_udp_flow(state, flow_state, &packet.flow_key(), protect_path, now)?;
                 }
             }
             Ok(true)

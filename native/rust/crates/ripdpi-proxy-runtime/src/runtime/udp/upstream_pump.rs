@@ -9,7 +9,7 @@ use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 
 use super::encode_socks5_udp_packet_with_resolved_host_into;
 use super::feedback::note_udp_first_response_success;
-use super::flow::{UdpFlowActivationState, UdpFlowKey};
+use super::flow::{UdpFlowActivationState, UdpFlowKey, retire_failed_udp_flow};
 use super::migration::maybe_rebind_udp_source_port;
 use crate::runtime::state::RuntimeState;
 
@@ -81,7 +81,7 @@ pub(super) fn pump_udp_upstream_responses(
             Err(err) => {
                 // ENETUNREACH, EHOSTUNREACH and similar errors end this flow, not the association.
                 tracing::debug!(target = %key.target, "UDP flow receive failed: {err}");
-                flow_state.remove(&key);
+                retire_failed_udp_flow(state, flow_state, &key, protect_path, Instant::now())?;
             }
         }
     }
