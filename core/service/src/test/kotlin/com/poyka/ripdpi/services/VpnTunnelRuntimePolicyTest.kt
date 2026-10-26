@@ -33,6 +33,24 @@ class VpnTunnelRuntimePolicyTest {
     }
 
     @Test
+    fun `dual-stack profile with IPv4-only AllowedIPs leaves IPv6 to the Android block`() {
+        val profile = VpnProfileInterface(listOf("10.8.0.1", "fd00::53"), listOf("0.0.0.0/0"), true, 1280)
+        val plan = profile.routePlan()
+        // No IPv6 address, route or DNS server: Android then blocks IPv6 instead of sending it outside.
+        assertTrue(plan.addresses.none { ':' in it.address })
+        assertTrue(plan.routes.none { ':' in it.address })
+        assertEquals(listOf("10.8.0.1"), profile.effectiveDnsServers(""))
+    }
+
+    @Test
+    fun `IPv6-only AllowedIPs leaves IPv4 to the Android block`() {
+        val profile = VpnProfileInterface(listOf("fd00::53"), listOf("::/0"), true, 1280)
+        val plan = profile.routePlan()
+        assertTrue(plan.addresses.none { ':' !in it.address })
+        assertTrue(plan.routes.none { ':' !in it.address })
+    }
+
+    @Test
     fun `IPv4 profile rejects IPv6 fallback DNS before route plan creation`() {
         val profile = VpnProfileInterface(emptyList(), listOf("0.0.0.0/0", "::/0"), false, 1280)
         assertThrows(IllegalArgumentException::class.java) { profile.routePlan("fd00::1") }

@@ -15,12 +15,18 @@ data class VpnProfileInterface(
 internal fun AwgActivationRequest.vpnProfileInterface(): VpnProfileInterface =
     VpnProfileInterface(dnsServers.toList(), allowedIps.toList(), interfaceAddressV6.isNotBlank(), mtu)
 
-internal fun VpnProfileInterface.routePlan(fallbackDns: String = ""): VpnTunnelRoutePlan =
-    RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled).copy(
+internal fun VpnProfileInterface.routePlan(fallbackDns: String = ""): VpnTunnelRoutePlan {
+    val routed = routedFamilies()
+    require(routed.isNotEmpty()) { "AmneziaWG AllowedIPs must route a configured interface family" }
+    val basePlan = RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled)
+    return basePlan.copy(
+        // Android allows a family that has a TUN address; without a route for it, that traffic
+        // would leave on the underlying network. Leave the address out so Android blocks the family.
+        addresses = basePlan.addresses.filter { it.address.isIpv6Literal() in routed },
         routes =
             (
                 // Preserve the source list, but do not enable an unconfigured Android address family.
-                allowedIps.filter { ipv6Enabled || ':' !in it }.map { cidr ->
+                routableAllowedIps().map { cidr ->
                     val (address, prefixText) = cidr.split('/')
                     val prefix = prefixText.toInt()
                     // Inputs are validated numeric literals; never resolve a hostname here.
@@ -40,10 +46,11 @@ internal fun VpnProfileInterface.routePlan(fallbackDns: String = ""): VpnTunnelR
                     VpnTunnelRouteEntry(checkNotNull(InetAddress.getByAddress(bytes).hostAddress), prefix)
                 } +
                     effectiveDnsServers(fallbackDns).map { address ->
-                        VpnTunnelRouteEntry(address, if (':' in address) Ipv6PrefixBits else Ipv4PrefixBits)
+                        VpnTunnelRouteEntry(address, if (address.isIpv6Literal()) Ipv6PrefixBits else Ipv4PrefixBits)
                     }
             ).distinct(),
     )
+}
 
 /** One DNS policy for host routes and Builder DNS; neither may enable an unconfigured family. */
 internal fun VpnProfileInterface.effectiveDnsServers(fallbackDns: String): List<String> {
@@ -51,8 +58,21 @@ internal fun VpnProfileInterface.effectiveDnsServers(fallbackDns: String): List<
     require(ipv6Enabled || effective.none { ':' in it }) {
         "AmneziaWG DNS servers require a configured interface family"
     }
-    return effective
+    // A DNS server also allows its family, so drop servers of a family that AllowedIPs leaves unrouted.
+    val routed = routedFamilies()
+    val reachable = effective.filter { it.isIpv6Literal() in routed }
+    require(effective.isEmpty() || reachable.isNotEmpty()) {
+        "AmneziaWG DNS servers require an address family that AllowedIPs routes"
+    }
+    return reachable
 }
+
+private fun VpnProfileInterface.routableAllowedIps(): List<String> = allowedIps.filter { ipv6Enabled || ':' !in it }
+
+/** Address families (true = IPv6) that have at least one AllowedIPs route into the tunnel. */
+private fun VpnProfileInterface.routedFamilies(): Set<Boolean> = routableAllowedIps().map { ':' in it }.toSet()
+
+private fun String.isIpv6Literal(): Boolean = ':' in this
 
 /** URI validates IPv6 grammar; expanding its numeric groups never invokes a resolver. */
 private fun numericAddressBytes(address: String): ByteArray {
