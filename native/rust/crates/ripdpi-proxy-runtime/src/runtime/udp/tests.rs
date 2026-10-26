@@ -1019,3 +1019,19 @@ fn hostless_follow_up_datagram_stays_on_the_flow_of_its_quic_initial() {
     assert_eq!(flow.upstream.local_addr().expect("source").port(), source_port, "the source port must not change");
     assert_eq!(flow.host.as_deref(), Some("quic.example"), "the flow keeps the host its Initial carried");
 }
+
+#[test]
+fn client_relay_port_cannot_be_rebound_by_another_reuseaddr_socket() {
+    let relay = build_udp_relay_sockets(IpAddr::V4(Ipv4Addr::LOCALHOST)).expect("relay sockets");
+    let relay_addr = relay.client.local_addr().expect("relay addr");
+    // Linux lets two SO_REUSEADDR UDP sockets of any UID share one address; the newest one
+    // receives the datagrams.
+    assert!(!socket2::SockRef::from(&relay.client).reuse_address().expect("read SO_REUSEADDR"));
+    let hijacker = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))
+        .expect("hijacker socket");
+    hijacker.set_reuse_address(true).expect("hijacker SO_REUSEADDR");
+
+    let rebound = hijacker.bind(&relay_addr.into());
+
+    assert!(rebound.is_err(), "another local socket must not bind the live relay port {relay_addr}");
+}

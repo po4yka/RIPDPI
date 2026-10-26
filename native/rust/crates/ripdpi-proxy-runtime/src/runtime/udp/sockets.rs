@@ -17,8 +17,11 @@ pub(crate) struct UdpRelaySockets {
 /// the egress socket that the invariant in
 /// `.claude/rules/vpnservice-protect-invariant.md` governs is the upstream
 /// socket built by [`build_udp_upstream_socket`], which IS protected.
+///
+/// The bind is exclusive (no `SO_REUSEADDR`): on Linux another app's socket that sets
+/// it could otherwise bind the same loopback port and receive the client's datagrams.
 pub(crate) fn build_udp_relay_sockets(ip: IpAddr) -> io::Result<UdpRelaySockets> {
-    let client = udp_platform::bind_udp_socket(SocketAddr::new(ip, 0), None)?;
+    let client = UdpSocket::bind(SocketAddr::new(ip, 0))?;
     client.set_nonblocking(true)?;
     Ok(UdpRelaySockets { client })
 }
