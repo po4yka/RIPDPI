@@ -67,6 +67,9 @@ pub(super) fn udp_associate_loop(
     running: Arc<AtomicBool>,
     attempt_token: Option<AttemptCorrelationId>,
 ) -> io::Result<()> {
+    // Every exit, including an error or a panic, tells the SOCKS5 control loop to close the
+    // TCP connection, so the client does not keep sending into a dead relay port.
+    let _stop_control = StopControlOnExit(running.clone());
     let mut udp_client_addr = None;
     let mut client_buffer = [0u8; 65_535];
     let mut upstream_buffer = [0u8; 65_535];
@@ -121,4 +124,12 @@ pub(super) fn udp_associate_loop(
 
     expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), Instant::now(), &mut expired_flow_keys)?;
     Ok(())
+}
+
+struct StopControlOnExit(Arc<AtomicBool>);
+
+impl Drop for StopControlOnExit {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Relaxed);
+    }
 }

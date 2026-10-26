@@ -841,3 +841,38 @@ fn lua_nonroot_udp_modify_uses_existing_datagram_socket() {
     peer.set_nonblocking(true).unwrap();
     assert_eq!(peer.recv(&mut bytes).unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
 }
+
+#[test]
+fn association_worker_exit_clears_running_so_the_control_connection_closes() {
+    let closed = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind closed port");
+    let closed_addr = closed.local_addr().expect("closed addr");
+    drop(closed);
+    // A relay socket with a pending ECONNREFUSED makes the association loop fail on its first receive.
+    let relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind relay");
+    relay.connect(closed_addr).expect("connect relay to closed port");
+    relay.send(b"probe").expect("send to closed port");
+    std::thread::sleep(Duration::from_millis(50));
+    relay.set_nonblocking(true).expect("nonblocking relay");
+    let running = crate::sync::Arc::new(crate::sync::AtomicBool::new(true));
+    let worker_running = running.clone();
+    let state = test_runtime_state(RuntimeConfig::default());
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let result = super::udp_associate_loop(
+            relay,
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+            None,
+            state,
+            worker_running,
+            None,
+        );
+        let _ = done_tx.send(result.is_err());
+    });
+
+    let failed = done_rx.recv_timeout(Duration::from_secs(5));
+    let still_running = running.load(crate::sync::Ordering::Relaxed);
+    running.store(false, crate::sync::Ordering::Relaxed);
+    assert_eq!(failed, Ok(true), "the relay socket error must end the association loop");
+    assert!(!still_running, "a dead association worker must tell the control connection to close");
+}
