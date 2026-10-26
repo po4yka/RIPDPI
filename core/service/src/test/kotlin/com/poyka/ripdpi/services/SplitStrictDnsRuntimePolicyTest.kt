@@ -195,6 +195,16 @@ class SplitStrictDnsRuntimePolicyTest {
     }
 
     @Test
+    fun `scoped link-local underlay resolver is skipped instead of invalidating the list`() {
+        val rules = listOf(rule(DestinationRoutingAction.DIRECT, exact("direct.example")))
+
+        val policy = plan(rules, underlay = listOf("192.168.1.1", "fe80::1%wlan0"), underlayLeaseGeneration = 17L)
+
+        assertEquals(listOf("192.168.1.1"), policy.directResolverCandidates)
+        assertEquals(DnsResolverPlane.DIRECT, policy.decide("direct.example").plane)
+    }
+
+    @Test
     fun `eligible direct rejects invalid underlay with validation reason and no bootstrap fallback`() {
         val rules = listOf(rule(DestinationRoutingAction.DIRECT, exact("direct.example")))
         val invalidUnderlays =

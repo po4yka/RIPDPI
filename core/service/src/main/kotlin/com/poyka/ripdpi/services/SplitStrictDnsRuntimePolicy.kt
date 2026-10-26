@@ -170,15 +170,31 @@ private data class NumericAddresses(
     val reason: String? = null,
 )
 
+private const val DirectResolverRole = "direct"
+private const val Ipv6LinkLocalFirstByte = 0xfe
+private const val Ipv6LinkLocalSecondByteMask = 0xc0
+private const val Ipv6LinkLocalSecondBytePrefix = 0x80
+
+private fun isLinkLocalResolverLiteral(raw: String): Boolean {
+    val address = raw.substringBefore('%')
+    val bytes = address.takeIf { ':' in it && it.length <= MaxNumericAddressLength }?.let(::parseIpv6Bytes)
+    return bytes != null &&
+        bytes[0] == Ipv6LinkLocalFirstByte.toByte() &&
+        (bytes[1].toInt() and Ipv6LinkLocalSecondByteMask) == Ipv6LinkLocalSecondBytePrefix
+}
+
 private fun numericAddressesOrEmpty(
     values: List<String>,
-    role: String = "direct",
+    role: String = DirectResolverRole,
 ): NumericAddresses =
     if (values.size > MaxResolverCandidates) {
         NumericAddresses(emptyList(), "${role}_resolver_list_too_large")
     } else {
-        val parsed = values.mapNotNull(::canonicalNumericAddress)
-        if (parsed.size != values.size) {
+        // Link-local resolvers need an interface scope a policy literal cannot carry; skip them so the
+        // global resolvers stay usable. The underlay lease drops the same resolvers.
+        val usable = if (role == DirectResolverRole) values.filterNot(::isLinkLocalResolverLiteral) else values
+        val parsed = usable.mapNotNull(::canonicalNumericAddress)
+        if (parsed.size != usable.size) {
             NumericAddresses(emptyList(), "${role}_resolver_invalid")
         } else {
             NumericAddresses(parsed.distinct())

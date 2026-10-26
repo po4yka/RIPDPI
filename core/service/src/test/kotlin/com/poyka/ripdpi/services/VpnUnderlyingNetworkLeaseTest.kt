@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -63,6 +64,18 @@ class VpnUnderlyingNetworkLeaseTest {
         assertTrue(state.invalidate("cell"))
         assertNull(state.committedLease())
         assertFalse(state.isCommittedCurrent(cellLease.leaseGeneration))
+    }
+
+    @Test
+    fun `scoped link-local underlay resolver does not block the lease for global resolvers`() {
+        val global = InetAddress.getByName("192.168.1.1")
+        val linkLocal = InetAddress.getByName("fe80::1%1")
+        val state = DirectDnsUnderlayLeaseState<String>()
+
+        state.capture("wifi", snapshotGeneration = 10L, eligible = true, dnsServers = setOf(global, linkLocal))
+        val token = state.preparePolicy(setOf(global), complete = true, networkGeneration = 10L)
+
+        assertNotNull(state.preparedLease(token))
     }
 
     @Test

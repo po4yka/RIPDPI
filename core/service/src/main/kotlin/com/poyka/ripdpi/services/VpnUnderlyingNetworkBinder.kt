@@ -64,7 +64,7 @@ internal class DirectDnsUnderlayLeaseState<T> {
         dnsServers: Set<InetAddress>,
     ): Boolean {
         val nextNetwork = candidate.takeIf { eligible }
-        val nextDns = dnsServers.takeIf { eligible }.orEmpty()
+        val nextDns = dnsServers.takeIf { eligible }.orEmpty().withoutLinkLocalResolvers()
         if (network == nextNetwork && networkGeneration == snapshotGeneration && networkDns == nextDns) return false
         networkGeneration = snapshotGeneration
         leaseGeneration += 1
@@ -559,7 +559,7 @@ internal class VpnUnderlyingNetworkBinder(
                 state.preparedLease(token)?.takeIf { lease ->
                     lease.networkGeneration == current.generation &&
                         lease.network == current.network &&
-                        state.policySnapshot()?.second == current.dnsServers
+                        state.policySnapshot()?.second == current.dnsServers.withoutLinkLocalResolvers()
                 }
             }
         }
@@ -572,7 +572,7 @@ internal class VpnUnderlyingNetworkBinder(
                 state.committedLease()?.takeIf { lease ->
                     lease.networkGeneration == current.generation &&
                         lease.network == current.network &&
-                        state.policySnapshot()?.second == current.dnsServers
+                        state.policySnapshot()?.second == current.dnsServers.withoutLinkLocalResolvers()
                 }
             }
         }
@@ -596,6 +596,13 @@ internal class VpnUnderlyingNetworkBinder(
 
 private const val Ipv4OctetCount = 4
 private const val MaxIpv4Octet = 255
+
+/**
+ * Link-local resolvers need an interface scope that a numeric policy literal cannot carry, so the
+ * split-DNS policy skips them; the lease compares only the remaining resolvers.
+ */
+internal fun Set<InetAddress>.withoutLinkLocalResolvers(): Set<InetAddress> =
+    filterNotTo(mutableSetOf()) { it is Inet6Address && it.isLinkLocalAddress }
 
 internal fun parseDirectDnsNumericAddress(value: String): InetAddress? =
     parseDirectDnsIpv4(value) ?: parseDirectDnsIpv6(value)
