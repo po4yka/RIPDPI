@@ -84,6 +84,10 @@ pub(crate) fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeConte
         policy.fake_packet_shape_profile = policy.fake_packet_shape_profile.trim().to_ascii_lowercase();
         Some(policy)
     });
+    runtime_context.connection_concurrency = runtime_context.connection_concurrency.and_then(|mut policy| {
+        policy.selected_profile_id = policy.selected_profile_id.trim().to_string();
+        (!policy.selected_profile_id.is_empty()).then_some(policy)
+    });
     if runtime_context.encrypted_dns.is_none()
         && runtime_context.protect_path.is_none()
         && runtime_context.strategy_chain_yaml.is_none()
@@ -91,6 +95,7 @@ pub(crate) fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeConte
         && runtime_context.preferred_edges.is_empty()
         && runtime_context.direct_path_capabilities.is_empty()
         && runtime_context.morph_policy.is_none()
+        && runtime_context.connection_concurrency.is_none()
     {
         return None;
     }
@@ -100,7 +105,7 @@ pub(crate) fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeConte
 #[cfg(test)]
 mod tests {
     use super::sanitize_runtime_context;
-    use crate::types::ProxyRuntimeContext;
+    use crate::types::{ProxyConnectionConcurrencyPolicy, ProxyRuntimeContext};
 
     #[test]
     fn lua_only_runtime_context_survives_sanitization() {
@@ -121,5 +126,21 @@ mod tests {
             }))
             .is_none()
         );
+    }
+
+    #[test]
+    fn concurrency_only_runtime_context_survives_sanitization() {
+        let policy = |profile: &str| ProxyRuntimeContext {
+            connection_concurrency: Some(ProxyConnectionConcurrencyPolicy {
+                selected_profile_id: profile.to_owned(),
+                per_profile_caps: [("firefox_stable".to_owned(), 2)].into(),
+            }),
+            ..ProxyRuntimeContext::default()
+        };
+        let normalized = sanitize_runtime_context(Some(policy(" firefox_stable "))).expect("context kept");
+        let concurrency = normalized.connection_concurrency.expect("policy kept");
+        assert_eq!(concurrency.selected_profile_id, "firefox_stable");
+        assert_eq!(concurrency.per_profile_caps.get("firefox_stable"), Some(&2));
+        assert!(sanitize_runtime_context(Some(policy("  "))).is_none());
     }
 }
