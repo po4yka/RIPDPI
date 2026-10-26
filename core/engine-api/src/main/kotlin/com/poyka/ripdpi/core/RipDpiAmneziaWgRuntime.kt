@@ -22,7 +22,8 @@ interface RipDpiAmneziaWgRuntime {
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
 }
 
-internal const val defaultAmneziaWgReadyTimeoutMs = 5_000L
+// Three WireGuard REKEY_TIMEOUTs (5 s each): the answer to a resent initiation must still arrive in time.
+internal const val defaultAmneziaWgReadyTimeoutMs = 15_000L
 
 /**
  * AmneziaWG obfuscation parameters. Field names and types mirror the Rust
