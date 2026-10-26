@@ -37,7 +37,8 @@ pub fn classify_l7(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -
 
     // MTProto has no stable fixed signature in the first bytes. This is only a
     // port-and-absence heuristic and must run after stronger protocol checks.
-    if is_mtproto_heuristic(payload, src_port, dst_port) {
+    // MTProto proxies carry it over TCP only, never over UDP.
+    if !is_udp && is_mtproto_heuristic(payload, src_port, dst_port) {
         return L7Protocol::Mtproto(MtprotoDissect);
     }
 
@@ -105,5 +106,18 @@ fn dns_is_query(payload: &[u8], is_udp: bool) -> bool {
 }
 
 fn is_mtproto_heuristic(payload: &[u8], src_port: u16, dst_port: u16) -> bool {
-    payload.len() >= 64 && matches!(src_port, 80 | 443) || payload.len() >= 64 && matches!(dst_port, 80 | 443)
+    payload.len() >= 64
+        && (matches!(src_port, 80 | 443) || matches!(dst_port, 80 | 443))
+        && could_be_obfuscated2_init(payload)
+}
+
+/// Telegram clients regenerate an obfuscated2 init whose plaintext could pass for HTTP,
+/// TLS, or an unobfuscated MTProto transport, so a real init never starts like those.
+fn could_be_obfuscated2_init(payload: &[u8]) -> bool {
+    let tls_record = matches!(payload[0], 0x14..=0x17) && payload[1] == 0x03;
+    let http_method = [&b"GET "[..], b"HEAD", b"POST", b"PUT ", b"OPTI", b"DELE", b"PATC", b"CONN", b"TRAC"]
+        .iter()
+        .any(|method| payload.starts_with(method));
+    let plain_transport = payload[0] == 0xef || payload[..4] == [0xee; 4] || payload[..4] == [0xdd; 4];
+    !tls_record && !http_method && !plain_transport && payload[4..8] != [0; 4]
 }
