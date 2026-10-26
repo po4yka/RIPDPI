@@ -11,7 +11,7 @@ use crate::capsule::encode_connect_udp_payload;
 use crate::client::MasqueClientInner;
 use crate::h2::attempt_h2_connect_udp;
 use crate::h3::attempt_h3_connect_udp;
-use crate::response::{AttemptError, bounded_attempt, classify_attempt_failure};
+use crate::response::{bounded_attempt, classify_attempt_failure};
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
 
@@ -101,12 +101,17 @@ impl MasqueUdpRelay {
 
     async fn open_flow(&self, target: &str) -> io::Result<MasqueUdpFlow> {
         let auth_header = self.client.request_auth_header(target).await?;
-        match bounded_attempt(
-            "MASQUE H3 CONNECT-UDP",
-            attempt_h3_connect_udp(&self.client.config, target, auth_header.as_ref(), self.incoming_tx.clone()),
-        )
-        .await
-        {
+        let h3 = self
+            .client
+            .attempt_with_privacy_pass_retry(target, auth_header.clone(), |header| async move {
+                bounded_attempt(
+                    "MASQUE H3 CONNECT-UDP",
+                    attempt_h3_connect_udp(&self.client.config, target, header.as_ref(), self.incoming_tx.clone()),
+                )
+                .await
+            })
+            .await;
+        let error = match h3 {
             Ok(flow) => {
                 let reason = if self.client.config.quic_migrate_after_handshake {
                     Some("path_validated_after_http3_udp_connect")
@@ -116,70 +121,38 @@ impl MasqueUdpRelay {
                 let status =
                     if self.client.config.quic_migrate_after_handshake { "validated" } else { "not_attempted" };
                 self.client.record_quic_migration_status(status, reason).await;
+                return Ok(flow);
+            }
+            Err(error) => error,
+        };
+        if !self.client.config.use_http2_fallback {
+            let reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
+            self.client.record_quic_migration_status("failed", Some(&reason)).await;
+            return Err(error);
+        }
+
+        let fallback_reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
+        tracing::info!(target, error = %error, "MASQUE H3 UDP connect failed, falling back to HTTP/2");
+        let h2 = self
+            .client
+            .attempt_with_privacy_pass_retry(target, auth_header, |header| async move {
+                bounded_attempt(
+                    "MASQUE H2 CONNECT-UDP",
+                    attempt_h2_connect_udp(&self.client.config, target, header.as_ref(), self.incoming_tx.clone()),
+                )
+                .await
+            })
+            .await;
+        match h2 {
+            Ok(flow) => {
+                self.client.record_quic_migration_status("http2_fallback", Some(&fallback_reason)).await;
                 Ok(flow)
             }
-            Err(AttemptError::Io(error)) if self.client.config.use_http2_fallback => {
-                let fallback_reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
-                tracing::info!(target, error = %error, "MASQUE H3 UDP connect failed, falling back to HTTP/2");
-                match bounded_attempt(
-                    "MASQUE H2 CONNECT-UDP",
-                    attempt_h2_connect_udp(&self.client.config, target, auth_header.as_ref(), self.incoming_tx.clone()),
-                )
-                .await
-                {
-                    Ok(flow) => {
-                        self.client.record_quic_migration_status("http2_fallback", Some(&fallback_reason)).await;
-                        Ok(flow)
-                    }
-                    Err(AttemptError::Io(fallback_error)) => {
-                        self.client
-                            .record_quic_migration_status(
-                                "failed",
-                                Some("http3_udp_connect_failed_and_http2_fallback_failed"),
-                            )
-                            .await;
-                        Err(fallback_error)
-                    }
-                    Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        "MASQUE proxy requested Privacy Pass credentials during HTTP/2 UDP fallback",
-                    )),
-                }
-            }
-            Err(AttemptError::PrivacyPassChallenge(challenge)) => {
-                let retry_header = self.client.fetch_privacy_pass_header(target, &challenge).await?;
-                match bounded_attempt(
-                    "MASQUE H3 CONNECT-UDP",
-                    attempt_h3_connect_udp(&self.client.config, target, Some(&retry_header), self.incoming_tx.clone()),
-                )
-                .await
-                {
-                    Ok(flow) => {
-                        let reason = if self.client.config.quic_migrate_after_handshake {
-                            Some("path_validated_after_http3_udp_connect_retry")
-                        } else {
-                            Some("http3_transport_without_rebind")
-                        };
-                        let status =
-                            if self.client.config.quic_migrate_after_handshake { "validated" } else { "not_attempted" };
-                        self.client.record_quic_migration_status(status, reason).await;
-                        Ok(flow)
-                    }
-                    Err(AttemptError::Io(error)) => {
-                        let reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
-                        self.client.record_quic_migration_status("failed", Some(&reason)).await;
-                        Err(error)
-                    }
-                    Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        "MASQUE proxy requested Privacy Pass credentials again after retry",
-                    )),
-                }
-            }
-            Err(AttemptError::Io(error)) => {
-                let reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
-                self.client.record_quic_migration_status("failed", Some(&reason)).await;
-                Err(error)
+            Err(fallback_error) => {
+                self.client
+                    .record_quic_migration_status("failed", Some("http3_udp_connect_failed_and_http2_fallback_failed"))
+                    .await;
+                Err(fallback_error)
             }
         }
     }

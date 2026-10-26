@@ -125,31 +125,17 @@ impl MasqueClient {
 
     async fn connect_tcp_h2(&self, target: &str) -> io::Result<Box<dyn AsyncIo>> {
         let auth_header = self.inner.request_auth_header(target).await?;
-        match bounded_attempt(
-            "MASQUE H2 CONNECT",
-            attempt_h2_connect_tcp(&self.inner.config, target, auth_header.as_ref()),
-        )
-        .await
-        {
-            Ok(stream) => Ok(Box::new(stream)),
-            Err(AttemptError::PrivacyPassChallenge(challenge)) => {
-                let retry_header = self.inner.fetch_privacy_pass_header(target, &challenge).await?;
-                match bounded_attempt(
+        let stream = self
+            .inner
+            .attempt_with_privacy_pass_retry(target, auth_header, |header| async move {
+                bounded_attempt(
                     "MASQUE H2 CONNECT",
-                    attempt_h2_connect_tcp(&self.inner.config, target, Some(&retry_header)),
+                    attempt_h2_connect_tcp(&self.inner.config, target, header.as_ref()),
                 )
                 .await
-                {
-                    Ok(stream) => Ok(Box::new(stream)),
-                    Err(AttemptError::Io(error)) => Err(error),
-                    Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        "MASQUE proxy requested Privacy Pass credentials again after retry",
-                    )),
-                }
-            }
-            Err(AttemptError::Io(error)) => Err(error),
-        }
+            })
+            .await?;
+        Ok(Box::new(stream))
     }
 }
 

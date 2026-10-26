@@ -565,6 +565,44 @@ async fn privacy_pass_provider_fetch_caches_spare_headers() {
 }
 
 #[tokio::test]
+async fn privacy_pass_challenge_fetches_a_token_and_retries_the_attempt_once() {
+    let (provider_url, _requests, provider_task) = start_provider_stub(vec![(
+        200,
+        PrivacyPassProviderResponse {
+            authorization_headers: None,
+            authorization_header: Some("PrivateToken token-one".to_string()),
+            proxy_authorization_headers: None,
+            proxy_authorization_header: None,
+            expires_at_epoch_ms: None,
+        },
+    )])
+    .await
+    .expect("provider stub");
+    let client = MasqueClient::new(privacy_pass_test_config(provider_url, None)).expect("client");
+    let seen = Arc::new(Mutex::new(Vec::new()));
+
+    let result = client
+        .inner
+        .attempt_with_privacy_pass_retry("example.com:443", None, |header| {
+            let seen = Arc::clone(&seen);
+            async move {
+                let value = header.map(|header| header.value);
+                seen.lock().await.push(value.clone());
+                match value {
+                    None => Err(AttemptError::PrivacyPassChallenge("PrivateToken challenge=AAAA".to_string())),
+                    Some(value) => Ok(value),
+                }
+            }
+        })
+        .await
+        .expect("the retry with the fetched token succeeds");
+
+    assert_eq!(result, "PrivateToken token-one");
+    assert_eq!(*seen.lock().await, vec![None, Some("PrivateToken token-one".to_string())]);
+    provider_task.await.expect("provider task").expect("provider result");
+}
+
+#[tokio::test]
 async fn quic_migration_snapshot_records_http2_fallback_reason() {
     let client = MasqueClient::new(MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,

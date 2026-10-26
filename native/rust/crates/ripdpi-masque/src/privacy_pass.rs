@@ -3,6 +3,7 @@ use std::io;
 use crate::auth::{AuthHeader, PrivacyPassProviderRequest, PrivacyPassProviderResponse, build_static_auth_header};
 use crate::client::MasqueClientInner;
 use crate::config::MasqueAuthMode;
+use crate::response::AttemptError;
 
 impl MasqueClientInner {
     pub(crate) async fn request_auth_header(&self, target: &str) -> io::Result<Option<AuthHeader>> {
@@ -10,6 +11,40 @@ impl MasqueClientInner {
             return Ok(self.cached_privacy_pass_header(target).await);
         }
         build_static_auth_header(&self.config)
+    }
+
+    /// Runs `attempt` with `auth_header`. When the proxy answers with a
+    /// Privacy Pass challenge, fetches a token for `target` and runs `attempt`
+    /// once more with it (RFC 9577 2.1).
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: each attempt owns its connection; dropping this future
+    /// drops the attempt in flight. A fetched token that is not yet used is lost.
+    pub(crate) async fn attempt_with_privacy_pass_retry<T, F, Fut>(
+        &self,
+        target: &str,
+        auth_header: Option<AuthHeader>,
+        mut attempt: F,
+    ) -> io::Result<T>
+    where
+        F: FnMut(Option<AuthHeader>) -> Fut,
+        Fut: Future<Output = Result<T, AttemptError>>,
+    {
+        let challenge = match attempt(auth_header).await {
+            Ok(value) => return Ok(value),
+            Err(AttemptError::Io(error)) => return Err(error),
+            Err(AttemptError::PrivacyPassChallenge(challenge)) => challenge,
+        };
+        let retry_header = self.fetch_privacy_pass_header(target, &challenge).await?;
+        match attempt(Some(retry_header)).await {
+            Ok(value) => Ok(value),
+            Err(AttemptError::Io(error)) => Err(error),
+            Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "MASQUE proxy requested Privacy Pass credentials again after retry",
+            )),
+        }
     }
 
     pub(crate) async fn cached_privacy_pass_header(&self, target: &str) -> Option<AuthHeader> {
