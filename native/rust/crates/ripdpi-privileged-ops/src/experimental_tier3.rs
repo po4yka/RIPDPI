@@ -251,6 +251,11 @@ pub(crate) fn match_received_envelope(
     // The raw socket sees every echo for the address, so a body that is not
     // an envelope (any ping) is skipped, not an error that ends the wait.
     let decoded = decode_icmp_wrapped_udp_envelope(peer_ip, icmp_code, payload).ok()?;
+    // A peer kernel answers an echo request itself, with the reply type and
+    // the request body unchanged. The envelope still says ClientRequest.
+    if decoded.role != icmp_role {
+        return None;
+    }
     if filter.session_id.is_some_and(|expected| expected != decoded.session_id) {
         return None;
     }
@@ -349,6 +354,23 @@ mod tests {
             expected_role: Some(IcmpWrappedUdpRole::ServerReply),
             timeout_ms: 1_000,
         }
+    }
+
+    #[test]
+    fn kernel_echo_of_the_own_request_is_not_a_server_reply() {
+        let request = encode_icmp_wrapped_udp_envelope(&request_spec()).expect("encode");
+        let peer = request_spec().peer.ip();
+
+        // A peer kernel answers the echo request with type 0 and the same body.
+        let echoed = match_received_envelope(&reply_filter(), peer, IcmpWrappedUdpRole::ServerReply, 199, &request);
+        assert!(echoed.is_none(), "the automatic echo reply must be skipped");
+
+        let reply =
+            IcmpWrappedUdpSpec { role: IcmpWrappedUdpRole::ServerReply, payload: b"answer".to_vec(), ..request_spec() };
+        let reply = encode_icmp_wrapped_udp_envelope(&reply).expect("encode reply");
+        let received = match_received_envelope(&reply_filter(), peer, IcmpWrappedUdpRole::ServerReply, 199, &reply)
+            .expect("a real server reply is accepted");
+        assert_eq!(received.payload, b"answer");
     }
 
     #[test]
