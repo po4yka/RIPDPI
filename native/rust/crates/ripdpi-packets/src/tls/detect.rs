@@ -21,7 +21,15 @@ fn tls_client_hello_marker_info_in_record(buffer: &[u8]) -> Option<TlsMarkerInfo
         return None;
     }
     let parsed = crate::tls_nom::parse_client_hello_record(buffer)?;
-    crate::tls_nom::to_marker_info(&parsed, buffer.len())
+    crate::tls_nom::to_marker_info(&parsed, buffer.len()).filter(|markers| host_in_first_record(buffer, markers))
+}
+
+/// The record parser reads one contiguous handshake. When the ClientHello
+/// continues in a later record, an SNI past the first record would include
+/// that record's header bytes, so it is not a host.
+fn host_in_first_record(buffer: &[u8], markers: &TlsMarkerInfo) -> bool {
+    let record_end = read_u16(buffer, 3).map_or(usize::MAX, |len| len + 5);
+    buffer.len() <= record_end || markers.host_end <= record_end
 }
 
 pub fn parse_tls(buffer: &[u8]) -> Option<&[u8]> {
@@ -35,7 +43,8 @@ pub fn tls_marker_info(buffer: &[u8]) -> Option<TlsMarkerInfo> {
 
 pub fn parse_tls_client_hello_layout(buffer: &[u8]) -> Option<TlsClientHelloLayout> {
     let parsed = crate::tls_nom::parse_client_hello_record(buffer)?;
-    let markers = crate::tls_nom::to_marker_info(&parsed, buffer.len())?;
+    let markers = crate::tls_nom::to_marker_info(&parsed, buffer.len())
+        .filter(|markers| host_in_first_record(buffer, markers))?;
     let record_payload_len = read_u16(buffer, 3)?;
     let handshake_payload_len = read_u24(buffer, 6)?;
     let extensions = parsed

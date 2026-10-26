@@ -437,6 +437,25 @@ fn part_tls_splits_record_at_midpoint() {
 }
 
 #[test]
+fn client_hello_fragmented_across_records_never_yields_a_wrong_host() {
+    let input = crate::fake_profiles::tls_fake_profile_bytes(crate::fake_profiles::TlsFakeProfile::VkChrome);
+    let host = &b"vk.com"[..];
+    assert_eq!(parse_tls(input), Some(host));
+    for pos in [20, 100, 150, 160, 170, 300] {
+        let split = part_tls_like_c(input, pos);
+        assert_eq!(split.rc, 5, "split at {pos}");
+        let bytes = &split.bytes;
+        assert!(matches!(parse_tls(bytes), None | Some(b"vk.com")), "split at {pos}: {:?}", parse_tls(bytes));
+        if let Some(markers) = tls_marker_info(bytes) {
+            assert_eq!(&bytes[markers.host_start..markers.host_end], host, "split at {pos}");
+        }
+        if let Some(layout) = parse_tls_client_hello_layout(bytes) {
+            assert_eq!(&bytes[layout.markers.host_start..layout.markers.host_end], host, "split at {pos}");
+        }
+    }
+}
+
+#[test]
 fn part_tls_at_zero_returns_split() {
     let mutation = part_tls_like_c(DEFAULT_FAKE_TLS, 0);
     // Position 0 means split at the very beginning
