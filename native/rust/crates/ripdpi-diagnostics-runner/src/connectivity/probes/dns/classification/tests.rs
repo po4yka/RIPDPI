@@ -195,6 +195,16 @@ fn dns_classifier_prefers_ech_capable_over_clean_answer_overlap() {
 }
 
 #[test]
+fn dns_classifier_keeps_answer_integrity_over_ech_capability() {
+    assert_eq!(resolve_dns_classification(Some(DnsAnswerClass::Poisoned), DnsHttpsClass::EchCapable), Some("POISONED"));
+    assert_eq!(
+        resolve_dns_classification(Some(DnsAnswerClass::Divergent), DnsHttpsClass::EchCapable),
+        Some("DIVERGENT")
+    );
+    assert_eq!(resolve_dns_classification(None, DnsHttpsClass::EchCapable), Some("ECH_CAPABLE"));
+}
+
+#[test]
 fn dns_classifier_keeps_poisoned_when_https_records_are_missing() {
     let classification = resolve_dns_classification(Some(DnsAnswerClass::Poisoned), DnsHttpsClass::NoHttpsRr);
 
