@@ -11,9 +11,9 @@ use http_body_util::{BodyExt, Empty};
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioIo, TokioTimer};
 use tokio::net::TcpListener;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, Semaphore, mpsc};
 use tokio::task::AbortHandle;
 use tokio::time::sleep;
 
@@ -28,6 +28,12 @@ const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|cloudflare-origin|";
 /// reach the origin can open one before authentication, so this is short.
 const SESSION_ATTACH_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_LIVE_SESSIONS: usize = 1_024;
+/// Most HTTP connections served at once: a session uses one GET and one
+/// POST connection, plus slack for keep-alive connections between requests.
+const MAX_CONNECTIONS: usize = 2 * MAX_LIVE_SESSIONS + 128;
+/// Deadline for a client to send a whole request head. hyper applies it only
+/// when the builder has a timer.
+const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Session authentication states. Authentication and eviction both move a
 /// session out of `AUTH_PENDING` with one compare-exchange, so exactly one of
@@ -102,14 +108,34 @@ pub(crate) async fn run(config: OriginConfig) -> io::Result<()> {
         sessions: Arc::new(Mutex::new(HashMap::new())),
         next_session_seq: Arc::new(AtomicU64::new(0)),
     };
+    serve(listener, server).await
+}
 
+/// Serves HTTP/1 connections from `listener`.
+///
+/// # Cancel safety
+///
+/// cancel-safe: connections run in spawned tasks; dropping the accept loop
+/// only stops new connections.
+async fn serve(listener: TcpListener, server: OriginServer) -> io::Result<()> {
+    let connection_slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     loop {
         let (stream, _) = listener.accept().await?;
+        let Ok(slot) = Arc::clone(&connection_slots).try_acquire_owned() else {
+            // Closing at once keeps descriptors free; a queue would still hold them.
+            drop(stream);
+            continue;
+        };
         let server = server.clone();
         tokio::spawn(async move {
+            let _slot = slot;
             let io = TokioIo::new(stream);
             let service = service_fn(move |request| server.clone().handle_request(request));
-            if let Err(error) = http1::Builder::new().serve_connection(io, service).await {
+            let connection = http1::Builder::new()
+                .timer(TokioTimer::new())
+                .header_read_timeout(HEADER_READ_TIMEOUT)
+                .serve_connection(io, service);
+            if let Err(error) = connection.await {
                 let error = io::Error::other(format!("cloudflare origin connection failed: {error}"));
                 emit_structured_error(classify_error(&error), &error);
             }
@@ -341,8 +367,20 @@ fn new_session(seq: u64) -> Arc<SessionState> {
     })
 }
 
+/// Forwards POST body chunks to the session. It stops when the session's
+/// receiver is gone, so a stalled body cannot keep its connection open after
+/// the session ended or expired.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it drops the body, which closes its connection.
 async fn pump_request_body(mut body: Incoming, inbound_tx: mpsc::Sender<Bytes>) -> io::Result<()> {
-    while let Some(frame) = body.frame().await {
+    loop {
+        let frame = tokio::select! {
+            frame = body.frame() => frame,
+            () = inbound_tx.closed() => break,
+        };
+        let Some(frame) = frame else { break };
         let frame = frame.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionAborted, format!("POST body read failed: {error}"))
         })?;
@@ -520,5 +558,62 @@ mod tests {
         .expect("the GET stream must end when the upstream closes");
         assert!(received.ends_with(b"response"));
         drop(inbound_tx);
+    }
+
+    /// Starts `serve` on a loopback port and returns its address.
+    async fn serve_on_loopback() -> std::net::SocketAddr {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind origin");
+        let address = listener.local_addr().expect("origin address");
+        tokio::spawn(super::serve(listener, server()));
+        address
+    }
+
+    /// True when the origin closes `stream` within `wait`.
+    async fn closed_within(stream: &mut tokio::net::TcpStream, wait: Duration) -> bool {
+        use tokio::io::AsyncReadExt;
+        let mut sink = Vec::new();
+        tokio::time::timeout(wait, stream.read_to_end(&mut sink)).await.is_ok()
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn stalled_request_head_is_closed_at_the_header_deadline() {
+        let address = serve_on_loopback().await;
+        let mut client = tokio::net::TcpStream::connect(address).await.expect("connect");
+        client.write_all(b"GET /session HTTP/1.1\r\nHost: origin\r\n").await.expect("partial head");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // Freeze the clock after the real I/O; only the origin's own deadline can end this.
+        tokio::time::pause();
+        assert!(closed_within(&mut client, Duration::from_secs(3600)).await, "a stalled request head must be closed");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn connections_above_the_cap_are_closed() {
+        let address = serve_on_loopback().await;
+        let mut idle = Vec::new();
+        for _ in 0..super::MAX_CONNECTIONS {
+            idle.push(tokio::net::TcpStream::connect(address).await.expect("connect idle client"));
+        }
+        let mut extra = tokio::net::TcpStream::connect(address).await.expect("connect extra client");
+        assert!(closed_within(&mut extra, Duration::from_secs(5)).await, "a connection above the cap must be closed");
+        assert!(!closed_within(&mut idle[0], Duration::from_millis(200)).await, "admitted connections stay open");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn stalled_post_body_is_closed_when_its_session_expires() {
+        let address = serve_on_loopback().await;
+        let mut client = tokio::net::TcpStream::connect(address).await.expect("connect");
+        // A POST with no GET: the session expires, but the body never ends.
+        client
+            .write_all(b"POST /session HTTP/1.1\r\nHost: origin\r\nContent-Length: 1000\r\n\r\nabc")
+            .await
+            .expect("POST head");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        tokio::time::pause();
+        assert!(
+            closed_within(&mut client, Duration::from_secs(3600)).await,
+            "a stalled POST must not pin its connection"
+        );
     }
 }
