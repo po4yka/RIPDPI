@@ -16,7 +16,7 @@ use crate::response::{bounded_attempt, classify_attempt_failure};
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
 
 const MAX_UDP_FLOWS: usize = 64;
-const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+pub(crate) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 const H3_DATAGRAM_TOO_LARGE: &str = "masque_h3_datagram_too_large: payload exceeds the current QUIC path limit";
 
 fn h3_datagram_send_error(error: quinn::SendDatagramError) -> io::Error {
@@ -117,18 +117,29 @@ impl MasqueUdpRelay {
         Ok(())
     }
 
-    /// Receives the next datagram from any flow.
+    /// Receives the next datagram from any flow. While it waits, it closes
+    /// flows that go idle, because an idle flow still sends QUIC keep-alives.
     ///
     /// # Cancel safety
     ///
-    /// Cancel-safe: `mpsc::Receiver::recv` is cancel-safe, and the flow is
-    /// marked used only after a datagram is taken.
+    /// Cancel-safe: `mpsc::Receiver::recv` is cancel-safe, idle pruning is
+    /// synchronous, and the flow is marked used only after a datagram is taken.
     pub async fn recv_from(&mut self) -> io::Result<(String, Vec<u8>)> {
-        let (target, payload) = self
-            .incoming_rx
-            .recv()
-            .await
-            .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "MASQUE UDP relay closed"))?;
+        let received = loop {
+            let Some(next_idle) = self.flows.values().map(|flow| flow.last_used + UDP_FLOW_IDLE_TIMEOUT).min() else {
+                break self.incoming_rx.recv().await;
+            };
+            tokio::select! {
+                // A queued datagram wins, so its flow is refreshed before pruning.
+                biased;
+                received = self.incoming_rx.recv() => break received,
+                () = tokio::time::sleep_until(tokio::time::Instant::from_std(next_idle)) => {
+                    prune_idle_flows(&mut self.flows, Instant::now());
+                }
+            }
+        };
+        let (target, payload) =
+            received.ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "MASQUE UDP relay closed"))?;
         // A receive-heavy flow is in use too; keep it out of idle and LRU eviction.
         if let Some(flow) = self.flows.get_mut(&target) {
             flow.last_used = Instant::now();
@@ -231,8 +242,12 @@ fn is_h3_transport_failure(error: &io::Error) -> bool {
     !matches!(error.kind(), io::ErrorKind::PermissionDenied | io::ErrorKind::InvalidInput | io::ErrorKind::InvalidData)
 }
 
-fn make_room_for_flow(flows: &mut HashMap<String, MasqueUdpFlow>, now: Instant, max_flows: usize) {
+fn prune_idle_flows(flows: &mut HashMap<String, MasqueUdpFlow>, now: Instant) {
     flows.retain(|_, flow| now.saturating_duration_since(flow.last_used) < UDP_FLOW_IDLE_TIMEOUT);
+}
+
+fn make_room_for_flow(flows: &mut HashMap<String, MasqueUdpFlow>, now: Instant, max_flows: usize) {
+    prune_idle_flows(flows, now);
     while flows.len() >= max_flows {
         let Some(oldest) = flows.iter().min_by_key(|(_, flow)| flow.last_used).map(|(target, _)| target.clone()) else {
             break;

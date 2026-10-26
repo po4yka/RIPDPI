@@ -1582,6 +1582,32 @@ async fn udp_send_reopens_a_flow_whose_carrier_died() {
 }
 
 #[tokio::test]
+async fn a_waiting_receive_closes_flows_that_go_idle() {
+    let mut config = h3_connect_udp_proxy_config("127.0.0.1:9".parse().expect("address"), String::new());
+    config.url = "https://masque.example/".to_string();
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+    let (sender, _receiver) = tokio::sync::mpsc::channel(1);
+    let mut flow = crate::udp::MasqueUdpFlow::new(
+        crate::udp::MasqueUdpSender::H2(sender),
+        None,
+        tokio::spawn(std::future::pending()),
+        tokio::spawn(std::future::pending()),
+        None,
+        0,
+    );
+    // Goes idle 100 ms from now, and no new target ever opens a flow.
+    flow.last_used =
+        std::time::Instant::now() - crate::udp::UDP_FLOW_IDLE_TIMEOUT + std::time::Duration::from_millis(100);
+    udp.flows.insert("idle:53".to_string(), flow);
+
+    let waited = tokio::time::timeout(std::time::Duration::from_millis(500), udp.recv_from()).await;
+
+    assert!(waited.is_err(), "no datagram was queued");
+    assert!(udp.flows.is_empty(), "an idle flow kept its QUIC keep-alives running");
+}
+
+#[tokio::test]
 async fn receiving_on_a_flow_keeps_it_out_of_idle_eviction() {
     let mut config = h3_connect_udp_proxy_config("127.0.0.1:9".parse().expect("address"), String::new());
     config.url = "https://masque.example/".to_string();
