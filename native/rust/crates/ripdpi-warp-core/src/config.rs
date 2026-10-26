@@ -342,16 +342,35 @@ pub(crate) fn resolve_host_for_family(host: &str, port: u16, family: Domain) -> 
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no endpoint address resolved"))
 }
 
+/// Upper bound for the system resolver lookup of an endpoint host name.
+const ENDPOINT_RESOLVE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Resolve the peer endpoint. A host name lookup runs on the blocking pool with
+/// [`ENDPOINT_RESOLVE_TIMEOUT`], so it neither blocks the thread that polls the
+/// runtime nor hides a stop request until the system resolver gives up.
+///
+/// # Cancel safety
+/// cancel-safe: dropping it detaches the blocking lookup, whose result is discarded.
 pub(crate) async fn resolve_endpoint(endpoint: &ResolvedWarpRuntimeEndpoint) -> io::Result<SocketAddr> {
     let port = u16::try_from(endpoint.port)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid WARP endpoint port"))?;
-    if let Some(ipv4) = endpoint.ipv4.as_deref().filter(|value| !value.is_empty()) {
-        return resolve_host_for_family(ipv4, port, Domain::IPV4);
+    let (host, family) = if let Some(ipv4) = endpoint.ipv4.as_deref().filter(|value| !value.is_empty()) {
+        (ipv4, Some(Domain::IPV4))
+    } else if let Some(ipv6) = endpoint.ipv6.as_deref().filter(|value| !value.is_empty()) {
+        (ipv6, Some(Domain::IPV6))
+    } else {
+        (endpoint.host.as_str(), None)
+    };
+    let host = host.to_owned();
+    let lookup = tokio::task::spawn_blocking(move || match family {
+        Some(family) => resolve_host_for_family(&host, port, family),
+        None => resolve_sync_host(&host, port),
+    });
+    match tokio::time::timeout(ENDPOINT_RESOLVE_TIMEOUT, lookup).await {
+        Ok(Ok(resolved)) => resolved,
+        Ok(Err(join_error)) => Err(io::Error::other(format!("endpoint lookup task failed: {join_error}"))),
+        Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "endpoint lookup timed out")),
     }
-    if let Some(ipv6) = endpoint.ipv6.as_deref().filter(|value| !value.is_empty()) {
-        return resolve_host_for_family(ipv6, port, Domain::IPV6);
-    }
-    resolve_sync_host(&endpoint.host, port)
 }
 
 pub(crate) fn parse_ipv4_cidr(value: Option<&str>) -> Option<IpAddr> {
