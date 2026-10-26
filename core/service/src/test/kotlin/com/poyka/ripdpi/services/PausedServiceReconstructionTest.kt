@@ -127,7 +127,7 @@ class PausedServiceReconstructionTest {
             service.sessionComponentBuilderProvider =
                 Provider {
                     factoryCalls.incrementAndGet()
-                    throw IllegalStateException("graph is not needed for this test")
+                    error("graph is not needed for this test")
                 }
             lifecycle.create()
             val previousTeardown = Job()
