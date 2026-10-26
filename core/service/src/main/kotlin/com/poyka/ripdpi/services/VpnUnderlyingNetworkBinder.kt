@@ -536,7 +536,7 @@ internal class VpnUnderlyingNetworkBinder(
                     candidate = snapshot?.network,
                     snapshotGeneration = generation,
                     eligible = snapshot != null,
-                    dnsServers = snapshot?.dnsServers.orEmpty(),
+                    dnsServers = snapshot?.directDnsServers.orEmpty(),
                 )
             }
         if (shouldPublishDirectDnsLease(changed, livePublicationEnabled)) applyCommittedLeaseLocked()
@@ -559,7 +559,7 @@ internal class VpnUnderlyingNetworkBinder(
                 state.preparedLease(token)?.takeIf { lease ->
                     lease.networkGeneration == current.generation &&
                         lease.network == current.network &&
-                        state.policySnapshot()?.second == current.dnsServers.withoutLinkLocalResolvers()
+                        state.policySnapshot()?.second == current.directDnsServers
                 }
             }
         }
@@ -572,7 +572,7 @@ internal class VpnUnderlyingNetworkBinder(
                 state.committedLease()?.takeIf { lease ->
                     lease.networkGeneration == current.generation &&
                         lease.network == current.network &&
-                        state.policySnapshot()?.second == current.dnsServers.withoutLinkLocalResolvers()
+                        state.policySnapshot()?.second == current.directDnsServers
                 }
             }
         }

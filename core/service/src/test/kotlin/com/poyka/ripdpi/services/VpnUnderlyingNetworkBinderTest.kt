@@ -232,6 +232,32 @@ class VpnUnderlyingNetworkBinderTest {
         }
 
     @Test
+    fun `private dns on the underlay withholds its resolvers from the direct dns lease`() {
+        val authority = DirectDnsUnderlayAuthority()
+        val network = testNetwork(100)
+        val epoch = authority.beginCallbackEpoch()
+        authority.onAvailable(epoch, network)
+        authority.onCapabilitiesChanged(epoch, network, eligibleCapabilities())
+        authority.onLinkPropertiesChanged(epoch, network, linkProperties("1.1.1.1"))
+        assertEquals(setOf(InetAddress.getByName("1.1.1.1")), authority.snapshot(epoch)?.directDnsServers)
+
+        val strict =
+            linkProperties("1.1.1.1").also { links ->
+                LinkProperties::class.java
+                    .getMethod("setUsePrivateDns", Boolean::class.javaPrimitiveType)
+                    .invoke(links, true)
+                LinkProperties::class.java
+                    .getMethod("setPrivateDnsServerName", String::class.java)
+                    .invoke(links, "dns.example")
+            }
+        authority.onLinkPropertiesChanged(epoch, network, strict)
+
+        val snapshot = checkNotNull(authority.snapshot(epoch))
+        assertEquals(network, snapshot.network)
+        assertTrue(snapshot.directDnsServers.isEmpty())
+    }
+
+    @Test
     fun `authority token is exact monotonic and ignores stale callback interleavings`() {
         val authority = DirectDnsUnderlayAuthority()
         val networkA = testNetwork(100)
