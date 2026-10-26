@@ -845,6 +845,44 @@ class ServiceRuntimeHandoverTest {
         }
 
     @Test
+    fun `exhausted handover stop does not tear down a session started while it waited`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val fingerprintA = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val retainGate = CompletableDeferred<Unit>()
+            val env =
+                newEnv(fingerprint = initialFingerprint).also {
+                    it.coordinator.handoverFailuresRemaining = 5
+                    it.coordinator.handoverRetainGate = retainGate
+                }
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = fingerprintA,
+                    classification = "link_refresh",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            advanceTimeBy(31_000L)
+            repeat(6) { runCurrent() }
+            assertEquals(1, env.coordinator.handoverRetainCalls)
+
+            // A Start queues on the lifecycle mutex while the exhausted failure holds it.
+            val restartJob = launch { env.coordinator.start() }
+            runCurrent()
+            retainGate.complete(Unit)
+            repeat(8) { runCurrent() }
+            restartJob.join()
+            repeat(8) { runCurrent() }
+
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
     fun `new handover suppresses stale retry from older event`() =
         runTest {
             val initialFingerprint = sampleFingerprint()

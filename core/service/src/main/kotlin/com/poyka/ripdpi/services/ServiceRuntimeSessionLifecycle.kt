@@ -13,7 +13,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
     private val dependencies: ServiceRuntimeSessionLifecycleDependencies<TSession>,
     private val hooks: ServiceRuntimeModeHooks<TSession>,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
-    private var stopAfterHandoverFailure: (suspend () -> Unit)? = null
+    private var stopAfterHandoverFailure: (suspend (RuntimeStopGuard) -> Unit)? = null
 
     private val lifecycleRunner =
         RuntimeLifecycleRunner(
@@ -44,7 +44,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
                     state = dependencies.state,
                 ),
             hooks = hooks,
-            stopService = { stopAfterHandoverFailure?.invoke() },
+            stopService = { guard -> stopAfterHandoverFailure?.invoke(guard) },
         )
     private val startStopOrchestrator =
         ServiceRuntimeStartStopOrchestrator(
@@ -81,8 +81,8 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
         )
 
     init {
-        stopAfterHandoverFailure = {
-            startStopOrchestrator.stop()
+        stopAfterHandoverFailure = { guard ->
+            startStopOrchestrator.stop(guard = guard)
         }
     }
 

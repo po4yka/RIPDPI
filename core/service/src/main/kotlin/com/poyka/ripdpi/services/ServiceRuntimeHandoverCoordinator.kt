@@ -13,7 +13,7 @@ import kotlinx.coroutines.sync.withLock
 internal class ServiceRuntimeHandoverCoordinator<TSession>(
     private val dependencies: ServiceRuntimeHandoverDependencies<TSession>,
     private val hooks: ServiceRuntimeModeHooks<TSession>,
-    private val stopService: suspend () -> Unit,
+    private val stopService: suspend (RuntimeStopGuard) -> Unit,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
     private companion object {
         private const val HandoverCooldownMs = 10_000L
@@ -92,7 +92,8 @@ internal class ServiceRuntimeHandoverCoordinator<TSession>(
                 retained
             }
         if (retainedFailClosed == false) {
-            stopService()
+            // The mutex was released above; a queued Start may already own a newer session.
+            stopService(RuntimeStopGuard(isCurrent = { state.currentSession()?.runtimeId == failure.runtimeId }))
         }
     }
 
