@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.proxyimport.RelayProfileShareMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,9 +37,17 @@ class ProfileShareRouteViewModel
             if (_uiState.value.profileId == profileId && !_uiState.value.loading) return
             _uiState.update { ProfileShareRouteUiState(profileId = profileId, loading = true) }
             viewModelScope.launch {
-                val record = relayProfileStore.load(profileId)
-                val credentials = relayCredentialRepository.load(profileId)
-                val shareable = record?.let { RelayProfileShareMapper.toShareable(it, credentials) }
+                val shareable =
+                    try {
+                        val record = relayProfileStore.load(profileId)
+                        val credentials = relayCredentialRepository.load(profileId)
+                        record?.let { RelayProfileShareMapper.toShareable(it, credentials) }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // An undecodable record (for example after a downgrade) is unshareable, not a crash.
+                        null
+                    }
                 _uiState.value =
                     ProfileShareRouteUiState(
                         loading = false,

@@ -171,6 +171,27 @@ class RuleEditorViewModelTest {
             assertEquals(0, dao.insertCalls)
         }
 
+    @Test
+    fun `routes list survives an undecodable relay record`() =
+        runTest {
+            val rule = RuleEntity(id = 3L, name = "Rule", domains = "a.example")
+            val groups = FakeProxyGroupRepository()
+            val relays =
+                object : RelayProfileStore by FakeRelayProfileStore() {
+                    override suspend fun list(): List<RelayProfileRecord> =
+                        throw kotlinx.serialization.SerializationException("bad record")
+                }
+            val viewModel =
+                RoutesViewModel(RuleRepository(FakeRuleDao(listOf(rule))), groups, relays, catalog(groups, relays))
+
+            val state =
+                kotlinx.coroutines.withContext(Dispatchers.Default) {
+                    kotlinx.coroutines.withTimeout(5_000) { viewModel.uiState.first { it.rows.isNotEmpty() } }
+                }
+
+            assertEquals(listOf(3L), state.rows.map { it.rule.id })
+        }
+
     private fun newViewModel(
         ruleId: Long,
         dao: FakeRuleDao,
@@ -181,26 +202,7 @@ class RuleEditorViewModelTest {
         return RuleEditorViewModel(
             SavedStateHandle(mapOf("ruleId" to ruleId)),
             RuleRepository(dao),
-            OutboundTargetCatalog(
-                groups,
-                relays,
-                object : StringResolver {
-                    override fun getQuantityString(
-                        resId: Int,
-                        quantity: Int,
-                        vararg formatArgs: Any,
-                    ): String =
-                        org.robolectric.RuntimeEnvironment
-                            .getApplication()
-                            .resources
-                            .getQuantityString(resId, quantity, *formatArgs)
-
-                    override fun getString(
-                        resId: Int,
-                        vararg formatArgs: Any,
-                    ): String = "label"
-                },
-            ),
+            catalog(groups, relays),
             InstalledAppCatalog(
                 context,
                 object : InstalledPackagesProvider {
@@ -209,6 +211,31 @@ class RuleEditorViewModelTest {
             ),
         )
     }
+
+    private fun catalog(
+        groups: ProxyGroupRepository,
+        relays: RelayProfileStore,
+    ): OutboundTargetCatalog =
+        OutboundTargetCatalog(
+            groups,
+            relays,
+            object : StringResolver {
+                override fun getQuantityString(
+                    resId: Int,
+                    quantity: Int,
+                    vararg formatArgs: Any,
+                ): String =
+                    org.robolectric.RuntimeEnvironment
+                        .getApplication()
+                        .resources
+                        .getQuantityString(resId, quantity, *formatArgs)
+
+                override fun getString(
+                    resId: Int,
+                    vararg formatArgs: Any,
+                ): String = "label"
+            },
+        )
 
     private class FakeRuleDao(
         initial: List<RuleEntity>,
