@@ -10,7 +10,7 @@ use crate::auth::PrivacyPassCache;
 use crate::config::{MasqueConfig, MasqueTcpProtocol};
 use crate::h2::{attempt_h2_connect_tcp, attempt_h2_connect_tcp_over_transport};
 use crate::migration::QuicMigrationSnapshot;
-use crate::response::AttemptError;
+use crate::response::{AttemptError, bounded_attempt};
 use crate::udp::MasqueUdpRelay;
 use crate::validation::validate_config;
 
@@ -91,7 +91,12 @@ impl MasqueClient {
             return Err(h3_tcp_unsupported());
         }
         let auth_header = self.inner.request_auth_header(target).await?;
-        match attempt_h2_connect_tcp_over_transport(&self.inner.config, transport, target, auth_header.as_ref()).await {
+        match bounded_attempt(
+            "MASQUE H2 CONNECT",
+            attempt_h2_connect_tcp_over_transport(&self.inner.config, transport, target, auth_header.as_ref()),
+        )
+        .await
+        {
             Ok(stream) => {
                 self.inner
                     .record_quic_migration_status("http2_chained", Some("http2_connect_tcp_over_entry_hop"))
@@ -120,11 +125,21 @@ impl MasqueClient {
 
     async fn connect_tcp_h2(&self, target: &str) -> io::Result<Box<dyn AsyncIo>> {
         let auth_header = self.inner.request_auth_header(target).await?;
-        match attempt_h2_connect_tcp(&self.inner.config, target, auth_header.as_ref()).await {
+        match bounded_attempt(
+            "MASQUE H2 CONNECT",
+            attempt_h2_connect_tcp(&self.inner.config, target, auth_header.as_ref()),
+        )
+        .await
+        {
             Ok(stream) => Ok(Box::new(stream)),
             Err(AttemptError::PrivacyPassChallenge(challenge)) => {
                 let retry_header = self.inner.fetch_privacy_pass_header(target, &challenge).await?;
-                match attempt_h2_connect_tcp(&self.inner.config, target, Some(&retry_header)).await {
+                match bounded_attempt(
+                    "MASQUE H2 CONNECT",
+                    attempt_h2_connect_tcp(&self.inner.config, target, Some(&retry_header)),
+                )
+                .await
+                {
                     Ok(stream) => Ok(Box::new(stream)),
                     Err(AttemptError::Io(error)) => Err(error),
                     Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(

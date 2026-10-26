@@ -11,6 +11,29 @@ pub(crate) enum AttemptError {
     PrivacyPassChallenge(String),
 }
 
+/// Bound on one proxy connect attempt: TCP or QUIC connect, TLS, the HTTP
+/// handshake and the CONNECT response. Matches the Mieru session factory.
+pub(crate) const CONNECT_ATTEMPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Runs one connect attempt under [`CONNECT_ATTEMPT_TIMEOUT`]; expiry is
+/// `TimedOut`, which `classify_attempt_failure` reports as `timed_out`.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: an attempt owns its sockets and streams until it returns, so
+/// dropping it (or its expiry) closes them.
+pub(crate) async fn bounded_attempt<T>(
+    stage: &str,
+    attempt: impl Future<Output = Result<T, AttemptError>>,
+) -> Result<T, AttemptError> {
+    tokio::time::timeout(CONNECT_ATTEMPT_TIMEOUT, attempt).await.unwrap_or_else(|_| {
+        Err(AttemptError::Io(io::Error::new(
+            io::ErrorKind::TimedOut,
+            format!("{stage} timed out after {CONNECT_ATTEMPT_TIMEOUT:?}"),
+        )))
+    })
+}
+
 impl From<io::Error> for AttemptError {
     fn from(value: io::Error) -> Self {
         Self::Io(value)

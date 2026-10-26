@@ -1285,3 +1285,44 @@ fn h3_connect_udp_proxy_config(proxy_address: SocketAddr, certificate_pem: Strin
         ech_config: None,
     }
 }
+
+/// A proxy address that accepts TCP and binds UDP but never answers.
+fn silent_proxy() -> (std::net::TcpListener, std::net::UdpSocket, SocketAddr) {
+    let tcp = std::net::TcpListener::bind("127.0.0.1:0").expect("silent TCP proxy");
+    let address = tcp.local_addr().expect("silent proxy address");
+    let udp = std::net::UdpSocket::bind(address).expect("silent UDP proxy");
+    (tcp, udp, address)
+}
+
+#[tokio::test(start_paused = true)]
+async fn h2_connect_to_a_silent_proxy_times_out() {
+    let (_tcp, _udp, address) = silent_proxy();
+    let mut config = h3_connect_udp_proxy_config(address, String::new());
+    config.tcp_protocol = MasqueTcpProtocol::Http2;
+    config.root_certificate_pem = None;
+    config.url = format!("https://localhost:{}/", address.port());
+    let client = MasqueClient::new(config).expect("client");
+
+    let started = tokio::time::Instant::now();
+    let error = client.connect_tcp("example.com:443").await.err().expect("silent proxy must fail");
+
+    assert_eq!(error.kind(), io::ErrorKind::TimedOut, "error: {error}");
+    assert_eq!(started.elapsed(), crate::response::CONNECT_ATTEMPT_TIMEOUT);
+}
+
+#[tokio::test(start_paused = true)]
+async fn udp_flow_open_to_a_silent_proxy_times_out_on_h3_and_h2() {
+    let (_tcp, _udp, address) = silent_proxy();
+    let mut config = h3_connect_udp_proxy_config(address, String::new());
+    config.use_http2_fallback = true;
+    config.root_certificate_pem = None;
+    config.url = format!("https://localhost:{}/", address.port());
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+
+    let started = tokio::time::Instant::now();
+    let error = udp.send_to("127.0.0.1:9", b"open").await.expect_err("silent proxy must fail");
+
+    assert_eq!(error.kind(), io::ErrorKind::TimedOut, "error: {error}");
+    assert_eq!(started.elapsed(), crate::response::CONNECT_ATTEMPT_TIMEOUT * 2);
+}

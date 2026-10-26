@@ -11,7 +11,7 @@ use crate::capsule::encode_connect_udp_payload;
 use crate::client::MasqueClientInner;
 use crate::h2::attempt_h2_connect_udp;
 use crate::h3::attempt_h3_connect_udp;
-use crate::response::{AttemptError, classify_attempt_failure};
+use crate::response::{AttemptError, bounded_attempt, classify_attempt_failure};
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
 
@@ -90,7 +90,11 @@ impl MasqueUdpRelay {
 
     async fn open_flow(&self, target: &str) -> io::Result<MasqueUdpFlow> {
         let auth_header = self.client.request_auth_header(target).await?;
-        match attempt_h3_connect_udp(&self.client.config, target, auth_header.as_ref(), self.incoming_tx.clone()).await
+        match bounded_attempt(
+            "MASQUE H3 CONNECT-UDP",
+            attempt_h3_connect_udp(&self.client.config, target, auth_header.as_ref(), self.incoming_tx.clone()),
+        )
+        .await
         {
             Ok(flow) => {
                 let reason = if self.client.config.quic_migrate_after_handshake {
@@ -106,11 +110,9 @@ impl MasqueUdpRelay {
             Err(AttemptError::Io(error)) if self.client.config.use_http2_fallback => {
                 let fallback_reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
                 tracing::info!(target, error = %error, "MASQUE H3 UDP connect failed, falling back to HTTP/2");
-                match attempt_h2_connect_udp(
-                    &self.client.config,
-                    target,
-                    auth_header.as_ref(),
-                    self.incoming_tx.clone(),
+                match bounded_attempt(
+                    "MASQUE H2 CONNECT-UDP",
+                    attempt_h2_connect_udp(&self.client.config, target, auth_header.as_ref(), self.incoming_tx.clone()),
                 )
                 .await
                 {
@@ -135,8 +137,11 @@ impl MasqueUdpRelay {
             }
             Err(AttemptError::PrivacyPassChallenge(challenge)) => {
                 let retry_header = self.client.fetch_privacy_pass_header(target, &challenge).await?;
-                match attempt_h3_connect_udp(&self.client.config, target, Some(&retry_header), self.incoming_tx.clone())
-                    .await
+                match bounded_attempt(
+                    "MASQUE H3 CONNECT-UDP",
+                    attempt_h3_connect_udp(&self.client.config, target, Some(&retry_header), self.incoming_tx.clone()),
+                )
+                .await
                 {
                     Ok(flow) => {
                         let reason = if self.client.config.quic_migrate_after_handshake {
