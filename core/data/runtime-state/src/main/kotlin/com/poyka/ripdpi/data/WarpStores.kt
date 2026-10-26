@@ -248,28 +248,32 @@ class KeystoreWarpCredentialStore
             )
 
         override suspend fun load(profileId: String): WarpCredentials? =
-            blobStore
-                .getStringStrict(prefKey(profileId))
-                ?.let { payload ->
-                    json.decodeFromString<WarpCredentials>(payload).copy(profileId = profileId)
-                }
-                ?: loadLegacy(profileId)
+            withContext(Dispatchers.IO) {
+                blobStore
+                    .getStringStrict(prefKey(profileId))
+                    ?.let { payload ->
+                        json.decodeFromString<WarpCredentials>(payload).copy(profileId = profileId)
+                    }
+                    ?: loadLegacy(profileId)
+            }
 
         override suspend fun loadAll(): List<WarpCredentials> =
-            blobStore
-                .keys()
-                .asSequence()
-                .filter { it.startsWith(CredentialsEntryPrefix) }
-                .mapNotNull { key ->
-                    blobStore.getStringStrict(key)?.let { payload ->
-                        runCatching {
-                            json.decodeFromString<WarpCredentials>(payload).copy(
-                                profileId = key.removePrefix(CredentialsEntryPrefix),
-                            )
-                        }.getOrNull()
-                    }
-                }.sortedBy(WarpCredentials::profileId)
-                .toList()
+            withContext(Dispatchers.IO) {
+                blobStore
+                    .keys()
+                    .asSequence()
+                    .filter { it.startsWith(CredentialsEntryPrefix) }
+                    .mapNotNull { key ->
+                        blobStore.getStringStrict(key)?.let { payload ->
+                            runCatching {
+                                json.decodeFromString<WarpCredentials>(payload).copy(
+                                    profileId = key.removePrefix(CredentialsEntryPrefix),
+                                )
+                            }.getOrNull()
+                        }
+                    }.sortedBy(WarpCredentials::profileId)
+                    .toList()
+            }
 
         override suspend fun save(
             profileId: String,

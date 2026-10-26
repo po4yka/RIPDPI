@@ -325,9 +325,11 @@ class KeystoreRelayCredentialStore
             )
 
         override suspend fun load(profileId: String): RelayCredentialRecord? =
-            blobStore
-                .getStringStrict(prefKey(profileId))
-                ?.let { json.decodeFromString(RelayCredentialRecord.serializer(), it) }
+            withContext(Dispatchers.IO) {
+                blobStore
+                    .getStringStrict(prefKey(profileId))
+                    ?.let { json.decodeFromString(RelayCredentialRecord.serializer(), it) }
+            }
 
         override suspend fun save(credentials: RelayCredentialRecord) {
             withContext(Dispatchers.IO) {

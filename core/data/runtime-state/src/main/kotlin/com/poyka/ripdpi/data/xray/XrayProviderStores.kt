@@ -9,8 +9,10 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.util.UUID
 import javax.inject.Inject
@@ -204,40 +206,46 @@ class SharedPreferencesXrayProfileMetadataStore
         private val json = RipDpiJson
 
         override suspend fun load(profileId: String): XrayProfileMetadataRecord? =
-            preferences.getString(prefKey(profileId), null)?.let {
-                runCatching { json.decodeFromString(XrayProfileMetadataRecord.serializer(), it) }
-                    .getOrNull()
-                    ?.takeIf { record -> record.profileId == profileId }
+            withContext(Dispatchers.IO) {
+                preferences.getString(prefKey(profileId), null)?.let {
+                    runCatching { json.decodeFromString(XrayProfileMetadataRecord.serializer(), it) }
+                        .getOrNull()
+                        ?.takeIf { record -> record.profileId == profileId }
+                }
             }
 
         override suspend fun list(): List<XrayProfileMetadataRecord> =
-            preferences.all.keys
-                .asSequence()
-                .filter { it.startsWith(MetadataKeyPrefix) }
-                .mapNotNull { key ->
-                    preferences.getString(key, null)?.let { encoded ->
-                        runCatching {
-                            json.decodeFromString(XrayProfileMetadataRecord.serializer(), encoded)
-                        }.getOrNull()?.takeIf { record -> prefKey(record.profileId) == key }
-                    }
-                }.sortedBy { it.profileId }
-                .toList()
+            withContext(Dispatchers.IO) {
+                preferences.all.keys
+                    .asSequence()
+                    .filter { it.startsWith(MetadataKeyPrefix) }
+                    .mapNotNull { key ->
+                        preferences.getString(key, null)?.let { encoded ->
+                            runCatching {
+                                json.decodeFromString(XrayProfileMetadataRecord.serializer(), encoded)
+                            }.getOrNull()?.takeIf { record -> prefKey(record.profileId) == key }
+                        }
+                    }.sortedBy { it.profileId }
+                    .toList()
+            }
 
         override suspend fun save(record: XrayProfileMetadataRecord) {
-            preferences
-                .edit()
-                .putString(
-                    prefKey(record.profileId),
-                    json.encodeToString(XrayProfileMetadataRecord.serializer(), record),
-                ).commitOrThrow()
+            withContext(Dispatchers.IO) {
+                preferences
+                    .edit()
+                    .putString(
+                        prefKey(record.profileId),
+                        json.encodeToString(XrayProfileMetadataRecord.serializer(), record),
+                    ).commitOrThrow()
+            }
         }
 
         override suspend fun clear(profileId: String) {
-            preferences.edit().remove(prefKey(profileId)).commitOrThrow()
+            withContext(Dispatchers.IO) { preferences.edit().remove(prefKey(profileId)).commitOrThrow() }
         }
 
         override suspend fun clearAll() {
-            preferences.edit().clear().commitOrThrow()
+            withContext(Dispatchers.IO) { preferences.edit().clear().commitOrThrow() }
         }
 
         private fun prefKey(profileId: String): String = "$MetadataKeyPrefix$profileId"
@@ -262,23 +270,27 @@ class KeystoreXrayProfileSecretStore
             )
 
         override suspend fun load(profileId: String): XrayProfileSecretRecord? =
-            blobStore
-                .getStringStrict(prefKey(profileId))
-                ?.let { json.decodeFromString(XrayProfileSecretRecord.serializer(), it) }
+            withContext(Dispatchers.IO) {
+                blobStore
+                    .getStringStrict(prefKey(profileId))
+                    ?.let { json.decodeFromString(XrayProfileSecretRecord.serializer(), it) }
+            }
 
         override suspend fun save(record: XrayProfileSecretRecord) {
-            blobStore.putString(
-                prefKey(record.profileId),
-                json.encodeToString(XrayProfileSecretRecord.serializer(), record),
-            )
+            withContext(Dispatchers.IO) {
+                blobStore.putString(
+                    prefKey(record.profileId),
+                    json.encodeToString(XrayProfileSecretRecord.serializer(), record),
+                )
+            }
         }
 
         override suspend fun clear(profileId: String) {
-            blobStore.remove(prefKey(profileId))
+            withContext(Dispatchers.IO) { blobStore.remove(prefKey(profileId)) }
         }
 
         override suspend fun clearAll() {
-            blobStore.clear()
+            withContext(Dispatchers.IO) { blobStore.clear() }
         }
 
         private fun prefKey(profileId: String): String = "$SecretsKeyPrefix$profileId"
@@ -521,7 +533,7 @@ class SharedPreferencesXrayProviderSelectionStore
         }
 
         suspend fun clear() {
-            preferences.edit().clear().commitOrThrow()
+            withContext(Dispatchers.IO) { preferences.edit().clear().commitOrThrow() }
         }
 
         private companion object {
