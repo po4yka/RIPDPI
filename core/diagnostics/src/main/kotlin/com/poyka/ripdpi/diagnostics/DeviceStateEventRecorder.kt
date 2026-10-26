@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DeviceRuntimeEvidence
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundOutcome
@@ -11,6 +12,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -339,12 +341,19 @@ internal class DefaultDeviceStateEventRecorder
 
         private fun scheduleSystemStateCapture() {
             scope.launch {
-                mutex.withLock {
-                    if (observation == null) return@withLock
-                    val snapshot = provider.capture()
-                    if (snapshot == lastSnapshot) return@withLock
-                    recordLocked(DeviceStateTrigger.SystemStateChanged, snapshot)
-                }
+                // A broadcast callback has no caller to report to, and the application scope
+                // has no handler: an evidence write failure must not kill the process.
+                val failure =
+                    runCatching {
+                        mutex.withLock {
+                            if (observation == null) return@withLock
+                            val snapshot = provider.capture()
+                            if (snapshot == lastSnapshot) return@withLock
+                            recordLocked(DeviceStateTrigger.SystemStateChanged, snapshot)
+                        }
+                    }.exceptionOrNull()
+                if (failure is CancellationException || failure is Error) throw failure
+                failure?.let { Logger.w(it) { "Device state change was not recorded" } }
             }
         }
 

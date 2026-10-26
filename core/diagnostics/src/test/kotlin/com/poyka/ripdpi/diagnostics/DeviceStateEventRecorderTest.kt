@@ -18,7 +18,12 @@ import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.DeviceRuntimeMemoryPressure
 import com.poyka.ripdpi.data.DeviceRuntimeValue
 import com.poyka.ripdpi.data.Mode
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -393,6 +398,39 @@ class DeviceStateEventRecorderTest {
             provider.emitChanged()
             runCurrent()
             assertEquals(eventCount, stores.nativeEventsState.value.size)
+        }
+
+    @Test
+    fun `failed system state write is logged instead of crashing the scope`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val provider = FakeDeviceStateProvider()
+            val uncaught = mutableListOf<Throwable>()
+            val recorderScope =
+                CoroutineScope(
+                    SupervisorJob() +
+                        StandardTestDispatcher(testScheduler) +
+                        CoroutineExceptionHandler { _, failure -> uncaught += failure },
+                )
+            val recorder =
+                DefaultDeviceStateEventRecorder(
+                    provider = provider,
+                    artifactWriteStore = stores,
+                    clock = TestDeviceStateEventClock(),
+                    scope = recorderScope,
+                )
+            recorder.beginServiceStart(Mode.VPN)
+            recorder.attachRunningSession("connection-disk-full", Mode.VPN)
+            stores.beforeInsertNativeSessionEvent = { event ->
+                if (event.message.contains("trigger=system_state_changed")) error("injected disk full")
+            }
+
+            provider.snapshot = provider.snapshot.copy(screenInteractive = DeviceStateValue.Disabled)
+            provider.emitChanged()
+            runCurrent()
+
+            assertEquals(emptyList<Throwable>(), uncaught)
+            recorderScope.cancel()
         }
 
     private fun kotlinx.coroutines.test.TestScope.recorder(
