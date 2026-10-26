@@ -134,18 +134,11 @@ internal class VpnProtectSocketServer(
         thread =
             Thread(
                 {
-                    while (running) {
-                        try {
-                            val client = server.accept()
-                            if (!dispatchClientSession(LocalSocketClientSession(client))) {
-                                log.w { "protect socket rejected client due to shutdown or back-pressure" }
-                            }
-                        } catch (e: IOException) {
-                            if (running) {
-                                log.w(e) { "protect socket accept error" }
-                            }
-                        }
-                    }
+                    runProtectAcceptLoop(
+                        isRunning = { running },
+                        accept = { LocalSocketClientSession(server.accept()) },
+                        dispatch = ::dispatchClientSession,
+                    )
                 },
                 "vpn-protect-socket",
             ).also {
