@@ -165,6 +165,9 @@ data class DetectionSettingsUiState(
     val portRangeMode: DetectionPortRangeMode = DetectionPortRangeMode.POPULAR,
     val customPortStart: Int = 1080,
     val customPortEnd: Int = 1090,
+    // The port fields' text: blank or out of range while the user edits, unlike the parsed ports.
+    val customPortStartText: String = customPortStart.toString(),
+    val customPortEndText: String = customPortEnd.toString(),
     val dnsResolverMode: DetectionDnsResolverMode = DetectionDnsResolverMode.SYSTEM,
     val dnsPreset: DetectionDnsPreset = DetectionDnsPreset.CUSTOM,
     val dnsDirectServers: String = "",
@@ -230,9 +233,11 @@ data class DetectionSettingsUiState(
             )
         }
 
-    fun withCustomPortStart(value: String): DetectionSettingsUiState = copy(customPortStart = value.toPortOrZero())
+    fun withCustomPortStart(value: String): DetectionSettingsUiState =
+        copy(customPortStart = value.toPortOrZero(), customPortStartText = value)
 
-    fun withCustomPortEnd(value: String): DetectionSettingsUiState = copy(customPortEnd = value.toPortOrZero())
+    fun withCustomPortEnd(value: String): DetectionSettingsUiState =
+        copy(customPortEnd = value.toPortOrZero(), customPortEndText = value)
 
     companion object {
         fun from(settings: AppSettings): DetectionSettingsUiState {

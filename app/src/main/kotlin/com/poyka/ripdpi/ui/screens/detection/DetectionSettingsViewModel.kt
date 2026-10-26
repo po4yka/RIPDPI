@@ -23,6 +23,10 @@ internal class DetectionSettingsViewModel
         private val _uiState = MutableStateFlow(DetectionSettingsUiState())
         val uiState: StateFlow<DetectionSettingsUiState> = _uiState.asStateFlow()
 
+        // Text the user typed, shown at once. A DataStore round trip lags behind keystrokes, and a
+        // text field that shows the lagging value drops characters. Main-confined.
+        private val drafts = mutableMapOf<DraftField, String>()
+
         init {
             observeSettings()
         }
@@ -30,9 +34,17 @@ internal class DetectionSettingsViewModel
         private fun observeSettings() {
             viewModelScope.launch {
                 appSettingsRepository.settings.collect { settings ->
-                    _uiState.value = DetectionSettingsUiState.from(settings)
+                    _uiState.value = DetectionSettingsUiState.from(settings).withDrafts(drafts)
                 }
             }
+        }
+
+        private fun editDraft(
+            field: DraftField,
+            value: String,
+        ) {
+            drafts[field] = value
+            _uiState.value = _uiState.value.withDrafts(drafts)
         }
 
         val setNetworkRequestsEnabled: (Boolean) -> Unit = { enabled ->
@@ -108,6 +120,7 @@ internal class DetectionSettingsViewModel
         }
 
         fun setCustomPortStart(value: String) {
+            editDraft(DraftField.PortStart, value)
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckCustomPortStart =
@@ -117,6 +130,7 @@ internal class DetectionSettingsViewModel
         }
 
         fun setCustomPortEnd(value: String) {
+            editDraft(DraftField.PortEnd, value)
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckCustomPortEnd =
@@ -134,6 +148,11 @@ internal class DetectionSettingsViewModel
         }
 
         fun selectDnsPreset(preset: DetectionDnsPreset) {
+            if (!preset.isCustom) {
+                // The preset replaces the DNS fields, so the typed text no longer applies.
+                drafts -= listOf(DraftField.DnsDirectServers, DraftField.DnsDohUrl, DraftField.DnsDohBootstrapIps)
+                _uiState.value = _uiState.value.selectDnsPreset(preset)
+            }
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDnsPreset = preset.wireValue
@@ -147,6 +166,7 @@ internal class DetectionSettingsViewModel
         }
 
         fun setDnsDirectServers(value: String) {
+            editDraft(DraftField.DnsDirectServers, value)
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDnsPreset = DetectionDnsPreset.CUSTOM.wireValue
@@ -156,6 +176,7 @@ internal class DetectionSettingsViewModel
         }
 
         fun setDnsDohUrl(value: String) {
+            editDraft(DraftField.DnsDohUrl, value)
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDnsPreset = DetectionDnsPreset.CUSTOM.wireValue
@@ -165,6 +186,7 @@ internal class DetectionSettingsViewModel
         }
 
         fun setDnsDohBootstrapIps(value: String) {
+            editDraft(DraftField.DnsDohBootstrapIps, value)
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDnsPreset = DetectionDnsPreset.CUSTOM.wireValue
@@ -190,6 +212,7 @@ internal class DetectionSettingsViewModel
         }
 
         fun setTlsKeylogPath(path: String) {
+            editDraft(DraftField.TlsKeylogPath, path)
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionDiagnosticTlsKeylogPath = path
@@ -221,3 +244,24 @@ internal class DetectionSettingsViewModel
             }
         }
     }
+
+private fun DetectionSettingsUiState.withDrafts(drafts: Map<DraftField, String>): DetectionSettingsUiState {
+    var state = this
+    drafts[DraftField.PortStart]?.let { state = state.withCustomPortStart(it) }
+    drafts[DraftField.PortEnd]?.let { state = state.withCustomPortEnd(it) }
+    return state.copy(
+        dnsDirectServers = drafts[DraftField.DnsDirectServers] ?: state.dnsDirectServers,
+        dnsDohUrl = drafts[DraftField.DnsDohUrl] ?: state.dnsDohUrl,
+        dnsDohBootstrapIps = drafts[DraftField.DnsDohBootstrapIps] ?: state.dnsDohBootstrapIps,
+        tlsKeylogPath = drafts[DraftField.TlsKeylogPath] ?: state.tlsKeylogPath,
+    )
+}
+
+private enum class DraftField {
+    PortStart,
+    PortEnd,
+    DnsDirectServers,
+    DnsDohUrl,
+    DnsDohBootstrapIps,
+    TlsKeylogPath,
+}

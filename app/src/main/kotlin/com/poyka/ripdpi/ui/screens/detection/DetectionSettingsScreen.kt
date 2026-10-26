@@ -323,13 +323,13 @@ private fun DetectionSplitTunnelSettingsSection(
             ) {
                 PortTextField(
                     label = stringResource(R.string.detection_settings_port_start_label),
-                    value = state.customPortStart.toString(),
+                    value = state.customPortStartText,
                     onValueChange = onCustomPortStartChange,
                     modifier = Modifier.weight(1f),
                 )
                 PortTextField(
                     label = stringResource(R.string.detection_settings_port_end_label),
-                    value = state.customPortEnd.toString(),
+                    value = state.customPortEndText,
                     onValueChange = onCustomPortEndChange,
                     modifier = Modifier.weight(1f),
                 )
