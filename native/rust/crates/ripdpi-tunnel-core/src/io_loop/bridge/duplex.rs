@@ -32,6 +32,12 @@ pub(in crate::io_loop) fn try_write_duplex(
     }
 }
 
+/// Closes the write half so the session side reads EOF; a `DuplexStream` shutdown completes at once.
+pub(in crate::io_loop) fn shutdown_duplex_write(stream: &mut tokio::io::DuplexStream) {
+    let mut cx = Context::from_waker(Waker::noop());
+    let _ = Pin::new(stream).poll_shutdown(&mut cx);
+}
+
 pub(in crate::io_loop) fn flush_pending_to_session(
     stream: &mut tokio::io::DuplexStream,
     pending: &mut Vec<u8>,

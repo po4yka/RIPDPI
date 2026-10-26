@@ -78,6 +78,28 @@ pub(super) fn build_ipv4_tcp_psh_packet(
     pkt
 }
 
+/// A FIN+ACK from the app: it half-closes its sending direction.
+pub(super) fn build_ipv4_tcp_fin_packet(
+    src_ip: Ipv4Addr,
+    dst_ip: Ipv4Addr,
+    src_port: u16,
+    dst_port: u16,
+    seq: u32,
+    ack: u32,
+) -> Vec<u8> {
+    let mut pkt = build_ipv4_tcp_ack_packet(src_ip, dst_ip, src_port, dst_port, seq, ack);
+    pkt[33] = 0x11; // FIN+ACK
+    pkt[36..38].fill(0);
+    let mut sum = checksum_sum(&src_ip.octets());
+    sum += checksum_sum(&dst_ip.octets());
+    sum += u32::from(6u16);
+    sum += u32::from((pkt.len() - 20) as u16);
+    sum += checksum_sum(&pkt[20..]);
+    let tcp_checksum = finalize_checksum(sum);
+    pkt[36..38].copy_from_slice(&tcp_checksum.to_be_bytes());
+    pkt
+}
+
 pub(super) fn tcp_seq_ack(pkt: &[u8]) -> (u32, u32) {
     let ihl = ((pkt[0] & 0x0f) as usize) * 4;
     let seq = u32::from_be_bytes([pkt[ihl + 4], pkt[ihl + 5], pkt[ihl + 6], pkt[ihl + 7]]);

@@ -1,10 +1,12 @@
 use smoltcp::iface::SocketSet;
-use smoltcp::socket::tcp::Socket as TcpSocket;
+use smoltcp::socket::tcp::{RecvError, Socket as TcpSocket};
 
 use crate::ActiveSessions;
 use crate::dns_cache::DnsCache;
 
-use super::duplex::{flush_pending_to_session, flush_pending_to_smoltcp, try_read_duplex, try_write_duplex};
+use super::duplex::{
+    flush_pending_to_session, flush_pending_to_smoltcp, shutdown_duplex_write, try_read_duplex, try_write_duplex,
+};
 use super::session_cleanup::remove_session;
 use crate::io_loop::{IO_PHASE_WORK_BUDGET, PUMP_CHUNK};
 
@@ -29,10 +31,8 @@ pub(in crate::io_loop) async fn pump_active_sessions(
 
         if session.pending_to_session.is_empty() {
             let mut tmp = [0u8; PUMP_CHUNK];
-            if let Ok(read) = tcp.recv_slice(&mut tmp)
-                && read > 0
-            {
-                match try_write_duplex(&mut session.smoltcp_side, &tmp[..read]) {
+            match tcp.recv_slice(&mut tmp) {
+                Ok(read) if read > 0 => match try_write_duplex(&mut session.smoltcp_side, &tmp[..read]) {
                     Some(Ok(0)) => {
                         to_remove.push(handle);
                         continue;
@@ -49,7 +49,11 @@ pub(in crate::io_loop) async fn pump_active_sessions(
                     None => {
                         session.pending_to_session.extend_from_slice(&tmp[..read]);
                     }
-                }
+                },
+                // The app half-closed (FIN): forward EOF so the session half-closes the upstream
+                // connection and can still read the reply.
+                Err(RecvError::Finished) => shutdown_duplex_write(&mut session.smoltcp_side),
+                _ => {}
             }
         }
 

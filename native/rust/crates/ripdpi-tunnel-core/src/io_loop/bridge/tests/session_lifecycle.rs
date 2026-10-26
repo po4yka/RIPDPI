@@ -1,13 +1,15 @@
 use std::io;
+use std::net::Ipv4Addr;
 
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
+use smoltcp::time::Instant;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::{ActiveSessions, SessionEntry, TunDevice};
 
-use super::super::pump_active_sessions;
-use super::support::establish_tcp_connection;
+use super::super::{pump_active_sessions, try_read_duplex};
+use super::support::{build_ipv4_tcp_fin_packet, establish_tcp_connection};
 
 #[tokio::test]
 async fn u24_pump_removes_closed_session() {
@@ -44,6 +46,47 @@ async fn u24_pump_removes_closed_session() {
         assert!(entry.upstream_closed, "upstream_closed should be set when session side is dropped");
     }
     // If session was removed, that's also valid
+}
+
+#[tokio::test]
+async fn pump_forwards_app_half_close_as_session_eof() {
+    let mut device = TunDevice::new(1500);
+    let (mut iface, mut socket_set, handle, server_seq) = establish_tcp_connection(&mut device);
+    let (smoltcp_side, mut session_side) = tokio::io::duplex(crate::io_loop::DUPLEX_BUF);
+    let entry = SessionEntry {
+        smoltcp_side,
+        cancel: CancellationToken::new(),
+        handle: tokio::spawn(async { Ok(()) }),
+        pending_to_session: Vec::new(),
+        pending_to_smoltcp: Vec::new(),
+        upstream_closed: false,
+        pinned_synthetic_ip: None,
+        attribution_id: None,
+    };
+    let mut sessions = ActiveSessions::new(8);
+    sessions.insert(handle, entry);
+
+    let fin = build_ipv4_tcp_fin_packet(
+        Ipv4Addr::new(10, 0, 0, 99),
+        Ipv4Addr::new(127, 0, 0, 1),
+        51000,
+        443,
+        1,
+        server_seq + 1,
+    );
+    device.rx_queue.push_back(fin);
+    iface.poll(Instant::now(), &mut device, &mut socket_set);
+    assert_eq!(socket_set.get::<TcpSocket>(handle).state(), tcp::State::CloseWait);
+
+    let mut dns_cache = None;
+    pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
+
+    let mut buf = [0u8; 8];
+    assert!(
+        matches!(try_read_duplex(&mut session_side, &mut buf), Some(Ok(0))),
+        "the app FIN must reach the session as EOF so it can half-close upstream"
+    );
+    assert!(sessions.get_mut(handle).is_some(), "the session stays open for the upstream reply");
 }
 
 #[tokio::test]
