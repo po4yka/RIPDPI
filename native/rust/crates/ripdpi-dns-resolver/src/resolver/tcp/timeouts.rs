@@ -36,9 +36,9 @@ where
     }
 }
 
-pub(super) async fn socks5_handshake<F>(duration: Duration, operation: F) -> Result<(), EncryptedDnsError>
+pub(super) async fn socks5_handshake<T, F>(duration: Duration, operation: F) -> Result<T, EncryptedDnsError>
 where
-    F: Future<Output = Result<(), EncryptedDnsError>>,
+    F: Future<Output = Result<T, EncryptedDnsError>>,
 {
     match timeout(duration, operation).await {
         Ok(result) => result,

@@ -321,8 +321,10 @@ mod tests {
 
         sim.host("proxy", || async move {
             let listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 1080)).await?;
+            // Accept and stay silent well past the resolver timeout, so only a
+            // timer on method negotiation can end the client's wait in time.
             let (_stream, _) = listener.accept().await?;
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            tokio::time::sleep(Duration::from_secs(5)).await;
             Ok(())
         });
 
@@ -331,14 +333,17 @@ mod tests {
             let resolver = EncryptedDnsResolver::with_timeout(
                 turmoil_test_endpoint("fixture.test", 853, vec![IpAddr::V4(Ipv4Addr::new(198, 18, 0, 30))]),
                 EncryptedDnsTransport::Socks5 { host: proxy_ip.to_string(), port: 1080, credentials: None },
-                Duration::from_millis(50),
+                // Long enough for the TCP connect under turmoil's 0-100 ms message latency.
+                Duration::from_millis(500),
             )
             .expect("resolver builds");
 
+            let started = tokio::time::Instant::now();
             let err = resolver
                 .connect_socks5_tcp_with(SocketAddr::new(proxy_ip, 1080), turmoil::net::TcpStream::connect)
                 .await
                 .expect_err("stalled SOCKS5 proxy should time out");
+            assert!(started.elapsed() < Duration::from_secs(2), "timed out only after {:?}", started.elapsed());
 
             match err {
                 EncryptedDnsError::Socks5(message) => {
@@ -388,7 +393,9 @@ mod tests {
             let resolver = EncryptedDnsResolver::with_timeout(
                 turmoil_test_endpoint("fixture.test", 853, vec![first_bootstrap, second_bootstrap]),
                 EncryptedDnsTransport::Socks5 { host: proxy_ip.to_string(), port: 1080, credentials: None },
-                Duration::from_millis(250),
+                // One deadline bounds the whole SOCKS5 negotiation; each message
+                // has turmoil's random 0-100 ms latency.
+                Duration::from_secs(2),
             )
             .expect("resolver builds");
 
@@ -454,7 +461,9 @@ mod tests {
                         password: PASSWORD.to_string(),
                     }),
                 },
-                Duration::from_millis(250),
+                // One deadline bounds the whole SOCKS5 negotiation; each message
+                // has turmoil's random 0-100 ms latency.
+                Duration::from_secs(2),
             )
             .expect("resolver builds");
 

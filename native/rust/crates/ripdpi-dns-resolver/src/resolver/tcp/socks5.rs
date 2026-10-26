@@ -73,25 +73,18 @@ where
             })
         }
     };
-    let mut socks_stream = Socks5Stream::use_stream(proxy_stream, auth, Socks5Config::default())
-        .await
-        .map_err(|err| socks5_auth_error(proxy_target, err))?;
-    timeouts::socks5_handshake(inner.timeout, async {
-        socks_stream
+    // One deadline covers method negotiation, password auth and CONNECT, so a
+    // proxy that accepts TCP and then goes silent cannot stall the exchange.
+    let socks_stream = timeouts::socks5_handshake(inner.timeout, async {
+        let mut stream = Socks5Stream::use_stream(proxy_stream, auth, Socks5Config::default())
+            .await
+            .map_err(|err| EncryptedDnsError::Socks5(format!("negotiate auth with {proxy_target}: {err}")))?;
+        stream
             .request(Socks5Command::TCPConnect, target)
             .await
-            .map(|_| ())
-            .map_err(|err| EncryptedDnsError::Socks5(format!("connect via SOCKS5 proxy {proxy_target}: {err}")))
+            .map_err(|err| EncryptedDnsError::Socks5(format!("connect via SOCKS5 proxy {proxy_target}: {err}")))?;
+        Ok(stream)
     })
     .await?;
     Ok(socks_stream.get_socket())
-}
-
-fn socks5_auth_error(proxy_target: SocketAddr, error: ripdpi_socks5_core::SocksError) -> EncryptedDnsError {
-    let message = error.to_string();
-    if message.contains("Can't get chosen auth method") {
-        EncryptedDnsError::Socks5("SOCKS5 handshake timed out".to_string())
-    } else {
-        EncryptedDnsError::Socks5(format!("negotiate auth with {proxy_target}: {message}"))
-    }
 }
