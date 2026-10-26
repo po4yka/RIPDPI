@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -30,12 +30,17 @@ const CERT_NAME: &str = "RIPDPI Apps Script Relay";
 const CA_DIR: &str = "relay-ca";
 const CA_KEY_FILE: &str = "relay-ca/ca.key";
 const CA_CERT_FILE: &str = "relay-ca/ca.crt";
+/// Most per-host leaf configs kept at once. Hosts come from client SNI, so an
+/// unbounded cache would grow with every new name a web page uses.
+const LEAF_CACHE_CAPACITY: usize = 512;
 
 pub struct MitmCertManager {
     ca_cert_der: CertificateDer<'static>,
     ca_params: CertificateParams,
     ca_key_pem: String,
     cache: HashMap<String, Arc<ServerConfig>>,
+    /// Cache keys in insertion order; the front is evicted first.
+    cache_order: VecDeque<String>,
 }
 
 impl MitmCertManager {
@@ -82,6 +87,9 @@ impl MitmCertManager {
     /// (idempotent) per-domain cache untouched or populated by a racing task;
     /// no partial external state is produced.
     pub async fn get_server_config(manager: &Arc<Mutex<Self>>, domain: &str) -> Result<Arc<ServerConfig>, MitmError> {
+        // DNS names compare without case and without the root dot.
+        let domain = domain.trim_end_matches('.').to_ascii_lowercase();
+        let domain = domain.as_str();
         // Fast path: take a short lock, return a cached config, and clone the
         // CA material the blocking task needs as Send + 'static inputs.
         let (ca_cert_der, ca_params, ca_key_pem) = {
@@ -105,8 +113,22 @@ impl MitmCertManager {
         // Re-lock only to insert; adopt a racing task's config if one landed
         // first so all callers share a single cached config per domain.
         let mut guard = manager.lock().await;
-        let stored = guard.cache.entry(domain.to_string()).or_insert(config).clone();
-        Ok(stored)
+        Ok(guard.insert_bounded(domain, config))
+    }
+
+    /// Stores `config` for `domain` unless a racing task stored one first, and
+    /// evicts the oldest entries above `LEAF_CACHE_CAPACITY`.
+    fn insert_bounded(&mut self, domain: &str, config: Arc<ServerConfig>) -> Arc<ServerConfig> {
+        if let Some(existing) = self.cache.get(domain) {
+            return existing.clone();
+        }
+        while self.cache.len() >= LEAF_CACHE_CAPACITY {
+            let Some(oldest) = self.cache_order.pop_front() else { break };
+            self.cache.remove(&oldest);
+        }
+        self.cache.insert(domain.to_string(), config.clone());
+        self.cache_order.push_back(domain.to_string());
+        config
     }
 
     fn load(key_path: &Path, cert_path: &Path) -> Result<Self, MitmError> {
@@ -122,7 +144,13 @@ impl MitmCertManager {
         if !ca_cert_der.windows(spki.len()).any(|window| window == spki.as_slice()) {
             return Err(MitmError::Invalid("CA certificate does not match the CA key".to_string()));
         }
-        Ok(Self { ca_cert_der, ca_params: build_ca_params(), ca_key_pem, cache: HashMap::new() })
+        Ok(Self {
+            ca_cert_der,
+            ca_params: build_ca_params(),
+            ca_key_pem,
+            cache: HashMap::new(),
+            cache_order: VecDeque::new(),
+        })
     }
 
     fn generate(key_path: &Path, cert_path: &Path) -> Result<Self, MitmError> {
@@ -136,7 +164,13 @@ impl MitmCertManager {
         write_durably(key_path, ca_key_pem.as_bytes())?;
         write_durably(cert_path, ca_cert.pem().as_bytes())?;
 
-        Ok(Self { ca_cert_der: ca_cert.der().clone(), ca_params: params, ca_key_pem, cache: HashMap::new() })
+        Ok(Self {
+            ca_cert_der: ca_cert.der().clone(),
+            ca_params: params,
+            ca_key_pem,
+            cache: HashMap::new(),
+            cache_order: VecDeque::new(),
+        })
     }
 }
 
@@ -315,6 +349,23 @@ mod tests {
         for host in ["192.0.2.7", "2001:db8::1", "example.com"] {
             client_accepts_leaf_for(&manager, host).await.unwrap_or_else(|error| panic!("{host}: {error}"));
         }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn leaf_cache_stays_bounded_and_folds_name_case() {
+        let dir = fresh_dir("bounded-cache");
+        let manager = Arc::new(Mutex::new(MitmCertManager::new_in(&dir).expect("generate")));
+
+        let first = MitmCertManager::get_server_config(&manager, "Example.COM.").await.expect("mixed-case name");
+        let same = MitmCertManager::get_server_config(&manager, "example.com").await.expect("lower-case name");
+        assert!(Arc::ptr_eq(&first, &same), "names that differ only in case or a root dot share one leaf");
+
+        for index in 0..520 {
+            MitmCertManager::get_server_config(&manager, &format!("h{index}.example.net")).await.expect("leaf");
+        }
+        let cached = manager.lock().await.cache.len();
+        assert!(cached <= LEAF_CACHE_CAPACITY, "leaf cache grew to {cached} entries");
         let _ = fs::remove_dir_all(&dir);
     }
 }
