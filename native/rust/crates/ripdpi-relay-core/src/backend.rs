@@ -65,6 +65,17 @@ pub(crate) enum RelayBackend {
 }
 
 impl RelayBackend {
+    /// The bound for one dial. A Tor dial that must bootstrap the circuit first
+    /// gets the longer Tor bound; every later dial keeps `connect_deadline`.
+    pub(crate) fn dial_deadline(&self, connect_deadline: std::time::Duration) -> std::time::Duration {
+        match self {
+            Self::Tor(backend) if !backend.is_bootstrapped() => {
+                connect_deadline.max(crate::socks::TOR_RELAY_CONNECT_DEADLINE)
+            }
+            _ => connect_deadline,
+        }
+    }
+
     fn unsupported_error(kind: &str) -> io::Error {
         io::Error::new(io::ErrorKind::Unsupported, format!("relay backend {kind} is not implemented"))
     }

@@ -166,7 +166,7 @@ where
         () = cancel.cancelled() => return Ok(()),
         result = with_deadline(
             backend.connect_tcp(&target),
-            timeouts.connect_deadline,
+            backend.dial_deadline(timeouts.connect_deadline),
             "relay upstream connect timed out",
         ) => result,
     };

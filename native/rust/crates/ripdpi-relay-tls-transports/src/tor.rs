@@ -60,6 +60,12 @@ impl TorRelayBackend {
         Ok(Self { client, bootstrapped: OnceCell::new(), bootstrap_timeout: ripdpi_tor::DEFAULT_BOOTSTRAP_TIMEOUT })
     }
 
+    /// Whether a connect already bootstrapped the circuit, so later connects
+    /// do not pay the bootstrap bound.
+    pub fn is_bootstrapped(&self) -> bool {
+        self.bootstrapped.initialized()
+    }
+
     pub fn capabilities(&self) -> RelayCapabilities {
         let _client = &self.client;
         RelayCapabilities { tcp: true, udp: false, reusable: true }

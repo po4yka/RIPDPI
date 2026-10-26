@@ -37,6 +37,10 @@ impl TorRelayBackend {
         self.inner.capabilities()
     }
 
+    pub(crate) fn is_bootstrapped(&self) -> bool {
+        self.inner.is_bootstrapped()
+    }
+
     pub(crate) fn pool_health(&self) -> RelayPoolHealth {
         self.inner.pool_health()
     }

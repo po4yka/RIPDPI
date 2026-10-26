@@ -1690,17 +1690,18 @@ fn single_carrier_pools_admit_every_admitted_socks_session() {
     }
 }
 
-#[test]
-fn tor_dial_deadline_outlasts_the_tor_bootstrap_bound() {
+#[tokio::test]
+async fn only_the_tor_bootstrap_dial_gets_the_long_tor_deadline() {
     // ripdpi-tor bounds the first-connect bootstrap at 90 s inside the backend.
     let tor_bootstrap_bound = Duration::from_secs(90);
-    let tor = crate::socks::RelaySessionTimeouts::production_for(crate::config::RelayKind::from_config(
-        &sample_config("tor"),
-    ));
-    let trojan = crate::socks::RelaySessionTimeouts::production_for(crate::config::RelayKind::from_config(
-        &sample_config("trojan"),
-    ));
+    let connect_deadline = crate::socks::RelaySessionTimeouts::production().connect_deadline;
+    let tor = build_backend(&sample_config("tor")).await.expect("tor backend builds");
+    let trojan = build_backend(&sample_config("trojan")).await.expect("trojan backend builds");
 
-    assert!(tor.connect_deadline > tor_bootstrap_bound, "the dial deadline would cancel a slow Tor bootstrap");
-    assert_eq!(trojan.connect_deadline, Duration::from_secs(30));
+    assert_eq!(Duration::from_secs(30), connect_deadline, "dials after the Tor bootstrap keep this bound");
+    assert!(
+        tor.dial_deadline(connect_deadline) > tor_bootstrap_bound,
+        "the dial deadline would cancel a slow Tor bootstrap"
+    );
+    assert_eq!(connect_deadline, trojan.dial_deadline(connect_deadline));
 }
