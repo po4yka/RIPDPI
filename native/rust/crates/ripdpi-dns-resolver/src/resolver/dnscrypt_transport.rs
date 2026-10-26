@@ -9,8 +9,8 @@ use super::EncryptedDnsResolver;
 use super::connection::PooledConnection;
 use crate::dnscrypt::*;
 use crate::transport::{
-    build_dns_query, ensure_response_matches_query, read_length_prefixed_frame_async, unix_time_secs,
-    write_length_prefixed_frame_async,
+    STREAM_CLOSED_BEFORE_FRAME, build_dns_query, ensure_response_matches_query, read_length_prefixed_frame_async,
+    unix_time_secs, write_length_prefixed_frame_async,
 };
 use crate::types::{DnsCryptCachedCertificate, EncryptedDnsError};
 
@@ -22,10 +22,12 @@ impl EncryptedDnsResolver {
     pub(super) async fn exchange_dnscrypt(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         let certificate = self.current_dnscrypt_certificate().await?;
         let result = self.exchange_dnscrypt_with_certificate(&certificate, query_bytes).await;
-        if result.is_err() {
+        if let Err(error) = &result
+            && implicates_certificate(error)
+        {
             // A rotated, withdrawn or tampered certificate (es_version is not
             // signed) fails every exchange: fetch a fresh one for the next query.
-            self.forget_dnscrypt_certificate();
+            self.forget_dnscrypt_certificate(&certificate);
         }
         result
     }
@@ -133,8 +135,13 @@ impl EncryptedDnsResolver {
         Ok(fetched)
     }
 
-    fn forget_dnscrypt_certificate(&self) {
-        if let Ok(mut guard) = self.inner.dnscrypt_state.lock() {
+    /// Drops the cached certificate if it is still `used`, so a failed query
+    /// does not wipe a newer certificate that a concurrent query stored. The
+    /// lock guards plain assignments only; a poisoned lock leaves the cache as is.
+    fn forget_dnscrypt_certificate(&self, used: &DnsCryptCachedCertificate) {
+        if let Ok(mut guard) = self.inner.dnscrypt_state.lock()
+            && guard.as_ref().is_some_and(|(cached, _)| cached == used)
+        {
             *guard = None;
         }
     }
@@ -178,6 +185,18 @@ impl EncryptedDnsResolver {
 /// calls an hourly refresh suitable; a refresh also picks up a higher serial.
 const DNSCRYPT_CERT_REFRESH_SECS: u32 = 3_600;
 
+/// Whether an exchange error points at the certificate rather than the path:
+/// the reply did not decrypt, or the server closed the stream instead of
+/// answering a query it could not decrypt. Connect failures, resets and
+/// timeouts keep the certificate.
+fn implicates_certificate(error: &EncryptedDnsError) -> bool {
+    match error {
+        EncryptedDnsError::DnsCryptDecrypt(_) => true,
+        EncryptedDnsError::Request(message) => message == STREAM_CLOSED_BEFORE_FRAME,
+        _ => false,
+    }
+}
+
 /// Whether a certificate fetched at `fetched_at` can still be used at `now`.
 fn cached_certificate_is_usable(certificate: &DnsCryptCachedCertificate, fetched_at: u32, now: u32) -> bool {
     certificate.valid_from <= now
@@ -187,18 +206,53 @@ fn cached_certificate_is_usable(certificate: &DnsCryptCachedCertificate, fetched
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
 
-    #[test]
-    fn cached_certificate_is_refetched_hourly_and_before_expiry() {
-        let certificate = DnsCryptCachedCertificate {
+    use super::*;
+    use crate::types::{EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsTransport};
+
+    fn certificate_with_serial(serial: u32) -> DnsCryptCachedCertificate {
+        DnsCryptCachedCertificate {
             resolver_public_key: [0; 32],
             client_magic: [0; 8],
-            serial: 1,
+            serial,
             valid_from: 1_000,
             valid_until: 100_000,
             es_version: crate::DNSCRYPT_ES_VERSION_XCHACHA,
-        };
+        }
+    }
+
+    #[test]
+    fn a_failed_query_does_not_forget_a_newer_certificate() {
+        let resolver = EncryptedDnsResolver::new(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::DnsCrypt,
+                resolver_id: Some("fixture".to_string()),
+                host: "resolver.test".to_string(),
+                port: 443,
+                tls_server_name: None,
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                doh_url: None,
+                dnscrypt_provider_name: Some("2.dnscrypt-cert.resolver.test".to_string()),
+                dnscrypt_public_key: Some("11".repeat(32)),
+                odoh: None,
+            },
+            EncryptedDnsTransport::Direct,
+        )
+        .expect("resolver builds");
+        let (old, newer) = (certificate_with_serial(1), certificate_with_serial(2));
+        let cached = || resolver.inner.dnscrypt_state.lock().expect("state lock").as_ref().map(|(c, _)| c.serial);
+        *resolver.inner.dnscrypt_state.lock().expect("state lock") = Some((newer.clone(), 0));
+
+        resolver.forget_dnscrypt_certificate(&old);
+        assert_eq!(cached(), Some(2));
+        resolver.forget_dnscrypt_certificate(&newer);
+        assert_eq!(cached(), None);
+    }
+
+    #[test]
+    fn cached_certificate_is_refetched_hourly_and_before_expiry() {
+        let certificate = certificate_with_serial(1);
 
         assert!(cached_certificate_is_usable(&certificate, 2_000, 2_000 + DNSCRYPT_CERT_REFRESH_SECS - 1));
         assert!(!cached_certificate_is_usable(&certificate, 2_000, 2_000 + DNSCRYPT_CERT_REFRESH_SECS));

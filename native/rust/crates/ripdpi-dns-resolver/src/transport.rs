@@ -5,7 +5,9 @@ mod util;
 mod wire;
 
 pub(crate) use client::{build_client_config, build_doh_client, build_manual_doh_tls_config};
-pub(crate) use framing::{read_length_prefixed_frame_async, write_length_prefixed_frame_async};
+pub(crate) use framing::{
+    STREAM_CLOSED_BEFORE_FRAME, read_length_prefixed_frame_async, write_length_prefixed_frame_async,
+};
 pub(crate) use normalize::normalize_endpoint;
 pub(crate) use util::{format_error_chain, resolve_socket_addr, unix_time_secs};
 pub use wire::{

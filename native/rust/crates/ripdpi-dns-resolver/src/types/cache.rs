@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DnsCryptCachedCertificate {
     pub(crate) resolver_public_key: [u8; 32],
     pub(crate) client_magic: [u8; 8],

@@ -5,6 +5,9 @@ use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 use crate::types::EncryptedDnsError;
 
+/// The error message when the peer closes a DNS TCP stream before a full frame.
+pub(crate) const STREAM_CLOSED_BEFORE_FRAME: &str = "DNS TCP stream closed before frame";
+
 #[inline(never)]
 pub(crate) async fn write_length_prefixed_frame_async(
     stream: &mut (impl AsyncWrite + Unpin),
@@ -23,7 +26,7 @@ pub(crate) async fn read_length_prefixed_frame_async(
     let payload = framed
         .next()
         .await
-        .ok_or_else(|| EncryptedDnsError::Request("DNS TCP stream closed before frame".to_string()))?
+        .ok_or_else(|| EncryptedDnsError::Request(STREAM_CLOSED_BEFORE_FRAME.to_string()))?
         .map_err(request_error)?;
     Ok(payload.to_vec())
 }
