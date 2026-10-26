@@ -2,8 +2,13 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindMieru
+import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayMieruMultiplexingHigh
+import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -44,5 +49,66 @@ class TransientRelayRuntimeConfigResolverTest : UpstreamRelayRuntimeConfigResolv
             assertTrue(resolved.quicMigrateAfterHandshake)
             assertEquals(listOf(active), profiles.list())
             assertTrue(credentials.credentials.isEmpty())
+        }
+
+    @Test
+    fun `transient ssh resolution keeps the profile auth type and host-key pin`() =
+        runTest {
+            val fingerprint = "SHA256:" + "A".repeat(43)
+            val profile =
+                RelayProfileRecord(
+                    id = "ssh-candidate",
+                    kind = RelayKindSsh,
+                    server = "ssh.example",
+                    serverPort = 22,
+                    sshAuthType = RelaySshAuthTypePrivateKey,
+                    sshHostKeyFingerprint = fingerprint,
+                    sshStrictHostKey = true,
+                )
+            val resolved =
+                resolver(TestRelayProfileStore(), TestRelayCredentialStore()).resolveTransient(
+                    profile,
+                    RelayCredentialRecord(
+                        profileId = profile.id,
+                        sshUsername = "user",
+                        sshPrivateKey = credentialFixture("ssh-key"),
+                    ),
+                    OwnedRelayQuicMigrationConfig(),
+                    TlsFingerprintProfileChromeStable,
+                    emptyMap(),
+                )
+            assertEquals(RelaySshAuthTypePrivateKey, resolved.sshAuthType)
+            assertEquals(fingerprint, resolved.sshHostKeyFingerprint)
+            assertTrue(resolved.sshStrictHostKey)
+        }
+
+    @Test
+    fun `transient mieru resolution keeps the profile transport settings`() =
+        runTest {
+            val profile =
+                RelayProfileRecord(
+                    id = "mieru-candidate",
+                    kind = RelayKindMieru,
+                    server = "mieru.example",
+                    serverPort = 2999,
+                    mieruProtocol = RelayMieruProtocolUdp,
+                    mieruMultiplexing = RelayMieruMultiplexingHigh,
+                    mieruMtu = 1300,
+                )
+            val resolved =
+                resolver(TestRelayProfileStore(), TestRelayCredentialStore()).resolveTransient(
+                    profile,
+                    RelayCredentialRecord(
+                        profileId = profile.id,
+                        mieruUsername = "user",
+                        mieruPassword = credentialFixture("mieru"),
+                    ),
+                    OwnedRelayQuicMigrationConfig(),
+                    TlsFingerprintProfileChromeStable,
+                    emptyMap(),
+                )
+            assertEquals(RelayMieruProtocolUdp, resolved.mieruProtocol)
+            assertEquals(RelayMieruMultiplexingHigh, resolved.mieruMultiplexing)
+            assertEquals(1300, resolved.mieruMtu)
         }
 }

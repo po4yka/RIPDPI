@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 
@@ -51,6 +52,12 @@ internal fun mergeRelayConfig(
         tuicCongestionControl = profile.tuicCongestionControl,
         shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
         naivePath = profile.naivePath.ifBlank { config.naivePath },
+        mieruProtocol = profile.mieruProtocol.ifBlank { config.mieruProtocol },
+        mieruMultiplexing = profile.mieruMultiplexing.ifBlank { config.mieruMultiplexing },
+        mieruMtu = profile.mieruMtu,
+        sshAuthType = profile.sshAuthType.ifBlank { config.sshAuthType },
+        sshHostKeyFingerprint = profile.sshHostKeyFingerprint,
+        sshStrictHostKey = profile.sshStrictHostKey,
         appsScriptScriptIds = profile.appsScriptScriptIds.takeIf { it.isNotEmpty() } ?: config.appsScriptScriptIds,
         appsScriptGoogleIp = profile.appsScriptGoogleIp.ifBlank { config.appsScriptGoogleIp },
         appsScriptFrontDomain = profile.appsScriptFrontDomain.ifBlank { config.appsScriptFrontDomain },
@@ -67,19 +74,21 @@ internal fun mergeRelayConfig(
         localSocksPort = profile.localSocksPort,
         udpEnabled = profile.udpEnabled,
         tcpFallbackEnabled = profile.tcpFallbackEnabled,
-        finalmask =
-            config.finalmask.copy(
-                type = profile.finalmaskType.ifBlank { config.finalmask.type },
-                headerHex = profile.finalmaskHeaderHex.ifBlank { config.finalmask.headerHex },
-                trailerHex = profile.finalmaskTrailerHex.ifBlank { config.finalmask.trailerHex },
-                randRange = profile.finalmaskRandRange.ifBlank { config.finalmask.randRange },
-                sudokuSeed = profile.finalmaskSudokuSeed.ifBlank { config.finalmask.sudokuSeed },
-                fragmentPackets =
-                    profile.finalmaskFragmentPackets.takeIf { it > 0 } ?: config.finalmask.fragmentPackets,
-                fragmentMinBytes =
-                    profile.finalmaskFragmentMinBytes.takeIf { it > 0 } ?: config.finalmask.fragmentMinBytes,
-                fragmentMaxBytes =
-                    profile.finalmaskFragmentMaxBytes.takeIf { it > 0 } ?: config.finalmask.fragmentMaxBytes,
-            ),
+        finalmask = mergeFinalmask(config.finalmask, profile),
     )
 }
+
+private fun mergeFinalmask(
+    finalmask: RipDpiRelayFinalmaskConfig,
+    profile: RelayProfileRecord,
+): RipDpiRelayFinalmaskConfig =
+    finalmask.copy(
+        type = profile.finalmaskType.ifBlank { finalmask.type },
+        headerHex = profile.finalmaskHeaderHex.ifBlank { finalmask.headerHex },
+        trailerHex = profile.finalmaskTrailerHex.ifBlank { finalmask.trailerHex },
+        randRange = profile.finalmaskRandRange.ifBlank { finalmask.randRange },
+        sudokuSeed = profile.finalmaskSudokuSeed.ifBlank { finalmask.sudokuSeed },
+        fragmentPackets = profile.finalmaskFragmentPackets.takeIf { it > 0 } ?: finalmask.fragmentPackets,
+        fragmentMinBytes = profile.finalmaskFragmentMinBytes.takeIf { it > 0 } ?: finalmask.fragmentMinBytes,
+        fragmentMaxBytes = profile.finalmaskFragmentMaxBytes.takeIf { it > 0 } ?: finalmask.fragmentMaxBytes,
+    )
