@@ -39,12 +39,14 @@ class ArabicLocalizationRegressionsTest(unittest.TestCase):
                 self.assertNotEqual(text(source[key]), self.value(key))
                 self.assertRegex(self.value(key), "[\\u0600-\\u06ff]")
 
-    def test_cloud_sync_is_not_bypass_strategy(self):
-        for key in ("onboarding_chip_no_cloud_sync", "onboarding_local_first_body"):
-            with self.subTest(key=key):
-                value = self.value(key)
-                self.assertIn("مزامنة سحابية", value)
-                self.assertNotIn("استراتيجية التجاوز", value)
+    def test_local_first_copy_keeps_device_and_cloud_meanings(self):
+        chip = self.value("onboarding_chip_no_cloud_sync")
+        self.assertIn("مزامنة سحابية", chip)
+        body = self.value("onboarding_local_first_body")
+        self.assertIn("كل شيء", body)
+        self.assertIn("على جهازك", body)
+        for value in (chip, body):
+            self.assertNotIn("استراتيجية التجاوز", value)
 
     def test_clock_recovery_names_the_visible_resume_action(self):
         self.assertIn(self.value("pause_resume_now"), self.value("pause_clock_failed"))

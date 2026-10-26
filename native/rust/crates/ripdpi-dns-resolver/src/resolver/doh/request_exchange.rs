@@ -89,7 +89,7 @@ async fn read_limited_response_body(mut response: reqwest::Response) -> Result<V
 
 #[cfg(test)]
 mod tests {
-    use tokio::io::AsyncWriteExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
     use super::{MAX_DOH_RESPONSE_BYTES, read_limited_response_body};
@@ -104,6 +104,10 @@ mod tests {
         let address = listener.local_addr().expect("listener address");
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.expect("accept request");
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                request.push(stream.read_u8().await.expect("read request header"));
+            }
             stream
                 .write_all(
                     format!(

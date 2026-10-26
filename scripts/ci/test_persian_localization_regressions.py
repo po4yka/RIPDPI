@@ -36,7 +36,7 @@ AUDITED_KEYS = (
     'adaptive_fake_ttl_learning_runtime',
     'ripdpi_fake_tls_scope_restart',
     'ripdpi_http_parser_restart_title',
-    'root_mode_strategies_disabled_body',
+    'root_mode_strategies_intro_body',
     'host_autolearn_store_body',
     'host_pack_badge_offline_snapshot',
     'host_pack_degraded_status_body_incompatible',
@@ -168,7 +168,7 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
         for token in ("HTTP", "TLS", "UDP"):
             self.assertIn(token, notice)
 
-    def test_storage_middlebox_and_non_root_meanings(self):
+    def test_storage_middlebox_and_root_requirement_meanings(self):
         self.assertIn("مخزن", self.value("host_autolearn_store_body"))
         self.assertNotIn("فروشگاه", self.value("host_autolearn_store_body"))
         for key in ("host_pack_badge_offline_snapshot", "host_pack_degraded_status_body_incompatible",
@@ -180,8 +180,9 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
                 self.assertNotIn("عکس", self.value(key))
         self.assertIn("تجهیزات میانی شبکه", self.value("config_chain_step_fakerst_explanation"))
         self.assertNotIn("میان‌افزار", self.value("config_chain_step_fakerst_explanation"))
-        self.assertIn("بدون ایجاد اختلال", self.value("root_mode_strategies_disabled_body"))
-        self.assertNotIn("از کار می‌افتند", self.value("root_mode_strategies_disabled_body"))
+        for term in ("فقط", "دستگاه‌های روت‌شده", "حالت روت فعال"):
+            self.assertIn(term, self.value("root_mode_strategies_intro_body"))
+        self.assertNotIn("از کار می‌افتند", self.value("root_mode_strategies_intro_body"))
 
     def test_sensitive_data_consent_retention_and_scope(self):
         warning = self.value("support_settings_sensitive_body")
