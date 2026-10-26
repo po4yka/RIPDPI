@@ -316,6 +316,47 @@ fn fallback_validated_mtproto_with_fake_sni(fake_sni: Option<&str>, allow_insecu
 }
 
 #[test]
+fn stopped_runtime_opens_no_ws_fallback_after_a_refused_connect() {
+    let (_peer, mut client) = connected_pair();
+    let mut config = RuntimeConfig::default();
+    config.adaptive.ws_tunnel_mode = WsTunnelMode::Fallback;
+    let telemetry = StdArc::new(TestTelemetry::default());
+    let control = StdArc::new(ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl::new(Some(
+        telemetry.clone(),
+    )));
+    let state = RuntimeState::test_with_control(config, control.clone());
+    control.request_shutdown();
+    let target = SocketAddr::from(([149, 154, 167, 91], 443));
+
+    let result = connect_and_relay_with(
+        &mut client,
+        target,
+        &state,
+        Some("telegram-dc2".to_string()),
+        SuccessReply::Socks5,
+        None,
+        |_client, _reply, _upstream| Ok(()),
+        |_client, _state| unreachable!("no WS tunnel after shutdown"),
+        |_client, _seed, _state| unreachable!("no WS tunnel after shutdown"),
+        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate { success_reply_sent: false }),
+        |_client, _target, _state, _dc_host, _reply, _success_reply_sent, _attempt_token| {
+            Err(ConnectRelayError::new(
+                io::Error::new(io::ErrorKind::ConnectionAborted, "proxy runtime is shutting down"),
+                false,
+            ))
+        },
+        |_client, _target, _state, _dc_host, _route, _payload, _attempt_token| {
+            unreachable!("delayed relay should not run")
+        },
+        |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
+    );
+
+    let err = result.expect_err("the shutdown refusal is returned").into_io_error();
+    assert_eq!(err.kind(), io::ErrorKind::ConnectionAborted);
+    assert!(telemetry.ws_escalations.lock().expect("ws lock").is_empty(), "no WS escalation feedback");
+}
+
+#[test]
 fn fake_sni_counter_fires_only_when_cover_and_opt_in_are_both_set() {
     // fake-SNI cover present and operator opt-in set -> counter fires once.
     let telemetry = fallback_validated_mtproto_with_fake_sni(Some("yandex.ru"), true);

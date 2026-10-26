@@ -37,7 +37,9 @@ pub(crate) fn process_client_job(job: ClientJob) {
         } else {
             tracing::error!("ripdpi client error: {err}");
         }
-        state.note_client_error(err);
+        if counts_as_client_error(shutting_down, err) {
+            state.note_client_error(err);
+        }
     }
     state.note_client_finished();
 }
@@ -53,6 +55,12 @@ fn is_connection_closed_error(err: &io::Error) -> bool {
             | io::ErrorKind::UnexpectedEof
             | io::ErrorKind::NotConnected
     )
+}
+
+/// A closed or aborted connection during shutdown (including a connect refused because
+/// the runtime stopped) is the stop itself, not a client or network failure.
+fn counts_as_client_error(shutting_down: bool, err: &io::Error) -> bool {
+    !(shutting_down && is_connection_closed_error(err))
 }
 
 /// Returns `true` for I/O errors that indicate a connection timed out.
@@ -77,6 +85,16 @@ mod tests {
             assert!(is_connection_closed_error(&err), "{kind:?} should be treated as closed");
             assert!(!is_connection_timeout_error(&err), "{kind:?} should not be treated as timeout");
         }
+    }
+
+    #[test]
+    fn shutdown_aborts_are_not_client_errors() {
+        let aborted = io::Error::new(io::ErrorKind::ConnectionAborted, "proxy runtime is shutting down");
+        let refused = io::Error::new(io::ErrorKind::ConnectionRefused, "refused");
+
+        assert!(!counts_as_client_error(true, &aborted));
+        assert!(counts_as_client_error(false, &aborted), "an abort while running is still an error");
+        assert!(counts_as_client_error(true, &refused), "a real failure during shutdown still counts");
     }
 
     #[test]

@@ -161,7 +161,9 @@ where
 
     match desync_result {
         Ok(()) => Ok(()),
-        Err(err) if defer_ws_for_destination => Err(err),
+        // A stopped runtime refuses new connects; that is a stop, not a desync failure,
+        // so it must not open a WS fallback connection after the drain.
+        Err(err) if defer_ws_for_destination || state.shutdown_requested() => Err(err),
         Err(err) => run_ws_fallback_after_desync(
             client,
             target,
