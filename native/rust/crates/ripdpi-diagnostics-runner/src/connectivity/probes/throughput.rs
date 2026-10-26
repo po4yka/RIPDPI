@@ -43,7 +43,7 @@ pub fn run_throughput_probe_with_progress(
         .filter(|bps| *bps > 0)
         .collect::<Vec<_>>();
     bps_values.sort_unstable();
-    let median_bps = if bps_values.is_empty() { 0 } else { bps_values[bps_values.len() / 2] };
+    let median_bps = median(&bps_values);
     let outcome =
         if samples.iter().any(|sample| sample.status == "http_ok" && sample.bps > 0 && sample.completed_window()) {
             "throughput_measured"
@@ -147,9 +147,28 @@ pub fn run_throughput_probe_with_progress(
     result
 }
 
+/// Median of sorted readings; the mean of the two middle values for an even
+/// count (the default is two runs), 0 when empty.
+fn median(sorted: &[u64]) -> u64 {
+    match sorted.len() {
+        0 => 0,
+        len if len % 2 == 1 => sorted[len / 2],
+        // Infallible: the mean of two u64 values fits in u64.
+        len => u64::try_from((u128::from(sorted[len / 2 - 1]) + u128::from(sorted[len / 2])) / 2).unwrap_or(u64::MAX),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn median_of_two_runs_is_their_mean() {
+        assert_eq!(median(&[1_000_000, 3_000_000]), 2_000_000);
+        assert_eq!(median(&[1, 2, 9]), 2);
+        assert_eq!(median(&[]), 0);
+        assert_eq!(median(&[u64::MAX, u64::MAX]), u64::MAX);
+    }
 
     fn detail_value<'a>(result: &'a ProbeResult, key: &str) -> &'a str {
         result
