@@ -60,7 +60,10 @@ data class ResolvedShadowTlsInnerRelayConfig(
     val server: String,
     val serverPort: Int,
     val serverName: String,
+    // Rust declares both keys without a serde default, so an empty value must still be encoded.
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val realityPublicKey: String = "",
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val realityShortId: String = "",
     val vlessFlow: String = com.poyka.ripdpi.data.RelayVlessFlowVision,
     val vlessTransport: String = RelayVlessTransportRealityTcp,

@@ -95,6 +95,9 @@ class RelayNativeConfigTest {
         val encoded = json.encodeToString(ResolvedShadowTlsInnerRelayConfig.serializer(), explicit)
         assertEquals(explicit, json.decodeFromString(ResolvedShadowTlsInnerRelayConfig.serializer(), encoded))
         assertTrue(encoded.contains("\"tlsFingerprintProfile\":\"firefox_stable\""))
+        // Rust `ResolvedShadowTlsInnerRelayConfig` has no serde default for these keys.
+        assertTrue(encoded.contains("\"realityPublicKey\":\"\""))
+        assertTrue(encoded.contains("\"realityShortId\":\"\""))
     }
 
     @Test
