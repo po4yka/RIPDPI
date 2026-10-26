@@ -8,7 +8,7 @@ use tokio::time::timeout;
 use url::Url;
 
 use crate::dto::{NativeOwnedTlsHttpRequest, NativeOwnedTlsHttpResponse};
-use crate::redirect::redirect_target;
+use crate::redirect::{MAX_REDIRECTS, prepare_redirect_hop, redirect_target};
 use crate::request::execute_once;
 use crate::tls_profile::{apply_profile_metadata, profile_catalog_version_string};
 
@@ -28,13 +28,13 @@ pub(crate) fn execute(request_json: &str) -> io::Result<String> {
     serde_json::to_string(&payload).map_err(io::Error::other)
 }
 
-async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeOwnedTlsHttpResponse> {
+async fn execute_async(mut request: NativeOwnedTlsHttpRequest) -> io::Result<NativeOwnedTlsHttpResponse> {
     let profile_metadata = selected_profile_metadata(&request.tls_profile_id);
-    let method = Method::from_bytes(request.method.as_bytes())
+    let mut method = Method::from_bytes(request.method.as_bytes())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid method: {error}")))?;
     let mut current_url = Url::parse(&request.url)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid URL: {error}")))?;
-    let mut redirects_remaining = request.max_redirects;
+    let mut redirects_remaining = request.max_redirects.min(MAX_REDIRECTS);
 
     loop {
         let response = execute_once(&method, &current_url, &request).await?;
@@ -46,6 +46,7 @@ async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeO
                 ));
             }
             redirects_remaining -= 1;
+            method = prepare_redirect_hop(response.status_code, &method, &current_url, &location, &mut request.headers);
             current_url = location;
             continue;
         }
