@@ -4,6 +4,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -250,8 +251,16 @@ class DefaultServiceStateStore
                         .map { WidgetPublication(it, WidgetUpdateTarget.Telemetry) },
                 ).distinctUntilChangedBy(WidgetPublication::snapshot)
                     .collect { publication ->
-                        widgetStateRepository.write(publication.snapshot)
-                        widgetNotifier.pushUpdate(publication.target)
+                        // Widgets are best effort: a DataStore or Glance failure (ENOSPC, corrupt file)
+                        // must not end the collector or reach the process crash handler.
+                        try {
+                            widgetStateRepository.write(publication.snapshot)
+                            widgetNotifier.pushUpdate(publication.target)
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
+                            // The next projection change retries the publication.
+                        }
                     }
             }
         }

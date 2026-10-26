@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -110,6 +111,22 @@ class ServiceStateStoreWidgetResetTest {
             assertEquals(WidgetUpdateTarget.All, notifier.targets.last())
         }
 
+    @Test
+    fun `a failed widget write does not stop later widget updates`() {
+        val widget = FailingOnceWidgetStateRepository()
+        val failures = mutableListOf<Throwable>()
+        val scope =
+            CoroutineScope(
+                SupervisorJob() + Dispatchers.Unconfined + CoroutineExceptionHandler { _, error -> failures += error },
+            )
+        val store = DefaultServiceStateStore(widget, NoopWidgetNotifier, scope)
+
+        store.setStatus(AppStatus.Running, Mode.VPN)
+
+        assertTrue("widget I/O failure escaped the collector: $failures", failures.isEmpty())
+        assertEquals(AppStatus.Running, widget.writes.last().status)
+    }
+
     private fun unconfinedScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 
     private class RecordingWidgetStateRepository(
@@ -119,6 +136,25 @@ class ServiceStateStoreWidgetResetTest {
         private val state = MutableStateFlow(seed)
 
         override suspend fun write(snapshot: WidgetSnapshot) {
+            writes += snapshot
+            state.value = snapshot
+        }
+
+        override fun observe(): Flow<WidgetSnapshot> = state.asStateFlow()
+
+        override suspend fun snapshot(): WidgetSnapshot = state.value
+    }
+
+    private class FailingOnceWidgetStateRepository : WidgetStateRepository {
+        val writes = mutableListOf<WidgetSnapshot>()
+        private var failed = false
+        private val state = MutableStateFlow(WidgetSnapshot())
+
+        override suspend fun write(snapshot: WidgetSnapshot) {
+            if (!failed) {
+                failed = true
+                throw java.io.IOException("No space left on device")
+            }
             writes += snapshot
             state.value = snapshot
         }
