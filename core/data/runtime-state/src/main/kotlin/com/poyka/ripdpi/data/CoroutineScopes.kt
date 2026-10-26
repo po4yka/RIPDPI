@@ -1,12 +1,10 @@
 package com.poyka.ripdpi.data
 
-import android.util.Log
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -65,16 +63,6 @@ class ApplicationCoroutineScopeTerminator
 
 private const val ApplicationScopeTerminationTimeoutMillis = 250L
 
-/**
- * These scopes host the VPN/proxy services' process: one failed background child (a disk-full Room
- * write, a callback quota error) must not kill the tunnel. The SupervisorJob keeps siblings alive.
- */
-private val ApplicationScopeExceptionHandler =
-    CoroutineExceptionHandler { _, error ->
-        // Class name only: exception messages can carry hosts or other network identifiers.
-        Log.e("ApplicationScope", "Uncaught failure in an application-scoped coroutine: ${error::class.java.name}")
-    }
-
 @Module
 @InstallIn(SingletonComponent::class)
 object CoroutineScopesModule {
@@ -91,11 +79,11 @@ object CoroutineScopesModule {
     @Singleton
     @ApplicationScope
     fun provideApplicationScope(dispatchers: AppCoroutineDispatchers): CoroutineScope =
-        CoroutineScope(SupervisorJob() + dispatchers.default + ApplicationScopeExceptionHandler)
+        CoroutineScope(SupervisorJob() + dispatchers.default)
 
     @Provides
     @Singleton
     @ApplicationIoScope
     fun provideApplicationIoScope(dispatchers: AppCoroutineDispatchers): CoroutineScope =
-        CoroutineScope(SupervisorJob() + dispatchers.io + ApplicationScopeExceptionHandler)
+        CoroutineScope(SupervisorJob() + dispatchers.io)
 }
