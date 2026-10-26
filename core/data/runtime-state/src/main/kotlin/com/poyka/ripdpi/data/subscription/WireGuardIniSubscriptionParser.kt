@@ -173,26 +173,39 @@ object WireGuardIniSubscriptionParser {
                 reason = "WireGuard INI config has an [Interface] but no [Peer] section",
             )
         }
+        if (sections.peerBlocks.size > MaxSubscriptionProfiles) {
+            return failure(
+                line = "[Peer]",
+                reason = "WireGuard INI config has more than $MaxSubscriptionProfiles [Peer] sections",
+            )
+        }
 
         // The `[Interface]` block — including its AmneziaWG keys — is shared by
         // every peer. A malformed interface-scope key cannot be salvaged
         // per-peer, so validate it once up front and fail the whole
         // subscription with a single typed warning if it does not parse.
-        runCatching {
-            WireGuardConfParser.parse(sections.interfaceBlock + "\n[Peer]\nPublicKey = probe")
-        }.onFailure { error ->
-            return failure(
-                line = "[Interface]",
-                reason =
-                    "malformed WireGuard INI config: the [Interface] block could not be parsed: " +
-                        (error.message ?: "unknown error"),
-            )
-        }
+        val interfaceModel =
+            runCatching {
+                WireGuardConfParser.parse(sections.interfaceBlock + "\n[Peer]\nPublicKey = probe")
+            }.getOrElse { error ->
+                return failure(
+                    line = "[Interface]",
+                    reason =
+                        "malformed WireGuard INI config: the [Interface] block could not be parsed: " +
+                            (error.message ?: "unknown error"),
+                )
+            }
 
+        // Parse each peer against a one-key interface stub so the shared [Interface] block is
+        // parsed once, not once per peer (a padded interface times many peers is quadratic).
+        val interfaceStub = "[Interface]\nPrivateKey = ${interfaceModel.interfaceSection.privateKey}\n"
+        val dnsSpecified = sections.interfaceBlock.hasSetting("DNS")
         val accumulator = SubscriptionAccumulator()
         sections.peerBlocks.forEachIndexed { index, peerBlock ->
             accumulator.acceptPeerBlock(
-                interfaceBlock = sections.interfaceBlock,
+                interfaceModel = interfaceModel,
+                interfaceStub = interfaceStub,
+                dnsSpecified = dnsSpecified,
                 peerBlock = peerBlock,
                 peerIndex = index,
                 groupId = groupId,
@@ -233,18 +246,25 @@ object WireGuardIniSubscriptionParser {
 
         @Suppress("ReturnCount")
         fun acceptPeerBlock(
-            interfaceBlock: String,
+            interfaceModel: WireGuardConfModel,
+            interfaceStub: String,
+            dnsSpecified: Boolean,
             peerBlock: String,
             peerIndex: Int,
             groupId: String,
         ) {
             val peerLabel = "[Peer] #${peerIndex + 1}"
-            val model =
-                runCatching { WireGuardConfParser.parse(interfaceBlock + "\n" + peerBlock) }
+            val parsedPeers =
+                runCatching { WireGuardConfParser.parse(interfaceStub + peerBlock).peers }
                     .getOrElse { error ->
                         warn(peerIndex, peerLabel, "$peerLabel skipped: ${error.message ?: "could not be parsed"}")
                         return
                     }
+            val model =
+                when (interfaceModel) {
+                    is AmneziaWgConfig -> interfaceModel.copy(peers = parsedPeers)
+                    is WireGuardConfig -> interfaceModel.copy(peers = parsedPeers)
+                }
             val peer =
                 model.peers.firstOrNull() ?: run {
                     warn(peerIndex, peerLabel, "$peerLabel skipped: no peer parsed from the block")
@@ -261,7 +281,7 @@ object WireGuardIniSubscriptionParser {
                 hostPort.first,
                 hostPort.second,
                 groupId,
-                dnsSpecified = interfaceBlock.hasSetting("DNS"),
+                dnsSpecified = dnsSpecified,
                 allowedIpsSpecified = peerBlock.hasSetting("AllowedIPs"),
             )
         }

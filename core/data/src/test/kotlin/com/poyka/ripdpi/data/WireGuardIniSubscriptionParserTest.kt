@@ -225,4 +225,19 @@ class WireGuardIniSubscriptionParserTest {
         assertEquals("good.example.com", result.profiles.single().server)
         assertEquals(1, result.warnings.size)
     }
+
+    @Test
+    fun `payload with more peers than the subscription cap is rejected before parsing peers`() {
+        val peers =
+            (0..com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles).joinToString("\n") { index ->
+                "[Peer]\nPublicKey = bXVsdGktcGVlci1wdWJsaWMta2V5LWZpeHR1cmUwMQ==\n" +
+                    "Endpoint = wg$index.example.com:51820"
+            }
+        val payload = singlePeerConf.substringBefore("[Peer]") + peers
+
+        val result = WireGuardIniSubscriptionParser.parse(payload, groupId)
+
+        assertTrue(result.profiles.isEmpty())
+        assertEquals(1, result.warnings.size)
+    }
 }
