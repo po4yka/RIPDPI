@@ -112,3 +112,90 @@ fn handle_dns_result_returns_rewritten_payload_to_tcp_session() {
     assert!(!reply.is_empty());
     assert!(device.tx_queue.is_empty(), "TCP response must not be wrapped as UDP");
 }
+
+/// A TXT query for `name` (EDNS payload size `edns`, if any) and an upstream answer of `answer_bytes`
+/// TXT data.
+fn txt_exchange(name: &str, edns: Option<u16>, answer_bytes: usize) -> (Vec<u8>, Vec<u8>) {
+    use hickory_proto::op::{Edns, Message, MessageType, OpCode, Query};
+    use hickory_proto::rr::rdata::TXT;
+    use hickory_proto::rr::{Name, RData, Record, RecordType};
+
+    let question = Query::new(Name::from_ascii(name).expect("name"), RecordType::TXT);
+    let mut query = Message::new(0x4321, MessageType::Query, OpCode::Query);
+    query.metadata.recursion_desired = true;
+    query.add_query(question.clone());
+    if let Some(size) = edns {
+        let mut opt = Edns::new();
+        opt.set_max_payload(size);
+        query.edns = Some(opt);
+    }
+    let mut response = Message::response(0x4321, OpCode::Query);
+    response.add_query(question);
+    for _ in 0..answer_bytes.div_ceil(200) {
+        let txt = TXT::new(vec!["x".repeat(200)]);
+        response.add_answer(Record::from_rdata(Name::from_ascii(name).expect("name"), 60, RData::TXT(txt)));
+    }
+    (query.to_vec().expect("query"), response.to_vec().expect("response"))
+}
+
+/// Runs one successful exchange through handle_dns_result and returns the UDP DNS payload it queued.
+fn deliver_udp_answer(query: Vec<u8>, upstream: Vec<u8>, mtu: usize) -> hickory_proto::op::Message {
+    let mut device = TunDevice::new(mtu);
+    handle_dns_result(
+        &mut device,
+        &Arc::new(Stats::default()),
+        test_mapdns(),
+        &mut test_dns_cache(),
+        DnsResponse {
+            src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+            query,
+            host: Some("big.test".to_string()),
+            upstream: Ok(EncryptedDnsExchangeSuccess {
+                response_bytes: upstream,
+                endpoint_label: "fixture".to_string(),
+                latency_ms: 1,
+            }),
+            resolver_error_kind: None,
+            resolver_endpoint_label: None,
+            direct_generation: None,
+            direct_fallback: false,
+            tcp_reply: None,
+        },
+    );
+    assert_eq!(device.tx_queue.len(), 1, "one UDP reply is queued");
+    let packet = device.tx_queue.front().expect("queued packet");
+    assert!(packet.len() <= mtu, "the reply packet fits the TUN MTU");
+    hickory_proto::op::Message::from_vec(&packet[28..]).expect("DNS payload after IPv4 and UDP headers")
+}
+
+#[test]
+fn udp_answer_larger_than_512_bytes_without_edns_is_truncated_with_tc() {
+    let (query, upstream) = txt_exchange("big.test", None, 2_000);
+
+    let reply = deliver_udp_answer(query, upstream, 1500);
+
+    assert!(reply.metadata.truncation, "TC tells the stub to retry over TCP");
+    assert_eq!(reply.metadata.id, 0x4321);
+    assert_eq!(reply.queries.len(), 1);
+    assert!(reply.answers.is_empty());
+}
+
+#[test]
+fn udp_answer_within_the_edns_size_and_mtu_is_delivered_whole() {
+    let (query, upstream) = txt_exchange("big.test", Some(1232), 1_000);
+
+    let reply = deliver_udp_answer(query, upstream, 1500);
+
+    assert!(!reply.metadata.truncation);
+    assert_eq!(reply.answers.len(), 5);
+}
+
+#[test]
+fn udp_answer_within_the_edns_size_but_above_the_mtu_is_truncated() {
+    let (query, upstream) = txt_exchange("big.test", Some(4096), 2_000);
+
+    let reply = deliver_udp_answer(query, upstream, 1500);
+
+    assert!(reply.metadata.truncation);
+    assert!(reply.answers.is_empty());
+}
