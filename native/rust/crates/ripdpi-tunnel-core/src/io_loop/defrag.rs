@@ -78,7 +78,29 @@ impl IpDefrag {
 }
 
 fn parse_fragment(packet: &[u8]) -> Option<Fragment<'_>> {
+    if !may_be_udp_fragment(packet) {
+        return None;
+    }
     parse_ip_fragment(packet).filter(|fragment| fragment.id.payload_ip_number == IpNumber::UDP)
+}
+
+/// Reads only fixed header bytes, so a bulk packet skips the full parse on the per-packet path.
+/// IPv4: a UDP packet with the MF flag or a fragment offset. IPv6: any next header other than TCP,
+/// UDP or ICMPv6, because a Fragment header can follow other extension headers.
+fn may_be_udp_fragment(packet: &[u8]) -> bool {
+    const FRAGMENT_BITS: u16 = 0x3fff;
+    match packet.first().map(|byte| byte >> 4) {
+        Some(4) => match (packet.get(6..8), packet.get(9)) {
+            (Some(&[high, low]), Some(&protocol)) => {
+                protocol == IpNumber::UDP.0 && u16::from_be_bytes([high, low]) & FRAGMENT_BITS != 0
+            }
+            _ => false,
+        },
+        Some(6) => packet
+            .get(6)
+            .is_some_and(|&next| ![IpNumber::TCP.0, IpNumber::UDP.0, IpNumber::IPV6_ICMP.0].contains(&next)),
+        _ => false,
+    }
 }
 
 fn parse_ip_fragment(packet: &[u8]) -> Option<Fragment<'_>> {
