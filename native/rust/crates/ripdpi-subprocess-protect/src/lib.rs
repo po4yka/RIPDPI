@@ -34,6 +34,23 @@ pub const PROTECT_PATH_ENV: &str = "RIPDPI_PROTECT_PATH";
 /// Timeout for the local protect round-trip (UDS connect / send / ack read).
 const PROTECT_TIMEOUT: Duration = Duration::from_secs(1);
 
+/// TCP connect bound for a candidate address when more candidates remain, so
+/// one blackholed address (for example an unreachable AAAA record that sorts
+/// first) cannot use the whole dial budget before the next one is tried.
+const CONNECT_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// TCP connect bound for the last (or only) candidate address.
+const LAST_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Connect bound for candidate `index` of `count` resolved addresses.
+fn connect_timeout_for(index: usize, count: usize) -> Duration {
+    if index + 1 < count { CONNECT_ATTEMPT_TIMEOUT } else { LAST_CONNECT_TIMEOUT }
+}
+
+fn connect_timed_out(addr: SocketAddr, limit: Duration) -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, format!("connect to {addr} timed out after {limit:?}"))
+}
+
 /// The protect UDS path the Android parent supplies via [`PROTECT_PATH_ENV`],
 /// or `None` when it is unset/blank — in which case callers connect
 /// unprotected (desktop, proxy-only mode, or VPN down).
@@ -52,9 +69,11 @@ fn normalize_protect_path(raw: Option<String>) -> Option<String> {
 /// one-byte ack. Mirrors the wire contract served by Kotlin
 /// `VpnProtectSocketServer` and the sender in `ripdpi-ws-tunnel`.
 ///
-/// Call this on a still-unconnected socket, before `connect`. Synchronous and
-/// fast (a local round-trip). On any failure the socket must not be used: the
-/// callers below propagate the error instead of connecting unprotected.
+/// Call this on a still-unconnected socket, before `connect`. This is blocking
+/// I/O bounded by [`PROTECT_TIMEOUT`] per step: async callers must run it off
+/// the runtime worker (see [`protected_tcp_connect`]). On any failure the
+/// socket must not be used: the callers below propagate the error instead of
+/// connecting unprotected.
 pub fn protect_fd(fd: RawFd, path: &str) -> io::Result<()> {
     use std::io::{IoSlice, Read};
     use std::os::unix::net::UnixStream;
@@ -92,19 +111,36 @@ fn protect_if_needed(fd: RawFd, addr: SocketAddr, protect_path: Option<&str>) ->
     }
 }
 
+fn new_tcp_socket(addr: SocketAddr) -> io::Result<Socket> {
+    let domain = if addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
+    Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
+}
+
 /// Resolve `target`, then create a TCP socket, protect it (when `protect_path`
 /// is set and the target is non-loopback), and connect — async (tokio).
-/// Returns the first candidate that connects.
+/// Returns the first candidate that connects. Each candidate but the last is
+/// bounded by [`CONNECT_ATTEMPT_TIMEOUT`], the last by [`LAST_CONNECT_TIMEOUT`].
 ///
 /// Drop-in for `tokio::net::TcpStream::connect(target)` that honors the
 /// `VpnService.protect` invariant: the fd is protected *before* `connect`.
+///
+/// # Cancel safety
+///
+/// cancel-safe: no caller-visible state spans an `.await`. A cancelled dial
+/// drops its unconnected socket; a protect exchange already running on the
+/// blocking pool owns its socket and closes it when it finishes.
 pub async fn protected_tcp_connect<A: tokio::net::ToSocketAddrs>(
     target: A,
     protect_path: Option<&str>,
 ) -> io::Result<tokio::net::TcpStream> {
+    let addrs: Vec<SocketAddr> = tokio::net::lookup_host(target).await?.collect();
     let mut last_err = None;
-    for addr in tokio::net::lookup_host(target).await? {
-        match connect_one_async(addr, protect_path).await {
+    for (index, addr) in addrs.iter().copied().enumerate() {
+        let limit = connect_timeout_for(index, addrs.len());
+        let attempt = tokio::time::timeout(limit, connect_one_async(addr, protect_path))
+            .await
+            .unwrap_or_else(|_| Err(connect_timed_out(addr, limit)));
+        match attempt {
             Ok(stream) => return Ok(stream),
             Err(err) => last_err = Some(err),
         }
@@ -112,24 +148,38 @@ pub async fn protected_tcp_connect<A: tokio::net::ToSocketAddrs>(
     Err(last_err.unwrap_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no addresses resolved")))
 }
 
+/// # Cancel safety
+///
+/// cancel-safe: see [`protected_tcp_connect`].
 async fn connect_one_async(addr: SocketAddr, protect_path: Option<&str>) -> io::Result<tokio::net::TcpStream> {
-    let socket = match addr {
-        SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
-        SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
+    let socket = new_tcp_socket(addr)?;
+    let socket = match protect_path {
+        Some(path) if !addr.ip().is_loopback() => {
+            let path = path.to_owned();
+            // protect_fd blocks on UDS I/O, so it runs on the blocking pool, not a
+            // runtime worker. The task owns the socket, so a cancelled dial can
+            // never pass a closed (and possibly reused) fd number to the parent.
+            tokio::task::spawn_blocking(move || protect_fd(socket.as_raw_fd(), &path).map(|()| socket))
+                .await
+                .map_err(|error| io::Error::other(format!("protect task failed: {error}")))??
+        }
+        _ => socket,
     };
-    protect_if_needed(socket.as_raw_fd(), addr, protect_path)?;
-    socket.connect(addr).await
+    socket.set_nonblocking(true)?;
+    tokio::net::TcpSocket::from_std_stream(socket.into()).connect(addr).await
 }
 
 /// Blocking (std) counterpart of [`protected_tcp_connect`] for callers not on a
-/// tokio runtime. Drop-in for `std::net::TcpStream::connect(target)`.
+/// tokio runtime. Drop-in for `std::net::TcpStream::connect(target)`, with the
+/// same per-candidate connect bounds.
 pub fn protected_tcp_connect_blocking<A: std::net::ToSocketAddrs>(
     target: A,
     protect_path: Option<&str>,
 ) -> io::Result<std::net::TcpStream> {
+    let addrs: Vec<SocketAddr> = target.to_socket_addrs()?.collect();
     let mut last_err = None;
-    for addr in target.to_socket_addrs()? {
-        match connect_one_blocking(addr, protect_path) {
+    for (index, addr) in addrs.iter().copied().enumerate() {
+        match connect_one_blocking(addr, protect_path, connect_timeout_for(index, addrs.len())) {
             Ok(stream) => return Ok(stream),
             Err(err) => last_err = Some(err),
         }
@@ -137,11 +187,14 @@ pub fn protected_tcp_connect_blocking<A: std::net::ToSocketAddrs>(
     Err(last_err.unwrap_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no addresses resolved")))
 }
 
-fn connect_one_blocking(addr: SocketAddr, protect_path: Option<&str>) -> io::Result<std::net::TcpStream> {
-    let domain = if addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
-    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+fn connect_one_blocking(
+    addr: SocketAddr,
+    protect_path: Option<&str>,
+    limit: Duration,
+) -> io::Result<std::net::TcpStream> {
+    let socket = new_tcp_socket(addr)?;
     protect_if_needed(socket.as_raw_fd(), addr, protect_path)?;
-    socket.connect(&SockAddr::from(addr))?;
+    socket.connect_timeout(&SockAddr::from(addr), limit)?;
     Ok(socket.into())
 }
 
@@ -269,6 +322,58 @@ mod tests {
         let stream =
             protected_tcp_connect(addr, None).await.expect("async no-path connect must succeed (no-op protect)");
         assert_eq!(stream.peer_addr().expect("peer").port(), addr.port());
+    }
+
+    /// Mock protect server that holds the request for `delay` before acking.
+    fn spawn_slow_protect_server(path: std::path::PathBuf, ack: u8, delay: Duration) -> thread::JoinHandle<()> {
+        let listener = UnixListener::bind(&path).expect("bind slow protect uds");
+        thread::spawn(move || {
+            let (conn, _) = listener.accept().expect("accept protect client");
+            let mut buf = [0u8; 1];
+            let mut cmsg_space = nix::cmsg_space!([RawFd; 1]);
+            let cmsg_buf: &mut [u8] = &mut cmsg_space;
+            let mut iov = [IoSliceMut::new(&mut buf)];
+            let _ = recvmsg::<()>(conn.as_raw_fd(), &mut iov, Some(cmsg_buf), MsgFlags::empty());
+            thread::sleep(delay);
+            let _ = (&conn).write_all(&[ack]);
+        })
+    }
+
+    // A slow protect round-trip must not park the runtime worker: on a
+    // current-thread runtime another task keeps running while the parent
+    // holds the request. The denial ack keeps the test off the network.
+    #[tokio::test]
+    async fn async_protect_runs_off_the_runtime_worker() {
+        let path = std::env::temp_dir().join(format!("ripdpi-test-protect-slow-{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let server = spawn_slow_protect_server(path.clone(), 1, Duration::from_millis(600));
+        let path_str = path.to_str().expect("utf-8 path").to_owned();
+
+        let dial = tokio::spawn(async move { protected_tcp_connect("192.0.2.1:9", Some(path_str.as_str())).await });
+        let started = std::time::Instant::now();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        let ticked = started.elapsed();
+
+        let err = dial.await.expect("dial task").expect_err("denied protect must fail closed");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert!(ticked < Duration::from_millis(300), "runtime worker was blocked by protect for {ticked:?}");
+        server.join().expect("slow server thread");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    // A candidate that never answers the SYN must not use the whole dial
+    // budget: the next resolved address is tried after CONNECT_ATTEMPT_TIMEOUT.
+    #[test]
+    fn blocking_connect_falls_through_an_unanswered_first_candidate() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let reachable = listener.local_addr().expect("addr");
+        let blackholed: SocketAddr = "192.0.2.1:9".parse().expect("test-net addr");
+
+        let started = std::time::Instant::now();
+        let stream = protected_tcp_connect_blocking(&[blackholed, reachable][..], None)
+            .expect("second candidate must still be tried");
+        assert_eq!(stream.peer_addr().expect("peer"), reachable);
+        assert!(started.elapsed() < CONNECT_ATTEMPT_TIMEOUT * 2, "first candidate held the dial for too long");
     }
 
     // TEST-4: a stale UDS (listener bound then dropped, so the path exists or is
