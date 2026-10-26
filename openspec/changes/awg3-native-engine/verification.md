@@ -1,9 +1,9 @@
 ---
 task_id: TRN-1792949035079937
 change: awg3-native-engine
-commit_sha: ba228c17c
+commit_sha: ba228c17c7cfb1f90a09f6af03a1c5837e1a100c
 local: passed
-local_evidence: Combined gate on fix/import-review: :app:testGithubFullDebugUnitTest, :app:lintGithubFullDebug, :core:service:lintDebug, :app:detekt, :app:ktlintCheck and the core data, runtime-state, engine-api, engine and service JVM suites plus their detekt/ktlint exited 0; cargo test, clippy -D warnings and fmt --check for ripdpi-warp-core exited 0; check_architecture_health --check and check_native_hotspot_budgets exited 0 with no new indicators.
+local_evidence: Final fix/awg-s34-floor tree at 50d1fd20493cb3394d81b1a7b92cefb8d5d14b02 plus the evidence-record commit, rebased on origin/main 978201ec17abc556db7968542d6a88cdf150ea4c. Exit 0 for the Gradle gate (:app:testGithubFullDebugUnitTest, :app:lintGithubFullDebug, :core:service:lintDebug, :app:detekt, :app:ktlintCheck and the core data, runtime-state, settings, model, engine-api, engine and service unit tests), cargo test -p ripdpi-warp-core --locked (133 tests), workspace cargo clippy --all-targets --locked -D warnings, cargo fmt --all --check, check_architecture_health --check, check_native_hotspot_budgets, check-translation-export and taskctl validate.
 remote_ci: required
 remote_ci_evidence: Hosted gates on the pushed commit are required.
 device: passed
@@ -39,6 +39,8 @@ API 35 `google_apis` arm64-v8a image revision 9, `pixel_6`, emulator 37.2.12.0, 
 | S3=S4=0 control | 1420 | 12/12 | 12/12 |
 
 Zero lost UDP datagrams and zero Udp `RcvbufErrors` across the 96 sessions. `run-android-awg-interop.py --profile amneziavpn-5x` on committed ba228c17c: 8/8 cycles, nonce `awg5x-rebased-20261026c`; the wrong header protection key never reached readiness and the peer completed 0/4 exchanges.
+
+After this run the branch was rebased over origin/main 978201ec17abc556db7968542d6a88cdf150ea4c (CI prerequisites, no native source change) and took review fixes (WARP form and editor S3/S4 validation, requireScalars callers, a debug log of the buffer sizes). None changed the ripdpi-warp-core data plane, so ba228c17c7cfb1f90a09f6af03a1c5837e1a100c stays the evidence commit; it is kept on the local branch `backup/awg-s34-floor-evidence-ba228c17c`.
 
 ### Before the rebase, 627f68bfb
 
