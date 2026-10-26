@@ -20,6 +20,7 @@ import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import dagger.hilt.internal.GeneratedComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -112,6 +113,40 @@ class PausedServiceReconstructionTest {
             awaitTrackedDestruction(service)
             service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             assertEquals(0, fixture.constructions.get())
+        }
+
+    @Test
+    fun `vpn attach waits for the previous service instance teardown`() =
+        runBlocking {
+            val fixture = Fixture(Mode.VPN)
+            shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
+            val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
+            val service = lifecycle.get()
+            initializeVpn(service, fixture)
+            val factoryCalls = AtomicInteger()
+            service.sessionComponentBuilderProvider =
+                Provider {
+                    factoryCalls.incrementAndGet()
+                    throw IllegalStateException("graph is not needed for this test")
+                }
+            lifecycle.create()
+            val previousTeardown = Job()
+            RipDpiVpnService.previousInstanceTeardown.set(previousTeardown)
+            try {
+                val attach = async(Dispatchers.Default) { runCatching { initializeActiveSession(service) } }
+                delay(200)
+                assertEquals("attach must wait until the old instance released its singletons", 0, factoryCalls.get())
+
+                previousTeardown.complete()
+                attach.await()
+
+                assertEquals(1, factoryCalls.get())
+            } finally {
+                previousTeardown.complete()
+                lifecycle.destroy()
+                awaitTrackedDestruction(service)
+                service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+            }
         }
 
     @Test
