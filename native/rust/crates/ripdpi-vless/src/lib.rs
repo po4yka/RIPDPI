@@ -891,17 +891,20 @@ mod protect_tests {
         assert_eq!(resolved.expect("callback resolution"), std::net::SocketAddr::from(([192, 0, 2, 7], 443)));
     }
 
+    /// `127.1` is not an IP literal for Rust, so it reaches the resolver as a
+    /// hostname. Only the platform getaddrinfo reads it as the shorthand of
+    /// 127.0.0.1; a DoH service answers NXDOMAIN, and offline it fails. So
+    /// this fails if proxy mode goes back to the third-party DoH path.
     #[tokio::test]
     async fn proxy_mode_resolves_relay_hostname_through_the_system_resolver() {
         let _guard = PROTECT_TEST_LOCK.lock().await;
         unregister_protect_callback();
-        let mut config = config_for("localhost", 443);
+        let mut config = config_for("127.1", 443);
         config.socket_protection = ripdpi_native_protect::SocketProtectionPolicy::Inactive;
 
         let resolved = VlessRealityClient::resolve_server_endpoint(&config, None).await.expect("system resolution");
 
-        assert!(resolved.ip().is_loopback(), "localhost must resolve locally, got {resolved}");
-        assert_eq!(resolved.port(), 443);
+        assert_eq!(resolved, std::net::SocketAddr::from(([127, 0, 0, 1], 443)));
     }
 
     // TEST-NET-1 (RFC 5737) is a guaranteed-unroutable literal: it parses
