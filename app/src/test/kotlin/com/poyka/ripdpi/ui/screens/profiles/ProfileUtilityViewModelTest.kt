@@ -11,6 +11,7 @@ import android.net.NetworkCapabilities
 import android.net.RouteInfo
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
@@ -986,7 +987,12 @@ private class Fixture(
         )
     val vm =
         ProfileUtilityViewModel(
-            ProfileUtilityCatalogReader(mutations, stores, authority),
+            ProfileUtilityCatalogReader(
+                mutations,
+                stores,
+                authority,
+                AppCoroutineDispatchers(Dispatchers.Unconfined, Dispatchers.Unconfined, Dispatchers.Unconfined),
+            ),
             authority,
             mutations,
             applied,

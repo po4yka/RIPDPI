@@ -16,6 +16,14 @@ import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
+/** Runs dispatcher-confined work inline so virtual-time tests stay deterministic. */
+internal val InlineDispatchers =
+    AppCoroutineDispatchers(
+        kotlinx.coroutines.Dispatchers.Unconfined,
+        kotlinx.coroutines.Dispatchers.Unconfined,
+        kotlinx.coroutines.Dispatchers.Unconfined,
+    )
+
 internal class ProfileMutationTestFixture(
     initialAuthority: PauseAuthorityState? = null,
 ) {
@@ -460,10 +468,14 @@ internal class InMemoryAwgCredentialStore : AwgCredentialStore {
 internal class InMemoryXrayMetadataStore : XrayProfileMetadataStore {
     private val values = mutableMapOf<String, XrayProfileMetadataRecord>()
     var failNextSave = false
+    val listThreads: MutableList<Thread> = java.util.Collections.synchronizedList(mutableListOf())
 
     override suspend fun load(profileId: String) = values[profileId]
 
-    override suspend fun list() = values.values.toList()
+    override suspend fun list(): List<XrayProfileMetadataRecord> {
+        listThreads += Thread.currentThread()
+        return values.values.toList()
+    }
 
     override suspend fun save(record: XrayProfileMetadataRecord) {
         if (failNextSave) {

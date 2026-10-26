@@ -89,7 +89,8 @@ class ProfileMutationRecoveryCoordinatorTest {
             val fixture = ProfileMutationTestFixture()
             val coordinator = fixture.coordinator()
             val repository = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, coordinator)
-            val reader = ProfileUtilityCatalogReader(coordinator, fixture.stores, fixture.pauseAuthority)
+            val reader =
+                ProfileUtilityCatalogReader(coordinator, fixture.stores, fixture.pauseAuthority, InlineDispatchers)
             reader.observe().test {
                 assertTrue(awaitItem().entries.isEmpty())
                 val member = ProxyProfile.Vless("member", "display", "group", "fixture.example", 443, "fixture")

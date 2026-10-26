@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import javax.inject.Inject
@@ -31,6 +32,7 @@ class ProfileUtilityCatalogReader
         private val recovery: ProfileMutationRecoveryAccess,
         private val stores: ProfileMutationStores,
         private val authority: PauseIntentAuthority,
+        private val dispatchers: AppCoroutineDispatchers,
     ) {
         /** Readiness comes from mandatory recovery, and every metadata read is serialized with catalog commits. */
         @OptIn(ExperimentalCoroutinesApi::class)
@@ -83,5 +85,6 @@ class ProfileUtilityCatalogReader
                             }
                         },
                 )
-            }
+                // Store reads are blocking Keystore/SharedPreferences I/O; collectors run on Main.
+            }.flowOn(dispatchers.io)
     }
