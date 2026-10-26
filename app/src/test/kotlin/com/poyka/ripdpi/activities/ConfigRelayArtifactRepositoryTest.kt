@@ -716,6 +716,28 @@ private class RecordingRelayMutationCoordinator(
     private val profiles: RelayProfileStore,
     private val credentials: RelayCredentialRepository,
 ) : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
+    // Records the edit whole; the production writer merges it field by field.
+    override suspend fun upsertRelayEdit(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        enabled: Boolean,
+        settingsBaseImage: AppSettings,
+        settingsAfterImage: AppSettings,
+        expectedState: ExpectedRelayProfileState,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        upsertRelay(
+            preparation,
+            profile,
+            credentials,
+            enabled = enabled,
+            select = true,
+            settingsAfterImage = settingsAfterImage,
+            modeAfterImage = null,
+            xraySelectionAfterImage = null,
+            expectedState = expectedState,
+        )
+
     override suspend fun upsertRelay(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: RelayProfileRecord,
