@@ -6,7 +6,7 @@ use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use crate::lifecycle::{IdleGuard, open_proxy_listener, positive_os_error, proxy_error};
 use crate::quality_sink::CompositeProxyTelemetrySink;
-use crate::registry::{ProxySessionState, lookup_proxy_session, try_mark_proxy_running};
+use crate::registry::{ProxySessionState, ProxyStartTransition, lookup_proxy_session, try_mark_proxy_running};
 use ripdpi_android_bridge_support::{throw_illegal_state_env_with_payload, throw_io_exception_env_with_payload};
 use ripdpi_android_telemetry_adapter::ProxyTelemetryObserver;
 
@@ -54,15 +54,23 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
 
     {
         let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Err(message) = try_mark_proxy_running(&mut state, control.clone()) {
-            throw_illegal_state_env_with_payload(
-                env,
-                message,
-                &proxy_error("start_invalid_state", message)
-                    .with_cause_class("java.lang.IllegalStateException")
-                    .with_handle_state(message),
-            );
-            return libc::EINVAL;
+        match try_mark_proxy_running(&mut state, control.clone()) {
+            Ok(ProxyStartTransition::Running) => {}
+            Ok(ProxyStartTransition::StoppedBeforeStart) => {
+                drop(state);
+                session.telemetry.push_event("proxy", "info", "start skipped: stop requested first".to_string());
+                return 0;
+            }
+            Err(message) => {
+                throw_illegal_state_env_with_payload(
+                    env,
+                    message,
+                    &proxy_error("start_invalid_state", message)
+                        .with_cause_class("java.lang.IllegalStateException")
+                        .with_handle_state(message),
+                );
+                return libc::EINVAL;
+            }
         }
     }
 

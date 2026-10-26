@@ -13,7 +13,7 @@ use ripdpi_android_bridge_support::{NativeBridgeError, NativeBridgeErrorDomain, 
 use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 use super::registry::{
-    ProxySessionState, control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session,
+    ProxySessionState, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session, request_proxy_stop,
 };
 
 pub(crate) fn proxy_error(code: &'static str, message: impl Into<String>) -> NativeBridgeError {
@@ -53,9 +53,14 @@ pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
     };
 
     let control = {
-        let state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
-        match control_for_proxy_stop(&state) {
-            Ok(control) => control,
+        let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
+        match request_proxy_stop(&mut state) {
+            Ok(Some(control)) => control,
+            Ok(None) => {
+                drop(state);
+                session.telemetry.push_event("proxy", "info", "stop requested before start".to_string());
+                return;
+            }
             Err(message) => {
                 throw_illegal_state_env_with_payload(
                     env,

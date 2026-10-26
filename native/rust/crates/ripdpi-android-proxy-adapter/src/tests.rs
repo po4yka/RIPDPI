@@ -21,8 +21,8 @@ use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 use super::lifecycle::open_proxy_listener;
 use super::registry::{
-    ProxySession, ProxySessionState, SESSIONS, control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session,
-    remove_proxy_session, try_mark_proxy_running,
+    ProxySession, ProxySessionState, ProxyStartTransition, SESSIONS, ensure_proxy_destroyable, lookup_proxy_session,
+    remove_proxy_session, request_proxy_stop, try_mark_proxy_running,
 };
 
 const GEOIP_ASN_FIXTURE: &[u8] = include_bytes!("../../ripdpi-geo/tests/fixtures/GeoLite2-ASN-Test.mmdb");
@@ -102,11 +102,27 @@ fn proxy_state_rejects_duplicate_start() {
     assert_eq!(err, "Proxy session is already running");
 }
 
+// A stop issued while startup is still in flight (session not yet Running)
+// must not be lost: it is latched and the next start returns without running.
 #[test]
-fn proxy_state_rejects_stop_when_idle() {
-    let err = control_for_proxy_stop(&ProxySessionState::Idle).expect_err("idle stop");
+fn proxy_stop_before_start_is_latched_for_the_next_start() {
+    let mut state = ProxySessionState::Idle;
 
-    assert_eq!(err, "Proxy session is not running");
+    assert!(request_proxy_stop(&mut state).expect("stop before start").is_none());
+    assert!(matches!(state, ProxySessionState::StopRequested));
+    let transition = try_mark_proxy_running(&mut state, Arc::new(EmbeddedProxyControl::default()))
+        .expect("start after a latched stop");
+
+    assert_eq!(transition, ProxyStartTransition::StoppedBeforeStart);
+    assert!(matches!(state, ProxySessionState::Idle));
+    assert!(ensure_proxy_destroyable(&state).is_ok());
+}
+
+#[test]
+fn proxy_stop_is_rejected_after_destroy() {
+    let err = request_proxy_stop(&mut ProxySessionState::Destroyed).expect_err("destroyed stop");
+
+    assert_eq!(err, "Proxy session has been destroyed");
 }
 
 #[test]
@@ -331,6 +347,7 @@ enum ProxyStateCommand {
 enum ProxyModelState {
     Absent,
     Idle,
+    StopRequested,
     Running,
 }
 
@@ -371,8 +388,10 @@ impl ProxySessionHarness {
     fn stop(&mut self) -> Result<(), String> {
         let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
         let mut state = session.state.lock().expect("proxy state lock");
-        let _control = control_for_proxy_stop(&state)?;
-        *state = ProxySessionState::Idle;
+        // A running session's accept loop exits and returns it to Idle.
+        if request_proxy_stop(&mut state)?.is_some() {
+            *state = ProxySessionState::Idle;
+        }
         Ok(())
     }
 
@@ -561,6 +580,10 @@ proptest! {
                             harness.start().expect("idle start");
                             model = ProxyModelState::Running;
                         }
+                        ProxyModelState::StopRequested => {
+                            harness.start().expect("start consumes the latched stop");
+                            model = ProxyModelState::Idle;
+                        }
                         ProxyModelState::Running => {
                             let err = harness.start().expect_err("duplicate start must fail");
                             prop_assert_eq!(err, "Proxy session is already running");
@@ -573,9 +596,9 @@ proptest! {
                             let err = harness.stop().expect_err("absent stop must fail");
                             prop_assert_eq!(err, proxy_absent_error(harness.tracked_handle()));
                         }
-                        ProxyModelState::Idle => {
-                            let err = harness.stop().expect_err("idle stop must fail");
-                            prop_assert_eq!(err, "Proxy session is not running");
+                        ProxyModelState::Idle | ProxyModelState::StopRequested => {
+                            harness.stop().expect("stop before start is latched");
+                            model = ProxyModelState::StopRequested;
                         }
                         ProxyModelState::Running => {
                             harness.stop().expect("running stop");
@@ -589,7 +612,7 @@ proptest! {
                             let err = harness.destroy().expect_err("absent destroy must fail");
                             prop_assert_eq!(err, proxy_absent_error(harness.tracked_handle()));
                         }
-                        ProxyModelState::Idle => {
+                        ProxyModelState::Idle | ProxyModelState::StopRequested => {
                             harness.destroy().expect("idle destroy");
                             model = ProxyModelState::Absent;
                         }
@@ -615,6 +638,11 @@ proptest! {
                     let session = lookup_proxy_session(harness.tracked_handle()).expect("idle session");
                     let state = session.state.lock().expect("proxy state lock");
                     prop_assert!(matches!(*state, ProxySessionState::Idle));
+                }
+                ProxyModelState::StopRequested => {
+                    let session = lookup_proxy_session(harness.tracked_handle()).expect("stop-requested session");
+                    let state = session.state.lock().expect("proxy state lock");
+                    prop_assert!(matches!(*state, ProxySessionState::StopRequested));
                 }
                 ProxyModelState::Running => {
                     let session = lookup_proxy_session(harness.tracked_handle()).expect("running session");

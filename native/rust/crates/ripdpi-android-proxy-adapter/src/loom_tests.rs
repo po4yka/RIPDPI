@@ -1,7 +1,7 @@
 use loom::sync::{Arc, Mutex};
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
-use super::registry::{ProxySessionState, control_for_proxy_stop, ensure_proxy_destroyable, try_mark_proxy_running};
+use super::registry::{ProxySessionState, ensure_proxy_destroyable, request_proxy_stop, try_mark_proxy_running};
 
 #[test]
 fn loom_two_concurrent_starts_one_wins() {
@@ -43,12 +43,17 @@ fn loom_concurrent_start_and_stop() {
 
         let state2 = state.clone();
         let t_stop = loom::thread::spawn(move || {
-            let s = state2.lock().unwrap();
-            control_for_proxy_stop(&s).ok()
+            let mut s = state2.lock().unwrap();
+            request_proxy_stop(&mut s).ok()
         });
 
         t_start.join().unwrap();
-        let _fd = t_stop.join().unwrap();
+        let stop = t_stop.join().unwrap();
+        // The stop is never lost: a session left Running had its control handed to the stop.
+        let s = state.lock().unwrap();
+        if matches!(*s, ProxySessionState::Running { .. }) {
+            assert!(matches!(stop, Some(Some(_))), "running session without a delivered stop");
+        }
     });
 }
 
@@ -61,7 +66,7 @@ fn loom_stop_then_destroy_consistent() {
         let state1 = state.clone();
         let t_stop = loom::thread::spawn(move || {
             let mut s = state1.lock().unwrap();
-            if control_for_proxy_stop(&s).is_ok() {
+            if request_proxy_stop(&mut s).is_ok() {
                 *s = ProxySessionState::Idle;
             }
         });
