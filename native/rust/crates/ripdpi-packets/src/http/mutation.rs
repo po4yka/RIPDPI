@@ -99,16 +99,18 @@ fn apply_domain_mixed_case(input: &[u8]) -> Option<Vec<u8>> {
 fn apply_host_remove_spaces(input: &[u8]) -> Option<Vec<u8>> {
     let parts = parse_http_parts(input)?;
     let mut output = input.to_vec();
-    let mut hlen = parts.host_end - parts.host_start;
-    while parts.host_start + hlen < output.len() && !output[parts.host_start + hlen].is_ascii_whitespace() {
+    // parse_http_parts skips the '[' of an IPv6 literal; move the raw value with it.
+    let value_start = parts.host_start - usize::from(input[parts.host_start - 1] == b'[');
+    let mut hlen = parts.host_end - value_start;
+    while value_start + hlen < output.len() && !output[value_start + hlen].is_ascii_whitespace() {
         hlen += 1;
     }
-    if parts.host_start + hlen >= output.len() {
+    if value_start + hlen >= output.len() {
         return None;
     }
     let header_value_start = parts.header_name_start + 5;
-    let space_count = parts.host_start.saturating_sub(header_value_start);
-    output.copy_within(parts.host_start..parts.host_start + hlen, header_value_start);
+    let space_count = value_start.saturating_sub(header_value_start);
+    output.copy_within(value_start..value_start + hlen, header_value_start);
     for byte in &mut output[header_value_start + hlen..header_value_start + hlen + space_count] {
         *byte = b'\t';
     }

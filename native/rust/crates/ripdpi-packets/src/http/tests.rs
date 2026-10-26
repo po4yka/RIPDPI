@@ -154,6 +154,18 @@ fn mod_http_like_c_keeps_pipeline_order_for_safe_and_aggressive_mutations() {
 }
 
 #[test]
+fn mod_http_like_c_remove_spaces_keeps_ipv6_host_bracket() {
+    let input = b"GET / HTTP/1.1\r\nHost: [::1]:8080\r\n\r\n";
+    let mutation = mod_http_like_c(input, MH_SPACE);
+
+    assert_eq!(mutation.rc, 0);
+    assert_eq!(mutation.bytes, b"GET / HTTP/1.1\r\nHost:[::1]:8080\t\r\n\r\n");
+    let markers = http_marker_info(&mutation.bytes).expect("reparse mutated request");
+    assert_eq!(&mutation.bytes[markers.host_start..markers.host_end], b"::1");
+    assert_eq!(markers.port, 8080);
+}
+
+#[test]
 fn mod_http_like_c_applies_method_space() {
     let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
     let mutation = mod_http_like_c(input, MH_METHODSPACE);
