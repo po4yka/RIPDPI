@@ -1,4 +1,4 @@
-use crate::util::{parse_u16_ascii, strncase_find};
+use crate::util::parse_u16_ascii;
 
 /// Return the byte offset just past the last header byte, before the blank
 /// line that separates headers from body. Searches for `\r\n\r\n` or `\n\n`.
@@ -59,10 +59,17 @@ pub(super) fn parse_http_parts(buffer: &[u8]) -> Option<HttpParts> {
     // Search only within the header block to prevent body content from
     // masquerading as a Host header (F-005).
     let headers = &buffer[..header_block_end(buffer)];
-    let marker = strncase_find(headers, b"\nHost:")?;
-    let header_name_start = marker + 1;
-    let mut host_start = marker + 6;
-    while host_start < buffer.len() && buffer[host_start] == b' ' {
+    // Allow whitespace before the colon so MH_HOSTEXTRASPACE output still parses.
+    let (header_name_start, colon) = headers
+        .windows(5)
+        .enumerate()
+        .filter(|(_, w)| w[0] == b'\n' && w[1..].eq_ignore_ascii_case(b"host"))
+        .find_map(|(marker, _)| {
+            let colon = marker + 5 + headers[marker + 5..].iter().position(|&b| !matches!(b, b' ' | b'\t'))?;
+            (headers[colon] == b':').then_some((marker + 1, colon))
+        })?;
+    let mut host_start = colon + 1;
+    while host_start < buffer.len() && matches!(buffer[host_start], b' ' | b'\t') {
         host_start += 1;
     }
     let line_end = host_start + buffer[host_start..].iter().position(|&byte| byte == b'\n')?;

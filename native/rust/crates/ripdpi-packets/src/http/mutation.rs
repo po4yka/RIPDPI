@@ -196,7 +196,8 @@ fn apply_http_host_pad(input: &[u8]) -> Option<Vec<u8>> {
 }
 
 /// Insert a space before the colon in the Host header: `Host : value`.
-/// Many DPI parsers fail on the extra space but most HTTP servers accept it.
+/// Some DPI parsers fail on the extra space, but RFC 9112 section 5.1 tells
+/// servers to reject it with 400, so only servers that ignore that rule work.
 fn apply_host_extra_space(input: &[u8]) -> Option<Vec<u8>> {
     let parts = parse_http_parts(input)?;
     // header_name_start points at 'H' of "Host:", colon is at +4
@@ -216,8 +217,10 @@ fn apply_host_extra_space(input: &[u8]) -> Option<Vec<u8>> {
 /// `Host: ` with a literal space.
 fn apply_host_tab(input: &[u8]) -> Option<Vec<u8>> {
     let parts = parse_http_parts(input)?;
-    // header_name_start points at 'H' of "Host:", colon is at +4, space at +5
-    let space_pos = parts.header_name_start + 5;
+    // header_name_start points at 'H' of "Host"; the colon follows, maybe after MH_HOSTEXTRASPACE.
+    let colon_pos =
+        parts.header_name_start + 4 + input[parts.header_name_start + 4..].iter().position(|&b| b == b':')?;
+    let space_pos = colon_pos + 1;
     if space_pos >= input.len() || input[space_pos] != b' ' {
         return None;
     }

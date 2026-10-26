@@ -216,6 +216,22 @@ fn mod_http_like_c_applies_host_tab() {
 }
 
 #[test]
+fn host_whitespace_mutations_keep_the_host_parseable() {
+    let input = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    for (flags, expected) in [
+        (MH_HOSTEXTRASPACE, &b"Host : example.com"[..]),
+        (MH_HOSTTAB, b"Host:\texample.com"),
+        (MH_HOSTEXTRASPACE | MH_HOSTTAB, b"Host :\texample.com"),
+    ] {
+        let mutation = mod_http_like_c(input, flags);
+        assert_eq!(mutation.rc, 0, "flags {flags}");
+        assert!(mutation.bytes.windows(expected.len()).any(|window| window == expected), "flags {flags}");
+        let markers = http_marker_info(&mutation.bytes).expect("reparse mutated request");
+        assert_eq!(&mutation.bytes[markers.host_start..markers.host_end], b"example.com", "flags {flags}");
+    }
+}
+
+#[test]
 fn parse_http_ignores_host_in_body() {
     // F-005: Host header in the body must NOT be picked up.
     let request = b"GET / HTTP/1.1\r\nHost: real.com\r\n\r\n\nHost: evil.com\r\n";
