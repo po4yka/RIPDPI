@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,8 +32,17 @@ class UpdateViewModel
         val uiState: StateFlow<UpdateUiState> = _uiState.asStateFlow()
         val effects = _effects.bufferForUiLifecycle(viewModelScope)
 
+        // One check or install at a time: a check that ends during a download would re-enable Install, and two
+        // downloads share one temporary APK file.
+        private var operation: Job? = null
+
+        private fun launchOperation(block: suspend () -> Unit) {
+            if (operation?.isActive == true) return
+            operation = viewModelScope.launch { block() }
+        }
+
         fun checkForUpdates() {
-            viewModelScope.launch {
+            launchOperation {
                 _uiState.value = _uiState.value.copy(status = UpdateUiStatus.Checking)
                 when (val result = updateManager.checkForUpdate()) {
                     UpdateCheckResult.ExternalAuthority -> {
@@ -65,7 +75,7 @@ class UpdateViewModel
                 return
             }
 
-            viewModelScope.launch {
+            launchOperation {
                 _uiState.value = _uiState.value.copy(status = UpdateUiStatus.Downloading)
                 when (val result = updateManager.install(update)) {
                     UpdateInstallResult.ExternalAuthority -> {
