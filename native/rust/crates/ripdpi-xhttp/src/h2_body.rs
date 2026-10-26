@@ -67,8 +67,37 @@ pub(crate) fn build_post_request(
 /// Absolute-form target, so h2 sends `:scheme https` and `:authority` like a
 /// browser instead of `:scheme http` plus a plain Host header.
 fn request_uri(host: &str, path: &str) -> String {
-    if host.contains(':') && !host.starts_with('[') {
+    // Only a bare IPv6 literal needs brackets; `host:port` overrides go through as given.
+    if host.parse::<std::net::Ipv6Addr>().is_ok() {
         return format!("https://[{host}]{path}");
     }
     format!("https://{host}{path}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_get_request;
+
+    fn authority_of(host: &str) -> String {
+        let request = build_get_request("/p", host, "https://ref.example/").expect("request builds");
+        let uri = request.uri();
+        assert_eq!(uri.scheme_str(), Some("https"));
+        assert_eq!(uri.path(), "/p");
+        uri.authority().expect("absolute-form URI has an authority").as_str().to_owned()
+    }
+
+    #[test]
+    fn host_override_with_port_is_kept_as_the_authority() {
+        assert_eq!(authority_of("cdn.example.com:8443"), "cdn.example.com:8443");
+    }
+
+    #[test]
+    fn bare_ipv6_host_is_bracketed() {
+        assert_eq!(authority_of("2001:db8::1"), "[2001:db8::1]");
+    }
+
+    #[test]
+    fn bracketed_ipv6_host_with_port_is_unchanged() {
+        assert_eq!(authority_of("[2001:db8::1]:8443"), "[2001:db8::1]:8443");
+    }
 }
