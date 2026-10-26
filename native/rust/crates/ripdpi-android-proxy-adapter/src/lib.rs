@@ -18,6 +18,7 @@ mod lifecycle_start;
 mod quality_sink;
 mod readiness;
 mod registry;
+mod session_state;
 mod telemetry;
 
 #[cfg(all(test, feature = "loom"))]

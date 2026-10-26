@@ -10,6 +10,10 @@ use ripdpi_android_bridge_support::JniProxyError;
 use ripdpi_android_bridge_support::to_handle;
 use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
+pub(crate) use crate::session_state::{
+    ProxyStartTransition, ensure_proxy_destroyable, request_proxy_stop, try_mark_proxy_running,
+};
+
 pub(crate) static SESSIONS: std::sync::LazyLock<HandleRegistry<ProxySession>> =
     std::sync::LazyLock::new(HandleRegistry::new);
 
@@ -32,13 +36,6 @@ pub(crate) enum ProxySessionState {
     Destroyed,
 }
 
-/// Result of a successful start transition.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum ProxyStartTransition {
-    Running,
-    StoppedBeforeStart,
-}
-
 pub(crate) fn lookup_proxy_session(handle: jlong) -> Result<Arc<ProxySession>, JniProxyError> {
     let handle = to_handle(handle).ok_or_else(JniProxyError::invalid_handle)?;
     SESSIONS.get(handle).ok_or_else(JniProxyError::unknown_handle)
@@ -49,46 +46,4 @@ pub(crate) fn remove_proxy_session(handle: jlong) -> Result<Arc<ProxySession>, J
     let session = SESSIONS.remove(handle).ok_or_else(JniProxyError::unknown_handle)?;
     clear_android_log_scope_level(session.telemetry.log_scope());
     Ok(session)
-}
-
-pub(crate) fn try_mark_proxy_running(
-    state: &mut ProxySessionState,
-    control: Arc<EmbeddedProxyControl>,
-) -> Result<ProxyStartTransition, &'static str> {
-    match *state {
-        ProxySessionState::Idle => {
-            *state = ProxySessionState::Running { control };
-            Ok(ProxyStartTransition::Running)
-        }
-        ProxySessionState::StopRequested => {
-            *state = ProxySessionState::Idle;
-            Ok(ProxyStartTransition::StoppedBeforeStart)
-        }
-        ProxySessionState::Running { .. } => Err("Proxy session is already running"),
-        ProxySessionState::Destroyed => Err("Proxy session has been destroyed"),
-    }
-}
-
-/// Record a stop request. A running session returns its control for
-/// shutdown; a session that has not started yet latches the request for the
-/// next start.
-pub(crate) fn request_proxy_stop(
-    state: &mut ProxySessionState,
-) -> Result<Option<Arc<EmbeddedProxyControl>>, &'static str> {
-    match state {
-        ProxySessionState::Idle | ProxySessionState::StopRequested => {
-            *state = ProxySessionState::StopRequested;
-            Ok(None)
-        }
-        ProxySessionState::Running { control } => Ok(Some(control.clone())),
-        ProxySessionState::Destroyed => Err("Proxy session has been destroyed"),
-    }
-}
-
-pub(crate) fn ensure_proxy_destroyable(state: &ProxySessionState) -> Result<(), &'static str> {
-    match *state {
-        ProxySessionState::Idle | ProxySessionState::StopRequested => Ok(()),
-        ProxySessionState::Running { .. } => Err("Cannot destroy a running proxy session"),
-        ProxySessionState::Destroyed => Err("Proxy session has already been destroyed"),
-    }
 }
