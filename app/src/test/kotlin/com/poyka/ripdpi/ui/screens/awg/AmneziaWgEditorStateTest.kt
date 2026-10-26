@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.requireRuntimeReady
+import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -119,11 +120,13 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `s3 and s4 accept only zero`() {
+    fun `s3 and s4 accept non-negative padding up to the maximum packet`() {
         assertEquals(0, AwgEditorField.S3.validate("0"))
-        assertEquals(0, AwgEditorField.S4.validate("0"))
-        assertNull(AwgEditorField.S3.validate("1"))
-        assertNull(AwgEditorField.S4.validate("1"))
+        assertEquals(12, AwgEditorField.S3.validate("12"))
+        assertEquals(12, AwgEditorField.S4.validate("12"))
+        assertNull(AwgEditorField.S3.validate("-1"))
+        assertNull(AwgEditorField.S4.validate("-1"))
+        assertNull(AwgEditorField.S4.validate((AmneziaWgWireProfile.MaximumPacket + 1).toString()))
     }
 
     @Test
@@ -271,23 +274,27 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `a conf with non-zero S3 imports and is flagged as blocked by the padding floor`() {
-        val unsafe =
+    fun `an AmneziaVPN 5x conf with S1-S4 = 12 imports as activatable`() {
+        val padded =
             """
             [Interface]
             PrivateKey = privkey==
-            S3 = 1
-            S4 = 0
+            Address = 10.8.1.2/32
+            S1 = 12
+            S2 = 12
+            S3 = 12
+            S4 = 12
 
             [Peer]
             PublicKey = peerpub==
             Endpoint = host.example.com:443
             """.trimIndent()
 
-        val result = AmneziaWgEditorState.initial().importConf(unsafe, catalog) as AwgConfImport.Imported
+        val result = AmneziaWgEditorState.initial().importConf(padded, catalog) as AwgConfImport.Imported
 
-        assertTrue(result.blockedByPaddingFloor)
+        assertEquals(12 to 12, result.editor.form.s3 to result.editor.form.s4)
         assertEquals("host.example.com", result.editor.form.server)
+        assertTrue(result.editor.isActivatable())
     }
 
     @Test
@@ -333,10 +340,14 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `non-zero raw S3 or S4 is invalid and blocks activation`() {
-        val s3 = activatableState().updateField(AwgEditorField.S3, "1")
-        val s4 = activatableState().updateField(AwgEditorField.S4, "1")
+    fun `raw AmneziaVPN 5x S3 and S4 stay activatable and a negative value blocks activation`() {
+        val padded = activatableState().updateField(AwgEditorField.S3, "12").updateField(AwgEditorField.S4, "12")
+        val s3 = activatableState().updateField(AwgEditorField.S3, "-1")
+        val s4 = activatableState().updateField(AwgEditorField.S4, "-1")
 
+        assertFalse(padded.hasFieldError(AwgEditorField.S3))
+        assertFalse(padded.hasFieldError(AwgEditorField.S4))
+        assertTrue(padded.isActivatable())
         assertTrue(s3.hasFieldError(AwgEditorField.S3))
         assertTrue(s4.hasFieldError(AwgEditorField.S4))
         assertFalse(s3.isActivatable())
@@ -344,11 +355,14 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `non-zero projected S3 or S4 blocks activation`() {
-        val safe = activatableState()
-        val s3 = safe.copy(form = safe.form.copy(s3 = 1))
-        val s4 = safe.copy(form = safe.form.copy(s4 = 1))
+    fun `projected S3 or S4 blocks activation only when it exceeds the MTU`() {
+        val safe = activatableState().updateField(AwgEditorField.MTU, "1280")
+        val padded = safe.copy(form = safe.form.copy(s3 = 12, s4 = 12))
+        val s3 = safe.copy(form = safe.form.copy(s3 = 1281))
+        val s4 = safe.copy(form = safe.form.copy(s4 = 1281))
 
+        assertTrue(padded.obfuscationConsistent())
+        assertTrue(padded.isActivatable())
         assertFalse(s3.obfuscationConsistent())
         assertFalse(s4.obfuscationConsistent())
         assertFalse(s3.isActivatable())

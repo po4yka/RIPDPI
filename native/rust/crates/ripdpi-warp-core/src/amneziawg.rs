@@ -64,13 +64,6 @@ use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
 
-/// Upstream semantics revision used by RIPDPI's independent Rust codec.
-pub(crate) const AMNEZIAWG_UPSTREAM_SEMANTICS_VERSION: &str = "v0.2.18";
-
-/// Remains true until the cross-repo arm64 S3/S4 policy records a physically
-/// revalidated safe floor. A release-note claim alone must never flip this.
-const ARM64_S34_GUARD_REQUIRED: bool = true;
-
 /// Total number of WireGuard message types AmneziaWG obfuscates: initiation
 /// (`0x01`), response (`0x02`), cookie-reply / underload (`0x03`), and
 /// transport (`0x04`).
@@ -123,12 +116,6 @@ pub(crate) enum AwgParamsError {
         value: i64,
         limit: u32,
     },
-    /// Non-zero S3/S4 are blocked on Android arm64 until a safe upstream floor
-    /// is physically revalidated and coordinated with the deploy-side guard.
-    Arm64S34VersionFloor {
-        s3: i32,
-        s4: i32,
-    },
     /// An `I1..I5` signature program is malformed or exceeds profile limits.
     InvalidSignature {
         index: usize,
@@ -166,12 +153,6 @@ impl std::fmt::Display for AwgParamsError {
             Self::PaddingTooLarge { index, value, limit } => {
                 write!(f, "AmneziaWG s{} padding ({value}) exceeds the per-packet limit ({limit})", index + 1)
             }
-            Self::Arm64S34VersionFloor { s3, s4 } => {
-                write!(
-                    f,
-                    "AmneziaWG S3/S4 must remain zero on Android arm64 for reference semantics {AMNEZIAWG_UPSTREAM_SEMANTICS_VERSION} (got S3={s3}, S4={s4})"
-                )
-            }
             Self::InvalidSignature { index } => {
                 write!(f, "AmneziaWG i{} is not a supported signature program", index + 1)
             }
@@ -206,7 +187,7 @@ pub(crate) const PADDING_SIZE_LIMIT: u32 = 1280;
 ///
 /// Built from the on-the-wire [`WarpAmneziaConfig`] (which uses signed
 /// integers because it is shared verbatim with the Kotlin config model)
-/// via [`AwgParams::from_config_for_platform`]. Once constructed, every field is in a
+/// via [`AwgParams::from_config`]. Once constructed, every field is in a
 /// range the obfuscation paths can rely on without re-checking.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AwgParams {
@@ -232,27 +213,9 @@ impl AwgParams {
     /// The `i1..i5` signature programs are optional and default to empty;
     /// the native WARP runtime config does not carry them, so callers pass
     /// them explicitly. Pass `&["", "", "", "", ""]` for "no special junk".
-    #[cfg(test)]
     pub(crate) fn from_config(cfg: &WarpAmneziaConfig, signature_programs: &[&str]) -> Result<Self, AwgParamsError> {
-        Self::from_config_for_platform(
-            cfg,
-            signature_programs,
-            cfg!(all(target_os = "android", target_arch = "aarch64")),
-        )
-    }
-
-    /// Platform-explicit validator used by the shared codec. Production passes
-    /// the compile target; tests inject both sides of the policy gate.
-    pub(crate) fn from_config_for_platform(
-        cfg: &WarpAmneziaConfig,
-        signature_programs: &[&str],
-        is_android_arm64: bool,
-    ) -> Result<Self, AwgParamsError> {
         if cfg.wire_profile != WIRE_PROFILE {
             return Err(AwgParamsError::UnsupportedWireProfile);
-        }
-        if ARM64_S34_GUARD_REQUIRED && is_android_arm64 && (cfg.s3 != 0 || cfg.s4 != 0) {
-            return Err(AwgParamsError::Arm64S34VersionFloor { s3: cfg.s3, s4: cfg.s4 });
         }
         for (name, value, limit) in [
             ("jc", cfg.jc, 128),
@@ -867,28 +830,13 @@ mod tests {
     }
 
     #[test]
-    fn android_arm64_guard_rejects_non_zero_s3_or_s4() {
-        for padding in [[0, 0, 1, 0], [0, 0, 0, 1], [0, 0, 1, 1]] {
-            let config = cfg(0, 0, 0, [0; 4], padding);
-            let error = AwgParams::from_config_for_platform(&config, &[""; 5], true).unwrap_err();
-            assert!(matches!(error, AwgParamsError::Arm64S34VersionFloor { .. }));
-        }
+    fn non_zero_s3_and_s4_are_accepted_on_every_platform() {
+        let config = cfg(0, 0, 0, [0; 4], [12, 12, 12, 12]);
+        assert!(AwgParams::from_config(&config, &[""; 5]).is_ok());
     }
 
     #[test]
-    fn android_arm64_guard_accepts_zero_s3_and_s4() {
-        let config = cfg(0, 0, 0, [0; 4], [8, 12, 0, 0]);
-        assert!(AwgParams::from_config_for_platform(&config, &[""; 5], true).is_ok());
-    }
-
-    #[test]
-    fn other_platforms_keep_non_zero_s3_and_s4_support() {
-        let config = cfg(0, 0, 0, [0; 4], [8, 12, 16, 20]);
-        assert!(AwgParams::from_config_for_platform(&config, &[""; 5], false).is_ok());
-    }
-
-    #[test]
-    fn compiled_guard_matches_the_vendored_cross_repo_policy() {
+    fn vendored_cross_repo_policy_keeps_its_reference_semantics() {
         let repo_root = std::env::var_os("RIPDPI_REPO_ROOT").map_or_else(
             || std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../.."),
             std::path::PathBuf::from,
@@ -899,12 +847,7 @@ mod tests {
         )
         .expect("vendored AmneziaWG floor policy must be valid JSON");
 
-        assert_eq!(policy["guard_required"].as_bool(), Some(ARM64_S34_GUARD_REQUIRED));
-        assert!(policy["verified_safe_floor"].is_null());
-        assert_eq!(
-            policy["ripdpi_reference"]["upstream_semantics_version"].as_str(),
-            Some(AMNEZIAWG_UPSTREAM_SEMANTICS_VERSION),
-        );
+        assert_eq!(policy["ripdpi_reference"]["upstream_semantics_version"].as_str(), Some("v0.2.18"));
     }
 
     #[test]

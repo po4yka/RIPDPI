@@ -6,7 +6,7 @@ use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::UdpSocket;
 use tokio::time::{Instant, timeout, timeout_at};
 
-use crate::amneziawg::{AwgMacKeys, AwgParamsError, AwgWireCodec, rand_u32};
+use crate::amneziawg::{AwgMacKeys, AwgWireCodec, rand_u32};
 use crate::config::{ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpEndpointProbeResult, resolve_endpoint};
 use crate::platform::{WarpPlatform, protect_socket_if_configured};
 use crate::support::MAX_PACKET;
@@ -27,9 +27,6 @@ pub enum WarpProbeError {
     Resolve(std::io::Error),
     /// A configured key (private or peer-public) could not be decoded.
     InvalidKey(&'static str),
-    /// The configured AWG parameters are blocked by an active platform
-    /// compatibility policy.
-    Compatibility { s3: i32, s4: i32 },
     /// The selected AWG wire profile has invalid or unsupported parameters.
     InvalidAwgParameters(String),
     /// The WireGuard handshake initiation could not be produced.
@@ -45,9 +42,6 @@ impl std::fmt::Display for WarpProbeError {
         match self {
             Self::Resolve(error) => write!(f, "resolve WARP endpoint: {error}"),
             Self::InvalidKey(which) => write!(f, "invalid WARP {which}"),
-            Self::Compatibility { s3, s4 } => {
-                write!(f, "AmneziaWG S3/S4 are incompatible with Android arm64 (S3={s3}, S4={s4})")
-            }
             Self::InvalidAwgParameters(detail) => write!(f, "invalid AmneziaWG parameters: {detail}"),
             Self::Handshake(detail) => write!(f, "WARP handshake initiation failed: {detail}"),
             Self::Io(error) => write!(f, "WARP probe I/O: {error}"),
@@ -60,11 +54,7 @@ impl std::error::Error for WarpProbeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Resolve(error) | Self::Io(error) => Some(error),
-            Self::InvalidKey(_)
-            | Self::Compatibility { .. }
-            | Self::InvalidAwgParameters(_)
-            | Self::Handshake(_)
-            | Self::Timeout => None,
+            Self::InvalidKey(_) | Self::InvalidAwgParameters(_) | Self::Handshake(_) | Self::Timeout => None,
         }
     }
 }
@@ -89,10 +79,7 @@ pub async fn probe_endpoint_with_platform(
         &request.amnezia.signature_programs(),
         AwgMacKeys::new(local_public_key, peer_public_key),
     )
-    .map_err(|error| match error {
-        AwgParamsError::Arm64S34VersionFloor { s3, s4 } => WarpProbeError::Compatibility { s3, s4 },
-        other => WarpProbeError::InvalidAwgParameters(other.to_string()),
-    })?;
+    .map_err(|error| WarpProbeError::InvalidAwgParameters(error.to_string()))?;
     // Fail-closed on a malformed PSK rather than silently probing without it:
     // a probe that succeeds without the PSK the live tunnel will use is a false
     // positive. An empty PSK (the WARP default) is `None`, not an error.

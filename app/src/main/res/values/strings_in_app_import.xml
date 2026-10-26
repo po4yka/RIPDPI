@@ -14,6 +14,4 @@
     <string name="awg_conf_extra_peers_title">Only the first peer is used</string>
     <string name="awg_conf_extra_peers_body">Extra [Peer] sections ignored: %1$d. RIPDPI connects through the first peer only.</string>
     <string name="awg_conf_unsupported_option_body">The config uses an option that RIPDPI does not support: %1$s.</string>
-    <string name="awg_conf_padding_blocked_title">This config cannot start yet</string>
-    <string name="awg_conf_padding_blocked_body">It uses non-zero S3/S4 padding, which AmneziaWG 3.x header protection needs. RIPDPI keeps S3/S4 at zero until these values are verified on Android devices.</string>
 </resources>

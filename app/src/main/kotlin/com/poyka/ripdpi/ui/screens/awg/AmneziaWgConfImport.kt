@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.awg
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.matchCohortForConf
-import com.poyka.ripdpi.data.wireguard.AmneziaWgArm64S34FloorException
 import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
@@ -65,9 +64,6 @@ private fun AmneziaWgEditorState.imported(
     return AwgConfImport.Imported(
         editor = editor,
         ignoredPeerCount = (parsed.peers.size - 1).coerceAtLeast(0),
-        blockedByPaddingFloor =
-            runCatching { awg.requireSupportedProfile() }.exceptionOrNull() is
-                AmneziaWgArm64S34FloorException,
     )
 }
 
@@ -140,8 +136,6 @@ sealed interface AwgConfImport {
     data class Imported(
         val editor: AmneziaWgEditorState,
         val ignoredPeerCount: Int,
-        /** Non-zero S3/S4, which AWG 3.x header masking needs, stay blocked by the device floor. */
-        val blockedByPaddingFloor: Boolean = false,
     ) : AwgConfImport
 
     data class Failed(

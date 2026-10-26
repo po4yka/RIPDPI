@@ -110,21 +110,13 @@ class AmneziaWgUriCodecTest {
     }
 
     @Test
-    fun `encode rejects non-zero s3 or s4`() {
+    fun `non-zero s3 and s4 round-trip and oversized ones are rejected`() {
+        val padded = fullProfile().copy(awg = fullProfile().awg.copy(s3 = 12, s4 = 12))
+        assertEquals(padded.awg, AmneziaWgUriCodec.decode(AmneziaWgUriCodec.encode(padded))?.awg)
         assertThrows(IllegalArgumentException::class.java) {
-            AmneziaWgUriCodec.encode(fullProfile().copy(awg = fullProfile().awg.copy(s3 = 1)))
+            AmneziaWgUriCodec.encode(fullProfile().copy(awg = fullProfile().awg.copy(s4 = 1281)))
         }
-        assertThrows(IllegalArgumentException::class.java) {
-            AmneziaWgUriCodec.encode(fullProfile().copy(awg = fullProfile().awg.copy(s4 = 1)))
-        }
-    }
-
-    @Test
-    fun `decode returns null for non-zero s3 or s4`() {
-        val safe = AmneziaWgUriCodec.encode(fullProfile())
-
-        assertNull(AmneziaWgUriCodec.decode(safe.replace("s3=0", "s3=1")))
-        assertNull(AmneziaWgUriCodec.decode(safe.replace("s4=0", "s4=1")))
+        assertNull(AmneziaWgUriCodec.decode(AmneziaWgUriCodec.encode(fullProfile()).replace("s3=0", "s3=1281")))
     }
 
     @Test

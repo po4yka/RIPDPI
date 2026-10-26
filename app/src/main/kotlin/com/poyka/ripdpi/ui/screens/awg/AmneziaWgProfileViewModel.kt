@@ -80,8 +80,6 @@ data class AmneziaWgProfileUiState(
     val activationStatus: AwgActivationStatus = AwgActivationStatus.Idle,
     /** Why the last pasted, picked, scanned, or shared `.conf` was not used; the next edit clears it. */
     val confImportFailure: AwgConfImport.Failed? = null,
-    /** The imported config needs S3/S4 padding, which the device floor blocks from starting. */
-    val paddingFloorBlocked: Boolean = false,
     /** `[Peer]` sections the last imported `.conf` had beyond the first one, which the editor ignores. */
     val ignoredPeerCount: Int = 0,
 )
@@ -188,7 +186,6 @@ class AmneziaWgProfileViewModel
                     is AwgConfImport.Imported -> {
                         state.withEditor(result.editor).copy(
                             ignoredPeerCount = result.ignoredPeerCount,
-                            paddingFloorBlocked = result.blockedByPaddingFloor,
                         )
                     }
                 }

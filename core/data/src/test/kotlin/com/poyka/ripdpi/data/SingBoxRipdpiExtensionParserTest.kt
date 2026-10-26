@@ -172,7 +172,7 @@ class SingBoxRipdpiExtensionParserTest {
     }
 
     @Test
-    fun `ripdpi amneziawg with non-zero S3 or S4 skips that entry`() {
+    fun `ripdpi amneziawg with non-zero S3 is imported and an oversized one is skipped`() {
         val json =
             """
             {
@@ -181,13 +181,13 @@ class SingBoxRipdpiExtensionParserTest {
                 "schema_version": 2,
                 "amneziawg": [
                   {
-                    "tag": "arm64-unsafe",
+                    "tag": "padded",
                     "wire_profile": "awg-3.1-ranges-v1",
                     "jc": 0, "jmin": 0, "jmax": 0, "s1": 0, "s2": 0,
                     "h1": "1", "h2": "2", "h3": "3", "h4": "4",
                     "address": ["10.66.66.2/32", "fd77::2/128"],
                     "mtu": 1330,
-                    "s3": 1,
+                    "s3": 12,
                     "s4": 0,
                     "private_key_placeholder": true,
                     "peer": {
@@ -200,12 +200,16 @@ class SingBoxRipdpiExtensionParserTest {
             }
             """.trimIndent()
 
-        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
-
-        assertTrue(result.amneziaWgProfiles.isEmpty())
-        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, result.skipped.single().reason)
-        val safe = success(SingBoxSubscriptionParser.parse(json.replace("\"s3\": 1", "\"s3\": 0"), groupId))
-        assertEquals(1, safe.amneziaWgProfiles.size)
+        val padded = success(SingBoxSubscriptionParser.parse(json, groupId))
+        assertEquals(
+            12,
+            padded.amneziaWgProfiles
+                .single()
+                .awg.s3,
+        )
+        val oversized = success(SingBoxSubscriptionParser.parse(json.replace("\"s3\": 12", "\"s3\": 1281"), groupId))
+        assertTrue(oversized.amneziaWgProfiles.isEmpty())
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, oversized.skipped.single().reason)
     }
 
     // -------------------------------------------------------------------------

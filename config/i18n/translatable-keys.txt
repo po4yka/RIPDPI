@@ -293,8 +293,6 @@ app:awg_conf_extra_peers_title
 app:awg_conf_import_failed_body
 app:awg_conf_import_failed_title
 app:awg_conf_import_unreadable_body
-app:awg_conf_padding_blocked_body
-app:awg_conf_padding_blocked_title
 app:awg_conf_unsupported_option_body
 app:awg_connect_action
 app:awg_connect_error

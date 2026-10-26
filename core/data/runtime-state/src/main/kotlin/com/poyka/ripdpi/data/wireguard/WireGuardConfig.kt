@@ -2,32 +2,6 @@ package com.poyka.ripdpi.data.wireguard
 
 import kotlinx.serialization.Serializable
 
-/**
- * The Android arm64 S3/S4 floor rejected this profile. The floor stays until a physical device
- * revalidation records a safe upstream version; a release-note claim never lifts it.
- */
-class AmneziaWgArm64S34FloorException(
-    val s3: Int,
-    val s4: Int,
-    headerProtection: Boolean,
-) : IllegalArgumentException(
-        "AmneziaWG S3/S4 must be 0 (got S3=$s3, S4=$s4): the Android arm64 S3/S4 floor is active because " +
-            "non-zero values can silently drop transport data (amneziawg-go#110)" +
-            if (headerProtection) {
-                ". AmneziaWG 3.x header protection needs S3/S4 >= 12, so this profile cannot start"
-            } else {
-                ""
-            },
-    )
-
-internal fun requireAmneziaWgArm64Safe(
-    s3: Int?,
-    s4: Int?,
-    headerProtection: Boolean = false,
-) {
-    if ((s3 ?: 0) != 0 || (s4 ?: 0) != 0) throw AmneziaWgArm64S34FloorException(s3 ?: 0, s4 ?: 0, headerProtection)
-}
-
 /*
  * Kotlin config model for the WireGuard `.conf` INI format and its AmneziaWG
  * extension.
@@ -80,8 +54,7 @@ data class WireGuardPeer(
  *
  * - `jc`, `jmin`, `jmax`, `s1`, `s2`: non-negative integers (junk packet
  *   counts / sizes).
- * - `s3`, `s4`: retained for wire compatibility but must resolve to zero for
- *   Android arm64 safety; [requireSupportedProfile] enforces amneziawg-go#110.
+ * - `s3`, `s4`: cookie and transport padding sizes in 0..1280.
  * - `h1`..`h4`: 4-byte unsigned magic-header values, stored as canonical decimal strings or inclusive ranges.
  * - `i1`..`i5`: special-junk payloads, stored as bounded signature programs.
  * - `v3`: the AmneziaWG 3.x keys (header protection, padding, trailers, timers).
@@ -107,20 +80,14 @@ data class AmneziaWgParameters(
     val i5: String? = null,
     val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
 ) {
-    /** Validates the field set without the platform floor; import paths carry S3/S4 through this check. */
-    fun requireWellFormed() {
+    /** Validates the field set, including the AWG 3.x rules such as S1-S4 >= 12 for header protection. */
+    fun requireSupportedProfile() {
         AmneziaWgWireProfile.requireScalars(jc, jmin, jmax, s1, s2)
         require(listOf(s3, s4).all { (it ?: 0) in 0..AmneziaWgWireProfile.MaximumPacket }) {
             "AmneziaWG packet sizes must be in 0..1280"
         }
         AmneziaWgWireProfile.requireValid(wireProfile, listOf(h1, h2, h3, h4), listOf(i1, i2, i3, i4, i5))
         v3.requireValid(listOf(s1, s2, s3, s4))
-    }
-
-    /** [requireWellFormed] plus the Android arm64 S3/S4 floor from amneziawg-go#110. */
-    fun requireSupportedProfile() {
-        requireWellFormed()
-        requireAmneziaWgArm64Safe(s3 = s3, s4 = s4, headerProtection = v3.headerProtectionEnabled)
     }
 
     /** True when no AmneziaWG key was present. */

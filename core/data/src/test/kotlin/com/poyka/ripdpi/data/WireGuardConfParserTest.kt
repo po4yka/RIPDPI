@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.data.wireguard.AmneziaWgArm64S34FloorException
 import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import com.poyka.ripdpi.data.wireguard.WireGuardConfUnknownKeyException
@@ -136,7 +135,7 @@ class WireGuardConfParserTest {
     }
 
     @Test
-    fun `conf carries non-zero S3 or S4 and activation names the arm64 floor`() {
+    fun `conf carries non-zero S3 or S4 into a supported profile`() {
         fun conf(
             s3: Int,
             s4: Int,
@@ -156,10 +155,8 @@ class WireGuardConfParserTest {
         assertEquals(1 to 0, s3.awg.s3 to s3.awg.s4)
         assertEquals(0 to 1, s4.awg.s3 to s4.awg.s4)
 
-        val s3Error = assertThrows(AmneziaWgArm64S34FloorException::class.java) { s3.awg.requireSupportedProfile() }
-        val s4Error = assertThrows(AmneziaWgArm64S34FloorException::class.java) { s4.awg.requireSupportedProfile() }
-        assertTrue(s3Error.message.orEmpty().contains("amneziawg-go#110"))
-        assertTrue(s4Error.message.orEmpty().contains("S3/S4"))
+        s3.awg.requireSupportedProfile()
+        s4.awg.requireSupportedProfile()
     }
 
     /** The AmneziaVPN 5.0.3.0 `awg/template.conf` with its AWG 3.1 defaults filled in. */
@@ -220,9 +217,7 @@ class WireGuardConfParserTest {
             parsed.peers.single().persistentKeepalive to parsed.peers.single().persistentKeepaliveMax,
         )
         assertFalse("toString must not show the key", parsed.toString().contains(v3.headerProtectionKey.value))
-        // The arm64 S3/S4 floor still blocks activation, now with a typed reason.
-        val floor = assertThrows(AmneziaWgArm64S34FloorException::class.java) { parsed.awg.requireSupportedProfile() }
-        assertTrue(floor.message.orEmpty().contains("header protection"))
+        parsed.awg.requireSupportedProfile()
     }
 
     @Test

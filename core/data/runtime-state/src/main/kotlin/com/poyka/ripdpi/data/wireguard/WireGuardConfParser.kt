@@ -32,8 +32,7 @@ class WireGuardConfUnknownKeyException(
  * other unknown key throws [WireGuardConfUnknownKeyException]. Structurally malformed input — a
  * non-comment line with no `=`, a `Key = Value` pair before any section header,
  * an empty file, or a field that fails validation — throws
- * [IllegalArgumentException]. S3/S4 are carried as parsed: the Android arm64
- * S3/S4 floor is enforced at activation with [AmneziaWgArm64S34FloorException].
+ * [IllegalArgumentException].
  */
 object WireGuardConfParser {
     /**
@@ -217,7 +216,7 @@ object WireGuardConfParser {
         return if (awg.isEmpty) {
             WireGuardConfig(interfaceSection = interfaceSection, peers = peers)
         } else {
-            awg.requireWellFormed()
+            awg.requireSupportedProfile()
             AmneziaWgConfig(interfaceSection = interfaceSection, awg = awg, peers = peers)
         }
     }

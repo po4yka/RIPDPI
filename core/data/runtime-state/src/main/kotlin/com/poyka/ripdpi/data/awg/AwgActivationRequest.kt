@@ -2,7 +2,6 @@ package com.poyka.ripdpi.data.awg
 
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
-import com.poyka.ripdpi.data.wireguard.requireAmneziaWgArm64Safe
 import kotlinx.serialization.Serializable
 import java.net.URI
 import java.net.URISyntaxException
@@ -173,7 +172,7 @@ private const val Ipv4OctetCount = 4
  * padding), `h1`..`h4` the uint32 header ranges, and `i1`..`i5` the optional
  * AWG 3.1 signature programs (empty = unused), and [v3] the AWG 3.x keys. All
  * knobs carry through to the native runtime; the additive `s3`/`s4` default to
- * `0` and must remain zero for Android arm64 safety (amneziawg-go#110).
+ * `0`.
  */
 @Serializable
 data class AwgActivationObfuscation(
@@ -196,20 +195,19 @@ data class AwgActivationObfuscation(
     val i5: String = "",
     val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
 ) {
-    /**
-     * Rejects malformed knobs, then the known Android arm64 transport-drop configuration from
-     * amneziawg-go#110 with [com.poyka.ripdpi.data.wireguard.AmneziaWgArm64S34FloorException].
-     */
+    /** Rejects malformed knobs, including the AWG 3.x rules such as S1-S4 >= 12 for header protection. */
     fun requireSupportedProfile() {
         AmneziaWgWireProfile
             .requireScalars(jc, jmin, jmax, s1, s2)
+        require(s3 in 0..AmneziaWgWireProfile.MaximumPacket && s4 in 0..AmneziaWgWireProfile.MaximumPacket) {
+            "AmneziaWG packet sizes must be in 0..1280"
+        }
         AmneziaWgWireProfile.requireValid(
             wireProfile,
             listOf(h1, h2, h3, h4),
             listOf(i1, i2, i3, i4, i5),
         )
         v3.requireValid(listOf(s1, s2, s3, s4))
-        requireAmneziaWgArm64Safe(s3 = s3, s4 = s4, headerProtection = v3.headerProtectionEnabled)
     }
 }
 

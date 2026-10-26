@@ -15,8 +15,8 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
  * - **obfuscation** ([JC]..[I5]): server-coordinated, locked whenever a cohort preset is
  *   selected (see [AmneziaWgEditorState.obfuscationLocked]).
  *
- * [validate] mirrors `WireGuardConfParser`: non-negative integers for `Jc`/`Jmin`/`Jmax`/`S1`/`S2`,
- * zero-only `S3`/`S4` for Android arm64 safety, 4-byte unsigned for `H1`-`H4`, and hex strings for
+ * [validate] mirrors `WireGuardConfParser`: non-negative integers for `Jc`/`Jmin`/`Jmax`/`S1`-`S4`,
+ * 4-byte unsigned for `H1`-`H4`, and hex strings for
  * `I1`-`I5`. A `null` return means the raw text is not a legal value for the field.
  */
 enum class AwgEditorField(
@@ -68,8 +68,7 @@ enum class AwgEditorField(
     fun validate(raw: String): Any? =
         when (this) {
             JC -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumJunkPackets }
-            JMIN, JMAX, S1, S2 -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumPacket }
-            S3, S4 -> raw.toIntOrNull()?.takeIf { it == 0 }
+            JMIN, JMAX, S1, S2, S3, S4 -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumPacket }
             H1, H2, H3, H4 -> raw.takeIf { AmneziaWgWireProfile.headerIsValid(it, name.last().digitToInt()) }
             I1, I2, I3, I4, I5 -> raw.takeIf { AmneziaWgWireProfile.signatureSize(it) != null }
             else -> raw
@@ -162,8 +161,6 @@ data class AmneziaWgEditorState(
             form.interfacePrivateKey.isNotBlank() &&
             form.peerPublicKey.isNotBlank() &&
             rawText(AwgEditorField.ADDRESS).isNotBlank() &&
-            !hasFieldError(AwgEditorField.S3) &&
-            !hasFieldError(AwgEditorField.S4) &&
             obfuscationConsistent() &&
             (form.carrier != AwgActivationRequest.CARRIER_WS || form.carrierWsUrl.isNotBlank())
 
@@ -183,7 +180,6 @@ data class AmneziaWgEditorState(
         val junkRangeOk = !junkActive || form.jmin <= form.jmax
         val junkSizeFitsMtu = !junkActive || form.jmax <= mtu
         val paddingFitsMtu = form.s1 <= mtu && form.s2 <= mtu && form.s3 <= mtu && form.s4 <= mtu
-        val arm64Safe = form.s3 == 0 && form.s4 == 0
         val wireProfileValid =
             runCatching {
                 AmneziaWgWireProfile.requireScalars(form.jc, form.jmin, form.jmax, form.s1, form.s2)
@@ -194,7 +190,7 @@ data class AmneziaWgEditorState(
                 )
             }.isSuccess
         val fieldsValid = AwgEditorField.entries.filter { it.isObfuscation }.none(::hasFieldError)
-        return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu && arm64Safe && wireProfileValid && fieldsValid
+        return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu && wireProfileValid && fieldsValid
     }
 
     /** Effective tunnel MTU, mirroring [toActivationRequest]'s fallback. */

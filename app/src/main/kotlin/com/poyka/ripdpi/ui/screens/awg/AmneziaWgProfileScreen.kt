@@ -152,12 +152,6 @@ internal fun AmneziaWgProfileScreen(
                 testTag = RipDpiTestTags.AwgConfImportFailed,
             )
         }
-        if (uiState.paddingFloorBlocked) {
-            WarningBanner(
-                title = stringResource(R.string.awg_conf_padding_blocked_title),
-                message = stringResource(R.string.awg_conf_padding_blocked_body),
-            )
-        }
         if (uiState.ignoredPeerCount > 0) {
             WarningBanner(
                 title = stringResource(R.string.awg_conf_extra_peers_title),

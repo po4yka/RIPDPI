@@ -1,6 +1,6 @@
 ## Purpose
 
-Run AmneziaWG 3.x configs from current AmneziaVPN servers without weakening the arm64 S3/S4 floor or leaking the header protection key.
+Run AmneziaWG 3.x configs from current AmneziaVPN servers, including their non-zero S3/S4, without leaking the header protection key.
 
 ## ADDED Requirements
 
@@ -31,11 +31,11 @@ Every new field MUST be optional with a safe default. The header protection key 
 - **WHEN** a profile saved before this change loads
 - **THEN** it activates as before.
 
-### Requirement: REQ-AWG3-FLOOR — Keep the S3/S4 floor
+### Requirement: REQ-AWG3-FLOOR — Lift the S3/S4 floor on arm64 evidence
 
-Non-zero S3/S4 MUST still be refused at activation, with an error that names the floor and no secret value.
+Non-zero S3/S4 MUST activate on every platform once Android arm64 interop evidence shows lossless transfers. The cross-repo policy MUST record that evidence and its scope.
 
 #### Scenario: AmneziaVPN 5.x default config
 
 - **WHEN** a user imports a config with S1-S4 = 12 and a header protection key
-- **THEN** the editor fills, shows that the floor blocks it, and activation is refused.
+- **THEN** the editor fills, activation is accepted, and on the arm64 emulator IPv4/IPv6 TCP and UDP traffic flows with matching SHA-256 and no lost datagram.

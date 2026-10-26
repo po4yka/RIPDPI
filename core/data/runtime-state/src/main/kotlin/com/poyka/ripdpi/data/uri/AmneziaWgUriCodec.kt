@@ -25,7 +25,7 @@ import java.net.URLEncoder
  *   &dns=<ip,ip>
  *   &mtu=<n>
  *   &persistent_keepalive=<range>
- *   &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=0&s4=0
+ *   &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=<n>&s4=<n>
  *   &h1=<range>&h2=<range>&h3=<range>&h4=<range>
  *   &i1=<program>&i2=<program>&i3=<program>&i4=<program>&i5=<program>
  *   &header_protection_key=<key>&content_padding_addition=<range>
@@ -39,9 +39,8 @@ import java.net.URLEncoder
  * userinfo and query positions, so the URI is always structurally valid and
  * the round-trip is lossless. [decode] never throws: an unrecognised scheme, a
  * structurally broken URI, or a missing mandatory field yields `null`; a
- * malformed obfuscation field rejects the URI. A profile with non-zero
- * `s3` or `s4` is rejected for Android arm64 safety (amneziawg-go#110). The
- * AWG 3.x keys are optional and omitted when unset.
+ * malformed obfuscation field rejects the URI. The AWG 3.x keys are optional
+ * and omitted when unset.
  */
 object AmneziaWgUriCodec {
     private const val SCHEME = "amneziawg"

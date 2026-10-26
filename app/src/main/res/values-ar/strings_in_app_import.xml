@@ -14,6 +14,4 @@
     <string name="awg_conf_extra_peers_title">يُستخدم الند الأول فقط</string>
     <string name="awg_conf_extra_peers_body">أقسام [Peer] الإضافية المتجاهَلة: %1$d. يتصل RIPDPI عبر الند الأول فقط.</string>
     <string name="awg_conf_unsupported_option_body">يستخدم الإعداد خيارًا لا يدعمه RIPDPI: %1$s.</string>
-    <string name="awg_conf_padding_blocked_title">لا يمكن تشغيل هذا الإعداد بعد</string>
-    <string name="awg_conf_padding_blocked_body">يستخدم حشوًا غير صفري في S3/S4 تحتاجه حماية الترويسات في AmneziaWG 3.x. يُبقي RIPDPI قيمتي S3/S4 صفرًا حتى يتم التحقق منهما على أجهزة Android.</string>
 </resources>

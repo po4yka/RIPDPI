@@ -86,10 +86,12 @@ keystream (`receive.go:159-245`).
 
 ## RIPDPI implementation limits
 
-- The Android arm64 S3/S4 floor stays active (`ARM64_S34_GUARD_REQUIRED`). Header protection
-  needs S3 and S4 of at least 12, so header protection cannot start on Android arm64 until a
-  physical device revalidation changes the floor. The Kotlin activation check rejects non-zero
-  S3/S4 on all platforms.
+- RIPDPI applies no Android arm64 S3/S4 floor. Non-zero S3/S4 and header protection start on
+  every platform. The evidence is from an Android arm64 emulator against amneziawg-go
+  v3.1.20260828 with the AmneziaVPN 5.x profile (S1-S4 = 12, header protection, content padding,
+  random trailers), see `openspec/changes/awg3-native-engine/verification.md` and
+  `core/data/src/test/resources/contract/amneziawg-arm64-version-floor.json`. No physical arm64
+  device has revalidated amneziawg-go#110.
 - boringtun owns the Noise timers. RIPDPI applies `RekeyAfterTime` after each data send
   (earlier than the fixed 120 s only), at most once in 5 s (`rekeyMinTimeout`). It applies the
   `PersistentKeepalive` range with its own timer, which each authenticated packet resets. `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, and `MaxHandshakeAttempts` are

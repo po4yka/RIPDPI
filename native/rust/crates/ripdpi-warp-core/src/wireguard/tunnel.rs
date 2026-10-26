@@ -24,32 +24,26 @@ use crate::virtual_iface::{Bus, Event};
 /// `signature_programs` carries the AWG 3.1 `I1..I5` signature programs. The native WARP runtime now sources them from the resolved
 /// config's own `i1..i5` fields (via [`WarpAmneziaConfig::signature_programs`]),
 /// and a generic AmneziaWG profile maps its `AmneziaWgObfuscation` `I*` fields
-/// here; empty strings mean unset. Invalid active parameters and platform
-/// compatibility errors fail tunnel construction. Only an explicitly disabled
+/// here; empty strings mean unset. Invalid active parameters fail tunnel
+/// construction. Only an explicitly disabled
 /// config may select plain WireGuard.
 pub(crate) fn build_authenticated_awg_codec(
     cfg: &WarpAmneziaConfig,
     signature_programs: &[&str],
     mac_keys: AwgMacKeys,
 ) -> Result<Option<AwgWireCodec>, AwgParamsError> {
-    build_awg_codec_for_platform(
-        cfg,
-        signature_programs,
-        cfg!(all(target_os = "android", target_arch = "aarch64")),
-        Some(mac_keys),
-    )
+    build_awg_codec(cfg, signature_programs, Some(mac_keys))
 }
 
-fn build_awg_codec_for_platform(
+fn build_awg_codec(
     cfg: &WarpAmneziaConfig,
     signature_programs: &[&str],
-    is_android_arm64: bool,
     mac_keys: Option<AwgMacKeys>,
 ) -> Result<Option<AwgWireCodec>, AwgParamsError> {
     if !cfg.enabled {
         return Ok(None);
     }
-    let params = AwgParams::from_config_for_platform(cfg, signature_programs, is_android_arm64)?;
+    let params = AwgParams::from_config(cfg, signature_programs)?;
     Ok(Some(match mac_keys {
         Some(mac_keys) => AwgWireCodec::new_authenticated(params, mac_keys),
         None => AwgWireCodec::new(params),
@@ -538,21 +532,12 @@ mod tests {
         let config =
             WarpAmneziaConfig { enabled: true, h1: "42".into(), h2: "42".into(), ..WarpAmneziaConfig::default() };
 
-        let result = build_awg_codec_for_platform(&config, &[""; 5], false, None);
+        let result = build_awg_codec(&config, &[""; 5], None);
 
         assert!(
             matches!(result, Err(AwgParamsError::HeaderCollision { .. })),
             "invalid active AWG config must not silently fall back to plain WireGuard"
         );
-    }
-
-    #[test]
-    fn shared_codec_propagates_android_arm64_compatibility_error() {
-        let config = WarpAmneziaConfig { enabled: true, s3: 1, ..WarpAmneziaConfig::default() };
-
-        let result = build_awg_codec_for_platform(&config, &[""; 5], true, None);
-
-        assert!(matches!(result, Err(AwgParamsError::Arm64S34VersionFloor { s3: 1, s4: 0 })));
     }
 
     #[tokio::test]

@@ -1302,7 +1302,7 @@ mod tests {
         assert!(cfg.amnezia.is_active(), "3.x keys alone must enable the AWG codec");
         let warp = cfg.amnezia.to_warp_amnezia();
         assert_eq!(&warp.v3, v3);
-        assert!(crate::amneziawg::AwgParams::from_config_for_platform(&warp, &[""; 5], false).is_ok());
+        assert!(crate::amneziawg::AwgParams::from_config(&warp, &[""; 5]).is_ok());
         assert!(!format!("{:?} {warp:?}", cfg.amnezia).contains(key), "Debug must redact the header protection key");
 
         let unknown = json.replace("\"disableCookies\"", "\"disableCookiez\"");

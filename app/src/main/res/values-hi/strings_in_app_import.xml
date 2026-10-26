@@ -14,6 +14,4 @@
     <string name="awg_conf_extra_peers_title">केवल पहला पीयर उपयोग होता है</string>
     <string name="awg_conf_extra_peers_body">अनदेखे किए गए अतिरिक्त [Peer] सेक्शन: %1$d। RIPDPI केवल पहले पीयर से कनेक्ट होता है।</string>
     <string name="awg_conf_unsupported_option_body">कॉन्फ़िग में ऐसा विकल्प है जिसका RIPDPI समर्थन नहीं करता: %1$s।</string>
-    <string name="awg_conf_padding_blocked_title">यह कॉन्फ़िग अभी शुरू नहीं हो सकता</string>
-    <string name="awg_conf_padding_blocked_body">इसमें शून्य से अलग S3/S4 पैडिंग है, जिसकी AmneziaWG 3.x हेडर सुरक्षा को ज़रूरत होती है। जब तक ये मान Android डिवाइस पर सत्यापित नहीं होते, RIPDPI S3/S4 को शून्य रखता है।</string>
 </resources>

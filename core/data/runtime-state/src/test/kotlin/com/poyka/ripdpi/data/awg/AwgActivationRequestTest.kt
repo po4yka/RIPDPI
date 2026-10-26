@@ -170,28 +170,12 @@ class AwgActivationRequestTest {
     }
 
     @Test
-    fun `arm64 safety accepts zero s3 and s4`() {
+    fun `s3 and s4 accept padding sizes up to one packet`() {
         AwgActivationObfuscation(s3 = 0, s4 = 0).requireSupportedProfile()
-    }
-
-    @Test
-    fun `arm64 safety rejects non-zero s3 or s4 with the upstream issue`() {
-        val s3Error =
-            assertThrows(IllegalArgumentException::class.java) {
-                AwgActivationObfuscation(s3 = 1).requireSupportedProfile()
-            }
-        val s4Error =
-            assertThrows(IllegalArgumentException::class.java) {
-                AwgActivationObfuscation(s4 = 1).requireSupportedProfile()
-            }
-        val bothError =
-            assertThrows(IllegalArgumentException::class.java) {
-                AwgActivationObfuscation(s3 = 1, s4 = 1).requireSupportedProfile()
-            }
-
-        assertTrue(s3Error.message.orEmpty().contains("amneziawg-go#110"))
-        assertTrue(s4Error.message.orEmpty().contains("amneziawg-go#110"))
-        assertTrue(bothError.message.orEmpty().contains("amneziawg-go#110"))
+        AwgActivationObfuscation(s1 = 12, s2 = 12, s3 = 12, s4 = 12).requireSupportedProfile()
+        listOf(AwgActivationObfuscation(s3 = 1281), AwgActivationObfuscation(s4 = -1)).forEach {
+            assertThrows(IllegalArgumentException::class.java) { it.requireSupportedProfile() }
+        }
     }
 
     @Test

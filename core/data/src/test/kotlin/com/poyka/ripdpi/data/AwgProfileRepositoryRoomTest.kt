@@ -15,6 +15,8 @@ import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
+import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
@@ -692,16 +694,34 @@ class AwgProfileRepositoryRoomTest {
         ) as SingBoxParseResult.Success
 
     @Test
-    fun `save rejects non-zero S3 or S4 before persisting secrets or a row`() =
+    fun `an AmneziaVPN 5x profile keeps its header protection key out of the Room blob`() =
         runTest {
-            val unsafe = sampleRequest().copy(obfuscation = sampleRequest().obfuscation.copy(s4 = 1))
+            val key = "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="
+            val request =
+                sampleRequest().copy(
+                    obfuscation =
+                        sampleRequest().obfuscation.copy(
+                            s1 = 12,
+                            s2 = 12,
+                            s3 = 12,
+                            s4 = 12,
+                            v3 =
+                                AmneziaWgV3Parameters(
+                                    headerProtectionKey = AwgHeaderProtectionKey(key),
+                                    contentPaddingAddition = "10-100",
+                                    randomTrailers = true,
+                                ),
+                        ),
+                )
 
-            val error = runCatching { repository.save(name = "unsafe", request = unsafe) }.exceptionOrNull()
+            val id = repository.save(name = "amnezia5", request = request)
 
-            assertTrue(error is IllegalArgumentException)
-            assertTrue(error?.message.orEmpty().contains("amneziawg-go#110"))
-            assertTrue(repository.observeProfiles().first().isEmpty())
-            assertTrue(credentialStore.isEmpty())
+            val row = dao.getProfile(id)!!
+            assertFalse("the blob must not persist the header protection key", row.requestJson.contains(key))
+            assertFalse(row.requestJson.contains("AwMDAwMD"))
+            val loaded = repository.load(id)!!.request
+            assertEquals(key, loaded.obfuscation.v3.headerProtectionKey.value)
+            assertEquals(request.copy(profileId = id), loaded)
         }
 }
 

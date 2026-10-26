@@ -156,10 +156,8 @@ object WireGuardIniSubscriptionParser {
         // every peer. A malformed interface-scope key cannot be salvaged
         // per-peer, so validate it once up front and fail the whole
         // subscription with a single typed warning if it does not parse.
-        // Subscriptions persist profiles, so the arm64 S3/S4 floor applies here, not only at activation.
         runCatching {
-            val probe = WireGuardConfParser.parse(sections.interfaceBlock + "\n[Peer]\nPublicKey = probe")
-            (probe as? AmneziaWgConfig)?.awg?.requireSupportedProfile()
+            WireGuardConfParser.parse(sections.interfaceBlock + "\n[Peer]\nPublicKey = probe")
         }.onFailure { error ->
             return failure(
                 line = "[Interface]",

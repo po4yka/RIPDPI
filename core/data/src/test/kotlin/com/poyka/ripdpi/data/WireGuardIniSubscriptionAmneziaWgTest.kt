@@ -192,31 +192,25 @@ class WireGuardIniSubscriptionAmneziaWgTest {
     }
 
     @Test
-    fun `non-zero S3 or S4 fails the interface block with a typed warning`() {
-        val unsafeAwg =
+    fun `non-zero S3 and S4 carry through the interface block`() {
+        val paddedAwg =
             """
             [Interface]
             PrivateKey = dW5zYWZlLWF3Zy1wcml2YXRlLWtleS1maXh0dXJl
             Address = 10.0.0.2/32
-            S3 = 0
-            S4 = 1
+            S3 = 12
+            S4 = 16
 
             [Peer]
             PublicKey = dW5zYWZlLWF3Zy1wZWVyLXB1YmxpYy1rZXktZml4
             Endpoint = unsafe.example.com:51820
             """.trimIndent()
 
-        val result = WireGuardIniSubscriptionParser.parse(unsafeAwg, groupId)
+        val result = WireGuardIniSubscriptionParser.parse(paddedAwg, groupId)
 
-        assertTrue(result.profiles.isEmpty())
-        assertTrue(result.amneziaWgProfiles.isEmpty())
-        assertEquals(1, result.warnings.size)
-        assertTrue(
-            result.warnings
-                .single()
-                .reason
-                .contains("amneziawg-go#110"),
-        )
+        assertTrue(result.warnings.isEmpty())
+        val awg = result.amneziaWgProfiles.single().awg
+        assertEquals(12 to 16, awg.s3 to awg.s4)
     }
 
     @Test

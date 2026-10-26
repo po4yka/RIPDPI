@@ -84,7 +84,7 @@ class AmneziaWgRuntimeConfigResolverTest {
     }
 
     @Test
-    fun `awg 3x keys and the keepalive range copy through and S3-S4 floor blocks header protection`() {
+    fun `awg 3x keys, the keepalive range and S3-S4 with header protection copy through`() {
         val v3 =
             com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters(
                 contentPaddingAddition = "10-100",
@@ -111,11 +111,9 @@ class AmneziaWgRuntimeConfigResolverTest {
                         v3 = v3.copy(headerProtectionKey = key),
                     ),
             )
-        val floor =
-            assertThrows(com.poyka.ripdpi.data.wireguard.AmneziaWgArm64S34FloorException::class.java) {
-                resolver.resolve(protected)
-            }
-        assertEquals(true, floor.message.orEmpty().contains("S3/S4"))
+        val resolved = resolver.resolve(protected)
+        assertEquals(12 to 12, resolved.amnezia.s3 to resolved.amnezia.s4)
+        assertEquals(key, resolved.amnezia.v3.headerProtectionKey)
         assertThrows(
             IllegalArgumentException::class.java,
         ) { resolver.resolve(ranged.copy(persistentKeepaliveMax = 10)) }
@@ -215,17 +213,11 @@ class AmneziaWgRuntimeConfigResolverTest {
     }
 
     @Test
-    fun `non-zero S3 or S4 is rejected before runtime config creation`() {
-        val s3Error =
-            assertThrows(IllegalArgumentException::class.java) {
-                resolver.resolve(request().copy(obfuscation = request().obfuscation.copy(s3 = 1)))
-            }
-        val s4Error =
-            assertThrows(IllegalArgumentException::class.java) {
-                resolver.resolve(request().copy(obfuscation = request().obfuscation.copy(s4 = 1)))
-            }
+    fun `non-zero S3 and S4 copy through to the runtime config`() {
+        val s3Only = resolver.resolve(request().copy(obfuscation = request().obfuscation.copy(s3 = 1)))
+        val s4Only = resolver.resolve(request().copy(obfuscation = request().obfuscation.copy(s4 = 1)))
 
-        assertEquals(true, s3Error.message.orEmpty().contains("amneziawg-go#110"))
-        assertEquals(true, s4Error.message.orEmpty().contains("amneziawg-go#110"))
+        assertEquals(1 to 0, s3Only.amnezia.s3 to s3Only.amnezia.s4)
+        assertEquals(0 to 1, s4Only.amnezia.s3 to s4Only.amnezia.s4)
     }
 }

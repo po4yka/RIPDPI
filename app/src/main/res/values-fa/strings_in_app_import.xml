@@ -14,6 +14,4 @@
     <string name="awg_conf_extra_peers_title">فقط نخستین همتا استفاده می‌شود</string>
     <string name="awg_conf_extra_peers_body">بخش‌های [Peer] اضافی نادیده گرفته شد: %1$d. RIPDPI فقط از طریق نخستین همتا وصل می‌شود.</string>
     <string name="awg_conf_unsupported_option_body">این پیکربندی از گزینه‌ای استفاده می‌کند که RIPDPI پشتیبانی نمی‌کند: %1$s.</string>
-    <string name="awg_conf_padding_blocked_title">این پیکربندی هنوز قابل اجرا نیست</string>
-    <string name="awg_conf_padding_blocked_body">از پرکننده‌ی غیرصفر S3/S4 استفاده می‌کند که محافظت سرآیند AmneziaWG 3.x به آن نیاز دارد. RIPDPI تا زمانی که این مقادیر روی دستگاه‌های Android بررسی نشوند، S3/S4 را صفر نگه می‌دارد.</string>
 </resources>

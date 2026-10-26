@@ -10,7 +10,7 @@ AmneziaVPN 5.x (amnezia-client 5.0.3.0) creates AWG 3.1 servers. Their configs a
 
 - `ripdpi-warp-core` gains the AWG 3.x envelope: ChaCha20 header protection, random handshake trailers, transport content padding inside a UDP window, `RekeyAfterTime` and the keepalive range. The semantics are in `docs/native/amneziawg-3x-wire-semantics.md`.
 - The Kotlin parser, `AwgProfileForm.v3`, the activation request, the `amneziawg://` codec, the credential store (header protection key outside Room) and the native JSON carry the new keys. `AmneziaWgProfile.toWgQuickConf()` renders a profile back to `.conf`.
-- The arm64 S3/S4 floor is unchanged. Header protection needs S3/S4 >= 12, so such profiles import with a notice but cannot start until the floor is revalidated on a device.
+- The arm64 S3/S4 floor is lifted on Android arm64 emulator evidence. Header protection needs S3/S4 >= 12, so AmneziaVPN 5.x profiles now start. A physical device revalidation of amneziawg-go#110 is still open.
 
 ## Capabilities
 
