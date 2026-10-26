@@ -14,6 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
+import com.poyka.ripdpi.security.AppPinCheck
+import com.poyka.ripdpi.security.SecretRevealPinViewModel
 import com.poyka.ripdpi.security.rememberSecretRevealGate
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -70,6 +72,7 @@ fun SshProfileRoute(
     profileId: String? = null,
     modifier: Modifier = Modifier,
     viewModel: SshProfileViewModel = hiltViewModel(),
+    appPin: AppPinCheck? = hiltViewModel<SecretRevealPinViewModel>(),
     onRequestPrivateKeyReveal: (() -> Unit)? = null,
     onRequestPassphraseReveal: (() -> Unit)? = null,
 ) {
@@ -78,8 +81,8 @@ fun SshProfileRoute(
     LifecycleEventEffect(viewModel.savedEvents) { onBack() }
     // Revealed secrets hide again when the app goes to the background or the screen closes.
     LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.onSecretsRelocked() } }
-    val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized)
-    val revealPassphrase = rememberSecretRevealGate(viewModel::onPassphraseRevealAuthorized)
+    val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized, appPin)
+    val revealPassphrase = rememberSecretRevealGate(viewModel::onPassphraseRevealAuthorized, appPin)
     SshProfileScreen(
         uiState = uiState,
         onBack = onBack,

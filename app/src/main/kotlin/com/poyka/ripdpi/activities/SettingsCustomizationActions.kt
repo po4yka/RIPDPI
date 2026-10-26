@@ -6,6 +6,7 @@ import com.poyka.ripdpi.platform.StartOnBootController
 import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.security.PinVerifyResult
+import com.poyka.ripdpi.security.verifyBackupPin
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import java.security.SecureRandom
 
@@ -211,30 +212,6 @@ internal class SettingsCustomizationActions(
         }
     }
 
-    fun verifyBackupPin(pin: String): PinVerifyResult {
-        if (pinLockoutManager.isLockedOut()) {
-            return PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
-        }
-
-        val validPin = pin.length == BackupPinLength && pin.all { it.isDigit() }
-        val storedHash = currentUiState().backupPinHash
-        val matched = validPin && storedHash.isNotBlank() && matchesStoredPin(pin, storedHash)
-
-        if (matched) {
-            pinLockoutManager.recordSuccess()
-        } else if (validPin) {
-            pinLockoutManager.recordFailure()
-        }
-
-        return when {
-            matched -> PinVerifyResult.Success
-            pinLockoutManager.isLockedOut() -> PinVerifyResult.LockedOut(pinLockoutManager.remainingLockoutMs())
-            else -> PinVerifyResult.Failed
-        }
-    }
-
-    private fun matchesStoredPin(
-        pin: String,
-        storedHash: String,
-    ): Boolean = pinVerifier.verify(pin, storedHash)
+    fun verifyBackupPin(pin: String): PinVerifyResult =
+        verifyBackupPin(pin, currentUiState().backupPinHash, pinVerifier, pinLockoutManager)
 }

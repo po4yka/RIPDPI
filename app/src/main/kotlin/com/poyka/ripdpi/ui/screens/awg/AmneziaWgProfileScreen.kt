@@ -23,6 +23,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.security.AppPinCheck
+import com.poyka.ripdpi.security.SecretRevealPinViewModel
 import com.poyka.ripdpi.security.rememberSecretRevealGate
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -64,6 +66,7 @@ fun AmneziaWgProfileRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AmneziaWgProfileViewModel = hiltViewModel(),
+    appPin: AppPinCheck? = hiltViewModel<SecretRevealPinViewModel>(),
     onRequestPrivateKeyReveal: (() -> Unit)? = null,
     onRequestPresharedKeyReveal: (() -> Unit)? = null,
     importToken: String = "",
@@ -93,8 +96,8 @@ fun AmneziaWgProfileRoute(
     }
     // Revealed secrets hide again when the app goes to the background or the screen closes.
     LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.onSecretsRelocked() } }
-    val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized)
-    val revealPresharedKey = rememberSecretRevealGate(viewModel::onPresharedKeyRevealAuthorized)
+    val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized, appPin)
+    val revealPresharedKey = rememberSecretRevealGate(viewModel::onPresharedKeyRevealAuthorized, appPin)
     AmneziaWgProfileScreen(
         uiState = uiState,
         onBack = onBack,

@@ -124,7 +124,7 @@ class AmneziaWgProfileScreenTest {
         val viewModel = viewModel()
         composeRule.setContent {
             CompositionLocalProvider(LocalLifecycleOwner provides owner) {
-                RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+                RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel, appPin = null) }
             }
         }
         composeRule.runOnIdle {
@@ -147,7 +147,7 @@ class AmneziaWgProfileScreenTest {
         shadowOf(context.getSystemService(KeyguardManager::class.java)).setIsDeviceSecure(true)
         val viewModel = viewModel()
         composeRule.setContent {
-            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel, appPin = null) }
         }
 
         composeRule
@@ -169,7 +169,7 @@ class AmneziaWgProfileScreenTest {
         shadowOf(context.getSystemService(KeyguardManager::class.java)).setIsDeviceSecure(false)
         val viewModel = viewModel()
         composeRule.setContent {
-            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel, appPin = null) }
         }
 
         composeRule
@@ -212,7 +212,7 @@ class AmneziaWgProfileScreenTest {
             """.trimIndent()
         val viewModel = viewModel()
         composeRule.setContent {
-            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel, appPin = null) }
         }
         composeRule.runOnIdle { assertEquals(0, clipboard.readCount) }
 
@@ -243,7 +243,7 @@ class AmneziaWgProfileScreenTest {
             }
         composeRule.setContent {
             CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
-                RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+                RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel, appPin = null) }
             }
         }
         composeRule.runOnIdle { assertNull(registry.launchedIntent) }
