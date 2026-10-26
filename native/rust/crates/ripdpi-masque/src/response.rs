@@ -90,20 +90,13 @@ pub(crate) fn validate_connect_udp_response(
     auth_mode: MasqueAuthMode,
 ) -> Result<(), AttemptError> {
     validate_proxy_response(status, headers, auth_mode)?;
-    let Some(capsule_protocol) = headers.get("capsule-protocol") else {
+    // RFC 9297 3.2: these statuses carry no tunnel, so the response is malformed.
+    // The Capsule-Protocol header is only a SHOULD (RFC 9297 3.4) and the
+    // connect-udp upgrade token already implies the protocol (RFC 9298 3.5).
+    if matches!(status, StatusCode::NO_CONTENT | StatusCode::RESET_CONTENT | StatusCode::PARTIAL_CONTENT) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "CONNECT-UDP success response is missing Capsule-Protocol: ?1",
-        )
-        .into());
-    };
-    let capsule_protocol = capsule_protocol
-        .to_str()
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid Capsule-Protocol response header"))?;
-    if capsule_protocol.trim() != "?1" {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "CONNECT-UDP success response did not enable Capsule-Protocol: ?1",
+            format!("CONNECT-UDP success response with status {status} cannot carry the Capsule Protocol"),
         )
         .into());
     }

@@ -447,23 +447,35 @@ fn privacy_pass_challenge_requires_private_token_header() {
 }
 
 #[test]
-fn connect_udp_success_response_requires_capsule_protocol_header() {
-    let error = validate_connect_udp_response(StatusCode::OK, &HeaderMap::new(), MasqueAuthMode::None)
-        .expect_err("CONNECT-UDP success without Capsule-Protocol must fail");
-
-    let AttemptError::Io(error) = error else {
-        panic!("expected io error");
-    };
-    assert_eq!(io::ErrorKind::InvalidData, error.kind());
-    assert!(error.to_string().contains("Capsule-Protocol"));
+fn connect_udp_success_response_does_not_require_capsule_protocol_header() {
+    validate_connect_udp_response(StatusCode::OK, &HeaderMap::new(), MasqueAuthMode::None)
+        .expect("RFC 9298 3.5 requires only a 2xx status");
 }
 
 #[test]
-fn connect_udp_success_response_accepts_true_capsule_protocol_header() {
-    let mut headers = HeaderMap::new();
-    headers.insert("capsule-protocol", "?1".parse().expect("header"));
+fn connect_udp_success_response_accepts_capsule_protocol_with_parameters() {
+    for value in ["?1", "?1;x=y"] {
+        let mut headers = HeaderMap::new();
+        headers.insert("capsule-protocol", value.parse().expect("header"));
 
-    validate_connect_udp_response(StatusCode::OK, &headers, MasqueAuthMode::None).expect("valid response");
+        validate_connect_udp_response(StatusCode::OK, &headers, MasqueAuthMode::None)
+            .unwrap_or_else(|_| panic!("Capsule-Protocol {value:?} must be accepted"));
+    }
+}
+
+#[test]
+fn connect_udp_success_response_rejects_statuses_without_a_tunnel() {
+    for status in [StatusCode::NO_CONTENT, StatusCode::RESET_CONTENT, StatusCode::PARTIAL_CONTENT] {
+        let mut headers = HeaderMap::new();
+        headers.insert("capsule-protocol", "?1".parse().expect("header"));
+
+        let error = validate_connect_udp_response(status, &headers, MasqueAuthMode::None)
+            .expect_err("RFC 9297 3.2 makes this response malformed");
+        let AttemptError::Io(error) = error else {
+            panic!("expected io error");
+        };
+        assert_eq!(io::ErrorKind::InvalidData, error.kind());
+    }
 }
 
 #[test]
