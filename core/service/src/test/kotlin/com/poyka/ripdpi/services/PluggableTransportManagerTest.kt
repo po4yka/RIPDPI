@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class PluggableTransportManagerTest {
@@ -17,6 +18,38 @@ class PluggableTransportManagerTest {
         assertEquals(443, parsed.port)
         assertEquals("abcd1234", parsed.cert)
         assertEquals(2, parsed.iatMode)
+    }
+
+    @Test
+    fun `parseObfs4BridgeLine treats the fingerprint as optional`() {
+        val parsed = parseObfs4BridgeLine("obfs4 192.0.2.1:443 cert=abcd1234 iat-mode=1")
+
+        assertEquals("192.0.2.1", parsed.host)
+        assertEquals(443, parsed.port)
+        assertEquals("abcd1234", parsed.cert)
+        assertEquals(1, parsed.iatMode)
+    }
+
+    @Test
+    fun `parseObfs4BridgeLine strips IPv6 brackets`() {
+        val parsed = parseObfs4BridgeLine("Bridge obfs4 [2001:db8::1]:443 cert=abcd1234")
+
+        assertEquals("2001:db8::1", parsed.host)
+        assertEquals(443, parsed.port)
+        assertEquals(0, parsed.iatMode)
+    }
+
+    @Test
+    fun `parseObfs4BridgeLine rejects invalid iat-mode port and duplicate options`() {
+        listOf(
+            "obfs4 192.0.2.1:443 cert=abcd1234 iat-mode=paranoid",
+            "obfs4 192.0.2.1:443 cert=abcd1234 iat-mode=3",
+            "obfs4 192.0.2.1:https cert=abcd1234",
+            "obfs4 192.0.2.1:70000 cert=abcd1234",
+            "obfs4 192.0.2.1:443 cert=abcd1234 cert=efgh5678",
+        ).forEach { line ->
+            assertThrows(line, IllegalArgumentException::class.java) { parseObfs4BridgeLine(line) }
+        }
     }
 
     @Test

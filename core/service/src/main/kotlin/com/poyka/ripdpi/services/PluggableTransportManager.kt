@@ -38,38 +38,63 @@ internal data class ParsedObfs4BridgeLine(
     val iatMode: Int,
 )
 
+// Tor bridge line: [Bridge] obfs4 <host:port> [fingerprint] k=v ... (the fingerprint is optional).
+private val BridgeFingerprintPattern = Regex("\\$?[0-9A-Fa-f]{40}")
+private val Obfs4IatModes = 0..2
+private val TcpPorts = 1..65_535
+
 internal fun parseObfs4BridgeLine(rawBridgeLine: String): ParsedObfs4BridgeLine {
     val tokens = rawBridgeLine.trim().split(Regex("\\s+")).filter(String::isNotBlank)
-    require(tokens.size >= 5) { "Invalid obfs4 bridge line" }
     val transportIndex =
         when {
-            tokens[0].equals("Bridge", ignoreCase = true) -> 1
+            tokens.firstOrNull().equals("Bridge", ignoreCase = true) -> 1
             else -> 0
         }
     require(tokens.getOrNull(transportIndex) == RelayKindObfs4) {
         "Bridge line must declare obfs4 transport"
     }
-    val endpointToken = tokens.getOrNull(transportIndex + 1) ?: error("Bridge line is missing endpoint")
+    val endpointToken =
+        requireNotNull(tokens.getOrNull(transportIndex + 1)) { "Bridge line is missing endpoint" }
     val endpointDelimiter = endpointToken.lastIndexOf(':')
     require(endpointDelimiter > 0 && endpointDelimiter < endpointToken.lastIndex) {
         "Bridge line endpoint must include host:port"
     }
+    val optionTokens =
+        tokens.drop(transportIndex + 2).let { rest ->
+            if (rest.firstOrNull()?.matches(BridgeFingerprintPattern) == true) rest.drop(1) else rest
+        }
     val options =
-        tokens.drop(transportIndex + 3).associate { token ->
+        optionTokens.map { token ->
             val delimiter = token.indexOf('=')
             require(delimiter > 0) { "Bridge line option is malformed: $token" }
             token.substring(0, delimiter) to token.substring(delimiter + 1)
         }
-    val cert = options["cert"].orEmpty()
+    require(options.map { it.first }.toSet().size == options.size) { "Bridge line repeats an option" }
+    val optionMap = options.toMap()
+    val cert = optionMap["cert"].orEmpty()
     require(cert.isNotBlank()) { "Bridge line must include cert=<base64>" }
-    val iatMode = options["iat-mode"]?.toIntOrNull() ?: 0
+    val iatMode =
+        optionMap["iat-mode"]?.let { raw ->
+            requireNotNull(raw.toIntOrNull()?.takeIf { it in Obfs4IatModes }) {
+                "Bridge line iat-mode must be 0, 1 or 2"
+            }
+        } ?: 0
+    val port =
+        requireNotNull(endpointToken.substring(endpointDelimiter + 1).toIntOrNull()?.takeIf { it in TcpPorts }) {
+            "Bridge line port must be a number from 1 to 65535"
+        }
     return ParsedObfs4BridgeLine(
-        host = endpointToken.substring(0, endpointDelimiter),
-        port = endpointToken.substring(endpointDelimiter + 1).toInt(),
+        host = endpointToken.substring(0, endpointDelimiter).removeSurrounding("[", "]"),
+        port = port,
         cert = cert,
         iatMode = iatMode,
     )
 }
+
+private fun formatHostPort(
+    host: String,
+    port: Int,
+): String = if (':' in host) "[$host]:$port" else "$host:$port"
 
 internal fun encodePtArguments(vararg entries: Pair<String, String?>): String =
     entries
@@ -214,7 +239,7 @@ open class PluggableTransportManager
                         binaryName = Obfs4BinaryName,
                         binaryPackaging = SubprocessBinaryPackaging.PluggableTransport,
                         runtimeKind = config.kind,
-                        upstreamAddress = "${bridgeLine.host}:${bridgeLine.port}",
+                        upstreamAddress = formatHostPort(bridgeLine.host, bridgeLine.port),
                         redactedValues = listOf(bridgeLine.cert),
                         commandArguments = emptyList(),
                         environment = managedTransportEnvironment(config, methodName = RelayKindObfs4),
