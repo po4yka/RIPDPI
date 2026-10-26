@@ -13,7 +13,8 @@ class WarpSettingsNormalizationTest {
             WarpAmneziaSettings(h1 = "4294967296"),
             WarpAmneziaSettings(h1 = "100-199", h2 = "150-250"),
             WarpAmneziaSettings(s1 = 1224, s2 = 1280),
-            WarpAmneziaSettings(s3 = 1),
+            WarpAmneziaSettings(s3 = 1281),
+            WarpAmneziaSettings(s4 = -1),
             WarpAmneziaSettings(i1 = "deadbeef"),
         ).forEach { input ->
             assertEquals(input, resolveWarpAmneziaProfile(WarpAmneziaPresetCustom, input).settings)
@@ -34,6 +35,8 @@ class WarpSettingsNormalizationTest {
                 h3 = "300-399",
                 h4 = "400-499",
                 i1 = "<b 0xf0><r 16><rd 4><rc 4><t>",
+                s3 = 12,
+                s4 = 12,
             )
         input.requireSupportedProfile()
         assertEquals(input, resolveWarpAmneziaProfile(WarpAmneziaPresetCustom, input).settings)

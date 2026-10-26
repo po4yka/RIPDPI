@@ -209,11 +209,7 @@ data class AwgActivationObfuscation(
 ) {
     /** Rejects malformed knobs, including the AWG 3.x rules such as S1-S4 >= 12 for header protection. */
     fun requireSupportedProfile() {
-        AmneziaWgWireProfile
-            .requireScalars(jc, jmin, jmax, s1, s2)
-        require(s3 in 0..AmneziaWgWireProfile.MaximumPacket && s4 in 0..AmneziaWgWireProfile.MaximumPacket) {
-            "AmneziaWG packet sizes must be in 0..1280"
-        }
+        AmneziaWgWireProfile.requireScalars(jc, jmin, jmax, s1, s2, s3, s4)
         AmneziaWgWireProfile.requireValid(
             wireProfile,
             listOf(h1, h2, h3, h4),

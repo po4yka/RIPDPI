@@ -239,8 +239,15 @@ internal object NativeProxyConfigValidation {
                         listOf(config.h1, config.h2, config.h3, config.h4),
                         listOf(config.i1, config.i2, config.i3, config.i4, config.i5),
                     )
-                    AmneziaWgWireProfile.requireScalars(config.jc, config.jmin, config.jmax, config.s1, config.s2)
-                    require(config.s3 == 0 && config.s4 == 0) { "AmneziaWG S3/S4 must remain zero" }
+                    AmneziaWgWireProfile.requireScalars(
+                        config.jc,
+                        config.jmin,
+                        config.jmax,
+                        config.s1,
+                        config.s2,
+                        config.s3,
+                        config.s4,
+                    )
                 }
             }
         }

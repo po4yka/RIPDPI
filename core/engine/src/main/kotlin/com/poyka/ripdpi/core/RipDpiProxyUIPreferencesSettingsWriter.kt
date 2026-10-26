@@ -204,8 +204,9 @@ private fun AppSettings.Builder.applyWarpPreferences(preferences: RipDpiProxyUIP
         warp.amnezia.jmax,
         warp.amnezia.s1,
         warp.amnezia.s2,
+        warp.amnezia.s3,
+        warp.amnezia.s4,
     )
-    require(warp.amnezia.s3 == 0 && warp.amnezia.s4 == 0) { "AmneziaWG S3/S4 must remain zero" }
     setWarpEnabled(warp.enabled)
     setWarpRouteMode(warp.routeMode)
     setWarpRouteHosts(warp.routeHosts)

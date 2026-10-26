@@ -35,6 +35,8 @@ class RipDpiProxyUIPreferencesSettingsWriterTest {
                 i3 = "<r 8>",
                 i4 = "<rd 8>",
                 i5 = "<rc 8>",
+                s3 = 12,
+                s4 = 12,
             )
         val preferences = RipDpiProxyUIPreferences(warp = RipDpiWarpConfig(amneziaPreset = "custom", amnezia = config))
         val stored = AppSettings.parseFrom(preferences.applyToSettings(AppSettings.getDefaultInstance()).toByteArray())
@@ -43,6 +45,7 @@ class RipDpiProxyUIPreferencesSettingsWriterTest {
         val nativeJson = RipDpiProxyUIPreferences.fromSettings(stored).toNativeConfigJson()
         assertTrue(nativeJson.contains("100-199"))
         assertTrue(nativeJson.contains("<b 0xf0><r 16><rd 4><rc 4><t>"))
+        assertTrue(nativeJson.contains("\"s3\":12") && nativeJson.contains("\"s4\":12"))
     }
 
     @Test
@@ -52,8 +55,8 @@ class RipDpiProxyUIPreferencesSettingsWriterTest {
             RipDpiWarpAmneziaConfig(i1 = "deadbeef"),
             RipDpiWarpAmneziaConfig(wireProfile = "future"),
             RipDpiWarpAmneziaConfig(jc = Int.MAX_VALUE),
-            RipDpiWarpAmneziaConfig(s3 = 1),
-            RipDpiWarpAmneziaConfig(s4 = 1),
+            RipDpiWarpAmneziaConfig(s3 = 1281),
+            RipDpiWarpAmneziaConfig(s4 = -1),
         ).forEach { config ->
             assertThrows(IllegalArgumentException::class.java) {
                 RipDpiProxyUIPreferences(warp = RipDpiWarpConfig(amnezia = config))

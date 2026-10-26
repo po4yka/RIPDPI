@@ -84,9 +84,11 @@ object AmneziaWgWireProfile {
         jmax: Int?,
         s1: Int?,
         s2: Int?,
+        s3: Int? = 0,
+        s4: Int? = 0,
     ) {
         require((jc ?: 0) in 0..MaximumJunkPackets) { "AmneziaWG Jc must be in 0..128" }
-        require(listOf(jmin, jmax, s1, s2).all { (it ?: 0) in 0..MaximumPacket }) {
+        require(listOf(jmin, jmax, s1, s2, s3, s4).all { (it ?: 0) in 0..MaximumPacket }) {
             "AmneziaWG packet sizes must be in 0..1280"
         }
         require((jmin ?: 0) <= (jmax ?: 0)) { "AmneziaWG junk size range is inverted" }

@@ -94,10 +94,7 @@ data class AmneziaWgParameters(
 ) {
     /** Validates the field set, including the AWG 3.x rules such as S1-S4 >= 12 for header protection. */
     fun requireSupportedProfile() {
-        AmneziaWgWireProfile.requireScalars(jc, jmin, jmax, s1, s2)
-        require(listOf(s3, s4).all { (it ?: 0) in 0..AmneziaWgWireProfile.MaximumPacket }) {
-            "AmneziaWG packet sizes must be in 0..1280"
-        }
+        AmneziaWgWireProfile.requireScalars(jc, jmin, jmax, s1, s2, s3, s4)
         AmneziaWgWireProfile.requireValid(wireProfile, listOf(h1, h2, h3, h4), listOf(i1, i2, i3, i4, i5))
         v3.requireValid(listOf(s1, s2, s3, s4))
     }

@@ -223,8 +223,7 @@ fun resolveWarpAmneziaProfile(
 
 fun WarpAmneziaSettings.requireSupportedProfile() {
     AmneziaWgWireProfile.requireValid(wireProfile, listOf(h1, h2, h3, h4), listOf(i1, i2, i3, i4, i5))
-    AmneziaWgWireProfile.requireScalars(jc, jmin, jmax, s1, s2)
-    require(s3 == 0 && s4 == 0) { "AmneziaWG S3/S4 must remain zero" }
+    AmneziaWgWireProfile.requireScalars(jc, jmin, jmax, s1, s2, s3, s4)
 }
 
 fun AppSettings.toWarpSettingsModel(): WarpSettingsModel =
