@@ -10,6 +10,10 @@ use crate::ports::PortProtocol;
 
 use super::bus::{Bus, Event};
 
+/// Inbound packets the device holds for one interface. Beyond this the newest packet
+/// is dropped, as a full NIC ring would, so a stalled interface cannot grow memory.
+const DEVICE_QUEUE_PACKETS: usize = 1024;
+
 pub(super) struct VirtualIpDevice {
     max_transmission_unit: usize,
     bus_sender: broadcast::Sender<(u64, Event)>,
@@ -30,7 +34,12 @@ impl VirtualIpDevice {
                     match endpoint.recv().await {
                         Event::Shutdown => break,
                         Event::InboundInternetPacket(packet_protocol, data) if packet_protocol == protocol => {
-                            process_queue.lock().expect("process queue").push_back(data);
+                            {
+                                let mut queue = process_queue.lock().expect("process queue");
+                                if queue.len() < DEVICE_QUEUE_PACKETS {
+                                    queue.push_back(data);
+                                }
+                            }
                             endpoint.send(Event::VirtualDeviceFed(packet_protocol));
                         }
                         _ => {}
@@ -96,5 +105,29 @@ impl smoltcp::phy::TxToken for DeviceTxToken {
         let result = f(&mut buffer);
         let _ = self.tx.send((self.sender_id, Event::OutboundInternetPacket(Bytes::from(buffer))));
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// # Cancel safety
+    /// cancel-safe: the device worker ends on the bus shutdown below.
+    #[tokio::test(flavor = "current_thread")]
+    async fn inbound_queue_of_a_stalled_interface_stays_bounded() {
+        let bus = Bus::new();
+        let device = VirtualIpDevice::new(PortProtocol::Udp, bus.clone(), 1280);
+        let sender = bus.new_endpoint();
+        // Nothing polls the device: each batch fits the bus, and the worker queues it.
+        for _ in 0..4 {
+            for _ in 0..800 {
+                sender.send(Event::InboundInternetPacket(PortProtocol::Udp, Bytes::from_static(&[0u8; 64])));
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        let queued = device.process_queue.lock().expect("process queue").len();
+        bus.shutdown();
+        assert_eq!(queued, DEVICE_QUEUE_PACKETS);
     }
 }
