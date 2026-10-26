@@ -86,6 +86,55 @@ fn probes_carry_fresh_client_hello_random_session_id_and_key_share() {
     assert_ne!(key_share(&hellos[0]), key_share(&hellos[1]), "key share");
 }
 
+/// True when `bytes` is a run of `OracleRng::next_u8` output from some seed.
+/// Each output byte is bits 16..24 of the new LCG state, so try every state
+/// whose bits 16..24 equal the first byte and replay the rest.
+fn follows_oracle_rng(bytes: &[u8]) -> bool {
+    let (first, rest) = bytes.split_first().expect("non-empty");
+    (0..1u32 << 24).any(|free| {
+        let mut state = (free & 0xffff) | (u32::from(*first) << 16) | ((free >> 16) << 24);
+        rest.iter().all(|byte| {
+            state = state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            ((state >> 16) & 0xff) as u8 == *byte
+        })
+    })
+}
+
+#[test]
+fn probe_client_hello_uses_unpredictable_random_and_valid_key_shares() {
+    let mut lcg = crate::types::OracleRng::seeded(0x1234_5678);
+    let lcg_bytes: Vec<u8> = (0..32).map(|_| lcg.next_u8()).collect();
+    assert!(follows_oracle_rng(&lcg_bytes), "positive control");
+
+    let probe = build_probe_quic_initial(QUIC_V1_VERSION, Some("example.test")).unwrap();
+    let hello = crate::quic::parse_quic_initial_seed(&probe).expect("probe seed").client_hello;
+    assert!(!follows_oracle_rng(&hello[11..43]), "ClientHello random follows the LCG");
+
+    let parsed = crate::tls_nom::parse_client_hello_record(&hello).expect("client hello");
+    let shares = crate::tls_nom::find_extension(&parsed, 0x0033).expect("key share").data;
+    let mut cursor = &shares[2..];
+    let mut checked = Vec::new();
+    while let [g0, g1, l0, l1, tail @ ..] = cursor {
+        let (group, len) = (u16::from_be_bytes([*g0, *g1]), usize::from(u16::from_be_bytes([*l0, *l1])));
+        let (key, next) = tail.split_at(len);
+        cursor = next;
+        let algorithm = match group {
+            0x001d => &ring::agreement::X25519,
+            0x0017 => {
+                assert_eq!(key[0], 0x04, "P-256 share must be an uncompressed point");
+                &ring::agreement::ECDH_P256
+            }
+            _ => continue,
+        };
+        // Key agreement fails for a share that is not a valid public key.
+        let ours = ring::agreement::EphemeralPrivateKey::generate(algorithm, &SystemRandom::new()).unwrap();
+        let peer = ring::agreement::UnparsedPublicKey::new(algorithm, key);
+        assert!(ring::agreement::agree_ephemeral(ours, &peer, |_| ()).is_ok(), "group {group:#06x} share invalid");
+        checked.push(group);
+    }
+    assert_eq!(checked, [0x001d, 0x0017]);
+}
+
 #[test]
 fn fresh_probe_ids_reject_replay_echo_and_unrelated_versions() {
     let first = build_probe_quic_initial(QUIC_V1_VERSION, Some("example.test")).unwrap();

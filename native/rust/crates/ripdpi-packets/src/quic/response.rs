@@ -1,11 +1,12 @@
 use ring::aead::{AES_128_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
+use ring::agreement;
 use ring::rand::{SecureRandom, SystemRandom};
 
 use super::crypto::quic_derive_initial_secret;
 use super::parse::{decrypt_quic_initial_with_secret, parse_quic_initial_response_header};
 use super::{QUIC_FAKE_INITIAL_TARGET_LEN, build_browser_like_quic_initial_seed, packetize_quic_initial};
-use crate::randomize_tls_seeded_inplace;
 use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout};
+use crate::util::read_u16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QuicResponseKind {
@@ -21,10 +22,41 @@ pub fn build_probe_quic_initial(version: u32, host: Option<&str>) -> Option<Vec<
     let random = SystemRandom::new();
     random.fill(&mut seed.dcid).ok()?;
     random.fill(&mut seed.scid).ok()?;
-    let mut tls_seed = [0u8; 4];
-    random.fill(&mut tls_seed).ok()?;
-    randomize_tls_seeded_inplace(&mut seed.client_hello, u32::from_be_bytes(tls_seed));
+    randomize_probe_client_hello(&mut seed.client_hello, &random)?;
     packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(QUIC_FAKE_INITIAL_TARGET_LEN))
+}
+
+/// Fill the ClientHello random and session ID from the system CSPRNG and put a
+/// fresh, valid public key in each X25519 and P-256 key share. Other groups
+/// (for example GREASE) get random bytes.
+fn randomize_probe_client_hello(hello: &mut [u8], random: &SystemRandom) -> Option<()> {
+    random.fill(hello.get_mut(11..43)?).ok()?;
+    let sid_len = usize::from(*hello.get(43)?);
+    random.fill(hello.get_mut(44..44 + sid_len)?).ok()?;
+    let parsed = crate::tls_nom::parse_client_hello_record(hello)?;
+    let key_share = crate::tls_nom::find_extension(&parsed, 0x0033)?;
+    // Skip the extension header (4 bytes) and the client_shares length (2 bytes).
+    let (mut cursor, end) = (key_share.type_offset + 6, key_share.type_offset + 4 + key_share.data.len());
+    while cursor + 4 <= end {
+        let group = read_u16(hello, cursor)?;
+        let key_len = read_u16(hello, cursor + 2)?;
+        let key = hello.get_mut(cursor + 4..cursor + 4 + key_len)?;
+        let algorithm = match (group, key_len) {
+            (0x001d, 32) => Some(&agreement::X25519),
+            (0x0017, 65) => Some(&agreement::ECDH_P256),
+            _ => None,
+        };
+        match algorithm {
+            Some(algorithm) => {
+                let public =
+                    agreement::EphemeralPrivateKey::generate(algorithm, random).ok()?.compute_public_key().ok()?;
+                key.copy_from_slice(public.as_ref().get(..key_len)?);
+            }
+            None => random.fill(key).ok()?,
+        }
+        cursor += 4 + key_len;
+    }
+    Some(())
 }
 
 /// Check response correlation and packet integrity for one Initial probe.
