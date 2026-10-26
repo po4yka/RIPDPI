@@ -60,14 +60,14 @@ class RootHelperNfqwsTest {
                 assertTrue(manager.isRunning())
                 assertFalse(manager.nfqwsActive)
                 assertTrue(File(context.filesDir, "root_helper.sock.nonce").exists())
-                assertEquals(0, globalKills)
+                assertEquals("only the predecessor reap before the first launch", 1, globalKills)
 
                 rejectShutdown = false
                 manager.stop()
                 assertNull(manager.socketPath)
                 assertFalse(manager.isRunning())
                 assertFalse(File(context.filesDir, "root_helper.sock.nonce").exists())
-                assertEquals(0, globalKills)
+                assertEquals("only the predecessor reap before the first launch", 1, globalKills)
             }
         }
 
@@ -97,7 +97,7 @@ class RootHelperNfqwsTest {
             assertNull(manager.socketPath)
             assertFalse(manager.nfqwsActive)
             assertFalse(File(context.filesDir, "root_helper.sock.nonce").exists())
-            assertEquals("a dead helper's detached processes are reaped", 1, globalKills)
+            assertEquals("predecessor reap plus the dead helper's detached processes", 2, globalKills)
         }
 
     @Test

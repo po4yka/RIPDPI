@@ -84,6 +84,8 @@ open class RootHelperManager
         private var shutdownRequester: (String, String?) -> Unit = RootHelperIpc::shutdown
         private var rootProcessTerminator: () -> Unit = ::terminateRootHelperProcesses
 
+        @Volatile private var predecessorsReaped = false
+
         private companion object {
             private val log = Logger.withTag("RootHelperManager")
             private const val HELPER_BINARY_NAME = "ripdpi-root-helper"
@@ -249,6 +251,7 @@ open class RootHelperManager
                     val nonceFile = File(context.filesDir, NONCE_FILE_NAME)
 
                     removeStaleIpcFiles(socket, nonceFile)
+                    reapPredecessorHelpersOnce()
                     writeSessionNonce(nonceFile, generateSessionNonce())
 
                     for (attempt in processLaunchAttempts(binary, socket, nonceFile)) {
@@ -292,6 +295,19 @@ open class RootHelperManager
                     null
                 }
             }
+
+        /**
+         * A helper from an earlier app process is not our child and has no owner-death exit, so this
+         * process never learns its socket path and stop() cannot reach it. Kill such orphans once,
+         * before this process launches its first helper.
+         */
+        private fun reapPredecessorHelpersOnce() {
+            if (predecessorsReaped) return
+            predecessorsReaped = true
+            runCatching { rootProcessTerminator() }.onFailure { error ->
+                log.w(error) { "failed to terminate root helpers from an earlier app process" }
+            }
+        }
 
         /** Stop the root helper process and clean up. */
         open fun stop() {

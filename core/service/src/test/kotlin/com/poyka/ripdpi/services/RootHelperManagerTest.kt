@@ -284,6 +284,35 @@ class RootHelperManagerTest {
         }
 
     @Test
+    fun `first start reaps helpers left by an earlier app process exactly once`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val events = mutableListOf<String>()
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _, _ ->
+                        listOf(
+                            RootHelperLaunchAttempt("test root helper launcher") {
+                                events += "launch"
+                                RecordingProcess()
+                            },
+                        )
+                    },
+                    readinessProbe = { _, _, _ -> true },
+                    shutdownRequester = { _, _ -> },
+                    rootProcessTerminator = { events += "reap" },
+                )
+
+            manager.start(context)
+            manager.stop()
+            manager.start(context)
+
+            assertEquals(listOf("reap", "launch", "reap", "launch"), events)
+        }
+
+    @Test
     fun `syncRootMode disabled stops live helper and degrades to null socket`() =
         runTest {
             val context = RuntimeEnvironment.getApplication()
