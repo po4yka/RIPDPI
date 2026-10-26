@@ -1,5 +1,6 @@
 mod burst;
 mod dnscrypt_certs;
+mod doh_tls_name;
 mod doq_transport;
 mod https_service_binding;
 mod pipeline;
