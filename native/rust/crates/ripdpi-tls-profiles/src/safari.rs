@@ -15,9 +15,14 @@
 //! | `client_hello_size_hint` | 498                         | 512                  |
 //!
 //! These differences are not cosmetic — they affect JA3/JA4 fingerprint hashes,
-//! extension ordering, and ClientHello byte layout. Safari is the only profile
-//! in the catalog that sends no GREASE values and uses a fixed extension order,
-//! making it valuable for servers that apply GREASE-based detection heuristics.
+//! extension ordering, and ClientHello byte layout.
+//!
+//! **Approximation, not a Safari parrot.** Real Safari GREASEs its cipher
+//! suites, groups, key shares, versions and extensions, offers X25519MLKEM768
+//! and sends status_request, SCT and certificate compression (utls
+//! `HelloSafari_26_3`). This profile sends no GREASE, and its captured
+//! extension set and order equal `firefox_stable`'s, so a peer that expects
+//! Safari's GREASE can tell it apart.
 //!
 //! Rotation weight: 10%. See TLS profile architecture note for the full analysis.
 
@@ -25,8 +30,8 @@ use boring::ssl::SslVersion;
 
 use crate::profile::ProfileConfig;
 
-/// Safari stable TLS fingerprint: AES-GCM prioritized, includes P-521,
-/// no GREASE, no extension permutation.
+/// Safari-labelled TLS profile: AES-GCM prioritized, includes P-521,
+/// no GREASE (unlike real Safari), no extension permutation.
 pub const SAFARI_LATEST: ProfileConfig = ProfileConfig {
     name: "safari_stable",
     browser_family: "safari",
