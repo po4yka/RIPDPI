@@ -29,15 +29,17 @@ private fun validateChainRelayHopFeatures(
     }
     when (hop.kind) {
         RelayKindTrojan -> {
-            requireTlsHopEndpoint(hop.server, hop.serverName, "Trojan")
+            requireTlsHopEndpoint(hop, "Trojan")
         }
 
         RelayKindAnyTls -> {
-            requireTlsHopEndpoint(hop.server, hop.serverName, "AnyTLS")
+            requireTlsHopEndpoint(hop, "AnyTLS")
         }
 
         RelayKindShadowsocks -> {
-            require(!hop.shadowsocksMethod.isNullOrBlank()) { "Relay credentials missing for profile ${hop.profileId}" }
+            if (hop.shadowsocksMethod.isNullOrBlank()) {
+                rejectHop("Relay credentials missing for profile ${hop.profileId}")
+            }
         }
 
         RelayKindMasque -> {
@@ -47,12 +49,11 @@ private fun validateChainRelayHopFeatures(
 }
 
 private fun requireTlsHopEndpoint(
-    server: String,
-    serverName: String,
+    hop: ResolvedChainRelayHopConfig,
     label: String,
 ) {
-    require(server.isNotBlank()) { "$label requires a server hostname" }
-    require(serverName.isNotBlank()) { "$label requires a TLS server name" }
+    if (hop.server.isBlank()) rejectHop("Chain relay hop ${hop.profileId}: $label requires a server hostname")
+    if (hop.serverName.isBlank()) rejectHop("Chain relay hop ${hop.profileId}: $label requires a TLS server name")
 }
 
 private fun validateMasqueHopFeatures(

@@ -74,7 +74,7 @@ internal class ChainRelayHopValidationTest : ChainRelayTrustDomainResolverTestSu
                     ),
                     RelayCredentialRecord(profileId = "entry-hop", trojanPassword = credentialFixture("trojan")),
                 )
-            assertTrue(error.reasonText(), error.reasonText().contains("TLS server name"))
+            assertTrue("$error", error.reasonText().contains("hop entry-hop: Trojan requires a TLS server name"))
         }
 
     @Test
@@ -91,7 +91,7 @@ internal class ChainRelayHopValidationTest : ChainRelayTrustDomainResolverTestSu
                     RelayCredentialRecord(profileId = "entry-hop", shadowsocksPassword = credentialFixture("ss")),
                 )
             assertNotNull(error)
-            assertTrue(error.reasonText(), error.reasonText().contains("credentials missing"))
+            assertTrue("$error", error.reasonText().contains("Relay credentials missing for profile entry-hop"))
         }
 
     @Test
@@ -166,6 +166,6 @@ internal class ChainRelayHopValidationTest : ChainRelayTrustDomainResolverTestSu
     ): Throwable? = runCatching { resolveChain(entry, entryCredentials, featureFlags) }.exceptionOrNull()
 
     private fun Throwable?.reasonText(): String =
-        ((this as? ServiceStartupRejectedException)?.reason as? FailureReason.RelayConfigRejected)?.message
-            ?: this?.message.orEmpty()
+        // Typed reasons only: an untyped error reaches the user as FailureReason.Unexpected.
+        ((this as? ServiceStartupRejectedException)?.reason as? FailureReason.RelayConfigRejected)?.message.orEmpty()
 }
