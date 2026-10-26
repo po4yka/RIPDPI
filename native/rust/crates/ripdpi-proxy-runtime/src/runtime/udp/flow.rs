@@ -17,10 +17,14 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 /// A flow is one client endpoint talking to one target. The payload-derived host is
 /// flow metadata, not identity: only a QUIC Initial carries an SNI, and its follow-up
 /// datagrams must keep the same upstream socket and source port (RFC 9000 section 9).
+/// A host the client names in the SOCKS5 header is part of the target: every datagram
+/// carries it, and two names that resolve to one address are two flows, so a reply is
+/// labelled with the host its request named.
 pub(super) struct UdpFlowKey {
     pub(super) client: SocketAddr,
     pub(super) target: SocketAddr,
     pub(super) preserve_host_in_response: bool,
+    pub(super) authoritative_host: Option<String>,
 }
 
 pub(super) struct UdpFlowActivationState {

@@ -118,6 +118,7 @@ fn blocked_destination_creates_no_udp_flow_or_egress_socket() {
         host: Some("blocked.example".to_string()),
         preserve_host_in_response: false,
         cache_host: false,
+        host_is_authoritative: false,
     };
     let mut flows = HashMap::new();
 
@@ -150,6 +151,7 @@ fn direct_destination_bypasses_group_udp_socks_associate() {
         host: Some("direct.example".to_string()),
         preserve_host_in_response: false,
         cache_host: false,
+        host_is_authoritative: false,
     };
     let flow_key = packet.flow_key();
     let mut flows = HashMap::new();
@@ -313,7 +315,12 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
     let preferred_edge = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443);
     let client_addr = client_receiver.local_addr().expect("client addr");
     let mut flow_state = HashMap::new();
-    let flow_key = UdpFlowKey { client: client_addr, target: original_target, preserve_host_in_response: false };
+    let flow_key = UdpFlowKey {
+        client: client_addr,
+        target: original_target,
+        preserve_host_in_response: false,
+        authoritative_host: None,
+    };
     flow_state.insert(
         flow_key,
         UdpFlowActivationState {
@@ -427,7 +434,8 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 443);
 
     let mut flow_state = HashMap::new();
-    let flow_key = UdpFlowKey { client: client_addr, target, preserve_host_in_response: false };
+    let flow_key =
+        UdpFlowKey { client: client_addr, target, preserve_host_in_response: false, authoritative_host: None };
     flow_state.insert(
         flow_key.clone(),
         UdpFlowActivationState {
@@ -531,9 +539,10 @@ fn udp_flow_capacity_rejects_only_new_flows_once_limit_is_reached() {
     let third_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 12)), 443);
     let mut flow_state = HashMap::<UdpFlowKey, ()>::new();
 
-    let first = UdpFlowKey { client, target: first_target, preserve_host_in_response: false };
-    let second = UdpFlowKey { client, target: second_target, preserve_host_in_response: false };
-    let third = UdpFlowKey { client, target: third_target, preserve_host_in_response: false };
+    let first = UdpFlowKey { client, target: first_target, preserve_host_in_response: false, authoritative_host: None };
+    let second =
+        UdpFlowKey { client, target: second_target, preserve_host_in_response: false, authoritative_host: None };
+    let third = UdpFlowKey { client, target: third_target, preserve_host_in_response: false, authoritative_host: None };
     flow_state.insert(first.clone(), ());
     flow_state.insert(second, ());
 
@@ -591,8 +600,10 @@ fn udp_upstream_poll_returns_only_ready_flow_keys() {
     let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 10_800);
     let ready_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 30)), 443);
     let idle_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 31)), 443);
-    let ready_key = UdpFlowKey { client, target: ready_target, preserve_host_in_response: false };
-    let idle_key = UdpFlowKey { client, target: idle_target, preserve_host_in_response: false };
+    let ready_key =
+        UdpFlowKey { client, target: ready_target, preserve_host_in_response: false, authoritative_host: None };
+    let idle_key =
+        UdpFlowKey { client, target: idle_target, preserve_host_in_response: false, authoritative_host: None };
     let poll_entries = vec![(ready_key.clone(), ready_receiver.as_raw_fd()), (idle_key, idle_receiver.as_raw_fd())];
     let mut pollfds = Vec::new();
     let mut ready = Vec::new();
@@ -920,6 +931,7 @@ fn one_flow_send_error_retires_only_that_flow() {
         client: client.local_addr().expect("client addr"),
         target: closed_target,
         preserve_host_in_response: false,
+        authoritative_host: None,
     };
     let mut flow_state = HashMap::new();
     flow_state.insert(flow_key.clone(), flow_entry_for(failing_upstream, closed_target));
@@ -971,6 +983,7 @@ fn flow_send_error_moves_to_the_next_target_candidate() {
         client: client.local_addr().expect("client addr"),
         target: closed_target,
         preserve_host_in_response: false,
+        authoritative_host: None,
     };
     let mut entry = flow_entry_for(failing_upstream, closed_target);
     entry.target_candidates = vec![closed_target, fallback_target];
@@ -1016,8 +1029,12 @@ fn answered_flow_is_not_rearmed_as_unanswered_by_later_client_datagrams() {
     peer.connect(upstream.local_addr().expect("upstream addr")).expect("connect peer");
     let client_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client relay");
     let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client");
-    let key =
-        UdpFlowKey { client: client.local_addr().expect("client addr"), target, preserve_host_in_response: false };
+    let key = UdpFlowKey {
+        client: client.local_addr().expect("client addr"),
+        target,
+        preserve_host_in_response: false,
+        authoritative_host: None,
+    };
     let state = test_runtime_state(RuntimeConfig::default());
     let mut flow_state = HashMap::new();
     flow_state.insert(key.clone(), flow_entry_for(upstream, target));
@@ -1061,6 +1078,7 @@ fn hostless_follow_up_datagram_stays_on_the_flow_of_its_quic_initial() {
         host: Some("quic.example".to_string()),
         preserve_host_in_response: false,
         cache_host: false,
+        host_is_authoritative: false,
     };
     let handshake = UdpClientPacket { payload: b"handshake-without-sni", host: None, ..initial };
     let mut flows = HashMap::new();
@@ -1075,6 +1093,34 @@ fn hostless_follow_up_datagram_stays_on_the_flow_of_its_quic_initial() {
     let flow = flows.values().next().expect("flow");
     assert_eq!(flow.upstream.local_addr().expect("source").port(), source_port, "the source port must not change");
     assert_eq!(flow.host.as_deref(), Some("quic.example"), "the flow keeps the host its Initial carried");
+}
+
+#[test]
+fn socks_named_hosts_on_one_address_keep_separate_flows() {
+    let target = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target").local_addr().expect("target addr");
+    let state = test_runtime_state(RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() });
+    let first = UdpClientPacket {
+        sender: "127.0.0.1:53003".parse().expect("sender"),
+        original_target: target,
+        payload: b"to-a",
+        host: Some("a.example".to_string()),
+        preserve_host_in_response: true,
+        cache_host: false,
+        host_is_authoritative: true,
+    };
+    let second = UdpClientPacket { payload: b"to-b", host: Some("b.example".to_string()), ..first };
+    let mut flows = HashMap::new();
+
+    for packet in [&first, &second, &first] {
+        assert!(ensure_udp_flow_selected(&state, None, &mut flows, 8, packet, Instant::now(), None).expect("select"));
+    }
+
+    assert_eq!(flows.len(), 2, "two names on one address are two flows");
+    for packet in [&first, &second] {
+        let flow = flows.get(&packet.flow_key()).expect("flow per named host");
+        // Replies are labelled with the flow's host, so each must keep its own.
+        assert_eq!(flow.host, packet.host);
+    }
 }
 
 #[test]

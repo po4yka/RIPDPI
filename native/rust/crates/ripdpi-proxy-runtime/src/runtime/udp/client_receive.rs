@@ -18,6 +18,8 @@ pub(super) struct UdpClientPacket<'a> {
     pub(super) host: Option<String>,
     pub(super) preserve_host_in_response: bool,
     pub(super) cache_host: bool,
+    /// `host` came from the SOCKS5 header, not from the payload.
+    pub(super) host_is_authoritative: bool,
 }
 
 impl UdpClientPacket<'_> {
@@ -26,6 +28,7 @@ impl UdpClientPacket<'_> {
             client: self.sender,
             target: self.original_target,
             preserve_host_in_response: self.preserve_host_in_response,
+            authoritative_host: self.host.clone().filter(|_| self.host_is_authoritative),
         }
     }
 }
@@ -120,6 +123,7 @@ fn decode_udp_client_packet<'a>(
         host: parsed.host.or(udp_payload.host),
         preserve_host_in_response: parsed.preserve_host_in_response,
         cache_host: !authoritative_host && udp_payload.cache_host,
+        host_is_authoritative: authoritative_host,
     })
 }
 
