@@ -1,6 +1,6 @@
 use std::io;
 use std::net::{TcpListener, TcpStream};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::runtime::state::RuntimeState;
 
@@ -10,6 +10,29 @@ use super::{RuntimeShutdown, close_rejected_client};
 
 const ACCEPT_IDLE_SLEEP: Duration = Duration::from_millis(25);
 const ACCEPT_BATCH_LIMIT: usize = 64;
+const TRANSIENT_ACCEPT_REPORT_INTERVAL: Duration = Duration::from_secs(10);
+
+/// Rate-limits reports of a transient accept failure. EMFILE leaves the connection in the
+/// level-triggered backlog, so the same error repeats on every idle sleep (about 40 per
+/// second) for as long as file descriptors stay exhausted.
+#[derive(Default)]
+struct TransientAcceptReports {
+    last_report: Option<Instant>,
+    suppressed: u64,
+}
+
+impl TransientAcceptReports {
+    /// Returns the number of failures suppressed since the last report when this one
+    /// should be reported, or `None` inside the report interval.
+    fn should_report(&mut self, now: Instant) -> Option<u64> {
+        if self.last_report.is_some_and(|last| now.saturating_duration_since(last) < TRANSIENT_ACCEPT_REPORT_INTERVAL) {
+            self.suppressed += 1;
+            return None;
+        }
+        self.last_report = Some(now);
+        Some(std::mem::take(&mut self.suppressed))
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AcceptBatch {
@@ -44,12 +67,14 @@ fn poll_accept_loop(
     client_capacity: usize,
 ) -> io::Result<()> {
     listener.set_nonblocking(true)?;
+    let mut transient_reports = TransientAcceptReports::default();
 
     loop {
         if shutdown.requested() {
             return Ok(());
         }
-        match accept_ready_clients(&listener, &state, worker_pool, client_capacity, &shutdown)? {
+        match accept_ready_clients(&listener, &state, worker_pool, client_capacity, &shutdown, &mut transient_reports)?
+        {
             AcceptBatch::Shutdown => return Ok(()),
             AcceptBatch::Idle => std::thread::sleep(ACCEPT_IDLE_SLEEP),
             AcceptBatch::Busy => std::thread::yield_now(),
@@ -63,11 +88,18 @@ fn accept_ready_clients(
     worker_pool: &ClientWorkerPool,
     client_capacity: usize,
     shutdown: &RuntimeShutdown,
+    transient_reports: &mut TransientAcceptReports,
 ) -> io::Result<AcceptBatch> {
     accept_ready_clients_with(
         || listener.accept().map(|(stream, _addr)| stream),
         || shutdown.requested(),
         |stream| accept_client(stream, state, worker_pool, client_capacity),
+        |err| {
+            if let Some(suppressed) = transient_reports.should_report(Instant::now()) {
+                tracing::warn!(suppressed, "transient accept failure; retrying: {err}");
+                state.note_client_error(err);
+            }
+        },
     )
 }
 
@@ -75,6 +107,7 @@ fn accept_ready_clients_with(
     mut accept: impl FnMut() -> io::Result<TcpStream>,
     mut shutdown_requested: impl FnMut() -> bool,
     mut on_accept: impl FnMut(TcpStream) -> io::Result<()>,
+    mut on_transient_error: impl FnMut(&io::Error),
 ) -> io::Result<AcceptBatch> {
     let mut accepted = 0usize;
     while accepted < ACCEPT_BATCH_LIMIT {
@@ -94,7 +127,7 @@ fn accept_ready_clients_with(
             Err(err) => {
                 // fd exhaustion, memory pressure and pending network errors clear on their own;
                 // back off for one idle sleep instead of stopping the listener for every client.
-                tracing::warn!("transient accept failure; retrying: {err}");
+                on_transient_error(&err);
                 return Ok(AcceptBatch::Idle);
             }
         }
@@ -177,6 +210,7 @@ mod tests {
                 drop(stream);
                 Ok(())
             },
+            |_| {},
         )
         .expect("accept first batch");
 
@@ -202,6 +236,7 @@ mod tests {
                 drop(stream);
                 Ok(())
             },
+            |_| {},
         )
         .expect("accept until shutdown");
 
@@ -212,16 +247,33 @@ mod tests {
     #[test]
     fn transient_accept_error_backs_off_instead_of_stopping_listener() {
         for errno in [libc::EMFILE, libc::ENFILE, libc::ENOBUFS, libc::ENOMEM, libc::ECONNABORTED, libc::EPROTO] {
-            let batch = accept_ready_clients_with(|| Err(io::Error::from_raw_os_error(errno)), || false, |_| Ok(()))
-                .unwrap_or_else(|err| panic!("errno {errno} must not end the accept loop: {err}"));
+            let batch =
+                accept_ready_clients_with(|| Err(io::Error::from_raw_os_error(errno)), || false, |_| Ok(()), |_| {})
+                    .unwrap_or_else(|err| panic!("errno {errno} must not end the accept loop: {err}"));
             assert_eq!(batch, AcceptBatch::Idle, "errno {errno} must back off for one idle sleep");
         }
     }
 
     #[test]
+    fn persistent_transient_accept_error_is_reported_once_per_interval() {
+        let mut reports = TransientAcceptReports::default();
+        let start = Instant::now();
+
+        assert_eq!(reports.should_report(start), Some(0), "the first failure is reported");
+        for sleep in 1..=40 {
+            let now = start + ACCEPT_IDLE_SLEEP * sleep;
+            assert_eq!(reports.should_report(now), None, "repeats inside the interval stay quiet");
+        }
+        let later = start + TRANSIENT_ACCEPT_REPORT_INTERVAL;
+        assert_eq!(reports.should_report(later), Some(40), "the next report carries the suppressed count");
+        assert_eq!(reports.should_report(later), None);
+    }
+
+    #[test]
     fn listener_fd_errors_still_stop_the_accept_loop() {
         for errno in [libc::EBADF, libc::EINVAL, libc::ENOTSOCK] {
-            let result = accept_ready_clients_with(|| Err(io::Error::from_raw_os_error(errno)), || false, |_| Ok(()));
+            let result =
+                accept_ready_clients_with(|| Err(io::Error::from_raw_os_error(errno)), || false, |_| Ok(()), |_| {});
             assert!(result.is_err(), "errno {errno} means the listener is unusable");
         }
     }
