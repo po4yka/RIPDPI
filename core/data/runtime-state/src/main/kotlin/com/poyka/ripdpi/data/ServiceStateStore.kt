@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import android.util.Log
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -258,8 +259,10 @@ class DefaultServiceStateStore
                             widgetNotifier.pushUpdate(publication.target)
                         } catch (error: CancellationException) {
                             throw error
-                        } catch (_: Exception) {
-                            // The next projection change retries the publication.
+                        } catch (error: Exception) {
+                            // Class name only: exception messages can carry file paths.
+                            // A later, different snapshot is published again.
+                            Log.w(WidgetLogTag, "Widget publication failed: ${error.javaClass.name}")
                         }
                     }
             }
@@ -650,3 +653,5 @@ abstract class ServiceStateStoreModule {
     @Singleton
     abstract fun bindOrderedServiceStateStore(serviceStateStore: DefaultServiceStateStore): OrderedServiceStateStore
 }
+
+private const val WidgetLogTag = "ServiceStateStore"

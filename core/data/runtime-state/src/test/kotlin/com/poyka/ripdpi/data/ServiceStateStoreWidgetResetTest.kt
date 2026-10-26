@@ -14,6 +14,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.shadows.ShadowLog
 
 /**
  * Widget-surface half of the SIGKILL -> Halted invariant.
@@ -26,6 +29,7 @@ import org.junit.Test
  * stale active status (the inherent while-process-dead window aside, which no
  * app-side code can close). See `.claude/rules/android-vpn-lifecycle.md`.
  */
+@RunWith(RobolectricTestRunner::class)
 class ServiceStateStoreWidgetResetTest {
     @Test
     fun `constructing the store reconciles a stale active widget snapshot back to Halted`() {
@@ -125,6 +129,8 @@ class ServiceStateStoreWidgetResetTest {
 
         assertTrue("widget I/O failure escaped the collector: $failures", failures.isEmpty())
         assertEquals(AppStatus.Running, widget.writes.last().status)
+        val logged = ShadowLog.getLogsForTag("ServiceStateStore").map { it.msg }
+        assertEquals(listOf("Widget publication failed: java.io.IOException"), logged)
     }
 
     private fun unconfinedScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
