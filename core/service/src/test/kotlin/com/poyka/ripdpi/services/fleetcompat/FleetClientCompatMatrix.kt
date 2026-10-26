@@ -118,7 +118,7 @@ enum class CompatDimension(
     CUSTOM_NO_LOG_SECRETS(DimensionScope.CUSTOM_ANDROID),
     CUSTOM_PROFILE_SIGNATURE_EXPIRY_REVOCATION(DimensionScope.CUSTOM_ANDROID),
 
-    // Non-zero S3/S4 padding (AmneziaVPN 5.x) against the upstream peer; the arm64 floor is lifted.
+    // Emulator S3/S4 interoperability is observed; the shared physical-device deployment guard remains active.
     CUSTOM_AWG_S34_PADDING_INTEROP(DimensionScope.CUSTOM_ANDROID),
 }
 

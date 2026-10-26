@@ -860,14 +860,10 @@ mod tests {
         .expect("vendored AmneziaWG floor policy must be valid JSON");
 
         assert_eq!(policy["ripdpi_reference"]["upstream_semantics_version"].as_str(), Some("v0.2.18"));
-        // The codec has no arm64 floor, so the policy must not require one and must say why.
-        assert_eq!(policy["guard_required"].as_bool(), Some(false));
-        let verified = &policy["verified_safe_floor"];
-        assert_eq!(verified["evidence_kind"].as_str(), Some("android_arm64_emulator"));
-        assert_eq!(verified["platform"].as_str(), Some("android-arm64-emulator"));
-        assert_eq!(verified["results"]["s3_s4_zero_control_sessions"].as_str(), Some("48/48"));
-        assert_eq!(verified["physical_device_revalidated"].as_bool(), Some(false));
-        assert_eq!(verified["results"]["lost_udp_datagrams"].as_u64(), Some(0));
+        // Client emulator observations do not lift the shared physical-device deployment guard.
+        assert_eq!(policy["guard_required"].as_bool(), Some(true));
+        assert!(policy["candidate_safe_floor"].is_null());
+        assert!(policy["verified_safe_floor"].is_null());
     }
 
     #[test]
