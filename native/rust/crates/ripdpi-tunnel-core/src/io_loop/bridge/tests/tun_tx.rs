@@ -3,6 +3,7 @@ use smoltcp::phy::Device as _;
 use std::sync::Arc;
 
 use super::super::enqueue_tun_packet;
+use super::support::establish_tcp_connection;
 
 #[test]
 fn u20_enqueue_tun_packet_adds_to_queue() {
@@ -64,11 +65,34 @@ fn smoltcp_tx_token_queue_rejection_records_evidence_drop() {
     for _ in 0..4096 {
         assert!(device.tx_queue.push_back(vec![1]));
     }
+    // A reply to a received packet still takes a token and is dropped when the queue is full.
+    device.rx_queue.push_back(vec![0x45]);
+    let (_rx, tx) = device.receive(smoltcp::time::Instant::now()).expect("rx and tx tokens");
 
-    smoltcp::phy::TxToken::consume(device.transmit(smoltcp::time::Instant::now()).expect("tx token"), 1, |buf| {
+    smoltcp::phy::TxToken::consume(tx, 1, |buf| {
         buf[0] = 7;
     });
 
     assert_eq!(device.tx_queue.dropped_packets(), 1);
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
+}
+
+#[test]
+fn full_tx_queue_holds_smoltcp_segments_until_the_queue_drains() {
+    let mut device = TunDevice::new(1500);
+    let (mut iface, mut socket_set, handle, _server_seq) = establish_tcp_connection(&mut device);
+    for _ in 0..4096 {
+        assert!(device.tx_queue.push_back(vec![1]));
+    }
+
+    let payload = b"downstream data";
+    socket_set.get_mut::<smoltcp::socket::tcp::Socket>(handle).send_slice(payload).expect("queue data");
+    iface.poll(smoltcp::time::Instant::now(), &mut device, &mut socket_set);
+    assert_eq!(device.tx_queue.dropped_packets(), 0, "a full queue must stop smoltcp, not drop its segment");
+
+    device.tx_queue.clear();
+    iface.poll(smoltcp::time::Instant::now(), &mut device, &mut socket_set);
+    // The test peer advertised a zero window, so smoltcp sends the first byte as a window probe.
+    let sent = std::iter::from_fn(|| device.tx_queue.pop_front()).any(|pkt| pkt.get(40) == Some(&payload[0]));
+    assert!(sent, "the held segment must go out at the next poll, not after a retransmission timeout");
 }

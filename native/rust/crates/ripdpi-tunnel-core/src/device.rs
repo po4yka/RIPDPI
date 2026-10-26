@@ -65,6 +65,11 @@ impl TunTxQueue {
         self.queued_bytes = 0;
     }
 
+    /// Whether a packet of `len` bytes fits in the queue now.
+    pub fn has_room_for(&self, len: usize) -> bool {
+        self.packets.len() < self.max_packets && self.queued_bytes.saturating_add(len) <= self.max_bytes
+    }
+
     pub fn front(&self) -> Option<&Vec<u8>> {
         self.packets.front()
     }
@@ -205,7 +210,9 @@ impl Device for TunDevice {
     }
 
     fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
-        Some(OwnedTxToken(&mut self.tx_queue))
+        // `None` makes smoltcp stop egress and send the segment at a later poll. A token that the
+        // full queue then drops would lose a segment that smoltcp counts as sent, until an RTO.
+        self.tx_queue.has_room_for(self.mtu).then_some(OwnedTxToken(&mut self.tx_queue))
     }
 
     fn capabilities(&self) -> DeviceCapabilities {
