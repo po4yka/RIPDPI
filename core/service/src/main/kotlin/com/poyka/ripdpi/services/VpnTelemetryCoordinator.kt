@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.toStatus
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetrySamplingPolicy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -88,29 +90,61 @@ internal class VpnTelemetryCoordinator(
             launch { observeBuilderAffectingSettings(tunnelRefreshCoordinator) }
             while (state.status() == ServiceStatus.Connected) {
                 val session = state.runtimeSession() ?: return@replaceTelemetryJob
-                tunnelRefreshCoordinator.refreshIfNeeded(session)
-                if (state.status() != ServiceStatus.Connected) return@replaceTelemetryJob
-                val failureBoundary = VpnTelemetryFailureBoundary.capture(state, dependencies.xrayController)
-                val telemetry = pollCurrentTelemetry(evidenceCollector)
-                if (activeEvidenceCollector.get() !== evidenceCollector) return@replaceTelemetryJob
-                if (tunnelRefreshCoordinator.recoverIfNeeded(session, telemetry)) {
-                    tunnelRefreshCoordinator.refreshIfNeeded(session)
-                    if (state.status() != ServiceStatus.Connected) return@replaceTelemetryJob
-                }
-                when (failureHandler.handleOutcome(telemetry, failureBoundary)) {
-                    VpnTelemetryFailureHandling.StopAccepted -> {
-                        return@replaceTelemetryJob
+                val keepPolling =
+                    try {
+                        pollAndHandle(session, tunnelRefreshCoordinator, evidenceCollector)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") error: Exception,
+                    ) {
+                        // A store or reporter failure must not escape the service scope and kill the
+                        // process with the TUN up; the next poll retries.
+                        Logger.w(error) { "VPN telemetry poll failed" }
+                        true
                     }
-
-                    VpnTelemetryFailureHandling.DiscardStale -> {
-                        delay(nextTelemetryPollInterval())
-                        continue
-                    }
-
-                    VpnTelemetryFailureHandling.Continue -> {}
-                }
-                dependencies.telemetryReporter.report(telemetry, state)
+                if (!keepPolling) return@replaceTelemetryJob
                 delay(nextTelemetryPollInterval())
+            }
+        }
+    }
+
+    /** One telemetry iteration; returns false when the loop must end. */
+    private suspend fun pollAndHandle(
+        session: VpnRuntimeSession,
+        tunnelRefreshCoordinator: VpnTunnelRefreshCoordinator,
+        evidenceCollector: DataPlaneEvidenceCollector,
+    ): Boolean {
+        tunnelRefreshCoordinator.refreshIfNeeded(session)
+        if (state.status() != ServiceStatus.Connected) return false
+        val failureBoundary = VpnTelemetryFailureBoundary.capture(state, dependencies.xrayController)
+        val telemetry = pollCurrentTelemetry(evidenceCollector)
+        return activeEvidenceCollector.get() === evidenceCollector &&
+            handleTelemetry(session, tunnelRefreshCoordinator, telemetry, failureBoundary)
+    }
+
+    private suspend fun handleTelemetry(
+        session: VpnRuntimeSession,
+        tunnelRefreshCoordinator: VpnTunnelRefreshCoordinator,
+        telemetry: VpnTelemetrySnapshot,
+        failureBoundary: VpnTelemetryFailureBoundary,
+    ): Boolean {
+        if (tunnelRefreshCoordinator.recoverIfNeeded(session, telemetry)) {
+            tunnelRefreshCoordinator.refreshIfNeeded(session)
+            if (state.status() != ServiceStatus.Connected) return false
+        }
+        return when (failureHandler.handleOutcome(telemetry, failureBoundary)) {
+            VpnTelemetryFailureHandling.StopAccepted -> {
+                false
+            }
+
+            VpnTelemetryFailureHandling.DiscardStale -> {
+                true
+            }
+
+            VpnTelemetryFailureHandling.Continue -> {
+                dependencies.telemetryReporter.report(telemetry, state)
+                true
             }
         }
     }
@@ -191,7 +225,15 @@ internal class VpnTelemetryCoordinator(
         dependencies.vpnTunnelRuntime.desiredInterfacePolicySignatures.collect {
             if (state.status() != ServiceStatus.Connected) return@collect
             val session = state.runtimeSession() ?: return@collect
-            tunnelRefreshCoordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)
+            try {
+                tunnelRefreshCoordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (
+                @Suppress("TooGenericExceptionCaught") error: Exception,
+            ) {
+                Logger.w(error) { "VPN interface policy refresh failed" }
+            }
         }
     }
 }

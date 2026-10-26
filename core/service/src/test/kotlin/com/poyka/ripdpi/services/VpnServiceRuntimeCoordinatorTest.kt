@@ -1201,6 +1201,49 @@ class VpnServiceRuntimeCoordinatorTest {
             )
         }
 
+    @Test
+    fun dnsFailoverStoreFailureKeepsTelemetryLoopAliveAndRetries() =
+        runTest {
+            val env = newEnv()
+            env.resolverOverrides.setFailure = java.io.IOException("resolver override store unavailable")
+
+            env.startCaptured()
+            runCurrent()
+            repeat(2) { round ->
+                env.bridgeFactory.bridge.telemetry =
+                    NativeRuntimeSnapshot(
+                        source = "tunnel",
+                        state = "running",
+                        health = "healthy",
+                        dnsQueriesTotal = round + 1L,
+                        dnsFailuresTotal = round + 1L,
+                        lastDnsError = "resolver timeout",
+                    )
+                advanceTimeBy(1_000L)
+                repeat(3) { runCurrent() }
+            }
+            assertNull(env.resolverOverrides.override.value)
+
+            // The store recovers: the next failover poll must still run.
+            env.resolverOverrides.setFailure = null
+            repeat(2) { round ->
+                env.bridgeFactory.bridge.telemetry =
+                    NativeRuntimeSnapshot(
+                        source = "tunnel",
+                        state = "running",
+                        health = "healthy",
+                        dnsQueriesTotal = round + 3L,
+                        dnsFailuresTotal = round + 3L,
+                        lastDnsError = "resolver timeout",
+                    )
+                advanceTimeBy(1_000L)
+                repeat(3) { runCurrent() }
+            }
+
+            assertNotNull(env.resolverOverrides.override.value)
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+        }
+
     @Suppress("LongMethod")
     @Test
     fun dnsFailoverSuccessPersistsWinningPathWithoutRestartingProxy() =

@@ -211,8 +211,10 @@ internal class TestResolverOverrideStore(
 ) : com.poyka.ripdpi.data.ResolverOverrideStore {
     private val state = MutableStateFlow(initial)
     override val override: StateFlow<TemporaryResolverOverride?> = state.asStateFlow()
+    var setFailure: Exception? = null
 
     override fun setTemporaryOverride(override: TemporaryResolverOverride) {
+        setFailure?.let { throw it }
         state.value = override
     }
 

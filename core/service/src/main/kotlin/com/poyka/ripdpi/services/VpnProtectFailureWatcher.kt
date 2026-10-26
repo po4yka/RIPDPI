@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ServiceStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -18,7 +19,16 @@ internal class VpnProtectFailureWatcher(
         job =
             dependencies.host.serviceScope.launch(dependencies.ioDispatcher, start = CoroutineStart.UNDISPATCHED) {
                 dependencies.vpnProtectFailureMonitor.events.collect { event ->
-                    handle(event)
+                    try {
+                        handle(event)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") error: Exception,
+                    ) {
+                        // An escaped failure would kill the process with the TUN up and stop watching.
+                        Logger.e(error) { "VPN protect failure handling failed" }
+                    }
                 }
             }
     }
