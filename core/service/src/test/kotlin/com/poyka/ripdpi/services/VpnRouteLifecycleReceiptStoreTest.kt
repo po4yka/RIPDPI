@@ -42,6 +42,27 @@ class VpnRouteLifecycleReceiptStoreTest {
     }
 
     @Test
+    fun `profile receipt names only the address and DNS families that the Builder installs`() {
+        val store = VpnRouteLifecycleReceiptStore()
+        store.beginIntended(
+            ipv6Enabled = true,
+            dns = "1.1.1.1",
+            appRoutingPlan = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi")),
+            ownPackage = "com.poyka.ripdpi",
+            networkParameters = VpnTunnelNetworkParameters(),
+            apiLevel = Build.VERSION_CODES.Q,
+            profileInterface =
+                VpnProfileInterface(listOf("1.1.1.1", "2606:4700::1111"), listOf("0.0.0.0/0"), true, 1280),
+        )
+
+        val receipt = store.capture().lifecycle
+        // AllowedIPs route only IPv4, so the Builder installs no IPv6 address and no IPv6 DNS server.
+        assertEquals(listOf(VpnRouteFamilyIpv4), receipt?.intendedDefaultRouteFamilies)
+        assertEquals(listOf(VpnRouteFamilyIpv4), receipt?.addressFamilies)
+        assertEquals(listOf(VpnRouteFamilyIpv4), receipt?.dnsServerFamilies)
+    }
+
+    @Test
     fun `forwarding outcome is correlated to current lifecycle generation`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()

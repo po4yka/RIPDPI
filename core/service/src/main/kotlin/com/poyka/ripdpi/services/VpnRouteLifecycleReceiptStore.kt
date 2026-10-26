@@ -53,15 +53,17 @@ class VpnRouteLifecycleReceiptStore
             profileInterface: VpnProfileInterface? = null,
         ): Long {
             val generation = nextGeneration.incrementAndGet()
-            val addressFamilies = intendedDefaultRouteFamilies(ipv6Enabled)
+            // Same sources as the Builder (createBuilder), so the receipt names only what is installed.
+            val profilePlan = profileInterface?.routePlan(dns)
+            val addressFamilies =
+                profilePlan?.addresses?.map { it.address }?.let(::familiesOf)
+                    ?: intendedDefaultRouteFamilies(ipv6Enabled)
             val routeFamilies =
-                profileInterface
-                    ?.routePlan()
+                profilePlan
                     ?.routes
                     ?.filter { it.prefixLength == 0 }
-                    ?.map { if (':' in it.address) VpnRouteFamilyIpv6 else VpnRouteFamilyIpv4 }
-                    ?.distinct()
-                    ?.sorted() ?: addressFamilies
+                    ?.map { it.address }
+                    ?.let(::familiesOf) ?: addressFamilies
             pendingReceipts[generation] =
                 ReceiptRecord(
                     receipt =
@@ -71,7 +73,7 @@ class VpnRouteLifecycleReceiptStore
                             intendedDefaultRouteFamilies = routeFamilies,
                             addressFamilies = addressFamilies,
                             dnsServerFamilies =
-                                (profileInterface?.dnsServers?.takeIf { it.isNotEmpty() } ?: listOf(dns))
+                                (profileInterface?.effectiveDnsServers(dns) ?: listOf(dns))
                                     .flatMap(::dnsAddressFamilies)
                                     .distinct()
                                     .sorted(),
@@ -629,6 +631,9 @@ private fun isSupportedRouteFamily(family: String): Boolean =
 
 private fun intendedDefaultRouteFamilies(ipv6Enabled: Boolean): List<String> =
     if (ipv6Enabled) listOf(VpnRouteFamilyIpv4, VpnRouteFamilyIpv6) else listOf(VpnRouteFamilyIpv4)
+
+private fun familiesOf(addresses: List<String>): List<String> =
+    addresses.map { if (':' in it) VpnRouteFamilyIpv6 else VpnRouteFamilyIpv4 }.distinct().sorted()
 
 private fun dnsAddressFamilies(dns: String): List<String> =
     when {
