@@ -103,6 +103,7 @@ flow_sections:
       - mieru_profile
       - ssh_profile
       - xray_import
+      - subscription_add
 
 pages:
   - id: onboarding

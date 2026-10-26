@@ -60,13 +60,16 @@ class SimpleHomeScreenTest {
     private fun actuator() = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
 
     /**
-     * A release requires explicit confirmation: the first accessibility action arms the
-     * actuator, and the second commits it. Gesture mechanics belong to
+     * A release requires the disconnect dialog's explicit confirmation.
+     * Gesture mechanics belong to
      * RipDpiConnectionActuatorTest.
      */
     private fun confirmDeactivation() {
         actuator().performSemanticsAction(SemanticsActions.OnClick)
-        actuator().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm)
+            .assertIsDisplayed()
+            .performClick()
     }
 
     private fun openActuator() =
@@ -681,7 +684,7 @@ class SimpleHomeScreenTest {
 
         composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
         composeRule.onNodeWithText("Two recommended settings are ready to review.").assertIsDisplayed()
-        composeRule.onNodeWithText("Share Logs & Results").assertIsEnabled().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).assertIsEnabled().performClick()
         composeRule.runOnIdle { assertEquals(1, shareClicks) }
     }
 
@@ -771,7 +774,7 @@ class SimpleHomeScreenTest {
         composeRule.onNodeWithText("The handshake probe timed out on this network.").assertIsDisplayed()
         composeRule.onNodeWithText("Diagnostic report failed. Try again.").assertDoesNotExist()
         // The archive from a failed run is the one worth sending on.
-        composeRule.onNodeWithText("Share Logs & Results").assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).assertIsEnabled()
     }
 
     @Test
@@ -813,7 +816,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Share Logs & Results").assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).assertIsNotEnabled()
         composeRule.onNodeWithText("Save archive").assertIsEnabled().performClick()
         composeRule.runOnIdle { assertEquals(1, saveClicks) }
     }
