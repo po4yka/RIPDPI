@@ -173,7 +173,9 @@ impl MasqueUdpRelay {
                 return Err(error);
             }
             tracing::info!(target, error = %error, "MASQUE H3 UDP connect failed, falling back to HTTP/2");
-            self.client.arm_h3_udp_cooldown().await;
+            if is_h3_transport_failure(&error) {
+                self.client.arm_h3_udp_cooldown().await;
+            }
             reason
         };
         let h2 = self
@@ -219,6 +221,14 @@ impl MasqueUdpRelay {
             black_holes_detected: path.black_holes_detected,
         })
     }
+}
+
+/// Whether an H3 attempt failed in its transport (QUIC handshake, UDP blocked,
+/// timeout) rather than by a proxy answer about this request (refused target,
+/// auth error, malformed response). Only a transport failure says H3 is
+/// unusable on this path for other targets.
+fn is_h3_transport_failure(error: &io::Error) -> bool {
+    !matches!(error.kind(), io::ErrorKind::PermissionDenied | io::ErrorKind::InvalidInput | io::ErrorKind::InvalidData)
 }
 
 fn make_room_for_flow(flows: &mut HashMap<String, MasqueUdpFlow>, now: Instant, max_flows: usize) {

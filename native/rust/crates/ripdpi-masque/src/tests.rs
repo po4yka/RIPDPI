@@ -1474,6 +1474,53 @@ async fn new_udp_flows_go_straight_to_http2_after_a_recent_h3_failure() {
     assert_eq!(fixture.observed_requests().len(), 2);
 }
 
+#[tokio::test]
+async fn an_h3_refusal_of_one_target_does_not_arm_the_h3_cooldown() {
+    let (certificate_der, key_der, certificate_pem) = localhost_certificate();
+    let mut tls = rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("TLS versions")
+        .with_no_client_auth()
+        .with_single_cert(
+            vec![rustls::pki_types::CertificateDer::from(certificate_der)],
+            rustls::pki_types::PrivatePkcs8KeyDer::from(key_der).into(),
+        )
+        .expect("server certificate");
+    tls.alpn_protocols = vec![b"h3".to_vec()];
+    let quic = quinn::crypto::rustls::QuicServerConfig::try_from(tls).expect("QUIC server config");
+    let endpoint = quinn::Endpoint::server(
+        quinn::ServerConfig::with_crypto(Arc::new(quic)),
+        "127.0.0.1:0".parse().expect("server address"),
+    )
+    .expect("server endpoint");
+    let proxy_address = endpoint.local_addr().expect("proxy address");
+    let server = tokio::spawn(async move {
+        let connection = endpoint.accept().await.expect("incoming").await.expect("QUIC handshake");
+        let mut builder = ::h3::server::builder();
+        builder.enable_extended_connect(true);
+        builder.enable_datagram(true);
+        let mut h3_connection: ::h3::server::Connection<h3_quinn::Connection, Bytes> =
+            builder.build(h3_quinn::Connection::new(connection)).await.expect("H3 server");
+        let resolver = h3_connection.accept().await.expect("accept").expect("request");
+        let (_request, mut stream) = resolver.resolve_request().await.expect("resolve request");
+        let response = http::Response::builder().status(StatusCode::FORBIDDEN).body(()).expect("response");
+        stream.send_response(response).await.expect("send response");
+        stream.finish().await.expect("finish response");
+        h3_connection
+    });
+
+    let mut config = h3_connect_udp_proxy_config(proxy_address, certificate_pem);
+    config.url = format!("https://localhost:{}/", proxy_address.port());
+    config.use_http2_fallback = true;
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+    // H3 works but refuses this target; the H2 fallback has no listener.
+    udp.ensure_flow("127.0.0.1:9").await.expect_err("both attempts fail");
+    let _h3_connection = server.await.expect("server task");
+
+    assert!(!udp.client.h3_udp_in_cooldown().await, "a refused target must not push other flows off H3");
+}
+
 fn keep_alive_pings(udp: &MasqueUdpRelay, target: &str) -> u64 {
     let connection = udp.flows.get(target).and_then(|flow| flow.path_connection.as_ref()).expect("H3 flow");
     let stats = connection.stats();
