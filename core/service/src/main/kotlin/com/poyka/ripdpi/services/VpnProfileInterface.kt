@@ -46,20 +46,7 @@ internal fun VpnProfileInterface.routePlan(fallbackDns: String = ""): VpnTunnelR
                     VpnTunnelRouteEntry(checkNotNull(InetAddress.getByAddress(bytes).hostAddress), prefix)
                 } +
                     effectiveDnsServers(fallbackDns).map { address ->
-                        when {
-                            // MapDNS answers from its synthetic pool; those addresses must enter the TUN.
-                            address == VpnInterceptorDnsAddress -> {
-                                VpnTunnelRouteEntry(MapDnsPoolNetwork, MapDnsPoolPrefixBits)
-                            }
-
-                            address.isIpv6Literal() -> {
-                                VpnTunnelRouteEntry(address, Ipv6PrefixBits)
-                            }
-
-                            else -> {
-                                VpnTunnelRouteEntry(address, Ipv4PrefixBits)
-                            }
-                        }
+                        VpnTunnelRouteEntry(address, if (address.isIpv6Literal()) Ipv6PrefixBits else Ipv4PrefixBits)
                     }
             ).distinct(),
     )
@@ -115,5 +102,3 @@ private const val Ipv4PrefixBits = 32
 private const val Ipv6PrefixBits = 128
 private const val Ipv6Groups = 8
 private const val HexRadix = 16
-private const val MapDnsPoolNetwork = "198.18.0.0"
-private const val MapDnsPoolPrefixBits = 15
