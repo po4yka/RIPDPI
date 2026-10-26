@@ -109,9 +109,14 @@ impl HysteriaClient {
                 Ok(stream)
             }
             Err(error) => match migration {
-                Some(migration) => {
+                Some(migration) if error.is_path_failure() => {
                     migration.rollback("stream_open_failed_after_rebind")?;
                     self.open_tcp_stream(address).await
+                }
+                Some(migration) => {
+                    // The server answered on the new path; only the target failed.
+                    migration.complete("server_responded_after_rebind");
+                    Err(error)
                 }
                 None => Err(error),
             },
@@ -182,6 +187,26 @@ fn udp_auth_settle_grace(is_android: bool) -> Duration {
 #[cfg(test)]
 mod tests {
     use super::{ANDROID_UDP_AUTH_SETTLE_GRACE, udp_auth_settle_grace};
+    use crate::test_server::{ServerEvent, ServerOptions, TestServer};
+
+    /// A server that answers on the new path proves the path works; its
+    /// refusal must neither roll the shared endpoint back nor send the
+    /// CONNECT twice.
+    #[tokio::test]
+    async fn refused_tcp_connect_after_rebind_keeps_the_migration_and_is_sent_once() {
+        let mut server =
+            TestServer::start(ServerOptions { refuse_tcp: true, ..ServerOptions::default() }).expect("test server");
+        let mut config = server.client_config();
+        config.quic_migrate_after_handshake = true;
+        let client = crate::connect(&config).await.expect("connect");
+
+        let error = client.tcp_connect("192.0.2.1:80").await.err().expect("the server refuses the target");
+
+        assert!(matches!(error, crate::HysteriaError::TcpConnect(_)), "unexpected error: {error}");
+        assert_eq!(client.quic_migration_snapshot().0.as_deref(), Some("validated"));
+        assert_eq!(server.events.recv().await, Some(ServerEvent::TcpRequest("192.0.2.1:80".into())));
+        assert!(server.events.try_recv().is_err(), "the refused CONNECT was sent again");
+    }
 
     #[test]
     fn android_udp_waits_for_server_auth_handoff_before_first_datagram() {

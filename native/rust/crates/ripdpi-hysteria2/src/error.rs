@@ -37,3 +37,15 @@ pub enum HysteriaError {
 }
 
 pub type Result<T> = std::result::Result<T, HysteriaError>;
+
+impl HysteriaError {
+    /// Whether the error can come from the QUIC path itself (a lost
+    /// connection or failed write) rather than from a peer answer or a
+    /// local payload check. Only path failures justify undoing a migration.
+    pub(crate) fn is_path_failure(&self) -> bool {
+        matches!(
+            self,
+            Self::QuicConnection(_) | Self::QuicWrite(_) | Self::QuicDatagram(_) | Self::QuicClosed(_) | Self::Io(_)
+        )
+    }
+}

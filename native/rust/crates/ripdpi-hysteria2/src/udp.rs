@@ -59,11 +59,13 @@ impl UdpSession {
                 Ok(())
             }
             Err(error) => match migration {
-                Some(migration) => {
+                Some(migration) if error.is_path_failure() => {
                     migration.rollback("datagram_send_failed_after_rebind")?;
                     send_udp_payload(&self.client, session_id, packet_id, address, payload).await
                 }
-                None => Err(error),
+                // A payload the server cannot carry fails on any path; the
+                // attempt rolls back on drop and the datagram is not resent.
+                _ => Err(error),
             },
         }
     }
