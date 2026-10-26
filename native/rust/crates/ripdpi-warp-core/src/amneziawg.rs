@@ -830,6 +830,18 @@ mod tests {
     }
 
     #[test]
+    fn from_config_rejects_out_of_range_s3_and_s4() {
+        for (padding, index, value) in [([0, 0, 1281, 0], 2, 1281), ([0, 0, 0, -1], 3, -1)] {
+            let c = cfg(0, 0, 0, [0; 4], padding);
+            assert_eq!(
+                AwgParams::from_config(&c, &no_special()),
+                Err(AwgParamsError::PaddingTooLarge { index, value, limit: PADDING_SIZE_LIMIT }),
+                "S padding {padding:?} must be rejected",
+            );
+        }
+    }
+
+    #[test]
     fn non_zero_s3_and_s4_are_accepted_on_every_platform() {
         let config = cfg(0, 0, 0, [0; 4], [12, 12, 12, 12]);
         assert!(AwgParams::from_config(&config, &[""; 5]).is_ok());
