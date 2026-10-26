@@ -111,7 +111,7 @@ impl TcpSession {
                 SocketAddr::V4(_) => TcpSocket::new_v4()?,
                 SocketAddr::V6(_) => TcpSocket::new_v6()?,
             };
-            protect_socket_if_available(&socket, protect_path.as_deref())?;
+            protect_socket_if_available(&socket, addr.ip(), protect_path.as_deref())?;
             socket.connect(addr).await
         })
         .await

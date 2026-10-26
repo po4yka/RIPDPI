@@ -157,7 +157,7 @@ impl UdpSession {
             SocketAddr::V4(_) => TcpSocket::new_v4()?,
             SocketAddr::V6(_) => TcpSocket::new_v6()?,
         };
-        protect_socket_if_available(&ctrl_socket, protect_path)?;
+        protect_socket_if_available(&ctrl_socket, proxy_addr.ip(), protect_path)?;
         let mut ctrl = ctrl_socket.connect(proxy_addr).await?;
         handshake(&mut ctrl, &auth).await?;
         let relay_addr = associate(&mut ctrl).await?;
@@ -170,7 +170,7 @@ impl UdpSession {
             (Domain::IPV6, "[::]:0".parse().unwrap())
         };
         let relay_socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-        protect_socket_if_available(&relay_socket, protect_path)?;
+        protect_socket_if_available(&relay_socket, relay_addr.ip(), protect_path)?;
         relay_socket.bind(&SockAddr::from(bind_addr))?;
         relay_socket.set_nonblocking(true)?;
         let udp = UdpSocket::from_std(relay_socket.into())?;
@@ -694,13 +694,12 @@ mod tests {
         assert_eq!(accepted_tcp_connections.load(Ordering::Relaxed), 1);
     }
 
-    /// G1 regression: both the control TCP socket and the relay UDP socket must
-    /// pass through the `VpnService.protect()` callback before they issue
-    /// connect/bind, so a non-loopback proxy address cannot loop traffic back
-    /// into the TUN the VPN owns. See
-    /// `.claude/rules/vpnservice-protect-invariant.md`.
+    /// A loopback proxy hop never enters the TUN, so neither the control TCP
+    /// socket nor the relay UDP socket makes the blocking protect round trip on
+    /// the shared runtime. The non-loopback case (G1 regression) is covered in
+    /// `session::protect`. See `.claude/rules/vpnservice-protect-invariant.md`.
     #[tokio::test]
-    async fn udp_session_protects_ctrl_and_relay_sockets() {
+    async fn udp_session_to_a_loopback_proxy_skips_protect() {
         use ripdpi_runtime_platform::protect::{
             ProtectCallback, ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if,
         };
@@ -753,15 +752,8 @@ mod tests {
             .expect("echo response");
         assert_eq!(payload, b"ping");
 
-        // The recorder captured at least the control TCP fd and the relay UDP
-        // fd, both protected before they were used. (Other concurrent tests in
-        // this binary may add more fds to the shared slot; the floor is what
-        // this session protected.)
         let protected = recorder.fds.lock().expect("recorder lock").len();
-        assert!(
-            protected >= 2,
-            "expected the ctrl + relay sockets to be protected before use, got {protected} protect call(s)"
-        );
+        assert_eq!(protected, 0, "loopback ctrl and relay sockets need no protect call");
     }
 
     // ── QUIC E2E: real QUIC handshake + echo through the tunnel's SOCKS5 UDP relay ──
