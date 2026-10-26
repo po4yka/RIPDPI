@@ -68,10 +68,11 @@ private fun AppSettings.Builder.addTcpChainStepSnapshot(step: AppSettingsTcpChai
             .setMinFragmentSize(step.minFragmentSize)
             .setMaxFragmentSize(step.maxFragmentSize)
             .setIpv6ExtensionProfile(normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile))
-            .setTcpFlagsSet(step.tcpFlagsSet.orEmpty())
-            .setTcpFlagsUnset(step.tcpFlagsUnset.orEmpty())
-            .setTcpFlagsOrigSet(step.tcpFlagsOrigSet.orEmpty())
-            .setTcpFlagsOrigUnset(step.tcpFlagsOrigUnset.orEmpty())
+            // normalizeTcpFlagMask rejects an unknown flag, so a bad backup fails before it is stored.
+            .setTcpFlagsSet(normalizeTcpFlagMask(step.tcpFlagsSet.orEmpty()))
+            .setTcpFlagsUnset(normalizeTcpFlagMask(step.tcpFlagsUnset.orEmpty()))
+            .setTcpFlagsOrigSet(normalizeTcpFlagMask(step.tcpFlagsOrigSet.orEmpty()))
+            .setTcpFlagsOrigUnset(normalizeTcpFlagMask(step.tcpFlagsOrigUnset.orEmpty()))
             .apply {
                 val normalizedFilter = normalizeActivationFilter(step.activationFilter)
                 if (!normalizedFilter.isEmpty) {

@@ -6,7 +6,13 @@ import com.poyka.ripdpi.proto.StrategyUdpStep
 
 private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
     val kind = TcpChainStepKind.fromWireName(kind) ?: return null
-    return normalizeTcpChainStepModel(
+    // A stored value this build rejects (an unknown TCP flag, for example) drops the step
+    // like an unknown kind does, instead of failing every read of the settings.
+    return runCatching { toModel(kind) }.getOrNull()
+}
+
+private fun StrategyTcpStep.toModel(kind: TcpChainStepKind): TcpChainStepModel =
+    normalizeTcpChainStepModel(
         TcpChainStepModel(
             kind = kind,
             marker = normalizeTcpMarker(kind, marker),
@@ -27,7 +33,6 @@ private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
             tcpFlagsOrigUnset = normalizeTcpFlagMask(tcpFlagsOrigUnset),
         ),
     )
-}
 
 private fun StrategyUdpStep.toModelOrNull(): UdpChainStepModel? {
     val resolvedKind = UdpChainStepKind.fromWireName(kind) ?: return null
