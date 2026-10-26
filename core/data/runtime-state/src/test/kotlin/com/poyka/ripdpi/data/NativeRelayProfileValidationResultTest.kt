@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -50,5 +51,19 @@ class NativeRelayProfileValidationResultTest {
 
         assertTrue(result.isSuccess)
         assertTrue("a native relay kind validates to true", result.getOrThrow())
+    }
+
+    @Test
+    fun `pasted whitespace around vless and reality fields is rejected like the native parsers do`() {
+        val uuid = "11111111-2222-3333-4444-555555555555"
+        val encoder = java.util.Base64.getEncoder()
+        val publicKey = encoder.encodeToString(ByteArray(32) { it.toByte() })
+
+        assertTrue(isValidVlessUuid(uuid))
+        assertFalse(isValidVlessUuid("$uuid\n"))
+        assertTrue(isValidRealityPublicKey(publicKey))
+        assertFalse(isValidRealityPublicKey(" $publicKey"))
+        assertTrue(isValidRealityShortId("ab12"))
+        assertFalse(isValidRealityShortId("ab12 "))
     }
 }

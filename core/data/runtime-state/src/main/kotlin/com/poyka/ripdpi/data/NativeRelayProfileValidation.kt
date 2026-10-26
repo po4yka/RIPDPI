@@ -128,34 +128,34 @@ fun isValidRelayXhttpMode(value: String): Boolean =
         else -> false
     }
 
+// The validators do not trim: the native parsers (ripdpi-vless parse_uuid, Reality key and short-ID
+// decoding) reject surrounding whitespace, so a value Kotlin accepts must reach Rust unchanged.
 fun isValidVlessUuid(value: String?): Boolean {
-    val normalized = value?.trim()?.filterNot { it == '-' } ?: return false
+    val normalized = value?.filterNot { it == '-' } ?: return false
     return normalized.length == VlessUuidHexLength && normalized.all(Char::isHexDigit)
 }
 
 fun isValidRealityPublicKey(value: String): Boolean {
-    val trimmed = value.trim()
-    if (trimmed.isEmpty()) {
+    if (value.isEmpty()) {
         return false
     }
     return listOf(
         Base64.getDecoder(),
         Base64.getUrlDecoder(),
     ).any { decoder ->
-        runCatching { decoder.decode(trimmed) }
+        runCatching { decoder.decode(value) }
             .getOrNull()
             ?.size == RealityPublicKeyByteLength
     }
 }
 
 fun isValidRealityShortId(value: String): Boolean {
-    val trimmed = value.trim()
-    if (trimmed.isEmpty()) {
+    if (value.isEmpty()) {
         return true
     }
-    return trimmed.length <= RealityShortIdMaxHexLength &&
-        trimmed.length % 2 == 0 &&
-        trimmed.all(Char::isHexDigit)
+    return value.length <= RealityShortIdMaxHexLength &&
+        value.length % 2 == 0 &&
+        value.all(Char::isHexDigit)
 }
 
 private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
