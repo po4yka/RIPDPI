@@ -1,6 +1,7 @@
 mod execution;
 mod failure_retry;
 mod first_exchange;
+mod half_close;
 mod pending_response;
 mod platform;
 mod session;

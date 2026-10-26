@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
+use super::super::half_close::HalfCloseLinger;
 use super::super::session::RelaySharedSession;
 use super::RELAY_IDLE_TIMEOUT;
 use super::cleanup::shutdown_direction;
@@ -21,15 +22,17 @@ pub(super) fn copy_outbound_half(
     mut remembered_host: Option<String>,
 ) -> io::Result<()> {
     let mut buffer = [0u8; 16_384];
+    let mut linger = HalfCloseLinger::default();
     loop {
         let _ = reader.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {
+                linger.on_data();
                 flush_outbound_payload(&mut writer, &state, group_index, &session, &mut remembered_host, &buffer[..n])?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-                if peer_done.load(Ordering::Acquire) {
+                if linger.expired(&peer_done, std::time::Instant::now()) {
                     break;
                 }
                 continue;

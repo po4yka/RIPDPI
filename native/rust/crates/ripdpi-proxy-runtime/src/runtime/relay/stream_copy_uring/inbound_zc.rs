@@ -7,6 +7,7 @@ use std::time::Instant;
 
 use ripdpi_io_uring::IoUringDriver;
 
+use super::super::half_close::HalfCloseLinger;
 use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;
@@ -46,6 +47,7 @@ pub(super) fn copy_inbound_zc(
     let mut detector =
         FreezeDetector::new(timeouts.freeze_window_ms, timeouts.freeze_min_bytes, timeouts.freeze_max_stalls);
 
+    let mut linger = HalfCloseLinger::default();
     loop {
         let Some(mut handle) = acquire_registered_buffer(uring) else {
             #[cfg(test)]
@@ -56,6 +58,7 @@ pub(super) fn copy_inbound_zc(
         match reader.read(handle.as_mut_buf()) {
             Ok(0) => break,
             Ok(n) => {
+                linger.on_data();
                 if !handle.set_len(n) {
                     return Err(io::Error::new(io::ErrorKind::InvalidData, "read exceeded registered buffer capacity"));
                 }
@@ -105,7 +108,7 @@ pub(super) fn copy_inbound_zc(
                     freeze_detected.store(true, Ordering::Release);
                     break;
                 }
-                if peer_done.load(Ordering::Acquire) {
+                if linger.expired(&peer_done, std::time::Instant::now()) {
                     break;
                 }
                 continue;

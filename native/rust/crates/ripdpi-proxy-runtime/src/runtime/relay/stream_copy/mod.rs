@@ -230,4 +230,48 @@ mod tests {
             assert_eq!(d.consecutive_stalls, 0);
         }
     }
+
+    #[test]
+    fn response_after_client_half_close_survives_an_idle_read_timeout() {
+        use std::io::{Read, Write};
+        use std::net::{Ipv4Addr, TcpListener};
+
+        fn pair() -> (TcpStream, TcpStream) {
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind pair");
+            let first = TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+            (first, listener.accept().expect("accept").0)
+        }
+        let (mut upstream_reader, mut origin) = pair();
+        let (mut client_writer, mut app) = pair();
+        // A short idle timeout stands in for RELAY_IDLE_TIMEOUT; the client already sent FIN.
+        upstream_reader.set_read_timeout(Some(Duration::from_millis(30))).expect("idle timeout");
+        let peer_done = Arc::new(AtomicBool::new(true));
+        let server = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(150));
+            origin.write_all(b"late response").expect("late response");
+        });
+        let state = RuntimeState::test(crate::runtime::config::RuntimeConfig::default());
+        let relay = thread::spawn(move || {
+            copy_inbound_half(
+                &mut upstream_reader,
+                &mut client_writer,
+                &state,
+                super::super::session::FirstOutboundSession::new().into_relay_session().into_shared(),
+                Arc::new(Mutex::new(None)),
+                None,
+                peer_done,
+                FreezeDetector::new(5000, 512, 0),
+                Arc::new(AtomicBool::new(false)),
+            )
+        });
+
+        app.set_read_timeout(Some(Duration::from_secs(2))).expect("app timeout");
+        let mut response = [0u8; 13];
+        let read = app.read_exact(&mut response);
+        server.join().expect("server");
+        assert!(read.is_ok(), "the response after the client FIN was cut: {read:?}");
+        assert_eq!(&response, b"late response");
+        drop(app);
+        drop(relay);
+    }
 }

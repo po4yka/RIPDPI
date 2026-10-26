@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
+use super::super::half_close::HalfCloseLinger;
 use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;
@@ -18,10 +19,12 @@ pub(super) fn copy_inbound_fallback(
     freeze_detected: Arc<AtomicBool>,
 ) -> io::Result<()> {
     let mut buffer = [0u8; 16_384];
+    let mut linger = HalfCloseLinger::default();
     loop {
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {
+                linger.on_data();
                 session.observe_inbound_payload(&buffer[..n]);
                 writer.write_all(&buffer[..n])?;
                 detector.record_bytes(n);
@@ -35,7 +38,7 @@ pub(super) fn copy_inbound_fallback(
                     freeze_detected.store(true, Ordering::Release);
                     break;
                 }
-                if peer_done.load(Ordering::Acquire) {
+                if linger.expired(&peer_done, std::time::Instant::now()) {
                     break;
                 }
                 continue;

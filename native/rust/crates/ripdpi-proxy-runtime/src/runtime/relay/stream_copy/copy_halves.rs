@@ -7,6 +7,7 @@ use std::time::Instant;
 
 use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
+use super::super::half_close::HalfCloseLinger;
 use super::super::platform as relay_platform;
 use super::super::session::RelaySharedSession;
 use super::RELAY_IDLE_TIMEOUT;
@@ -26,6 +27,7 @@ pub(super) fn copy_inbound_half(
     freeze_detected: Arc<AtomicBool>,
 ) -> io::Result<()> {
     let (mut buffer, target) = ([0u8; 16_384], reader.peer_addr().ok());
+    let mut linger = HalfCloseLinger::default();
     loop {
         match reader.read(&mut buffer) {
             Ok(0) => {
@@ -52,6 +54,7 @@ pub(super) fn copy_inbound_half(
                     );
                 }
                 writer.write_all(&buffer[..n])?;
+                linger.on_data();
                 detector.record_bytes(n);
                 if detector.check(Instant::now()) {
                     freeze_detected.store(true, Ordering::Release);
@@ -63,7 +66,7 @@ pub(super) fn copy_inbound_half(
                     freeze_detected.store(true, Ordering::Release);
                     break;
                 }
-                if peer_done.load(Ordering::Acquire) {
+                if linger.expired(&peer_done, Instant::now()) {
                     break;
                 }
                 continue;
@@ -157,6 +160,7 @@ pub(super) fn copy_outbound_half(
     peer_done: Arc<AtomicBool>,
 ) -> io::Result<()> {
     let mut buffer = [0u8; 16_384];
+    let mut linger = HalfCloseLinger::default();
     loop {
         let _ = reader.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
         match reader.read(&mut buffer) {
@@ -171,9 +175,10 @@ pub(super) fn copy_outbound_half(
                     rotation.as_ref(),
                     &buffer[..n],
                 )?;
+                linger.on_data();
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-                if peer_done.load(Ordering::Acquire) {
+                if linger.expired(&peer_done, Instant::now()) {
                     break;
                 }
                 continue;
