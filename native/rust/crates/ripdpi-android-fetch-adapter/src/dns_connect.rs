@@ -1,0 +1,55 @@
+use std::io;
+use std::net::{SocketAddr, TcpStream as StdTcpStream};
+use std::os::fd::AsRawFd;
+use std::time::Duration;
+
+use ripdpi_dns_resolver::EncryptedDnsConnectHooks;
+use ripdpi_runtime_platform::protect::{has_protect_callback, protect_socket_via_callback};
+use tokio::time::timeout;
+
+use crate::socket_protection::tcp_socket_for;
+
+pub(crate) fn owned_fetch_dns_connect_hooks() -> EncryptedDnsConnectHooks {
+    EncryptedDnsConnectHooks::new().with_direct_tcp_connector(connect_dns_bootstrap)
+}
+
+/// Protected TCP connect to a DoH bootstrap address.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it closes the unconnected socket; no shared state
+/// spans the `.await`.
+async fn connect_dns_bootstrap(target: SocketAddr, connect_timeout: Duration) -> io::Result<StdTcpStream> {
+    let socket = tcp_socket_for(target)?;
+    if has_protect_callback() {
+        protect_socket_via_callback(socket.as_raw_fd())
+            .map_err(|error| io::Error::new(error.kind(), format!("protect owned fetch DNS socket: {error}")))?;
+    }
+    // Non-blocking connect: a blocking one parks the runtime worker, so neither
+    // this bound nor the resolver's outer timeout could fire.
+    let stream = timeout(connect_timeout, socket.connect(target))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("connect to {target} timed out")))??;
+    stream.set_nodelay(true)?;
+    stream.into_std()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The bootstrap connect must yield to the runtime: on the per-call
+    // current-thread runtime another task (the outer timeout) keeps running
+    // while a SYN to an unanswered address is pending.
+    #[tokio::test]
+    async fn dns_bootstrap_connect_does_not_block_the_runtime_worker() {
+        let blackholed: SocketAddr = "192.0.2.1:443".parse().expect("test-net addr");
+        let connect = tokio::spawn(connect_dns_bootstrap(blackholed, Duration::from_millis(600)));
+        let started = std::time::Instant::now();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        let ticked = started.elapsed();
+
+        let _ = connect.await.expect("connect task");
+        assert!(ticked < Duration::from_millis(300), "runtime worker was blocked by connect for {ticked:?}");
+    }
+}

@@ -8,7 +8,8 @@ use tokio::time::timeout;
 use url::Url;
 
 use crate::dto::{NativeOwnedTlsHttpRequest, NativeOwnedTlsHttpResponse};
-use crate::redirect::{MAX_REDIRECTS, prepare_redirect_hop, redirect_target};
+use crate::redirect::redirect_target;
+use crate::redirect_hop::{MAX_REDIRECTS, prepare_redirect_hop, take_redirect};
 use crate::request::execute_once;
 use crate::tls_profile::{apply_profile_metadata, profile_catalog_version_string};
 
@@ -39,20 +40,12 @@ async fn execute_async(mut request: NativeOwnedTlsHttpRequest) -> io::Result<Nat
     loop {
         let response = execute_once(&method, &current_url, &request).await?;
         if let Some(location) = redirect_target(&current_url, &response)? {
-            if redirects_remaining == 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("too many redirects while fetching {}", request.url),
-                ));
-            }
-            redirects_remaining -= 1;
+            take_redirect(&mut redirects_remaining, &request.url)?;
             method = prepare_redirect_hop(response.status_code, &method, &current_url, &location, &mut request.headers);
             current_url = location;
             continue;
         }
 
-        // TLS metadata describes the final hop only; a plain http:// hop sends no ClientHello.
-        let final_hop_https = current_url.scheme() == "https";
         let mut response_payload = NativeOwnedTlsHttpResponse {
             status_code: Some(response.status_code.as_u16()),
             body_base64: Some(base64::engine::general_purpose::STANDARD.encode(response.body)),
@@ -77,9 +70,7 @@ async fn execute_async(mut request: NativeOwnedTlsHttpRequest) -> io::Result<Nat
             client_hello_invariant_status: None,
             error: None,
         };
-        if final_hop_https {
-            apply_profile_metadata(&mut response_payload, profile_metadata);
-        }
+        apply_profile_metadata(&mut response_payload, profile_metadata);
         return Ok(response_payload);
     }
 }

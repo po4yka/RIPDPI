@@ -108,6 +108,7 @@ fn execute_follows_redirects() {
 #[test]
 fn tls_metadata_reports_the_alpn_actually_sent_and_no_parity_claim() {
     let mut response = NativeOwnedTlsHttpResponse::error(io::Error::other("unused"));
+    response.final_url = Some("https://example.com/".to_string());
     apply_profile_metadata(&mut response, ripdpi_tls_profiles::selected_profile_metadata("chrome_stable"));
     let value = serde_json::to_value(&response).expect("json");
 

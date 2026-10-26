@@ -39,6 +39,10 @@ const HTTP11_ALPN_TEMPLATE: &str = "http11";
 /// ClientHello does not match the profile's JA3/JA4 parity target, size hint
 /// or invariants; those fields stay unset instead of claiming browser parity.
 pub(crate) fn apply_profile_metadata(response: &mut NativeOwnedTlsHttpResponse, profile_metadata: ProfileMetadata) {
+    // Only the final hop counts, and a plain http:// hop sends no ClientHello.
+    if !response.final_url.as_deref().is_some_and(|url| url.starts_with("https:")) {
+        return;
+    }
     let template = profile_metadata.template;
     response.tls_profile_id = Some(profile_metadata.profile_name.to_string());
     response.tls_browser_family = Some(profile_metadata.parity_targets.browser_family.to_string());

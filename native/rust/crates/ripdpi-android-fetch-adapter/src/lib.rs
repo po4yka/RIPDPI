@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
 mod dns_bootstrap;
+mod dns_connect;
+mod doh_resolvers;
 mod dto;
 mod entry;
 mod entry_dispatch;
@@ -9,6 +11,7 @@ mod native_ech;
 #[cfg(test)]
 mod owned_stack_fingerprint_snapshot_tests;
 mod redirect;
+mod redirect_hop;
 mod request;
 mod request_builder;
 mod socket_protection;
