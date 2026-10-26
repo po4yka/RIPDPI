@@ -90,7 +90,15 @@ impl RelayTelemetryState {
     /// no per-request or per-datagram recording anywhere on this path.
     pub fn record_target(&self, target: &str) {
         *self.last_target.lock().expect("target telemetry mutex") = Some(target.to_string());
-        let host = target.split(':').next().unwrap_or(target).to_string();
+        let host = match target.strip_prefix('[') {
+            Some(bracketed) => bracketed.split_once(']').map_or(bracketed, |(host, _)| host),
+            // More than one colon without brackets is a bare IPv6 address.
+            None => match target.split_once(':') {
+                Some((host, port)) if !port.contains(':') => host,
+                _ => target,
+            },
+        }
+        .to_string();
         *self.last_host.lock().expect("host telemetry mutex") = Some(host);
     }
 
@@ -211,5 +219,16 @@ mod tests {
         let snapshot = state.snapshot(&test_config());
         assert_eq!(Some("portless.example".to_string()), snapshot.last_target);
         assert_eq!(Some("portless.example".to_string()), snapshot.last_host);
+    }
+
+    #[test]
+    fn record_target_derives_the_host_of_an_ipv6_authority() {
+        let state = RelayTelemetryState::new(&test_config());
+
+        state.record_target("[2001:db8::1]:443");
+        assert_eq!(Some("2001:db8::1".to_string()), state.snapshot(&test_config()).last_host);
+
+        state.record_target("2001:db8::2");
+        assert_eq!(Some("2001:db8::2".to_string()), state.snapshot(&test_config()).last_host);
     }
 }

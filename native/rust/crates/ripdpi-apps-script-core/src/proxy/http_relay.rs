@@ -27,7 +27,7 @@ pub(crate) async fn relay_raw(
     relay: Arc<AppsScriptDomainFronter>,
     telemetry: SharedTelemetryState,
 ) -> io::Result<()> {
-    telemetry.record_target(&format!("{host}:{port}"));
+    telemetry.record_target(&format!("{}:{port}", authority_host(host)));
     let scheme = if port == 443 { "https" } else { "http" };
     let mut pending = Vec::new();
     loop {
@@ -70,19 +70,28 @@ where
         return Ok(!close);
     }
 
-    let default_port = if scheme == "https" { 443 } else { 80 };
-    let url = if path.starts_with("http://") || path.starts_with("https://") {
-        path.clone()
-    } else if port == default_port {
-        format!("{scheme}://{host}{path}")
-    } else {
-        format!("{scheme}://{host}:{port}{path}")
-    };
+    let url = request_url(scheme, host, port, &path);
     let response = relay.relay(&method, &url, &headers, &body).await;
     stream.write_all(&response).await?;
     stream.flush().await?;
     let close = header_value(&headers, "connection").is_some_and(|value| value.eq_ignore_ascii_case("close"));
     Ok(!close)
+}
+
+/// Host as it appears in a URL authority: RFC 3986 3.2.2 puts an IPv6
+/// literal in brackets.
+pub(crate) fn authority_host(host: &str) -> std::borrow::Cow<'_, str> {
+    if host.contains(':') && !host.starts_with('[') { format!("[{host}]").into() } else { host.into() }
+}
+
+/// Absolute URL that Apps Script fetches for a request target.
+fn request_url(scheme: &str, host: &str, port: u16, path: &str) -> String {
+    if path.starts_with("http://") || path.starts_with("https://") {
+        return path.to_string();
+    }
+    let default_port = if scheme == "https" { 443 } else { 80 };
+    let host = authority_host(host);
+    if port == default_port { format!("{scheme}://{host}{path}") } else { format!("{scheme}://{host}:{port}{path}") }
 }
 
 /// Answers an OPTIONS request locally: Apps Script UrlFetchApp cannot send
@@ -499,5 +508,13 @@ mod tests {
         let response = local_response("OPTIONS * HTTP/1.1\r\nHost: dav.example\r\n\r\n", "dav.example").await;
         assert!(response.starts_with("HTTP/1.1 501 "), "{response}");
         assert!(!response.contains("Access-Control-"), "{response}");
+    }
+
+    #[test]
+    fn ipv6_targets_are_bracketed_in_the_relayed_url() {
+        assert_eq!(request_url("http", "2001:db8::1", 80, "/a"), "http://[2001:db8::1]/a");
+        assert_eq!(request_url("https", "2001:db8::1", 8443, "/a"), "https://[2001:db8::1]:8443/a");
+        assert_eq!(request_url("https", "example.com", 443, "/a"), "https://example.com/a");
+        assert_eq!(request_url("http", "192.0.2.1", 8080, "/a"), "http://192.0.2.1:8080/a");
     }
 }

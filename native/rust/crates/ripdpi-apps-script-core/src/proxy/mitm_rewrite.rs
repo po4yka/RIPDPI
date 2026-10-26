@@ -30,7 +30,7 @@ pub(crate) async fn mitm_then_relay(
         .map_err(|error| io::Error::other(format!("client hello sniff failed: {error}")))?;
     let sni_host = acceptor.client_hello().server_name().filter(|value| !looks_like_ip(value)).map(ToOwned::to_owned);
     let effective_host = sni_host.as_deref().unwrap_or(host).to_string();
-    telemetry.record_target(&format!("{effective_host}:{port}"));
+    telemetry.record_target(&format!("{}:{port}", http_relay::authority_host(&effective_host)));
 
     let server_config = MitmCertManager::get_server_config(&mitm, &effective_host)
         .await
