@@ -77,7 +77,9 @@ impl ClientWorkerPool {
     pub(crate) fn ensure_capacity(&self) -> io::Result<()> {
         let should_spawn = {
             let mut state = self.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            if state.closed || state.idle_workers > 0 || state.live_workers >= state.max_workers {
+            // Idle workers only leave the count when they pop, so jobs already queued claim them;
+            // the caller's job is next in line and needs a worker of its own beyond those.
+            if state.closed || state.idle_workers > state.jobs.len() || state.live_workers >= state.max_workers {
                 false
             } else {
                 state.live_workers += 1;
@@ -363,5 +365,28 @@ mod tests {
         }
         assert!(!pool.join_finished_worker_handles());
         assert!(later_worker_completed.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn ensure_capacity_spawns_when_queued_jobs_already_claim_every_idle_worker() {
+        let pool = ClientWorkerPool::new(0).expect("worker pool");
+        let state = RuntimeState::test(RuntimeConfig::default());
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client pair");
+        let peer = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect peer");
+        let (queued, _) = listener.accept().expect("accept queued client");
+        let slot = state.acquire_client_slot(1).expect("client slot");
+        {
+            let mut pool_state = pool.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            pool_state.max_workers = 4;
+            // One worker counted idle that has not woken yet for the job already queued for it.
+            pool_state.idle_workers = 1;
+            pool_state.jobs.push_back(ClientJob { client: queued, state, slot });
+        }
+
+        pool.ensure_capacity().expect("provision worker");
+
+        let live = pool.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).live_workers;
+        assert_eq!(live, 1, "the next client must get its own worker when the idle one is already claimed");
+        drop(peer);
     }
 }
