@@ -172,6 +172,32 @@ class VpnProtectSocketServerTest {
     }
 
     @Test
+    fun `default limits queue a burst of concurrent protect requests instead of denying them`() {
+        val gate = HarnessStallGate()
+        val server =
+            VpnProtectSocketServer(
+                socketPath = "/tmp/unused-protect.sock",
+                protectFailureMonitor = RecordingVpnProtectFailureMonitor(),
+                fdProtector = { true },
+                fileDescriptorIntExtractor = { ProtectSocketFdExtractionResult.Extracted(42) },
+            )
+        // A browser or DoH burst opens many sockets within a few ms while the first ones are protected.
+        val burst = List(16) { FakeProtectSocketClientSession(beforeRead = gate::stall) }
+
+        try {
+            burst.forEach { session -> assertTrue(server.dispatchClientSession(session)) }
+            gate.release()
+            burst.forEach { session ->
+                assertTrue(session.awaitAck())
+                assertArrayEquals(byteArrayOf(0), session.ackBytes())
+            }
+        } finally {
+            gate.release()
+            server.stop()
+        }
+    }
+
+    @Test
     fun `stop closes queued sessions without running pending handler`() {
         val gate = HarnessStallGate()
         val server =

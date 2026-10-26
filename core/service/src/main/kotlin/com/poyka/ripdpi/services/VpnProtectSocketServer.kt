@@ -58,7 +58,10 @@ internal class VpnProtectSocketServer(
         private const val LISTEN_BACKLOG = 5
         private const val ACCEPT_THREAD_JOIN_TIMEOUT_MS = 500L
         private const val DEFAULT_HANDLER_CONCURRENCY = 2
-        private const val DEFAULT_MAX_PENDING_SESSIONS = 4
+
+        // Each protect takes milliseconds, so queue a socket burst (browser, DoH, per-CONNECT
+        // helpers) instead of answering it with ack=1, which clients report as a protect denial.
+        private const val DEFAULT_MAX_PENDING_SESSIONS = 32
         private const val DEFAULT_HANDLER_JOIN_TIMEOUT_MS = 1_000L
     }
 
