@@ -163,6 +163,28 @@ fn dns_probe_keeps_non_timeout_udp_failures_on_hard_block_path() {
 }
 
 #[test]
+fn local_udp_failures_are_not_reported_as_udp_blocking() {
+    for (error, kind) in [
+        ("Network is unreachable (os error 51)", "unreachable"),
+        ("Permission denied (os error 13)", "other"),
+        ("scan_deadline_exceeded", "other"),
+    ] {
+        for path in [ScanPathMode::RawPath, ScanPathMode::InPath] {
+            let outcome = classify_dns_probe_outcome(
+                &Err(error.to_string()),
+                &Ok(vec!["198.51.100.77".to_string()]),
+                &path,
+                &BTreeSet::new(),
+                Some(kind),
+                1,
+                false,
+            );
+            assert_eq!(outcome, "dns_unavailable", "{error}");
+        }
+    }
+}
+
+#[test]
 fn dns_answer_class_marks_nxdomain_plus_encrypted_success_as_divergent() {
     let assessment = evaluate_dns_oracles(
         endpoint("primary"),

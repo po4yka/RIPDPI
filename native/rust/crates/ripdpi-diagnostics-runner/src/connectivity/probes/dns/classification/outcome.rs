@@ -46,6 +46,9 @@ pub(super) fn classify_dns_probe_outcome(
             // Failed attempts do not prove recovery or provider interference.
             "dns_unavailable".to_string()
         }
+        // Only an explicit refusal (ICMP port unreachable or RST) is on-path
+        // evidence; local routing, permission, setup and scan-budget errors are not.
+        (Err(_), Ok(_)) if udp_error_kind != Some("refused") => "dns_unavailable".to_string(),
         (Err(_), Ok(_)) => {
             if matches!(path_mode, ScanPathMode::InPath) {
                 "udp_skipped_or_blocked".to_string()
