@@ -217,22 +217,8 @@ internal class ManagedClientSocksBridge(
 
     private fun handleClient(outer: Socket) {
         outer.soTimeout = LocalHandshakeTimeoutMillis
-        try {
-            negotiateOuterHandshake(outer)
-        } catch (rejected: SocksReplyException) {
-            writeOuterReply(outer, replyCode = rejected.replyCode)
-            throw rejected
-        }
-        val upstream = Socket()
-        try {
-            upstream.connect(upstreamListener, LocalHandshakeTimeoutMillis)
-            // The PT replies to CONNECT only after it dials and handshakes with the bridge.
-            upstream.soTimeout = PtConnectReplyTimeoutMillis
-        } catch (error: IOException) {
-            runCatching { upstream.close() }
-            writeOuterReply(outer, replyCode = if (error is ConnectException) RepConnectionRefused else RepFailure)
-            throw error
-        }
+        negotiateOuterHandshake(outer)
+        val upstream = connectUpstreamListener(outer)
         activeSockets += upstream
         upstream.use { inner ->
             try {
@@ -251,6 +237,20 @@ internal class ManagedClientSocksBridge(
             } finally {
                 activeSockets -= inner
             }
+        }
+    }
+
+    private fun connectUpstreamListener(outer: Socket): Socket {
+        val upstream = Socket()
+        try {
+            upstream.connect(upstreamListener, LocalHandshakeTimeoutMillis)
+            // The PT replies to CONNECT only after it dials and handshakes with the bridge.
+            upstream.soTimeout = PtConnectReplyTimeoutMillis
+            return upstream
+        } catch (error: IOException) {
+            runCatching { upstream.close() }
+            writeOuterReply(outer, replyCode = if (error is ConnectException) RepConnectionRefused else RepFailure)
+            throw error
         }
     }
 
@@ -274,9 +274,15 @@ internal class ManagedClientSocksBridge(
         readByte(input) // reserved
         val atyp = readByte(input)
         // Reject before reading the address: the client still gets a typed reply (RFC 1928 section 6).
-        if (command != 0x01) throw SocksReplyException(RepCommandNotSupported, "Only SOCKS CONNECT is supported")
-        if (atyp !in SupportedAddressTypes) {
-            throw SocksReplyException(RepAddressTypeNotSupported, "Unsupported SOCKS address type: $atyp")
+        val rejection =
+            when {
+                command != 0x01 -> RepCommandNotSupported
+                atyp !in SupportedAddressTypes -> RepAddressTypeNotSupported
+                else -> null
+            }
+        if (rejection != null) {
+            writeOuterReply(socket, replyCode = rejection)
+            throw SocksReplyException(rejection, "Unsupported SOCKS request: command $command, address type $atyp")
         }
         skipAddress(input, atyp)
         readU16(input)
