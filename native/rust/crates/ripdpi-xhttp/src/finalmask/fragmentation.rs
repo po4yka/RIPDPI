@@ -5,11 +5,11 @@ pub(crate) fn fragment_bytes(payload: &[u8], packets: usize, min_bytes: usize, m
         return vec![payload.to_vec()];
     }
     let mut remaining = payload.len();
+    let mut rng = rand::rng();
     if remaining < packets.saturating_mul(min_bytes) || remaining > packets.saturating_mul(max_bytes) {
-        return vec![payload.to_vec()];
+        return fragment_outside_range(payload, packets, min_bytes, max_bytes, &mut rng);
     }
 
-    let mut rng = rand::rng();
     let mut cursor = 0usize;
     let mut frames = Vec::with_capacity(packets);
     for index in 0..packets {
@@ -30,5 +30,33 @@ pub(crate) fn fragment_bytes(payload: &[u8], packets: usize, min_bytes: usize, m
         cursor += current;
         remaining -= current;
     }
+    frames
+}
+
+/// A payload that cannot be split into `packets` in-range pieces (for example
+/// a post-quantum ClientHello larger than `packets * max_bytes`) still gets
+/// up to `packets - 1` leading pieces of `min_bytes..=max_bytes`; the last
+/// piece carries the rest.
+fn fragment_outside_range(
+    payload: &[u8],
+    packets: usize,
+    min_bytes: usize,
+    max_bytes: usize,
+    rng: &mut impl RngExt,
+) -> Vec<Vec<u8>> {
+    let max_bytes = max_bytes.max(1);
+    let min_bytes = min_bytes.clamp(1, max_bytes);
+    let mut frames = Vec::with_capacity(packets);
+    let mut rest = payload;
+    while frames.len() + 1 < packets {
+        let size = rng.random_range(min_bytes..=max_bytes);
+        if size >= rest.len() {
+            break;
+        }
+        let (head, tail) = rest.split_at(size);
+        frames.push(head.to_vec());
+        rest = tail;
+    }
+    frames.push(rest.to_vec());
     frames
 }

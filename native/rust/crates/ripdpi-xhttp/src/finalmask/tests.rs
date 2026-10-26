@@ -129,3 +129,25 @@ fn rand_range_above_cap_is_rejected_for_noise_and_header_custom() {
     let mut mask = TcpOutboundMask::new(FinalmaskSpec::from_config(&config).expect("cap is inclusive").expect("mask"));
     assert_eq!(16 * 1024, mask.encode(b"x").expect("frames")[0].len());
 }
+
+#[test]
+fn fragment_mode_splits_an_oversized_first_write_and_passes_later_writes_whole() {
+    let config = FinalmaskConfig {
+        r#type: "fragment".to_string(),
+        fragment_packets: 3,
+        fragment_min_bytes: 50,
+        fragment_max_bytes: 150,
+        ..FinalmaskConfig::default()
+    };
+    let mut mask = TcpOutboundMask::new(FinalmaskSpec::from_config(&config).expect("config").expect("mask"));
+    // A post-quantum ClientHello is larger than packets * max_bytes (450 B).
+    let client_hello = vec![0x16; 1700];
+
+    let frames = mask.encode(&client_hello).expect("first write");
+
+    assert_eq!(3, frames.len(), "the first write must still be fragmented");
+    assert!(frames[..2].iter().all(|frame| (50..=150).contains(&frame.len())), "lead fragments use the range");
+    assert_eq!(client_hello, frames.concat(), "fragments must reassemble to the original write");
+    let later = mask.encode(&[0x17; 600]).expect("later write");
+    assert_eq!(vec![vec![0x17; 600]], later, "writes after the first are not re-chunked");
+}

@@ -57,7 +57,13 @@ impl TcpOutboundMask {
                 }
                 Ok(frames)
             }
+            // Only the first write (the TLS ClientHello) is fragmented, as in
+            // Xray; re-chunking every later record only costs throughput.
             FinalmaskSpec::Fragment { packets, min_bytes, max_bytes } => {
+                if self.prelude_sent || payload.is_empty() {
+                    return Ok(vec![payload.to_vec()]);
+                }
+                self.prelude_sent = true;
                 Ok(fragment_bytes(payload, *packets, *min_bytes, *max_bytes))
             }
             FinalmaskSpec::Sudoku { .. } => Ok(vec![
