@@ -20,12 +20,17 @@ pub(super) fn bind_tunnel_socket(endpoint: SocketAddr, platform: &WarpPlatform) 
     // stalls TCP inside the tunnel. wireguard-go asks for the same size; the
     // kernel caps it at net.core.rmem_max/wmem_max, so a refusal keeps the default.
     // The effective sizes are logged so a capped buffer on a real device is visible.
+    // Linux (and Android) doubles the requested value for bookkeeping and getsockopt
+    // reports the doubled size, so the log shows the reported value halved there:
+    // a 262144-byte rmem_max cap logs as recv=262144, not 524288.
     let recv_request = socket.set_recv_buffer_size(TUNNEL_SOCKET_BUFFER);
     let send_request = socket.set_send_buffer_size(TUNNEL_SOCKET_BUFFER);
+    let usable =
+        |reported: usize| if cfg!(any(target_os = "linux", target_os = "android")) { reported / 2 } else { reported };
     tracing::debug!(
         requested = TUNNEL_SOCKET_BUFFER,
-        recv = ?socket.recv_buffer_size(),
-        send = ?socket.send_buffer_size(),
+        recv = ?socket.recv_buffer_size().map(usable),
+        send = ?socket.send_buffer_size().map(usable),
         recv_error = ?recv_request.err(),
         send_error = ?send_request.err(),
         "WARP tunnel socket buffers"
