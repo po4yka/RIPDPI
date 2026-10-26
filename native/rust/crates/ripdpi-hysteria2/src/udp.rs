@@ -15,7 +15,6 @@ const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
 const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
-const MAX_DESTINATIONS_PER_UDP_SESSION: usize = 256;
 
 /// Maximum number of wrap-around retry attempts before declaring session-id space exhausted.
 /// u32 has 4 billion values so exhaustion is not a practical concern, but we still check
@@ -26,37 +25,22 @@ pub struct UdpSession {
     client: Arc<ClientInner>,
     incoming_rx: mpsc::Receiver<UdpPacket>,
     incoming_tx: mpsc::Sender<UdpPacket>,
-    destinations: Mutex<DestinationState>,
+    route: Mutex<SessionRoute>,
 }
 
+/// One Hysteria session ID per local UDP session, as in the reference
+/// client: each packet carries its own destination, so the server keeps one
+/// outbound socket (one source port) for every peer of the association.
 #[derive(Default)]
-struct DestinationState {
-    entries: HashMap<String, DestinationEntry>,
-    access_sequence: u64,
-}
-
-struct DestinationEntry {
-    session_id: u32,
+struct SessionRoute {
+    session_id: Option<u32>,
     next_packet_id: u16,
-    last_used: u64,
-}
-
-impl DestinationState {
-    fn route_for_existing(&mut self, address: &str) -> Option<(u32, u16)> {
-        self.access_sequence = self.access_sequence.saturating_add(1);
-        let last_used = self.access_sequence;
-        let entry = self.entries.get_mut(address)?;
-        let packet_id = entry.next_packet_id;
-        entry.next_packet_id = entry.next_packet_id.wrapping_add(1);
-        entry.last_used = last_used;
-        Some((entry.session_id, packet_id))
-    }
 }
 
 impl UdpSession {
     pub(crate) fn new(client: Arc<ClientInner>) -> Self {
         let (incoming_tx, incoming_rx) = mpsc::channel(64);
-        Self { client, incoming_rx, incoming_tx, destinations: Mutex::new(DestinationState::default()) }
+        Self { client, incoming_rx, incoming_tx, route: Mutex::new(SessionRoute::default()) }
     }
 
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> Result<()> {
@@ -65,7 +49,7 @@ impl UdpSession {
         // QUIC datagram. Wait out that connection-scoped handoff window; on
         // other platforms `udp_ready_at` is the connection creation instant.
         tokio::time::sleep_until(self.client.udp_ready_at).await;
-        let (session_id, packet_id) = self.route_for(address).await?;
+        let (session_id, packet_id) = self.next_route().await?;
         let migration = self.client.begin_quic_migration()?;
         match send_udp_payload(&self.client, session_id, packet_id, address, payload).await {
             Ok(()) => {
@@ -103,25 +87,33 @@ impl UdpSession {
             .map(|packet| (packet.address, packet.payload))
     }
 
-    async fn route_for(&self, address: &str) -> Result<(u32, u16)> {
-        let mut destinations = self.destinations.lock().await;
-        if let Some(route) = destinations.route_for_existing(address) {
-            return Ok(route);
-        }
-        let mut regs = self.client.registrations.lock().await;
-        allocate_new_destination_route(
-            &mut destinations,
-            &self.client.next_session_id,
-            &mut regs,
-            self.incoming_tx.clone(),
-            address,
-        )
-        .ok_or_else(|| {
-            HysteriaError::Io(io::Error::new(
-                io::ErrorKind::ResourceBusy,
-                "Hysteria2 UDP session-id space exhausted: too many concurrent sessions",
-            ))
-        })
+    /// Registers the session ID on first use and returns it with the next
+    /// packet ID.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: both locks are Tokio mutexes, and the registration is
+    /// stored in the same poll that allocates it.
+    async fn next_route(&self) -> Result<(u32, u16)> {
+        let mut route = self.route.lock().await;
+        let session_id = match route.session_id {
+            Some(session_id) => session_id,
+            None => {
+                let mut regs = self.client.registrations.lock().await;
+                let session_id = allocate_session_id(&self.client.next_session_id, &mut regs, self.incoming_tx.clone())
+                    .ok_or_else(|| {
+                        HysteriaError::Io(io::Error::new(
+                            io::ErrorKind::ResourceBusy,
+                            "Hysteria2 UDP session-id space exhausted: too many concurrent sessions",
+                        ))
+                    })?;
+                route.session_id = Some(session_id);
+                session_id
+            }
+        };
+        let packet_id = route.next_packet_id;
+        route.next_packet_id = packet_id.wrapping_add(1);
+        Ok((session_id, packet_id))
     }
 
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
@@ -132,26 +124,16 @@ impl UdpSession {
 impl Drop for UdpSession {
     fn drop(&mut self) {
         // NEVER panic in Drop.
-        // Collect the session-ids this session registered. destinations is a per-session
-        // Mutex, so try_lock() will always succeed in practice (no other holder once
-        // drop() runs), but we treat the Err path gracefully.
-        let ids: Vec<u32> = match self.destinations.try_lock() {
-            Ok(state) => state.entries.values().map(|entry| entry.session_id).collect(),
-            Err(_) => {
-                // Could not acquire; entries will be cleaned up by
-                // dispatch_udp_datagrams's clear() when the connection closes.
-                return;
-            }
-        };
-        if ids.is_empty() {
+        // The route mutex is per session, so try_lock() succeeds once drop()
+        // runs; on the Err path the dispatcher's clear() removes the entry
+        // when the connection closes.
+        let Some(session_id) = self.route.try_lock().ok().and_then(|route| route.session_id) else {
             return;
-        }
+        };
 
         // Fast path: registrations map is uncontended — remove synchronously.
         if let Ok(mut regs) = self.client.registrations.try_lock() {
-            for id in &ids {
-                regs.remove(id);
-            }
+            regs.remove(&session_id);
             return;
         }
 
@@ -160,36 +142,11 @@ impl Drop for UdpSession {
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             let client = Arc::clone(&self.client);
             handle.spawn(async move {
-                let mut regs = client.registrations.lock().await;
-                for id in ids {
-                    regs.remove(&id);
-                }
+                client.registrations.lock().await.remove(&session_id);
             });
         }
-        // If no runtime is available, entries die with the connection's clear() call.
+        // If no runtime is available, the entry dies with the connection's clear() call.
     }
-}
-
-fn allocate_new_destination_route(
-    destinations: &mut DestinationState,
-    counter: &std::sync::atomic::AtomicU32,
-    registrations: &mut HashMap<u32, mpsc::Sender<UdpPacket>>,
-    sender: mpsc::Sender<UdpPacket>,
-    address: &str,
-) -> Option<(u32, u16)> {
-    destinations.access_sequence = destinations.access_sequence.saturating_add(1);
-    let last_used = destinations.access_sequence;
-    if destinations.entries.len() >= MAX_DESTINATIONS_PER_UDP_SESSION
-        && let Some(oldest_address) =
-            destinations.entries.iter().min_by_key(|(_, entry)| entry.last_used).map(|(address, _)| address.clone())
-        && let Some(evicted) = destinations.entries.remove(&oldest_address)
-    {
-        registrations.remove(&evicted.session_id);
-    }
-
-    let session_id = allocate_session_id(counter, registrations, sender)?;
-    destinations.entries.insert(address.to_string(), DestinationEntry { session_id, next_packet_id: 1, last_used });
-    Some((session_id, 0))
 }
 
 #[derive(Debug)]
@@ -468,6 +425,26 @@ mod tests {
 
     const DEADLINE: Duration = Duration::from_secs(5);
 
+    /// The reference client uses one session per local socket and addresses
+    /// each packet, so the server keeps one outbound socket (one source port)
+    /// for every peer of the association.
+    #[tokio::test]
+    async fn one_udp_session_uses_one_session_id_for_every_destination() {
+        let mut server = TestServer::start(ServerOptions::default()).expect("start test server");
+        let client = crate::connect(&server.client_config()).await.expect("connect");
+        let mut session = client.udp_session().await.expect("UDP session");
+
+        let mut seen = Vec::new();
+        for destination in ["192.0.2.1:3478", "198.51.100.2:3478"] {
+            session.send_to(destination, b"stun").await.expect("send datagram");
+            let (address, _) = tokio::time::timeout(DEADLINE, session.recv_from()).await.expect("echo").expect("echo");
+            assert_eq!(address, destination, "replies keep their peer address");
+            seen.push(server.events.try_recv().expect("server saw the datagram"));
+        }
+
+        assert_eq!(seen[0], seen[1], "both peers must share one Hysteria UDP session");
+    }
+
     #[tokio::test]
     async fn recv_from_reports_session_end_after_the_connection_dies() {
         let mut server = TestServer::start(ServerOptions::default()).expect("start test server");
@@ -550,50 +527,6 @@ mod tests {
         assert_eq!(id, Some(1));
         assert!(regs.contains_key(&0)); // original intact
         assert!(regs.contains_key(&1)); // new entry present
-    }
-
-    #[test]
-    fn destination_state_is_bounded_and_evicts_least_recently_used_route() {
-        let counter = std::sync::atomic::AtomicU32::new(0);
-        let (sender, _receiver) = mpsc::channel(1);
-        let mut registrations = HashMap::new();
-        let mut destinations = DestinationState::default();
-        for index in 0..MAX_DESTINATIONS_PER_UDP_SESSION {
-            let address = format!("host-{index}.example:53");
-            allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender.clone(), &address)
-                .expect("allocate destination route");
-        }
-        destinations.route_for_existing("host-0.example:53").expect("refresh oldest route");
-        allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender, "new.example:53")
-            .expect("allocate replacement route");
-
-        assert_eq!(destinations.entries.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
-        assert_eq!(registrations.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
-        assert!(destinations.entries.contains_key("host-0.example:53"));
-        assert!(!destinations.entries.contains_key("host-1.example:53"));
-        assert!(destinations.entries.contains_key("new.example:53"));
-    }
-
-    #[test]
-    fn existing_destination_reuses_id_and_advances_packet_id() {
-        let counter = std::sync::atomic::AtomicU32::new(7);
-        let (sender, _receiver) = mpsc::channel(1);
-        let mut registrations = HashMap::new();
-        let mut destinations = DestinationState::default();
-
-        let first = allocate_new_destination_route(
-            &mut destinations,
-            &counter,
-            &mut registrations,
-            sender.clone(),
-            "example.com:53",
-        )
-        .expect("first route");
-        let second = destinations.route_for_existing("example.com:53").expect("second route");
-
-        assert_eq!(first, (7, 0));
-        assert_eq!(second, (7, 1));
-        assert_eq!(registrations.len(), 1);
     }
 
     #[test]
