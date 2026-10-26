@@ -85,6 +85,22 @@ class RootModeStrategiesViewModelTest {
         }
 
     @Test
+    fun `a root check that throws reports root as unavailable instead of checking`() =
+        runTest {
+            val viewModel =
+                RootModeStrategiesViewModel(FakeAppSettingsRepository()) {
+                    throw SecurityException("su process start denied")
+                }
+            backgroundScope.launch { viewModel.uiState.collect {} }
+
+            viewModel.setRootModeEnabled(true)
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.rootModeEnabled)
+            assertEquals(RootAccessState.Unavailable, viewModel.uiState.value.rootAccess)
+        }
+
+    @Test
     fun `a check that finishes after root mode is turned off does not report a result`() =
         runTest {
             val pendingCheck = CompletableDeferred<RootAccessResult>()

@@ -75,7 +75,10 @@ class RootModeStrategiesViewModel
             // A newer toggle replaces the previous one, so a check still running cannot report a stale result.
             rootModeChange?.cancel()
             rootModeChange =
-                launchSettingsWrite {
+                // A check that throws (the su process cannot start) must not leave the spinner on.
+                launchSettingsWrite(onFailure = {
+                    if (rootAccess.value == RootAccessState.Checking) rootAccess.value = RootAccessState.Unavailable
+                }) {
                     appSettingsRepository.update { rootModeEnabled = enabled }
                     if (!enabled) {
                         rootAccess.value = RootAccessState.NotChecked
