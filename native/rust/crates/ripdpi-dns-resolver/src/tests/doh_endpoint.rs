@@ -61,3 +61,51 @@ async fn hooked_doh_rejects_a_certificate_for_another_name() {
 
     assert!(error.to_string().contains("not valid for name"), "error: {error}");
 }
+
+#[tokio::test]
+async fn doh_uses_bootstrap_ips_when_the_url_host_differs_from_the_endpoint_host() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 60);
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let server_query = query.clone();
+    let server_response = build_response(&query, answer_ip);
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        serve_https_doh(stream, server_config, &server_query, &server_response);
+    });
+    // Like the dnssb catalog entry: the endpoint host is not the host in the URL.
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: Some("fixture".to_string()),
+            host: "alias.fixture.test".to_string(),
+            port,
+            tls_server_name: Some("alias.fixture.test".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        },
+        EncryptedDnsTransport::Direct,
+        DEFAULT_TIMEOUT,
+        vec![certificate_der],
+    )
+    .expect("resolver builds");
+
+    let response = resolver.exchange(&query).await.expect("DoH reaches the bootstrap IP");
+    assert_eq!(extract_ip_answers(&response).expect("answers parse"), vec![answer_ip.to_string()]);
+    server.join().expect("server joins");
+}

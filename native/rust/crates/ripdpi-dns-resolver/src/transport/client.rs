@@ -10,7 +10,9 @@ use rustls::{ClientConfig, RootCertStore};
 use url::Url;
 
 use crate::health::HealthRegistry;
-use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport, ResolverNetworkScope};
+use crate::types::{
+    EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport, ResolverNetworkScope,
+};
 
 pub(crate) fn build_client_config(
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
@@ -137,7 +139,22 @@ fn configure_direct_transport(
         endpoint.bootstrap_ips.clone()
     };
     let addresses = ips.iter().copied().map(|ip| SocketAddr::new(ip, endpoint.port)).collect::<Vec<_>>();
-    builder.resolve_to_addrs(endpoint.host.as_str(), &addresses)
+    let builder = builder.resolve_to_addrs(endpoint.host.as_str(), &addresses);
+    // reqwest matches overrides by the exact host it connects to, the URL host,
+    // which can differ from `endpoint.host` (dns.sb vs doh.dns.sb). Without this
+    // override the bootstrap IPs are ignored and the system resolver is used.
+    match request_url_host(endpoint) {
+        Some(url_host) if url_host != endpoint.host => builder.resolve_to_addrs(&url_host, &addresses),
+        _ => builder,
+    }
+}
+
+fn request_url_host(endpoint: &EncryptedDnsEndpoint) -> Option<String> {
+    let url = match &endpoint.odoh {
+        Some(odoh) if endpoint.protocol == EncryptedDnsProtocol::Odoh => odoh.proxy_url.as_str(),
+        _ => endpoint.doh_url.as_deref()?,
+    };
+    Url::parse(url).ok()?.host_str().map(str::to_string)
 }
 
 fn configure_socks5_transport(

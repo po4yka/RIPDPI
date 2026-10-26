@@ -69,10 +69,10 @@ pub(super) fn resolver_catalog_entry(resolver_id: &str) -> ResolverCatalogEntry 
         },
         "dnssb" => ResolverCatalogEntry {
             resolver_id: "dnssb",
-            host: "dns.sb",
+            host: "doh.dns.sb",
             port: 443,
             doh_url: "https://doh.dns.sb/dns-query",
-            tls_server_name: Some("dns.sb"),
+            tls_server_name: Some("doh.dns.sb"),
         },
         "mullvad" => ResolverCatalogEntry {
             resolver_id: "mullvad",

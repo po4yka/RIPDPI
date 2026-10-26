@@ -80,6 +80,17 @@ mod tests {
     }
 
     #[test]
+    fn catalog_and_fallback_hosts_match_their_doh_url_hosts() {
+        let catalog = ["cloudflare", "adguard", "google", "google_ip", "quad9", "dnssb", "mullvad"]
+            .into_iter()
+            .map(encrypted_dns_endpoint_for_resolver_id);
+        for endpoint in catalog.chain(crate::build_fallback_encrypted_dns_endpoints(None)) {
+            let url_host = parse_url_host(endpoint.doh_url.as_deref().expect("DoH URL"));
+            assert_eq!(url_host.as_deref(), Some(endpoint.host.as_str()), "{:?}", endpoint.resolver_id);
+        }
+    }
+
+    #[test]
     fn bootstrap_ips_for_unknown_resolver_is_empty() {
         assert!(bootstrap_ips_for_resolver("unknown-provider").is_empty());
     }
