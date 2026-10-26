@@ -12,7 +12,13 @@ pub(in crate::io_loop) fn encrypted_dns_connect_hooks(protect_path: Option<Strin
     EncryptedDnsConnectHooks::new()
         .with_direct_tcp_connector(move |target, timeout| {
             let tcp_protect_path = tcp_protect_path.clone();
-            async move { connect_protected_tcp(target, timeout, tcp_protect_path.as_deref()) }
+            // protect and connect_timeout block; off the runtime threads the resolver's
+            // timeout can fire and the shared runtime keeps relaying.
+            async move {
+                tokio::task::spawn_blocking(move || connect_protected_tcp(target, timeout, tcp_protect_path.as_deref()))
+                    .await
+                    .map_err(|error| io::Error::other(format!("encrypted DNS connect task failed: {error}")))?
+            }
         })
         .with_direct_udp_binder(move |bind_addr| bind_protected_udp(bind_addr, udp_protect_path.as_deref()))
 }

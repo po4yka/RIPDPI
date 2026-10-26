@@ -268,3 +268,44 @@ async fn android_tun_context_requires_protect() {
     let connection = tcp(loopback, Duration::from_secs(1)).await.expect("loopback connect is exempt from protect");
     assert!(matches!(connection, DirectTcpConnection::Std(_)));
 }
+
+#[tokio::test]
+async fn slow_protect_does_not_block_the_runtime_thread_polling_the_connector() {
+    use std::os::fd::RawFd;
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    use ripdpi_runtime_platform::protect::{
+        ProtectCallback, ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if,
+    };
+
+    struct SlowProtect;
+    impl ProtectCallback for SlowProtect {
+        fn protect(&self, _fd: RawFd) -> std::io::Result<()> {
+            std::thread::sleep(Duration::from_millis(400));
+            Ok(())
+        }
+    }
+    struct Guard(ProtectGeneration);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            // Superseded by another test's registration: nothing of ours to release.
+            let _ = unregister_protect_callback_if(self.0);
+        }
+    }
+
+    let _protect_lock = crate::PROTECT_CALLBACK_TEST_LOCK.lock().await;
+    let _guard = Guard(register_protect_callback_versioned(Arc::new(SlowProtect) as Arc<dyn ProtectCallback>));
+
+    let hooks = encrypted_dns_connect_hooks(None);
+    let tcp = hooks.direct_tcp_connector.as_ref().expect("tcp connector installed");
+    // TEST-NET-1: the connect itself never completes, so only the protect sleep matters here.
+    let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)), 853);
+
+    // The single-threaded test runtime can fire this timer only if the connector yields while it blocks.
+    let started = Instant::now();
+    let result = tokio::time::timeout(Duration::from_millis(50), tcp(target, Duration::from_millis(50))).await;
+
+    assert!(result.is_err(), "the caller's timeout must fire while protect is still running");
+    assert!(started.elapsed() < Duration::from_millis(300), "the connector held the runtime thread");
+}
