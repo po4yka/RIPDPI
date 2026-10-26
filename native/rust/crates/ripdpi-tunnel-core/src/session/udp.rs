@@ -294,6 +294,11 @@ impl UdpSession {
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => continue,
                 Err(error) => return Err(error),
             };
+            // recv cuts a longer datagram to the buffer without an error. A full buffer may hold
+            // such a cut payload, which build_udp_response would deliver with a valid checksum.
+            if n == buf.as_mut_slice().len() {
+                continue;
+            }
             // RFC 1928 section 7: drop a datagram this client cannot use (FRAG != 0, unknown ATYP,
             // short frame) instead of ending the whole association.
             let Ok((from, data)) = decode(&buf.as_mut_slice()[..n]) else {
@@ -392,6 +397,26 @@ mod tests {
 
         assert_eq!(payload, b"good");
         assert_eq!(from, TargetAddr::Ip(target));
+    }
+
+    #[tokio::test]
+    async fn relay_datagrams_larger_than_the_receive_buffer_are_dropped_not_truncated() {
+        let target: SocketAddr = "203.0.113.9:443".parse().unwrap();
+        let budget = UdpMemoryBudget::for_tunnel_mtu(64);
+        let oversized = encode_udp_frame(target, &[0x5a; 400]);
+        assert!(oversized.len() > budget.receive_pool.buffer_len);
+        let replies = vec![oversized, encode_udp_frame(target, b"good")];
+        let session =
+            UdpSession::connect_with_memory_budget(spawn_scripted_relay(replies).await, Auth::NoAuth, None, budget)
+                .await
+                .expect("session connects")
+                .with_recv_timeout(Duration::from_secs(2));
+
+        session.send_to(target, b"ping").await.expect("send");
+        let (payload, _) =
+            session.recv_from_target(CancellationToken::new()).await.expect("no fatal error").expect("a reply");
+
+        assert_eq!(payload, b"good");
     }
 
     #[test]
