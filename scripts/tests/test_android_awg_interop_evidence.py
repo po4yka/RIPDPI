@@ -51,6 +51,49 @@ class AuthorizationRestorationTest(unittest.TestCase):
             self.assertEqual(command.call_count, 1)
 
 
+class SingleUnderlayTest(unittest.TestCase):
+    def test_mobile_data_is_restored_only_when_it_was_enabled(self):
+        for previous, restored in (("1", True), ("0", False)):
+            for failure in (False, True):
+                with self.subTest(previous=previous, failure=failure):
+                    with patch.object(RUNNER, "checked", side_effect=[previous, "", ""]) as command:
+                        try:
+                            with RUNNER.emulator_single_underlay(["adb"]):
+                                if failure:
+                                    raise RuntimeError("unit failure")
+                        except RuntimeError:
+                            self.assertTrue(failure)
+                        commands = [call.args[0][1:] for call in command.call_args_list]
+                        self.assertEqual(commands[1], ["shell", "svc", "data", "disable"])
+                        self.assertEqual(commands[2:], [["shell", "svc", "data", "enable"]] if restored else [])
+
+    def test_unknown_prior_state_refuses_before_mutation(self):
+        with patch.object(RUNNER, "checked", return_value="null") as command:
+            with self.assertRaisesRegex(ValueError, "mobile data state"):
+                with RUNNER.emulator_single_underlay(["adb"]):
+                    self.fail("unknown OS state cannot be mutated")
+            self.assertEqual(command.call_count, 1)
+
+
+class IdleGuestTest(unittest.TestCase):
+    def test_waits_for_boot_settle_time_and_load_at_the_core_count(self):
+        samples = ["4",
+                   "1", "26.1 46.3", "1.88 0.41 0.13 17/1118 1634",  # quiet before the post-boot storm
+                   "1", "320.0 600.0", "62.48 24.85 9.43 31/2374 4350",
+                   "1", "540.5 1075.9", "3.90 9.0 8.0 2/2392 5848"]
+        with patch.object(RUNNER, "checked", side_effect=samples) as command, \
+                patch.object(RUNNER.time, "sleep") as sleep:
+            self.assertEqual(RUNNER.await_idle_guest(["adb"]), 3.9)
+        self.assertEqual(command.call_count, len(samples))
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_a_guest_that_never_settles_fails_before_any_run(self):
+        with patch.object(RUNNER, "checked", side_effect=["4"] + ["1", "900.0 1.0", "62.0 0 0 1/1 1"] * 3), \
+                patch.object(RUNNER.time, "sleep"), patch.object(RUNNER.time, "monotonic", side_effect=[0, 0, 5, 11]):
+            with self.assertRaisesRegex(ValueError, "stayed busy"):
+                RUNNER.await_idle_guest(["adb"], timeout=10)
+
+
 class EvidenceValidationTest(unittest.TestCase):
     profile = "awg-3.1-ranges-v1"
 

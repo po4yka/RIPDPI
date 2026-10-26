@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 RUST = ROOT / "native/rust"
@@ -67,6 +68,46 @@ def emulator_vpn_authorization(adb):
         yield
     finally:
         checked(adb + ["shell", "cmd", "appops", "set", "--uid", PACKAGE, "ACTIVATE_VPN", mode])
+
+
+@contextmanager
+def emulator_single_underlay(adb):
+    """Keep only the emulator Wi-Fi underlay during the native runs.
+
+    The emulated cellular network appears and disappears while the Wi-Fi network
+    loses validation. Each default-network switch fails in-flight UDP sends with
+    ENETUNREACH, which the lockstep UDP series reports as a lost datagram.
+    """
+    previous = checked(adb + ["shell", "settings", "get", "global", "mobile_data"])
+    if previous not in {"0", "1"}:
+        raise ValueError("cannot determine prior emulator mobile data state")
+    try:
+        checked(adb + ["shell", "svc", "data", "disable"])
+        yield
+    finally:
+        if previous == "1":
+            checked(adb + ["shell", "svc", "data", "enable"])
+
+
+def await_idle_guest(adb, timeout=1200, poll=10, settle=300):
+    """Wait for the post-boot CPU storm to end before the native runs.
+
+    A fresh emulator starts quiet, then reports a one-minute load average above
+    60 for several minutes after boot completes. The starved guest drops UDP
+    datagrams before any socket receives them, which the lockstep UDP series
+    reports as a lost datagram.
+    """
+    cores = int(checked(adb + ["shell", "nproc"]))
+    deadline = time.monotonic() + timeout
+    while True:
+        booted = checked(adb + ["shell", "getprop", "sys.boot_completed"]) == "1"
+        uptime = float(checked(adb + ["shell", "cat", "/proc/uptime"]).split()[0])
+        load = float(checked(adb + ["shell", "cat", "/proc/loadavg"]).split()[0])
+        if booted and uptime >= settle and load <= cores:
+            return load
+        if time.monotonic() >= deadline:
+            raise ValueError(f"emulator stayed busy: one-minute load {load} on {cores} cores")
+        time.sleep(poll)
 
 
 def build(args):
@@ -146,7 +187,8 @@ def device(args):
         raise ValueError("selected device is not an emulator")
     output = args.output_dir
     checked(adb + ["install", "-r", str(output / "test.apk")], timeout=120)
-    with emulator_vpn_authorization(adb):
+    with emulator_vpn_authorization(adb), emulator_single_underlay(adb):
+        await_idle_guest(adb)
         device_cycles(args, adb, output)
 
 

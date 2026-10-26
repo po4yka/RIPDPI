@@ -58,6 +58,13 @@ UDP datagrams in lockstep (one lost datagram fails the run), checks SHA-256 of
 every payload, and requires the peer to see no header in the clear. A negative
 control then runs the same profile with a wrong header protection key: the
 native runtime must never reach readiness and the peer must complete no exchange.
+The device phase turns off emulated mobile data for the run and then restores it.
+Otherwise the emulator switches its default network between cellular and an
+unvalidated Wi-Fi network, and each switch fails UDP sends with ENETUNREACH.
+It also waits until boot has completed, the guest has run for 5 minutes, and the
+one-minute load average is at most the core count. A fresh emulator starts
+quiet, then stays above a load of 60 for several minutes, and the starved guest
+drops UDP datagrams before any socket receives them.
 
 This is emulator/native-core interop. Android VpnService TUN policy, no-leak
 packet forwarding, physical-device and external deployment acceptance require
