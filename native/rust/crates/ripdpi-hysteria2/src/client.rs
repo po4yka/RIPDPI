@@ -189,6 +189,24 @@ mod tests {
     use super::{ANDROID_UDP_AUTH_SETTLE_GRACE, udp_auth_settle_grace};
     use crate::test_server::{ServerEvent, ServerOptions, TestServer};
 
+    /// A quiet session must keep sending PINGs, or the QUIC idle timeout and
+    /// mobile UDP NAT expiry kill every multiplexed stream.
+    #[tokio::test]
+    async fn idle_session_sends_keep_alive_pings() {
+        let server = TestServer::start(ServerOptions::default()).expect("test server");
+        let client = crate::connect(&server.client_config()).await.expect("connect");
+        // Let handshake-time probes settle so only keep-alive PINGs count.
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        let pings_before = client.inner.connection.stats().frame_tx.ping;
+
+        tokio::time::sleep(std::time::Duration::from_secs(11)).await;
+
+        assert!(
+            client.inner.connection.stats().frame_tx.ping > pings_before,
+            "no keep-alive PING in 11 s of idle after the handshake settled"
+        );
+    }
+
     /// A server that answers on the new path proves the path works; its
     /// refusal must neither roll the shared endpoint back nor send the
     /// CONNECT twice.

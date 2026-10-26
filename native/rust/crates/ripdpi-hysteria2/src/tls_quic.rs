@@ -14,6 +14,11 @@ use crate::quic_transport::{self, QuicTransportConfig};
 use crate::salamander::SalamanderUdpSocket;
 
 const HYSTERIA_AUTH_STATUS: u16 = 233;
+/// Reference client values (apernet/hysteria `core/client/config.go`): a PING
+/// every 10 s keeps quiet flows and mobile UDP NAT mappings alive, and a
+/// dead path is detected after 30 s without packets.
+const KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
+const MAX_IDLE_TIMEOUT: quinn::VarInt = quinn::VarInt::from_u32(30_000);
 
 pub(crate) struct H3ConnectionGuard {
     send_request: h3::client::SendRequest<h3_quinn::OpenStreams, bytes::Bytes>,
@@ -111,11 +116,20 @@ pub(crate) fn build_endpoint(
         quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime))?
     };
 
-    endpoint.set_default_client_config(quinn::ClientConfig::new(Arc::new(
+    let mut client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?,
-    )));
+    ));
+    client_config.transport_config(Arc::new(client_transport_config()));
+    endpoint.set_default_client_config(client_config);
     Ok((endpoint, socket_clone, hopping_socket))
+}
+
+fn client_transport_config() -> quinn::TransportConfig {
+    let mut transport = quinn::TransportConfig::default();
+    transport.keep_alive_interval(Some(KEEP_ALIVE_INTERVAL));
+    transport.max_idle_timeout(Some(MAX_IDLE_TIMEOUT.into()));
+    transport
 }
 
 /// Bind a UDP socket for the Hysteria2 QUIC client.
