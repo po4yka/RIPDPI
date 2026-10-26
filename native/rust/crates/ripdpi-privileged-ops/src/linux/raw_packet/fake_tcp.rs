@@ -52,6 +52,7 @@ pub fn send_fake_tcp(
     let mut region = MmapRegion::new(region_len)?;
 
     let restore_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream).unwrap_or(64) };
+    let mut md5_applied = false;
 
     let result = (|| {
         region.write(fake_prefix);
@@ -79,7 +80,7 @@ pub fn send_fake_tcp(
             }
         }
         if md5sig {
-            set_tcp_md5sig(stream, 5)?;
+            md5_applied = apply_fake_md5sig(stream)?;
         }
 
         let queued = region.vmsplice_to(pipe_w.as_fd(), original_prefix.len())?;
@@ -109,19 +110,37 @@ pub fn send_fake_tcp(
         // them before the TTL goes back up, so the kernel retransmits the real
         // data in place of the lost fake (byedpi restore_state).
         region.write(original_prefix);
-        if md5sig {
+        if md5_applied {
             set_tcp_md5sig(stream, 0)?;
         }
         set_stream_ttl(stream, restore_ttl)?;
         Ok(())
     })();
 
-    if md5sig {
+    if md5_applied {
         let _ = set_tcp_md5sig(stream, 0);
     }
     let _ = set_stream_ttl(stream, restore_ttl);
     drop(region);
     result
+}
+
+/// Adds the TCP MD5 option to the fake. Returns false when the kernel lacks
+/// the option or policy refuses it: the option is a best-effort extra on top
+/// of the low TTL, as on the plain action path, so the fake still goes out.
+fn apply_fake_md5sig(stream: &TcpStream) -> io::Result<bool> {
+    match set_tcp_md5sig(stream, 5) {
+        Ok(()) => Ok(true),
+        Err(error) if is_optional_md5sig_error(&error) => {
+            tracing::debug!("send_fake_tcp: TCP_MD5SIG unavailable, fake goes out without it: {error}");
+            Ok(false)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn is_optional_md5sig_error(error: &io::Error) -> bool {
+    matches!(error.raw_os_error(), Some(libc::EPERM | libc::EACCES | libc::ENOPROTOOPT | libc::EOPNOTSUPP))
 }
 
 fn should_fallback_raw_fake_tcp(kind: io::ErrorKind) -> bool {
