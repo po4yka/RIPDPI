@@ -1,5 +1,6 @@
 use std::io;
 use std::net::Ipv4Addr;
+use std::task::Waker;
 
 use smoltcp::time::Instant;
 use tokio::io::AsyncWriteExt;
@@ -55,7 +56,7 @@ async fn u22_pump_forwards_smoltcp_to_session() {
     let mut buf = [0u8; 64];
     // The data should be available immediately or after a short yield
     tokio::task::yield_now().await;
-    let result = try_read_duplex(&mut session_side, &mut buf);
+    let result = try_read_duplex(&mut session_side, &mut buf, Waker::noop());
     match result {
         Some(Ok(n)) => {
             assert_eq!(&buf[..n], payload);
@@ -182,4 +183,33 @@ async fn u25_pump_handles_partial_writes() {
         }
         socket_set.remove(h);
     }
+}
+
+#[tokio::test]
+async fn session_data_wakes_the_io_loop_without_its_poll_timer() {
+    let mut device = TunDevice::new(1500);
+    let (_iface, mut socket_set, handle, _server_seq) = establish_tcp_connection(&mut device);
+    let (smoltcp_side, mut session_side) = tokio::io::duplex(crate::io_loop::DUPLEX_BUF);
+    let entry = SessionEntry {
+        smoltcp_side,
+        cancel: CancellationToken::new(),
+        handle: tokio::spawn(async { Ok(()) }),
+        pending_to_session: Vec::new(),
+        pending_to_smoltcp: Vec::new(),
+        upstream_closed: false,
+        upstream_failed: std::sync::Arc::default(),
+        pinned_synthetic_ip: None,
+        attribution_id: None,
+    };
+    let mut sessions = ActiveSessions::new(8);
+    sessions.insert(handle, entry);
+
+    // Nothing to read yet: the pump leaves the loop waker with the duplex.
+    let mut dns_cache = None;
+    pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
+    session_side.write_all(b"upstream reply").await.expect("session write");
+
+    tokio::time::timeout(std::time::Duration::from_secs(1), sessions.bridge_ready())
+        .await
+        .expect("a session write must wake the io loop at once");
 }

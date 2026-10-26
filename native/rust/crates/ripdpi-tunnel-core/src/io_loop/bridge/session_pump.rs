@@ -19,6 +19,7 @@ pub(in crate::io_loop) async fn pump_active_sessions(
 ) {
     let mut to_remove: Vec<_> = Vec::new();
     let work_batch = sessions.next_work_batch(IO_PHASE_WORK_BUDGET);
+    let waker = sessions.bridge_waker().clone();
 
     for handle in work_batch {
         let Some(session) = sessions.get_mut(handle) else {
@@ -26,7 +27,9 @@ pub(in crate::io_loop) async fn pump_active_sessions(
         };
         let tcp = socket_set.get_mut::<TcpSocket>(handle);
 
-        if let Some(Err(_err)) = flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session) {
+        if let Some(Err(_err)) =
+            flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session, &waker)
+        {
             to_remove.push(handle);
             continue;
         }
@@ -34,7 +37,7 @@ pub(in crate::io_loop) async fn pump_active_sessions(
         if session.pending_to_session.is_empty() {
             let mut tmp = [0u8; PUMP_CHUNK];
             match tcp.recv_slice(&mut tmp) {
-                Ok(read) if read > 0 => match try_write_duplex(&mut session.smoltcp_side, &tmp[..read]) {
+                Ok(read) if read > 0 => match try_write_duplex(&mut session.smoltcp_side, &tmp[..read], &waker) {
                     Some(Ok(0)) => {
                         to_remove.push(handle);
                         continue;
@@ -70,7 +73,7 @@ pub(in crate::io_loop) async fn pump_active_sessions(
 
         if session.pending_to_smoltcp.is_empty() && !session.upstream_closed {
             let mut tmp = [0u8; PUMP_CHUNK];
-            match try_read_duplex(&mut session.smoltcp_side, &mut tmp) {
+            match try_read_duplex(&mut session.smoltcp_side, &mut tmp, &waker) {
                 Some(Ok(0)) => {
                     // A failed upstream (refused, timed out, reset) must reach the app as a RST, not
                     // as a clean end of stream. Acquire pairs with the session task's Release store.

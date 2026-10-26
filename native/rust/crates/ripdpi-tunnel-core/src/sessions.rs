@@ -5,7 +5,10 @@ use smoltcp::socket::tcp::Socket as TcpSocket;
 use std::io;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::task::{Wake, Waker};
 use tokio::io::DuplexStream;
+use tokio::sync::Notify;
+use tokio::sync::futures::Notified;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
@@ -62,10 +65,28 @@ pub struct ActiveSessions {
     closed_flows: Vec<ripdpi_flow_app_attribution::FlowResolveRequest>,
     /// Sockets to remove after the next interface poll, which sends their RST.
     retired_sockets: Vec<SocketHandle>,
+    /// Woken through [`Self::bridge_waker`] when a session writes into, reads from, or closes its
+    /// duplex end, so the io loop pumps that data at once instead of at its next poll timer.
+    bridge_ready: Arc<Notify>,
+    bridge_waker: Waker,
+}
+
+struct NotifyWake(Arc<Notify>);
+
+impl Wake for NotifyWake {
+    fn wake(self: Arc<Self>) {
+        self.0.notify_one();
+    }
+
+    fn wake_by_ref(self: &Arc<Self>) {
+        self.0.notify_one();
+    }
 }
 
 impl ActiveSessions {
     pub fn new(max: usize) -> Self {
+        let bridge_ready = Arc::new(Notify::new());
+        let bridge_waker = Waker::from(Arc::new(NotifyWake(Arc::clone(&bridge_ready))));
         Self {
             entries: HashMap::new(),
             sequences: HashMap::new(),
@@ -75,7 +96,24 @@ impl ActiveSessions {
             max,
             closed_flows: Vec::new(),
             retired_sockets: Vec::new(),
+            bridge_ready,
+            bridge_waker,
         }
+    }
+
+    /// The waker the bridge pump gives to every session duplex poll.
+    pub fn bridge_waker(&self) -> &Waker {
+        &self.bridge_waker
+    }
+
+    /// Completes when a session duplex end woke [`Self::bridge_waker`]; a wake with no waiter is kept
+    /// as a permit, so a wake between two waits is not lost.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: dropping the future before it completes keeps or forwards the permit.
+    pub fn bridge_ready(&self) -> Notified<'_> {
+        self.bridge_ready.notified()
     }
 
     /// Resets an active smoltcp socket and keeps it until [`Self::remove_retired_sockets`].

@@ -1,5 +1,6 @@
 use std::io;
 use std::net::Ipv4Addr;
+use std::task::Waker;
 
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
 use smoltcp::time::Instant;
@@ -86,7 +87,7 @@ async fn pump_forwards_app_half_close_as_session_eof() {
 
     let mut buf = [0u8; 8];
     assert!(
-        matches!(try_read_duplex(&mut session_side, &mut buf), Some(Ok(0))),
+        matches!(try_read_duplex(&mut session_side, &mut buf, Waker::noop()), Some(Ok(0))),
         "the app FIN must reach the session as EOF so it can half-close upstream"
     );
     assert!(sessions.get_mut(handle).is_some(), "the session stays open for the upstream reply");

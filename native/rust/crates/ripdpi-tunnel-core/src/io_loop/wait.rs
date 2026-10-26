@@ -2,16 +2,17 @@ use std::time::Duration;
 
 use crate::device::PacketFd;
 use smoltcp::time::Instant;
-use tracing::info;
 
 use super::DEFAULT_POLL_DELAY_MS;
 use super::dns_intercept::DnsResponse;
 use super::state::LoopState;
-use super::udp_assoc::{UdpEvent, handle_udp_event};
+use super::udp_assoc::UdpEvent;
 
 mod drain;
+mod event;
 
-use drain::{drain_udp_events, handle_dns_wait_response, recv_dns_response};
+use drain::{drain_udp_events, recv_dns_response};
+pub(super) use event::handle_wait_event;
 
 pub(in crate::io_loop) enum WaitOutcome {
     Continue,
@@ -52,42 +53,11 @@ pub(in crate::io_loop) async fn wait_for_next_event(
         _ = state.cancel.cancelled() => WaitEvent::Cancelled,
         _ = std::future::ready(()), if work_pending => WaitEvent::PollTimer,
         _ = tun.readable() => WaitEvent::TunReadable,
+        _ = state.sessions.bridge_ready() => WaitEvent::PollTimer,
         _ = tokio::time::sleep(smol_delay) => WaitEvent::PollTimer,
         udp_event = state.udp_rx.recv() => WaitEvent::Udp(udp_event),
         dns_result = recv_dns_response(&mut state.dns_resp_rx), if dns_enabled => WaitEvent::Dns(dns_result),
     };
 
     handle_wait_event(state, event)
-}
-
-pub(super) fn handle_wait_event(state: &mut LoopState, event: WaitEvent) -> WaitOutcome {
-    match event {
-        WaitEvent::TunReadable | WaitEvent::PollTimer | WaitEvent::Udp(None) => WaitOutcome::Continue,
-        WaitEvent::Udp(Some(event)) => {
-            handle_udp_event(
-                &mut state.device,
-                &state.stats,
-                &mut state.udp_associations,
-                &mut state.udp_eviction_heap,
-                &mut state.dns_cache,
-                &mut state.closed_udp_sources,
-                event,
-            );
-            WaitOutcome::Continue
-        }
-        WaitEvent::Dns(Some(response)) => {
-            handle_dns_wait_response(state, response);
-            WaitOutcome::Continue
-        }
-        WaitEvent::Dns(None) => {
-            state.stats.record_dns_failure(None, "dns worker exited unexpectedly", None);
-            state.dns_req_tx = None;
-            state.dns_resp_rx = None;
-            WaitOutcome::Continue
-        }
-        WaitEvent::Cancelled => {
-            info!("io_loop cancelled -- shutting down");
-            WaitOutcome::Cancelled
-        }
-    }
 }

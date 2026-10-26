@@ -1,4 +1,5 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::task::Waker;
 
 use smoltcp::iface::{Interface, SocketSet};
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
@@ -21,7 +22,7 @@ async fn u10_try_read_duplex_returns_data() {
     tokio::task::yield_now().await;
 
     let mut buf = [0u8; 64];
-    let result = try_read_duplex(&mut a, &mut buf);
+    let result = try_read_duplex(&mut a, &mut buf, Waker::noop());
     assert!(matches!(result, Some(Ok(5))));
     assert_eq!(&buf[..5], b"hello");
 }
@@ -30,7 +31,7 @@ async fn u10_try_read_duplex_returns_data() {
 async fn u11_try_read_duplex_pending_when_empty() {
     let (mut a, _b) = tokio::io::duplex(1024);
     let mut buf = [0u8; 64];
-    let result = try_read_duplex(&mut a, &mut buf);
+    let result = try_read_duplex(&mut a, &mut buf, Waker::noop());
     assert!(result.is_none(), "expected Pending (None) when no data available");
 }
 
@@ -42,14 +43,14 @@ async fn u12_try_read_duplex_eof_on_closed() {
     tokio::task::yield_now().await;
 
     let mut buf = [0u8; 64];
-    let result = try_read_duplex(&mut a, &mut buf);
+    let result = try_read_duplex(&mut a, &mut buf, Waker::noop());
     assert!(matches!(result, Some(Ok(0))), "expected EOF (0 bytes) when writer is dropped");
 }
 
 #[tokio::test]
 async fn u13_try_write_duplex_returns_count() {
     let (mut a, _b) = tokio::io::duplex(1024);
-    let result = try_write_duplex(&mut a, b"hello");
+    let result = try_write_duplex(&mut a, b"hello", Waker::noop());
     assert!(matches!(result, Some(Ok(5))));
 }
 
@@ -58,9 +59,9 @@ async fn u14_try_write_duplex_pending_when_full() {
     let (mut a, _b) = tokio::io::duplex(16);
     // Fill the buffer
     let big = vec![0u8; 16];
-    let _ = try_write_duplex(&mut a, &big);
+    let _ = try_write_duplex(&mut a, &big, Waker::noop());
     // Next write should return Pending
-    let result = try_write_duplex(&mut a, &[1u8]);
+    let result = try_write_duplex(&mut a, &[1u8], Waker::noop());
     assert!(result.is_none(), "expected Pending (None) when buffer is full");
 }
 
@@ -68,7 +69,7 @@ async fn u14_try_write_duplex_pending_when_full() {
 async fn u15_flush_pending_to_session_drains_all() {
     let (mut a, mut b) = tokio::io::duplex(4096);
     let mut pending = vec![1u8; 100];
-    let result = flush_pending_to_session(&mut a, &mut pending);
+    let result = flush_pending_to_session(&mut a, &mut pending, Waker::noop());
     assert!(matches!(result, Some(Ok(()))));
     assert!(pending.is_empty(), "pending should be fully drained");
 
@@ -82,7 +83,7 @@ async fn u15_flush_pending_to_session_drains_all() {
 async fn u16_flush_pending_to_session_partial_on_backpressure() {
     let (mut a, _b) = tokio::io::duplex(16);
     let mut pending = vec![2u8; 256];
-    let result = flush_pending_to_session(&mut a, &mut pending);
+    let result = flush_pending_to_session(&mut a, &mut pending, Waker::noop());
     // Should return None (Pending) after partial drain, or Ok if it fit
     // With 16-byte buffer, 256 bytes won't fully fit
     assert!(result.is_none() || matches!(result, Some(Ok(()))));
@@ -100,7 +101,7 @@ async fn u17_flush_pending_to_session_write_zero_errors() {
     tokio::task::yield_now().await;
 
     let mut pending = vec![3u8; 10];
-    let result = flush_pending_to_session(&mut a, &mut pending);
+    let result = flush_pending_to_session(&mut a, &mut pending, Waker::noop());
     // Closed stream should produce an error
     assert!(matches!(result, Some(Err(_))));
 }
