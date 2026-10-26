@@ -159,11 +159,11 @@ struct UdpPumpOutcome {
 /// `cancel.cancelled()` then the control-connection EOF — so sustained traffic
 /// can never starve teardown. The idle arm trails every activity arm, so a
 /// datagram racing the idle deadline wins and restarts the window. Teardown is
-/// at the `select!` boundary only: once a recv arm has been selected, its body
-/// runs a follow-on message-atomic `send_to().await` (relay→client or
-/// client→relay). VLESS/XUDP sends are executed by a bounded writer task with a
-/// terminal deadline, so a stalled Reality carrier cannot defer cancellation
-/// indefinitely or be reused after a partial frame. The success reply
+/// at the `select!` boundary, plus during the client→relay `send_to()`: that
+/// send runs under `timeouts.udp_send` and races cancellation and the control
+/// EOF (`send_uplink`), so a stalled carrier write cannot pin the association.
+/// Every early exit ends the association, so a partial frame is never reused.
+/// The relay→client send is a local UDP write. The success reply
 /// (`REP=0x00`) and the first loop poll are separated by no externally
 /// cancellable drop point, so a confirmed `ASSOCIATE` always enters the pump.
 async fn pump_udp_association<C, U, S, T>(
@@ -253,7 +253,14 @@ where
                 // carry DNS lookups and arbitrary endpoints; only aggregate
                 // session counters describe them. The user-visible last-target
                 // marker is reserved for CONNECT authorities (see auth.rs).
-                if let Err(error) = udp_session.send_to(&target, payload).await
+                let sent = match send_uplink(udp_session, &target, payload, config, &cancel, control_closed.as_mut()).await {
+                    UplinkSend::Done(sent) => sent,
+                    UplinkSend::TornDown(reason) => {
+                        termination_reason = reason;
+                        break Ok(());
+                    }
+                };
+                if let Err(error) = sent
                     && uplink_send_is_fatal(&error, payload.len(), is_xudp, telemetry, &mut termination_reason)
                 {
                     break Err(error);
@@ -329,6 +336,44 @@ where
     };
 
     UdpPumpOutcome { result, termination_reason }
+}
+
+enum UplinkSend {
+    Done(io::Result<()>),
+    TornDown(&'static str),
+}
+
+/// Sends one uplink datagram within `config.timeouts.udp_send` while still
+/// honouring runtime cancellation and the control-connection EOF, so a stalled
+/// carrier write cannot pin the association.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe for the carrier: a send dropped mid-write may leave a partial
+/// frame. Every early return here ends the association, so the carrier is not
+/// reused afterwards.
+async fn send_uplink<C, F>(
+    udp_session: &mut C,
+    target: &RelayTargetAddr,
+    payload: &[u8],
+    config: &SocksSessionConfig,
+    cancel: &CancellationToken,
+    control_closed: std::pin::Pin<&mut F>,
+) -> UplinkSend
+where
+    C: UdpCarrier,
+    F: Future<Output = ()>,
+{
+    tokio::select! {
+        biased;
+        () = cancel.cancelled() => UplinkSend::TornDown("runtime_cancelled"),
+        () = control_closed => UplinkSend::TornDown("control_closed"),
+        sent = tokio::time::timeout(config.timeouts.udp_send, udp_session.send_to(target, payload)) => {
+            UplinkSend::Done(sent.unwrap_or_else(|_| {
+                Err(io::Error::new(io::ErrorKind::TimedOut, "relay UDP uplink send timed out"))
+            }))
+        }
+    }
 }
 
 /// Decides whether an uplink `send_to` error ends the association, and records
@@ -463,6 +508,7 @@ mod tests {
                 connect_deadline: Duration::from_secs(30),
                 tcp_idle: Duration::from_secs(300),
                 udp_idle,
+                udp_send: Duration::from_millis(200),
             },
             local_socks_auth: None,
         }
@@ -863,6 +909,106 @@ mod tests {
             .expect("pump task panicked");
         outcome.result.expect("a rejected datagram must not end the association as an error");
         assert_eq!("runtime_cancelled", outcome.termination_reason);
+        drop(control_peer);
+    }
+
+    /// Carrier whose uplink write never completes, like a blackholed TCP carrier.
+    struct StalledUplinkCarrier {
+        send_started: Option<tokio::sync::oneshot::Sender<()>>,
+    }
+
+    impl UdpCarrier for StalledUplinkCarrier {
+        async fn send_to(&mut self, _target: &RelayTargetAddr, _payload: &[u8]) -> io::Result<()> {
+            if let Some(started) = self.send_started.take() {
+                let _ = started.send(());
+            }
+            std::future::pending().await
+        }
+
+        async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
+            std::future::pending().await
+        }
+    }
+
+    /// Starts a pump over a stalled carrier and returns once its uplink send is stuck.
+    async fn pump_with_stalled_uplink(
+        config: SocksSessionConfig,
+        cancel: CancellationToken,
+    ) -> (tokio::task::JoinHandle<UdpPumpOutcome>, tokio::io::DuplexStream) {
+        let (control, control_peer) = duplex(64);
+        let relay_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let relay_addr = relay_socket.local_addr().expect("relay socket addr");
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let pump = tokio::spawn(async move {
+            let mut carrier = StalledUplinkCarrier { send_started: Some(started_tx) };
+            let telemetry = FakeSocksTelemetry::default();
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                relay_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            )
+            .await
+        });
+        let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind SOCKS client socket");
+        let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9));
+        let frame = crate::socks::encode_udp_frame(&target, b"stalls").expect("encode frame");
+        client.send_to(&frame, relay_addr).await.expect("send frame");
+        tokio::time::timeout(Duration::from_secs(2), started_rx).await.expect("uplink send started").ok();
+        (pump, control_peer)
+    }
+
+    #[tokio::test]
+    async fn udp_pump_honours_cancel_while_an_uplink_send_is_stalled() {
+        let mut config = silent_session_config(Duration::from_secs(300));
+        config.timeouts.udp_send = Duration::from_secs(300);
+        let cancel = CancellationToken::new();
+        let (pump, control_peer) = pump_with_stalled_uplink(config, cancel.clone()).await;
+
+        cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("a stalled uplink send blocked cancellation")
+            .expect("pump task panicked");
+
+        outcome.result.expect("cancellation is graceful");
+        assert_eq!("runtime_cancelled", outcome.termination_reason);
+        drop(control_peer);
+    }
+
+    #[tokio::test]
+    async fn udp_pump_ends_when_the_control_connection_closes_during_a_stalled_send() {
+        let mut config = silent_session_config(Duration::from_secs(300));
+        config.timeouts.udp_send = Duration::from_secs(300);
+        let (pump, control_peer) = pump_with_stalled_uplink(config, CancellationToken::new()).await;
+
+        drop(control_peer);
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("a stalled uplink send blocked the control EOF")
+            .expect("pump task panicked");
+
+        assert_eq!("control_closed", outcome.termination_reason);
+    }
+
+    #[tokio::test]
+    async fn udp_pump_fails_an_uplink_send_that_outlives_its_deadline() {
+        let config = silent_session_config(Duration::from_secs(300));
+        let deadline = config.timeouts.udp_send;
+        let started = Instant::now();
+        let (pump, control_peer) = pump_with_stalled_uplink(config, CancellationToken::new()).await;
+
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("a stalled uplink send never timed out")
+            .expect("pump task panicked");
+
+        let error = outcome.result.expect_err("a stalled carrier ends the association");
+        assert_eq!(io::ErrorKind::TimedOut, error.kind());
+        assert!(started.elapsed() >= deadline);
         drop(control_peer);
     }
 

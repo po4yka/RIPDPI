@@ -16,12 +16,18 @@ pub(crate) const RELAY_TCP_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 /// Tear down a UDP association after this much datagram silence.
 pub(crate) const RELAY_UDP_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 
+/// Bound for one uplink datagram write on a relay carrier. A UDP datagram that
+/// cannot be written in this time means the carrier is stalled (for example a
+/// blackholed TCP carrier with a full send buffer).
+pub(crate) const RELAY_UDP_SEND_DEADLINE: Duration = Duration::from_secs(10);
+
 /// Per-session relay timeout policy, injected so tests can shrink the windows.
 #[derive(Clone, Copy)]
 pub(crate) struct RelaySessionTimeouts {
     pub connect_deadline: Duration,
     pub tcp_idle: Duration,
     pub udp_idle: Duration,
+    pub udp_send: Duration,
 }
 
 impl RelaySessionTimeouts {
@@ -30,6 +36,7 @@ impl RelaySessionTimeouts {
             connect_deadline: RELAY_CONNECT_DEADLINE,
             tcp_idle: RELAY_TCP_IDLE_TIMEOUT,
             udp_idle: RELAY_UDP_IDLE_TIMEOUT,
+            udp_send: RELAY_UDP_SEND_DEADLINE,
         }
     }
 }
