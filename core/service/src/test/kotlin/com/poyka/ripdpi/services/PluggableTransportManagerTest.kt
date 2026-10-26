@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiRelayConfig
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -50,6 +51,22 @@ class PluggableTransportManagerTest {
         ).forEach { line ->
             assertThrows(line, IllegalArgumentException::class.java) { parseObfs4BridgeLine(line) }
         }
+    }
+
+    @Test
+    fun `tor managed transports cover every shipped bridge transport`() {
+        fun names(
+            bridgeLine: String,
+            webTunnelUrl: String = "",
+        ) = torManagedTransportNames(RipDpiRelayConfig(ptBridgeLine = bridgeLine, ptWebTunnelUrl = webTunnelUrl))
+
+        assertEquals(listOf("snowflake"), names("Bridge snowflake 192.0.2.3:80 url=https://broker.example/"))
+        assertEquals(listOf("obfs4"), names("obfs4 192.0.2.1:443 cert=abcd1234"))
+        assertEquals(
+            listOf("obfs4", "webtunnel"),
+            names("obfs4 192.0.2.1:443 cert=abcd1234", webTunnelUrl = "https://edge.example/ws"),
+        )
+        assertEquals(listOf("webtunnel"), names("webtunnel 192.0.2.4:443 url=https://edge.example/ws"))
     }
 
     @Test

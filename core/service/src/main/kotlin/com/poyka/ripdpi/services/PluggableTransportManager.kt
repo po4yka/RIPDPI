@@ -151,36 +151,16 @@ open class PluggableTransportManager
         open suspend fun stop() = subprocessManager.stop()
 
         fun torManagedTransports(config: RipDpiRelayConfig): List<ResolvedTorPluggableTransportConfig> =
-            buildList {
-                val bridgeTransport = config.ptBridgeLine.bridgeTransportName()
-                if (bridgeTransport == RelayKindObfs4) {
-                    add(
-                        ResolvedTorPluggableTransportConfig(
-                            protocols = listOf(RelayKindObfs4),
-                            binaryPath =
-                                subprocessManager
-                                    .resolvePluggableTransportBinary(
-                                        Obfs4BinaryName,
-                                    ).absolutePath,
-                            arguments = emptyList(),
-                            runOnStartup = false,
-                        ),
-                    )
-                }
-                if (bridgeTransport == RelayKindWebTunnel || config.ptWebTunnelUrl.isNotBlank()) {
-                    add(
-                        ResolvedTorPluggableTransportConfig(
-                            protocols = listOf(RelayKindWebTunnel),
-                            binaryPath =
-                                subprocessManager
-                                    .resolvePluggableTransportBinary(
-                                        WebTunnelBinaryName,
-                                    ).absolutePath,
-                            arguments = emptyList(),
-                            runOnStartup = false,
-                        ),
-                    )
-                }
+            torManagedTransportNames(config).map { protocol ->
+                ResolvedTorPluggableTransportConfig(
+                    protocols = listOf(protocol),
+                    binaryPath =
+                        subprocessManager
+                            .resolvePluggableTransportBinary(TorBridgeTransportBinaries.getValue(protocol))
+                            .absolutePath,
+                    arguments = emptyList(),
+                    runOnStartup = false,
+                )
             }
 
         private fun launchSpec(config: ResolvedRipDpiRelayConfig): SubprocessSocksRelayLaunchSpec =
@@ -278,6 +258,23 @@ open class PluggableTransportManager
         }
 
         private fun sanitizeStateDirSegment(value: String): String = value.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+    }
+
+// Bridge transport name -> the shipped PT binary that Arti launches for it.
+private val TorBridgeTransportBinaries =
+    mapOf(
+        RelayKindObfs4 to Obfs4BinaryName,
+        RelayKindSnowflake to SnowflakeBinaryName,
+        RelayKindWebTunnel to WebTunnelBinaryName,
+    )
+
+internal fun torManagedTransportNames(config: RipDpiRelayConfig): List<String> =
+    buildList {
+        config.ptBridgeLine
+            .bridgeTransportName()
+            ?.takeIf { it in TorBridgeTransportBinaries }
+            ?.let(::add)
+        if (config.ptWebTunnelUrl.isNotBlank() && RelayKindWebTunnel !in this) add(RelayKindWebTunnel)
     }
 
 private fun String.bridgeTransportName(): String? {
