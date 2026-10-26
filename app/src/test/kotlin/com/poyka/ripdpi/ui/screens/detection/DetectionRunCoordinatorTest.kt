@@ -10,6 +10,7 @@ import com.poyka.ripdpi.core.detection.DetectionStage
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.proto.AppSettings
@@ -129,6 +130,27 @@ class DetectionRunCoordinatorTest {
             effects,
         )
     }
+
+    @Test
+    fun `privacy mode switched on during a run masks the published report`() =
+        runTest {
+            val base = detectionResult()
+            val result = base.copy(geoIp = base.geoIp.copy(findings = listOf(Finding("Public IP: 203.0.113.7"))))
+            val gate = CompletableDeferred<Unit>()
+            val settings = FakeDetectionAppSettingsRepository()
+            val flow = MutableStateFlow(DetectionCheckUiState())
+            val coordinator =
+                coordinator(flow, FakeProbeRunner(result = result, gate = gate), settingsRepository = settings)
+
+            coordinator.startCheck()
+            settings.update { detectionCheckPrivacyModeEnabled = true }
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            val reportText = flow.value.reportText.orEmpty()
+            assertTrue(reportText.contains("--- GeoIP ---"))
+            assertFalse(reportText.contains("203.0.113.7"))
+        }
 
     @Test
     fun `each failed run emits one terminal error while cancellation stays quiet`() {

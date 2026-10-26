@@ -76,8 +76,8 @@ internal class DetectionRunCoordinator(
     }
 
     private suspend fun runOnce(): DetectionCheckResult {
-        val settings = appSettingsRepository.settings.first()
-        val config = DetectionResultPresenter.runnerConfig(settings, probeRunner.packageName)
+        val runSettings = appSettingsRepository.settings.first()
+        val config = DetectionResultPresenter.runnerConfig(runSettings, probeRunner.packageName)
         val runContext = currentCoroutineContext()
         val result =
             probeRunner.runDetectionCheck(
@@ -90,6 +90,8 @@ internal class DetectionRunCoordinator(
             )
 
         currentCoroutineContext().ensureActive()
+        // Re-read: the privacy and debug switches stay usable while the run is in flight.
+        val settings = appSettingsRepository.settings.first()
         val score = StealthScore.compute(result)
         val label = StealthScore.label(score)
         val recommendations =
@@ -99,22 +101,21 @@ internal class DetectionRunCoordinator(
                 snapshot = routingProtectionCatalogService.snapshot(),
                 stringResolver = stringResolver,
             )
-        val privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled
-        val reportText = DetectionResultPresenter.reportText(result, privacyModeEnabled)
-        val debugReportText = DetectionResultPresenter.debugReportText(result, settings, privacyModeEnabled)
 
         onSaveHistory(result, score)
         onRefreshCommunity()
 
         currentCoroutineContext().ensureActive()
-        reducer.mutate {
-            it.withCheckResult(
+        reducer.mutate { state ->
+            // Mask when either the re-read settings or the live switch state says privacy is on.
+            val privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled || state.privacyModeEnabled
+            state.withCheckResult(
                 result = result,
                 score = score,
                 label = label,
                 recommendations = recommendations,
-                reportText = reportText,
-                debugReportText = debugReportText,
+                reportText = DetectionResultPresenter.reportText(result, privacyModeEnabled),
+                debugReportText = DetectionResultPresenter.debugReportText(result, settings, privacyModeEnabled),
             )
         }
         return result
