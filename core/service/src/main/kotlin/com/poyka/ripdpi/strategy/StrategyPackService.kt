@@ -99,18 +99,23 @@ class DefaultStrategyPackService
         override suspend fun refreshNow() {
             val settings = appSettingsRepository.snapshot().toStrategyPackSettingsModel()
             val key = StrategyPackRefreshKey(settings)
+            val keyAtStart = schedulingMutex.withLock { currentRefreshKey }
             val attemptedAt = clock.nowEpochMillis()
             runCatching {
                 refreshExecutor.refresh(settings)
             }.onSuccess { snapshot ->
-                schedulingMutex.withLock {
-                    currentRefreshKey = key
-                    consecutiveAutomaticFailures = 0
-                    lastSuccessfulFetchAtEpochMillis = snapshot.lastFetchedAtEpochMillis
-                }
+                // Settings that changed during the download own the key and their own schedule.
+                val supersededBy =
+                    schedulingMutex.withLock {
+                        consecutiveAutomaticFailures = 0
+                        lastSuccessfulFetchAtEpochMillis = snapshot.lastFetchedAtEpochMillis
+                        val newer = currentRefreshKey.takeIf { it != keyAtStart }
+                        if (newer == null) currentRefreshKey = key
+                        newer
+                    }
                 statePublisher.publishSelectionForSnapshot(
                     snapshot = snapshot,
-                    key = key,
+                    key = supersededBy ?: key,
                     lastRefreshAttemptAtEpochMillis = attemptedAt,
                     lastRefreshError = null,
                     lastRefreshFailureCode = null,
@@ -118,15 +123,18 @@ class DefaultStrategyPackService
                     cacheDegradationCode = null,
                     cacheDegradationDetail = null,
                 )
-                scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.ManualRefreshReseed)
+                if (supersededBy == null) {
+                    scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.ManualRefreshReseed)
+                }
             }.onFailure { error ->
                 if (error is CancellationException) {
                     throw error
                 }
                 val currentState = stateStore.state.value
+                val latestKey = schedulingMutex.withLock { currentRefreshKey.takeIf { it != keyAtStart } } ?: key
                 statePublisher.publishSelectionForSnapshot(
                     snapshot = currentState.snapshot,
-                    key = key,
+                    key = latestKey,
                     lastRefreshAttemptAtEpochMillis = attemptedAt,
                     lastRefreshError = error.message,
                     lastRefreshFailureCode = error.toFailureCode(),
