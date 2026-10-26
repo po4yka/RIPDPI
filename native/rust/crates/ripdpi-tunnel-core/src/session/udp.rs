@@ -294,7 +294,11 @@ impl UdpSession {
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => continue,
                 Err(error) => return Err(error),
             };
-            let (from, data) = decode(&buf.as_mut_slice()[..n])?;
+            // RFC 1928 section 7: drop a datagram this client cannot use (FRAG != 0, unknown ATYP,
+            // short frame) instead of ending the whole association.
+            let Ok((from, data)) = decode(&buf.as_mut_slice()[..n]) else {
+                continue;
+            };
             return Ok((from, data.to_vec()));
         }
     }
@@ -341,6 +345,53 @@ mod tests {
         assert_eq!(buffer.buffer.as_ref().expect("pooled buffer").len(), 1500 + MAX_SOCKS5_UDP_HEADER_LEN);
         drop(buffer);
         assert_eq!(budget.receive_pool.buffers.lock().expect("buffer pool").len(), 1);
+    }
+
+    /// A SOCKS5 proxy whose UDP relay answers the client's first datagram with `replies`, in order.
+    async fn spawn_scripted_relay(replies: Vec<Vec<u8>>) -> SocketAddr {
+        let relay = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let relay_port = relay.local_addr().unwrap().port().to_be_bytes();
+        tokio::spawn(async move {
+            let mut buf = vec![0u8; 65535];
+            let (_, peer) = relay.recv_from(&mut buf).await.unwrap();
+            for reply in replies {
+                relay.send_to(&reply, peer).await.unwrap();
+            }
+            std::future::pending::<()>().await;
+        });
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let proxy_addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf).await;
+            stream.write_all(&[0x05, 0x00]).await.unwrap();
+            let _ = stream.read(&mut buf).await;
+            stream.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, relay_port[0], relay_port[1]]).await.unwrap();
+            std::future::pending::<()>().await;
+        });
+        proxy_addr
+    }
+
+    #[tokio::test]
+    async fn undecodable_relay_datagrams_are_dropped_without_ending_the_session() {
+        let target: SocketAddr = "203.0.113.9:443".parse().unwrap();
+        let mut fragmented = encode_udp_frame(target, b"fragment");
+        fragmented[2] = 1; // FRAG != 0: RFC 1928 section 7 says drop it.
+        let mut unknown_atyp = encode_udp_frame(target, b"unknown");
+        unknown_atyp[3] = 0x09;
+        let replies = vec![fragmented, unknown_atyp, vec![0, 0], encode_udp_frame(target, b"good")];
+        let session = UdpSession::connect(spawn_scripted_relay(replies).await, Auth::NoAuth, None)
+            .await
+            .expect("session connects")
+            .with_recv_timeout(Duration::from_secs(2));
+
+        session.send_to(target, b"ping").await.expect("send");
+        let (payload, from) =
+            session.recv_from_target(CancellationToken::new()).await.expect("no fatal error").expect("a reply");
+
+        assert_eq!(payload, b"good");
+        assert_eq!(from, TargetAddr::Ip(target));
     }
 
     #[test]
