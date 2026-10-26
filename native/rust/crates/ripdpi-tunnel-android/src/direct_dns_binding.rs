@@ -14,6 +14,9 @@ use ripdpi_tunnel_core::tunnel_api::direct_dns_binding::{
     unregister_direct_dns_socket_binder_if,
 };
 
+/// Every call uses a permanent attach, as the flow-attribution notifier does: the callers are
+/// the long-lived packet-loop thread (per DNS packet) and the tunnel runtime workers, and a
+/// scoped attach would create and destroy a java.lang.Thread peer on each call there.
 struct JniDirectDnsSocketBinder {
     vm: SharedJvm,
     bridge: Global<JObject<'static>>,
@@ -22,7 +25,7 @@ struct JniDirectDnsSocketBinder {
 impl DirectDnsSocketBinder for JniDirectDnsSocketBinder {
     fn current_generation(&self) -> Option<u64> {
         self.vm
-            .attach_current_thread_for_scope(|env| -> jni::errors::Result<i64> {
+            .attach_current_thread(|env| -> jni::errors::Result<i64> {
                 env.call_method(&self.bridge, jni::jni_str!("directDnsLeaseGeneration"), jni::jni_sig!("()J"), &[])?.j()
             })
             .ok()
@@ -32,7 +35,7 @@ impl DirectDnsSocketBinder for JniDirectDnsSocketBinder {
     fn is_current(&self, generation: u64) -> bool {
         let Ok(generation) = i64::try_from(generation) else { return false };
         self.vm
-            .attach_current_thread_for_scope(|env| -> jni::errors::Result<bool> {
+            .attach_current_thread(|env| -> jni::errors::Result<bool> {
                 env.call_method(
                     &self.bridge,
                     jni::jni_str!("isDirectDnsLeaseCurrent"),
@@ -47,7 +50,7 @@ impl DirectDnsSocketBinder for JniDirectDnsSocketBinder {
     fn bind_socket(&self, fd: RawFd, generation: u64) -> io::Result<()> {
         let generation = i64::try_from(generation)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid lease generation"))?;
-        let result = self.vm.attach_current_thread_for_scope(|env| -> jni::errors::Result<bool> {
+        let result = self.vm.attach_current_thread(|env| -> jni::errors::Result<bool> {
             env.call_method(
                 &self.bridge,
                 jni::jni_str!("bindDirectDnsSocket"),
