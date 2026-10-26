@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.launchDiagnosticsExport
@@ -78,6 +79,11 @@ internal fun DetectionCheckRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val performHaptic = rememberRipDpiHapticPerformer()
+    // Re-probe on every resume: the user can grant the permissions in system Settings and come back.
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refreshPermissionState()
+        onPauseOrDispose {}
+    }
     LifecycleEventEffect(viewModel.effects) { effect ->
         val feedback =
             when (effect) {
