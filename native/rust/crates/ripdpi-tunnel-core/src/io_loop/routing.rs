@@ -209,7 +209,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
 
 fn retire_denied_tcp_flow(state: &mut LoopState, key: TcpFlowKey) {
     if let Some(listener) = state.pending_listens.remove(&key) {
-        state.socket_set.remove(listener.handle);
+        state.sessions.retire_socket(&mut state.socket_set, listener.handle);
     }
     let handle = state.sessions.iter_mut().find_map(|(handle, entry)| {
         entry.attribution_id.as_ref().and_then(|registration_id| {

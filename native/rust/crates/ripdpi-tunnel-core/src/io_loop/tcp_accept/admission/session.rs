@@ -77,6 +77,6 @@ pub(super) fn admit_session(
     {
         cache.unpin(ip);
     }
-    remove_evicted_session_socket(socket_set, evicted.map(|(handle, _)| handle));
+    remove_evicted_session_socket(socket_set, sessions, evicted.map(|(handle, _)| handle));
     info!("TCP session spawned: remote={}", pending.target_addr);
 }

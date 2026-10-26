@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
-use smoltcp::iface::SocketHandle;
+use smoltcp::iface::{SocketHandle, SocketSet};
+use smoltcp::socket::tcp::Socket as TcpSocket;
 use std::io;
 use tokio::io::DuplexStream;
 use tokio::task::JoinHandle;
@@ -53,6 +54,8 @@ pub struct ActiveSessions {
     max: usize,
     /// Exact flows removed since the tunnel last released strategy state.
     closed_flows: Vec<ripdpi_flow_app_attribution::FlowResolveRequest>,
+    /// Sockets to remove after the next interface poll, which sends their RST.
+    retired_sockets: Vec<SocketHandle>,
 }
 
 impl ActiveSessions {
@@ -65,6 +68,26 @@ impl ActiveSessions {
             next_sequence: 0,
             max,
             closed_flows: Vec::new(),
+            retired_sockets: Vec::new(),
+        }
+    }
+
+    /// Resets an active smoltcp socket and keeps it until [`Self::remove_retired_sockets`].
+    ///
+    /// smoltcp sends a queued RST or FIN only from `Interface::poll`; a socket removed before that
+    /// poll goes away silently, and the app's connection stays open with no peer.
+    pub fn retire_socket(&mut self, socket_set: &mut SocketSet<'static>, handle: SocketHandle) {
+        let tcp = socket_set.get_mut::<TcpSocket>(handle);
+        if tcp.is_active() {
+            tcp.abort();
+        }
+        self.retired_sockets.push(handle);
+    }
+
+    /// Removes the retired sockets. Call it right after an interface poll.
+    pub fn remove_retired_sockets(&mut self, socket_set: &mut SocketSet<'static>) {
+        for handle in self.retired_sockets.drain(..) {
+            socket_set.remove(handle);
         }
     }
 

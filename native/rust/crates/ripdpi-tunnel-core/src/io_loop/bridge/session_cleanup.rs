@@ -37,6 +37,6 @@ pub(super) fn take_session_task(
     }
     entry.cancel.cancel();
     drop(entry.smoltcp_side);
-    remove_tcp_socket(socket_set, handle);
+    remove_tcp_socket(socket_set, sessions, handle);
     Some(entry.handle)
 }

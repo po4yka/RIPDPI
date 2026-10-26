@@ -1,10 +1,13 @@
 use smoltcp::iface::{SocketHandle, SocketSet};
-use smoltcp::socket::tcp::Socket as TcpSocket;
 
-pub(super) fn remove_tcp_socket(socket_set: &mut SocketSet<'static>, handle: SocketHandle) {
-    let tcp = socket_set.get_mut::<TcpSocket>(handle);
-    if tcp.is_active() {
-        tcp.close();
-    }
-    socket_set.remove(handle);
+use crate::ActiveSessions;
+
+/// A session that ends while its socket is still active ended abnormally (a bridge error, a
+/// denial, or loop shutdown), so the app gets a RST at the next poll instead of a silent drop.
+pub(super) fn remove_tcp_socket(
+    socket_set: &mut SocketSet<'static>,
+    sessions: &mut ActiveSessions,
+    handle: SocketHandle,
+) {
+    sessions.retire_socket(socket_set, handle);
 }
