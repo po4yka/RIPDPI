@@ -68,11 +68,20 @@ pub(super) fn pump_udp_upstream_responses(
                 } else {
                     RuntimeState::encode_socks5_udp_packet_into(encode_buffer, entry.logical_target, response);
                 }
-                client_relay.send_to(encode_buffer, key.client)?;
+                // A full client socket buffer drops this datagram, as UDP may.
+                if let Err(err) = client_relay.send_to(encode_buffer, key.client)
+                    && err.kind() != io::ErrorKind::WouldBlock
+                {
+                    return Err(err);
+                }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
             Err(err) if udp_platform::is_connection_refused(&err) => {}
-            Err(err) => return Err(err),
+            Err(err) => {
+                // ENETUNREACH, EHOSTUNREACH and similar errors end this flow, not the association.
+                tracing::debug!(target = %key.target, "UDP flow receive failed: {err}");
+                flow_state.remove(&key);
+            }
         }
     }
     Ok(made_progress)

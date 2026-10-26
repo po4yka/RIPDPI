@@ -876,3 +876,77 @@ fn association_worker_exit_clears_running_so_the_control_connection_closes() {
     assert_eq!(failed, Ok(true), "the relay socket error must end the association loop");
     assert!(!still_running, "a dead association worker must tell the control connection to close");
 }
+
+fn flow_entry_for(upstream: UdpSocket, target: SocketAddr) -> UdpFlowActivationState {
+    UdpFlowActivationState {
+        lua_flow: None,
+        session: UdpFlowSession::new(),
+        last_used: Instant::now(),
+        route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+        destination_egress: DestinationEgress::Tunneled,
+        socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
+        packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
+        source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
+        execution_family: None,
+        attempt_token: None,
+        host: None,
+        payload: Vec::new(),
+        awaiting_response: false,
+        upstream,
+        quic_migrated: false,
+        logical_target: target,
+        current_target: target,
+        target_candidates: vec![target],
+        target_index: 0,
+        cache_host: false,
+        upstream_socks: None,
+    }
+}
+
+#[test]
+fn one_flow_send_error_retires_only_that_flow() {
+    let closed = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind closed port");
+    let closed_target = closed.local_addr().expect("closed addr");
+    drop(closed);
+    let failing_upstream = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream");
+    failing_upstream.connect(closed_target).expect("connect upstream");
+    failing_upstream.send(b"first").expect("first datagram");
+    std::thread::sleep(Duration::from_millis(50));
+    failing_upstream.set_nonblocking(true).expect("nonblocking upstream");
+
+    let client_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client relay");
+    client_relay.set_read_timeout(Some(Duration::from_secs(2))).expect("relay timeout");
+    let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client");
+    let flow_key = UdpFlowKey {
+        client: client.local_addr().expect("client addr"),
+        target: closed_target,
+        host: None,
+        preserve_host_in_response: false,
+    };
+    let mut flow_state = HashMap::new();
+    flow_state.insert(flow_key.clone(), flow_entry_for(failing_upstream, closed_target));
+    client
+        .send_to(&encode_socks5_udp_packet(closed_target, b"second"), client_relay.local_addr().expect("relay addr"))
+        .expect("client datagram");
+    let state = test_runtime_state(RuntimeConfig::default());
+    let mut client_buffer = [0u8; 2048];
+    let mut pinned = None;
+
+    let result = super::client_receive::receive_and_forward_udp_client_packet(
+        &client_relay,
+        &mut client_buffer,
+        &mut pinned,
+        super::client_receive::UdpClientReceiveConfig {
+            control_peer_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            requested_udp_source: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+            flow_limit: 16,
+        },
+        &mut flow_state,
+        &state,
+        None,
+        None,
+    );
+
+    assert!(result.is_ok(), "a refused flow must not end the association: {result:?}");
+    assert!(!flow_state.contains_key(&flow_key), "the failing flow is retired so its next datagram starts fresh");
+}

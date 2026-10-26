@@ -73,7 +73,14 @@ pub(super) fn receive_and_forward_udp_client_packet(
             let entry = flow_state
                 .get_mut(&packet.flow_key())
                 .ok_or_else(|| io::Error::other("udp flow entry missing after selection"))?;
-            send_udp_flow_payload(state, entry, packet.payload, now, protect_path)?;
+            if let Err(err) = send_udp_flow_payload(state, entry, packet.payload, now, protect_path) {
+                // A send error belongs to this flow only (EAGAIN on a saturated uplink, a
+                // pending ICMP error): drop the datagram and keep the other flows going.
+                tracing::debug!(target = %packet.original_target, "UDP flow send failed: {err}");
+                if err.kind() != io::ErrorKind::WouldBlock {
+                    flow_state.remove(&packet.flow_key());
+                }
+            }
             Ok(true)
         }
         Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => Ok(false),
