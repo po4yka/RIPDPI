@@ -25,6 +25,8 @@ internal class LocalSocketClientSession(
     }
 
     override fun close() {
+        // Wakes a handler blocked in read(); LocalSocket.close() alone does not.
+        runCatching { socket.shutdownInput() }
         socket.close()
     }
 }

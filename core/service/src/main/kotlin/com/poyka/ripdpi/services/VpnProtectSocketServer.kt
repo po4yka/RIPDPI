@@ -5,6 +5,7 @@ import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.net.VpnService
 import android.system.Os
+import android.system.OsConstants
 import co.touchlab.kermit.Logger
 import java.io.File
 import java.io.FileDescriptor
@@ -175,6 +176,8 @@ internal class VpnProtectSocketServer(
         val acceptThread = thread
         thread = null
 
+        // close() alone does not wake a thread blocked in accept(); shutdown() does.
+        runCatching { bindSocket?.fileDescriptor?.let { Os.shutdown(it, OsConstants.SHUT_RDWR) } }
         runCatching { serverSocket?.close() }
         runCatching { bindSocket?.close() }
         serverSocket = null
