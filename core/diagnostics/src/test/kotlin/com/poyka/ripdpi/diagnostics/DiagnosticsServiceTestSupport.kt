@@ -202,6 +202,7 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeCheckpointTerminalPolicy: suspend (RememberedNetworkPolicyEntity?) -> Unit = {}
     var beforeCheckpointTerminalSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var afterInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
+    var beforeUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
     var afterUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
     var beforePersistCompletedScan: suspend (ScanSessionEntity) -> Unit = {}
     var beforeUpsertSnapshot: suspend (NetworkSnapshotEntity) -> Unit = {}
@@ -491,6 +492,7 @@ internal class FakeDiagnosticsHistoryStores :
     }
 
     override suspend fun upsertScanSession(session: ScanSessionEntity) {
+        beforeUpsertScanSession(session)
         sessionsState.value = sessionsState.value.upsertById(session) { it.id }
         afterUpsertScanSession(session)
     }

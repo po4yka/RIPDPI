@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
@@ -462,12 +463,19 @@ internal class DefaultDiagnosticsScanController
 
             val executionJob =
                 scope.launch(start = CoroutineStart.LAZY) {
-                    executionCoordinator.execute(
-                        prepared = prepared,
-                        handle = bridgeSession.handle,
-                        rawPathRunner = rawPathRunner,
-                        startBridgeBeforeAwait = bridgeSession.startBeforeAwait,
-                    )
+                    // The application scope has no handler: a store failure while recording a failed
+                    // or cancelled scan must not kill the process. Cleanup has already run in finally.
+                    val failure =
+                        runCatching {
+                            executionCoordinator.execute(
+                                prepared = prepared,
+                                handle = bridgeSession.handle,
+                                rawPathRunner = rawPathRunner,
+                                startBridgeBeforeAwait = bridgeSession.startBeforeAwait,
+                            )
+                        }.exceptionOrNull()
+                    if (failure is CancellationException || failure is Error) throw failure
+                    failure?.let { Logger.e(it) { "Diagnostics scan execution failed" } }
                 }
             startup.executionJob = executionJob
             ensureStartupActive(scope)
