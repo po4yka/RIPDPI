@@ -128,8 +128,13 @@ pub(super) fn relay_streams(
 
     // Ensure both sockets are fully closed regardless of how relay threads exited.
     // The per-direction shutdown in each thread may be skipped on error paths;
-    // this guarantees FIN is sent so sockets don't linger in CLOSE_WAIT.
-    shutdown_relay_pair(&upstream, &client);
+    // this guarantees FIN is sent so sockets don't linger in CLOSE_WAIT. A frozen
+    // relay sends no FIN to the client: its close becomes an RST.
+    if freeze_detected.load(Ordering::Acquire) {
+        let _ = (upstream.shutdown(Shutdown::Both), client.shutdown(Shutdown::Read));
+    } else {
+        shutdown_relay_pair(&upstream, &client);
+    }
 
     if settings.group.drop_sack() {
         let _ = relay_platform::detach_drop_sack(&upstream);
@@ -149,10 +154,26 @@ mod tests {
     use super::*;
     use std::time::{Duration, Instant};
 
+    /// A TLS application-data header announcing 16 KiB, so later bytes sit mid-record.
+    const MID_RECORD_HEADER: [u8; 5] = [0x17, 0x03, 0x03, 0x40, 0x00];
+
+    #[test]
+    fn freeze_detector_ignores_an_idle_stream_at_a_record_boundary() {
+        let start = Instant::now();
+        let mut d = FreezeDetector::new(100, 512, 2);
+        d.window_start = start;
+        d.record_bytes(&[0x17, 0x03, 0x03, 0x00, 0x02, 0xaa, 0xbb]);
+
+        for i in 1..=5 {
+            assert!(!d.check(start + Duration::from_millis(100 * i)), "an idle keepalive is not a freeze");
+        }
+        assert_eq!(d.consecutive_stalls, 0);
+    }
+
     #[test]
     fn freeze_detector_disabled_when_max_stalls_zero() {
         let mut d = FreezeDetector::new(5000, 512, 0);
-        d.record_bytes(1);
+        d.record_bytes(&[0; 1]);
         let far_future = Instant::now() + Duration::from_secs(300);
         assert!(!d.check(far_future));
     }
@@ -169,22 +190,23 @@ mod tests {
         let start = Instant::now();
         let mut d = FreezeDetector::new(100, 512, 3);
         d.window_start = start;
-        d.record_bytes(1024);
+        d.record_bytes(&MID_RECORD_HEADER);
+        d.record_bytes(&[0; 1024]);
 
         // First window: good throughput -- reset
         assert!(!d.check(start + Duration::from_millis(100)));
         assert_eq!(d.consecutive_stalls, 0);
 
         // Windows 2-4: only trickle bytes (below 512)
-        d.record_bytes(10);
+        d.record_bytes(&[0; 10]);
         assert!(!d.check(start + Duration::from_millis(200)));
         assert_eq!(d.consecutive_stalls, 1);
 
-        d.record_bytes(5);
+        d.record_bytes(&[0; 5]);
         assert!(!d.check(start + Duration::from_millis(300)));
         assert_eq!(d.consecutive_stalls, 2);
 
-        d.record_bytes(2);
+        d.record_bytes(&[0; 2]);
         assert!(d.check(start + Duration::from_millis(400)));
         assert_eq!(d.consecutive_stalls, 3);
     }
@@ -194,24 +216,25 @@ mod tests {
         let start = Instant::now();
         let mut d = FreezeDetector::new(100, 512, 3);
         d.window_start = start;
-        d.record_bytes(1024);
+        d.record_bytes(&MID_RECORD_HEADER);
+        d.record_bytes(&[0; 1024]);
 
         // Warm-up window passes with good throughput
         assert!(!d.check(start + Duration::from_millis(100)));
         assert_eq!(d.consecutive_stalls, 0);
 
         // First stall window: only 10 bytes
-        d.record_bytes(10);
+        d.record_bytes(&[0; 10]);
         d.check(start + Duration::from_millis(200));
         assert_eq!(d.consecutive_stalls, 1);
 
         // Second stall window
-        d.record_bytes(10);
+        d.record_bytes(&[0; 10]);
         d.check(start + Duration::from_millis(300));
         assert_eq!(d.consecutive_stalls, 2);
 
         // Good window -- resets counter
-        d.record_bytes(600);
+        d.record_bytes(&[0; 600]);
         assert!(!d.check(start + Duration::from_millis(400)));
         assert_eq!(d.consecutive_stalls, 0);
     }
@@ -221,11 +244,11 @@ mod tests {
         let start = Instant::now();
         let mut d = FreezeDetector::new(5000, 512, 3);
         d.window_start = start;
-        d.record_bytes(1024);
+        d.record_bytes(&[0; 1024]);
 
         // Each window: exactly at threshold (512 bytes)
         for i in 1..=10 {
-            d.record_bytes(512);
+            d.record_bytes(&[0; 512]);
             assert!(!d.check(start + Duration::from_millis(5000 * i)));
             assert_eq!(d.consecutive_stalls, 0);
         }
@@ -273,5 +296,54 @@ mod tests {
         assert_eq!(&response, b"late response");
         drop(app);
         drop(relay);
+    }
+
+    #[test]
+    fn frozen_tls_record_aborts_the_client_with_a_reset_within_the_window() {
+        use std::io::{Read, Write};
+        use std::net::{Ipv4Addr, TcpListener};
+
+        fn pair() -> (TcpStream, TcpStream) {
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind pair");
+            let first = TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+            (first, listener.accept().expect("accept").0)
+        }
+        let (mut upstream_reader, mut origin) = pair();
+        let (mut client_writer, mut app) = pair();
+        upstream_reader.set_read_timeout(Some(Duration::from_secs(5))).expect("idle timeout");
+        // A TLS record that announces 16 KiB and stops after 100 bytes: a mid-record freeze.
+        origin.write_all(&[0x17, 0x03, 0x03, 0x40, 0x00]).expect("record header");
+        origin.write_all(&[0u8; 100]).expect("partial record body");
+        let state = RuntimeState::test(crate::runtime::config::RuntimeConfig::default());
+        let freeze = Arc::new(AtomicBool::new(false));
+        let relay_freeze = freeze.clone();
+        let started = Instant::now();
+        let relay = thread::spawn(move || {
+            copy_inbound_half(
+                &mut upstream_reader,
+                &mut client_writer,
+                &state,
+                super::super::session::FirstOutboundSession::new().into_relay_session().into_shared(),
+                Arc::new(Mutex::new(None)),
+                None,
+                Arc::new(AtomicBool::new(false)),
+                FreezeDetector::new(50, 512, 2),
+                relay_freeze,
+            )
+        });
+
+        relay.join().expect("relay thread").expect("inbound half");
+        let elapsed = started.elapsed();
+        let mut forwarded = [0u8; 105];
+        app.read_exact(&mut forwarded).expect("bytes before the freeze reach the client");
+        let after = app.read(&mut [0u8; 1]);
+
+        assert!(freeze.load(Ordering::Acquire), "the stalled record must be declared frozen");
+        assert!(elapsed < Duration::from_secs(2), "the freeze window must be honored, took {elapsed:?}");
+        assert!(
+            after.as_ref().is_err_and(|err| err.kind() == io::ErrorKind::ConnectionReset),
+            "a frozen stream must not look like a complete response: {after:?}"
+        );
+        drop(origin);
     }
 }

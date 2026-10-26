@@ -1,5 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
+use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -28,6 +29,10 @@ pub(super) fn copy_inbound_half(
 ) -> io::Result<()> {
     let (mut buffer, target) = ([0u8; 16_384], reader.peer_addr().ok());
     let mut linger = HalfCloseLinger::default();
+    if let Some(window) = detector.window() {
+        // Wake once per freeze window so a fully stalled stream is checked on time.
+        let _ = reader.set_read_timeout(Some(window.min(RELAY_IDLE_TIMEOUT)));
+    }
     loop {
         match reader.read(&mut buffer) {
             Ok(0) => {
@@ -55,16 +60,14 @@ pub(super) fn copy_inbound_half(
                 }
                 writer.write_all(&buffer[..n])?;
                 linger.on_data();
-                detector.record_bytes(n);
+                detector.record_bytes(&buffer[..n]);
                 if detector.check(Instant::now()) {
-                    freeze_detected.store(true, Ordering::Release);
-                    break;
+                    return abort_frozen_client(writer, &peer_done, &freeze_detected);
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
                 if detector.check(Instant::now()) {
-                    freeze_detected.store(true, Ordering::Release);
-                    break;
+                    return abort_frozen_client(writer, &peer_done, &freeze_detected);
                 }
                 if linger.expired(&peer_done, Instant::now()) {
                     break;
@@ -87,6 +90,17 @@ pub(super) fn copy_inbound_half(
     peer_done.store(true, Ordering::Release);
     let _ = writer.shutdown(Shutdown::Write);
     let _ = reader.shutdown(Shutdown::Read);
+    Ok(())
+}
+
+/// Ends a frozen relay with an RST to the client: a FIN would make a truncated
+/// response look complete. Shutting the read side wakes the outbound half without a FIN;
+/// the zero linger turns the final close into the reset.
+fn abort_frozen_client(writer: &TcpStream, peer_done: &AtomicBool, freeze_detected: &AtomicBool) -> io::Result<()> {
+    freeze_detected.store(true, Ordering::Release);
+    peer_done.store(true, Ordering::Release);
+    listener_platform::close_rejected_client(writer);
+    let _ = writer.shutdown(Shutdown::Read);
     Ok(())
 }
 
