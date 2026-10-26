@@ -51,6 +51,13 @@ class VpnTunnelRuntimePolicyTest {
     }
 
     @Test
+    fun `split AllowedIPs with interceptor DNS routes the MapDNS answer pool into the tunnel`() {
+        val profile = VpnProfileInterface(emptyList(), listOf("203.0.113.0/24"), false, 1280)
+        val plan = profile.routePlan(fallbackDns = "198.18.0.53")
+        assertTrue(plan.routes.contains(VpnTunnelRouteEntry("198.18.0.0", 15)))
+    }
+
+    @Test
     fun `IPv4 profile rejects IPv6 fallback DNS before route plan creation`() {
         val profile = VpnProfileInterface(emptyList(), listOf("0.0.0.0/0", "::/0"), false, 1280)
         assertThrows(IllegalArgumentException::class.java) { profile.routePlan("fd00::1") }
