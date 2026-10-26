@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -29,13 +30,18 @@ import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
@@ -695,6 +701,88 @@ class SubscriptionImportConfirmViewModelTest {
             }
         }
 
+    @Test
+    fun `a failed bootstrap save is retried without spending the token again`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body("trojan://secret@example.com:443#bootstrap")
+                        .build(),
+                )
+                server.enqueue(MockResponse.Builder().code(410).build())
+                server.start()
+                val repository = FakeProxyGroupRepository().apply { nextAddFailure = IllegalStateException("disk") }
+                var nextGroup = 0
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository = repository,
+                        bootstrapConsumer = BootstrapConsumer(clockMillis = { 42L }),
+                        groupIdFactory = { "bootstrap-group-${nextGroup++}" },
+                    )
+                viewModel.setRequest(url = server.url("/bootstrap/tok").toString(), name = "Boot", bootstrap = true)
+
+                viewModel.confirm()
+                withContext(Dispatchers.Default) {
+                    withTimeout(5_000) { viewModel.uiState.first { it.importFailed && !it.importing } }
+                }
+                viewModel.importedEvents.test {
+                    viewModel.confirm()
+                    advanceUntilIdle()
+                    awaitItem()
+                }
+
+                val group = repository.list().single()
+                assertEquals("bootstrap-group-0", group.id)
+                assertEquals(1, group.members.size)
+                assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
+    fun `a consumed bootstrap payload is saved even when the screen closes during the save`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body("trojan://secret@example.com:443#bootstrap")
+                        .build(),
+                )
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                val saveEntered = CompletableDeferred<Unit>()
+                val saveRelease = CompletableDeferred<Unit>()
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository = repository,
+                        bootstrapConsumer = BootstrapConsumer(clockMillis = { 42L }),
+                        groupIdFactory = { "bootstrap-group" },
+                        saveAwgProfiles = { _, _ ->
+                            saveEntered.complete(Unit)
+                            saveRelease.await()
+                            emptyList()
+                        },
+                    )
+                viewModel.setRequest(url = server.url("/bootstrap/tok").toString(), name = "Boot", bootstrap = true)
+
+                viewModel.confirm()
+                withContext(Dispatchers.Default) { withTimeout(5_000) { saveEntered.await() } }
+                viewModel.viewModelScope.cancel()
+                saveRelease.complete(Unit)
+                advanceUntilIdle()
+
+                val groups =
+                    withContext(Dispatchers.Default) {
+                        withTimeout(5_000) { repository.groups().first { it.isNotEmpty() } }
+                    }
+                assertEquals(SubscriptionKind.BOOTSTRAP, groups.single().subscription?.kind)
+            }
+        }
+
     private fun bootstrapMetadataPayload() =
         """{"outbounds":[
               {"type":"selector","tag":"select","outbounds":["edge","origin","auto"],"default":"edge"},
@@ -952,8 +1040,13 @@ class SubscriptionImportConfirmViewModelTest {
 
 private class FakeProxyGroupRepository : ProxyGroupRepository {
     private val state = MutableStateFlow<List<ProxyGroup>>(emptyList())
+    var nextAddFailure: Exception? = null
 
     override suspend fun add(group: ProxyGroup) {
+        nextAddFailure?.let { failure ->
+            nextAddFailure = null
+            throw failure
+        }
         state.value = state.value.filterNot { it.id == group.id } + group
     }
 

@@ -26,6 +26,7 @@ import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 
@@ -127,6 +129,9 @@ class SubscriptionImportConfirmViewModel
         val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
         private var completed = false
         private var claimedImportToken: String? = null
+
+        // A consumed one-time payload that is not saved yet: a retry saves it without spending the token again.
+        private var unsavedBootstrap: UnsavedBootstrap? = null
 
         internal fun claimRequest(
             importToken: String,
@@ -248,49 +253,65 @@ class SubscriptionImportConfirmViewModel
             groupName: String,
             order: Int,
         ) {
-            when (val result = bootstrapConsumer.consume(state.url, groupId)) {
-                is BootstrapConsumeResult.Consumed -> {
-                    val awgTargets =
-                        saveAwgProfiles(result.amneziaWgProfiles, result.migration?.awgPreviousTags.orEmpty())
-                    repository.add(
-                        subscriptionGroup(
-                            existing = existing,
-                            groupId = groupId,
-                            groupName = groupName,
-                            order = order,
-                            subscription =
-                                Subscription(
-                                    link = state.url,
-                                    kind = SubscriptionKind.BOOTSTRAP,
-                                    consumedAt = result.consumedAtMillis,
-                                    mirrors = result.subscriptionMirrors,
-                                    migration =
-                                        com.poyka.ripdpi.data.subscription.receivedMigration(
-                                            result.migration,
-                                            result.payloadSha256,
-                                            result.consumedAtMillis,
-                                            result.profiles,
-                                            awgTargets,
+            // The server spends the token once it answers, so finish the save even if the screen closes.
+            val saved =
+                withContext(NonCancellable) {
+                    val unsaved = unsavedBootstrap?.takeIf { it.url == state.url }
+                    val targetGroupId = unsaved?.groupId ?: groupId
+                    when (val result = unsaved?.result ?: bootstrapConsumer.consume(state.url, targetGroupId)) {
+                        is BootstrapConsumeResult.Consumed -> {
+                            unsavedBootstrap = UnsavedBootstrap(state.url, targetGroupId, result)
+                            val awgTargets =
+                                saveAwgProfiles(result.amneziaWgProfiles, result.migration?.awgPreviousTags.orEmpty())
+                            repository.add(
+                                subscriptionGroup(
+                                    existing = existing,
+                                    groupId = targetGroupId,
+                                    groupName = groupName,
+                                    order = order,
+                                    subscription =
+                                        Subscription(
+                                            link = state.url,
+                                            kind = SubscriptionKind.BOOTSTRAP,
+                                            consumedAt = result.consumedAtMillis,
+                                            mirrors = result.subscriptionMirrors,
+                                            migration =
+                                                com.poyka.ripdpi.data.subscription.receivedMigration(
+                                                    result.migration,
+                                                    result.payloadSha256,
+                                                    result.consumedAtMillis,
+                                                    result.profiles,
+                                                    awgTargets,
+                                                ),
                                         ),
+                                    members = result.profiles,
+                                    packageRoutingRules = result.packageRoutingRules,
+                                    cloudflareMemberIds = result.cloudflareMemberIds,
+                                    isSelector = result.isSelector,
+                                    failover = result.failover,
                                 ),
-                            members = result.profiles,
-                            packageRoutingRules = result.packageRoutingRules,
-                            cloudflareMemberIds = result.cloudflareMemberIds,
-                            isSelector = result.isSelector,
-                            failover = result.failover,
-                        ),
-                    )
-                    completeImport()
-                }
+                            )
+                            unsavedBootstrap = null
+                            true
+                        }
 
-                is BootstrapConsumeResult.AlreadyConsumed,
-                is BootstrapConsumeResult.NetworkError,
-                is BootstrapConsumeResult.ParseError,
-                -> {
-                    _uiState.update { it.copy(importFailed = true) }
+                        is BootstrapConsumeResult.AlreadyConsumed,
+                        is BootstrapConsumeResult.NetworkError,
+                        is BootstrapConsumeResult.ParseError,
+                        -> {
+                            _uiState.update { it.copy(importFailed = true) }
+                            false
+                        }
+                    }
                 }
-            }
+            if (saved) completeImport()
         }
+
+        private class UnsavedBootstrap(
+            val url: String,
+            val groupId: String,
+            val result: BootstrapConsumeResult.Consumed,
+        )
 
         private fun subscriptionGroup(
             existing: ProxyGroup?,
