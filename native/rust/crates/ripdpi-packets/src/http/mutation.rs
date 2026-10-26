@@ -108,7 +108,10 @@ fn apply_host_remove_spaces(input: &[u8]) -> Option<Vec<u8>> {
     if value_start + hlen >= output.len() {
         return None;
     }
-    let header_value_start = parts.header_name_start + 5;
+    // The colon may follow whitespace after "Host" (parse_http_parts accepts `Host :`).
+    let colon_pos =
+        parts.header_name_start + 4 + input[parts.header_name_start + 4..].iter().position(|&b| b == b':')?;
+    let header_value_start = colon_pos + 1;
     let space_count = value_start.saturating_sub(header_value_start);
     output.copy_within(value_start..value_start + hlen, header_value_start);
     for byte in &mut output[header_value_start + hlen..header_value_start + hlen + space_count] {

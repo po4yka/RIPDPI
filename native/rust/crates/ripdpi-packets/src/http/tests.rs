@@ -166,6 +166,20 @@ fn mod_http_like_c_remove_spaces_keeps_ipv6_host_bracket() {
 }
 
 #[test]
+fn mod_http_like_c_remove_spaces_keeps_colon_after_whitespace_before_it() {
+    for (input, expected) in [
+        (&b"GET / HTTP/1.1\r\nHost :example.com\r\n\r\n"[..], &b"GET / HTTP/1.1\r\nHost :example.com\r\n\r\n"[..]),
+        (b"GET / HTTP/1.1\r\nHost\t: example.com\r\n\r\n", b"GET / HTTP/1.1\r\nHost\t:example.com\t\r\n\r\n"),
+    ] {
+        let mutation = mod_http_like_c(input, MH_SPACE);
+
+        assert_eq!(mutation.bytes, expected, "{:?}", String::from_utf8_lossy(input));
+        let markers = http_marker_info(&mutation.bytes).expect("reparse mutated request");
+        assert_eq!(&mutation.bytes[markers.host_start..markers.host_end], b"example.com");
+    }
+}
+
+#[test]
 fn mod_http_like_c_applies_method_space() {
     let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
     let mutation = mod_http_like_c(input, MH_METHODSPACE);
