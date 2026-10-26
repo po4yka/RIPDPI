@@ -69,7 +69,38 @@ pub(super) struct UdpWorkerConfig {
     pub(super) src: SocketAddr,
     pub(super) association_id: u64,
     pub(super) idle_timeout: Duration,
+    pub(super) connect_timeout: Duration,
     pub(super) memory_budget: UdpMemoryBudget,
+}
+
+/// Runs the SOCKS5 UDP ASSOCIATE setup, bounded by `connect_timeout` and `cancel`. Returns
+/// `Ok(None)` when cancelled.
+///
+/// # Cancel safety
+///
+/// cancel-safe: `UdpSession::connect_with_memory_budget` is not, but this worker owns everything it
+/// builds. A setup dropped on cancel or timeout closes its half-built control connection and relay
+/// socket, so the proxy only sees the control connection close.
+async fn connect_session(
+    proxy_addr: SocketAddr,
+    auth: &Auth,
+    protect_path: Option<&str>,
+    memory_budget: &UdpMemoryBudget,
+    connect_timeout: Duration,
+    cancel: &CancellationToken,
+) -> std::io::Result<Option<UdpSession>> {
+    let setup = UdpSession::connect_with_memory_budget(proxy_addr, auth.clone(), protect_path, memory_budget.clone());
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => Ok(None),
+        result = tokio::time::timeout(connect_timeout, setup) => match result {
+            Ok(session) => session.map(Some),
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                format!("SOCKS5 UDP ASSOCIATE setup timed out after {connect_timeout:?}"),
+            )),
+        },
+    }
 }
 
 pub(super) fn spawn_udp_worker(
@@ -80,26 +111,34 @@ pub(super) fn spawn_udp_worker(
     udp_tx: tokio::sync::mpsc::Sender<UdpEvent>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let UdpWorkerConfig { proxy_addr, auth, protect_path, src, association_id, idle_timeout, memory_budget } =
-            config;
-        // UdpSession::connect is intentionally allowed to finish: its SOCKS5
-        // handshake is not cancel-safe. Keeping it in this worker prevents the
-        // single TUN/smoltcp owner task from stalling during setup.
-        let mut session = match UdpSession::connect_with_memory_budget(
+        let UdpWorkerConfig {
             proxy_addr,
-            auth.clone(),
-            protect_path.as_deref(),
-            memory_budget.clone(),
-        )
-        .await
-        {
-            Ok(session) => session.with_recv_timeout(idle_timeout),
-            Err(err) => {
-                debug!("UDP association {} for {} failed during setup: {}", association_id, src, err);
-                let _ = udp_tx.send(UdpEvent::Closed { src, association_id }).await;
-                return;
-            }
-        };
+            auth,
+            protect_path,
+            src,
+            association_id,
+            idle_timeout,
+            connect_timeout,
+            memory_budget,
+        } = config;
+        // Setup runs in this worker, so it never stalls the single TUN/smoltcp owner task. A proxy
+        // that accepts but never answers is bounded by the connect timeout, and eviction or shutdown
+        // stops it through `cancel`.
+        let mut session =
+            match connect_session(proxy_addr, &auth, protect_path.as_deref(), &memory_budget, connect_timeout, &cancel)
+                .await
+            {
+                Ok(Some(session)) => session.with_recv_timeout(idle_timeout),
+                Ok(None) => {
+                    let _ = udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                    return;
+                }
+                Err(err) => {
+                    debug!("UDP association {} for {} failed during setup: {}", association_id, src, err);
+                    let _ = udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                    return;
+                }
+            };
         let mut response_sources = HashMap::<ResponseAuthority, SocketAddr>::new();
 
         loop {
@@ -125,18 +164,19 @@ pub(super) fn spawn_udp_worker(
                     };
                     if let Err(err) = sent {
                         debug!("UDP association {} for {} send failed: {}", association_id, src, err);
-                        // Preserve the previous one-reconnect retry semantics,
-                        // but keep the non-cancel-safe SOCKS5 setup isolated in
-                        // this worker instead of blocking the TUN owner task.
-                        session = match UdpSession::connect_with_memory_budget(
+                        // One reconnect, with the same bounds as the first setup.
+                        session = match connect_session(
                             proxy_addr,
-                            auth.clone(),
+                            &auth,
                             protect_path.as_deref(),
-                            memory_budget.clone(),
+                            &memory_budget,
+                            connect_timeout,
+                            &cancel,
                         )
                         .await
                         {
-                            Ok(retry) => retry.with_recv_timeout(idle_timeout),
+                            Ok(Some(retry)) => retry.with_recv_timeout(idle_timeout),
+                            Ok(None) => break,
                             Err(retry_err) => {
                                 debug!(
                                     "UDP association {} for {} reconnect failed: {}",

@@ -199,6 +199,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                     &state.udp_memory_budget,
                     &mut state.next_udp_association_id,
                     state.runtime.udp_idle_timeout,
+                    state.runtime.tcp_connect_timeout,
                     state.runtime.protect_path.as_deref(),
                     &state.cancel,
                     &state.udp_tx,

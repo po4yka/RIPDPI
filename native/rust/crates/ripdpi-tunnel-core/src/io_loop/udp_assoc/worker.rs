@@ -23,9 +23,9 @@ use spawn::{UdpWorkerConfig, spawn_udp_worker};
 ///
 /// Synchronous and cancel-safe. The non-cancel-safe
 /// [`UdpSession::connect`](crate::session::UdpSession::connect)
-/// sequence runs to completion in the spawned worker, never in the single task
-/// that owns the TUN/smoltcp state. Cancellation is observed after setup and by
-/// every subsequent cancel-safe send/receive operation.
+/// sequence runs in the spawned worker, never in the single task that owns the
+/// TUN/smoltcp state. The worker drops it on cancellation or after
+/// `connect_timeout`, and observes cancellation in every later send/receive.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn_udp_association(
     proxy_addr: SocketAddr,
@@ -34,6 +34,7 @@ pub(super) fn spawn_udp_association(
     _dest: SocketAddr,
     association_id: u64,
     idle_timeout: Duration,
+    connect_timeout: Duration,
     protect_path: Option<&str>,
     memory_budget: UdpMemoryBudget,
     cancel: CancellationToken,
@@ -49,6 +50,7 @@ pub(super) fn spawn_udp_association(
             src,
             association_id,
             idle_timeout,
+            connect_timeout,
             memory_budget,
         },
         outbound_rx,

@@ -133,9 +133,9 @@ impl UdpSession {
     /// relay UDP socket — with no rollback. Dropping the future partway leaves a
     /// half-built association (e.g. a control connection past handshake but with
     /// no usable relay socket); the dropped values close their fds, but the proxy
-    /// may briefly see a torn `ASSOCIATE`. The tunnel association worker awaits it
-    /// to completion outside the single TUN/smoltcp owner task, so it is never
-    /// cancelled mid-setup. Do not call it inside a `select!`/`timeout`.
+    /// may briefly see a torn `ASSOCIATE`. The tunnel association worker runs it
+    /// outside the single TUN/smoltcp owner task and drops it only on
+    /// cancellation or its connect timeout, when that torn setup is the intent.
     pub async fn connect(proxy_addr: SocketAddr, auth: Auth, protect_path: Option<&str>) -> io::Result<Self> {
         Self::connect_with_memory_budget(
             proxy_addr,

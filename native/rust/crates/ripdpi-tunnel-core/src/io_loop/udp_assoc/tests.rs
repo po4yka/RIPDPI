@@ -147,6 +147,7 @@ async fn association_worker_sends_datagram_queued_during_setup() {
         dest,
         9,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         memory_budget.clone(),
         CancellationToken::new(),
@@ -176,6 +177,62 @@ async fn association_worker_sends_datagram_queued_during_setup() {
     association.worker.abort();
 }
 
+/// A proxy that accepts the control connection but never answers the SOCKS5 greeting.
+async fn spawn_silent_proxy() -> SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy listener");
+    let proxy_addr = listener.local_addr().expect("proxy address");
+    tokio::spawn(async move {
+        let (_stream, _) = listener.accept().await.expect("accept proxy");
+        std::future::pending::<()>().await;
+    });
+    proxy_addr
+}
+
+fn silent_proxy_association(
+    proxy_addr: SocketAddr,
+    connect_timeout: Duration,
+) -> (UdpAssociation, tokio::sync::mpsc::Receiver<UdpEvent>) {
+    let (udp_tx, udp_rx) = tokio::sync::mpsc::channel(4);
+    let association = spawn_udp_association(
+        proxy_addr,
+        Auth::NoAuth,
+        "10.0.0.2:53010".parse().expect("source address"),
+        "203.0.113.20:443".parse().expect("destination address"),
+        11,
+        Duration::from_secs(60),
+        connect_timeout,
+        None,
+        UdpMemoryBudget::for_tunnel_mtu(1500),
+        CancellationToken::new(),
+        udp_tx,
+    );
+    (association, udp_rx)
+}
+
+#[tokio::test]
+async fn association_setup_against_a_silent_proxy_times_out_and_closes() {
+    let (association, mut udp_rx) = silent_proxy_association(spawn_silent_proxy().await, Duration::from_millis(100));
+
+    let event = tokio::time::timeout(Duration::from_secs(2), udp_rx.recv())
+        .await
+        .expect("setup must give up after the connect timeout");
+    assert!(matches!(event, Some(UdpEvent::Closed { association_id: 11, .. })));
+    tokio::time::timeout(Duration::from_secs(1), association.worker).await.expect("worker ends").expect("no panic");
+}
+
+#[tokio::test]
+async fn cancelling_an_association_stops_its_setup() {
+    let (association, _udp_rx) = silent_proxy_association(spawn_silent_proxy().await, Duration::from_secs(60));
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    association.cancel.cancel();
+
+    tokio::time::timeout(Duration::from_secs(1), association.worker)
+        .await
+        .expect("a cancelled setup must not outlive its association")
+        .expect("no panic");
+}
+
 #[tokio::test]
 async fn mapdns_udp_response_uses_synthetic_source_tuple() {
     let proxy_addr = spawn_udp_echo_stub().await;
@@ -191,6 +248,7 @@ async fn mapdns_udp_response_uses_synthetic_source_tuple() {
         resolved,
         10,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         memory_budget.clone(),
         CancellationToken::new(),
@@ -237,6 +295,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
         "203.0.113.20:443".parse().expect("valid test addr"),
         7,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
@@ -279,6 +338,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
         "203.0.113.20:443".parse().expect("valid test addr"),
         10,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
@@ -320,6 +380,7 @@ async fn handle_udp_event_removes_closed_association() {
         "203.0.113.20:443".parse().expect("valid test addr"),
         20,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
@@ -360,6 +421,7 @@ async fn handle_udp_event_ignores_stale_close() {
         "203.0.113.20:443".parse().expect("valid test addr"),
         30,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
@@ -427,6 +489,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         &memory_budget,
         &mut next_id,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         &CancellationToken::new(),
         &udp_tx,
@@ -482,6 +545,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         &memory_budget,
         &mut next_id,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         &CancellationToken::new(),
         &udp_tx,
@@ -536,6 +600,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
         &memory_budget,
         &mut next_id,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         &CancellationToken::new(),
         &udp_tx,
@@ -677,6 +742,7 @@ async fn shutdown_cancels_all_associations() {
         "203.0.113.21:443".parse().expect("valid test addr"),
         1,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
@@ -691,6 +757,7 @@ async fn shutdown_cancels_all_associations() {
         "203.0.113.22:443".parse().expect("valid test addr"),
         2,
         Duration::from_secs(1),
+        Duration::from_secs(5),
         None,
         UdpMemoryBudget::for_tunnel_mtu(1500),
         cancel.child_token(),
