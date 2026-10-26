@@ -82,15 +82,15 @@ where
     }
 
     async fn send_command_request(&mut self, cmd: &Socks4Command) -> Result<()> {
-        let mut packet = [0u8; MAX_ADDR_LEN];
-        packet[0] = consts::SOCKS4_VERSION;
-        packet[1] = cmd.as_u8();
+        // VN CD DSTPORT DSTIP USERID(empty) NULL, plus the SOCKS4a hostname and NULL.
+        let mut packet = Vec::with_capacity(MAX_ADDR_LEN);
+        packet.extend_from_slice(&[consts::SOCKS4_VERSION, cmd.as_u8()]);
 
         match &self.target_addr {
             Some(TargetAddr::Ip(SocketAddr::V4(addr))) => {
-                packet[2] = (addr.port() >> 8) as u8;
-                packet[3] = addr.port() as u8;
-                packet[4..8].copy_from_slice(&(addr.ip()).octets());
+                packet.extend_from_slice(&addr.port().to_be_bytes());
+                packet.extend_from_slice(&addr.ip().octets());
+                packet.push(0);
                 Ok(())
             }
             Some(TargetAddr::Ip(SocketAddr::V6(_))) => {
@@ -102,11 +102,10 @@ where
                 if domain_bytes.len() > MAX_ADDR_LEN - 8 {
                     return Err(SocksError::ExceededMaxDomainLen(domain_bytes.len()));
                 }
-                packet[2] = (port >> 8) as u8;
-                packet[3] = *port as u8;
-                packet[4..8].copy_from_slice(&[0, 0, 0, 1]);
-                let offset = 8 + domain_bytes.len();
-                packet[8..offset].copy_from_slice(domain_bytes);
+                packet.extend_from_slice(&port.to_be_bytes());
+                packet.extend_from_slice(&[0, 0, 0, 1, 0]);
+                packet.extend_from_slice(domain_bytes);
+                packet.push(0);
                 Ok(())
             }
             None => Err(SocksError::ArgumentInputError("send_command_request called before target_addr was set")),
@@ -228,6 +227,24 @@ and others in many different sites across the globe. It is updated continuously,
 and built with more tools and technologies than we can shake a stick at. If you'd \
 like to help us out, see careers.google.com.\n";
 
+    /// Read one SOCKS4 or SOCKS4a request: the 8-byte header, the USERID up
+    /// to its NUL and, for a 0.0.0.x DSTIP, the hostname up to its NUL.
+    async fn read_socks4_request<R: AsyncRead + Unpin>(socket: &mut R) -> Vec<u8> {
+        let mut request = vec![0u8; 8];
+        socket.read_exact(&mut request).await.expect("read socks4 header");
+        let fields = if request[4..7] == [0, 0, 0] && request[7] != 0 { 2 } else { 1 };
+        for _ in 0..fields {
+            loop {
+                let byte = socket.read_u8().await.expect("read socks4 field");
+                request.push(byte);
+                if byte == 0 {
+                    break;
+                }
+            }
+        }
+        request
+    }
+
     /// Spawn an in-process SOCKS4 server that accepts one CONNECT, replies
     /// success, drains the client's HTTP request, then writes a canned
     /// humans.txt body containing the signature "Google is built ..." line.
@@ -238,11 +255,7 @@ like to help us out, see careers.google.com.\n";
         tokio::spawn(async move {
             let (mut socket, _) = listener.accept().await.expect("accept");
 
-            // `Socks4Stream::send_command_request` always writes a fixed
-            // 260-byte buffer (header + USERID slot padded with zeros);
-            // drain the whole buffer before responding.
-            let mut request = vec![0u8; MAX_ADDR_LEN];
-            socket.read_exact(&mut request).await.expect("read socks4 request");
+            let request = read_socks4_request(&mut socket).await;
             assert_eq!(request[0], consts::SOCKS4_VERSION, "VN must be 4");
             assert_eq!(request[1], consts::SOCKS4_CMD_CONNECT, "CD must be CONNECT");
 
@@ -330,23 +343,46 @@ like to help us out, see careers.google.com.\n";
         assert_response_body(&response_body);
     }
 
-    // SOCKS4a (server-side resolve) is not supported by this client's
-    // request encoder — the domain bytes are placed in the USERID slot
-    // rather than after a NUL terminator. Adding coverage would require
-    // first fixing the encoder; tracked separately.
-    //
-    // #[tokio::test]
-    // pub async fn test_use_stream_remote_resolve() {
-    //     let mut socks = Socks4Stream::connect("217.17.56.160:4145", get_domain(), 80, false)
-    //         .await
-    //         .expect("should connect successfully to socks4 server");
-    //
-    //     let response_body = get_humans_txt(&mut socks)
-    //         .await
-    //         .expect("should have response_body");
-    //
-    //     assert_response_body(&response_body);
-    // }
+    /// Run `request` against an in-memory peer that records the request and
+    /// answers with `reply`.
+    async fn wire_request(target: TargetAddr, reply: [u8; 8]) -> (Vec<u8>, Result<()>) {
+        let (client_half, mut server_half) = tokio::io::duplex(1024);
+        let server = tokio::spawn(async move {
+            let request = read_socks4_request(&mut server_half).await;
+            server_half.write_all(&reply).await.expect("write reply");
+            request
+        });
+        let mut stream = Socks4Stream::use_stream(client_half).expect("wrap stream");
+        let result = stream.request(Socks4Command::Connect, target, false).await;
+        let request = server.await.expect("server task");
+        (request, result)
+    }
+
+    #[tokio::test]
+    async fn connect_request_carries_no_padding_after_the_userid_terminator() {
+        let (client_half, mut server_half) = tokio::io::duplex(1024);
+        let client = tokio::spawn(async move {
+            let mut stream = Socks4Stream::use_stream(client_half).expect("wrap stream");
+            let target = TargetAddr::Ip("10.1.2.3:8080".parse().expect("target"));
+            let _ = stream.request(Socks4Command::Connect, target, false).await;
+        });
+        let mut header = [0u8; 9];
+        server_half.read_exact(&mut header).await.expect("read request");
+        assert_eq!(header, [4, 1, 0x1f, 0x90, 10, 1, 2, 3, 0]);
+        server_half.write_all(&[0, consts::SOCKS4_REPLY_SUCCEEDED, 0, 0, 0, 0, 0, 0]).await.expect("reply");
+        client.await.expect("client task");
+        let mut trailing = Vec::new();
+        server_half.read_to_end(&mut trailing).await.expect("read trailing bytes");
+        assert!(trailing.is_empty(), "request must end at the USERID NUL, got {} more bytes", trailing.len());
+    }
+
+    #[tokio::test]
+    async fn socks4a_request_puts_the_hostname_after_the_userid_terminator() {
+        let target = TargetAddr::Domain("example.org".to_string(), 443);
+        let (request, result) = wire_request(target, [0, consts::SOCKS4_REPLY_SUCCEEDED, 0, 0, 0, 0, 0, 0]).await;
+        result.expect("granted");
+        assert_eq!(request, b"\x04\x01\x01\xbb\x00\x00\x00\x01\x00example.org\x00");
+    }
 
     #[tokio::test]
     async fn socks4_domain_too_long_returns_error() {
