@@ -162,7 +162,12 @@ class RipDpiVpnService :
         if (activeOwnership.attached) return
         // Selector loops, route observation and the root helper are process singletons owned by
         // mode, not by instance: let a destroyed instance release them before this one claims them.
-        previousInstanceTeardown.get()?.takeUnless { it === destroyCleanupJob }?.join()
+        // The wait is bounded: callers hold entryMutex, and a hung teardown must not block STOP commands.
+        previousInstanceTeardown.get()?.takeUnless { it === destroyCleanupJob }?.let { previous ->
+            kotlinx.coroutines.withTimeoutOrNull(previousInstanceTeardownTimeoutMillis) { previous.join() }
+                ?: co.touchlab.kermit.Logger
+                    .w { "Previous VPN instance teardown did not finish; attaching anyway" }
+        }
         runCatching {
             activeOwnership.attach {
                 // Drop a revoke recorded by an earlier attach that failed before its delegate existed.
@@ -714,6 +719,9 @@ class RipDpiVpnService :
         internal val previousInstanceTeardown =
             java.util.concurrent.atomic
                 .AtomicReference<kotlinx.coroutines.Job?>(null)
+
+        // Covers final telemetry capture (about 4 s at worst) plus native stop; tests shorten it.
+        @Volatile internal var previousInstanceTeardownTimeoutMillis = 10_000L
 
         private const val TunnelIpv4PrefixLen = 32
         private const val TunnelIpv6PrefixLen = 128

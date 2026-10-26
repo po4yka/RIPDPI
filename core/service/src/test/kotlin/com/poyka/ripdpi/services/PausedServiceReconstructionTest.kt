@@ -150,6 +150,38 @@ class PausedServiceReconstructionTest {
         }
 
     @Test
+    fun `vpn attach goes ahead when the previous instance teardown hangs`() =
+        runBlocking {
+            val fixture = Fixture(Mode.VPN)
+            shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
+            val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
+            val service = lifecycle.get()
+            initializeVpn(service, fixture)
+            val factoryCalls = AtomicInteger()
+            service.sessionComponentBuilderProvider =
+                Provider {
+                    factoryCalls.incrementAndGet()
+                    error("graph is not needed for this test")
+                }
+            lifecycle.create()
+            val hungTeardown = Job()
+            val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
+            RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
+            RipDpiVpnService.previousInstanceTeardown.set(hungTeardown)
+            try {
+                withTimeout(5_000) { runCatching { initializeActiveSession(service) } }
+
+                assertEquals("a hung teardown must not block the new instance", 1, factoryCalls.get())
+            } finally {
+                RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
+                hungTeardown.complete()
+                lifecycle.destroy()
+                awaitTrackedDestruction(service)
+                service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+            }
+        }
+
+    @Test
     fun `vpn start dropped before the shell still completes its start generation`() =
         runBlocking {
             val fixture = Fixture(Mode.VPN)
