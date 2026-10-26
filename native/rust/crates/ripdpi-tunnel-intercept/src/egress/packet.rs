@@ -240,9 +240,6 @@ fn recompute_transport_checksum(packet: &mut [u8], meta: PacketMeta, next_header
         return None;
     }
     packet[checksum_offset..checksum_end].fill(0);
-    if !meta.is_ipv6 && meta.transport == Transport::Udp {
-        return Some(());
-    }
 
     let transport_len = packet.len().checked_sub(meta.transport_offset)?;
     let mut sum = 0u32;
@@ -490,7 +487,7 @@ mod tests {
             (IPV4_TCP, IPV4_TCP_REWRITE),
             (IPV6_TCP, IPV6_TCP_REWRITE),
             (IPV6_HOP_TCP, IPV6_HOP_TCP_REWRITE),
-            (IPV4_UDP, IPV4_UDP_REWRITE_ZERO_SUM),
+            (IPV4_UDP, IPV4_UDP_REWRITE),
             (IPV6_HOP_UDP, IPV6_HOP_UDP_REWRITE),
         ] {
             let packet = decode(original);
@@ -507,7 +504,8 @@ mod tests {
             corrupt[meta.transport_offset + if meta.transport == super::Transport::Tcp { 16 } else { 6 }] ^= 1;
             assert_eq!(packet_with_payload(&corrupt, meta, b"\0new\xff", 0, None).unwrap(), output);
         }
-        // IPv4 permits an omitted UDP checksum; retain the existing TUN policy.
+        // The generator's keepsum variant is the same packet with an omitted IPv4 UDP checksum, which
+        // the kernel never emits; rewritten packets carry the computed one, as in zapret2.
         let mut upstream = decode(IPV4_UDP_REWRITE);
         upstream[30..32].fill(0);
         assert_eq!(upstream, decode(IPV4_UDP_REWRITE_ZERO_SUM));

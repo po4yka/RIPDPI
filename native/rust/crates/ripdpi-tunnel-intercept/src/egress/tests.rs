@@ -959,7 +959,7 @@ fn upstream_lua_rewrite_matches_complete_tcp_and_udp_packets() {
         (IPV4_TCP, IPV4_TCP_REWRITE),
         (IPV6_TCP, IPV6_TCP_REWRITE),
         (IPV6_HOP_TCP, IPV6_HOP_TCP_REWRITE),
-        (IPV4_UDP, IPV4_UDP_REWRITE_ZERO_SUM),
+        (IPV4_UDP, IPV4_UDP_REWRITE),
         (IPV6_HOP_UDP, IPV6_HOP_UDP_REWRITE),
     ] {
         let mut interceptor =
