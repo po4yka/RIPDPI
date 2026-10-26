@@ -4,7 +4,9 @@ import android.util.Log
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.rules.RuleDao
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.OutputStream
 import javax.inject.Inject
@@ -65,6 +67,18 @@ class BackupExportUseCase
             appVersion: String,
             passphrase: CharArray? = null,
             createdAtEpochMillis: Long = System.currentTimeMillis(),
+        ): BackupExportResult =
+            // PBKDF2, Keystore reads and the SAF stream write all block; callers launch from Main.
+            withContext(Dispatchers.IO) {
+                exportBlocking(variant, output, appVersion, passphrase, createdAtEpochMillis)
+            }
+
+        private suspend fun exportBlocking(
+            variant: BackupVariant,
+            output: OutputStream,
+            appVersion: String,
+            passphrase: CharArray?,
+            createdAtEpochMillis: Long,
         ): BackupExportResult {
             val document = gather(variant, appVersion, createdAtEpochMillis)
             return try {

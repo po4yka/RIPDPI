@@ -235,6 +235,25 @@ class BackupExportUseCaseTest {
         }
 
     @Test
+    fun `export writes the archive off the calling thread`() =
+        runTest {
+            val callerThread = Thread.currentThread()
+            val writeThreads = mutableSetOf<Thread>()
+            val out =
+                object : java.io.OutputStream() {
+                    override fun write(b: Int) {
+                        writeThreads += Thread.currentThread()
+                    }
+                }
+
+            val result = useCase().export(BackupVariant.SHARE, out, appVersion = "1.0.0", createdAtEpochMillis = 0L)
+
+            assertTrue(result is BackupExportResult.Success)
+            assertTrue(writeThreads.isNotEmpty())
+            assertFalse("archive was written on the caller's thread", callerThread in writeThreads)
+        }
+
+    @Test
     fun `export settings survive the round-trip via the converter`() =
         runTest {
             val workerBearer = "worker-bearer-must-not-enter-backup"
