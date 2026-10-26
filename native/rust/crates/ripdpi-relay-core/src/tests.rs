@@ -1676,3 +1676,18 @@ fn single_carrier_pools_admit_every_admitted_socks_session() {
         );
     }
 }
+
+#[test]
+fn tor_dial_deadline_outlasts_the_tor_bootstrap_bound() {
+    // ripdpi-tor bounds the first-connect bootstrap at 90 s inside the backend.
+    let tor_bootstrap_bound = Duration::from_secs(90);
+    let tor = crate::socks::RelaySessionTimeouts::production_for(crate::config::RelayKind::from_config(
+        &sample_config("tor"),
+    ));
+    let trojan = crate::socks::RelaySessionTimeouts::production_for(crate::config::RelayKind::from_config(
+        &sample_config("trojan"),
+    ));
+
+    assert!(tor.connect_deadline > tor_bootstrap_bound, "the dial deadline would cancel a slow Tor bootstrap");
+    assert_eq!(trojan.connect_deadline, Duration::from_secs(30));
+}

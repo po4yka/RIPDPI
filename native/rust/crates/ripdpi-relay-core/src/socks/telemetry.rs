@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use crate::config::RelayKind;
 use crate::telemetry::TcpConnectObservation;
 
 /// Upper bound for one upstream dial through a relay backend.
@@ -8,6 +9,12 @@ use crate::telemetry::TcpConnectObservation;
 /// backend that never completes its handshake would pin an admission permit
 /// (max 256) and an fd until runtime shutdown.
 pub(crate) const RELAY_CONNECT_DEADLINE: Duration = Duration::from_secs(30);
+
+/// Dial deadline for Tor. Its first connect also bootstraps the circuit, which
+/// the backend bounds by `ripdpi_tor::DEFAULT_BOOTSTRAP_TIMEOUT` (90 s). The
+/// dial deadline must outlast that bound: otherwise it cancels every bootstrap
+/// that needs more than 30 s and hides the typed bootstrap timeout.
+pub(crate) const TOR_RELAY_CONNECT_DEADLINE: Duration = Duration::from_secs(90 + 30);
 
 /// Tear down a relayed TCP session after this much wire silence in both
 /// directions. Detection latency is bounded by twice the window.
@@ -31,6 +38,12 @@ pub(crate) struct RelaySessionTimeouts {
 }
 
 impl RelaySessionTimeouts {
+    /// Production timeouts for a relay of `kind`.
+    pub(crate) fn production_for(kind: RelayKind<'_>) -> Self {
+        let connect_deadline = if kind == RelayKind::Tor { TOR_RELAY_CONNECT_DEADLINE } else { RELAY_CONNECT_DEADLINE };
+        Self { connect_deadline, ..Self::production() }
+    }
+
     pub(crate) fn production() -> Self {
         Self {
             connect_deadline: RELAY_CONNECT_DEADLINE,
