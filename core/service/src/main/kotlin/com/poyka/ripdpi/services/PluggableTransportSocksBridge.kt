@@ -14,6 +14,7 @@ import co.touchlab.kermit.Logger
 import java.io.Closeable
 import java.io.EOFException
 import java.io.IOException
+import java.net.ConnectException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -114,6 +115,18 @@ private fun parseIpv4Literal(value: String): InetAddress? {
     return InetAddress.getByAddress(bytes.toByteArray())
 }
 
+// RFC 1928 section 6 reply codes.
+private const val RepFailure = 0x01
+private const val RepConnectionRefused = 0x05
+private const val RepCommandNotSupported = 0x07
+private const val RepAddressTypeNotSupported = 0x08
+private val SupportedAddressTypes = setOf(0x01, 0x03, 0x04)
+
+private class SocksReplyException(
+    val replyCode: Int,
+    message: String,
+) : IOException(message)
+
 private const val Ipv4AddressByteCount = 4
 private const val Ipv6AddressByteCount = 16
 private const val LocalHandshakeTimeoutMillis = 5_000
@@ -188,13 +201,22 @@ internal class ManagedClientSocksBridge(
 
     private fun handleClient(outer: Socket) {
         outer.soTimeout = LocalHandshakeTimeoutMillis
-        negotiateOuterHandshake(outer)
-        val upstream =
-            Socket().apply {
-                connect(upstreamListener, LocalHandshakeTimeoutMillis)
-                // The PT replies to CONNECT only after it dials and handshakes with the bridge.
-                soTimeout = PtConnectReplyTimeoutMillis
-            }
+        try {
+            negotiateOuterHandshake(outer)
+        } catch (rejected: SocksReplyException) {
+            writeOuterReply(outer, replyCode = rejected.replyCode)
+            throw rejected
+        }
+        val upstream = Socket()
+        try {
+            upstream.connect(upstreamListener, LocalHandshakeTimeoutMillis)
+            // The PT replies to CONNECT only after it dials and handshakes with the bridge.
+            upstream.soTimeout = PtConnectReplyTimeoutMillis
+        } catch (error: IOException) {
+            runCatching { upstream.close() }
+            writeOuterReply(outer, replyCode = if (error is ConnectException) RepConnectionRefused else RepFailure)
+            throw error
+        }
         activeSockets += upstream
         upstream.use { inner ->
             try {
@@ -205,7 +227,7 @@ internal class ManagedClientSocksBridge(
                 inner.soTimeout = 0
                 pipeBidirectional(outer, inner)
             } catch (error: Throwable) {
-                writeOuterReply(outer, replyCode = 0x01)
+                writeOuterReply(outer, replyCode = (error as? SocksReplyException)?.replyCode ?: RepFailure)
                 if (error is IOException) {
                     throw error
                 }
@@ -235,9 +257,13 @@ internal class ManagedClientSocksBridge(
         val command = readByte(input)
         readByte(input) // reserved
         val atyp = readByte(input)
+        // Reject before reading the address: the client still gets a typed reply (RFC 1928 section 6).
+        if (command != 0x01) throw SocksReplyException(RepCommandNotSupported, "Only SOCKS CONNECT is supported")
+        if (atyp !in SupportedAddressTypes) {
+            throw SocksReplyException(RepAddressTypeNotSupported, "Unsupported SOCKS address type: $atyp")
+        }
         skipAddress(input, atyp)
         readU16(input)
-        require(command == 0x01) { "Only SOCKS CONNECT is supported" }
     }
 
     private fun connectUpstream(socket: Socket) {
@@ -277,7 +303,11 @@ internal class ManagedClientSocksBridge(
         val connectReply = ByteArray(4)
         readFully(input, connectReply)
         require(connectReply[0] == 0x05.toByte()) { "Upstream PT returned invalid SOCKS reply version" }
-        require(connectReply[1] == 0x00.toByte()) { "Upstream PT CONNECT failed with reply ${connectReply[1]}" }
+        val upstreamReply = connectReply[1].toInt() and 0xFF
+        if (upstreamReply != 0x00) {
+            // Relay the PT's own failure code so the client can tell refusal from unreachability.
+            throw SocksReplyException(upstreamReply, "Upstream PT CONNECT failed with reply $upstreamReply")
+        }
         skipAddress(input, connectReply[3].toInt() and 0xFF)
         readU16(input)
     }
