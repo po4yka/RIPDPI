@@ -3,11 +3,15 @@ package com.poyka.ripdpi.data.backup
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.UnreadableCredentialException
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpProfileStore
 import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
+import com.poyka.ripdpi.data.logUnreadableCredential
+import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
+import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
@@ -53,10 +57,21 @@ class DefaultBackupPrivateDataStore
             val relayProfileSnapshot = relayProfiles.list()
             val warpProfileSnapshot = warpProfiles.loadAll()
             val awgProfileSnapshot = awgProfiles.allProfiles()
-            val xrayMetadataSnapshot = xrayMetadata.list()
+            // A secret that no longer decrypts is left out so the readable profiles still export.
+            val unreadableXrayIds = mutableSetOf<String>()
+            val xrayPairs = mutableListOf<Pair<XrayProfileMetadataRecord, XrayProfileSecretRecord?>>()
+            for (metadata in xrayMetadata.list()) {
+                try {
+                    xrayPairs += metadata to xraySecrets.load(metadata.profileId)
+                } catch (error: UnreadableCredentialException) {
+                    logUnreadableCredential(UnreadableBackupAction, error)
+                    unreadableXrayIds += metadata.profileId
+                }
+            }
+            val xrayMetadataSnapshot = xrayPairs.map { it.first }
             return BackupPrivateDataV1(
                 relayProfiles = relayProfileSnapshot,
-                relayCredentials = relayProfileSnapshot.mapNotNull { relayCredentials.load(it.id) },
+                relayCredentials = relayProfileSnapshot.mapNotNull { exportable { relayCredentials.load(it.id) } },
                 warpProfiles = warpProfileSnapshot,
                 warpCredentials =
                     warpCredentials
@@ -70,12 +85,15 @@ class DefaultBackupPrivateDataStore
                             name = profile.name,
                             requestJson = profile.requestJson,
                             updatedAt = profile.updatedAt,
-                            secrets = awgCredentials.load(profile.id),
+                            secrets = exportable { awgCredentials.load(profile.id) },
                         )
                     },
                 xrayMetadata = xrayMetadataSnapshot,
-                xraySecrets = xrayMetadataSnapshot.mapNotNull { xraySecrets.load(it.profileId) },
-                xraySelection = xraySelection.current(),
+                xraySecrets = xrayPairs.mapNotNull { it.second },
+                // A selection of a left-out Xray profile exports as the native provider.
+                xraySelection =
+                    xraySelection.current().takeUnless { it.activeProfileId in unreadableXrayIds }
+                        ?: XrayProviderSelectionRecord(),
             )
         }
 
@@ -89,7 +107,17 @@ class DefaultBackupPrivateDataStore
         }
 
         private fun BackupPrivateDataV1.validate() = validateBackupPrivateData()
+
+        private suspend fun <T : Any> exportable(load: suspend () -> T?): T? =
+            try {
+                load()
+            } catch (error: UnreadableCredentialException) {
+                logUnreadableCredential(UnreadableBackupAction, error)
+                null
+            }
     }
+
+private const val UnreadableBackupAction = "left out of a backup"
 
 internal suspend fun consistentBackupSnapshot(read: suspend () -> BackupPrivateDataV1): BackupPrivateDataV1 {
     var lastFailure: IllegalArgumentException? = null

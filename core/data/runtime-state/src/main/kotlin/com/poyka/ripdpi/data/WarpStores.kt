@@ -264,9 +264,17 @@ class KeystoreWarpCredentialStore
                     .asSequence()
                     .filter { it.startsWith(CredentialsEntryPrefix) }
                     .mapNotNull { key ->
-                        blobStore.getCredentialString(key)?.let { payload ->
+                        // One unreadable or malformed entry must not hide every other WARP profile.
+                        val payload =
+                            try {
+                                blobStore.getCredentialString(key)
+                            } catch (error: UnreadableCredentialException) {
+                                logUnreadableCredential("skipped in a WARP list", error)
+                                null
+                            }
+                        payload?.let {
                             runCatching {
-                                json.decodeFromString<WarpCredentials>(payload).copy(
+                                json.decodeFromString<WarpCredentials>(it).copy(
                                     profileId = key.removePrefix(CredentialsEntryPrefix),
                                 )
                             }.getOrNull()

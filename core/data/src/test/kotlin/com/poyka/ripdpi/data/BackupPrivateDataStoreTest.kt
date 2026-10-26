@@ -35,18 +35,21 @@ class BackupPrivateDataStoreTest {
     private lateinit var warpEndpoints: SharedPreferencesWarpEndpointStore
     private lateinit var store: DefaultBackupPrivateDataStore
 
+    /** Profile ids whose sealed secret no longer decrypts in every credential store below. */
+    private val unreadable = mutableSetOf<String>()
+
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database = Room.inMemoryDatabaseBuilder(context, RipDpiDatabase::class.java).allowMainThreadQueries().build()
         warpEndpoints = SharedPreferencesWarpEndpointStore(context)
         val relayProfiles = SharedPreferencesRelayProfileStore(context)
-        val relayCredentials = BackupRelayCredentialStore()
+        val relayCredentials = BackupRelayCredentialStore(unreadable)
         val warpProfiles = SharedPreferencesWarpProfileStore(context)
         val warpCredentials = BackupWarpCredentialStore()
-        val awgCredentials = BackupAwgCredentialStore()
+        val awgCredentials = BackupAwgCredentialStore(unreadable)
         val xrayMetadata = SharedPreferencesXrayProfileMetadataStore(context)
-        val xraySecrets = BackupXraySecretStore()
+        val xraySecrets = BackupXraySecretStore(unreadable)
         val xraySelection = SharedPreferencesXrayProviderSelectionStore(context)
         val profileMutations =
             ProfileMutationRecoveryCoordinator(
@@ -160,6 +163,60 @@ class BackupPrivateDataStoreTest {
         }
 
     @Test
+    fun `snapshot exports readable profiles and leaves out secrets that no longer decrypt`() =
+        runTest {
+            val stored =
+                BackupPrivateDataV1(
+                    relayProfiles = listOf(RelayProfileRecord(id = "relay-ok"), RelayProfileRecord(id = "relay-lost")),
+                    relayCredentials =
+                        listOf(
+                            RelayCredentialRecord(profileId = "relay-ok", vlessUuid = "uuid-ok"),
+                            RelayCredentialRecord(profileId = "relay-lost", vlessUuid = "uuid-lost"),
+                        ),
+                    awgProfiles =
+                        listOf(
+                            AwgBackupProfile(
+                                id = "awg-lost",
+                                name = "AWG",
+                                requestJson = "{}",
+                                updatedAt = 7L,
+                                secrets = AwgSecrets(privateKey = "private"),
+                            ),
+                        ),
+                    xrayMetadata =
+                        listOf(
+                            XrayProfileMetadataRecord(profileId = "xray-ok", revision = "fixture", name = "Ok"),
+                            XrayProfileMetadataRecord(profileId = "xray-lost", revision = "fixture", name = "Lost"),
+                        ),
+                    xraySecrets =
+                        listOf(
+                            XrayProfileSecretRecord(profileId = "xray-ok", revision = "fixture", uuid = "a"),
+                            XrayProfileSecretRecord(profileId = "xray-lost", revision = "fixture", uuid = "b"),
+                        ),
+                    xraySelection =
+                        XrayProviderSelectionRecord(XrayProviderSelectionRecord.ProviderKindXray, "xray-lost"),
+                )
+            store.replaceAll(
+                com.poyka.ripdpi.data.ProfileMutationPreparation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.RestoreProfiles,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+                ),
+                stored,
+            )
+            unreadable += setOf("relay-lost", "awg-lost", "xray-lost")
+
+            val snapshot = store.snapshot()
+
+            assertEquals(setOf("relay-ok", "relay-lost"), snapshot.relayProfiles.map { it.id }.toSet())
+            assertEquals(listOf("relay-ok"), snapshot.relayCredentials.map { it.profileId })
+            assertEquals(null, snapshot.awgProfiles.single().secrets)
+            assertEquals(listOf("xray-ok"), snapshot.xrayMetadata.map { it.profileId })
+            assertEquals(listOf("xray-ok"), snapshot.xraySecrets.map { it.profileId })
+            assertEquals(XrayProviderSelectionRecord(), snapshot.xraySelection)
+        }
+
+    @Test
     fun `snapshot rejects an unknown selected provider`() =
         runTest {
             val result =
@@ -239,10 +296,13 @@ private class BackupBootSessionStateStore : BootSessionStateStore {
     override fun setWasRunningAtUpdate(value: Boolean) = Unit
 }
 
-private class BackupRelayCredentialStore : RelayCredentialStore {
+private class BackupRelayCredentialStore(
+    private val unreadable: Set<String>,
+) : RelayCredentialStore {
     private val records = mutableMapOf<String, RelayCredentialRecord>()
 
-    override suspend fun load(profileId: String): RelayCredentialRecord? = records[profileId]
+    override suspend fun load(profileId: String): RelayCredentialRecord? =
+        if (profileId in unreadable) throw unreadableFixture() else records[profileId]
 
     override suspend fun save(credentials: RelayCredentialRecord) {
         records[credentials.profileId] = credentials
@@ -276,10 +336,13 @@ private class BackupWarpCredentialStore : WarpCredentialStore {
     override suspend fun clearAll() = records.clear()
 }
 
-private class BackupAwgCredentialStore : com.poyka.ripdpi.data.awg.AwgCredentialStore {
+private class BackupAwgCredentialStore(
+    private val unreadable: Set<String>,
+) : com.poyka.ripdpi.data.awg.AwgCredentialStore {
     private val records = mutableMapOf<String, AwgSecrets>()
 
-    override suspend fun load(profileId: String): AwgSecrets? = records[profileId]
+    override suspend fun load(profileId: String): AwgSecrets? =
+        if (profileId in unreadable) throw unreadableFixture() else records[profileId]
 
     override suspend fun save(
         profileId: String,
@@ -295,10 +358,13 @@ private class BackupAwgCredentialStore : com.poyka.ripdpi.data.awg.AwgCredential
     override suspend fun clearAll() = records.clear()
 }
 
-private class BackupXraySecretStore : XrayProfileSecretStore {
+private class BackupXraySecretStore(
+    private val unreadable: Set<String>,
+) : XrayProfileSecretStore {
     private val records = mutableMapOf<String, XrayProfileSecretRecord>()
 
-    override suspend fun load(profileId: String): XrayProfileSecretRecord? = records[profileId]
+    override suspend fun load(profileId: String): XrayProfileSecretRecord? =
+        if (profileId in unreadable) throw unreadableFixture() else records[profileId]
 
     override suspend fun save(record: XrayProfileSecretRecord) {
         records[record.profileId] = record

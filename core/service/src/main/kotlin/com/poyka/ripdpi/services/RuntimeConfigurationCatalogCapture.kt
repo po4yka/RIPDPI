@@ -10,8 +10,10 @@ import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
+import com.poyka.ripdpi.data.UnreadableCredentialException
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.logUnreadableCredential
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayConfigRenderer
@@ -150,7 +152,16 @@ internal class RuntimeConfigurationCatalogCapture
                 val id = pending.removeFirst()
                 if (id.isBlank() || !seen.add(id)) continue
                 val profile = relayProfiles.load(id)
-                val credential = relayCredentials.load(id)
+                var missingCredential = "missing-credentials:$id"
+                val credential =
+                    try {
+                        relayCredentials.load(id)
+                    } catch (error: UnreadableCredentialException) {
+                        // The capture only fingerprints the chain; the relay start still fails closed on it.
+                        logUnreadableCredential("marked in a runtime catalog capture", error)
+                        missingCredential = "unreadable-credentials:$id"
+                        null
+                    }
                 material += profile?.let {
                     RipDpiEncodeDefaultsJson.encodeToString(
                         RelayProfileRecord.serializer(),
@@ -159,7 +170,7 @@ internal class RuntimeConfigurationCatalogCapture
                 } ?: "missing-profile:$id"
                 material += credential?.let {
                     RipDpiEncodeDefaultsJson.encodeToString(RelayCredentialRecord.serializer(), it)
-                } ?: "missing-credentials:$id"
+                } ?: missingCredential
                 profile?.let {
                     pending.addAll(
                         listOf(it.chainEntryProfileId, it.chainExitProfileId, it.shadowTlsInnerProfileId),

@@ -40,6 +40,14 @@ class KeystoreCredentialUnreadableTest {
         }
 
     @Test
+    fun `an unreadable WARP entry is skipped instead of failing the whole list`() =
+        runTest {
+            seedCorrupt("warp_credentials_secure", "warp_credentials:lost")
+
+            assertEquals(emptyList<WarpCredentials>(), KeystoreWarpCredentialStore(context).loadAll())
+        }
+
+    @Test
     fun `unreadable awg secrets fail the load instead of reading as absent`() =
         runTest {
             seedCorrupt("awg_credentials_secure", "awg_credentials:primary")
