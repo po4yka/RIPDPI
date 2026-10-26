@@ -17,7 +17,7 @@ use nix::fcntl::{FcntlArg, fcntl};
 /// # Why `F_DUPFD_CLOEXEC` instead of plain `dup()`
 ///
 /// Plain `dup(2)` does not set `O_CLOEXEC` on the new descriptor.  Between
-/// the `dup()` call and `AsyncDevice::from_fd` registering the fd with the
+/// the `dup()` call and `PacketFd::new` registering the fd with the
 /// tokio reactor, `root_helper::register_for_worker` may `exec()` a child
 /// process.  Without `O_CLOEXEC` that child inherits the TUN fd and keeps it
 /// open after `run_tunnel` returns, preventing the kernel from releasing the

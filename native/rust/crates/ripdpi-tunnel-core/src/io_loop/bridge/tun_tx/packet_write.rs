@@ -2,9 +2,9 @@ use std::future::Future;
 use std::io;
 use std::sync::Arc;
 
+use crate::device::PacketFd;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
-use tun_rs::AsyncDevice;
 
 use crate::Stats;
 
@@ -15,8 +15,12 @@ pub(in crate::io_loop) enum TunFlushOutcome {
     Cancelled,
 }
 
+/// # Cancel safety
+///
+/// cancel-safe: the packet remains borrowed while waiting for write readiness.
+/// A successful synchronous write returns without another await.
 pub(super) async fn write_tun_packet(
-    tun: &AsyncDevice,
+    tun: &PacketFd,
     stats: &Arc<Stats>,
     packet: &[u8],
     cancel: &CancellationToken,

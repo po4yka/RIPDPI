@@ -39,7 +39,7 @@ fn run_worker(launch: WorkerLaunch) {
     // later owns the join so JNI stop does not block on a hung startup. OwnedFd
     // ownership transfers into the async frame before polling; if block_on
     // panics before the first poll, unwind drops that future-owned fd. After
-    // polling, tun-rs AsyncDevice::Drop closes the fd exactly once.
+    // polling, PacketFd::Drop closes the fd exactly once.
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         runtime.block_on(ripdpi_tunnel_core::run_tunnel_with_ready(
             config,

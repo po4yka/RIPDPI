@@ -1,8 +1,8 @@
 use std::io;
 use std::sync::Arc;
 
+use crate::device::PacketFd;
 use tokio_util::sync::CancellationToken;
-use tun_rs::AsyncDevice;
 
 use super::super::IO_PHASE_WORK_BUDGET;
 use crate::{Stats, TunDevice};
@@ -15,11 +15,13 @@ use packet_write::write_tun_packet;
 
 /// Flush one bounded packet batch from the userspace queue to TUN.
 ///
+/// # Cancel safety
+///
 /// NOT cancel-safe when the returned future is dropped directly: the current
 /// packet has already been removed from the queue. Callers must signal the
 /// supplied token and keep polling until [`TunFlushOutcome::Cancelled`].
 pub(in crate::io_loop) async fn flush_device_tx_queue(
-    tun: &AsyncDevice,
+    tun: &PacketFd,
     stats: &Arc<Stats>,
     device: &mut TunDevice,
     synack_interceptor: &mut TunIngressInterceptor<impl SynAckPacketInjector>,

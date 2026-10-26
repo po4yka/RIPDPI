@@ -6783,7 +6783,6 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
- "tun-rs",
  "turmoil",
 ]
 
