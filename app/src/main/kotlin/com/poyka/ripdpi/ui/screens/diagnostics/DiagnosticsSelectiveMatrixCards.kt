@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,37 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
 
+/**
+ * The text of a field whose value reaches the UI through an asynchronous state pipeline and so lags
+ * behind the edits. Shows each edit at once, ignores a late echo of an earlier edit, and adopts any
+ * other new value.
+ */
+private class LaggingInputText(
+    initial: String,
+) {
+    var text by mutableStateOf(initial)
+        private set
+    private var lastValue = initial
+    private val unechoedEdits = ArrayDeque<String>()
+
+    fun edit(value: String) {
+        text = value
+        unechoedEdits.addLast(value)
+    }
+
+    fun sync(value: String) {
+        if (value == lastValue) return
+        lastValue = value
+        val echoIndex = unechoedEdits.indexOf(value)
+        if (echoIndex >= 0) {
+            repeat(echoIndex + 1) { unechoedEdits.removeFirst() }
+        } else if (value != text) {
+            text = value
+            unechoedEdits.clear()
+        }
+    }
+}
+
 @Composable
 internal fun SelectiveMatrixInputCard(
     input: String,
@@ -41,12 +73,17 @@ internal fun SelectiveMatrixInputCard(
     enabled: Boolean,
     onInputChanged: (String) -> Unit,
 ) {
+    val hostsText = remember { LaggingInputText(input) }
+    SideEffect { hostsText.sync(input) }
     RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSelectiveMatrixInput)) {
         MatrixHeading(stringResource(R.string.diagnostics_matrix_title))
         MatrixText(stringResource(R.string.diagnostics_matrix_manual))
         RipDpiTextField(
-            value = input,
-            onValueChange = onInputChanged,
+            value = hostsText.text,
+            onValueChange = { edited ->
+                hostsText.edit(edited)
+                onInputChanged(edited)
+            },
             modifier = Modifier.fillMaxWidth(),
             decoration =
                 RipDpiTextFieldDecoration(

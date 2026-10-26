@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -60,6 +61,43 @@ import java.io.File
 @Config(sdk = [35], qualifiers = "en-rUS-w411dp-h839dp-mdpi")
 class DiagnosticsSelectiveMatrixComposeTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test
+    fun typedHostsSurviveALaggingAndStaleInputValue() {
+        // The ViewModel delivers the input through an asynchronous pipeline, so it lags behind edits.
+        val input = mutableStateOf("")
+        val reported = mutableListOf<String>()
+        composeRule.setContent {
+            MatrixViewport {
+                SelectiveMatrixInputCard(
+                    input = input.value,
+                    targets = listOf(previewTarget()),
+                    valid = true,
+                    enabled = true,
+                    onInputChanged = { reported += it },
+                )
+            }
+        }
+        val field = composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSelectiveMatrixHosts)
+
+        field.performScrollTo().performTextReplacement("a.example")
+        composeRule.waitForIdle()
+        assertEquals("a.example", field.editableText())
+
+        field.performTextReplacement("a.example b.example")
+        input.value = "a.example"
+        composeRule.waitForIdle()
+        assertEquals("a.example b.example", field.editableText())
+
+        input.value = "a.example b.example"
+        composeRule.waitForIdle()
+        assertEquals("a.example b.example", field.editableText())
+        assertEquals(listOf("a.example", "a.example b.example"), reported)
+
+        input.value = "c.example"
+        composeRule.waitForIdle()
+        assertEquals("c.example", field.editableText())
+    }
 
     @Test
     fun optionalTargetsValidateEditsAndBecomeReadOnlyDuringScan() {
@@ -132,6 +170,9 @@ class DiagnosticsSelectiveMatrixComposeTest {
         composeRule.onNodeWithText(text(R.string.diagnostics_matrix_selective)).assertDoesNotExist()
         composeRule.onNodeWithText(text(R.string.diagnostics_matrix_verified, "unknown")).assertDoesNotExist()
     }
+
+    private fun SemanticsNodeInteraction.editableText(): String =
+        fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
     @Composable
     private fun MatrixViewport(
