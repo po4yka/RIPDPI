@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::timeout;
@@ -39,8 +42,18 @@ pub(super) async fn exchange_binary_post_manually(
             resolver.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| resolver.inner.endpoint.host.clone());
         let server_name =
             ServerName::try_from(tls_name.clone()).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
-        let connector = TlsConnector::from(resolver.inner.manual_doh_tls_config.clone());
-        let mut tls_stream = match timeout(resolver.inner.timeout, connector.connect(server_name, tcp_stream)).await {
+        let handshake = |config: &Arc<ClientConfig>, tcp_stream| {
+            timeout(resolver.inner.timeout, TlsConnector::from(config.clone()).connect(server_name.clone(), tcp_stream))
+        };
+        let attempt = match handshake(&resolver.inner.manual_doh_tls_config, tcp_stream).await {
+            // GREASE ECH limits the handshake to TLS 1.3. A TLS 1.2-only server
+            // refuses it; retry once without GREASE. SNI is sent both times.
+            Ok(Err(err)) if tls_version_refused(&err) => {
+                handshake(&resolver.inner.manual_doh_fallback_tls_config, resolver.connect_doh_tcp().await?).await
+            }
+            attempt => attempt,
+        };
+        let mut tls_stream = match attempt {
             Ok(Ok(stream)) => stream,
             Ok(Err(err)) => return Err(EncryptedDnsError::Tls(format!("DoH TLS handshake to {tls_name}: {err}"))),
             Err(_) => return Err(EncryptedDnsError::Tls(format!("DoH TLS handshake to {tls_name} timed out"))),
@@ -49,6 +62,18 @@ pub(super) async fn exchange_binary_post_manually(
     } else {
         exchange_binary_post_over_stream(resolver, &mut tcp_stream, &url, body, content_type, accept).await
     }
+}
+
+/// Whether a TLS handshake failed because the server and the TLS 1.3-only
+/// client share no protocol version.
+fn tls_version_refused(err: &std::io::Error) -> bool {
+    matches!(
+        err.get_ref().and_then(|inner| inner.downcast_ref::<rustls::Error>()),
+        Some(
+            rustls::Error::AlertReceived(rustls::AlertDescription::ProtocolVersion)
+                | rustls::Error::PeerIncompatible(rustls::PeerIncompatible::ServerTlsVersionIsDisabledByOurConfig)
+        )
+    )
 }
 
 async fn exchange_binary_post_over_stream<S>(

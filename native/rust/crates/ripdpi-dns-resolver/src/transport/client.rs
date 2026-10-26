@@ -53,14 +53,16 @@ pub(crate) fn build_doh_client(
 }
 
 /// TLS for the hand-written HTTP/1.1 DoH client used with connect hooks: the
-/// same rustls stack as the reqwest path (ECH GREASE), offering only
-/// http/1.1 because that client cannot speak h2. An h2-only server then fails
-/// the handshake with a clear ALPN error instead of a broken exchange.
+/// same rustls stack as the reqwest path, offering only http/1.1 because that
+/// client cannot speak h2. An h2-only server then fails the handshake with a
+/// clear ALPN error instead of a broken exchange. `EchSetup::Grease` limits the
+/// handshake to TLS 1.3; `EchSetup::OptedOut` also allows TLS 1.2.
 pub(crate) fn build_manual_doh_tls_config(
     tls_roots: &[CertificateDer<'static>],
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ech_setup: &EchSetup,
 ) -> Result<Arc<ClientConfig>, EncryptedDnsError> {
-    let mut config = doh_tls_config(tls_roots, tls_verifier)?;
+    let mut config = doh_tls_config_with_ech_setup(tls_roots, tls_verifier, ech_setup)?;
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
     Ok(Arc::new(config))
 }

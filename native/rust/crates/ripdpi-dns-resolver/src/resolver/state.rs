@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
+use ripdpi_tls_profiles::EchSetup;
 use rustls::ClientConfig;
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
@@ -27,6 +28,9 @@ pub(crate) struct ResolverInner {
     pub(crate) dot_tls_config: Arc<ClientConfig>,
     /// TLS of the manual (hooked) DoH and ODoH path; the DoT config for other protocols.
     pub(crate) manual_doh_tls_config: Arc<ClientConfig>,
+    /// The manual DoH TLS without GREASE ECH (so TLS 1.2 is allowed), for a
+    /// server that refuses the TLS 1.3-only handshake.
+    pub(crate) manual_doh_fallback_tls_config: Arc<ClientConfig>,
     pub(crate) dot_extra_roots: Vec<CertificateDer<'static>>,
     pub(crate) dot_pin_verifier: Option<Arc<dyn ServerCertVerifier>>,
     pub(crate) dot_unpinned_custom_verifier_requested: bool,
@@ -108,12 +112,16 @@ pub(crate) fn build_inner(
         tls_verifiers.tls_verifier.as_ref(),
         &connect_hooks,
     )?;
-    let manual_doh_tls_config = if doh_client.is_none()
+    let (manual_doh_tls_config, manual_doh_fallback_tls_config) = if doh_client.is_none()
         && matches!(normalized.protocol, EncryptedDnsProtocol::Doh | EncryptedDnsProtocol::Odoh)
     {
-        build_manual_doh_tls_config(&tls_roots, tls_verifiers.tls_verifier.as_ref())?
+        let verifier = tls_verifiers.tls_verifier.as_ref();
+        (
+            build_manual_doh_tls_config(&tls_roots, verifier, &EchSetup::Grease)?,
+            build_manual_doh_tls_config(&tls_roots, verifier, &EchSetup::OptedOut)?,
+        )
     } else {
-        dot_tls_config.clone()
+        (dot_tls_config.clone(), dot_tls_config.clone())
     };
     let dot_extra_roots = tls_roots.clone();
     let dot_unpinned_custom_verifier_requested =
@@ -127,6 +135,7 @@ pub(crate) fn build_inner(
         connect_hooks,
         dot_tls_config,
         manual_doh_tls_config,
+        manual_doh_fallback_tls_config,
         dot_extra_roots,
         dot_pin_verifier: tls_verifiers.dot_pin_verifier,
         dot_unpinned_custom_verifier_requested,
