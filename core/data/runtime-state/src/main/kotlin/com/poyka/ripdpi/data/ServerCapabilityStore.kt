@@ -16,6 +16,9 @@ private const val ServerCapabilityPrefsName = "server_capability_cache"
 private const val RelayCapabilityPrefix = "relay:"
 private const val DirectPathCapabilityPrefix = "direct:"
 
+/** Bounds the cache per scope prefix; the least recently updated records are evicted first. */
+internal const val MaxServerCapabilityRecordsPerScope = 512
+
 enum class ServerCapabilityScope(
     val wireValue: String,
 ) {
@@ -403,11 +406,27 @@ class SharedPreferencesServerCapabilityStore
             // synchronously, so a confirmed direct-mode policy survives an LMK
             // SIGKILL immediately after a state transition (see
             // android-vpn-lifecycle: persist on every transition, no torn file).
-            preferences
-                .edit()
-                .putString(key, json.encodeToString(ServerCapabilityRecord.serializer(), merged))
-                .commit()
+            val editor =
+                preferences
+                    .edit()
+                    .putString(key, json.encodeToString(ServerCapabilityRecord.serializer(), merged))
+            evictionKeys(prefix, keptKey = key).forEach(editor::remove)
+            editor.commit()
             return merged
+        }
+
+        /** Least recently updated keys to drop so the scope holds at most [MaxServerCapabilityRecordsPerScope]. */
+        private fun evictionKeys(
+            prefix: String,
+            keptKey: String,
+        ): List<String> {
+            val others = preferences.all.filterKeys { it.startsWith(prefix) && it != keptKey }
+            val excess = others.size + 1 - MaxServerCapabilityRecordsPerScope
+            if (excess <= 0) return emptyList()
+            return others.entries
+                .sortedBy { (_, value) -> (value as? String)?.let(::decodeRecord)?.updatedAt ?: Long.MIN_VALUE }
+                .take(excess)
+                .map { it.key }
         }
 
         private fun decodeRecord(payload: String): ServerCapabilityRecord? =

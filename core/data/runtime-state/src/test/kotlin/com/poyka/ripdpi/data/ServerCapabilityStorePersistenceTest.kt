@@ -158,4 +158,28 @@ class ServerCapabilityStorePersistenceTest {
             assertTrue(cleared.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).isEmpty())
             assertTrue(cleared.relayCapabilitiesForFingerprint(fingerprint.scopeKey()).isEmpty())
         }
+
+    @Test
+    fun `direct path cache keeps only the most recent records per scope`() =
+        runTest {
+            val store = SharedPreferencesServerCapabilityStore(context)
+            val total = MaxServerCapabilityRecordsPerScope + 5
+            for (index in 0 until total) {
+                store.rememberDirectPathObservation(
+                    fingerprint,
+                    "host$index.example:443",
+                    ServerCapabilityObservation(),
+                    "test",
+                    index.toLong() + 1,
+                )
+            }
+
+            val kept = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
+            val storedKeys = context.getSharedPreferences("server_capability_cache", Context.MODE_PRIVATE).all.size
+
+            assertEquals(MaxServerCapabilityRecordsPerScope, kept.size)
+            assertEquals(MaxServerCapabilityRecordsPerScope, storedKeys)
+            assertEquals("host${total - 1}.example:443", kept.first().authority)
+            assertTrue(kept.none { it.authority == "host0.example:443" })
+        }
 }
