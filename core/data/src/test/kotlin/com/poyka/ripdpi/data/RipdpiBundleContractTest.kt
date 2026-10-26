@@ -64,10 +64,13 @@ class RipdpiBundleContractTest {
         assertEquals(false, awgArm64Floor["guard_required"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(awgArm64Floor["candidate_safe_floor"] is JsonNull)
         val verified = awgArm64Floor["verified_safe_floor"]!!.jsonObject
+        val results = verified["results"]!!.jsonObject
+        assertEquals("android_arm64_emulator", verified["evidence_kind"]!!.jsonPrimitive.content)
         assertEquals("android-arm64-emulator", verified["platform"]!!.jsonPrimitive.content)
         assertEquals(false, verified["physical_device_revalidated"]!!.jsonPrimitive.content.toBoolean())
-        assertEquals("80/80", verified["results"]!!.jsonObject["amneziavpn_5x_sessions"]!!.jsonPrimitive.content)
-        assertEquals(0, verified["results"]!!.jsonObject["lost_udp_datagrams"]!!.jsonPrimitive.int)
+        assertEquals("48/48", results["amneziavpn_5x_sessions"]!!.jsonPrimitive.content)
+        assertEquals("48/48", results["s3_s4_zero_control_sessions"]!!.jsonPrimitive.content)
+        assertEquals(0, results["lost_udp_datagrams"]!!.jsonPrimitive.int)
         assertEquals(
             "v0.2.18",
             awgArm64Floor["ripdpi_reference"]!!

@@ -863,7 +863,9 @@ mod tests {
         // The codec has no arm64 floor, so the policy must not require one and must say why.
         assert_eq!(policy["guard_required"].as_bool(), Some(false));
         let verified = &policy["verified_safe_floor"];
+        assert_eq!(verified["evidence_kind"].as_str(), Some("android_arm64_emulator"));
         assert_eq!(verified["platform"].as_str(), Some("android-arm64-emulator"));
+        assert_eq!(verified["results"]["s3_s4_zero_control_sessions"].as_str(), Some("48/48"));
         assert_eq!(verified["physical_device_revalidated"].as_bool(), Some(false));
         assert_eq!(verified["results"]["lost_udp_datagrams"].as_u64(), Some(0));
     }

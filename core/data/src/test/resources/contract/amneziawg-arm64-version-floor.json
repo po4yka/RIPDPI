@@ -11,19 +11,21 @@
     "api": 35,
     "avd_profile": "pixel_6",
     "emulator_version": "37.2.12.0",
-    "ripdpi_commit": "627f68bfb",
-    "ripdpi_reference": "ripdpi-warp-core with 7 MiB tunnel socket buffers",
+    "ripdpi_commit": "ba228c17c",
+    "ripdpi_reference": "ripdpi-warp-core with 7 MiB tunnel socket buffers (d7f35ac1b)",
     "peer": "amneziawg-go v3.1.20260828 (b5928efb6ca19f0153958460c3d141f04abc5c2e)",
     "scenario": "AmneziaVPN 5.x profile (S1-S4 = 12, header protection, content padding, random trailers, ranged timers) and an S3=S4=0 control against one live peer per four reconnect cycles; 4 MiB TCP per address family, UDP pairs, DNS and a 512-datagram lockstep UDP series per family, SHA-256 checked; MTU 1280 and 1420; idle guest and four busy-loop CPU hogs; emulated mobile data off, guest settled after boot",
     "results": {
-      "amneziavpn_5x_sessions": "80/80",
-      "s3_s4_zero_control_sessions": "80/80",
+      "amneziavpn_5x_sessions": "48/48",
+      "s3_s4_zero_control_sessions": "48/48",
       "lost_udp_datagrams": 0,
       "udp_receive_buffer_errors": 0,
-      "harness_amneziavpn_5x": "8/8 cycles, wrong header protection key negative control failed as required (nonce awg5x-floor-lift-20261026b)",
-      "harness_control": "8/8 cycles (nonce awgctl-floor-lift-20261026b)"
+      "harness_amneziavpn_5x": "8/8 cycles, wrong header protection key negative control failed as required (nonce awg5x-rebased-20261026c)",
+      "pre_rebase_matrix": "160/160 sessions (80 AmneziaVPN 5.x, 80 control) at 627f68bfb before the rebase onto origin/main",
+      "before_fixes": "Before d7f35ac1b the AmneziaVPN 5.x reconnect loop stalled a 4 MiB download after 1376 Udp RcvbufErrors. Before the harness changes the S3=S4=0 control also lost UDP echoes (4 of 13 sessions in one run, ENETUNREACH during default-network switches; one of 297 fresh-peer sessions under CPU load)."
     },
-    "harness_source": "8b4a0d460 plus candidate.patch sha256 03ec9685b3048d0b419ef2f1c8bed6cbb7c4e1613a470725cfc6abbc4140bba8, committed unchanged as c70f50658..627f68bfb"
+    "harness_source": "ba228c17c committed, no candidate patch (harness nonce awg5x-rebased-20261026c)",
+    "scope_note": "Emulator evidence only: verified_safe_floor here does not mean physical revalidation. amneziawg-go#110 has not been rerun on physical arm64 hardware, and revalidation_requirements still describe that run."
   },
   "expected_issue_states": [
     {
