@@ -4,7 +4,7 @@ mod framing;
 mod identity;
 mod padding;
 
-pub(crate) use certificate::parse_dnscrypt_certificate;
+pub(crate) use certificate::{parse_dnscrypt_certificate, select_dnscrypt_certificate};
 pub(crate) use cipher::DnsCryptCipher;
 pub(crate) use framing::decrypt_dnscrypt_response;
 pub(crate) use identity::{dnscrypt_provider_name, dnscrypt_verifying_key};
@@ -34,30 +34,41 @@ mod tests {
     /// The ed25519 signature covers `bytes[72..]` only, so the es_version field at
     /// `bytes[4..6]` can be overwritten without invalidating the signature.
     fn test_keypair_and_cert_with_es_version(es_version: u16) -> ([u8; 32], Vec<u8>) {
+        signed_cert(es_version, 1, 1_700_000_000, 1_700_086_400, &[])
+    }
+
+    /// A certificate signed by the fixed test provider key, with `extensions`
+    /// appended after the fixed fields and covered by the signature.
+    fn signed_cert(
+        es_version: u16,
+        serial: u32,
+        valid_from: u32,
+        valid_until: u32,
+        extensions: &[u8],
+    ) -> ([u8; 32], Vec<u8>) {
         let key_pair = Ed25519KeyPair::from_seed_unchecked(&[7u8; 32]).expect("ed25519 keypair");
         let public_bytes: [u8; 32] = key_pair.public_key().as_ref().try_into().unwrap();
 
         let resolver_secret = [9u8; 32];
-        let valid_from: u32 = 1_700_000_000;
-        let valid_until: u32 = 1_700_086_400;
         let mut client_magic = [0u8; 8];
         client_magic.copy_from_slice(&resolver_secret[..8]);
 
-        let mut inner = [0u8; 52];
-        inner[..32].copy_from_slice(&resolver_secret);
-        inner[32..40].copy_from_slice(&client_magic);
-        inner[40..44].copy_from_slice(&1u32.to_be_bytes());
-        inner[44..48].copy_from_slice(&valid_from.to_be_bytes());
-        inner[48..52].copy_from_slice(&valid_until.to_be_bytes());
+        let mut inner = Vec::with_capacity(52 + extensions.len());
+        inner.extend_from_slice(&resolver_secret);
+        inner.extend_from_slice(&client_magic);
+        inner.extend_from_slice(&serial.to_be_bytes());
+        inner.extend_from_slice(&valid_from.to_be_bytes());
+        inner.extend_from_slice(&valid_until.to_be_bytes());
+        inner.extend_from_slice(extensions);
         let signature = key_pair.sign(&inner);
 
-        let mut cert = Vec::with_capacity(DNSCRYPT_CERT_SIZE);
+        let mut cert = Vec::with_capacity(DNSCRYPT_CERT_SIZE + extensions.len());
         cert.extend_from_slice(&DNSCRYPT_CERT_MAGIC);
         cert.extend_from_slice(&es_version.to_be_bytes());
         cert.extend_from_slice(&0u16.to_be_bytes());
         cert.extend_from_slice(signature.as_ref());
         cert.extend_from_slice(&inner);
-        assert_eq!(cert.len(), DNSCRYPT_CERT_SIZE);
+        assert_eq!(cert.len(), DNSCRYPT_CERT_SIZE + extensions.len());
 
         (public_bytes, cert)
     }
@@ -157,6 +168,54 @@ mod tests {
         let (pk, cert) = test_keypair_and_cert_with_es_version(DNSCRYPT_ES_VERSION_XCHACHA);
         let parsed = parse_dnscrypt_certificate(&cert, &pk, "test.provider").expect("valid xchacha cert");
         assert_eq!(parsed.es_version, DNSCRYPT_ES_VERSION_XCHACHA);
+    }
+
+    #[test]
+    fn parse_certificate_accepts_signed_extensions() {
+        let (pk, cert) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 1, 10, 20, &[0xee; 8]);
+        let parsed = parse_dnscrypt_certificate(&cert, &pk, "test.provider").expect("extensions are ignored");
+        assert_eq!((parsed.valid_from, parsed.valid_until), (10, 20));
+    }
+
+    #[test]
+    fn parse_certificate_rejects_empty_validity_window() {
+        let (pk, cert) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 1, 20, 20, &[]);
+        let err = parse_dnscrypt_certificate(&cert, &pk, "test.provider").unwrap_err();
+        assert!(matches!(err, EncryptedDnsError::DnsCryptCertificate(_)));
+    }
+
+    #[test]
+    fn select_certificate_ignores_records_it_cannot_use() {
+        let (pk, good) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 4, 10, 20, &[]);
+        let (_, mut post_quantum) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 9, 10, 20, &[0; 1196]);
+        post_quantum[4..6].copy_from_slice(&3u16.to_be_bytes());
+        let mut bad_signature = good.clone();
+        bad_signature[80] ^= 0xff;
+        let records = [post_quantum.as_slice(), b"stray TXT string".as_slice(), bad_signature.as_slice(), &good];
+
+        let selected = select_dnscrypt_certificate(records, &pk, "test.provider", 15).expect("one usable record");
+
+        assert_eq!(selected.serial, 4);
+    }
+
+    #[test]
+    fn select_certificate_prefers_xchacha_then_highest_serial() {
+        let (pk, legacy) = signed_cert(DNSCRYPT_ES_VERSION_XSALSA, 1, 10, 1_000_000, &[]);
+        let (_, older) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 7, 10, 100, &[]);
+        let (_, newest) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 8, 10, 90, &[]);
+
+        let selected =
+            select_dnscrypt_certificate([legacy.as_slice(), &newest, &older], &pk, "test.provider", 50).expect("cert");
+
+        assert_eq!((selected.es_version, selected.serial), (DNSCRYPT_ES_VERSION_XCHACHA, 8));
+    }
+
+    #[test]
+    fn select_certificate_reports_the_last_rejection_when_nothing_is_usable() {
+        let (pk, mut tampered) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 1, 10, 20, &[]);
+        tampered[100] ^= 0xff;
+        let err = select_dnscrypt_certificate([tampered.as_slice()], &pk, "test.provider", 15).unwrap_err();
+        assert!(matches!(err, EncryptedDnsError::DnsCryptVerification(_)));
     }
 
     // -- dnscrypt_verifying_key tests --

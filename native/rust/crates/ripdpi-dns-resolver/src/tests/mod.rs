@@ -1,4 +1,5 @@
 mod burst;
+mod dnscrypt_certs;
 mod https_service_binding;
 mod pipeline;
 mod stream_matching;

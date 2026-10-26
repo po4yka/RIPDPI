@@ -138,28 +138,14 @@ impl EncryptedDnsResolver {
         };
         let message = Message::from_vec(&response).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
         let verifying_key = dnscrypt_verifying_key(&self.inner.endpoint)?;
-        let now = unix_time_secs();
-        let mut best: Option<DnsCryptCachedCertificate> = None;
-
-        for answer in &message.answers {
-            let RData::TXT(txt) = &answer.data else {
-                continue;
-            };
-            let mut bytes = Vec::new();
-            for chunk in &txt.txt_data {
-                bytes.extend_from_slice(chunk);
-            }
-            let certificate = parse_dnscrypt_certificate(&bytes, &verifying_key, &provider_name)?;
-            if certificate.valid_from <= now
-                && now <= certificate.valid_until
-                && best.as_ref().is_none_or(|value| value.valid_until < certificate.valid_until)
-            {
-                best = Some(certificate);
-            }
-        }
-
-        best.ok_or_else(|| {
-            EncryptedDnsError::DnsCryptCertificate("resolver did not return a valid certificate".to_string())
-        })
+        let records: Vec<Vec<u8>> = message
+            .answers
+            .iter()
+            .filter_map(|answer| match &answer.data {
+                RData::TXT(txt) => Some(txt.txt_data.concat()),
+                _ => None,
+            })
+            .collect();
+        select_dnscrypt_certificate(records.iter().map(Vec::as_slice), &verifying_key, &provider_name, unix_time_secs())
     }
 }
