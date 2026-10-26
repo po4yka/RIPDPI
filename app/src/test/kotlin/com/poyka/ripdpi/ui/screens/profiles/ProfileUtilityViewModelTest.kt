@@ -262,6 +262,20 @@ class ProfileUtilityViewModelTest {
         }
 
     @Test
+    fun `unexpected runtime exception becomes a persistence failure instead of a crash`() =
+        runTest {
+            val f = fixture()
+            try {
+                f.onPreflight = { throw SecurityException("denied") }
+                f.vm.checkAndSelect(Reference)
+                f.awaitState { it.failure == ProfileUtilityFailure.Persistence }
+                f.assertNoSelection()
+            } finally {
+                f.close()
+            }
+        }
+
+    @Test
     fun `failed measured reservation preference commit rejects selection after candidate cleanup`() =
         runTest {
             val f = fixture()

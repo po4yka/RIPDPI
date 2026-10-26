@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.IOException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -284,19 +283,9 @@ internal class ProfileUtilityViewModel
                 ) {
                     throw cancelled
                 } catch (
-                    _: IllegalStateException,
-                ) {
-                    failure.value = ProfileUtilityFailure.Persistence
-                } catch (
-                    _: IllegalArgumentException,
-                ) {
-                    failure.value = ProfileUtilityFailure.Persistence
-                } catch (
-                    _: ArithmeticException,
-                ) {
-                    failure.value = ProfileUtilityFailure.Persistence
-                } catch (
-                    _: IOException,
+                    // Room, DataStore and the probes can throw any runtime exception (SQLiteException,
+                    // SecurityException); an uncaught one in viewModelScope kills the process.
+                    _: Exception,
                 ) {
                     failure.value = ProfileUtilityFailure.Persistence
                 }
