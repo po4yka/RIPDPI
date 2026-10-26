@@ -44,6 +44,8 @@ pub(in crate::io_loop) async fn wait_for_next_event(
         .map_or(Duration::from_millis(DEFAULT_POLL_DELAY_MS), |d| Duration::from_micros(d.total_micros()));
 
     drain_udp_events(state);
+    // Drained UDP replies sit in the TX queue after this iteration's flush and wake nothing.
+    let work_pending = work_pending || !state.device.tx_queue.is_empty();
 
     let dns_enabled = state.dns_resp_rx.is_some();
     // biased; checks the cancellation arm first on every poll so shutdown is prompt
