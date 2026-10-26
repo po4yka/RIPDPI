@@ -1,8 +1,8 @@
 use std::io;
 
+use crate::device::PacketFd;
 use smoltcp::time::Instant;
 use tracing::warn;
-use tun_rs::AsyncDevice;
 
 use super::bridge::{TunFlushOutcome, flush_device_tx_queue, pump_active_sessions};
 use super::dns_intercept::drain_dns_responses;
@@ -19,7 +19,7 @@ use super::{IO_PHASE_WORK_BUDGET, LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL
 ///
 /// Cancel-safe: this function has no suspension point and finishes routing
 /// each packet before it returns.
-pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopState) {
+pub(in crate::io_loop) async fn drain_tun(tun: &PacketFd, state: &mut LoopState) {
     drain_tun_with(state, |buffer| tun.try_recv(buffer));
 }
 
@@ -150,7 +150,7 @@ pub(in crate::io_loop) async fn pump_bridges(state: &mut LoopState) {
 ///
 /// NOT cancel-safe: the delegated flush can remove a packet from the TX queue
 /// before awaiting TUN write readiness.
-pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopState) -> io::Result<TunFlushOutcome> {
+pub(in crate::io_loop) async fn flush_tun(tun: &PacketFd, state: &mut LoopState) -> io::Result<TunFlushOutcome> {
     flush_device_tx_queue(
         tun,
         &state.stats,

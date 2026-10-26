@@ -6,17 +6,17 @@
 
 use std::io;
 use std::net::IpAddr;
-use std::os::fd::{IntoRawFd, OwnedFd};
+use std::os::fd::OwnedFd;
 use std::sync::Arc;
 
 use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 use tokio_util::sync::CancellationToken;
-use tun_rs::AsyncDevice;
 
 use ripdpi_tunnel_config::Config;
 
+use crate::device::PacketFd;
 use crate::io_loop::io_loop_task_with_ready;
 use crate::{ActiveSessions, Stats, TunDevice};
 
@@ -60,19 +60,9 @@ fn parse_tunnel_address(value: &str) -> Option<(IpAddress, u8)> {
 /// caller MUST NOT close or access the fd in any way; the type system enforces
 /// this at compile time.
 ///
-/// The fd is consumed by `into_raw_fd()` as the very first statement in the
-/// function body, immediately before `AsyncDevice::from_fd` wraps the raw
-/// integer in tun-rs's `Fd{borrow:false}` RAII owner.  There is no code
-/// between the RAII disarm and the tun-rs adoption, so no panic or early
-/// return can orphan the raw integer.
-///
-/// On every exit path — normal return, `?` error propagation, or panic unwind
-/// inside the caller's `catch_unwind` — `tun_async` (AsyncDevice) is dropped,
-/// which calls `libc::close` exactly once via tun-rs `Fd::Drop`.
-///
-/// If `AsyncDevice::from_fd` itself fails, tun-rs constructs `Fd{borrow:false}`
-/// before any fallible work, so `Fd::Drop` fires and closes the raw fd before
-/// the `Err` propagates.  No second close is possible.
+/// The descriptor stays owned by the future before setup. PacketFd then owns
+/// it through File and AsyncFd. Setup errors, normal return, and panic unwind
+/// drop that owner and close the descriptor exactly once.
 ///
 /// # Cancel safety
 ///
@@ -126,40 +116,8 @@ where
 {
     config.validate().map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
 
-    // Consume the OwnedFd RAII guard immediately.  From this point the raw fd
-    // is owned by the async frame; `AsyncDevice::from_fd` wraps it in the next
-    // statement with no intervening code that could panic or return early.
-    let raw = tun_fd.into_raw_fd();
-
-    // SAFETY: `raw` is a valid, open file descriptor transferred exclusively to
-    // this function via the `OwnedFd` parameter.  `into_raw_fd()` was called
-    // immediately above — there is no code between RAII disarm and this call.
-    //
-    // Close guarantee (per-path):
-    //   • from_fd succeeds: `tun_async` (AsyncDevice / tun-rs Fd{borrow:false})
-    //     owns `raw` and calls `libc::close` via Fd::Drop on any exit (normal
-    //     return, `?` unwind, panic unwind inside the caller's catch_unwind).
-    //   • from_fd fails: tun-rs constructs Fd{borrow:false, inner=raw} before
-    //     any fallible work; Fd::Drop fires before the Err propagates — `raw`
-    //     is closed and no second close is possible.
-    //
-    // The caller (JNI layer) dup'd the original Kotlin fd before calling here,
-    // so closing `raw` here does not affect Kotlin's ParcelFileDescriptor.
-    let tun_async = unsafe { AsyncDevice::from_fd(raw) }
-        .map_err(|e| io::Error::other(format!("create async TUN device from fd: {e}")))?;
-
-    // The fd comes from Android VpnService (IFF_NO_PI) or a socketpair in tests —
-    // neither includes a packet information header.  Disable tun-rs's PI handling
-    // which would otherwise strip/prepend 4 bytes on BSD-family platforms.
-    #[cfg(any(
-        target_os = "macos",
-        target_os = "ios",
-        target_os = "tvos",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd",
-    ))]
-    tun_async.set_ignore_packet_info(false);
+    let tun_async =
+        PacketFd::new(tun_fd).map_err(|e| io::Error::other(format!("create async packet device from fd: {e}")))?;
 
     let mtu = config.tunnel.mtu as usize;
     let mut device = TunDevice::new(mtu);

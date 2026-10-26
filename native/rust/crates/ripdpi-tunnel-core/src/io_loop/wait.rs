@@ -1,8 +1,8 @@
 use std::time::Duration;
 
+use crate::device::PacketFd;
 use smoltcp::time::Instant;
 use tracing::info;
-use tun_rs::AsyncDevice;
 
 use super::DEFAULT_POLL_DELAY_MS;
 use super::dns_intercept::DnsResponse;
@@ -33,7 +33,7 @@ pub(super) enum WaitEvent {
 /// `LoopState` while suspended instead of being removed and restored around the
 /// await. Dropping this future therefore cannot disable DNS responses.
 pub(in crate::io_loop) async fn wait_for_next_event(
-    tun: &AsyncDevice,
+    tun: &PacketFd,
     state: &mut LoopState,
     work_pending: bool,
 ) -> WaitOutcome {

@@ -11,8 +11,8 @@ use std::time::Duration;
 use smoltcp::iface::{Interface, SocketSet};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
-use tun_rs::AsyncDevice;
 
+use crate::device::PacketFd;
 use crate::dns_cache::DnsCache;
 use ripdpi_tunnel_config::Config;
 
@@ -124,7 +124,7 @@ pub struct IoUringTunContext {
     /// This field is `pub(crate)` until the io_uring path is fully wired into
     /// `run_tunnel` and audited.  External callers must not construct
     /// `IoUringTunContext` with the same fd number already adopted by
-    /// `AsyncDevice` inside `run_tunnel`.
+    /// `PacketFd` inside `run_tunnel`.
     pub(crate) _tun_fd: std::os::fd::OwnedFd,
 }
 
@@ -139,7 +139,7 @@ pub struct IoUringTunContext {
 /// Graceful stop requires calling [`CancellationToken::cancel`] on `cancel` and
 /// continuing to poll this future until it returns.
 pub async fn io_loop_task(
-    tun: &AsyncDevice,
+    tun: &PacketFd,
     device: TunDevice,
     iface: Interface,
     socket_set: SocketSet<'static>,
@@ -166,7 +166,7 @@ pub async fn io_loop_task(
 /// completes before `on_ready`; after the callback, the loop observes the token
 /// and runs normal shutdown.
 pub(crate) async fn io_loop_task_with_ready<F>(
-    tun: &AsyncDevice,
+    tun: &PacketFd,
     device: TunDevice,
     iface: Interface,
     socket_set: SocketSet<'static>,

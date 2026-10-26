@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-10-26
+goal: VPN-1793035703372515 Adopt owned packet descriptors without TUN ioctl probes

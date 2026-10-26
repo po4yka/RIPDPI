@@ -1,9 +1,13 @@
+mod packet_fd;
+
 use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
 use smoltcp::time::Instant;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
 use crate::Stats;
+
+pub use packet_fd::PacketFd;
 
 /// A smoltcp `Device` implementation backed by two in-memory packet queues.
 ///

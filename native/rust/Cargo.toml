@@ -261,7 +261,7 @@ linkme = "0.3"
 log = "0.4"
 loom = "0.7"
 metrics = "0.24"
-lru = "0.18"
+lru = "0.19"
 maxminddb = "0.32"
 mlua = "0.12"
 mio = { version = "1.2", features = ["net", "os-poll"] }
@@ -306,7 +306,7 @@ yamux = "0.14"
 # renames or removes any of those symbols. See
 # docs/design/reality-boringssl-patch.md.
 boring = "=5.3.0"
-tokio-boring = "=5.1.0"
+tokio-boring = "=5.3.0"
 webpki-roots = "1.0"
 io-uring = "=0.7.15"
 flume = "0.12"
