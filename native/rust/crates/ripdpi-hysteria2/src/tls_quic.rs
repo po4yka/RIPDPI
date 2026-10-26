@@ -186,7 +186,8 @@ pub(crate) fn build_tls_config(config: &Config) -> Result<rustls::ClientConfig> 
 fn generate_padding() -> String {
     const PADDING_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let mut rng = rand::rng();
-    let padding_len = rng.random_range(8..40);
+    // Reference auth request padding range (`authRequestPadding`).
+    let padding_len = rng.random_range(256..2048);
     let mut padding = String::with_capacity(padding_len);
     for _ in 0..padding_len {
         let index = rng.random_range(0..PADDING_CHARS.len());
@@ -202,6 +203,16 @@ mod tests {
     use tokio::sync::oneshot;
 
     use super::DriverAbortGuard;
+
+    /// Reference auth padding is 256..2048 characters (apernet/hysteria
+    /// `core/internal/protocol/padding.go`); a shorter range separates this
+    /// client from the reference by auth request size.
+    #[test]
+    fn auth_padding_uses_the_reference_length_range() {
+        let lengths: Vec<usize> = (0..200).map(|_| super::generate_padding().len()).collect();
+
+        assert!(lengths.iter().all(|length| (256..2048).contains(length)), "out-of-range padding: {lengths:?}");
+    }
 
     #[tokio::test(flavor = "current_thread")]
     async fn salamander_endpoint_builds_and_rebinds_blocking_socket() {

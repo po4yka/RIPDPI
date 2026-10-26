@@ -47,7 +47,20 @@ impl AsyncWrite for DuplexStream {
     }
 }
 
-pub(crate) fn build_tcp_request(address: &str, padding_len: usize) -> Bytes {
+/// Reference limits (apernet/hysteria `core/internal/protocol`): the server
+/// rejects an empty or longer address, and the random request padding blurs
+/// the size of the stream-open frame.
+const MAX_TCP_REQUEST_ADDRESS_LEN: usize = 2048;
+const TCP_REQUEST_PADDING: std::ops::Range<usize> = 64..512;
+
+pub(crate) fn build_tcp_request(address: &str) -> io::Result<Bytes> {
+    if address.is_empty() || address.len() > MAX_TCP_REQUEST_ADDRESS_LEN {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("Hysteria TCP target address must be 1..={MAX_TCP_REQUEST_ADDRESS_LEN} bytes"),
+        ));
+    }
+    let padding_len = rand::RngExt::random_range(&mut rand::rng(), TCP_REQUEST_PADDING);
     let mut buffer = BytesMut::with_capacity(address.len() + padding_len + 32);
     put_varint(0x401, &mut buffer);
     put_varint(address.len() as u64, &mut buffer);
@@ -58,7 +71,7 @@ pub(crate) fn build_tcp_request(address: &str, padding_len: usize) -> Bytes {
         rand::rng().fill_bytes(&mut padding);
         buffer.extend_from_slice(&padding);
     }
-    buffer.freeze()
+    Ok(buffer.freeze())
 }
 
 /// Largest TCP response message the server may send. Matches upstream Hysteria
@@ -104,6 +117,22 @@ fn invalid_response(message: String) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tcp_request_carries_reference_padding_and_rejects_bad_addresses() {
+        for _ in 0..100 {
+            let request = build_tcp_request("example.com:443").expect("valid address");
+            // [varint 0x401 (2 bytes)][varint 15 (1 byte)][address][varint padding][padding]
+            let padding_at = 3 + "example.com:443".len();
+            let (padding_len, varint_len) =
+                crate::varint::decode_varint(&request[padding_at..]).expect("padding length varint");
+            assert!((64..512).contains(&padding_len), "padding length {padding_len} is outside 64..512");
+            assert_eq!(request.len(), padding_at + varint_len + padding_len as usize);
+        }
+        assert!(build_tcp_request("").is_err(), "an empty address must be rejected");
+        assert!(build_tcp_request(&"a".repeat(2049)).is_err(), "an over-long address must be rejected");
+        assert!(build_tcp_request(&"a".repeat(2048)).is_ok(), "the reference limit is inclusive");
+    }
 
     /// Encode a TCP response: status byte, varint message length, message, varint
     /// padding length, padding. The declared lengths can differ from the bytes that

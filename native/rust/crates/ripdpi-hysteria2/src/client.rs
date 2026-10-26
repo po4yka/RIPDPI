@@ -100,8 +100,10 @@ pub struct HysteriaClient {
 
 impl HysteriaClient {
     pub async fn tcp_connect(&self, address: &str) -> Result<DuplexStream> {
+        // A bad address fails before any migration starts.
+        let request = build_tcp_request(address)?;
         let migration = self.inner.begin_quic_migration();
-        match self.open_tcp_stream(address).await {
+        match self.open_tcp_stream(&request).await {
             Ok(stream) => {
                 if let Some(migration) = migration {
                     migration.complete("path_validated_after_stream_open");
@@ -111,7 +113,7 @@ impl HysteriaClient {
             Err(error) => match migration {
                 Some(migration) if error.is_path_failure() => {
                     migration.rollback("stream_open_failed_after_rebind")?;
-                    self.open_tcp_stream(address).await
+                    self.open_tcp_stream(&request).await
                 }
                 Some(migration) => {
                     // The server answered on the new path; only the target failed.
@@ -139,9 +141,9 @@ impl HysteriaClient {
         self.inner.quic_migration_snapshot()
     }
 
-    async fn open_tcp_stream(&self, address: &str) -> Result<DuplexStream> {
+    async fn open_tcp_stream(&self, request: &[u8]) -> Result<DuplexStream> {
         let (mut send, mut recv) = self.inner.connection.open_bi().await?;
-        send.write_all(&build_tcp_request(address, 0)).await?;
+        send.write_all(request).await?;
 
         let (status_ok, message) = read_tcp_response(&mut recv).await?;
         if !status_ok {
