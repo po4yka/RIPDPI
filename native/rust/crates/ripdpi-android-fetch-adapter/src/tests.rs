@@ -13,10 +13,11 @@ use ripdpi_runtime_platform::protect::{ProtectCallback, register_protect_callbac
 use serde_json::Value;
 use url::Url;
 
-use super::dto::RawHttpResponse;
+use super::dto::{NativeOwnedTlsHttpResponse, RawHttpResponse};
 use super::execute;
 use super::redirect::redirect_target;
 use super::request::MAX_RESPONSE_BODY_BYTES;
+use super::tls_profile::apply_profile_metadata;
 
 static PROTECT_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
@@ -36,12 +37,11 @@ fn execute_fetches_plain_http_response() {
     assert_eq!(response["statusCode"], 200);
     assert_eq!(STANDARD.decode(response["bodyBase64"].as_str().expect("body")).expect("decode body"), b"manifest");
     assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/manifest.json"));
-    assert_eq!(response["tlsProfileId"], "chrome_stable");
     assert_eq!(response["tlsProfileCatalogVersion"], "v1");
-    assert_eq!(response["tlsBrowserFamily"], "chrome");
-    assert_eq!(response["tlsBrowserTrack"], "android-stable");
-    assert_eq!(response["tlsTemplateAlpn"], "h2_http11");
-    assert_eq!(response["clientHelloInvariantStatus"], "avoids_blocked_517_byte_client_hello");
+    // No TLS ran for http://, so no profile metadata is attached.
+    for field in ["tlsProfileId", "tlsBrowserFamily", "tlsTemplateAlpn", "clientHelloInvariantStatus"] {
+        assert!(response[field].is_null(), "{field}");
+    }
 }
 
 #[test]
@@ -99,9 +99,25 @@ fn execute_follows_redirects() {
     assert_eq!(response["statusCode"], 200);
     assert_eq!(STANDARD.decode(response["bodyBase64"].as_str().expect("body")).expect("decode body"), b"catalog");
     assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/final.json"));
-    assert_eq!(response["tlsJa3ParityTarget"], "chrome-stable");
-    assert_eq!(response["tlsJa4ParityTarget"], "chrome-stable");
-    assert_eq!(response["tlsTemplateGreaseStyle"], "chromium_single_grease");
+    // Plain http:// sends no ClientHello, so no TLS profile metadata is reported.
+    assert!(response["tlsProfileId"].is_null());
+    assert!(response["tlsJa3ParityTarget"].is_null());
+    assert!(response["tlsTemplateAlpn"].is_null());
+}
+
+#[test]
+fn tls_metadata_reports_the_alpn_actually_sent_and_no_parity_claim() {
+    let mut response = NativeOwnedTlsHttpResponse::error(io::Error::other("unused"));
+    apply_profile_metadata(&mut response, ripdpi_tls_profiles::selected_profile_metadata("chrome_stable"));
+    let value = serde_json::to_value(&response).expect("json");
+
+    assert_eq!(value["tlsProfileId"], "chrome_stable");
+    assert_eq!(value["tlsTemplateAlpn"], "http11");
+    assert_eq!(value["tlsTemplateGreaseStyle"], "chromium_single_grease");
+    for claim in ["tlsJa3ParityTarget", "tlsJa4ParityTarget", "clientHelloSizeHint", "clientHelloInvariantStatus"] {
+        assert!(value[claim].is_null(), "{claim} must not claim browser parity");
+    }
+    assert!(value["tlsTemplateRecordChoreography"].is_null());
 }
 
 #[test]

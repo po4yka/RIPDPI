@@ -30,25 +30,28 @@ pub(crate) fn profile_catalog_version_string() -> String {
     profile_catalog_version().to_string()
 }
 
+/// ALPN template label for [`HTTP11_ALPN`], which this HTTP/1.1-only client
+/// sends in place of the profile's own ALPN list.
+const HTTP11_ALPN_TEMPLATE: &str = "http11";
+
+/// Report the TLS profile parts this client actually applies. The ALPN is
+/// overridden to HTTP/1.1 and no record choreography runs here, so the
+/// ClientHello does not match the profile's JA3/JA4 parity target, size hint
+/// or invariants; those fields stay unset instead of claiming browser parity.
 pub(crate) fn apply_profile_metadata(response: &mut NativeOwnedTlsHttpResponse, profile_metadata: ProfileMetadata) {
     let template = profile_metadata.template;
     response.tls_profile_id = Some(profile_metadata.profile_name.to_string());
-    response.tls_ja3_parity_target = Some(profile_metadata.parity_targets.ja3.to_string());
-    response.tls_ja4_parity_target = Some(profile_metadata.parity_targets.ja4.to_string());
     response.tls_browser_family = Some(profile_metadata.parity_targets.browser_family.to_string());
     response.tls_browser_track = Some(profile_metadata.parity_targets.browser_track.to_string());
     apply_template_metadata(response, template);
-    response.client_hello_size_hint = Some(profile_metadata.client_hello_size_hint);
-    response.client_hello_invariant_status = Some(profile_metadata.invariant_status.as_str().to_string());
 }
 
 fn apply_template_metadata(response: &mut NativeOwnedTlsHttpResponse, template: ProfileTemplateMetadata) {
-    response.tls_template_alpn = Some(template.alpn_template.to_string());
+    response.tls_template_alpn = Some(HTTP11_ALPN_TEMPLATE.to_string());
     response.tls_template_extension_order_family = Some(template.extension_order_family.to_string());
     response.tls_template_grease_style = Some(template.grease_style.to_string());
     response.tls_template_supported_groups_profile = Some(template.supported_groups_profile.to_string());
     response.tls_template_key_share_profile = Some(template.key_share_profile.to_string());
-    response.tls_template_record_choreography = Some(template.record_choreography.to_string());
     response.tls_template_ech_capable = Some(template.ech_capable);
     response.tls_template_ech_bootstrap_policy = Some(template.ech_bootstrap_policy.to_string());
     response.tls_template_ech_bootstrap_resolver_id = template.ech_bootstrap_resolver_id.map(ToString::to_string);

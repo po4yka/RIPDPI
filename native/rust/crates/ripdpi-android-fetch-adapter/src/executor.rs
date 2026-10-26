@@ -51,6 +51,8 @@ async fn execute_async(mut request: NativeOwnedTlsHttpRequest) -> io::Result<Nat
             continue;
         }
 
+        // TLS metadata describes the final hop only; a plain http:// hop sends no ClientHello.
+        let final_hop_https = current_url.scheme() == "https";
         let mut response_payload = NativeOwnedTlsHttpResponse {
             status_code: Some(response.status_code.as_u16()),
             body_base64: Some(base64::engine::general_purpose::STANDARD.encode(response.body)),
@@ -75,7 +77,9 @@ async fn execute_async(mut request: NativeOwnedTlsHttpRequest) -> io::Result<Nat
             client_hello_invariant_status: None,
             error: None,
         };
-        apply_profile_metadata(&mut response_payload, profile_metadata);
+        if final_hop_https {
+            apply_profile_metadata(&mut response_payload, profile_metadata);
+        }
         return Ok(response_payload);
     }
 }
