@@ -179,11 +179,16 @@ fn issue_leaf(
     let mut distinguished_name = DistinguishedName::new();
     distinguished_name.push(DnType::CommonName, domain);
     params.distinguished_name = distinguished_name;
-    params.subject_alt_names.push(SanType::DnsName(
-        domain
-            .try_into()
-            .map_err(|error: rcgen::Error| MitmError::Invalid(format!("invalid dns name {domain}: {error}")))?,
-    ));
+    // RFC 9525 6.2: a client checks an IP-literal host against an iPAddress SAN.
+    let san = match domain.parse::<std::net::IpAddr>() {
+        Ok(address) => SanType::IpAddress(address),
+        Err(_) => SanType::DnsName(
+            domain
+                .try_into()
+                .map_err(|error: rcgen::Error| MitmError::Invalid(format!("invalid dns name {domain}: {error}")))?,
+        ),
+    };
+    params.subject_alt_names.push(san);
     params.key_usages = vec![KeyUsagePurpose::DigitalSignature, KeyUsagePurpose::KeyEncipherment];
     params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
     let now = time::OffsetDateTime::now_utc();
@@ -281,5 +286,35 @@ mod tests {
         assert!(matches!(error, MitmError::Invalid(_)), "unexpected error: {error}");
         let _ = fs::remove_dir_all(&dir);
         let _ = fs::remove_dir_all(&other);
+    }
+
+    /// Completes a TLS handshake against the leaf for `host`, trusting only
+    /// the relay CA, the way a client that installed the CA would.
+    async fn client_accepts_leaf_for(manager: &Arc<Mutex<MitmCertManager>>, host: &str) -> Result<(), String> {
+        use rustls::pki_types::ServerName;
+        use tokio_rustls::{TlsAcceptor, TlsConnector};
+
+        let server_config = MitmCertManager::get_server_config(manager, host).await.map_err(|e| e.to_string())?;
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(manager.lock().await.ca_cert_der.clone()).map_err(|e| e.to_string())?;
+        let client_config = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
+        let name = ServerName::try_from(host.to_string()).map_err(|e| e.to_string())?;
+
+        let (client_io, server_io) = tokio::io::duplex(16 * 1024);
+        let server = tokio::spawn(async move { TlsAcceptor::from(server_config).accept(server_io).await.map(drop) });
+        let client = TlsConnector::from(Arc::new(client_config)).connect(name, client_io).await.map(drop);
+        server.abort();
+        client.map_err(|e| e.to_string())
+    }
+
+    #[tokio::test]
+    async fn ip_literal_hosts_get_a_leaf_with_an_ip_address_san() {
+        let dir = fresh_dir("ip-san");
+        let manager = Arc::new(Mutex::new(MitmCertManager::new_in(&dir).expect("generate")));
+
+        for host in ["192.0.2.7", "2001:db8::1", "example.com"] {
+            client_accepts_leaf_for(&manager, host).await.unwrap_or_else(|error| panic!("{host}: {error}"));
+        }
+        let _ = fs::remove_dir_all(&dir);
     }
 }
