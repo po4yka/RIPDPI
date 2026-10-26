@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.screens.browser
 
+import android.text.Html
+import android.text.Spanned
+import android.text.SpannedString
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.platform.StringResolver
@@ -8,22 +11,32 @@ import com.poyka.ripdpi.services.OwnedStackBrowserPage
 import com.poyka.ripdpi.services.OwnedStackBrowserService
 import com.poyka.ripdpi.services.OwnedStackBrowserSupport
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.URI
 import java.security.GeneralSecurityException
 import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.CoroutineContext
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class OwnedStackBrowserViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -92,29 +105,59 @@ class OwnedStackBrowserViewModelTest {
     }
 
     @Test
-    fun `fetch and body conversion run on the default dispatcher and the body is capped`() =
+    @Config(sdk = [35], shadows = [RecordingHtmlShadow::class])
+    fun `fetch and the HTML parse run on the default dispatcher and the body is capped`() =
         runTest {
-            val background = StandardTestDispatcher(testScheduler)
-            val service = RecordingBrowserService(body = "x".repeat(MaxDisplayedBodyChars + 10))
+            // A dispatched Main: an unconfined one would resume the caller inside the background block.
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val background = FlaggingDispatcher(StandardTestDispatcher(testScheduler))
+            val service =
+                RecordingBrowserService(body = "x".repeat(MaxDisplayedBodyChars + 10), contentType = "text/html")
             val viewModel =
                 OwnedStackBrowserViewModel(
                     service,
                     FallbackStringResolver,
                     AppCoroutineDispatchers(default = background, io = background, main = Dispatchers.Main),
                 )
+            RecordingHtmlShadow.parsedOnBackground = null
 
             viewModel.load("https://example.com")
             testScheduler.advanceUntilIdle()
 
             assertSame(background, service.fetchDispatcher)
+            assertEquals(
+                "the HTML parse must run on the default dispatcher",
+                true,
+                RecordingHtmlShadow.parsedOnBackground,
+            )
             val state = viewModel.uiState.value
             assertFalse(state.isLoading)
             assertNull(state.errorMessage)
             assertEquals(MaxDisplayedBodyChars, state.page?.bodyText?.length)
         }
 
+    /** Runs blocks on [delegate] and marks the thread while a block of this dispatcher runs. */
+    private class FlaggingDispatcher(
+        private val delegate: CoroutineDispatcher,
+    ) : CoroutineDispatcher() {
+        override fun dispatch(
+            context: CoroutineContext,
+            block: Runnable,
+        ) {
+            delegate.dispatch(context) {
+                OnBackground.set(true)
+                try {
+                    block.run()
+                } finally {
+                    OnBackground.set(false)
+                }
+            }
+        }
+    }
+
     private class RecordingBrowserService(
         private val body: String,
+        private val contentType: String? = null,
     ) : OwnedStackBrowserService {
         var fetchDispatcher: ContinuationInterceptor? = null
 
@@ -130,7 +173,7 @@ class OwnedStackBrowserViewModelTest {
                 finalUrl = rawUrl,
                 statusCode = 200,
                 bodyText = body,
-                contentType = null,
+                contentType = contentType,
                 backend = OwnedStackBrowserBackend.entries.first(),
                 android17EchEligible = false,
             )
@@ -190,5 +233,26 @@ class OwnedStackBrowserViewModelTest {
 
         const val HttpsOnlyMessage = "Only HTTPS URLs are supported in the RIPDPI browser."
         const val FallbackMessage = "Owned-stack request failed."
+    }
+}
+
+private val OnBackground = ThreadLocal<Boolean>()
+
+/** Records whether `Html.fromHtml` ran inside a [OwnedStackBrowserViewModelTest] background block. */
+@Implements(Html::class)
+class RecordingHtmlShadow {
+    companion object {
+        @Volatile
+        var parsedOnBackground: Boolean? = null
+
+        @JvmStatic
+        @Implementation
+        fun fromHtml(
+            source: String,
+            flags: Int,
+        ): Spanned {
+            parsedOnBackground = OnBackground.get() == true
+            return SpannedString(source)
+        }
     }
 }
