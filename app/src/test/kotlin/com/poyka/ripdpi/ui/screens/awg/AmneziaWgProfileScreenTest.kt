@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.ui.screens.awg
 
 import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Intent
+import android.hardware.biometrics.BiometricManager
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.ActivityResultRegistryOwner
@@ -13,12 +15,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.core.app.ActivityOptionsCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.FakePermissionPlatformBridge
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
@@ -38,14 +45,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.shadows.ShadowBiometricManager
 
 /**
  * Robolectric Compose UI tests for [AmneziaWgProfileScreen].
@@ -105,6 +117,78 @@ class AmneziaWgProfileScreenTest {
             permissionBridge,
             clipboard,
         )
+
+    @Test
+    fun `route hides revealed secrets when the app goes to the background`() {
+        val owner = TestLifecycleOwner()
+        val viewModel = viewModel()
+        composeRule.setContent {
+            CompositionLocalProvider(LocalLifecycleOwner provides owner) {
+                RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+            }
+        }
+        composeRule.runOnIdle {
+            viewModel.onPrivateKeyRevealAuthorized()
+            viewModel.onPresharedKeyRevealAuthorized()
+        }
+
+        composeRule.runOnIdle { owner.moveTo(Lifecycle.State.CREATED) }
+
+        composeRule.runOnIdle {
+            assertFalse(viewModel.uiState.value.privateKeyRevealed)
+            assertFalse(viewModel.uiState.value.presharedKeyRevealed)
+        }
+    }
+
+    @Test
+    fun `route reveal asks for authentication when the device has a screen lock`() {
+        // Robolectric reports strong biometrics as available; a screen lock is set as well.
+        val context = RuntimeEnvironment.getApplication()
+        shadowOf(context.getSystemService(KeyguardManager::class.java)).setIsDeviceSecure(true)
+        val viewModel = viewModel()
+        composeRule.setContent {
+            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+        }
+
+        composeRule
+            .onAllNodesWithText(context.getString(R.string.ssh_reveal_secret_action))[0]
+            .performScrollTo()
+            .performClick()
+
+        // The test host is not a FragmentActivity, so no prompt can show and the key stays hidden.
+        composeRule.runOnIdle { assertFalse(viewModel.uiState.value.privateKeyRevealed) }
+    }
+
+    @Test
+    fun `route reveal needs no prompt on a device without a screen lock`() {
+        val context = RuntimeEnvironment.getApplication()
+        Shadow
+            .extract<ShadowBiometricManager>(
+                context.getSystemService(BiometricManager::class.java),
+            ).setCanAuthenticate(false)
+        shadowOf(context.getSystemService(KeyguardManager::class.java)).setIsDeviceSecure(false)
+        val viewModel = viewModel()
+        composeRule.setContent {
+            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+        }
+
+        composeRule
+            .onAllNodesWithText(context.getString(R.string.ssh_reveal_secret_action))[0]
+            .performScrollTo()
+            .performClick()
+
+        composeRule.runOnIdle { assertTrue(viewModel.uiState.value.privateKeyRevealed) }
+    }
+
+    private class TestLifecycleOwner : LifecycleOwner {
+        private val registry = LifecycleRegistry(this).apply { currentState = Lifecycle.State.RESUMED }
+
+        override val lifecycle: Lifecycle = registry
+
+        fun moveTo(state: Lifecycle.State) {
+            registry.currentState = state
+        }
+    }
 
     @Test
     fun `route reads and imports the clipboard only when Paste is tapped`() {

@@ -18,10 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.security.rememberSecretRevealGate
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -89,6 +91,10 @@ fun AmneziaWgProfileRoute(
             viewModel.onVpnConsentResult(request.id, granted = false)
         }
     }
+    // Revealed secrets hide again when the app goes to the background or the screen closes.
+    LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.onSecretsRelocked() } }
+    val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized)
+    val revealPresharedKey = rememberSecretRevealGate(viewModel::onPresharedKeyRevealAuthorized)
     AmneziaWgProfileScreen(
         uiState = uiState,
         onBack = onBack,
@@ -96,8 +102,8 @@ fun AmneziaWgProfileRoute(
         onCohortSelected = viewModel::onCohortSelected,
         onCarrierSelected = viewModel::onCarrierSelected,
         onPasteConf = viewModel::onPasteConf,
-        onRevealPrivateKey = onRequestPrivateKeyReveal ?: viewModel::onPrivateKeyRevealAuthorized,
-        onRevealPresharedKey = onRequestPresharedKeyReveal ?: viewModel::onPresharedKeyRevealAuthorized,
+        onRevealPrivateKey = onRequestPrivateKeyReveal ?: revealPrivateKey,
+        onRevealPresharedKey = onRequestPresharedKeyReveal ?: revealPresharedKey,
         onConnect = viewModel::onConnect,
         modifier = modifier,
     )

@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.subscription.SubscriptionExpiryItemUiState
@@ -44,6 +45,8 @@ fun SubscriptionStatusRoute(
     val migrationModel: MigrationStatusViewModel = hiltViewModel()
     val migrations by migrationModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // Revealed subscription tokens hide again when the app goes to the background or the screen closes.
+    LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.hideSecrets() } }
     LaunchedEffect(migrationModel) {
         migrationModel.receipts.collect { receipt ->
             try {

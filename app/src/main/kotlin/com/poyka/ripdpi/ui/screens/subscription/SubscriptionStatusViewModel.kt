@@ -90,6 +90,10 @@ class SubscriptionStatusViewModel internal constructor(
         secretsRevealed.value = !secretsRevealed.value
     }
 
+    fun hideSecrets() {
+        secretsRevealed.value = false
+    }
+
     fun refresh(groupId: String) {
         if (!refreshingGroupId.compareAndSet(null, groupId)) return
         refreshFailedGroupId.value = null
