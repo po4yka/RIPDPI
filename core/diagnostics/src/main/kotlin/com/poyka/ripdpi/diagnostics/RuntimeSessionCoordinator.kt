@@ -78,16 +78,19 @@ class RuntimeSessionCoordinator
         ) {
             if (status == AppStatus.Reconnecting) {
                 stateMutex.withLock {
-                    persistPendingTerminalSession()
-                    val hadActiveSession = activeUsageSession != null
-                    if (hadActiveSession) {
-                        deviceStateEventRecorder.recordReconnectStart()
-                        finalizeActiveUsageSession(serviceStateStore.telemetry.value)
-                    }
-                    reconnectInProgress = true
-                    deviceStateEventRecorder.beginServiceStart(mode)
-                    if (!hadActiveSession) {
-                        deviceStateEventRecorder.recordReconnectStart()
+                    try {
+                        persistPendingTerminalSession()
+                    } finally {
+                        val hadActiveSession = activeUsageSession != null
+                        if (hadActiveSession) {
+                            deviceStateEventRecorder.recordReconnectStart()
+                            finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+                        }
+                        reconnectInProgress = true
+                        deviceStateEventRecorder.beginServiceStart(mode)
+                        if (!hadActiveSession) {
+                            deviceStateEventRecorder.recordReconnectStart()
+                        }
                     }
                 }
                 return
@@ -108,10 +111,14 @@ class RuntimeSessionCoordinator
 
             stopSampling()
             stateMutex.withLock {
-                persistPendingTerminalSession()
-                deviceStateEventRecorder.recordStop()
-                reconnectInProgress = false
-                finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+                // A stuck outbox must not keep this run open, or the next start reuses it.
+                try {
+                    persistPendingTerminalSession()
+                } finally {
+                    deviceStateEventRecorder.recordStop()
+                    reconnectInProgress = false
+                    finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+                }
             }
         }
 

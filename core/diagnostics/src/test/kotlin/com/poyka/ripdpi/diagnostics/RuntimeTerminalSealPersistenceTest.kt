@@ -551,6 +551,47 @@ internal class RuntimeTerminalRecoveryPersistenceTest : RuntimeTerminalPersisten
         }
 
     @Test
+    fun `stop with a stuck outbox still closes the run so the next start is fresh`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val coordinatorScope = monitorScope()
+            val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope)
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            val firstRunId =
+                stores.usageSessionsState.value
+                    .single()
+                    .id
+            val stuck = finishedUsageSession(id = "stuck-recovery", finishedAt = 1_000L)
+            val stuckMarker =
+                PendingTerminalSession(
+                    activeSession = stuck,
+                    finishedSession = stuck,
+                    telemetry = null,
+                    createdAt = requireNotNull(stuck.finishedAt),
+                    terminalEvidenceSealed = false,
+                    policyOutcome = null,
+                    artifactBatch = RuntimeTerminalArtifactBatch(events = emptyList()),
+                ).toMarker(PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT)
+            stores.terminalOutboxState.value = listOf(stuckMarker)
+            stores.afterCompleteTerminalOutbox = {
+                stores.terminalOutboxState.value = listOf(stuckMarker)
+            }
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+
+            assertTrue(runCatching { coordinator.handleStatusChange(AppStatus.Halted, Mode.VPN) }.isFailure)
+            stores.afterCompleteTerminalOutbox = {}
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+
+            val sessions = stores.usageSessionsState.value.filter { session -> session.id != stuck.id }
+            assertTrue(sessions.single { session -> session.id == firstRunId }.finishedAt != null)
+            assertEquals(null, sessions.single { session -> session.id != firstRunId }.finishedAt)
+            coordinatorScope.cancel()
+        }
+
+    @Test
     fun `failure or cancellation at every terminal phase cannot reopen the detached session`() =
         runTest {
             val failures =
