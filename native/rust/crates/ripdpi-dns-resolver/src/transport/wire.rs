@@ -29,6 +29,27 @@ pub(crate) fn build_dns_query(name: &str, record_type: RecordType) -> Result<Vec
     message.to_vec().map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))
 }
 
+/// Check that a frame read from a stream transport answers the query sent on it:
+/// the same ID, the QR bit, and the same question (RFC 7858 3.3, RFC 7766 7).
+/// An error reply may omit the question. A query that does not parse is only
+/// matched by ID.
+pub(crate) fn ensure_response_matches_query(query: &[u8], response: &[u8]) -> Result<(), EncryptedDnsError> {
+    let mismatch = || EncryptedDnsError::DnsParse("DNS response does not match the query sent".to_string());
+    if query.len() < 2 || response.len() < 3 || response[..2] != query[..2] || response[2] & 0x80 == 0 {
+        return Err(mismatch());
+    }
+    let Ok(request) = Message::from_vec(query) else {
+        return Ok(());
+    };
+    let reply = Message::from_vec(response).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
+    let error_without_question = reply.queries.is_empty()
+        && !matches!(reply.metadata.response_code, ResponseCode::NoError | ResponseCode::NXDomain);
+    if reply.queries != request.queries && !error_without_question {
+        return Err(mismatch());
+    }
+    Ok(())
+}
+
 /// Validate that a DNS reply answers the query that was actually sent.
 pub fn validate_dns_response_for_query(query: &[u8], response: &[u8]) -> Result<(), EncryptedDnsError> {
     let request = Message::from_vec(query).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;

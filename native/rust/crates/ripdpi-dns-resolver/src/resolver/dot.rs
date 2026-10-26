@@ -5,7 +5,9 @@ use tokio::time::timeout;
 
 use super::EncryptedDnsResolver;
 use super::connection::{DotTlsStream, PooledConnection};
-use crate::transport::{read_length_prefixed_frame_async, write_length_prefixed_frame_async};
+use crate::transport::{
+    ensure_response_matches_query, read_length_prefixed_frame_async, write_length_prefixed_frame_async,
+};
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsError};
 
 impl EncryptedDnsResolver {
@@ -36,15 +38,18 @@ impl EncryptedDnsResolver {
         stream: &mut DotTlsStream,
         query_bytes: &[u8],
     ) -> Result<Vec<u8>, EncryptedDnsError> {
-        match timeout(self.inner.timeout, async {
+        let response = match timeout(self.inner.timeout, async {
             write_length_prefixed_frame_async(stream, query_bytes).await?;
             read_length_prefixed_frame_async(stream).await
         })
         .await
         {
-            Ok(result) => result,
-            Err(_) => Err(EncryptedDnsError::Request("DNS-over-TLS exchange timed out".to_string())),
-        }
+            Ok(result) => result?,
+            Err(_) => return Err(EncryptedDnsError::Request("DNS-over-TLS exchange timed out".to_string())),
+        };
+        // A mismatched frame means a desynchronized stream; the caller drops it.
+        ensure_response_matches_query(query_bytes, &response)?;
+        Ok(response)
     }
 
     async fn take_dot_session(&self) -> Result<(DotTlsStream, bool), EncryptedDnsError> {

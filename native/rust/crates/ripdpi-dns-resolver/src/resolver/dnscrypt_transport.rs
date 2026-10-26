@@ -9,7 +9,8 @@ use super::EncryptedDnsResolver;
 use super::connection::PooledConnection;
 use crate::dnscrypt::*;
 use crate::transport::{
-    build_dns_query, read_length_prefixed_frame_async, unix_time_secs, write_length_prefixed_frame_async,
+    build_dns_query, ensure_response_matches_query, read_length_prefixed_frame_async, unix_time_secs,
+    write_length_prefixed_frame_async,
 };
 use crate::types::{DnsCryptCachedCertificate, EncryptedDnsError};
 
@@ -78,7 +79,9 @@ impl EncryptedDnsResolver {
                 return Err(EncryptedDnsError::Request("DNSCrypt exchange timed out".to_string()));
             }
         };
-        decrypt_dnscrypt_response(&cipher, &response, &full_nonce[..DNSCRYPT_QUERY_NONCE_HALF])
+        let response = decrypt_dnscrypt_response(&cipher, &response, &full_nonce[..DNSCRYPT_QUERY_NONCE_HALF])?;
+        ensure_response_matches_query(query_bytes, &response)?;
+        Ok(response)
     }
 
     async fn take_dnscrypt_session(&self) -> Result<(TokioTcpStream, bool), EncryptedDnsError> {

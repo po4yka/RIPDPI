@@ -1,6 +1,7 @@
 mod burst;
 mod https_service_binding;
 mod pipeline;
+mod stream_matching;
 
 use super::*;
 
@@ -1185,13 +1186,15 @@ fn serve_dnscrypt_query(
     let decrypted = cipher.decrypt(nonce, &packet[52..]).expect("dnscrypt request decrypt");
     let query = dnscrypt_unpad(&decrypted).expect("dnscrypt request unpad");
     let expected = build_query("fixture.test");
-    // Compare queries ignoring the 2-byte transaction ID (now randomized).
+    // Compare queries ignoring the 2-byte transaction ID (now randomized), and echo it.
     assert_eq!(query[2..], expected[2..]);
+    let mut response_packet = response_packet.to_vec();
+    response_packet[..2].copy_from_slice(&query[..2]);
 
     let mut response_nonce = *nonce;
     response_nonce[DNSCRYPT_QUERY_NONCE_HALF..].fill(0x11);
     let ciphertext =
-        cipher.encrypt(&response_nonce, dnscrypt_pad(response_packet).as_slice()).expect("dnscrypt response encrypt");
+        cipher.encrypt(&response_nonce, dnscrypt_pad(&response_packet).as_slice()).expect("dnscrypt response encrypt");
     let mut wrapped = Vec::with_capacity(8 + DNSCRYPT_NONCE_SIZE + ciphertext.len());
     wrapped.extend_from_slice(&DNSCRYPT_RESPONSE_MAGIC);
     wrapped.extend_from_slice(&response_nonce);
@@ -1248,9 +1251,11 @@ fn serve_dot_sequence(
     }
     for (expected_query, response_body) in expected_queries.iter().zip(response_bodies) {
         let query = read_length_prefixed_frame(&mut tls_stream).expect("read DoT query");
-        // Compare ignoring the 2-byte transaction ID (now randomized).
+        // Compare ignoring the 2-byte transaction ID (now randomized), and echo it.
         assert_eq!(query[2..], expected_query[2..]);
-        write_length_prefixed_frame(&mut tls_stream, response_body).expect("write DoT response");
+        let mut response_body = response_body.clone();
+        response_body[..2].copy_from_slice(&query[..2]);
+        write_length_prefixed_frame(&mut tls_stream, &response_body).expect("write DoT response");
     }
 }
 
