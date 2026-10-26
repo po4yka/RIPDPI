@@ -153,6 +153,9 @@ fn build_doh_client_for_endpoint(
     build_doh_client(endpoint, transport, timeout, tls_roots, health, network_scope, tls_verifier).map(Some)
 }
 
+/// One DoQ response: its 2-byte length prefix plus the largest DNS message.
+const DOQ_STREAM_RECEIVE_WINDOW: u32 = 2 + 65_535;
+
 /// Must run inside a Tokio runtime: quinn registers the socket and spawns the endpoint driver on it.
 pub(crate) fn build_doq_endpoint_for_endpoint(
     endpoint: &EncryptedDnsEndpoint,
@@ -169,6 +172,14 @@ pub(crate) fn build_doq_endpoint_for_endpoint(
     // RFC 9250 5.4: queries carry no EDNS(0) padding, so pad at the QUIC level
     // to hide the queried name's length.
     transport.pad_to_mtu(true);
+    // RFC 9250 4.3.3: a DoQ server must not open streams, and one response is at
+    // most a 2-byte length plus 65535 bytes. quinn's defaults (100 + 100 peer
+    // streams, 1.25 MB per stream, unbounded per connection) would let a server
+    // park hundreds of megabytes in this process.
+    transport.max_concurrent_bidi_streams(0u32.into());
+    transport.max_concurrent_uni_streams(0u32.into());
+    transport.stream_receive_window(DOQ_STREAM_RECEIVE_WINDOW.into());
+    transport.receive_window((DOQ_STREAM_RECEIVE_WINDOW * 16).into());
     client_config.transport_config(Arc::new(transport));
     let mut endpoint = doq::build_doq_endpoint(endpoint, connect_hooks)
         .map_err(|err| EncryptedDnsError::Request(format!("DoQ endpoint: {err}")))?;

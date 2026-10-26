@@ -158,14 +158,14 @@ async fn exchange_doq_query(
     send.finish().map_err(|e| EncryptedDnsError::Request(format!("DoQ finish: {e}")))?;
 
     let mut len_buf = [0u8; 2];
-    recv.read_exact(&mut len_buf).await.map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read len: {e}")))?;
+    recv.read_exact(&mut len_buf).await.map_err(|e| doq_read_error(&conn, "DoQ read len", e))?;
     let resp_len = u16::from_be_bytes(len_buf) as usize;
     if resp_len < 12 {
         conn.close(2u32.into(), b"DoQ short DNS header");
         return Err(EncryptedDnsError::DnsParse(format!("invalid DoQ response length: {resp_len}")));
     }
     let mut response = vec![0u8; resp_len];
-    recv.read_exact(&mut response).await.map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read body: {e}")))?;
+    recv.read_exact(&mut response).await.map_err(|e| doq_read_error(&conn, "DoQ read body", e))?;
 
     if response[..2] != [0, 0] {
         conn.close(2u32.into(), b"DoQ nonzero DNS ID");
@@ -177,6 +177,15 @@ async fn exchange_doq_query(
     }
     response[..2].copy_from_slice(&query_bytes[..2]);
     Ok(response)
+}
+
+/// A response stream that ends before the whole message is a protocol error
+/// (RFC 9250 4.3.3): close the connection with DOQ_PROTOCOL_ERROR.
+fn doq_read_error(conn: &quinn::Connection, stage: &str, error: quinn::ReadExactError) -> EncryptedDnsError {
+    if matches!(error, quinn::ReadExactError::FinishedEarly(_)) {
+        conn.close(2u32.into(), b"DoQ response ended early");
+    }
+    EncryptedDnsError::DnsParse(format!("{stage}: {error}"))
 }
 
 pub(super) fn build_doq_endpoint(

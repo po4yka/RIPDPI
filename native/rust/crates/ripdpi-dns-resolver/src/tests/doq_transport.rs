@@ -44,11 +44,8 @@ async fn spawn_recording_udp_relay(server: std::net::SocketAddr) -> (u16, Arc<Mu
     (port, sizes)
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn doq_pads_every_client_datagram_to_the_mtu() {
-    let (server, cert) = doq_server();
-    let (port, sizes) = spawn_recording_udp_relay(server.local_addr().expect("server address")).await;
-    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+fn doq_resolver(port: u16, cert: CertificateDer<'static>) -> EncryptedDnsResolver {
+    EncryptedDnsResolver::with_extra_tls_roots(
         EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Doq,
             resolver_id: None,
@@ -65,7 +62,14 @@ async fn doq_pads_every_client_datagram_to_the_mtu() {
         Duration::from_secs(2),
         vec![cert],
     )
-    .expect("resolver builds");
+    .expect("resolver builds")
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn doq_pads_every_client_datagram_to_the_mtu() {
+    let (server, cert) = doq_server();
+    let (port, sizes) = spawn_recording_udp_relay(server.local_addr().expect("server address")).await;
+    let resolver = doq_resolver(port, cert);
     let query = build_query("localhost");
     let serve = async {
         let connection = server.accept().await.expect("incoming").await.expect("handshake");
@@ -91,4 +95,63 @@ async fn doq_pads_every_client_datagram_to_the_mtu() {
     assert!(sizes.len() > 1, "sizes: {sizes:?}");
     // RFC 9250 5.4: the queries carry no EDNS(0) padding, so QUIC padding must hide their size.
     assert!(sizes.iter().all(|&size| size >= 1_200), "unpadded client datagrams: {sizes:?}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn doq_gives_the_server_no_stream_credit() {
+    let (server, cert) = doq_server();
+    let resolver = doq_resolver(server.local_addr().expect("server address").port(), cert);
+    let query = build_query("localhost");
+    let serve = async {
+        let connection = server.accept().await.expect("incoming").await.expect("handshake");
+        // RFC 9250 4.3.3: server-initiated streams are not allowed.
+        let opened = tokio::time::timeout(Duration::from_millis(300), connection.open_uni()).await;
+        assert!(opened.is_err(), "the client allowed a server-initiated stream");
+        let (mut send, mut recv) = connection.accept_bi().await.expect("query stream");
+        let mut length = [0; 2];
+        recv.read_exact(&mut length).await.expect("query length");
+        let mut received = vec![0; usize::from(u16::from_be_bytes(length))];
+        recv.read_exact(&mut received).await.expect("query body");
+        let reply = build_empty_response(&received);
+        send.write_all(&u16::try_from(reply.len()).expect("reply fits").to_be_bytes()).await.expect("reply length");
+        send.write_all(&reply).await.expect("reply body");
+        send.finish().expect("finish reply");
+        let _ = send.stopped().await;
+    };
+
+    let ((), result) =
+        tokio::time::timeout(Duration::from_secs(5), async { tokio::join!(serve, resolver.exchange(&query)) })
+            .await
+            .expect("exchange finishes");
+
+    result.expect("DoQ exchange");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn doq_closes_with_protocol_error_when_the_response_ends_early() {
+    let (server, cert) = doq_server();
+    let resolver = doq_resolver(server.local_addr().expect("server address").port(), cert);
+    let query = build_query("localhost");
+    let serve = async {
+        let connection = server.accept().await.expect("incoming").await.expect("handshake");
+        let (mut send, mut recv) = connection.accept_bi().await.expect("query stream");
+        let mut length = [0; 2];
+        recv.read_exact(&mut length).await.expect("query length");
+        // Announce 100 bytes, send 12, then FIN.
+        send.write_all(&100u16.to_be_bytes()).await.expect("reply length");
+        send.write_all(&[0; 12]).await.expect("partial reply");
+        send.finish().expect("finish reply");
+        tokio::time::timeout(Duration::from_secs(2), connection.closed()).await.expect("client closes the connection")
+    };
+
+    let (closed, result) =
+        tokio::time::timeout(Duration::from_secs(5), async { tokio::join!(serve, resolver.exchange(&query)) })
+            .await
+            .expect("exchange finishes");
+
+    result.expect_err("a truncated response must fail");
+    match closed {
+        quinn::ConnectionError::ApplicationClosed(close) => assert_eq!(close.error_code, 2u32.into()),
+        other => panic!("expected DOQ_PROTOCOL_ERROR, got {other:?}"),
+    }
 }
