@@ -13,7 +13,7 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioIo, TokioTimer};
 use tokio::net::TcpListener;
-use tokio::sync::{Mutex, Semaphore, mpsc};
+use tokio::sync::{Mutex, Notify, Semaphore, mpsc};
 use tokio::task::AbortHandle;
 use tokio::time::sleep;
 
@@ -34,6 +34,10 @@ const MAX_CONNECTIONS: usize = 2 * MAX_LIVE_SESSIONS + 128;
 /// Deadline for a client to send a whole request head. hyper applies it only
 /// when the builder has a timer.
 const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
+/// POST body bytes forwarded to a session before it authenticates. The VLESS
+/// header is far smaller; the rest waits, so unauthenticated peers cannot make
+/// the origin buffer their uploads.
+const PRE_AUTH_BODY_BYTES: usize = 64 * 1024;
 /// Pause after a failed accept, so descriptor exhaustion does not spin.
 const ACCEPT_RETRY_DELAY: Duration = Duration::from_millis(100);
 
@@ -54,6 +58,9 @@ struct SessionState {
     seq: u64,
     /// One of `AUTH_PENDING`, `AUTH_DONE` or `AUTH_EVICTED`.
     auth: AtomicU8,
+    /// Woken when `auth` leaves `AUTH_PENDING`. Shared with the POST pump,
+    /// which must not keep the session itself alive.
+    auth_changed: Arc<Notify>,
 }
 
 impl SessionState {
@@ -61,13 +68,17 @@ impl SessionState {
     fn authenticate(&self) -> bool {
         // Ordering: AcqRel pairs with `evict`, so the two transitions agree;
         // the state guards no other memory.
-        self.auth.compare_exchange(AUTH_PENDING, AUTH_DONE, Ordering::AcqRel, Ordering::Acquire).is_ok()
+        let won = self.auth.compare_exchange(AUTH_PENDING, AUTH_DONE, Ordering::AcqRel, Ordering::Acquire).is_ok();
+        self.auth_changed.notify_waiters();
+        won
     }
 
     /// Marks the session evicted. Returns false if it authenticated first.
     fn evict(&self) -> bool {
         // Ordering: see `authenticate`.
-        self.auth.compare_exchange(AUTH_PENDING, AUTH_EVICTED, Ordering::AcqRel, Ordering::Acquire).is_ok()
+        let won = self.auth.compare_exchange(AUTH_PENDING, AUTH_EVICTED, Ordering::AcqRel, Ordering::Acquire).is_ok();
+        self.auth_changed.notify_waiters();
+        won
     }
 
     fn is_pending(&self) -> bool {
@@ -202,8 +213,9 @@ impl OriginServer {
             inbound_tx
         };
 
+        let (weak, auth_changed) = (Arc::downgrade(&session), Arc::clone(&session.auth_changed));
         tokio::spawn(async move {
-            if let Err(error) = pump_request_body(body, inbound_tx).await {
+            if let Err(error) = pump_request_body(body, inbound_tx, &weak, &auth_changed).await {
                 emit_structured_error(classify_error(&error), &error);
             }
         });
@@ -375,18 +387,29 @@ fn new_session(seq: u64) -> Arc<SessionState> {
         }),
         seq,
         auth: AtomicU8::new(AUTH_PENDING),
+        auth_changed: Arc::new(Notify::new()),
     })
 }
 
 /// Forwards POST body chunks to the session. It stops when the session's
 /// receiver is gone, so a stalled body cannot keep its connection open after
-/// the session ended or expired.
+/// the session ended or expired. After `PRE_AUTH_BODY_BYTES` it waits until
+/// the session authenticates.
 ///
 /// # Cancel safety
 ///
 /// cancel-safe: dropping it drops the body, which closes its connection.
-async fn pump_request_body(mut body: Incoming, inbound_tx: mpsc::Sender<Bytes>) -> io::Result<()> {
+async fn pump_request_body(
+    mut body: Incoming,
+    inbound_tx: mpsc::Sender<Bytes>,
+    session: &Weak<SessionState>,
+    auth_changed: &Notify,
+) -> io::Result<()> {
+    let mut forwarded = 0usize;
     loop {
+        if forwarded >= PRE_AUTH_BODY_BYTES && !wait_until_authenticated(session, auth_changed, &inbound_tx).await {
+            break;
+        }
         let frame = tokio::select! {
             frame = body.frame() => frame,
             () = inbound_tx.closed() => break,
@@ -395,13 +418,43 @@ async fn pump_request_body(mut body: Incoming, inbound_tx: mpsc::Sender<Bytes>) 
         let frame = frame.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionAborted, format!("POST body read failed: {error}"))
         })?;
-        if let Ok(data) = frame.into_data()
-            && inbound_tx.send(data).await.is_err()
-        {
-            break;
+        if let Ok(data) = frame.into_data() {
+            forwarded = forwarded.saturating_add(data.len());
+            if inbound_tx.send(data).await.is_err() {
+                break;
+            }
         }
     }
     Ok(())
+}
+
+/// Returns true once the session has authenticated, false when it was
+/// evicted, ended or expired. Holds no strong reference while it waits.
+///
+/// # Cancel safety
+///
+/// cancel-safe: it only waits for a notification or a channel close.
+async fn wait_until_authenticated(
+    session: &Weak<SessionState>,
+    auth_changed: &Notify,
+    inbound_tx: &mpsc::Sender<Bytes>,
+) -> bool {
+    loop {
+        let notified = auth_changed.notified();
+        tokio::pin!(notified);
+        // Register before the state check, so a change after it still wakes us.
+        notified.as_mut().enable();
+        // Ordering: Acquire pairs with the AcqRel transitions in `authenticate` and `evict`.
+        match session.upgrade().map(|state| state.auth.load(Ordering::Acquire)) {
+            Some(AUTH_DONE) => return true,
+            Some(AUTH_PENDING) => {}
+            _ => return false,
+        }
+        tokio::select! {
+            () = &mut notified => {}
+            () = inbound_tx.closed() => return false,
+        }
+    }
 }
 
 fn empty_response(status: StatusCode) -> Response<XhttpBody> {
@@ -626,5 +679,35 @@ mod tests {
             closed_within(&mut client, Duration::from_secs(3600)).await,
             "a stalled POST must not pin its connection"
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn unauthenticated_post_buffers_only_a_small_prefix() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind origin");
+        let address = listener.local_addr().expect("origin address");
+        let origin = server();
+        tokio::spawn(super::serve(listener, origin.clone()));
+
+        // A POST with no GET streams 1 MiB before any VLESS header is checked.
+        let mut client = tokio::net::TcpStream::connect(address).await.expect("connect");
+        let body = vec![0x55u8; 1024 * 1024];
+        let head = format!("POST /preauth HTTP/1.1\r\nHost: origin\r\nContent-Length: {}\r\n\r\n", body.len());
+        client.write_all(head.as_bytes()).await.expect("POST head");
+        let writer = tokio::spawn(async move {
+            let _ = client.write_all(&body).await;
+            client
+        });
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        let session = origin.sessions.lock().await.get("preauth").cloned().expect("pre-auth session");
+        let mut binding = session.binding.lock().await;
+        let receiver = binding.inbound_rx.as_mut().expect("unstarted session keeps its receiver");
+        let mut buffered = 0;
+        while let Ok(chunk) = receiver.try_recv() {
+            buffered += chunk.len();
+        }
+        assert!(buffered < 256 * 1024, "{buffered} body bytes were buffered before authentication");
+        drop(binding);
+        writer.abort();
     }
 }
