@@ -35,6 +35,7 @@ import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
@@ -336,7 +337,9 @@ private class ResolvedRelayConfigBuilder(
         RelayVlessSection(
             realityPublicKey = effectiveConfig.realityPublicKey,
             realityShortId = effectiveConfig.realityShortId,
-            vlessFlow = effectiveConfig.vlessFlow,
+            // XTLS Vision runs only on raw TCP; the native xHTTP builders reject any flow.
+            vlessFlow =
+                if (effectiveConfig.vlessTransport == RelayVlessTransportXhttp) "" else effectiveConfig.vlessFlow,
             vlessTransport = effectiveConfig.vlessTransport,
             xhttpPath = effectiveConfig.xhttpPath,
             xhttpHost = effectiveConfig.xhttpHost,

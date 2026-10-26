@@ -616,7 +616,8 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                 )
 
             assertEquals(RelayKindVlessReality, resolved.kind)
-            assertEquals("xtls-rprx-vision-udp443", resolved.vlessFlow)
+            // XTLS Vision runs only on raw TCP; the native xHTTP builder rejects any flow.
+            assertEquals("", resolved.vlessFlow)
             assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
             assertEquals("/xhttp", resolved.xhttpPath)
             assertEquals("origin.example", resolved.xhttpHost)
