@@ -19,9 +19,16 @@ enum FirstRequestRead {
     Pending,
 }
 
-/// Time to wait for the first request of a group that needs a payload before the
-/// flow is treated as server-first and connected without one.
-const DELAY_CONN_FIRST_REQUEST_PROBE: Duration = Duration::from_secs(1);
+/// Time to wait for the first request of a group that needs a payload. A client may open
+/// a socket and write later (HTTP preconnect, a slow LAN client), so the long wait keeps
+/// payload-based group and domain routing; a client still silent after it is connected
+/// without a payload.
+const DELAY_CONN_READ_TIMEOUT: Duration = Duration::from_secs(60);
+/// Shorter wait on the ports of server-first protocols, whose clients send nothing until
+/// the server greeting arrives.
+const DELAY_CONN_SERVER_FIRST_PROBE: Duration = Duration::from_secs(1);
+/// FTP, Telnet, SMTP, POP3, NNTP, IMAP, SMTP submission, MySQL and VNC.
+const SERVER_FIRST_PORTS: [u16; 9] = [21, 23, 25, 110, 119, 143, 587, 3306, 5900];
 const DESTINATION_HOST_PROBE_TIMEOUT: Duration = Duration::from_millis(50);
 
 pub(super) fn maybe_delay_connect(
@@ -48,7 +55,13 @@ pub(super) fn maybe_delay_connect(
     }
     // A server-first protocol (SMTP, IMAP, FTP) sends nothing until the server speaks, so a
     // silent client falls back to the immediate path and its server-first handling.
-    let probe = if requires_delay { DELAY_CONN_FIRST_REQUEST_PROBE } else { DESTINATION_HOST_PROBE_TIMEOUT };
+    let probe = if !requires_delay {
+        DESTINATION_HOST_PROBE_TIMEOUT
+    } else if SERVER_FIRST_PORTS.contains(&target.port()) {
+        DELAY_CONN_SERVER_FIRST_PROBE
+    } else {
+        DELAY_CONN_READ_TIMEOUT
+    };
     let first_request = read_first_request(client, state.delayed_connect_buffer_size(), probe)
         .map_err(|err| ConnectRelayError::new(err, true))?;
     let payload = match first_request {
@@ -262,6 +275,37 @@ mod tests {
         assert_eq!(payload, hello, "the delayed path must keep the whole ClientHello, not its first segment");
         writer.join().expect("writer");
     }
+    #[test]
+    fn payload_group_still_routes_a_client_that_writes_after_the_server_first_probe() {
+        let hello = RuntimeState::build_probe_client_hello("late.example");
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client listener");
+        let client_addr = listener.local_addr().expect("client listener addr");
+        let sent = hello.clone();
+        let writer = std::thread::spawn(move || {
+            let mut client = TcpStream::connect(client_addr).expect("connect client");
+            let mut reply = [0_u8; 10];
+            client.read_exact(&mut reply).expect("read SOCKS5 success");
+            // A pooled or preconnected socket writes its ClientHello later than the probe.
+            std::thread::sleep(DELAY_CONN_SERVER_FIRST_PROBE + Duration::from_millis(500));
+            client.write_all(&sent).expect("write late ClientHello");
+        });
+        let (mut accepted, _) = listener.accept().expect("accept client");
+        let mut config = RuntimeConfig::default();
+        config.network.delay_conn = true;
+        config.groups[0].matches.proto = ripdpi_packets::IS_HTTPS;
+        let target = SocketAddr::from(([192, 0, 2, 10], 443));
+
+        let delayed =
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks5))
+                .expect("late client");
+
+        let DelayConnect::Delayed { payload, .. } = delayed else {
+            panic!("a client that writes after 1.5 s must keep payload-based routing");
+        };
+        assert_eq!(payload, hello);
+        writer.join().expect("writer");
+    }
+
     #[test]
     fn payload_group_falls_back_to_immediate_connect_for_a_server_first_client() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client listener");
