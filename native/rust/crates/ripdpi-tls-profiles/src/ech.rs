@@ -195,7 +195,12 @@ pub fn resolve_outbound_ech(
         }
         EchLookupOutcome::NotPublished if policy.grease_when_unavailable => Ok(EchSetup::Grease),
         EchLookupOutcome::NotPublished => Err(EchFacadeError::NotPublished),
-        EchLookupOutcome::ResolutionFailed(_) if policy.grease_when_unavailable => Ok(EchSetup::Grease),
+        EchLookupOutcome::ResolutionFailed(_) if policy.grease_when_unavailable => {
+            // Opportunistic ECH: a blocked or failed lookup must not stop the
+            // connection, but the downgrade to GREASE must be visible.
+            tracing::warn!("ech.lookup_failed: sending ECH GREASE, the real SNI is not encrypted");
+            Ok(EchSetup::Grease)
+        }
         EchLookupOutcome::ResolutionFailed(error) => Err(EchFacadeError::LookupFailed(error)),
     }
 }
@@ -381,6 +386,22 @@ mod tests {
 
         assert_eq!(grease, EchSetup::Grease);
         assert_eq!(unpublished.calls(), 1);
+    }
+
+    #[test]
+    fn outbound_facade_lookup_failure_greases_only_when_policy_allows() {
+        let request = EchLookupRequest::new("inner.example", EchLookupTransport::EncryptedDns);
+        let failed = FakeEchResolver {
+            outcome: EchLookupOutcome::ResolutionFailed("timeout".to_string()),
+            calls: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        };
+        let strict = EchPolicy { grease_when_unavailable: false, ..EchPolicy::default() };
+
+        assert_eq!(resolve_outbound_ech(&request, EchPolicy::default(), &failed), Ok(EchSetup::Grease));
+        assert_eq!(
+            resolve_outbound_ech(&request, strict, &failed),
+            Err(EchFacadeError::LookupFailed("timeout".to_string()))
+        );
     }
 
     #[test]
