@@ -73,7 +73,7 @@ class DefaultStrategyPackService
             applicationScope.launch {
                 val initialSettings = appSettingsRepository.snapshot().toStrategyPackSettingsModel()
                 val initialKey = StrategyPackRefreshKey(initialSettings)
-                val initialLoad = repository.loadSnapshot()
+                val initialLoad = repository.loadSnapshot(initialSettings.channel)
                 val initialSnapshot = initialLoad.snapshot
 
                 schedulingMutex.withLock {
@@ -102,7 +102,9 @@ class DefaultStrategyPackService
             val keyAtStart = schedulingMutex.withLock { currentRefreshKey }
             val attemptedAt = clock.nowEpochMillis()
             runCatching {
-                refreshExecutor.refresh(settings)
+                refreshExecutor.refresh(settings) {
+                    schedulingMutex.withLock { !isSupersededLocked(keyAtStart, key) }
+                }
             }.onSuccess { snapshot ->
                 val superseded =
                     schedulingMutex.withLock {
@@ -237,7 +239,9 @@ class DefaultStrategyPackService
 
             val attemptedAt = clock.nowEpochMillis()
             runCatching {
-                refreshExecutor.refresh(key)
+                refreshExecutor.refresh(key) {
+                    schedulingMutex.withLock { currentRefreshKey == key && automaticRefreshJob === currentJob }
+                }
             }.onSuccess { snapshot ->
                 onRefreshSuccess(snapshot, key, currentJob, attemptedAt)
             }.onFailure { error ->

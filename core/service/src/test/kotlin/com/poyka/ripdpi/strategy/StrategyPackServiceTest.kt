@@ -707,7 +707,7 @@ private class FakeStrategyPackRepository(
 
     private var snapshot: StrategyPackSnapshot = initialSnapshot
 
-    override suspend fun loadSnapshot(): StrategyPackLoadResult {
+    override suspend fun loadSnapshot(channel: String): StrategyPackLoadResult {
         loadSnapshotCalls += 1
         return StrategyPackLoadResult(
             snapshot = snapshot,
@@ -718,6 +718,7 @@ private class FakeStrategyPackRepository(
     override suspend fun refreshSnapshot(
         channel: String,
         allowRollbackOverride: Boolean,
+        isCurrent: suspend () -> Boolean,
     ): StrategyPackSnapshot {
         refreshChannels += channel
         refreshOverrideFlags += allowRollbackOverride

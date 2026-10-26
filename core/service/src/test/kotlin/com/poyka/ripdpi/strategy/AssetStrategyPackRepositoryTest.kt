@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.DefaultStrategyPackSigningKeyId
 import com.poyka.ripdpi.data.StrategyPackCatalog
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
+import com.poyka.ripdpi.data.StrategyPackChannelBeta
 import com.poyka.ripdpi.data.StrategyPackChannelStable
 import com.poyka.ripdpi.data.StrategyPackManifest
 import com.poyka.ripdpi.data.StrategyPackSignatureAlgorithmSha256WithEcdsa
@@ -239,6 +240,62 @@ class AssetStrategyPackRepositoryTest {
             assertEquals(8L, reloaded.catalog.sequence)
             assertEquals("2026.04.2", reloaded.manifestVersion)
         }
+
+    @Test
+    fun `superseded stable refresh keeps the beta cache and its floor for the next start`() =
+        runTest {
+            writeCachedSnapshot(channel = StrategyPackChannelBeta, sequence = 9L)
+            val stablePayload = refreshedCatalogJson(sequence = 12)
+            createRepository(
+                service =
+                    FakeStrategyPackDownloadService(
+                        manifestPayload = Json.encodeToString(manifestFor(stablePayload, version = "2026.04.3")),
+                        catalogPayload = stablePayload,
+                    ),
+            ).refreshSnapshot(
+                channel = StrategyPackChannelStable,
+                allowRollbackOverride = false,
+                isCurrent = { false },
+            )
+
+            // Restart on the beta channel that superseded the stable refresh.
+            val reloaded =
+                createRepository(service = FakeStrategyPackDownloadService())
+                    .loadSnapshot(StrategyPackChannelBeta)
+                    .snapshot
+
+            assertEquals(StrategyPackChannelBeta, reloaded.catalog.channel)
+            assertEquals(9L, reloaded.catalog.sequence)
+        }
+
+    @Test
+    fun `loadSnapshot does not use a cached snapshot of another channel`() =
+        runTest {
+            writeCachedSnapshot(channel = StrategyPackChannelStable, sequence = 9L)
+
+            val loadResult =
+                createRepository(service = FakeStrategyPackDownloadService())
+                    .loadSnapshot(StrategyPackChannelBeta)
+
+            assertEquals(StrategyPackCatalogSourceBundled, loadResult.snapshot.source)
+            assertNull(loadResult.cacheDegradation)
+        }
+
+    private fun writeCachedSnapshot(
+        channel: String,
+        sequence: Long,
+    ) {
+        application.filesDir.resolve(strategyPackCatalogCachePath).apply {
+            parentFile?.mkdirs()
+            writeText(
+                StrategyPackSnapshot(
+                    catalog = StrategyPackCatalog(channel = channel, sequence = sequence),
+                    source = StrategyPackCatalogSourceDownloaded,
+                    lastFetchedAtEpochMillis = refreshClock.nowEpochMillis(),
+                ).toJson(),
+            )
+        }
+    }
 
     private fun createRepository(
         service: StrategyPackDownloadService,

@@ -64,9 +64,10 @@ class StrategyPackManualRefreshTest {
             val manualResult = CompletableDeferred<StrategyPackSnapshot>()
             val stateStore = InMemoryStrategyPackStateStore()
             val appSettingsRepository = TestAppSettingsRepository()
+            val repository = GatedRepository(manualStarted, manualResult)
             val service =
                 DefaultStrategyPackService(
-                    repository = GatedRepository(manualStarted, manualResult),
+                    repository = repository,
                     appSettingsRepository = appSettingsRepository,
                     stateStore = stateStore,
                     clock = StrategyPackClock { testScheduler.currentTime },
@@ -92,25 +93,40 @@ class StrategyPackManualRefreshTest {
             runCurrent()
 
             assertEquals("beta", stateStore.state.value.snapshot.catalog.channel)
+            // The cache that the next start loads keeps the beta catalog.
+            assertEquals("beta", repository.cached?.catalog?.channel)
         }
 
-    /** The first refresh waits for [result]; later refreshes return at once. */
+    /**
+     * The first refresh waits for [result]; later refreshes return at once. Like the real repository,
+     * a refresh writes [cached] only when its isCurrent check passes.
+     */
     private class GatedRepository(
         private val started: CompletableDeferred<Unit>,
         private val result: CompletableDeferred<StrategyPackSnapshot>,
     ) : StrategyPackRepository {
         private var refreshes = 0
+        var cached: StrategyPackSnapshot? = null
+            private set
 
-        override suspend fun loadSnapshot(): StrategyPackLoadResult = StrategyPackLoadResult(twoPackSnapshot())
+        override suspend fun loadSnapshot(channel: String): StrategyPackLoadResult =
+            StrategyPackLoadResult(twoPackSnapshot())
 
         override suspend fun refreshSnapshot(
             channel: String,
             allowRollbackOverride: Boolean,
+            isCurrent: suspend () -> Boolean,
         ): StrategyPackSnapshot {
             refreshes += 1
-            if (refreshes > 1) return twoPackSnapshot(channel)
-            started.complete(Unit)
-            return result.await()
+            val snapshot =
+                if (refreshes > 1) {
+                    twoPackSnapshot(channel)
+                } else {
+                    started.complete(Unit)
+                    result.await()
+                }
+            if (isCurrent()) cached = snapshot
+            return snapshot
         }
     }
 

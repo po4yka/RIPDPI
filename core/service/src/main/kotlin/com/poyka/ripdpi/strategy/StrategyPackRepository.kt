@@ -36,11 +36,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface StrategyPackRepository {
-    suspend fun loadSnapshot(): StrategyPackLoadResult
+    /** Loads the cached snapshot of [channel]; a cache of another channel is not used. */
+    suspend fun loadSnapshot(channel: String = DefaultStrategyPackChannel): StrategyPackLoadResult
 
+    /**
+     * Downloads and verifies the [channel] catalog. The cache is written only when [isCurrent] is still true
+     * under the refresh lock, so a refresh that a settings change superseded leaves the cache unchanged.
+     */
     suspend fun refreshSnapshot(
         channel: String = DefaultStrategyPackChannel,
         allowRollbackOverride: Boolean = false,
+        isCurrent: suspend () -> Boolean = { true },
     ): StrategyPackSnapshot
 }
 
@@ -100,10 +106,16 @@ class DefaultStrategyPackRepository
     ) : StrategyPackRepository {
         private val refreshMutex = Mutex()
 
-        override suspend fun loadSnapshot(): StrategyPackLoadResult =
+        override suspend fun loadSnapshot(channel: String): StrategyPackLoadResult =
             withContext(Dispatchers.IO) {
                 val provenance = buildProvenanceProvider.current()
-                val cachedResult = loadCachedSnapshot()
+                val normalizedChannel = normalizeStrategyPackChannel(channel)
+                // A cache of another channel stays on disk (it keeps that channel's rollback floor) but is not used.
+                val cachedResult =
+                    loadCachedSnapshot().takeUnless { result ->
+                        result.snapshot != null &&
+                            normalizeStrategyPackChannel(result.snapshot.catalog.channel) != normalizedChannel
+                    } ?: CachedStrategyPackSnapshotResult()
                 val compatibleCachedSnapshot = cachedResult.snapshot?.takeIf { it.isCompatibleWith(provenance) }
 
                 when {
@@ -145,6 +157,7 @@ class DefaultStrategyPackRepository
         override suspend fun refreshSnapshot(
             channel: String,
             allowRollbackOverride: Boolean,
+            isCurrent: suspend () -> Boolean,
         ): StrategyPackSnapshot =
             refreshMutex.withLock {
                 withContext(Dispatchers.IO) {
@@ -204,10 +217,13 @@ class DefaultStrategyPackRepository
                                 verifiedChecksumSha256 = manifest.catalogChecksumSha256.lowercase(),
                                 verifiedSignatureBase64 = manifest.catalogSignatureBase64,
                             )
-                        snapshotWriter.write(
-                            file = cacheFile(),
-                            payload = snapshot.toJson(),
-                        )
+                        // A superseded refresh must not replace the cache (and the rollback floor) of the newer key.
+                        if (isCurrent()) {
+                            snapshotWriter.write(
+                                file = cacheFile(),
+                                payload = snapshot.toJson(),
+                            )
+                        }
                         snapshot
                     } finally {
                         tempFile.delete()
