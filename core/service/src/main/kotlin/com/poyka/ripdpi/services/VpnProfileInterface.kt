@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import java.net.InetAddress
 import java.net.URI
@@ -17,7 +19,9 @@ internal fun AwgActivationRequest.vpnProfileInterface(): VpnProfileInterface =
 
 internal fun VpnProfileInterface.routePlan(fallbackDns: String = ""): VpnTunnelRoutePlan {
     val routed = routedFamilies()
-    require(routed.isNotEmpty()) { "AmneziaWG AllowedIPs must route a configured interface family" }
+    if (routed.isEmpty()) {
+        rejectProfile("AmneziaWG AllowedIPs route no address family that the profile configures")
+    }
     val basePlan = RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled)
     return basePlan.copy(
         // Android allows a family that has a TUN address; without a route for it, that traffic
@@ -61,8 +65,16 @@ internal fun VpnProfileInterface.effectiveDnsServers(fallbackDns: String): List<
     // A DNS server also allows its family, so drop servers of a family that AllowedIPs leaves unrouted.
     val routed = routedFamilies()
     val reachable = effective.filter { it.isIpv6Literal() in routed }
-    require(effective.isEmpty() || reachable.isNotEmpty()) {
-        "AmneziaWG DNS servers require an address family that AllowedIPs routes"
+    if (effective.isNotEmpty() && reachable.isEmpty()) {
+        rejectProfile(
+            if (dnsServers.isEmpty()) {
+                "AmneziaWG profile has no DNS server, and AllowedIPs do not route the built-in DNS family; " +
+                    "add a DNS server of a routed address family"
+            } else {
+                "AmneziaWG DNS servers use only address families that AllowedIPs does not route; " +
+                    "add a DNS server of a routed address family"
+            },
+        )
     }
     return reachable
 }
@@ -71,6 +83,10 @@ private fun VpnProfileInterface.routableAllowedIps(): List<String> = allowedIps.
 
 /** Address families (true = IPv6) that have at least one AllowedIPs route into the tunnel. */
 private fun VpnProfileInterface.routedFamilies(): Set<Boolean> = routableAllowedIps().map { ':' in it }.toSet()
+
+/** A profile the user must change; the typed reason reaches ServiceStatus.Failed with this text. */
+private fun rejectProfile(message: String): Nothing =
+    throw ServiceStartupRejectedException(FailureReason.RelayConfigRejected(message))
 
 private fun String.isIpv6Literal(): Boolean = ':' in this
 

@@ -1,9 +1,13 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.classifyFailureReason
+import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
@@ -48,6 +52,23 @@ class VpnTunnelRuntimePolicyTest {
         val plan = profile.routePlan()
         assertTrue(plan.addresses.none { ':' !in it.address })
         assertTrue(plan.routes.none { ':' !in it.address })
+    }
+
+    @Test
+    fun `IPv6-only AllowedIPs without a routed DNS server fail start with a profile reason`() {
+        val noDns = VpnProfileInterface(emptyList(), listOf("::/0"), true, 1280)
+        val ipv4Dns = VpnProfileInterface(listOf("1.1.1.1"), listOf("2001:db8::/32"), true, 1280)
+        val noFamily = VpnProfileInterface(listOf("1.1.1.1"), listOf("::/0"), false, 1280)
+        listOf(
+            { noDns.routePlan(VpnInterceptorDnsAddress) },
+            { ipv4Dns.routePlan() },
+            { noFamily.routePlan() },
+        ).forEach { start ->
+            val error = assertThrows(ServiceStartupRejectedException::class.java) { start() }
+            val reason = classifyFailureReason(error, isTunnelContext = true)
+            assertTrue(reason is FailureReason.RelayConfigRejected)
+            assertTrue(reason.displayMessage.startsWith("AmneziaWG "))
+        }
     }
 
     @Test
