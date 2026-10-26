@@ -6,7 +6,7 @@ const MALFORMED_HTTPS_TSIG_RESPONSE: &[u8] = &[
 ];
 use crate::{
     DohBatchLookup, DohBatchRecordResponse, DohBatchRecordType, DohResolverRole, HttpsRrRecordType,
-    parse_https_service_bindings,
+    HttpsServiceSelection, parse_https_service_bindings, select_https_service_bindings,
 };
 use hickory_proto::rr::rdata::https::HTTPS;
 use hickory_proto::rr::rdata::svcb::{Alpn, EchConfigList, SVCB, SvcParamKey, SvcParamValue};
@@ -109,6 +109,90 @@ fn parse_https_service_bindings_extracts_alpn_and_ech_metadata() {
     assert_eq!(ech.configs[0].public_name.as_deref(), Some("public.example"));
     assert_eq!(ech.configs[0].public_key_len, Some(4));
     assert_eq!(ech.configs[0].cipher_suites.len(), 1);
+}
+
+/// An HTTPS answer for `fixture.test.` with `answers` (owner, priority,
+/// target, ECH public name) and `additionals` in the additional section.
+fn https_answer(
+    answers: &[(&str, u16, &str, Option<&str>)],
+    additionals: &[(&str, u16, &str, Option<&str>)],
+) -> Vec<u8> {
+    let query = build_query_for_type("fixture.test", RecordType::HTTPS);
+    let request = Message::from_vec(&query).expect("query parses");
+    let mut response = Message::response(request.metadata.id, OpCode::Query);
+    response.metadata.response_code = ResponseCode::NoError;
+    response.add_query(request.queries[0].clone());
+    let record = |(owner, priority, target, public_name): &(&str, u16, &str, Option<&str>)| {
+        let params = public_name
+            .map(|name| {
+                let list = build_ech_config_list(vec![build_ech_config_entry_v18(1, name)]);
+                vec![(SvcParamKey::EchConfigList, SvcParamValue::EchConfigList(EchConfigList(list)))]
+            })
+            .unwrap_or_default();
+        let binding = SVCB::new(*priority, Name::from_ascii(target).expect("target"), params);
+        Record::from_rdata(Name::from_ascii(owner).expect("owner"), 120, RData::HTTPS(HTTPS(binding)))
+    };
+    for answer in answers {
+        response.add_answer(record(answer));
+    }
+    for additional in additionals {
+        response.add_additional(record(additional));
+    }
+    response.to_vec().expect("response serializes")
+}
+
+fn ech_public_names(selection: HttpsServiceSelection) -> Vec<String> {
+    let HttpsServiceSelection::Service(bindings) = selection else {
+        panic!("expected ServiceMode bindings, got {selection:?}");
+    };
+    bindings.into_iter().filter_map(|binding| binding.ech_config?.configs.into_iter().next()?.public_name).collect()
+}
+
+#[test]
+fn select_https_service_bindings_orders_by_priority_and_ignores_foreign_owners() {
+    let response = https_answer(
+        &[
+            ("other.test.", 1, ".", Some("foreign-owner.example")),
+            ("fixture.test.", 2, ".", Some("second.example")),
+            ("fixture.test.", 1, ".", Some("first.example")),
+        ],
+        &[("fixture.test.", 1, ".", Some("additional.example"))],
+    );
+
+    let selection = select_https_service_bindings(&response).expect("bindings select");
+
+    assert_eq!(ech_public_names(selection), vec!["first.example".to_string(), "second.example".to_string()]);
+}
+
+#[test]
+fn select_https_service_bindings_follows_the_cname_chain() {
+    let mut response =
+        Message::from_vec(&https_answer(&[("cdn.test.", 1, ".", Some("cdn.example"))], &[])).expect("response parses");
+    response.answers.insert(
+        0,
+        Record::from_rdata(
+            Name::from_ascii("fixture.test.").expect("owner"),
+            120,
+            RData::CNAME(CNAME(Name::from_ascii("cdn.test.").expect("target"))),
+        ),
+    );
+
+    let selection = select_https_service_bindings(&response.to_vec().expect("encodes")).expect("bindings select");
+
+    assert_eq!(ech_public_names(selection), vec!["cdn.example".to_string()]);
+}
+
+#[test]
+fn select_https_service_bindings_reports_alias_mode_over_service_mode() {
+    let response = https_answer(
+        &[("fixture.test.", 1, ".", Some("ignored.example")), ("fixture.test.", 0, "svc.example.net.", None)],
+        &[],
+    );
+
+    assert_eq!(
+        select_https_service_bindings(&response).expect("bindings select"),
+        HttpsServiceSelection::Alias("svc.example.net.".to_string())
+    );
 }
 
 #[test]

@@ -2,7 +2,8 @@ use std::time::Duration;
 
 use ripdpi_dns_resolver::{
     EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsResolver, EncryptedDnsSocks5Credentials,
-    EncryptedDnsTransport, HttpsRr, extract_ip_answers, parse_ech_config_list, parse_https_service_bindings,
+    EncryptedDnsTransport, HttpsRr, HttpsServiceSelection, extract_ip_answers, parse_ech_config_list,
+    parse_https_service_bindings, select_https_service_bindings,
 };
 
 use crate::transport::TransportConfig;
@@ -113,13 +114,25 @@ pub async fn resolve_outbound_ech_config_via_encrypted_dns_async(
 ) -> Result<Option<ripdpi_tls_profiles::OutboundEchConfig>, ripdpi_tls_profiles::EchFacadeError> {
     let endpoint = super::encrypted_dns_endpoint_for_resolver_id("adguard");
     let transport = TransportConfig::Direct { route_experiment: None };
-    let outcome = match prepare_exchange(inner_name, DNS_RECORD_TYPE_HTTPS, endpoint, &transport, connect_hooks) {
-        Err(error) => EchResolutionOutcome::ResolutionFailed(error),
-        Ok((resolver, packet)) => match resolver.exchange(&packet).await {
-            Err(error) => EchResolutionOutcome::ResolutionFailed(error.to_string()),
-            Ok(response) => https_response_ech_outcome(&response),
-        },
-    };
+    let mut name = inner_name.to_string();
+    let mut outcome = alias_chain_too_long();
+    for _ in 0..=MAX_HTTPS_ALIAS_HOPS {
+        let step =
+            match prepare_exchange(&name, DNS_RECORD_TYPE_HTTPS, endpoint.clone(), &transport, connect_hooks.clone()) {
+                Err(error) => EchStep::Done(EchResolutionOutcome::ResolutionFailed(error)),
+                Ok((resolver, packet)) => match resolver.exchange(&packet).await {
+                    Err(error) => EchStep::Done(EchResolutionOutcome::ResolutionFailed(error.to_string())),
+                    Ok(response) => https_response_ech_step(&response),
+                },
+            };
+        match step {
+            EchStep::Done(done) => {
+                outcome = done;
+                break;
+            }
+            EchStep::Alias(target) => name = target,
+        }
+    }
     outbound_ech_config(inner_name, &ResolvedEchLookup(outcome))
 }
 
@@ -163,18 +176,61 @@ fn resolve_https_ech_configs_via_encrypted_dns_with_hooks(
     transport: &TransportConfig,
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> EchResolutionOutcome {
-    match exchange_encrypted_dns_query_with_hooks(domain, DNS_RECORD_TYPE_HTTPS, endpoint, transport, connect_hooks) {
-        Err(err) => EchResolutionOutcome::ResolutionFailed(err),
-        Ok(response) => https_response_ech_outcome(&response),
+    follow_https_aliases(domain, |name| {
+        exchange_encrypted_dns_query_with_hooks(
+            name,
+            DNS_RECORD_TYPE_HTTPS,
+            endpoint.clone(),
+            transport,
+            connect_hooks.clone(),
+        )
+    })
+}
+
+/// Queries `domain` for HTTPS records through `exchange`, following AliasMode
+/// TargetNames up to [`MAX_HTTPS_ALIAS_HOPS`] times.
+fn follow_https_aliases(
+    domain: &str,
+    mut exchange: impl FnMut(&str) -> Result<Vec<u8>, String>,
+) -> EchResolutionOutcome {
+    let mut name = domain.to_string();
+    for _ in 0..=MAX_HTTPS_ALIAS_HOPS {
+        let response = match exchange(&name) {
+            Err(err) => return EchResolutionOutcome::ResolutionFailed(err),
+            Ok(response) => response,
+        };
+        match https_response_ech_step(&response) {
+            EchStep::Done(outcome) => return outcome,
+            EchStep::Alias(target) => name = target,
+        }
+    }
+    alias_chain_too_long()
+}
+
+/// AliasMode records followed for one ECH lookup (RFC 9460 3 asks for a bound).
+const MAX_HTTPS_ALIAS_HOPS: usize = 3;
+
+/// One HTTPS answer: a final outcome, or the AliasMode TargetName to query next.
+enum EchStep {
+    Done(EchResolutionOutcome),
+    Alias(String),
+}
+
+fn https_response_ech_step(response: &[u8]) -> EchStep {
+    match select_https_service_bindings(response) {
+        Err(error) => EchStep::Done(EchResolutionOutcome::ResolutionFailed(error.to_string())),
+        Ok(HttpsServiceSelection::Alias(target)) => EchStep::Alias(target.trim_end_matches('.').to_string()),
+        Ok(HttpsServiceSelection::Service(bindings)) => {
+            EchStep::Done(match bindings.into_iter().find_map(|binding| binding.ech_config) {
+                Some(config) => EchResolutionOutcome::Available(config.raw_list_bytes),
+                None => EchResolutionOutcome::NotPublished,
+            })
+        }
     }
 }
 
-fn https_response_ech_outcome(response: &[u8]) -> EchResolutionOutcome {
-    match extract_ech_config_list_from_https_response(response) {
-        Err(err) => EchResolutionOutcome::ResolutionFailed(err),
-        Ok(None) => EchResolutionOutcome::NotPublished,
-        Ok(Some(bytes)) => EchResolutionOutcome::Available(bytes),
-    }
+fn alias_chain_too_long() -> EchResolutionOutcome {
+    EchResolutionOutcome::ResolutionFailed("HTTPS AliasMode chain is too long".to_string())
 }
 
 pub fn resolve_https_service_bindings_via_encrypted_dns_with_endpoint(
@@ -264,11 +320,14 @@ fn encrypted_dns_connect_hooks(hooks: EncryptedDnsConnectHooks) -> EncryptedDnsC
     })
 }
 
+/// The ECHConfigList of the highest-priority ServiceMode binding for the query
+/// name. An AliasMode answer yields `None`: this helper does not query again.
 pub fn extract_ech_config_list_from_https_response(packet: &[u8]) -> Result<Option<Vec<u8>>, String> {
-    Ok(parse_https_service_bindings(packet)
-        .map_err(|error| error.to_string())?
-        .into_iter()
-        .find_map(|record| record.ech_config.map(|config| config.raw_list_bytes)))
+    match https_response_ech_step(packet) {
+        EchStep::Done(EchResolutionOutcome::Available(config_list)) => Ok(Some(config_list)),
+        EchStep::Done(EchResolutionOutcome::ResolutionFailed(error)) => Err(error),
+        EchStep::Done(EchResolutionOutcome::NotPublished) | EchStep::Alias(_) => Ok(None),
+    }
 }
 
 pub fn ech_public_name(config_list: &[u8]) -> Option<String> {
@@ -316,6 +375,87 @@ mod tests {
         assert!(hooks.dot_tls_connector_builder.is_some());
         assert!(hooks.direct_tcp_connector.is_some());
         assert!(hooks.direct_udp_binder.is_some());
+    }
+
+    fn encode_name(name: &str, out: &mut Vec<u8>) {
+        for label in name.trim_end_matches('.').split('.').filter(|label| !label.is_empty()) {
+            out.push(u8::try_from(label.len()).expect("label fits"));
+            out.extend(label.as_bytes());
+        }
+        out.push(0);
+    }
+
+    /// An HTTPS answer for `name` with (priority, target, ECHConfigList) records.
+    fn https_answer(name: &str, records: &[(u16, &str, Option<Vec<u8>>)]) -> Vec<u8> {
+        let mut packet = vec![0x12, 0x34, 0x81, 0x80, 0, 1];
+        packet.extend(u16::try_from(records.len()).expect("count fits").to_be_bytes());
+        packet.extend([0, 0, 0, 0]);
+        encode_name(name, &mut packet);
+        packet.extend(DNS_RECORD_TYPE_HTTPS.to_be_bytes());
+        packet.extend(1u16.to_be_bytes());
+        for (priority, target, ech) in records {
+            let mut rdata = priority.to_be_bytes().to_vec();
+            encode_name(target, &mut rdata);
+            if let Some(ech) = ech {
+                rdata.extend(5u16.to_be_bytes());
+                rdata.extend(u16::try_from(ech.len()).expect("ECH fits").to_be_bytes());
+                rdata.extend(ech);
+            }
+            encode_name(name, &mut packet);
+            packet.extend(DNS_RECORD_TYPE_HTTPS.to_be_bytes());
+            packet.extend(1u16.to_be_bytes());
+            packet.extend(300u32.to_be_bytes());
+            packet.extend(u16::try_from(rdata.len()).expect("rdata fits").to_be_bytes());
+            packet.extend(rdata);
+        }
+        packet
+    }
+
+    /// The fixture ECHConfigList with the public name `ech.org` instead of `ech.com`.
+    fn other_ech_config_list() -> Vec<u8> {
+        let mut list = BORING_ECH_CONFIG_LIST.to_vec();
+        let end = list.len() - 2;
+        list[end - 3..end].copy_from_slice(b"org");
+        list
+    }
+
+    #[test]
+    fn https_ech_lookup_uses_the_lowest_svc_priority() {
+        let response = https_answer(
+            "relay.example",
+            &[(2, ".", Some(other_ech_config_list())), (1, ".", Some(BORING_ECH_CONFIG_LIST.to_vec()))],
+        );
+
+        let config_list = extract_ech_config_list_from_https_response(&response).expect("answer parses");
+
+        assert_eq!(config_list.as_deref(), Some(BORING_ECH_CONFIG_LIST));
+    }
+
+    #[test]
+    fn https_ech_lookup_follows_alias_mode() {
+        let mut queried = Vec::new();
+        let outcome = follow_https_aliases("relay.example", |name| {
+            queried.push(name.to_string());
+            Ok(match name {
+                "relay.example" => https_answer(name, &[(0, "svc.example.net.", None)]),
+                _ => https_answer(name, &[(1, ".", Some(BORING_ECH_CONFIG_LIST.to_vec()))]),
+            })
+        });
+
+        assert!(matches!(outcome, EchResolutionOutcome::Available(list) if list == BORING_ECH_CONFIG_LIST));
+        assert_eq!(queried, ["relay.example", "svc.example.net"]);
+    }
+
+    #[test]
+    fn https_ech_lookup_bounds_the_alias_chain() {
+        let mut queries = 0;
+        let outcome = follow_https_aliases("relay.example", |name| {
+            queries += 1;
+            Ok(https_answer(name, &[(0, "relay.example.", None)]))
+        });
+
+        assert!(matches!(outcome, EchResolutionOutcome::ResolutionFailed(_)));
+        assert_eq!(queries, MAX_HTTPS_ALIAS_HOPS + 1);
     }
 
     #[test]

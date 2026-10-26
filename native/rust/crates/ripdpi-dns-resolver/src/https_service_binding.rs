@@ -4,7 +4,8 @@ mod ech;
 mod records;
 
 pub use dto::{
-    EchCipherSuite, EchConfig, EchConfigEntry, EchExtension, HttpsRr, HttpsRrRecordType, HttpsSvcbParseError,
+    EchCipherSuite, EchConfig, EchConfigEntry, EchExtension, HttpsRr, HttpsRrRecordType, HttpsServiceSelection,
+    HttpsSvcbParseError,
 };
 pub use ech::parse_ech_config_list;
-pub use records::parse_https_service_bindings;
+pub use records::{parse_https_service_bindings, select_https_service_bindings};

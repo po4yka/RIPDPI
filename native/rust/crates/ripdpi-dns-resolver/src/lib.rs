@@ -23,8 +23,8 @@ pub use doh_pipeline::{
 };
 pub use health::{HealthRegistry, HealthScoreSnapshot};
 pub use https_service_binding::{
-    EchCipherSuite, EchConfig, EchConfigEntry, EchExtension, HttpsRr, HttpsRrRecordType, HttpsSvcbParseError,
-    parse_ech_config_list, parse_https_service_bindings,
+    EchCipherSuite, EchConfig, EchConfigEntry, EchExtension, HttpsRr, HttpsRrRecordType, HttpsServiceSelection,
+    HttpsSvcbParseError, parse_ech_config_list, parse_https_service_bindings, select_https_service_bindings,
 };
 pub use odoh::{
     ODOH_MESSAGE_MEDIA_TYPE, OdohConfigLookupSecurity, OdohConfigSource, OdohConfigSourceKind, OdohEncryptedQuery,

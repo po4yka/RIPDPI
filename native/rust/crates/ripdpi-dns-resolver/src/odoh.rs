@@ -66,7 +66,11 @@ impl OdohConfigSource {
                     return Err(OdohError::PlaintextConfigLookup);
                 }
 
-                let bindings = crate::parse_https_service_bindings(response_packet)?;
+                let crate::HttpsServiceSelection::Service(bindings) =
+                    crate::select_https_service_bindings(response_packet)?
+                else {
+                    return Err(OdohError::MissingConfig);
+                };
                 let binding =
                     bindings.iter().find(|record| record.odoh_config.is_some()).ok_or(OdohError::MissingConfig)?;
                 resolve_config_wire(

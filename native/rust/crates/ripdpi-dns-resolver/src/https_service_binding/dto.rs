@@ -26,6 +26,15 @@ pub struct HttpsRr {
     pub odoh_capable: bool,
 }
 
+/// What an HTTPS or SVCB answer offers for its query name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HttpsServiceSelection {
+    /// ServiceMode records, in ascending SvcPriority order (possibly none).
+    Service(Vec<HttpsRr>),
+    /// AliasMode: the query name is served under this TargetName.
+    Alias(String),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EchConfig {
     pub raw_list_bytes: Vec<u8>,
