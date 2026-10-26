@@ -50,6 +50,7 @@ fn connect_target_with_route_and_egress(
 ) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
     let mut retries: usize = 0;
     loop {
+        refuse_after_shutdown(state)?;
         let attempt_targets =
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
         note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, RuntimeTransportProtocol::Tcp)?;
@@ -145,6 +146,7 @@ fn reconnect_target_with_tfo_mode(
     }
     let mut retries: usize = 0;
     loop {
+        refuse_after_shutdown(state)?;
         crate::runtime::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
         let attempt_targets =
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
@@ -193,6 +195,15 @@ fn reconnect_target_with_tfo_mode(
             }
         }
     }
+}
+
+/// Stops connect and route-retry loops once the runtime stops. Their sockets are not in the
+/// forced-close registry yet, so without this a worker kept connecting after drain returned.
+fn refuse_after_shutdown(state: &RuntimeState) -> io::Result<()> {
+    if state.shutdown_requested() {
+        return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "proxy runtime is shutting down"));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -419,5 +430,24 @@ mod tests {
         let distinct_hosts = shared_address_state.candidate_refusal_counters();
         assert_eq!(distinct_hosts.connection_refused_count, 2);
         assert_eq!(distinct_hosts.duplicate_refusal_count, 0);
+    }
+
+    #[test]
+    fn stopped_runtime_starts_no_new_connect_or_reconnect() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target listener");
+        listener.set_nonblocking(true).expect("nonblocking listener");
+        let target = listener.local_addr().expect("listener addr");
+        let control =
+            std::sync::Arc::new(ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl::new(None));
+        let state = RuntimeState::test_with_control(RuntimeConfig::default(), control.clone());
+        control.request_shutdown();
+
+        let connect = connect_target(target, &state, None, true, None).expect_err("connect after stop");
+        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+        let reconnect = reconnect_target(target, &state, route, None, None).expect_err("reconnect after stop");
+
+        assert_eq!(connect.kind(), io::ErrorKind::ConnectionAborted);
+        assert_eq!(reconnect.kind(), io::ErrorKind::ConnectionAborted);
+        assert_eq!(listener.accept().expect_err("no egress connection").kind(), io::ErrorKind::WouldBlock);
     }
 }

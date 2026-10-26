@@ -48,7 +48,13 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
         };
         match connect_target_via_group_with_policy(candidate, logical_target, state, group_index, &policy) {
             Ok(stream) => return Ok((stream, guard)),
-            Err(err) => last_error = Some(err), // guard drops here -> slot freed for the failed candidate
+            Err(err) => {
+                last_error = Some(err); // guard drops here -> slot freed for the failed candidate
+                if state.shutdown_requested() {
+                    // Each candidate can wait a full connect timeout; a stopped runtime tries no more.
+                    break;
+                }
+            }
         }
     }
     // Every candidate either errored or was at cap. If all were capped (no connect
