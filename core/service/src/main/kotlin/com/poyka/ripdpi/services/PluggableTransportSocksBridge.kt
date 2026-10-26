@@ -21,6 +21,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
 import java.util.Collections
+import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
 
 data class ManagedClientSocksBridgeSpec(
@@ -129,6 +130,7 @@ private class SocksReplyException(
 
 private const val Ipv4AddressByteCount = 4
 private const val Ipv6AddressByteCount = 16
+private const val MaxConcurrentBridgeClients = 64
 private const val LocalHandshakeTimeoutMillis = 5_000
 private const val PtConnectReplyTimeoutMillis = 60_000
 
@@ -139,12 +141,20 @@ internal class ManagedClientSocksBridge(
     private val bridgeSpec: ManagedClientSocksBridgeSpec,
 ) : Closeable {
     private val activeSockets = Collections.synchronizedSet(mutableSetOf<Socket>())
+    private val clientSlots = Semaphore(MaxConcurrentBridgeClients)
 
     @Volatile private var serverSocket: ServerSocket? = null
 
     @Volatile private var acceptThread: Thread? = null
 
     fun start() {
+        // The bridge offers NO-AUTH, so it must never listen beyond this device.
+        val loopback =
+            listenHost.equals("localhost", ignoreCase = true) ||
+                parseNumericAddressOrNull(listenHost)?.isLoopbackAddress == true
+        require(loopback) {
+            "PT SOCKS bridge must listen on a loopback address"
+        }
         val listener =
             ServerSocket().apply {
                 reuseAddress = true
@@ -180,6 +190,11 @@ internal class ManagedClientSocksBridge(
                 } catch (_: SocketException) {
                     return
                 }
+            if (!clientSlots.tryAcquire()) {
+                // Each client opens a PT session; refuse floods instead of spawning unbounded threads.
+                runCatching { client.close() }
+                continue
+            }
             activeSockets += client
             thread(
                 name = "pt-socks-bridge-client-$listenPort",
@@ -193,6 +208,7 @@ internal class ManagedClientSocksBridge(
                         Logger.d { "PT SOCKS bridge client closed: ${error.javaClass.simpleName}" }
                     } finally {
                         activeSockets -= outer
+                        clientSlots.release()
                     }
                 }
             }

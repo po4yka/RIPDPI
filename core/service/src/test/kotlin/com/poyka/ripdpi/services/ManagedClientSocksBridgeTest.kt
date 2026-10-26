@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -10,6 +11,8 @@ import java.io.DataInputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+
+private const val MaxBridgeClients = 64
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -46,6 +49,33 @@ class ManagedClientSocksBridgeTest {
             )
 
         assertEquals(0x05, reply)
+    }
+
+    @Test
+    fun `non-loopback listen host is refused before binding`() {
+        val bridge =
+            ManagedClientSocksBridge(
+                listenHost = "0.0.0.0",
+                listenPort = freePort(),
+                upstreamListener = InetSocketAddress("127.0.0.1", freePort()),
+                bridgeSpec = ManagedClientSocksBridgeSpec("obfs4", "192.0.2.1", 443, ""),
+            )
+
+        assertThrows(IllegalArgumentException::class.java) { bridge.start() }
+    }
+
+    @Test
+    fun `clients beyond the concurrency cap are closed instead of served`() {
+        val port = bridge()
+        val held = List(MaxBridgeClients) { Socket("127.0.0.1", port) }
+        try {
+            Socket("127.0.0.1", port).use { extra ->
+                extra.soTimeout = 2_000
+                assertEquals(-1, extra.getInputStream().read())
+            }
+        } finally {
+            held.forEach(Socket::close)
+        }
     }
 
     private fun bridge(upstream: InetSocketAddress = InetSocketAddress("127.0.0.1", freePort())): Int {
