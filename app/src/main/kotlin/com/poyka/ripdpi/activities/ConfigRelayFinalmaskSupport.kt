@@ -30,6 +30,10 @@ internal fun validateRelayFinalmaskDraft(draft: ConfigDraft): String? {
     if (!draft.supportsFinalmask()) {
         return "unsupported"
     }
+    // The Cloudflare edge terminates the masked TLS and cannot remove a mask; native accepts only fragment.
+    if (draft.relayKind == RelayKindCloudflareTunnel && finalmaskType != RelayFinalmaskTypeFragment) {
+        return "unsupported"
+    }
     return when (finalmaskType) {
         RelayFinalmaskTypeHeaderCustom -> validateHeaderCustomFinalmaskDraft(draft)
         RelayFinalmaskTypeNoise -> validateNoiseFinalmaskDraft(draft)

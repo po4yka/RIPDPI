@@ -26,7 +26,9 @@ import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
+import com.poyka.ripdpi.data.RelayFinalmaskTypeHeaderCustom
 import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
+import com.poyka.ripdpi.data.RelayFinalmaskTypeSudoku
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -476,21 +478,23 @@ class ConfigViewModelTest {
     }
 
     @Test
-    fun `relay validation accepts finalmask noise mode for xhttp transports`() {
-        val errors =
-            validateConfigDraft(
-                defaultDraft.copy(
-                    relayEnabled = true,
-                    relayKind = RelayKindCloudflareTunnel,
-                    relayServer = "edge.example.com",
-                    relayServerPort = "443",
-                    relayServerName = "edge.example.com",
-                    relayFinalmaskType = RelayFinalmaskTypeNoise,
-                    relayFinalmaskRandRange = "8-12",
-                ),
+    fun `relay validation rejects every finalmask mode but fragment for Cloudflare Tunnel`() {
+        val cloudflare =
+            defaultDraft.copy(
+                relayEnabled = true,
+                relayKind = RelayKindCloudflareTunnel,
+                relayServer = "edge.example.com",
+                relayServerPort = "443",
+                relayServerName = "edge.example.com",
+                relayFinalmaskRandRange = "8-12",
+                relayFinalmaskHeaderHex = "aa",
+                relayFinalmaskSudokuSeed = "seed",
             )
 
-        assertEquals(null, errors[ConfigFieldRelayFinalmask])
+        for (mode in listOf(RelayFinalmaskTypeNoise, RelayFinalmaskTypeHeaderCustom, RelayFinalmaskTypeSudoku)) {
+            val errors = validateConfigDraft(cloudflare.copy(relayFinalmaskType = mode))
+            assertEquals(mode, "unsupported", errors[ConfigFieldRelayFinalmask])
+        }
     }
 
     @Test
