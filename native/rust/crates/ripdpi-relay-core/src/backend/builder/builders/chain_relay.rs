@@ -552,4 +552,36 @@ mod credential_tests {
         assert_eq!(io::ErrorKind::InvalidInput, error.kind());
         assert!(error.to_string().contains("per-hop finalmask"), "unexpected error: {error}");
     }
+
+    #[test]
+    fn chain_hop_proxy_target_brackets_an_ipv6_server() {
+        let hops = [
+            ResolvedChainRelayHopConfig { trojan_password: Some("secret".to_string()), ..hop("trojan") },
+            ResolvedChainRelayHopConfig {
+                shadowsocks_method: Some("aes-256-gcm".to_string()),
+                shadowsocks_password: Some("secret".to_string()),
+                ..hop("shadowsocks")
+            },
+            ResolvedChainRelayHopConfig {
+                server_name: "exit.example".to_string(),
+                reality_public_key: local_network_fixture::reality_fixture_public_key(),
+                vless_flow: "none".to_string(),
+                vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
+                ..hop("vless_reality")
+            },
+        ];
+        for hop in hops {
+            let hop = ResolvedChainRelayHopConfig { server: "2001:db8::1".to_string(), server_port: 443, ..hop };
+            let connector = chain_hop_connector(
+                &hop,
+                HopPosition::new(1, 1),
+                None,
+                SocketProtectionPolicy::Inactive,
+                QuicMigrationTelemetryState::default(),
+            )
+            .unwrap_or_else(|error| panic!("{} hop builds: {error}", hop.kind));
+
+            assert_eq!(connector.proxy_target().expect("proxy target"), "[2001:db8::1]:443", "{}", hop.kind);
+        }
+    }
 }

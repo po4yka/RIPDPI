@@ -53,7 +53,7 @@ impl ChainHopConnector {
     /// tunnel. QUIC kinds have no upstream-proxy authority (they are entry-only)
     /// and return an error here, which the builder converts into a hard reject.
     pub(crate) fn proxy_target(&self) -> io::Result<String> {
-        match self {
+        let authority = match self {
             Self::VlessReality(config) => Ok(format!("{}:{}", config.server, config.port)),
             Self::Masque(config) => masque_proxy_target(config),
             Self::Trojan(config) => Ok(ripdpi_relay_tls_transports::trojan_proxy_target(config)),
@@ -64,7 +64,8 @@ impl ChainHopConnector {
                 io::ErrorKind::Unsupported,
                 "QUIC chain hops (Hysteria2/TUIC) can only be the entry hop; nothing may chain through them",
             )),
-        }
+        }?;
+        Ok(bracket_ipv6_host(authority))
     }
 
     /// Open the entry hop's single real outbound socket.
@@ -178,6 +179,16 @@ impl ChainHopConnector {
                 "QUIC chain hops (Hysteria2/TUIC) cannot tunnel over a prior hop",
             )),
         }
+    }
+}
+
+/// Brackets an IPv6 literal host in a `host:port` authority (RFC 3986 3.2.2).
+/// Several hop target producers format `host:port` without brackets, and the
+/// next hop's target parser rejects a bare IPv6 host.
+fn bracket_ipv6_host(authority: String) -> String {
+    match authority.rsplit_once(':') {
+        Some((host, port)) if host.contains(':') && !host.starts_with('[') => format!("[{host}]:{port}"),
+        _ => authority,
     }
 }
 
