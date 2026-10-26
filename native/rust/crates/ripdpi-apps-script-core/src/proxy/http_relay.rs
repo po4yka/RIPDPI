@@ -134,8 +134,16 @@ fn origin_host(origin: &str) -> Option<String> {
     (!host.is_empty()).then(|| host.to_ascii_lowercase())
 }
 
+/// Second-level labels that country-code registries use as public suffixes
+/// (`co.uk`, `com.au`, `ne.jp`, `gob.mx`). Other short labels under a
+/// two-letter TLD (`ya.ru`, `x.ai`, `fly.io`) are registrable domains.
+const COUNTRY_SECOND_LEVEL_SUFFIXES: &[&str] = &[
+    "ac", "ad", "co", "com", "ed", "edu", "go", "gob", "gouv", "gov", "gr", "int", "lg", "ltd", "mil", "ne", "net",
+    "nic", "nom", "or", "org", "plc", "sch",
+];
+
 /// Approximate registrable domain: the last two labels, or three under a
-/// two-letter country code with a short second level (`example.co.uk`).
+/// two-letter country code with a known public second level (`example.co.uk`).
 // shortcut: no public suffix list, so private suffixes such as github.io count as one site; use a PSL if one is bundled.
 fn site_key(host: &str) -> String {
     let host = host.trim_end_matches('.').to_ascii_lowercase();
@@ -143,8 +151,9 @@ fn site_key(host: &str) -> String {
         return host;
     }
     let labels: Vec<&str> = host.split('.').collect();
-    let country_second_level =
-        labels.len() >= 3 && labels[labels.len() - 1].len() == 2 && labels[labels.len() - 2].len() <= 3;
+    let country_second_level = labels.len() >= 3
+        && labels[labels.len() - 1].len() == 2
+        && COUNTRY_SECOND_LEVEL_SUFFIXES.contains(&labels[labels.len() - 2]);
     let keep = if country_second_level { 3 } else { 2 };
     labels[labels.len().saturating_sub(keep)..].join(".")
 }
@@ -527,6 +536,27 @@ mod tests {
         )
         .await;
         assert!(!other_site.contains("Access-Control-Allow-Credentials"), "{other_site}");
+    }
+
+    #[test]
+    fn short_registrable_domains_under_two_letter_tlds_stay_one_site() {
+        for (origin, target) in [
+            ("music.ya.ru", "api.ya.ru"),
+            ("m.ok.ru", "api.ok.ru"),
+            ("www.vc.ru", "api.vc.ru"),
+            ("www.gmx.de", "api.gmx.de"),
+            ("console.x.ai", "api.x.ai"),
+            ("app.fly.io", "api.fly.io"),
+            ("www.example.co.uk", "api.example.co.uk"),
+            ("www.city.go.jp", "api.city.go.jp"),
+        ] {
+            assert_eq!(site_key(origin), site_key(target), "{origin} and {target} share a site");
+        }
+        for (origin, target) in
+            [("a.co.uk", "b.co.uk"), ("a.com.au", "b.com.au"), ("a.ne.jp", "b.ne.jp"), ("a.gob.mx", "b.gob.mx")]
+        {
+            assert_ne!(site_key(origin), site_key(target), "{origin} and {target} are different sites");
+        }
     }
 
     #[tokio::test(flavor = "current_thread")]
