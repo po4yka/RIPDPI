@@ -84,15 +84,75 @@ fn duplicate_tls_session_id_rejects_incompatible_lengths() {
 #[test]
 fn tune_tls_padding_size_can_grow_and_shrink_default_fake() {
     let grown = tune_tls_padding_size_like_c(DEFAULT_FAKE_TLS, DEFAULT_FAKE_TLS.len() + 12);
-    let shrunk = tune_tls_padding_size_like_c(DEFAULT_FAKE_TLS, DEFAULT_FAKE_TLS.len() - 12);
+    // The default fake carries 6 padding bytes; only those can be removed.
+    let shrunk = tune_tls_padding_size_like_c(DEFAULT_FAKE_TLS, DEFAULT_FAKE_TLS.len() - 6);
+    let overshrunk = tune_tls_padding_size_like_c(DEFAULT_FAKE_TLS, DEFAULT_FAKE_TLS.len() - 7);
 
     assert_eq!(grown.rc, 0);
     assert_eq!(grown.bytes.len(), DEFAULT_FAKE_TLS.len() + 12);
     assert_eq!(parse_tls(&grown.bytes), Some(&b"www.wikipedia.org"[..]));
 
     assert_eq!(shrunk.rc, 0);
-    assert_eq!(shrunk.bytes.len(), DEFAULT_FAKE_TLS.len() - 12);
+    assert_eq!(shrunk.bytes.len(), DEFAULT_FAKE_TLS.len() - 6);
     assert_eq!(parse_tls(&shrunk.bytes), Some(&b"www.wikipedia.org"[..]));
+
+    assert_eq!(overshrunk.rc, -1);
+    assert_eq!(overshrunk.bytes, DEFAULT_FAKE_TLS);
+}
+
+/// Strictly walk a single-record ClientHello: every declared length must match
+/// the bytes present. Returns the extension types in order.
+fn strict_client_hello_extension_types(buf: &[u8]) -> Result<Vec<u16>, String> {
+    let record_len = read_u16(buf, 3).ok_or("no record header")?;
+    let handshake_len = read_u24(buf, 6).ok_or("no handshake header")?;
+    if record_len + 5 != buf.len() || handshake_len + 4 != record_len {
+        return Err(format!("record {record_len} / handshake {handshake_len} vs {} bytes", buf.len()));
+    }
+    let ext_len_offset = crate::tls_nom::parse_client_hello_record(buf).ok_or("unparsable")?.ext_len_offset;
+    let ext_len = read_u16(buf, ext_len_offset).ok_or("no extension block")?;
+    if ext_len_offset + 2 + ext_len != buf.len() {
+        return Err(format!("extension block {ext_len} does not end the record"));
+    }
+    let mut cursor = ext_len_offset + 2;
+    let mut types = Vec::new();
+    while cursor < buf.len() {
+        let kind = read_u16(buf, cursor).ok_or("cut extension header")? as u16;
+        let len = read_u16(buf, cursor + 2).ok_or("cut extension header")?;
+        cursor += 4 + len;
+        if cursor > buf.len() {
+            return Err(format!("extension {kind:#06x} overruns the block by {}", cursor - buf.len()));
+        }
+        if types.contains(&kind) {
+            return Err(format!("extension {kind:#06x} repeats"));
+        }
+        types.push(kind);
+    }
+    Ok(types)
+}
+
+/// Captured profiles whose declared lengths match their bytes (BigsizeIana
+/// declares oversized lengths on purpose; GoogleChromeHrr shares GoogleChrome).
+const CAPTURED_TLS_FAKE_PROFILES: [crate::fake_profiles::TlsFakeProfile; 5] = {
+    use crate::fake_profiles::TlsFakeProfile::*;
+    [IanaFirefox, GoogleChrome, VkChrome, SberbankChrome, RutrackerKyber]
+};
+
+#[test]
+fn tune_tls_padding_size_shrink_keeps_extensions_well_formed() {
+    for profile in CAPTURED_TLS_FAKE_PROFILES {
+        let input = crate::fake_profiles::tls_fake_profile_bytes(profile);
+        strict_client_hello_extension_types(input).unwrap_or_else(|err| panic!("{profile:?} template: {err}"));
+        for target in [250, 300, 400, 500, input.len() - 1] {
+            let mutation = tune_tls_padding_size_like_c(input, target);
+            if mutation.rc == 0 {
+                assert_eq!(mutation.bytes.len(), target, "{profile:?} -> {target}");
+                strict_client_hello_extension_types(&mutation.bytes)
+                    .unwrap_or_else(|err| panic!("{profile:?} -> {target}: {err}"));
+            } else {
+                assert_eq!(mutation.bytes, input, "{profile:?} -> {target}");
+            }
+        }
+    }
 }
 
 #[test]
