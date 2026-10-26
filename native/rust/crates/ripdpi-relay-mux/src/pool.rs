@@ -29,6 +29,7 @@ where
     capabilities: RelayCapabilities,
     config: RelayPoolConfig,
     permits: Arc<Semaphore>,
+    datagram_permits: Option<Arc<Semaphore>>,
     dials: Semaphore,
     session_creation: AsyncMutex<()>,
     state: Arc<Mutex<RelayMuxState<F::Session>>>,
@@ -46,6 +47,7 @@ where
                 factory,
                 config,
                 permits: Arc::new(Semaphore::new(max_active_leases)),
+                datagram_permits: config.max_active_datagram_leases.map(|max| Arc::new(Semaphore::new(max.max(1)))),
                 dials: Semaphore::new(MAX_CONCURRENT_DIALS),
                 session_creation: AsyncMutex::new(()),
                 state: Arc::new(Mutex::new(RelayMuxState::new())),
@@ -93,7 +95,7 @@ where
         &self,
         target: &str,
     ) -> Result<MuxStream<<F::Session as RelaySession>::Stream, F::Session>, F::Error> {
-        let permit = self.acquire_permit().await;
+        let permit = self.acquire_permit(&self.inner.permits).await;
         let (session, from_cache) = self.session_for_open().await?;
         self.mark_lease_started();
         let guard =
@@ -123,7 +125,7 @@ where
                 let Ok((fresh, _)) = self.session_for_open().await else {
                     return Err(error);
                 };
-                let retry_permit = self.acquire_permit().await;
+                let retry_permit = self.acquire_permit(&self.inner.permits).await;
                 self.mark_lease_started();
                 let retry_guard = LeaseGuard::new(
                     self.inner.state.clone(),
@@ -155,7 +157,7 @@ where
     pub async fn open_datagram(
         &self,
     ) -> Result<MuxLease<<F::Session as RelaySession>::Datagram, F::Session>, F::Error> {
-        let permit = self.acquire_permit().await;
+        let permit = self.acquire_permit(self.datagram_permits()).await;
         let (session, from_cache) = self.session_for_open().await?;
         self.mark_lease_started();
         let guard =
@@ -180,7 +182,7 @@ where
                 let Ok((fresh, _)) = self.session_for_open().await else {
                     return Err(error);
                 };
-                let retry_permit = self.acquire_permit().await;
+                let retry_permit = self.acquire_permit(self.datagram_permits()).await;
                 self.mark_lease_started();
                 let retry_guard = LeaseGuard::new(
                     self.inner.state.clone(),
@@ -204,14 +206,18 @@ where
         }
     }
 
-    async fn acquire_permit(&self) -> OwnedSemaphorePermit {
-        if let Ok(permit) = self.inner.permits.clone().try_acquire_owned() {
+    fn datagram_permits(&self) -> &Arc<Semaphore> {
+        self.inner.datagram_permits.as_ref().unwrap_or(&self.inner.permits)
+    }
+
+    async fn acquire_permit(&self, permits: &Arc<Semaphore>) -> OwnedSemaphorePermit {
+        if let Ok(permit) = permits.clone().try_acquire_owned() {
             return permit;
         }
 
         // Recover poison: lease accounting is advisory.
         self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).backpressure_events += 1;
-        self.inner.permits.clone().acquire_owned().await.expect("relay mux semaphore unexpectedly closed")
+        permits.clone().acquire_owned().await.expect("relay mux semaphore unexpectedly closed")
     }
 
     /// Returns the session to open a lease on plus whether it came from the

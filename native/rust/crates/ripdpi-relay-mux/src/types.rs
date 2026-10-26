@@ -4,11 +4,15 @@ use std::time::Duration;
 pub struct RelayPoolConfig {
     pub max_active_leases: usize,
     pub idle_timeout: Duration,
+    /// A separate cap for datagram leases, for carriers whose datagrams do not
+    /// use the stream budget (VLESS XUDP beside a yamux carrier). `None` counts
+    /// datagram leases against `max_active_leases`.
+    pub max_active_datagram_leases: Option<usize>,
 }
 
 impl Default for RelayPoolConfig {
     fn default() -> Self {
-        Self { max_active_leases: 64, idle_timeout: Duration::from_secs(30) }
+        Self { max_active_leases: 64, idle_timeout: Duration::from_secs(30), max_active_datagram_leases: None }
     }
 }
 

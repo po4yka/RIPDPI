@@ -221,7 +221,11 @@ async fn non_reusable_mux_creates_fresh_session_per_open() {
 async fn mux_evicts_idle_reusable_session() {
     let mux = RelayMux::new(
         TestFactory { creations: Arc::new(AtomicUsize::new(0)), reusable: true },
-        RelayPoolConfig { max_active_leases: 4, idle_timeout: Duration::from_millis(5) },
+        RelayPoolConfig {
+            max_active_leases: 4,
+            idle_timeout: Duration::from_millis(5),
+            max_active_datagram_leases: None,
+        },
     );
 
     drop(mux.open_stream("example.com:443").await.expect("stream"));
@@ -236,7 +240,11 @@ async fn mux_evicts_idle_reusable_session() {
 async fn mux_records_backpressure_when_limit_is_exhausted() {
     let mux = RelayMux::new(
         TestFactory { creations: Arc::new(AtomicUsize::new(0)), reusable: true },
-        RelayPoolConfig { max_active_leases: 1, idle_timeout: Duration::from_secs(30) },
+        RelayPoolConfig {
+            max_active_leases: 1,
+            idle_timeout: Duration::from_secs(30),
+            max_active_datagram_leases: None,
+        },
     );
 
     let first = mux.open_stream("example.com:443").await.expect("first stream");
@@ -255,7 +263,11 @@ async fn cancelling_pending_stream_open_releases_lease_accounting() {
     let entered_open = Arc::new(Notify::new());
     let mux = RelayMux::new(
         PendingOpenFactory { entered_open: Arc::clone(&entered_open) },
-        RelayPoolConfig { max_active_leases: 1, idle_timeout: Duration::from_secs(30) },
+        RelayPoolConfig {
+            max_active_leases: 1,
+            idle_timeout: Duration::from_secs(30),
+            max_active_datagram_leases: None,
+        },
     );
 
     let opener_mux = mux.clone();
@@ -399,7 +411,11 @@ async fn cancelling_retry_waiting_for_permit_keeps_lease_count_correct() {
             creations,
             fresh_gate: Some((Arc::clone(&fresh_entered), Arc::clone(&release_fresh))),
         },
-        RelayPoolConfig { max_active_leases: 1, idle_timeout: Duration::from_secs(30) },
+        RelayPoolConfig {
+            max_active_leases: 1,
+            idle_timeout: Duration::from_secs(30),
+            max_active_datagram_leases: None,
+        },
     );
     drop(mux.open_stream("warm.example:443").await.expect("cache first carrier"));
 
@@ -703,4 +719,28 @@ async fn parallel_opens_on_a_non_reusable_pool_dial_at_most_eight_carriers_at_on
     }
 
     assert_eq!(8, factory.peak.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn datagram_leases_with_their_own_budget_leave_stream_slots_free() {
+    let mux = RelayMux::new(
+        TestFactory { creations: Arc::new(AtomicUsize::new(0)), reusable: true },
+        RelayPoolConfig { max_active_leases: 2, max_active_datagram_leases: Some(4), ..RelayPoolConfig::default() },
+    );
+    let mut datagrams = Vec::new();
+    for _ in 0..4 {
+        let lease = timeout(Duration::from_millis(100), mux.open_datagram()).await.expect("datagram lease waited");
+        datagrams.push(lease.expect("open datagram"));
+    }
+
+    let mut streams = Vec::new();
+    for _ in 0..2 {
+        let stream = timeout(Duration::from_millis(100), mux.open_stream("example.com:443"))
+            .await
+            .expect("a stream waited behind datagram leases")
+            .expect("open stream");
+        streams.push(stream);
+    }
+    assert!(timeout(Duration::from_millis(50), mux.open_stream("example.com:443")).await.is_err());
+    assert!(timeout(Duration::from_millis(50), mux.open_datagram()).await.is_err());
 }

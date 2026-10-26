@@ -98,19 +98,24 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
         RelayKind::Hysteria2 | RelayKind::TuicV5 | RelayKind::Masque | RelayKind::AnyTls => RelayPoolConfig {
             max_active_leases: QUIC_MULTIPLEXED_MAX_ACTIVE_LEASES,
             idle_timeout: QUIC_MULTIPLEXED_IDLE_TIMEOUT,
+            max_active_datagram_leases: None,
         },
         RelayKind::CloudflareTunnel | RelayKind::Vless { xhttp: true } | RelayKind::VlessReality { xhttp: true } => {
             RelayPoolConfig {
                 max_active_leases: STREAM_MULTIPLEXED_MAX_ACTIVE_LEASES,
                 idle_timeout: STREAM_MULTIPLEXED_IDLE_TIMEOUT,
+                max_active_datagram_leases: None,
             }
         }
         RelayKind::VlessReality { xhttp: false } if let Some(max_streams) = vless_mux_stream_limit(config) => {
             // One yamux carrier serves every lease, and yamux resets the whole
             // carrier when a stream opens past its limit: wait at the limit instead.
+            // XUDP associations never use the yamux carrier, so they keep the
+            // single-carrier budget and do not take stream slots.
             RelayPoolConfig {
                 max_active_leases: max_streams.min(SINGLE_CARRIER_MAX_ACTIVE_LEASES),
                 idle_timeout: STREAM_MULTIPLEXED_IDLE_TIMEOUT,
+                max_active_datagram_leases: Some(SINGLE_CARRIER_MAX_ACTIVE_LEASES),
             }
         }
         RelayKind::Vless { xhttp: false }
@@ -125,6 +130,7 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
         | RelayKind::NaiveProxy => RelayPoolConfig {
             max_active_leases: SINGLE_CARRIER_MAX_ACTIVE_LEASES,
             idle_timeout: SINGLE_CARRIER_IDLE_TIMEOUT,
+            max_active_datagram_leases: None,
         },
         RelayKind::Unsupported(_) => RelayPoolConfig::default(),
     }

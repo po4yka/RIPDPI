@@ -1666,6 +1666,19 @@ fn relay_runtime_assigns_central_pool_policy_by_backend_family() {
 }
 
 #[test]
+fn vless_mux_pool_gives_xudp_its_own_lease_budget() {
+    let mut config = sample_config("vless_reality");
+    let vless = vless_config_mut(&mut config);
+    vless.vless_mux_protocol = "yamux".to_string();
+    vless.vless_mux_max_concurrent_streams = 8;
+
+    let pool = pool_config_for_backend(&config);
+
+    assert_eq!(8, pool.max_active_leases);
+    assert_eq!(Some(crate::runtime::MAX_CONCURRENT_SOCKS_SESSIONS), pool.max_active_datagram_leases);
+}
+
+#[test]
 fn single_carrier_pools_admit_every_admitted_socks_session() {
     for kind in ["vless_reality", "mieru", "ssh", "chain_relay", "shadowtls_v3", "trojan", "shadowsocks", "tor"] {
         let pool = pool_config_for_backend(&sample_config(kind));
