@@ -254,12 +254,11 @@ class DefaultServiceStateStore
                     .collect { publication ->
                         // Widgets are best effort: a DataStore or Glance failure (ENOSPC, corrupt file)
                         // must not end the collector or reach the process crash handler.
-                        try {
+                        runCatching {
                             widgetStateRepository.write(publication.snapshot)
                             widgetNotifier.pushUpdate(publication.target)
-                        } catch (error: CancellationException) {
-                            throw error
-                        } catch (error: Exception) {
+                        }.onFailure { error ->
+                            if (error is CancellationException || error !is Exception) throw error
                             // Class name only: exception messages can carry file paths.
                             // A later, different snapshot is published again.
                             Log.w(WidgetLogTag, "Widget publication failed: ${error.javaClass.name}")
