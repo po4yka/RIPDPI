@@ -103,6 +103,21 @@ async fn connect_session(
     }
 }
 
+/// Sends `event` to the io loop unless `cancel` fires first, so a worker never waits on a full
+/// channel that the stopping loop no longer drains. Returns whether the event was sent.
+///
+/// # Cancel safety
+///
+/// cancel-safe: `mpsc::Sender::send` is cancel-safe; an unsent event is dropped, and after
+/// cancellation the loop removes the association itself.
+async fn send_event(udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>, cancel: &CancellationToken, event: UdpEvent) -> bool {
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => false,
+        sent = udp_tx.send(event) => sent.is_ok(),
+    }
+}
+
 pub(super) fn spawn_udp_worker(
     config: UdpWorkerConfig,
     mut outbound_rx: tokio::sync::mpsc::Receiver<OutboundDatagram>,
@@ -130,12 +145,12 @@ pub(super) fn spawn_udp_worker(
             {
                 Ok(Some(session)) => session.with_recv_timeout(idle_timeout),
                 Ok(None) => {
-                    let _ = udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                    send_event(&udp_tx, &cancel, UdpEvent::Closed { src, association_id }).await;
                     return;
                 }
                 Err(err) => {
                     debug!("UDP association {} for {} failed during setup: {}", association_id, src, err);
-                    let _ = udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                    send_event(&udp_tx, &cancel, UdpEvent::Closed { src, association_id }).await;
                     return;
                 }
             };
@@ -204,7 +219,7 @@ pub(super) fn spawn_udp_worker(
                         };
                         let raw = build_udp_response(response_source, src, &resp_payload);
                         if !raw.is_empty()
-                            && udp_tx.send(UdpEvent::Packet { src, association_id, raw }).await.is_err()
+                            && !send_event(&udp_tx, &cancel, UdpEvent::Packet { src, association_id, raw }).await
                         {
                             break;
                         }
@@ -221,7 +236,7 @@ pub(super) fn spawn_udp_worker(
                 },
             }
         }
-        let _ = udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+        send_event(&udp_tx, &cancel, UdpEvent::Closed { src, association_id }).await;
     })
 }
 

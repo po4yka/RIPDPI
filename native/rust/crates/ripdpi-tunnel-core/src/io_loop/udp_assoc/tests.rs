@@ -234,6 +234,46 @@ async fn cancelling_an_association_stops_its_setup() {
 }
 
 #[tokio::test]
+async fn cancelled_worker_does_not_wait_on_a_full_event_channel() {
+    let proxy_addr = spawn_udp_echo_stub().await;
+    let src = "10.0.0.2:53011".parse().expect("source address");
+    let dest = "203.0.113.20:443".parse().expect("destination address");
+    let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+    // The stopping io loop no longer drains the channel; model that with a full one.
+    udp_tx.try_send(UdpEvent::Closed { src, association_id: 0 }).expect("fill the event channel");
+    let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
+    let association = spawn_udp_association(
+        proxy_addr,
+        Auth::NoAuth,
+        src,
+        dest,
+        12,
+        Duration::from_secs(60),
+        Duration::from_secs(5),
+        None,
+        memory_budget.clone(),
+        CancellationToken::new(),
+        udp_tx,
+    );
+    association
+        .outbound
+        .try_send(
+            OutboundDatagram::try_new(crate::session::TargetAddr::Ip(dest), dest, dest, b"echo", &memory_budget)
+                .expect("reserve queue bytes"),
+        )
+        .expect("queue datagram");
+    // Let the echo reply arrive, so the worker blocks on sending it to the full channel.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    association.cancel.cancel();
+
+    tokio::time::timeout(Duration::from_secs(1), association.worker)
+        .await
+        .expect("a cancelled worker must not wait for channel room")
+        .expect("no panic");
+}
+
+#[tokio::test]
 async fn mapdns_udp_response_uses_synthetic_source_tuple() {
     let proxy_addr = spawn_udp_echo_stub().await;
     let src = "10.0.0.2:53010".parse().expect("source address");
