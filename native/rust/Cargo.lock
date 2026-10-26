@@ -2385,7 +2385,7 @@ dependencies = [
  "libc",
  "log",
  "rustversion",
- "windows-link 0.1.3",
+ "windows-link 0.2.1",
  "windows-result 0.4.1",
 ]
 
@@ -8109,7 +8109,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -8273,9 +8273,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-boring"
-version = "5.1.0"
+version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7c8b403954655fa821f069961b8c414b52d3bc67597e993463946c633fe4b46"
+checksum = "eed262597ccbc7d443f02ee8d20eb845cea242bbea79e7481ba6218003214970"
 dependencies = [
  "boring",
  "boring-sys",
