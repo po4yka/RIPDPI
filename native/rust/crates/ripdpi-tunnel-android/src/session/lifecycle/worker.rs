@@ -1,4 +1,5 @@
 use std::os::fd::OwnedFd;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::SyncSender;
 use std::sync::{Arc, Mutex};
 
@@ -22,6 +23,8 @@ pub(crate) struct WorkerLaunch {
     pub(crate) telemetry: Arc<TunnelTelemetryState>,
     pub(crate) last_error: Arc<Mutex<Option<String>>>,
     pub(crate) startup_ready: SyncSender<()>,
+    /// Set just before the worker marks telemetry stopped; see `promote_ready_tunnel_start`.
+    pub(crate) exited: Arc<AtomicBool>,
 }
 
 pub(crate) fn launch_tunnel_worker(launch: WorkerLaunch) -> std::io::Result<std::thread::JoinHandle<()>> {
@@ -29,7 +32,8 @@ pub(crate) fn launch_tunnel_worker(launch: WorkerLaunch) -> std::io::Result<std:
 }
 
 fn run_worker(launch: WorkerLaunch) {
-    let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error, startup_ready } = launch;
+    let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error, startup_ready, exited } =
+        launch;
     let root_helper_generation = register_for_worker(&config);
     let worker_cancel = cancel.clone();
     // Callsite cancellation contract: run_tunnel_with_ready is NOT cancel-safe
@@ -56,5 +60,6 @@ fn run_worker(launch: WorkerLaunch) {
     if let Some(generation) = root_helper_generation {
         unregister_for_worker(generation);
     }
+    exited.store(true, Ordering::SeqCst);
     telemetry.mark_stopped();
 }

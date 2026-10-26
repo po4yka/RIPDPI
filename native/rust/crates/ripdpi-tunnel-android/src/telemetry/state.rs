@@ -30,7 +30,7 @@ impl TunnelTelemetryState {
     }
 
     pub(crate) fn mark_started(&self, upstream: String) {
-        self.running.store(true, Ordering::Relaxed);
+        self.running.store(true, Ordering::SeqCst);
         self.total_sessions.fetch_add(1, Ordering::Relaxed);
         self.upstream_address.store(Some(Arc::new(upstream.clone())));
         self.push_event("tunnel", "info", format!("tunnel started upstream={upstream}"));
@@ -41,7 +41,7 @@ impl TunnelTelemetryState {
     }
 
     pub(crate) fn mark_stopped(&self) {
-        self.running.store(false, Ordering::Relaxed);
+        self.running.store(false, Ordering::SeqCst);
         self.push_event("tunnel", "info", "tunnel stopped".to_string());
     }
 

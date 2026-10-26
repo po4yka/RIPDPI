@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{RecvTimeoutError, sync_channel};
 use std::time::Duration;
 
@@ -62,6 +63,7 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong, tun_fd: jint) {
     // publishes Running only after the worker has completed all fallible packet
     // loop setup. Long-running tunnel work remains exclusively on that worker.
     let (startup_ready, readiness) = sync_channel(1);
+    let worker_exited = Arc::new(AtomicBool::new(false));
     let worker = match launch_tunnel_worker(WorkerLaunch {
         runtime: session.runtime.clone(),
         config: session.config.clone(),
@@ -71,6 +73,7 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong, tun_fd: jint) {
         telemetry: session.telemetry.clone(),
         last_error: session.last_error.clone(),
         startup_ready,
+        exited: worker_exited.clone(),
     }) {
         Ok(worker) => worker,
         Err(err) => {
@@ -106,7 +109,7 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong, tun_fd: jint) {
         return;
     }
 
-    if let Err(message) = promote_ready_tunnel_start(&session, cancel, stats, worker) {
+    if let Err(message) = promote_ready_tunnel_start(&session, cancel, stats, worker, &worker_exited) {
         throw_io_exception_env(env, message);
     }
 }
@@ -116,6 +119,7 @@ fn promote_ready_tunnel_start(
     cancel: Arc<CancellationToken>,
     stats: Arc<Stats>,
     worker: std::thread::JoinHandle<()>,
+    worker_exited: &AtomicBool,
 ) -> Result<(), String> {
     let message = {
         let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -128,6 +132,12 @@ fn promote_ready_tunnel_start(
                     // each start creates a fresh Arc, so pointer equality proves
                     // this readiness belongs to the state we are promoting.
                     mark_session_started(&session.telemetry, &session.config);
+                    // A worker that failed right after readiness may have marked telemetry
+                    // stopped before the store above. It sets `exited` (SeqCst) before that
+                    // stop, so either this load sees it or its stop lands after our start.
+                    if worker_exited.load(Ordering::SeqCst) {
+                        session.telemetry.mark_stopped();
+                    }
                     *state = TunnelSessionState::Running { cancel, stats, worker };
                     return Ok(());
                 }
@@ -147,6 +157,7 @@ fn promote_ready_tunnel_start(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Mutex, mpsc};
     use std::time::{Duration, Instant};
 
@@ -185,7 +196,8 @@ mod tests {
             assert_eq!(err, "Tunnel session is still starting; cancellation requested");
         }
 
-        let promotion = promote_ready_tunnel_start(&session, Arc::clone(&cancel), stats, worker);
+        let promotion =
+            promote_ready_tunnel_start(&session, Arc::clone(&cancel), stats, worker, &AtomicBool::new(false));
 
         assert_eq!(promotion.as_ref().map_err(String::as_str), Err("native tunnel startup was cancelled"));
         let snapshot = session.telemetry.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
@@ -228,7 +240,8 @@ mod tests {
             let _ = release_receiver.recv();
         });
 
-        let promotion = promote_ready_tunnel_start(&session, Arc::clone(&stale_cancel), stats, worker);
+        let promotion =
+            promote_ready_tunnel_start(&session, Arc::clone(&stale_cancel), stats, worker, &AtomicBool::new(false));
 
         assert_eq!(
             promotion.as_ref().map_err(String::as_str),
@@ -252,5 +265,39 @@ mod tests {
             assert!(Instant::now() < deadline, "stale startup cleanup corrupted current generation");
             std::thread::yield_now();
         }
+    }
+
+    #[test]
+    fn worker_that_stopped_after_readiness_is_not_reported_running() {
+        let runtime = Arc::new(
+            tokio::runtime::Builder::new_multi_thread().worker_threads(1).enable_all().build().expect("test runtime"),
+        );
+        let cancel = Arc::new(CancellationToken::new());
+        let session = Arc::new(TunnelSession {
+            runtime,
+            config: Arc::new(config_from_payload(sample_payload()).expect("config")),
+            last_error: Arc::new(Mutex::new(None)),
+            telemetry: Arc::new(TunnelTelemetryState::new(None)),
+            state: Mutex::new(TunnelSessionState::Starting { cancel: Arc::clone(&cancel) }),
+        });
+        // The worker failed right after readiness: it already ran its exit path and
+        // marked telemetry stopped, but its thread has not finished unwinding yet.
+        let worker_exited = AtomicBool::new(true);
+        session.telemetry.mark_stopped();
+        let (release_sender, release_receiver) = mpsc::sync_channel(1);
+        let worker = std::thread::spawn(move || {
+            let _ = release_receiver.recv();
+        });
+
+        promote_ready_tunnel_start(&session, Arc::clone(&cancel), Arc::new(Stats::new()), worker, &worker_exited)
+            .expect("promotion");
+
+        let snapshot = session.telemetry.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        assert_ne!(snapshot.state, "running", "a dead worker must not stay reported as running");
+        release_sender.send(()).expect("release worker");
+        let mut state = session.state.lock().expect("state lock");
+        let (_cancel, worker) = take_running_tunnel(&mut state).expect("promoted session is running");
+        drop(state);
+        worker.join().expect("join released worker");
     }
 }
