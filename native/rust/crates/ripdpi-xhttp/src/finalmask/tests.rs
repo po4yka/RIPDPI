@@ -107,3 +107,25 @@ async fn tcp_wrapper_preserves_plain_streams_when_off() {
     stream.read_exact(&mut buffer).await.expect("read");
     assert_eq!(b"hello", &buffer);
 }
+
+#[test]
+fn rand_range_above_cap_is_rejected_for_noise_and_header_custom() {
+    for kind in ["noise", "header_custom"] {
+        let config = FinalmaskConfig {
+            r#type: kind.to_string(),
+            rand_range: "0-4000000000".to_string(),
+            ..FinalmaskConfig::default()
+        };
+        let Err(err) = FinalmaskSpec::from_config(&config) else {
+            panic!("{kind}: a multi-gigabyte randRange must be rejected at load time");
+        };
+        assert_eq!(std::io::ErrorKind::InvalidInput, err.kind(), "{kind}: {err}");
+    }
+    let config = FinalmaskConfig {
+        r#type: "noise".to_string(),
+        rand_range: "16384-16384".to_string(),
+        ..FinalmaskConfig::default()
+    };
+    let mut mask = TcpOutboundMask::new(FinalmaskSpec::from_config(&config).expect("cap is inclusive").expect("mask"));
+    assert_eq!(16 * 1024, mask.encode(b"x").expect("frames")[0].len());
+}

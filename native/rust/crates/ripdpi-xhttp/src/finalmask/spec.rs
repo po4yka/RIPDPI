@@ -7,6 +7,11 @@ use crate::config::FinalmaskConfig;
 
 use super::sudoku::SudokuTable;
 
+/// Largest random prelude a profile may request. Each new carrier allocates
+/// and fills this many bytes, so an imported profile cannot make the engine
+/// allocate gigabytes per connection.
+const MAX_RAND_RANGE_BYTES: usize = 16 * 1024;
+
 #[derive(Clone)]
 pub(crate) enum FinalmaskSpec {
     HeaderCustom { header: Vec<u8>, trailer: Vec<u8>, rand_range: Option<(usize, usize)> },
@@ -81,6 +86,12 @@ fn parse_rand_range(value: &str) -> io::Result<Option<(usize, usize)>> {
     })?;
     if min > max {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "finalmask randRange minimum must not exceed maximum"));
+    }
+    if max > MAX_RAND_RANGE_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("finalmask randRange maximum must not exceed {MAX_RAND_RANGE_BYTES} bytes"),
+        ));
     }
     Ok(Some((min, max)))
 }

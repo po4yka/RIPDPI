@@ -1,7 +1,7 @@
 use std::io;
 use std::sync::Arc;
 
-use rand::RngExt;
+use rand::{Rng, RngExt};
 
 use super::fragmentation::fragment_bytes;
 use super::spec::FinalmaskSpec;
@@ -97,5 +97,7 @@ fn random_bytes(min: usize, max: usize) -> Vec<u8> {
     }
     let mut rng = rand::rng();
     let len = if min >= max { min } else { rng.random_range(min..=max) };
-    (0..len).map(|_| rng.random::<u8>()).collect()
+    let mut bytes = vec![0u8; len];
+    rng.fill_bytes(&mut bytes);
+    bytes
 }
