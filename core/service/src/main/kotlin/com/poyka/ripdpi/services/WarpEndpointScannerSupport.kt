@@ -11,10 +11,13 @@ import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.WarpProfileStore
 import com.poyka.ripdpi.data.WarpScannerModeAutomatic
 import com.poyka.ripdpi.data.WarpScannerModeManual
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -289,48 +292,68 @@ internal fun normalizeWarpProfileId(
     return sanitized.ifBlank { "warp-${System.currentTimeMillis()}" }
 }
 
-private suspend fun expandWarpCandidate(candidate: WarpEndpointCacheEntry): List<WarpEndpointCacheEntry> =
-    kotlinx.coroutines.withContext(Dispatchers.IO) {
-        val normalizedPort = candidate.port.takeIf { it > 0 } ?: 2408
-        val expanded =
-            linkedMapOf<String, WarpEndpointCacheEntry>().apply {
-                put(
-                    candidate.copy(port = normalizedPort).candidateIdentity(),
-                    candidate.copy(port = normalizedPort),
-                )
-            }
-        val host = candidate.host?.takeIf(String::isNotBlank)
-        if (host != null) {
-            runCatching { InetAddress.getAllByName(host).toList() }
-                .getOrDefault(emptyList())
-                .forEach { address ->
-                    val resolvedCandidate =
-                        candidate.copy(
-                            host = host,
-                            ipv4 = (address as? Inet4Address)?.hostAddress,
-                            ipv6 = (address as? Inet6Address)?.hostAddress,
-                            port = normalizedPort,
-                            source = "scanner_dns",
-                        )
-                    expanded.putIfAbsent(resolvedCandidate.candidateIdentity(), resolvedCandidate)
-                }
+private suspend fun expandWarpCandidate(
+    candidate: WarpEndpointCacheEntry,
+    resolveHost: suspend (String) -> List<InetAddress>,
+): List<WarpEndpointCacheEntry> {
+    val normalizedPort = candidate.port.takeIf { it > 0 } ?: 2408
+    val expanded =
+        linkedMapOf<String, WarpEndpointCacheEntry>().apply {
+            put(
+                candidate.copy(port = normalizedPort).candidateIdentity(),
+                candidate.copy(port = normalizedPort),
+            )
         }
-        expanded.values.toList()
+    val host = candidate.host?.takeIf(String::isNotBlank)
+    if (host != null) {
+        resolveHost(host).forEach { address ->
+            val resolvedCandidate =
+                candidate.copy(
+                    host = host,
+                    ipv4 = (address as? Inet4Address)?.hostAddress,
+                    ipv6 = (address as? Inet6Address)?.hostAddress,
+                    port = normalizedPort,
+                    source = "scanner_dns",
+                )
+            expanded.putIfAbsent(resolvedCandidate.candidateIdentity(), resolvedCandidate)
+        }
     }
+    return expanded.values.toList()
+}
 
-private suspend fun buildPreferredWarpCandidatePool(
+internal suspend fun buildPreferredWarpCandidatePool(
     endpointStore: WarpEndpointStore,
     profileId: String,
     provisioned: WarpEndpointCacheEntry?,
+    lookupHost: (String) -> List<InetAddress> = { host -> InetAddress.getAllByName(host).toList() },
 ): List<WarpEndpointCacheEntry> {
     val remembered = endpointStore.loadAll(profileId)
+    // Every remembered scope usually names the same host: resolve each host once, and give up on a
+    // lookup the platform resolver holds (DNS dropped) instead of stalling startup per entry.
+    val resolved = mutableMapOf<String, List<InetAddress>>()
+    val resolveHost: suspend (String) -> List<InetAddress> = { host ->
+        resolved.getOrPut(host) { boundedWarpHostLookup(host, lookupHost) }
+    }
     val expanded =
         buildList {
-            remembered.forEach { addAll(expandWarpCandidate(it)) }
-            provisioned?.let { addAll(expandWarpCandidate(it)) }
+            remembered.forEach { addAll(expandWarpCandidate(it, resolveHost)) }
+            provisioned?.let { addAll(expandWarpCandidate(it, resolveHost)) }
         }
     return expanded.distinctBy(WarpEndpointCacheEntry::candidateIdentity)
 }
+
+// The blocking lookup ignores cancellation, so it runs detached and the caller stops waiting.
+private val warpHostLookupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+private suspend fun boundedWarpHostLookup(
+    host: String,
+    lookupHost: (String) -> List<InetAddress>,
+): List<InetAddress> =
+    withTimeoutOrNull(WarpHostLookupTimeoutMs) {
+        warpHostLookupScope.async { runCatching { lookupHost(host) }.getOrDefault(emptyList()) }.await()
+    }.orEmpty()
+
+private const val WarpHostLookupTimeoutMs = 3_000L
 
 private fun builtInWarpPoolCandidates(
     profileId: String,
