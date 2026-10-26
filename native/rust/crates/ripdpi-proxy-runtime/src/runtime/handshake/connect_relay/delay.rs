@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::super::super::state::RuntimeState;
 use super::super::protocol_io::{HandshakeKind, send_success_reply};
@@ -84,35 +84,51 @@ pub(super) fn maybe_delay_connect(
 }
 
 fn read_blocking_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<FirstRequestRead> {
-    let original_timeout = client.read_timeout()?;
-    client.set_read_timeout(Some(DELAY_CONN_READ_TIMEOUT))?;
-    let mut buffer = vec![0u8; buffer_size];
-    let result = match client.read(&mut buffer) {
-        Ok(0) => Ok(FirstRequestRead::Closed),
-        Ok(n) => {
-            buffer.truncate(n);
-            Ok(FirstRequestRead::Payload(buffer))
+    match read_first_request(client, buffer_size, DELAY_CONN_READ_TIMEOUT)? {
+        FirstRequestRead::Pending => {
+            Err(io::Error::new(io::ErrorKind::TimedOut, "no first request within the delayed-connect timeout"))
         }
-        Err(err) => Err(err),
-    };
-    client.set_read_timeout(original_timeout)?;
-    result
+        read => Ok(read),
+    }
 }
 
 fn read_available_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<FirstRequestRead> {
+    read_first_request(client, buffer_size, DESTINATION_HOST_PROBE_TIMEOUT)
+}
+
+/// Reads the client's first request, waiting up to `idle_timeout` for its first byte.
+/// A TLS ClientHello split over several reads is reassembled first, as on the
+/// immediate path, so host matching and desync never see a truncated record.
+fn read_first_request(
+    client: &mut TcpStream,
+    buffer_size: usize,
+    idle_timeout: Duration,
+) -> io::Result<FirstRequestRead> {
     let original_timeout = client.read_timeout()?;
-    client.set_read_timeout(Some(DESTINATION_HOST_PROBE_TIMEOUT))?;
     let mut buffer = vec![0u8; buffer_size];
-    let result = match client.read(&mut buffer) {
-        Ok(0) => Ok(FirstRequestRead::Closed),
-        Ok(n) => {
-            buffer.truncate(n);
-            Ok(FirstRequestRead::Payload(buffer))
+    let mut assembler = RuntimeState::first_outbound_tls_client_hello_assembler();
+    let result = loop {
+        let now = Instant::now();
+        if let Err(err) = client.set_read_timeout(Some(assembler.timeout(now).unwrap_or(idle_timeout))) {
+            break Err(err);
         }
-        Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-            Ok(FirstRequestRead::Pending)
+        match client.read(&mut buffer) {
+            Ok(0) => break Ok(assembler.finish().map_or(FirstRequestRead::Closed, FirstRequestRead::Payload)),
+            Ok(n) => {
+                if let Some(payload) = assembler.push(&buffer[..n], now) {
+                    break Ok(FirstRequestRead::Payload(payload));
+                }
+            }
+            Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
+                if let Some(payload) = assembler.flush_on_timeout(Instant::now()) {
+                    break Ok(FirstRequestRead::Payload(payload));
+                }
+                if !assembler.is_buffering() {
+                    break Ok(FirstRequestRead::Pending);
+                }
+            }
+            Err(err) => break Err(err),
         }
-        Err(err) => Err(err),
     };
     let restore = client.set_read_timeout(original_timeout);
     match (result, restore) {
@@ -212,5 +228,51 @@ mod tests {
         assert!(matches!(delayed, DelayConnect::Immediate { success_reply_sent: true }));
         assert!(started.elapsed() < Duration::from_millis(200));
         client.join().expect("client");
+    }
+    #[test]
+    fn hostless_flow_reassembles_a_client_hello_split_across_reads() {
+        let hello = RuntimeState::build_probe_client_hello("direct.example");
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client listener");
+        let client_addr = listener.local_addr().expect("client listener addr");
+        let sent = hello.clone();
+        let writer = std::thread::spawn(move || {
+            let mut client = TcpStream::connect(client_addr).expect("connect client");
+            client.set_nodelay(true).expect("nodelay");
+            let mut reply = [0_u8; 10];
+            client.read_exact(&mut reply).expect("read SOCKS5 success");
+            client.write_all(&sent[..20]).expect("write first ClientHello segment");
+            std::thread::sleep(Duration::from_millis(20));
+            client.write_all(&sent[20..]).expect("write rest of ClientHello");
+        });
+        let (mut accepted, _) = listener.accept().expect("accept client");
+        let config = RuntimeConfig {
+            groups: vec![DesyncGroup::new(0)],
+            destination_routing: DestinationRoutingPolicy {
+                rules: vec![DestinationRoutingRule {
+                    action: DestinationRoutingAction::Direct,
+                    network: DestinationRoutingNetwork::Tcp,
+                    domains: vec![DestinationDomainMatcher {
+                        kind: DestinationDomainMatcherKind::Exact,
+                        value: "direct.example".to_string(),
+                    }],
+                    ip_ranges: vec![],
+                    destination_ports: vec![],
+                }],
+                default_action: DestinationRoutingAction::Tunneled,
+                canonical_digest: "digest".to_string(),
+            },
+            ..Default::default()
+        };
+        let target = SocketAddr::from(([192, 0, 2, 10], 443));
+
+        let delayed =
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks5))
+                .expect("policy delay");
+
+        let DelayConnect::Delayed { payload, .. } = delayed else {
+            panic!("a ClientHello must be read before the egress connect");
+        };
+        assert_eq!(payload, hello, "the delayed path must keep the whole ClientHello, not its first segment");
+        writer.join().expect("writer");
     }
 }
