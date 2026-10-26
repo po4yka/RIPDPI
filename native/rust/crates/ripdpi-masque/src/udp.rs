@@ -70,7 +70,18 @@ pub(crate) struct MasqueUdpFlow {
 }
 
 impl MasqueUdpRelay {
+    /// Sends `payload` to `target`, opening a CONNECT-UDP flow first when there is
+    /// none or the proxy closed the previous one.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: a flow is stored only after it is open; cancelling while it
+    /// opens drops the half-open flow, and the payload is not sent.
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
+        // A finished reader means the proxy closed the tunnel; open a new one.
+        if self.flows.get(target).is_some_and(|flow| flow.reader_task.is_finished()) {
+            self.flows.remove(target);
+        }
         if !self.flows.contains_key(target) {
             let flow = self.open_flow(target).await?;
             make_room_for_flow(&mut self.flows, Instant::now(), MAX_UDP_FLOWS);

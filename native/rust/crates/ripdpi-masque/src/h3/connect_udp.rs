@@ -48,15 +48,30 @@ pub(crate) async fn attempt_h3_connect_udp(
     let mut datagram_reader = driver.get_datagram_reader();
     let target_label = target.authority();
 
+    // The task ends when the proxy closes the request stream (RFC 9298 3.1:
+    // it does so when the UDP socket is gone), which retires the flow so the
+    // next send opens a new tunnel. Both reads are poll_fn-based, so the select
+    // loses nothing when the other branch wins.
     let reader_task = tokio::spawn(async move {
-        let _stream = stream;
+        let mut stream = stream;
         loop {
-            let datagram = match datagram_reader.read_datagram().await {
-                Ok(datagram) => datagram,
-                Err(error) => {
-                    tracing::debug!(error = %error, target = %target_label, "MASQUE UDP datagram reader closed");
-                    break;
-                }
+            let datagram = tokio::select! {
+                datagram = datagram_reader.read_datagram() => match datagram {
+                    Ok(datagram) => datagram,
+                    Err(error) => {
+                        tracing::debug!(error = %error, target = %target_label, "MASQUE UDP datagram reader closed");
+                        break;
+                    }
+                },
+                data = stream.recv_data() => match data {
+                    // shortcut: capsules on the stream are skipped, DATAGRAM ones included;
+                    // datagrams arrive in QUIC DATAGRAM frames. Parse them if a proxy needs it.
+                    Ok(Some(_capsules)) => continue,
+                    Ok(None) | Err(_) => {
+                        tracing::debug!(target = %target_label, "MASQUE CONNECT-UDP request stream closed by the proxy");
+                        break;
+                    }
+                },
             };
             if datagram.stream_id() != stream_id {
                 continue;

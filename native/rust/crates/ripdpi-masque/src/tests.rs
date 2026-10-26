@@ -1264,6 +1264,78 @@ async fn h3_connect_udp_keeps_request_stream_open_after_the_response() {
     drop(udp);
 }
 
+/// RFC 9298 3.1: the proxy closes the request stream when it closes the UDP
+/// socket (for example after ICMP unreachable). Datagrams sent after that are
+/// dropped, so the client must open a new tunnel instead of reusing the flow.
+#[tokio::test]
+async fn h3_connect_udp_reopens_the_flow_after_the_proxy_closes_the_stream() {
+    let (certificate_der, key_der, certificate_pem) = localhost_certificate();
+    let mut tls = rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("TLS versions")
+        .with_no_client_auth()
+        .with_single_cert(
+            vec![rustls::pki_types::CertificateDer::from(certificate_der)],
+            rustls::pki_types::PrivatePkcs8KeyDer::from(key_der).into(),
+        )
+        .expect("server certificate");
+    tls.alpn_protocols = vec![b"h3".to_vec()];
+    let quic = quinn::crypto::rustls::QuicServerConfig::try_from(tls).expect("QUIC server config");
+    let endpoint = quinn::Endpoint::server(
+        quinn::ServerConfig::with_crypto(Arc::new(quic)),
+        "127.0.0.1:0".parse().expect("server address"),
+    )
+    .expect("server endpoint");
+    let proxy_address = endpoint.local_addr().expect("proxy address");
+    let (closed_tx, closed_rx) = tokio::sync::oneshot::channel();
+    let (done_tx, done_rx) = tokio::sync::oneshot::channel::<()>();
+    let server = tokio::spawn(async move {
+        let mut closed_tx = Some(closed_tx);
+        let mut connections = Vec::new();
+        for _ in 0..2 {
+            let incoming = tokio::time::timeout(std::time::Duration::from_secs(5), endpoint.accept())
+                .await
+                .expect("the client opens a tunnel")
+                .expect("incoming");
+            let connection = incoming.await.expect("QUIC handshake");
+            let mut builder = ::h3::server::builder();
+            builder.enable_extended_connect(true);
+            builder.enable_datagram(true);
+            let mut h3_connection: ::h3::server::Connection<h3_quinn::Connection, Bytes> =
+                builder.build(h3_quinn::Connection::new(connection)).await.expect("H3 server");
+            let resolver = h3_connection.accept().await.expect("accept").expect("request");
+            let (_request, mut stream) = resolver.resolve_request().await.expect("resolve request");
+            let response = http::Response::builder()
+                .status(StatusCode::OK)
+                .header("capsule-protocol", "?1")
+                .body(())
+                .expect("response");
+            stream.send_response(response).await.expect("send response");
+            if let Some(closed_tx) = closed_tx.take() {
+                stream.finish().await.expect("close the tunnel");
+                let _ = closed_tx.send(());
+            }
+            connections.push((h3_connection, stream));
+        }
+        // Keep both tunnels up until the client has its second response.
+        let _ = done_rx.await;
+    });
+
+    let mut config = h3_connect_udp_proxy_config(proxy_address, certificate_pem);
+    config.url = format!("https://localhost:{}/", proxy_address.port());
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+    udp.send_to("127.0.0.1:9", b"open").await.expect("open the first tunnel");
+    closed_rx.await.expect("proxy closed the first tunnel");
+    // Let the reader task see the FIN.
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    udp.send_to("127.0.0.1:9", b"again").await.expect("open the second tunnel");
+    let _ = done_tx.send(());
+
+    server.await.expect("the proxy saw a second CONNECT-UDP request");
+    drop(udp);
+}
+
 fn h3_connect_udp_proxy_config(proxy_address: SocketAddr, certificate_pem: String) -> MasqueConfig {
     MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
