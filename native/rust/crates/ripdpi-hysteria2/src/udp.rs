@@ -160,11 +160,14 @@ pub(crate) struct UdpPacket {
 #[derive(Debug)]
 struct PartialPacket {
     started_at: Instant,
-    address: String,
     fragments: Vec<Option<Vec<u8>>>,
     received: usize,
     buffered_bytes: usize,
 }
+
+/// Session ID, packet ID and the reply's address: peers of one association share
+/// the session ID, and their server-chosen packet IDs can collide.
+type ReassemblyKey = (u32, u16, String);
 
 enum ReassemblyResult {
     Pending,
@@ -177,7 +180,7 @@ enum ReassemblyResult {
 /// NOT cancel-safe: maintains mutable partials map across multiple await points.
 /// Cancellation mid-loop can leave reassembly state partially updated.
 pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
-    let mut partials: HashMap<(u32, u16), PartialPacket> = HashMap::new();
+    let mut partials: HashMap<ReassemblyKey, PartialPacket> = HashMap::new();
     let mut last_cleanup = Instant::now();
 
     loop {
@@ -192,11 +195,7 @@ pub(crate) async fn dispatch_udp_datagrams(client: Arc<ClientInner>) {
         if last_cleanup.elapsed() >= CLEANUP_INTERVAL {
             partials.retain(|_, partial| partial.started_at.elapsed() < REASSEMBLY_TIMEOUT);
             while partials.len() > MAX_REASSEMBLY_SLOTS {
-                if let Some(oldest_key) =
-                    partials.iter().min_by_key(|(_, partial)| partial.started_at).map(|(key, _)| *key)
-                {
-                    partials.remove(&oldest_key);
-                }
+                evict_oldest_partial(&mut partials);
             }
             last_cleanup = Instant::now();
         }
@@ -238,22 +237,26 @@ fn try_deliver(sender: &mpsc::Sender<UdpPacket>, packet: UdpPacket) {
 }
 
 fn reassemble_fragment(
-    partials: &mut HashMap<(u32, u16), PartialPacket>,
-    key: (u32, u16),
+    partials: &mut HashMap<ReassemblyKey, PartialPacket>,
+    (session_id, packet_id): (u32, u16),
     fragment_id: u8,
     fragment_count: u8,
     address: String,
     payload: Vec<u8>,
 ) -> ReassemblyResult {
+    let key = (session_id, packet_id, address);
+    // A fragment count that differs from the stored one belongs to another packet: start again.
+    if partials.get(&key).is_some_and(|partial| partial.fragments.len() != usize::from(fragment_count)) {
+        partials.remove(&key);
+    }
     if !partials.contains_key(&key) {
         while partials.len() >= MAX_REASSEMBLY_SLOTS {
             evict_oldest_partial(partials);
         }
         partials.insert(
-            key,
+            key.clone(),
             PartialPacket {
                 started_at: Instant::now(),
-                address: address.clone(),
                 fragments: vec![None; usize::from(fragment_count)],
                 received: 0,
                 buffered_bytes: 0,
@@ -280,24 +283,24 @@ fn reassemble_fragment(
         partial.fragments[index] = Some(payload);
         partial.received += 1;
         partial.buffered_bytes = buffered_bytes;
-        partial.address = address;
     }
     if partial.received != partial.fragments.len() {
         return ReassemblyResult::Pending;
     }
 
-    let Some(partial) = partials.remove(&key) else {
+    let Some((key, partial)) = partials.remove_entry(&key) else {
         return ReassemblyResult::Rejected;
     };
     let mut assembled = Vec::with_capacity(partial.buffered_bytes);
     for fragment in partial.fragments.iter().flatten() {
         assembled.extend_from_slice(fragment);
     }
-    ReassemblyResult::Complete(UdpPacket { address: partial.address, payload: assembled })
+    ReassemblyResult::Complete(UdpPacket { address: key.2, payload: assembled })
 }
 
-fn evict_oldest_partial(partials: &mut HashMap<(u32, u16), PartialPacket>) {
-    if let Some(oldest_key) = partials.iter().min_by_key(|(_, partial)| partial.started_at).map(|(key, _)| *key) {
+fn evict_oldest_partial(partials: &mut HashMap<ReassemblyKey, PartialPacket>) {
+    if let Some(oldest_key) = partials.iter().min_by_key(|(_, partial)| partial.started_at).map(|(key, _)| key.clone())
+    {
         partials.remove(&oldest_key);
     }
 }
@@ -549,13 +552,12 @@ mod tests {
     #[test]
     fn reassembly_evicts_oldest_packet_at_slot_limit() {
         let mut partials = HashMap::new();
-        let oldest_key = (0, 0);
+        let oldest_key = (0, 0, "example.com:53".to_string());
         for index in 0..MAX_REASSEMBLY_SLOTS {
             partials.insert(
-                (index as u32, 0),
+                (index as u32, 0, "example.com:53".to_string()),
                 PartialPacket {
                     started_at: Instant::now() + Duration::from_millis(index as u64),
-                    address: "example.com:53".to_string(),
                     fragments: vec![Some(vec![1]), None],
                     received: 1,
                     buffered_bytes: 1,
@@ -582,6 +584,64 @@ mod tests {
             reassemble_fragment(&mut partials, key, 1, 2, "example.com:53".to_string(), vec![0; 30_000]),
             ReassemblyResult::Rejected
         ));
-        assert!(!partials.contains_key(&key));
+        assert!(partials.is_empty());
+    }
+
+    fn complete_payload(result: ReassemblyResult) -> (String, Vec<u8>) {
+        match result {
+            ReassemblyResult::Complete(packet) => (packet.address, packet.payload),
+            ReassemblyResult::Pending => panic!("expected a complete packet, got Pending"),
+            ReassemblyResult::Rejected => panic!("expected a complete packet, got Rejected"),
+        }
+    }
+
+    #[test]
+    fn reassembly_keeps_two_peers_with_the_same_packet_id_apart() {
+        let mut partials = HashMap::new();
+        let key = (7, 42);
+        let peer_a = "a.example:3478".to_string();
+        let peer_b = "b.example:3478".to_string();
+
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 0, 2, peer_a.clone(), b"A0".to_vec()),
+            ReassemblyResult::Pending
+        ));
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 0, 2, peer_b.clone(), b"B0".to_vec()),
+            ReassemblyResult::Pending
+        ));
+        assert_eq!(
+            complete_payload(reassemble_fragment(&mut partials, key, 1, 2, peer_a.clone(), b"A1".to_vec())),
+            (peer_a, b"A0A1".to_vec())
+        );
+        assert_eq!(
+            complete_payload(reassemble_fragment(&mut partials, key, 1, 2, peer_b.clone(), b"B1".to_vec())),
+            (peer_b, b"B0B1".to_vec())
+        );
+        assert!(partials.is_empty());
+    }
+
+    #[test]
+    fn reassembly_does_not_mix_fragments_with_a_different_fragment_count() {
+        let mut partials = HashMap::new();
+        let key = (7, 42);
+        let peer = "a.example:3478".to_string();
+
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 0, 2, peer.clone(), b"old0".to_vec()),
+            ReassemblyResult::Pending
+        ));
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 1, 3, peer.clone(), b"new1".to_vec()),
+            ReassemblyResult::Pending
+        ));
+        assert!(matches!(
+            reassemble_fragment(&mut partials, key, 0, 3, peer.clone(), b"new0".to_vec()),
+            ReassemblyResult::Pending
+        ));
+        assert_eq!(
+            complete_payload(reassemble_fragment(&mut partials, key, 2, 3, peer.clone(), b"new2".to_vec())),
+            (peer, b"new0new1new2".to_vec())
+        );
     }
 }
