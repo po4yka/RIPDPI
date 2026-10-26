@@ -90,8 +90,10 @@ keystream (`receive.go:159-245`).
   every platform. The evidence is from an Android arm64 emulator against amneziawg-go
   v3.1.20260828 with the AmneziaVPN 5.x profile (S1-S4 = 12, header protection, content padding,
   random trailers), see `openspec/changes/awg3-native-engine/verification.md` and
-  `core/data/src/test/resources/contract/amneziawg-arm64-version-floor.json`. No physical arm64
-  device has revalidated amneziawg-go#110.
+  [the preserved emulator observation](../../core/data/src/test/resources/awg-arm64-emulator-observation.json).
+  The shared `contract/amneziawg-arm64-version-floor.json` deployment policy
+  still requires physical Android arm64 revalidation before lifting its guard.
+  No physical arm64 device has revalidated amneziawg-go#110.
 - boringtun owns the Noise timers. RIPDPI applies `RekeyAfterTime` after each data send
   (earlier than the fixed 120 s only), at most once in 5 s (`rekeyMinTimeout`). It applies the
   `PersistentKeepalive` range with its own timer, which each authenticated packet resets. `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, and `MaxHandshakeAttempts` are

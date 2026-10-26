@@ -60,10 +60,21 @@ class RipdpiBundleContractTest {
     }
 
     @Test
-    fun `arm64 S3-S4 policy lifts the guard only on recorded emulator evidence`() {
-        assertEquals(false, awgArm64Floor["guard_required"]!!.jsonPrimitive.content.toBoolean())
+    fun `arm64 S3-S4 contract retains the guard until physical revalidation`() {
+        assertEquals(true, awgArm64Floor["guard_required"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(awgArm64Floor["candidate_safe_floor"] is JsonNull)
-        val verified = awgArm64Floor["verified_safe_floor"]!!.jsonObject
+        assertTrue(awgArm64Floor["verified_safe_floor"] is JsonNull)
+        assertEquals(
+            "v0.2.18",
+            awgArm64Floor["ripdpi_reference"]!!
+                .jsonObject["upstream_semantics_version"]!!
+                .jsonPrimitive.content,
+        )
+    }
+
+    @Test
+    fun `recorded arm64 emulator observations remain distinct from the shared floor`() {
+        val verified = json.parseToJsonElement(resource("/awg-arm64-emulator-observation.json")).jsonObject
         val results = verified["results"]!!.jsonObject
         assertEquals("android_arm64_emulator", verified["evidence_kind"]!!.jsonPrimitive.content)
         assertEquals("android-arm64-emulator", verified["platform"]!!.jsonPrimitive.content)
@@ -71,12 +82,6 @@ class RipdpiBundleContractTest {
         assertEquals("48/48", results["amneziavpn_5x_sessions"]!!.jsonPrimitive.content)
         assertEquals("48/48", results["s3_s4_zero_control_sessions"]!!.jsonPrimitive.content)
         assertEquals(0, results["lost_udp_datagrams"]!!.jsonPrimitive.int)
-        assertEquals(
-            "v0.2.18",
-            awgArm64Floor["ripdpi_reference"]!!
-                .jsonObject["upstream_semantics_version"]!!
-                .jsonPrimitive.content,
-        )
     }
 
     // -------------------------------------------------------------------------
