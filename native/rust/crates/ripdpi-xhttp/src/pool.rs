@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 
 use hyper::client::conn::http2;
-use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore};
 use tokio::task::JoinHandle;
 
 use crate::client::XhttpClientInner;
@@ -32,12 +32,15 @@ pub(crate) struct PoolState {
 
 struct CreationSlot {
     creating_connections: Arc<AtomicUsize>,
+    /// Wakes queued opens: a released slot either published a connection or
+    /// freed capacity for a new one.
+    pool_changed: Arc<Notify>,
 }
 
 impl CreationSlot {
-    fn reserve(creating_connections: Arc<AtomicUsize>) -> Self {
+    fn reserve(creating_connections: Arc<AtomicUsize>, pool_changed: Arc<Notify>) -> Self {
         creating_connections.fetch_add(1, Ordering::AcqRel);
-        Self { creating_connections }
+        Self { creating_connections, pool_changed }
     }
 }
 
@@ -45,6 +48,7 @@ impl Drop for CreationSlot {
     fn drop(&mut self) {
         let previous = self.creating_connections.fetch_sub(1, Ordering::AcqRel);
         debug_assert!(previous > 0, "xHTTP creation slot released without a matching reservation");
+        self.pool_changed.notify_waiters();
     }
 }
 
@@ -90,6 +94,12 @@ pub(crate) async fn acquire_connection(
     inner: &XhttpClientInner,
 ) -> io::Result<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
     loop {
+        // Registered before any pool check, so a slot released after the
+        // checks below still wakes this open instead of being missed.
+        let pool_changed = inner.pool_changed.notified();
+        tokio::pin!(pool_changed);
+        pool_changed.as_mut().enable();
+
         if let Some((connection, permit)) = try_acquire_existing(inner).await {
             return Ok((connection, permit));
         }
@@ -98,7 +108,7 @@ pub(crate) async fn acquire_connection(
             let mut state = inner.state.lock().await;
             state.connections.retain(|connection| !connection.is_closed());
             if state.connections.len() + inner.creating_connections.load(Ordering::Acquire) < inner.max_connections {
-                Some(CreationSlot::reserve(inner.creating_connections.clone()))
+                Some(CreationSlot::reserve(inner.creating_connections.clone(), inner.pool_changed.clone()))
             } else {
                 None
             }
@@ -136,7 +146,11 @@ pub(crate) async fn acquire_connection(
                 .map(|connection| (connection.clone(), connection.permits.clone()))
         };
         let Some((connection, permits)) = waiter else {
-            tokio::task::yield_now().await;
+            // Only an in-flight creation can change the pool from here; with
+            // none left, the next pass prunes closed carriers and creates one.
+            if inner.creating_connections.load(Ordering::Acquire) > 0 {
+                pool_changed.await;
+            }
             continue;
         };
         let permit =
@@ -185,7 +199,7 @@ mod tests {
 
         let task_connections = creating_connections.clone();
         let task = tokio::spawn(async move {
-            let _slot = CreationSlot::reserve(task_connections);
+            let _slot = CreationSlot::reserve(task_connections, Arc::new(Notify::new()));
             std::future::pending::<()>().await;
         });
         while creating_connections.load(Ordering::Acquire) == 0 {
@@ -281,6 +295,59 @@ mod tests {
         first.await.expect("first request task").expect("first response");
         second.await.expect("second request task").expect("second response");
         assert_eq!(second_arrival.expect("second request must not wait for first response headers"), Some(1));
+    }
+
+    /// A queued open must park while the only creation slot runs a stalled
+    /// handshake. With a paused clock the runtime only advances time when
+    /// every task is parked, so a spinning waiter would never time out.
+    #[test]
+    fn queued_open_parks_while_the_only_creation_slot_is_busy() {
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .start_paused(true)
+                .build()
+                .expect("test runtime");
+            runtime.block_on(async {
+                // Accepts TCP and never answers, so the TLS handshake stalls.
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind silent server");
+                let port = listener.local_addr().expect("silent server address").port();
+                let _server = tokio::spawn(async move {
+                    let _held = listener.accept().await;
+                    std::future::pending::<()>().await;
+                });
+                let mut config = crate::config::XhttpTlsConfig::from_strings(
+                    "127.0.0.1",
+                    i32::from(port),
+                    "example.com",
+                    "550e8400-e29b-41d4-a716-446655440000",
+                    "/xhttp",
+                    "",
+                    "chrome_stable",
+                )
+                .expect("xHTTP TLS config");
+                config.xmux.max_connections = 1;
+                let client = crate::client::XhttpClient::new_tls(config);
+                let creator = tokio::spawn({
+                    let client = client.clone();
+                    async move { super::acquire_connection(&client.inner).await.map(|_| ()) }
+                });
+                while client.inner.creating_connections.load(Ordering::Acquire) == 0 {
+                    tokio::task::yield_now().await;
+                }
+
+                let queued =
+                    tokio::time::timeout(Duration::from_secs(5), super::acquire_connection(&client.inner)).await;
+
+                assert!(queued.is_err(), "the queued open must still wait for the stalled creator");
+                creator.abort();
+            });
+            let _ = done_tx.send(());
+        });
+        done_rx
+            .recv_timeout(Duration::from_secs(20))
+            .expect("a queued xHTTP open spun on the runtime instead of parking");
     }
 
     fn empty_request() -> Request<XhttpBody> {
