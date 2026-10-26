@@ -295,13 +295,21 @@ class RipDpiVpnService :
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 entryMutex.withLock {
-                    profileMutationCoordinator.recover()
-                    if (!pauseController.handleShellStart(
-                            pauseHost,
-                            intent,
-                        )
-                    ) {
-                        runtimeCommands.dispatchAfterRecovery(intent, startId)
+                    try {
+                        profileMutationCoordinator.recover()
+                        if (!pauseController.handleShellStart(
+                                pauseHost,
+                                intent,
+                            )
+                        ) {
+                            runtimeCommands.dispatchAfterRecovery(intent, startId)
+                        }
+                    } finally {
+                        // The shell completes a start generation it received; every earlier exit must
+                        // complete it here, or the pending start blocks DoQ saves for the process lifetime.
+                        if (!runtimeCommands.consumeShellStartHandoff()) {
+                            intent.vpnStartGeneration()?.let(serviceIntentArbiter::completeVpnStart)
+                        }
                     }
                 }
             }.onFailure { failure ->
@@ -538,6 +546,11 @@ class RipDpiVpnService :
                 }
             }
 
+        // Guarded by entryMutex: set when an intent reaches the shell delegate, which then owns it.
+        private var shellStartHandedOff = false
+
+        fun consumeShellStartHandoff(): Boolean = shellStartHandedOff.also { shellStartHandedOff = false }
+
         suspend fun dispatchAfterRecovery(
             intent: Intent?,
             startId: Int,
@@ -642,17 +655,18 @@ class RipDpiVpnService :
                 sessionStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
             }
             val transportFailoverCommand = intent.decodeTransportFailoverCommand()
-            return shellDelegate.onStartCommand(
-                action = intent?.action,
-                startId = startId,
-                transportFailoverRequestId = transportFailoverCommand.requestId,
-                transportFailoverTarget = transportFailoverCommand.target,
-                explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
-                durableReference = intent.durableAuthorityReference(),
-                activation = intent.capturedRuntimeActivation(pauseAuthority, Mode.VPN),
-                stopSnapshot = intent.capturedRuntimeStop(),
-                vpnStartGeneration = intent.vpnStartGeneration(),
-            )
+            return shellDelegate
+                .onStartCommand(
+                    action = intent?.action,
+                    startId = startId,
+                    transportFailoverRequestId = transportFailoverCommand.requestId,
+                    transportFailoverTarget = transportFailoverCommand.target,
+                    explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
+                    durableReference = intent.durableAuthorityReference(),
+                    activation = intent.capturedRuntimeActivation(pauseAuthority, Mode.VPN),
+                    stopSnapshot = intent.capturedRuntimeStop(),
+                    vpnStartGeneration = intent.vpnStartGeneration(),
+                ).also { shellStartHandedOff = true }
         }
 
         fun applyDhtMitigation(

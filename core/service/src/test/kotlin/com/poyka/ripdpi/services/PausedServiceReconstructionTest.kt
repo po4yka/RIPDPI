@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.Manifest
 import android.app.Service
+import android.content.Intent
 import com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PausePhase
@@ -11,6 +12,7 @@ import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.testPauseAuthority
 import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
@@ -19,6 +21,7 @@ import dagger.hilt.internal.GeneratedComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -109,6 +112,44 @@ class PausedServiceReconstructionTest {
             awaitTrackedDestruction(service)
             service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             assertEquals(0, fixture.constructions.get())
+        }
+
+    @Test
+    fun `vpn start dropped before the shell still completes its start generation`() =
+        runBlocking {
+            val fixture = Fixture(Mode.VPN)
+            val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
+            val service = lifecycle.get()
+            initializeVpn(service, fixture)
+            lifecycle.create()
+            try {
+                fixture.arbiter.dispatchVpnStart {
+                    ServiceStartResult.Accepted(fixture.authority.reserveStart(Mode.VPN))
+                }
+                assertNull("the accepted start blocks a DoQ save", fixture.arbiter.tryReserveDoqSave { true })
+                // No current durable reference: a newer command superseded this start before it ran.
+                val supersededStart =
+                    Intent(RuntimeEnvironment.getApplication(), RipDpiVpnService::class.java)
+                        .setAction(startAction)
+                        .putExtra(vpnStartGenerationExtra, fixture.arbiter.captureVpnStartGeneration())
+
+                service.onStartCommand(supersededStart, 0, 1)
+
+                withTimeout(5_000) {
+                    while (true) {
+                        val lease = fixture.arbiter.tryReserveDoqSave { true }
+                        if (lease != null) {
+                            lease.close()
+                            break
+                        }
+                        delay(10)
+                    }
+                }
+            } finally {
+                lifecycle.destroy()
+                awaitTrackedDestruction(service)
+                service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+            }
         }
 
     @Test
