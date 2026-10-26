@@ -65,14 +65,14 @@ fn accept_ready_clients(
     shutdown: &RuntimeShutdown,
 ) -> io::Result<AcceptBatch> {
     accept_ready_clients_with(
-        listener,
+        || listener.accept().map(|(stream, _addr)| stream),
         || shutdown.requested(),
         |stream| accept_client(stream, state, worker_pool, client_capacity),
     )
 }
 
 fn accept_ready_clients_with(
-    listener: &TcpListener,
+    mut accept: impl FnMut() -> io::Result<TcpStream>,
     mut shutdown_requested: impl FnMut() -> bool,
     mut on_accept: impl FnMut(TcpStream) -> io::Result<()>,
 ) -> io::Result<AcceptBatch> {
@@ -81,8 +81,8 @@ fn accept_ready_clients_with(
         if shutdown_requested() {
             return Ok(AcceptBatch::Shutdown);
         }
-        match listener.accept() {
-            Ok((stream, _addr)) => {
+        match accept() {
+            Ok(stream) => {
                 accepted += 1;
                 on_accept(stream)?;
             }
@@ -90,10 +90,20 @@ fn accept_ready_clients_with(
                 return Ok(if accepted == 0 { AcceptBatch::Idle } else { AcceptBatch::Busy });
             }
             Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
-            Err(err) => return Err(err),
+            Err(err) if listener_unusable(&err) => return Err(err),
+            Err(err) => {
+                // fd exhaustion, memory pressure and pending network errors clear on their own;
+                // back off for one idle sleep instead of stopping the listener for every client.
+                tracing::warn!("transient accept failure; retrying: {err}");
+                return Ok(AcceptBatch::Idle);
+            }
         }
     }
     Ok(AcceptBatch::Busy)
+}
+
+fn listener_unusable(err: &io::Error) -> bool {
+    matches!(err.raw_os_error(), Some(libc::EBADF | libc::EINVAL | libc::ENOTSOCK | libc::EOPNOTSUPP | libc::EFAULT))
 }
 
 fn accept_client(
@@ -103,7 +113,12 @@ fn accept_client(
     client_capacity: usize,
 ) -> io::Result<()> {
     let state = state.clone();
-    client.set_nonblocking(false)?;
+    if let Err(err) = client.set_nonblocking(false) {
+        // A per-client setup failure rejects that client only, never the listener.
+        state.note_client_error(&err);
+        close_rejected_client(&client);
+        return Ok(());
+    }
     if let Err(err) = client.set_nodelay(true) {
         tracing::debug!("set_nodelay on client socket failed (non-fatal): {err}");
     }
@@ -155,7 +170,7 @@ mod tests {
         let accepted = Cell::new(0usize);
 
         let batch = accept_ready_clients_with(
-            &listener,
+            || listener.accept().map(|(stream, _addr)| stream),
             || false,
             |stream| {
                 accepted.set(accepted.get() + 1);
@@ -176,7 +191,7 @@ mod tests {
         let accepted = Cell::new(0usize);
 
         let batch = accept_ready_clients_with(
-            &listener,
+            || listener.accept().map(|(stream, _addr)| stream),
             || {
                 let checks = shutdown_checks.get();
                 shutdown_checks.set(checks + 1);
@@ -192,5 +207,22 @@ mod tests {
 
         assert_eq!(batch, AcceptBatch::Shutdown);
         assert_eq!(accepted.get(), 2, "shutdown must be observed before draining the remaining backlog");
+    }
+
+    #[test]
+    fn transient_accept_error_backs_off_instead_of_stopping_listener() {
+        for errno in [libc::EMFILE, libc::ENFILE, libc::ENOBUFS, libc::ENOMEM, libc::ECONNABORTED, libc::EPROTO] {
+            let batch = accept_ready_clients_with(|| Err(io::Error::from_raw_os_error(errno)), || false, |_| Ok(()))
+                .unwrap_or_else(|err| panic!("errno {errno} must not end the accept loop: {err}"));
+            assert_eq!(batch, AcceptBatch::Idle, "errno {errno} must back off for one idle sleep");
+        }
+    }
+
+    #[test]
+    fn listener_fd_errors_still_stop_the_accept_loop() {
+        for errno in [libc::EBADF, libc::EINVAL, libc::ENOTSOCK] {
+            let result = accept_ready_clients_with(|| Err(io::Error::from_raw_os_error(errno)), || false, |_| Ok(()));
+            assert!(result.is_err(), "errno {errno} means the listener is unusable");
+        }
     }
 }
