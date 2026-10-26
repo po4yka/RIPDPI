@@ -49,7 +49,10 @@ pub(super) fn note_udp_first_response_success(
 }
 
 pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
-    if let Some(failure) = RuntimeState::udp_flow_timeout_failure() {
+    // Silence alone cannot tell a block from loss or a one-way protocol: only an unanswered
+    // QUIC handshake packet is evidence of QUIC breakage for the host.
+    let quic_handshake = is_quic_long_header(&entry.payload);
+    if quic_handshake && let Some(failure) = RuntimeState::udp_flow_timeout_failure() {
         note_block_signal_for_failure(state, entry.host.as_deref(), &failure, None);
     }
     let failed_target = entry.current_target;
@@ -61,7 +64,9 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         Some(entry.payload.as_slice()),
         RuntimeTransportProtocol::Udp,
     )?;
-    note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates)?;
+    if quic_handshake {
+        note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates)?;
+    }
     note_adaptive_udp_failure(state, failed_target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
     state.note_evolver_failure(RuntimeState::silent_drop_failure_class());
     let retry_penalties = build_retry_selection_penalties(
@@ -99,6 +104,12 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         note_direct_path_all_ips_failed(state, entry.host.as_deref(), &entry.target_candidates)?;
     }
     Ok(())
+}
+
+/// RFC 9000 section 17.2: header form and fixed bits set, and a non-zero version
+/// (version 0 is version negotiation, which a client never sends).
+fn is_quic_long_header(payload: &[u8]) -> bool {
+    payload.len() >= 5 && payload[0] & 0xc0 == 0xc0 && payload[1..5] != [0; 4]
 }
 
 #[cfg(test)]
@@ -166,6 +177,7 @@ mod tests {
     #[derive(Default)]
     struct RecordingLearnerSink {
         signals: std::sync::Mutex<Vec<&'static str>>,
+        blocked_host_count: std::sync::Mutex<Option<usize>>,
     }
 
     impl RecordingLearnerSink {
@@ -209,10 +221,11 @@ mod tests {
             _enabled: bool,
             _learned_host_count: usize,
             _penalized_host_count: usize,
-            _blocked_host_count: usize,
+            blocked_host_count: usize,
             _last_block_signal: Option<&str>,
             _last_block_provider: Option<&str>,
         ) {
+            *self.blocked_host_count.lock().expect("blocked count lock") = Some(blocked_host_count);
         }
         fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
         fn on_direct_path_learning_signal(
@@ -277,5 +290,46 @@ mod tests {
             "route exhaustion must drive the learner's ALL_IPS_FAILED transition; got {:?}",
             sink.events()
         );
+    }
+
+    fn autolearn_state(sink: std::sync::Arc<RecordingLearnerSink>) -> RuntimeState {
+        let mut config = RuntimeConfig::default();
+        config.host_autolearn.enabled = true;
+        config.host_autolearn.max_hosts = 8;
+        RuntimeState::test_with_telemetry(config, Some(sink))
+    }
+
+    #[test]
+    fn unanswered_non_quic_flows_are_not_quic_breakage_for_their_host() {
+        use crate::runtime::adaptive::note_direct_path_tcp_success;
+
+        let sink = std::sync::Arc::new(RecordingLearnerSink::default());
+        let state = autolearn_state(sink.clone());
+        let mut entry = flow_entry(true);
+        entry.payload = b"\x00\x01stun-or-game-datagram".to_vec();
+
+        note_udp_flow_timeout_failure(&state, &entry).expect("first silent flow");
+        note_udp_flow_timeout_failure(&state, &entry).expect("second silent flow");
+        note_direct_path_tcp_success(&state, entry.host.as_deref(), &entry.target_candidates, Some("tlsrec_split"))
+            .expect("record tcp success");
+        state.flush_autolearn_telemetry();
+
+        assert_eq!(*sink.blocked_host_count.lock().expect("blocked count lock"), Some(0));
+        assert!(!sink.events().contains(&"QUIC_BLOCKED_TCP_OK"), "silence on non-QUIC UDP is not a QUIC verdict");
+    }
+
+    #[test]
+    fn unanswered_quic_handshakes_still_signal_quic_breakage() {
+        let sink = std::sync::Arc::new(RecordingLearnerSink::default());
+        let state = autolearn_state(sink.clone());
+        let mut entry = flow_entry(true);
+        // QUIC v1 long-header Initial: header form, fixed bit, type 0, version 1.
+        entry.payload = [&[0xc3, 0x00, 0x00, 0x00, 0x01][..], &[0u8; 32]].concat();
+
+        note_udp_flow_timeout_failure(&state, &entry).expect("first unanswered handshake");
+        note_udp_flow_timeout_failure(&state, &entry).expect("second unanswered handshake");
+        state.flush_autolearn_telemetry();
+
+        assert_eq!(*sink.blocked_host_count.lock().expect("blocked count lock"), Some(1));
     }
 }
