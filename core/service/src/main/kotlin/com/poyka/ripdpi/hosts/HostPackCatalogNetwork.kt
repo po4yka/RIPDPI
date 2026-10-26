@@ -12,6 +12,7 @@ import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Streaming
 import retrofit2.http.Url
+import java.io.File
 import java.io.IOException
 import java.net.URI
 import java.util.concurrent.TimeUnit
@@ -40,10 +41,14 @@ class DefaultHostPackCatalogDownloadService
                 .downloadManifest()
                 .requireBodyText()
 
-        override suspend fun downloadCatalog(url: String): ByteArray =
+        override suspend fun downloadCatalog(
+            url: String,
+            target: File,
+        ): String =
             api(authority = url.authorityFromUrl())
                 .downloadCatalog(url)
-                .requireBodyBytes()
+                .requireSuccessfulBody()
+                .writeBoundedHostPackBody(target, HostPackCatalogMaxBytes)
 
         private fun api(authority: String?): HostPackCatalogDownloadApi =
             Retrofit
@@ -87,21 +92,28 @@ const val hostPackCatalogUserAgent = "RIPDPI host-pack catalog"
 
 private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.getOrNull()
 
-// The upstream geosite.dat is about 74 MB; the cap keeps headroom but stops a runaway body
-// from exhausting the process heap.
+// The upstream geosite.dat is about 74 MB. It streams to a cache file; the cap keeps headroom but
+// stops a runaway body from filling the disk.
 private const val HostPackCatalogMaxBytes = 128L * 1024L * 1024L
 private const val HostPackManifestMaxBytes = 1024L * 1024L
 
 private fun Response<ResponseBody>.requireBodyText(): String =
     String(requireSuccessfulBody().readBoundedHostPackBody(HostPackManifestMaxBytes), Charsets.UTF_8)
 
-private fun Response<ResponseBody>.requireBodyBytes(): ByteArray =
-    requireSuccessfulBody().readBoundedHostPackBody(HostPackCatalogMaxBytes)
-
 internal fun ResponseBody.readBoundedHostPackBody(maxBytes: Long): ByteArray =
     use { body ->
         if (body.contentLength() > maxBytes) throw IOException("Host pack download exceeds the size limit")
         readBoundedBytes(body.byteStream(), maxBytes)
+    }
+
+/** Streams the body into [target] under [maxBytes] and returns its SHA-256; the body never sits in memory. */
+internal fun ResponseBody.writeBoundedHostPackBody(
+    target: File,
+    maxBytes: Long,
+): String =
+    use { body ->
+        if (body.contentLength() > maxBytes) throw IOException("Host pack download exceeds the size limit")
+        target.outputStream().use { output -> body.byteStream().copyToAndDigest(output, maxBytes) }
     }
 
 private fun Response<ResponseBody>.requireSuccessfulBody(): ResponseBody {

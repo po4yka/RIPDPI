@@ -487,9 +487,12 @@ class AssetHostPackCatalogRepositoryTest {
 
         override suspend fun downloadManifest(): String = manifestError?.let { throw it } ?: manifestPayload
 
-        override suspend fun downloadCatalog(url: String): ByteArray {
+        override suspend fun downloadCatalog(
+            url: String,
+            target: java.io.File,
+        ): String {
             requestedCatalogUrl = url
-            return geositePayload
+            return geositePayload.inputStream().use { input -> target.outputStream().use { input.copyToAndDigest(it) } }
         }
     }
 

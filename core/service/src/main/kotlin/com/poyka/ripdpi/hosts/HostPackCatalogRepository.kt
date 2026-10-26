@@ -47,7 +47,11 @@ interface HostPackCatalogRepository {
 interface HostPackCatalogDownloadService {
     suspend fun downloadManifest(): String
 
-    suspend fun downloadCatalog(url: String): ByteArray
+    /** Streams the catalog into [target] and returns the SHA-256 of the written bytes. */
+    suspend fun downloadCatalog(
+        url: String,
+        target: File,
+    ): String
 }
 
 data class HostPackCatalogLoadResult(
@@ -146,16 +150,15 @@ class DefaultHostPackCatalogRepository
                 val tempFile = tempFileFactory.create(context.cacheDir)
 
                 try {
-                    val payload = service.downloadCatalog(manifest.catalogUrl)
-                    val actualChecksum = payload.writeToFileAndDigest(tempFile)
+                    val actualChecksum = service.downloadCatalog(manifest.catalogUrl, tempFile)
                     verifier.verify(
                         manifest = manifest,
-                        payload = payload,
+                        payload = tempFile,
                         actualChecksumSha256 = actualChecksum,
                     )
                     val catalog =
                         parseCuratedCatalog(
-                            inputStream = payload.inputStream(),
+                            inputStream = tempFile.inputStream(),
                             downloadedAtEpochMillis = downloadedAtEpochMillis,
                             sourceUrl = manifest.catalogUrl,
                         )
@@ -260,21 +263,21 @@ private fun Throwable.isMissingRemoteManifest(): Boolean =
         message?.contains("HTTP 404") == true &&
         message?.contains("/manifest.json") == true
 
-internal fun ByteArray.writeToFileAndDigest(target: File): String =
-    inputStream().use { input ->
-        target.outputStream().use { output ->
-            input.copyToAndDigest(output)
-        }
-    }
-
-internal fun InputStream.copyToAndDigest(output: java.io.OutputStream): String {
+/** Copies this stream to [output] and returns its SHA-256; fails once more than [maxBytes] arrive. */
+internal fun InputStream.copyToAndDigest(
+    output: java.io.OutputStream,
+    maxBytes: Long = Long.MAX_VALUE,
+): String {
     val digest = MessageDigest.getInstance("SHA-256")
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var total = 0L
     while (true) {
         val readCount = read(buffer)
         if (readCount <= 0) {
             break
         }
+        total += readCount
+        if (total > maxBytes) throw IOException("Host pack download exceeds the size limit")
         digest.update(buffer, 0, readCount)
         output.write(buffer, 0, readCount)
     }

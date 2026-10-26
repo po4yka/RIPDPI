@@ -7,6 +7,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import java.security.Signature
 import java.util.Base64
 import javax.inject.Inject
@@ -31,7 +32,7 @@ interface HostPackVerifier {
     @Throws(HostPackRefreshException::class)
     fun verify(
         manifest: HostPackManifest,
-        payload: ByteArray,
+        payload: File,
         actualChecksumSha256: String,
     )
 }
@@ -44,7 +45,7 @@ class DefaultHostPackVerifier
     ) : HostPackVerifier {
         override fun verify(
             manifest: HostPackManifest,
-            payload: ByteArray,
+            payload: File,
             actualChecksumSha256: String,
         ) {
             val expectedChecksum = manifest.catalogChecksumSha256.trim().lowercase()
@@ -80,7 +81,14 @@ class DefaultHostPackVerifier
                 keyResolver.resolveOrNull(manifest.keyId)
                     ?: throw HostPackUnknownSigningKeyException(manifest.keyId)
             signature.initVerify(publicKey)
-            signature.update(payload)
+            payload.inputStream().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val readCount = input.read(buffer)
+                    if (readCount < 0) break
+                    signature.update(buffer, 0, readCount)
+                }
+            }
             val valid =
                 runCatching { signature.verify(signatureBytes) }.getOrElse {
                     throw HostPackSignatureMismatchException()
