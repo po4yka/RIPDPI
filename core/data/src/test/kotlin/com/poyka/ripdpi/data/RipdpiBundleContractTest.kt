@@ -60,10 +60,14 @@ class RipdpiBundleContractTest {
     }
 
     @Test
-    fun `arm64 S3-S4 policy remains fail closed without a verified floor`() {
-        assertEquals(true, awgArm64Floor["guard_required"]!!.jsonPrimitive.content.toBoolean())
+    fun `arm64 S3-S4 policy lifts the guard only on recorded emulator evidence`() {
+        assertEquals(false, awgArm64Floor["guard_required"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(awgArm64Floor["candidate_safe_floor"] is JsonNull)
-        assertTrue(awgArm64Floor["verified_safe_floor"] is JsonNull)
+        val verified = awgArm64Floor["verified_safe_floor"]!!.jsonObject
+        assertEquals("android-arm64-emulator", verified["platform"]!!.jsonPrimitive.content)
+        assertEquals(false, verified["physical_device_revalidated"]!!.jsonPrimitive.content.toBoolean())
+        assertEquals("80/80", verified["results"]!!.jsonObject["amneziavpn_5x_sessions"]!!.jsonPrimitive.content)
+        assertEquals(0, verified["results"]!!.jsonObject["lost_udp_datagrams"]!!.jsonPrimitive.int)
         assertEquals(
             "v0.2.18",
             awgArm64Floor["ripdpi_reference"]!!

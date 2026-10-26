@@ -16,10 +16,10 @@ updated: 2026-10-25
 
 ## Goal
 
-Configs from current AmneziaVPN (AWG 3.1) servers import into RIPDPI, and the native engine runs their header protection, padding, trailers and timer ranges, while the arm64 S3/S4 floor stays in force.
+Configs from current AmneziaVPN (AWG 3.1) servers import into RIPDPI, and the native engine runs their header protection, padding, trailers, timer ranges and non-zero S3/S4.
 
 ## Acceptance criteria
 
 - The requirements in `openspec/changes/awg3-native-engine/specs/awg3-native-engine/spec.md` have passing local evidence.
 - Locked `ripdpi-warp-core` tests and Clippy, the core JVM suites, the app gate and architecture health pass on the integrated commit.
-- The S3/S4 floor changes only after a physical device revalidation.
+- The S3/S4 floor changes only after Android arm64 interop evidence. The arm64 emulator matrix in `verification.md` lifted it; a physical device run is still open.
