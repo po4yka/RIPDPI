@@ -518,3 +518,69 @@ async fn shutdown_waits_for_factory_and_evicts_only_after_cleanup() {
     closing.await.expect("shutdown worker").expect("shutdown");
     assert_eq!(mux.health().idle_streams, 0, "evict only after cleanup");
 }
+
+/// A healthy shared carrier whose server refuses one destination.
+#[derive(Clone)]
+struct RefusingTargetFactory {
+    creations: Arc<AtomicUsize>,
+}
+
+struct RefusingTargetSession;
+
+impl RelaySession for RefusingTargetSession {
+    type Stream = tokio::io::DuplexStream;
+    type Datagram = usize;
+    type Error = std::io::Error;
+
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        if target == "refused.example:443" {
+            return Err(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "destination refused"));
+        }
+        Ok(duplex(64).0)
+    }
+
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Err(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "UDP refused"))
+    }
+
+    fn is_carrier_failure(&self, error: &Self::Error) -> bool {
+        error.kind() != std::io::ErrorKind::ConnectionRefused
+    }
+}
+
+impl RelaySessionFactory for RefusingTargetFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    type Session = RefusingTargetSession;
+    type Error = std::io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: true }
+    }
+
+    /// # Cancel safety
+    ///
+    /// cancel-safe: no await point.
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+        self.creations.fetch_add(1, Ordering::SeqCst);
+        Ok(Arc::new(RefusingTargetSession))
+    }
+}
+
+#[tokio::test]
+async fn a_refused_destination_keeps_the_cached_carrier() {
+    let creations = Arc::new(AtomicUsize::new(0));
+    let mux = RelayMux::new(RefusingTargetFactory { creations: Arc::clone(&creations) }, RelayPoolConfig::default());
+    drop(mux.open_stream("example.com:443").await.expect("warm the cached carrier"));
+
+    let error = mux.open_stream("refused.example:443").await.err().expect("the destination refusal surfaces");
+    assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+    let error = mux.open_datagram().await.err().expect("the UDP refusal surfaces");
+    assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+    drop(mux.open_stream("example.com:443").await.expect("the carrier still serves other targets"));
+
+    assert_eq!(1, creations.load(Ordering::SeqCst), "a per-destination refusal must not re-dial the carrier");
+    assert_eq!(0, mux.health().evictions);
+}

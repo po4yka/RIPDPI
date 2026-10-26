@@ -23,6 +23,14 @@ pub trait RelaySession: Send + Sync + 'static {
     fn open_stream(&self, target: &str) -> impl Future<Output = Result<Self::Stream, Self::Error>> + Send;
 
     fn open_datagram(&self) -> impl Future<Output = Result<Self::Datagram, Self::Error>> + Send;
+
+    /// Whether `error`, returned by `open_stream` or `open_datagram`, means the
+    /// carrier itself is unusable. Only then does the pool evict this session
+    /// and retry on a fresh carrier; a refusal of one destination keeps the
+    /// shared carrier. The default treats every error as a carrier failure.
+    fn is_carrier_failure(&self, _error: &Self::Error) -> bool {
+        true
+    }
 }
 
 pub trait RelaySessionFactory: Send + Sync + 'static {

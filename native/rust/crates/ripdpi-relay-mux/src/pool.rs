@@ -88,6 +88,10 @@ where
         match session.open_stream(target).await {
             Ok(stream) => Ok(MuxStream::new(stream, guard)),
             Err(error) => {
+                // The carrier refused only this open: keep it cached and do not re-dial.
+                if !session.is_carrier_failure(&error) {
+                    return Err(error);
+                }
                 self.invalidate_failed_open(Some(&session));
                 if !from_cache {
                     return Err(error);
@@ -113,7 +117,9 @@ where
                 match fresh.open_stream(target).await {
                     Ok(stream) => Ok(MuxStream::new(stream, retry_guard)),
                     Err(retry_error) => {
-                        self.invalidate_failed_open(Some(&fresh));
+                        if fresh.is_carrier_failure(&retry_error) {
+                            self.invalidate_failed_open(Some(&fresh));
+                        }
                         Err(retry_error)
                     }
                 }
@@ -133,6 +139,10 @@ where
         match session.open_datagram().await {
             Ok(datagram) => Ok(MuxLease::new(datagram, guard)),
             Err(error) => {
+                // The carrier refused only this open: keep it cached and do not re-dial.
+                if !session.is_carrier_failure(&error) {
+                    return Err(error);
+                }
                 self.invalidate_failed_open(Some(&session));
                 if !from_cache {
                     return Err(error);
@@ -153,7 +163,9 @@ where
                 match fresh.open_datagram().await {
                     Ok(datagram) => Ok(MuxLease::new(datagram, retry_guard)),
                     Err(retry_error) => {
-                        self.invalidate_failed_open(Some(&fresh));
+                        if fresh.is_carrier_failure(&retry_error) {
+                            self.invalidate_failed_open(Some(&fresh));
+                        }
                         Err(retry_error)
                     }
                 }
