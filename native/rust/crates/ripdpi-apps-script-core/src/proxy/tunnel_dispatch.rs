@@ -13,8 +13,8 @@ use crate::mitm::MitmCertManager;
 use crate::proxy::{HANDSHAKE_TIMEOUT, http_relay, mitm_rewrite};
 use crate::telemetry::SharedTelemetryState;
 
-/// Wait for a client's first bytes before the connection is taken for a
-/// server-first protocol (SSH, SMTP) and passed through.
+/// Wait for a client's first bytes before a connection to an IP target is
+/// taken for a server-first protocol (SSH, SMTP) and passed through.
 const FIRST_BYTES_TIMEOUT: Duration = Duration::from_millis(300);
 /// Ports where HTTP or TLS clients speak first. A slow client there must still
 /// reach the relay, so it gets the full handshake deadline.
@@ -40,7 +40,10 @@ pub(crate) async fn dispatch(
         return mitm_rewrite::sni_rewrite_tunnel(stream, host, port, upstream, relay, mitm, telemetry).await;
     }
 
-    let wait = if CLIENT_FIRST_PORTS.contains(&port) { HANDSHAKE_TIMEOUT } else { FIRST_BYTES_TIMEOUT };
+    // A named target is never passed through, so a short wait only refuses a
+    // slow client there; it gets the full handshake deadline on every port.
+    let named_target = host.parse::<IpAddr>().is_err();
+    let wait = if named_target || CLIENT_FIRST_PORTS.contains(&port) { HANDSHAKE_TIMEOUT } else { FIRST_BYTES_TIMEOUT };
     let deadline = Instant::now() + wait;
     let mut peek = [0u8; 8];
     let peeked = loop {
@@ -179,14 +182,15 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn silent_client_to_a_named_host_is_not_resolved_and_dialled_directly() {
         let fixture = Fixture::new("named-passthrough");
         let origin = TcpListener::bind("127.0.0.1:0").await.expect("bind origin");
         let origin_port = origin.local_addr().expect("origin address").port();
 
         let (_client, task) = fixture.dispatch("localhost", origin_port).await;
-        let _ = timeout(Duration::from_secs(5), task).await.expect("dispatch ends");
+        // The paused clock skips the full first-bytes wait of a named target.
+        let _ = timeout(HANDSHAKE_TIMEOUT + Duration::from_secs(5), task).await.expect("dispatch ends");
         assert!(
             timeout(Duration::from_millis(300), origin.accept()).await.is_err(),
             "a SOCKS5 domain target must not be resolved locally and dialled directly"
@@ -210,6 +214,26 @@ mod tests {
             .await
             .expect("handshake ends")
             .expect("a slow TLS client must be answered by the MITM, not sent direct");
+        let _ = tls.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn slow_tls_client_to_a_named_host_on_another_port_still_reaches_the_mitm() {
+        let fixture = Fixture::new("slow-tls-993");
+        let ca = CertificateDer::from_pem_file(fixture.dir.join("relay-ca/ca.crt")).expect("CA certificate");
+        let mut roots = RootCertStore::empty();
+        roots.add(ca).expect("trust relay CA");
+        let connector =
+            TlsConnector::from(Arc::new(ClientConfig::builder().with_root_certificates(roots).with_no_client_auth()));
+
+        let (client, _task) = fixture.dispatch("imap.example", 993).await;
+        // Slower than the 300 ms first-bytes guess for server-first protocols.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let name = ServerName::try_from("imap.example").expect("name");
+        let mut tls = timeout(Duration::from_secs(5), connector.connect(name, client))
+            .await
+            .expect("handshake ends")
+            .expect("a slow TLS client to a named host must be answered by the MITM, not refused");
         let _ = tls.shutdown().await;
     }
 
