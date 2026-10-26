@@ -260,6 +260,8 @@ async fn peer_close_keeps_payload_buffered_behind_a_full_session_queue() {
                 let _ack = outbound(&mut endpoint).await;
             }
             endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, peer_segment(&syn, TcpControl::Fin, seq, 0, &[])));
+            // A peer FIN closes only its direction; the handler's half-close sends ours.
+            session.finish_upload();
             loop {
                 let packet = outbound(&mut endpoint).await;
                 let ip = Ipv4Packet::new_checked(&packet[..]).expect("IPv4 packet");
@@ -477,4 +479,115 @@ async fn acknowledged_upload_beyond_the_session_credit_arrives_in_order() {
     let outcome = tokio::time::timeout(Duration::from_secs(20), async { tokio::join!(peer, upload).0 }).await;
     worker.abort();
     assert!(outcome.expect("upload credit must come back as the peer acknowledges") == expected, "bytes in order");
+}
+
+/// A SOCKS client connected through a real handler to a virtual peer that has
+/// completed the handshake.
+struct SocksSession {
+    client: tokio::net::TcpStream,
+    endpoint: BusEndpoint,
+    syn: Bytes,
+    handler: tokio::task::JoinHandle<std::io::Result<()>>,
+    worker: tokio::task::JoinHandle<anyhow::Result<()>>,
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: a dropped setup leaves its spawned tasks to the test runtime.
+async fn socks_session() -> SocksSession {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let bus = Bus::new();
+    let mut endpoint = bus.new_endpoint();
+    let interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    let worker = tokio::spawn(interface.run());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("listener");
+    let (client, server) =
+        tokio::join!(tokio::net::TcpStream::connect(listener.local_addr().expect("address")), listener.accept());
+    let mut client = client.expect("client");
+    let handler = tokio::spawn(crate::socks::handle_socks_client(
+        server.expect("server").0,
+        bus.clone(),
+        Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool")),
+        Arc::new(crate::ports::UdpAssociationPool::new()),
+    ));
+    let mut reply = [0u8; 10];
+    client.write_all(&[0x05, 0x01, 0x00]).await.expect("greeting");
+    client.read_exact(&mut reply[..2]).await.expect("method");
+    client.write_all(&[0x05, 0x01, 0x00, 0x01, 10, 77, 0, 1, 0xa0, 0x29]).await.expect("connect");
+    let syn = tokio::time::timeout(Duration::from_secs(2), outbound(&mut endpoint)).await.expect("SYN");
+    endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
+    client.read_exact(&mut reply).await.expect("connect reply");
+    assert_eq!(reply[..2], [0x05, 0x00]);
+    SocksSession { client, endpoint, syn, handler, worker }
+}
+
+/// Collect the interface's segment payloads until one carries FIN, or until
+/// `payload` has arrived when `until_fin` is false.
+///
+/// # Cancel safety
+///
+/// cancel-safe: broadcast receives consume complete events.
+async fn outbound_payload(endpoint: &mut BusEndpoint, expected: &[u8], until_fin: bool) -> (Vec<u8>, bool) {
+    let mut payload = Vec::new();
+    loop {
+        let packet = outbound(endpoint).await;
+        let ip = Ipv4Packet::new_checked(&packet[..]).expect("IPv4 packet");
+        let tcp = TcpPacket::new_checked(ip.payload()).expect("TCP packet");
+        payload.extend_from_slice(tcp.payload());
+        if tcp.fin() || (!until_fin && payload == expected) {
+            return (payload, tcp.fin());
+        }
+    }
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its handler and interface tasks before returning.
+#[tokio::test]
+async fn response_after_client_half_close_reaches_the_client() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let mut session = socks_session().await;
+    let outcome = tokio::time::timeout(Duration::from_secs(5), async {
+        session.client.write_all(b"request").await.expect("request");
+        session.client.shutdown().await.expect("client half-close");
+        let (sent, fin) = outbound_payload(&mut session.endpoint, b"request", true).await;
+        assert_eq!((sent.as_slice(), fin), (&b"request"[..], true), "the client's EOF must become a FIN");
+        // The peer ACKs request and FIN, then answers and closes.
+        let segment = peer_segment(&session.syn, TcpControl::Fin, 12346, 8, b"response");
+        session.endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, segment));
+        let mut response = Vec::new();
+        session.client.read_to_end(&mut response).await.expect("response");
+        response
+    })
+    .await;
+    session.handler.abort();
+    session.worker.abort();
+    assert_eq!(outcome.expect("deadline"), b"response", "a half-closed client must still get the reply");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its handler and interface tasks before returning.
+#[tokio::test]
+async fn client_can_still_send_after_the_peer_closes_its_direction() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let mut session = socks_session().await;
+    let outcome = tokio::time::timeout(Duration::from_secs(5), async {
+        let segment = peer_segment(&session.syn, TcpControl::Fin, 12346, 0, b"greeting");
+        session.endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, segment));
+        let mut greeting = Vec::new();
+        session.client.read_to_end(&mut greeting).await.expect("peer data then EOF");
+        session.client.write_all(b"late").await.expect("client write after peer FIN");
+        let (sent, _) = outbound_payload(&mut session.endpoint, b"late", false).await;
+        (greeting, sent)
+    })
+    .await;
+    session.handler.abort();
+    session.worker.abort();
+    let (greeting, sent) = outcome.expect("deadline");
+    assert_eq!(greeting, b"greeting");
+    assert_eq!(sent, b"late", "data the client sends after the peer's FIN must still reach the peer");
 }

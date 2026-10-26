@@ -108,26 +108,36 @@ async fn handle_tcp_connect(
         // this reader instead of growing the interface queue.
         let mut credit = None;
         let mut client_closed = false;
+        // Each direction closes on its own (half-close): the client's EOF becomes our FIN
+        // and the peer's FIN becomes a shutdown of the client's write half.
+        let mut client_finished = false;
+        let mut remote_finished = false;
         loop {
             if let Some(data) = pending_write.take() {
                 client.write_all(&data).await?;
             }
             tokio::select! {
-                granted = session.upload_credit(), if credit.is_none() => match granted {
+                granted = session.upload_credit(), if credit.is_none() && !client_finished => match granted {
                     Some(granted) => credit = Some(granted),
                     None => break,
                 },
-                () = client_read_closed(&client), if credit.is_none() && !client_closed => {
+                () = client_read_closed(&client), if credit.is_none() && !client_closed && !client_finished => {
                     // The client left while the peer is stalled: start the close
                     // deadline so the session cannot outlive it, but keep
                     // uploading what credit still allows.
                     client_closed = true;
                     lease.request_close();
                 }
-                readable_result = client.readable(), if credit.is_some() => {
+                readable_result = client.readable(), if credit.is_some() && !client_finished => {
                     readable_result?;
                     match client.try_read(&mut buffer) {
-                        Ok(0) => break,
+                        Ok(0) => {
+                            client_finished = true;
+                            session.finish_upload();
+                            if remote_finished {
+                                break;
+                            }
+                        }
                         Ok(size) => {
                             let data = Bytes::copy_from_slice(&buffer[..size]);
                             let Some(granted) = credit.take() else { break };
@@ -139,7 +149,14 @@ async fn handle_tcp_connect(
                         Err(error) => return Err(error),
                     }
                 }
-                remote = session.recv_remote() => match remote {
+                remote = session.recv_remote(), if !remote_finished => match remote {
+                    Some(data) if data.is_empty() => {
+                        remote_finished = true;
+                        client.shutdown().await?;
+                        if client_finished {
+                            break;
+                        }
+                    }
                     Some(data) => pending_write = Some(data),
                     // The virtual socket closed, or the interface stopped.
                     None => break,

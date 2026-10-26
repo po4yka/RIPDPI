@@ -68,6 +68,8 @@ impl DynamicTcpInterface {
         let mut graceful_closing = HashSet::new();
         // Sessions whose SOCKS reply waits for the virtual connect to complete.
         let mut pending_connect: HashMap<VirtualPort, oneshot::Sender<()>> = HashMap::new();
+        // Sessions already told that the peer sent FIN.
+        let mut remote_finished = HashSet::new();
 
         loop {
             tokio::select! {
@@ -95,6 +97,7 @@ impl DynamicTcpInterface {
                             send_queue.remove(virtual_port);
                             graceful_closing.remove(virtual_port);
                             pending_connect.remove(virtual_port);
+                            remote_finished.remove(virtual_port);
                             sockets.remove(*client_handle);
                             false
                         } else {
@@ -128,7 +131,9 @@ impl DynamicTcpInterface {
                                             client_socket.abort();
                                         }
                                     }
-                                } _ => if client_socket.state() == tcp::State::CloseWait || graceful_closing.contains(virtual_port) {
+                                // A peer FIN closes only the peer's direction: our FIN waits
+                                // until the client finishes too (RFC 9293 section 3.6).
+                                } _ => if graceful_closing.contains(virtual_port) {
                                     client_socket.close();
                                 }}
                             }
@@ -143,6 +148,17 @@ impl DynamicTcpInterface {
                                     // the TCP window instead of losing bytes smoltcp already ACKed.
                                     permit.send(data);
                                 }
+                        }
+                        // After the peer's FIN and all data before it, tell the handler with an
+                        // empty chunk so it can half-close the client.
+                        if !client_socket.may_recv()
+                            && !client_socket.can_recv()
+                            && !pending_connect.contains_key(virtual_port)
+                            && !remote_finished.contains(virtual_port)
+                            && let Ok(permit) = remote.try_reserve()
+                        {
+                            permit.send(Bytes::new());
+                            remote_finished.insert(*virtual_port);
                         }
                     }
                     next_poll = iface

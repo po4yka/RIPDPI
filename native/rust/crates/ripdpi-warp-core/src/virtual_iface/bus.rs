@@ -142,7 +142,14 @@ impl TcpSession {
         self.commands.send(TcpCommand::Data(self.port, data)).is_ok()
     }
 
-    /// Next chunk from the peer, in order; `None` once the virtual socket is closed.
+    /// The client finished sending (half-close): send FIN once the queued bytes are out,
+    /// and keep delivering the peer's data until it closes too.
+    pub(crate) fn finish_upload(&self) {
+        let _ = self.commands.send(TcpCommand::Close(self.port));
+    }
+
+    /// Next chunk from the peer, in order; an empty chunk once the peer sent FIN and
+    /// every byte before it was delivered; `None` once the virtual socket is closed.
     ///
     /// # Cancel safety
     ///
