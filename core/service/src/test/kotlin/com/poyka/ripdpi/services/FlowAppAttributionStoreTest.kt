@@ -17,6 +17,22 @@ class FlowAppAttributionStoreTest {
         assertEquals(1, store.uidOnlyCalls)
     }
 
+    @Test
+    fun `attribution cache evicts the least recently used destination at capacity`() {
+        val cache = FlowAttributionCache(capacity = 2)
+        val app = FlowAttribution.Attributed("com.example.app", 1L)
+        cache.put("a", app)
+        cache.put("b", app)
+        assertEquals(app, cache.get("a"))
+
+        cache.put("c", app)
+
+        assertEquals(2, cache.size)
+        assertEquals(app, cache.get("a"))
+        assertEquals(null, cache.get("b"))
+        assertEquals(app, cache.get("c"))
+    }
+
     // ── Digest parity ─────────────────────────────────────────────────────────
     // These vectors are the lowercase hex of the first 8 bytes of SHA-256(ipString),
     // identical to the Rust `direct_path_ip_set_digest` for a single destination IP.

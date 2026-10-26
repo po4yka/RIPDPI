@@ -13,7 +13,6 @@ import dagger.hilt.components.SingletonComponent
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.security.MessageDigest
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -132,13 +131,46 @@ interface FlowAppAttributionStore {
     fun clear()
 }
 
+// Matches the native attribution cache bound (ripdpi-flow-app-attribution CACHE_CAPACITY).
+private const val FlowAttributionCacheCapacity = 4096
+
+/** Thread-safe LRU map of destination digest to attribution, bounded to [capacity] entries. */
+internal class FlowAttributionCache(
+    private val capacity: Int,
+) {
+    private val entries =
+        object : LinkedHashMap<String, FlowAttribution>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, FlowAttribution>?): Boolean =
+                size > capacity
+        }
+
+    val size: Int get() = synchronized(entries) { entries.size }
+
+    fun get(digest: String): FlowAttribution? = synchronized(entries) { entries[digest] }
+
+    fun put(
+        digest: String,
+        attribution: FlowAttribution,
+    ) {
+        synchronized(entries) { entries[digest] = attribution }
+    }
+
+    fun removeIf(predicate: (FlowAttribution) -> Boolean) {
+        synchronized(entries) { entries.values.removeIf(predicate) }
+    }
+
+    fun clear() {
+        synchronized(entries) { entries.clear() }
+    }
+}
+
 @Singleton
 class DefaultFlowAppAttributionStore
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
     ) : FlowAppAttributionStore {
-        private val attributions = ConcurrentHashMap<String, FlowAttribution>()
+        private val attributions = FlowAttributionCache(FlowAttributionCacheCapacity)
 
         override fun noteFlow(
             protocol: Int,
@@ -163,7 +195,7 @@ class DefaultFlowAppAttributionStore
             // close), so a fresh call here means the destination was re-seen and
             // must be re-resolved -- e.g. after a different app reuses the IP.
             val (uid, attribution) = resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)
-            attributions[digest] = attribution
+            attributions.put(digest, attribution)
             return uid
         }
 
@@ -176,13 +208,13 @@ class DefaultFlowAppAttributionStore
         ): Int = resolveOwnerUid(protocol, localIp, localPort, remoteIp, remotePort)
 
         override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? =
-            attributions[ipSetDigest] as? FlowAttribution.Attributed
+            attributions.get(ipSetDigest) as? FlowAttribution.Attributed
 
         override fun invalidateOnAppUpdate(
             packageName: String,
             newVersionCode: Long,
         ) {
-            attributions.entries.removeIf { (_, attribution) ->
+            attributions.removeIf { attribution ->
                 attribution is FlowAttribution.Attributed &&
                     attribution.packageName == packageName &&
                     attribution.versionCode != newVersionCode
