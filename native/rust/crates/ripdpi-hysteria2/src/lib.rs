@@ -11,6 +11,8 @@ mod port_hopping;
 pub mod quic_transport;
 mod salamander;
 mod tcp;
+#[cfg(test)]
+mod test_server;
 mod tls_quic;
 mod udp;
 mod varint;

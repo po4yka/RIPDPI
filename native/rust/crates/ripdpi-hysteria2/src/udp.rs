@@ -84,10 +84,21 @@ impl UdpSession {
         }
     }
 
+    /// Ends with `BrokenPipe` once the QUIC connection is gone. The session
+    /// holds its own channel sender, so the channel alone never reports that.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: `mpsc::Receiver::recv` and `Connection::closed` lose no
+    /// packet when dropped.
     pub async fn recv_from(&mut self) -> Result<(String, Vec<u8>)> {
-        self.incoming_rx
-            .recv()
-            .await
+        let packet = tokio::select! {
+            // Deliver packets that arrived before the close first.
+            biased;
+            packet = self.incoming_rx.recv() => packet,
+            _ = self.client.connection.closed() => self.incoming_rx.try_recv().ok(),
+        };
+        packet
             .ok_or_else(|| HysteriaError::Io(io::Error::new(io::ErrorKind::BrokenPipe, "Hysteria UDP session ended")))
             .map(|packet| (packet.address, packet.payload))
     }
@@ -453,6 +464,27 @@ pub(crate) fn allocate_session_id(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_server::{ServerEvent, ServerOptions, TestServer};
+
+    const DEADLINE: Duration = Duration::from_secs(5);
+
+    #[tokio::test]
+    async fn recv_from_reports_session_end_after_the_connection_dies() {
+        let mut server = TestServer::start(ServerOptions::default()).expect("start test server");
+        let client = crate::connect(&server.client_config()).await.expect("connect");
+        let mut session = client.udp_session().await.expect("UDP session");
+        session.send_to("192.0.2.1:53", b"ping").await.expect("send datagram");
+        let (_, echoed) = tokio::time::timeout(DEADLINE, session.recv_from()).await.expect("echo").expect("echo");
+        assert_eq!(echoed, b"ping");
+        assert!(matches!(server.events.try_recv(), Ok(ServerEvent::Datagram { .. })));
+
+        server.close();
+        let ended = tokio::time::timeout(DEADLINE, session.recv_from())
+            .await
+            .expect("recv_from must return once the QUIC connection is gone");
+
+        assert!(ended.is_err(), "a dead connection must end the session, got {ended:?}");
+    }
 
     #[test]
     fn hysteria_udp_datagram_roundtrip() {
