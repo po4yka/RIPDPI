@@ -1,4 +1,5 @@
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 
 use ripdpi_tunnel_config::Config;
@@ -17,7 +18,7 @@ pub(super) fn build_loop_runtime(
     proxy_sockaddr: SocketAddr,
     auth: Auth,
     mapdns_runtime: Option<MapDnsRuntime>,
-    split_dns_policy: Option<SplitDnsPolicy>,
+    split_dns_policy: Option<Arc<SplitDnsPolicy>>,
 ) -> LoopRuntime {
     let mapdns_classify = mapdns_runtime.map(|value| {
         (

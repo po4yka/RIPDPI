@@ -18,7 +18,7 @@ use super::SessionDuplex;
 pub(in crate::io_loop::tcp_accept) fn create_tcp_dns_duplex(
     src: SocketAddr,
     dns_req_tx: Option<Sender<DnsRequest>>,
-    split_dns_policy: Option<SplitDnsPolicy>,
+    split_dns_policy: Option<Arc<SplitDnsPolicy>>,
     parent_cancel: &CancellationToken,
     stats: &Arc<Stats>,
 ) -> SessionDuplex {
@@ -41,7 +41,7 @@ async fn run_tcp_dns_session(
     mut stream: DuplexStream,
     src: SocketAddr,
     dns_req_tx: Option<Sender<DnsRequest>>,
-    split_dns_policy: Option<SplitDnsPolicy>,
+    split_dns_policy: Option<Arc<SplitDnsPolicy>>,
     cancel: CancellationToken,
     stats: Arc<Stats>,
 ) -> io::Result<()> {
@@ -52,7 +52,7 @@ async fn run_tcp_dns_session(
             query = read_dns_frame(&mut stream) => query?,
         };
         let response =
-            resolve_tcp_query(src, query, dns_req_tx.as_ref(), split_dns_policy.as_ref(), &cancel, &stats).await?;
+            resolve_tcp_query(src, query, dns_req_tx.as_ref(), split_dns_policy.as_deref(), &cancel, &stats).await?;
         tokio::select! {
             biased;
             _ = cancel.cancelled() => return Ok(()),

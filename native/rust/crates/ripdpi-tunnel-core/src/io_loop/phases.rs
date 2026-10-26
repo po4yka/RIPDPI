@@ -439,7 +439,7 @@ mod tests {
             let seen_packets = Arc::new(Mutex::new(Vec::new()));
             let mut state = mapdns_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
             state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
-            state.runtime.split_dns_policy = Some(
+            state.runtime.split_dns_policy = Some(Arc::new(
                 crate::split_dns::SplitDnsPolicy::compile(&SplitDnsPolicyConfig {
                     canonical_digest: "a".repeat(64),
                     destination_routing_digest: "b".repeat(64),
@@ -460,7 +460,7 @@ mod tests {
                     coverage_reason: None,
                 })
                 .expect("split DNS policy"),
-            );
+            ));
             let (tx, mut rx) = mpsc::channel(8);
             state.dns_req_tx = Some(tx);
             let packet = mapdns_dns_packet(53_101);

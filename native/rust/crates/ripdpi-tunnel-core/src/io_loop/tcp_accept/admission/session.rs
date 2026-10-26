@@ -36,7 +36,7 @@ pub(super) fn admit_session(
     dns_cache: &mut Option<DnsCache>,
     pending: PendingTcpSession,
     dns_req_tx: Option<tokio::sync::mpsc::Sender<DnsRequest>>,
-    split_dns_policy: Option<SplitDnsPolicy>,
+    split_dns_policy: Option<Arc<SplitDnsPolicy>>,
 ) {
     let Some(mut listener) = remove_pending_listen(pending_listens, pending.handle) else {
         return;

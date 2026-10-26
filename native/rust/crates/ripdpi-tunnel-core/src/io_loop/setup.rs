@@ -50,6 +50,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         .as_ref()
         .map(SplitDnsPolicy::compile)
         .transpose()
+        .map(|policy| policy.map(std::sync::Arc::new))
         .map_err(|error| io::Error::other(format!("compile split DNS policy: {error}")))?;
 
     let max_sessions = config.misc.max_session_count as usize;

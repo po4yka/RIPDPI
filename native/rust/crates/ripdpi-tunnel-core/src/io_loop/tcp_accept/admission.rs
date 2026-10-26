@@ -43,7 +43,7 @@ pub(crate) fn spawn_new_tcp_sessions(
     uid_policy: &UidFlowPolicy,
     mapdns_runtime: Option<MapDnsRuntime>,
     dns_req_tx: Option<tokio::sync::mpsc::Sender<DnsRequest>>,
-    split_dns_policy: Option<SplitDnsPolicy>,
+    split_dns_policy: Option<Arc<SplitDnsPolicy>>,
 ) -> Vec<smoltcp::iface::SocketHandle> {
     let (new_sessions, unresolvable) = collect_admissible_sessions(
         socket_set,
