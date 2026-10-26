@@ -7,7 +7,7 @@ use boring::ssl::SslVerifyMode;
 use bytes::Bytes;
 use hyper::ext::Protocol;
 use hyper_util::rt::TokioIo;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
 use tokio::sync::mpsc;
 
@@ -233,7 +233,7 @@ pub(crate) async fn attempt_h2_connect_udp(
     let upgraded = hyper::upgrade::on(response).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to upgrade H2 CONNECT-UDP stream: {error}"))
     })?;
-    let (mut reader, mut writer) = tokio::io::split(TokioIo::new(upgraded));
+    let (reader, mut writer) = tokio::io::split(TokioIo::new(upgraded));
     let (outgoing_tx, mut outgoing_rx) = mpsc::channel::<Vec<u8>>(64);
     let writer_task = tokio::spawn(async move {
         while let Some(payload) = outgoing_rx.recv().await {
@@ -252,43 +252,114 @@ pub(crate) async fn attempt_h2_connect_udp(
             }
         }
     });
-    let reader_task = tokio::spawn(async move {
-        let mut capsules = CapsuleReader::default();
-        let mut chunk = [0u8; 4096];
-        loop {
-            let read = match reader.read(&mut chunk).await {
-                Ok(0) => break,
-                Ok(read) => read,
-                Err(error) => {
-                    tracing::debug!(error = %error, target = %target_label, "MASQUE H2 UDP capsule reader closed");
-                    break;
+    let reader_task = tokio::spawn(forward_h2_capsules(reader, incoming_tx, target_label));
+
+    Ok(MasqueUdpFlow::new(MasqueUdpSender::H2(outgoing_tx), None, writer_task, reader_task, None, 0))
+}
+
+/// Forwards each CONNECT-UDP payload of the capsule stream `reader` to
+/// `incoming_tx` as soon as its capsule is complete, until the stream or the
+/// receiver closes. Unknown and oversized capsules are skipped (RFC 9297 3.2,
+/// RFC 9298 5) instead of ending the flow.
+///
+/// # Cancel safety
+///
+/// Cancel-safe in the sense that it owns the reader and its partial capsule;
+/// cancellation drops both and the flow ends.
+async fn forward_h2_capsules(
+    mut reader: impl AsyncRead + Unpin,
+    incoming_tx: mpsc::Sender<(String, Vec<u8>)>,
+    target_label: String,
+) {
+    let mut capsules = CapsuleReader::default();
+    let mut chunk = [0u8; 4096];
+    loop {
+        let read = match reader.read(&mut chunk).await {
+            Ok(0) => break,
+            Ok(read) => read,
+            Err(error) => {
+                tracing::debug!(error = %error, target = %target_label, "MASQUE H2 UDP capsule reader closed");
+                break;
+            }
+        };
+        for capsule in capsules.push(&chunk[..read]) {
+            match decode_connect_udp_payload(&capsule) {
+                Ok(Some((_, payload))) => {
+                    if incoming_tx.send((target_label.clone(), payload)).await.is_err() {
+                        return;
+                    }
                 }
-            };
-            for capsule in capsules.push(&chunk[..read]) {
-                match decode_connect_udp_payload(&capsule) {
-                    Ok(Some((_, payload))) => {
-                        if incoming_tx.send((target_label.clone(), payload)).await.is_err() {
-                            return;
-                        }
-                    }
-                    Ok(None) => {
-                        tracing::debug!(target = %target_label, "ignored MASQUE H2 UDP capsule for unsupported context id");
-                    }
-                    Err(error) => {
-                        tracing::debug!(error = %error, target = %target_label, "ignored malformed MASQUE H2 UDP capsule payload");
-                    }
+                Ok(None) => {
+                    tracing::debug!(target = %target_label, "ignored MASQUE H2 UDP capsule for unsupported context id");
+                }
+                Err(error) => {
+                    tracing::debug!(error = %error, target = %target_label, "ignored malformed MASQUE H2 UDP capsule payload");
                 }
             }
         }
-    });
-
-    Ok(MasqueUdpFlow::new(MasqueUdpSender::H2(outgoing_tx), None, writer_task, reader_task, None, 0))
+    }
 }
 
 #[cfg(test)]
 fn relax_loopback_fixture_certificate_verification(builder: &mut boring::ssl::SslConnectorBuilder, proxy_host: &str) {
     if matches!(proxy_host, "127.0.0.1" | "localhost") {
         builder.set_verify(SslVerifyMode::NONE);
+    }
+}
+
+#[cfg(test)]
+mod capsule_stream_tests {
+    use std::time::Duration;
+
+    use tokio::io::{AsyncWriteExt, DuplexStream, duplex};
+
+    use super::*;
+    use crate::capsule::encode_quic_varint;
+
+    fn datagram(payload: &[u8]) -> Vec<u8> {
+        encode_h2_datagram_capsule(&encode_connect_udp_payload(0, payload).expect("payload")).expect("capsule")
+    }
+
+    fn start_reader() -> (DuplexStream, mpsc::Receiver<(String, Vec<u8>)>) {
+        let (proxy, client) = duplex(64 * 1024);
+        let (incoming_tx, incoming_rx) = mpsc::channel(8);
+        tokio::spawn(forward_h2_capsules(client, incoming_tx, "target.test:53".to_string()));
+        (proxy, incoming_rx)
+    }
+
+    async fn next_payload(incoming: &mut mpsc::Receiver<(String, Vec<u8>)>) -> Vec<u8> {
+        let (_, payload) = tokio::time::timeout(Duration::from_secs(5), incoming.recv())
+            .await
+            .expect("payload arrives without the rest of the stream")
+            .expect("reader is running");
+        payload
+    }
+
+    #[tokio::test]
+    async fn a_datagram_before_a_huge_capsule_arrives() {
+        let (mut proxy, mut incoming) = start_reader();
+        // An unknown capsule announcing 1 TiB, of which some bytes stream past.
+        let mut stream = datagram(b"before");
+        stream.push(0x21);
+        stream.extend(encode_quic_varint(1 << 40).expect("length"));
+        proxy.write_all(&stream).await.expect("write");
+
+        assert_eq!(next_payload(&mut incoming).await, b"before");
+        for _ in 0..64 {
+            proxy.write_all(&[0xaa; 16 * 1024]).await.expect("write huge capsule bytes");
+        }
+        assert!(incoming.try_recv().is_err(), "the huge capsule yields nothing");
+    }
+
+    #[tokio::test]
+    async fn a_datagram_followed_by_a_split_datagram_arrives_at_once() {
+        let (mut proxy, mut incoming) = start_reader();
+        let second = datagram(b"second");
+        proxy.write_all(&[datagram(b"first"), second[..2].to_vec()].concat()).await.expect("write");
+
+        assert_eq!(next_payload(&mut incoming).await, b"first");
+        proxy.write_all(&second[2..]).await.expect("write the rest");
+        assert_eq!(next_payload(&mut incoming).await, b"second");
     }
 }
 
