@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -140,15 +141,26 @@ class BootstrapConsumer(
             }
 
             is Claim.Winner -> {
-                val result = fetchOnce(url, groupId)
-                mutex.withLock {
-                    if (result.isTerminal) {
-                        settled[key] = BootstrapConsumeResult.AlreadyConsumed(terminalStamp(result))
+                // The server spends the token as soon as the blocking request completes, so a cancelled
+                // caller must still record the outcome and release joiners instead of dropping it.
+                withContext(NonCancellable) {
+                    try {
+                        val result = fetchOnce(url, groupId)
+                        mutex.withLock {
+                            if (result.isTerminal) {
+                                settled[key] = BootstrapConsumeResult.AlreadyConsumed(terminalStamp(result))
+                            }
+                            inFlight.remove(key)
+                        }
+                        claim.deferred.complete(result)
+                        result
+                    } finally {
+                        if (!claim.deferred.isCompleted) {
+                            mutex.withLock { inFlight.remove(key) }
+                            claim.deferred.complete(BootstrapConsumeResult.NetworkError("bootstrap fetch failed"))
+                        }
                     }
-                    inFlight.remove(key)
                 }
-                claim.deferred.complete(result)
-                result
             }
         }
     }
@@ -179,11 +191,15 @@ class BootstrapConsumer(
     ): BootstrapConsumeResult =
         withContext(Dispatchers.IO) {
             val request =
-                Request
-                    .Builder()
-                    .url(url)
-                    .get()
-                    .build()
+                try {
+                    Request
+                        .Builder()
+                        .url(url)
+                        .get()
+                        .build()
+                } catch (_: IllegalArgumentException) {
+                    return@withContext BootstrapConsumeResult.ParseError("invalid bootstrap URL")
+                }
             try {
                 httpClient.newCall(request).execute().use { response ->
                     when {
