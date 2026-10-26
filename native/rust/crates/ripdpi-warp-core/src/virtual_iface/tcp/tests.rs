@@ -492,10 +492,13 @@ struct SocksSession {
     pool: Arc<VirtualPortPool>,
 }
 
+/// A SOCKS client whose CONNECT request reached the virtual interface as a SYN
+/// that the peer has not answered yet.
+///
 /// # Cancel safety
 ///
 /// NOT cancel-safe: a dropped setup leaves its spawned tasks to the test runtime.
-async fn socks_session() -> SocksSession {
+async fn socks_connect_request() -> SocksSession {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     let bus = Bus::new();
@@ -518,10 +521,21 @@ async fn socks_session() -> SocksSession {
     client.read_exact(&mut reply[..2]).await.expect("method");
     client.write_all(&[0x05, 0x01, 0x00, 0x01, 10, 77, 0, 1, 0xa0, 0x29]).await.expect("connect");
     let syn = tokio::time::timeout(Duration::from_secs(2), outbound(&mut endpoint)).await.expect("SYN");
-    endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
-    client.read_exact(&mut reply).await.expect("connect reply");
-    assert_eq!(reply[..2], [0x05, 0x00]);
     SocksSession { client, endpoint, syn, handler, worker, pool }
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: a dropped setup leaves its spawned tasks to the test runtime.
+async fn socks_session() -> SocksSession {
+    use tokio::io::AsyncReadExt;
+
+    let mut session = socks_connect_request().await;
+    session.endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&session.syn)));
+    let mut reply = [0u8; 10];
+    session.client.read_exact(&mut reply).await.expect("connect reply");
+    assert_eq!(reply[..2], [0x05, 0x00]);
+    session
 }
 
 /// Collect the interface's segment payloads until one carries FIN, or until
@@ -626,4 +640,37 @@ async fn peer_reset_after_its_fin_ends_a_session_whose_client_still_writes() {
     worker.abort();
     ended.expect("a reset after the peer's FIN must end the handler").expect("handler task joins").expect("clean end");
     assert_eq!(pool.free_len(), leased + 1, "the session's virtual port must return to the pool");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its interface task before returning.
+#[tokio::test]
+async fn client_that_leaves_during_the_virtual_connect_releases_its_session() {
+    let SocksSession { client, mut endpoint, handler, worker, pool, .. } = socks_connect_request().await;
+    let leased = pool.free_len();
+    // The peer never answers the SYN, and the client gives up (as tunnel-core does
+    // after its connect timeout).
+    drop(client);
+    let ended = tokio::time::timeout(Duration::from_secs(2), handler).await;
+    let reset = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let packet = outbound(&mut endpoint).await;
+            let ip = Ipv4Packet::new_checked(&packet[..]).expect("IPv4 packet");
+            if TcpPacket::new_checked(ip.payload()).expect("TCP packet").rst() {
+                break;
+            }
+        }
+    })
+    .await;
+    let released = tokio::time::timeout(Duration::from_secs(2), async {
+        while pool.free_len() != leased + 1 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    worker.abort();
+    assert!(ended.expect("a client that left must end the handler").expect("handler task joins").is_err());
+    reset.expect("the abandoned virtual connect must be reset");
+    released.expect("the abandoned session's virtual port must return to the pool");
 }

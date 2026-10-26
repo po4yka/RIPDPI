@@ -80,10 +80,13 @@ impl DynamicTcpInterface {
                 } => {
                     let loop_start = Instant::now();
                     let close_now = tokio::time::Instant::now();
-                    for (client_handle, lease, _) in port_client_handle_map.values() {
+                    for (virtual_port, (client_handle, lease, _)) in &port_client_handle_map {
                         let expired = lease.close_requested_at()
                             .map_or(true, |requested| requested.is_some_and(|at| close_now >= at + self.close_grace));
-                        if expired {
+                        // A handler that stopped waiting for the connect is gone: reset now
+                        // instead of holding the port until the close grace ends.
+                        let abandoned = pending_connect.get(virtual_port).is_some_and(oneshot::Sender::is_closed);
+                        if expired || abandoned {
                             sockets.get_mut::<tcp::Socket>(*client_handle).abort();
                         }
                     }

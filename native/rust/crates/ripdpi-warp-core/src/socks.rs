@@ -27,6 +27,11 @@ pub(crate) fn accept_backoff(failures: u32) -> Duration {
 const SOCKS_NEGOTIATION_TIMEOUT: Duration =
     if cfg!(test) { Duration::from_millis(300) } else { Duration::from_secs(10) };
 
+/// The virtual connect behind a CONNECT reply must finish within this time. It
+/// matches the default SOCKS setup timeout of ripdpi-tunnel-core (`connect_timeout`),
+/// so a session is not kept after its client gave up.
+const SOCKS_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
 /// # Cancel safety
 /// NOT cancel-safe: negotiation and forwarding consume stream bytes and pool entries.
 /// Terminal runtime shutdown may abort this handler while dropping its sockets and pools.
@@ -82,6 +87,8 @@ async fn negotiate(client: &mut TcpStream) -> io::Result<(u8, SocketAddr)> {
 /// # Cancel safety
 /// NOT cancel-safe: terminal runtime shutdown may abort this owned
 /// session, but ordinary success and errors both release its virtual port.
+/// Internally the connect wait is raced against the client's close; both
+/// futures are cancel-safe, so the losing one consumes nothing.
 async fn handle_tcp_connect(
     mut client: TcpStream,
     bus: Bus,
@@ -93,7 +100,16 @@ async fn handle_tcp_connect(
     let mut session = bus.open_tcp_session(port_forward, lease.clone());
     let result = async {
         // RFC 1928 section 6: the reply reports the outcome of the connection attempt.
-        if !session.connected().await {
+        // A client that leaves during the wait ends the session at once.
+        let established = tokio::select! {
+            established = tokio::time::timeout(SOCKS_CONNECT_TIMEOUT, session.connected()) => {
+                established.unwrap_or(false)
+            }
+            () = client_read_closed(&client) => {
+                return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "SOCKS client left during the virtual connect"));
+            }
+        };
+        if !established {
             write_reply(&mut client, 0x04, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
             return Err(io::Error::new(io::ErrorKind::HostUnreachable, "virtual TCP connect failed"));
         }
