@@ -1,4 +1,6 @@
 use std::io;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tokio::io::DuplexStream;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -13,4 +15,5 @@ pub(super) struct SessionDuplex {
     pub(super) smoltcp_side: DuplexStream,
     pub(super) cancel: CancellationToken,
     pub(super) handle: JoinHandle<io::Result<()>>,
+    pub(super) upstream_failed: Arc<AtomicBool>,
 }

@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tokio::io::duplex;
@@ -33,6 +34,15 @@ pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
         Arc::clone(stats),
     );
     let session_cancel = cancel.clone();
-    let handle = tokio::spawn(async move { session_inst.run(&mut session_side, session_cancel).await });
-    SessionDuplex { smoltcp_side, cancel, handle }
+    let upstream_failed = Arc::new(AtomicBool::new(false));
+    let task_failed = Arc::clone(&upstream_failed);
+    let handle = tokio::spawn(async move {
+        let result = session_inst.run(&mut session_side, session_cancel).await;
+        // Release pairs with the pump's Acquire load: the flag is published before the duplex end
+        // drops, and the pump reads it only after it sees that drop as EOF.
+        task_failed.store(result.is_err(), Ordering::Release);
+        drop(session_side);
+        result
+    });
+    SessionDuplex { smoltcp_side, cancel, handle, upstream_failed }
 }

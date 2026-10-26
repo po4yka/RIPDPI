@@ -68,6 +68,7 @@ pub(super) fn admit_session(
         pending_to_session: Vec::new(),
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
+        upstream_failed: session.upstream_failed,
         pinned_synthetic_ip: pending.synthetic_ip,
         attribution_id: Some(attribution_id),
     };

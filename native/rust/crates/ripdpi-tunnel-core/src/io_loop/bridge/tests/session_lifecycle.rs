@@ -27,6 +27,7 @@ async fn u24_pump_removes_closed_session() {
         pending_to_session: Vec::new(),
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
+        upstream_failed: std::sync::Arc::default(),
         pinned_synthetic_ip: None,
         attribution_id: None,
     };
@@ -61,6 +62,7 @@ async fn pump_forwards_app_half_close_as_session_eof() {
         pending_to_session: Vec::new(),
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
+        upstream_failed: std::sync::Arc::default(),
         pinned_synthetic_ip: None,
         attribution_id: None,
     };
@@ -104,7 +106,8 @@ async fn u26_pump_upstream_closed_closes_tcp() {
         handle: join_handle,
         pending_to_session: Vec::new(),
         pending_to_smoltcp: Vec::new(),
-        upstream_closed: true, // Simulate upstream already closed
+        upstream_closed: true,
+        upstream_failed: std::sync::Arc::default(), // Simulate upstream already closed
         pinned_synthetic_ip: None,
         attribution_id: None,
     };
@@ -156,6 +159,7 @@ async fn u28_pump_removal_cancels_session_task_token() {
         pending_to_session: Vec::new(),
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
+        upstream_failed: std::sync::Arc::default(),
         pinned_synthetic_ip: None,
         attribution_id: None,
     };
@@ -183,6 +187,7 @@ async fn removing_an_open_session_resets_the_app_connection() {
         pending_to_session: Vec::new(),
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
+        upstream_failed: std::sync::Arc::default(),
         pinned_synthetic_ip: None,
         attribution_id: None,
     };
@@ -200,4 +205,36 @@ async fn removing_an_open_session_resets_the_app_connection() {
         std::iter::from_fn(|| device.tx_queue.pop_front()).any(|pkt| pkt.len() > 33 && pkt[33] & TCP_FLAG_RST != 0);
     assert!(sent_rst, "the app must get a RST instead of a silent drop");
     assert_eq!(socket_set.iter().count(), 0, "the socket is removed after the poll that sent the RST");
+}
+
+#[tokio::test]
+async fn failed_upstream_resets_the_app_connection_instead_of_closing_it() {
+    let mut device = TunDevice::new(1500);
+    let (mut iface, mut socket_set, handle, _server_seq) = establish_tcp_connection(&mut device);
+    let (smoltcp_side, session_side) = tokio::io::duplex(crate::io_loop::DUPLEX_BUF);
+    let entry = SessionEntry {
+        smoltcp_side,
+        cancel: CancellationToken::new(),
+        handle: tokio::spawn(async { Err(io::Error::from(io::ErrorKind::ConnectionRefused)) }),
+        pending_to_session: Vec::new(),
+        pending_to_smoltcp: Vec::new(),
+        upstream_closed: false,
+        upstream_failed: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
+        pinned_synthetic_ip: None,
+        attribution_id: None,
+    };
+    let mut sessions = ActiveSessions::new(8);
+    sessions.insert(handle, entry);
+    // The session task failed (the proxy refused the CONNECT) and closed its duplex end.
+    drop(session_side);
+
+    let mut dns_cache = None;
+    pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
+    iface.poll(Instant::now(), &mut device, &mut socket_set);
+
+    const TCP_FLAG_FIN: u8 = 0x01;
+    const TCP_FLAG_RST: u8 = 0x04;
+    let flags: Vec<u8> = std::iter::from_fn(|| device.tx_queue.pop_front()).map(|pkt| pkt[33]).collect();
+    assert!(flags.iter().any(|f| f & TCP_FLAG_RST != 0), "a failed upstream must reach the app as a RST: {flags:?}");
+    assert!(flags.iter().all(|f| f & TCP_FLAG_FIN == 0), "a failed upstream must not look like a clean close");
 }

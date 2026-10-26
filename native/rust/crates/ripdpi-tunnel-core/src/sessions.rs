@@ -3,6 +3,8 @@ use std::collections::{HashMap, VecDeque};
 use smoltcp::iface::{SocketHandle, SocketSet};
 use smoltcp::socket::tcp::Socket as TcpSocket;
 use std::io;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tokio::io::DuplexStream;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -24,6 +26,10 @@ pub struct SessionEntry {
     /// The upstream session has closed its write side; the smoltcp socket
     /// should half-close only after `pending_to_smoltcp` has been flushed.
     pub upstream_closed: bool,
+    /// Set by the session task before it closes its duplex end when it ends with an error (the
+    /// proxy refused, the connect timed out, the upstream reset). The pump then resets the app
+    /// connection instead of closing it as if the stream ended normally.
+    pub upstream_failed: Arc<AtomicBool>,
     /// The synthetic IPv4 address (host-byte-order u32) pinned in the DNS cache
     /// for the duration of this session, if any. Unpinned when the session ends.
     pub pinned_synthetic_ip: Option<u32>,
@@ -223,6 +229,7 @@ mod tests {
             pending_to_session: Vec::new(),
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
+            upstream_failed: std::sync::Arc::default(),
             pinned_synthetic_ip: None,
             attribution_id: None,
         };

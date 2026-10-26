@@ -46,6 +46,7 @@ fn insert_stalled_session(
         pending_to_session: Vec::new(),
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
+        upstream_failed: std::sync::Arc::default(),
         pinned_synthetic_ip: None,
         attribution_id: None,
     };
@@ -73,6 +74,7 @@ async fn u27_shutdown_cancels_all() {
         pending_to_session: Vec::new(),
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
+        upstream_failed: std::sync::Arc::default(),
         pinned_synthetic_ip: None,
         attribution_id: None,
     };

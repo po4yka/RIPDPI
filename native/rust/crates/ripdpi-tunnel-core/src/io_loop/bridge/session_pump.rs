@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use smoltcp::iface::SocketSet;
 use smoltcp::socket::tcp::{RecvError, Socket as TcpSocket};
 
@@ -70,6 +72,12 @@ pub(in crate::io_loop) async fn pump_active_sessions(
             let mut tmp = [0u8; PUMP_CHUNK];
             match try_read_duplex(&mut session.smoltcp_side, &mut tmp) {
                 Some(Ok(0)) => {
+                    // A failed upstream (refused, timed out, reset) must reach the app as a RST, not
+                    // as a clean end of stream. Acquire pairs with the session task's Release store.
+                    if session.upstream_failed.load(Ordering::Acquire) {
+                        to_remove.push(handle);
+                        continue;
+                    }
                     session.upstream_closed = true;
                     if tcp.is_open() {
                         tcp.close();

@@ -29,7 +29,7 @@ pub(in crate::io_loop::tcp_accept) fn create_tcp_dns_duplex(
     let handle = tokio::spawn(async move {
         run_tcp_dns_session(session_side, src, dns_req_tx, split_dns_policy, session_cancel, stats).await
     });
-    SessionDuplex { smoltcp_side, cancel, handle }
+    SessionDuplex { smoltcp_side, cancel, handle, upstream_failed: Arc::default() }
 }
 
 /// # Cancel safety
