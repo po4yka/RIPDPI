@@ -26,12 +26,14 @@ internal class ProfileMutationIntentProjection {
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
         clearSelectorOwnership: Boolean,
+        settingsBaseImage: AppSettings? = null,
     ) = RelayUpsertIntent(
         profile = profile,
         credentials = credentials,
         enabled = enabled,
         select = select,
         settingsAfterImageBase64 = settingsAfterImage?.toByteArray()?.let(Base64.getEncoder()::encodeToString),
+        settingsBaseImageBase64 = settingsBaseImage?.toByteArray()?.let(Base64.getEncoder()::encodeToString),
         modeAfterImage = modeAfterImage,
         xraySelectionAfterImage = xraySelectionAfterImage,
         clearSelectorOwnership = clearSelectorOwnership,
@@ -424,9 +426,19 @@ internal class ProfileMutationReplayWriter(
             }
         }
         if (intent.settingsAfterImageBase64 != null) {
-            stores.settings.replace(
-                AppSettings.parseFrom(Base64.getDecoder().decode(intent.settingsAfterImageBase64)),
-            )
+            val afterImage = AppSettings.parseFrom(Base64.getDecoder().decode(intent.settingsAfterImageBase64))
+            val baseImage =
+                intent.settingsBaseImageBase64?.let { AppSettings.parseFrom(Base64.getDecoder().decode(it)) }
+            if (baseImage == null) {
+                stores.settings.replace(afterImage)
+            } else {
+                // Apply only the edit's own fields so a concurrent settings write is not reverted.
+                stores.settings.update {
+                    val merged = mergeChangedSettingsFields(baseImage, afterImage, current = build())
+                    clear()
+                    mergeFrom(merged)
+                }
+            }
         } else if (intent.select || intent.modeAfterImage != null) {
             stores.settings.update {
                 authority.intentLinearizer.serialize {
@@ -564,6 +576,8 @@ internal data class RelayUpsertIntent(
     val enabled: Boolean,
     val select: Boolean,
     val settingsAfterImageBase64: String? = null,
+    /** Snapshot the after-image was built from; when present, replay merges instead of overwriting. */
+    val settingsBaseImageBase64: String? = null,
     val modeAfterImage: String? = null,
     val xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
     val clearSelectorOwnership: Boolean = false,

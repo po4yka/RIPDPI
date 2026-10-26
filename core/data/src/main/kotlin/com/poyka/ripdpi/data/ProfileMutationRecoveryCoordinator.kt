@@ -42,6 +42,7 @@ data class ExpectedRelayProfileState(
 
 interface ProfileMutationCoordinator :
     ProfileMutationRecoveryAccess,
+    RelayUpsertMutationCoordinator,
     WarpRuntimeRevisionReader,
     SubscriptionRefreshMutationCoordinator,
     StandaloneAwgMutationCoordinator {
@@ -56,18 +57,6 @@ interface ProfileMutationCoordinator :
     suspend fun deleteAwg(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
-    ): ProfileMutationOutcome
-
-    suspend fun upsertRelay(
-        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-        profile: RelayProfileRecord,
-        credentials: RelayCredentialRecord,
-        enabled: Boolean,
-        select: Boolean,
-        settingsAfterImage: AppSettings? = null,
-        modeAfterImage: String? = null,
-        xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
-        expectedState: ExpectedRelayProfileState? = null,
     ): ProfileMutationOutcome
 
     suspend fun upsertWarp(
@@ -115,6 +104,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
 ) : ProfileMutationCoordinator,
     XrayProviderMutationCoordinator,
     StandaloneAwgMutationCoordinator by runtime.standalone,
+    RelayUpsertMutationCoordinator by RelayUpsertWriter(runtime),
     SubscriptionRefreshMutationCoordinator by runtime.subscriptionRefresh,
     WarpRuntimeRevisionReader by runtime.warpRevisions {
     @Inject
@@ -316,42 +306,6 @@ class ProfileMutationRecoveryCoordinator private constructor(
         profileId: String,
     ) = afterImageWriter.execute(preparation, AwgDeleteIntent(profileId))
 
-    override suspend fun upsertRelay(
-        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-        profile: RelayProfileRecord,
-        credentials: RelayCredentialRecord,
-        enabled: Boolean,
-        select: Boolean,
-        settingsAfterImage: AppSettings?,
-        modeAfterImage: String?,
-        xraySelectionAfterImage: XrayProviderSelectionRecord?,
-        expectedState: ExpectedRelayProfileState?,
-    ): ProfileMutationOutcome {
-        val intent =
-            intentProjection.relayUpsertIntent(
-                profile = profile,
-                credentials = credentials,
-                enabled = enabled,
-                select = select,
-                settingsAfterImage = settingsAfterImage,
-                modeAfterImage = modeAfterImage,
-                xraySelectionAfterImage = xraySelectionAfterImage,
-                clearSelectorOwnership = preparation.origin == ProfileMutationOrigin.ExplicitActivation,
-            )
-        return if (expectedState == null) {
-            afterImageWriter.execute(preparation, intent)
-        } else {
-            mutex.withLock {
-                journalRecovery.recover()
-                require(
-                    stores.relayProfiles.load(profile.id) == expectedState.profile &&
-                        stores.relayCredentials.load(profile.id) == expectedState.credentials,
-                ) { "Relay profile changed since editing began" }
-                afterImageWriter.executeRecovered(preparation, intent)
-            }
-        }
-    }
-
     override suspend fun upsertXrayProvider(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
@@ -524,3 +478,119 @@ private suspend fun ProfileMutationStores.measuredPayloadMatches(
                     ?.singleOrNull { it.id == payload.memberId } == payload.member
         }
     }
+
+/** Shared write path for relay upserts; the expected-state check runs under the recovery mutex. */
+private suspend fun ProfileMutationRuntime.writeRelayUpsert(
+    preparation: ProfileMutationPreparation,
+    expectedState: ExpectedRelayProfileState?,
+    intent: RelayUpsertIntent,
+): ProfileMutationOutcome {
+    val profile = intent.profile
+    return if (expectedState == null) {
+        afterImageWriter.execute(preparation, intent)
+    } else {
+        mutex.withLock {
+            journalRecovery.recover()
+            require(
+                stores.relayProfiles.load(profile.id) == expectedState.profile &&
+                    stores.relayCredentials.load(profile.id) == expectedState.credentials,
+            ) { "Relay profile changed since editing began" }
+            afterImageWriter.executeRecovered(preparation, intent)
+        }
+    }
+}
+
+/** Relay profile writes; the editor commit variant merges its settings after-image. */
+interface RelayUpsertMutationCoordinator {
+    suspend fun upsertRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        enabled: Boolean,
+        select: Boolean,
+        settingsAfterImage: AppSettings? = null,
+        modeAfterImage: String? = null,
+        xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
+        expectedState: ExpectedRelayProfileState? = null,
+    ): ProfileMutationOutcome
+
+    /**
+     * Saves a relay editor commit whose [settingsAfterImage] was built from [settingsBaseImage].
+     * Only the settings fields the edit changed are applied, so a concurrent settings write survives.
+     */
+    suspend fun upsertRelayEdit(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        enabled: Boolean,
+        settingsBaseImage: AppSettings,
+        settingsAfterImage: AppSettings,
+        expectedState: ExpectedRelayProfileState,
+    ): ProfileMutationOutcome =
+        upsertRelay(
+            preparation,
+            profile,
+            credentials,
+            enabled = enabled,
+            select = true,
+            settingsAfterImage = settingsAfterImage,
+            expectedState = expectedState,
+        )
+}
+
+private class RelayUpsertWriter(
+    private val runtime: ProfileMutationRuntime,
+) : RelayUpsertMutationCoordinator {
+    private val intentProjection get() = runtime.intentProjection
+
+    override suspend fun upsertRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        enabled: Boolean,
+        select: Boolean,
+        settingsAfterImage: AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: XrayProviderSelectionRecord?,
+        expectedState: ExpectedRelayProfileState?,
+    ): ProfileMutationOutcome =
+        runtime.writeRelayUpsert(
+            preparation,
+            expectedState,
+            intentProjection.relayUpsertIntent(
+                profile = profile,
+                credentials = credentials,
+                enabled = enabled,
+                select = select,
+                settingsAfterImage = settingsAfterImage,
+                modeAfterImage = modeAfterImage,
+                xraySelectionAfterImage = xraySelectionAfterImage,
+                clearSelectorOwnership = preparation.origin == ProfileMutationOrigin.ExplicitActivation,
+            ),
+        )
+
+    override suspend fun upsertRelayEdit(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        enabled: Boolean,
+        settingsBaseImage: AppSettings,
+        settingsAfterImage: AppSettings,
+        expectedState: ExpectedRelayProfileState,
+    ): ProfileMutationOutcome =
+        runtime.writeRelayUpsert(
+            preparation,
+            expectedState,
+            intentProjection.relayUpsertIntent(
+                profile = profile,
+                credentials = credentials,
+                enabled = enabled,
+                select = true,
+                settingsAfterImage = settingsAfterImage,
+                modeAfterImage = null,
+                xraySelectionAfterImage = null,
+                clearSelectorOwnership = preparation.origin == ProfileMutationOrigin.ExplicitActivation,
+                settingsBaseImage = settingsBaseImage,
+            ),
+        )
+}

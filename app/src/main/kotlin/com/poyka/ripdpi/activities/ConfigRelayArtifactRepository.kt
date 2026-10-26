@@ -89,18 +89,14 @@ class ConfigRelayArtifactRepository
                 val credentials = draft.toRelayCredentialRecord(profileId)
                 val savedDraft = draft.withSavedRelayIdentity(profile, credentials)
                 run {
-                    val settingsAfterImage =
-                        appSettingsRepository
-                            .snapshot()
-                            .toBuilder()
-                            .apply { applyConfigDraft(draft) }
-                            .build()
-                    profileMutations.upsertRelay(
+                    val settingsBaseImage = appSettingsRepository.snapshot()
+                    val settingsAfterImage = settingsBaseImage.toBuilder().apply { applyConfigDraft(draft) }.build()
+                    profileMutations.upsertRelayEdit(
                         profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
                         profile = profile,
                         credentials = credentials,
                         enabled = draft.relayEnabled,
-                        select = true,
+                        settingsBaseImage = settingsBaseImage,
                         settingsAfterImage = settingsAfterImage,
                         expectedState =
                             ExpectedRelayProfileState(
