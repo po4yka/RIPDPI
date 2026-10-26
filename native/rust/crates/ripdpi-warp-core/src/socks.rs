@@ -29,6 +29,11 @@ pub(crate) async fn handle_socks_client(
     let methods_len = usize::from(greeting[1]);
     let mut methods = vec![0u8; methods_len];
     client.read_exact(&mut methods).await?;
+    if !methods.contains(&0x00) {
+        // RFC 1928 section 3: no acceptable method.
+        client.write_all(&[0x05, 0xFF]).await?;
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS client offers no supported method"));
+    }
     client.write_all(&[0x05, 0x00]).await?;
 
     let mut request_header = [0u8; 4];
@@ -412,6 +417,36 @@ mod tests {
             .collect();
         assert!(pool.acquire().is_err(), "no duplicate release");
         drop(leases);
+    }
+
+    /// A connected client and the server side of the same loopback connection.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: dropping it drops only fresh local sockets.
+    async fn socks_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("listener");
+        let (client, server) =
+            tokio::join!(TcpStream::connect(listener.local_addr().expect("address")), listener.accept());
+        (client.expect("client"), server.expect("server").0)
+    }
+
+    /// # Cancel safety
+    /// cancel-safe: all sockets and pools are fresh and dropped on timeout.
+    #[tokio::test]
+    async fn greeting_without_no_auth_is_refused() {
+        let (mut client, server) = socks_pair().await;
+        let pools = (
+            Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP port entropy")),
+            Arc::new(UdpAssociationPool::new()),
+        );
+        client.write_all(&[0x05, 0x01, 0x02]).await.expect("greeting offering only username/password");
+        let result = timeout(Duration::from_secs(2), handle_socks_client(server, Bus::new(), pools.0, pools.1))
+            .await
+            .expect("handler exits");
+        assert_eq!(result.expect_err("no acceptable method").kind(), io::ErrorKind::PermissionDenied);
+        let mut reply = [0u8; 2];
+        client.read_exact(&mut reply).await.expect("method reply");
+        assert_eq!(reply, [0x05, 0xFF]);
     }
 
     #[test]
