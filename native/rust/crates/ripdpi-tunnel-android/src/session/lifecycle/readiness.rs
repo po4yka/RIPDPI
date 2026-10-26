@@ -37,11 +37,9 @@ pub(super) fn defer_failed_tunnel_start_cleanup(
     }
 
     // The startup JNI call must honor its readiness deadline even if fallible
-    // setup is blocked in a syscall. The shared runtime owns this blocking
-    // reaper until the worker releases its TUN-fd duplicate; dropping the task
-    // handle does not detach that ownership from the runtime.
-    let cleanup_session = Arc::clone(session);
-    drop(session.runtime.spawn_blocking(move || {
+    // setup is blocked in a syscall, so a background reaper owns the join until
+    // the worker releases its TUN-fd duplicate.
+    super::spawn_worker_reaper(session, move |cleanup_session| {
         if worker.join().is_err() {
             cleanup_session.telemetry.log_line("worker", "error", "tunnel worker panicked during startup cleanup");
         }
@@ -49,7 +47,7 @@ pub(super) fn defer_failed_tunnel_start_cleanup(
         if matches!(&*state, TunnelSessionState::CleanupPending { cancel } if Arc::ptr_eq(cancel, &cleanup_cancel)) {
             *state = TunnelSessionState::Ready;
         }
-    }));
+    });
 }
 
 pub(crate) fn rollback_failed_tunnel_start(session: &TunnelSession, message: String) {

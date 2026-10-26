@@ -59,8 +59,8 @@ pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
 const STOP_JOIN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Cancels the worker and joins it for at most `timeout`. A worker blocked in a syscall
-/// keeps the session `CleanupPending` and is joined by a reaper on the blocking pool, so
-/// the JNI stop call never blocks without bound.
+/// keeps the session `CleanupPending` and is joined by a background reaper, so the JNI
+/// stop call never blocks without bound.
 fn stop_running_tunnel(
     session: &Arc<TunnelSession>,
     (cancel, worker): (Arc<CancellationToken>, std::thread::JoinHandle<()>),
@@ -76,8 +76,20 @@ fn stop_running_tunnel(
         return;
     }
     session.telemetry.log_line("worker", "warn", "tunnel worker still stopping; cleanup continues in background");
+    spawn_worker_reaper(session, move |session| finish_stopped_worker(session, &cancel, worker));
+}
+
+/// Runs `reap` (a join of a stopped worker) on its own plain thread, never on the session
+/// runtime's blocking pool: after jniDestroy the reaper can hold the last session reference,
+/// and a tokio runtime dropped on one of its own blocking threads waits for ever for that
+/// thread to exit. If the thread cannot start, the worker is detached: it still closes its
+/// TUN fd, and the session stays `CleanupPending`, which can be destroyed but not started.
+fn spawn_worker_reaper(session: &Arc<TunnelSession>, reap: impl FnOnce(&TunnelSession) + Send + 'static) {
     let reaper_session = Arc::clone(session);
-    drop(session.runtime.spawn_blocking(move || finish_stopped_worker(&reaper_session, &cancel, worker)));
+    let spawned = std::thread::Builder::new().name("ripdpi-tunnel-reaper".into()).spawn(move || reap(&reaper_session));
+    if let Err(err) = spawned {
+        session.telemetry.log_line("worker", "error", &format!("tunnel worker reaper did not start: {err}"));
+    }
 }
 
 fn finish_stopped_worker(
@@ -150,6 +162,38 @@ mod tests {
         let deadline = Instant::now() + Duration::from_secs(2);
         while !matches!(*session.state.lock().expect("state"), TunnelSessionState::Ready) {
             assert!(Instant::now() < deadline, "the reaper never retired the stopped worker");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn reaper_that_holds_the_last_session_reference_releases_it() {
+        let runtime = Arc::new(
+            tokio::runtime::Builder::new_multi_thread().worker_threads(1).enable_all().build().expect("test runtime"),
+        );
+        let cancel = Arc::new(CancellationToken::new());
+        let session = Arc::new(TunnelSession {
+            runtime,
+            config: Arc::new(config_from_payload(sample_payload()).expect("config")),
+            last_error: Arc::new(Mutex::new(None)),
+            telemetry: Arc::new(TunnelTelemetryState::new(None)),
+            state: Mutex::new(TunnelSessionState::CleanupPending { cancel: Arc::clone(&cancel) }),
+        });
+        let (release, stuck) = mpsc::sync_channel::<()>(1);
+        let worker = std::thread::spawn(move || {
+            let _ = stuck.recv();
+        });
+        stop_running_tunnel(&session, (Arc::clone(&cancel), worker), Duration::from_millis(50));
+        // TunnelSession drops its runtime before its telemetry, so the telemetry outlives a
+        // runtime drop that never returns.
+        let telemetry = Arc::downgrade(&session.telemetry);
+        // jniDestroy: the registry drops its reference, so the reaper now holds the last one.
+        drop(session);
+
+        release.send(()).expect("release worker");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while telemetry.upgrade().is_some() {
+            assert!(Instant::now() < deadline, "the reaper hung while it dropped the session runtime");
             std::thread::sleep(Duration::from_millis(5));
         }
     }
