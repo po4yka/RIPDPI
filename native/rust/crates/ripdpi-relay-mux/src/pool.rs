@@ -8,6 +8,11 @@ use crate::state::{CachedSession, RelayMuxState};
 use crate::stream::{MuxLease, MuxStream};
 use crate::{RelayCapabilities, RelayPoolConfig, RelayPoolHealth, RelaySession, RelaySessionFactory};
 
+/// Carrier dials (handshakes) one pool runs at once. The lease cap can be the
+/// whole SOCKS admission (256), and a burst of that many handshakes to one
+/// server trips limits such as sshd `MaxStartups 10`.
+pub(crate) const MAX_CONCURRENT_DIALS: usize = 8;
+
 #[derive(Clone)]
 pub struct RelayMux<F>
 where
@@ -24,6 +29,7 @@ where
     capabilities: RelayCapabilities,
     config: RelayPoolConfig,
     permits: Arc<Semaphore>,
+    dials: Semaphore,
     session_creation: AsyncMutex<()>,
     state: Arc<Mutex<RelayMuxState<F::Session>>>,
 }
@@ -40,6 +46,7 @@ where
                 factory,
                 config,
                 permits: Arc::new(Semaphore::new(max_active_leases)),
+                dials: Semaphore::new(MAX_CONCURRENT_DIALS),
                 session_creation: AsyncMutex::new(()),
                 state: Arc::new(Mutex::new(RelayMuxState::new())),
             }),
@@ -212,6 +219,8 @@ where
     /// one fresh-carrier retry on a failed open).
     async fn session_for_open(&self) -> Result<(Arc<F::Session>, bool), F::Error> {
         if !self.inner.capabilities.reusable {
+            // Infallible: the dial semaphore is never closed.
+            let _dial = self.inner.dials.acquire().await.expect("relay mux dial semaphore unexpectedly closed");
             return Ok((self.inner.factory.create_session().await?, false));
         }
 

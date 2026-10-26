@@ -650,3 +650,57 @@ async fn an_abandoned_open_evicts_the_cached_carrier() {
         .expect("open on a fresh carrier");
     assert_eq!(2, creations.load(Ordering::SeqCst));
 }
+
+/// Non-reusable factory whose dials wait for `release` and record peak concurrency.
+#[derive(Clone)]
+struct SlowDialFactory {
+    in_flight: Arc<AtomicUsize>,
+    peak: Arc<AtomicUsize>,
+    release: Arc<tokio::sync::Semaphore>,
+}
+
+impl RelaySessionFactory for SlowDialFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    type Session = TestSession;
+    type Error = Infallible;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: false }
+    }
+
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+        let now = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+        self.peak.fetch_max(now, Ordering::SeqCst);
+        self.release.acquire().await.expect("release gate").forget();
+        self.in_flight.fetch_sub(1, Ordering::SeqCst);
+        Ok(Arc::new(TestSession))
+    }
+}
+
+#[tokio::test]
+async fn parallel_opens_on_a_non_reusable_pool_dial_at_most_eight_carriers_at_once() {
+    let factory = SlowDialFactory {
+        in_flight: Arc::new(AtomicUsize::new(0)),
+        peak: Arc::new(AtomicUsize::new(0)),
+        release: Arc::new(tokio::sync::Semaphore::new(0)),
+    };
+    let mux = RelayMux::new(factory.clone(), RelayPoolConfig { max_active_leases: 256, ..RelayPoolConfig::default() });
+    let opens: Vec<_> = (0..40)
+        .map(|_| {
+            let mux = mux.clone();
+            tokio::spawn(async move { mux.open_stream("example.com:443").await.map(drop) })
+        })
+        .collect();
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(8, factory.in_flight.load(Ordering::SeqCst), "dials in flight before any handshake finished");
+
+    factory.release.add_permits(40);
+    for open in opens {
+        timeout(Duration::from_secs(2), open).await.expect("open hung").expect("open task").expect("open stream");
+    }
+
+    assert_eq!(8, factory.peak.load(Ordering::SeqCst));
+}
