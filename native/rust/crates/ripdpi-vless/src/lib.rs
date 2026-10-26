@@ -377,6 +377,10 @@ impl VlessRealityClient {
     /// returned `SocketAddr::ip()` and then dial the same address with one of
     /// the `*_to_addr` methods.
     ///
+    /// Hostnames resolve like every other relay transport: the system
+    /// resolver in proxy mode, the Android underlying-network resolver in VPN
+    /// mode, so relay lookups never go to a hard-coded third-party DoH service.
+    ///
     /// # Cancel safety
     ///
     /// conditionally cancel-safe: resolver progress is abandoned by dropping
@@ -385,14 +389,20 @@ impl VlessRealityClient {
         config: &VlessRealityConfig,
         bind_ip: Option<IpAddr>,
     ) -> io::Result<SocketAddr> {
-        let socket_protection = config.socket_protection;
-        endpoint_resolver::resolve_server_addr(
-            &config.server,
-            config.port,
-            bind_ip,
-            Some(Box::new(move |fd| socket_protection.protect(fd))),
-        )
-        .await
+        let candidates = config
+            .socket_protection
+            .resolve_host(&config.server, config.port)
+            .await
+            .map_err(|error| io::Error::new(error.kind(), format!("resolve relay hostname: {error}")))?;
+        candidates
+            .into_iter()
+            .find(|address| bind_ip.is_none_or(|bind_ip| address.is_ipv4() == bind_ip.is_ipv4()))
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "relay server has no address matching outbound bind IP family",
+                )
+            })
     }
 
     /// Perform `Reality TLS -> VLESS handshake` over an existing transport.
@@ -853,6 +863,45 @@ mod protect_tests {
         .expect("valid base config");
         config.socket_protection = ripdpi_native_protect::SocketProtectionPolicy::VpnRequired;
         config
+    }
+
+    /// Protects every fd and answers hostname lookups the way the Android
+    /// underlying-network resolver would.
+    struct ResolvingCallback;
+
+    impl ProtectCallback for ResolvingCallback {
+        fn protect(&self, _fd: RawFd) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn resolve_host(&self, host: &str) -> io::Result<Vec<std::net::IpAddr>> {
+            assert_eq!(host, "relay.invalid", "the configured relay hostname is resolved");
+            Ok(vec![std::net::IpAddr::from([192, 0, 2, 7])])
+        }
+    }
+
+    #[tokio::test]
+    async fn vpn_mode_resolves_relay_hostname_through_the_platform_callback() {
+        let _guard = PROTECT_TEST_LOCK.lock().await;
+        register_protect_callback(Arc::new(ResolvingCallback));
+
+        let resolved = VlessRealityClient::resolve_server_endpoint(&config_for("relay.invalid", 443), None).await;
+
+        unregister_protect_callback();
+        assert_eq!(resolved.expect("callback resolution"), std::net::SocketAddr::from(([192, 0, 2, 7], 443)));
+    }
+
+    #[tokio::test]
+    async fn proxy_mode_resolves_relay_hostname_through_the_system_resolver() {
+        let _guard = PROTECT_TEST_LOCK.lock().await;
+        unregister_protect_callback();
+        let mut config = config_for("localhost", 443);
+        config.socket_protection = ripdpi_native_protect::SocketProtectionPolicy::Inactive;
+
+        let resolved = VlessRealityClient::resolve_server_endpoint(&config, None).await.expect("system resolution");
+
+        assert!(resolved.ip().is_loopback(), "localhost must resolve locally, got {resolved}");
+        assert_eq!(resolved.port(), 443);
     }
 
     // TEST-NET-1 (RFC 5737) is a guaranteed-unroutable literal: it parses
