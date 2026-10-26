@@ -12,6 +12,11 @@ use crate::ports::{PortForwardConfig, PortProtocol, UdpAssociationPool, VirtualP
 use crate::support::MAX_PACKET;
 use crate::virtual_iface::{Bus, Event};
 
+/// A client must finish the greeting, the request and the target lookup within this
+/// time, so a silent or trickling local client cannot pin a task and a descriptor.
+const SOCKS_NEGOTIATION_TIMEOUT: Duration =
+    if cfg!(test) { Duration::from_millis(300) } else { Duration::from_secs(10) };
+
 /// # Cancel safety
 /// NOT cancel-safe: negotiation and forwarding consume stream bytes and pool entries.
 /// Terminal runtime shutdown may abort this handler while dropping its sockets and pools.
@@ -21,6 +26,25 @@ pub(crate) async fn handle_socks_client(
     tcp_pool: Arc<VirtualPortPool>,
     udp_pool: Arc<UdpAssociationPool>,
 ) -> io::Result<()> {
+    let (command, target) = tokio::time::timeout(SOCKS_NEGOTIATION_TIMEOUT, negotiate(&mut client))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "SOCKS negotiation timed out"))??;
+    match command {
+        0x01 => handle_tcp_connect(client, bus, tcp_pool, target).await,
+        0x03 => handle_udp_associate(client, bus, udp_pool).await,
+        _ => {
+            write_reply(&mut client, 0x07, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
+            Err(io::Error::new(io::ErrorKind::Unsupported, "SOCKS command unsupported"))
+        }
+    }
+}
+
+/// Read the greeting and the request, and resolve the request's target.
+///
+/// # Cancel safety
+/// NOT cancel-safe: partial negotiation bytes can be consumed. The caller closes the
+/// stream on cancellation and never resumes negotiation on it.
+async fn negotiate(client: &mut TcpStream) -> io::Result<(u8, SocketAddr)> {
     let mut greeting = [0u8; 2];
     client.read_exact(&mut greeting).await?;
     if greeting[0] != 0x05 {
@@ -41,16 +65,8 @@ pub(crate) async fn handle_socks_client(
     if request_header[0] != 0x05 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS request"));
     }
-    let target = read_target(&mut client, request_header[3]).await?;
-
-    match request_header[1] {
-        0x01 => handle_tcp_connect(client, bus, tcp_pool, target).await,
-        0x03 => handle_udp_associate(client, bus, udp_pool).await,
-        _ => {
-            write_reply(&mut client, 0x07, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
-            Err(io::Error::new(io::ErrorKind::Unsupported, "SOCKS command unsupported"))
-        }
-    }
+    let target = read_target(client, request_header[3]).await?;
+    Ok((request_header[1], target))
 }
 
 /// # Cancel safety
@@ -447,6 +463,22 @@ mod tests {
         let mut reply = [0u8; 2];
         client.read_exact(&mut reply).await.expect("method reply");
         assert_eq!(reply, [0x05, 0xFF]);
+    }
+
+    /// # Cancel safety
+    /// cancel-safe: all sockets and pools are fresh and dropped on timeout.
+    #[tokio::test]
+    async fn silent_client_times_out_during_negotiation() {
+        let (mut client, server) = socks_pair().await;
+        let pools = (
+            Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP port entropy")),
+            Arc::new(UdpAssociationPool::new()),
+        );
+        client.write_all(&[0x05]).await.expect("half a greeting");
+        let result = timeout(Duration::from_secs(2), handle_socks_client(server, Bus::new(), pools.0, pools.1))
+            .await
+            .expect("a stalled greeting must not pin the handler");
+        assert_eq!(result.expect_err("stalled negotiation").kind(), io::ErrorKind::TimedOut);
     }
 
     #[test]
