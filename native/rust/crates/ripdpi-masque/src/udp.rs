@@ -78,15 +78,7 @@ impl MasqueUdpRelay {
     /// Cancel-safe: a flow is stored only after it is open; cancelling while it
     /// opens drops the half-open flow, and the payload is not sent.
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
-        // A finished reader means the proxy closed the tunnel; open a new one.
-        if self.flows.get(target).is_some_and(|flow| flow.reader_task.is_finished()) {
-            self.flows.remove(target);
-        }
-        if !self.flows.contains_key(target) {
-            let flow = self.open_flow(target).await?;
-            make_room_for_flow(&mut self.flows, Instant::now(), MAX_UDP_FLOWS);
-            self.flows.insert(target.to_string(), flow);
-        }
+        self.ensure_flow(target).await?;
 
         let flow = self.flows.get_mut(target).expect("flow inserted above");
         match flow.send(payload) {
@@ -103,6 +95,26 @@ impl MasqueUdpRelay {
             }
             result => result,
         }
+    }
+
+    /// Opens a CONNECT-UDP flow to `target` when there is none or the previous
+    /// one is dead. Opening can take the H3 attempt plus the H2 fallback, so a
+    /// caller that bounds the datagram write should bound this step separately.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: a flow is stored only after it is open; cancelling while it
+    /// opens drops the half-open flow.
+    pub async fn ensure_flow(&mut self, target: &str) -> io::Result<()> {
+        if self.flows.get(target).is_some_and(MasqueUdpFlow::is_dead) {
+            self.flows.remove(target);
+        }
+        if !self.flows.contains_key(target) {
+            let flow = self.open_flow(target).await?;
+            make_room_for_flow(&mut self.flows, Instant::now(), MAX_UDP_FLOWS);
+            self.flows.insert(target.to_string(), flow);
+        }
+        Ok(())
     }
 
     /// Receives the next datagram from any flow.
@@ -237,6 +249,15 @@ impl MasqueUdpFlow {
             datagram_stream_id_len,
             last_used: Instant::now(),
         }
+    }
+
+    /// The proxy closed the tunnel (finished reader) or its carrier is gone.
+    fn is_dead(&self) -> bool {
+        self.reader_task.is_finished()
+            || match &self.sender {
+                MasqueUdpSender::H3 { connection, .. } => connection.close_reason().is_some(),
+                MasqueUdpSender::H2(sender) => sender.is_closed(),
+            }
     }
 
     fn send(&mut self, payload: &[u8]) -> io::Result<()> {

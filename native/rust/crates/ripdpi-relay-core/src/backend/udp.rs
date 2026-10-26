@@ -38,6 +38,17 @@ impl UdpCarrier for RelayUdpSession {
         }
     }
 
+    async fn prepare(&mut self, target: &RelayTargetAddr) -> io::Result<()> {
+        match self {
+            Self::Masque { session, migration } => {
+                let result = session.get_mut().ensure_flow(&target.to_connect_target()).await;
+                sync_quic_migration_state(migration, session.get_mut().quic_migration_snapshot());
+                result
+            }
+            _ => Ok(()),
+        }
+    }
+
     async fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
         match self {
             Self::Hysteria2 { session, migration } => {

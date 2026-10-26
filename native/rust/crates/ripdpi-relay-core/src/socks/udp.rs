@@ -44,6 +44,13 @@ impl<T: SocksTelemetry + ?Sized> Drop for XudpAssociationTelemetry<'_, T> {
 /// Internal seam over [`crate::backend::udp::RelayUdpSession`] so the pump
 /// loop can be driven against a test fake without building a real backend.
 pub(crate) trait UdpCarrier: Send {
+    /// Opens whatever per-target state the carrier needs before `send_to` (a
+    /// MASQUE CONNECT-UDP flow). The pump bounds it by `connect_deadline`, not
+    /// by the datagram write deadline.
+    fn prepare(&mut self, _target: &RelayTargetAddr) -> impl Future<Output = io::Result<()>> + Send {
+        std::future::ready(Ok(()))
+    }
+
     fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> impl Future<Output = io::Result<()>> + Send;
 
     fn recv_from(&mut self) -> impl Future<Output = io::Result<(RelayTargetAddr, Vec<u8>)>> + Send;
@@ -343,9 +350,11 @@ enum UplinkSend {
     TornDown(&'static str),
 }
 
-/// Sends one uplink datagram within `config.timeouts.udp_send` while still
+/// Prepares the carrier for `target` within `config.timeouts.connect_deadline`,
+/// then sends one uplink datagram within `config.timeouts.udp_send`, while still
 /// honouring runtime cancellation and the control-connection EOF, so a stalled
-/// carrier write cannot pin the association.
+/// carrier write cannot pin the association. Only the write gets the short
+/// bound: a MASQUE flow open can take the H3 attempt plus the H2 fallback.
 ///
 /// # Cancel safety
 ///
@@ -368,11 +377,17 @@ where
         biased;
         () = cancel.cancelled() => UplinkSend::TornDown("runtime_cancelled"),
         () = control_closed => UplinkSend::TornDown("control_closed"),
-        sent = tokio::time::timeout(config.timeouts.udp_send, udp_session.send_to(target, payload)) => {
-            UplinkSend::Done(sent.unwrap_or_else(|_| {
-                Err(io::Error::new(io::ErrorKind::TimedOut, "relay UDP uplink send timed out"))
-            }))
-        }
+        sent = async {
+            crate::socks::connect::with_deadline(
+                udp_session.prepare(target),
+                config.timeouts.connect_deadline,
+                "relay UDP uplink flow open timed out",
+            )
+            .await?;
+            tokio::time::timeout(config.timeouts.udp_send, udp_session.send_to(target, payload))
+                .await
+                .unwrap_or_else(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "relay UDP uplink send timed out")))
+        } => UplinkSend::Done(sent),
     }
 }
 
@@ -1073,5 +1088,93 @@ mod tests {
         assert_eq!("runtime_cancelled", outcome.termination_reason);
         drop(control_peer);
         drop(downlink_tx);
+    }
+
+    /// A real MASQUE UDP relay as the pump carrier, wired like `RelayUdpSession::Masque`.
+    struct MasqueCarrier(ripdpi_masque::MasqueUdpRelay);
+
+    impl UdpCarrier for MasqueCarrier {
+        async fn prepare(&mut self, target: &RelayTargetAddr) -> io::Result<()> {
+            self.0.ensure_flow(&target.to_connect_target()).await
+        }
+
+        async fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
+            self.0.send_to(&target.to_connect_target(), payload).await
+        }
+
+        async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
+            let (address, payload) = self.0.recv_from().await?;
+            Ok((RelayTargetAddr::from_authority(&address)?, payload))
+        }
+    }
+
+    #[tokio::test]
+    async fn udp_pump_survives_a_masque_flow_open_that_falls_back_to_http2() {
+        // The fixture never answers QUIC: the H3 attempt alone uses the whole
+        // production uplink send deadline before the H2 fallback opens the flow.
+        let fixture = local_network_fixture::MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+        let client = ripdpi_masque::MasqueClient::new(ripdpi_masque::config::MasqueConfig {
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            url: fixture.masque_url(),
+            proxy_socket_addr: None,
+            tcp_protocol: ripdpi_masque::config::MasqueTcpProtocol::Http3,
+            use_http2_fallback: true,
+            auth_mode: None,
+            auth_token: None,
+            client_certificate_chain_pem: None,
+            client_private_key_pem: None,
+            cloudflare_geohash_header: None,
+            privacy_pass_provider_url: None,
+            privacy_pass_provider_auth_token: None,
+            tls_fingerprint_profile: "native_default".to_string(),
+            root_certificate_pem: Some(fixture.certificate_pem().to_string()),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            ech_config: None,
+        })
+        .expect("MASQUE client");
+        let mut config = silent_session_config(Duration::from_secs(300));
+        config.timeouts = RelaySessionTimeouts::production();
+        let (control, control_peer) = duplex(64);
+        let relay_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let relay_addr = relay_socket.local_addr().expect("relay socket addr");
+        let cancel = CancellationToken::new();
+        let pump_cancel = cancel.clone();
+        let pump = tokio::spawn(async move {
+            let mut carrier = MasqueCarrier(client.udp_session());
+            let telemetry = FakeSocksTelemetry::default();
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                relay_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            )
+            .await
+        });
+
+        let socks_client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind SOCKS client socket");
+        let target = RelayTargetAddr::from_authority(&fixture.udp_echo_target()).expect("echo target");
+        let frame = crate::socks::encode_udp_frame(&target, b"via-h2").expect("encode frame");
+        socks_client.send_to(&frame, relay_addr).await.expect("send frame");
+        let mut reply = vec![0u8; UDP_BUFFER_SIZE];
+        let received = tokio::time::timeout(Duration::from_secs(25), socks_client.recv_from(&mut reply))
+            .await
+            .expect("no echo: the association died before the H2 fallback opened the flow")
+            .expect("receive echo")
+            .0;
+        let (_, payload) = decode_udp_frame(&reply[..received]).expect("decode echo frame");
+
+        assert_eq!(&b"via-h2"[..], payload);
+        assert!(!pump.is_finished(), "the association ended during the flow open");
+        pump_cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("pump task hung after cancellation")
+            .expect("pump task panicked");
+        outcome.result.expect("the association ends gracefully on cancel");
+        drop(control_peer);
     }
 }

@@ -1460,7 +1460,8 @@ async fn new_udp_flows_go_straight_to_http2_after_a_recent_h3_failure() {
     config.use_http2_fallback = true;
     let client = MasqueClient::new(config).expect("client");
     let mut udp = client.udp_session();
-    udp.send_to(&fixture.udp_echo_target(), b"first").await.expect("first flow falls back to HTTP/2");
+    udp.ensure_flow(&fixture.udp_echo_target()).await.expect("first flow falls back to HTTP/2");
+    assert!(udp.client.h3_udp_in_cooldown().await, "an H3 timeout must arm the cooldown");
 
     let started = std::time::Instant::now();
     udp.send_to("127.0.0.1:9", b"second").await.expect("second flow opens over HTTP/2");
