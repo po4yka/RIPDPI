@@ -35,8 +35,6 @@ class DefaultScreenStateObserver
         private val powerManager =
             context.getSystemService(Context.POWER_SERVICE) as PowerManager
 
-        private val initialValue = powerManager.isInteractive
-
         override val isInteractive: StateFlow<Boolean> =
             callbackFlow {
                 val receiver =
@@ -63,14 +61,17 @@ class DefaultScreenStateObserver
                     filter,
                     ContextCompat.RECEIVER_NOT_EXPORTED,
                 )
+                // Re-sync: a screen change before registration produced no broadcast for us.
+                trySend(powerManager.isInteractive)
 
                 awaitClose {
                     runCatching { context.unregisterReceiver(receiver) }
                 }
             }.stateIn(
                 scope = scope,
-                started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000L),
-                initialValue = initialValue,
+                // Eager: production readers only use .value, which never starts a lazy share.
+                started = SharingStarted.Eagerly,
+                initialValue = powerManager.isInteractive,
             )
     }
 
