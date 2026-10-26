@@ -390,7 +390,7 @@ internal fun <T> BackupEffectCollector(
 }
 
 @Composable
-private fun BackupRestoreEffectHandler(
+internal fun BackupRestoreEffectHandler(
     flow: Flow<BackupRestoreEffect>,
     snackbarHostState: SnackbarHostState,
     onRestart: () -> Unit,
@@ -401,16 +401,20 @@ private fun BackupRestoreEffectHandler(
     val decryptionFailedMessage = stringResource(R.string.backup_encryption_unlock_failed)
     val nothingSelectedMessage = stringResource(R.string.backup_restore_nothing_selected)
     val unsupportedVersionTemplate = stringResource(R.string.backup_restore_unsupported_version)
+    val snackbarScope = rememberCoroutineScope()
     BackupEffectCollector(flow) { effect ->
         when (effect) {
             BackupRestoreEffect.Restored -> {
-                // Surface the message, then restart. The snackbar is best-effort —
-                // the rebirth may pre-empt it, which is acceptable.
-                snackbarHostState.showRipDpiSnackbar(
-                    message = restoredMessage,
-                    tone = RipDpiSnackbarTone.Info,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
-                )
+                // The restore is committed and needs a restart. Do not wait for the snackbar: a stop
+                // during it would cancel the collector and skip the restart. The rebirth may pre-empt
+                // the best-effort message.
+                snackbarScope.launch {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = restoredMessage,
+                        tone = RipDpiSnackbarTone.Info,
+                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                    )
+                }
                 onRestart()
             }
 

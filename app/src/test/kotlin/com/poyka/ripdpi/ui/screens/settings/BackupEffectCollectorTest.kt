@@ -1,14 +1,17 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.poyka.ripdpi.backup.BackupRestoreEffect
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -94,6 +97,32 @@ class BackupEffectCollectorTest {
         composeRule.waitForIdle()
 
         assertEquals(listOf("buffered"), calls)
+    }
+
+    @Test
+    fun `restore restarts even when the screen stops while the snackbar shows`() {
+        val owner = TestLifecycleOwner(Lifecycle.State.RESUMED)
+        val effects = Channel<BackupRestoreEffect>(Channel.BUFFERED)
+        var restarts = 0
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalLifecycleOwner provides owner) {
+                BackupRestoreEffectHandler(
+                    flow = effects.receiveAsFlow(),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    onRestart = { restarts += 1 },
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.mainClock.autoAdvance = false
+
+        runBlocking { effects.send(BackupRestoreEffect.Restored) }
+        composeRule.mainClock.advanceTimeBy(100)
+        composeRule.runOnIdle { owner.moveTo(Lifecycle.State.CREATED) }
+        composeRule.mainClock.advanceTimeBy(10_000)
+
+        assertEquals(1, restarts)
     }
 
     private class TestLifecycleOwner(
