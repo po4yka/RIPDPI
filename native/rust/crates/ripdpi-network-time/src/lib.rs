@@ -59,6 +59,12 @@
 //! - **Sleep time counts.** On Linux and Android the monotonic reading is
 //!   `CLOCK_BOOTTIME`, which keeps running while the device is suspended
 //!   (`CLOCK_MONOTONIC`, behind [`Instant`], stops). Other hosts use [`Instant`].
+//! - **One source moves the clock a bounded distance.** In-window corrections
+//!   re-anchor, but never further than [`MAX_PLAUSIBLE_DRIFT_SECS`] from the
+//!   reference (the first anchor or the last voted one), so repeated small steps
+//!   from one server cannot walk the shared clock away. Stamps before
+//!   [`MIN_PLAUSIBLE_UNIX_SECS`] are never accepted. A wrong *first* anchor is
+//!   still accepted and needs a vote of distinct sources to correct.
 //! - **A wrong anchor recovers.** Rejected observations from at least
 //!   [`RECALIBRATION_SOURCES`] distinct sources that agree with the first such
 //!   observation, within [`RECALIBRATION_WINDOW_SECS`], re-anchor the clock, so an
@@ -119,6 +125,11 @@ impl Clock for SystemClock {
 /// (~3 min) and Shadowsocks SIP022's (30 s) own freshness windows, while bounding
 /// how far a rogue/misconfigured server can move the shared clock.
 const MAX_PLAUSIBLE_DRIFT_SECS: u64 = 600;
+
+/// Earliest plausible network time (2023-01-01T00:00:00Z). An observation before
+/// it is rejected, even as the first anchor, so a zero or garbage stamp cannot
+/// set the shared clock.
+const MIN_PLAUSIBLE_UNIX_SECS: i64 = 1_672_531_200;
 
 /// Distinct sources whose rejected observations must agree before they re-anchor
 /// the clock. One rogue or misconfigured server cannot move it alone.
@@ -188,6 +199,9 @@ struct Votes {
 #[derive(Debug, Default)]
 struct ClockState {
     anchor: Option<Anchor>,
+    /// The first anchor, or the last one set by a vote of distinct sources. No
+    /// single source can move the clock more than the drift bound away from it.
+    reference: Option<Anchor>,
     votes: Option<Votes>,
 }
 
@@ -276,11 +290,14 @@ impl NetworkTimeProvider {
     /// `source`, captured against the current monotonic reading. Returns whether
     /// the observation was accepted.
     ///
-    /// The **first** observation is always accepted (bootstrap — it may correct a
-    /// grossly-wrong device clock). Once anchored, an observation that disagrees
-    /// with the established network time by more than [`MAX_PLAUSIBLE_DRIFT_SECS`]
-    /// is **rejected**, so a single misconfigured or hostile (but key-holding)
-    /// server cannot yank the process-wide clock — and thus the replay window of
+    /// An observation before [`MIN_PLAUSIBLE_UNIX_SECS`] is always rejected.
+    /// Otherwise the **first** observation is accepted (bootstrap — it may correct
+    /// a grossly-wrong device clock) and becomes the reference. Once anchored, an
+    /// observation that disagrees with the established network time, or with the
+    /// reference, by more than [`MAX_PLAUSIBLE_DRIFT_SECS`] is **rejected**, so a
+    /// source cannot walk the clock away in in-window steps, and a single
+    /// misconfigured or hostile (but key-holding) server cannot yank the
+    /// process-wide clock — and thus the replay window of
     /// *other* transports sharing this provider — to an arbitrary value. An
     /// in-window observation that agrees with the estimate within the source's
     /// uncertainty keeps the anchor; one outside it re-anchors (possibly
@@ -288,22 +305,34 @@ impl NetworkTimeProvider {
     /// observations from [`RECALIBRATION_SOURCES`] distinct sources that agree
     /// with the first of them within [`RECALIBRATION_WINDOW_SECS`] re-anchor it.
     pub fn calibrate(&self, observed_network_unix: i64, source: TimeSource) -> bool {
+        if observed_network_unix < MIN_PLAUSIBLE_UNIX_SECS {
+            return false;
+        }
         let mono = self.clock.monotonic_nanos();
+        let observation = Anchor { net_unix: observed_network_unix, mono_nanos: mono };
         let mut guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         // Compute the current estimate under the same lock (calling `now_unix`
         // here would re-lock the non-reentrant mutex and deadlock).
         if let Some(anchor) = guard.anchor {
             let offset = observed_network_unix.saturating_sub(anchor.estimate(mono));
-            if offset.unsigned_abs() > MAX_PLAUSIBLE_DRIFT_SECS {
+            let from_reference = guard
+                .reference
+                .map_or(offset, |reference| observed_network_unix.saturating_sub(reference.estimate(mono)));
+            if offset.unsigned_abs() > MAX_PLAUSIBLE_DRIFT_SECS
+                || from_reference.unsigned_abs() > MAX_PLAUSIBLE_DRIFT_SECS
+            {
                 if !guard.vote(offset, mono, source.id) {
                     return false;
                 }
+                guard.reference = Some(observation);
             } else if offset.unsigned_abs() <= source.uncertainty_secs {
                 guard.votes = None;
                 return true;
             }
+        } else {
+            guard.reference = Some(observation);
         }
-        guard.anchor = Some(Anchor { net_unix: observed_network_unix, mono_nanos: mono });
+        guard.anchor = Some(observation);
         guard.votes = None;
         true
     }
@@ -340,6 +369,9 @@ mod tests {
     use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
     use super::*;
+
+    /// Added to every network time in these tests so they pass the plausibility floor.
+    const T0: i64 = MIN_PLAUSIBLE_UNIX_SECS;
 
     /// An exact source (second-precise stamps) named `name`.
     fn source(name: &str) -> TimeSource {
@@ -390,18 +422,18 @@ mod tests {
     fn calibrated_ignores_device_clock_and_advances_monotonically() {
         let clock = std::sync::Arc::new(TestClock::new(1_000_000));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        // Server says it is 1_700_000_000 right now.
-        provider.calibrate(1_700_000_000, source("a"));
+        // Server says it is T0 right now.
+        provider.calibrate(T0, source("a"));
         assert!(provider.is_calibrated());
-        assert_eq!(provider.now_unix(), 1_700_000_000);
+        assert_eq!(provider.now_unix(), T0);
 
         // A device clock stepped back to a wildly wrong value must not move network time.
         clock.set_wall(42);
-        assert_eq!(provider.now_unix(), 1_700_000_000, "calibrated time ignores the device wall clock");
+        assert_eq!(provider.now_unix(), T0, "calibrated time ignores the device wall clock");
 
         // Monotonic progress advances network time second-for-second.
         clock.advance_secs(30);
-        assert_eq!(provider.now_unix(), 1_700_000_030);
+        assert_eq!(provider.now_unix(), T0 + 30);
     }
 
     #[test]
@@ -409,100 +441,122 @@ mod tests {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
         // First observation always accepted (bootstrap — may correct a wrong clock).
-        assert!(provider.calibrate(1_000_000_000, source("a")));
-        assert_eq!(provider.now_unix(), 1_000_000_000);
+        assert!(provider.calibrate(T0 + 1_000_000_000, source("a")));
+        assert_eq!(provider.now_unix(), T0 + 1_000_000_000);
         // A wild jump from a rogue/misconfigured server (> MAX_PLAUSIBLE_DRIFT) is
         // rejected and must not move the shared clock.
-        assert!(!provider.calibrate(1_000_000_000 + 3_600, source("a")));
-        assert_eq!(provider.now_unix(), 1_000_000_000, "implausible calibration must not move the clock");
+        assert!(!provider.calibrate(T0 + 1_000_000_000 + 3_600, source("a")));
+        assert_eq!(provider.now_unix(), T0 + 1_000_000_000, "implausible calibration must not move the clock");
         // A small in-window correction re-anchors.
-        assert!(provider.calibrate(1_000_000_010, source("a")));
-        assert_eq!(provider.now_unix(), 1_000_000_010);
+        assert!(provider.calibrate(T0 + 1_000_000_010, source("a")));
+        assert_eq!(provider.now_unix(), T0 + 1_000_000_010);
     }
 
     #[test]
     fn recalibration_reanchors_to_latest_observation() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        provider.calibrate(1_000, source("a"));
+        provider.calibrate(T0 + 1_000, source("a"));
         clock.advance_secs(10);
-        assert_eq!(provider.now_unix(), 1_010);
+        assert_eq!(provider.now_unix(), T0 + 1_010);
         // A fresh, in-window observation re-anchors from the new monotonic point.
-        provider.calibrate(1_400, source("a"));
-        assert_eq!(provider.now_unix(), 1_400);
+        provider.calibrate(T0 + 1_400, source("a"));
+        assert_eq!(provider.now_unix(), T0 + 1_400);
         clock.advance_secs(5);
-        assert_eq!(provider.now_unix(), 1_405);
+        assert_eq!(provider.now_unix(), T0 + 1_405);
     }
 
     #[test]
     fn wall_clock_step_after_calibration_does_not_move_network_time() {
         // The device clock is an hour slow; the server corrects it.
-        let clock = std::sync::Arc::new(TestClock::new(1_700_000_000));
+        let clock = std::sync::Arc::new(TestClock::new(T0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        assert!(provider.calibrate(1_700_003_600, source("a")));
+        assert!(provider.calibrate(T0 + 3_600, source("a")));
         clock.advance_secs(10);
         // Automatic time then steps the device clock forward to the right value.
-        clock.set_wall(1_700_003_610);
-        assert_eq!(provider.now_unix(), 1_700_003_610, "a wall-clock step must not move network time");
-        assert!(provider.calibrate(1_700_003_611, source("a")), "honest recalibration stays inside the drift window");
-        assert_eq!(provider.now_unix(), 1_700_003_611);
+        clock.set_wall(T0 + 3_610);
+        assert_eq!(provider.now_unix(), T0 + 3_610, "a wall-clock step must not move network time");
+        assert!(provider.calibrate(T0 + 3_611, source("a")), "honest recalibration stays inside the drift window");
+        assert_eq!(provider.now_unix(), T0 + 3_611);
     }
 
     #[test]
     fn one_source_repeating_a_wrong_time_never_moves_the_clock() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        assert!(provider.calibrate(1_000_000, source("a")));
+        assert!(provider.calibrate(T0 + 1_000_000, source("a")));
         for _ in 0..10 {
             clock.advance_secs(10);
             assert!(!provider.calibrate(provider.now_unix() + 7_200, source("rogue")));
         }
-        assert_eq!(provider.now_unix(), 1_000_100);
+        assert_eq!(provider.now_unix(), T0 + 1_000_100);
     }
 
     #[test]
     fn two_sources_agreeing_reanchor_a_wrong_estimate() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        assert!(provider.calibrate(1_000_000, source("a")));
+        assert!(provider.calibrate(T0 + 1_000_000, source("a")));
         // The estimate is now two hours behind the servers.
-        assert!(!provider.calibrate(1_007_200, source("b")));
-        assert!(!provider.calibrate(1_007_200, source("b")), "a repeat from the same source is not a new vote");
+        assert!(!provider.calibrate(T0 + 1_007_200, source("b")));
+        assert!(!provider.calibrate(T0 + 1_007_200, source("b")), "a repeat from the same source is not a new vote");
         clock.advance_secs(30);
-        assert!(provider.calibrate(1_007_290, source("c")), "a second source agreeing re-anchors");
-        assert_eq!(provider.now_unix(), 1_007_290);
+        assert!(provider.calibrate(T0 + 1_007_290, source("c")), "a second source agreeing re-anchors");
+        assert_eq!(provider.now_unix(), T0 + 1_007_290);
     }
 
     #[test]
     fn votes_must_agree_with_the_first_vote_and_expire() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        assert!(provider.calibrate(1_000_000, source("a")));
+        assert!(provider.calibrate(T0 + 1_000_000, source("a")));
         // The third vote is within the agreement of the second but not of the first.
-        assert!(!provider.calibrate(1_007_200, source("b")));
-        assert!(!provider.calibrate(1_007_300, source("b")));
-        assert!(!provider.calibrate(1_007_400, source("c")));
-        assert_eq!(provider.now_unix(), 1_000_000, "drifting votes must not re-anchor");
+        assert!(!provider.calibrate(T0 + 1_007_200, source("b")));
+        assert!(!provider.calibrate(T0 + 1_007_300, source("b")));
+        assert!(!provider.calibrate(T0 + 1_007_400, source("c")));
+        assert_eq!(provider.now_unix(), T0 + 1_000_000, "drifting votes must not re-anchor");
 
         // A vote older than the window no longer counts.
-        assert!(!provider.calibrate(1_007_200, source("d")));
+        assert!(!provider.calibrate(T0 + 1_007_200, source("d")));
         clock.advance_secs(601);
-        assert!(!provider.calibrate(1_007_801, source("e")));
-        assert_eq!(provider.now_unix(), 1_000_601);
+        assert!(!provider.calibrate(T0 + 1_007_801, source("e")));
+        assert_eq!(provider.now_unix(), T0 + 1_000_601);
     }
 
     #[test]
     fn coarse_source_within_its_uncertainty_does_not_move_the_clock() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
-        assert!(provider.calibrate(1_000_000, source("sip022")));
+        assert!(provider.calibrate(T0 + 1_000_000, source("sip022")));
         let mieru = TimeSource::new("mieru", "a", 1, 30);
         // A minute-granular stamp 25 s behind is consistent: no backward step.
-        assert!(provider.calibrate(999_975, mieru));
-        assert_eq!(provider.now_unix(), 1_000_000);
+        assert!(provider.calibrate(T0 + 999_975, mieru));
+        assert_eq!(provider.now_unix(), T0 + 1_000_000);
         // 45 s behind is outside its uncertainty: a real correction, stepping backwards.
-        assert!(provider.calibrate(999_955, mieru));
-        assert_eq!(provider.now_unix(), 999_955);
+        assert!(provider.calibrate(T0 + 999_955, mieru));
+        assert_eq!(provider.now_unix(), T0 + 999_955);
+    }
+
+    #[test]
+    fn calibration_rejects_observations_before_the_plausibility_floor() {
+        let provider = NetworkTimeProvider::with_clock(Box::new(std::sync::Arc::new(TestClock::new(T0))));
+        assert!(!provider.calibrate(0, source("rogue")), "a zero timestamp must not become the first anchor");
+        assert!(!provider.calibrate(MIN_PLAUSIBLE_UNIX_SECS - 1, source("rogue")));
+        assert!(!provider.is_calibrated());
+        assert!(provider.calibrate(MIN_PLAUSIBLE_UNIX_SECS, source("a")));
+    }
+
+    #[test]
+    fn one_source_cannot_walk_the_clock_in_steps() {
+        let clock = std::sync::Arc::new(TestClock::new(0));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        assert!(provider.calibrate(T0, source("a")));
+        // Each step is inside the drift window of the previous anchor...
+        assert!(provider.calibrate(T0 + 500, source("rogue")));
+        // ...but the total distance from the trusted anchor is bounded.
+        assert!(!provider.calibrate(T0 + 1_000, source("rogue")));
+        assert!(!provider.calibrate(T0 + 1_500, source("rogue")));
+        assert_eq!(provider.now_unix(), T0 + 500);
     }
 
     #[test]
