@@ -13,6 +13,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -23,6 +24,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
+import java.io.IOException
 
 /**
  * Concurrency tests for [CloudflarePublishManager.start].
@@ -290,5 +292,25 @@ class CloudflarePublishConcurrencyTest {
             stopJob.join()
 
             assertEquals(2, stopCalls)
+        }
+
+    @Test
+    fun `readiness timeout is an ordinary startup failure, not a cancellation`() =
+        runTest {
+            val runtime =
+                CloudflarePublishRuntime(
+                    relayFactory =
+                        object : RipDpiRelayFactory {
+                            override fun create(): RipDpiRelayRuntime = error("helpers never become ready")
+                        },
+                    publishManager = hangingManager(CompletableDeferred()),
+                )
+            val startJob = launch { runtime.start(cfConfig()) }
+            yield()
+
+            val readinessError = runCatching { runtime.awaitReady(timeoutMillis = 50L) }.exceptionOrNull()
+
+            assertTrue("expected IOException, got $readinessError", readinessError is IOException)
+            startJob.cancelAndJoin()
         }
 }

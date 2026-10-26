@@ -21,8 +21,9 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.io.IOException
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.TimeUnit
@@ -241,6 +242,9 @@ open class CloudflarePublishManager
         }
     }
 
+// Two version probes plus origin and cloudflared readiness stage timeouts (2 + 2 + 7.5 + 7.5 s).
+private const val CloudflarePublishStartBudgetMs = 20_000L
+
 class CloudflarePublishRuntime
     @Inject
     constructor(
@@ -290,10 +294,12 @@ class CloudflarePublishRuntime
             }
 
         override suspend fun awaitReady(timeoutMillis: Long) {
-            withTimeout(timeoutMillis) {
-                val relay = relayStartSignal.await()
-                relay.awaitReady(timeoutMillis)
-            }
+            // Helper startup has its own stage timeouts; a timeout here must be a startup
+            // failure (IOException), never a CancellationException the supervisor rethrows.
+            val relay =
+                withTimeoutOrNull(maxOf(timeoutMillis, CloudflarePublishStartBudgetMs)) { relayStartSignal.await() }
+                    ?: throw IOException("Cloudflare publish helpers were not ready in time")
+            relay.awaitReady(timeoutMillis)
         }
 
         override suspend fun stop() {
