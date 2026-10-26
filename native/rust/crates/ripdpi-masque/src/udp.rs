@@ -229,9 +229,14 @@ impl MasqueUdpFlow {
                     let encoded_len = encoded.remaining();
                     connection.send_datagram(encoded.copy_to_bytes(encoded_len)).map_err(h3_datagram_send_error)
                 }
-                MasqueUdpSender::H2(sender) => sender.try_send(payload.to_vec()).map_err(|error| {
-                    io::Error::new(io::ErrorKind::BrokenPipe, format!("failed to queue MASQUE H2 UDP payload: {error}"))
-                }),
+                MasqueUdpSender::H2(sender) => match sender.try_send(payload.to_vec()) {
+                    // UDP is lossy: a full queue (the H2 stream is flow-control blocked)
+                    // drops this datagram instead of failing the association.
+                    Ok(()) | Err(mpsc::error::TrySendError::Full(_)) => Ok(()),
+                    Err(mpsc::error::TrySendError::Closed(_)) => {
+                        Err(io::Error::new(io::ErrorKind::BrokenPipe, "MASQUE H2 UDP stream closed"))
+                    }
+                },
             };
         if result.is_ok() {
             self.last_used = Instant::now();
@@ -266,6 +271,20 @@ mod tests {
         let mut flow = MasqueUdpFlow::new(MasqueUdpSender::H2(sender), None, driver_task, reader_task, None, 0);
         flow.last_used = last_used;
         flow
+    }
+
+    #[tokio::test]
+    async fn h2_send_drops_a_datagram_when_the_queue_is_full_and_fails_once_closed() {
+        let (sender, receiver) = mpsc::channel(1);
+        let driver_task = tokio::spawn(std::future::pending());
+        let reader_task = tokio::spawn(std::future::pending());
+        let mut flow = MasqueUdpFlow::new(MasqueUdpSender::H2(sender), None, driver_task, reader_task, None, 0);
+
+        flow.send(b"queued").expect("first datagram is queued");
+        flow.send(b"dropped").expect("a full queue drops the datagram");
+        drop(receiver);
+
+        assert_eq!(flow.send(b"closed").expect_err("closed stream").kind(), io::ErrorKind::BrokenPipe);
     }
 
     #[tokio::test]
