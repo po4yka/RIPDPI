@@ -19,8 +19,9 @@ mod tcp;
 
 use state::{ResolverInner, ResolverTlsVerifiers};
 
-/// The overall deadline of one exchange, in multiples of the per-stage timeout.
-const EXCHANGE_DEADLINE_TIMEOUTS: u32 = 2;
+/// Stages after the bootstrap connects that the overall deadline gives a full
+/// per-stage timeout each: the handshake and the query exchange.
+const EXCHANGE_DEADLINE_EXTRA_STAGES: u32 = 2;
 
 #[derive(Debug, Clone)]
 pub struct EncryptedDnsResolver {
@@ -223,10 +224,11 @@ impl EncryptedDnsResolver {
         &self.inner.endpoint
     }
 
-    /// Runs one query, bounded by one overall deadline of twice the configured
-    /// timeout. Each stage (connect per bootstrap IP, TLS, exchange, a retry on a
-    /// stale pooled stream) also has its own timeout, but without the overall
-    /// deadline those stack to many times the configured value.
+    /// Runs one query, bounded by one overall deadline: one configured timeout
+    /// per bootstrap IP plus [`EXCHANGE_DEADLINE_EXTRA_STAGES`]. Each stage
+    /// (connect per bootstrap IP, TLS, exchange, a retry on a stale pooled
+    /// stream) also has its own timeout. The deadline lets every bootstrap IP be
+    /// tried once but stops retries from stacking the stages further.
     ///
     /// # Cancel safety
     ///
@@ -238,7 +240,7 @@ impl EncryptedDnsResolver {
         query_bytes: &[u8],
     ) -> Result<EncryptedDnsExchangeSuccess, EncryptedDnsError> {
         let started = std::time::Instant::now();
-        let deadline = self.inner.timeout.saturating_mul(EXCHANGE_DEADLINE_TIMEOUTS);
+        let deadline = self.exchange_deadline();
         let response_bytes =
             tokio::time::timeout(deadline, self.exchange_protocol(query_bytes)).await.map_err(|_| {
                 EncryptedDnsError::Request(format!("encrypted DNS exchange timed out after {deadline:?}"))
@@ -301,6 +303,11 @@ impl EncryptedDnsResolver {
             .unwrap_or_else(|| format!("{}:{}", self.inner.endpoint.host, self.inner.endpoint.port))
     }
 
+    fn exchange_deadline(&self) -> Duration {
+        let connects = u32::try_from(self.inner.endpoint.bootstrap_ips.len().max(1)).unwrap_or(u32::MAX);
+        self.inner.timeout.saturating_mul(connects.saturating_add(EXCHANGE_DEADLINE_EXTRA_STAGES))
+    }
+
     fn uses_direct_tcp_connector(&self) -> bool {
         matches!(self.inner.transport, EncryptedDnsTransport::Direct)
             && self.inner.connect_hooks.has_direct_tcp_connector()
@@ -314,28 +321,44 @@ impl EncryptedDnsResolver {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::sync::Mutex;
 
     use super::*;
 
     #[tokio::test(start_paused = true)]
-    async fn exchange_has_one_overall_deadline_across_bootstrap_ips() {
+    async fn overall_deadline_lets_every_bootstrap_ip_be_tried() {
         let timeout = Duration::from_millis(100);
+        let bootstrap_ips: Vec<IpAddr> = (1..=3).map(|last| IpAddr::V4(Ipv4Addr::new(198, 18, 0, last))).collect();
+        let last_ip = bootstrap_ips[2];
         let endpoint = EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Dot,
             resolver_id: Some("blackholed".to_string()),
             host: "dot.example".to_string(),
             port: 853,
             tls_server_name: Some("dot.example".to_string()),
-            bootstrap_ips: (1..=4).map(|last| IpAddr::V4(Ipv4Addr::new(198, 18, 0, last))).collect(),
+            bootstrap_ips: bootstrap_ips.clone(),
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
             odoh: None,
         };
-        // Every bootstrap IP is blackholed: the connect never completes.
-        let hooks = EncryptedDnsConnectHooks::new()
-            .with_direct_tcp_connector(|_, _| std::future::pending::<std::io::Result<std::net::TcpStream>>());
+        // The first two bootstrap IPs are blackholed; the third answers late.
+        let dialed = Arc::new(Mutex::new(Vec::new()));
+        let record = dialed.clone();
+        let hooks = EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target: SocketAddr, timeout| {
+            record.lock().expect("dialed lock").push(target.ip());
+            async move {
+                if target.ip() != last_ip {
+                    std::future::pending::<()>().await;
+                }
+                tokio::time::sleep(timeout / 2).await;
+                Err::<std::net::TcpStream, _>(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionRefused,
+                    "third refused",
+                ))
+            }
+        });
         let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
             endpoint,
             EncryptedDnsTransport::Direct,
@@ -345,9 +368,10 @@ mod tests {
         .expect("resolver builds");
 
         let started = tokio::time::Instant::now();
-        let error = resolver.exchange(&[0u8; 12]).await.expect_err("blackholed resolver must fail");
+        let error = resolver.exchange(&[0u8; 12]).await.expect_err("refused resolver must fail");
 
-        assert_eq!(started.elapsed(), timeout * EXCHANGE_DEADLINE_TIMEOUTS, "error: {error}");
-        assert!(error.to_string().contains("timed out"), "error: {error}");
+        assert_eq!(*dialed.lock().expect("dialed lock"), bootstrap_ips, "error: {error}");
+        assert!(error.to_string().contains("third refused"), "error: {error}");
+        assert_eq!(started.elapsed(), timeout * 2 + timeout / 2, "error: {error}");
     }
 }
