@@ -1,4 +1,6 @@
+use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
+use std::time::Duration;
 
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
@@ -50,7 +52,7 @@ fn relay_udp_candidates(
         }
         for destination in destinations {
             let result = match transport {
-                TransportConfig::Direct { .. } => relay_udp_direct(destination, payload),
+                TransportConfig::Direct { .. } => relay_udp_direct_exchange(destination, payload, true),
                 TransportConfig::Socks5 { host, port, credentials } => {
                     relay_udp_via_socks5(host, *port, destination, payload, credentials.as_ref())
                 }
@@ -72,16 +74,37 @@ fn relay_udp_candidates(
 }
 
 pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), TransportError> {
+    relay_udp_direct_exchange(server, payload, false)
+}
+
+/// With `retransmit`, a datagram lost on the first try is sent once more
+/// (RFC 9002 section 6.2.2) within the same receive wait, so a blocked path
+/// still costs one wait per destination.
+fn relay_udp_direct_exchange(
+    server: SocketAddr,
+    payload: &[u8],
+    retransmit: bool,
+) -> Result<(Vec<u8>, SocketAddr), TransportError> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+    let first_wait = if retransmit { timeout / 2 } else { timeout };
     let bind_addr: SocketAddr =
         if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
     let socket = super::protect::protected_udp_bind(bind_addr, server)?;
-    socket.set_read_timeout(Some(timeout))?;
+    // A zero read timeout is rejected by the platform; 1 ms is the floor.
+    socket.set_read_timeout(Some(first_wait.max(Duration::from_millis(1))))?;
     socket.set_write_timeout(Some(timeout))?;
     socket.connect(server)?;
     socket.send(payload)?;
     let mut buf = [0u8; 2048];
-    let size = socket.recv(&mut buf).map_err(TransportError::udp_recv_error)?;
+    let size = match socket.recv(&mut buf) {
+        Err(error) if retransmit && matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
+            socket.set_read_timeout(Some(timeout.saturating_sub(first_wait).max(Duration::from_millis(1))))?;
+            socket.send(payload)?;
+            socket.recv(&mut buf)
+        }
+        other => other,
+    }
+    .map_err(TransportError::udp_recv_error)?;
     let local_addr = socket.local_addr()?;
     Ok((buf[..size].to_vec(), local_addr))
 }

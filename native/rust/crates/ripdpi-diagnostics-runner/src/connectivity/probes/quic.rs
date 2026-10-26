@@ -1,8 +1,6 @@
 use ripdpi_packets::{QUIC_V1_VERSION, QuicResponseKind, build_probe_quic_initial, validate_quic_response};
 
-use crate::connectivity::adapters::transport::{
-    TransportConfig, TransportError, quic_connect_targets, relay_udp_payload_observed,
-};
+use crate::connectivity::adapters::transport::{TransportConfig, quic_connect_targets, relay_udp_payload_observed};
 use crate::connectivity::adapters::util::now_ms;
 use crate::types::{ProbeDetail, ProbeResult, QuicTarget};
 
@@ -12,16 +10,11 @@ pub fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig) -> Probe
     let started = now_ms();
     let connect_targets = quic_connect_targets(target);
     let payload = build_probe_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str()));
-    let send = |payload: &[u8]| relay_udp_payload_observed(&connect_targets, target.port, transport, payload);
+    // The direct transport retransmits a lost Initial once within the same wait.
     let response = payload
         .as_deref()
         .ok_or_else(|| std::io::Error::other("QUIC Initial generation failed").into())
-        .and_then(|payload| match send(payload) {
-            // One lost datagram is not a verdict: retransmit the Initial once, as a
-            // client does after its probe timeout (RFC 9002 section 6.2.2).
-            Err(TransportError::UdpRecvTimeout | TransportError::UdpRecvWouldBlock) => send(payload),
-            result => result,
-        });
+        .and_then(|payload| relay_udp_payload_observed(&connect_targets, target.port, transport, payload));
     let kind = response
         .as_ref()
         .ok()
@@ -149,6 +142,34 @@ mod tests {
 
         assert_eq!(worker.join().unwrap(), 2, "the server must see the retransmitted Initial");
         assert_eq!(result.outcome, "quic_response");
+    }
+
+    // A blocked path drops every Initial. The retransmit must fit in the wait
+    // of a single exchange, not add a second full receive timeout.
+    #[test]
+    fn quic_probe_on_a_blackholed_path_keeps_one_receive_wait() {
+        let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+        server.set_read_timeout(Some(std::time::Duration::from_secs(4))).unwrap();
+        let port = server.local_addr().unwrap().port();
+        let worker = thread::spawn(move || {
+            let mut request = [0; 2048];
+            let mut seen = 0;
+            while server.recv_from(&mut request).is_ok() {
+                seen += 1;
+            }
+            seen
+        });
+        let target =
+            QuicTarget { host: "127.0.0.1".into(), connect_ip: Some("127.0.0.1".into()), connect_ips: vec![], port };
+
+        let started = std::time::Instant::now();
+        let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
+        let elapsed = started.elapsed();
+
+        assert_ne!(result.outcome, "quic_response");
+        let one_wait = crate::connectivity::adapters::util::IO_TIMEOUT;
+        assert!(elapsed < one_wait + std::time::Duration::from_millis(400), "probe waited {elapsed:?}");
+        assert_eq!(worker.join().unwrap(), 2, "the Initial must still be retransmitted once");
     }
 
     #[test]
