@@ -110,3 +110,30 @@ fn mmap_region_vmsplice_rejects_oversized_len() {
 
     assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
 }
+
+#[test]
+fn protect_socket_connect_is_bounded_when_the_server_never_accepts() {
+    use socket2::{Domain, SockAddr, Socket, Type};
+
+    let path = std::env::temp_dir().join(format!("ripdpi-protect-backlog-{}.sock", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let listener = Socket::new(Domain::UNIX, Type::STREAM, None).expect("socket");
+    listener.bind(&SockAddr::unix(&path).expect("address")).expect("bind");
+    // The server never accepts, like a wedged accept thread.
+    listener.listen(0).expect("listen");
+    let path_text = path.to_str().expect("temp path is valid UTF-8").to_owned();
+
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("socket to protect");
+        // Each call takes an accept-queue slot; once the queue is full, connect waits.
+        for _ in 0..4 {
+            let _ = crate::linux::fd::protect_socket(&socket, &path_text);
+        }
+        let _ = done_tx.send(());
+    });
+
+    let finished = done_rx.recv_timeout(std::time::Duration::from_secs(30));
+    let _ = std::fs::remove_file(&path);
+    assert!(finished.is_ok(), "protect_socket must not wait forever on a full accept queue");
+}

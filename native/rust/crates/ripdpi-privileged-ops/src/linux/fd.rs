@@ -14,6 +14,8 @@ use crate::linux::socket_options::getsockopt_raw;
 
 const SO_ORIGINAL_DST: libc::c_int = 80;
 const IP6T_SO_ORIGINAL_DST: libc::c_int = 80;
+/// Budget for each step of the protect handshake: connect, send and ack read.
+const PROTECT_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// `dup2(source, target)` — replace `target`'s entry in the fd table with
 /// a clone of `source`. Both ends remain owned by the caller; the original
@@ -47,9 +49,13 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
     use nix::sys::socket::{ControlMessage, MsgFlags, sendmsg};
     use std::io::IoSlice;
 
-    let stream = UnixStream::connect(path)?;
-    stream.set_read_timeout(Some(Duration::from_secs(1)))?;
-    stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+    let channel = socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)?;
+    // Set before connect: SO_SNDTIMEO also bounds a blocking AF_UNIX connect,
+    // which otherwise waits forever on a full accept queue.
+    channel.set_write_timeout(Some(PROTECT_TIMEOUT))?;
+    channel.set_read_timeout(Some(PROTECT_TIMEOUT))?;
+    channel.connect(&socket2::SockAddr::unix(path)?)?;
+    let stream = UnixStream::from(channel);
 
     let payload = *b"1";
     let iov = [IoSlice::new(&payload)];
