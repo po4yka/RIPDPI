@@ -2,6 +2,8 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiHostAutolearnConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -41,6 +43,37 @@ class DiagnosticsHomeRecommendationApplierTest {
                     savedSettings.hostAutolearnMaxHosts,
                 ),
             )
+        }
+
+    @Test
+    fun `apply recommendation keeps a settings write that lands after the read`() =
+        runTest {
+            val delegate = FakeAppSettingsRepository()
+            val racingRepository =
+                object : AppSettingsRepository by delegate {
+                    private var raced = false
+
+                    private suspend fun raceOnce() {
+                        if (!raced) {
+                            raced = true
+                            delegate.update { setDiagnosticsMonitorEnabled(false) }
+                        }
+                    }
+
+                    override suspend fun snapshot(): AppSettings = delegate.snapshot().also { raceOnce() }
+
+                    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+                        raceOnce()
+                        delegate.update(transform)
+                    }
+                }
+
+            DiagnosticsHomeRecommendationApplier(racingRepository)
+                .applyValidatedRecommendation(
+                    eligibleStrategyProbeReport(RipDpiProxyUIPreferences().toNativeConfigJson()),
+                )
+
+            assertEquals(false, delegate.snapshot().diagnosticsMonitorEnabled)
         }
 
     private fun eligibleStrategyProbeReport(recommendedProxyConfigJson: String): StrategyProbeReport =

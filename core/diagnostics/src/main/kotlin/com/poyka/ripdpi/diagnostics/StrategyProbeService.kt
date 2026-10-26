@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -200,58 +202,63 @@ class DefaultStrategyProbeService
         private val dnsComparator: StrategyProbeDnsComparator,
         private val resultInjector: StrategyProbeResultInjector,
     ) : StrategyProbeService {
+        // One run at a time: an overlapping run would capture the other run's candidate as the original.
+        private val runMutex = Mutex()
+
         override fun run(config: StrategyProbeConfig): Flow<StrategyProbeResult> =
             flow {
-                val snapshot = activator.capture()
-                val emittedResults = mutableListOf<StrategyProbeResult>()
-                try {
-                    val candidates =
-                        candidateProvider
-                            .listCandidates()
-                            .filteredBy(config.candidateIds)
-                            .normalized(config.maxStrategies)
-                    val domains = config.testDomains.normalizedDomains()
-                    val endpoint = StrategyProbeEndpoint(config.proxyHost, config.proxyPort)
-                    val maxTotalProbes = config.maxTotalProbes.coerceAtLeast(0)
-                    var probeCount = 0
-                    var firstProbe = true
+                runMutex.withLock {
+                    val snapshot = activator.capture()
+                    val emittedResults = mutableListOf<StrategyProbeResult>()
+                    try {
+                        val candidates =
+                            candidateProvider
+                                .listCandidates()
+                                .filteredBy(config.candidateIds)
+                                .normalized(config.maxStrategies)
+                        val domains = config.testDomains.normalizedDomains()
+                        val endpoint = StrategyProbeEndpoint(config.proxyHost, config.proxyPort)
+                        val maxTotalProbes = config.maxTotalProbes.coerceAtLeast(0)
+                        var probeCount = 0
+                        var firstProbe = true
 
-                    for (candidate in candidates) {
-                        currentCoroutineContext().ensureActiveForProbe()
-                        activator.activate(candidate)
-
-                        for (domain in domains) {
+                        for (candidate in candidates) {
                             currentCoroutineContext().ensureActiveForProbe()
+                            activator.activate(candidate)
+
+                            for (domain in domains) {
+                                currentCoroutineContext().ensureActiveForProbe()
+                                if (probeCount >= maxTotalProbes) {
+                                    break
+                                }
+                                if (!firstProbe) {
+                                    delay(config.probeIntervalMs.coerceAtLeast(0L))
+                                }
+                                firstProbe = false
+                                val dnsComparison = dnsComparator.compare(domain)
+                                val result =
+                                    transport
+                                        .probe(
+                                            StrategyProbeConnectionRequest(
+                                                strategy = candidate,
+                                                domain = domain,
+                                                endpoint = endpoint,
+                                                timeoutMs = config.timeoutMs,
+                                            ),
+                                        ).toProbeResult(candidate, domain, dnsComparison)
+                                emittedResults += result
+                                probeCount += 1
+                                emit(result)
+                            }
                             if (probeCount >= maxTotalProbes) {
                                 break
                             }
-                            if (!firstProbe) {
-                                delay(config.probeIntervalMs.coerceAtLeast(0L))
-                            }
-                            firstProbe = false
-                            val dnsComparison = dnsComparator.compare(domain)
-                            val result =
-                                transport
-                                    .probe(
-                                        StrategyProbeConnectionRequest(
-                                            strategy = candidate,
-                                            domain = domain,
-                                            endpoint = endpoint,
-                                            timeoutMs = config.timeoutMs,
-                                        ),
-                                    ).toProbeResult(candidate, domain, dnsComparison)
-                            emittedResults += result
-                            probeCount += 1
-                            emit(result)
                         }
-                        if (probeCount >= maxTotalProbes) {
-                            break
+                        resultInjector.inject(emittedResults)
+                    } finally {
+                        withContext(NonCancellable) {
+                            activator.restore(snapshot)
                         }
-                    }
-                    resultInjector.inject(emittedResults)
-                } finally {
-                    withContext(NonCancellable) {
-                        activator.restore(snapshot)
                     }
                 }
             }
@@ -308,7 +315,13 @@ class SettingsStrategyProbeActivator
         }
 
         override suspend fun restore(snapshot: StrategyProbeActivationSnapshot) {
-            snapshot.settings?.let { appSettingsRepository.replace(it) }
+            val original = snapshot.settings ?: return
+            // Revert only the fields activate() wrote, so edits made during the probe survive.
+            appSettingsRepository.update {
+                strategyChainYaml = original.strategyChainYaml
+                clearTcpChainSteps().addAllTcpChainSteps(original.tcpChainStepsList)
+                clearUdpChainSteps().addAllUdpChainSteps(original.udpChainStepsList)
+            }
         }
     }
 

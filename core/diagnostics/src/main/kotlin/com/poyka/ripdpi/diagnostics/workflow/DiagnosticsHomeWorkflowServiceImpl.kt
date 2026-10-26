@@ -43,16 +43,19 @@ internal class DiagnosticsHomeRecommendationApplier
                     decodeRipDpiProxyUiPreferences(
                         recommendation.recommendedProxyConfigJson,
                     )?.let { preferences ->
-                        val settingsBefore = appSettingsRepository.snapshot()
-                        val strategySettings =
-                            preferences
-                                .applyToSettings(settingsBefore)
-                                .toBuilder()
-                                .setHostAutolearnEnabled(settingsBefore.hostAutolearnEnabled)
-                                .setHostAutolearnPenaltyTtlHours(settingsBefore.hostAutolearnPenaltyTtlHours)
-                                .setHostAutolearnMaxHosts(settingsBefore.hostAutolearnMaxHosts)
-                                .build()
-                        appSettingsRepository.replace(strategySettings)
+                        // Apply against the current value in one update, so a concurrent write is not reverted.
+                        appSettingsRepository.update {
+                            val settingsBefore = build()
+                            val strategySettings =
+                                preferences
+                                    .applyToSettings(settingsBefore)
+                                    .toBuilder()
+                                    .setHostAutolearnEnabled(settingsBefore.hostAutolearnEnabled)
+                                    .setHostAutolearnPenaltyTtlHours(settingsBefore.hostAutolearnPenaltyTtlHours)
+                                    .setHostAutolearnMaxHosts(settingsBefore.hostAutolearnMaxHosts)
+                                    .build()
+                            clear().mergeFrom(strategySettings)
+                        }
                         StrategyApplyResult(
                             recommendation = recommendation,
                             appliedSettings =

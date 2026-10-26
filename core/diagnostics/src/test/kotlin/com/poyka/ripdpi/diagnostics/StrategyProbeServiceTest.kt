@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.core.StrategyEngineBindings
 import com.poyka.ripdpi.core.StrategyProbeResultDto
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.toList
@@ -115,6 +116,61 @@ class StrategyProbeServiceTest {
             assertTrue(transport.cancelled)
             assertTrue(service.injector.injectedResults.isEmpty())
             assertTrue(service.activator.restored)
+        }
+
+    @Test
+    fun `settings restore reverts only the probe strategy and keeps edits made during the probe`() =
+        runTest {
+            val repository =
+                FakeAppSettingsRepository(
+                    defaultDiagnosticsAppSettings().toBuilder().setStrategyChainYaml("original").build(),
+                )
+            val activator = SettingsStrategyProbeActivator(repository)
+
+            val snapshot = activator.capture()
+            activator.activate(StrategyProbeCandidate("split", "Split"))
+            repository.update { setDiagnosticsMonitorEnabled(false) }
+            activator.restore(snapshot)
+
+            val restored = repository.snapshot()
+            assertEquals("original", restored.strategyChainYaml)
+            assertFalse(restored.diagnosticsMonitorEnabled)
+        }
+
+    @Test
+    fun `overlapping runs never keep a probe candidate as the user strategy`() =
+        runTest {
+            val repository =
+                FakeAppSettingsRepository(
+                    defaultDiagnosticsAppSettings().toBuilder().setStrategyChainYaml("original").build(),
+                )
+            val release = CompletableDeferred<Unit>()
+            val service =
+                DefaultStrategyProbeService(
+                    candidateProvider =
+                        FakeStrategyProbeCandidateProvider(
+                            listOf(StrategyProbeCandidate("split", "Split")),
+                        ),
+                    activator = SettingsStrategyProbeActivator(repository),
+                    transport =
+                        FakeProbeTransport {
+                            release.await()
+                            StrategyProbeConnectionResult.Success(latencyMs = 10)
+                        },
+                    dnsComparator = FakeDnsComparator(StrategyProbeDnsComparison.NoDifference),
+                    resultInjector = FakeStrategyProbeResultInjector(),
+                )
+            val config = StrategyProbeConfig(testDomains = listOf("example.test"), timeoutMs = 1_000)
+
+            val first = launch { service.run(config).toList() }
+            runCurrent()
+            val second = launch { service.run(config).toList() }
+            runCurrent()
+            release.complete(Unit)
+            first.join()
+            second.join()
+
+            assertEquals("original", repository.snapshot().strategyChainYaml)
         }
 
     @Test
