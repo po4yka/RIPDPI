@@ -235,6 +235,7 @@ fn handle_shadowsocks(
 ) -> io::Result<()> {
     let resolver = |host: &str| state.resolve_handshake_name(host);
     let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, state, resolver, deadline)?;
+    reject_forbidden_target(&client, target.addr)?;
     let host = target.host.or_else(|| state.extract_relay_payload_host(&first_request));
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
     let (upstream, route, _cap_guard) = super::routing::connect_target(target.addr, state, payload, false, host)?;
@@ -297,6 +298,32 @@ fn handle_socks5_udp_associate(
 
     running.store(false, Ordering::Relaxed);
     worker.join().map_err(|_| io::Error::other("udp relay thread panicked"))?
+}
+
+/// Rejects proxy targets that would reach the device itself instead of the network:
+/// the listener's own address (a self-connect loop) for every peer, and loopback,
+/// unspecified or link-local targets for a peer that is not on this device, so an
+/// Allow-LAN client cannot reach services that trust loopback (RFC 9110 section 9.3.6).
+fn reject_forbidden_target(client: &TcpStream, target: SocketAddr) -> io::Result<()> {
+    match forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target) {
+        Some(reason) => Err(io::Error::new(io::ErrorKind::PermissionDenied, reason)),
+        None => Ok(()),
+    }
+}
+
+fn forbidden_target_reason(peer: SocketAddr, local: SocketAddr, target: SocketAddr) -> Option<&'static str> {
+    let target_ip = target.ip().to_canonical();
+    if target_ip == local.ip().to_canonical() && target.port() == local.port() {
+        return Some("proxy target is the proxy listener itself");
+    }
+    if peer.ip().to_canonical().is_loopback() {
+        return None;
+    }
+    let device_local = match target_ip {
+        IpAddr::V4(ip) => ip.is_loopback() || ip.is_unspecified() || ip.is_link_local(),
+        IpAddr::V6(ip) => ip.is_loopback() || ip.is_unspecified() || ip.is_unicast_link_local(),
+    };
+    device_local.then_some("proxy target is device-local and the client is not")
 }
 
 fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {

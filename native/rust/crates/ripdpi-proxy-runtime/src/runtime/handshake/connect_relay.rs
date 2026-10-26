@@ -44,6 +44,7 @@ pub(super) fn connect_and_relay(
     attempt_token: Option<AttemptCorrelationId>,
     reply: SuccessReply,
 ) -> Result<(), ConnectRelayError> {
+    super::reject_forbidden_target(client, target).map_err(|err| ConnectRelayError::new(err, false))?;
     connect_and_relay_with(
         client,
         target,

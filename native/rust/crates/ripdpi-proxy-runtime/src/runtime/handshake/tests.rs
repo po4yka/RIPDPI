@@ -708,3 +708,41 @@ fn handle_http_connect_rejects_missing_proxy_auth_when_token_required() {
     assert!(reply.contains("407 Proxy Authentication Required"));
     assert!(reply.contains("Proxy-Authenticate: Basic realm=\"ripdpi\""));
 }
+
+#[test]
+fn proxy_target_equal_to_the_listener_is_rejected_for_a_local_client() {
+    let (_client, server_side) = connected_pair();
+    let listener_addr = server_side.local_addr().expect("listener addr");
+
+    let err = super::reject_forbidden_target(&server_side, listener_addr).expect_err("self-connect must be refused");
+
+    assert_eq!(err.kind(), ErrorKind::PermissionDenied);
+    let other_loopback_port = SocketAddr::new(listener_addr.ip(), listener_addr.port().wrapping_add(1));
+    assert!(
+        super::reject_forbidden_target(&server_side, other_loopback_port).is_ok(),
+        "the tunnel hop may use loopback"
+    );
+}
+
+#[test]
+fn lan_client_cannot_reach_device_local_targets() {
+    let lan_peer: SocketAddr = "192.168.1.20:40000".parse().expect("peer");
+    let listener: SocketAddr = "192.168.1.5:1080".parse().expect("listener");
+    for target in [
+        "127.0.0.1:5555",
+        "0.0.0.0:80",
+        "169.254.10.1:80",
+        "[::1]:22",
+        "[::]:80",
+        "[fe80::1]:80",
+        "[::ffff:127.0.0.1]:5555",
+        "192.168.1.5:1080",
+    ] {
+        let target: SocketAddr = target.parse().expect("target");
+        assert!(super::forbidden_target_reason(lan_peer, listener, target).is_some(), "{target} must be refused");
+    }
+    for target in ["93.184.216.34:443", "192.168.1.1:80", "[2001:db8::1]:443", "192.168.1.5:8080"] {
+        let target: SocketAddr = target.parse().expect("target");
+        assert!(super::forbidden_target_reason(lan_peer, listener, target).is_none(), "{target} must be allowed");
+    }
+}
