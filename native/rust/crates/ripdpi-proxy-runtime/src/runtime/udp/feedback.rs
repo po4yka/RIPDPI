@@ -129,6 +129,7 @@ mod tests {
             host: Some("example.com".to_string()),
             payload: b"quic-initial".to_vec(),
             awaiting_response,
+            answered: false,
             upstream: UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind udp upstream"),
             quic_migrated: false,
             logical_target: current_target,

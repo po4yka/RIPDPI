@@ -213,6 +213,7 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.current_target = selection.target;
         entry.target_index = selection.target_index;
         entry.quic_migrated = false;
+        entry.answered = false;
         store_udp_route_hint(state, entry)?;
         match send_udp_flow_payload(state, entry, payload.as_slice(), now, protect_path) {
             Ok(()) => return Ok(true),
@@ -267,6 +268,7 @@ fn build_initial_udp_flow_entry(
         host: packet.host.clone(),
         payload: Vec::new(),
         awaiting_response: true,
+        answered: false,
         upstream: selection.upstream,
         quic_migrated: false,
         logical_target: packet.original_target,
@@ -319,6 +321,7 @@ fn update_udp_flow_selection(
         entry.target_candidates = selection.target_candidates;
         entry.target_index = selection.target_index;
         entry.quic_migrated = false;
+        entry.answered = false;
         store_udp_route_hint(state, entry)?;
     }
     Ok(true)

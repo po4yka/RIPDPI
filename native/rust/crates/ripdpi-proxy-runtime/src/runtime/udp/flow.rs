@@ -35,6 +35,9 @@ pub(super) struct UdpFlowActivationState {
     pub(super) host: Option<String>,
     pub(super) payload: Vec<u8>,
     pub(super) awaiting_response: bool,
+    /// An upstream response arrived on the current target. Later client datagrams then
+    /// never re-arm `awaiting_response`, so idle expiry cannot judge the flow unanswered.
+    pub(super) answered: bool,
     pub(super) upstream: UdpSocket,
     pub(super) quic_migrated: bool,
     pub(super) logical_target: SocketAddr,

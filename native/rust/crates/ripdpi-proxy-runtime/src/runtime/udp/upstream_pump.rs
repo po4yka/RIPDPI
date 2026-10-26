@@ -54,6 +54,7 @@ pub(super) fn pump_udp_upstream_responses(
                     &upstream_buffer[..n]
                 };
                 entry.session.observe_upstream_response(response);
+                entry.answered = true;
                 note_udp_first_response_success(state, entry)?;
                 maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
                 if key.preserve_host_in_response
@@ -171,7 +172,7 @@ pub(super) fn send_udp_flow_payload(
     entry.last_used = now;
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
-    entry.awaiting_response = true;
+    entry.awaiting_response = !entry.answered;
     let progress = entry.session.observe_datagram_outbound(payload);
     if let Some(flow) = &entry.lua_flow
         && let Some(plan) =
@@ -185,7 +186,7 @@ pub(super) fn send_udp_flow_payload(
             &plan,
         )
         .map_err(ripdpi_proxy_runtime_adapter::udp_desync::UdpExecutionError::into_io_error)?;
-        entry.awaiting_response = outcome.real_writes_committed > 0;
+        entry.awaiting_response = !entry.answered && outcome.real_writes_committed > 0;
         return Ok(());
     }
     let actions = state.plan_udp_flow_actions(

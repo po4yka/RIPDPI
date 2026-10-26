@@ -335,6 +335,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
             host: Some("example.org".to_string()),
             payload: b"quic-initial".to_vec(),
             awaiting_response: true,
+            answered: false,
             upstream,
             quic_migrated: false,
             logical_target: original_target,
@@ -448,6 +449,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
             host: None,
             payload: Vec::new(),
             awaiting_response: false,
+            answered: false,
             upstream,
             quic_migrated: false,
             logical_target: target,
@@ -823,6 +825,7 @@ fn lua_nonroot_udp_modify_uses_existing_datagram_socket() {
         host: None,
         payload: Vec::new(),
         awaiting_response: false,
+        answered: false,
         upstream,
         quic_migrated: false,
         logical_target: target,
@@ -892,6 +895,7 @@ fn flow_entry_for(upstream: UdpSocket, target: SocketAddr) -> UdpFlowActivationS
         host: None,
         payload: Vec::new(),
         awaiting_response: false,
+        answered: false,
         upstream,
         quic_migrated: false,
         logical_target: target,
@@ -949,4 +953,51 @@ fn one_flow_send_error_retires_only_that_flow() {
 
     assert!(result.is_ok(), "a refused flow must not end the association: {result:?}");
     assert!(!flow_state.contains_key(&flow_key), "the failing flow is retired so its next datagram starts fresh");
+}
+
+#[test]
+fn answered_flow_is_not_rearmed_as_unanswered_by_later_client_datagrams() {
+    let peer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind peer");
+    let target = peer.local_addr().expect("peer addr");
+    let upstream = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream");
+    upstream.connect(target).expect("connect upstream");
+    upstream.set_nonblocking(true).expect("nonblocking upstream");
+    peer.connect(upstream.local_addr().expect("upstream addr")).expect("connect peer");
+    let client_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client relay");
+    let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client");
+    let key = UdpFlowKey {
+        client: client.local_addr().expect("client addr"),
+        target,
+        host: None,
+        preserve_host_in_response: false,
+    };
+    let state = test_runtime_state(RuntimeConfig::default());
+    let mut flow_state = HashMap::new();
+    flow_state.insert(key.clone(), flow_entry_for(upstream, target));
+    let entry = flow_state.get_mut(&key).expect("flow");
+    super::upstream_pump::send_udp_flow_payload(&state, entry, b"request", Instant::now(), None).expect("send");
+    assert!(entry.awaiting_response, "a new flow waits for its first response");
+    peer.send(b"response").expect("peer response");
+
+    let (mut upstream_buffer, mut encode_buffer, mut poll_scratch) =
+        ([0u8; 2048], Vec::new(), UdpUpstreamPollScratch::default());
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !pump_udp_upstream_responses(
+        &state,
+        &client_relay,
+        &mut upstream_buffer,
+        &mut encode_buffer,
+        &mut flow_state,
+        &mut poll_scratch,
+        None,
+    )
+    .expect("pump response")
+    {
+        assert!(Instant::now() < deadline, "response never arrived");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let entry = flow_state.get_mut(&key).expect("flow");
+    super::upstream_pump::send_udp_flow_payload(&state, entry, b"client-ack", Instant::now(), None).expect("send");
+
+    assert!(!entry.awaiting_response, "a flow that already got a response must not look unanswered at idle expiry");
 }
