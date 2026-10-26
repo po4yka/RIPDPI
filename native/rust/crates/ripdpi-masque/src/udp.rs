@@ -64,9 +64,9 @@ pub(crate) struct MasqueUdpFlow {
     _request_sender: Option<H3RequestSender>,
     pub(crate) driver_task: JoinHandle<()>,
     pub(crate) reader_task: JoinHandle<()>,
-    path_connection: Option<quinn::Connection>,
+    pub(crate) path_connection: Option<quinn::Connection>,
     datagram_stream_id_len: usize,
-    last_used: Instant,
+    pub(crate) last_used: Instant,
 }
 
 impl MasqueUdpRelay {
@@ -89,14 +89,39 @@ impl MasqueUdpRelay {
         }
 
         let flow = self.flows.get_mut(target).expect("flow inserted above");
-        flow.send(payload)
+        match flow.send(payload) {
+            // InvalidInput rejects only this datagram; the flow stays usable.
+            Err(error) if error.kind() != io::ErrorKind::InvalidInput => {
+                // The carrier is dead (for example an idle QUIC timeout): replace the
+                // flow so one broken tunnel does not fail the whole association.
+                tracing::debug!(target, error = %error, "MASQUE UDP flow failed, reopening it");
+                self.flows.remove(target);
+                let mut flow = self.open_flow(target).await?;
+                let result = flow.send(payload);
+                self.flows.insert(target.to_string(), flow);
+                result
+            }
+            result => result,
+        }
     }
 
+    /// Receives the next datagram from any flow.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: `mpsc::Receiver::recv` is cancel-safe, and the flow is
+    /// marked used only after a datagram is taken.
     pub async fn recv_from(&mut self) -> io::Result<(String, Vec<u8>)> {
-        self.incoming_rx
+        let (target, payload) = self
+            .incoming_rx
             .recv()
             .await
-            .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "MASQUE UDP relay closed"))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "MASQUE UDP relay closed"))?;
+        // A receive-heavy flow is in use too; keep it out of idle and LRU eviction.
+        if let Some(flow) = self.flows.get_mut(&target) {
+            flow.last_used = Instant::now();
+        }
+        Ok((target, payload))
     }
 
     async fn open_flow(&self, target: &str) -> io::Result<MasqueUdpFlow> {

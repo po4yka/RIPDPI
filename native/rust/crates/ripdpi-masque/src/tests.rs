@@ -1472,3 +1472,88 @@ async fn new_udp_flows_go_straight_to_http2_after_a_recent_h3_failure() {
     );
     assert_eq!(fixture.observed_requests().len(), 2);
 }
+
+fn keep_alive_pings(udp: &MasqueUdpRelay, target: &str) -> u64 {
+    let connection = udp.flows.get(target).and_then(|flow| flow.path_connection.as_ref()).expect("H3 flow");
+    let stats = connection.stats();
+    // PMTUD probes are PING frames too; count only the other PINGs.
+    stats.frame_tx.ping - stats.path.sent_plpmtud_probes
+}
+
+#[tokio::test]
+async fn idle_h3_udp_flow_sends_quic_keep_alives() {
+    let fixture = MasqueH3ConnectUdpFixture::start().expect("start H3 CONNECT-UDP fixture");
+    let client = MasqueClient::new(h3_connect_udp_fixture_config(&fixture)).expect("client");
+    let mut udp = client.udp_session();
+    udp.send_to(fixture.udp_target(), b"open").await.expect("send H3 DATAGRAM");
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    let before = keep_alive_pings(&udp, fixture.udp_target());
+
+    // Well inside quinn's 30 s idle timeout, so the PING must come from keep-alive.
+    tokio::time::sleep(std::time::Duration::from_secs(12)).await;
+
+    assert!(keep_alive_pings(&udp, fixture.udp_target()) > before, "idle QUIC connection sent no keep-alive");
+    drop(udp);
+    drop(client);
+    fixture.shutdown().await;
+}
+
+#[tokio::test]
+async fn udp_send_reopens_a_flow_whose_carrier_died() {
+    let fixture = MasqueH2ConnectUdpFixture::start_refusing_quic().await.expect("start MASQUE fixture");
+    let mut config = h3_connect_udp_proxy_config("127.0.0.1:0".parse().expect("address"), String::new());
+    config.url = fixture.masque_url();
+    config.proxy_socket_addr = None;
+    config.root_certificate_pem = None;
+    config.use_http2_fallback = true;
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+    let target = fixture.udp_echo_target();
+    // A flow whose H2 stream is gone but whose reader has not noticed yet.
+    let (sender, receiver) = tokio::sync::mpsc::channel(1);
+    drop(receiver);
+    let dead = crate::udp::MasqueUdpFlow::new(
+        crate::udp::MasqueUdpSender::H2(sender),
+        None,
+        tokio::spawn(std::future::pending()),
+        tokio::spawn(std::future::pending()),
+        None,
+        0,
+    );
+    udp.flows.insert(target.clone(), dead);
+
+    udp.send_to(&target, b"after-reopen").await.expect("send reopens the flow");
+    let (from, payload) = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from())
+        .await
+        .expect("receive timeout")
+        .expect("receive via the reopened flow");
+
+    assert_eq!(from, target);
+    assert_eq!(payload, b"after-reopen");
+    assert_eq!(fixture.observed_requests().len(), 1);
+}
+
+#[tokio::test]
+async fn receiving_on_a_flow_keeps_it_out_of_idle_eviction() {
+    let mut config = h3_connect_udp_proxy_config("127.0.0.1:9".parse().expect("address"), String::new());
+    config.url = "https://masque.example/".to_string();
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+    let (sender, _receiver) = tokio::sync::mpsc::channel(1);
+    let mut flow = crate::udp::MasqueUdpFlow::new(
+        crate::udp::MasqueUdpSender::H2(sender),
+        None,
+        tokio::spawn(std::future::pending()),
+        tokio::spawn(std::future::pending()),
+        None,
+        0,
+    );
+    let long_ago = std::time::Instant::now() - std::time::Duration::from_secs(600);
+    flow.last_used = long_ago;
+    udp.flows.insert("receiver:53".to_string(), flow);
+    udp.incoming_tx.send(("receiver:53".to_string(), b"reply".to_vec())).await.expect("queue reply");
+
+    udp.recv_from().await.expect("receive");
+
+    assert!(udp.flows["receiver:53"].last_used > long_ago);
+}

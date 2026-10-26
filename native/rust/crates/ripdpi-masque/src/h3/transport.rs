@@ -11,6 +11,7 @@ use crate::tls::{apply_h3_root_certificate, ech_setup, load_client_identity};
 use crate::url::{parse_proxy_origin, resolve_proxy_socket_addr};
 
 pub(crate) const H3_MTU_DISCOVERY_UPPER_BOUND: u16 = 1_452;
+pub(crate) const H3_KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// The rustls config of the H3 proxy handshake, with the published ECH config
 /// or GREASE ECH (aws-lc-rs supplies the HPKE suites for both).
@@ -57,6 +58,9 @@ pub(super) async fn connect_h3_transport(
     let mut mtu_discovery = quinn::MtuDiscoveryConfig::default();
     mtu_discovery.upper_bound(H3_MTU_DISCOVERY_UPPER_BOUND);
     transport.mtu_discovery_config(Some(mtu_discovery));
+    // Keep idle flows alive: quinn's 30 s idle timeout is shorter than the
+    // proxy's UDP inactivity window (RFC 9298 3.1 sets at least 2 minutes).
+    transport.keep_alive_interval(Some(H3_KEEP_ALIVE_INTERVAL));
     quic_config.transport_config(Arc::new(transport));
 
     let proxy_addr = resolve_proxy_socket_addr(config, &proxy_origin).await?;
