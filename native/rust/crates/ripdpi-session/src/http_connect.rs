@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use crate::types::{ClientRequest, NameResolver, SessionError, SocketType, TargetAddr};
+use crate::types::{ClientRequest, NameResolver, S_ER_CMD, S_ER_HOST, SessionError, SocketType, TargetAddr};
 
 pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) -> Result<ClientRequest, SessionError> {
     let header_end = buffer
@@ -13,7 +13,7 @@ pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) ->
     let request_line = lines.next().ok_or_else(SessionError::generic)?;
     let mut parts = request_line.split_ascii_whitespace();
     if parts.next() != Some("CONNECT") {
-        return Err(SessionError::generic());
+        return Err(SessionError::socks5(S_ER_CMD));
     }
     let authority = parts.next().ok_or_else(SessionError::generic)?;
     if !matches!(parts.next(), Some("HTTP/1.0" | "HTTP/1.1")) || parts.next().is_some() {
@@ -36,7 +36,7 @@ pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) ->
     let addr = resolver
         .resolve(name, SocketType::Stream)
         .map(|resolved| SocketAddr::new(resolved.ip(), port))
-        .ok_or_else(SessionError::generic)?;
+        .ok_or(SessionError::socks5(S_ER_HOST))?;
     Ok(ClientRequest::HttpConnect(TargetAddr { addr, host: Some(name.to_string()) }))
 }
 
@@ -129,21 +129,21 @@ mod tests {
     fn parse_http_connect_request_not_connect_method() {
         let request = b"GET / HTTP/1.1\r\nHost: example.com:443\r\n\r\n";
         let result = parse_http_connect_request(request, &resolver);
-        assert!(result.is_err());
+        assert_eq!(result.err().map(|err| err.code), Some(S_ER_CMD));
     }
 
     #[test]
     fn parse_http_connect_request_no_host_header() {
         let request = b"CONNECT example.com:443 HTTP/1.1\r\n\r\n";
         let result = parse_http_connect_request(request, &resolver);
-        assert!(result.is_err());
+        assert_eq!(result.err().map(|err| err.code), Some(crate::S_ER_GEN));
     }
 
     #[test]
     fn parse_http_connect_request_unresolvable_host() {
         let request = b"CONNECT unknown.invalid:443 HTTP/1.1\r\nHost: unknown.invalid:443\r\n\r\n";
         let result = parse_http_connect_request(request, &resolver);
-        assert!(result.is_err());
+        assert_eq!(result.err().map(|err| err.code), Some(S_ER_HOST));
     }
 
     #[test]

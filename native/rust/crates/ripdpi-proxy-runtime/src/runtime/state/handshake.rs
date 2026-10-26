@@ -139,6 +139,9 @@ impl RuntimeState {
     pub(in crate::runtime) fn encode_http_connect_reply(success: bool) -> ProxyReply {
         encode_http_connect_reply(success)
     }
+    pub(in crate::runtime) fn encode_http_connect_failure(failure: HttpConnectFailure) -> ProxyReply {
+        encode_http_connect_failure(failure)
+    }
     pub(in crate::runtime) fn resolve_proxy_name(&self, host: &str, _socket_type: SocketType) -> Option<SocketAddr> {
         use std::net::IpAddr;
 

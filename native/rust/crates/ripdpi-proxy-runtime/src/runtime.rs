@@ -247,10 +247,10 @@ mod tests {
     }
 
     #[test]
-    fn http_connect_failure_reply_is_503() {
+    fn http_connect_failure_reply_is_502() {
         let reply = encode_http_connect_reply(false);
         let text = std::str::from_utf8(reply.as_bytes()).expect("utf8");
-        assert!(text.starts_with("HTTP/1.1 503 Fail\r\n"));
+        assert!(text.starts_with("HTTP/1.1 502 Bad Gateway\r\n"));
     }
 
     // -- Characterization: failure classification trigger mapping --

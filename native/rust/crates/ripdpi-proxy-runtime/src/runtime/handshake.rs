@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
-use ripdpi_proxy_runtime_adapter::model::session::S_ER_DENY;
+use ripdpi_proxy_runtime_adapter::model::session::{HttpConnectFailure, S_ER_DENY};
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
@@ -220,8 +220,13 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState, deadline: In
                 Err(err) => handle_http_connect_error(&mut client, err),
             }
         }
-        _ => {
-            client.write_all(RuntimeState::encode_http_connect_reply(false).as_bytes())?;
+        Ok(_) => {
+            client.write_all(RuntimeState::encode_http_connect_failure(HttpConnectFailure::BadRequest).as_bytes())?;
+            Ok(())
+        }
+        Err(RuntimeSessionError { code }) => {
+            let failure = HttpConnectFailure::for_request_error(code);
+            client.write_all(RuntimeState::encode_http_connect_failure(failure).as_bytes())?;
             Ok(())
         }
     }
@@ -364,7 +369,8 @@ fn handle_http_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> 
         if err.policy_rejection() == Some(ConnectPolicyRejection::OwnedStackRequired) {
             client.write_all(OWNED_STACK_REQUIRED_HTTP_REPLY)?;
         } else {
-            client.write_all(RuntimeState::encode_http_connect_reply(false).as_bytes())?;
+            let failure = HttpConnectFailure::for_connect_error(err.kind());
+            client.write_all(RuntimeState::encode_http_connect_failure(failure).as_bytes())?;
         }
     }
     Err(err.into_io_error())

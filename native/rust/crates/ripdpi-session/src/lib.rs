@@ -9,7 +9,10 @@ mod triggers;
 mod types;
 
 pub use http_connect::parse_http_connect_request;
-pub use replies::{encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply};
+pub use replies::{
+    HttpConnectFailure, encode_http_connect_failure, encode_http_connect_reply, encode_socks4_reply,
+    encode_socks5_reply,
+};
 pub use socks4::parse_socks4_request;
 pub use socks5::parse_socks5_request;
 pub use state::{OutboundProgress, SessionPhase, SessionState};

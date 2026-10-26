@@ -588,15 +588,24 @@ fn handle_http_connect_writes_failure_for_invalid_request() {
     let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
     config.network.http_connect = true;
     let state = runtime_state(config);
-    let (mut client, server) = connected_pair();
-    client.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
-    client.write_all(b"GET / HTTP/1.1\r\n\r\n").expect("write invalid http connect request");
+    let cases: [(&[u8], &str); 3] = [
+        (b"GET / HTTP/1.1\r\n\r\n", "HTTP/1.1 405 Method Not Allowed\r\nAllow: CONNECT\r\n"),
+        (b"CONNECT a.test:443 HTTP/1.1\r\nHost: a.test\r\nHost: b.test\r\n\r\n", "HTTP/1.1 400 Bad Request\r\n"),
+        (b"CONNECT a.test:0 HTTP/1.1\r\nHost: a.test\r\n\r\n", "HTTP/1.1 400 Bad Request\r\n"),
+    ];
+    for (request, status) in cases {
+        let (mut client, server) = connected_pair();
+        client.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
+        client.write_all(request).expect("write invalid http connect request");
 
-    super::handle_http_connect(server, &state, test_deadline()).expect("invalid http connect returns reply");
+        super::handle_http_connect(server, &state, test_deadline()).expect("invalid http connect returns reply");
 
-    let mut reply = Vec::new();
-    client.read_to_end(&mut reply).expect("read http failure reply");
-    assert!(String::from_utf8(reply).expect("utf8 reply").starts_with("HTTP/1.1 503"));
+        let mut reply = Vec::new();
+        client.read_to_end(&mut reply).expect("read http failure reply");
+        let reply = String::from_utf8(reply).expect("utf8 reply");
+        assert!(reply.starts_with(status), "{reply:?}");
+        assert!(reply.ends_with("Content-Length: 0\r\nConnection: close\r\n\r\n"), "{reply:?}");
+    }
 }
 
 #[test]
