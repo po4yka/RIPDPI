@@ -9,7 +9,7 @@ use tokio::net::{TcpStream, UdpSocket, lookup_host};
 use tokio::time::Duration;
 
 use crate::ports::{PortForwardConfig, PortProtocol, UdpAssociationPool, VirtualPortPool};
-use crate::support::{MAX_PACKET, to_io_error};
+use crate::support::MAX_PACKET;
 use crate::virtual_iface::{Bus, Event};
 
 /// # Cancel safety
@@ -141,6 +141,11 @@ async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<Ud
     let bind_addr = udp_socket.local_addr()?;
     write_reply(&mut control, 0x00, bind_addr).await?;
     let association_bind_port = bind_addr.port();
+    let control_peer_ip = control.peer_addr()?.ip();
+    // The first datagram from the control peer's IP owns the association (RFC 1928
+    // section 7). Datagrams from other sources are dropped, so another local app can
+    // neither allocate virtual ports through this relay nor end it.
+    let mut udp_peer: Option<SocketAddr> = None;
     let mut endpoint = bus.new_endpoint();
     let mut buffer = [0u8; MAX_PACKET];
     let mut known_ports = HashSet::new();
@@ -164,7 +169,14 @@ async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<Ud
                 }
                 recv_result = udp_socket.recv_from(&mut buffer) => {
                     let (size, peer_addr) = recv_result?;
-                    let (target, payload) = parse_socks_udp_request(&buffer[..size]).map_err(to_io_error)?;
+                    if udp_peer.is_some_and(|peer| peer != peer_addr) || peer_addr.ip() != control_peer_ip {
+                        continue;
+                    }
+                    let Ok((target, payload)) = parse_socks_udp_request(&buffer[..size]) else {
+                        tracing::debug!("dropping a malformed SOCKS UDP datagram");
+                        continue;
+                    };
+                    udp_peer = Some(peer_addr);
                     let virtual_port = udp_pool.acquire(association_bind_port, peer_addr).await?;
                     known_ports.insert(virtual_port);
                     let port_forward = PortForwardConfig { destination: target, protocol: PortProtocol::Udp };
@@ -335,9 +347,13 @@ mod tests {
             assert!(pool.peer_addr(port).await.is_some(), "association allocated");
             if malformed {
                 udp.send_to(&[0, 0, 0], relay).await.expect("malformed datagram");
-            } else {
-                client.shutdown().await.expect("control shutdown");
+                let foreign = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("foreign UDP source");
+                foreign.send_to(&request, relay).await.expect("foreign datagram");
+                udp.send_to(&request, relay).await.expect("second valid datagram");
+                let Event::LocalData(_, second, payload) = observer.recv().await else { panic!("expected forwarding") };
+                assert_eq!((second, &payload[..]), (port, &b"query"[..]), "only the pinned source is forwarded");
             }
+            client.shutdown().await.expect("control shutdown");
             port
         };
         let (result, port) = timeout(Duration::from_secs(2), async {
@@ -345,7 +361,7 @@ mod tests {
         })
         .await
         .expect("association exits");
-        assert_eq!(result.is_err(), malformed);
+        result.expect("closing the control connection ends the association cleanly");
         assert_eq!(pool.peer_addr(port).await, None, "closed association must release its virtual port");
         let dropped = timeout(Duration::from_millis(100), observer.recv()).await.expect("virtual socket cleanup event");
         assert!(matches!(dropped, Event::ClientConnectionDropped(actual) if actual == port));
@@ -354,7 +370,7 @@ mod tests {
     /// # Cancel safety
     /// cancel-safe: helper owns all fresh resources.
     #[tokio::test]
-    async fn malformed_udp_datagram_releases_association_and_virtual_socket() {
+    async fn malformed_and_foreign_udp_datagrams_are_dropped_without_ending_the_association() {
         verify_udp_cleanup(true).await;
     }
 
