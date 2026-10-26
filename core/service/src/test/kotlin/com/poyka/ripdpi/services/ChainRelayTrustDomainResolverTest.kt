@@ -513,6 +513,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
     @Test
     fun `resolve chain relay fully resolves shadowtls intermediate profile`() =
         runTest {
+            val innerRecord = vlessRealityHopRecord("shadow-inner", "inner.example", 8443, "inner")
             val profileStore =
                 TestRelayProfileStore().apply {
                     save(threeHopChainRecord())
@@ -527,9 +528,12 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                         ),
                     )
                     save(
-                        vlessRealityHopRecord("shadow-inner", "inner.example", 8443, "inner").copy(
+                        innerRecord.copy(
                             vlessFlow = "xtls-rprx-vision-udp443",
                             vlessFingerprint = "firefox",
+                            // A pasted key keeps its whitespace in the store; the resolved hop is trimmed.
+                            realityPublicKey = " ${innerRecord.realityPublicKey}\n",
+                            realityShortId = "${innerRecord.realityShortId} ",
                         ),
                     )
                     save(vlessRealityHopRecord("exit-hop", "exit.example", 443, "exit"))
@@ -563,6 +567,8 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
             assertEquals("shadow-inner", shadowHop.shadowTlsInner?.profileId)
             assertEquals("inner.example", shadowHop.shadowTlsInner?.server)
             assertEquals("xtls-rprx-vision-udp443", shadowHop.shadowTlsInner?.vlessFlow)
+            assertEquals(innerRecord.realityPublicKey, shadowHop.shadowTlsInner?.realityPublicKey)
+            assertEquals(innerRecord.realityShortId, shadowHop.shadowTlsInner?.realityShortId)
             assertEquals("55555555-5555-5555-5555-555555555555", shadowHop.shadowTlsInner?.vlessUuid)
             assertEquals(TlsFingerprintProfileFirefoxStable, shadowHop.shadowTlsInner?.tlsFingerprintProfile)
         }

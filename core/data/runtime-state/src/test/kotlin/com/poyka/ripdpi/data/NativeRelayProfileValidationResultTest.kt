@@ -54,7 +54,7 @@ class NativeRelayProfileValidationResultTest {
     }
 
     @Test
-    fun `pasted whitespace around vless and reality fields is rejected like the native parsers do`() {
+    fun `pasted whitespace is rejected around the vless uuid and accepted around reality fields the engine trims`() {
         val uuid = "11111111-2222-3333-4444-555555555555"
         val encoder = java.util.Base64.getEncoder()
         val publicKey = encoder.encodeToString(ByteArray(32) { it.toByte() })
@@ -62,8 +62,10 @@ class NativeRelayProfileValidationResultTest {
         assertTrue(isValidVlessUuid(uuid))
         assertFalse(isValidVlessUuid("$uuid\n"))
         assertTrue(isValidRealityPublicKey(publicKey))
-        assertFalse(isValidRealityPublicKey(" $publicKey"))
+        assertTrue(isValidRealityPublicKey(" $publicKey\n"))
+        assertFalse(isValidRealityPublicKey(" "))
         assertTrue(isValidRealityShortId("ab12"))
-        assertFalse(isValidRealityShortId("ab12 "))
+        assertTrue(isValidRealityShortId("ab12 "))
+        assertFalse(isValidRealityShortId("ab 12"))
     }
 }

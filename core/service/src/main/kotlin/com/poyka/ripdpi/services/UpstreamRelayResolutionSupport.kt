@@ -165,8 +165,9 @@ internal suspend fun resolveShadowTlsInnerConfigSupport(
                 server = innerProfile.server,
                 serverPort = innerProfile.serverPort,
                 serverName = innerProfile.serverName,
-                realityPublicKey = innerProfile.realityPublicKey,
-                realityShortId = innerProfile.realityShortId,
+                // Trimmed like the outer relay normalization, so the validators' rule holds here too.
+                realityPublicKey = innerProfile.realityPublicKey.trim(),
+                realityShortId = innerProfile.realityShortId.trim(),
                 vlessFlow = innerProfile.vlessFlow,
                 vlessTransport = innerProfile.vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
                 xhttpMode = innerProfile.xhttpMode.ifBlank { com.poyka.ripdpi.data.RelayXhttpModeAuto },
