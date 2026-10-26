@@ -58,7 +58,7 @@ pub(super) fn pump_udp_upstream_responses(
                 note_udp_first_response_success(state, entry)?;
                 maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
                 if key.preserve_host_in_response
-                    && let Some(host) = key.host.as_deref()
+                    && let Some(host) = entry.host.as_deref()
                 {
                     encode_socks5_udp_packet_with_resolved_host_into(
                         encode_buffer,

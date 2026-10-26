@@ -288,17 +288,16 @@ fn update_udp_flow_selection(
     entry: &mut UdpFlowActivationState,
     packet: &UdpClientPacket<'_>,
 ) -> io::Result<bool> {
-    let host_changed = entry.host.as_deref() != packet.host.as_deref();
+    // Follow-up datagrams (QUIC Handshake or short header) carry no host and keep the
+    // flow's upstream. Only a different known host reselects; a payload that no longer
+    // matches the group does not, since a new socket would move the connection's source port.
+    let Some(host) = packet.host.as_deref() else {
+        return Ok(true);
+    };
+    let host_changed = entry.host.as_deref() != Some(host);
     entry.host = packet.host.clone();
     entry.cache_host = packet.cache_host;
-    if host_changed
-        || !state.route_matches_transport_payload(
-            entry.route.group_index,
-            entry.current_target,
-            packet.payload,
-            RuntimeTransportProtocol::Udp,
-        )
-    {
+    if host_changed {
         let Some(selection) = reselect_udp_flow_target(
             state,
             protect_path,

@@ -14,15 +14,6 @@ impl RuntimeState {
     ) -> bool {
         delayed_route_matches_payload_with(&self.route_payload_matcher, group_index, target, payload, host_hint)
     }
-    pub(in crate::runtime) fn route_matches_transport_payload(
-        &self,
-        group_index: usize,
-        target: SocketAddr,
-        payload: &[u8],
-        transport: RuntimeTransportProtocol,
-    ) -> bool {
-        route_matches_transport_payload_with(&self.route_payload_matcher, group_index, target, payload, transport)
-    }
     pub(in crate::runtime) fn route_uses_direct_syn_data_tfo(
         &self,
         route: &RuntimeConnectionRoute,

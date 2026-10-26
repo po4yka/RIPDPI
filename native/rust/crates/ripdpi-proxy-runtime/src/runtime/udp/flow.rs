@@ -14,10 +14,12 @@ use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+/// A flow is one client endpoint talking to one target. The payload-derived host is
+/// flow metadata, not identity: only a QUIC Initial carries an SNI, and its follow-up
+/// datagrams must keep the same upstream socket and source port (RFC 9000 section 9).
 pub(super) struct UdpFlowKey {
     pub(super) client: SocketAddr,
     pub(super) target: SocketAddr,
-    pub(super) host: Option<String>,
     pub(super) preserve_host_in_response: bool,
 }
 

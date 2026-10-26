@@ -24,7 +24,6 @@ impl UdpClientPacket<'_> {
         UdpFlowKey {
             client: self.sender,
             target: self.original_target,
-            host: self.host.clone(),
             preserve_host_in_response: self.preserve_host_in_response,
         }
     }
