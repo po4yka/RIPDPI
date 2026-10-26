@@ -150,6 +150,25 @@ class AssetHostPackCatalogRepositoryTest {
         }
 
     @Test
+    fun `refresh treats a missing remote manifest as no update`() =
+        runTest {
+            val service =
+                FakeHostPackCatalogDownloadService(
+                    manifestError =
+                        IOException(
+                            "Remote request failed with HTTP 404 for $hostPackCatalogBaseUrl" +
+                                "runetfreedom/russia-blocked-geosite/release/manifest.json",
+                        ),
+                )
+            val repository = createRepository(service = service)
+
+            val snapshot = repository.refreshSnapshot()
+
+            assertEquals(HostPackCatalogSourceBundled, snapshot.source)
+            assertNull(service.requestedCatalogUrl)
+        }
+
+    @Test
     fun `refresh keeps current snapshot when signature verification fails`() =
         runTest {
             val geositeBytes = curatedGeositeBytes()
@@ -462,10 +481,11 @@ class AssetHostPackCatalogRepositoryTest {
     private class FakeHostPackCatalogDownloadService(
         private val manifestPayload: String = "",
         private val geositePayload: ByteArray = byteArrayOf(),
+        private val manifestError: Exception? = null,
     ) : HostPackCatalogDownloadService {
         var requestedCatalogUrl: String? = null
 
-        override suspend fun downloadManifest(): String = manifestPayload
+        override suspend fun downloadManifest(): String = manifestError?.let { throw it } ?: manifestPayload
 
         override suspend fun downloadCatalog(url: String): ByteArray {
             requestedCatalogUrl = url

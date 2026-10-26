@@ -136,7 +136,12 @@ class DefaultHostPackCatalogRepository
 
         override suspend fun refreshSnapshot(): HostPackCatalogSnapshot =
             withContext(Dispatchers.IO) {
-                val manifest = loadManifest()
+                val manifest =
+                    runCatching { loadManifest() }.getOrElse { error ->
+                        // No manifest published upstream means no update, not a failed refresh.
+                        if (error.isMissingRemoteManifest()) return@withContext loadSnapshot().snapshot
+                        throw error
+                    }
                 val downloadedAtEpochMillis = clock.nowEpochMillis()
                 val tempFile = tempFileFactory.create(context.cacheDir)
 
@@ -249,6 +254,11 @@ private data class CachedHostPackCatalogSnapshotResult(
     val snapshot: HostPackCatalogSnapshot? = null,
     val error: Throwable? = null,
 )
+
+private fun Throwable.isMissingRemoteManifest(): Boolean =
+    this is IOException &&
+        message?.contains("HTTP 404") == true &&
+        message?.contains("/manifest.json") == true
 
 internal fun ByteArray.writeToFileAndDigest(target: File): String =
     inputStream().use { input ->
