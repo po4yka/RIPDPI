@@ -54,8 +54,10 @@ impl<'a, A: Authentication> Stream for Incoming<'a, A> {
 
             if let Some(f) = &mut self.1 {
                 // early returns if pending
-                let (socket, peer_addr) = ready!(f.as_mut().poll(cx))?;
+                let accepted = ready!(f.as_mut().poll(cx));
+                // Drop the finished future before an error returns: polling it again panics.
                 self.1 = None;
+                let (socket, peer_addr) = accepted?;
 
                 debug!("SOCKS incoming connection accepted");
 

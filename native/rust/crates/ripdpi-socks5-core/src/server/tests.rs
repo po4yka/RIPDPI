@@ -39,4 +39,41 @@ mod test {
         assert!(result.is_err());
         assert_eq!(reply, [5, 1, 0, 1, 0, 0, 0, 0, 0, 0]);
     }
+
+    /// Set in the child process that runs the accept-error test under a low descriptor limit.
+    #[cfg(unix)]
+    const ACCEPT_ERROR_CHILD: &str = "RIPDPI_SOCKS5_ACCEPT_ERROR_CHILD";
+
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops only local test sockets.
+    #[cfg(unix)]
+    #[tokio::test(flavor = "current_thread")]
+    async fn incoming_survives_an_accept_error() {
+        use tokio_stream::StreamExt;
+
+        if std::env::var_os(ACCEPT_ERROR_CHILD).is_none() {
+            // Re-run this test alone under `ulimit -n`, so accept() can fail with EMFILE
+            // without starving the other tests of this process.
+            let status = std::process::Command::new("sh")
+                .arg("-c")
+                .arg("ulimit -n 64 && exec \"$0\" --exact server::test::incoming_survives_an_accept_error --test-threads=1")
+                .arg(std::env::current_exe().unwrap())
+                .env(ACCEPT_ERROR_CHILD, "1")
+                .status()
+                .unwrap();
+            assert!(status.success(), "child test failed: {status}");
+            return;
+        }
+        let server = Socks5Server::<AcceptAuthentication>::bind("127.0.0.1:0").await.unwrap();
+        let addr = server.listener.local_addr().unwrap();
+        let mut clients = Vec::new();
+        while let Ok(client) = std::net::TcpStream::connect(addr) {
+            clients.push(client);
+        }
+        let mut incoming = server.incoming();
+        assert!(incoming.next().await.unwrap().is_err(), "accept must fail with no free descriptor");
+        clients.truncate(clients.len().saturating_sub(4));
+        assert!(incoming.next().await.unwrap().is_ok(), "the stream must accept again after the error");
+    }
 }
