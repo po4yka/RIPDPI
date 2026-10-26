@@ -86,6 +86,35 @@ interface GeoAssetRepository {
 
 internal const val GeoAssetMaxLocalImportBytes: Long = 64L * 1024L * 1024L
 
+// MaxMind DB metadata marker; the metadata section sits within the last 128 KiB of the file.
+private val MmdbMetadataMarker = byteArrayOf(0xAB.toByte(), 0xCD.toByte(), 0xEF.toByte()) + "MaxMind.com".toByteArray()
+private const val MmdbMetadataSearchBytes = 128 * 1024
+
+// The native geosite loader accepts a v2ray GeoSiteList (field-1 tag) or a sing-box geosite.db (version 0).
+private const val GeositeListEntryTag: Byte = 0x0a
+private const val SingGeositeVersion: Byte = 0
+
+/**
+ * Format check that matches what the native geo runtime can load. A payload that fails it would
+ * disable geo matching once installed, so it must never replace the working database.
+ */
+internal fun hasGeoAssetFormatMarker(
+    kind: GeoAssetKind,
+    bytes: ByteArray,
+): Boolean =
+    when (kind) {
+        GeoAssetKind.Geoip -> {
+            val searchStart = maxOf(0, bytes.size - MmdbMetadataSearchBytes)
+            (bytes.size - MmdbMetadataMarker.size downTo searchStart).any { start ->
+                MmdbMetadataMarker.indices.all { bytes[start + it] == MmdbMetadataMarker[it] }
+            }
+        }
+
+        GeoAssetKind.Geosite -> {
+            bytes.firstOrNull().let { it == GeositeListEntryTag || it == SingGeositeVersion }
+        }
+    }
+
 @Singleton
 class DefaultGeoAssetRepository
     @Inject
@@ -184,7 +213,7 @@ class DefaultGeoAssetRepository
             kind: GeoAssetKind,
             bytes: ByteArray,
         ) {
-            if (!isPlausibleGeoAssetPayload(bytes)) {
+            if (!isPlausibleGeoAssetPayload(bytes) || !hasGeoAssetFormatMarker(kind, bytes)) {
                 throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload)
             }
             installDownloadedGeoAssetToTarget(bytes, targetFile(kind))

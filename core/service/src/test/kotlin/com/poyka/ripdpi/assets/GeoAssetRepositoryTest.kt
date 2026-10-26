@@ -186,9 +186,12 @@ class GeoAssetRepositoryTest {
         }
 
     @Test
-    fun `network update metadata write failure reports storage instead of network`() =
+    fun `network update rejects a payload that is not a geo database and keeps the working files`() =
         runTest {
-            val payload = validPayload(MinGeoAssetBytes + 16)
+            val paths = resolveGeoDatabasePaths(application)
+            val previous = "working database".toByteArray()
+            File(paths.geoipDbPath).apply { parentFile?.mkdirs() }.writeBytes(previous)
+            File(paths.geositeDbPath).writeBytes(previous)
             settingsRepository.update {
                 geoAssetProviderId = CustomAssetProviderId
                 geoAssetCustomBaseUrl = "https://assets.example/releases/latest/download"
@@ -198,7 +201,34 @@ class GeoAssetRepositoryTest {
                     object : GeoAssetDownloadService {
                         override suspend fun fetchLatestReleaseJson(apiUrl: String): String = error("not used")
 
-                        override suspend fun downloadAsset(downloadUrl: String): ByteArray = payload
+                        override suspend fun downloadAsset(downloadUrl: String): ByteArray =
+                            validPayload(MinGeoAssetBytes + 16)
+                    },
+                )
+
+            val error = runCatching { repository.checkAndUpdate() }.exceptionOrNull()
+
+            assertEquals(GeoAssetIntegrityFailure.InvalidPayload, (error as? GeoAssetIntegrityException)?.reason)
+            assertArrayEquals(previous, File(paths.geoipDbPath).readBytes())
+            assertArrayEquals(previous, File(paths.geositeDbPath).readBytes())
+        }
+
+    @Test
+    fun `network update metadata write failure reports storage instead of network`() =
+        runTest {
+            val geoipPayload = mmdbPayload()
+            val geositePayload = singGeositePayload()
+            settingsRepository.update {
+                geoAssetProviderId = CustomAssetProviderId
+                geoAssetCustomBaseUrl = "https://assets.example/releases/latest/download"
+            }
+            val repository =
+                repository(
+                    object : GeoAssetDownloadService {
+                        override suspend fun fetchLatestReleaseJson(apiUrl: String): String = error("not used")
+
+                        override suspend fun downloadAsset(downloadUrl: String): ByteArray =
+                            if ("geoip" in downloadUrl) geoipPayload else geositePayload
                     },
                 )
             val failure = IOException("metadata storage unavailable")
@@ -214,8 +244,8 @@ class GeoAssetRepositoryTest {
 
             assertEquals(GeoAssetIntegrityFailure.InstallFailed, error.reason)
             assertEquals(failure, error.cause)
-            assertArrayEquals(payload, File(resolveGeoDatabasePaths(application).geoipDbPath).readBytes())
-            assertArrayEquals(payload, File(resolveGeoDatabasePaths(application).geositeDbPath).readBytes())
+            assertArrayEquals(geoipPayload, File(resolveGeoDatabasePaths(application).geoipDbPath).readBytes())
+            assertArrayEquals(geositePayload, File(resolveGeoDatabasePaths(application).geositeDbPath).readBytes())
             assertNoTemporaryFiles(geoDirectory)
         }
 
@@ -546,6 +576,15 @@ class GeoAssetRepositoryTest {
         )
 
     private fun validPayload(size: Int): ByteArray = ByteArray(size) { index -> (index + 1).toByte() }
+
+    // A MaxMind DB carries this metadata marker near its end (MaxMind DB format spec, "Database Metadata").
+    private fun mmdbPayload(): ByteArray =
+        validPayload(MinGeoAssetBytes) +
+            "\u00ab\u00cd\u00efMaxMind.com".toByteArray(Charsets.ISO_8859_1) +
+            validPayload(8)
+
+    // A sing-box geosite.db starts with its format version byte, 0.
+    private fun singGeositePayload(): ByteArray = byteArrayOf(0) + validPayload(MinGeoAssetBytes)
 
     private fun assertNoTemporaryFiles(directory: File) {
         assertFalse(
