@@ -37,6 +37,7 @@ import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceRuntimeStartHooks
 import com.poyka.ripdpi.services.ServiceRuntimeStatusHooks
 import com.poyka.ripdpi.services.ServiceRuntimeStopHooks
+import com.poyka.ripdpi.services.ServiceStatusPublication
 import com.poyka.ripdpi.services.ServiceStatusReporter
 import com.poyka.ripdpi.services.SharedProxyRuntimeStack
 import com.poyka.ripdpi.services.SystemServiceClock
@@ -351,6 +352,7 @@ internal class VpnServiceRuntimeCoordinator(
                     reportConnected = ::reportConnected,
                     updateStatus = ::updateStatus,
                     classifyStartupFailure = ::classifyStartupFailure,
+                    reportCallbackFailure = ::reportCallbackFailure,
                 ),
             permissionHooks = ServiceRuntimePermissionHooks(::onPermissionRevoked),
         )
@@ -696,13 +698,9 @@ internal class VpnServiceRuntimeCoordinator(
         }
     }
 
-    override fun reportCallbackFailure(failureReason: FailureReason) {
+    private fun reportCallbackFailure(failureReason: FailureReason) {
         runtimeSession?.revokeInPathLease()
-        reportStatusEffects(
-            ServiceStatus.Failed,
-            failureReason,
-            com.poyka.ripdpi.services.ServiceStatusPublication.Apply,
-        )
+        reportStatusEffects(ServiceStatus.Failed, failureReason, ServiceStatusPublication.Apply)
     }
 
     override suspend fun beforeCallbackFailureStop() = retainProviderFailClosedBarrierIfActiveLocked()
@@ -717,7 +715,7 @@ internal class VpnServiceRuntimeCoordinator(
         }
         configurationLifecycle.serviceStatusChanged(runtimeSession, newStatus)
         status = newStatus
-        reportStatusEffects(newStatus, failureReason, com.poyka.ripdpi.services.ServiceStatusPublication.Apply)
+        reportStatusEffects(newStatus, failureReason, ServiceStatusPublication.Apply)
     }
 
     private fun publishConnected() {
@@ -729,13 +727,13 @@ internal class VpnServiceRuntimeCoordinator(
         reportStatusEffects(
             ServiceStatus.Connected,
             null,
-            com.poyka.ripdpi.services.ServiceStatusPublication.ConnectedAlreadyPublished,
+            ServiceStatusPublication.ConnectedAlreadyPublished,
         )
 
     private fun reportStatusEffects(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
-        publication: com.poyka.ripdpi.services.ServiceStatusPublication,
+        publication: ServiceStatusPublication,
     ) {
         statusReporter.reportStatus(
             publication,

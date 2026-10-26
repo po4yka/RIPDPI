@@ -331,10 +331,10 @@ class RootHelperManagerTest {
                     rootProcessTerminator = {},
                 )
             val enabled = RootSettingsSection(rootModeEnabled = true)
-            manager.claim(Mode.Proxy)
+            manager.claimedBy = Mode.Proxy
             val socket = manager.syncRootMode(context, enabled)
             assertNotNull(socket)
-            manager.claim(Mode.VPN)
+            manager.claimedBy = Mode.VPN
             assertEquals(socket, manager.syncRootMode(context, enabled))
 
             manager.stopFor(Mode.Proxy)

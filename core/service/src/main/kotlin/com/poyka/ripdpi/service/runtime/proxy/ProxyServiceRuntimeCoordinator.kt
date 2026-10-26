@@ -48,6 +48,7 @@ import com.poyka.ripdpi.services.buildLogContext
 import com.poyka.ripdpi.services.completion
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import com.poyka.ripdpi.services.starting
+import com.poyka.ripdpi.services.stopFor
 import com.poyka.ripdpi.services.toRuntimeStartEvidence
 import com.poyka.ripdpi.services.withLogContext
 import kotlinx.coroutines.CancellationException
@@ -119,7 +120,7 @@ internal class ProxyServiceRuntimeCoordinator(
         )
 
     // Each start installs exit callbacks bound to the session it starts the supervisors for.
-    private fun supervisorExitHandlerFor(session: ProxyRuntimeSession) =
+    private val supervisorExitHandlerFor = { session: ProxyRuntimeSession ->
         ProxySupervisorExitHandler(
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
@@ -128,6 +129,7 @@ internal class ProxyServiceRuntimeCoordinator(
             markForeignRelayFailed = statusReporter::markForeignRelayFailed,
             failAndStop = { reason -> failAndStopFromCallback(session.runtimeId, reason) },
         )
+    }
 
     private val telemetryCoordinator =
         ProxyTelemetryCoordinator(
@@ -181,6 +183,13 @@ internal class ProxyServiceRuntimeCoordinator(
                     reportConnected = ::reportConnected,
                     updateStatus = ::updateStatus,
                     classifyStartupFailure = { classifyFailureReason(it) },
+                    reportCallbackFailure = { reason ->
+                        reportStatusEffects(
+                            ServiceStatus.Failed,
+                            reason,
+                            com.poyka.ripdpi.services.ServiceStatusPublication.Apply,
+                        )
+                    },
                 ),
             permissionHooks = ServiceRuntimePermissionHooks(::onPermissionRevoked),
         )
@@ -424,13 +433,6 @@ internal class ProxyServiceRuntimeCoordinator(
             status == ServiceStatus.Connected &&
             session.currentDestinationRoutingDigest != resolution.destinationRoutingDigest
     }
-
-    override fun reportCallbackFailure(failureReason: FailureReason) =
-        reportStatusEffects(
-            ServiceStatus.Failed,
-            failureReason,
-            com.poyka.ripdpi.services.ServiceStatusPublication.Apply,
-        )
 
     private fun updateStatus(
         newStatus: ServiceStatus,

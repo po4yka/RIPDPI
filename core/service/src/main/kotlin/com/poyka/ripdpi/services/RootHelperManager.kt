@@ -86,24 +86,12 @@ open class RootHelperManager
 
         @Volatile private var predecessorsReaped = false
 
-        // Mode whose runtime last prepared the helper. The VPN and proxy services share this singleton,
-        // so a late teardown of one mode must not stop the helper the other mode now uses.
-        @Volatile private var owner: com.poyka.ripdpi.data.Mode? = null
-
-        /** Records that [mode]'s runtime now uses the helper; call before starting or reusing it. */
-        fun claim(mode: com.poyka.ripdpi.data.Mode) {
-            owner = mode
-        }
-
-        /** Stops the helper unless a runtime of another mode has claimed it since [mode] did. */
-        fun stopFor(mode: com.poyka.ripdpi.data.Mode) {
-            val current = owner
-            if (current != null && current != mode) {
-                log.i { "root helper kept: claimed by $current, stop requested by $mode" }
-                return
-            }
-            stop()
-        }
+        /**
+         * Mode whose runtime last prepared the helper; set before starting or reusing it. The VPN and
+         * proxy services share this singleton, so a late teardown of one mode must not stop the helper
+         * the other mode now uses (see [stopFor]).
+         */
+        @Volatile var claimedBy: com.poyka.ripdpi.data.Mode? = null
 
         private companion object {
             private val log = Logger.withTag("RootHelperManager")
@@ -526,6 +514,16 @@ internal class RootHelperLaunchAttempt(
     val description: String,
     val launch: () -> Process,
 )
+
+/** Stops the helper unless a runtime of another mode has claimed it since [mode] did. */
+internal fun RootHelperManager.stopFor(mode: com.poyka.ripdpi.data.Mode) {
+    val current = claimedBy
+    if (current != null && current != mode) {
+        Logger.withTag("RootHelperManager").i { "root helper kept: claimed by $current, stop requested by $mode" }
+        return
+    }
+    stop()
+}
 
 /** Finish local service destruction while the helper retains pending cleanup. */
 internal fun RootHelperManager.stopOnDestroy(mode: com.poyka.ripdpi.data.Mode) {

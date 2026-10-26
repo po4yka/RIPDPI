@@ -54,7 +54,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
         ): String? {
             val path = protectPath(mode, forPreflight)
             if (!forPreflight) {
-                rootHelperManager.claim(mode)
+                rootHelperManager.claimedBy = mode
                 rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
                 rootHelperManager.syncNfqws(context, settings)
             }

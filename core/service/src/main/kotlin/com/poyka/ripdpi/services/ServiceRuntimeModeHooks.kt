@@ -43,6 +43,8 @@ internal class ServiceRuntimeStatusHooks(
     val reportConnected: () -> Unit,
     val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
     val classifyStartupFailure: (Exception) -> FailureReason,
+    // Publishes an out-of-lock callback failure to status observers before the guarded stop runs.
+    val reportCallbackFailure: (FailureReason) -> Unit,
 )
 
 internal class ServiceRuntimePermissionHooks(

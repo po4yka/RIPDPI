@@ -206,7 +206,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     ) {
         val isCurrent = { runtimeSession?.runtimeId == runtimeId }
         if (!isCurrent()) return
-        failureReason?.let(::reportCallbackFailure)
+        failureReason?.let(runtimeHooks.statusHooks.reportCallbackFailure)
         host.serviceScope.launch(ioDispatcher) {
             val guard = RuntimeStopGuard(isCurrent = isCurrent, failureReason = failureReason)
             if (failureReason == null) {
@@ -216,9 +216,6 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             }
         }
     }
-
-    /** Publishes a callback failure to status observers before the guarded stop gets the mutex. */
-    protected abstract fun reportCallbackFailure(failureReason: FailureReason)
 
     /** Runs under the lifecycle mutex before a callback failure tears the runtime down. */
     protected open suspend fun beforeCallbackFailureStop() = Unit

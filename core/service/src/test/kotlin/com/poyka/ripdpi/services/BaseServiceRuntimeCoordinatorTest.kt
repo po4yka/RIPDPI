@@ -1619,10 +1619,6 @@ private class TestCoordinator(
     val installedFailureCallbacks = mutableListOf<(FailureReason?) -> Unit>()
     val reportedCallbackFailures = mutableListOf<FailureReason>()
 
-    override fun reportCallbackFailure(failureReason: FailureReason) {
-        reportedCallbackFailures += failureReason
-    }
-
     override suspend fun beforeCallbackFailureStop() {
         stopLifecycleEvents += "callback_barrier"
     }
@@ -1736,6 +1732,7 @@ private class TestCoordinator(
                     reportConnected = {},
                     updateStatus = ::updateStatus,
                     classifyStartupFailure = ::classifyStartupFailure,
+                    reportCallbackFailure = { reportedCallbackFailures += it },
                 ),
         )
 
