@@ -584,3 +584,69 @@ async fn a_refused_destination_keeps_the_cached_carrier() {
     assert_eq!(1, creations.load(Ordering::SeqCst), "a per-destination refusal must not re-dial the carrier");
     assert_eq!(0, mux.health().evictions);
 }
+
+/// A cached carrier that the network silently black-holed after its first
+/// open: later opens never complete and never fail.
+#[derive(Clone)]
+struct BlackholedCarrierFactory {
+    creations: Arc<AtomicUsize>,
+}
+
+struct BlackholedCarrierSession {
+    generation: usize,
+    opens: AtomicUsize,
+}
+
+impl RelaySession for BlackholedCarrierSession {
+    type Stream = tokio::io::DuplexStream;
+    type Datagram = usize;
+    type Error = std::io::Error;
+
+    async fn open_stream(&self, _target: &str) -> Result<Self::Stream, Self::Error> {
+        if self.generation == 0 && self.opens.fetch_add(1, Ordering::SeqCst) > 0 {
+            std::future::pending::<()>().await;
+        }
+        Ok(duplex(64).0)
+    }
+
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Ok(7)
+    }
+}
+
+impl RelaySessionFactory for BlackholedCarrierFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    type Session = BlackholedCarrierSession;
+    type Error = std::io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: true }
+    }
+
+    /// # Cancel safety
+    ///
+    /// cancel-safe: no await point.
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+        let generation = self.creations.fetch_add(1, Ordering::SeqCst);
+        Ok(Arc::new(BlackholedCarrierSession { generation, opens: AtomicUsize::new(0) }))
+    }
+}
+
+#[tokio::test]
+async fn an_abandoned_open_evicts_the_cached_carrier() {
+    let creations = Arc::new(AtomicUsize::new(0));
+    let mux = RelayMux::new(BlackholedCarrierFactory { creations: Arc::clone(&creations) }, RelayPoolConfig::default());
+    drop(mux.open_stream("example.com:443").await.expect("warm the cached carrier"));
+
+    // The caller's connect deadline drops an open that never completes.
+    assert!(timeout(Duration::from_millis(50), mux.open_stream("example.com:443")).await.is_err());
+
+    timeout(Duration::from_secs(2), mux.open_stream("example.com:443"))
+        .await
+        .expect("the next open must not reuse the black-holed carrier")
+        .expect("open on a fresh carrier");
+    assert_eq!(2, creations.load(Ordering::SeqCst));
+}

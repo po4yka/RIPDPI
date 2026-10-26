@@ -75,6 +75,13 @@ where
         }
     }
 
+    /// Opens a stream to `target` on the cached carrier, or on a new one.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: the lease and permit are released on drop. Dropping the
+    /// future while the carrier open is in flight evicts that carrier from the
+    /// cache, because a black-holed carrier never returns an error.
     pub async fn open_stream(
         &self,
         target: &str,
@@ -85,7 +92,10 @@ where
         let guard =
             LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), self.inner.capabilities.reusable, permit);
 
-        match session.open_stream(target).await {
+        let evict = EvictOnCancel::new(self, &session);
+        let opened = session.open_stream(target).await;
+        evict.disarm();
+        match opened {
             Ok(stream) => Ok(MuxStream::new(stream, guard)),
             Err(error) => {
                 // The carrier refused only this open: keep it cached and do not re-dial.
@@ -114,7 +124,10 @@ where
                     self.inner.capabilities.reusable,
                     retry_permit,
                 );
-                match fresh.open_stream(target).await {
+                let evict = EvictOnCancel::new(self, &fresh);
+                let opened = fresh.open_stream(target).await;
+                evict.disarm();
+                match opened {
                     Ok(stream) => Ok(MuxStream::new(stream, retry_guard)),
                     Err(retry_error) => {
                         if fresh.is_carrier_failure(&retry_error) {
@@ -127,6 +140,11 @@ where
         }
     }
 
+    /// Opens a datagram lease on the cached carrier, or on a new one.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe, with the same carrier eviction as [`Self::open_stream`].
     pub async fn open_datagram(
         &self,
     ) -> Result<MuxLease<<F::Session as RelaySession>::Datagram, F::Session>, F::Error> {
@@ -136,7 +154,10 @@ where
         let guard =
             LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), self.inner.capabilities.reusable, permit);
 
-        match session.open_datagram().await {
+        let evict = EvictOnCancel::new(self, &session);
+        let opened = session.open_datagram().await;
+        evict.disarm();
+        match opened {
             Ok(datagram) => Ok(MuxLease::new(datagram, guard)),
             Err(error) => {
                 // The carrier refused only this open: keep it cached and do not re-dial.
@@ -160,7 +181,10 @@ where
                     self.inner.capabilities.reusable,
                     retry_permit,
                 );
-                match fresh.open_datagram().await {
+                let evict = EvictOnCancel::new(self, &fresh);
+                let opened = fresh.open_datagram().await;
+                evict.disarm();
+                match opened {
                     Ok(datagram) => Ok(MuxLease::new(datagram, retry_guard)),
                     Err(retry_error) => {
                         if fresh.is_carrier_failure(&retry_error) {
@@ -246,5 +270,41 @@ where
             panic!("intentional poison");
         })
         .join();
+    }
+}
+
+/// Evicts `session` from the reuse cache when dropped while armed. An open that
+/// the caller abandoned (for example at its connect deadline) is the only sign
+/// of a silently black-holed carrier, which never returns an error.
+struct EvictOnCancel<'a, F>
+where
+    F: RelaySessionFactory,
+{
+    mux: &'a RelayMux<F>,
+    session: &'a Arc<F::Session>,
+    armed: bool,
+}
+
+impl<'a, F> EvictOnCancel<'a, F>
+where
+    F: RelaySessionFactory,
+{
+    fn new(mux: &'a RelayMux<F>, session: &'a Arc<F::Session>) -> Self {
+        Self { mux, session, armed: true }
+    }
+
+    fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+
+impl<F> Drop for EvictOnCancel<'_, F>
+where
+    F: RelaySessionFactory,
+{
+    fn drop(&mut self) {
+        if self.armed {
+            self.mux.invalidate_failed_open(Some(self.session));
+        }
     }
 }
