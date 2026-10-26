@@ -19,6 +19,11 @@ const HYSTERIA_AUTH_STATUS: u16 = 233;
 /// dead path is detected after 30 s without packets.
 const KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
 const MAX_IDLE_TIMEOUT: quinn::VarInt = quinn::VarInt::from_u32(30_000);
+/// Reference receive windows (8 MiB per stream, 20 MiB per connection).
+/// quinn's 1.25 MB stream default caps one download near 50 Mbit/s at
+/// 200 ms RTT.
+const STREAM_RECEIVE_WINDOW: quinn::VarInt = quinn::VarInt::from_u32(8 * 1024 * 1024);
+const CONNECTION_RECEIVE_WINDOW: quinn::VarInt = quinn::VarInt::from_u32(20 * 1024 * 1024);
 
 pub(crate) struct H3ConnectionGuard {
     send_request: h3::client::SendRequest<h3_quinn::OpenStreams, bytes::Bytes>,
@@ -129,6 +134,8 @@ fn client_transport_config() -> quinn::TransportConfig {
     let mut transport = quinn::TransportConfig::default();
     transport.keep_alive_interval(Some(KEEP_ALIVE_INTERVAL));
     transport.max_idle_timeout(Some(MAX_IDLE_TIMEOUT.into()));
+    transport.stream_receive_window(STREAM_RECEIVE_WINDOW);
+    transport.receive_window(CONNECTION_RECEIVE_WINDOW);
     transport
 }
 

@@ -12,7 +12,7 @@ This crate's wire format (Hysteria 2 over QUIC, Salamander obfuscation, remote p
 
 This crate implements the Hysteria 2 client over Quinn, including:
 
-- QUIC transport setup with custom congestion config
+- QUIC transport tuned to the reference client: 10 s keep-alive, 30 s idle timeout, 8 MiB stream and 20 MiB connection receive windows. Congestion control is quinn's default Cubic; Brutal, BBR and `Hysteria-CC-RX` rate negotiation are not implemented (the client sends `Hysteria-CC-RX: 0` and ignores the server value)
 - Salamander XOR-style obfuscation keyed by server-supplied secret
 - Remote port and local socket rotation on a fixed or randomized schedule
 - HTTP/3 `POST https://hysteria/auth` with an opaque `Hysteria-Auth` value and status `233` on success

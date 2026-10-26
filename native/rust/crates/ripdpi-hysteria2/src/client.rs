@@ -207,6 +207,23 @@ mod tests {
         );
     }
 
+    /// The client's stream receive window bounds how much the server may send
+    /// before the client reads. With quinn's 1.25 MB default the echoed bytes
+    /// back up into the server and stall this upload long before 6 MiB.
+    #[tokio::test]
+    async fn stream_receive_window_uses_the_reference_size() {
+        use tokio::io::AsyncWriteExt;
+
+        let server = TestServer::start(ServerOptions::default()).expect("test server");
+        let client = crate::connect(&server.client_config()).await.expect("connect");
+        let mut stream = client.tcp_connect("192.0.2.1:80").await.expect("TCP stream");
+        let upload = vec![0x5a; 6 * 1024 * 1024];
+
+        let written = tokio::time::timeout(std::time::Duration::from_secs(10), stream.write_all(&upload)).await;
+
+        assert!(written.is_ok(), "the upload stalled: the client stream receive window is too small");
+    }
+
     /// A server that answers on the new path proves the path works; its
     /// refusal must neither roll the shared endpoint back nor send the
     /// CONNECT twice.
