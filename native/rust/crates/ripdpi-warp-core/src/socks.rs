@@ -270,7 +270,8 @@ async fn read_target(client: &mut TcpStream, address_type: u8) -> io::Result<Soc
     client.read_exact(&mut port).await?;
     let port = u16::from_be_bytes(port);
     if let Ok(ip) = host.parse::<IpAddr>() {
-        Ok(SocketAddr::new(ip, port))
+        // An IPv4-mapped IPv6 target (::ffff:a.b.c.d) is an IPv4 destination.
+        Ok(SocketAddr::new(ip.to_canonical(), port))
     } else {
         lookup_host((host.as_str(), port))
             .await?
@@ -297,7 +298,7 @@ fn parse_socks_udp_request(buffer: &[u8]) -> anyhow::Result<(SocketAddr, Bytes)>
             anyhow::ensure!(buffer.len() >= 22, "socks IPv6 udp datagram too short");
             let octets: [u8; 16] = buffer[4..20].try_into()?;
             let port = u16::from_be_bytes([buffer[20], buffer[21]]);
-            (SocketAddr::new(Ipv6Addr::from(octets).into(), port), 22)
+            (SocketAddr::new(IpAddr::V6(Ipv6Addr::from(octets)).to_canonical(), port), 22)
         }
         _ => anyhow::bail!("SOCKS UDP targets must be IP literals"),
     };
@@ -549,6 +550,26 @@ mod tests {
 
         assert_eq!(target, SocketAddr::from(([192, 0, 2, 10], 8080)));
         assert_eq!(&payload[..], b"ping");
+    }
+
+    #[test]
+    fn ipv4_mapped_udp_target_is_an_ipv4_destination() {
+        let mapped = SocketAddr::new(IpAddr::V6(Ipv4Addr::new(192, 0, 2, 10).to_ipv6_mapped()), 53);
+        let (target, _) = parse_socks_udp_request(&encode_socks_udp_response(mapped, b"q")).expect("mapped frame");
+        assert_eq!(target, SocketAddr::from(([192, 0, 2, 10], 53)));
+    }
+
+    /// # Cancel safety
+    /// cancel-safe: dropping it drops only fresh local sockets.
+    #[tokio::test]
+    async fn ipv4_mapped_connect_target_is_an_ipv4_destination() {
+        let (mut client, mut server) = socks_pair().await;
+        let mut request = vec![0x04];
+        request.extend_from_slice(&Ipv4Addr::new(192, 0, 2, 10).to_ipv6_mapped().octets());
+        request.extend_from_slice(&443u16.to_be_bytes());
+        client.write_all(&request[1..]).await.expect("mapped target");
+        let target = read_target(&mut server, request[0]).await.expect("target");
+        assert_eq!(target, SocketAddr::from(([192, 0, 2, 10], 443)));
     }
 
     #[test]

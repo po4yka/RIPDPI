@@ -816,7 +816,7 @@ impl AmneziaWgRuntime {
     }
 }
 
-fn parse_interface_ipv6(value: &str) -> io::Result<Option<Ipv6Addr>> {
+pub(crate) fn parse_interface_ipv6(value: &str) -> io::Result<Option<Ipv6Addr>> {
     if value.is_empty() {
         return Ok(None);
     }

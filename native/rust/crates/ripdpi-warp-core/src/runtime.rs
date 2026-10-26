@@ -7,7 +7,7 @@ use tokio::sync::mpsc::unbounded_channel;
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
-use crate::amneziawg_runtime::spawn_supervised;
+use crate::amneziawg_runtime::{parse_interface_ipv6, spawn_supervised};
 use crate::config::{ResolvedWarpRuntimeConfig, WarpTelemetry, now_ms, parse_ipv4_cidr, resolve_endpoint};
 use crate::observe::TcpConnectObservation;
 use crate::platform::WarpPlatform;
@@ -137,6 +137,7 @@ impl WarpRuntime {
         let source_peer_ip = parse_ipv4_cidr(self.config.interface_address_v4.as_deref()).ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "WARP runtime requires IPv4 interface address")
         })?;
+        let source_peer_ipv6 = warp_source_ipv6(self.config.interface_address_v6.as_deref());
         let endpoint = resolve_endpoint(&self.config.endpoint).await?;
         let reserved = reserved_bytes_from_client_id(self.config.client_id.as_deref());
         let tunnel = Arc::new(
@@ -154,7 +155,7 @@ impl WarpRuntime {
                     endpoint,
                     reserved,
                     source_peer_ip,
-                    source_peer_ipv6: None,
+                    source_peer_ipv6,
                     amnezia_cfg: &self.config.amnezia,
                     // AWG 2.0 I1..I5 special-junk frames, sourced from the
                     // resolved WARP config's own `i1..i5` hex fields. Empty
@@ -209,11 +210,11 @@ impl WarpRuntime {
             });
         }
         let mtu = self.config.mtu.max(1280) as usize;
-        let tcp = DynamicTcpInterface::new(bus.clone(), source_peer_ip, None, mtu);
+        let tcp = DynamicTcpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
         spawn_supervised(&mut tasks, &failure_tx, "WARP TCP interface", async move {
             tcp.run().await.err().map(|error| format!("WARP TCP virtual interface stopped: {error}"))
         });
-        let udp = DynamicUdpInterface::new(bus.clone(), source_peer_ip, None, mtu);
+        let udp = DynamicUdpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
         spawn_supervised(&mut tasks, &failure_tx, "WARP UDP interface", async move {
             udp.run().await.err().map(|error| format!("WARP UDP virtual interface stopped: {error}"))
         });
@@ -290,6 +291,15 @@ impl WarpRuntime {
     }
 }
 
+/// The IPv6 interface address Cloudflare assigned, so IPv6 targets get a source
+/// address. An invalid value keeps WARP IPv4-only, as before, instead of failing the start.
+fn warp_source_ipv6(value: Option<&str>) -> Option<std::net::Ipv6Addr> {
+    parse_interface_ipv6(value.unwrap_or_default().trim()).unwrap_or_else(|error| {
+        tracing::warn!("ignoring the WARP IPv6 interface address: {error}");
+        None
+    })
+}
+
 fn emit_runtime_ready(bind_addr: &str) {
     tracing::info!(
         ring = "warp",
@@ -355,6 +365,15 @@ mod tests {
     }
 
     /// Smoke: observer is invoked when `emit_connect_observation` is called.
+    #[test]
+    fn warp_ipv6_interface_address_becomes_the_ipv6_source() {
+        let expected: std::net::Ipv6Addr = "2606:4700:110:8a36::1".parse().expect("IPv6");
+        assert_eq!(warp_source_ipv6(Some("2606:4700:110:8a36::1/128")), Some(expected));
+        assert_eq!(warp_source_ipv6(Some("2606:4700:110:8a36::1")), Some(expected));
+        assert_eq!(warp_source_ipv6(None), None);
+        assert_eq!(warp_source_ipv6(Some("not-an-address")), None);
+    }
+
     #[test]
     fn observer_fires_on_emit() {
         let runtime = WarpRuntime::new(dummy_config());
