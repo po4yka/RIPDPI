@@ -70,19 +70,12 @@ internal class FakeAwgCredentialStore : AwgCredentialStore {
     private val secrets = mutableMapOf<String, AwgSecrets>()
     var failNextSaveAfterWrite: Boolean = false
 
-    /** Profile ids whose sealed value no longer decrypts. */
-    val unreadable = mutableSetOf<String>()
-
-    override suspend fun load(profileId: String): AwgSecrets? {
-        if (profileId in unreadable) throw unreadableFixture()
-        return secrets[profileId]
-    }
+    override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]
 
     override suspend fun save(
         profileId: String,
         secrets: AwgSecrets,
     ) {
-        unreadable -= profileId
         this.secrets[profileId] = secrets
         if (failNextSaveAfterWrite) {
             failNextSaveAfterWrite = false

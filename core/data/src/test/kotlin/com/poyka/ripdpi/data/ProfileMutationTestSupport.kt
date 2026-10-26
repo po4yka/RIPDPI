@@ -461,13 +461,20 @@ internal class InMemoryAwgCredentialStore : AwgCredentialStore {
 
     private val values = mutableMapOf<String, AwgSecrets>()
 
-    override suspend fun load(profileId: String) = values[profileId]
+    /** Profile ids whose stored value behaves like a sealed secret that no longer decrypts. */
+    val unreadable = mutableSetOf<String>()
+
+    override suspend fun load(profileId: String): AwgSecrets? {
+        if (profileId in unreadable) throw unreadableFixture()
+        return values[profileId]
+    }
 
     override suspend fun save(
         profileId: String,
         secrets: AwgSecrets,
     ) {
         saveAttempts++
+        unreadable -= profileId
         values[profileId] = secrets
         afterSave?.invoke()
     }
