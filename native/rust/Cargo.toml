@@ -261,7 +261,7 @@ linkme = "0.3"
 log = "0.4"
 loom = "0.7"
 metrics = "0.24"
-lru = "0.18"
+lru = "0.19"
 maxminddb = "0.32"
 mlua = "0.12"
 mio = { version = "1.2", features = ["net", "os-poll"] }
