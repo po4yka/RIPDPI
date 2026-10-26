@@ -174,6 +174,11 @@ pub fn run_dns_probe_with_context(
             result.details.push(ProbeDetail { key: key.to_string(), value });
         }
     }
+    // After a user cancel only the observations already made are reported;
+    // the HTTPS-RR lookup and the fuzz queries below are more network round trips.
+    if cancel.load(Ordering::Acquire) {
+        return result;
+    }
     append_dns_classifier_details(
         &mut result,
         &target.domain,
@@ -233,7 +238,46 @@ fn dns_probe_unavailable_result(target: &DnsTarget, err: String) -> ProbeResult 
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
     use super::classify_dns_latency_quality;
+    use super::run_dns_probe_with_context;
+    use crate::connectivity::adapters::transport::direct_transport;
+    use crate::probe_context::ProbeExecutionContext;
+    use crate::test_fixtures::{HttpTextServer, UdpDnsServer};
+    use crate::types::{DnsTarget, ScanPathMode};
+
+    #[test]
+    fn cancelled_dns_probe_skips_the_follow_up_lookups() {
+        let udp = UdpDnsServer::start("198.51.100.7");
+        let doh_requests = Arc::new(AtomicUsize::new(0));
+        let counter = doh_requests.clone();
+        let doh = HttpTextServer::start(move |_request| {
+            counter.fetch_add(1, Ordering::SeqCst);
+            b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
+        });
+        let target = DnsTarget {
+            domain: "example.test".to_string(),
+            udp_server: Some(udp.addr()),
+            encrypted_resolver_id: None,
+            encrypted_protocol: Some("doh".to_string()),
+            encrypted_host: Some("127.0.0.1".to_string()),
+            encrypted_port: Some(doh.port()),
+            encrypted_tls_server_name: None,
+            encrypted_bootstrap_ips: vec!["127.0.0.1".to_string()],
+            encrypted_doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
+            encrypted_dnscrypt_provider_name: None,
+            encrypted_dnscrypt_public_key: None,
+            expected_ips: vec![],
+        };
+        let context = ProbeExecutionContext::new(direct_transport());
+
+        let result = run_dns_probe_with_context(&target, &context, &ScanPathMode::RawPath, &AtomicBool::new(true));
+
+        assert_eq!(doh_requests.load(Ordering::SeqCst), 0, "no encrypted lookup may run after cancel");
+        assert!(result.details.iter().all(|detail| detail.key != "dnsClassification"));
+    }
 
     #[test]
     fn dns_latency_quality_throttled_for_slow_udp() {
