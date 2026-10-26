@@ -69,9 +69,11 @@ pub(super) fn pump_udp_upstream_responses(
                 } else {
                     RuntimeState::encode_socks5_udp_packet_into(encode_buffer, entry.logical_target, response);
                 }
-                // A full client socket buffer drops this datagram, as UDP may.
+                // A full client socket buffer drops this datagram, as UDP may. So does a
+                // datagram that no longer fits once the SOCKS5 header is added (EMSGSIZE).
                 if let Err(err) = client_relay.send_to(encode_buffer, key.client)
                     && err.kind() != io::ErrorKind::WouldBlock
+                    && err.raw_os_error() != Some(libc::EMSGSIZE)
                 {
                     return Err(err);
                 }

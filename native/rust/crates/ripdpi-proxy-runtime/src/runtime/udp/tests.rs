@@ -1138,3 +1138,45 @@ fn client_relay_port_cannot_be_rebound_by_another_reuseaddr_socket() {
 
     assert!(rebound.is_err(), "another local socket must not bind the live relay port {relay_addr}");
 }
+
+#[test]
+fn oversized_upstream_datagram_is_dropped_without_ending_the_association() {
+    // The largest datagram the peer can send, so the added SOCKS5 header makes it too large
+    // for the client relay socket (net.inet.udp.maxdgram is 9216 on macOS).
+    let payload_len = if cfg!(target_os = "macos") { 9_216 } else { 65_507 };
+    let client_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client relay");
+    let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client");
+    let upstream = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("upstream");
+    let upstream_peer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("upstream peer");
+    let target = upstream_peer.local_addr().expect("peer addr");
+    upstream.connect(target).expect("connect upstream");
+    upstream_peer.connect(upstream.local_addr().expect("upstream addr")).expect("connect peer");
+    upstream.set_nonblocking(true).expect("nonblocking upstream");
+    upstream_peer.send(&vec![7u8; payload_len]).expect("oversized datagram");
+    std::thread::sleep(Duration::from_millis(50));
+    let flow_key = UdpFlowKey {
+        client: client.local_addr().expect("client addr"),
+        target,
+        preserve_host_in_response: false,
+        authoritative_host: None,
+    };
+    let mut flow_state = HashMap::new();
+    flow_state.insert(flow_key.clone(), flow_entry_for(upstream, target));
+    let state = test_runtime_state(RuntimeConfig::default());
+    let mut upstream_buffer = [0u8; 65_535];
+    let mut encode_buffer = Vec::new();
+    let mut poll_scratch = UdpUpstreamPollScratch::default();
+
+    let result = pump_udp_upstream_responses(
+        &state,
+        &client_relay,
+        &mut upstream_buffer,
+        &mut encode_buffer,
+        &mut flow_state,
+        &mut poll_scratch,
+        None,
+    );
+
+    assert_eq!(result.map_err(|err| err.to_string()), Ok(true));
+    assert!(flow_state.contains_key(&flow_key), "the flow must survive one oversized datagram");
+}
