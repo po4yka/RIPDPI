@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -41,8 +42,10 @@ import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderToolUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -124,9 +127,10 @@ private fun DiagnosticsRouteEffects(
 ) {
     val currentCallbacks by rememberUpdatedState(callbacks)
     val performHaptic = rememberRipDpiHapticPerformer()
+    val snackbarScope = rememberCoroutineScope()
 
     LifecycleEventEffect(viewModel.effects) { effect ->
-        handleDiagnosticsEffect(effect, currentCallbacks, snackbarHostState, performHaptic)
+        handleDiagnosticsEffect(effect, currentCallbacks, snackbarHostState, performHaptic, snackbarScope)
     }
 
     LaunchedEffect(initialSection) {
@@ -226,11 +230,14 @@ private fun DiagnosticsViewModel.dpiToolsRouteFlow(): Flow<DiagnosticsDpiToolsUi
     }
 }
 
-private suspend fun handleDiagnosticsEffect(
+// A snackbar suspends until it is dismissed, so it runs in snackbarScope: export and share effects
+// that arrive while one is visible must not wait for it.
+private fun handleDiagnosticsEffect(
     effect: DiagnosticsEffect,
     callbacks: DiagnosticsRouteCallbacks,
     snackbarHostState: SnackbarHostState,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
+    snackbarScope: CoroutineScope,
 ) {
     when (effect) {
         is DiagnosticsEffect.PrepareExportRequested -> {
@@ -242,37 +249,45 @@ private suspend fun handleDiagnosticsEffect(
         }
 
         is DiagnosticsEffect.ScanStarted -> {
-            showDiagnosticsSnackbar(snackbarHostState, effect.scanTypeLabel, RipDpiSnackbarTone.Info)
+            snackbarScope.launch {
+                showDiagnosticsSnackbar(snackbarHostState, effect.scanTypeLabel, RipDpiSnackbarTone.Info)
+            }
         }
 
         is DiagnosticsEffect.ScanQueued -> {
-            showDiagnosticsSnackbar(snackbarHostState, effect.message, RipDpiSnackbarTone.Info)
+            snackbarScope.launch {
+                showDiagnosticsSnackbar(snackbarHostState, effect.message, RipDpiSnackbarTone.Info)
+            }
         }
 
         is DiagnosticsEffect.ScanCompleted -> {
             if (effect.hapticFeedbackEnabled) performHaptic(effect.tone.toHapticFeedback())
-            val result =
-                snackbarHostState.showRipDpiSnackbar(
-                    message = effect.summary,
-                    actionLabel = effect.actionLabel,
-                    testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
-                    tone = effect.tone.toSnackbarTone(),
-                )
-            if (result == SnackbarResult.ActionPerformed) {
-                handleSnackbarAction(effect.action, callbacks)
+            snackbarScope.launch {
+                val result =
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = effect.summary,
+                        actionLabel = effect.actionLabel,
+                        testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
+                        tone = effect.tone.toSnackbarTone(),
+                    )
+                if (result == SnackbarResult.ActionPerformed) {
+                    handleSnackbarAction(effect.action, callbacks)
+                }
             }
         }
 
         is DiagnosticsEffect.ScanStartFailed -> {
             if (effect.hapticFeedbackEnabled) performHaptic(RipDpiHapticFeedback.Error)
-            val result =
-                snackbarHostState.showRipDpiSnackbar(
-                    message = effect.message,
-                    actionLabel = effect.actionLabel,
-                    tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
-                )
-            if (result == SnackbarResult.ActionPerformed) handleSnackbarAction(effect.action, callbacks)
+            snackbarScope.launch {
+                val result =
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = effect.message,
+                        actionLabel = effect.actionLabel,
+                        tone = RipDpiSnackbarTone.Error,
+                        testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
+                    )
+                if (result == SnackbarResult.ActionPerformed) handleSnackbarAction(effect.action, callbacks)
+            }
         }
     }
 }

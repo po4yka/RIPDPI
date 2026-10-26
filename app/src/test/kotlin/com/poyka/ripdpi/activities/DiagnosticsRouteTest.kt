@@ -280,6 +280,50 @@ class DiagnosticsRouteTest {
     }
 
     @Test
+    fun `share effect is not queued behind a visible snackbar`() {
+        val manager =
+            FakeDiagnosticsManager().apply {
+                scanController.onStartScan = { _, _ ->
+                    throw IllegalStateException("boom")
+                }
+            }
+        val viewModel =
+            createDiagnosticsViewModel(
+                appContext = RuntimeEnvironment.getApplication(),
+                diagnosticsManager = manager,
+                appSettingsRepository = FakeAppSettingsRepository(),
+            )
+        val sharedTitles = mutableListOf<String>()
+
+        composeRule.setContent {
+            RipDpiTheme {
+                DiagnosticsRoute(
+                    callbacks = DiagnosticsRouteCallbacks(onShareText = { title, _ -> sharedTitles += title }),
+                    viewModel = viewModel,
+                )
+            }
+        }
+        composeRule.runOnUiThread {
+            viewModel.startRawScan()
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runCatching {
+                composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStatusSnackbar).assertIsDisplayed()
+            }.isSuccess
+        }
+
+        // Far less than the snackbar's display time.
+        composeRule.mainClock.autoAdvance = false
+        composeRule.runOnUiThread {
+            viewModel.shareRemoteDeviceAcceptance()
+        }
+        composeRule.mainClock.advanceTimeBy(500)
+
+        assertEquals(1, sharedTitles.size)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStatusSnackbar).assertIsDisplayed()
+    }
+
+    @Test
     fun `route shows hidden probe conflict dialog`() {
         val manager =
             FakeDiagnosticsManager().apply {
