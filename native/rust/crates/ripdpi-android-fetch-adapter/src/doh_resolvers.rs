@@ -12,22 +12,14 @@ pub(crate) struct OwnedFetchDohResolver {
     bootstrap_ips: &'static [&'static str],
 }
 
-/// DoH resolvers tried in order. The second is used only when the first fails
-/// or returns no address, so one blocked resolver does not break every fetch.
-pub(crate) const OWNED_FETCH_DOH_RESOLVERS: &[OwnedFetchDohResolver] = &[
-    OwnedFetchDohResolver {
-        resolver_id: "adguard",
-        host: "dns.adguard-dns.com",
-        url: "https://dns.adguard-dns.com/dns-query",
-        bootstrap_ips: &["94.140.14.14", "94.140.15.15"],
-    },
-    OwnedFetchDohResolver {
-        resolver_id: "quad9",
-        host: "dns.quad9.net",
-        url: "https://dns.quad9.net/dns-query",
-        bootstrap_ips: &["9.9.9.9", "149.112.112.112"],
-    },
-];
+/// The only DoH resolver for native fetches. There is deliberately no second
+/// provider: a fallback would send every hostname to one more third party.
+pub(crate) const OWNED_FETCH_DOH_RESOLVER: OwnedFetchDohResolver = OwnedFetchDohResolver {
+    resolver_id: "adguard",
+    host: "dns.adguard-dns.com",
+    url: "https://dns.adguard-dns.com/dns-query",
+    bootstrap_ips: &["94.140.14.14", "94.140.15.15"],
+};
 
 /// Combine A and AAAA answers. One family failing is not fatal when the other
 /// answered (RFC 8305 section 3). Families alternate, IPv4 first, so an

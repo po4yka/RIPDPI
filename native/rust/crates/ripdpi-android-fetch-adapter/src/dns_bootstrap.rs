@@ -3,7 +3,7 @@ use std::net::{IpAddr, SocketAddr};
 
 use ripdpi_dns_resolver::{EncryptedDnsResolver, extract_ip_answers};
 
-use crate::doh_resolvers::{OWNED_FETCH_DOH_RESOLVERS, merge_family_answers, owned_fetch_encrypted_resolver};
+use crate::doh_resolvers::{OWNED_FETCH_DOH_RESOLVER, merge_family_answers, owned_fetch_encrypted_resolver};
 
 const DNS_RECORD_TYPE_A: u16 = 1;
 const DNS_RECORD_TYPE_AAAA: u16 = 28;
@@ -13,23 +13,17 @@ pub(crate) async fn resolve_connect_targets(host: &str, port: u16) -> io::Result
         return Ok(vec![SocketAddr::new(ip, port)]);
     }
 
-    let mut last_error = None;
-    for endpoint in OWNED_FETCH_DOH_RESOLVERS {
-        let resolver = owned_fetch_encrypted_resolver(endpoint)?;
-        let ipv4 = encrypted_dns_targets(&resolver, host, port, DNS_RECORD_TYPE_A).await;
-        let ipv6 = encrypted_dns_targets(&resolver, host, port, DNS_RECORD_TYPE_AAAA).await;
-        match merge_family_answers(ipv4, ipv6) {
-            Ok(targets) if !targets.is_empty() => return Ok(targets),
-            Ok(_) => {
-                last_error = Some(io::Error::new(
-                    io::ErrorKind::AddrNotAvailable,
-                    format!("encrypted DNS resolved no addresses for {host}:{port}"),
-                ));
-            }
-            Err(error) => last_error = Some(error),
-        }
+    let resolver = owned_fetch_encrypted_resolver(&OWNED_FETCH_DOH_RESOLVER)?;
+    let ipv4 = encrypted_dns_targets(&resolver, host, port, DNS_RECORD_TYPE_A).await;
+    let ipv6 = encrypted_dns_targets(&resolver, host, port, DNS_RECORD_TYPE_AAAA).await;
+    let targets = merge_family_answers(ipv4, ipv6)?;
+    if targets.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::AddrNotAvailable,
+            format!("encrypted DNS resolved no addresses for {host}:{port}"),
+        ));
     }
-    Err(last_error.unwrap_or_else(|| io::Error::other(format!("no encrypted DNS resolver for {host}:{port}"))))
+    Ok(targets)
 }
 
 async fn encrypted_dns_targets(
