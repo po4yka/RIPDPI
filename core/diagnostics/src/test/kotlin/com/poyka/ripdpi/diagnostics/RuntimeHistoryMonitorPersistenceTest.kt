@@ -29,6 +29,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -1115,7 +1116,46 @@ internal class RuntimeLifecyclePersistenceTest : RuntimeHistoryMonitorPersistenc
             )
             monitorScope.cancel()
         }
+
+    @Test
+    fun `sampler keeps running after a failed sample write`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val uncaught = mutableListOf<Throwable>()
+            val samplerScope =
+                CoroutineScope(
+                    SupervisorJob() +
+                        StandardTestDispatcher(testScheduler) +
+                        CoroutineExceptionHandler { _, failure -> uncaught += failure },
+                )
+            var failNextSample = true
+            var persistedSamples = 0
+            stores.beforeUpsertSnapshot = { snapshot ->
+                if (snapshot.snapshotKind == "connection_sample" && failNextSample) {
+                    failNextSample = false
+                    error("injected disk full")
+                }
+            }
+            stores.afterUpsertSnapshot = { snapshot ->
+                if (snapshot.snapshotKind == "connection_sample") persistedSamples += 1
+            }
+            val monitor = createMonitor(stores, serviceStateStore, samplerScope)
+
+            monitor.start()
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            advanceTimeBy(SampleIntervalMillis + 1)
+            runCurrent()
+
+            assertEquals(emptyList<Throwable>(), uncaught)
+            assertEquals(1, persistedSamples)
+            samplerScope.cancel()
+        }
 }
+
+private const val SampleIntervalMillis = 15_000L
 
 internal abstract class RuntimeHistoryMonitorPersistenceTestSupport {
     protected fun disabledMonitorSettingsRepository(): AppSettingsRepository =

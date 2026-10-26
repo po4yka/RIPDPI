@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
@@ -245,28 +246,33 @@ class RuntimeSessionCoordinator
 
                 samplingJob =
                     scope.launch {
+                        var intervalSeconds = MinDiagnosticsSampleIntervalSeconds
                         while (true) {
-                            val settings = appSettingsRepository.snapshot()
-                            val currentSessionId =
-                                stateMutex.withLock {
-                                    activeUsageSession?.id
-                                } ?: break
-
-                            if (settings.diagnosticsMonitorEnabled &&
-                                serviceStateStore.status.value.first == AppStatus.Running
-                            ) {
-                                persistSample(currentSessionId)
-                                artifactPersister.trimHistory(settings.diagnosticsHistoryRetentionDays)
+                            val tick =
+                                runCatching {
+                                    val settings = appSettingsRepository.snapshot()
+                                    val currentSessionId =
+                                        stateMutex.withLock { activeUsageSession?.id } ?: return@runCatching null
+                                    if (settings.diagnosticsMonitorEnabled &&
+                                        serviceStateStore.status.value.first == AppStatus.Running
+                                    ) {
+                                        persistSample(currentSessionId)
+                                        artifactPersister.trimHistory(settings.diagnosticsHistoryRetentionDays)
+                                    }
+                                    settings.diagnosticsSampleIntervalSeconds
+                                }
+                            // The application scope has no handler: a failed tick must not kill the process.
+                            when (val failure = tick.exceptionOrNull()) {
+                                null -> intervalSeconds = tick.getOrNull() ?: break
+                                is CancellationException -> throw failure
+                                is Exception -> Logger.w(failure) { "Runtime history sample failed" }
+                                else -> throw failure
                             }
-
                             delay(
-                                settings
-                                    .diagnosticsSampleIntervalSeconds
-                                    .coerceIn(
-                                        MinDiagnosticsSampleIntervalSeconds,
-                                        MaxDiagnosticsSampleIntervalSeconds,
-                                    ) *
-                                    MillisPerSecond,
+                                intervalSeconds.coerceIn(
+                                    MinDiagnosticsSampleIntervalSeconds,
+                                    MaxDiagnosticsSampleIntervalSeconds,
+                                ) * MillisPerSecond,
                             )
                         }
                     }
