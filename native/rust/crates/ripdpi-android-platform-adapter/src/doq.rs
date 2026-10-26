@@ -39,21 +39,25 @@ fn exchange(request_json: &str) -> String {
         Ok(query) => query,
         Err(error) => return response_error("quic", format!("invalid DoQ query encoding: {error}")),
     };
-    let timeout_ms = request.timeout_ms.max(1);
-    let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
-        Ok(runtime) => runtime,
-        Err(error) => return response_error("quic", format!("build native DoQ runtime: {error}")),
-    };
-
-    let result = runtime.block_on(async {
-        timeout(Duration::from_millis(timeout_ms), exchange_async(request, query, Duration::from_millis(timeout_ms)))
-            .await
-    });
-    match result {
-        Ok(Ok(response)) => response_ok(response),
-        Ok(Err(error)) => response_error(error.kind, error.message),
-        Err(_) => response_error("timeout", "native DoQ exchange timed out"),
+    let limit = Duration::from_millis(request.timeout_ms.max(1));
+    match run_bounded(limit, exchange_async(request, query, limit)) {
+        Ok(Some(Ok(response))) => response_ok(response),
+        Ok(Some(Err(error))) => response_error(error.kind, error.message),
+        Ok(None) => response_error("timeout", "native DoQ exchange timed out"),
+        Err(error) => response_error("quic", format!("build native DoQ runtime: {error}")),
     }
+}
+
+/// Run `future` on a fresh current-thread runtime for at most `limit`;
+/// `Ok(None)` means it timed out. The runtime shuts down in the background:
+/// dropping it would wait for in-flight blocking tasks such as the
+/// uncancellable `getaddrinfo` behind `lookup_host`, holding the JNI caller far
+/// past `limit`.
+fn run_bounded<F: std::future::Future>(limit: Duration, future: F) -> io::Result<Option<F::Output>> {
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+    let result = runtime.block_on(async { timeout(limit, future).await }).ok();
+    runtime.shutdown_background();
+    Ok(result)
 }
 
 async fn exchange_async(
@@ -206,6 +210,19 @@ mod tests {
             .expect("base64 response");
         assert_eq!(response_bytes[0], 0x12);
         assert_eq!(response_bytes[1], 0x34);
+    }
+
+    #[test]
+    fn bounded_run_returns_at_the_deadline_while_a_blocking_lookup_runs() {
+        let started = std::time::Instant::now();
+        let result = run_bounded(Duration::from_millis(50), async {
+            // Stands in for getaddrinfo on a blackholed resolver.
+            tokio::task::spawn_blocking(|| std::thread::sleep(Duration::from_secs(3))).await
+        })
+        .expect("runtime");
+
+        assert!(result.is_none(), "the future must time out");
+        assert!(started.elapsed() < Duration::from_secs(1), "returned after {:?}", started.elapsed());
     }
 
     fn build_dns_query(domain: &str, query_id: u16) -> Vec<u8> {
