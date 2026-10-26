@@ -11,11 +11,13 @@ Task ID: `CIC-1792987990860435`. The contract mirror changes one test resource, 
 
 - Enable `macros` on the existing normal Tokio dependency. A non-test build must not depend on dev-feature unification.
 - Press the actuator once, assert the confirmation control, then click that control. Keep the callback-count assertion.
+- Retain all eight native size measurements and prior approval text. Use the user-approved limit change and the existing maintainer label guard. Verify the same CI binaries against both policies.
+- Include `subscription_add` in the existing Profiles and Imports section. Keep the exact page-partition validator.
 - Select report sharing through its existing typed test tag. These tests own enabled state and dispatch; resource text and snapshots own copy.
 
 ## Contracts and ownership
 
-- This worktree owns only the WebTunnel Cargo feature line, Simple Home test helpers/selectors, and this task's records.
+- This worktree owns only the WebTunnel Cargo feature line, Simple Home test helpers/selectors, the guide audit flow list, the approved native size policy and its reference, and this task's records.
 - No wire, JNI, protobuf, persistence, locale, or serialized shared-file contract changes. Keep `Cargo.lock` unchanged.
 
 ## Risks / Trade-offs
@@ -25,4 +27,4 @@ Task ID: `CIC-1792987990860435`. The contract mirror changes one test resource, 
 
 ## Migration Plan
 
-Run locked non-test WebTunnel checking, the complete Simple Home test class, task validation, and architecture checks. Review and publish a separate PR. Merge only after hosted checks pass. Revert the focused commit to roll back; no data migration or compatibility break applies.
+Run locked non-test WebTunnel checking, the complete Simple Home test class, guide generator unit tests, task validation, and architecture checks. Review and publish a separate PR. Merge only after hosted checks pass. Revert the focused commit to roll back; no data migration or compatibility break applies.
