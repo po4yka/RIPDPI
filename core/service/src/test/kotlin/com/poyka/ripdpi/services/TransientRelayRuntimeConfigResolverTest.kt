@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -110,5 +111,38 @@ class TransientRelayRuntimeConfigResolverTest : UpstreamRelayRuntimeConfigResolv
             assertEquals(RelayMieruProtocolUdp, resolved.mieruProtocol)
             assertEquals(RelayMieruMultiplexingHigh, resolved.mieruMultiplexing)
             assertEquals(1300, resolved.mieruMtu)
+        }
+
+    @Test
+    fun `apps script fields left on a non apps script profile stay off the wire`() =
+        runTest {
+            val profile =
+                RelayProfileRecord(
+                    id = "trojan-after-apps-script",
+                    kind = RelayKindTrojan,
+                    server = "trojan.example",
+                    serverPort = 443,
+                    serverName = "trojan.example",
+                    appsScriptScriptIds = listOf("script-id"),
+                    appsScriptGoogleIp = "203.0.113.7",
+                    appsScriptFrontDomain = "www.example",
+                    appsScriptSniHosts = listOf("sni.example"),
+                    appsScriptParallelRelay = true,
+                    appsScriptDirectHosts = listOf("direct.example"),
+                )
+            val resolved =
+                resolver(TestRelayProfileStore(), TestRelayCredentialStore()).resolveTransient(
+                    profile,
+                    RelayCredentialRecord(profileId = profile.id, trojanPassword = credentialFixture("trojan")),
+                    OwnedRelayQuicMigrationConfig(),
+                    TlsFingerprintProfileChromeStable,
+                    emptyMap(),
+                )
+            assertEquals(emptyList<String>(), resolved.appsScriptScriptIds)
+            assertEquals("", resolved.appsScriptGoogleIp)
+            assertEquals("", resolved.appsScriptFrontDomain)
+            assertEquals(emptyList<String>(), resolved.appsScriptSniHosts)
+            assertFalse(resolved.appsScriptParallelRelay)
+            assertEquals(emptyList<String>(), resolved.appsScriptDirectHosts)
         }
 }

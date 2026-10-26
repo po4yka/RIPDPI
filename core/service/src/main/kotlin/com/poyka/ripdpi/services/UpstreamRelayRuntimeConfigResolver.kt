@@ -27,6 +27,7 @@ import com.poyka.ripdpi.core.ResolvedTorPluggableTransportConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.core.toResolvedConfig
+import com.poyka.ripdpi.data.DefaultRelayAppsScriptVerifySsl
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -531,8 +532,22 @@ private class ResolvedRelayConfigBuilder(
             cloudflareTunnelCredentialsJson = credentials?.cloudflareTunnelCredentialsJson,
         )
 
-    private fun appsScriptSection(): RelayAppsScriptSection =
-        RelayAppsScriptSection(
+    // Only the Apps Script runtime parses these keys; the flat relay config
+    // rejects unknown fields, so stale editor drafts must not reach other kinds.
+    private fun appsScriptSection(): RelayAppsScriptSection {
+        if (effectiveConfig.kind != RelayKindGoogleAppsScript) {
+            return RelayAppsScriptSection(
+                appsScriptScriptIds = emptyList(),
+                appsScriptGoogleIp = "",
+                appsScriptFrontDomain = "",
+                appsScriptSniHosts = emptyList(),
+                appsScriptVerifySsl = DefaultRelayAppsScriptVerifySsl,
+                appsScriptParallelRelay = false,
+                appsScriptDirectHosts = emptyList(),
+                appsScriptAuthKey = null,
+            )
+        }
+        return RelayAppsScriptSection(
             appsScriptScriptIds = effectiveConfig.appsScriptScriptIds,
             appsScriptGoogleIp = effectiveConfig.appsScriptGoogleIp,
             appsScriptFrontDomain = effectiveConfig.appsScriptFrontDomain,
@@ -542,6 +557,7 @@ private class ResolvedRelayConfigBuilder(
             appsScriptDirectHosts = effectiveConfig.appsScriptDirectHosts,
             appsScriptAuthKey = credentials?.appsScriptAuthKey,
         )
+    }
 }
 
 internal fun RipDpiRelayFinalmaskConfig.toResolvedFinalmaskConfig(): ResolvedRelayFinalmaskConfig =
