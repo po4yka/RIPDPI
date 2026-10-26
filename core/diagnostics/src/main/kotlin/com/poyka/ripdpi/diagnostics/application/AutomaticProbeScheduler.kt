@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.PolicyHandoverEvent
@@ -67,25 +68,11 @@ class AutomaticProbeScheduler
             val job =
                 scope.launch(start = CoroutineStart.LAZY) {
                     try {
-                        val initialDelayMs = activeProbeSafetyPolicy.automaticHandoverProbeDelayMs
-                        var elapsedMs = initialDelayMs
-                        delay(initialDelayMs)
-                        while (policyHandoverEventStore.isPending(event.deliveryId)) {
-                            val attempt = runCatching { processDelivery(event) }
-                            val failure = attempt.exceptionOrNull()
-                            if (failure is CancellationException || failure is Error) throw failure
-                            if (attempt.getOrDefault(false)) return@launch
-                            if (elapsedMs >= automaticProbeRetryWindowMs()) {
-                                policyHandoverEventStore.acknowledge(event.deliveryId)
-                                return@launch
-                            }
-                            val retryDelayMs = automaticProbeRetryDelayMs()
-                            delay(retryDelayMs)
-                            elapsedMs += retryDelayMs
-                            if (!policyHandoverEventStore.isPending(event.deliveryId)) {
-                                return@launch
-                            }
-                        }
+                        // The application scope has no handler: a durable-store failure ends this job only.
+                        // The delivery stays pending, so the next schedule() for it retries.
+                        val failure = runCatching { runDelivery(event) }.exceptionOrNull()
+                        if (failure is CancellationException || failure is Error) throw failure
+                        failure?.let { Logger.w(it) { "Automatic probe delivery stopped" } }
                     } finally {
                         pendingProbeJobs.remove(event.deliveryId)
                     }
@@ -94,6 +81,28 @@ class AutomaticProbeScheduler
                 job.start()
             } else {
                 job.cancel()
+            }
+        }
+
+        private suspend fun runDelivery(event: PolicyHandoverEvent) {
+            val initialDelayMs = activeProbeSafetyPolicy.automaticHandoverProbeDelayMs
+            var elapsedMs = initialDelayMs
+            delay(initialDelayMs)
+            var settled = false
+            while (!settled && policyHandoverEventStore.isPending(event.deliveryId)) {
+                val attempt = runCatching { processDelivery(event) }
+                val failure = attempt.exceptionOrNull()
+                if (failure is CancellationException || failure is Error) throw failure
+                if (attempt.getOrDefault(false)) {
+                    settled = true
+                } else if (elapsedMs >= automaticProbeRetryWindowMs()) {
+                    policyHandoverEventStore.acknowledge(event.deliveryId)
+                    settled = true
+                } else {
+                    val retryDelayMs = automaticProbeRetryDelayMs()
+                    delay(retryDelayMs)
+                    elapsedMs += retryDelayMs
+                }
             }
         }
 

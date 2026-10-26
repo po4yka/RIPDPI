@@ -1429,6 +1429,7 @@ internal class FakePolicyHandoverEventStore : PolicyHandoverEventStore {
 
     val acknowledged = mutableListOf<String>()
     var pendingOverride: Boolean? = null
+    var pendingFailure: Throwable? = null
 
     override suspend fun publish(event: PolicyHandoverEvent) = state.emit(event)
 
@@ -1436,7 +1437,10 @@ internal class FakePolicyHandoverEventStore : PolicyHandoverEventStore {
         acknowledged += deliveryId
     }
 
-    override suspend fun isPending(deliveryId: String): Boolean = pendingOverride ?: (deliveryId !in acknowledged)
+    override suspend fun isPending(deliveryId: String): Boolean {
+        pendingFailure?.let { throw it }
+        return pendingOverride ?: (deliveryId !in acknowledged)
+    }
 }
 
 internal class FakeServiceStateStore(

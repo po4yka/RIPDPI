@@ -61,6 +61,28 @@ class AutomaticProbeSchedulerTest {
         }
 
     @Test
+    fun `durable store failure ends the delivery job without crashing and a later schedule retries`() =
+        runTest {
+            val now = System.currentTimeMillis()
+            val env =
+                newEnv(
+                    telemetrySamples = listOf(telemetrySample(createdAt = now - 500L, failureClass = "dns_tampering")),
+                    now = now,
+                )
+            env.handoverStore.pendingFailure = IllegalStateException("database closed")
+
+            env.scheduler.schedule(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
+            env.handoverStore.pendingFailure = null
+            env.scheduler.schedule(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(listOf("delivery-transport_switch"), env.launcher.events.map { it.deliveryId })
+        }
+
+    @Test
     fun `scheduler launches eligible transport switch probe after configured delay`() =
         runTest {
             val now = System.currentTimeMillis()
