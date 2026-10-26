@@ -25,7 +25,7 @@ use crate::telemetry::{RelayTelemetry, TcpConnectObservation};
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 /// Bounds accepted client sockets and tracked tasks for the full SOCKS session lifetime.
-const MAX_CONCURRENT_SOCKS_SESSIONS: usize = 256;
+pub(crate) const MAX_CONCURRENT_SOCKS_SESSIONS: usize = 256;
 
 /// Bounded grace window for draining in-flight SOCKS5 sessions on shutdown.
 /// Matches the 5 s used by `ripdpi-tunnel-core`'s UDP-association shutdown so

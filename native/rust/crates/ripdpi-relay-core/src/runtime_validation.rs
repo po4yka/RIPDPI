@@ -87,9 +87,10 @@ const QUIC_MULTIPLEXED_IDLE_TIMEOUT: Duration = Duration::from_secs(45);
 /// carrier across leases, with a tighter budget tuned to their carrier cost.
 const STREAM_MULTIPLEXED_MAX_ACTIVE_LEASES: usize = 48;
 const STREAM_MULTIPLEXED_IDLE_TIMEOUT: Duration = Duration::from_secs(20);
-/// Every other kind opens one carrier per lease; a small pool with a short
-/// idle window keeps fd pressure bounded on mobile devices.
-const SINGLE_CARRIER_MAX_ACTIVE_LEASES: usize = 16;
+/// Every other kind opens one carrier per lease. SOCKS admission already bounds
+/// the carriers and their fds; a smaller lease cap would make new connections
+/// wait behind idle long-lived ones until the connect deadline expires.
+const SINGLE_CARRIER_MAX_ACTIVE_LEASES: usize = crate::runtime::MAX_CONCURRENT_SOCKS_SESSIONS;
 const SINGLE_CARRIER_IDLE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> RelayPoolConfig {

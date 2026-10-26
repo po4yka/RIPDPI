@@ -251,18 +251,18 @@ fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
         ("vless", None, 48, 20),
-        ("vless_reality", None, 16, 5), // reality_tcp sub-mode
-        ("mieru", None, 16, 5),
-        ("ssh", None, 16, 5),
+        ("vless_reality", None, 256, 5), // reality_tcp sub-mode
+        ("mieru", None, 256, 5),
+        ("ssh", None, 256, 5),
         ("cloudflare_tunnel", None, 48, 20),
-        ("chain_relay", None, 16, 5),
+        ("chain_relay", None, 256, 5),
         ("masque", None, 64, 45),
-        ("shadowtls_v3", None, 16, 5),
-        ("trojan", None, 16, 5),
+        ("shadowtls_v3", None, 256, 5),
+        ("trojan", None, 256, 5),
         ("anytls", None, 64, 45),
-        ("shadowsocks", None, 16, 5),
-        ("tor", None, 16, 5),
-        ("naiveproxy", Some("subprocess"), 16, 5),
+        ("shadowsocks", None, 256, 5),
+        ("tor", None, 256, 5),
+        ("naiveproxy", Some("subprocess"), 256, 5),
     ];
 
     for (kind_id, fallback, leases, idle_secs) in pinned {

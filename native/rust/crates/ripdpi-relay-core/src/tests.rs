@@ -1611,6 +1611,18 @@ fn relay_runtime_assigns_central_pool_policy_by_backend_family() {
     assert_eq!(Duration::from_secs(45), hysteria.idle_timeout);
     assert_eq!(48, xhttp.max_active_leases);
     assert_eq!(Duration::from_secs(20), xhttp.idle_timeout);
-    assert_eq!(16, chain.max_active_leases);
+    assert_eq!(256, chain.max_active_leases);
     assert_eq!(Duration::from_secs(5), chain.idle_timeout);
+}
+
+#[test]
+fn single_carrier_pools_admit_every_admitted_socks_session() {
+    for kind in ["vless_reality", "mieru", "ssh", "chain_relay", "shadowtls_v3", "trojan", "shadowsocks", "tor"] {
+        let pool = pool_config_for_backend(&sample_config(kind));
+        assert!(
+            pool.max_active_leases >= crate::runtime::MAX_CONCURRENT_SOCKS_SESSIONS,
+            "{kind}: a lease cap of {} below SOCKS admission queues live connections behind idle ones",
+            pool.max_active_leases
+        );
+    }
 }
