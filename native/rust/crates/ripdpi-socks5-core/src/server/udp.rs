@@ -171,8 +171,11 @@ fn same_peer_ip(source: IpAddr, control: IpAddr) -> bool {
     }
 }
 
+/// Larger than any UDP payload (65 527 bytes over IPv6), so recv_from never truncates a datagram.
+const UDP_RELAY_BUFFER_LEN: usize = 65_535;
+
 async fn handle_udp_requests(inbound: &UdpSocket, outbound: &UdpSocket, source: UdpSourceConstraint) -> Result<(), SocksServerError> {
-    let mut buf = vec![0u8; 8192];
+    let mut buf = vec![0u8; UDP_RELAY_BUFFER_LEN];
     let outbound_v6 = outbound.local_addr().err_when("udp outbound local addr")?.is_ipv6();
     loop {
         match handle_udp_request(inbound, outbound, outbound_v6, source, &mut buf).await {
@@ -204,7 +207,7 @@ async fn handle_udp_response(
 }
 
 async fn handle_udp_responses(inbound: &UdpSocket, outbound: &UdpSocket) -> Result<(), SocksServerError> {
-    let mut buf = vec![0u8; 8192];
+    let mut buf = vec![0u8; UDP_RELAY_BUFFER_LEN];
     loop {
         match handle_udp_response(inbound, outbound, &mut buf).await {
             Ok(_) => trace!("handled udp response"),
@@ -276,6 +279,39 @@ mod udp_peer_tests {
         let mut echoed = [0u8; 1];
         let (size, _) = target.recv_from(&mut echoed).await.unwrap();
         assert_eq!(&echoed[..size], b"x");
+    }
+
+    /// # Cancel safety
+    ///
+    /// cancel-safe: cancellation drops only local test sockets.
+    #[tokio::test(flavor = "current_thread")]
+    async fn datagrams_above_8_kib_are_relayed_whole_in_both_directions() {
+        // Fits the default macOS loopback limit (net.inet.udp.maxdgram 9216) with the SOCKS header.
+        let payload: Vec<u8> = (0..9_000u32).map(|index| index as u8).collect();
+        let inbound = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let outbound = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let target = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let client = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let source = UdpSourceConstraint::new(IpAddr::V4(Ipv4Addr::LOCALHOST), &TargetAddr::Ip(client.local_addr().unwrap()));
+        let mut request = new_udp_header(target.local_addr().unwrap()).unwrap();
+        request.extend_from_slice(&payload);
+        client.send_to(&request, inbound.local_addr().unwrap()).await.unwrap();
+
+        let mut buf = vec![0u8; 65_535];
+        let (size, _) = tokio::select! {
+            _ = handle_udp_requests(&inbound, &outbound, source) => unreachable!("request loop never ends"),
+            received = target.recv_from(&mut buf) => received.unwrap(),
+        };
+        assert_eq!(&buf[..size], payload.as_slice());
+
+        target.send_to(&payload, outbound.local_addr().unwrap()).await.unwrap();
+        let (size, _) = tokio::select! {
+            _ = handle_udp_responses(&inbound, &outbound) => unreachable!("response loop never ends"),
+            received = client.recv_from(&mut buf) => received.unwrap(),
+        };
+        let header = new_udp_header(target.local_addr().unwrap()).unwrap();
+        assert_eq!(&buf[..header.len()], header.as_slice());
+        assert_eq!(&buf[header.len()..size], payload.as_slice());
     }
 
     #[test]
