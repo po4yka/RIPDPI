@@ -157,6 +157,11 @@ pub fn is_quic_initial(buffer: &[u8]) -> bool {
     parse_quic_initial_header(buffer).is_some()
 }
 
+/// Parse the ClientHello from one Initial datagram.
+///
+/// There is no reassembly across datagrams: an Initial whose CRYPTO data
+/// starts past offset 0, or whose first datagram ends before the SNI (for
+/// example a large post-quantum ClientHello), returns `None`.
 pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
     let header = parse_quic_initial_header(buffer)?;
     let payload = decrypt_quic_initial_payload(buffer, header)?;
@@ -168,6 +173,8 @@ pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
     Some(QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete })
 }
 
+/// Like [`parse_quic_initial`], with CRYPTO frame positions; the same
+/// single-datagram limit applies.
 pub fn parse_quic_initial_layout(buffer: &[u8]) -> Option<QuicInitialLayout> {
     let header = parse_quic_initial_header(buffer)?;
     let (payload, ciphertext_payload_offset) = decrypt_quic_initial_payload_with_offset(buffer, header)?;
