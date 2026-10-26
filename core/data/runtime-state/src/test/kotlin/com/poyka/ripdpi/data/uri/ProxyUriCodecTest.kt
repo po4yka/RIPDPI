@@ -318,6 +318,23 @@ class ProxyUriCodecTest {
         assertEquals("/a b", spacedQuery.xhttpPath)
     }
 
+    @Test
+    fun `vless reality over xhttp without flow imports with no flow`() {
+        val xhttp =
+            ProxyUriCodec.parse(
+                "vless://11111111-2222-3333-4444-555555555555@h.example:443" +
+                    "?security=reality&type=xhttp&pbk=PUBLICKEY123&sni=s.example#x",
+            ) as ProxyProfile.VlessReality
+        val tcp =
+            ProxyUriCodec.parse(
+                "vless://11111111-2222-3333-4444-555555555555@h.example:443" +
+                    "?security=reality&pbk=PUBLICKEY123&sni=s.example#t",
+            ) as ProxyProfile.VlessReality
+
+        assertEquals("", xhttp.flow)
+        assertEquals("xtls-rprx-vision", tcp.flow)
+    }
+
     private companion object {
         val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
         val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")

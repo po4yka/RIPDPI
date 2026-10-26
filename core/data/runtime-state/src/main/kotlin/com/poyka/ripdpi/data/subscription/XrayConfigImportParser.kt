@@ -493,7 +493,8 @@ private fun buildVlessReality(
         realityPublicKey = publicKey,
         realityShortId = reality.string("shortId").orEmpty(),
         serverName = reality.string("serverName") ?: address,
-        flow = user.rawString("flow") ?: DefaultRealityFlow,
+        // XTLS Vision runs only over raw TLS/REALITY streams; xHTTP configs omit `flow`.
+        flow = user.rawString("flow") ?: if (isXhttp) "" else DefaultRealityFlow,
         fingerprint = reality.string("fingerprint"),
         xhttpPath = if (isXhttp) xhttp?.rawString("path").orEmpty() else null,
         xhttpHost = if (isXhttp) xhttp?.rawString("host") else null,

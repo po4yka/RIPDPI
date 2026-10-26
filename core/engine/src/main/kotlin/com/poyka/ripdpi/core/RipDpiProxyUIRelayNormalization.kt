@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayKind
 import com.poyka.ripdpi.data.normalizeRelayStringList
@@ -13,6 +14,7 @@ import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 
 internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
     val normalizedKind = normalizeRelayKind(config.kind)
+    val vlessTransport = normalizeRelayVlessTransport(config.vlessTransport, normalizedKind)
     return config.copy(
         enabled = config.enabled && normalizedKind != RelayKindOff,
         kind = normalizedKind,
@@ -23,8 +25,12 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         serverName = config.serverName.trim(),
         realityPublicKey = config.realityPublicKey.trim(),
         realityShortId = config.realityShortId.trim(),
-        vlessFlow = config.vlessFlow.trim().ifBlank { com.poyka.ripdpi.data.RelayVlessFlowVision },
-        vlessTransport = normalizeRelayVlessTransport(config.vlessTransport, normalizedKind),
+        // XTLS Vision is TLS/REALITY-TCP only; the native xHTTP builder rejects any flow.
+        vlessFlow =
+            config.vlessFlow.trim().ifBlank {
+                if (vlessTransport == RelayVlessTransportXhttp) "" else com.poyka.ripdpi.data.RelayVlessFlowVision
+            },
+        vlessTransport = vlessTransport,
         xhttpPath = config.xhttpPath.trim(),
         xhttpHost = config.xhttpHost.trim(),
         xhttpMode = config.xhttpMode.trim().ifBlank { com.poyka.ripdpi.data.RelayXhttpModeAuto },

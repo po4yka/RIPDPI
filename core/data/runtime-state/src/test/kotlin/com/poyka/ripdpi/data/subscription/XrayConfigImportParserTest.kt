@@ -441,4 +441,19 @@ class XrayConfigImportParserTest {
         assertEquals(XraySkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
         assertEquals("grpc", result.skipped.single().detail)
     }
+
+    @Test
+    fun `vless reality over xhttp json without flow imports with no flow`() {
+        val config =
+            """
+            { "outbounds": [ { "protocol": "vless",
+              "settings": { "vnext": [ { "address": "h.example", "port": 443,
+                "users": [ { "id": "$uuid" } ] } ] },
+              "streamSettings": { "network": "xhttp", "security": "reality",
+                "realitySettings": { "publicKey": "$pbk" }, "xhttpSettings": { "path": "/x" } } } ] }
+            """.trimIndent()
+        val profile = translate(config).profiles.single() as ProxyProfile.VlessReality
+        assertEquals("", profile.flow)
+        assertEquals("/x", profile.xhttpPath)
+    }
 }

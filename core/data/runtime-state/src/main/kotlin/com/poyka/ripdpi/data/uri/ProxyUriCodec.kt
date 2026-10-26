@@ -292,6 +292,8 @@ object ProxyUriCodec {
         val supportedTransport = transportType == null || transportType in setOf("tcp", "xhttp")
         return if (realityPublicKey != null && supportedTransport) {
             val isXhttp = transportType == "xhttp"
+            // XTLS Vision runs only over raw TLS/REALITY streams; xHTTP links omit `flow`.
+            val defaultFlow = if (isXhttp) "" else "xtls-rprx-vision"
             ProxyProfile.VlessReality(
                 id = newId(),
                 displayName = displayName(parsed.fragment, host),
@@ -302,7 +304,7 @@ object ProxyUriCodec {
                 realityPublicKey = realityPublicKey,
                 realityShortId = queryValue(rawQuery, "sid").orEmpty(),
                 serverName = queryValue(rawQuery, "sni") ?: host,
-                flow = queryValue(rawQuery, "flow") ?: "xtls-rprx-vision",
+                flow = queryValue(rawQuery, "flow") ?: defaultFlow,
                 fingerprint = queryValue(rawQuery, "fp"),
                 xhttpPath = if (isXhttp) queryValue(rawQuery, "path").orEmpty() else null,
                 xhttpHost = if (isXhttp) queryValue(rawQuery, "host") else null,

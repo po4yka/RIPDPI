@@ -71,6 +71,15 @@ class RelayUdpNormalizationTest {
     }
 
     @Test
+    fun `blank flow stays blank over xHTTP and defaults to Vision over Reality TCP`() {
+        val xhttp = relay(RelayKindVlessReality).copy(vlessTransport = RelayVlessTransportXhttp, vlessFlow = " ")
+        val tcp = relay(RelayKindVlessReality).copy(vlessTransport = RelayVlessTransportRealityTcp, vlessFlow = "")
+
+        assertEquals("", RipDpiProxyUIPreferences(relay = xhttp).relay.vlessFlow)
+        assertEquals(RelayVlessFlowVision, RipDpiProxyUIPreferences(relay = tcp).relay.vlessFlow)
+    }
+
+    @Test
     fun `TCP only and unknown kinds remain disabled after normalization`() {
         listOf(RelayKindVless, RelayKindSsh, RelayKindMieru, "unknown").forEach { kind ->
             val preferences = RipDpiProxyUIPreferences(relay = relay(kind))
