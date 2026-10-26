@@ -47,6 +47,14 @@ pub(crate) fn request_proxy_stop(
     }
 }
 
+/// Drop a latched stop after a start that ended before consuming it, so a
+/// retried start on the same handle runs instead of returning 0 at once.
+pub(crate) fn clear_proxy_stop_request(state: &mut ProxySessionState) {
+    if matches!(state, ProxySessionState::StopRequested) {
+        *state = ProxySessionState::Idle;
+    }
+}
+
 pub(crate) fn ensure_proxy_destroyable(state: &ProxySessionState) -> Result<(), &'static str> {
     match *state {
         ProxySessionState::Idle | ProxySessionState::StopRequested => Ok(()),

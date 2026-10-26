@@ -11,7 +11,8 @@ use ripdpi_android_bridge_support::to_handle;
 use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 pub(crate) use crate::session_state::{
-    ProxyStartTransition, ensure_proxy_destroyable, request_proxy_stop, try_mark_proxy_running,
+    ProxyStartTransition, clear_proxy_stop_request, ensure_proxy_destroyable, request_proxy_stop,
+    try_mark_proxy_running,
 };
 
 pub(crate) static SESSIONS: std::sync::LazyLock<HandleRegistry<ProxySession>> =

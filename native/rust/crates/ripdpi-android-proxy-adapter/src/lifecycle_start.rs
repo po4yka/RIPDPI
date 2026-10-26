@@ -6,7 +6,9 @@ use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use crate::lifecycle::{IdleGuard, open_proxy_listener, positive_os_error, proxy_error};
 use crate::quality_sink::CompositeProxyTelemetrySink;
-use crate::registry::{ProxySessionState, ProxyStartTransition, lookup_proxy_session, try_mark_proxy_running};
+use crate::registry::{
+    ProxySessionState, ProxyStartTransition, clear_proxy_stop_request, lookup_proxy_session, try_mark_proxy_running,
+};
 use ripdpi_android_bridge_support::{throw_illegal_state_env_with_payload, throw_io_exception_env_with_payload};
 use ripdpi_android_telemetry_adapter::ProxyTelemetryObserver;
 
@@ -29,6 +31,7 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     let listener = match open_proxy_listener(&config, &session.telemetry) {
         Ok(listener) => listener,
         Err(err) => {
+            clear_proxy_stop_request(&mut session.state.lock().unwrap_or_else(PoisonError::into_inner));
             let detail = format!("Failed to open proxy listener: {err}");
             throw_io_exception_env_with_payload(
                 env,

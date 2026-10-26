@@ -56,10 +56,11 @@ private val geoDatabaseVersionsJson = RipDpiJson
  * - [destroy] retires the session and must run only after [start] has returned.
  *
  * ## Idempotency
- * [stop] is **not** silently idempotent: invoking it when the session is not
- * `Running` throws `IllegalStateException`. Callers either serialize lifecycle
- * calls under a mutex (as [RipDpiProxy] does) or treat that exception as
- * benign. [destroy] throws `IllegalStateException` if the session is still
+ * [stop] is idempotent: on a `Running` session it signals shutdown; before
+ * [start] (or after a run ended) it latches the request, and the next [start]
+ * returns `0` without running. A [start] that fails to open its listener
+ * clears the latch. [stop] throws `IllegalStateException` only for a destroyed
+ * session. [destroy] throws `IllegalStateException` if the session is still
  * `Running`. A failed [create] returns `0` rather than throwing for the null
  * handle, but malformed config still throws `IllegalArgumentException`.
  *
@@ -96,7 +97,10 @@ interface RipDpiProxyBindings {
      */
     fun start(handle: Long): Int
 
-    /** Signals a `Running` session to shut down; throws `IllegalStateException` if it is not running. */
+    /**
+     * Signals a `Running` session to shut down, or latches the request so the next [start]
+     * returns `0` without running. Throws `IllegalStateException` only for a destroyed session.
+     */
     fun stop(handle: Long)
 
     fun pollTelemetry(handle: Long): String?
@@ -377,7 +381,7 @@ class RipDpiProxy : RipDpiProxyRuntime {
                             nativeBindings.stop(capturedHandle)
                         }
                     } catch (_: IllegalStateException) {
-                        // stop() throws if the proxy is not running -- safe to ignore.
+                        // stop() throws only for a destroyed session -- safe to ignore.
                     }
                 }
             return try {

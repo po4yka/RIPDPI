@@ -75,6 +75,43 @@ fn jni_create_does_not_probe_bind_listener_port() {
     drop(busy);
 }
 
+// A start that fails to open its listener did not consume a latched stop. The
+// latch must not survive, or a retried start on the handle returns 0 silently.
+#[test]
+fn failed_listener_open_clears_a_latched_stop() {
+    let busy = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind busy listener");
+    let mut config = test_ui_config();
+    config.listen.port = i32::from(busy.local_addr().expect("busy listener addr").port());
+    let json = serde_json::to_string(&ProxyConfigPayload::Ui {
+        strategy_preset: None,
+        config,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: None,
+        schema_version: 2,
+    })
+    .expect("proxy config json");
+
+    let handle = with_env(|env| {
+        let handle = jni_create(env, &json);
+        assert_no_exception(env);
+        jni_stop(env, handle);
+        assert_no_exception(env);
+        assert_eq!(jni_start(env, handle), libc::EINVAL, "the busy port must fail the listener open");
+        assert!(take_exception(env).contains("Failed to open proxy listener"));
+        handle
+    });
+
+    let session = lookup_proxy_session(handle).expect("session");
+    assert!(matches!(*session.state.lock().expect("proxy state lock"), ProxySessionState::Idle));
+    drop(session);
+    with_env(|env| {
+        jni_destroy(env, handle);
+        assert_no_exception(env);
+    });
+    drop(busy);
+}
+
 #[test]
 fn rejects_invalid_handle() {
     assert!(to_handle(0).is_none());
