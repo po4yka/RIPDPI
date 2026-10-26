@@ -77,4 +77,20 @@ class HomeCompositeRunJobsTest {
             assertFalse(lease.isActive())
             assertTrue(jobs.launch("next", onFailure = { throw it }) { awaitCancellation() })
         }
+
+    @Test
+    fun `failing failure handler is contained and still releases the lease`() =
+        runTest {
+            val lease = DiagnosticsHomeRunLease()
+            val jobs = HomeCompositeRunJobs(backgroundScope, lease)
+
+            assertTrue(
+                jobs.launch("broken", onFailure = { error("cancel scan failed too") }) {
+                    error("stage failed")
+                },
+            )
+            runCurrent()
+
+            assertFalse(lease.isActive())
+        }
 }
