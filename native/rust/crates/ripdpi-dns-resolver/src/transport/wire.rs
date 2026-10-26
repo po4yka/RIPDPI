@@ -1,8 +1,9 @@
 use std::collections::BTreeSet;
 use std::net::IpAddr;
 
-use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
+use hickory_proto::op::{Header, Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::{Name, RData, RecordType};
+use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, DecodeError};
 
 use crate::types::EncryptedDnsError;
 
@@ -32,22 +33,33 @@ pub(crate) fn build_dns_query(name: &str, record_type: RecordType) -> Result<Vec
 /// Check that a frame read from a stream transport answers the query sent on it:
 /// the same ID, the QR bit, and the same question (RFC 7858 3.3, RFC 7766 7).
 /// An error reply may omit the question. A query that does not parse is only
-/// matched by ID.
+/// matched by ID. Only the header and the question section are parsed: the
+/// reply is forwarded as received, so records this parser rejects stay the
+/// client's concern.
 pub(crate) fn ensure_response_matches_query(query: &[u8], response: &[u8]) -> Result<(), EncryptedDnsError> {
     let mismatch = || EncryptedDnsError::DnsParse("DNS response does not match the query sent".to_string());
     if query.len() < 2 || response.len() < 3 || response[..2] != query[..2] || response[2] & 0x80 == 0 {
         return Err(mismatch());
     }
-    let Ok(request) = Message::from_vec(query) else {
+    let Ok((_, request_queries)) = read_header_and_questions(query) else {
         return Ok(());
     };
-    let reply = Message::from_vec(response).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
-    let error_without_question = reply.queries.is_empty()
-        && !matches!(reply.metadata.response_code, ResponseCode::NoError | ResponseCode::NXDomain);
-    if reply.queries != request.queries && !error_without_question {
+    let (reply_header, reply_queries) =
+        read_header_and_questions(response).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
+    let error_without_question = reply_queries.is_empty()
+        && !matches!(reply_header.metadata.response_code, ResponseCode::NoError | ResponseCode::NXDomain);
+    if reply_queries != request_queries && !error_without_question {
         return Err(mismatch());
     }
     Ok(())
+}
+
+/// The header and the question section of a DNS message, without the record sections.
+fn read_header_and_questions(message: &[u8]) -> Result<(Header, Vec<Query>), DecodeError> {
+    let mut decoder = BinDecoder::new(message);
+    let header = Header::read(&mut decoder)?;
+    let queries = (0..header.counts.queries).map(|_| Query::read(&mut decoder)).collect::<Result<_, _>>()?;
+    Ok((header, queries))
 }
 
 /// Validate that a DNS reply answers the query that was actually sent.
@@ -204,6 +216,24 @@ mod validated_tests {
             RData::A(A(Ipv4Addr::new(198, 18, 0, 2))),
         ));
         assert!(extract_ip_answers_for_query(&query, &response.to_vec().unwrap()).is_err());
+    }
+
+    #[test]
+    fn stream_reply_check_ignores_records_it_cannot_parse() {
+        let (query, response) = exchange();
+        let mut reply = response.to_vec().unwrap();
+        // ANCOUNT = 1, then an answer cut off inside its owner name.
+        reply[7] = 1;
+        reply.extend_from_slice(&[0x07, b'f', b'i']);
+        assert!(Message::from_vec(&reply).is_err(), "the answer section must not parse");
+        assert!(ensure_response_matches_query(&query, &reply).is_ok());
+
+        let mut other = response.clone();
+        other.queries[0].name = Name::from_ascii("other.test").unwrap();
+        let mut reply = other.to_vec().unwrap();
+        reply[7] = 1;
+        reply.extend_from_slice(&[0x07, b'f', b'i']);
+        assert!(ensure_response_matches_query(&query, &reply).is_err());
     }
 
     #[test]
