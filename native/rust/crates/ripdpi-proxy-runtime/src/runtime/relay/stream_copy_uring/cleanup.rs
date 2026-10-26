@@ -2,7 +2,7 @@ use std::io;
 use std::net::{Shutdown, TcpStream};
 
 use super::super::platform as relay_platform;
-use super::RELAY_IDLE_TIMEOUT;
+use super::{RELAY_IDLE_TIMEOUT, RELAY_WRITE_STALL_TIMEOUT};
 
 pub(super) struct RelaySockets {
     pub(super) client_reader: TcpStream,
@@ -13,9 +13,9 @@ pub(super) struct RelaySockets {
 
 pub(super) fn configure_relay_sockets(client: &TcpStream, upstream: &TcpStream) {
     let _ = client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
-    let _ = client.set_write_timeout(None);
+    let _ = client.set_write_timeout(Some(RELAY_WRITE_STALL_TIMEOUT));
     let _ = upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
-    let _ = upstream.set_write_timeout(None);
+    let _ = upstream.set_write_timeout(Some(RELAY_WRITE_STALL_TIMEOUT));
 }
 
 pub(super) fn clone_relay_sockets(client: &TcpStream, upstream: &TcpStream) -> io::Result<RelaySockets> {

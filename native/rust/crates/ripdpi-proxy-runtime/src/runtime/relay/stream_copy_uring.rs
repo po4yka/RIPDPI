@@ -22,3 +22,5 @@ mod tests;
 pub(crate) use orchestration::relay_streams_uring;
 
 const RELAY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+/// Same bound as the standard relay: a write with no progress this long ends the relay.
+const RELAY_WRITE_STALL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);

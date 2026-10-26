@@ -19,6 +19,9 @@ use super::platform as relay_platform;
 use super::session::RelaySession;
 
 const RELAY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+/// A write that makes no progress this long ends the relay: a peer that stops reading
+/// (a zero window that keeps ACKing persist probes) must not pin the relay threads forever.
+const RELAY_WRITE_STALL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
 
 pub(super) const CONNECTION_FREEZE_MARKER: &str = "connection freeze detected";
 
@@ -53,8 +56,12 @@ pub(super) fn relay_streams(
     let rotation_state = RelaySession::rotation_controller(settings.rotation_seed.clone());
     let pending_response = session_seed.take_pending_response();
     let session_state = session_seed.into_shared();
-    let _ = (client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), client.set_write_timeout(None));
-    let _ = (upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), upstream.set_write_timeout(None));
+    for socket in [&client, &upstream] {
+        let _ = (
+            socket.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)),
+            socket.set_write_timeout(Some(RELAY_WRITE_STALL_TIMEOUT)),
+        );
+    }
 
     fn clone_err(role: &'static str) -> impl FnOnce(io::Error) -> io::Error {
         move |e| io::Error::other(format!("clone {role} socket for relay: {e}"))
@@ -345,5 +352,48 @@ mod tests {
             "a frozen stream must not look like a complete response: {after:?}"
         );
         drop(origin);
+    }
+
+    #[test]
+    fn relay_bounds_writes_to_a_peer_that_stops_reading() {
+        use std::net::{Ipv4Addr, TcpListener};
+
+        fn pair() -> (TcpStream, TcpStream) {
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind pair");
+            let first = TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+            (first, listener.accept().expect("accept").0)
+        }
+        let (client, app) = pair();
+        let (upstream, origin) = pair();
+        let probe_client = client.try_clone().expect("client probe");
+        let probe_upstream = upstream.try_clone().expect("upstream probe");
+        let state = RuntimeState::test(crate::runtime::config::RuntimeConfig::default());
+        let settings = RelayStreamSettings {
+            group: state.relay_group(0).expect("relay group"),
+            rotation_seed: state.relay_rotation_seed(0).expect("rotation seed"),
+        };
+        let relay = thread::spawn(move || {
+            relay_streams(
+                client,
+                upstream,
+                &state,
+                0,
+                settings,
+                super::super::session::FirstOutboundSession::new().into_relay_session(),
+                None,
+            )
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while probe_client.write_timeout().expect("client SO_SNDTIMEO").is_none() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+
+        let client_timeout = probe_client.write_timeout().expect("client SO_SNDTIMEO");
+        let upstream_timeout = probe_upstream.write_timeout().expect("upstream SO_SNDTIMEO");
+        drop((app, origin));
+        let _ = relay.join();
+        // A zero-window peer keeps ACKing probes, so only a send timeout ends a blocked write.
+        assert_eq!(client_timeout, Some(RELAY_WRITE_STALL_TIMEOUT));
+        assert_eq!(upstream_timeout, Some(RELAY_WRITE_STALL_TIMEOUT));
     }
 }
