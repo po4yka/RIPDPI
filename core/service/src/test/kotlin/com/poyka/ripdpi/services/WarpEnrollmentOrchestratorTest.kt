@@ -895,7 +895,7 @@ private fun createWarpEnrollmentOrchestrator(
     )
 }
 
-private object NoStoreHostAutolearnController : HostAutolearnStoreController {
+internal object NoStoreHostAutolearnController : HostAutolearnStoreController {
     override fun hasStore(): Boolean = false
 
     override fun clearStore(): Boolean = true

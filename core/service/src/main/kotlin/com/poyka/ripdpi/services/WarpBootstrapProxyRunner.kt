@@ -5,8 +5,10 @@ import com.poyka.ripdpi.service.warp.WarpBootstrapLoopbackPortAllocator
 import com.poyka.ripdpi.service.warp.WarpBootstrapProxyRuntimePolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.Proxy
 import javax.inject.Inject
@@ -43,13 +45,21 @@ internal class ManagedWarpBootstrapProxyRunner
             val bootstrapPort = portAllocator.reserve()
             val bootstrapPreferences = runtimePolicy.preferencesFor(bootstrapPort)
             val bootstrapScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
-            val proxyRuntimeSupervisor =
-                bootstrapProxyRuntimeSupervisorSessionFactory.create(bootstrapScope)
-            proxyRuntimeSupervisor.start(preferences = bootstrapPreferences, onUnexpectedExit = {})
-            return try {
-                block(WarpBootstrapProxyConfig(host = LoopbackHost, port = bootstrapPort))
+            try {
+                val proxyRuntimeSupervisor =
+                    bootstrapProxyRuntimeSupervisorSessionFactory.create(bootstrapScope)
+                proxyRuntimeSupervisor.start(preferences = bootstrapPreferences, onUnexpectedExit = {})
+                val result = runCatching { block(WarpBootstrapProxyConfig(host = LoopbackHost, port = bootstrapPort)) }
+                // Stop even when the caller was cancelled, and never let a cleanup failure hide its outcome.
+                val stopFailure =
+                    withContext(NonCancellable) { runCatching { proxyRuntimeSupervisor.stop() }.exceptionOrNull() }
+                result.exceptionOrNull()?.let { failure ->
+                    stopFailure?.let(failure::addSuppressed)
+                    throw failure
+                }
+                stopFailure?.let { throw it }
+                return result.getOrThrow()
             } finally {
-                proxyRuntimeSupervisor.stop()
                 bootstrapScope.cancel()
             }
         }
