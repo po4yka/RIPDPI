@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** Tracks each attempted attachment before its side effect, including a partially throwing initializer. */
 internal class ActiveSessionOwnership {
@@ -9,7 +10,10 @@ internal class ActiveSessionOwnership {
         val release: suspend () -> Unit,
     )
 
-    private val resources = mutableListOf<OwnedResource>()
+    // Mutated on IO under the service entry mutex but read from the main thread (onRevoke).
+    private val resources = CopyOnWriteArrayList<OwnedResource>()
+
+    @Volatile
     var attached = false
         private set
     val hasOwnership: Boolean get() = attached || resources.isNotEmpty()

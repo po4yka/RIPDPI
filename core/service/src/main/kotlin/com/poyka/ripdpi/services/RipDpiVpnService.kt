@@ -122,6 +122,10 @@ class RipDpiVpnService :
 
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
+    private val revokeLock = Any()
+
+    // Guarded by revokeLock: a revoke that arrived before the shell delegate existed.
+    private var revokeBeforeDelegate = false
     private lateinit var notificationController: VpnForegroundNotificationController
     private lateinit var recoveryUserUnlockReceiver: RecoveryUserUnlockReceiverLifecycle
     internal val recoveryServiceInstanceId: String = UUID.randomUUID().toString()
@@ -158,6 +162,8 @@ class RipDpiVpnService :
         if (activeOwnership.attached) return
         runCatching {
             activeOwnership.attach {
+                // Drop a revoke recorded by an earlier attach that failed before its delegate existed.
+                synchronized(revokeLock) { revokeBeforeDelegate = false }
                 activeOwnership.own { if (::underlyingNetworkBinder.isInitialized) underlyingNetworkBinder.stop() }
                 activeOwnership.own { vpnRouteObservationAuthority.stop() }
                 activeOwnership.own { if (::sessionLifecycle.isInitialized) sessionLifecycle.destroy() }
@@ -185,7 +191,13 @@ class RipDpiVpnService :
                         recoverProfileMutations = profileMutationCoordinator::recover,
                         awaitRecoveryUnderlay = underlyingNetworkBinder::awaitEligibleUnderlay,
                     )
-                shellDelegate = sessionLifecycle.createShellDelegate()
+                val createdDelegate = sessionLifecycle.createShellDelegate()
+                val deliverRevoke =
+                    synchronized(revokeLock) {
+                        shellDelegate = createdDelegate
+                        revokeBeforeDelegate.also { revokeBeforeDelegate = false }
+                    }
+                if (deliverRevoke) createdDelegate.onRevoke()
                 val ownedRootHelper = rootHelperManager
                 activeOwnership.own { ownedRootHelper.stopOnDestroy() }
                 // Start the selector-runtime loops (member hot-reload + latency failover)
@@ -309,7 +321,12 @@ class RipDpiVpnService :
     override fun onRevoke() {
         refreshHardKillSwitchState()
         if (activeSessionAttached) {
-            shellDelegate.onRevoke()
+            // A revoke can land while ensureActiveSession is still building the delegate on IO.
+            val delegate =
+                synchronized(revokeLock) {
+                    if (::shellDelegate.isInitialized) shellDelegate else null.also { revokeBeforeDelegate = true }
+                }
+            delegate?.onRevoke()
         } else {
             pauseAuthority.snapshot()?.let {
                 pauseAuthority.transition(
