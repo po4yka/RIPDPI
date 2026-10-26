@@ -4,6 +4,7 @@ import androidx.core.text.HtmlCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.userMessage
 import com.poyka.ripdpi.services.OwnedStackBrowserBackend
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.URISyntaxException
 import java.security.GeneralSecurityException
@@ -29,6 +31,7 @@ class OwnedStackBrowserViewModel
     constructor(
         private val browserService: OwnedStackBrowserService,
         private val stringResolver: StringResolver,
+        private val dispatchers: AppCoroutineDispatchers,
     ) : ViewModel() {
         private val _uiState =
             MutableStateFlow(
@@ -81,11 +84,12 @@ class OwnedStackBrowserViewModel
                     )
                 }
                 try {
-                    val page = browserService.fetch(url)
+                    // Body decoding and the HTML parse can take seconds for a large page; keep them off Main.
+                    val page = withContext(dispatchers.default) { browserService.fetch(url).toUiModel() }
                     _uiState.update { state ->
                         state.copy(
                             inputUrl = page.finalUrl,
-                            page = page.toUiModel(),
+                            page = page,
                             isLoading = false,
                             errorMessage = null,
                         )
@@ -144,9 +148,12 @@ private fun OwnedStackBrowserPage.toUiModel(): OwnedStackBrowserPageUiModel =
                     .toString()
             } else {
                 bodyText
-            },
+            }.take(MaxDisplayedBodyChars),
         backend = backend,
         android17EchEligible = android17EchEligible,
         tlsProfileId = tlsProfileId,
         executionTrace = executionTrace,
     )
+
+// The screen lays the body out as one Text on Main; a multi-megabyte body freezes it.
+internal const val MaxDisplayedBodyChars = 256 * 1024
