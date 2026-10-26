@@ -12,6 +12,9 @@ use tokio::sync::futures::Notified;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
+/// Polls an aborted socket may wait for TX queue room to send its RST before it is removed anyway.
+const MAX_RETIRED_POLLS: u8 = 32;
+
 /// State for a single active TCP or UDP session.
 pub struct SessionEntry {
     /// The smoltcp-side of the duplex bridge (Decision A).
@@ -63,8 +66,8 @@ pub struct ActiveSessions {
     max: usize,
     /// Exact flows removed since the tunnel last released strategy state.
     closed_flows: Vec<ripdpi_flow_app_attribution::FlowResolveRequest>,
-    /// Sockets to remove after the next interface poll, which sends their RST.
-    retired_sockets: Vec<SocketHandle>,
+    /// Aborted sockets to remove once an interface poll sent their RST, with the polls they waited.
+    retired_sockets: Vec<(SocketHandle, u8)>,
     /// Woken through [`Self::bridge_waker`] when a session writes into, reads from, or closes its
     /// duplex end, so the io loop pumps that data at once instead of at its next poll timer.
     bridge_ready: Arc<Notify>,
@@ -126,17 +129,26 @@ impl ActiveSessions {
         let tcp = socket_set.get_mut::<TcpSocket>(handle);
         if tcp.is_active() {
             tcp.abort();
-            self.retired_sockets.push(handle);
+            self.retired_sockets.push((handle, 0));
         } else {
             socket_set.remove(handle);
         }
     }
 
-    /// Removes the retired sockets. Call it right after an interface poll.
+    /// Removes the retired sockets whose RST went out. Call it right after an interface poll.
+    ///
+    /// smoltcp forgets an aborted socket's endpoint once it emits the RST; a poll that stopped egress
+    /// on a full TX queue leaves it set, so the socket waits for a later poll, up to a bound.
     pub fn remove_retired_sockets(&mut self, socket_set: &mut SocketSet<'static>) {
-        for handle in self.retired_sockets.drain(..) {
-            socket_set.remove(handle);
-        }
+        self.retired_sockets.retain_mut(|(handle, polls)| {
+            *polls += 1;
+            let rst_pending = socket_set.get::<TcpSocket>(*handle).remote_endpoint().is_some();
+            if rst_pending && *polls < MAX_RETIRED_POLLS {
+                return true;
+            }
+            socket_set.remove(*handle);
+            false
+        });
     }
 
     /// Insert a new session.

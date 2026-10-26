@@ -209,6 +209,44 @@ async fn removing_an_open_session_resets_the_app_connection() {
 }
 
 #[tokio::test]
+async fn a_retired_socket_waits_for_tx_queue_room_to_send_its_reset() {
+    let mut device = TunDevice::new(1500);
+    let (mut iface, mut socket_set, handle, _server_seq) = establish_tcp_connection(&mut device);
+    let (smoltcp_side, _session_side) = tokio::io::duplex(crate::io_loop::DUPLEX_BUF);
+    let entry = SessionEntry {
+        smoltcp_side,
+        cancel: CancellationToken::new(),
+        handle: tokio::spawn(async { Ok(()) }),
+        pending_to_session: Vec::new(),
+        pending_to_smoltcp: Vec::new(),
+        upstream_closed: false,
+        upstream_failed: std::sync::Arc::default(),
+        pinned_synthetic_ip: None,
+        attribution_id: None,
+    };
+    let mut sessions = ActiveSessions::new(8);
+    sessions.insert(handle, entry);
+    // Bulk flows filled the TUN TX queue, so the next poll cannot emit anything.
+    while device.tx_queue.push_back(vec![1]) {}
+
+    let mut dns_cache = None;
+    remove_session(handle, &mut sessions, &mut socket_set, &mut dns_cache);
+    iface.poll(Instant::now(), &mut device, &mut socket_set);
+    sessions.remove_retired_sockets(&mut socket_set);
+    assert_eq!(socket_set.iter().count(), 1, "the socket stays until its RST went out");
+
+    device.tx_queue.clear();
+    iface.poll(Instant::now(), &mut device, &mut socket_set);
+    sessions.remove_retired_sockets(&mut socket_set);
+
+    const TCP_FLAG_RST: u8 = 0x04;
+    let sent_rst =
+        std::iter::from_fn(|| device.tx_queue.pop_front()).any(|pkt| pkt.len() > 33 && pkt[33] & TCP_FLAG_RST != 0);
+    assert!(sent_rst, "the app must get the RST once the queue has room");
+    assert_eq!(socket_set.iter().count(), 0, "the socket is removed after the poll that sent the RST");
+}
+
+#[tokio::test]
 async fn failed_upstream_resets_the_app_connection_instead_of_closing_it() {
     let mut device = TunDevice::new(1500);
     let (mut iface, mut socket_set, handle, _server_seq) = establish_tcp_connection(&mut device);
