@@ -32,7 +32,8 @@ pub(crate) struct ResolverInner {
     pub(crate) tls_roots: Vec<CertificateDer<'static>>,
     #[cfg(feature = "hickory-backend")]
     pub(crate) tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
-    pub(crate) dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
+    /// The selected DNSCrypt certificate and the Unix time it was fetched.
+    pub(crate) dnscrypt_state: Mutex<Option<(DnsCryptCachedCertificate, u32)>>,
     pub(crate) connection_pool: ConnectionPool,
     pub(crate) health: Option<HealthRegistry>,
     pub(crate) network_scope: ResolverNetworkScope,

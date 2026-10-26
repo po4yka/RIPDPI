@@ -21,16 +21,34 @@ impl EncryptedDnsResolver {
     /// cancelled exchange drops its stream instead of returning it to the pool.
     pub(super) async fn exchange_dnscrypt(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         let certificate = self.current_dnscrypt_certificate().await?;
+        let result = self.exchange_dnscrypt_with_certificate(&certificate, query_bytes).await;
+        if result.is_err() {
+            // A rotated, withdrawn or tampered certificate (es_version is not
+            // signed) fails every exchange: fetch a fresh one for the next query.
+            self.forget_dnscrypt_certificate();
+        }
+        result
+    }
+
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: the connection slot and the stream are owned by this call; a
+    /// cancelled exchange drops its stream instead of returning it to the pool.
+    async fn exchange_dnscrypt_with_certificate(
+        &self,
+        certificate: &DnsCryptCachedCertificate,
+        query_bytes: &[u8],
+    ) -> Result<Vec<u8>, EncryptedDnsError> {
         let _slot = self.inner.connection_pool.slot().await?;
         let (mut stream, reused) = self.take_dnscrypt_session().await?;
-        match self.exchange_dnscrypt_with_session(&mut stream, &certificate, query_bytes).await {
+        match self.exchange_dnscrypt_with_session(&mut stream, certificate, query_bytes).await {
             Ok(response) => {
                 self.inner.connection_pool.put(PooledConnection::DnsCrypt(stream)).await;
                 Ok(response)
             }
             Err(_) if reused => {
                 let mut fresh = self.connect_dnscrypt_session().await?;
-                let response = self.exchange_dnscrypt_with_session(&mut fresh, &certificate, query_bytes).await?;
+                let response = self.exchange_dnscrypt_with_session(&mut fresh, certificate, query_bytes).await?;
                 self.inner.connection_pool.put(PooledConnection::DnsCrypt(fresh)).await;
                 Ok(response)
             }
@@ -102,18 +120,23 @@ impl EncryptedDnsResolver {
     async fn current_dnscrypt_certificate(&self) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
         let now = unix_time_secs();
         if let Ok(guard) = self.inner.dnscrypt_state.lock()
-            && let Some(cached) = guard.clone()
-            && cached.valid_from <= now
-            && now <= cached.valid_until.saturating_sub(60)
+            && let Some((cached, fetched_at)) = guard.clone()
+            && cached_certificate_is_usable(&cached, fetched_at, now)
         {
             return Ok(cached);
         }
 
         let fetched = self.fetch_dnscrypt_certificate().await?;
         if let Ok(mut guard) = self.inner.dnscrypt_state.lock() {
-            *guard = Some(fetched.clone());
+            *guard = Some((fetched.clone(), now));
         }
         Ok(fetched)
+    }
+
+    fn forget_dnscrypt_certificate(&self) {
+        if let Ok(mut guard) = self.inner.dnscrypt_state.lock() {
+            *guard = None;
+        }
     }
 
     async fn fetch_dnscrypt_certificate(&self) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
@@ -147,5 +170,39 @@ impl EncryptedDnsResolver {
             })
             .collect();
         select_dnscrypt_certificate(records.iter().map(Vec::as_slice), &verifying_key, &provider_name, unix_time_secs())
+    }
+}
+
+/// How long a fetched certificate is reused before it is fetched again. The
+/// DNSCrypt protocol says clients MUST refresh certificates periodically and
+/// calls an hourly refresh suitable; a refresh also picks up a higher serial.
+const DNSCRYPT_CERT_REFRESH_SECS: u32 = 3_600;
+
+/// Whether a certificate fetched at `fetched_at` can still be used at `now`.
+fn cached_certificate_is_usable(certificate: &DnsCryptCachedCertificate, fetched_at: u32, now: u32) -> bool {
+    certificate.valid_from <= now
+        && now <= certificate.valid_until.saturating_sub(60)
+        && now.saturating_sub(fetched_at) < DNSCRYPT_CERT_REFRESH_SECS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cached_certificate_is_refetched_hourly_and_before_expiry() {
+        let certificate = DnsCryptCachedCertificate {
+            resolver_public_key: [0; 32],
+            client_magic: [0; 8],
+            serial: 1,
+            valid_from: 1_000,
+            valid_until: 100_000,
+            es_version: crate::DNSCRYPT_ES_VERSION_XCHACHA,
+        };
+
+        assert!(cached_certificate_is_usable(&certificate, 2_000, 2_000 + DNSCRYPT_CERT_REFRESH_SECS - 1));
+        assert!(!cached_certificate_is_usable(&certificate, 2_000, 2_000 + DNSCRYPT_CERT_REFRESH_SECS));
+        assert!(!cached_certificate_is_usable(&certificate, 99_000, 99_950));
+        assert!(!cached_certificate_is_usable(&certificate, 500, 900));
     }
 }
