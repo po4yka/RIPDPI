@@ -299,6 +299,25 @@ class ProxyUriCodecTest {
         assertEquals("a.example", anyTlsBack.server)
     }
 
+    @Test
+    fun `share links with unencoded remarks and query values still import`() {
+        val vless =
+            ProxyUriCodec.parse(
+                "vless://11111111-2222-3333-4444-555555555555@h.example:443" +
+                    "?security=reality&pbk=PUBLICKEY123&sni=s.example#US | Node 1",
+            ) as ProxyProfile.VlessReality
+        val trojan =
+            ProxyUriCodec.parse("trojan://secret@t.example:443?sni=t.example#My Node {1}") as ProxyProfile.Trojan
+        val spacedQuery =
+            ProxyUriCodec.parse(
+                "vless://11111111-2222-3333-4444-555555555555@h.example:443?type=xhttp&path=/a b&sni=h.example#x",
+            ) as ProxyProfile.Vless
+
+        assertEquals("US | Node 1", vless.displayName)
+        assertEquals("My Node {1}", trojan.displayName)
+        assertEquals("/a b", spacedQuery.xhttpPath)
+    }
+
     private companion object {
         val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
         val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")

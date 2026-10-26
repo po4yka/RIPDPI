@@ -31,13 +31,17 @@ object ProxyUriCodec {
     private const val MIERU_MTU_MAX = 1500
     private const val MIERU_MTU_DEFAULT = 1400
 
+    /** RFC 3986 characters that java.net.URI accepts verbatim in a query or fragment, besides alphanumerics. */
+    private const val URI_TAIL_ALLOWED = "-._~!$&'()*+,;=:@/?"
+    private const val FIRST_NON_ASCII = '\u0080'
+
     /**
      * Parses [uri] into a [ProxyProfile], or returns `null` when the scheme is
      * unknown or the URI cannot be interpreted as a proxy node. Never throws.
      */
     @Suppress("ReturnCount")
     fun parse(uri: String): ProxyProfile? {
-        val trimmed = uri.trim()
+        val trimmed = escapeUnsafeQueryAndFragment(uri.trim())
         if (trimmed.isEmpty()) return null
         val schemeEnd = trimmed.indexOf("://")
         if (schemeEnd <= 0) return null
@@ -686,6 +690,46 @@ object ProxyUriCodec {
             normalized + "=".repeat(BASE64_GROUP_SIZE - remainder)
         }
     }
+
+    /**
+     * Percent-encodes the characters that java.net.URI rejects in the query and fragment (spaces,
+     * `|`, `{`, a stray `%`, a second `#`). Subscription emitters often leave remarks unencoded;
+     * valid escapes and the authority are left unchanged.
+     */
+    private fun escapeUnsafeQueryAndFragment(uri: String): String {
+        val fragmentStart = uri.indexOf('#')
+        val queryStart = uri.indexOf('?').takeIf { it >= 0 && (fragmentStart < 0 || it < fragmentStart) }
+        val tailStart = queryStart ?: fragmentStart.takeIf { it >= 0 } ?: return uri
+        val escaped = StringBuilder(uri.length).append(uri, 0, tailStart + 1)
+        for (index in tailStart + 1 until uri.length) {
+            val char = uri[index]
+            val keep =
+                index == fragmentStart ||
+                    (char < FIRST_NON_ASCII && char.isLetterOrDigit()) ||
+                    char in URI_TAIL_ALLOWED ||
+                    (char >= FIRST_NON_ASCII && !char.isWhitespace() && !char.isISOControl()) ||
+                    (char == '%' && isPercentEscape(uri, index))
+            if (keep) {
+                escaped.append(char)
+            } else {
+                char.toString().toByteArray(Charsets.UTF_8).forEach { byte ->
+                    // %X formats a negative Byte as its unsigned value.
+                    escaped.append("%%%02X".format(byte))
+                }
+            }
+        }
+        return escaped.toString()
+    }
+
+    private fun isPercentEscape(
+        value: String,
+        index: Int,
+    ): Boolean =
+        index + 2 < value.length &&
+            value[index + 1].isHexDigitChar() &&
+            value[index + 2].isHexDigitChar()
+
+    private fun Char.isHexDigitChar(): Boolean = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
 
     private fun newId(): String = UUID.randomUUID().toString()
 }
