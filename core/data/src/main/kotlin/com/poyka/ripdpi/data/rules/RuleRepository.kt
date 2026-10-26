@@ -2,6 +2,8 @@ package com.poyka.ripdpi.data.rules
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,6 +24,9 @@ class RuleRepository
     constructor(
         private val dao: RuleDao,
     ) {
+        /** The managed bypass rule is a find-then-write on a name without a unique index. */
+        private val managedRuleMutex = Mutex()
+
         /** Returns all rules ordered by [RuleEntity.userOrder]. Emits on every mutation. */
         fun allRules(): Flow<List<RuleEntity>> = dao.allRules()
 
@@ -47,13 +52,15 @@ class RuleRepository
         suspend fun saveDomainBypassList(rawText: String): DomainBypassList.CompileResult {
             val result = DomainBypassList.compile(rawText)
             if (result.cleanLines.isEmpty() && result.errors.isNotEmpty()) return result
-            val existing = dao.findByName(DomainBypassList.ManagedBypassRuleName)
-            val compiled = DomainBypassList.compileToRule(rawText, existingId = existing?.id ?: 0L)
-            when {
-                compiled == null && existing != null -> dao.delete(existing)
-                compiled == null -> Unit
-                existing == null -> dao.insert(compiled)
-                else -> dao.update(compiled)
+            managedRuleMutex.withLock {
+                val existing = dao.findByName(DomainBypassList.ManagedBypassRuleName)
+                val compiled = DomainBypassList.compileToRule(rawText, existingId = existing?.id ?: 0L)
+                when {
+                    compiled == null && existing != null -> dao.delete(existing)
+                    compiled == null -> Unit
+                    existing == null -> dao.insert(compiled)
+                    else -> dao.update(compiled)
+                }
             }
             return result
         }
@@ -63,12 +70,13 @@ class RuleRepository
          * to [displayName] and appending it to the end of the user-rule order. Returns `false` when
          * there is no bypass rule to move. Other user rules keep their order.
          */
-        suspend fun moveDomainBypassListToEditor(displayName: String): Boolean {
-            val existing = dao.findByName(DomainBypassList.ManagedBypassRuleName) ?: return false
-            val maxOrder = dao.maxUserOrder(DomainBypassList.ManagedBypassRuleName) ?: -1
-            dao.update(existing.copy(name = displayName, userOrder = maxOrder + 1))
-            return true
-        }
+        suspend fun moveDomainBypassListToEditor(displayName: String): Boolean =
+            managedRuleMutex.withLock {
+                val existing = dao.findByName(DomainBypassList.ManagedBypassRuleName) ?: return@withLock false
+                val maxOrder = dao.maxUserOrder(DomainBypassList.ManagedBypassRuleName) ?: -1
+                dao.update(existing.copy(name = displayName, userOrder = maxOrder + 1))
+                true
+            }
 
         suspend fun insert(rule: RuleEntity): Long = dao.insert(rule)
 

@@ -3,11 +3,15 @@ package com.poyka.ripdpi.data
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.data.rules.DomainBypassList
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -141,6 +145,23 @@ class RuleRepositoryPersistenceTest {
                 repository.saveDomainBypassList("")
             }
             withDatabase { assertEquals(null, RuleRepository(it.ruleDao()).domainBypassRule().first()) }
+        }
+
+    @Test
+    fun `concurrent first-time bypass saves keep a single managed rule`() =
+        runTest {
+            withDatabase { db ->
+                val repository = RuleRepository(db.ruleDao())
+                (1..16)
+                    .map { async(Dispatchers.Default) { repository.saveDomainBypassList("example.org") } }
+                    .awaitAll()
+
+                repository.saveDomainBypassList("")
+
+                assertEquals(null, repository.domainBypassRule().first())
+                val remaining = db.ruleDao().findByName(DomainBypassList.ManagedBypassRuleName)
+                assertEquals("a duplicate managed rule survived the clear", null, remaining)
+            }
         }
 
     private suspend fun withDatabase(block: suspend (RipDpiDatabase) -> Unit) {
