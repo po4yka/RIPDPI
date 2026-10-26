@@ -1,6 +1,8 @@
 use std::io;
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::task::{Context, Poll, ready};
 
 use bytes::Bytes;
 use http_body_util::BodyExt;
@@ -24,13 +26,24 @@ pub(crate) const HEADER_PADDING_MAX: usize = 1000;
 
 pub struct XhttpStream {
     reader: ResponseHeaderStream<DuplexStream>,
+    /// Set by the download pump when the H2 body ended with an error
+    /// (RST_STREAM, GOAWAY, connection loss) instead of END_STREAM.
+    download_failed: Arc<AtomicBool>,
     writer: DuplexStream,
     _permit: OwnedSemaphorePermit,
 }
 
 impl AsyncRead for XhttpStream {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.reader).poll_read(cx, buf)
+        let filled_before = buf.filled().len();
+        let wants_data = buf.remaining() > 0;
+        ready!(Pin::new(&mut self.reader).poll_read(cx, buf))?;
+        // The pump sets the flag before it closes the pipe, so this EOF is a
+        // reset of the download stream, not a graceful end.
+        if wants_data && buf.filled().len() == filled_before && self.download_failed.load(Ordering::Acquire) {
+            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP download stream was reset")));
+        }
+        Poll::Ready(Ok(()))
     }
 }
 
@@ -174,14 +187,24 @@ impl PooledConnection {
 
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
-        open_tasks.push(spawn_download_pump(get_response.into_body(), transport_download, "xHTTP GET stream failed"));
+        let download_failed = Arc::new(AtomicBool::new(false));
+        open_tasks.push(spawn_download_pump(
+            get_response.into_body(),
+            transport_download,
+            Arc::clone(&download_failed),
+            "xHTTP GET stream failed",
+        ));
         open_tasks.push(spawn_body_drain(post_response.into_body(), "xHTTP POST stream failed"));
 
         // xray-core buffers the VLESS response header until the first
         // downstream payload. Return the writable stream immediately and
         // strip that header lazily on the caller's first read.
-        let stream =
-            XhttpStream { reader: ResponseHeaderStream::new(user_download), writer: user_upload, _permit: permit };
+        let stream = XhttpStream {
+            reader: ResponseHeaderStream::new(user_download),
+            download_failed,
+            writer: user_upload,
+            _permit: permit,
+        };
         open_tasks.disarm();
         Ok(stream)
     }
@@ -224,14 +247,20 @@ impl PooledConnection {
 
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
+        let download_failed = Arc::new(AtomicBool::new(false));
         open_tasks.push(spawn_download_pump(
             post_response.into_body(),
             transport_download,
+            Arc::clone(&download_failed),
             "xHTTP stream-one body failed",
         ));
 
-        let stream =
-            XhttpStream { reader: ResponseHeaderStream::new(user_download), writer: user_upload, _permit: permit };
+        let stream = XhttpStream {
+            reader: ResponseHeaderStream::new(user_download),
+            download_failed,
+            writer: user_upload,
+            _permit: permit,
+        };
         open_tasks.disarm();
         Ok(stream)
     }
@@ -292,6 +321,7 @@ fn spawn_upload_pump(
 fn spawn_download_pump<B>(
     mut body: B,
     mut transport_download: DuplexStream,
+    download_failed: Arc<AtomicBool>,
     error_label: &'static str,
 ) -> JoinHandle<()>
 where
@@ -304,6 +334,7 @@ where
                 Ok(frame) => frame,
                 Err(error) => {
                     tracing::debug!(error = %error, "{error_label}");
+                    download_failed.store(true, Ordering::Release);
                     break;
                 }
             };
@@ -518,6 +549,53 @@ mod tests {
                 assert!(!head.headers.contains_key(http::header::HOST), "{protocol_mode:?} sends a Host header");
             }
         }
+    }
+
+    /// One data frame, then a stream error such as RST_STREAM.
+    struct ResetAfterFirstFrame(Option<Bytes>);
+
+    impl hyper::body::Body for ResetAfterFirstFrame {
+        type Data = Bytes;
+        type Error = std::io::Error;
+
+        fn poll_frame(
+            mut self: std::pin::Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Option<Result<hyper::body::Frame<Bytes>, std::io::Error>>> {
+            std::task::Poll::Ready(Some(match self.0.take() {
+                Some(data) => Ok(hyper::body::Frame::data(data)),
+                None => Err(std::io::Error::other("stream reset by peer")),
+            }))
+        }
+    }
+
+    #[tokio::test]
+    async fn download_reset_surfaces_as_an_error_not_a_clean_eof() {
+        let (transport_download, user_download) = tokio::io::duplex(1024);
+        let download_failed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let pump = super::spawn_download_pump(
+            ResetAfterFirstFrame(Some(Bytes::from_static(b"\x00\x00partial"))),
+            transport_download,
+            Arc::clone(&download_failed),
+            "test download",
+        );
+        let (_user_upload, writer) = tokio::io::duplex(1024);
+        let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
+        let mut stream = super::XhttpStream {
+            reader: ripdpi_vless::wire::ResponseHeaderStream::new(user_download),
+            download_failed,
+            writer,
+            _permit: permit,
+        };
+        pump.await.expect("download pump");
+
+        let mut received = Vec::new();
+        let error = tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut received)
+            .await
+            .expect_err("a reset download must not read as a complete body");
+
+        assert_eq!(std::io::ErrorKind::ConnectionReset, error.kind());
+        assert_eq!(b"partial", received.as_slice());
     }
 
     #[tokio::test]
