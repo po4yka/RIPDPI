@@ -41,7 +41,6 @@ const AUTH_EVICTED: u8 = 2;
 // waits for the sessions lock.
 
 struct SessionState {
-    outbound_tx: mpsc::Sender<io::Result<Bytes>>,
     binding: Mutex<SessionBindingState>,
     /// Creation order, so a full table evicts the oldest pre-auth session.
     seq: u64,
@@ -75,6 +74,9 @@ struct SessionBindingState {
     started: bool,
     inbound_tx: Option<mpsc::Sender<Bytes>>,
     inbound_rx: Option<mpsc::Receiver<Bytes>>,
+    /// The only GET-stream sender, moved into the session task at start, so
+    /// the GET response ends as soon as that task drops it.
+    outbound_tx: Option<mpsc::Sender<io::Result<Bytes>>>,
     outbound_rx: Option<mpsc::Receiver<io::Result<Bytes>>>,
     /// The running session task, aborted when the session is evicted.
     task: Option<AbortHandle>,
@@ -218,13 +220,12 @@ impl OriginServer {
             return;
         }
         binding.started = true;
-        let Some(inbound_rx) = binding.inbound_rx.take() else {
+        let (Some(inbound_rx), Some(outbound_tx)) = (binding.inbound_rx.take(), binding.outbound_tx.take()) else {
             return;
         };
         let expected_uuid = self.config.uuid;
         let protect_path = self.config.protect_path.clone();
         let sessions = Arc::clone(&self.sessions);
-        let outbound_tx = session.outbound_tx.clone();
         let weak = Arc::downgrade(&session);
         let task = tokio::spawn(async move {
             let on_authenticated = || weak.upgrade().is_some_and(|session| session.authenticate());
@@ -314,13 +315,13 @@ fn new_session(seq: u64) -> Arc<SessionState> {
     let (inbound_tx, inbound_rx) = mpsc::channel::<Bytes>(64);
     let (outbound_tx, outbound_rx) = mpsc::channel::<io::Result<Bytes>>(64);
     Arc::new(SessionState {
-        outbound_tx,
         binding: Mutex::new(SessionBindingState {
             get_attached: false,
             post_attached: false,
             started: false,
             inbound_tx: Some(inbound_tx),
             inbound_rx: Some(inbound_rx),
+            outbound_tx: Some(outbound_tx),
             outbound_rx: Some(outbound_rx),
             task: None,
         }),
@@ -355,7 +356,11 @@ fn response(status: StatusCode, body: XhttpBody) -> Response<XhttpBody> {
 mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
+    use std::time::Duration;
 
+    use bytes::Bytes;
+    use tokio::io::AsyncWriteExt;
+    use tokio::net::TcpListener;
     use tokio::sync::Mutex;
 
     use super::{MAX_LIVE_SESSIONS, OriginConfig, OriginServer, expire_unstarted_session, new_session};
@@ -466,5 +471,41 @@ mod tests {
         assert!(!sessions.contains_key("session-1"), "the oldest pending session is evicted instead");
         drop(sessions);
         assert!(!first_two[1].authenticate(), "an evicted session must not authenticate later");
+    }
+
+    #[tokio::test]
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns its sockets and channels.
+    async fn upstream_close_ends_the_get_stream_while_the_post_stays_open() {
+        let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
+        let target = upstream.local_addr().expect("upstream address").to_string();
+        let server = server();
+        let session = server.session_for("s".to_owned()).await.expect("session");
+        let (inbound_tx, mut outbound_rx) = {
+            let mut binding = session.binding.lock().await;
+            binding.get_attached = true;
+            binding.post_attached = true;
+            (binding.inbound_tx.take().expect("POST sender"), binding.outbound_rx.take().expect("GET receiver"))
+        };
+        server.maybe_start_session("s".to_owned(), session).await;
+        let header = ripdpi_vless::wire::encode_request(&[0; 16], &[], &target).expect("VLESS header");
+        inbound_tx.send(Bytes::from(header)).await.expect("send header");
+
+        // The target answers and closes, as an HTTP/1.0 server does.
+        let (mut connection, _) = upstream.accept().await.expect("accept upstream");
+        connection.write_all(b"response").await.expect("upstream reply");
+        drop(connection);
+
+        let mut received = Vec::new();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while let Some(frame) = outbound_rx.recv().await {
+                received.extend_from_slice(&frame.expect("GET frame"));
+            }
+        })
+        .await
+        .expect("the GET stream must end when the upstream closes");
+        assert!(received.ends_with(b"response"));
+        drop(inbound_tx);
     }
 }

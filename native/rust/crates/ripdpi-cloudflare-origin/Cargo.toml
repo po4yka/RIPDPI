@@ -20,3 +20,6 @@ ripdpi-subprocess-protect = { workspace = true }
 ripdpi-vless = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "sync", "time"] }
 tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

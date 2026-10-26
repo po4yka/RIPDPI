@@ -2,10 +2,6 @@ use std::io;
 
 const STRUCTURED_ERROR_PREFIX: &str = "RIPDPI-ERROR|cloudflare-origin|";
 
-pub(crate) fn join_error_to_io(error: tokio::task::JoinError) -> io::Error {
-    io::Error::other(format!("cloudflare origin task join failed: {error}"))
-}
-
 pub(crate) fn classify_error(error: &io::Error) -> &'static str {
     let message = error.to_string().to_ascii_lowercase();
     if error.kind() == io::ErrorKind::PermissionDenied || message.contains("uuid") {
