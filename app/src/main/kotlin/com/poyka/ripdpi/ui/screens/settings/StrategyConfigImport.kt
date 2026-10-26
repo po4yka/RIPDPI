@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import android.content.Context
 import android.net.Uri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.ByteBuffer
@@ -40,15 +42,18 @@ internal sealed class StrategyConfigImportException(
     data object InvalidUtf8 : StrategyConfigImportException("invalid_utf8")
 }
 
-internal fun readStrategyConfigText(
+// A DocumentsProvider can be remote (cloud) and slow, so the read runs on the IO dispatcher.
+internal suspend fun readStrategyConfigText(
     context: Context,
     uri: Uri,
     maxBytes: Int = StrategyConfigMaxImportBytes,
 ): Result<String> =
-    runCatching {
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            readLimitedUtf8Text(input, maxBytes)
-        } ?: throw StrategyConfigImportException.UnreadableFile
+    withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                readLimitedUtf8Text(input, maxBytes)
+            } ?: throw StrategyConfigImportException.UnreadableFile
+        }
     }
 
 internal fun readLimitedUtf8Text(

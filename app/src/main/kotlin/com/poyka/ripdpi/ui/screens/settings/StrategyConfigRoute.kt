@@ -65,12 +65,14 @@ fun StrategyConfigRoute(
 
     val importLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            handleStrategyConfigImport(
-                context = context,
-                uri = uri,
-                onImported = editorViewModel::importConfig,
-                onBanner = { banner = it },
-            )
+            coroutineScope.launch {
+                handleStrategyConfigImport(
+                    context = context,
+                    uri = uri,
+                    onImported = editorViewModel::importConfig,
+                    onBanner = { banner = it },
+                )
+            }
         }
 
     StrategyConfigExitDialog(
@@ -273,7 +275,7 @@ private val StrategyConfigDocumentMimeTypes =
 
 private const val BytesPerKib = 1024
 
-private fun handleStrategyConfigImport(
+private suspend fun handleStrategyConfigImport(
     context: Context,
     uri: android.net.Uri?,
     onImported: (String) -> Boolean,
