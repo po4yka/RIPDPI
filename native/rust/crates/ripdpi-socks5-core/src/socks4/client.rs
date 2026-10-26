@@ -116,7 +116,11 @@ where
 
     #[rustfmt::skip]
     async fn read_command_request(&mut self) -> Result<()> {
-        let [_, cd] = read_exact!(self.socket, [0u8; 2])?;
+        // Consume the whole 8-byte reply so DSTPORT and DSTIP never reach the data stream.
+        let [vn, cd, ..] = read_exact!(self.socket, [0u8; 8])?;
+        if vn != 0 {
+            return Err(SocksError::UnsupportedSocksVersion(vn));
+        }
         let reply = ReplyError::from_u8(cd);
         match reply {
             ReplyError::Succeeded => Ok(()),
@@ -382,6 +386,30 @@ like to help us out, see careers.google.com.\n";
         let (request, result) = wire_request(target, [0, consts::SOCKS4_REPLY_SUCCEEDED, 0, 0, 0, 0, 0, 0]).await;
         result.expect("granted");
         assert_eq!(request, b"\x04\x01\x01\xbb\x00\x00\x00\x01\x00example.org\x00");
+    }
+
+    #[tokio::test]
+    async fn reply_is_consumed_whole_before_the_data_stream_starts() {
+        let (client_half, mut server_half) = tokio::io::duplex(1024);
+        let server = tokio::spawn(async move {
+            read_socks4_request(&mut server_half).await;
+            server_half.write_all(&[0, consts::SOCKS4_REPLY_SUCCEEDED, 0x1f, 0x90, 10, 1, 2, 3]).await.expect("reply");
+            server_half.write_all(b"payload").await.expect("payload");
+        });
+        let mut stream = Socks4Stream::use_stream(client_half).expect("wrap stream");
+        let target = TargetAddr::Ip("10.1.2.3:8080".parse().expect("target"));
+        stream.request(Socks4Command::Connect, target, false).await.expect("granted");
+        server.await.expect("server task");
+        let mut data = Vec::new();
+        stream.read_to_end(&mut data).await.expect("read data");
+        assert_eq!(data, b"payload");
+    }
+
+    #[tokio::test]
+    async fn reply_with_a_nonzero_version_byte_is_rejected() {
+        let target = TargetAddr::Ip("10.1.2.3:8080".parse().expect("target"));
+        let (_, result) = wire_request(target, [4, consts::SOCKS4_REPLY_SUCCEEDED, 0, 0, 0, 0, 0, 0]).await;
+        assert!(matches!(result, Err(SocksError::UnsupportedSocksVersion(4))), "got {result:?}");
     }
 
     #[tokio::test]
