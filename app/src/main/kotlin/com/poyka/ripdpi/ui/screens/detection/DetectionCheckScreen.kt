@@ -45,6 +45,7 @@ import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
+import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -52,6 +53,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
@@ -542,7 +544,7 @@ private fun DetectionReportActions(
                 performHaptic(RipDpiHapticFeedback.Acknowledge)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(
-                    ClipData.newPlainText(diagnosticsClipLabel, text),
+                    ClipData.newPlainText(diagnosticsClipLabel, text.withoutBidiIsolates()),
                 )
             },
             modifier = Modifier.fillMaxWidth(),
@@ -565,7 +567,10 @@ private fun DetectionCopyReportButton(
             reportText?.let { text ->
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(
-                    ClipData.newPlainText(context.getString(R.string.clipboard_label_detection_report), text),
+                    ClipData.newPlainText(
+                        context.getString(R.string.clipboard_label_detection_report),
+                        text.withoutBidiIsolates(),
+                    ),
                 )
             }
         },
@@ -650,7 +655,7 @@ private fun DetectionExportFormatDialog(
                     clipboard.setPrimaryClip(
                         ClipData.newPlainText(
                             context.getString(R.string.clipboard_label_detection_markdown_export),
-                            text,
+                            text.withoutBidiIsolates(),
                         ),
                     )
                     onDismiss()
@@ -820,6 +825,14 @@ private fun DetectionCommunityStatsSection(
 
         stats != null && stats.totalReports > 0 -> {
             CommunityStatsCard(stats)
+        }
+
+        else -> {
+            // No reports yet (or nothing loaded): say so instead of leaving the section blank.
+            RipDpiEmptyStateCard(
+                title = stringResource(R.string.detection_community_title),
+                body = stringResource(R.string.detection_community_empty_body),
+            )
         }
     }
 }

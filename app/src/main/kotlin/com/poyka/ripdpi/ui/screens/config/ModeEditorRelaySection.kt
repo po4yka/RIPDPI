@@ -62,7 +62,10 @@ internal fun ModeEditorRelaySection(
         SettingsCategoryHeader(title = stringResource(R.string.config_relay_section))
         RipDpiCard {
             ModeEditorRelayHeader(draft = draft, actions = actions)
-            ModeEditorRelayProfileIdField(draft = draft, uiState = uiState, actions = actions)
+            // The ID only matters with the relay on; a taken ID still shows so its error is never hidden.
+            if (draft.relayEnabled || uiState.validationErrors[ConfigFieldRelayProfileId] != null) {
+                ModeEditorRelayProfileIdField(draft = draft, uiState = uiState, actions = actions)
+            }
             if (draft.relayEnabled) {
                 ModeEditorRelayEnabledFields(draft = draft, uiState = uiState, actions = actions)
             }

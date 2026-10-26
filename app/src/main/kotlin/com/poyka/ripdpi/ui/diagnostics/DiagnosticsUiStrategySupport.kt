@@ -346,7 +346,7 @@ private fun DiagnosticsUiFactorySupport.strategyProbeMatrixTitle(
 
         isPartialResults -> {
             val (executed, planned) = report.partialResultExecutionCounts()
-            context.getString(R.string.diagnostics_partial_results_matrix_title, executed, planned)
+            context.getQuantityString(R.plurals.diagnostics_partial_results_matrix_title, planned, executed, planned)
         }
 
         isFullAudit -> {

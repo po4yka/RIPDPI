@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">Paketaufzeichnung</string>
+    <string name="data_transparency_packet_capture_body">Eine PCAP-Datei wird nur erstellt, wenn Sie die erweiterte Paketaufzeichnung starten. Sie kann rohe Paketnutzdaten enthalten und wird nicht geschwärzt. Teilen Sie sie nur mit Personen, denen Sie vertrauen.</string>
+    <string name="data_transparency_open_controls">Einstellungen für Aufbewahrung und Überwachung</string>
+    <string name="settings_community_source_title">Community-Statistiken</string>
+    <string name="settings_community_source_body">Die Erkennungsprüfung lädt gemeinsame Statistiken von dieser Adresse herunter, um Ihre Ergebnisse zu vergleichen. Es wird nichts hochgeladen.</string>
+    <string name="settings_community_source_default">Standard</string>
+    <string name="settings_clear_community_cache_body">Löscht heruntergeladene Community-Statistiken. Ihr Prüfverlauf bleibt erhalten.</string>
+    <string name="ripdpi_no_domain_body">Nur IP-Adressen annehmen. Der Proxy lehnt Anfragen ab, für die er einen Domainnamen auflösen müsste.</string>
+    <string name="ripdpi_tcp_fast_open_body">Daten im ersten Paket ausgehender Verbindungen senden, um einen Roundtrip zu sparen. Manche Netze verwerfen solche Pakete.</string>
+    <string name="advanced_settings_unsaved_change">Nicht gespeichert</string>
+    <string name="root_mode_access_checking">Root-Zugriff wird geprüft…</string>
+    <string name="root_mode_access_granted">Auf diesem Gerät ist Root-Zugriff verfügbar.</string>
+    <string name="root_mode_access_denied">Root-Zugriff wurde verweigert. Erlauben Sie RIPDPI in Ihrer Root-Verwaltung und schalten Sie den Root-Modus erneut ein.</string>
+    <string name="root_mode_access_unavailable">Dieses Gerät hat keinen Root-Zugriff, daher funktionieren diese Strategien nicht.</string>
+    <string name="domain_bypass_move_requires_save">Speichern Sie die Liste zuerst, um sie zu den Regeln zu verschieben.</string>
+    <string name="title_rule_editor_new">Neue Regel</string>
+    <string name="import_subscription_confirm_empty_body">Dieser Link enthält keine Abonnement-URL.</string>
+    <string name="relay_editor_profile_not_found_title">Profil nicht gefunden</string>
+    <string name="relay_editor_profile_not_found_body">Dieses Profil wurde gelöscht oder der Link, der es geöffnet hat, ist falsch. Gehen Sie zurück und wählen Sie ein Profil aus der Liste.</string>
+    <string name="scanner_permission_continue">Weiter</string>
+</resources>

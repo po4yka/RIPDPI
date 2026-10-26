@@ -116,7 +116,7 @@ class ConfigEndpointRtlTest {
         assertDirection(resource(R.string.config_relay_server), ResolvedTextDirection.Rtl)
         assertDirection(resource(R.string.config_vpn_relay_server_summary), ResolvedTextDirection.Rtl)
         composeRule.runOnIdle { state.value = state.value.copy(draft = ConfigDraft(relayEnabled = false)) }
-        assertRelayFallbackDirection(resource(R.string.home_mode_card_remote_relay_disabled))
+        assertDirection(resource(R.string.config_relay_off_title), ResolvedTextDirection.Rtl)
         composeRule.runOnIdle {
             state.value =
                 state.value.copy(draft = ConfigDraft(relayEnabled = true, relayKind = "vless_reality"))

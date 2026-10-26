@@ -41,6 +41,29 @@ class DetectionSettingsUiModelTest {
     }
 
     @Test
+    fun dnsFieldsShowOnlyForTheResolverModeThatUsesThem() {
+        fun stateFor(mode: String) =
+            DetectionSettingsUiState.from(
+                AppSettings
+                    .newBuilder()
+                    .setDetectionCheckDnsResolverMode(mode)
+                    .build(),
+            )
+
+        val system = stateFor("system")
+        assertFalse(system.dnsProviderFieldsVisible)
+        assertFalse(system.dnsDohFieldsVisible)
+
+        val direct = stateFor("direct")
+        assertTrue(direct.dnsProviderFieldsVisible)
+        assertFalse(direct.dnsDohFieldsVisible)
+
+        val doh = stateFor("doh")
+        assertTrue(doh.dnsProviderFieldsVisible)
+        assertTrue(doh.dnsDohFieldsVisible)
+    }
+
+    @Test
     fun disabledNetworkRequestsDimDependentControls() {
         val state =
             DetectionSettingsUiState.from(

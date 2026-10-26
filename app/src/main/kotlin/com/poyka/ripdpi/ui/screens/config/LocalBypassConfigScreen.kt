@@ -32,6 +32,7 @@ import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.screens.dns.dnsSettingsRowSubtitle
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -261,7 +262,7 @@ private fun LocalBypassAdvancedRows(
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
-        LocalBypassModeRow(uiState = uiState)
+        // The mode chips above the tabs show the mode; a row here would repeat it.
         // In VPN mode the listener is internal to the tunnel; only proxy-mode users point apps at it.
         if (uiState.draft.mode == Mode.Proxy) LocalBypassListenAddressRow(uiState = uiState)
         LocalBypassDnsRow(uiState = uiState, onOpenDnsSettings = onOpenDnsSettings)
@@ -271,18 +272,6 @@ private fun LocalBypassAdvancedRows(
             onOpenDesyncSettings = onOpenDesyncSettings,
         )
     }
-}
-
-@Composable
-private fun LocalBypassModeRow(uiState: ConfigUiState) {
-    SettingsRow(
-        title = stringResource(R.string.mode_setting),
-        subtitle = stringResource(R.string.config_mode_summary),
-        value = stringResource(modeLabelRes(uiState.draft.mode)),
-        // Read-only rows carry no icon badge, so they do not look like the navigable rows below.
-        showDivider = true,
-        testTag = RipDpiTestTags.ConfigLocalBypassMode,
-    )
 }
 
 @Composable
@@ -308,22 +297,18 @@ private fun LocalBypassDnsRow(
     onOpenDnsSettings: () -> Unit,
 ) {
     val dnsSummary = uiState.draft.localizedDnsSummary()
+    val dnsSubtitle =
+        dnsSettingsRowSubtitle(vpn = uiState.draft.mode == Mode.VPN)
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
         accessibilityValue = dnsSummary,
         onClick = onOpenDnsSettings,
+        accessibilitySubtitle = dnsSubtitle,
     ) {
         SettingsRow(
             title = stringResource(R.string.title_dns_settings),
-            subtitle =
-                stringResource(
-                    if (uiState.draft.mode == Mode.VPN) {
-                        R.string.config_dns_summary_enabled
-                    } else {
-                        R.string.config_dns_summary_disabled
-                    },
-                ),
+            subtitle = dnsSubtitle,
             value = dnsSummary,
             leadingIcon = RipDpiIcons.Dns,
             showChevron = true,
@@ -348,6 +333,7 @@ private fun LocalBypassDesyncRow(
             title = stringResource(R.string.ripdpi_desync_method_setting),
             value = desyncSummary,
             leadingIcon = RipDpiIcons.Shield,
+            monospaceValue = true,
             showChevron = true,
             showDivider = uiState.draft.defaultTtl.isNotBlank(),
         )
@@ -369,6 +355,7 @@ private fun LocalBypassActionRow(
     accessibilityLabel: String,
     accessibilityValue: String,
     onClick: () -> Unit,
+    accessibilitySubtitle: String? = null,
     content: @Composable () -> Unit,
 ) {
     Box(
@@ -377,7 +364,8 @@ private fun LocalBypassActionRow(
                 .ripDpiClickable(role = Role.Button, onClick = onClick)
                 .clearAndSetSemantics {
                     this.testTag = testTag
-                    contentDescription = accessibilityLabel
+                    // The cleared subtree hides the row subtitle, so it joins the label here.
+                    contentDescription = listOfNotNull(accessibilityLabel, accessibilitySubtitle).joinToString(", ")
                     stateDescription = accessibilityValue
                     role = Role.Button
                     onClick(action = {

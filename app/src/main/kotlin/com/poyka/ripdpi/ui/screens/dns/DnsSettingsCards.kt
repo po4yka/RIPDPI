@@ -241,16 +241,17 @@ internal fun DnsOptionCard(
                     style = type.body,
                     color = colors.mutedForeground,
                 )
-            }
-        }
-        if (badges.isNotEmpty()) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                badges.forEach { badge ->
-                    DnsBadge(text = badge)
+                // Badges belong to the text column so they never wrap under the radio and icon.
+                if (badges.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                    ) {
+                        badges.forEach { badge ->
+                            DnsBadge(text = badge)
+                        }
+                    }
                 }
             }
         }
@@ -347,12 +348,14 @@ internal fun DnsResolverCard(
                     color = colors.foreground,
                 )
             }
-            Text(
-                text = resolverBody,
-                modifier = Modifier.width(IntrinsicSize.Max),
-                style = type.body,
-                color = colors.mutedForeground,
-            )
+            if (resolverBody.isNotEmpty()) {
+                Text(
+                    text = resolverBody,
+                    modifier = Modifier.width(IntrinsicSize.Max),
+                    style = type.body,
+                    color = colors.mutedForeground,
+                )
+            }
             if (resolver.jurisdictionRu) {
                 Text(
                     text = stringResource(R.string.detection_dns_provider_jurisdiction_ru_warning),

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">Schneller, begrenzter Durchlauf. Um auch zu sehen, was jede Domain blockiert, nutzen Sie die Strategie-Probe.</string>
+    <string name="blockcheck_vs_tuner">Testet jede Strategie und findet, was jede Domain blockiert. Für einen schnellen, begrenzten Durchlauf nutzen Sie den Strategie-Tuner.</string>
+    <string name="connection_health_measurement_help_title">Zu diesen Werten</string>
+    <string name="logs_entry_details">Details</string>
+    <string name="vpn_pcap_capture_list_empty_title">Noch keine Aufnahmen</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">Die gespeicherten Aufnahmedateien konnten nicht geöffnet werden.</string>
+    <string name="support_settings_back_action">Zurück</string>
+    <string name="remembered_networks_first_seen">Zuerst gesehen %1$s</string>
+    <string name="detection_community_empty_body">Noch keine Prüfungen erfasst. Starten Sie eine Prüfung, um die erste hinzuzufügen.</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
+</resources>

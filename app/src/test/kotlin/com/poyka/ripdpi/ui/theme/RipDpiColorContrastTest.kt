@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.max
@@ -39,6 +40,25 @@ class RipDpiColorContrastTest {
     }
 
     @Test
+    fun `dark info and warning containers are muted with readable tinted text`() {
+        listOf(
+            "dark info container" to
+                (DarkRipDpiExtendedColors.infoContainerForeground to DarkRipDpiExtendedColors.infoContainer),
+            "dark warning container" to
+                (DarkRipDpiExtendedColors.warningContainerForeground to DarkRipDpiExtendedColors.warningContainer),
+        ).forEach { (label, colors) ->
+            assertAaContrast(label, colors.first, colors.second)
+            assertTrue("Expected a low-chroma $label", colors.second.chroma() <= MaxDarkContainerChroma)
+            assertTrue("Expected muted text on $label", colors.first.chroma() <= MaxTintedTextChroma)
+        }
+        assertNotEquals(
+            "Warning and info text must differ so a container without an icon still shows its tone",
+            DarkRipDpiExtendedColors.warningContainerForeground,
+            DarkRipDpiExtendedColors.infoContainerForeground,
+        )
+    }
+
+    @Test
     fun `light secondary text remains readable`() {
         val contrast = contrastRatio(LightRipDpiExtendedColors.mutedForeground, LightRipDpiExtendedColors.background)
 
@@ -61,6 +81,8 @@ class RipDpiColorContrastTest {
 
         assertTrue("Expected AA contrast for $label, was $contrast", contrast >= 4.5f)
     }
+
+    private fun Color.chroma(): Float = maxOf(red, green, blue) - minOf(red, green, blue)
 
     private fun contrastRatio(
         foreground: Color,
@@ -88,4 +110,10 @@ class RipDpiColorContrastTest {
         } else {
             (((channel + 0.055f) / 1.055f).toDouble().pow(2.4)).toFloat()
         }
+
+    private companion object {
+        // About 7% of the channel range: a tinted grey, not a saturated teal or brown block.
+        const val MaxDarkContainerChroma = 0.07f
+        const val MaxTintedTextChroma = 0.3f
+    }
 }

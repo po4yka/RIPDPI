@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.provider.Settings
+import android.view.View
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
@@ -63,18 +64,60 @@ class AndroidStringResolver
     constructor(
         @param:ApplicationContext private val context: Context,
     ) : StringResolver {
+        // Format arguments are a short array, so the copy that the spread makes is negligible.
+        @Suppress("SpreadOperator")
         override fun getString(
             @StringRes resId: Int,
             vararg formatArgs: Any,
-        ): String = ContextCompat.getContextForLanguage(context).getString(resId, *formatArgs)
+        ): String {
+            val localized = ContextCompat.getContextForLanguage(context)
+            return localized.getString(resId, *localized.bidiIsolated(formatArgs))
+        }
 
+        @Suppress("SpreadOperator")
         override fun getQuantityString(
             @PluralsRes resId: Int,
             quantity: Int,
             vararg formatArgs: Any,
-        ): String =
-            ContextCompat.getContextForLanguage(context).resources.getQuantityString(resId, quantity, *formatArgs)
+        ): String {
+            val localized = ContextCompat.getContextForLanguage(context)
+            return localized.resources.getQuantityString(resId, quantity, *localized.bidiIsolated(formatArgs))
+        }
     }
+
+/**
+ * In an RTL locale, a Latin text argument such as "Wi-Fi" otherwise pulls a following
+ * number ("25 October") into its left-to-right run. A first-strong isolate (FSI ... PDI)
+ * keeps such an argument in its own run. LTR locales, numbers and arguments without
+ * left-to-right letters are left as they are.
+ */
+private fun Context.bidiIsolated(formatArgs: Array<out Any>): Array<out Any> {
+    if (resources.configuration.layoutDirection != View.LAYOUT_DIRECTION_RTL) return formatArgs
+    return Array(formatArgs.size) { index ->
+        val arg = formatArgs[index]
+        if (arg is CharSequence && arg.any(::isStrongLeftToRight)) {
+            buildString {
+                append(FirstStrongIsolate)
+                append(arg)
+                append(PopDirectionalIsolate)
+            }
+        } else {
+            arg
+        }
+    }
+}
+
+// Code points, not literals, so the source carries no invisible bidi controls.
+private val FirstStrongIsolate = Char(0x2068)
+private val PopDirectionalIsolate = Char(0x2069)
+
+/** Removes bidi isolate controls (U+2066..U+2069) from text that leaves the screen (clipboard, share). */
+fun String.withoutBidiIsolates(): String = filterNot { it.code in BidiIsolateRange }
+
+private val BidiIsolateRange = 0x2066..0x2069
+
+private fun isStrongLeftToRight(char: Char): Boolean =
+    Character.getDirectionality(char) == Character.DIRECTIONALITY_LEFT_TO_RIGHT
 
 interface PermissionPlatformBridge {
     fun prepareVpnPermissionIntent(): Intent?

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">Credenciais</string>
+    <string name="relay_editor_save_incomplete_hint">Para salvar, preencha servidor, porta e credenciais e corrija os campos inválidos.</string>
+    <string name="relay_editor_range_helper">De %1$d a %2$d</string>
+    <string name="awg_keepalive_helper">Segundos entre pacotes keepalive. Deixe vazio ou digite 0 para desativar.</string>
+    <string name="awg_obfuscation_show_values">Mostrar valores</string>
+    <string name="awg_obfuscation_hide_values">Ocultar valores</string>
+</resources>

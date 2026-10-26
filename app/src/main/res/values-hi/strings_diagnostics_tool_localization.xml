@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">अवरोध नहीं या VPN/प्रॉक्सी सक्रिय</string>
     <string name="diagnostics_rkn_note_not_blocked">काली सूची की सभी साइटें खुलीं। आप अवरोध क्षेत्र से बाहर हैं या VPN/प्रॉक्सी ट्रैफ़िक को रूट कर रहा है।</string>
     <string name="diagnostics_rkn_headline_high">अवरोध क्षेत्र में: उच्च विश्वास</string>
-    <string name="diagnostics_rkn_note_high_format">काली सूची की %1$d/%2$d साइटों की विफलताएँ उच्च विश्वास वाले अवरोध पैटर्न से मेल खाती हैं (DoH द्वारा पुष्ट DNS पॉइज़निंग, HTTP 451, ज्ञात अवरोध पृष्ठ चिह्न)।</string>
     <string name="diagnostics_rkn_headline_medium">अवरोध क्षेत्र में: मध्यम विश्वास</string>
     <string name="diagnostics_rkn_note_medium">काली सूची की अधिकांश विफलताएँ अवरोध पैटर्न (TLS DPI, TCP RST) से मेल खाती हैं, लेकिन सर्वर की समस्याएँ भी ये संकेत दे सकती हैं। दूसरे नेटवर्क से नियंत्रण माप इसकी पुष्टि कर सकता है।</string>
     <string name="diagnostics_rkn_headline_partial">आंशिक अवरोध मिले</string>

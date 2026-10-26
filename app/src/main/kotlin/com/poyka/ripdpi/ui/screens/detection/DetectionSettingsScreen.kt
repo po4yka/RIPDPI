@@ -361,44 +361,48 @@ private fun DetectionDnsSettingsSection(
             label = DetectionDnsResolverMode::displayName,
             onSelect = onDnsResolverModeChange,
         )
-        DnsProviderPicker(
-            selected = state.dnsPreset,
-            onSelect = onDnsPresetChange,
-        )
-        RipDpiTextField(
-            value = state.dnsDirectServers,
-            onValueChange = onDnsDirectServersChange,
-            decoration =
-                RipDpiTextFieldDecoration(
-                    label = stringResource(R.string.detection_settings_dns_direct_servers_label),
-                ),
-            behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        RipDpiTextField(
-            value = state.dnsDohUrl,
-            onValueChange = onDnsDohUrlChange,
-            decoration =
-                RipDpiTextFieldDecoration(
-                    label = stringResource(R.string.detection_settings_dns_doh_url_label),
-                ),
-            behavior =
-                RipDpiTextFieldBehavior(
-                    enabled = state.dnsFieldsEditable,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                ),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        RipDpiTextField(
-            value = state.dnsDohBootstrapIps,
-            onValueChange = onDnsDohBootstrapIpsChange,
-            decoration =
-                RipDpiTextFieldDecoration(
-                    label = stringResource(R.string.detection_settings_dns_doh_bootstrap_label),
-                ),
-            behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (state.dnsProviderFieldsVisible) {
+            DnsProviderPicker(
+                selected = state.dnsPreset,
+                onSelect = onDnsPresetChange,
+            )
+            RipDpiTextField(
+                value = state.dnsDirectServers,
+                onValueChange = onDnsDirectServersChange,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.detection_settings_dns_direct_servers_label),
+                    ),
+                behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (state.dnsDohFieldsVisible) {
+            RipDpiTextField(
+                value = state.dnsDohUrl,
+                onValueChange = onDnsDohUrlChange,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.detection_settings_dns_doh_url_label),
+                    ),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        enabled = state.dnsFieldsEditable,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RipDpiTextField(
+                value = state.dnsDohBootstrapIps,
+                onValueChange = onDnsDohBootstrapIpsChange,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.detection_settings_dns_doh_bootstrap_label),
+                    ),
+                behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         SettingsRow(
             title = stringResource(R.string.detection_dns_route_through_proxy_title),
             subtitle = stringResource(R.string.detection_dns_route_through_proxy_subtitle),

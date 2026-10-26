@@ -7,10 +7,14 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -93,75 +97,188 @@ class QrScannerRoutePermissionRecoveryTest {
     fun `revoked permission clears scanner state without requesting again`() {
         val viewModel = QrScannerViewModel()
 
-        viewModel.syncCameraPermission(cameraPermissionGranted = true)
+        viewModel.syncCameraPermission(cameraPermissionGranted = true, canRequestAgain = false)
         assertEquals(ScannerCameraState.SCANNING, viewModel.uiState.value.cameraState)
 
-        viewModel.syncCameraPermission(cameraPermissionGranted = false)
+        viewModel.syncCameraPermission(cameraPermissionGranted = false, canRequestAgain = false)
 
         assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
     }
 
     @Test
-    fun `camera permission is requested once per scanner session`() {
+    fun `missing camera permission shows the rationale once per scanner session`() {
         val viewModel = QrScannerViewModel()
-        var permissionRequests = 0
 
-        viewModel.requestCameraPermissionOnce(
-            sessionId = "session-1",
-            cameraPermissionGranted = true,
-            requestCameraPermission = { permissionRequests += 1 },
-        )
-        viewModel.requestCameraPermissionOnce(
-            sessionId = "session-1",
-            cameraPermissionGranted = false,
-            requestCameraPermission = { permissionRequests += 1 },
-        )
-        repeat(2) {
-            viewModel.requestCameraPermissionOnce(
-                sessionId = "session-2",
-                cameraPermissionGranted = false,
-                requestCameraPermission = { permissionRequests += 1 },
-            )
-        }
-        viewModel.requestCameraPermissionOnce(
-            sessionId = "session-3",
-            cameraPermissionGranted = false,
-            requestCameraPermission = { permissionRequests += 1 },
-        )
+        viewModel.showCameraRationaleOnce(sessionId = "session-1", cameraPermissionGranted = false)
+        assertEquals(ScannerCameraState.REQUESTING_PERMISSION, viewModel.uiState.value.cameraState)
+        viewModel.onCameraPermissionResult(granted = false, canRequestAgain = false)
+        viewModel.showCameraRationaleOnce(sessionId = "session-1", cameraPermissionGranted = false)
+        assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
 
-        assertEquals(2, permissionRequests)
+        viewModel.showCameraRationaleOnce(sessionId = "session-2", cameraPermissionGranted = false)
+        assertEquals(ScannerCameraState.REQUESTING_PERMISSION, viewModel.uiState.value.cameraState)
     }
 
     @Test
-    fun `grant state change in same session cancels stale permission prompt`() {
+    fun `system camera prompt opens only from the rationale continue action`() {
+        var permissionRequests = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                QrScannerScreen(
+                    uiState = QrScannerUiState(cameraState = ScannerCameraState.REQUESTING_PERMISSION),
+                    onBack = {},
+                    onQrDecoded = {},
+                    onDismissError = {},
+                    onPickImage = {},
+                    onRequestCameraPermission = { permissionRequests += 1 },
+                    onOpenAppSettings = {},
+                )
+            }
+        }
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        composeRule.onNodeWithText(app.getString(R.string.scanner_permission_rationale_body)).assertExists()
+        assertEquals(0, permissionRequests)
+
+        composeRule.onNodeWithText(app.getString(R.string.scanner_permission_continue)).performClick()
+
+        assertEquals(1, permissionRequests)
+    }
+
+    @Test
+    fun `recreation while the rationale shows keeps the rationale`() {
+        val viewModel = QrScannerViewModel()
+        lateinit var composed: MutableState<Boolean>
+
+        composeRule.setContent {
+            composed = remember { mutableStateOf(true) }
+            if (composed.value) {
+                QrScannerPermissionEffects(
+                    sessionId = "session-1",
+                    cameraPermissionGranted = false,
+                    canRequestCameraPermissionAgain = { false },
+                    viewModel = viewModel,
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        assertEquals(ScannerCameraState.REQUESTING_PERMISSION, viewModel.uiState.value.cameraState)
+
+        // The view model outlives the composition, as it does across a rotation or a back-stack return.
+        composeRule.runOnUiThread { composed.value = false }
+        composeRule.waitForIdle()
+        composeRule.runOnUiThread { composed.value = true }
+        composeRule.waitForIdle()
+
+        assertEquals(ScannerCameraState.REQUESTING_PERMISSION, viewModel.uiState.value.cameraState)
+    }
+
+    @Test
+    fun `grant state changes in the same session only sync the scanner state`() {
         val viewModel = QrScannerViewModel()
         lateinit var permissionGranted: MutableState<Boolean>
-        var permissionRequests = 0
 
         composeRule.setContent {
             permissionGranted = remember { mutableStateOf(false) }
             QrScannerPermissionEffects(
                 sessionId = "session-1",
                 cameraPermissionGranted = permissionGranted.value,
+                canRequestCameraPermissionAgain = { false },
                 viewModel = viewModel,
-                requestCameraPermission = { permissionRequests += 1 },
             )
         }
         composeRule.waitForIdle()
 
-        assertEquals(1, permissionRequests)
         assertEquals(ScannerCameraState.REQUESTING_PERMISSION, viewModel.uiState.value.cameraState)
 
         composeRule.runOnUiThread { permissionGranted.value = true }
         composeRule.waitForIdle()
 
-        assertEquals(1, permissionRequests)
         assertEquals(ScannerCameraState.SCANNING, viewModel.uiState.value.cameraState)
 
         composeRule.runOnUiThread { permissionGranted.value = false }
         composeRule.waitForIdle()
 
-        assertEquals(1, permissionRequests)
         assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
+    }
+
+    @Test
+    fun `a first denial or an expired one-time grant can still request the camera`() {
+        val deniedOnce = QrScannerViewModel()
+        deniedOnce.showCameraRationaleOnce(sessionId = "session-1", cameraPermissionGranted = false)
+        deniedOnce.onCameraPermissionResult(granted = false, canRequestAgain = true)
+        assertEquals(ScannerCameraState.PERMISSION_DENIED, deniedOnce.uiState.value.cameraState)
+        assertEquals(true, deniedOnce.uiState.value.canRequestCameraPermissionAgain)
+
+        val oneTimeGrant = QrScannerViewModel()
+        oneTimeGrant.syncCameraPermission(cameraPermissionGranted = true, canRequestAgain = false)
+        oneTimeGrant.syncCameraPermission(cameraPermissionGranted = false, canRequestAgain = true)
+        assertEquals(ScannerCameraState.PERMISSION_DENIED, oneTimeGrant.uiState.value.cameraState)
+        assertEquals(true, oneTimeGrant.uiState.value.canRequestCameraPermissionAgain)
+
+        val deniedTwice = QrScannerViewModel()
+        deniedTwice.onCameraPermissionResult(granted = false, canRequestAgain = false)
+        assertEquals(false, deniedTwice.uiState.value.canRequestCameraPermissionAgain)
+    }
+
+    @Test
+    fun `denied state asks again while the system still prompts`() {
+        var permissionRequests = 0
+        var settingsOpens = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                QrScannerScreen(
+                    uiState =
+                        QrScannerUiState(
+                            cameraState = ScannerCameraState.PERMISSION_DENIED,
+                            canRequestCameraPermissionAgain = true,
+                        ),
+                    onBack = {},
+                    onQrDecoded = {},
+                    onDismissError = {},
+                    onPickImage = {},
+                    onRequestCameraPermission = { permissionRequests += 1 },
+                    onOpenAppSettings = { settingsOpens += 1 },
+                )
+            }
+        }
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        composeRule
+            .onNodeWithText(app.getString(R.string.settings_permission_action_open_settings))
+            .assertDoesNotExist()
+
+        composeRule.onNodeWithText(app.getString(R.string.scanner_permission_continue)).performClick()
+
+        assertEquals(1, permissionRequests)
+        assertEquals(0, settingsOpens)
+    }
+
+    @Test
+    fun `denied state opens settings once the system stops prompting`() {
+        var permissionRequests = 0
+        var settingsOpens = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                QrScannerScreen(
+                    uiState =
+                        QrScannerUiState(
+                            cameraState = ScannerCameraState.PERMISSION_DENIED,
+                            canRequestCameraPermissionAgain = false,
+                        ),
+                    onBack = {},
+                    onQrDecoded = {},
+                    onDismissError = {},
+                    onPickImage = {},
+                    onRequestCameraPermission = { permissionRequests += 1 },
+                    onOpenAppSettings = { settingsOpens += 1 },
+                )
+            }
+        }
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        composeRule.onNodeWithText(app.getString(R.string.scanner_permission_continue)).assertDoesNotExist()
+
+        composeRule.onNodeWithText(app.getString(R.string.settings_permission_action_open_settings)).performClick()
+
+        assertEquals(0, permissionRequests)
+        assertEquals(1, settingsOpens)
     }
 }

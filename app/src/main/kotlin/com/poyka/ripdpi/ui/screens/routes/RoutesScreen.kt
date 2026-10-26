@@ -3,6 +3,8 @@ package com.poyka.ripdpi.ui.screens.routes
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,8 +35,10 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
@@ -121,6 +125,7 @@ internal fun RoutesScreen(
             confirmAction =
                 RipDpiDialogAction(
                     label = stringResource(R.string.rule_editor_delete),
+                    destructive = true,
                     onClick = {
                         pendingDelete = null
                         onDelete(rule)
@@ -252,6 +257,7 @@ private fun RuleListRow(
             count = count,
             onMoveUp = onMoveUp,
             onMoveDown = onMoveDown,
+            onEdit = onEdit,
             onDelete = onDelete,
         )
     }
@@ -291,19 +297,22 @@ private fun RuleListRowSummary(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RuleListRowControls(
     index: Int,
     count: Int,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val colors = RipDpiThemeTokens.colors
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         RipDpiIconButton(
             icon = RipDpiIcons.KeyboardArrowUp,
@@ -317,11 +326,19 @@ private fun RuleListRowControls(
             onClick = onMoveDown,
             enabled = index < count - 1,
         )
-        RipDpiIconButton(
-            icon = RipDpiIcons.Delete,
-            contentDescription = stringResource(R.string.rule_editor_delete),
+        RipDpiButton(
+            text = stringResource(R.string.routes_edit_rule),
+            onClick = onEdit,
+            variant = RipDpiButtonVariant.Ghost,
+            density = RipDpiControlDensity.Compact,
+            trailingIcon = RipDpiIcons.ChevronRight,
+        )
+        RipDpiButton(
+            text = stringResource(R.string.rule_editor_delete),
             onClick = onDelete,
-            style = RipDpiIconButtonStyle.Destructive,
+            variant = RipDpiButtonVariant.Destructive,
+            density = RipDpiControlDensity.Compact,
+            leadingIcon = RipDpiIcons.Delete,
         )
     }
 }

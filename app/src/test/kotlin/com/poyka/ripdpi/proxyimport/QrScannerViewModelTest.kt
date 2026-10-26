@@ -26,7 +26,7 @@ class QrScannerViewModelTest {
     fun `granting camera permission moves to scanning`() {
         val viewModel = QrScannerViewModel()
 
-        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)
 
         assertEquals(ScannerCameraState.SCANNING, viewModel.uiState.value.cameraState)
     }
@@ -35,7 +35,7 @@ class QrScannerViewModelTest {
     fun `denying camera permission degrades to image-pick fallback, not a dead end`() {
         val viewModel = QrScannerViewModel()
 
-        viewModel.onCameraPermissionResult(granted = false)
+        viewModel.onCameraPermissionResult(granted = false, canRequestAgain = false)
 
         assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
         assertTrue(
@@ -47,7 +47,7 @@ class QrScannerViewModelTest {
     @Test
     fun `decoding an allowlisted proxy uri emits a profile import request`() {
         val viewModel = QrScannerViewModel()
-        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)
 
         viewModel.onQrDecoded("vless://11111111-2222-3333-4444-555555555555@example.com:443#QR")
 
@@ -60,7 +60,7 @@ class QrScannerViewModelTest {
     @Test
     fun `decoding an invalid payload surfaces a redacted error and no request`() {
         val viewModel = QrScannerViewModel()
-        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)
 
         viewModel.onQrDecoded("http://malicious.example.com/long/redacted/path")
 
@@ -72,7 +72,7 @@ class QrScannerViewModelTest {
     @Test
     fun `image fallback decode reuses the same dispatch path`() {
         val viewModel = QrScannerViewModel()
-        viewModel.onCameraPermissionResult(granted = false)
+        viewModel.onCameraPermissionResult(granted = false, canRequestAgain = false)
 
         viewModel.onQrDecoded("trojan://secret@example.com:443#FromImage")
 
@@ -82,7 +82,7 @@ class QrScannerViewModelTest {
     @Test
     fun `consuming the scan result clears it`() {
         val viewModel = QrScannerViewModel()
-        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)
         viewModel.onQrDecoded("trojan://secret@example.com:443#QR")
 
         viewModel.consumeScanResult()
@@ -93,7 +93,7 @@ class QrScannerViewModelTest {
     @Test
     fun `repeated frames of the same code import it once`() {
         val viewModel = QrScannerViewModel()
-        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)
         viewModel.onQrDecoded("trojan://secret@example.com:443#QR")
         viewModel.consumeScanResult()
 
@@ -105,7 +105,7 @@ class QrScannerViewModelTest {
     @Test
     fun `an amneziavpn qr series shows progress and then imports the conf`() {
         val viewModel = QrScannerViewModel()
-        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)
         val conf = "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p=="
         val compressed = AmneziaVpnKeyFixtures.qCompress(AmneziaVpnKeyFixtures.keyJson(conf).toByteArray())
         val half = compressed.size / 2
@@ -123,7 +123,7 @@ class QrScannerViewModelTest {
     @Test
     fun `a failed series keeps its error while the camera still sees the last code`() {
         val viewModel = QrScannerViewModel()
-        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)
         val openVpn = AmneziaVpnKeyFixtures.keyJson("client\ndev tun", "amnezia-openvpn", "openvpn")
         val chunk = AmneziaVpnKeyFixtures.qrChunk(1, 0, AmneziaVpnKeyFixtures.qCompress(openVpn.toByteArray()))
 
@@ -137,7 +137,7 @@ class QrScannerViewModelTest {
     @Test
     fun `consuming the decode error clears it so scanning can resume`() {
         val viewModel = QrScannerViewModel()
-        viewModel.onCameraPermissionResult(granted = true)
+        viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)
         viewModel.onQrDecoded("not-a-uri")
 
         viewModel.consumeDecodeError()

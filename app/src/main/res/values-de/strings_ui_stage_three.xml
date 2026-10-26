@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="simple_analysis_changes_body">Diese Prüfung kann DNS, Umgehungsstrategie und WARP automatisch speichern.</string>
+    <string name="simple_analysis_changes_body">Diese Prüfung kann DNS, Bypass-Strategie und WARP automatisch speichern.</string>
     <string name="simple_analysis_saved_changes_body">Diese Prüfung hat möglicherweise bereits Änderungen gespeichert. Stellen Sie frühere App-Einstellungen aus einer gespeicherten vollständigen Sicherung (FULL) wieder her.</string>
     <string name="simple_backup_restore_body">Exportieren Sie vor der Prüfung eine vollständige Sicherung (FULL). Wählen Sie beim Wiederherstellen Einstellungen aus. SHARE-Sicherungen enthalten keine Einstellungen. Gespeicherte Netzwerkempfehlungen bleiben erhalten. Nach dem Neustart wählt Simple das integrierte Profil und den VPN-Modus und deaktiviert CLI-Überschreibungen.</string>
 </resources>

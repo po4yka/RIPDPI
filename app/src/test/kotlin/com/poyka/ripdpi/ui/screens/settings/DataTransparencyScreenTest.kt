@@ -7,12 +7,14 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,11 +37,37 @@ class DataTransparencyScreenTest {
     }
 
     @Test
-    fun whatWeCollectSectionHeaderIsDisplayed() {
+    fun storedOnDeviceSectionHeaderIsDisplayed() {
         setScreen()
 
-        scrollTo("WHAT WE COLLECT")
-        composeRule.onNodeWithText("WHAT WE COLLECT").fetchSemanticsNode()
+        scrollTo("WHAT IS STORED ON THIS DEVICE")
+        composeRule.onNodeWithText("WHAT IS STORED ON THIS DEVICE").fetchSemanticsNode()
+    }
+
+    @Test
+    fun packetCaptureCaveatHasItsOwnSection() {
+        setScreen()
+
+        scrollTo("PACKET CAPTURE")
+        composeRule.onNodeWithText("PACKET CAPTURE").fetchSemanticsNode()
+        val copy = string(R.string.data_transparency_packet_capture_body)
+        scrollTo(copy)
+        composeRule.onNodeWithText(copy).assertIsDisplayed()
+    }
+
+    @Test
+    fun retentionAndMonitoringLinkOpensAdvancedSettings() {
+        var opened = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                DataTransparencyScreen(onBack = {}, onOpenAdvancedSettings = { opened++ })
+            }
+        }
+
+        scrollTo("Retention and monitoring settings")
+        composeRule.onNodeWithText("Retention and monitoring settings").performClick()
+
+        assertEquals(1, opened)
     }
 
     @Test

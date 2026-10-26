@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementFreshness
@@ -28,8 +29,9 @@ internal fun LatencyDetailContent(
         LatencyValue(stringResource(R.string.measurement_quality_rtt, quality.rttP50Ms))
         LatencyValue(stringResource(R.string.measurement_quality_p95, quality.rttP95Ms))
         LatencyValue(
-            stringResource(
-                R.string.measurement_quality_samples,
+            pluralStringResource(
+                R.plurals.measurement_quality_samples,
+                quality.sampleCount.toInt(),
                 quality.sampleCount,
                 quality.jitterMs.toString(),
             ),

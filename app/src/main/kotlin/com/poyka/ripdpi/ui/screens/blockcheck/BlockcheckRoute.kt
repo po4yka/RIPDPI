@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -22,9 +23,11 @@ import com.poyka.ripdpi.core.detection.BlockLayer
 import com.poyka.ripdpi.core.detection.BypassStrategyClass
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
+import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -68,7 +71,7 @@ fun BlockcheckRoute(
             val intent =
                 Intent(Intent.ACTION_SEND)
                     .setType("application/json")
-                    .putExtra(Intent.EXTRA_TEXT, report)
+                    .putExtra(Intent.EXTRA_TEXT, report.withoutBidiIsolates())
                     .putExtra(Intent.EXTRA_SUBJECT, exportSubject)
             context.startActivity(Intent.createChooser(intent, exportTitle))
         },
@@ -155,6 +158,11 @@ private fun BlockcheckControlsCard(
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
+            Text(
+                text = stringResource(R.string.blockcheck_vs_tuner),
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
             RipDpiTextField(
                 value = state.domains.joinToString("\n"),
                 onValueChange = onDomainsChanged,
@@ -179,8 +187,9 @@ private fun BlockcheckControlsCard(
             if (state.isRunning || state.results.isNotEmpty()) {
                 Text(
                     text =
-                        stringResource(
-                            R.string.blockcheck_status_format,
+                        pluralStringResource(
+                            R.plurals.blockcheck_status_format,
+                            state.totalExpectedResults,
                             state.results.size,
                             state.totalExpectedResults,
                         ),
@@ -207,8 +216,8 @@ private fun BlockcheckDiagnosisCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(
-                text =
+            RipDpiPanelHeader(
+                title =
                     stringResource(
                         if (state.diagnoses.size == 1) {
                             R.string.blockcheck_diagnosis_title
@@ -216,7 +225,6 @@ private fun BlockcheckDiagnosisCard(
                             R.string.blockcheck_diagnosis_title_sites
                         },
                     ),
-                style = RipDpiThemeTokens.type.sheetTitle,
             )
             if (primary == null) {
                 Text(
@@ -302,14 +310,12 @@ private fun BlockcheckResultsCard(state: BlockcheckUiState) {
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(
-                text = stringResource(R.string.blockcheck_results_title),
-                style = RipDpiThemeTokens.type.sheetTitle,
-            )
+            RipDpiPanelHeader(title = stringResource(R.string.blockcheck_results_title))
             if (state.rankedStrategies.isEmpty()) {
                 Text(
                     text = stringResource(R.string.blockcheck_empty_results),
-                    style = RipDpiThemeTokens.type.secondaryBody,
+                    style = RipDpiThemeTokens.type.body,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
                 )
             } else {
                 state.rankedStrategies.forEachIndexed { index, result ->
@@ -337,8 +343,9 @@ private fun BlockcheckRankedRow(
             Text(text = result.strategyLabel, style = RipDpiThemeTokens.type.body)
             Text(
                 text =
-                    stringResource(
-                        R.string.blockcheck_result_detail_format,
+                    pluralStringResource(
+                        R.plurals.blockcheck_result_detail_format,
+                        result.total,
                         result.successes,
                         result.total,
                         result.averageLatencyMs,

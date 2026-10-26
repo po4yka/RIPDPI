@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">Packet capture</string>
+    <string name="data_transparency_packet_capture_body">A PCAP file is created only when you start the advanced packet capture control. It can contain raw packet payload bytes and is not redacted. Share it only with people you trust.</string>
+    <string name="data_transparency_open_controls">Retention and monitoring settings</string>
+    <string name="settings_community_source_title">Community statistics</string>
+    <string name="settings_community_source_body">Detection check downloads shared statistics from this address to compare your results. Nothing is uploaded.</string>
+    <string name="settings_community_source_default">Default</string>
+    <string name="settings_clear_community_cache_body">Deletes downloaded community statistics. Your check history stays.</string>
+    <string name="ripdpi_no_domain_body">Accept only IP addresses. The proxy rejects requests that ask it to resolve a domain name.</string>
+    <string name="ripdpi_tcp_fast_open_body">Send data in the first packet of outgoing connections to save a round trip. Some networks drop these packets.</string>
+    <string name="advanced_settings_unsaved_change">Not saved</string>
+    <string name="root_mode_access_checking">Checking root access…</string>
+    <string name="root_mode_access_granted">Root access is available on this device.</string>
+    <string name="root_mode_access_denied">Root access was denied. Allow RIPDPI in your root manager, then turn root mode on again.</string>
+    <string name="root_mode_access_unavailable">This device has no root access, so these strategies will not work.</string>
+    <string name="domain_bypass_move_requires_save">Save the list first to move it to rules.</string>
+    <string name="title_rule_editor_new">New rule</string>
+    <string name="import_subscription_confirm_empty_body">This link does not contain a subscription URL.</string>
+    <string name="relay_editor_profile_not_found_title">Profile not found</string>
+    <string name="relay_editor_profile_not_found_body">This profile was deleted or the link that opened it is wrong. Go back and choose a profile from the list.</string>
+    <string name="scanner_permission_continue">Continue</string>
+</resources>

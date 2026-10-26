@@ -30,13 +30,12 @@
     <string name="diagnostics_probe_error_host_unreach">Host nicht erreichbar</string>
     <string name="diagnostics_probe_error_unknown">unbekannter Fehler</string>
     <string name="diagnostics_rkn_headline_control_down">Unklar: Kontrollverbindung ausgefallen</string>
-    <string name="diagnostics_rkn_note_control_down">Eine funktionierende Kontrollverbindung ist nötig, um Sperren von Netzwerkausfällen zu unterscheiden. Versuche ein anderes Netzwerk oder prüfe die lokale Verbindung.</string>
+    <string name="diagnostics_rkn_note_control_down">Eine funktionierende Kontrollverbindung ist nötig, um Sperren von Netzwerkausfällen zu unterscheiden. Versuchen Sie ein anderes Netzwerk oder prüfen Sie die lokale Verbindung.</string>
     <string name="diagnostics_rkn_headline_all_timeout">Unklar: alle Prüfungen mit Zeitüberschreitung</string>
     <string name="diagnostics_rkn_note_all_timeout">Wenn alle Prüfungen das Zeitlimit überschreiten, lässt sich eine Sperre nicht bestimmen.</string>
     <string name="diagnostics_rkn_headline_not_blocked">nicht gesperrt oder VPN/Proxy aktiv</string>
-    <string name="diagnostics_rkn_note_not_blocked">Alle Websites auf der Sperrliste wurden geladen. Du bist außerhalb der Sperrzone oder dein VPN/Proxy leitet den Verkehr weiter.</string>
+    <string name="diagnostics_rkn_note_not_blocked">Alle Websites auf der Sperrliste wurden geladen. Sie sind außerhalb der Sperrzone oder Ihr VPN/Proxy leitet den Verkehr weiter.</string>
     <string name="diagnostics_rkn_headline_high">in der Sperrzone: hohe Sicherheit</string>
-    <string name="diagnostics_rkn_note_high_format">Fehler bei %1$d/%2$d Websites auf der Sperrliste entsprechen zuverlässigen Sperrmustern (durch DoH bestätigte DNS-Manipulation, HTTP 451, bekannte Sperrseitenmerkmale).</string>
     <string name="diagnostics_rkn_headline_medium">in der Sperrzone: mittlere Sicherheit</string>
     <string name="diagnostics_rkn_note_medium">Die meisten Fehler auf der Sperrliste entsprechen Sperrmustern (TLS DPI, TCP RST), können aber auch durch Serverprobleme entstehen. Eine Kontrollmessung aus einem anderen Netzwerk würde dies bestätigen.</string>
     <string name="diagnostics_rkn_headline_partial">teilweise Sperren erkannt</string>

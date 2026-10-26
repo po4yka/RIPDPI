@@ -142,6 +142,7 @@ class DiagnosticsDnsResponseUiTest {
         val row = result.rows.single()
         assertEquals("0/1", row.availability)
         assertEquals(app.getString(R.string.diagnostics_dns_unknown), row.latency)
+        assertEquals(app.getString(R.string.dns_mode_plain), row.type)
         assertEquals("5", row.dnsResponses.single().value(R.string.diagnostics_dns_rcode))
         assertTrue(
             row.dnsResponses
@@ -149,6 +150,17 @@ class DiagnosticsDnsResponseUiTest {
                 .title
                 .contains("example.test"),
         )
+    }
+
+    @Test
+    fun availabilityShowsLatencyWithTheLocalizedUnitAndALabelledDohType() {
+        val row =
+            listOf(DnsServerResult("Test DoH", DnsServerType.DOH_WIRE, 1, 1, 42L, emptyMap()))
+                .toDnsAvailabilityUiModel(strings)
+                .rows
+                .single()
+        assertEquals("DoH", row.type)
+        assertEquals("42 ms", row.latency)
     }
 
     @Test

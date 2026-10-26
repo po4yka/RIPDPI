@@ -20,6 +20,7 @@ import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,6 +29,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
+import java.text.Bidi
 import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
@@ -86,6 +88,38 @@ class AndroidStringResolverLocaleTest {
         assertEquals("3 запомненные сети", networks(3))
         assertEquals("5 запомненных сетей", networks(5))
         assertEquals("21 запомненная сеть", networks(21))
+    }
+
+    @Test
+    fun `Arabic text arguments keep a following number out of their Latin run`() {
+        createActivity()
+        val resolver = AndroidStringResolver(englishContext(RuntimeEnvironment.getApplication()))
+
+        fun subtitle() = resolver.getString(R.string.history_connection_subtitle_format, "Wi-Fi", "25 أكتوبر، 7:30 م")
+
+        selectLanguage("ar")
+        val arabic = subtitle()
+        // In an RTL paragraph the separator must stay in the RTL flow (odd level). If "Wi-Fi"
+        // pulls "· 25" into its LTR run, the separator gets the even LTR level instead.
+        val bidi = Bidi(arabic, Bidi.DIRECTION_RIGHT_TO_LEFT)
+        assertEquals(1, bidi.getLevelAt(arabic.indexOf('·')))
+
+        selectLanguage("en")
+        assertEquals("Wi-Fi · 25 أكتوبر، 7:30 م", subtitle())
+    }
+
+    @Test
+    fun `Arabic text copied or shared carries no bidi isolate controls`() {
+        createActivity()
+        val resolver = AndroidStringResolver(englishContext(RuntimeEnvironment.getApplication()))
+        selectLanguage("ar")
+
+        val shown = resolver.getString(R.string.history_connection_subtitle_format, "Wi-Fi", "25 أكتوبر")
+        val copied = shown.withoutBidiIsolates()
+
+        assertTrue("Expected the screen text to carry isolates", shown.any { it.code in 0x2066..0x2069 })
+        assertTrue("Expected the copied text to keep the argument", copied.contains("Wi-Fi"))
+        assertTrue("Expected no isolates in the copied text", copied.none { it.code in 0x2066..0x2069 })
     }
 
     @Test

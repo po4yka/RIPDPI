@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">اجرای سریع و محدود. برای دیدن اینکه چه چیزی هر دامنه را مسدود می‌کند، از «کاوش راهبرد» استفاده کنید.</string>
+    <string name="blockcheck_vs_tuner">همه راهبردها را امتحان می‌کند و پیدا می‌کند چه چیزی هر دامنه را مسدود می‌کند. برای اجرای سریع و محدود، از «تنظیم راهبرد» استفاده کنید.</string>
+    <string name="connection_health_measurement_help_title">درباره این مقادیر</string>
+    <string name="logs_entry_details">جزئیات</string>
+    <string name="vpn_pcap_capture_list_empty_title">هنوز ضبطی وجود ندارد</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">باز کردن فایل‌های ضبط ذخیره‌شده ممکن نشد.</string>
+    <string name="support_settings_back_action">بازگشت</string>
+    <string name="remembered_networks_first_seen">نخستین مشاهده %1$s</string>
+    <string name="detection_community_empty_body">هنوز بررسی‌ای ثبت نشده است. برای افزودن نخستین بررسی، یک بررسی اجرا کنید.</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
+</resources>

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -157,12 +158,8 @@ internal fun AdvancedTextSetting(
     val isValid = remember(normalizedInput) { validator(normalizedInput) }
     val isDirty = normalizedInput != value
     val errorText = if (normalizedInput.isNotEmpty() && !isValid) invalidMessage else null
-    val helperText =
-        if (errorText == null && !enabled) {
-            disabledMessage
-        } else {
-            null
-        }
+    // Drawn below the field in the helper colour: the field's own helper takes the faint disabled colour.
+    val disabledReason = disabledMessage?.takeIf { errorText == null && !enabled }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -190,7 +187,6 @@ internal fun AdvancedTextSetting(
             decoration =
                 RipDpiTextFieldDecoration(
                     placeholder = placeholder,
-                    helperText = helperText,
                     errorText = errorText,
                     testTag = RipDpiTestTags.advancedInput(setting),
                 ),
@@ -207,20 +203,57 @@ internal fun AdvancedTextSetting(
                 ),
             multiline = multiline,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            RipDpiButton(
-                text = stringResource(R.string.config_save),
-                onClick = { onConfirm(setting, normalizedInput) },
-                enabled = enabled && isDirty && isValid,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.advancedSave(setting)),
-            )
-        }
+        AdvancedTextSettingFooter(
+            disabledReason = disabledReason,
+            showUnsaved = enabled && isDirty,
+            saveEnabled = enabled && isDirty && isValid,
+            onSave = { onConfirm(setting, normalizedInput) },
+            saveTestTag = RipDpiTestTags.advancedSave(setting),
+        )
         if (showDivider) {
             HorizontalDivider(color = colors.divider)
         }
+    }
+}
+
+@Composable
+private fun AdvancedTextSettingFooter(
+    disabledReason: String?,
+    showUnsaved: Boolean,
+    saveEnabled: Boolean,
+    onSave: () -> Unit,
+    saveTestTag: String,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    disabledReason?.let {
+        Text(
+            text = it,
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showUnsaved) {
+            Text(
+                text = stringResource(R.string.advanced_settings_unsaved_change),
+                modifier = Modifier.weight(1f),
+                style = type.caption,
+                color = colors.info,
+            )
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
+        RipDpiButton(
+            text = stringResource(R.string.config_save),
+            onClick = onSave,
+            enabled = saveEnabled,
+            modifier = Modifier.ripDpiTestTag(saveTestTag),
+        )
     }
 }
 

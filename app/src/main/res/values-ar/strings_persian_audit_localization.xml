@@ -109,7 +109,7 @@
     <string name="home_generated_epsilon">إبسيلون %1$s</string>
     <string name="home_generated_reality_rationale">اكتملت مصافحات Reality على %1$s هدف مختلف دون بيانات التطبيق؛ ورُصد رد QUIC Initial. لم يُحدّد سبب الإخفاق.</string>
     <string name="home_generated_strategy_rationale">اكتُشف %1$s%2$s%3$s. يُوصى بالانتقال إلى %4$s.</string>
-    <string name="home_generated_tcp_probes">" (مجسّات TCP: %1$s)"</string>
+    <string name="home_generated_tcp_probes">" (مجسّات ⁨TCP⁩: %1$s)"</string>
     <string name="home_generated_blocked_services">" (الخدمات المحظورة: %1$s)"</string>
     <string name="home_generated_dns_rationale">أظهر DNS‏ %1$s النتيجة %2$s، بينما أعاد %3$s %4$s عبر %5$s. عدد المجسّات: %6$s؛ متوسط التأخير: %7$s مللي ثانية.</string>
     <string name="home_generated_dns_bootstrap">تأكّدت إمكانية الوصول للتمهيد. عدد المجسّات: %1$s.</string>

@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="measurement_quality_samples">
+        <item quantity="one">%1$d образец RTT · джиттер %2$s мс</item>
+        <item quantity="few">%1$d образца RTT · джиттер %2$s мс</item>
+        <item quantity="many">%1$d образцов RTT · джиттер %2$s мс</item>
+        <item quantity="other">%1$d образца RTT · джиттер %2$s мс</item>
+    </plurals>
+    <plurals name="home_quality_samples">
+        <item quantity="one">%1$d образец RTT</item>
+        <item quantity="few">%1$d образца RTT</item>
+        <item quantity="many">%1$d образцов RTT</item>
+        <item quantity="other">%1$d образца RTT</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_min_reached">
+        <item quantity="one">Для цепочки нужно не менее %1$d узла.</item>
+        <item quantity="few">Для цепочки нужно не менее %1$d узлов.</item>
+        <item quantity="many">Для цепочки нужно не менее %1$d узлов.</item>
+        <item quantity="other">Для цепочки нужно не менее %1$d узлов.</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_max_reached">
+        <item quantity="one">В цепочке может быть не более %1$d узла.</item>
+        <item quantity="few">В цепочке может быть не более %1$d узлов.</item>
+        <item quantity="many">В цепочке может быть не более %1$d узлов.</item>
+        <item quantity="other">В цепочке может быть не более %1$d узлов.</item>
+    </plurals>
+    <plurals name="config_relay_chain_cumulative_caveat_body">
+        <item quantity="one">Трафик проходит по очереди через %1$d узел, поэтому каждый узел добавляет задержку. Больше узлов шире распределяют доверие между операторами, но не обеспечивают анонимность уровня Tor. Используйте разные юрисдикции и операторов для каждого узла, чтобы снизить корреляцию.</item>
+        <item quantity="few">Трафик проходит по очереди через все %1$d узла, поэтому каждый узел добавляет задержку. Больше узлов шире распределяют доверие между операторами, но не обеспечивают анонимность уровня Tor. Используйте разные юрисдикции и операторов для каждого узла, чтобы снизить корреляцию.</item>
+        <item quantity="many">Трафик проходит по очереди через все %1$d узлов, поэтому каждый узел добавляет задержку. Больше узлов шире распределяют доверие между операторами, но не обеспечивают анонимность уровня Tor. Используйте разные юрисдикции и операторов для каждого узла, чтобы снизить корреляцию.</item>
+        <item quantity="other">Трафик проходит по очереди через все %1$d узла, поэтому каждый узел добавляет задержку. Больше узлов шире распределяют доверие между операторами, но не обеспечивают анонимность уровня Tor. Используйте разные юрисдикции и операторов для каждого узла, чтобы снизить корреляцию.</item>
+    </plurals>
+    <plurals name="adaptive_fallback_cache_summary">
+        <item quantity="one">%1$d секунда · IPv4 /%2$d</item>
+        <item quantity="few">%1$d секунды · IPv4 /%2$d</item>
+        <item quantity="many">%1$d секунд · IPv4 /%2$d</item>
+        <item quantity="other">%1$d секунды · IPv4 /%2$d</item>
+    </plurals>
+    <plurals name="host_autolearn_limits_summary">
+        <item quantity="one">Окно штрафа %1$dч · Лимит %2$d хост</item>
+        <item quantity="few">Окно штрафа %1$dч · Лимит %2$d хоста</item>
+        <item quantity="many">Окно штрафа %1$dч · Лимит %2$d хостов</item>
+        <item quantity="other">Окно штрафа %1$dч · Лимит %2$d хоста</item>
+    </plurals>
+    <plurals name="quic_fake_profile_burst_configured">
+        <item quantity="one">%1$d пакет fake_burst настроен в UDP-цепочке.</item>
+        <item quantity="few">%1$d пакета fake_burst настроено в UDP-цепочке.</item>
+        <item quantity="many">%1$d пакетов fake_burst настроено в UDP-цепочке.</item>
+        <item quantity="other">%1$d пакета fake_burst настроено в UDP-цепочке.</item>
+    </plurals>
+    <plurals name="udp_fake_profile_scope_live">
+        <item quantity="one">Используется для %1$d общего UDP-пакета fake_burst в текущей цепочке.</item>
+        <item quantity="few">Используется для %1$d общих UDP-пакетов fake_burst в текущей цепочке.</item>
+        <item quantity="many">Используется для %1$d общих UDP-пакетов fake_burst в текущей цепочке.</item>
+        <item quantity="other">Используется для %1$d общих UDP-пакетов fake_burst в текущей цепочке.</item>
+    </plurals>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="one">%1$d шаг hostfake</item>
+        <item quantity="few">%1$d шага hostfake</item>
+        <item quantity="many">%1$d шагов hostfake</item>
+        <item quantity="other">%1$d шага hostfake</item>
+    </plurals>
+    <plurals name="ripdpi_fake_approx_summary_profile_multiple">
+        <item quantity="one">%1$d шаг приближения фейков</item>
+        <item quantity="few">%1$d шага приближения фейков</item>
+        <item quantity="many">%1$d шагов приближения фейков</item>
+        <item quantity="other">%1$d шага приближения фейков</item>
+    </plurals>
+    <plurals name="blockcheck_status_format">
+        <item quantity="one">%1$d/%2$d проверки</item>
+        <item quantity="few">%1$d/%2$d проверок</item>
+        <item quantity="many">%1$d/%2$d проверок</item>
+        <item quantity="other">%1$d/%2$d проверок</item>
+    </plurals>
+    <plurals name="strategy_tuner_status_format">
+        <item quantity="one">%1$d/%2$d пробы</item>
+        <item quantity="few">%1$d/%2$d проб</item>
+        <item quantity="many">%1$d/%2$d проб</item>
+        <item quantity="other">%1$d/%2$d проб</item>
+    </plurals>
+    <plurals name="strategy_tuner_result_detail_format">
+        <item quantity="one">%1$d/%2$d домена OK • в среднем %3$d мс</item>
+        <item quantity="few">%1$d/%2$d доменов OK • в среднем %3$d мс</item>
+        <item quantity="many">%1$d/%2$d доменов OK • в среднем %3$d мс</item>
+        <item quantity="other">%1$d/%2$d доменов OK • в среднем %3$d мс</item>
+    </plurals>
+    <plurals name="blockcheck_result_detail_format">
+        <item quantity="one">%1$d/%2$d домена OK • в среднем %3$d мс</item>
+        <item quantity="few">%1$d/%2$d доменов OK • в среднем %3$d мс</item>
+        <item quantity="many">%1$d/%2$d доменов OK • в среднем %3$d мс</item>
+        <item quantity="other">%1$d/%2$d доменов OK • в среднем %3$d мс</item>
+    </plurals>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d записи</item>
+        <item quantity="few">%1$d / %2$d записей</item>
+        <item quantity="many">%1$d / %2$d записей</item>
+        <item quantity="other">%1$d / %2$d записей</item>
+    </plurals>
+    <plurals name="diagnostics_live_mode_summary_format">
+        <item quantity="one">Режим %1$s · %2$s передано · %3$d пакет наблюдался</item>
+        <item quantity="few">Режим %1$s · %2$s передано · %3$d пакета наблюдалось</item>
+        <item quantity="many">Режим %1$s · %2$s передано · %3$d пакетов наблюдалось</item>
+        <item quantity="other">Режим %1$s · %2$s передано · %3$d пакета наблюдалось</item>
+    </plurals>
+    <plurals name="domain_bypass_errors_title">
+        <item quantity="one">%1$d недопустимая строка</item>
+        <item quantity="few">%1$d недопустимые строки</item>
+        <item quantity="many">%1$d недопустимых строк</item>
+        <item quantity="other">%1$d недопустимые строки</item>
+    </plurals>
+    <plurals name="domain_bypass_saved">
+        <item quantity="one">Сохранён %1$d домен</item>
+        <item quantity="few">Сохранено %1$d домена</item>
+        <item quantity="many">Сохранено %1$d доменов</item>
+        <item quantity="other">Сохранено %1$d домена</item>
+    </plurals>
+    <plurals name="backup_import_shareable_body">
+        <item quantity="one">%1$d профиль нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
+        <item quantity="few">%1$d профиля нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
+        <item quantity="many">%1$d профилей нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
+        <item quantity="other">%1$d профиля нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
+    </plurals>
+    <plurals name="detection_probe_outcome_format">
+        <item quantity="one">Результат зонда: раскрыто сигналов %1$d/%2$d</item>
+        <item quantity="few">Результат зонда: раскрыто сигналов %1$d/%2$d</item>
+        <item quantity="many">Результат зонда: раскрыто сигналов %1$d/%2$d</item>
+        <item quantity="other">Результат зонда: раскрыто сигналов %1$d/%2$d</item>
+    </plurals>
+    <plurals name="diagnostics_allowlist_sni_ready">
+        <item quantity="one">Готово для %1$d цели, помеченной TCP16.</item>
+        <item quantity="few">Готово для %1$d целей, помеченных TCP16.</item>
+        <item quantity="many">Готово для %1$d целей, помеченных TCP16.</item>
+        <item quantity="other">Готово для %1$d целей, помеченных TCP16.</item>
+    </plurals>
+    <plurals name="diagnostics_byoh_complete">
+        <item quantity="one">%1$d из %2$d имени хоста завершили настроенную передачу.</item>
+        <item quantity="few">%1$d из %2$d имён хостов завершили настроенную передачу.</item>
+        <item quantity="many">%1$d из %2$d имён хостов завершили настроенную передачу.</item>
+        <item quantity="other">%1$d из %2$d имён хостов завершили настроенную передачу.</item>
+    </plurals>
+    <plurals name="diagnostics_compression_complete">
+        <item quantity="one">%1$d из %2$d кодека сжатия пригодны для %3$s.</item>
+        <item quantity="few">%1$d из %2$d кодеков сжатия пригодны для %3$s.</item>
+        <item quantity="many">%1$d из %2$d кодеков сжатия пригодны для %3$s.</item>
+        <item quantity="other">%1$d из %2$d кодеков сжатия пригодны для %3$s.</item>
+    </plurals>
+    <plurals name="diagnostics_dns_availability_complete">
+        <item quantity="one">%1$d из %2$d публичного DNS-резолвера ответили.</item>
+        <item quantity="few">%1$d из %2$d публичных DNS-резолверов ответили.</item>
+        <item quantity="many">%1$d из %2$d публичных DNS-резолверов ответили.</item>
+        <item quantity="other">%1$d из %2$d публичных DNS-резолверов ответили.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_clean">
+        <item quantity="one">Блокировок достижимости не обнаружено для %1$d встроенного домена.</item>
+        <item quantity="few">Блокировок достижимости не обнаружено среди %1$d встроенных доменов.</item>
+        <item quantity="many">Блокировок достижимости не обнаружено среди %1$d встроенных доменов.</item>
+        <item quantity="other">Блокировок достижимости не обнаружено среди %1$d встроенных доменов.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_flagged">
+        <item quantity="one">%1$d из %2$d домена показали предупреждения о достижимости.</item>
+        <item quantity="few">%1$d из %2$d доменов показали предупреждения о достижимости.</item>
+        <item quantity="many">%1$d из %2$d доменов показали предупреждения о достижимости.</item>
+        <item quantity="other">%1$d из %2$d доменов показали предупреждения о достижимости.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_running">
+        <item quantity="one">Проверка достижимости с %1$d stub-IP DNS…</item>
+        <item quantity="few">Проверка достижимости с %1$d stub-IP DNS…</item>
+        <item quantity="many">Проверка достижимости с %1$d stub-IP DNS…</item>
+        <item quantity="other">Проверка достижимости с %1$d stub-IP DNS…</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_complete">
+        <item quantity="one">Закэширован %1$d кандидатный диапазон /24.</item>
+        <item quantity="few">Закэшировано %1$d кандидатных диапазона /24.</item>
+        <item quantity="many">Закэшировано %1$d кандидатных диапазонов /24.</item>
+        <item quantity="other">Закэшировано %1$d кандидатных диапазона /24.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_provider">
+        <item quantity="one">Закэширован %1$d диапазон /24 для %2$s.</item>
+        <item quantity="few">Закэшировано %1$d диапазона /24 для %2$s.</item>
+        <item quantity="many">Закэшировано %1$d диапазонов /24 для %2$s.</item>
+        <item quantity="other">Закэшировано %1$d диапазона /24 для %2$s.</item>
+    </plurals>
+    <plurals name="diagnostics_tcp16_complete_clean">
+        <item quantity="one">Шаблон закрытия с толстым заголовком TCP16 не обнаружен для %1$d цели.</item>
+        <item quantity="few">Шаблон закрытия с толстым заголовком TCP16 не обнаружен среди %1$d целей.</item>
+        <item quantity="many">Шаблон закрытия с толстым заголовком TCP16 не обнаружен среди %1$d целей.</item>
+        <item quantity="other">Шаблон закрытия с толстым заголовком TCP16 не обнаружен среди %1$d целей.</item>
+    </plurals>
+    <plurals name="subscription_signal_banner_multiple_message">
+        <item quantity="one">%1$d подписка требует внимания. Сохранённые ретрансляторы могут устареть.</item>
+        <item quantity="few">%1$d подписки требуют внимания. Сохранённые ретрансляторы могут устареть.</item>
+        <item quantity="many">%1$d подписок требуют внимания. Сохранённые ретрансляторы могут устареть.</item>
+        <item quantity="other">%1$d подписки требуют внимания. Сохранённые ретрансляторы могут устареть.</item>
+    </plurals>
+    <plurals name="subscription_home_multiple_title">
+        <item quantity="one">Требуют внимания: %1$d</item>
+        <item quantity="few">Требуют внимания: %1$d</item>
+        <item quantity="many">Требуют внимания: %1$d</item>
+        <item quantity="other">Требуют внимания: %1$d</item>
+    </plurals>
+    <plurals name="diagnostics_sparkline_chart_description">
+        <item quantity="one">График %1$s, точек: %2$d</item>
+        <item quantity="few">График %1$s, точек: %2$d</item>
+        <item quantity="many">График %1$s, точек: %2$d</item>
+        <item quantity="other">График %1$s, точек: %2$d</item>
+    </plurals>
+    <plurals name="diagnostics_rkn_note_high_format">
+        <item quantity="one">Сбои для %1$d/%2$d сайта из чёрного списка соответствуют надёжным признакам блокировки (подмена DNS, подтверждённая DoH, HTTP 451, известные маркеры страниц блокировки).</item>
+        <item quantity="few">Сбои для %1$d/%2$d сайтов из чёрного списка соответствуют надёжным признакам блокировки (подмена DNS, подтверждённая DoH, HTTP 451, известные маркеры страниц блокировки).</item>
+        <item quantity="many">Сбои для %1$d/%2$d сайтов из чёрного списка соответствуют надёжным признакам блокировки (подмена DNS, подтверждённая DoH, HTTP 451, известные маркеры страниц блокировки).</item>
+        <item quantity="other">Сбои для %1$d/%2$d сайтов из чёрного списка соответствуют надёжным признакам блокировки (подмена DNS, подтверждённая DoH, HTTP 451, известные маркеры страниц блокировки).</item>
+    </plurals>
+    <plurals name="diagnostics_outcome_coverage_format">
+        <item quantity="one">Завершено этапов: %1$d из %2$d; с ошибкой: %3$d</item>
+        <item quantity="few">Завершено этапов: %1$d из %2$d; с ошибкой: %3$d</item>
+        <item quantity="many">Завершено этапов: %1$d из %2$d; с ошибкой: %3$d</item>
+        <item quantity="other">Завершено этапов: %1$d из %2$d; с ошибкой: %3$d</item>
+    </plurals>
+    <plurals name="diagnostics_dns_complete_agree">
+        <item quantity="one">Ответы DNS с адресами совпадают для %1$d встроенного домена.</item>
+        <item quantity="few">Ответы DNS с адресами совпадают для %1$d встроенных доменов.</item>
+        <item quantity="many">Ответы DNS с адресами совпадают для %1$d встроенных доменов.</item>
+        <item quantity="other">Ответы DNS с адресами совпадают для %1$d встроенных доменов.</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_review_format">
+        <item quantity="one">Проверить %1$d/%2$d этапа</item>
+        <item quantity="few">Проверить %1$d/%2$d этапов</item>
+        <item quantity="many">Проверить %1$d/%2$d этапов</item>
+        <item quantity="other">Проверить %1$d/%2$d этапов</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_complete_format">
+        <item quantity="one">%1$d/%2$d этапа завершено</item>
+        <item quantity="few">%1$d/%2$d этапов завершено</item>
+        <item quantity="many">%1$d/%2$d этапов завершено</item>
+        <item quantity="other">%1$d/%2$d этапов завершено</item>
+    </plurals>
+    <plurals name="diagnostics_profile_probe_partial_results_body">
+        <item quantity="one">Время сканирования истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидата.</item>
+        <item quantity="few">Время сканирования истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</item>
+        <item quantity="many">Время сканирования истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</item>
+        <item quantity="other">Время сканирования истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</item>
+    </plurals>
+    <plurals name="diagnostics_profile_audit_partial_results_body">
+        <item quantity="one">Время аудита истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидата.</item>
+        <item quantity="few">Время аудита истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</item>
+        <item quantity="many">Время аудита истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</item>
+        <item quantity="other">Время аудита истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</item>
+    </plurals>
+    <plurals name="diagnostics_partial_results_matrix_title">
+        <item quantity="one">Частичные результаты (%1$d/%2$d кандидата)</item>
+        <item quantity="few">Частичные результаты (%1$d/%2$d кандидатов)</item>
+        <item quantity="many">Частичные результаты (%1$d/%2$d кандидатов)</item>
+        <item quantity="other">Частичные результаты (%1$d/%2$d кандидатов)</item>
+    </plurals>
+    <plurals name="connection_health_latency_range_format">
+        <item quantity="one">мин %1$d · макс %2$d · %3$d сэмпл</item>
+        <item quantity="few">мин %1$d · макс %2$d · %3$d сэмпла</item>
+        <item quantity="many">мин %1$d · макс %2$d · %3$d сэмплов</item>
+        <item quantity="other">мин %1$d · макс %2$d · %3$d сэмпла</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_learned_format">
+        <item quantity="one">%1$d изучен</item>
+        <item quantity="few">%1$d изучено</item>
+        <item quantity="many">%1$d изучено</item>
+        <item quantity="other">%1$d изучено</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_penalized_format">
+        <item quantity="one">%1$d оштрафован</item>
+        <item quantity="few">%1$d оштрафовано</item>
+        <item quantity="many">%1$d оштрафовано</item>
+        <item quantity="other">%1$d оштрафовано</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_blocked_format">
+        <item quantity="one">%1$d заблокирован</item>
+        <item quantity="few">%1$d заблокировано</item>
+        <item quantity="many">%1$d заблокировано</item>
+        <item quantity="other">%1$d заблокировано</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_safe_count">
+        <item quantity="one">%1$d безопасный</item>
+        <item quantity="few">%1$d безопасных</item>
+        <item quantity="many">%1$d безопасных</item>
+        <item quantity="other">%1$d безопасных</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_aggressive_count">
+        <item quantity="one">%1$d агрессивный</item>
+        <item quantity="few">%1$d агрессивных</item>
+        <item quantity="many">%1$d агрессивных</item>
+        <item quantity="other">%1$d агрессивных</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_progress">
+        <item quantity="one">Проверено %1$d/%2$d закэшированной подсети.</item>
+        <item quantity="few">Проверено %1$d/%2$d закэшированных подсетей.</item>
+        <item quantity="many">Проверено %1$d/%2$d закэшированных подсетей.</item>
+        <item quantity="other">Проверено %1$d/%2$d закэшированных подсетей.</item>
+    </plurals>
+</resources>

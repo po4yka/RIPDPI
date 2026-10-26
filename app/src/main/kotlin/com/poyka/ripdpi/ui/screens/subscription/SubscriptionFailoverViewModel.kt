@@ -385,7 +385,12 @@ private fun subscriptionAlert(
         if (signals.size > 1) {
             SubscriptionAlertUiState(
                 title = strings.getString(highestSignal.titleResource),
-                message = strings.getString(R.string.subscription_signal_banner_multiple_message, signals.size),
+                message =
+                    strings.getQuantityString(
+                        R.plurals.subscription_signal_banner_multiple_message,
+                        signals.size,
+                        signals.size,
+                    ),
                 tone = tone,
             )
         } else {

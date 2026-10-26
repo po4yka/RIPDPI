@@ -95,7 +95,7 @@ private fun CidrWhitelistProbeTrace.toUiModel(stringResolver: StringResolver): D
                     R.string.diagnostics_cidr_whitelist_status_failed
                 },
             ),
-        latency = "$latencyMs ms",
+        latency = stringResolver.getString(R.string.unit_milliseconds_format, latencyMs),
         error = error,
         tone = if (ok) DiagnosticsTone.Positive else DiagnosticsTone.Warning,
     )

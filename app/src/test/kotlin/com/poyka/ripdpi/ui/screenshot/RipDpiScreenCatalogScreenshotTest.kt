@@ -275,7 +275,11 @@ class RipDpiScreenCatalogScreenshotTest {
     fun subscriptionFailoverScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
             RipDpiTheme {
-                SubscriptionFailoverScreen(uiState = previewSubscriptionFailoverUiState(), onBack = {})
+                SubscriptionFailoverScreen(
+                    uiState = previewSubscriptionFailoverUiState(),
+                    onBack = {},
+                    onAddSubscription = {},
+                )
             }
         }
     }

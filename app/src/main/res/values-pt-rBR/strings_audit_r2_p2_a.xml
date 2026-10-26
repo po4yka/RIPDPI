@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">Limpar o PIN de backup?</string>
+    <string name="settings_backup_pin_clear_dialog_body">O PIN será removido deste dispositivo. Você não poderá mais usá-lo para autenticação alternativa.</string>
+    <string name="routes_edit_rule">Editar regra</string>
+    <string name="home_quality_measure">Medir</string>
+    <string name="home_strategy_details">Detalhes</string>
+    <string name="home_strategy_hide_details">Ocultar detalhes</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">Mais %d aviso</item>
+        <item quantity="many">Mais %d avisos</item>
+        <item quantity="other">Mais %d avisos</item>
+    </plurals>
+    <string name="config_relay_off_title">Relay desativado</string>
+    <string name="config_relay_off_body">Configure um servidor de retransmissão para enviar seu tráfego por ele.</string>
+    <string name="home_connection_path_direct">Conexão direta</string>
+</resources>

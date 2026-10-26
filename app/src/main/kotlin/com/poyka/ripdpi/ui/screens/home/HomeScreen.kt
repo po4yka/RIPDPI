@@ -21,6 +21,7 @@ import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -110,7 +111,11 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 onCopyFaultDetail =
                     faultDetail.takeIf { it.isNotEmpty() }?.let { message ->
-                        { clipboardManager?.setPrimaryClip(ClipData.newPlainText(errorClipboardLabel, message)) }
+                        {
+                            clipboardManager?.setPrimaryClip(
+                                ClipData.newPlainText(errorClipboardLabel, message.withoutBidiIsolates()),
+                            )
+                        }
                     },
                 testTag = RipDpiTestTags.ConnectionActuatorButton,
             )

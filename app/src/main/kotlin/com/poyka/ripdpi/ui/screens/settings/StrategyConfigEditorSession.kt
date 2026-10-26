@@ -67,7 +67,6 @@ internal data class StrategyConfigEditorSession(
         }
 
     fun toScreenState(
-        activePath: String,
         banner: StrategyConfigBanner?,
         isHydrating: Boolean = false,
         hasHydrationError: Boolean = false,
@@ -78,7 +77,6 @@ internal data class StrategyConfigEditorSession(
             configText = draft.configText,
             luaPath = draft.luaPath,
             luaFunction = draft.luaFunction,
-            activePath = activePath,
             banner = banner,
             isSaving = isSaving,
             isHydrating = isHydrating,

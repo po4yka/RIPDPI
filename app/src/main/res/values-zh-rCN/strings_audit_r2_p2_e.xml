@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="measurement_quality_samples">
+        <item quantity="other">%1$d 个 RTT 样本 · 抖动 %2$s 毫秒</item>
+    </plurals>
+    <plurals name="home_quality_samples">
+        <item quantity="other">%1$d 个 RTT 样本</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_min_reached">
+        <item quantity="other">一条链至少需要 %1$d 跳。</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_max_reached">
+        <item quantity="other">一条链最多可有 %1$d 跳。</item>
+    </plurals>
+    <plurals name="config_relay_chain_cumulative_caveat_body">
+        <item quantity="other">流量会依次经过全部 %1$d 跳，因此每一跳都会增加延迟。跳数越多，信任越分散到多个运营商，但并不能提供 Tor 级别的匿名性。请为每一跳使用不同的司法管辖区和运营商，以降低关联风险。</item>
+    </plurals>
+    <plurals name="adaptive_fallback_cache_summary">
+        <item quantity="other">%1$d 秒 · IPv4 /%2$d</item>
+    </plurals>
+    <plurals name="host_autolearn_limits_summary">
+        <item quantity="other">惩罚窗口 %1$d 小时 · 上限 %2$d 个主机</item>
+    </plurals>
+    <plurals name="quic_fake_profile_burst_configured">
+        <item quantity="other">UDP 链已配置 %1$d 个 fake_burst 数据包。</item>
+    </plurals>
+    <plurals name="udp_fake_profile_scope_live">
+        <item quantity="other">用于当前链上的 %1$d 个通用 UDP fake_burst 数据包。</item>
+    </plurals>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="other">%1$d 个 hostfake 步骤</item>
+    </plurals>
+    <plurals name="ripdpi_fake_approx_summary_profile_multiple">
+        <item quantity="other">%1$d 个 fake 近似步骤</item>
+    </plurals>
+    <plurals name="blockcheck_status_format">
+        <item quantity="other">%1$d/%2$d 次检查</item>
+    </plurals>
+    <plurals name="strategy_tuner_status_format">
+        <item quantity="other">%1$d/%2$d 次探测</item>
+    </plurals>
+    <plurals name="strategy_tuner_result_detail_format">
+        <item quantity="other">%1$d/%2$d 个域名正常 • 平均 %3$d ms</item>
+    </plurals>
+    <plurals name="blockcheck_result_detail_format">
+        <item quantity="other">%1$d/%2$d 个域名正常 • 平均 %3$d 毫秒</item>
+    </plurals>
+    <plurals name="logs_buffer_value">
+        <item quantity="other">%1$d / %2$d 条</item>
+    </plurals>
+    <plurals name="diagnostics_live_mode_summary_format">
+        <item quantity="other">%1$s 模式 · 已传输 %2$s · 观察到 %3$d 个数据包</item>
+    </plurals>
+    <plurals name="domain_bypass_errors_title">
+        <item quantity="other">%1$d 行无效</item>
+    </plurals>
+    <plurals name="domain_bypass_saved">
+        <item quantity="other">已保存 %1$d 个域名</item>
+    </plurals>
+    <plurals name="backup_import_shareable_body">
+        <item quantity="other">由于已移除凭据，%1$d 个配置文件无法恢复。组、路由和设置仍可恢复。</item>
+    </plurals>
+    <plurals name="detection_probe_outcome_format">
+        <item quantity="other">探针结果：暴露 %1$d/%2$d 个信号</item>
+    </plurals>
+    <plurals name="diagnostics_allowlist_sni_ready">
+        <item quantity="other">已就绪，可处理 %1$d 个 TCP16 标记的目标。</item>
+    </plurals>
+    <plurals name="diagnostics_byoh_complete">
+        <item quantity="other">%2$d 个主机名中有 %1$d 个完成了配置的传输。</item>
+    </plurals>
+    <plurals name="diagnostics_compression_complete">
+        <item quantity="other">%2$d 个压缩编解码器中有 %1$d 个可用于 %3$s。</item>
+    </plurals>
+    <plurals name="diagnostics_dns_availability_complete">
+        <item quantity="other">%2$d 个公共 DNS 解析器中有 %1$d 个有响应。</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_clean">
+        <item quantity="other">在 %1$d 个内置域名中未检测到可达性阻断。</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_flagged">
+        <item quantity="other">%2$d 个域名中有 %1$d 个显示出可达性警告。</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_running">
+        <item quantity="other">正在用 %1$d 个 DNS 存根 IP 探测可达性……</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_complete">
+        <item quantity="other">已缓存 %1$d 个候选 /24 范围。</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_provider">
+        <item quantity="other">已为 %2$s 缓存 %1$d 个 /24 范围。</item>
+    </plurals>
+    <plurals name="diagnostics_tcp16_complete_clean">
+        <item quantity="other">在 %1$d 个目标中未检测到 TCP16 肥头部关闭模式。</item>
+    </plurals>
+    <plurals name="subscription_signal_banner_multiple_message">
+        <item quantity="other">%1$d 个订阅需要处理。缓存的中继节点可能已过时。</item>
+    </plurals>
+    <plurals name="subscription_home_multiple_title">
+        <item quantity="other">有 %1$d 个订阅需要处理</item>
+    </plurals>
+    <plurals name="diagnostics_sparkline_chart_description">
+        <item quantity="other">%1$s 趋势，共 %2$d 个样本</item>
+    </plurals>
+    <plurals name="diagnostics_rkn_note_high_format">
+        <item quantity="other">%1$d/%2$d 次黑名单网站访问失败符合高置信度封锁特征（DoH 确认的 DNS 污染、HTTP 451、已知封锁页面标记）。</item>
+    </plurals>
+    <plurals name="diagnostics_outcome_coverage_format">
+        <item quantity="other">已完成 %1$d/%2$d 个阶段；%3$d 个失败</item>
+    </plurals>
+    <plurals name="diagnostics_dns_complete_agree">
+        <item quantity="other">%1$d 个内置域名的 DNS 地址响应一致。</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_review_format">
+        <item quantity="other">查看 %1$d/%2$d 个阶段</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_complete_format">
+        <item quantity="other">已完成 %1$d/%2$d 个阶段</item>
+    </plurals>
+    <plurals name="diagnostics_profile_probe_partial_results_body">
+        <item quantity="other">扫描在所有候选项测试完成之前用尽了时间。结果基于 %2$d 个候选项中的 %1$d 个。</item>
+    </plurals>
+    <plurals name="diagnostics_profile_audit_partial_results_body">
+        <item quantity="other">审计在所有候选项测试完成之前用尽了时间。结果基于 %2$d 个候选项中的 %1$d 个。</item>
+    </plurals>
+    <plurals name="diagnostics_partial_results_matrix_title">
+        <item quantity="other">部分结果（%1$d/%2$d 个候选项）</item>
+    </plurals>
+    <plurals name="connection_health_latency_range_format">
+        <item quantity="other">最小 %1$d · 最大 %2$d · %3$d 个样本</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_learned_format">
+        <item quantity="other">已学习 %1$d 条</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_penalized_format">
+        <item quantity="other">已惩罚 %1$d 个</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_blocked_format">
+        <item quantity="other">%1$d 个被阻止</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_safe_count">
+        <item quantity="other">%1$d 项安全</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_aggressive_count">
+        <item quantity="other">%1$d 项激进</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_progress">
+        <item quantity="other">已检查 %1$d/%2$d 个缓存的子网。</item>
+    </plurals>
+</resources>

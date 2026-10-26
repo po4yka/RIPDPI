@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">Clear backup PIN?</string>
+    <string name="settings_backup_pin_clear_dialog_body">The PIN is removed from this device. You can no longer use it for fallback authentication.</string>
+    <string name="routes_edit_rule">Edit rule</string>
+    <string name="home_quality_measure">Measure</string>
+    <string name="home_strategy_details">Details</string>
+    <string name="home_strategy_hide_details">Hide details</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">%d more notice</item>
+        <item quantity="other">%d more notices</item>
+    </plurals>
+    <string name="config_relay_off_title">Relay off</string>
+    <string name="config_relay_off_body">Set up a relay server to send your traffic through it.</string>
+    <string name="home_connection_path_direct">Direct connection</string>
+</resources>

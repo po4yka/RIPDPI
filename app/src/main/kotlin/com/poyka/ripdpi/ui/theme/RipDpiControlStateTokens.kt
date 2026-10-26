@@ -11,7 +11,8 @@ private const val DisabledAlpha = 0.38f
 private const val SwitchLuminanceMidpoint = 0.5f
 private const val SwitchTrackDarkBlend = 0.25f
 private const val SwitchTrackLightBlend = 0.16f
-private const val SwitchThumbDarkBlend = 0.5f
+private const val SwitchThumbDarkBlend = 0.72f
+private const val SwitchDisabledCheckedDarkTrackBlend = 0.5f
 private const val SwitchPressedCheckedTrackBlend = 0.18f
 private const val SwitchPressedDarkTrackBlend = 0.32f
 private const val SwitchPressedLightTrackBlend = 0.22f
@@ -114,6 +115,15 @@ data class RipDpiSwitchStateTokens(
         isPressed: Boolean,
     ): RipDpiSwitchStateStyle {
         val isDark = colorScheme.background.luminance() < SwitchLuminanceMidpoint
+        if (isDark && checked && !enabled) {
+            // Dark disabled-on stays an opaque, dimmed on-switch; a faded one reads as off.
+            return RipDpiSwitchStateStyle(
+                track = lerp(colors.background, colors.foreground, SwitchDisabledCheckedDarkTrackBlend),
+                thumb = colors.background,
+                alpha = 1f,
+            )
+        }
+        val alpha = if (enabled) 1f else DisabledAlpha
         return RipDpiSwitchStateStyle(
             track =
                 switchTrackColor(
@@ -131,7 +141,14 @@ data class RipDpiSwitchStateTokens(
                     checked = checked,
                     isDark = isDark,
                 ),
-            alpha = if (enabled) 1f else DisabledAlpha,
+            alpha = alpha,
+            // M3 dark: the off track gets an outline in the thumb tone so it stands off the card.
+            trackBorder =
+                if (isDark && !checked) {
+                    lerp(colors.background, colors.foreground, SwitchThumbDarkBlend).copy(alpha = alpha)
+                } else {
+                    Color.Transparent
+                },
         )
     }
 }

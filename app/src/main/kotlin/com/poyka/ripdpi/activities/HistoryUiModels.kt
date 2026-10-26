@@ -76,6 +76,8 @@ data class HistoryUiState(
     val selectedDiagnosticsDetail: DiagnosticsSessionDetailUiModel? = null,
     val selectedEvent: DiagnosticsEventUiModel? = null,
     val isRefreshing: Boolean = false,
+    /** True until the first repository snapshot arrives, so the empty state does not flash on a cold open. */
+    val isLoading: Boolean = false,
     val hasConnectionHistory: Boolean = connections.sessions.isNotEmpty(),
     val hasDiagnosticsHistory: Boolean = diagnostics.sessions.isNotEmpty(),
     val hasEventHistory: Boolean = events.events.isNotEmpty(),

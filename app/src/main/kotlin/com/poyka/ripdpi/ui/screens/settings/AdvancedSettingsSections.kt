@@ -261,6 +261,7 @@ private fun TelemetrySaltResetAction(onRotateSalt: () -> Unit) {
             confirmAction =
                 RipDpiDialogAction(
                     label = stringResource(R.string.confirm_rotate_telemetry_salt_confirm),
+                    destructive = true,
                     onClick = {
                         showConfirmDialog = false
                         onRotateSalt()
@@ -286,7 +287,7 @@ private fun TelemetrySaltResetAction(onRotateSalt: () -> Unit) {
         RipDpiButton(
             text = stringResource(R.string.settings_telemetry_salt_reset_action),
             onClick = { showConfirmDialog = true },
-            variant = RipDpiButtonVariant.Outline,
+            variant = RipDpiButtonVariant.Destructive,
             trailingIcon = RipDpiIcons.Close,
         )
     }
@@ -448,6 +449,32 @@ private fun ProxyCapacitySettings(
 }
 
 @Composable
+private fun ProxyTransportToggles(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.ripdpi_no_domain_setting),
+        subtitle = stringResource(R.string.ripdpi_no_domain_body),
+        checked = uiState.proxy.noDomain,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
+        enabled = visualEditorEnabled,
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain),
+    )
+    SettingsRow(
+        title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
+        subtitle = stringResource(R.string.ripdpi_tcp_fast_open_body),
+        checked = uiState.proxy.tcpFastOpen,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
+        enabled = visualEditorEnabled,
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen),
+    )
+}
+
+@Composable
 private fun ProxyToggleSettings(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -467,22 +494,7 @@ private fun ProxyToggleSettings(
         )
     }
 
-    SettingsRow(
-        title = stringResource(R.string.ripdpi_no_domain_setting),
-        checked = uiState.proxy.noDomain,
-        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
-        enabled = visualEditorEnabled,
-        showDivider = true,
-        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain),
-    )
-    SettingsRow(
-        title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
-        checked = uiState.proxy.tcpFastOpen,
-        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
-        enabled = visualEditorEnabled,
-        showDivider = true,
-        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen),
-    )
+    ProxyTransportToggles(uiState, visualEditorEnabled, onToggleChanged)
     SettingsRow(
         title = stringResource(R.string.settings_mixed_inbound_title),
         subtitle = stringResource(R.string.settings_mixed_inbound_body),
@@ -689,7 +701,7 @@ internal fun LazyListScope.networkStrategyMemorySection(
                         onClick = { showClearDialog = true },
                         enabled = uiState.canClearRememberedNetworks,
                         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.AdvancedClearRememberedNetworks),
-                        variant = RipDpiButtonVariant.Outline,
+                        variant = RipDpiButtonVariant.Destructive,
                         trailingIcon = RipDpiIcons.Close,
                     )
                 }
@@ -719,6 +731,7 @@ private fun ClearRememberedNetworksDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_clear_remembered_networks_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =

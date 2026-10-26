@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">Captura de paquetes</string>
+    <string name="data_transparency_packet_capture_body">Un archivo PCAP solo se crea cuando inicias el control avanzado de captura de paquetes. Puede contener bytes de datos de paquetes sin procesar y no se censura. Compártelo solo con personas de confianza.</string>
+    <string name="data_transparency_open_controls">Ajustes de retención y monitorización</string>
+    <string name="settings_community_source_title">Estadísticas de la comunidad</string>
+    <string name="settings_community_source_body">La comprobación de detección descarga estadísticas compartidas desde esta dirección para comparar tus resultados. No se envía nada.</string>
+    <string name="settings_community_source_default">Predeterminada</string>
+    <string name="settings_clear_community_cache_body">Elimina las estadísticas de la comunidad descargadas. Tu historial de comprobaciones se conserva.</string>
+    <string name="ripdpi_no_domain_body">Aceptar solo direcciones IP. El proxy rechaza las solicitudes que le piden resolver un nombre de dominio.</string>
+    <string name="ripdpi_tcp_fast_open_body">Enviar datos en el primer paquete de las conexiones salientes para ahorrar un viaje de ida y vuelta. Algunas redes descartan estos paquetes.</string>
+    <string name="advanced_settings_unsaved_change">Sin guardar</string>
+    <string name="root_mode_access_checking">Comprobando el acceso root…</string>
+    <string name="root_mode_access_granted">Este dispositivo tiene acceso root.</string>
+    <string name="root_mode_access_denied">Se denegó el acceso root. Permite RIPDPI en tu gestor de root y vuelve a activar el modo root.</string>
+    <string name="root_mode_access_unavailable">Este dispositivo no tiene acceso root, así que estas estrategias no funcionarán.</string>
+    <string name="domain_bypass_move_requires_save">Guarda primero la lista para moverla a reglas.</string>
+    <string name="title_rule_editor_new">Nueva regla</string>
+    <string name="import_subscription_confirm_empty_body">Este enlace no contiene una URL de suscripción.</string>
+    <string name="relay_editor_profile_not_found_title">Perfil no encontrado</string>
+    <string name="relay_editor_profile_not_found_body">Este perfil se eliminó o el enlace que lo abrió no es correcto. Vuelve atrás y elige un perfil de la lista.</string>
+    <string name="scanner_permission_continue">Continuar</string>
+</resources>

@@ -2,7 +2,6 @@
 <resources>
     <string name="measurement_quality_rtt">RTT p50: %1$d ms.</string>
     <string name="measurement_quality_meaning">RTT é o tempo de ida e volta; jitter é sua variação. A perda é estimada por falhas de conexão e retransmissões, não por site.</string>
-    <string name="measurement_quality_samples">%1$d amostras RTT · jitter %2$s ms</string>
     <string name="measurement_quality_window">Início da janela de qualidade: %1$s</string>
     <string name="measurement_window_unknown">Início da janela de qualidade indisponível</string>
     <string name="measurement_observation_scope">Eventos por destino: janela de %1$d min até %3$s, até %2$d eventos. Apenas sinais observados do caminho direto são contados.</string>
@@ -29,5 +28,4 @@
     <string name="home_quality_partial">As medições disponíveis são mostradas abaixo. A avaliação da qualidade precisa de mais amostras atuais de RTT.</string>
     <string name="home_quality_last_values">Últimas medições recebidas; elas não descrevem a qualidade atual da conexão.</string>
     <string name="home_quality_traffic_total">Tráfego total</string>
-    <string name="home_quality_samples">%1$d amostras de RTT</string>
 </resources>

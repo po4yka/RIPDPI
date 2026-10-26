@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="measurement_quality_samples">
+        <item quantity="one">%1$d RTT नमूना · जिटर %2$s मिलीसेकंड</item>
+        <item quantity="other">%1$d RTT नमूने · जिटर %2$s मिलीसेकंड</item>
+    </plurals>
+    <plurals name="home_quality_samples">
+        <item quantity="one">%1$d RTT नमूना</item>
+        <item quantity="other">%1$d RTT नमूने</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_min_reached">
+        <item quantity="one">एक चेन में कम से कम %1$d हॉप होना चाहिए।</item>
+        <item quantity="other">एक चेन में कम से कम %1$d हॉप होने चाहिए।</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_max_reached">
+        <item quantity="one">एक चेन में अधिकतम %1$d हॉप हो सकता है।</item>
+        <item quantity="other">एक चेन में अधिकतम %1$d हॉप हो सकते हैं।</item>
+    </plurals>
+    <plurals name="config_relay_chain_cumulative_caveat_body">
+        <item quantity="one">ट्रैफ़िक %1$d हॉप से क्रम में रिले होता है, इसलिए हर हॉप विलंब बढ़ाता है। अधिक हॉप ऑपरेटरों के बीच भरोसे के बँटवारे को व्यापक बनाते हैं, लेकिन Tor-स्तर की गुमनामी नहीं देते। सहसंबंध कम करने के लिए हर हॉप के लिए अलग-अलग अधिकार-क्षेत्र और ऑपरेटर उपयोग करें।</item>
+        <item quantity="other">ट्रैफ़िक सभी %1$d हॉप से क्रम में रिले होता है, इसलिए हर हॉप विलंब बढ़ाता है। अधिक हॉप ऑपरेटरों के बीच भरोसे के बँटवारे को व्यापक बनाते हैं, लेकिन Tor-स्तर की गुमनामी नहीं देते। सहसंबंध कम करने के लिए हर हॉप के लिए अलग-अलग अधिकार-क्षेत्र और ऑपरेटर उपयोग करें।</item>
+    </plurals>
+    <plurals name="adaptive_fallback_cache_summary">
+        <item quantity="one">%1$d सेकंड · IPv4 /%2$d</item>
+        <item quantity="other">%1$d सेकंड · IPv4 /%2$d</item>
+    </plurals>
+    <plurals name="host_autolearn_limits_summary">
+        <item quantity="one">पेनल्टी अवधि %1$dh · सीमा %2$d होस्ट</item>
+        <item quantity="other">पेनल्टी अवधि %1$dh · सीमा %2$d होस्ट</item>
+    </plurals>
+    <plurals name="quic_fake_profile_burst_configured">
+        <item quantity="one">UDP चेन द्वारा %1$d fake_burst पैकेट कॉन्फ़िगर किया गया।</item>
+        <item quantity="other">UDP चेन द्वारा %1$d fake_burst पैकेट कॉन्फ़िगर किए गए।</item>
+    </plurals>
+    <plurals name="udp_fake_profile_scope_live">
+        <item quantity="one">मौजूदा चेन पर %1$d जेनेरिक UDP fake_burst पैकेट के लिए उपयोग किया जाता है।</item>
+        <item quantity="other">मौजूदा चेन पर %1$d जेनेरिक UDP fake_burst पैकेट के लिए उपयोग किया जाता है।</item>
+    </plurals>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="one">%1$d hostfake चरण</item>
+        <item quantity="other">%1$d hostfake चरण</item>
+    </plurals>
+    <plurals name="ripdpi_fake_approx_summary_profile_multiple">
+        <item quantity="one">%1$d fake approximation चरण</item>
+        <item quantity="other">%1$d fake approximation चरण</item>
+    </plurals>
+    <plurals name="blockcheck_status_format">
+        <item quantity="one">%1$d/%2$d जाँच</item>
+        <item quantity="other">%1$d/%2$d जाँचें</item>
+    </plurals>
+    <plurals name="strategy_tuner_status_format">
+        <item quantity="one">%1$d/%2$d प्रोब</item>
+        <item quantity="other">%1$d/%2$d प्रोब</item>
+    </plurals>
+    <plurals name="strategy_tuner_result_detail_format">
+        <item quantity="one">%1$d/%2$d डोमेन OK • औसत %3$d ms</item>
+        <item quantity="other">%1$d/%2$d डोमेन OK • औसत %3$d ms</item>
+    </plurals>
+    <plurals name="blockcheck_result_detail_format">
+        <item quantity="one">%1$d/%2$d डोमेन OK • औसत %3$d ms</item>
+        <item quantity="other">%1$d/%2$d डोमेन OK • औसत %3$d ms</item>
+    </plurals>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d प्रविष्टि</item>
+        <item quantity="other">%1$d / %2$d प्रविष्टियाँ</item>
+    </plurals>
+    <plurals name="diagnostics_live_mode_summary_format">
+        <item quantity="one">%1$s मोड · %2$s स्थानांतरित · %3$d पैकेट देखा गया</item>
+        <item quantity="other">%1$s मोड · %2$s स्थानांतरित · %3$d पैकेट देखे गए</item>
+    </plurals>
+    <plurals name="domain_bypass_errors_title">
+        <item quantity="one">%1$d अमान्य पंक्ति</item>
+        <item quantity="other">%1$d अमान्य पंक्तियाँ</item>
+    </plurals>
+    <plurals name="domain_bypass_saved">
+        <item quantity="one">%1$d डोमेन सहेजा गया</item>
+        <item quantity="other">%1$d डोमेन सहेजे गए</item>
+    </plurals>
+    <plurals name="backup_import_shareable_body">
+        <item quantity="one">%1$d प्रोफ़ाइल पुनर्स्थापित नहीं की जा सकती क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</item>
+        <item quantity="other">%1$d प्रोफ़ाइल पुनर्स्थापित नहीं की जा सकतीं क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</item>
+    </plurals>
+    <plurals name="detection_probe_outcome_format">
+        <item quantity="one">प्रोब परिणाम: %2$d में से %1$d संकेत उजागर</item>
+        <item quantity="other">प्रोब परिणाम: %2$d में से %1$d संकेत उजागर</item>
+    </plurals>
+    <plurals name="diagnostics_allowlist_sni_ready">
+        <item quantity="one">%1$d TCP16-फ़्लैग किए गए लक्ष्य के लिए तैयार।</item>
+        <item quantity="other">%1$d TCP16-फ़्लैग किए गए लक्ष्यों के लिए तैयार।</item>
+    </plurals>
+    <plurals name="diagnostics_byoh_complete">
+        <item quantity="one">%2$d में से %1$d होस्टनाम ने कॉन्फ़िगर किया गया स्थानांतरण पूरा किया।</item>
+        <item quantity="other">%2$d में से %1$d होस्टनामों ने कॉन्फ़िगर किया गया स्थानांतरण पूरा किया।</item>
+    </plurals>
+    <plurals name="diagnostics_compression_complete">
+        <item quantity="one">%3$s के लिए %2$d में से %1$d कम्प्रेशन कोडेक उपयोग योग्य है।</item>
+        <item quantity="other">%3$s के लिए %2$d में से %1$d कम्प्रेशन कोडेक उपयोग योग्य हैं।</item>
+    </plurals>
+    <plurals name="diagnostics_dns_availability_complete">
+        <item quantity="one">%2$d में से %1$d सार्वजनिक DNS रिज़ॉल्वर ने प्रतिक्रिया दी।</item>
+        <item quantity="other">%2$d में से %1$d सार्वजनिक DNS रिज़ॉल्वर ने प्रतिक्रिया दी।</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_clean">
+        <item quantity="one">%1$d बंडल किए गए डोमेन में कोई पहुँच अवरोध नहीं मिला.</item>
+        <item quantity="other">%1$d बंडल किए गए डोमेन में कोई पहुँच अवरोध नहीं मिला.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_flagged">
+        <item quantity="one">%2$d में से %1$d डोमेन में पहुँच चेतावनियाँ दिखीं.</item>
+        <item quantity="other">%2$d में से %1$d डोमेन में पहुँच चेतावनियाँ दिखीं.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_running">
+        <item quantity="one">%1$d DNS stub IP के साथ पहुँच की जाँच की जा रही है...</item>
+        <item quantity="other">%1$d DNS stub IP के साथ पहुँच की जाँच की जा रही है...</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_complete">
+        <item quantity="one">%1$d संभावित /24 रेंज कैश की गई.</item>
+        <item quantity="other">%1$d संभावित /24 रेंज कैश की गईं.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_provider">
+        <item quantity="one">%2$s के लिए %1$d /24 रेंज कैश की गई.</item>
+        <item quantity="other">%2$s के लिए %1$d /24 रेंज कैश की गईं.</item>
+    </plurals>
+    <plurals name="diagnostics_tcp16_complete_clean">
+        <item quantity="one">%1$d लक्ष्य में कोई TCP16 fat-header क्लोज़र पैटर्न नहीं मिला।</item>
+        <item quantity="other">%1$d लक्ष्यों में कोई TCP16 fat-header क्लोज़र पैटर्न नहीं मिला।</item>
+    </plurals>
+    <plurals name="subscription_signal_banner_multiple_message">
+        <item quantity="one">%1$d सदस्यता पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</item>
+        <item quantity="other">%1$d सदस्यताओं पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</item>
+    </plurals>
+    <plurals name="subscription_home_multiple_title">
+        <item quantity="one">%1$d सदस्यता पर ध्यान देना आवश्यक है</item>
+        <item quantity="other">%1$d सदस्यताओं पर ध्यान देना आवश्यक है</item>
+    </plurals>
+    <plurals name="diagnostics_sparkline_chart_description">
+        <item quantity="one">%1$s का रुझान, %2$d नमूना</item>
+        <item quantity="other">%1$s का रुझान, %2$d नमूने</item>
+    </plurals>
+    <plurals name="diagnostics_rkn_note_high_format">
+        <item quantity="one">काली सूची की %1$d/%2$d साइट की विफलताएँ उच्च विश्वास वाले अवरोध पैटर्न से मेल खाती हैं (DoH द्वारा पुष्ट DNS पॉइज़निंग, HTTP 451, ज्ञात अवरोध पृष्ठ चिह्न)।</item>
+        <item quantity="other">काली सूची की %1$d/%2$d साइटों की विफलताएँ उच्च विश्वास वाले अवरोध पैटर्न से मेल खाती हैं (DoH द्वारा पुष्ट DNS पॉइज़निंग, HTTP 451, ज्ञात अवरोध पृष्ठ चिह्न)।</item>
+    </plurals>
+    <plurals name="diagnostics_outcome_coverage_format">
+        <item quantity="one">%2$d में से %1$d चरण पूरा हुआ; %3$d विफल हुए</item>
+        <item quantity="other">%2$d में से %1$d चरण पूरे हुए; %3$d विफल हुए</item>
+    </plurals>
+    <plurals name="diagnostics_dns_complete_agree">
+        <item quantity="one">%1$d शामिल डोमेन के DNS पता उत्तर मेल खाते हैं।</item>
+        <item quantity="other">%1$d शामिल डोमेन के DNS पता उत्तर मेल खाते हैं।</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_review_format">
+        <item quantity="one">%1$d/%2$d चरण देखें</item>
+        <item quantity="other">%1$d/%2$d चरण देखें</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_complete_format">
+        <item quantity="one">%1$d/%2$d चरण पूर्ण</item>
+        <item quantity="other">%1$d/%2$d चरण पूर्ण</item>
+    </plurals>
+    <plurals name="diagnostics_profile_probe_partial_results_body">
+        <item quantity="one">सभी उम्मीदवारों का परीक्षण होने से पहले ही स्कैन का समय समाप्त हो गया। परिणाम %2$d में से %1$d उम्मीदवार पर आधारित हैं।</item>
+        <item quantity="other">सभी उम्मीदवारों का परीक्षण होने से पहले ही स्कैन का समय समाप्त हो गया। परिणाम %2$d में से %1$d उम्मीदवारों पर आधारित हैं।</item>
+    </plurals>
+    <plurals name="diagnostics_profile_audit_partial_results_body">
+        <item quantity="one">सभी उम्मीदवारों का परीक्षण होने से पहले ही ऑडिट का समय समाप्त हो गया। परिणाम %2$d में से %1$d उम्मीदवार पर आधारित हैं।</item>
+        <item quantity="other">सभी उम्मीदवारों का परीक्षण होने से पहले ही ऑडिट का समय समाप्त हो गया। परिणाम %2$d में से %1$d उम्मीदवारों पर आधारित हैं।</item>
+    </plurals>
+    <plurals name="diagnostics_partial_results_matrix_title">
+        <item quantity="one">आंशिक परिणाम (%1$d/%2$d उम्मीदवार)</item>
+        <item quantity="other">आंशिक परिणाम (%1$d/%2$d उम्मीदवार)</item>
+    </plurals>
+    <plurals name="connection_health_latency_range_format">
+        <item quantity="one">न्यूनतम %1$d · अधिकतम %2$d · %3$d नमूना</item>
+        <item quantity="other">न्यूनतम %1$d · अधिकतम %2$d · %3$d नमूने</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_learned_format">
+        <item quantity="one">%1$d सीखा गया</item>
+        <item quantity="other">%1$d सीखे गए</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_penalized_format">
+        <item quantity="one">%1$d दंडित</item>
+        <item quantity="other">%1$d दंडित</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_blocked_format">
+        <item quantity="one">%1$d अवरुद्ध</item>
+        <item quantity="other">%1$d अवरुद्ध</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_safe_count">
+        <item quantity="one">%1$d सुरक्षित</item>
+        <item quantity="other">%1$d सुरक्षित</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_aggressive_count">
+        <item quantity="one">%1$d आक्रामक</item>
+        <item quantity="other">%1$d आक्रामक</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_progress">
+        <item quantity="one">%2$d में से %1$d कैश किया गया सबनेट जाँचा गया.</item>
+        <item quantity="other">%2$d में से %1$d कैश किए गए सबनेट जाँचे गए.</item>
+    </plurals>
+</resources>

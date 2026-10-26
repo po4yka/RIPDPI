@@ -41,5 +41,4 @@
     <string name="diagnostics_dns_none">چیزی گزارش نشده</string>
     <string name="diagnostics_dns_show">نمایش داده‌های پاسخ DNS</string>
     <string name="diagnostics_dns_hide">پنهان کردن داده‌های پاسخ DNS</string>
-    <string name="diagnostics_dns_complete_agree">پاسخ‌های نشانی DNS در %1$d دامنهٔ داخلی یکسان‌اند.</string>
 </resources>

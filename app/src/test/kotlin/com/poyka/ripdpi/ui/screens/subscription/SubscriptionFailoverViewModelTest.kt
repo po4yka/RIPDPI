@@ -48,11 +48,17 @@ class SubscriptionFailoverViewModelTest {
             resId: Int,
             quantity: Int,
             vararg formatArgs: Any,
-        ): String =
-            org.robolectric.RuntimeEnvironment
-                .getApplication()
-                .resources
-                .getQuantityString(resId, quantity, *formatArgs)
+        ): String {
+            require(resId == R.plurals.subscription_signal_banner_multiple_message) {
+                "Unexpected plural resource: $resId"
+            }
+            val noun = if (quantity == 1) "subscription needs" else "subscriptions need"
+            return String.format(
+                Locale.US,
+                "%1\$d $noun attention. Cached relay entries may be outdated.",
+                *formatArgs,
+            )
+        }
 
         private val strings =
             mapOf(
@@ -81,8 +87,6 @@ class SubscriptionFailoverViewModelTest {
                 R.string.subscription_signal_banner_revoked_title to "Subscription revoked",
                 R.string.subscription_signal_banner_unavailable_title to "Subscription unavailable",
                 R.string.subscription_signal_banner_stale_title to "Relay pool may be stale",
-                R.string.subscription_signal_banner_multiple_message to
-                    "%1\$d subscriptions need attention. Cached relay entries may be outdated.",
                 R.string.subscription_signal_notification_expired to
                     "%1\$s has expired. Cached relay entries may be outdated.",
                 R.string.subscription_signal_notification_revoked to

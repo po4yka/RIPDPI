@@ -17,6 +17,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ConnectionQualitySnapshot
@@ -100,9 +101,9 @@ internal fun HomeConnectionMeasurements(
                     ),
                 sinceLabel =
                     observed?.takeIf { it.sampleCount > 0L }?.let {
-                        stringResource(R.string.home_quality_samples, it.sampleCount)
+                        pluralStringResource(R.plurals.home_quality_samples, it.sampleCount.toInt(), it.sampleCount)
                     } ?: stringResource(R.string.measurement_byte_total),
-                primaryAction = RipDpiDegradationAction(stringResource(R.string.vpn_quality_strip_reprobe), onReprobe),
+                primaryAction = measureAction(measured = observed != null, onMeasure = onReprobe),
                 secondaryAction = null,
                 tone = summary.tone,
                 modifier = Modifier.fillMaxWidth(),
@@ -127,6 +128,16 @@ internal fun HomeConnectionMeasurements(
         }
     }
 }
+
+/** "Re-measure" only after a measurement exists; before that there is nothing to repeat. */
+@Composable
+private fun measureAction(
+    measured: Boolean,
+    onMeasure: () -> Unit,
+) = RipDpiDegradationAction(
+    stringResource(if (measured) R.string.vpn_quality_strip_reprobe else R.string.home_quality_measure),
+    onMeasure,
+)
 
 internal data class HomeMeasurementSummary(
     val title: Int = R.string.home_quality_measurements_title,

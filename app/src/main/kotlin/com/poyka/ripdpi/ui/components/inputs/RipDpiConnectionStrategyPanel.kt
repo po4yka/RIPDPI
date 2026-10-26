@@ -3,14 +3,11 @@
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,7 +16,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -30,8 +26,6 @@ import com.poyka.ripdpi.activities.HomeModeSummaryFacet
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
 import com.poyka.ripdpi.ui.theme.screens
@@ -59,11 +53,6 @@ internal fun RipDpiConnectionStrategyPanel(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val expandedLabel = stringResource(R.string.semantic_state_expanded)
     val collapsedLabel = stringResource(R.string.semantic_state_collapsed)
-    val chevronAngle by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = RipDpiThemeTokens.motion.stateTween(),
-        label = "strategyChevron",
-    )
     Column(
         modifier =
             modifier
@@ -101,11 +90,14 @@ internal fun RipDpiConnectionStrategyPanel(
                 Text(text = strategyLabel, style = type.monoValue, color = colors.foreground)
             }
             if (expandable) {
-                Icon(
-                    imageVector = RipDpiIcons.KeyboardArrowDown,
-                    contentDescription = stringResource(if (expanded) R.string.cd_collapse else R.string.cd_expand),
-                    tint = colors.mutedForeground,
-                    modifier = Modifier.size(RipDpiIconSizes.Default).rotate(chevronAngle),
+                // A text toggle, not a chevron: a filled box with a chevron reads as a dropdown.
+                Text(
+                    text =
+                        stringResource(
+                            if (expanded) R.string.home_strategy_hide_details else R.string.home_strategy_details,
+                        ),
+                    style = type.smallLabel,
+                    color = colors.foreground,
                 )
             }
         }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">A quick, limited run. To also see what blocks each domain, use Strategy probe.</string>
+    <string name="blockcheck_vs_tuner">Tries every strategy and finds what blocks each domain. For a quick, limited run, use Strategy tuner.</string>
+    <string name="connection_health_measurement_help_title">About these numbers</string>
+    <string name="logs_entry_details">Details</string>
+    <string name="vpn_pcap_capture_list_empty_title">No captures yet</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">The saved capture files could not be opened.</string>
+    <string name="support_settings_back_action">Back</string>
+    <string name="remembered_networks_first_seen">First seen %1$s</string>
+    <string name="detection_community_empty_body">No checks recorded yet. Run a check to add the first one.</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
+</resources>

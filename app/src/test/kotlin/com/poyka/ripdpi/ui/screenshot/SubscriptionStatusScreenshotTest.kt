@@ -52,6 +52,7 @@ class SubscriptionStatusScreenshotTest {
                 onBack = {},
                 onToggleSecrets = {},
                 onRefresh = {},
+                onAddSubscription = {},
                 migrationContent = {},
             )
         }

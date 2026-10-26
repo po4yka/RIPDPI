@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">¿Borrar el PIN de respaldo?</string>
+    <string name="settings_backup_pin_clear_dialog_body">El PIN se eliminará de este dispositivo. Ya no podrás usarlo para la autenticación de respaldo.</string>
+    <string name="routes_edit_rule">Editar regla</string>
+    <string name="home_quality_measure">Medir</string>
+    <string name="home_strategy_details">Detalles</string>
+    <string name="home_strategy_hide_details">Ocultar detalles</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">%d aviso más</item>
+        <item quantity="many">%d avisos más</item>
+        <item quantity="other">%d avisos más</item>
+    </plurals>
+    <string name="config_relay_off_title">Relay desactivado</string>
+    <string name="config_relay_off_body">Configura un servidor de relay para enviar tu tráfico a través de él.</string>
+    <string name="home_connection_path_direct">Conexión directa</string>
+</resources>

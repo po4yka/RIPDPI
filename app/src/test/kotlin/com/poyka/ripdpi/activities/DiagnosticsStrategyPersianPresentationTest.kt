@@ -282,11 +282,12 @@ class DiagnosticsStrategyPersianPresentationTest {
             ),
             winner.metrics.map { it.label },
         )
-        assertEquals(listOf("1/2", "10/20", "7", "17 ms"), winner.metrics.take(4).map { it.value })
+        assertEquals(listOf("1/2", "10/20", "7", "۱۷ ms"), winner.metrics.take(4).map { it.value })
         assertEquals("عملیاتی با روت", winner.metrics[4].value)
         assertEquals("اجرای دقیق با روت", winner.metrics[5].value)
         assertEquals("برنده", winner.metrics[6].value)
-        assertEquals("نتایج HTTPS", winner.resultGroups.single().title)
+        // The resolver isolates the Latin argument so it cannot capture a neighbouring number.
+        assertEquals("نتایج \u2068HTTPS\u2069", winner.resultGroups.single().title)
         assertEquals(
             listOf("one.example", "two.example"),
             winner.resultGroups

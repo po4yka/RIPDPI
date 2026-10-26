@@ -192,13 +192,15 @@ class CaptureDevice:
         locale = re.search(r"\[([a-zA-Z-]+)\]", locale_state)[1]
         self.home_locale = locale
         directory = "values" if locale == "en" else "values-" + locale.replace("-", "-r", 1)
-        template = next(
-            string.text for path in (ROOT / "app/src/main/res" / directory).glob("*.xml")
-            for string in ElementTree.parse(path).getroot().findall("string")
-            if string.get("name") == "home_quality_samples")
+        templates = [
+            item.text for path in (ROOT / "app/src/main/res" / directory).glob("*.xml")
+            for plurals in ElementTree.parse(path).getroot().findall("plurals")
+            if plurals.get("name") == "home_quality_samples"
+            for item in plurals.findall("item")]
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
-            samples = home_sample_count(self.tree(), template)
+            tree = self.tree()
+            samples = max(home_sample_count(tree, template) for template in templates)
             if samples >= 2:
                 self.receipts.setdefault("homeMeasurements", {})[locale] = {
                     "sampleCount": samples, "observedAtUtc": datetime.now(timezone.utc).isoformat()}

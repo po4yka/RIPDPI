@@ -241,8 +241,9 @@ private fun adaptiveFallbackSummaryLines(uiState: SettingsUiState): AdaptiveFall
         scope = adaptiveFallbackScopeSummary(uiState),
         triggers = adaptiveFallbackTriggerSummary(uiState),
         cache =
-            stringResource(
-                R.string.adaptive_fallback_cache_summary,
+            pluralStringResource(
+                R.plurals.adaptive_fallback_cache_summary,
+                uiState.adaptiveFallback.cacheTtlSeconds,
                 uiState.adaptiveFallback.cacheTtlSeconds,
                 uiState.adaptiveFallback.cachePrefixV4,
             ),

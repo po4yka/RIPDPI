@@ -2,7 +2,7 @@
 <resources>
     <string name="home_generated_dns_answers_matching">پاسخ‌های رمزگذاری‌شدهٔ منطبق</string>
     <string name="home_generated_dns_answers_usable">پاسخ‌های رمزگذاری‌شدهٔ قابل استفاده</string>
-    <string name="detection_exposure_split_tunnel_label">دور زدن از طریق تونل تفکیک‌شده</string>
+    <string name="detection_exposure_split_tunnel_label">عبور از طریق تونل تفکیک‌شده</string>
     <string name="detection_exposure_split_tunnel_reason">مسیر مستقیم و مسیر پروکسی هویت شبکه یکسانی نشان نمی‌دهند.</string>
     <string name="detection_exposure_split_tunnel_hint">برنامه‌ها و دامنه‌ها را از یک مسیر عبور دهید، سپس بررسی شناسایی را دوباره اجرا کنید.</string>
     <string name="detection_exposure_xray_api_label">دسترسی به API ‏Xray</string>
@@ -24,7 +24,7 @@
     <string name="detection_exposure_local_proxy_reason">نقطه اتصال یک پروکسی محلی برای آزمون‌های شناسایی قابل مشاهده است.</string>
     <string name="detection_exposure_local_proxy_hint">دسترسی به شنونده‌های پروکسی را محدود کنید و درگاه‌های محلی را در معرض برنامه‌های تحت بررسی قرار ندهید.</string>
     <string name="detection_exposure_app_artifact_label">ردپای برنامه نصب‌شده یا فعال</string>
-    <string name="detection_exposure_app_artifact_reason">فراداده بسته نصب‌شده یا سرویس فعال با ابزارهای VPN یا دور زدن محدودیت‌ها مطابقت دارد.</string>
+    <string name="detection_exposure_app_artifact_reason">فراداده بسته نصب‌شده یا سرویس فعال با ابزارهای VPN یا عبور از محدودیت‌ها مطابقت دارد.</string>
     <string name="detection_exposure_app_artifact_hint">در صورت امکان فراداده برنامه را پنهان کنید و سرویس‌های VPN فعال و نامرتبط را غیرفعال کنید.</string>
     <string name="detection_exposure_dns_leak_label">قابلیت مشاهده DNS</string>
     <string name="detection_exposure_dns_leak_reason">رفتار حل‌کننده DNS با مسیر رمزگذاری‌شده یا مسیریابی‌شده مورد انتظار تفاوت دارد.</string>
@@ -59,15 +59,15 @@
     <string name="detection_exposure_direct_signs_hint">برنامه مسئول VPN فعال، درگاه‌های پروکسی و وضعیت شبکه قابل مشاهده برای برنامه‌ها را بررسی کنید.</string>
     <string name="detection_exposure_indirect_signs_label">نشانه غیرمستقیم از دستگاه</string>
     <string name="detection_exposure_indirect_signs_reason">نشانه‌های برنامه‌های نصب‌شده یا سرویس‌ها، این پیکربندی را قابل شناسایی می‌کنند.</string>
-    <string name="detection_exposure_indirect_signs_hint">برنامه‌های VPN نامرتبط را غیرفعال کنید و فراداده قابل مشاهده ابزارهای دور زدن محدودیت‌ها را کاهش دهید.</string>
+    <string name="detection_exposure_indirect_signs_hint">برنامه‌های VPN نامرتبط را غیرفعال کنید و فراداده قابل مشاهده ابزارهای عبور از محدودیت‌ها را کاهش دهید.</string>
     <string name="detection_exposure_location_signals_label">نشانه مکان</string>
     <string name="detection_exposure_location_signals_reason">فراداده سیم‌کارت، رومینگ یا کشور شبکه به بررسی نیاز دارد.</string>
     <string name="detection_exposure_location_signals_hint">در شبکه هدف دوباره آزمایش کنید و منطقه خروج را با شرایط محلی هماهنگ کنید.</string>
-    <string name="detection_exposure_bypass_probe_label">آزمون دور زدن محدودیت‌ها</string>
-    <string name="detection_exposure_bypass_probe_reason">آزمون‌های ویژه دور زدن محدودیت‌ها، یک مسیر محلی یا راه دور قابل مشاهده یافتند.</string>
-    <string name="detection_exposure_bypass_probe_hint">مسیریابی تفکیک‌شده و آشکار بودن پروکسی را بررسی کنید، سپس آزمون دور زدن محدودیت‌ها را دوباره اجرا کنید.</string>
+    <string name="detection_exposure_bypass_probe_label">آزمون عبور از محدودیت‌ها</string>
+    <string name="detection_exposure_bypass_probe_reason">آزمون‌های ویژه عبور از محدودیت‌ها، یک مسیر محلی یا راه دور قابل مشاهده یافتند.</string>
+    <string name="detection_exposure_bypass_probe_hint">مسیریابی تفکیک‌شده و آشکار بودن پروکسی را بررسی کنید، سپس آزمون عبور از محدودیت‌ها را دوباره اجرا کنید.</string>
     <string name="detection_exposure_additional">نشانه‌های تشخیصی بیشتری به بررسی نیاز دارند</string>
-    <string name="detection_exposure_clean_reason">آزمون‌های شناسایی، نشانه‌ای از دور زدن محدودیت‌ها، VPN، ‏IP، ‏DNS، ‏TLS، الگوهای زمانی یا قابلیت مشاهده کد بومی آشکار نکردند.</string>
+    <string name="detection_exposure_clean_reason">آزمون‌های شناسایی، نشانه‌ای از عبور از محدودیت‌ها، VPN، ‏IP، ‏DNS، ‏TLS، الگوهای زمانی یا قابلیت مشاهده کد بومی آشکار نکردند.</string>
     <string name="detection_exposure_clean_hint">نمایه فعلی را نگه دارید و پس از تغییر شبکه یا نمایه، بررسی را دوباره اجرا کنید.</string>
     <string name="detection_exposure_low_hint">نتایج آزمون‌ها را بدون نشانه شناسایی نگه دارید و پیش از اتکا به آن در شبکه‌های سخت‌گیرتر، نمایه استتار را بهبود دهید.</string>
     <string name="detection_exposure_generic_reason">فرایند شناسایی یک نشانه آشکارشدن یافت، اما علت دقیق‌تری در دسترس نبود.</string>
@@ -88,8 +88,8 @@
     <string name="detection_advice_xray_description">API ‏Xray HandlerService روی localhost قابل دسترسی است و نشانی سرورهای VPN و اطلاعات ورود را افشا می‌کند. API را در تنظیمات کلاینت Xray غیرفعال کنید.</string>
     <string name="detection_advice_dns_title">DNS به localhost اشاره می‌کند</string>
     <string name="detection_advice_dns_description">شبکه فعال یک حل‌کننده DNS با نشانی حلقه بازگشت را فهرست می‌کند. اگر این وضعیت غیرمنتظره است، پیکربندی DNS را بررسی کنید.</string>
-    <string name="detection_advice_app_title">برنامه شناخته‌شده دور زدن محدودیت‌ها نصب است</string>
-    <string name="detection_advice_app_description">یک برنامه شناخته‌شده دور زدن محدودیت‌ها که هدف شناسایی است نصب شده است. برای جداسازی آن، استفاده از نمایه کاری یا فضای خصوصی را در نظر بگیرید.</string>
+    <string name="detection_advice_app_title">برنامه شناخته‌شده عبور از محدودیت‌ها نصب است</string>
+    <string name="detection_advice_app_description">یک برنامه شناخته‌شده عبور از محدودیت‌ها که هدف شناسایی است نصب شده است. برای جداسازی آن، استفاده از نمایه کاری یا فضای خصوصی را در نظر بگیرید.</string>
     <string name="detection_advice_clean_title">مشکلی شناسایی نشد</string>
     <string name="detection_advice_clean_description">پیکربندی فعلی شما بر اساس بررسی‌های روش ارزیابی، هیچ نشانه‌ای از شناسایی ایجاد نمی‌کند.</string>
     <string name="diagnostics_profile_resolver_audit_title">ممیزی حل‌کننده‌های DNS</string>

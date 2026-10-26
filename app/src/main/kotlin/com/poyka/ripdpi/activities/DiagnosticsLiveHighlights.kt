@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
+import com.poyka.ripdpi.ui.diagnostics.StrategySignatureValueLabels
 
 internal fun DiagnosticsUiFactorySupport.buildLiveHighlights(
     telemetry: DiagnosticTelemetrySample?,
@@ -33,7 +34,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveHighlights(
                 add(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_strategy),
-                        value = winningStrategy,
+                        value = StrategySignatureValueLabels(context).winningFamily(winningStrategy),
                         tone = DiagnosticsTone.Positive,
                     ),
                 )

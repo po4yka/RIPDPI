@@ -2,5 +2,5 @@
 <resources>
     <string name="permissions_local_network_title">Zugriff auf das lokale Netzwerk</string>
     <string name="permissions_local_network_needed">Diese Aktion benötigt Zugriff auf das lokale Netzwerk. Internetverbindungen bleiben ohne diese Berechtigung verfügbar.</string>
-    <string name="permissions_local_network_settings">Erlaube Geräte in der Nähe in den App-Einstellungen und wiederhole diese Aktion.</string>
+    <string name="permissions_local_network_settings">Erlauben Sie Geräte in der Nähe in den App-Einstellungen und wiederholen Sie diese Aktion.</string>
 </resources>

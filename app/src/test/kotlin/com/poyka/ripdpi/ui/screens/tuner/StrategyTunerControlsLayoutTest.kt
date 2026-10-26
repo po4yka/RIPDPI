@@ -98,8 +98,9 @@ class StrategyTunerControlsLayoutTest {
         }
         val action = text(if (running) R.string.strategy_tuner_cancel else R.string.strategy_tuner_run)
         val status =
-            RuntimeEnvironment.getApplication().getString(
-                R.string.strategy_tuner_status_format,
+            RuntimeEnvironment.getApplication().resources.getQuantityString(
+                R.plurals.strategy_tuner_status_format,
+                state.totalExpectedResults,
                 state.results.size,
                 state.totalExpectedResults,
             )

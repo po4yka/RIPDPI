@@ -16,15 +16,22 @@ import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.logBadge
 import com.poyka.ripdpi.ui.theme.metadataChip
@@ -32,6 +39,8 @@ import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+
+private const val CollapsedMessageMaxChars = 120
 
 enum class LogRowTone {
     Dns,
@@ -53,24 +62,49 @@ fun LogRow(
     val components = RipDpiThemeTokens.components
     val spacing = RipDpiThemeTokens.spacing
     val palette = logRowPalette(tone)
+    val collapsible = message.length > CollapsedMessageMaxChars
+    var expanded by rememberSaveable(message) { mutableStateOf(false) }
 
+    // The merged semantics read the visible texts, so a collapsed entry is announced by its summary only.
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .heightIn(min = components.feedback.decorativeBadgeSize)
-                .semantics(mergeDescendants = true) {
-                    contentDescription = "$timestamp $type $message ${metadataChips.joinToString(" ")}"
-                },
+                .semantics(mergeDescendants = true) {},
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
         LogRowHeader(timestamp = timestamp, type = type, palette = palette, tone = tone, action = action)
-        LogRowMessage(message = message, palette = palette, modifier = Modifier.fillMaxWidth())
+        LogRowMessage(
+            message = if (collapsible && !expanded) logMessageSummary(message) else message,
+            palette = palette,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (collapsible) {
+            androidx.compose.material3.Text(
+                text = stringResource(if (expanded) R.string.action_show_less else R.string.logs_entry_details),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = RipDpiThemeTokens.colors.info,
+                modifier = Modifier.ripDpiClickable(role = Role.Button, onClick = { expanded = !expanded }),
+            )
+        }
         if (metadataChips.isNotEmpty()) {
             LogMetadataChips(metadataChips)
         }
     }
 }
+
+/** First words of a long entry, cut at a space, so one diagnostics record no longer fills the screen. */
+internal fun logMessageSummary(message: String): String {
+    if (message.length <= CollapsedMessageMaxChars) return message
+    val head = message.take(CollapsedMessageMaxChars)
+    val cut = head.lastIndexOf(' ').takeIf { it > 0 } ?: head.length
+    return head.take(cut).trimEnd() + "\u2026"
+}
+
+/** Lets long `key=value` tokens wrap after `=` and `_` instead of in the middle of a word. */
+internal fun logMessageWithTokenBreaks(message: String): String =
+    message.replace("=", "=\u200B").replace("_", "_\u200B")
 
 @Composable
 private fun LogRowHeader(
@@ -131,7 +165,7 @@ private fun LogRowMessage(
     modifier: Modifier,
 ) {
     androidx.compose.material3.Text(
-        text = message,
+        text = logMessageWithTokenBreaks(message),
         modifier = modifier,
         style = RipDpiThemeTokens.type.monoInline,
         color = palette.message,

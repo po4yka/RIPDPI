@@ -2,7 +2,6 @@
 <resources>
     <string name="measurement_quality_rtt">RTT p50: %1$d ms.</string>
     <string name="measurement_quality_meaning">RTT ist die Hin- und Rücklaufzeit; Jitter ist ihre Schwankung. Verlust wird aus Verbindungsfehlern und Neuübertragungen geschätzt, nicht je Website.</string>
-    <string name="measurement_quality_samples">%1$d RTT-Messwerte · Jitter %2$s ms</string>
     <string name="measurement_quality_window">Beginn des Qualitätsfensters: %1$s</string>
     <string name="measurement_window_unknown">Beginn des Qualitätsfensters unbekannt</string>
     <string name="measurement_observation_scope">Zielereignisse: %1$d-Min.-Fenster bis %3$s, höchstens %2$d Ereignisse. Nur beobachtete Signale des direkten Pfads zählen.</string>
@@ -29,5 +28,4 @@
     <string name="home_quality_partial">Verfügbare Messungen sind unten aufgeführt. Eine Qualitätsbewertung benötigt mehr aktuelle RTT-Messwerte.</string>
     <string name="home_quality_last_values">Zuletzt gemeldete Messwerte; sie beschreiben nicht die aktuelle Verbindungsqualität.</string>
     <string name="home_quality_traffic_total">Datenvolumen gesamt</string>
-    <string name="home_quality_samples">%1$d RTT-Messwerte</string>
 </resources>

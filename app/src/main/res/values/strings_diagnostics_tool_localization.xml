@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">Not blocked or VPN/proxy active</string>
     <string name="diagnostics_rkn_note_not_blocked">All blacklisted sites loaded. Either you are outside the blocked zone, or your VPN/proxy routes the traffic.</string>
     <string name="diagnostics_rkn_headline_high">In blocked zone: high confidence</string>
-    <string name="diagnostics_rkn_note_high_format">%1$d/%2$d blacklist failures match high-confidence patterns (DNS poisoning confirmed by DoH, HTTP 451, known block-page markers).</string>
     <string name="diagnostics_rkn_headline_medium">In blocked zone: medium confidence</string>
     <string name="diagnostics_rkn_note_medium">Most blacklist failures match blocking patterns (TLS DPI, TCP RST), but server-side issues can also cause those signals. A control measurement from another network would confirm.</string>
     <string name="diagnostics_rkn_headline_partial">Partial blocks detected</string>

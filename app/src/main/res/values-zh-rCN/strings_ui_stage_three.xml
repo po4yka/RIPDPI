@@ -2,5 +2,5 @@
 <resources>
     <string name="simple_analysis_changes_body">此检查可能自动保存 DNS、绕过策略和 WARP 设置。</string>
     <string name="simple_analysis_saved_changes_body">此检查可能已保存更改。可从已保存的完整备份（FULL）恢复此前的应用设置。</string>
-    <string name="simple_backup_restore_body">检查前请导出完整备份（FULL）。恢复时选择“设置”。SHARE 备份不含设置。已记住的网络建议会保留。重启后，Simple 会选择内置配置和 VPN 模式，并关闭 CLI 覆盖设置。</string>
+    <string name="simple_backup_restore_body">检查前请导出完整备份（FULL）。恢复时选择“设置”。SHARE 备份不含设置。已记住的网络建议会保留。重启后，Simple 会选择内置配置文件和 VPN 模式，并关闭 CLI 覆盖设置。</string>
 </resources>

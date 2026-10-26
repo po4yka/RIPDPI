@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_advisories_more_format">%1$d more</string>
     <string name="history_filter_disclosure">Filters · %1$d</string>
     <string name="history_filter_remove">Remove filter: %1$s</string>
     <string name="history_events_jump_to_latest_count">New: %1$d · Jump to latest</string>

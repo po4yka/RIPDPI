@@ -10,11 +10,11 @@
     <string name="runtime_config_pending_body">Gespeicherte Änderungen gelten ab der nächsten Verbindung. Eine Neuverbindung unterbricht den aktuellen Datenverkehr.</string>
     <string name="runtime_config_confirm_title">Gespeicherte Konfiguration anwenden?</string>
     <string name="runtime_config_confirm_body">Die aktuelle Verbindung wird beendet. RIPDPI startet mit den aktuell gespeicherten Einstellungen. Abbrechen behält Einstellungen und Verbindung bei.</string>
-    <string name="runtime_config_permission">Erteile vor dem Neuverbinden die VPN-Berechtigung. Die aktuelle Verbindung wurde beibehalten.</string>
-    <string name="runtime_config_lockdown">Die Android-Sperre verhindert diese Neuverbindung. Ändere zuerst die Systemeinstellungen.</string>
+    <string name="runtime_config_permission">Erteilen Sie vor dem Neuverbinden die VPN-Berechtigung. Die aktuelle Verbindung wurde beibehalten.</string>
+    <string name="runtime_config_lockdown">Die Android-Sperre verhindert diese Neuverbindung. Ändern Sie zuerst die Systemeinstellungen.</string>
     <string name="runtime_config_lockdown_unknown">Der Status der Android-Sperre ist unbekannt. Das aktuelle VPN wurde beibehalten.</string>
     <string name="runtime_config_stop_timeout">Das Beenden wurde nicht bestätigt. Es wurde keine neue Verbindung gestartet.</string>
-    <string name="runtime_config_start_failed">Die neue Konfiguration hat keine Bereitschaft bestätigt. Prüfe den Verbindungsfehler und versuche es erneut.</string>
+    <string name="runtime_config_start_failed">Die neue Konfiguration hat keine Bereitschaft bestätigt. Prüfen Sie den Verbindungsfehler und versuchen Sie es erneut.</string>
     <string name="runtime_config_superseded">Ein neuer Start- oder Stoppbefehl hat diese Neuverbindung ersetzt.</string>
     <string name="runtime_config_cancelled">Neuverbindung abgebrochen. Gespeicherte Einstellungen wurden beibehalten.</string>
 </resources>

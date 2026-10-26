@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
+import com.poyka.ripdpi.activities.RelayProfileNotFoundException
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
@@ -34,6 +35,7 @@ data class SshProfileUiState(
     val loading: Boolean = false,
     val editing: Boolean = false,
     @StringRes val errorMessage: Int? = null,
+    val notFound: Boolean = false,
 )
 
 /**
@@ -66,7 +68,12 @@ class SshProfileViewModel
         private var requestedEditProfileId: String? = null
 
         fun loadProfile(profileId: String) {
-            if (profileId.isBlank() || _uiState.value.loading || editingDraft != null) return
+            if (profileId.isBlank()) {
+                // An edit route without a profile id has nothing to edit, so it must not show the new-profile form.
+                _uiState.update { it.copy(notFound = true) }
+                return
+            }
+            if (_uiState.value.loading || editingDraft != null) return
             requestedEditProfileId = profileId
             _uiState.update { it.copy(loading = true, errorMessage = null) }
             viewModelScope.launch {
@@ -74,16 +81,19 @@ class SshProfileViewModel
                     runCatching { relayArtifacts.hydrateProfile(profileId) }
                         .getOrElse { error ->
                             if (error is CancellationException) throw error
+                            // Only a missing profile is "not found"; a corrupt record keeps the load error.
+                            val missing = error is RelayProfileNotFoundException
                             _uiState.update {
                                 it.copy(
                                     loading = false,
-                                    errorMessage = R.string.relay_editor_activation_failed,
+                                    notFound = missing,
+                                    errorMessage = R.string.relay_editor_activation_failed.takeUnless { missing },
                                 )
                             }
                             return@launch
                         }
                 if (draft.relayKind != RelayKindSsh) {
-                    _uiState.update { it.copy(loading = false, errorMessage = R.string.relay_editor_activation_failed) }
+                    _uiState.update { it.copy(loading = false, notFound = true) }
                     return@launch
                 }
                 editingDraft = draft

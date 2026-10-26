@@ -2,7 +2,6 @@
 <resources>
     <string name="measurement_quality_rtt">RTT p50：%1$d 毫秒。</string>
     <string name="measurement_quality_meaning">RTT 是往返时间，抖动是其变化。丢失率根据连接失败和重传估算，并非各网站的失败率。</string>
-    <string name="measurement_quality_samples">%1$d 个 RTT 样本 · 抖动 %2$s 毫秒</string>
     <string name="measurement_quality_window">质量窗口起始时间：%1$s</string>
     <string name="measurement_window_unknown">质量窗口起始时间未知</string>
     <string name="measurement_observation_scope">目标事件：截至 %3$s 的 %1$d 分钟窗口，最多 %2$d 个事件。仅统计实际观察到的直连路径信号。</string>
@@ -29,5 +28,4 @@
     <string name="home_quality_partial">下方显示可用测量。质量评估需要更多近期 RTT 样本。</string>
     <string name="home_quality_last_values">最近上报的测量不能反映当前连接质量。</string>
     <string name="home_quality_traffic_total">总流量</string>
-    <string name="home_quality_samples">%1$d 个 RTT 样本</string>
 </resources>

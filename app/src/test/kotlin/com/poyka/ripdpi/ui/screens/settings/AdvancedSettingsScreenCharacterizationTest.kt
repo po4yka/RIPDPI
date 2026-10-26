@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToKey
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
@@ -104,6 +105,18 @@ class AdvancedSettingsScreenCharacterizationTest {
 
         scrollToKey("advanced_strategy_config")
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsStrategyConfig).assertExists().performClick()
+
+        assertTrue(opened)
+    }
+
+    @Test
+    fun `raw bypass strategy links to the strategy config editor`() {
+        var opened = false
+        setScreen(onOpenStrategyConfig = { opened = true })
+
+        scrollToKey("advanced_desync")
+        composeRule.onNodeWithText("Bypass strategy: ", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Bypass strategy").performScrollTo().performClick()
 
         assertTrue(opened)
     }

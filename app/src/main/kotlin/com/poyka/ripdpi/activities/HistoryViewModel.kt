@@ -91,7 +91,7 @@ class HistoryViewModel
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = HistoryUiState(),
+                initialValue = HistoryUiState(isLoading = true),
             )
 
         fun onLocaleChanged(localeTags: String) {

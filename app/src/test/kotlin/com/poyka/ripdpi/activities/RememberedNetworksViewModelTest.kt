@@ -105,7 +105,10 @@ class RememberedNetworksViewModelTest {
                         .startsWith("5月30日"),
                 )
                 assertEquals(
-                    english.entries.single().copy(updatedLabel = chinese.entries.single().updatedLabel),
+                    english.entries.single().copy(
+                        updatedLabel = chinese.entries.single().updatedLabel,
+                        firstSeenLabel = chinese.entries.single().firstSeenLabel,
+                    ),
                     chinese.entries.single(),
                 )
                 assertEquals(listOf(policy), source.policies.value)
@@ -147,6 +150,15 @@ class RememberedNetworksViewModelTest {
         // scopeKeyShort is a truncated SHA-256 prefix, never a network name / identifier.
         assertEquals(12, entry.scopeKeyShort.length)
         assertTrue(entry.fingerprintHash.startsWith(entry.scopeKeyShort))
+    }
+
+    @Test
+    fun `first seen time tells networks of one transport apart`() {
+        val entry = validatedWifiPolicy().toRememberedNetworkUiModel { "at $it" }
+        assertEquals("at 1", entry.firstSeenLabel)
+        assertEquals("at 100", entry.updatedLabel)
+        val unknown = validatedWifiPolicy().copy(firstObservedAt = 0L).toRememberedNetworkUiModel { "at $it" }
+        assertEquals("", unknown.firstSeenLabel)
     }
 
     @Test

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_advisories_more_format">%1$d مورد دیگر</string>
     <string name="history_filter_disclosure">فیلترها · %1$d</string>
     <string name="history_filter_remove">حذف فیلتر: %1$s</string>
     <string name="history_events_jump_to_latest_count">جدید: %1$d · رفتن به تازه‌ترین‌ها</string>

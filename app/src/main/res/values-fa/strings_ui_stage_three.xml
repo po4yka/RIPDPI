@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="simple_analysis_changes_body">این بررسی می‌تواند تنظیمات DNS، راهبرد دور زدن و WARP را خودکار ذخیره کند.</string>
+    <string name="simple_analysis_changes_body">این بررسی می‌تواند تنظیمات DNS، راهبرد عبور و WARP را خودکار ذخیره کند.</string>
     <string name="simple_analysis_saved_changes_body">این بررسی ممکن است تغییراتی را ذخیره کرده باشد. تنظیمات قبلی برنامه را از نسخهٔ پشتیبان کامل (FULL) ذخیره‌شده بازیابی کنید.</string>
     <string name="simple_backup_restore_body">پیش از بررسی، نسخهٔ پشتیبان کامل (FULL) تهیه کنید. برای بازیابی، «تنظیمات» را انتخاب کنید. نسخه‌های SHARE تنظیمات ندارند. پیشنهادهای ذخیره‌شدهٔ شبکه باقی می‌مانند. پس از راه‌اندازی مجدد، Simple نمایهٔ داخلی و حالت VPN را انتخاب و جایگزین‌های CLI را غیرفعال می‌کند.</string>
 </resources>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">ضبط بسته</string>
+    <string name="data_transparency_packet_capture_body">فایل PCAP فقط وقتی ساخته می‌شود که کنترل پیشرفتهٔ ضبط بسته را شروع کنید. این فایل ممکن است شامل بایت‌های خام بار دادهٔ بسته‌ها باشد و پنهان‌سازی نمی‌شود. آن را فقط با افراد مورد اعتماد هم‌رسانی کنید.</string>
+    <string name="data_transparency_open_controls">تنظیمات نگهداری و پایش</string>
+    <string name="settings_community_source_title">آمار جامعه</string>
+    <string name="settings_community_source_body">بررسی شناسایی آمار مشترک را از این نشانی دانلود می‌کند تا نتایج شما را مقایسه کند. هیچ چیزی بارگذاری نمی‌شود.</string>
+    <string name="settings_community_source_default">پیش‌فرض</string>
+    <string name="settings_clear_community_cache_body">آمار جامعهٔ دانلودشده را حذف می‌کند. تاریخچهٔ بررسی‌های شما باقی می‌ماند.</string>
+    <string name="ripdpi_no_domain_body">فقط نشانی‌های IP پذیرفته می‌شوند. پراکسی درخواست‌هایی را که نیاز به تحلیل نام دامنه دارند رد می‌کند.</string>
+    <string name="ripdpi_tcp_fast_open_body">داده در نخستین بستهٔ اتصال‌های خروجی فرستاده می‌شود تا یک رفت‌وبرگشت کم شود. برخی شبکه‌ها این بسته‌ها را دور می‌اندازند.</string>
+    <string name="advanced_settings_unsaved_change">ذخیره نشده</string>
+    <string name="root_mode_access_checking">در حال بررسی دسترسی روت…</string>
+    <string name="root_mode_access_granted">دسترسی روت روی این دستگاه در دسترس است.</string>
+    <string name="root_mode_access_denied">دسترسی روت رد شد. در مدیر روت به RIPDPI اجازه دهید و سپس دوباره حالت روت را روشن کنید.</string>
+    <string name="root_mode_access_unavailable">این دستگاه دسترسی روت ندارد، بنابراین این راهبردها کار نمی‌کنند.</string>
+    <string name="domain_bypass_move_requires_save">ابتدا فهرست را ذخیره کنید تا بتوانید آن را به قوانین منتقل کنید.</string>
+    <string name="title_rule_editor_new">قانون جدید</string>
+    <string name="import_subscription_confirm_empty_body">این پیوند شامل URL اشتراک نیست.</string>
+    <string name="relay_editor_profile_not_found_title">نمایه پیدا نشد</string>
+    <string name="relay_editor_profile_not_found_body">این نمایه حذف شده یا پیوندی که آن را باز کرده نادرست است. برگردید و یک نمایه از فهرست انتخاب کنید.</string>
+    <string name="scanner_permission_continue">ادامه</string>
+</resources>

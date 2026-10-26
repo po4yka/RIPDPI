@@ -20,11 +20,10 @@
     <string name="diagnostics_outcome_confidence_unknown">विश्वसनीयता अज्ञात है</string>
     <string name="diagnostics_outcome_coverage_unknown">जाँच का दायरा अज्ञात है</string>
     <string name="diagnostics_outcome_stale">किसी दूसरे नेटवर्क का सहेजा गया परिणाम</string>
-    <string name="diagnostics_outcome_coverage_format">%2$d में से %1$d चरण पूरे हुए; %3$d विफल हुए</string>
     <string name="diagnostics_outcome_historical">सहेजे गए साक्ष्य; मौजूदा नेटवर्क से मिलान अज्ञात है</string>
     <string name="logs_actions_title">लॉग की कार्रवाइयाँ</string>
-    <string name="config_scope_device">लोकल VPN</string>
-    <string name="config_scope_proxy">लोकल प्रॉक्सी</string>
+    <string name="config_scope_device">स्थानीय VPN</string>
+    <string name="config_scope_proxy">स्थानीय प्रॉक्सी</string>
     <string name="config_section_bypass_settings">बायपास सेटिंग</string>
     <string name="config_section_server_settings">सर्वर सेटिंग</string>
 </resources>

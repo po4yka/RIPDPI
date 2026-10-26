@@ -11,13 +11,31 @@ internal fun DiagnosticsUiFactorySupport.buildHostAutolearnOverviewSummary(servi
     val details =
         buildList {
             if (service.learnedHostCount > 0) {
-                add(context.getString(R.string.diagnostics_autolearn_learned_format, service.learnedHostCount))
+                add(
+                    context.getQuantityString(
+                        R.plurals.diagnostics_autolearn_learned_format,
+                        service.learnedHostCount,
+                        service.learnedHostCount,
+                    ),
+                )
             }
             if (service.penalizedHostCount > 0) {
-                add(context.getString(R.string.diagnostics_autolearn_penalized_format, service.penalizedHostCount))
+                add(
+                    context.getQuantityString(
+                        R.plurals.diagnostics_autolearn_penalized_format,
+                        service.penalizedHostCount,
+                        service.penalizedHostCount,
+                    ),
+                )
             }
             if (service.blockedHostCount > 0) {
-                add(context.getString(R.string.diagnostics_autolearn_blocked_format, service.blockedHostCount))
+                add(
+                    context.getQuantityString(
+                        R.plurals.diagnostics_autolearn_blocked_format,
+                        service.blockedHostCount,
+                        service.blockedHostCount,
+                    ),
+                )
             }
         }
     return if (details.isEmpty()) state else "$state · ${details.joinToString(" · ")}"

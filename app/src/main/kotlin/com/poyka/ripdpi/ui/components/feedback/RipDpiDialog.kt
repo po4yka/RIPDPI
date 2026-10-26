@@ -53,6 +53,8 @@ data class RipDpiDialogAction(
     val label: String,
     val onClick: () -> Unit,
     val testTag: String? = null,
+    // Styles the button red. Set it on actions that delete, reset, or drop state.
+    val destructive: Boolean = false,
 )
 
 data class RipDpiDialogVisuals(
@@ -175,6 +177,7 @@ fun RipDpiDialogCard(
                     onConfirm = confirmAction?.onClick,
                     confirmTestTag = confirmAction?.testTag,
                     dismissTestTag = dismissAction.testTag,
+                    primaryDestructive = confirmAction?.destructive ?: dismissAction.destructive,
                     tone = visuals.tone,
                     actionLayout = visuals.actionLayout,
                     hasConfirmAction = hasConfirmAction,
@@ -225,6 +228,7 @@ private fun DialogActionRow(
     onConfirm: (() -> Unit)?,
     confirmTestTag: String?,
     dismissTestTag: String?,
+    primaryDestructive: Boolean,
     tone: RipDpiDialogTone,
     actionLayout: RipDpiActionLayout,
     hasConfirmAction: Boolean,
@@ -238,14 +242,7 @@ private fun DialogActionRow(
         } else {
             actionLayout.resolvedActionLayout()
         }
-    val primaryVariant =
-        when (tone) {
-            RipDpiDialogTone.Destructive -> RipDpiButtonVariant.Destructive
-
-            RipDpiDialogTone.Info,
-            RipDpiDialogTone.Default,
-            -> RipDpiButtonVariant.Primary
-        }
+    val primaryVariant = if (primaryDestructive) RipDpiButtonVariant.Destructive else RipDpiButtonVariant.Primary
 
     if (resolvedActionLayout == RipDpiActionLayout.Stacked) {
         Column(
@@ -262,7 +259,7 @@ private fun DialogActionRow(
                             .fillMaxWidth()
                             .ripDpiTestTag(confirmTestTag),
                     variant = primaryVariant,
-                    hapticFeedback = confirmActionHapticFeedback(tone),
+                    hapticFeedback = confirmActionHapticFeedback(primaryDestructive),
                 )
                 RipDpiButton(
                     wrapLabel = true,
@@ -312,7 +309,7 @@ private fun DialogActionRow(
                     modifier = Modifier.weight(1f).ripDpiTestTag(confirmTestTag),
                     variant = primaryVariant,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
-                    hapticFeedback = confirmActionHapticFeedback(tone),
+                    hapticFeedback = confirmActionHapticFeedback(primaryDestructive),
                 )
             } else {
                 RipDpiButton(
@@ -339,14 +336,8 @@ private fun dismissActionHapticFeedback(
         else -> RipDpiHapticFeedback.Action
     }
 
-private fun confirmActionHapticFeedback(tone: RipDpiDialogTone): RipDpiHapticFeedback =
-    when (tone) {
-        RipDpiDialogTone.Destructive -> RipDpiHapticFeedback.Confirm
-
-        RipDpiDialogTone.Info,
-        RipDpiDialogTone.Default,
-        -> RipDpiHapticFeedback.Action
-    }
+private fun confirmActionHapticFeedback(destructive: Boolean): RipDpiHapticFeedback =
+    if (destructive) RipDpiHapticFeedback.Confirm else RipDpiHapticFeedback.Action
 
 private fun defaultDialogIcon(tone: RipDpiDialogTone): ImageVector? =
     when (tone) {
@@ -378,7 +369,7 @@ private fun RipDpiDestructiveDialogPreview() {
         RipDpiDialogCard(
             title = "Reset advanced flags?",
             dismissAction = RipDpiDialogAction(label = "Keep", onClick = {}),
-            confirmAction = RipDpiDialogAction(label = "Reset", onClick = {}),
+            confirmAction = RipDpiDialogAction(label = "Reset", onClick = {}, destructive = true),
             visuals =
                 RipDpiDialogVisuals(
                     message = "Custom command line arguments and routing rules will be removed.",

@@ -144,7 +144,7 @@
     <string name="home_generated_check_bypass">正在检查代理绕过…</string>
     <string name="home_generated_check_dns">正在检查 DNS 泄漏风险…</string>
     <string name="home_generated_check_webrtc">正在检查 WebRTC 暴露情况…</string>
-    <string name="home_generated_check_tls">正在检查 TLS 指纹配置…</string>
+    <string name="home_generated_check_tls">正在检查 TLS 指纹配置文件…</string>
     <string name="home_generated_check_timing">正在检查计时侧信道…</string>
     <string name="home_generated_check_icmp">正在检查 ICMP 欺骗信号…</string>
     <string name="home_generated_check_ip">正在对比公网 IP 回显端点…</string>

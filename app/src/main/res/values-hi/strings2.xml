@@ -12,8 +12,6 @@
     <string name="ripdpi_http_parser_badge_default">डिफ़ॉल्ट</string>
     <string name="ripdpi_http_parser_badge_custom">कस्टम</string>
     <string name="ripdpi_http_parser_badge_http_only">केवल HTTP</string>
-    <string name="ripdpi_http_parser_badge_safe_count">%1$d सुरक्षित</string>
-    <string name="ripdpi_http_parser_badge_aggressive_count">%1$d आक्रामक</string>
     <string name="ripdpi_http_parser_badge_nginx_biased">Nginx-झुकाव वाला</string>
     <string name="ripdpi_http_parser_reset_action">पार्सर एविज़न रीसेट करें</string>
     <string name="ripdpi_http_parser_safe_group_title">सुरक्षित पार्सर समायोजन</string>
@@ -62,11 +60,11 @@
     <string name="warp_last_scanner_mode_title">अंतिम स्कैनर मोड</string>
     <string name="warp_last_scanner_mode_body">वर्तमान एंडपॉइंट चुनाव सबसे हाल में कैसे प्राप्त हुआ।</string>
     <string name="warp_enabled_title">WARP रनटाइम सक्षम करें</string>
-    <string name="warp_enabled_body">एक अलग लोकल WARP अपस्ट्रीम शुरू करें और RIPDPI को चुने गए ट्रैफ़िक को उसमें चेन करने दें।</string>
+    <string name="warp_enabled_body">एक अलग स्थानीय WARP अपस्ट्रीम शुरू करें और RIPDPI को चुने गए ट्रैफ़िक को उसमें चेन करने दें।</string>
     <string name="warp_route_mode_title">WARP रूटिंग मोड</string>
     <string name="warp_route_mode_body">Rules मोड केवल सूचीबद्ध होस्ट को WARP के ज़रिए रूट करता है। Off उपयोगकर्ता ट्रैफ़िक के लिए WARP निष्क्रिय रखता है।</string>
     <string name="warp_route_hosts_title">WARP रूट होस्टलिस्ट</string>
-    <string name="warp_route_hosts_body">प्रति पंक्ति एक होस्टनेम। केवल ये गंतव्य लोकल WARP SOCKS अपस्ट्रीम को भेजे जाएँगे।</string>
+    <string name="warp_route_hosts_body">प्रति पंक्ति एक होस्टनेम। केवल ये गंतव्य स्थानीय WARP SOCKS अपस्ट्रीम को भेजे जाएँगे।</string>
     <string name="warp_builtin_rules_title">अंतर्निहित Cloudflare नियम</string>
     <string name="warp_builtin_rules_body">Cloudflare WARP कंट्रोल-प्लेन डोमेन को WARP में वापस लूप करने के बजाय बूटस्ट्रैप/डायरेक्ट पथ पर रखें।</string>
     <string name="warp_endpoint_mode_title">एंडपॉइंट चयन</string>
@@ -188,13 +186,13 @@
     <string name="strategy_pack_refresh_in_progress">नवीनतम कैटलॉग फ़ेच हो रहा है</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">मिश्रित inbound (SOCKS5 + HTTP)</string>
-    <string name="settings_mixed_inbound_body">एक ही लोकल लिसनर SOCKS5 और HTTP CONNECT दोनों कनेक्शन स्वीकार करता है; डिफ़ॉल्ट पोर्ट 2080।</string>
+    <string name="settings_mixed_inbound_body">एक ही स्थानीय लिसनर SOCKS5 और HTTP CONNECT दोनों कनेक्शन स्वीकार करता है; डिफ़ॉल्ट पोर्ट 2080।</string>
     <string name="settings_append_http_proxy_title">सिस्टम को HTTP प्रॉक्सी की जानकारी दें</string>
-    <string name="settings_append_http_proxy_body">Android 10+ पर VPN मोड में, सिस्टम को HTTP प्रॉक्सी ट्रैफ़िक को लोकल लिसनर के माध्यम से रूट करने के लिए कहता है। प्रॉक्सी मोड में इसका कोई प्रभाव नहीं होता।</string>
+    <string name="settings_append_http_proxy_body">Android 10+ पर VPN मोड में, सिस्टम को HTTP प्रॉक्सी ट्रैफ़िक को स्थानीय लिसनर के माध्यम से रूट करने के लिए कहता है। प्रॉक्सी मोड में इसका कोई प्रभाव नहीं होता।</string>
     <string name="settings_proxy_allow_lan_title">LAN एक्सेस की अनुमति दें</string>
-    <string name="settings_proxy_allow_lan_body">लोकल प्रॉक्सी को आपके नेटवर्क के अन्य डिवाइसों के लिए उपलब्ध कराता है।</string>
+    <string name="settings_proxy_allow_lan_body">स्थानीय प्रॉक्सी को आपके नेटवर्क के अन्य डिवाइसों के लिए उपलब्ध कराता है।</string>
     <string name="settings_proxy_allow_lan_warn_title">LAN एक्सेस की अनुमति दें?</string>
-    <string name="settings_proxy_allow_lan_warn_message">प्रॉक्सी आपके लोकल नेटवर्क के अन्य डिवाइसों से कनेक्शन स्वीकार करेगा। एक्सेस टोकन को निजी रखें — जिसके पास भी यह होगा वह इस डिवाइस के माध्यम से ट्रैफ़िक रूट कर सकता है।</string>
+    <string name="settings_proxy_allow_lan_warn_message">प्रॉक्सी आपके स्थानीय नेटवर्क के अन्य डिवाइसों से कनेक्शन स्वीकार करेगा। एक्सेस टोकन को निजी रखें — जिसके पास भी यह होगा वह इस डिवाइस के माध्यम से ट्रैफ़िक रूट कर सकता है।</string>
     <string name="settings_proxy_allow_lan_warn_confirm">सक्षम करें</string>
     <string name="settings_proxy_allow_lan_warn_dismiss">रद्द करें</string>
     <string name="settings_proxy_lan_token_label">एक्सेस टोकन (कॉपी करने के लिए टैप करें)</string>
@@ -211,17 +209,17 @@
     <string name="advanced_settings_visual_controls_disabled">कमांड लाइन ओवरराइड सक्रिय रहने पर विज़ुअल नियंत्रण उपलब्ध नहीं हैं।</string>
     <string name="advanced_settings_command_line_disabled">यहाँ raw RIPDPI फ़्लैग संपादित करने के लिए कमांड लाइन सेटिंग्स सक्षम करें।</string>
     <string name="advanced_settings_error_oob_data">OOB डेटा खाली होना चाहिए या एकल वर्ण होना चाहिए।</string>
-    <string name="permissions_vpn_title">लोकल VPN अनुमति</string>
-    <string name="permissions_vpn_body">Android एक लोकल VPN बनाने के लिए पूछेगा। यह ट्रैफ़िक को आपके डिवाइस पर ऐप के माध्यम से रूट करता है — कुछ भी बाहरी रूप से नहीं भेजा जाता।</string>
+    <string name="permissions_vpn_title">स्थानीय VPN अनुमति</string>
+    <string name="permissions_vpn_body">Android एक स्थानीय VPN बनाने के लिए पूछेगा। यह ट्रैफ़िक को आपके डिवाइस पर ऐप के माध्यम से रूट करता है — कुछ भी बाहरी रूप से नहीं भेजा जाता।</string>
     <string name="permissions_vpn_continue">जारी रखें</string>
     <string name="permissions_vpn_not_now">अभी नहीं</string>
     <string name="permissions_vpn_error_title">अनुमति अभी भी आवश्यक है</string>
-    <string name="permissions_vpn_error_body">RIPDPI को इस डिवाइस पर लोकल रूप से चलाते रहने के लिए Android VPN अनुमति दें।</string>
+    <string name="permissions_vpn_error_body">RIPDPI को इस डिवाइस पर स्थानीय रूप से चलाते रहने के लिए Android VPN अनुमति दें।</string>
     <string name="permissions_notifications_title">स्थिति सूचनाओं की अनुमति दें</string>
-    <string name="permissions_notifications_denied">लोकल VPN या proxy चलने के दौरान RIPDPI स्थिति और सेवा अलर्ट दिखाने के लिए सूचनाओं की अनुमति दें।</string>
+    <string name="permissions_notifications_denied">स्थानीय VPN या proxy चलने के दौरान RIPDPI स्थिति और सेवा अलर्ट दिखाने के लिए सूचनाओं की अनुमति दें।</string>
     <string name="permissions_notifications_open_settings">सूचना अनुमति अभी भी अवरुद्ध है। ऐप सेटिंग्स खोलें और RIPDPI के लिए सूचनाओं की अनुमति दें।</string>
     <string name="permissions_battery_title">बैटरी ऑप्टिमाइज़ेशन</string>
-    <string name="permissions_battery_body">RIPDPI को Android बैटरी ऑप्टिमाइज़ेशन की अनदेखी करने दें ताकि बैकग्राउंड में Doze द्वारा लोकल VPN या proxy को बाधित करने की संभावना कम हो।</string>
+    <string name="permissions_battery_body">RIPDPI को Android बैटरी ऑप्टिमाइज़ेशन की अनदेखी करने दें ताकि बैकग्राउंड में Doze द्वारा स्थानीय VPN या proxy को बाधित करने की संभावना कम हो।</string>
     <string name="permissions_background_activity_title">बैकग्राउंड गतिविधि</string>
     <string name="permissions_background_activity_body">कुछ डिवाइस Android बैटरी ऑप्टिमाइज़ेशन से परे अतिरिक्त बैकग्राउंड सीमाएँ जोड़ते हैं। यदि RIPDPI बैकग्राउंड में रुक जाता है, तो ऐप की बैटरी या बैकग्राउंड उपयोग सेटिंग्स की समीक्षा करें।</string>
     <string name="permissions_background_activity_body_xiaomi">Xiaomi/MIUI डिवाइस RIPDPI को बैकग्राउंड में चलने से रोक सकते हैं। Settings &gt; Apps &gt; Manage apps &gt; RIPDPI पर जाएँ, Battery saver को No restrictions पर सेट करें और Autostart सक्षम करें।</string>
@@ -344,8 +342,8 @@
     <string name="about_credits_body">RIPDPI ओपन-सोर्स hufrea/ripdpi प्रोजेक्ट पर आधारित है और सभी रूटिंग और कॉन्फ़िगरेशन को इस उपकरण तक सीमित रखता है।</string>
     <string name="about_links_section">लिंक</string>
     <string name="title_data_transparency">डेटा पारदर्शिता</string>
-    <string name="settings_data_transparency_body">कौन-सा डेटा एकत्र किया जाता है, इसे कैसे संग्रहीत किया जाता है, और आपके गोपनीयता नियंत्रण।</string>
-    <string name="data_transparency_what_we_collect_section">हम क्या एकत्र करते हैं</string>
+    <string name="settings_data_transparency_body">इस डिवाइस पर क्या संग्रहीत होता है, कितने समय तक रखा जाता है, और यह डिवाइस से कब बाहर जाता है।</string>
+    <string name="data_transparency_what_we_collect_section">इस डिवाइस पर क्या संग्रहीत होता है</string>
     <string name="data_transparency_network_diagnostics">नेटवर्क डायग्नोस्टिक्स: ट्रांसपोर्ट प्रकार, सिग्नल क्षमता, DNS कॉन्फ़िगरेशन</string>
     <string name="data_transparency_dpi_detection">DPI पहचान परिणाम: विफलता वर्गीकरण, रणनीति प्रभावशीलता</string>
     <string name="data_transparency_performance_metrics">प्रदर्शन मेट्रिक्स: RTT मापन, पुनः प्रयास गणना, ट्रैफ़िक आँकड़े</string>
@@ -354,7 +352,7 @@
     <string name="data_transparency_optional_ip">वैकल्पिक: सार्वजनिक IP पता (केवल मैन्युअल डायग्नोस्टिक स्कैन के दौरान)</string>
     <string name="data_transparency_what_we_do_not_collect_section">हम क्या एकत्र नहीं करते</string>
     <string name="data_transparency_no_browsing">सामान्य डायग्नोस्टिक्स में कोई ब्राउज़िंग इतिहास, URL सामग्री, पैकेट पेलोड, क्रेडेंशियल, या TLS गोपनीय जानकारी नहीं</string>
-    <string name="data_transparency_no_personal_data">कोई खाता या क्रेडेंशियल नहीं; PCAP केवल उन्नत पैकेट कैप्चर नियंत्रण द्वारा बनाया जाता है और इसमें कच्चे पैकेट पेलोड बाइट्स हो सकते हैं</string>
+    <string name="data_transparency_no_personal_data">कोई उपयोगकर्ता खाता नहीं: ऐप साइन-इन के बिना काम करता है</string>
     <string name="data_transparency_no_external_servers">कोई डेटा स्वचालित रूप से बाहरी सर्वर को नहीं भेजा जाता</string>
     <string name="data_transparency_no_analytics">कोई एनालिटिक्स, क्रैश रिपोर्टिंग, या विज्ञापन SDK नहीं</string>
     <string name="data_transparency_how_stored_section">डेटा कैसे संग्रहीत होता है</string>
@@ -419,7 +417,7 @@
     <string name="diagnostics_section_device">डिवाइस</string>
     <string name="diagnostics_field_capabilities">क्षमताएं</string>
     <string name="diagnostics_field_private_dns">निजी DNS</string>
-    <string name="diagnostics_field_local">लोकल</string>
+    <string name="diagnostics_field_local">स्थानीय</string>
     <string name="diagnostics_field_public_ip">सार्वजनिक IP</string>
     <string name="diagnostics_field_asn">ASN</string>
     <string name="diagnostics_field_validated">सत्यापित</string>
@@ -579,7 +577,6 @@
     <string name="diagnostics_live_handover_state_format">नेटवर्क हैंडओवर स्थिति: %1$s</string>
     <string name="diagnostics_live_handover_format">हाल ही में नेटवर्क हैंडओवर पाया गया: %1$s</string>
     <string name="diagnostics_live_winning_strategy_format">विजयी रणनीति परिवार: %1$s</string>
-    <string name="diagnostics_live_mode_summary_format">%1$s मोड · %2$s स्थानांतरित · %3$d पैकेट देखे गए</string>
     <string name="diagnostics_live_signal_format">%1$s भेजा गया · %2$s प्राप्त हुआ</string>
     <string name="diagnostics_live_no_transfer">अभी तक कोई स्थानांतरण नहीं देखा गया</string>
     <string name="diagnostics_live_feed_quiet">रनटाइम फ़ीड शांत है</string>
@@ -616,9 +613,6 @@
     <string name="diagnostics_autolearn_penalized">विफल रूट को दंडित किया</string>
     <string name="diagnostics_autolearn_host_blocked">अवरुद्ध होस्ट का पता चला</string>
     <string name="diagnostics_autolearn_store_reset">संग्रहीत होस्ट रीसेट किए</string>
-    <string name="diagnostics_autolearn_learned_format">%1$d सीखे गए</string>
-    <string name="diagnostics_autolearn_penalized_format">%1$d दंडित</string>
-    <string name="diagnostics_autolearn_blocked_format">%1$d अवरुद्ध</string>
 
     <!-- Diagnostics Telegram card -->
     <string name="diagnostics_telegram_download">डाउनलोड</string>
@@ -754,7 +748,7 @@
     <string name="copied_to_clipboard">क्लिपबोर्ड पर कॉपी किया गया</string>
     <string name="diagnostics_probe_copy_action">परिणाम कॉपी करें</string>
 
-    <string name="settings_community_api_url_label">Community API URL</string>
+    <string name="settings_community_api_url_label">कम्युनिटी API URL</string>
     <string name="settings_community_api_url_helper">डिफ़ॉल्ट एंडपॉइंट उपयोग करने के लिए खाली छोड़ें।</string>
     <string name="settings_community_api_url_save">सहेजें</string>
     <string name="settings_community_api_url_reset">डिफ़ॉल्ट पर रीसेट करें</string>
@@ -846,7 +840,7 @@
     <string name="detection_stealth_score_a11y">स्टेल्थ स्कोर %1$d</string>
     <string name="routing_protection_section_title">ऐप रूटिंग सुरक्षा</string>
     <string name="routing_protection_summary_title">रूटिंग सुझाव केवल इंस्टॉल किए गए ऐप मिलानों का उपयोग करते हैं</string>
-    <string name="routing_protection_summary_body">%2$d सक्षम प्रीसेट में %1$d जोखिमपूर्ण ऐप पकड़े गए।</string>
+    <string name="routing_protection_summary_body">पकड़े गए जोखिमपूर्ण ऐप: %1$d। सक्षम प्रीसेट: %2$d।</string>
     <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="routing_protection_full_tunnel_active">फ़ुल टनल मोड सक्रिय है, इसलिए ऐप बहिष्करण और एंटी-कोरिलेशन संकेत फ़िलहाल दबा दिए गए हैं।</string>
     <string name="routing_protection_policy_title">सुझाव मोड</string>
@@ -990,7 +984,7 @@
     <string name="update_error_not_available">कोई जाँचा गया अपडेट उपलब्ध नहीं है</string>
     <string name="update_error_unknown">अप्रत्याशित त्रुटि</string>
     <string name="import_error_unsupported">असमर्थित आयात लिंक।</string>
-    <string name="import_error_missing_url">आयात लिंक में सब्सक्रिप्शन URL मौजूद नहीं है।</string>
+    <string name="import_error_missing_url">आयात लिंक में सदस्यता URL मौजूद नहीं है।</string>
     <string name="import_error_bad_encoding">आयात लिंक विकृत है।</string>
     <string name="import_profile_confirm_title">प्रोफ़ाइल आयात करें</string>
     <string name="import_profile_confirm_empty_title">आयात करने के लिए कुछ नहीं</string>
@@ -1001,10 +995,10 @@
     <string name="import_confirm_done_action">जोड़ दिया गया</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">आयात किया गया कॉन्फ़िगरेशन</string>
-    <string name="import_subscription_confirm_title">सब्सक्रिप्शन जोड़ें</string>
+    <string name="import_subscription_confirm_title">सदस्यता जोड़ें</string>
     <string name="import_subscription_bootstrap_title">एक-बार का बूटस्ट्रैप लिंक</string>
-    <string name="import_subscription_bootstrap_body">यह एक-बार का बूटस्ट्रैप टोकन है। इसका उपयोग आपका सब्सक्रिप्शन प्राप्त करने के लिए एक बार किया जा सकता है।</string>
-    <string name="import_subscription_unnamed">बिना नाम का सब्सक्रिप्शन</string>
+    <string name="import_subscription_bootstrap_body">यह एक-बार का बूटस्ट्रैप टोकन है। इसका उपयोग आपकी सदस्यता प्राप्त करने के लिए एक बार किया जा सकता है।</string>
+    <string name="import_subscription_unnamed">बिना नाम की सदस्यता</string>
     <string name="scanner_title">QR कोड स्कैन करें</string>
     <string name="scanner_permission_rationale_title">कैमरा एक्सेस</string>
     <string name="scanner_permission_rationale_body">RIPDPI कैमरे का उपयोग केवल प्रॉक्सी लिंक, सब्सक्रिप्शन लिंक या WireGuard / AmneziaWG कॉन्फ़िग वाले QR कोड पढ़ने के लिए करता है। कुछ भी रिकॉर्ड या अपलोड नहीं किया जाता।</string>
@@ -1036,9 +1030,9 @@
     <string name="profile_share_loading_title">प्रोफ़ाइल लोड हो रही है</string>
     <string name="profile_share_loading_body">सहेजी गई प्रोफ़ाइल को एक्सपोर्ट के लिए तैयार किया जा रहा है।</string>
     <string name="profile_share_qr_body">इस QR कोड को Hiddify या किसी अन्य संगत क्लाइंट में स्कैन करें।</string>
-    <string name="profile_share_link_title">सब्सक्रिप्शन लिंक</string>
+    <string name="profile_share_link_title">सदस्यता लिंक</string>
     <string name="profile_share_link_body">इस लिंक को Hiddify, AmneziaVPN, या RIPDPI आयात में पेस्ट करें।</string>
-    <string name="profile_share_subscription_label">सब्सक्रिप्शन/प्रोफ़ाइल लिंक</string>
+    <string name="profile_share_subscription_label">सदस्यता/प्रोफ़ाइल लिंक</string>
     <string name="profile_share_uri_label">प्रोफ़ाइल लिंक</string>
     <string name="profile_share_copy_uri_action">लिंक कॉपी करें</string>
     <string name="profile_share_share_link_action">लिंक शेयर करें</string>
@@ -1071,7 +1065,7 @@
     <string name="awg_field_peer_endpoint">पीयर एंडपॉइंट</string>
     <string name="awg_field_allowed_ips">अनुमत IPs</string>
     <string name="awg_field_preshared_key">प्रीशेयर्ड कुंजी</string>
-    <string name="awg_field_persistent_keepalive">Persistent keepalive</string>
+    <string name="awg_field_persistent_keepalive">स्थायी keepalive</string>
     <string name="awg_field_jc">Jc</string>
     <string name="awg_field_jmin">Jmin</string>
     <string name="awg_field_jmax">Jmax</string>
@@ -1093,14 +1087,13 @@
     <string name="awg_cohort_custom">कस्टम</string>
     <string name="awg_cohort_locked_hint">Obfuscation फ़ील्ड चुने गए cohort द्वारा सेट किए जाते हैं। इन्हें संपादित करने के लिए \"कस्टम\" चुनें।</string>
     <string name="awg_paste_conf_action">.conf पेस्ट करें</string>
-    <string name="awg_reveal_secret_action">दिखाएँ</string>
     <string name="awg_connect_action">कनेक्ट करें</string>
     <string name="awg_connect_ready_hint">कनेक्ट करने के लिए तैयार।</string>
     <string name="awg_connect_incomplete_hint">कनेक्ट करने के लिए सर्वर, पोर्ट, private key, peer public key, और पता भरें।</string>
     <string name="awg_connect_error">कनेक्ट नहीं हो सका। सर्वर का विवरण जाँचें और फिर से प्रयास करें।</string>
 
     <string name="anytls_editor_title">AnyTLS प्रोफ़ाइल</string>
-    <string name="anytls_section_endpoint">Endpoint</string>
+    <string name="anytls_section_endpoint">एंडपॉइंट</string>
     <string name="anytls_section_tls">TLS</string>
     <string name="anytls_section_tls_body">SNI override वैकल्पिक है; सर्वर होस्ट का उपयोग करने के लिए इसे खाली छोड़ दें।</string>
     <string name="anytls_field_display_name">नाम</string>
@@ -1112,9 +1105,9 @@
     <string name="anytls_save_action">सहेजें</string>
 
     <string name="mieru_editor_title">Mieru प्रोफ़ाइल</string>
-    <string name="mieru_section_endpoint">Endpoint</string>
+    <string name="mieru_section_endpoint">एंडपॉइंट</string>
     <string name="mieru_section_credentials">क्रेडेंशियल</string>
-    <string name="mieru_section_transport">Transport</string>
+    <string name="mieru_section_transport">ट्रांसपोर्ट</string>
     <string name="mieru_section_transport_body">transport प्रोटोकॉल, multiplexing स्तर, और MTU चुनें।</string>
     <string name="mieru_field_display_name">नाम</string>
     <string name="mieru_field_server">सर्वर</string>
@@ -1122,7 +1115,7 @@
     <string name="mieru_field_username">उपयोगकर्ता नाम</string>
     <string name="mieru_field_password">पासवर्ड</string>
     <string name="mieru_field_protocol">प्रोटोकॉल</string>
-    <string name="mieru_field_multiplexing">Multiplexing</string>
+    <string name="mieru_field_multiplexing">मल्टीप्लेक्सिंग</string>
     <string name="mieru_transport_tcp">TCP</string>
     <string name="mieru_transport_udp">UDP</string>
     <string name="mieru_mux_off">बंद</string>
@@ -1133,7 +1126,7 @@
     <string name="mieru_field_invalid">इस फ़ील्ड के लिए मान्य मान नहीं है।</string>
     <string name="mieru_save_action">सहेजें</string>
     <string name="mieru_experimental_title">प्रायोगिक — लाइव सर्वरों पर सत्यापित नहीं</string>
-    <string name="mieru_experimental_body">Mieru समर्थन का किसी वास्तविक Mieru सर्वर पर परीक्षण नहीं किया गया है। कनेक्शन विफल हो सकते हैं। इस relay को सत्यापित करने में हमारी मदद के लिए समस्याओं की रिपोर्ट करें।</string>
+    <string name="mieru_experimental_body">Mieru समर्थन का किसी वास्तविक Mieru सर्वर पर परीक्षण नहीं किया गया है। कनेक्शन विफल हो सकते हैं। इस रिले को सत्यापित करने में हमारी मदद के लिए समस्याओं की रिपोर्ट करें।</string>
 
     <string name="ssh_editor_title">SSH प्रोफ़ाइल</string>
     <string name="ssh_section_endpoint">एंडपॉइंट</string>
@@ -1250,7 +1243,7 @@
     <string name="vpn_pcap_viewer_hex_label">HEX डंप</string>
     <string name="vpn_confirm_disconnect_title">अभी डिस्कनेक्ट करें?</string>
     <string name="vpn_confirm_disconnect_session_format">सक्रिय सत्र · %1$s</string>
-    <string name="vpn_confirm_disconnect_body">डिस्कनेक्ट करने से कोई भी खुले डाउनलोड बंद हो जाएँगे और एनालाइज़र स्टेट रीसेट हो जाएगी। सक्रिय कॉल बाधित हो सकती हैं।</string>
+    <string name="vpn_confirm_disconnect_body">दोबारा कनेक्ट करने तक ऐप्स का बायपास बंद रहेगा। सक्रिय कॉल और डाउनलोड रुक सकते हैं।</string>
     <string name="vpn_confirm_disconnect_stay">कनेक्टेड रहें</string>
     <string name="vpn_confirm_disconnect_disconnect">डिस्कनेक्ट करें</string>
     <string name="vpn_export_consent_title_format">%1$s निर्यात करें</string>
@@ -1280,7 +1273,7 @@
     <string name="vpn_quality_strip_body_warning">टनल चालू है पर प्रदर्शन गिर गया है. संकेतक अपनी सामान्य सीमा से बाहर हैं.</string>
     <string name="vpn_quality_strip_body_critical">टनल चालू है पर गुणवत्ता खराब है. अधिकांश संकेतक सामान्य सीमा से काफी बाहर हैं.</string>
     <string name="vpn_quality_strip_since_format">%1$s से</string>
-    <string name="vpn_quality_strip_reprobe">पुनः प्रोब करें</string>
+    <string name="vpn_quality_strip_reprobe">फिर से मापें</string>
     <string name="vpn_quality_strip_dismiss">खारिज करें</string>
     <string name="vpn_quality_metric_loss">हानि</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
@@ -1294,7 +1287,7 @@
     <string name="vpn_quality_graph_value_ms">%1$d ms</string>
     <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
     <string name="vpn_quality_graph_avg_ms">औसत %1$d ms</string>
-    <string name="vpn_pcap_capture_list_empty">अभी तक कोई कैप्चर नहीं। उन्नत सेटिंग्स में पैकेट कैप्चर चालू करें।</string>
+    <string name="vpn_pcap_capture_list_empty">उन्नत सेटिंग्स में पैकेट कैप्चर चालू करें।</string>
     <string name="vpn_pcap_loading">पैकेट कैप्चर लोड हो रहे हैं…</string>
     <string name="vpn_pcap_read_failed">PCAP डेटा पढ़ा नहीं जा सका।</string>
     <string name="vpn_pcap_truncated">पहले 2,000 पैकेट दिखाए जा रहे हैं।</string>
@@ -1331,7 +1324,7 @@
     <string name="strategy_import_source_file_title">फ़ाइल से</string>
     <string name="strategy_import_source_file_sub">.json, .cfg, या किसी अन्य इंस्टॉल से सहेजा गया बंडल</string>
     <string name="strategy_import_source_qr_title">QR स्कैन करें</string>
-    <string name="strategy_import_source_qr_sub">किसी साझा RIPDPI इंस्टॉल या relay निमंत्रण से</string>
+    <string name="strategy_import_source_qr_sub">किसी साझा RIPDPI इंस्टॉल या रिले निमंत्रण से</string>
     <string name="strategy_import_source_url_title">URL से</string>
     <string name="strategy_import_source_clipboard_title">क्लिपबोर्ड से पेस्ट करें</string>
     <string name="strategy_import_source_clipboard_sub">URL, JSON, या कच्चे रणनीति आर्गुमेंट को स्वतः पहचानता है</string>
@@ -1390,16 +1383,14 @@
     <string name="title_domain_bypass_list">डोमेन बायपास सूची</string>
     <string name="settings_domain_bypass_body">चुने गए डोमेन को प्रॉक्सी से बाहर रखें (सीधा)</string>
     <string name="domain_bypass_intro_title">सीधे डोमेन</string>
-    <string name="domain_bypass_intro_body">यहाँ सूचीबद्ध डोमेन प्रॉक्सी से बाहर रहते हैं और सीधे कनेक्ट होते हैं। प्रति पंक्ति एक। सादे डोमेन (example.com), प्रत्यय (.example.com), और domain:, domain_suffix: तथा domain_regex: उपसर्ग स्वीकार करता है।</string>
+    <string name="domain_bypass_intro_body">यहाँ सूचीबद्ध डोमेन प्रॉक्सी से बाहर रहते हैं और सीधे कनेक्ट होते हैं। सादे डोमेन (example.com), प्रत्यय (.example.com), और domain:, domain_suffix: तथा domain_regex: उपसर्ग स्वीकार करता है।</string>
     <string name="domain_bypass_editor_label">डोमेन (प्रति पंक्ति एक)</string>
-    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
-    <string name="domain_bypass_errors_title">%1$d अमान्य पंक्ति(याँ)</string>
+    <string name="domain_bypass_placeholder">उदाहरण के लिए:\nexample.com\n.bank.example</string>
     <string name="domain_bypass_error_line">पंक्ति %1$d: %2$s</string>
     <string name="domain_bypass_paste">चिपकाएँ</string>
     <string name="domain_bypass_copy">कॉपी करें</string>
     <string name="domain_bypass_move_to_editor">नियमों में ले जाएँ</string>
     <string name="domain_bypass_moved_rule_name">डोमेन बायपास सूची</string>
-    <string name="domain_bypass_saved">%1$d डोमेन सहेजे गए</string>
     <string name="domain_bypass_cleared">बायपास सूची साफ़ की गई</string>
     <string name="domain_bypass_copied">क्लिपबोर्ड पर कॉपी किया गया</string>
     <string name="domain_bypass_clipboard_empty">क्लिपबोर्ड खाली है</string>
@@ -1447,7 +1438,7 @@
     <string name="rule_editor_network_both">TCP और UDP</string>
     <string name="rule_editor_process_label">प्रोसेस नाम</string>
     <string name="rule_editor_apps_label">ऐप</string>
-    <string name="rule_editor_apps_selected">%1$d चयनित</string>
+    <string name="rule_editor_apps_selected">ऐप्स: %1$d चयनित</string>
     <string name="rule_editor_outbound_label">आउटबाउंड</string>
     <string name="rule_editor_outbound_proxy">प्रॉक्सी</string>
     <string name="rule_editor_outbound_bypass">बायपास (सीधा)</string>
@@ -1489,7 +1480,7 @@
     <string name="asset_provider_sagernet_desc">आधिकारिक sing-box geoip और geosite डेटाबेस।</string>
     <string name="asset_provider_soffchen_label">soffchen</string>
     <string name="asset_provider_soffchen_desc">कम्युनिटी sing-box geoip और geosite मिरर।</string>
-    <string name="asset_provider_chocolate4u_label">Chocolate4U (Iran)</string>
+    <string name="asset_provider_chocolate4u_label">Chocolate4U (ईरान)</string>
     <string name="asset_provider_chocolate4u_desc">Iran-केंद्रित sing-box नियम।</string>
     <string name="asset_provider_l11r_label">L11R (antizapret)</string>
     <string name="asset_provider_l11r_desc">Russia / antizapret sing-box जियो नियम।</string>
@@ -1510,7 +1501,7 @@
     <string name="asset_provider_imported_title">एसेट आयात हुआ</string>
     <string name="asset_provider_imported_body">आयातित डेटाबेस लागू करने के लिए सेवा को पुनरारंभ करें।</string>
     <string name="asset_provider_failed_title">डेटा कार्रवाई विफल</string>
-    <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russia)</string>
+    <string name="asset_provider_runetfreedom_label">RuNet Freedom (रूस)</string>
     <string name="asset_provider_runetfreedom_desc">वास्तविक RU बायपास नियमसेट; v2ray/xray geoip/geosite टैग के लिए antizapret की तुलना में अधिक अद्यतन।</string>
     <string name="asset_provider_updated_today">आज अपडेट हुआ</string>
     <string name="asset_provider_updated_never">कभी अपडेट नहीं हुआ</string>
@@ -1549,8 +1540,7 @@
     <string name="backup_import_preview_title">बैकअप की समीक्षा करें</string>
     <string name="backup_import_preview_schema">बैकअप संस्करण %1$d, ऐप %2$s द्वारा बनाया गया</string>
     <string name="backup_import_shareable_title">साझा करने योग्य बैकअप</string>
-    <string name="backup_import_shareable_body">%1$d प्रोफ़ाइल पुनर्स्थापित नहीं की जा सकतीं क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</string>
-    <string name="backup_import_category_profiles">प्रोफ़ाइल और समूह (%1$d प्रोफ़ाइल, %2$d समूह)</string>
+    <string name="backup_import_category_profiles">प्रोफ़ाइल और समूह (प्रोफ़ाइल: %1$d, समूह: %2$d)</string>
     <string name="backup_import_category_routes">रूटिंग नियम (%1$d)</string>
     <string name="backup_import_category_settings">सेटिंग्स (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">अनचयनित श्रेणियाँ अपने वर्तमान मान बनाए रखती हैं।</string>
@@ -1657,7 +1647,7 @@
     <string name="xray_provider_probe_version">इंजन संस्करण</string>
     <string name="xray_provider_probe_wrapper_ping">रैपर पिंग</string>
     <string name="xray_provider_probe_listener">लिसनर तैयारी</string>
-    <string name="xray_provider_probe_stat_api">Stat API</string>
+    <string name="xray_provider_probe_stat_api">आँकड़ा API</string>
     <string name="xray_provider_probe_ok">ठीक है</string>
     <string name="xray_provider_probe_failed_label">विफल</string>
     <string name="xray_provider_probe_not_applicable">लागू नहीं</string>
@@ -1695,14 +1685,14 @@
     <string name="relay_finalmask_fragment_min_bytes_label">फ़्रैगमेंट न्यूनतम बाइट</string>
     <string name="relay_finalmask_fragment_max_bytes_label">फ़्रैगमेंट अधिकतम बाइट</string>
     <string name="relay_finalmask_header_hex_label">हेडर हेक्स</string>
-    <string name="relay_finalmask_trailer_hex_label">Trailer hex</string>
+    <string name="relay_finalmask_trailer_hex_label">ट्रेलर (hex)</string>
     <string name="relay_finalmask_random_range_label">यादृच्छिक श्रेणी</string>
-    <string name="relay_finalmask_sudoku_seed_label">Sudoku seed</string>
+    <string name="relay_finalmask_sudoku_seed_label">Sudoku सीड</string>
     <string name="relay_finalmask_noise_range_label">शोर श्रेणी</string>
-    <string name="relay_snowflake_broker_url_label">Broker URL</string>
+    <string name="relay_snowflake_broker_url_label">ब्रोकर URL</string>
     <string name="relay_snowflake_front_domain_label">फ़्रंट डोमेन</string>
-    <string name="relay_tor_bridge_line_label">Bridge line</string>
-    <string name="relay_tor_bridge_line_helper">एक obfs4 bridge line पेस्ट करें। Tor केवल इसी pluggable transport के ज़रिए बूटस्ट्रैप करता है, कभी सीधे कनेक्शन से नहीं।</string>
+    <string name="relay_tor_bridge_line_label">ब्रिज लाइन</string>
+    <string name="relay_tor_bridge_line_helper">एक obfs4 ब्रिज लाइन पेस्ट करें। Tor केवल इसी pluggable transport के ज़रिए बूटस्ट्रैप करता है, कभी सीधे कनेक्शन से नहीं।</string>
     <string name="relay_tor_warning_title">Tor धीमा है और इसकी गुमनामी अलग तरीके से होती है</string>
     <string name="relay_tor_warning_message">ट्रैफ़िक स्वयंसेवी Tor नेटवर्क के ज़रिए रिले होता है, इसलिए सीधे रिले की तुलना में अधिक latency की उम्मीद करें। गुमनामी Tor द्वारा प्रदान की जाती है, RIPDPI द्वारा नहीं। Tor केवल TCP और DNS ले जाता है; UDP समर्थित नहीं है।</string>
     <string name="relay_webtunnel_url_label">WebTunnel URL</string>
@@ -1737,7 +1727,7 @@
     <string name="strategy_tuner_message_add_domain">कम से कम एक डोमेन जोड़ें</string>
     <string name="strategy_tuner_message_sweep_complete">स्वीप पूर्ण</string>
     <string name="strategy_tuner_message_sweep_cancelled">स्वीप रद्द किया गया</string>
-    <string name="subscription_failover_no_servers">अभी तक कोई सब्सक्रिप्शन सर्वर नहीं देखा गया</string>
+    <string name="subscription_failover_no_servers">अभी तक कोई सदस्यता सर्वर नहीं देखा गया</string>
     <string name="subscription_failover_last_check_unknown">अंतिम जाँच अज्ञात</string>
     <string name="subscription_failover_no_active_server">कोई सक्रिय सर्वर नहीं</string>
     <string name="subscription_failover_no_switchovers">कोई स्विचओवर नहीं देखा गया</string>
@@ -1879,7 +1869,6 @@
     <string name="detection_headline_ordinary_https">आप सामान्य HTTPS ट्रैफ़िक जैसे दिखते हैं</string>
     <string name="detection_narrative_discovered_heading">क्या पता चला</string>
     <string name="detection_narrative_reason_heading">यह फ़ैसला क्यों</string>
-    <string name="detection_probe_outcome_format">प्रोब परिणाम: %2$d में से %1$d संकेत उजागर</string>
     <string name="detection_settings_call_transport_subtitle">पहचाने गए प्रॉक्सी के ज़रिए MTProto और STUN प्रोब करें</string>
     <string name="detection_settings_call_transport_title">कॉल ट्रांसपोर्ट प्रोब</string>
     <string name="detection_settings_cancel">रद्द करें</string>
@@ -1932,7 +1921,6 @@
     <string name="detection_verdict_reason_format">कारण: %1$s</string>
     <string name="diagnostics_allowlist_sni_failed">SNI संगतता खोजक विफल रहा।</string>
     <string name="diagnostics_allowlist_sni_no_flagged">पहले TCP16 चलाएँ; अभी कोई फ़्लैग किया गया ASN उपलब्ध नहीं है।</string>
-    <string name="diagnostics_allowlist_sni_ready">%1$d TCP16-फ़्लैग किए गए लक्ष्यों के लिए तैयार।</string>
     <string name="diagnostics_allowlist_sni_run_after_tcp16">TCP16 द्वारा फ़्लैग किए गए ASN मिलने के बाद चलाएँ।</string>
     <string name="diagnostics_allowlist_sni_running">TCP16-फ़्लैग किए गए ASN के लिए SNI अनुकूलता की जाँच की जा रही है...</string>
     <string name="diagnostics_approach_metric_runtime">रनटाइम</string>
@@ -1962,7 +1950,6 @@
     <string name="diagnostics_audit_winner_coverage_label">विजेता कवरेज</string>
     <string name="diagnostics_byoh_check_failed">होस्ट अनुकूलता जाँच विफल रही।</string>
     <string name="diagnostics_byoh_checking_domain">%1$s की जाँच की जा रही है (%2$d/%3$d)...</string>
-    <string name="diagnostics_byoh_complete">%2$d में से %1$d होस्टनामों ने कॉन्फ़िगर किया गया स्थानांतरण पूरा किया।</string>
     <string name="diagnostics_byoh_destination_ip_label">गंतव्य IP</string>
     <string name="diagnostics_byoh_dst_ip_required">उपयोगकर्ता-नियंत्रित सर्वर के लिए एक गंतव्य IP दर्ज करें।</string>
     <string name="diagnostics_byoh_metric_bytes">बाइट</string>
@@ -1990,38 +1977,33 @@
     <string name="diagnostics_cidr_whitelist_title">CIDR व्हाइटलिस्ट पहचान</string>
     <string name="diagnostics_cidr_whitelist_verdict_detected_label">cidr व्हाइटलिस्ट</string>
     <string name="diagnostics_cidr_whitelist_verdict_no_internet_label">इंटरनेट नहीं</string>
-    <string name="diagnostics_compression_complete">%3$s के लिए %2$d में से %1$d कम्प्रेशन कोडेक उपयोग योग्य हैं।</string>
     <string name="diagnostics_compression_failed">HTTP कम्प्रेशन प्रोब विफल रहा।</string>
     <string name="diagnostics_compression_metric_target">लक्ष्य</string>
     <string name="diagnostics_compression_metric_usable">उपयोग योग्य</string>
     <string name="diagnostics_compression_metric_zstd">zstd</string>
     <string name="diagnostics_compression_running">HTTP कम्प्रेशन समर्थन की जाँच की जा रही है...</string>
-    <string name="diagnostics_dns_availability_complete">%2$d में से %1$d सार्वजनिक DNS रिज़ॉल्वर ने प्रतिक्रिया दी।</string>
     <string name="diagnostics_dns_availability_failed">DNS उपलब्धता सर्वेक्षण विफल रहा।</string>
     <string name="diagnostics_dns_availability_metric_available">उपलब्ध</string>
     <string name="diagnostics_dns_availability_metric_servers">सर्वर</string>
     <string name="diagnostics_dns_availability_running">सार्वजनिक DNS रिज़ॉल्वर का सर्वेक्षण किया जा रहा है...</string>
     <string name="diagnostics_dns_integrity_complete_clean">%1$d बंडल किए गए डोमेन में कोई DNS प्रतिस्थापन नहीं पाया गया।</string>
-    <string name="diagnostics_dns_integrity_complete_flagged">%2$d में से %1$d डोमेन, %3$d DoQ जाँच, और %4$d DoH बूटस्ट्रैप जाँचों ने DNS अखंडता चेतावनियाँ दिखाईं।</string>
+    <string name="diagnostics_dns_integrity_complete_flagged">DNS अखंडता चेतावनियाँ: डोमेन %1$d/%2$d, DoQ जाँच %3$d, DoH बूटस्ट्रैप जाँच %4$d।</string>
     <string name="diagnostics_dns_integrity_doh_bootstrap_label">DoH बूटस्ट्रैप %1$s: %2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s: %3$s</string>
     <string name="diagnostics_dns_integrity_failed">DNS अखंडता जाँच विफल रही.</string>
     <string name="diagnostics_dns_integrity_metric_bootstrap_flagged">bootstrap फ़्लैग किया गया</string>
     <string name="diagnostics_dns_integrity_metric_checked">जाँचा गया</string>
     <string name="diagnostics_dns_integrity_metric_doh_blocked">DoH अवरुद्ध</string>
-    <string name="diagnostics_dns_integrity_metric_doh_bootstrap">DoH bootstrap</string>
+    <string name="diagnostics_dns_integrity_metric_doh_bootstrap">DoH बूटस्ट्रैप</string>
     <string name="diagnostics_dns_integrity_metric_doq_checks">DoQ जाँचें</string>
     <string name="diagnostics_dns_integrity_metric_doq_flagged">DoQ फ़्लैग किया गया</string>
     <string name="diagnostics_dns_integrity_metric_flagged">फ़्लैग किया गया</string>
     <string name="diagnostics_dns_integrity_metric_stub_ips">stub IP</string>
     <string name="diagnostics_dns_integrity_running">UDP/53 उत्तरों की DoH नियंत्रणों से जाँच की जा रही है...</string>
-    <string name="diagnostics_domain_reachability_complete_clean">%1$d बंडल किए गए डोमेन में कोई पहुँच अवरोध नहीं मिला.</string>
-    <string name="diagnostics_domain_reachability_complete_flagged">%2$d में से %1$d डोमेन में पहुँच चेतावनियाँ दिखीं.</string>
     <string name="diagnostics_domain_reachability_failed">डोमेन पहुँच स्कैन विफल रहा.</string>
     <string name="diagnostics_domain_reachability_metric_checked">जाँचा गया</string>
     <string name="diagnostics_domain_reachability_metric_flagged">फ़्लैग किया गया</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">stub IP</string>
-    <string name="diagnostics_domain_reachability_running">%1$d DNS stub IP के साथ पहुँच की जाँच की जा रही है...</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH तैयारी</string>
     <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial फ़िंगरप्रिंट</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16 फैट हेडर</string>
@@ -2032,12 +2014,9 @@
     <string name="diagnostics_dpi_suite_title">DPI-CH व्यापक</string>
     <string name="diagnostics_ipv4_whitelist_cache">सबनेट कैश करें</string>
     <string name="diagnostics_ipv4_whitelist_cache_failed">सबनेट कैश विफल रहा.</string>
-    <string name="diagnostics_ipv4_whitelist_cached_complete">%1$d संभावित /24 रेंज कैश की गईं.</string>
-    <string name="diagnostics_ipv4_whitelist_cached_provider">%2$s के लिए %1$d /24 रेंज कैश की गईं.</string>
     <string name="diagnostics_ipv4_whitelist_caching">कैश किया जा रहा है...</string>
     <string name="diagnostics_ipv4_whitelist_check_cached">कैश किए गए सबनेट जाँचें</string>
     <string name="diagnostics_ipv4_whitelist_check_failed">सबनेट जाँच विफल रही.</string>
-    <string name="diagnostics_ipv4_whitelist_checked_progress">%2$d में से %1$d कैश किए गए सबनेट जाँचे गए.</string>
     <string name="diagnostics_ipv4_whitelist_csv_title">IPv4 whitelist subnets.csv</string>
     <string name="diagnostics_ipv4_whitelist_fetching">घोषित IPv4 उपसर्ग प्राप्त किए जा रहे हैं...</string>
     <string name="diagnostics_ipv4_whitelist_hide_results">सबनेट परिणाम छिपाएँ</string>
@@ -2091,7 +2070,7 @@
     <string name="diagnostics_resolver_save_setting">DNS सेटिंग के रूप में सहेजें</string>
     <string name="diagnostics_resolver_switch_dns">DNS को %1$s पर बदलें</string>
     <string name="diagnostics_results_section_count">%1$s (%2$d)</string>
-    <string name="diagnostics_rkn_complete">%1$d नियंत्रण लक्ष्य और %2$d ब्लैकलिस्ट लक्ष्य जाँचे गए।</string>
+    <string name="diagnostics_rkn_complete">जाँचे गए नियंत्रण लक्ष्य: %1$d; ब्लैकलिस्ट लक्ष्य: %2$d।</string>
     <string name="diagnostics_rkn_failed">RKN ब्लॉक निदान विफल।</string>
     <string name="diagnostics_rkn_group_control">नियंत्रण</string>
     <string name="diagnostics_rkn_group_test">परीक्षण</string>
@@ -2107,8 +2086,7 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: सिस्टम रिज़ॉल्यूशन विफल</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">सत्यापित नहीं</string>
-    <string name="diagnostics_tcp16_complete_clean">%1$d लक्ष्यों में कोई TCP16 fat-header क्लोज़र पैटर्न नहीं मिला।</string>
-    <string name="diagnostics_tcp16_complete_detected">%1$d लक्ष्यों ने TCP16 क्लोज़र पैटर्न दिखाए; %2$d पुनः-कनेक्ट सत्यापन विफल रहे।</string>
+    <string name="diagnostics_tcp16_complete_detected">TCP16 क्लोज़र पैटर्न वाले लक्ष्य: %1$d; विफल पुनः-कनेक्ट सत्यापन: %2$d।</string>
     <string name="diagnostics_tcp16_failed">TCP16 fat-header probe विफल।</string>
     <string name="diagnostics_tcp16_metric_detected">पता चला</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">single-socket अमान्य</string>
@@ -2157,8 +2135,8 @@
     <string name="logs_mode_proxy">प्रॉक्सी</string>
     <string name="logs_mode_vpn">VPN</string>
     <string name="owned_stack_browser_request_failed">Owned-stack अनुरोध विफल रहा।</string>
-    <string name="port_matrix_host_port_header">HOST / PORT</string>
-    <string name="profile_share_setup_sheet_template">RIPDPI सेटअप शीट\n\nप्रोफ़ाइल: %1$s\nप्रकार: %2$s\n\nसब्सक्रिप्शन/प्रोफ़ाइल लिंक:\n%3$s\n\nHiddify:\n1. Hiddify खोलें।\n2. प्रोफ़ाइल जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nAmneziaVPN:\n1. AmneziaVPN खोलें।\n2. लिंक या QR से सर्वर जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nइस शीट को निजी रखें। QR कोड और लिंक में क्रेडेंशियल होते हैं।</string>
+    <string name="port_matrix_host_port_header">होस्ट / पोर्ट</string>
+    <string name="profile_share_setup_sheet_template">RIPDPI सेटअप शीट\n\nप्रोफ़ाइल: %1$s\nप्रकार: %2$s\n\nसदस्यता/प्रोफ़ाइल लिंक:\n%3$s\n\nHiddify:\n1. Hiddify खोलें।\n2. प्रोफ़ाइल जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nAmneziaVPN:\n1. AmneziaVPN खोलें।\n2. लिंक या QR से सर्वर जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nइस शीट को निजी रखें। QR कोड और लिंक में क्रेडेंशियल होते हैं।</string>
     <string name="a11y_loading">लोड हो रहा है</string>
     <string name="percent_value">%1$d%%</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
@@ -2181,7 +2159,7 @@
     <string name="route_state_selected">चयनित</string>
     <string name="routing_protection_anti_correlation_description">ऐप्लिकेशन को बाहर रखने से TRANSPORT_VPN जाँच नहीं छिपती। जब अकेले ऐप रूटिंग अब भी दिखाई देती है, तो एंटी-कोरिलेशन अगला कदम है।</string>
     <string name="routing_protection_anti_correlation_recommendation_title">एंटी-कोरिलेशन मोड रूट फ़िंगरप्रिंट कम कर सकता है</string>
-    <string name="routing_protection_dht_mitigation_description">मौजूदा जाँच में स्प्लिट रूटिंग दिखाई देती है। DHT ट्रिगर शमन सक्षम करने से उन ज्ञात UDP ट्रिगर CIDR से बचने में मदद मिलती है जो relay या WARP कंट्रोल-प्लेन पथों को अस्थिर कर सकते हैं।</string>
+    <string name="routing_protection_dht_mitigation_description">मौजूदा जाँच में स्प्लिट रूटिंग दिखाई देती है। DHT ट्रिगर शमन सक्षम करने से उन ज्ञात UDP ट्रिगर CIDR से बचने में मदद मिलती है जो रिले या WARP कंट्रोल-प्लेन पथों को अस्थिर कर सकते हैं।</string>
     <string name="routing_protection_dht_mitigation_title">DHT शमन स्प्लिट रूटों की रक्षा कर सकता है</string>
     <string name="routing_protection_full_tunnel_description">कई जोखिम भरे ऐप इंस्टॉल हैं। जब सटीक बहिष्करण पर्याप्त न हों, तो फ़ुल टनल मोड प्रति-ऐप रूटिंग अंतर हटा देता है।</string>
     <string name="routing_protection_full_tunnel_title">फ़ुल टनल सबसे मज़बूत रूटिंग समाधान बना हुआ है</string>

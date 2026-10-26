@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -103,9 +104,21 @@ private fun HostFakeSummaryLines(uiState: SettingsUiState) {
 @Composable
 private fun hostFakeProfileSummary(uiState: SettingsUiState): String =
     when (uiState.desync.hostFakeStepCount) {
-        0 -> stringResource(R.string.ripdpi_hostfake_summary_profile_none)
-        1 -> stringResource(R.string.ripdpi_hostfake_summary_profile_single)
-        else -> stringResource(R.string.ripdpi_hostfake_summary_profile_multiple, uiState.desync.hostFakeStepCount)
+        0 -> {
+            stringResource(R.string.ripdpi_hostfake_summary_profile_none)
+        }
+
+        1 -> {
+            stringResource(R.string.ripdpi_hostfake_summary_profile_single)
+        }
+
+        else -> {
+            pluralStringResource(
+                R.plurals.ripdpi_hostfake_summary_profile_multiple,
+                uiState.desync.hostFakeStepCount,
+                uiState.desync.hostFakeStepCount,
+            )
+        }
     }
 
 @Composable

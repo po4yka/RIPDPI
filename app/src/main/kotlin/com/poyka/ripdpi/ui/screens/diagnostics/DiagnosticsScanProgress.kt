@@ -16,9 +16,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.CompletedProbeUiModel
@@ -306,7 +308,7 @@ private fun CandidateTimelineChip(entry: StrategyCandidateTimelineEntryUiModel) 
 }
 
 @Composable
-private fun CandidateSparkline(
+internal fun CandidateSparkline(
     succeeded: Int,
     total: Int,
     color: androidx.compose.ui.graphics.Color,
@@ -324,9 +326,12 @@ private fun CandidateSparkline(
                     .CornerRadius(3.dp.toPx()),
         )
         if (fraction > 0f) {
+            val filled = size.width * fraction
             drawRoundRect(
                 color = color,
-                size = size.copy(width = size.width * fraction),
+                // Canvas does not mirror, so in RTL the fill starts at the right edge.
+                topLeft = Offset(if (layoutDirection == LayoutDirection.Rtl) size.width - filled else 0f, 0f),
+                size = size.copy(width = filled),
                 cornerRadius =
                     androidx.compose.ui.geometry
                         .CornerRadius(3.dp.toPx()),

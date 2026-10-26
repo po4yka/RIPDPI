@@ -156,7 +156,6 @@ class StrategyConfigScreenTest {
                                     configText = "version: 1\nstrategies: []\n",
                                     luaPath = "",
                                     luaFunction = "",
-                                    activePath = "imported.yaml",
                                     banner = null,
                                     isSaving = isSaving,
                                     isFinalizingSave = isFinalizingSave,

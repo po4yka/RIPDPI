@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config_vpn_add_subscription">सब्सक्रिप्शन</string>
+    <string name="config_vpn_add_subscription">सदस्यता</string>
     <string name="config_vpn_import_awg_conf">फ़ाइल से WireGuard / AmneziaWG</string>
-    <string name="subscription_add_url_label">सब्सक्रिप्शन लिंक</string>
-    <string name="subscription_add_body">अपने प्रोवाइडर का https:// लिंक पेस्ट करें। RIPDPI के जोड़ने से पहले आप सब्सक्रिप्शन की समीक्षा करते हैं।</string>
-    <string name="subscription_add_url_invalid">मान्य https:// सब्सक्रिप्शन लिंक डालें।</string>
+    <string name="subscription_add_url_label">सदस्यता लिंक</string>
+    <string name="subscription_add_body">अपने प्रोवाइडर का https:// लिंक पेस्ट करें। RIPDPI के जोड़ने से पहले आप सदस्यता की समीक्षा करते हैं।</string>
+    <string name="subscription_add_url_invalid">मान्य https:// सदस्यता लिंक डालें।</string>
     <string name="subscription_add_continue">जारी रखें</string>
     <string name="awg_conf_import_failed_title">कॉन्फ़िग इम्पोर्ट नहीं हुआ</string>
     <string name="awg_conf_import_failed_body">यह टेक्स्ट मान्य WireGuard या AmneziaWG .conf नहीं है, या इसमें ऐसे विकल्प हैं जिनका RIPDPI समर्थन नहीं करता।</string>

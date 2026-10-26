@@ -13,6 +13,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
+/** The relay profile to edit is not in the store; other load failures keep their own exception type. */
+class RelayProfileNotFoundException : NoSuchElementException("Relay profile no longer exists")
+
 class ConfigRelayArtifactRepository
     @Inject
     constructor(
@@ -41,7 +44,7 @@ class ConfigRelayArtifactRepository
 
         suspend fun hydrateProfile(profileId: String): ConfigDraft =
             readRecovered {
-                val profile = requireNotNull(relayProfileStore.load(profileId)) { "Relay profile no longer exists" }
+                val profile = relayProfileStore.load(profileId) ?: throw RelayProfileNotFoundException()
                 val draft =
                     appSettingsRepository
                         .snapshot()

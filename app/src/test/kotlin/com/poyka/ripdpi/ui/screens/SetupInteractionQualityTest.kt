@@ -5,13 +5,18 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToKeyAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.RememberedNetworksUiState
@@ -22,6 +27,8 @@ import com.poyka.ripdpi.subscription.SubscriptionDetailUiState
 import com.poyka.ripdpi.subscription.SubscriptionExpiryItemUiState
 import com.poyka.ripdpi.subscription.SubscriptionExpiryStatus
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
+import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmScreen
+import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmUiState
 import com.poyka.ripdpi.ui.screens.routes.AppPickerSheet
 import com.poyka.ripdpi.ui.screens.routes.InstalledAppItem
 import com.poyka.ripdpi.ui.screens.routes.RoutesScreen
@@ -84,6 +91,9 @@ class SetupInteractionQualityTest {
             ).performClick()
         assertEquals(1, toggles)
         assertEquals(0, edits)
+
+        composeRule.onNodeWithText(text(R.string.routes_edit_rule)).performClick()
+        assertEquals(1, edits)
     }
 
     @Test
@@ -104,11 +114,11 @@ class SetupInteractionQualityTest {
             }
         }
         val deleteLabel = text(R.string.rule_editor_delete)
-        composeRule.onNode(hasContentDescription(deleteLabel)).performClick()
+        composeRule.onNodeWithText(deleteLabel).performClick()
         composeRule.onNodeWithText(text(R.string.routes_delete_confirm_title)).assertExists()
         assertEquals(emptyList<RuleEntity>(), deleted)
 
-        composeRule.onNodeWithText(deleteLabel).performClick()
+        composeRule.onNode(hasText(deleteLabel) and hasAnyAncestor(isDialog())).performClick()
         composeRule.runOnIdle { assertEquals(listOf(rule), deleted) }
     }
 
@@ -227,6 +237,55 @@ class SetupInteractionQualityTest {
     }
 
     @Test
+    fun `new empty rule is titled new and warns only after a save attempt`() {
+        var saves = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                RuleEditorScreen(
+                    state = RuleEditorUiState(loaded = true),
+                    onBack = {},
+                    onNameChange = {},
+                    onEnabledChange = {},
+                    onDomainsChange = {},
+                    onIpCidrsChange = {},
+                    onPortsChange = {},
+                    onSourcePortsChange = {},
+                    onNetworkChange = {},
+                    onProcessNameChange = {},
+                    onPackagesChange = {},
+                    onOutboundChange = {},
+                    persistenceActions = RuleEditorPersistenceActions(save = { saves++ }),
+                )
+            }
+        }
+        composeRule.onNodeWithText(text(R.string.title_rule_editor_new)).assertExists()
+        composeRule.onNodeWithText(text(R.string.rule_editor_empty_error_title)).assertDoesNotExist()
+
+        composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("rule_editor_actions")
+        composeRule.onNodeWithTag(RipDpiTestTags.RuleEditorSave).performClick()
+
+        composeRule.onNode(hasScrollToKeyAction()).performScrollToKey("rule_editor_empty_warning")
+        composeRule.onNodeWithText(text(R.string.rule_editor_empty_error_title)).assertExists()
+        assertEquals(0, saves)
+    }
+
+    @Test
+    fun `subscription link without a url shows the empty import state`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SubscriptionImportConfirmScreen(
+                    uiState = SubscriptionImportConfirmUiState(url = ""),
+                    onBack = {},
+                    onConfirm = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText(text(R.string.import_profile_confirm_empty_title)).assertExists()
+        composeRule.onNodeWithText(text(R.string.import_subscription_unnamed)).assertDoesNotExist()
+        composeRule.onNodeWithText(text(R.string.import_confirm_add_action)).assertDoesNotExist()
+    }
+
+    @Test
     fun `all subscription refresh actions are disabled while one group refreshes`() {
         val details =
             SubscriptionDetailUiState(
@@ -268,6 +327,7 @@ class SetupInteractionQualityTest {
             RipDpiTheme {
                 SubscriptionStatusScreen(
                     SubscriptionStatusUiState(summary, refreshingGroupId = "first"),
+                    {},
                     {},
                     {},
                     {},

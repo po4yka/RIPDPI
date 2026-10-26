@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.anytls
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -12,7 +11,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -20,6 +18,9 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
+import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
+import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -72,12 +73,13 @@ internal fun AnyTlsProfileScreen(
             }
         }
         EndpointSection(uiState.editor, onFieldChanged)
+        CredentialsSection(uiState.editor, onFieldChanged)
         TlsSection(uiState.editor, onFieldChanged)
-        RipDpiButton(
+        RelayEditorActionRow(
             text = stringResource(R.string.anytls_save_action),
             onClick = onSave,
-            modifier = Modifier.fillMaxWidth(),
             enabled = uiState.editor.isComplete && !uiState.saving,
+            hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
         )
     }
 }
@@ -97,13 +99,26 @@ private fun EndpointSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            helperText = relayPortRangeHelper(),
         )
-        PlainField(
-            AnyTlsEditorField.PASSWORD,
-            R.string.anytls_field_password,
-            editor,
-            onFieldChanged,
-            keyboardType = KeyboardType.Password,
+    }
+}
+
+@Composable
+private fun CredentialsSection(
+    editor: AnyTlsProfileEditorState,
+    onFieldChanged: (AnyTlsEditorField, String) -> Unit,
+) {
+    RipDpiCard {
+        RipDpiPanelHeader(title = stringResource(R.string.relay_editor_section_credentials))
+        RelayPasswordField(
+            label = stringResource(R.string.anytls_field_password),
+            value = editor.rawText(AnyTlsEditorField.PASSWORD),
+            onValueChange = { onFieldChanged(AnyTlsEditorField.PASSWORD, it) },
+            errorText =
+                stringResource(R.string.anytls_field_invalid).takeIf {
+                    editor.hasFieldError(AnyTlsEditorField.PASSWORD)
+                },
         )
     }
 }
@@ -129,6 +144,8 @@ private fun PlainField(
     editor: AnyTlsProfileEditorState,
     onFieldChanged: (AnyTlsEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null,
+    helperText: String? = null,
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
@@ -138,13 +155,10 @@ private fun PlainField(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(labelRes),
+                placeholder = placeholder,
+                helperText = helperText,
                 errorText = if (hasError) stringResource(R.string.anytls_field_invalid) else null,
             ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                textObfuscationMode =
-                    if (keyboardType == KeyboardType.Password) TextObfuscationMode.Hidden else null,
-            ),
+        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = keyboardType)),
     )
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">凭据</string>
+    <string name="relay_editor_save_incomplete_hint">要保存，请填写服务器、端口和凭据，并修正无效的字段。</string>
+    <string name="relay_editor_range_helper">%1$d 至 %2$d</string>
+    <string name="awg_keepalive_helper">保活数据包之间的秒数。留空或输入 0 即可关闭。</string>
+    <string name="awg_obfuscation_show_values">显示数值</string>
+    <string name="awg_obfuscation_hide_values">隐藏数值</string>
+</resources>

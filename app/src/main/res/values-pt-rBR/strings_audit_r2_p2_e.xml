@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="measurement_quality_samples">
+        <item quantity="one">%1$d amostra RTT · jitter %2$s ms</item>
+        <item quantity="other">%1$d amostras RTT · jitter %2$s ms</item>
+    </plurals>
+    <plurals name="home_quality_samples">
+        <item quantity="one">%1$d amostra de RTT</item>
+        <item quantity="other">%1$d amostras de RTT</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_min_reached">
+        <item quantity="one">Uma cadeia precisa de pelo menos %1$d salto.</item>
+        <item quantity="other">Uma cadeia precisa de pelo menos %1$d saltos.</item>
+    </plurals>
+    <plurals name="config_relay_chain_hop_max_reached">
+        <item quantity="one">Uma cadeia pode ter no máximo %1$d salto.</item>
+        <item quantity="other">Uma cadeia pode ter no máximo %1$d saltos.</item>
+    </plurals>
+    <plurals name="config_relay_chain_cumulative_caveat_body">
+        <item quantity="one">O tráfego passa por %1$d salto em ordem, então cada salto adiciona latência. Mais saltos ampliam a distribuição de confiança entre operadores, mas não fornecem anonimato de nível Tor. Use jurisdições e operadores distintos em cada salto para reduzir a correlação.</item>
+        <item quantity="other">O tráfego passa por todos os %1$d saltos em ordem, então cada salto adiciona latência. Mais saltos ampliam a distribuição de confiança entre operadores, mas não fornecem anonimato de nível Tor. Use jurisdições e operadores distintos em cada salto para reduzir a correlação.</item>
+    </plurals>
+    <plurals name="adaptive_fallback_cache_summary">
+        <item quantity="one">%1$d segundo · IPv4 /%2$d</item>
+        <item quantity="other">%1$d segundos · IPv4 /%2$d</item>
+    </plurals>
+    <plurals name="host_autolearn_limits_summary">
+        <item quantity="one">Janela de penalidade de %1$dh · Limite de %2$d host</item>
+        <item quantity="other">Janela de penalidade de %1$dh · Limite de %2$d hosts</item>
+    </plurals>
+    <plurals name="quic_fake_profile_burst_configured">
+        <item quantity="one">%1$d pacote fake_burst configurado pela cadeia UDP.</item>
+        <item quantity="other">%1$d pacotes fake_burst configurados pela cadeia UDP.</item>
+    </plurals>
+    <plurals name="udp_fake_profile_scope_live">
+        <item quantity="one">Usado para %1$d pacote genérico de fake_burst UDP na cadeia atual.</item>
+        <item quantity="other">Usado para %1$d pacotes genéricos de fake_burst UDP na cadeia atual.</item>
+    </plurals>
+    <plurals name="ripdpi_hostfake_summary_profile_multiple">
+        <item quantity="one">%1$d etapa hostfake</item>
+        <item quantity="other">%1$d etapas hostfake</item>
+    </plurals>
+    <plurals name="ripdpi_fake_approx_summary_profile_multiple">
+        <item quantity="one">%1$d etapa de aproximação falsa</item>
+        <item quantity="other">%1$d etapas de aproximação falsa</item>
+    </plurals>
+    <plurals name="blockcheck_status_format">
+        <item quantity="one">%1$d/%2$d checagem</item>
+        <item quantity="other">%1$d/%2$d checagens</item>
+    </plurals>
+    <plurals name="strategy_tuner_status_format">
+        <item quantity="one">%1$d/%2$d sondagem</item>
+        <item quantity="other">%1$d/%2$d sondagens</item>
+    </plurals>
+    <plurals name="strategy_tuner_result_detail_format">
+        <item quantity="one">%1$d/%2$d domínio OK • média de %3$d ms</item>
+        <item quantity="other">%1$d/%2$d domínios OK • média de %3$d ms</item>
+    </plurals>
+    <plurals name="blockcheck_result_detail_format">
+        <item quantity="one">%1$d/%2$d domínio OK • média de %3$d ms</item>
+        <item quantity="other">%1$d/%2$d domínios OK • média de %3$d ms</item>
+    </plurals>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d entrada</item>
+        <item quantity="other">%1$d / %2$d entradas</item>
+    </plurals>
+    <plurals name="diagnostics_live_mode_summary_format">
+        <item quantity="one">Modo %1$s · %2$s transferidos · %3$d pacote observado</item>
+        <item quantity="other">Modo %1$s · %2$s transferidos · %3$d pacotes observados</item>
+    </plurals>
+    <plurals name="domain_bypass_errors_title">
+        <item quantity="one">%1$d linha inválida</item>
+        <item quantity="other">%1$d linhas inválidas</item>
+    </plurals>
+    <plurals name="domain_bypass_saved">
+        <item quantity="one">%1$d domínio salvo</item>
+        <item quantity="other">%1$d domínios salvos</item>
+    </plurals>
+    <plurals name="backup_import_shareable_body">
+        <item quantity="one">%1$d perfil não pode ser restaurado porque as credenciais foram removidas. Grupos, rotas e configurações ainda podem ser restaurados.</item>
+        <item quantity="other">%1$d perfis não podem ser restaurados porque as credenciais foram removidas. Grupos, rotas e configurações ainda podem ser restaurados.</item>
+    </plurals>
+    <plurals name="detection_probe_outcome_format">
+        <item quantity="one">Resultado da sonda: %1$d/%2$d sinal exposto</item>
+        <item quantity="other">Resultado da sonda: %1$d/%2$d sinais expostos</item>
+    </plurals>
+    <plurals name="diagnostics_allowlist_sni_ready">
+        <item quantity="one">Pronto para %1$d alvo sinalizado pelo TCP16.</item>
+        <item quantity="other">Pronto para %1$d alvos sinalizados pelo TCP16.</item>
+    </plurals>
+    <plurals name="diagnostics_byoh_complete">
+        <item quantity="one">%1$d de %2$d hostname completou a transferência configurada.</item>
+        <item quantity="other">%1$d de %2$d hostnames completaram a transferência configurada.</item>
+    </plurals>
+    <plurals name="diagnostics_compression_complete">
+        <item quantity="one">%1$d de %2$d codec de compressão é utilizável para %3$s.</item>
+        <item quantity="other">%1$d de %2$d codecs de compressão são utilizáveis para %3$s.</item>
+    </plurals>
+    <plurals name="diagnostics_dns_availability_complete">
+        <item quantity="one">%1$d de %2$d resolvedor DNS público respondeu.</item>
+        <item quantity="other">%1$d de %2$d resolvedores DNS públicos responderam.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_clean">
+        <item quantity="one">Nenhum bloqueio de acessibilidade detectado no %1$d domínio incluído.</item>
+        <item quantity="other">Nenhum bloqueio de acessibilidade detectado nos %1$d domínios incluídos.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_complete_flagged">
+        <item quantity="one">%1$d de %2$d domínio mostrou avisos de acessibilidade.</item>
+        <item quantity="other">%1$d de %2$d domínios mostraram avisos de acessibilidade.</item>
+    </plurals>
+    <plurals name="diagnostics_domain_reachability_running">
+        <item quantity="one">Sondando acessibilidade com %1$d IP stub de DNS...</item>
+        <item quantity="other">Sondando acessibilidade com %1$d IPs stub de DNS...</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_complete">
+        <item quantity="one">%1$d faixa /24 candidata em cache.</item>
+        <item quantity="other">%1$d faixas /24 candidatas em cache.</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_cached_provider">
+        <item quantity="one">%1$d faixa /24 em cache para %2$s.</item>
+        <item quantity="other">%1$d faixas /24 em cache para %2$s.</item>
+    </plurals>
+    <plurals name="diagnostics_tcp16_complete_clean">
+        <item quantity="one">Nenhum padrão de fechamento de cabeçalho grande TCP16 detectado no %1$d alvo.</item>
+        <item quantity="other">Nenhum padrão de fechamento de cabeçalho grande TCP16 detectado nos %1$d alvos.</item>
+    </plurals>
+    <plurals name="subscription_signal_banner_multiple_message">
+        <item quantity="one">%1$d assinatura precisa de atenção. As entradas de retransmissão em cache podem estar desatualizadas.</item>
+        <item quantity="other">%1$d assinaturas precisam de atenção. As entradas de retransmissão em cache podem estar desatualizadas.</item>
+    </plurals>
+    <plurals name="subscription_home_multiple_title">
+        <item quantity="one">%1$d assinatura precisa de atenção</item>
+        <item quantity="other">%1$d assinaturas precisam de atenção</item>
+    </plurals>
+    <plurals name="diagnostics_sparkline_chart_description">
+        <item quantity="one">Tendência de %1$s, %2$d amostra</item>
+        <item quantity="other">Tendência de %1$s, %2$d amostras</item>
+    </plurals>
+    <plurals name="diagnostics_rkn_note_high_format">
+        <item quantity="one">As falhas de %1$d/%2$d site da lista de bloqueio correspondem a padrões de alta confiança (envenenamento de DNS confirmado por DoH, HTTP 451 e marcadores conhecidos de páginas de bloqueio).</item>
+        <item quantity="other">As falhas de %1$d/%2$d sites da lista de bloqueio correspondem a padrões de alta confiança (envenenamento de DNS confirmado por DoH, HTTP 451 e marcadores conhecidos de páginas de bloqueio).</item>
+    </plurals>
+    <plurals name="diagnostics_outcome_coverage_format">
+        <item quantity="one">%1$d de %2$d etapa concluída; %3$d falharam</item>
+        <item quantity="other">%1$d de %2$d etapas concluídas; %3$d falharam</item>
+    </plurals>
+    <plurals name="diagnostics_dns_complete_agree">
+        <item quantity="one">As respostas DNS com endereços coincidem em %1$d domínio incluído.</item>
+        <item quantity="other">As respostas DNS com endereços coincidem em %1$d domínios incluídos.</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_review_format">
+        <item quantity="one">Revise %1$d/%2$d estágio</item>
+        <item quantity="other">Revise %1$d/%2$d estágios</item>
+    </plurals>
+    <plurals name="home_mode_card_diagnostic_status_complete_format">
+        <item quantity="one">%1$d/%2$d estágio concluído</item>
+        <item quantity="other">%1$d/%2$d estágios concluídos</item>
+    </plurals>
+    <plurals name="diagnostics_profile_probe_partial_results_body">
+        <item quantity="one">A varredura esgotou o tempo antes que todos os candidatos fossem testados. Os resultados são baseados em %1$d de %2$d candidato.</item>
+        <item quantity="other">A varredura esgotou o tempo antes que todos os candidatos fossem testados. Os resultados são baseados em %1$d de %2$d candidatos.</item>
+    </plurals>
+    <plurals name="diagnostics_profile_audit_partial_results_body">
+        <item quantity="one">A auditoria esgotou o tempo antes que todos os candidatos fossem testados. Os resultados são baseados em %1$d de %2$d candidato.</item>
+        <item quantity="other">A auditoria esgotou o tempo antes que todos os candidatos fossem testados. Os resultados são baseados em %1$d de %2$d candidatos.</item>
+    </plurals>
+    <plurals name="diagnostics_partial_results_matrix_title">
+        <item quantity="one">Resultados parciais (%1$d/%2$d candidato)</item>
+        <item quantity="other">Resultados parciais (%1$d/%2$d candidatos)</item>
+    </plurals>
+    <plurals name="connection_health_latency_range_format">
+        <item quantity="one">mín %1$d · máx %2$d · %3$d amostra</item>
+        <item quantity="other">mín %1$d · máx %2$d · %3$d amostras</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_learned_format">
+        <item quantity="one">%1$d aprendido</item>
+        <item quantity="other">%1$d aprendidos</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_penalized_format">
+        <item quantity="one">%1$d penalizado</item>
+        <item quantity="other">%1$d penalizados</item>
+    </plurals>
+    <plurals name="diagnostics_autolearn_blocked_format">
+        <item quantity="one">%1$d bloqueado</item>
+        <item quantity="other">%1$d bloqueados</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_safe_count">
+        <item quantity="one">%1$d segura</item>
+        <item quantity="other">%1$d seguras</item>
+    </plurals>
+    <plurals name="ripdpi_http_parser_badge_aggressive_count">
+        <item quantity="one">%1$d agressiva</item>
+        <item quantity="other">%1$d agressivas</item>
+    </plurals>
+    <plurals name="diagnostics_ipv4_whitelist_checked_progress">
+        <item quantity="one">%1$d/%2$d sub-rede em cache verificada.</item>
+        <item quantity="other">%1$d/%2$d sub-redes em cache verificadas.</item>
+    </plurals>
+</resources>

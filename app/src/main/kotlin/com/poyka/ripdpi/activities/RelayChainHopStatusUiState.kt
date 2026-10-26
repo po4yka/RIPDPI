@@ -41,24 +41,17 @@ data class RelayChainHopStatusUiState(
                 ?.sum()
 }
 
+// The latency unit is a string resource, so the label is built in the UI (see RelayChainHopLabels.kt).
 data class RelayChainHopUiState(
     val statusLabel: String? = null,
-    val latencyLabel: String? = null,
     val latencyMs: Long? = null,
-) {
-    val displayLabel: String?
-        get() =
-            listOfNotNull(statusLabel, latencyLabel)
-                .joinToString(" · ")
-                .ifBlank { null }
-}
+)
 
 internal fun buildRelayChainHopStatus(snapshot: NativeRuntimeSnapshot): RelayChainHopStatusUiState =
     RelayChainHopStatusUiState(
         entry =
             RelayChainHopUiState(
                 statusLabel = snapshot.chainEntryState?.chainHopStatusLabel(),
-                latencyLabel = snapshot.chainEntryLatencyMs?.let { "$it ms" },
                 latencyMs = snapshot.chainEntryLatencyMs,
             ),
         intermediate =
@@ -67,14 +60,12 @@ internal fun buildRelayChainHopStatus(snapshot: NativeRuntimeSnapshot): RelayCha
                 .map { hop ->
                     RelayChainHopUiState(
                         statusLabel = hop.state.chainHopStatusLabel(),
-                        latencyLabel = hop.latencyMs?.let { "$it ms" },
                         latencyMs = hop.latencyMs,
                     )
                 }.toImmutableList(),
         exit =
             RelayChainHopUiState(
                 statusLabel = snapshot.chainExitState?.chainHopStatusLabel(),
-                latencyLabel = snapshot.chainExitLatencyMs?.let { "$it ms" },
                 latencyMs = snapshot.chainExitLatencyMs,
             ),
     )

@@ -222,7 +222,6 @@ private fun StrategyConfigEditorSession.toRouteScreenState(
     isFinalizingSave: Boolean,
 ): StrategyConfigScreenState =
     toScreenState(
-        activePath = activePathLabel(context, draft.source, draft.luaPath),
         banner = resolveStrategyConfigRouteBanner(context, banner, hasPersistenceError),
         isHydrating = isHydrating,
         hasHydrationError = hasHydrationError,
@@ -340,29 +339,6 @@ private suspend fun saveStrategyConfigFromRoute(
         applySavedConfig = applySavedConfig,
         uiState = uiState,
     )
-
-private fun activePathLabel(
-    context: Context,
-    source: StrategyConfigSource,
-    luaPath: String,
-): String =
-    when (source) {
-        StrategyConfigSource.BuiltIn -> {
-            context.getString(R.string.strategy_config_path_datastore)
-        }
-
-        StrategyConfigSource.CustomYaml -> {
-            context.getString(R.string.strategy_config_path_imported)
-        }
-
-        StrategyConfigSource.LuaScript -> {
-            luaPath.ifBlank {
-                context.getString(
-                    R.string.strategy_config_path_not_selected,
-                )
-            }
-        }
-    }
 
 private suspend fun saveStrategyConfig(
     context: Context,

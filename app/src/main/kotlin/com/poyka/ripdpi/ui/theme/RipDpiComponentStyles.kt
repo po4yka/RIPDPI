@@ -190,6 +190,9 @@ private fun switchStyle(thumb: Boolean) =
                 enabled = state.isEnabled,
                 isPressed = state.isPressed,
             )
-        animate(motion.stateTween<Float>()) { rdsBackground(if (thumb) resolved.thumb else resolved.track) }
+        animate(motion.stateTween<Float>()) {
+            rdsBackground(if (thumb) resolved.thumb else resolved.track)
+            if (!thumb) rdsBorder(resolved.trackBorder, RipDpiStroke.Thick)
+        }
         animate(motion.quickTween<Float>()) { rdsBackgroundAlpha(resolved.alpha) }
     }

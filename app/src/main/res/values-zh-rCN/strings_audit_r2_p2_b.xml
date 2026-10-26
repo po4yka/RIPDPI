@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">快速、有限的运行。要同时查看阻止每个域名的原因，请使用“策略探测”。</string>
+    <string name="blockcheck_vs_tuner">尝试所有策略，并找出阻止每个域名的原因。如需快速、有限的运行，请使用“策略调优”。</string>
+    <string name="connection_health_measurement_help_title">关于这些数值</string>
+    <string name="logs_entry_details">详情</string>
+    <string name="vpn_pcap_capture_list_empty_title">尚无捕获</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">无法打开已保存的捕获文件。</string>
+    <string name="support_settings_back_action">返回</string>
+    <string name="remembered_networks_first_seen">首次发现于 %1$s</string>
+    <string name="detection_community_empty_body">尚未记录任何检查。运行一次检查即可添加第一条记录。</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
+</resources>

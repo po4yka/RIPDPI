@@ -6,7 +6,7 @@
     <string name="diagnostics_stages_duration">مدت مرحله: %1$d میلی‌ثانیه</string>
     <string name="diagnostics_stages_elapsed">از شروع تلاش: %1$d میلی‌ثانیه</string>
     <string name="diagnostics_stages_bytes">بدنه دریافت‌شده: %1$d بایت</string>
-    <string name="diagnostics_stages_http_status">وضعیت HTTP: %1$d</string>
+    <string name="diagnostics_stages_http_status">وضعیت ⁨HTTP⁩: %1$d</string>
     <string name="diagnostics_stages_dns">جستجوی DNS</string>
     <string name="diagnostics_stages_tcp">اتصال TCP</string>
     <string name="diagnostics_stages_proxy">اتصال پراکسی</string>

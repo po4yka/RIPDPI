@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -456,6 +457,17 @@ class OnboardingScreenTest {
             .onNodeWithText("Android will ask for permission to create a local VPN connection.")
             .assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
+    }
+
+    @Test
+    @Config(qualifiers = "w914dp-h411dp-land")
+    fun `landscape intro keeps both guarantee lists in view`() {
+        renderOnboarding(OnboardingUiState(currentPage = 0))
+
+        // The last item of each list must be on screen without scrolling.
+        listOf("No cloud sync", "Local config").forEach { label ->
+            composeRule.onNodeWithText(label).assertIsDisplayed()
+        }
     }
 
     @Test

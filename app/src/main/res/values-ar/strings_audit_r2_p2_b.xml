@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="strategy_tuner_vs_probe">تشغيل سريع ومحدود. لمعرفة ما يحجب كل نطاق أيضًا، استخدم «فحص الاستراتيجية».</string>
+    <string name="blockcheck_vs_tuner">يجرّب كل الاستراتيجيات ويحدّد ما يحجب كل نطاق. لتشغيل سريع ومحدود، استخدم «ضبط الاستراتيجية».</string>
+    <string name="connection_health_measurement_help_title">حول هذه القيم</string>
+    <string name="logs_entry_details">التفاصيل</string>
+    <string name="vpn_pcap_capture_list_empty_title">لا توجد التقاطات بعد</string>
+    <string name="vpn_pcap_capture_list_read_failed_body">تعذّر فتح ملفات الالتقاط المحفوظة.</string>
+    <string name="support_settings_back_action">رجوع</string>
+    <string name="remembered_networks_first_seen">أول ظهور %1$s</string>
+    <string name="detection_community_empty_body">لم تُسجَّل أي فحوصات بعد. شغّل فحصًا لإضافة أول فحص.</string>
+    <string name="unit_milliseconds_format">%1$d ms</string>
+</resources>

@@ -23,7 +23,6 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -63,7 +62,6 @@ internal data class StrategyConfigScreenState(
     val configText: String,
     val luaPath: String,
     val luaFunction: String,
-    val activePath: String,
     val banner: StrategyConfigBanner?,
     val isSaving: Boolean = false,
     val isHydrating: Boolean = false,
@@ -243,16 +241,11 @@ private fun StrategyConfigSourceCard(
     val editingEnabled = !state.isHydrating && !state.isFinalizingSave
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-            SettingsRow(
-                title = stringResource(R.string.strategy_config_active_path_label),
-                value = state.activePath,
-                monospaceValue = true,
-                showDivider = true,
-            )
             RipDpiDropdown(
                 options = rememberStrategyConfigSourceOptions(),
                 selectedValue = state.source,
                 onValueSelected = onSourceChanged,
+                label = stringResource(R.string.strategy_config_active_path_label),
                 enabled = editingEnabled,
                 testTag = RipDpiTestTags.StrategyConfigSource,
             )
@@ -272,11 +265,14 @@ private fun TextStrategyConfigCard(
     val editingEnabled = !state.isHydrating && !state.isFinalizingSave
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-            Text(
-                text = stringResource(R.string.strategy_config_editor_label),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = RipDpiThemeTokens.colors.foreground,
-            )
+            Column {
+                Text(
+                    text = stringResource(R.string.strategy_config_editor_label),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                ChainEditorCollapsibleDescription()
+            }
             RipDpiConfigTextField(
                 value = state.configText,
                 onValueChange = onConfigTextChanged,
@@ -308,6 +304,7 @@ private fun TextStrategyConfigCard(
             )
             StrategyConfigActionRows(
                 primaryLabel = stringResource(R.string.config_relay_import),
+                primaryVariant = RipDpiButtonVariant.Outline,
                 primaryIcon = RipDpiIcons.Import,
                 onPrimary = onImport,
                 secondaryLabel = stringResource(R.string.strategy_config_export_action),
@@ -405,6 +402,7 @@ private fun LuaStrategyConfigCard(
 @Composable
 private fun StrategyConfigActionRows(
     primaryLabel: String,
+    primaryVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     primaryIcon: androidx.compose.ui.graphics.vector.ImageVector?,
     onPrimary: () -> Unit,
     secondaryLabel: String,
@@ -423,6 +421,7 @@ private fun StrategyConfigActionRows(
             ) {
                 StrategyConfigActionButtons(
                     primaryLabel = primaryLabel,
+                    primaryVariant = primaryVariant,
                     primaryIcon = primaryIcon,
                     onPrimary = onPrimary,
                     secondaryLabel = secondaryLabel,
@@ -440,6 +439,7 @@ private fun StrategyConfigActionRows(
             ) {
                 StrategyConfigActionButtons(
                     primaryLabel = primaryLabel,
+                    primaryVariant = primaryVariant,
                     primaryIcon = primaryIcon,
                     onPrimary = onPrimary,
                     secondaryLabel = secondaryLabel,
@@ -458,6 +458,7 @@ private fun StrategyConfigActionRows(
 @Composable
 private fun StrategyConfigActionButtons(
     primaryLabel: String,
+    primaryVariant: RipDpiButtonVariant,
     primaryIcon: androidx.compose.ui.graphics.vector.ImageVector?,
     onPrimary: () -> Unit,
     secondaryLabel: String,
@@ -472,6 +473,7 @@ private fun StrategyConfigActionButtons(
         text = primaryLabel,
         onClick = onPrimary,
         modifier = modifier,
+        variant = primaryVariant,
         density = RipDpiControlDensity.Compact,
         leadingIcon = primaryIcon,
         loading = primaryLoading,

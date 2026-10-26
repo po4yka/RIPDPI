@@ -23,6 +23,7 @@ fun UnsavedChangesDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.unsaved_changes_discard),
+                destructive = true,
                 onClick = onDiscard,
                 testTag = RipDpiTestTags.UnsavedChangesDiscard,
             ),

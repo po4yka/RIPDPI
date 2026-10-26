@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">Backup-PIN löschen?</string>
+    <string name="settings_backup_pin_clear_dialog_body">Die PIN wird von diesem Gerät entfernt. Sie können sie danach nicht mehr für die Fallback-Authentifizierung verwenden.</string>
+    <string name="routes_edit_rule">Regel bearbeiten</string>
+    <string name="home_quality_measure">Messen</string>
+    <string name="home_strategy_details">Details</string>
+    <string name="home_strategy_hide_details">Details ausblenden</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">%d weiterer Hinweis</item>
+        <item quantity="other">%d weitere Hinweise</item>
+    </plurals>
+    <string name="config_relay_off_title">Relay aus</string>
+    <string name="config_relay_off_body">Richten Sie einen Relay-Server ein, um Ihren Datenverkehr darüber zu leiten.</string>
+    <string name="home_connection_path_direct">Direkte Verbindung</string>
+</resources>

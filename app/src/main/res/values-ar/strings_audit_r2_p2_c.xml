@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">التقاط الحزم</string>
+    <string name="data_transparency_packet_capture_body">لا يُنشأ ملف PCAP إلا عند تشغيل أداة التقاط الحزم المتقدمة. قد يحتوي على بيانات خام من حمولة الحزم ولا يخضع للتنقيح. شاركه فقط مع أشخاص تثق بهم.</string>
+    <string name="data_transparency_open_controls">إعدادات الاحتفاظ والمراقبة</string>
+    <string name="settings_community_source_title">إحصاءات المجتمع</string>
+    <string name="settings_community_source_body">يُنزّل فحص الكشف إحصاءات مشتركة من هذا العنوان لمقارنة نتائجك. لا يُرفع أي شيء.</string>
+    <string name="settings_community_source_default">الافتراضي</string>
+    <string name="settings_clear_community_cache_body">يحذف إحصاءات المجتمع التي جرى تنزيلها. يبقى سجل الفحوص لديك.</string>
+    <string name="ripdpi_no_domain_body">قبول عناوين IP فقط. يرفض الوكيل الطلبات التي تطلب منه تحليل اسم نطاق.</string>
+    <string name="ripdpi_tcp_fast_open_body">إرسال البيانات في أول حزمة من الاتصالات الصادرة لتوفير جولة ذهاب وإياب. بعض الشبكات تُسقط هذه الحزم.</string>
+    <string name="advanced_settings_unsaved_change">غير محفوظ</string>
+    <string name="root_mode_access_checking">جارٍ التحقق من صلاحية الجذر…</string>
+    <string name="root_mode_access_granted">صلاحية الجذر متاحة على هذا الجهاز.</string>
+    <string name="root_mode_access_denied">رُفضت صلاحية الجذر. اسمح لـ RIPDPI في مدير صلاحيات الجذر، ثم فعّل وضع الجذر مرة أخرى.</string>
+    <string name="root_mode_access_unavailable">لا يملك هذا الجهاز صلاحية الجذر، لذا لن تعمل هذه الاستراتيجيات.</string>
+    <string name="domain_bypass_move_requires_save">احفظ القائمة أولًا لنقلها إلى القواعد.</string>
+    <string name="title_rule_editor_new">قاعدة جديدة</string>
+    <string name="import_subscription_confirm_empty_body">هذا الرابط لا يحتوي على رابط اشتراك.</string>
+    <string name="relay_editor_profile_not_found_title">لم يُعثر على الملف</string>
+    <string name="relay_editor_profile_not_found_body">حُذف هذا الملف أو أن الرابط الذي فتحه غير صحيح. ارجع واختر ملفًا من القائمة.</string>
+    <string name="scanner_permission_continue">متابعة</string>
+</resources>

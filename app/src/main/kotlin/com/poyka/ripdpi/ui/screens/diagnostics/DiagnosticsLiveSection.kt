@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleDataBadge
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.liveStaleBadgeTier
+import com.poyka.ripdpi.ui.components.localizedDigits
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -293,7 +294,7 @@ internal fun LiveHighlightCard(
                 color = contentColor.copy(alpha = HighlightCardLabelAlpha),
             )
             Text(
-                text = metric.value,
+                text = localizedDigits(metric.value),
                 style = RipDpiThemeTokens.type.monoValue,
                 color = contentColor,
             )

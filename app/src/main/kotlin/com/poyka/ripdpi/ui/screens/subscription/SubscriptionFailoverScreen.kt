@@ -34,6 +34,7 @@ import kotlinx.collections.immutable.toImmutableList
 @Composable
 fun SubscriptionFailoverRoute(
     onBack: () -> Unit,
+    onAddSubscription: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SubscriptionFailoverViewModel = hiltViewModel(),
 ) {
@@ -45,6 +46,7 @@ fun SubscriptionFailoverRoute(
     SubscriptionFailoverScreen(
         uiState = uiState,
         onBack = onBack,
+        onAddSubscription = onAddSubscription,
         modifier = modifier,
     )
 }
@@ -53,6 +55,7 @@ fun SubscriptionFailoverRoute(
 fun SubscriptionFailoverScreen(
     uiState: SubscriptionFailoverUiState,
     onBack: () -> Unit,
+    onAddSubscription: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     RipDpiContentScreenScaffold(
@@ -84,6 +87,8 @@ fun SubscriptionFailoverScreen(
             RipDpiEmptyStateCard(
                 title = stringResource(R.string.subscription_failover_empty_title),
                 body = stringResource(R.string.subscription_failover_empty_body),
+                actionLabel = stringResource(R.string.import_subscription_confirm_title),
+                onAction = onAddSubscription,
             )
         }
     }
@@ -180,6 +185,7 @@ private fun SubscriptionFailoverScreenPreview() {
         SubscriptionFailoverScreen(
             uiState = previewSubscriptionFailoverUiState(),
             onBack = {},
+            onAddSubscription = {},
         )
     }
 }

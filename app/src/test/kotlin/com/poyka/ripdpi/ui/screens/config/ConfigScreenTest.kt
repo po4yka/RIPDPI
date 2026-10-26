@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsEnabled
@@ -14,8 +15,10 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -23,6 +26,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
@@ -39,6 +43,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -167,7 +172,7 @@ class ConfigScreenTest {
     }
 
     @Test
-    fun `local bypass section renders mode listen dns and desync rows`() {
+    fun `local bypass section renders listen dns and desync rows`() {
         setConfigScreen(
             initialModeSection = ConfigModeSection.LocalBypass,
             uiPersona = "advanced",
@@ -176,7 +181,8 @@ class ConfigScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassMode).assertExists()
+        // The mode chips are the one place that shows the mode.
+        composeRule.onAllNodesWithText("Local proxy").assertCountEquals(1)
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync).assertExists()
@@ -186,7 +192,7 @@ class ConfigScreenTest {
     fun `vpn mode hides the internal proxy listen address`() {
         setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass, activeMode = Mode.VPN)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassMode).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertDoesNotExist()
     }
 
@@ -248,7 +254,10 @@ class ConfigScreenTest {
             .assertContentDescription("Bypass strategy")
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
-            .assertContentDescription("DNS settings")
+            .assertContentDescription(
+                "DNS settings, " +
+                    RuntimeEnvironment.getApplication().getString(R.string.settings_connectivity_dns_body),
+            )
     }
 
     @Test
@@ -266,7 +275,7 @@ class ConfigScreenTest {
     }
 
     @Test
-    fun `vpn section renders relay protocol credentials and dns rows`() {
+    fun `vpn section with the relay off shows one relay setup row and dns`() {
         setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
@@ -276,10 +285,22 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).assertExists()
         composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnRelay).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnRelay)
+            .assert(hasContentDescription("Relay off", substring = true))
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
+    }
+
+    @Test
+    fun `talkback reads the subtitle of a cleared settings row`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
+        val subtitle = RuntimeEnvironment.getApplication().getString(R.string.settings_connectivity_dns_body)
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .assert(hasContentDescription(subtitle, substring = true))
     }
 
     @Test
@@ -476,6 +497,19 @@ class ConfigScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("draft"))
             .assertIsEnabled()
+    }
+
+    @Test
+    fun `relay profile ID is hidden while the relay is off`() {
+        val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(relayEnabled = false)
+        composeRule.setContent {
+            RipDpiTheme {
+                ModeEditorRelaySection(draft, configUiState(), NoOpModeEditorActions)
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorRelayEnabled).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorRelayProfileId).assertDoesNotExist()
     }
 
     @Test

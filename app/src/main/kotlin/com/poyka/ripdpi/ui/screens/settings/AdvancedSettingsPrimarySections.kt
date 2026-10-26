@@ -62,6 +62,7 @@ internal fun LazyListScope.advancedSettingsPrimarySections(
                 onResetAdaptiveFakeTtlProfile = actions.onResetAdaptiveFakeTtlProfile,
                 onResetFakePayloadLibrary = actions.onResetFakePayloadLibrary,
                 onResetFakeTlsProfile = actions.onResetFakeTlsProfile,
+                onOpenStrategyConfig = actions.onOpenStrategyConfig,
             ),
     )
     activationWindowSection(

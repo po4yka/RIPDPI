@@ -21,6 +21,7 @@ import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -251,7 +252,7 @@ internal fun DiagnosticsBottomSheetHost(
                 onClick = {
                     val text = formatDiagnosticsProbeEvidence(probe)
                     clipboardManager?.setPrimaryClip(
-                        ClipData.newPlainText(probeCopyLabel, text.trimEnd()),
+                        ClipData.newPlainText(probeCopyLabel, text.trimEnd().withoutBidiIsolates()),
                     )
                     performHaptic(RipDpiHapticFeedback.Acknowledge)
                 },

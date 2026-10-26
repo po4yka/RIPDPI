@@ -48,12 +48,16 @@ class HomeConnectionMeasurementsTest {
         node(R.string.vpn_quality_metric_rtt_p50).assertDoesNotExist()
         node(R.string.vpn_quality_metric_jitter).assertDoesNotExist()
         composeRule.onNodeWithText("0 samples", substring = true).assertDoesNotExist()
+        // Nothing was measured yet, so the action cannot claim a repeat.
+        node(R.string.home_quality_measure).assertExists()
+        node(R.string.vpn_quality_strip_reprobe).assertDoesNotExist()
     }
 
     @Test
     fun `measured loss only shows fractional loss but no synthetic RTT or jitter`() {
         render(ConnectionQualitySnapshot(lossPct = 0.25f), currentSource())
         node(R.string.home_quality_partial).assertExists()
+        node(R.string.vpn_quality_strip_reprobe).assertExists()
         node(R.string.vpn_quality_metric_loss).assertExists()
         node(R.string.vpn_quality_metric_rtt_p50).assertDoesNotExist()
         node(R.string.vpn_quality_metric_jitter).assertDoesNotExist()
@@ -77,9 +81,8 @@ class HomeConnectionMeasurementsTest {
         node(R.string.vpn_quality_metric_rtt_p50).assertExists()
         node(R.string.vpn_quality_metric_jitter).assertExists()
         composeRule
-            .onNodeWithText(
-                RuntimeEnvironment.getApplication().getString(R.string.home_quality_samples, 1L),
-            ).assertExists()
+            .onNodeWithText("1 RTT sample")
+            .assertExists()
         node(R.string.home_quality_partial).assertExists()
     }
 

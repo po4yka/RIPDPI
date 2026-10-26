@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import com.poyka.ripdpi.R
@@ -211,11 +212,19 @@ private fun RelayChainHopBoundsFeedback(hopCount: Int) {
     val message =
         when {
             hopCount >= RelayChainMaxHopsUi -> {
-                stringResource(R.string.config_relay_chain_hop_max_reached, RelayChainMaxHopsUi)
+                pluralStringResource(
+                    R.plurals.config_relay_chain_hop_max_reached,
+                    RelayChainMaxHopsUi,
+                    RelayChainMaxHopsUi,
+                )
             }
 
             hopCount <= RelayChainMinHopsUi -> {
-                stringResource(R.string.config_relay_chain_hop_min_reached, RelayChainMinHopsUi)
+                pluralStringResource(
+                    R.plurals.config_relay_chain_hop_min_reached,
+                    RelayChainMinHopsUi,
+                    RelayChainMinHopsUi,
+                )
             }
 
             else -> {
@@ -234,7 +243,7 @@ private fun RelayChainCumulativeCaveat(
     hopCount: Int,
     cumulativeLatencyMs: Long?,
 ) {
-    val baseMessage = stringResource(R.string.config_relay_chain_cumulative_caveat_body, hopCount)
+    val baseMessage = pluralStringResource(R.plurals.config_relay_chain_cumulative_caveat_body, hopCount, hopCount)
     val message =
         cumulativeLatencyMs
             ?.let { stringResource(R.string.config_relay_chain_cumulative_latency_caveat, it) }

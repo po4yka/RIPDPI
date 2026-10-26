@@ -6,7 +6,7 @@
     <string name="diagnostics_stages_duration">مدة المرحلة: %1$d مللي ثانية</string>
     <string name="diagnostics_stages_elapsed">من بدء المحاولة: %1$d مللي ثانية</string>
     <string name="diagnostics_stages_bytes">محتوى مستلم: %1$d بايت</string>
-    <string name="diagnostics_stages_http_status">حالة HTTP: %1$d</string>
+    <string name="diagnostics_stages_http_status">حالة ⁨HTTP⁩: %1$d</string>
     <string name="diagnostics_stages_dns">بحث DNS</string>
     <string name="diagnostics_stages_tcp">اتصال TCP</string>
     <string name="diagnostics_stages_proxy">اتصال الوكيل</string>

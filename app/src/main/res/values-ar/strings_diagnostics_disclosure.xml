@@ -2,7 +2,7 @@
 <resources>
     <string name="diagnostics_matrix_catalog_show">عرض أهداف الاختبار (%1$d)</string>
     <string name="diagnostics_matrix_catalog_hide">إخفاء أهداف الاختبار</string>
-    <string name="diagnostics_matrix_cohort_coverage">الاستجابات الكاملة: %1$d / %2$d محاولات · %3$d أهداف</string>
+    <string name="diagnostics_matrix_cohort_coverage">الاستجابات الكاملة / المحاولات: %1$d / %2$d · الأهداف: %3$d</string>
     <string name="diagnostics_matrix_attempts_show">عرض المحاولات (%1$d)</string>
     <string name="diagnostics_matrix_attempts_hide">إخفاء المحاولات</string>
     <string name="diagnostics_probe_check_title">فحص الشبكة</string>

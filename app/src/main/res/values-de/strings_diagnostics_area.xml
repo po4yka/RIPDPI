@@ -3,8 +3,8 @@
     <string name="diagnostics_guided_tool_matrix_summary">Vergleicht, welche inländischen und ausländischen Websites in diesem Netz laden.</string>
     <string name="diagnostics_guided_tool_throttling_summary">Vergleicht die Downloadgeschwindigkeit von YouTube mit neutralen Servern, um Drosselung zu erkennen.</string>
     <string name="history_connection_duration_running">Läuft noch</string>
-    <string name="strategy_tuner_purpose">Testet jede Umgehungsstrategie mit den Domains unten und ordnet die Strategien danach, wie viele Domains laden.</string>
-    <string name="blockcheck_purpose">Prüft die Domains unten mit jeder Umgehungsstrategie, zeigt, was sie blockiert, und ordnet die Strategien.</string>
+    <string name="strategy_tuner_purpose">Testet jede Bypass-Strategie mit den Domains unten und ordnet die Strategien danach, wie viele Domains laden.</string>
+    <string name="blockcheck_purpose">Prüft die Domains unten mit jeder Bypass-Strategie, zeigt, was sie blockiert, und ordnet die Strategien.</string>
     <string name="blockcheck_diagnosis_title_sites">Warum Sites blockiert sind</string>
-    <string name="detection_settings_meduza_cohort_disabled_format">Den Meduza-Zielsatz einbeziehen. Schalte „%1$s“ ein, um dies zu ändern.</string>
+    <string name="detection_settings_meduza_cohort_disabled_format">Den Meduza-Zielsatz einbeziehen. Schalten Sie „%1$s“ ein, um dies zu ändern.</string>
 </resources>

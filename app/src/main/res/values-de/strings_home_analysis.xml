@@ -53,7 +53,7 @@
     <string name="home_diagnostics_actionable_dns_unreachable">Endpunkt für verschlüsseltes DNS nicht erreichbar — prüfen Sie die Verbindung und versuchen Sie es erneut</string>
     <string name="home_diagnostics_actionable_regression_format">Regression: %1$s funktioniert seit dem vorherigen Durchlauf nicht mehr</string>
     <string name="home_diagnostics_actionable_historical_format">Bester bisheriger Pfad in diesem Netzwerk: %1$s (%2$d erfolgreich / %3$d fehlgeschlagen)</string>
-    <string name="home_diagnostics_actionable_applied">Analyse abgeschlossen und Umgehung angewendet.</string>
+    <string name="home_diagnostics_actionable_applied">Analyse abgeschlossen und Bypass angewendet.</string>
     <string name="home_diagnostics_bufferbloat_unknown">Unbekannt</string>
     <plurals name="home_diagnostics_actionable_detector_count">
         <item quantity="one">%1$d App zur VPN-Erkennung installiert</item>
@@ -64,7 +64,7 @@
         <item quantity="other">%1$d DNS-Einstellungen angewendet</item>
     </plurals>
     <plurals name="home_diagnostics_actionable_bypass_count">
-        <item quantity="one">%1$d Umgehungseinstellung angewendet</item>
-        <item quantity="other">%1$d Umgehungseinstellungen angewendet</item>
+        <item quantity="one">%1$d Bypass-Einstellung angewendet</item>
+        <item quantity="other">%1$d Bypass-Einstellungen angewendet</item>
     </plurals>
 </resources>

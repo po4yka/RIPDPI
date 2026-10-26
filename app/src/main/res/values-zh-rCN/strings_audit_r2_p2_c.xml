@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_transparency_packet_capture_section">数据包捕获</string>
+    <string name="data_transparency_packet_capture_body">只有在您启动高级数据包捕获控件时才会创建 PCAP 文件。它可能包含原始数据包载荷字节，且不会脱敏。请只与您信任的人分享。</string>
+    <string name="data_transparency_open_controls">保留与监控设置</string>
+    <string name="settings_community_source_title">社区统计</string>
+    <string name="settings_community_source_body">检测检查会从此地址下载共享统计数据，用于比较您的结果。不会上传任何内容。</string>
+    <string name="settings_community_source_default">默认</string>
+    <string name="settings_clear_community_cache_body">删除已下载的社区统计数据。您的检查历史会保留。</string>
+    <string name="ripdpi_no_domain_body">仅接受 IP 地址。代理会拒绝需要它解析域名的请求。</string>
+    <string name="ripdpi_tcp_fast_open_body">在出站连接的第一个数据包中发送数据，以节省一次往返。有些网络会丢弃这类数据包。</string>
+    <string name="advanced_settings_unsaved_change">未保存</string>
+    <string name="root_mode_access_checking">正在检查 root 权限…</string>
+    <string name="root_mode_access_granted">此设备可获取 root 权限。</string>
+    <string name="root_mode_access_denied">root 权限被拒绝。请在 root 管理器中允许 RIPDPI，然后重新开启 root 模式。</string>
+    <string name="root_mode_access_unavailable">此设备没有 root 权限，因此这些策略无法生效。</string>
+    <string name="domain_bypass_move_requires_save">请先保存列表，再将其移至规则。</string>
+    <string name="title_rule_editor_new">新建规则</string>
+    <string name="import_subscription_confirm_empty_body">此链接不包含订阅 URL。</string>
+    <string name="relay_editor_profile_not_found_title">未找到配置文件</string>
+    <string name="relay_editor_profile_not_found_body">此配置文件已被删除，或打开它的链接有误。请返回并从列表中选择一个配置文件。</string>
+    <string name="scanner_permission_continue">继续</string>
+</resources>

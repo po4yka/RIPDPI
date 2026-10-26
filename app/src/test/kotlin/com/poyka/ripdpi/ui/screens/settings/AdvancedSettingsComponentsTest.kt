@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.data.NumericRangeModel
@@ -84,6 +85,26 @@ class AdvancedSettingsComponentsTest {
             .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl))
             .performTextReplacement("999")
         composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `text setting marks an edited value as not saved`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                AdvancedTextSetting(
+                    title = "TTL",
+                    value = "128",
+                    setting = AdvancedTextSetting.FakeTtl,
+                    onConfirm = { _, _ -> },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Not saved").assertDoesNotExist()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl))
+            .performTextReplacement("64")
+        composeRule.onNodeWithText("Not saved").assertExists()
     }
 
     @Test

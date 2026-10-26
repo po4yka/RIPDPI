@@ -48,6 +48,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -67,6 +68,8 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
+import com.poyka.ripdpi.ui.components.localizedDigits
+import com.poyka.ripdpi.ui.components.localizedInteger
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
@@ -200,7 +203,7 @@ private fun CollapsibleCountBadge(count: Int) {
     val colors = RipDpiThemeTokens.colors
     Surface(color = colors.inputBackground, shape = RipDpiThemeTokens.shapes.full) {
         Text(
-            text = count.toString(),
+            text = localizedInteger(count.toLong()),
             modifier = Modifier.width(IntrinsicSize.Max).padding(horizontal = 8.dp, vertical = 2.dp),
             style = RipDpiThemeTokens.type.smallLabel,
             color = colors.mutedForeground,
@@ -229,7 +232,7 @@ internal fun MetricsRow(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
 @Composable
 internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
     RipDpiMetricSurface(
-        tone = metricTone(metric.tone),
+        style = metricTileStyle(metric),
         shape = RipDpiThemeTokens.shapes.xl,
     ) { contentColor ->
         Column(
@@ -244,7 +247,7 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
                 color = contentColor.copy(alpha = 0.75f),
             )
             Text(
-                text = metric.value,
+                text = localizedDigits(metric.value),
                 style = RipDpiThemeTokens.type.monoValue,
                 color = contentColor,
             )
@@ -285,7 +288,7 @@ private fun OverviewStatTile(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     RipDpiMetricSurface(
-        tone = metricTone(metric.tone),
+        style = metricTileStyle(metric),
         shape = RipDpiThemeTokens.shapes.xl,
         modifier = modifier,
     ) { contentColor ->
@@ -297,7 +300,7 @@ private fun OverviewStatTile(
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             Text(
-                text = metric.value,
+                text = localizedDigits(metric.value),
                 style = type.screenTitle,
                 color = contentColor,
                 modifier = Modifier.fillMaxWidth(),
@@ -312,6 +315,11 @@ private fun OverviewStatTile(
         }
     }
 }
+
+// Every metric tile shares one neutral fill; the tone shows only in the text, so tiles in a grid read as one set.
+@Composable
+private fun metricTileStyle(metric: DiagnosticsMetricUiModel): RipDpiMetricToneStyle =
+    ripDpiMetricToneStyle(metricTone(metric.tone)).copy(container = RipDpiThemeTokens.colors.inputBackground)
 
 private const val OverviewStatColumns = 2
 private const val OverviewStatLabelAlpha = 0.7f
@@ -390,8 +398,9 @@ private fun sparklineAccessibility(
 ): SparklineAccessibility =
     SparklineAccessibility(
         description =
-            stringResource(
-                R.string.diagnostics_sparkline_chart_description,
+            pluralStringResource(
+                R.plurals.diagnostics_sparkline_chart_description,
+                trend.values.size,
                 trend.label,
                 trend.values.size,
             ),

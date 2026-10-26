@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.detection
 
 import androidx.annotation.StringRes
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.DetectionHistoryRepository
@@ -101,7 +102,11 @@ internal class DetectionAuxStateOwner(
                     reducer.mutate { it.copy(communityStats = remoteStats) }
                 } else if (reducer.value.communityStats == null) {
                     reducer.mutate {
-                        it.copy(communityStatsError = refreshResult.remoteError?.let(::communityStatsErrorRes))
+                        it.copy(
+                            communityStatsError =
+                                refreshResult.remoteError?.let(::communityStatsErrorRes)
+                                    ?: R.string.error_user_generic,
+                        )
                     }
                 }
             } catch (e: CancellationException) {

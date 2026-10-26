@@ -19,8 +19,10 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.pcap.PcapCaptureMetadata
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -44,7 +46,9 @@ fun PcapCaptureListScreen(
     onBack: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
     modifier: Modifier = Modifier,
-    message: String? = null,
+    loading: Boolean = false,
+    failed: Boolean = false,
+    onRetry: () -> Unit = {},
 ) {
     RipDpiScreenScaffold(
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.PcapCaptureList)),
@@ -61,7 +65,9 @@ fun PcapCaptureListScreen(
             captures = captures,
             onCaptureSelected = onCaptureSelected,
             onOpenAdvancedSettings = onOpenAdvancedSettings,
-            message = message,
+            loading = loading,
+            failed = failed,
+            onRetry = onRetry,
             modifier = Modifier.padding(innerPadding),
         )
     }
@@ -72,13 +78,15 @@ private fun PcapCaptureListContent(
     captures: ImmutableList<PcapCaptureMetadata>,
     onCaptureSelected: (PcapCaptureMetadata) -> Unit,
     onOpenAdvancedSettings: () -> Unit,
-    message: String?,
+    loading: Boolean,
+    failed: Boolean,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    if (message != null || captures.isEmpty()) {
+    if (failed || loading || captures.isEmpty()) {
         Column(
             modifier =
                 modifier
@@ -86,20 +94,12 @@ private fun PcapCaptureListContent(
                     .padding(horizontal = RipDpiThemeTokens.layout.horizontalPadding, vertical = spacing.lg),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            Text(
-                text = message ?: stringResource(R.string.vpn_pcap_capture_list_empty),
-                style = type.body,
-                color = colors.mutedForeground,
+            PcapCaptureListStatus(
+                failed = failed,
+                loading = loading,
+                onRetry = onRetry,
+                onOpenAdvancedSettings = onOpenAdvancedSettings,
             )
-            if (message == null) {
-                RipDpiButton(
-                    text = stringResource(R.string.vpn_pcap_open_advanced_settings),
-                    onClick = onOpenAdvancedSettings,
-                    variant = RipDpiButtonVariant.Outline,
-                    trailingIcon = RipDpiIcons.ChevronRight,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
         }
         return
     }
@@ -144,6 +144,47 @@ private fun PcapCaptureListContent(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PcapCaptureListStatus(
+    failed: Boolean,
+    loading: Boolean,
+    onRetry: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
+) {
+    when {
+        failed -> {
+            WarningBanner(
+                title = stringResource(R.string.vpn_pcap_read_failed),
+                message = stringResource(R.string.vpn_pcap_capture_list_read_failed_body),
+                tone = WarningBannerTone.Error,
+            )
+            RipDpiButton(
+                text = stringResource(R.string.startup_recovery_retry),
+                onClick = onRetry,
+                modifier = Modifier.fillMaxWidth(),
+                wrapLabel = true,
+            )
+        }
+
+        loading -> {
+            Text(
+                text = stringResource(R.string.vpn_pcap_loading),
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
+
+        else -> {
+            RipDpiEmptyStateCard(
+                title = stringResource(R.string.vpn_pcap_capture_list_empty_title),
+                body = stringResource(R.string.vpn_pcap_capture_list_empty),
+                actionLabel = stringResource(R.string.vpn_pcap_open_advanced_settings),
+                onAction = onOpenAdvancedSettings,
+            )
         }
     }
 }

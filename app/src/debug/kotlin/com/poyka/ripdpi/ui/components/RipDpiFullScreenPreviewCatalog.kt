@@ -191,7 +191,6 @@ internal fun RipDpiStrategyConfigPreviewScene() {
                     configText = "",
                     luaPath = "",
                     luaFunction = "",
-                    activePath = "Imported YAML",
                     banner = null,
                 ),
             onBack = {},

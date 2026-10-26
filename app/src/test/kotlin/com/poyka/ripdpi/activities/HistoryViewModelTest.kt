@@ -8,6 +8,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -79,6 +81,27 @@ class HistoryViewModelTest {
                 viewModel.uiState.value.events.events
                     .map { it.id },
             )
+            collector.cancel()
+        }
+
+    @Test
+    fun `ui state stays loading until the first repository snapshot arrives`() =
+        runTest {
+            val viewModel =
+                HistoryViewModel(
+                    diagnosticsHistorySource = FakeDiagnosticsHistorySource(),
+                    historyDetailLoader = FakeHistoryDetailLoader(),
+                    diagnosticsBootstrapper = FakeHistoryDiagnosticsBootstrapper(),
+                    historyUiStateFactory = uiStateFactory,
+                )
+
+            assertTrue(viewModel.uiState.value.isLoading)
+
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isLoading)
+            assertFalse(viewModel.uiState.value.hasConnectionHistory)
             collector.cancel()
         }
 

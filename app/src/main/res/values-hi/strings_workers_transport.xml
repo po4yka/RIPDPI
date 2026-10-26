@@ -8,7 +8,7 @@
     <string name="ws_tunnel_worker_transport_clear">अक्षम करें</string>
     <string name="ws_tunnel_worker_transport_dialog_title">Worker ट्रांसपोर्ट</string>
     <string name="ws_tunnel_worker_transport_dialog_message">Bearer Android Keystore में रहता है और सेटिंग या बैकअप में नहीं जोड़ा जाता।</string>
-    <string name="ws_tunnel_worker_transport_url_label">Worker URL</string>
+    <string name="ws_tunnel_worker_transport_url_label">Worker का URL</string>
     <string name="ws_tunnel_worker_transport_ref_label">क्रेडेंशियल संदर्भ</string>
     <string name="ws_tunnel_worker_transport_bearer_label">Bearer टोकन</string>
     <string name="ws_tunnel_worker_save_failed_title">Worker ट्रांसपोर्ट सहेजा नहीं गया</string>

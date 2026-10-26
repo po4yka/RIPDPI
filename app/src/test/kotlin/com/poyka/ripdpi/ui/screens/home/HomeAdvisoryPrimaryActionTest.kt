@@ -96,7 +96,7 @@ class HomeAdvisoryPrimaryActionTest {
         composeRule.onNodeWithText("Provider failed").assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertIsDisplayed().performClick()
         assertEquals(1, repairs)
-        composeRule.onNodeWithText("1 more").assertIsDisplayed()
+        composeRule.onNodeWithText("1 more notice").assertIsDisplayed()
         composeRule.onNodeWithText("Background activity").assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
         composeRule.onNodeWithText("Background activity").assertIsDisplayed()

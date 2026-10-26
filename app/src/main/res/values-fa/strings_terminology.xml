@@ -116,6 +116,6 @@
     <string name="detection_tun_probe_mode_curl_compatible">سازگار با curl</string>
     <string name="diagnostics_scan_status_ready">آماده بررسی</string>
     <string name="settings_profiles_body">نمایه‌های اتصال ذخیره‌شده: آن‌ها را بررسی کنید و یکی را برای استفاده انتخاب کنید.</string>
-    <string name="settings_advanced_group_title">مسیریابی، دور زدن و تنظیمات پیشرفته</string>
+    <string name="settings_advanced_group_title">مسیریابی، عبور و تنظیمات پیشرفته</string>
     <string name="runtime_config_unknown_body">اتصال فعلی تأیید نکرده است که از کدام تنظیمات استفاده می‌کند. برای اعمال تنظیمات ذخیره‌شده، اتصال را قطع و دوباره وصل کنید.</string>
 </resources>

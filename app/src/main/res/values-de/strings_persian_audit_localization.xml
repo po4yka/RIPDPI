@@ -3,9 +3,9 @@
     <!-- AI-authored translations. Native-speaker review is pending. -->
     <string name="home_generated_analysis_complete">Analyse abgeschlossen</string>
     <string name="home_generated_analysis_applied">Analyse abgeschlossen und Einstellungen angewendet</string>
-    <string name="home_generated_dns_applied_failed">DNS-Einstellungen angewendet, aber alle Umgehungsstrategien fehlgeschlagen</string>
-    <string name="home_generated_all_failed">Alle Umgehungsstrategien sind in diesem Netzwerk fehlgeschlagen</string>
-    <string name="home_generated_dns_needs_evidence">DNS-Einstellungen angewendet, aber die Umgehungsstrategie benötigt weitere Nachweise</string>
+    <string name="home_generated_dns_applied_failed">DNS-Einstellungen angewendet, aber alle Bypass-Strategien fehlgeschlagen</string>
+    <string name="home_generated_all_failed">Alle Bypass-Strategien sind in diesem Netzwerk fehlgeschlagen</string>
+    <string name="home_generated_dns_needs_evidence">DNS-Einstellungen angewendet, aber die Bypass-Strategie benötigt weitere Nachweise</string>
     <string name="home_generated_dns_applied">DNS-Einstellungen angewendet</string>
     <string name="home_generated_dns_only">Analyse abgeschlossen, aber nur DNS-Nachweise waren verfügbar</string>
     <string name="home_generated_dns_fallback">Analyse mit DNS-Ersatzpfad abgeschlossen</string>
@@ -140,12 +140,12 @@
     <string name="home_generated_progress_service">Dienst %1$s</string>
     <string name="home_generated_progress_reachability">Erreichbarkeit %1$s</string>
     <string name="home_generated_progress_throughput">Durchsatz %1$s</string>
-    <string name="home_generated_progress_circumvention">Umgehung %1$s</string>
+    <string name="home_generated_progress_circumvention">Bypass %1$s</string>
     <string name="home_generated_check_geoip">IP-Geolokalisierung wird geprüft…</string>
     <string name="home_generated_check_direct">VPN-Transport und installierte Apps werden geprüft…</string>
     <string name="home_generated_check_indirect">Netzwerkschnittstellen und DNS werden geprüft…</string>
     <string name="home_generated_check_location">Mobilfunksignale werden geprüft…</string>
-    <string name="home_generated_check_bypass">Proxy-Umgehung wird geprüft…</string>
+    <string name="home_generated_check_bypass">Proxy-Bypass wird geprüft…</string>
     <string name="home_generated_check_dns">Mögliche DNS-Lecks werden geprüft…</string>
     <string name="home_generated_check_webrtc">WebRTC-Datenpreisgabe wird geprüft…</string>
     <string name="home_generated_check_tls">TLS-Fingerabdruckprofil wird geprüft…</string>

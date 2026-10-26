@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
@@ -43,6 +44,7 @@ import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.inputs.tabOverflowFade
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
@@ -65,9 +67,16 @@ internal fun HistorySectionChips(
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
     val selectedIndex = HistorySection.entries.indexOf(selectedSection)
+    val scrollState = rememberScrollState()
     PrimaryScrollableTabRow(
         selectedTabIndex = selectedIndex,
-        modifier = Modifier.fillMaxWidth().padding(bottom = spacing.sm),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = spacing.sm)
+                // At large font the last tab is cut; the fade shows that the row scrolls.
+                .tabOverflowFade(scrollState, colors.background, spacing.xxl),
+        scrollState = scrollState,
         containerColor = colors.background,
         contentColor = colors.foreground,
         edgePadding = spacing.sm,

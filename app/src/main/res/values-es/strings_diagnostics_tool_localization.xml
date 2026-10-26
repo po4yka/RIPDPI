@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">sin bloqueo o VPN/proxy activo</string>
     <string name="diagnostics_rkn_note_not_blocked">Todos los sitios de la lista negra cargaron. Estás fuera de la zona bloqueada o tu VPN/proxy enruta el tráfico.</string>
     <string name="diagnostics_rkn_headline_high">en zona bloqueada: confianza alta</string>
-    <string name="diagnostics_rkn_note_high_format">Los fallos de %1$d/%2$d sitios de la lista negra coinciden con patrones de alta confianza (manipulación de DNS confirmada por DoH, HTTP 451 y marcadores conocidos de páginas de bloqueo).</string>
     <string name="diagnostics_rkn_headline_medium">en zona bloqueada: confianza media</string>
     <string name="diagnostics_rkn_note_medium">La mayoría de los fallos de la lista negra coinciden con patrones de bloqueo (TLS DPI, TCP RST), pero también pueden deberse al servidor. Una medición de control desde otra red permitiría confirmarlo.</string>
     <string name="diagnostics_rkn_headline_partial">bloqueos parciales detectados</string>

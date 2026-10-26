@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">مسح رمز PIN الاحتياطي؟</string>
+    <string name="settings_backup_pin_clear_dialog_body">سيُحذف رمز PIN من هذا الجهاز، ولن تتمكن بعد ذلك من استخدامه للمصادقة البديلة.</string>
+    <string name="routes_edit_rule">تعديل القاعدة</string>
+    <string name="home_quality_measure">قياس</string>
+    <string name="home_strategy_details">التفاصيل</string>
+    <string name="home_strategy_hide_details">إخفاء التفاصيل</string>
+    <plurals name="home_advisories_more">
+        <item quantity="zero">لا توجد تنبيهات أخرى</item>
+        <item quantity="one">تنبيه واحد آخر</item>
+        <item quantity="two">تنبيهان آخران</item>
+        <item quantity="few">%d تنبيهات أخرى</item>
+        <item quantity="many">%d تنبيهًا آخر</item>
+        <item quantity="other">%d تنبيه آخر</item>
+    </plurals>
+    <string name="config_relay_off_title">الترحيل متوقف</string>
+    <string name="config_relay_off_body">اضبط خادم ترحيل لتمرير حركة المرور عبره.</string>
+    <string name="home_connection_path_direct">اتصال مباشر</string>
+</resources>

@@ -41,7 +41,7 @@ internal fun buildStrategyProbeCandidateMetrics(
             add(
                 DiagnosticsMetricUiModel(
                     stringResolver.getString(R.string.profile_variants_metric_latency),
-                    "$it ms",
+                    stringResolver.getString(R.string.unit_milliseconds_format, it),
                     DiagnosticsTone.Info,
                 ),
             )

@@ -15,7 +15,7 @@ import javax.inject.Inject
 
 /** Camera-availability phase for the QR scanner screen. */
 enum class ScannerCameraState {
-    /** Awaiting the runtime camera-permission result. */
+    /** Explaining why the camera is needed, before and while the runtime permission is requested. */
     REQUESTING_PERMISSION,
 
     /** Camera granted; the CameraX preview + ML Kit analyzer are live. */
@@ -29,6 +29,8 @@ enum class ScannerCameraState {
 data class QrScannerUiState(
     val cameraState: ScannerCameraState = ScannerCameraState.REQUESTING_PERMISSION,
     val imageFallbackAvailable: Boolean = true,
+    /** In [ScannerCameraState.PERMISSION_DENIED], whether the system still shows its camera prompt. */
+    val canRequestCameraPermissionAgain: Boolean = false,
     /** A recognised payload awaiting navigation. */
     val scanResult: ImportPayload? = null,
     val decodeError: String? = null,
@@ -56,11 +58,13 @@ class QrScannerViewModel
         private var lastImportedPayloadHash: Int? = null
         private val seriesAssembler = AmneziaQrChunkAssembler()
 
-        /** Requests camera permission at most once for each navigation session. */
-        internal fun requestCameraPermissionOnce(
+        /**
+         * Shows the camera rationale once for each navigation session when the camera is not granted.
+         * The system prompt opens only from the rationale's Continue action, after the user reads why.
+         */
+        internal fun showCameraRationaleOnce(
             sessionId: String,
             cameraPermissionGranted: Boolean,
-            requestCameraPermission: () -> Unit,
         ) {
             if (cameraPermissionRequestSessionId == sessionId) return
             cameraPermissionRequestSessionId = sessionId
@@ -71,12 +75,43 @@ class QrScannerViewModel
                         imageFallbackAvailable = true,
                     )
                 }
-                requestCameraPermission()
+            }
+        }
+
+        /**
+         * Synchronizes the scanner with the grant state read on composition entry and on resume.
+         * A grant starts scanning, and a lost grant stops a running scan. Otherwise the state stays,
+         * so a recreation while the rationale shows does not replace it with "denied".
+         */
+        fun syncCameraPermission(
+            cameraPermissionGranted: Boolean,
+            canRequestAgain: Boolean,
+        ) {
+            _uiState.update {
+                when {
+                    cameraPermissionGranted -> {
+                        it.copy(cameraState = ScannerCameraState.SCANNING)
+                    }
+
+                    it.cameraState == ScannerCameraState.SCANNING -> {
+                        it.copy(
+                            cameraState = ScannerCameraState.PERMISSION_DENIED,
+                            canRequestCameraPermissionAgain = canRequestAgain,
+                        )
+                    }
+
+                    else -> {
+                        it
+                    }
+                }
             }
         }
 
         /** Advances the camera state machine from the runtime-permission result. */
-        fun onCameraPermissionResult(granted: Boolean) {
+        fun onCameraPermissionResult(
+            granted: Boolean,
+            canRequestAgain: Boolean,
+        ) {
             _uiState.update {
                 it.copy(
                     cameraState =
@@ -86,6 +121,7 @@ class QrScannerViewModel
                             ScannerCameraState.PERMISSION_DENIED
                         },
                     imageFallbackAvailable = true,
+                    canRequestCameraPermissionAgain = !granted && canRequestAgain,
                 )
             }
         }

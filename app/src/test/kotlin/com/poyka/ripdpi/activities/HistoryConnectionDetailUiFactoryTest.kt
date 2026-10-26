@@ -215,7 +215,7 @@ class HistoryConnectionDetailUiFactoryTest {
         assertEquals("connection-1", detail.session.id)
         assertEquals(DiagnosticsTone.Warning, detail.session.tone)
         assertTrue(detail.highlights.any { it.label == "Failure class" && it.value == "dns_tampering" })
-        assertTrue(detail.highlights.any { it.label == "Strategy" && it.value == "hostfake + quic_burst" })
+        assertTrue(detail.highlights.any { it.label == "Strategy" && it.value == "Hostfake · QUIC burst" })
         assertTrue(detail.highlights.any { it.label == "Retries" && it.value == "3" })
         val rtt = detail.highlights.single { it.label == context.getString(R.string.diagnostics_metric_rtt_band) }
         assertEquals(context.getString(R.string.measurement_rtt_band), rtt.explanation)

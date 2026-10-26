@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">Effacer le PIN de secours ?</string>
+    <string name="settings_backup_pin_clear_dialog_body">Le PIN sera supprimé de cet appareil. Vous ne pourrez plus l\'utiliser pour l\'authentification de secours.</string>
+    <string name="routes_edit_rule">Modifier la règle</string>
+    <string name="home_quality_measure">Mesurer</string>
+    <string name="home_strategy_details">Détails</string>
+    <string name="home_strategy_hide_details">Masquer les détails</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">%d autre avis</item>
+        <item quantity="many">%d autres avis</item>
+        <item quantity="other">%d autres avis</item>
+    </plurals>
+    <string name="config_relay_off_title">Relais désactivé</string>
+    <string name="config_relay_off_body">Configurez un serveur relais pour y faire passer votre trafic.</string>
+    <string name="home_connection_path_direct">Connexion directe</string>
+</resources>

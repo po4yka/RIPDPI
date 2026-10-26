@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_backup_pin_clear_dialog_title">PIN پشتیبان پاک شود؟</string>
+    <string name="settings_backup_pin_clear_dialog_body">PIN از این دستگاه حذف می‌شود. دیگر نمی‌توانید از آن برای احراز هویت بازگشتی استفاده کنید.</string>
+    <string name="routes_edit_rule">ویرایش قانون</string>
+    <string name="home_quality_measure">اندازه‌گیری</string>
+    <string name="home_strategy_details">جزئیات</string>
+    <string name="home_strategy_hide_details">پنهان کردن جزئیات</string>
+    <plurals name="home_advisories_more">
+        <item quantity="one">%d اعلان دیگر</item>
+        <item quantity="other">%d اعلان دیگر</item>
+    </plurals>
+    <string name="config_relay_off_title">رله خاموش است</string>
+    <string name="config_relay_off_body">یک سرور رله راه‌اندازی کنید تا ترافیک شما از آن عبور کند.</string>
+    <string name="home_connection_path_direct">اتصال مستقیم</string>
+</resources>

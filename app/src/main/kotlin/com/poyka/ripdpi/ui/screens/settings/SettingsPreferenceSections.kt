@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -16,9 +15,12 @@ import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -40,6 +42,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.screens.dns.dnsSettingsRowSubtitle
 import com.poyka.ripdpi.ui.screens.dns.localizedSummary
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -59,14 +62,7 @@ internal fun SettingsConnectivitySection(
         SettingsSection(title = stringResource(R.string.settings_connectivity_section)) {
             SettingsRow(
                 title = stringResource(R.string.title_dns_settings),
-                subtitle =
-                    stringResource(
-                        if (uiState.isVpn) {
-                            R.string.settings_connectivity_dns_body
-                        } else {
-                            R.string.settings_connectivity_dns_body_proxy
-                        },
-                    ),
+                subtitle = dnsSettingsRowSubtitle(vpn = uiState.isVpn),
                 value = uiState.dns.localizedSummary(),
                 onClick = actions.onOpenDnsSettings,
                 showDivider = true,
@@ -428,14 +424,13 @@ internal fun SettingsPermissionsSection(
 
 @Composable
 internal fun SettingsSupportSection(
+    communityApiUrl: String,
     communityApiUrlDraft: String,
     appVersionName: String,
     actions: SettingsScreenActions,
     onCommunityApiUrlDraftChanged: (String) -> Unit,
     onResetClick: () -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
-
     SettingsSection(title = stringResource(R.string.settings_support_section)) {
         SettingsRow(
             title = stringResource(R.string.settings_support_debug_bundle_title),
@@ -460,20 +455,12 @@ internal fun SettingsSupportSection(
             showChevron = true,
             showDivider = true,
         )
-        CommunityApiUrlEditor(
-            value = communityApiUrlDraft,
-            onValueChange = onCommunityApiUrlDraftChanged,
-            onSave = { actions.onCommunityApiUrlChanged(communityApiUrlDraft) },
-            onReset = {
-                onCommunityApiUrlDraftChanged("")
-                actions.onCommunityApiUrlChanged("")
-            },
-        )
-        HorizontalDivider(color = colors.divider)
-        SettingsRow(
-            title = stringResource(R.string.settings_clear_community_cache),
-            onClick = actions.onClearCommunityCache,
-            showDivider = true,
+        CommunityStatsSettingsRows(
+            communityApiUrl = communityApiUrl,
+            communityApiUrlDraft = communityApiUrlDraft,
+            onCommunityApiUrlDraftChanged = onCommunityApiUrlDraftChanged,
+            onCommunityApiUrlChanged = actions.onCommunityApiUrlChanged,
+            onClearCommunityCache = actions.onClearCommunityCache,
         )
         SettingsRow(
             title = stringResource(R.string.about_category),
@@ -625,16 +612,30 @@ internal fun BackupPinEditor(
                         .ripDpiTestTag(RipDpiTestTags.SettingsBackupPinSave),
             )
             if (hasSavedPin) {
-                RipDpiButton(
-                    text = stringResource(R.string.settings_backup_pin_clear),
-                    onClick = onClear,
-                    modifier =
-                        Modifier
-                            .ripDpiTestTag(RipDpiTestTags.SettingsBackupPinClear),
-                    variant = RipDpiButtonVariant.Outline,
-                )
+                BackupPinClearButton(onClear = onClear)
             }
         }
+    }
+}
+
+/** Clearing the PIN removes the fallback authentication, so it asks first. */
+@Composable
+private fun BackupPinClearButton(onClear: () -> Unit) {
+    var showClearConfirm by rememberSaveable { mutableStateOf(false) }
+    RipDpiButton(
+        text = stringResource(R.string.settings_backup_pin_clear),
+        onClick = { showClearConfirm = true },
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.SettingsBackupPinClear),
+        variant = RipDpiButtonVariant.Destructive,
+    )
+    if (showClearConfirm) {
+        ClearBackupPinConfirmDialog(
+            onDismiss = { showClearConfirm = false },
+            onConfirm = {
+                showClearConfirm = false
+                onClear()
+            },
+        )
     }
 }
 
@@ -657,59 +658,3 @@ private fun FullTunnelHelperFooter(
     )
     HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
 }
-
-@Composable
-internal fun CommunityApiUrlEditor(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSave: () -> Unit,
-    onReset: () -> Unit,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-    val save: @Composable (Modifier) -> Unit = {
-        RipDpiButton(text = stringResource(R.string.settings_community_api_url_save), onClick = onSave, modifier = it)
-    }
-    val reset: @Composable (Modifier) -> Unit = {
-        RipDpiButton(
-            text = stringResource(R.string.settings_community_api_url_reset),
-            onClick = onReset,
-            modifier = it,
-            enabled = value.isNotBlank(),
-            variant = RipDpiButtonVariant.Outline,
-        )
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        RipDpiTextField(
-            value = value,
-            onValueChange = onValueChange,
-            decoration =
-                RipDpiTextFieldDecoration(
-                    label = stringResource(R.string.settings_community_api_url_label),
-                    placeholder = "https://",
-                    helperText = stringResource(R.string.settings_community_api_url_helper),
-                ),
-            behavior =
-                RipDpiTextFieldBehavior(
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Uri,
-                            imeAction = ImeAction.Done,
-                        ),
-                    onKeyboardAction = KeyboardActionHandler { onSave() },
-                ),
-        )
-        // One equal-width action row; stack at large font scales like dialog actions.
-        if (LocalDensity.current.fontScale >= StackedFormActionsFontScale) {
-            save(Modifier.fillMaxWidth())
-            reset(Modifier.fillMaxWidth())
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                save(Modifier.weight(1f))
-                reset(Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-private const val StackedFormActionsFontScale = 1.3f

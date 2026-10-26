@@ -400,11 +400,25 @@ private fun reportFallbackMatrixTitle(
     planned: Int,
 ): String =
     when {
-        isDnsShortCircuited && isFullAudit -> stringResource(R.string.diagnostics_audit_short_circuit_matrix_title)
-        isDnsShortCircuited -> stringResource(R.string.diagnostics_probe_short_circuit_recommendation_title)
-        isPartialResults -> stringResource(R.string.diagnostics_partial_results_matrix_title, executed, planned)
-        isFullAudit -> stringResource(R.string.diagnostics_audit_matrix_title)
-        else -> stringResource(R.string.diagnostics_probe_recommendation_title)
+        isDnsShortCircuited && isFullAudit -> {
+            stringResource(R.string.diagnostics_audit_short_circuit_matrix_title)
+        }
+
+        isDnsShortCircuited -> {
+            stringResource(R.string.diagnostics_probe_short_circuit_recommendation_title)
+        }
+
+        isPartialResults -> {
+            pluralStringResource(R.plurals.diagnostics_partial_results_matrix_title, planned, executed, planned)
+        }
+
+        isFullAudit -> {
+            stringResource(R.string.diagnostics_audit_matrix_title)
+        }
+
+        else -> {
+            stringResource(R.string.diagnostics_probe_recommendation_title)
+        }
     }
 
 @Composable

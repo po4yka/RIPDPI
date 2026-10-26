@@ -60,6 +60,6 @@ internal fun actuatorTrailingLabel(
         if (egressBacked) {
             R.string.home_connection_actuator_relay
         } else {
-            R.string.home_connection_actuator_direct
+            R.string.home_connection_path_direct
         },
     )

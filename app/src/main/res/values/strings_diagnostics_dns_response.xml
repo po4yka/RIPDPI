@@ -41,5 +41,4 @@
     <string name="diagnostics_dns_none">None reported</string>
     <string name="diagnostics_dns_show">Show DNS response facts</string>
     <string name="diagnostics_dns_hide">Hide DNS response facts</string>
-    <string name="diagnostics_dns_complete_agree">DNS address answers agree across %1$d bundled domains.</string>
 </resources>

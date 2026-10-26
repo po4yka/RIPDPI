@@ -134,7 +134,6 @@
     <string name="detection_headline_ordinary_https">Вы выглядите как обычный HTTPS-трафик</string>
     <string name="detection_narrative_discovered_heading">Что обнаружено</string>
     <string name="detection_narrative_reason_heading">Почему такой вердикт</string>
-    <string name="detection_probe_outcome_format">Результат зонда: раскрыто сигналов %1$d/%2$d</string>
     <string name="detection_settings_call_transport_subtitle">Проверять MTProto и STUN через обнаруженный прокси</string>
     <string name="detection_settings_call_transport_title">Зонд транспорта звонков</string>
     <string name="detection_settings_cancel">Отмена</string>

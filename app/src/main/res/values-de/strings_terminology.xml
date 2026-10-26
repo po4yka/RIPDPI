@@ -45,8 +45,8 @@
         <item quantity="other">Läuft in %1$d Tagen ab</item>
     </plurals>
     <plurals name="subscription_home_expiring_body">
-        <item quantity="one">%1$s läuft in %2$d Tag ab. Aktualisiere es oder bereite einen neuen Link vor.</item>
-        <item quantity="other">%1$s läuft in %2$d Tagen ab. Aktualisiere es oder bereite einen neuen Link vor.</item>
+        <item quantity="one">%1$s läuft in %2$d Tag ab. Aktualisieren Sie es oder bereiten Sie einen neuen Link vor.</item>
+        <item quantity="other">%1$s läuft in %2$d Tagen ab. Aktualisieren Sie es oder bereiten Sie einen neuen Link vor.</item>
     </plurals>
     <plurals name="asset_provider_updated_days_ago">
         <item quantity="one">Vor %1$d Tag aktualisiert</item>
@@ -117,5 +117,5 @@
     <string name="diagnostics_scan_status_ready">Bereit zur Prüfung</string>
     <string name="settings_profiles_body">Gespeicherte Verbindungsprofile: prüfen und das gewünschte auswählen.</string>
     <string name="settings_advanced_group_title">Routing, Bypass und erweiterte Einstellungen</string>
-    <string name="runtime_config_unknown_body">Die aktive Verbindung hat nicht bestätigt, welche Einstellungen sie verwendet. Trenne die Verbindung und verbinde neu, um die gespeicherten Einstellungen anzuwenden.</string>
+    <string name="runtime_config_unknown_body">Die aktive Verbindung hat nicht bestätigt, welche Einstellungen sie verwendet. Trennen Sie die Verbindung und verbinden Sie neu, um die gespeicherten Einstellungen anzuwenden.</string>
 </resources>

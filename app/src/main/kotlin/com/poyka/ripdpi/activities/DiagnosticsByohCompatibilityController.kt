@@ -168,8 +168,9 @@ internal class DiagnosticsByohCompatibilityController(
         _tool.value.copy(
             state = DiagnosticsByohCompatibilityState.Complete,
             summary =
-                stringResolver.getString(
-                    R.string.diagnostics_byoh_complete,
+                stringResolver.getQuantityString(
+                    R.plurals.diagnostics_byoh_complete,
+                    total,
                     compatible,
                     total,
                 ),

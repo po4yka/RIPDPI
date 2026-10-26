@@ -41,9 +41,12 @@ class RipDpiConnectionStrategyPanelTest {
         composeRule.onNodeWithText("tcp: split(host+1)").assertIsDisplayed()
         composeRule.onNodeWithText(explainer).assertDoesNotExist()
         composeRule.onNodeWithText("AdGuard DNS DoH").assertDoesNotExist()
+        // A text toggle, so the panel does not read as a dropdown.
+        composeRule.onNodeWithText("Details").assertIsDisplayed()
 
         composeRule.onNodeWithText("tcp: split(host+1)").performClick()
 
+        composeRule.onNodeWithText("Hide details").assertIsDisplayed()
         composeRule.onNodeWithText(explainer).assertIsDisplayed()
         composeRule.onNodeWithText("DNS").assertIsDisplayed()
         composeRule.onNodeWithText("AdGuard DNS DoH").assertIsDisplayed()

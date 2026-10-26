@@ -154,6 +154,13 @@ class RussianDiagnosticsPresentationTest {
         assertEquals("sniext+4", labels.offset("sniext+4"))
     }
 
+    @Test
+    fun `aggregate winning strategy family uses lane labels`() {
+        val labels = StrategySignatureValueLabels(strings)
+        assertEquals("Разбиение · QUIC отключён", labels.winningFamily("split + quic_disabled"))
+        assertEquals("vendor_custom_lane", labels.winningFamily("vendor_custom_lane"))
+    }
+
     private fun assertRussian(value: String) {
         assertTrue("Expected Russian presentation: $value", value.any { it in 'А'..'я' })
     }

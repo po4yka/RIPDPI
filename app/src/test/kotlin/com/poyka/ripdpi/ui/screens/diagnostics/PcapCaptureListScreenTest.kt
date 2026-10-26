@@ -53,6 +53,28 @@ class PcapCaptureListScreenTest {
     }
 
     @Test
+    fun readFailureShowsAnErrorWithRetry() {
+        var retried = false
+        composeRule.setContent {
+            RipDpiTheme {
+                PcapCaptureListScreen(
+                    captures = persistentListOf(),
+                    onCaptureSelected = {},
+                    onBack = {},
+                    onOpenAdvancedSettings = {},
+                    failed = true,
+                    onRetry = { retried = true },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Could not read PCAP data.").assertIsDisplayed()
+        composeRule.onNodeWithText("Open Advanced settings").assertDoesNotExist()
+        composeRule.onNodeWithText("Try again").assertIsDisplayed().performClick()
+        assertTrue(retried)
+    }
+
+    @Test
     fun longCaptureHistoryScrollsToTheOldestRow() {
         val captures =
             (0..11)

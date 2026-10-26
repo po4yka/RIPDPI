@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextObfuscationMode
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +36,9 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
+import com.poyka.ripdpi.ui.screens.profiles.RelaySecretField
+import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -51,11 +52,10 @@ import kotlinx.collections.immutable.toImmutableList
  *
  * Surfaces every standard WireGuard field (private key, address, DNS, MTU, peer public
  * key, peer endpoint, allowed IPs, preshared key, persistent keepalive) plus all 16
- * AmneziaWG obfuscation fields *inline* in one labeled "Obfuscation" section — the field
- * ordering follows amnezia-vpn/amneziawg-android's editor (Apache-2.0). Obfuscation fields
- * are not hidden behind an "Advanced" toggle because they are server-coordinated and
- * pasted verbatim. A cohort-preset picker fills and locks the obfuscation group; "Custom"
- * frees it. Secret fields stay behind the biometric-gated reveal pattern.
+ * AmneziaWG obfuscation fields in one labeled "Obfuscation" section — the field ordering
+ * follows amnezia-vpn/amneziawg-android's editor (Apache-2.0). A cohort-preset picker fills
+ * and locks the obfuscation group and collapses it behind a "Show values" toggle; "Custom"
+ * frees and shows it. Secret fields stay behind the shared reveal control.
  */
 @Composable
 fun AmneziaWgProfileRoute(
@@ -124,6 +124,14 @@ internal fun AmneziaWgProfileScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AmneziaWgProfile())),
     ) {
+        // Import comes first: a pasted .conf fills most of the fields below.
+        RipDpiButton(
+            text = stringResource(R.string.awg_paste_conf_action),
+            onClick = onPasteConf,
+            modifier = Modifier.fillMaxWidth(),
+            variant = RipDpiButtonVariant.Secondary,
+            leadingIcon = RipDpiIcons.Paste,
+        )
         uiState.confImportFailure?.let { failure ->
             WarningBanner(
                 title = stringResource(R.string.awg_conf_import_failed_title),
@@ -160,7 +168,7 @@ internal fun AmneziaWgProfileScreen(
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
         CarrierSection(uiState, onFieldChanged, onCarrierSelected)
-        ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onPasteConf)
+        ObfuscationSection(uiState, onFieldChanged, onCohortSelected)
         ConnectSection(
             canActivate = uiState.canActivate,
             activationStatus = uiState.activationStatus,
@@ -218,40 +226,23 @@ private fun ConnectSection(
     activationStatus: AwgActivationStatus,
     onConnect: () -> Unit,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
     val failed = activationStatus == AwgActivationStatus.Failed
-    RipDpiCard {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(
-                text =
-                    stringResource(
-                        when {
-                            failed -> R.string.awg_connect_error
-                            canActivate -> R.string.awg_connect_ready_hint
-                            else -> R.string.awg_connect_incomplete_hint
-                        },
-                    ),
-                style = RipDpiThemeTokens.type.caption,
-                color =
-                    if (failed) {
-                        RipDpiThemeTokens.colors.destructive
-                    } else {
-                        RipDpiThemeTokens.colors.mutedForeground
-                    },
-            )
-            RipDpiButton(
-                text = stringResource(R.string.awg_connect_action),
-                onClick = onConnect,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.AwgConnectAction),
-                variant = RipDpiButtonVariant.Primary,
-                enabled = canActivate && activationStatus != AwgActivationStatus.Connecting,
-                leadingIcon = RipDpiIcons.Vpn,
-            )
-        }
-    }
+    RelayEditorActionRow(
+        text = stringResource(R.string.awg_connect_action),
+        onClick = onConnect,
+        enabled = canActivate && activationStatus != AwgActivationStatus.Connecting,
+        hint =
+            stringResource(
+                when {
+                    failed -> R.string.awg_connect_error
+                    canActivate -> R.string.awg_connect_ready_hint
+                    else -> R.string.awg_connect_incomplete_hint
+                },
+            ),
+        hintIsError = failed,
+        leadingIcon = RipDpiIcons.Vpn,
+        testTag = RipDpiTestTags.AwgConnectAction,
+    )
 }
 
 @Composable
@@ -263,8 +254,8 @@ private fun InterfaceSection(
     val editor = uiState.editor
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.awg_section_interface))
-        SecretField(
-            field = AwgEditorField.INTERFACE_PRIVATE_KEY,
+        RelaySecretField(
+            testTag = RipDpiTestTags.awgField(AwgEditorField.INTERFACE_PRIVATE_KEY.name),
             label = stringResource(R.string.awg_field_private_key),
             value = editor.rawText(AwgEditorField.INTERFACE_PRIVATE_KEY),
             revealed = uiState.privateKeyRevealed,
@@ -278,15 +269,29 @@ private fun InterfaceSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            helperText = relayPortRangeHelper(),
         )
-        PlainField(AwgEditorField.ADDRESS, R.string.awg_field_address, editor, onFieldChanged)
-        PlainField(AwgEditorField.DNS, R.string.awg_field_dns, editor, onFieldChanged)
+        PlainField(
+            AwgEditorField.ADDRESS,
+            R.string.awg_field_address,
+            editor,
+            onFieldChanged,
+            placeholder = stringResource(R.string.awg_address_placeholder),
+        )
+        PlainField(
+            AwgEditorField.DNS,
+            R.string.awg_field_dns,
+            editor,
+            onFieldChanged,
+            placeholder = stringResource(R.string.awg_dns_placeholder),
+        )
         PlainField(
             AwgEditorField.MTU,
             R.string.awg_field_mtu,
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            placeholder = AwgActivationRequest.DEFAULT_MTU.toString(),
         )
     }
 }
@@ -302,9 +307,15 @@ private fun PeerSection(
         RipDpiPanelHeader(title = stringResource(R.string.awg_section_peer))
         PlainField(AwgEditorField.PEER_PUBLIC_KEY, R.string.awg_field_peer_public_key, editor, onFieldChanged)
         PlainField(AwgEditorField.PEER_ENDPOINT, R.string.awg_field_peer_endpoint, editor, onFieldChanged)
-        PlainField(AwgEditorField.ALLOWED_IPS, R.string.awg_field_allowed_ips, editor, onFieldChanged)
-        SecretField(
-            field = AwgEditorField.PRESHARED_KEY,
+        PlainField(
+            AwgEditorField.ALLOWED_IPS,
+            R.string.awg_field_allowed_ips,
+            editor,
+            onFieldChanged,
+            placeholder = stringResource(R.string.awg_allowed_ips_placeholder),
+        )
+        RelaySecretField(
+            testTag = RipDpiTestTags.awgField(AwgEditorField.PRESHARED_KEY.name),
             label = stringResource(R.string.awg_field_preshared_key),
             value = editor.rawText(AwgEditorField.PRESHARED_KEY),
             revealed = uiState.presharedKeyRevealed,
@@ -317,6 +328,8 @@ private fun PeerSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            placeholder = stringResource(R.string.awg_keepalive_placeholder),
+            helperText = stringResource(R.string.awg_keepalive_helper),
         )
     }
 }
@@ -326,22 +339,22 @@ private fun ObfuscationSection(
     uiState: AmneziaWgProfileUiState,
     onFieldChanged: (AwgEditorField, String) -> Unit,
     onCohortSelected: (String) -> Unit,
-    onPasteConf: () -> Unit,
 ) {
     val editor = uiState.editor
     val customLabel = stringResource(R.string.awg_cohort_custom)
+    // A preset owns these values, so its fields stay collapsed until the user asks to see them.
+    var expanded by rememberSaveable { mutableStateOf(false) }
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.awg_section_obfuscation),
-            supporting = stringResource(R.string.awg_section_obfuscation_body),
-            trailingContent = {
-                RipDpiButton(
-                    text = stringResource(R.string.awg_paste_conf_action),
-                    onClick = onPasteConf,
-                    variant = RipDpiButtonVariant.Secondary,
-                    leadingIcon = RipDpiIcons.Paste,
-                )
-            },
+            supporting =
+                stringResource(
+                    if (editor.obfuscationLocked) {
+                        R.string.awg_cohort_locked_hint
+                    } else {
+                        R.string.awg_section_obfuscation_body
+                    },
+                ),
         )
         RipDpiDropdown(
             options =
@@ -358,13 +371,19 @@ private fun ObfuscationSection(
             testTag = RipDpiTestTags.AwgCohortPicker,
         )
         if (editor.obfuscationLocked) {
-            WarningBanner(
-                title = stringResource(R.string.awg_cohort_locked_hint),
-                message = stringResource(R.string.awg_section_obfuscation_body),
-                tone = WarningBannerTone.Info,
+            RipDpiButton(
+                text =
+                    stringResource(
+                        if (expanded) R.string.awg_obfuscation_hide_values else R.string.awg_obfuscation_show_values,
+                    ),
+                onClick = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth(),
+                variant = RipDpiButtonVariant.Ghost,
             )
         }
-        ObfuscationFields(editor, onFieldChanged)
+        if (!editor.obfuscationLocked || expanded) {
+            ObfuscationFields(editor, onFieldChanged)
+        }
     }
 }
 
@@ -416,6 +435,8 @@ private fun PlainField(
     editor: AmneziaWgEditorState,
     onFieldChanged: (AwgEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null,
+    helperText: String? = null,
     enabled: Boolean = true,
 ) {
     val hasError = editor.hasFieldError(field)
@@ -426,6 +447,8 @@ private fun PlainField(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(labelRes),
+                placeholder = placeholder,
+                helperText = helperText,
                 errorText = if (hasError) stringResource(R.string.awg_field_invalid) else null,
                 testTag = RipDpiTestTags.awgField(field.name),
             ),
@@ -434,39 +457,5 @@ private fun PlainField(
                 enabled = enabled,
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             ),
-    )
-}
-
-@Composable
-private fun SecretField(
-    field: AwgEditorField,
-    label: String,
-    value: String,
-    revealed: Boolean,
-    onValueChange: (String) -> Unit,
-    onReveal: () -> Unit,
-) {
-    RipDpiTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = label,
-                testTag = RipDpiTestTags.awgField(field.name),
-            ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                textObfuscationMode =
-                    if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
-            ),
-        trailingContent = {
-            RipDpiButton(
-                text = stringResource(R.string.awg_reveal_secret_action),
-                onClick = onReveal,
-                variant = RipDpiButtonVariant.Secondary,
-                leadingIcon = RipDpiIcons.Visibility,
-            )
-        },
     )
 }

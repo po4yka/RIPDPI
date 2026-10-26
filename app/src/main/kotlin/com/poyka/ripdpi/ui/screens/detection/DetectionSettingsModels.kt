@@ -187,6 +187,13 @@ data class DetectionSettingsUiState(
     val dnsFieldsEditable: Boolean
         get() = dnsPreset.isCustom
 
+    /** The System resolver ignores the provider and server fields, so they show only for Direct and DoH. */
+    val dnsProviderFieldsVisible: Boolean
+        get() = dnsResolverMode != DetectionDnsResolverMode.SYSTEM
+
+    val dnsDohFieldsVisible: Boolean
+        get() = dnsResolverMode == DetectionDnsResolverMode.DOH
+
     val tlsKeylogPathVisible: Boolean
         get() = debugModeEnabled
 

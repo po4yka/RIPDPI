@@ -258,6 +258,7 @@ private fun ActivationWindowResetDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_reset_activation_window_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =

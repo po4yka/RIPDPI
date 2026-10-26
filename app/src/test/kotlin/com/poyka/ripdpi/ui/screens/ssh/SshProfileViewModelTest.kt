@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -165,6 +166,7 @@ class SshProfileViewModelTest {
             val viewModel = viewModel(profiles, FakeRelayCredentialStore(), FakeAppSettingsRepository())
             viewModel.loadProfile("missing")
             advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.notFound)
             viewModel.onFieldChanged(SshEditorField.SERVER, "ssh.example")
             viewModel.onFieldChanged(SshEditorField.SERVER_PORT, "22")
             viewModel.onFieldChanged(SshEditorField.USERNAME, "alice")
@@ -172,6 +174,30 @@ class SshProfileViewModelTest {
             viewModel.onSave()
             advanceUntilIdle()
             assertTrue(profiles.list().isEmpty())
+        }
+
+    @Test
+    fun `edit route without a profile id shows not found instead of the new form`() =
+        runTest {
+            val viewModel = viewModel(FakeRelayProfileStore(), FakeRelayCredentialStore(), FakeAppSettingsRepository())
+            viewModel.loadProfile("")
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.notFound)
+        }
+
+    @Test
+    fun `a corrupt SSH profile keeps the load error instead of not found`() =
+        runTest {
+            val corruptProfiles =
+                object : RelayProfileStore by FakeRelayProfileStore() {
+                    override suspend fun load(profileId: String): RelayProfileRecord? =
+                        throw IllegalArgumentException("corrupt fixture record")
+                }
+            val viewModel = viewModel(corruptProfiles, FakeRelayCredentialStore(), FakeAppSettingsRepository())
+            viewModel.loadProfile("ssh-1")
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.notFound)
+            assertEquals(R.string.relay_editor_activation_failed, viewModel.uiState.value.errorMessage)
         }
 }
 

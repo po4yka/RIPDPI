@@ -2,7 +2,7 @@
 <resources>
     <string name="home_generated_dns_answers_matching">übereinstimmende verschlüsselte Antworten</string>
     <string name="home_generated_dns_answers_usable">nutzbare verschlüsselte Antworten</string>
-    <string name="detection_exposure_split_tunnel_label">Umgehung durch Split-Tunneling</string>
+    <string name="detection_exposure_split_tunnel_label">Bypass durch Split-Tunneling</string>
     <string name="detection_exposure_split_tunnel_reason">Der direkte Pfad und der Proxy-Pfad zeigen unterschiedliche Netzwerkidentitäten.</string>
     <string name="detection_exposure_split_tunnel_hint">Leiten Sie Apps und Domains über einen einzigen Pfad und wiederholen Sie die Erkennungsprüfung.</string>
     <string name="detection_exposure_xray_api_label">Zugriff auf die Xray-API</string>
@@ -24,7 +24,7 @@
     <string name="detection_exposure_local_proxy_reason">Ein lokaler Proxy-Endpunkt ist für Erkennungstests sichtbar.</string>
     <string name="detection_exposure_local_proxy_hint">Beschränken Sie die gebundenen Proxy-Schnittstellen und machen Sie lokale Ports nicht für geprüfte Apps sichtbar.</string>
     <string name="detection_exposure_app_artifact_label">Merkmal einer installierten oder aktiven App</string>
-    <string name="detection_exposure_app_artifact_reason">Metadaten eines installierten Pakets oder aktiven Dienstes weisen auf VPN- oder Umgehungswerkzeuge hin.</string>
+    <string name="detection_exposure_app_artifact_reason">Metadaten eines installierten Pakets oder aktiven Dienstes weisen auf VPN- oder Bypass-Werkzeuge hin.</string>
     <string name="detection_exposure_app_artifact_hint">Verbergen Sie App-Metadaten nach Möglichkeit und deaktivieren Sie nicht zugehörige aktive VPN-Dienste.</string>
     <string name="detection_exposure_dns_leak_label">DNS-Beobachtbarkeit</string>
     <string name="detection_exposure_dns_leak_reason">Das Verhalten des DNS-Resolvers weicht vom erwarteten verschlüsselten oder gerouteten Pfad ab.</string>
@@ -59,15 +59,15 @@
     <string name="detection_exposure_direct_signs_hint">Prüfen Sie, welche App das aktive VPN betreibt, sowie Proxy-Ports und den für Apps sichtbaren Netzwerkzustand.</string>
     <string name="detection_exposure_indirect_signs_label">indirektes Gerätesignal</string>
     <string name="detection_exposure_indirect_signs_reason">Signale installierter Apps oder Dienste machen die Konfiguration erkennbar.</string>
-    <string name="detection_exposure_indirect_signs_hint">Deaktivieren Sie nicht zugehörige VPN-Apps und verringern Sie für Apps sichtbare Umgehungsmetadaten.</string>
+    <string name="detection_exposure_indirect_signs_hint">Deaktivieren Sie nicht zugehörige VPN-Apps und verringern Sie für Apps sichtbare Bypass-Metadaten.</string>
     <string name="detection_exposure_location_signals_label">Standortsignal</string>
     <string name="detection_exposure_location_signals_reason">Metadaten zu SIM, Roaming oder Netzwerkland müssen geprüft werden.</string>
     <string name="detection_exposure_location_signals_hint">Testen Sie erneut im Zielnetzwerk und stimmen Sie die Ausgangsregion auf den lokalen Kontext ab.</string>
-    <string name="detection_exposure_bypass_probe_label">Umgehungstest</string>
-    <string name="detection_exposure_bypass_probe_reason">Spezielle Umgehungstests haben einen sichtbaren lokalen oder entfernten Pfad gefunden.</string>
-    <string name="detection_exposure_bypass_probe_hint">Prüfen Sie getrenntes Routing und die Sichtbarkeit des Proxys und wiederholen Sie den Umgehungstest.</string>
+    <string name="detection_exposure_bypass_probe_label">Bypass-Test</string>
+    <string name="detection_exposure_bypass_probe_reason">Spezielle Bypass-Tests haben einen sichtbaren lokalen oder entfernten Pfad gefunden.</string>
+    <string name="detection_exposure_bypass_probe_hint">Prüfen Sie getrenntes Routing und die Sichtbarkeit des Proxys und wiederholen Sie den Bypass-Test.</string>
     <string name="detection_exposure_additional">Weitere Diagnosesignale müssen geprüft werden</string>
-    <string name="detection_exposure_clean_reason">Die Erkennungstests haben keine Signale zu Umgehung, VPN, IP, DNS, TLS, Zeitabweichungen oder nativer Beobachtbarkeit sichtbar gemacht.</string>
+    <string name="detection_exposure_clean_reason">Die Erkennungstests haben keine Signale zu Bypass, VPN, IP, DNS, TLS, Zeitabweichungen oder nativer Beobachtbarkeit sichtbar gemacht.</string>
     <string name="detection_exposure_clean_hint">Behalten Sie das aktuelle Profil bei und wiederholen Sie den Test nach einem Netzwerk- oder Profilwechsel.</string>
     <string name="detection_exposure_low_hint">Sorgen Sie für unauffällige Testergebnisse und verbessern Sie das Tarnprofil, bevor Sie sich auf strengere Netzwerke verlassen.</string>
     <string name="detection_exposure_generic_reason">Die Erkennung hat ein Offenlegungssignal gefunden, konnte aber keine genauere Ursache bestimmen.</string>
@@ -88,8 +88,8 @@
     <string name="detection_advice_xray_description">Die Xray-HandlerService-API ist auf localhost erreichbar und legt VPN-Serveradressen und Zugangsdaten offen. Deaktivieren Sie die API in den Einstellungen Ihres Xray-Clients.</string>
     <string name="detection_advice_dns_title">DNS verweist auf localhost</string>
     <string name="detection_advice_dns_description">Das aktive Netzwerk führt einen Loopback-DNS-Resolver auf. Prüfen Sie die DNS-Konfiguration, wenn dies unerwartet ist.</string>
-    <string name="detection_advice_app_title">Bekannte Umgehungs-App installiert</string>
-    <string name="detection_advice_app_description">Eine bekannte Umgehungs-App, nach der die Prüfungen suchen, ist installiert. Erwägen Sie ein Arbeitsprofil oder einen privaten Bereich zur Isolation.</string>
+    <string name="detection_advice_app_title">Bekannte Bypass-App installiert</string>
+    <string name="detection_advice_app_description">Eine bekannte Bypass-App, nach der die Prüfungen suchen, ist installiert. Erwägen Sie ein Arbeitsprofil oder einen privaten Bereich zur Isolation.</string>
     <string name="detection_advice_clean_title">Keine Probleme erkannt</string>
     <string name="detection_advice_clean_description">Ihre aktuelle Konfiguration löst bei den Prüfungen dieser Methodik keine Erkennungssignale aus.</string>
     <string name="diagnostics_profile_resolver_audit_title">Resolver-Audit</string>

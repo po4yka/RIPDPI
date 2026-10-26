@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.TcpChainStepKind
@@ -138,8 +139,9 @@ private fun fakeApproximationProfileSummary(uiState: SettingsUiState): String =
         }
 
         else -> {
-            stringResource(
-                R.string.ripdpi_fake_approx_summary_profile_multiple,
+            pluralStringResource(
+                R.plurals.ripdpi_fake_approx_summary_profile_multiple,
+                uiState.desync.fakeApproximationStepCount,
                 uiState.desync.fakeApproximationStepCount,
             )
         }

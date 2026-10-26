@@ -87,9 +87,41 @@ class LogsScreenTest {
     }
 
     @Test
+    fun `long key value entry shows a summary until details are opened`() {
+        val fields = (1..30).joinToString(" ") { "field_$it=unchanged" }
+        val entry =
+            LogEntry(
+                id = "device-state",
+                createdAtMs = 1L,
+                timestamp = "12:34:56",
+                subsystem = LogSubsystem.Diagnostics,
+                severity = LogSeverity.Info,
+                message = "event=device_state $fields",
+                source = "diagnostics",
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                LogsStreamCard(
+                    entries = persistentListOf(entry),
+                    listState = rememberLazyListState(),
+                    onCopyEntry = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("field_30", substring = true, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Details").assertIsDisplayed().performClick()
+        // Zero-width spaces after "_" and "=" let long tokens wrap at their separators.
+        composeRule
+            .onNodeWithText("field_\u200B30=\u200Bunchanged", substring = true, useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithText("Show less").assertExists()
+    }
+
+    @Test
     fun `long session metadata wraps as bounded single line chips`() {
-        val runtimeChip = "runtime:$LongRuntimeId"
-        val scanChip = "scan:$LongScanId"
+        val runtimeChip = "runtime:5d8e4a11"
+        val scanChip = "scan:f87bba7f"
         val entry =
             LogEntry(
                 id = "long-metadata",

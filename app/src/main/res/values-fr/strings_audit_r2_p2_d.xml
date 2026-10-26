@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="relay_editor_section_credentials">Identifiants</string>
+    <string name="relay_editor_save_incomplete_hint">Pour enregistrer, renseignez le serveur, le port et les identifiants, puis corrigez les champs non valides.</string>
+    <string name="relay_editor_range_helper">De %1$d à %2$d</string>
+    <string name="awg_keepalive_helper">Secondes entre les paquets keepalive. Laissez vide ou saisissez 0 pour le désactiver.</string>
+    <string name="awg_obfuscation_show_values">Afficher les valeurs</string>
+    <string name="awg_obfuscation_hide_values">Masquer les valeurs</string>
+</resources>

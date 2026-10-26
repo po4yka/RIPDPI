@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import android.net.Uri
+import com.poyka.ripdpi.platform.withoutBidiIsolates
 
 internal object DiagnosticsShareIntents {
     fun createSummaryShareIntent(
@@ -10,8 +11,8 @@ internal object DiagnosticsShareIntents {
     ): Intent =
         Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, title)
-            putExtra(Intent.EXTRA_TEXT, body)
+            putExtra(Intent.EXTRA_SUBJECT, title.withoutBidiIsolates())
+            putExtra(Intent.EXTRA_TEXT, body.withoutBidiIsolates())
         }
 
     fun createArchiveShareIntent(

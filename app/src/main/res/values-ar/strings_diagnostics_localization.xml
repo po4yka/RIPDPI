@@ -100,11 +100,11 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">النطاقات المحددة: %1$d/%2$d؛ عناوين IP وهمية: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">محللات الأسماء المتاحة: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">النطاقات المتاحة: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">الأهداف ذات نمط إغلاق TCP16: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_tcp16_format">الأهداف ذات نمط إغلاق ⁨TCP16⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_asn_format">مجموعات ASN المفحوصة: %1$d</string>
-    <string name="diagnostics_dpi_suite_quic_format">الأهداف التي اجتازت فحص بصمة QUIC Initial: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_ech_format">الأهداف التي قبلت ECH: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_telegram_format">تنزيل: %1$s، رفع: %2$s، DC: %3$d/%4$d</string>
+    <string name="diagnostics_dpi_suite_quic_format">الأهداف التي اجتازت فحص بصمة ⁨QUIC Initial⁩: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_ech_format">الأهداف التي قبلت ⁨ECH⁩: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_telegram_format">تنزيل: %1$s، رفع: %2$s، ⁨DC⁩: %3$d/%4$d</string>
     <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">لم يكتشف TCP16 أي ASN محظور</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">اكتُشف DPI</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">تدخل في DNS</string>

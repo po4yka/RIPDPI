@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -27,10 +28,12 @@ import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 @Composable
 fun DataTransparencyRoute(
     onBack: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     DataTransparencyScreen(
         onBack = onBack,
+        onOpenAdvancedSettings = onOpenAdvancedSettings,
         modifier = modifier,
     )
 }
@@ -39,6 +42,7 @@ fun DataTransparencyRoute(
 internal fun DataTransparencyScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenAdvancedSettings: () -> Unit = {},
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
@@ -78,12 +82,25 @@ internal fun DataTransparencyScreen(
 
         item {
             TransparencySection(
+                title = stringResource(R.string.data_transparency_packet_capture_section),
+            ) {
+                BulletItem(stringResource(R.string.data_transparency_packet_capture_body))
+            }
+        }
+
+        item {
+            TransparencySection(
                 title = stringResource(R.string.data_transparency_how_stored_section),
             ) {
                 BulletItem(stringResource(R.string.data_transparency_local_database))
                 BulletItem(stringResource(R.string.data_transparency_retention_period))
                 BulletItem(stringResource(R.string.data_transparency_disable_monitoring))
                 BulletItem(stringResource(R.string.data_transparency_export_explicit))
+                SettingsRow(
+                    title = stringResource(R.string.data_transparency_open_controls),
+                    onClick = onOpenAdvancedSettings,
+                    showChevron = true,
+                )
             }
         }
 

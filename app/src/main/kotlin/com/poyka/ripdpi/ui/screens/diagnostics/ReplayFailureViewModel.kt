@@ -159,7 +159,9 @@ class ReplayFailureViewModel
                     updateStep(event.step) { step ->
                         step.copy(
                             status = ReplayStepStatus.Success,
-                            detail = "${event.detail} · ${event.durationMs} ms",
+                            detail =
+                                "${event.detail} · " +
+                                    stringResolver.getString(R.string.unit_milliseconds_format, event.durationMs),
                         )
                     }
                 }

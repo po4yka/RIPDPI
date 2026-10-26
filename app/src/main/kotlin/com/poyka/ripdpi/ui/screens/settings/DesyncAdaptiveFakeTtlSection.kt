@@ -276,6 +276,7 @@ private fun AdaptiveFakeTtlResetDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_reset_adaptive_fake_ttl_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =

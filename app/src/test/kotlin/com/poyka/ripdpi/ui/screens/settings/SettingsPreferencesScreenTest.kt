@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
@@ -7,6 +9,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -26,6 +30,7 @@ import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -69,6 +74,72 @@ class SettingsPreferencesScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsSupportBundle).performClick()
 
         assertTrue(clicked)
+    }
+
+    @Test
+    fun communityApiUrlIsEditedInADialogInsteadOfInline() {
+        val app = RuntimeEnvironment.getApplication()
+        val urlLabel = app.getString(R.string.settings_community_api_url_label)
+        val rowTitle = app.getString(R.string.settings_community_source_title)
+        val savedUrls = mutableListOf<String>()
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(),
+                    actions = testActions().copy(onCommunityApiUrlChanged = { savedUrls += it }),
+                    permissionSummary = PermissionSummaryUiState(),
+                )
+            }
+        }
+
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(rowTitle))
+        composeRule.onNodeWithText(urlLabel).assertDoesNotExist()
+        composeRule.onNodeWithText(app.getString(R.string.settings_community_source_default)).assertIsDisplayed()
+        composeRule.onNodeWithText(rowTitle).performClick()
+        composeRule.onNodeWithText(urlLabel).assertExists()
+        composeRule.onNodeWithText(app.getString(R.string.settings_community_api_url_save)).performClick()
+
+        composeRule.onNodeWithText(urlLabel).assertDoesNotExist()
+        assertEquals(listOf(""), savedUrls)
+    }
+
+    @Test
+    fun communityApiUrlDialogHasOneFilledAction() {
+        val app = RuntimeEnvironment.getApplication()
+        val rowTitle = app.getString(R.string.settings_community_source_title)
+        var filledColor = Color.Unspecified
+        composeRule.setContent {
+            RipDpiTheme {
+                // A filled (primary) button paints its container in the foreground color.
+                filledColor = RipDpiThemeTokens.colors.foreground
+                SettingsScreen(
+                    uiState = SettingsUiState(),
+                    actions = testActions(),
+                    permissionSummary = PermissionSummaryUiState(),
+                )
+            }
+        }
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(rowTitle))
+        composeRule.onNodeWithText(rowTitle).performClick()
+
+        fun filledShare(labelRes: Int): Float {
+            val pixels =
+                composeRule
+                    .onNode(hasText(app.getString(labelRes)) and hasClickAction())
+                    .captureToImage()
+                    .toPixelMap()
+            var filled = 0
+            for (y in 0 until pixels.height) {
+                for (x in 0 until pixels.width) {
+                    if (pixels[x, y] == filledColor) filled++
+                }
+            }
+            return filled.toFloat() / (pixels.width * pixels.height)
+        }
+
+        assertTrue(filledShare(R.string.settings_community_api_url_save) > 0.5f)
+        assertTrue(filledShare(R.string.config_cancel) < 0.3f)
+        assertTrue(filledShare(R.string.settings_community_api_url_reset) < 0.3f)
     }
 
     @Test

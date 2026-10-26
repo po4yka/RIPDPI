@@ -94,8 +94,18 @@ private fun IconOptionCell(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        // Every tile has the same neutral surface; only the ring marks the selection, so a dark icon
+        // (like Cracked) no longer reads as selected.
         Box(
-            modifier = Modifier.size(64.dp),
+            modifier =
+                Modifier
+                    .size(72.dp)
+                    .ripDpiFeatureSurface(
+                        container = colors.inputBackground,
+                        shape = shapes.xl,
+                        border = if (selected) colors.foreground else colors.cardBorder,
+                        borderWidth = if (selected) 2.dp else 1.dp,
+                    ),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -106,7 +116,7 @@ private fun IconOptionCell(
                         .ripDpiFeatureSurface(
                             container = colorResource(option.previewBackgroundRes),
                             shape = shapes.xl,
-                            border = if (selected) colors.foreground else colors.cardBorder,
+                            border = colors.cardBorder,
                             borderWidth = 1.dp,
                             clip = true,
                         ),

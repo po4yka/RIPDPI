@@ -77,8 +77,9 @@ internal fun DiagnosticsUiFactorySupport.buildWorkflowPresentation(
                 WorkflowStatus(
                     title = context.getString(R.string.diagnostics_audit_partial_results_title),
                     body =
-                        context.getString(
-                            R.string.diagnostics_profile_audit_partial_results_body,
+                        context.getQuantityString(
+                            R.plurals.diagnostics_profile_audit_partial_results_body,
+                            planned,
                             executed,
                             planned,
                         ),
@@ -109,8 +110,9 @@ internal fun DiagnosticsUiFactorySupport.buildWorkflowPresentation(
                 WorkflowStatus(
                     title = context.getString(R.string.diagnostics_probe_partial_results_title),
                     body =
-                        context.getString(
-                            R.string.diagnostics_profile_probe_partial_results_body,
+                        context.getQuantityString(
+                            R.plurals.diagnostics_profile_probe_partial_results_body,
+                            planned,
                             executed,
                             planned,
                         ),

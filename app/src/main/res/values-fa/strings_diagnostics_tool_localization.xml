@@ -36,7 +36,6 @@
     <string name="diagnostics_rkn_headline_not_blocked">مسدود نیست یا VPN/پراکسی فعال است</string>
     <string name="diagnostics_rkn_note_not_blocked">همه سایت‌های فهرست سیاه بارگیری شدند. یا خارج از منطقه مسدود هستید یا VPN/پراکسی ترافیک را مسیریابی می‌کند.</string>
     <string name="diagnostics_rkn_headline_high">در منطقه مسدود: اطمینان بالا</string>
-    <string name="diagnostics_rkn_note_high_format">خطاهای %1$d/%2$d سایت فهرست سیاه با الگوهای دارای اطمینان بالا مطابقت دارند (مسموم‌سازی DNS تأییدشده با DoH، HTTP 451 و نشانه‌های شناخته‌شده صفحات مسدودسازی).</string>
     <string name="diagnostics_rkn_headline_medium">در منطقه مسدود: اطمینان متوسط</string>
     <string name="diagnostics_rkn_note_medium">بیشتر خطاهای فهرست سیاه با الگوهای مسدودسازی مطابقت دارند (TLS DPI، TCP RST)، اما مشکلات سرور نیز می‌توانند این نشانه‌ها را ایجاد کنند. اندازه‌گیری مبنا از شبکه دیگر به تأیید کمک می‌کند.</string>
     <string name="diagnostics_rkn_headline_partial">مسدودسازی جزئی شناسایی شد</string>

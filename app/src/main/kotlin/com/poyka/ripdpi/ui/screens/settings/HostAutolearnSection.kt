@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -200,7 +201,7 @@ private fun HostAutolearnFooter(
             text = stringResource(R.string.host_autolearn_forget_action),
             onClick = onForgetClick,
             enabled = uiState.canForgetLearnedHosts,
-            variant = RipDpiButtonVariant.Outline,
+            variant = RipDpiButtonVariant.Destructive,
             trailingIcon = RipDpiIcons.Close,
         )
     }
@@ -227,6 +228,7 @@ private fun HostAutolearnForgetDialog(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.confirm_forget_learned_hosts_confirm),
+                destructive = true,
                 onClick = onConfirm,
             ),
         visuals =
@@ -333,8 +335,9 @@ private fun hostAutolearnLimitsSummary(uiState: SettingsUiState): String? =
     if (uiState.enableCmdSettings) {
         null
     } else {
-        stringResource(
-            R.string.host_autolearn_limits_summary,
+        pluralStringResource(
+            R.plurals.host_autolearn_limits_summary,
+            uiState.autolearn.hostAutolearnMaxHosts,
             uiState.autolearn.hostAutolearnPenaltyTtlHours,
             uiState.autolearn.hostAutolearnMaxHosts,
         )

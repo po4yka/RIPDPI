@@ -167,7 +167,7 @@ private fun RememberedNetworksConfirmDialog(
         onDismissRequest = onDismiss,
         title = title,
         dismissAction = RipDpiDialogAction(label = dismissLabel, onClick = onDismiss),
-        confirmAction = RipDpiDialogAction(label = confirmLabel, onClick = onConfirm),
+        confirmAction = RipDpiDialogAction(label = confirmLabel, onClick = onConfirm, destructive = true),
         visuals = RipDpiDialogVisuals(message = message, tone = RipDpiDialogTone.Destructive),
     )
 }
@@ -265,6 +265,13 @@ private fun RememberedNetworkCardHeader(entry: RememberedNetworkUiModel) {
                 style = type.bodyEmphasis,
                 color = colors.foreground,
             )
+            if (entry.firstSeenLabel.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.remembered_networks_first_seen, entry.firstSeenLabel),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
             Text(
                 text = stringResource(R.string.remembered_networks_scope_label, entry.scopeKeyShort),
                 style = type.monoSmall,
@@ -275,10 +282,10 @@ private fun RememberedNetworkCardHeader(entry: RememberedNetworkUiModel) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RememberedNetworkMetaFlow(entry: RememberedNetworkUiModel) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+    // One fact per line: side by side, the facts ran together without separators.
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
         RememberedNetworkMetaText(rememberedModeLabel(entry.modeKey))
         RememberedNetworkMetaText(rememberedValidationLabel(entry.validationKey))
         RememberedNetworkMetaText(
@@ -468,6 +475,7 @@ internal fun rememberedNetworksPreviewEntries(): List<RememberedNetworkUiModel> 
             successCount = 14,
             failureCount = 1,
             updatedLabel = "May 30, 14:05",
+            firstSeenLabel = "May 12, 08:20",
         ),
         RememberedNetworkUiModel(
             id = 2L,
@@ -485,5 +493,6 @@ internal fun rememberedNetworksPreviewEntries(): List<RememberedNetworkUiModel> 
             successCount = 3,
             failureCount = 5,
             updatedLabel = "May 28, 09:41",
+            firstSeenLabel = "May 3, 18:02",
         ),
     )

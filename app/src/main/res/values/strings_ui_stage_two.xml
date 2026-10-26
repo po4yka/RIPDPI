@@ -20,7 +20,6 @@
     <string name="diagnostics_outcome_confidence_unknown">Confidence unknown</string>
     <string name="diagnostics_outcome_coverage_unknown">Coverage unknown</string>
     <string name="diagnostics_outcome_stale">Saved result from a different network</string>
-    <string name="diagnostics_outcome_coverage_format">%1$d of %2$d stages completed; %3$d failed</string>
     <string name="diagnostics_outcome_historical">Saved evidence; current network match unknown</string>
     <string name="logs_actions_title">Log actions</string>
     <string name="config_scope_device">Local VPN</string>

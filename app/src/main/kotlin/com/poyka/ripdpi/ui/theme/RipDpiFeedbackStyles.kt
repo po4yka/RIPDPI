@@ -26,8 +26,11 @@ private val DegradationAccentStyles =
             val colors = LocalRipDpiExtendedColors.currentValue
             val container =
                 when (tone) {
-                    RipDpiDegradationTone.Nominal -> colors.mutedForeground
+                    // The resting state keeps a quiet accent so it does not outweigh real problems.
+                    RipDpiDegradationTone.Nominal -> colors.border
+
                     RipDpiDegradationTone.Warning -> colors.warning
+
                     RipDpiDegradationTone.Critical -> colors.destructive
                 }
             rdsBackground(container)

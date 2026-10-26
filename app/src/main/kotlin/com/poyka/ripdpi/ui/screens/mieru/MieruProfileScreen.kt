@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.mieru
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,6 +11,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayMieruMtuDefault
+import com.poyka.ripdpi.data.RelayMieruMtuMax
+import com.poyka.ripdpi.data.RelayMieruMtuMin
 import com.poyka.ripdpi.data.RelayMieruMultiplexingHigh
 import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
 import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
@@ -19,7 +21,6 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -31,6 +32,10 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
+import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
+import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
+import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -115,9 +120,15 @@ internal fun MieruProfileScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier =
             modifier.ripDpiTestTag(
-                RipDpiTestTags.screen(if (uiState.editing) Route.MieruProfileEdit() else Route.MieruProfile),
+                RipDpiTestTags.screen(
+                    if (uiState.editing || uiState.notFound) Route.MieruProfileEdit() else Route.MieruProfile,
+                ),
             ),
     ) {
+        if (uiState.notFound) {
+            RelayProfileNotFoundCard()
+            return@RipDpiContentScreenScaffold
+        }
         WarningBanner(
             title = stringResource(R.string.mieru_experimental_title),
             message = stringResource(R.string.mieru_experimental_body),
@@ -132,11 +143,11 @@ internal fun MieruProfileScreen(
         EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
         CredentialsSection(uiState.editor, onFieldChanged)
         TransportSection(uiState.editor, onFieldChanged, onProtocolSelected, onMultiplexingSelected)
-        RipDpiButton(
+        RelayEditorActionRow(
             text = stringResource(R.string.mieru_save_action),
             onClick = onSave,
-            modifier = Modifier.fillMaxWidth(),
             enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
+            hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
         )
     }
 }
@@ -163,6 +174,7 @@ private fun EndpointSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            helperText = relayPortRangeHelper(),
         )
     }
 }
@@ -175,12 +187,14 @@ private fun CredentialsSection(
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.mieru_section_credentials))
         PlainField(MieruEditorField.USERNAME, R.string.mieru_field_username, editor, onFieldChanged)
-        PlainField(
-            MieruEditorField.PASSWORD,
-            R.string.mieru_field_password,
-            editor,
-            onFieldChanged,
-            keyboardType = KeyboardType.Password,
+        RelayPasswordField(
+            label = stringResource(R.string.mieru_field_password),
+            value = editor.rawText(MieruEditorField.PASSWORD),
+            onValueChange = { onFieldChanged(MieruEditorField.PASSWORD, it) },
+            errorText =
+                stringResource(R.string.mieru_field_invalid).takeIf {
+                    editor.hasFieldError(MieruEditorField.PASSWORD)
+                },
         )
     }
 }
@@ -215,6 +229,8 @@ private fun TransportSection(
             editor,
             onFieldChanged,
             keyboardType = KeyboardType.Number,
+            placeholder = RelayMieruMtuDefault.toString(),
+            helperText = stringResource(R.string.relay_editor_range_helper, RelayMieruMtuMin, RelayMieruMtuMax),
         )
     }
 }
@@ -226,6 +242,8 @@ private fun PlainField(
     editor: MieruProfileEditorState,
     onFieldChanged: (MieruEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null,
+    helperText: String? = null,
     readOnly: Boolean = false,
 ) {
     val hasError = editor.hasFieldError(field)
@@ -236,13 +254,13 @@ private fun PlainField(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(labelRes),
+                placeholder = placeholder,
+                helperText = helperText,
                 errorText = if (hasError) stringResource(R.string.mieru_field_invalid) else null,
             ),
         behavior =
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                textObfuscationMode =
-                    if (keyboardType == KeyboardType.Password) TextObfuscationMode.Hidden else null,
                 readOnly = readOnly,
             ),
     )

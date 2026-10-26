@@ -166,8 +166,9 @@ class DiagnosticsPersianStrategyRenderTest {
         composeRule.runOnIdle { showApproach.value = false }
         val candidateTag = RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet
         assertText(candidate.label, candidateTag)
+        // The sheet formats this subtitle with stringResource, not with the factory resolver.
         val subtitle =
-            factory.context.getString(
+            RuntimeEnvironment.getApplication().getString(
                 R.string.diagnostics_candidate_subtitle_format,
                 candidate.familyLabel,
                 candidate.suiteLabel,
@@ -179,7 +180,7 @@ class DiagnosticsPersianStrategyRenderTest {
         capture("candidate-$name-notes", candidateTag)
         assertEquals("tcp-0012", candidate.id)
         assertEquals("User note 0012", candidate.notes.first())
-        assertEquals(listOf("1/2", "10/20", "7", "17 ms"), candidate.metrics.take(4).map { it.value })
+        assertEquals(listOf("1/2", "10/20", "7", "۱۷ ms"), candidate.metrics.take(4).map { it.value })
     }
 
     private fun configureFont(fontScale: Float) {
@@ -201,10 +202,18 @@ class DiagnosticsPersianStrategyRenderTest {
         metrics.forEachIndexed { index, metric ->
             row.performScrollToIndex(index)
             assertText(metric.label.uppercase(), tag)
-            assertText(metric.value, tag)
+            assertText(persianDigits(metric.value), tag)
             capture("$imageName-metric-$index", tag)
         }
     }
+
+    // A plain integer metric is shown with Persian digits (U+06F0..U+06F9) in this locale.
+    private fun persianDigits(value: String): String =
+        if (value.isNotEmpty() && value.all { it in '0'..'9' }) {
+            value.map { '\u06F0' + (it - '0') }.joinToString("")
+        } else {
+            value
+        }
 
     private fun assertText(
         text: String,
