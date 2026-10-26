@@ -184,4 +184,17 @@ class AmneziaWgUriCodecTest {
         assertNull(decoded?.mtu)
         assertEquals(original.host, decoded?.host)
     }
+
+    @Test
+    fun `decoded profile never prints keys, host or tunnel addresses`() {
+        val profile = fullProfile().copy(address = listOf("10.13.0.2/32"))
+        val text = AmneziaWgUriCodec.decode(AmneziaWgUriCodec.encode(profile))!!.toString()
+
+        assertTrue(text.contains("privateKey=<redacted>"))
+        assertTrue(text.contains("presharedKey=<redacted>"))
+        assertTrue(text.contains("port=51820"))
+        listOf(profile.privateKey, profile.presharedKey!!, "awg.example.com", "10.13.0.2").forEach {
+            assertTrue(it, it !in text)
+        }
+    }
 }

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.awg
 
 import android.content.Context
 import com.poyka.ripdpi.data.KeystoreEncryptedPreferences
+import com.poyka.ripdpi.data.redacted
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import dagger.Binds
 import dagger.Module
@@ -32,10 +33,8 @@ data class AwgSecrets(
 ) {
     /** Shows only which secrets are present, never their values. */
     override fun toString(): String =
-        "AwgSecrets(privateKey=${redact(privateKey)}, presharedKey=${redact(presharedKey)}, " +
-            "headerProtectionKey=${redact(headerProtectionKey)})"
-
-    private fun redact(value: String): String = if (value.isEmpty()) "\"\"" else "<redacted>"
+        "AwgSecrets(privateKey=${redacted(privateKey)}, presharedKey=${redacted(presharedKey)}, " +
+            "headerProtectionKey=${redacted(headerProtectionKey)})"
 }
 
 /**

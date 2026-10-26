@@ -189,8 +189,11 @@ object AmneziaWgUriCodec {
             }.getOrNull()
         }
 
-    /** The mandatory fields of an `amneziawg://` URI plus its decoded query map. */
-    private data class MandatoryFields(
+    /**
+     * The mandatory fields of an `amneziawg://` URI plus its decoded query map.
+     * Not a data class: a generated toString would print the keys and the host.
+     */
+    private class MandatoryFields(
         val privateKey: String,
         val publicKey: String,
         val host: String,

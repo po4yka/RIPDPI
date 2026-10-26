@@ -121,12 +121,14 @@ data class ResolvedRipDpiAmneziaWgConfig(
     val localSocksHost: String,
     val localSocksPort: Int,
 ) {
-    /** Keys and user-pasted endpoints show only their presence (network-fingerprint-privacy). */
+    /** Keys, user endpoints and tunnel addresses show only their presence (network-fingerprint-privacy). */
     override fun toString(): String =
         "ResolvedRipDpiAmneziaWgConfig(enabled=$enabled, profileId=$profileId, " +
             "privateKey=${redact(privateKey)}, peerPublicKey=$peerPublicKey, presharedKey=${redact(presharedKey)}, " +
             "endpointHost=${redact(endpointHost)}, endpointIpv4=${redact(endpointIpv4)}, " +
-            "endpointIpv6=${redact(endpointIpv6)}, endpointPort=$endpointPort, mtu=$mtu, " +
+            "endpointIpv6=${redact(endpointIpv6)}, endpointPort=$endpointPort, " +
+            "interfaceAddressV4=${redact(interfaceAddressV4)}, " +
+            "interfaceAddressV6=${redact(interfaceAddressV6)}, mtu=$mtu, " +
             "persistentKeepalive=$persistentKeepalive, persistentKeepaliveMax=$persistentKeepaliveMax, " +
             "amnezia=$amnezia, carrier=$carrier, carrierWsUrl=${redact(carrierWsUrl)}, " +
             "localSocksHost=$localSocksHost, localSocksPort=$localSocksPort)"

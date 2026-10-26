@@ -199,7 +199,7 @@ class AwgActivationRequestTest {
     }
 
     @Test
-    fun `activation request never prints keys, endpoint or carrier URL`() {
+    fun `activation request never prints keys, endpoint, tunnel address or carrier URL`() {
         val request =
             runtimeRequest().copy(
                 presharedKey = "cHNrLXNlY3JldA==",
@@ -211,7 +211,24 @@ class AwgActivationRequestTest {
         assertTrue(text.contains("privateKey=<redacted>"))
         assertTrue(text.contains("presharedKey=<redacted>"))
         assertTrue(text.contains("endpointPort=51820"))
-        listOf(request.privateKey, "cHNrLXNlY3JldA==", "vpn.example.com", "carrier.example.net").forEach {
+        listOf(request.privateKey, "cHNrLXNlY3JldA==", "vpn.example.com", "10.8.0.2", "carrier.example.net").forEach {
+            assertTrue(it, it !in text)
+        }
+    }
+
+    @Test
+    fun `profile form never prints keys, server or carrier URL`() {
+        val form =
+            form().copy(
+                presharedKey = "cHNrLWZvcm0tc2VjcmV0",
+                carrierWsUrl = "wss://carrier.example.net/form",
+            )
+        val text = form.toString()
+
+        assertTrue(text.contains("interfacePrivateKey=<redacted>"))
+        assertTrue(text.contains("presharedKey=<redacted>"))
+        assertTrue(text.contains("serverPort=${form.serverPort}"))
+        listOf(form.interfacePrivateKey, "cHNrLWZvcm0tc2VjcmV0", form.server, "carrier.example.net").forEach {
             assertTrue(it, it !in text)
         }
     }

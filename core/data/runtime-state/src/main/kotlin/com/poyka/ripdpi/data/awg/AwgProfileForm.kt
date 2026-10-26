@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.redacted
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import kotlinx.serialization.Serializable
 
@@ -55,6 +56,15 @@ data class AwgProfileForm(
     val carrier: String = AwgActivationRequest.CARRIER_UDP,
     val carrierWsUrl: String = "",
 ) {
+    /** Keys, the server and the carrier URL show only their presence. */
+    override fun toString(): String =
+        "AwgProfileForm(wireProfile=$wireProfile, server=${redacted(server)}, serverPort=$serverPort, " +
+            "interfacePrivateKey=${redacted(interfacePrivateKey)}, peerPublicKey=$peerPublicKey, " +
+            "presharedKey=${redacted(presharedKey)}, jc=$jc, jmin=$jmin, jmax=$jmax, " +
+            "s1=$s1, s2=$s2, s3=$s3, s4=$s4, h1=$h1, h2=$h2, h3=$h3, h4=$h4, " +
+            "i1=$i1, i2=$i2, i3=$i3, i4=$i4, i5=$i5, v3=$v3, cohortId=$cohortId, " +
+            "carrier=$carrier, carrierWsUrl=${redacted(carrierWsUrl)})"
+
     companion object {
         /** The sentinel id for a profile whose obfuscation fields match no preset. */
         const val CUSTOM_COHORT_ID: String = "Custom"

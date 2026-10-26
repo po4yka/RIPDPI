@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.wireguard
 
+import com.poyka.ripdpi.data.redacted
 import kotlinx.serialization.Serializable
 
 /*
@@ -30,7 +31,7 @@ data class WireGuardInterface(
     val listenPort: Int? = null,
 ) {
     override fun toString(): String =
-        "WireGuardInterface(privateKey=${redactKey(privateKey)}, address=$address, dns=$dns, " +
+        "WireGuardInterface(privateKey=${redacted(privateKey)}, address=${redacted(address)}, dns=$dns, " +
             "mtu=$mtu, listenPort=$listenPort)"
 }
 
@@ -49,13 +50,10 @@ data class WireGuardPeer(
     val persistentKeepaliveMax: Int? = null,
 ) {
     override fun toString(): String =
-        "WireGuardPeer(publicKey=$publicKey, presharedKey=${presharedKey?.let(::redactKey)}, " +
-            "allowedIps=$allowedIps, endpoint=${endpoint?.let(::redactKey)}, " +
+        "WireGuardPeer(publicKey=$publicKey, presharedKey=${redacted(presharedKey)}, " +
+            "allowedIps=$allowedIps, endpoint=${redacted(endpoint)}, " +
             "persistentKeepalive=$persistentKeepalive, persistentKeepaliveMax=$persistentKeepaliveMax)"
 }
-
-/** Shows only whether a secret is present, never its value. */
-private fun redactKey(value: String): String = if (value.isEmpty()) "\"\"" else "<redacted>"
 
 /**
  * AmneziaWG obfuscation parameters carried on the `[Interface]` block.

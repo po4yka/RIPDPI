@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.redacted
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import kotlinx.serialization.Serializable
@@ -60,17 +61,16 @@ data class AwgActivationRequest(
      */
     val carrierWsUrl: String = "",
 ) {
-    /** Keys, endpoint and carrier URL are user secrets or network fingerprints: show only their presence. */
+    /** Keys, endpoints, tunnel addresses and the carrier URL show only their presence. */
     override fun toString(): String =
-        "AwgActivationRequest(profileId=$profileId, privateKey=${redact(privateKey)}, " +
-            "peerPublicKey=$peerPublicKey, presharedKey=${redact(presharedKey)}, " +
-            "endpointHost=${redact(endpointHost)}, endpointPort=$endpointPort, " +
-            "interfaceAddressV4=$interfaceAddressV4, interfaceAddressV6=$interfaceAddressV6, " +
+        "AwgActivationRequest(profileId=$profileId, privateKey=${redacted(privateKey)}, " +
+            "peerPublicKey=$peerPublicKey, presharedKey=${redacted(presharedKey)}, " +
+            "endpointHost=${redacted(endpointHost)}, endpointPort=$endpointPort, " +
+            "interfaceAddressV4=${redacted(interfaceAddressV4)}, " +
+            "interfaceAddressV6=${redacted(interfaceAddressV6)}, " +
             "dnsServers=$dnsServers, allowedIps=$allowedIps, mtu=$mtu, " +
             "persistentKeepalive=$persistentKeepalive, persistentKeepaliveMax=$persistentKeepaliveMax, " +
-            "obfuscation=$obfuscation, carrier=$carrier, carrierWsUrl=${redact(carrierWsUrl)})"
-
-    private fun redact(value: String): String = if (value.isEmpty()) "\"\"" else "<redacted>"
+            "obfuscation=$obfuscation, carrier=$carrier, carrierWsUrl=${redacted(carrierWsUrl)})"
 
     companion object {
         /** Native AmneziaWG tunnel MTU default; mirrors `DefaultAmneziaWgTunnelMtu`. */

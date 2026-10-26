@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.wireguard
 
+import com.poyka.ripdpi.data.redacted
 import kotlinx.serialization.Serializable
 
 /**
@@ -36,4 +37,13 @@ data class AmneziaWgProfile(
     val address: List<String> = emptyList(),
     val persistentKeepalive: Int? = null,
     val persistentKeepaliveMax: Int? = null,
-)
+) {
+    /** Keys, the host, the name (it can be the host) and tunnel addresses show only their presence. */
+    override fun toString(): String =
+        "AmneziaWgProfile(name=${redacted(
+            name,
+        )}, host=${redacted(host)}, port=$port, privateKey=${redacted(privateKey)}, " +
+            "publicKey=$publicKey, presharedKey=${redacted(presharedKey)}, allowedIps=$allowedIps, dns=$dns, " +
+            "mtu=$mtu, awg=$awg, address=${redacted(address)}, persistentKeepalive=$persistentKeepalive, " +
+            "persistentKeepaliveMax=$persistentKeepaliveMax)"
+}

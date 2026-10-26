@@ -204,7 +204,7 @@ class RipDpiAmneziaWgConfigSerializationTest {
     }
 
     @Test
-    fun `resolved config never prints keys or user endpoints`() {
+    fun `resolved config never prints keys, user endpoints or tunnel addresses`() {
         val text = fullConfig.copy(carrierWsUrl = "wss://carrier.example.net/ws").toString()
 
         assertTrue(text.contains("privateKey=<redacted>"))
@@ -216,6 +216,8 @@ class RipDpiAmneziaWgConfigSerializationTest {
             "vpn.example.org",
             "203.0.113.7",
             "2001:db8::7",
+            "10.8.0.2/32",
+            "fd00::2/128",
             "carrier.example.net",
         ).forEach { assertTrue(it, it !in text) }
     }

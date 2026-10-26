@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.subscription
 
+import com.poyka.ripdpi.data.redacted
 import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
@@ -37,7 +38,17 @@ data class WireGuardSubscriptionProfile(
     val persistentKeepaliveMax: Int? = null,
     val dnsSpecified: Boolean = dns.isNotEmpty(),
     val allowedIpsSpecified: Boolean = allowedIps.isNotEmpty(),
-)
+) {
+    /** Keys, the server, the display name (it holds the server) and tunnel addresses show only their presence. */
+    override fun toString(): String =
+        "WireGuardSubscriptionProfile(displayName=${redacted(displayName)}, groupId=$groupId, " +
+            "server=${redacted(server)}, " +
+            "serverPort=$serverPort, interfacePrivateKey=${redacted(interfacePrivateKey)}, " +
+            "interfaceAddress=${redacted(interfaceAddress)}, dns=$dns, mtu=$mtu, peerPublicKey=$peerPublicKey, " +
+            "peerPresharedKey=${redacted(peerPresharedKey)}, allowedIps=$allowedIps, " +
+            "persistentKeepalive=$persistentKeepalive, persistentKeepaliveMax=$persistentKeepaliveMax, " +
+            "dnsSpecified=$dnsSpecified, allowedIpsSpecified=$allowedIpsSpecified)"
+}
 
 /**
  * One AmneziaWG profile produced from a single `[Peer]` of a WireGuard-INI
@@ -75,7 +86,18 @@ data class AmneziaWgSubscriptionProfile(
     val cohortFingerprint: String? = null,
     val dnsSpecified: Boolean = dns.isNotEmpty(),
     val allowedIpsSpecified: Boolean = allowedIps.isNotEmpty(),
-)
+) {
+    /** Keys, the server, the display name (it holds the server) and tunnel addresses show only their presence. */
+    override fun toString(): String =
+        "AmneziaWgSubscriptionProfile(displayName=${redacted(displayName)}, groupId=$groupId, " +
+            "server=${redacted(server)}, " +
+            "serverPort=$serverPort, interfacePrivateKey=${redacted(interfacePrivateKey)}, " +
+            "interfaceAddress=${redacted(interfaceAddress)}, dns=$dns, mtu=$mtu, peerPublicKey=$peerPublicKey, " +
+            "peerPresharedKey=${redacted(peerPresharedKey)}, allowedIps=$allowedIps, " +
+            "persistentKeepalive=$persistentKeepalive, awg=$awg, persistentKeepaliveMax=$persistentKeepaliveMax, " +
+            "cohortFingerprint=$cohortFingerprint, dnsSpecified=$dnsSpecified, " +
+            "allowedIpsSpecified=$allowedIpsSpecified)"
+}
 
 /**
  * Outcome of a [WireGuardIniSubscriptionParser] run: vanilla WireGuard profiles,

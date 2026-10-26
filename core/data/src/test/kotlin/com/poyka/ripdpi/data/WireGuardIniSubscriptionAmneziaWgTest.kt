@@ -241,4 +241,33 @@ class WireGuardIniSubscriptionAmneziaWgTest {
                 .awg.jc,
         )
     }
+
+    @Test
+    fun `subscription profiles never print keys, server or tunnel addresses`() {
+        val withPsk =
+            awgConf.replace(
+                "[Peer]\n",
+                "[Peer]\nPresharedKey = c3ViLXBzay1zZWNyZXQtZml4dHVyZS12YWx1ZS0wMTI=\n",
+            )
+        val awg = WireGuardIniSubscriptionParser.parse(withPsk, groupId).amneziaWgProfiles.single()
+        val vanilla =
+            WireGuardIniSubscriptionParser
+                .parse(
+                    withPsk.lines().filterNot { it.matches(Regex("^[JSHI][0-9a-z]* = .*")) }.joinToString("\n"),
+                    groupId,
+                ).profiles
+                .single()
+
+        for (text in listOf(awg.toString(), vanilla.toString())) {
+            assertTrue(text, text.contains("interfacePrivateKey=<redacted>"))
+            assertTrue(text, text.contains("peerPresharedKey=<redacted>"))
+            assertTrue(text, text.contains("serverPort=51820"))
+            listOf(
+                "YXdnLWludGVyZmFjZS1wcml2YXRlLWtleS1maXg=",
+                "c3ViLXBzay1zZWNyZXQtZml4dHVyZS12YWx1ZS0wMTI=",
+                "awg1.example.com",
+                "10.13.0.2",
+            ).forEach { assertTrue(it, it !in text) }
+        }
+    }
 }
