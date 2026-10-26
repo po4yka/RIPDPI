@@ -21,7 +21,7 @@ use crate::config::OriginConfig;
 use crate::errors::{classify_error, emit_structured_error};
 use crate::http_body::{ChannelBody, XhttpBody};
 use crate::path::extract_session_id;
-use crate::session::run_session;
+use crate::session::{is_public_destination, run_session};
 
 const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|cloudflare-origin|";
 /// How long a new session id may wait for its GET and POST. Anyone who can
@@ -85,6 +85,8 @@ struct SessionBindingState {
 #[derive(Clone)]
 struct OriginServer {
     config: Arc<OriginConfig>,
+    /// Which upstream addresses a session may dial.
+    target_allowed: fn(std::net::IpAddr) -> bool,
     sessions: Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
     next_session_seq: Arc<AtomicU64>,
 }
@@ -96,6 +98,7 @@ pub(crate) async fn run(config: OriginConfig) -> io::Result<()> {
 
     let server = OriginServer {
         config: Arc::new(config),
+        target_allowed: is_public_destination,
         sessions: Arc::new(Mutex::new(HashMap::new())),
         next_session_seq: Arc::new(AtomicU64::new(0)),
     };
@@ -224,13 +227,21 @@ impl OriginServer {
             return;
         };
         let expected_uuid = self.config.uuid;
+        let target_allowed = self.target_allowed;
         let protect_path = self.config.protect_path.clone();
         let sessions = Arc::clone(&self.sessions);
         let weak = Arc::downgrade(&session);
         let task = tokio::spawn(async move {
             let on_authenticated = || weak.upgrade().is_some_and(|session| session.authenticate());
-            let result =
-                run_session(inbound_rx, outbound_tx, expected_uuid, protect_path.as_deref(), on_authenticated).await;
+            let result = run_session(
+                inbound_rx,
+                outbound_tx,
+                expected_uuid,
+                protect_path.as_deref(),
+                target_allowed,
+                on_authenticated,
+            )
+            .await;
             if let Err(error) = result {
                 emit_structured_error(classify_error(&error), &error);
             }
@@ -373,6 +384,8 @@ mod tests {
                 uuid: [0; 16],
                 protect_path: None,
             }),
+            // The tests dial loopback stand-ins for upstream targets.
+            target_allowed: |_| true,
             sessions: Arc::new(Mutex::new(HashMap::new())),
             next_session_seq: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         }

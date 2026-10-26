@@ -1,4 +1,5 @@
 use std::io;
+use std::net::IpAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
@@ -20,6 +21,7 @@ const UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const SESSION_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Reads the VLESS header, checks the UUID, then relays to the target.
+/// Only target addresses for which `target_allowed` is true are dialled.
 /// `on_authenticated` runs once the UUID matches; when it returns false (the
 /// session was evicted first) the session ends before it connects upstream.
 ///
@@ -36,6 +38,7 @@ pub(crate) async fn run_session(
     outbound_tx: mpsc::Sender<io::Result<Bytes>>,
     expected_uuid: [u8; 16],
     protect_path: Option<&str>,
+    target_allowed: fn(IpAddr) -> bool,
     on_authenticated: impl FnOnce() -> bool,
 ) -> io::Result<()> {
     let (decoded, buffered_payload) = read_request_header_with_timeout(&mut inbound_rx, VLESS_HEADER_TIMEOUT).await?;
@@ -54,7 +57,7 @@ pub(crate) async fn run_session(
 
     let upstream = timeout(
         UPSTREAM_CONNECT_TIMEOUT,
-        ripdpi_subprocess_protect::protected_tcp_connect(decoded.target.as_str(), protect_path),
+        connect_allowed_upstream(decoded.target.as_str(), protect_path, target_allowed),
     )
     .await
     .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "upstream connect timed out"))?
@@ -64,6 +67,68 @@ pub(crate) async fn run_session(
         return Ok(());
     }
     relay(upstream, inbound_rx, buffered_payload, outbound_tx).await
+}
+
+/// Resolves `target` and dials the first allowed address. The check runs on
+/// each resolved address, so a name that resolves to a private address is
+/// refused too.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it drops the pending lookup or connect socket.
+async fn connect_allowed_upstream(
+    target: &str,
+    protect_path: Option<&str>,
+    target_allowed: fn(IpAddr) -> bool,
+) -> io::Result<TcpStream> {
+    let mut last_error = io::Error::new(io::ErrorKind::NotFound, "no addresses resolved");
+    for address in tokio::net::lookup_host(target).await? {
+        if !target_allowed(address.ip()) {
+            last_error = io::Error::new(io::ErrorKind::ConnectionRefused, "upstream address is not public");
+            continue;
+        }
+        match ripdpi_subprocess_protect::protected_tcp_connect(address, protect_path).await {
+            Ok(stream) => return Ok(stream),
+            Err(error) => last_error = error,
+        }
+    }
+    Err(last_error)
+}
+
+/// True for an address on the public internet. Peers that know the tunnel
+/// UUID must not reach the publisher's loopback services (cloudflared
+/// metrics, local proxies), LAN, carrier-grade NAT or link-local hosts.
+pub(crate) fn is_public_destination(address: IpAddr) -> bool {
+    match address {
+        IpAddr::V4(v4) => {
+            let [first, second, ..] = v4.octets();
+            let shared_address_space = first == 100 && (second & 0xc0) == 64;
+            !(v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_broadcast()
+                || v4.is_multicast()
+                || first == 0
+                || shared_address_space)
+        }
+        IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_public_destination(IpAddr::V4(v4));
+            }
+            let segments = v6.segments();
+            // NAT64 (RFC 6052) carries an IPv4 address in its last 32 bits.
+            if segments[..6] == [0x64, 0xff9b, 0, 0, 0, 0] {
+                let [.., high, low] = segments;
+                return is_public_destination(IpAddr::V4(((u32::from(high) << 16) | u32::from(low)).into()));
+            }
+            !(v6.is_loopback()
+                || v6.is_unspecified()
+                || v6.is_multicast()
+                || v6.is_unique_local()
+                || v6.is_unicast_link_local()
+                || (segments[0] & 0xffc0) == 0xfec0)
+        }
+    }
 }
 
 /// Copies POST chunks to the upstream and upstream bytes to the GET stream.
@@ -191,19 +256,20 @@ mod tests {
     use tokio::net::TcpListener;
     use tokio::sync::mpsc;
 
-    use super::{read_request_header_with_timeout, redact_upstream_connect_error, run_session};
+    use super::{is_public_destination, read_request_header_with_timeout, redact_upstream_connect_error, run_session};
 
     /// Runs a session whose POST channel already holds a VLESS header for
     /// `target` and stays open. The returned receiver is the GET stream.
     fn start_session(
         target: &str,
+        target_allowed: fn(std::net::IpAddr) -> bool,
     ) -> (impl Future<Output = std::io::Result<()>> + use<>, mpsc::Sender<Bytes>, mpsc::Receiver<std::io::Result<Bytes>>)
     {
         let (inbound_tx, inbound_rx) = mpsc::channel(8);
         let (outbound_tx, outbound_rx) = mpsc::channel(8);
         let header = ripdpi_vless::wire::encode_request(&[7; 16], &[], target).expect("VLESS header");
         inbound_tx.try_send(Bytes::from(header)).expect("queue header");
-        (run_session(inbound_rx, outbound_tx, [7; 16], None, || true), inbound_tx, outbound_rx)
+        (run_session(inbound_rx, outbound_tx, [7; 16], None, target_allowed, || true), inbound_tx, outbound_rx)
     }
 
     #[test]
@@ -234,7 +300,7 @@ mod tests {
     async fn silent_upstream_session_ends_at_the_idle_deadline() {
         let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
         let target = upstream.local_addr().expect("upstream address").to_string();
-        let (session, _post, _get) = start_session(&target);
+        let (session, _post, _get) = start_session(&target, |_| true);
         let session = tokio::spawn(session);
 
         // The upstream accepts, then never sends or closes; the POST stays open.
@@ -249,5 +315,49 @@ mod tests {
             .expect("an idle session must end at its own deadline")
             .expect("session task")
             .expect("an idle end is a normal close");
+    }
+
+    #[tokio::test]
+    async fn loopback_target_is_refused_without_a_connect() {
+        let local_service = TcpListener::bind("127.0.0.1:0").await.expect("bind local service");
+        let target = local_service.local_addr().expect("address").to_string();
+        let (session, _post, _get) = start_session(&target, is_public_destination);
+
+        let error = tokio::time::timeout(Duration::from_secs(5), session)
+            .await
+            .expect("the session must end without relaying")
+            .expect_err("a loopback target must be refused");
+        assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), local_service.accept()).await.is_err(),
+            "the local service must not be dialled"
+        );
+    }
+
+    #[test]
+    fn only_public_addresses_are_allowed_destinations() {
+        for blocked in [
+            "127.0.0.1",
+            "10.1.2.3",
+            "172.16.0.1",
+            "192.168.1.1",
+            "169.254.169.254",
+            "100.64.0.1",
+            "0.0.0.0",
+            "255.255.255.255",
+            "224.0.0.1",
+            "::1",
+            "::",
+            "fe80::1",
+            "fd00::1",
+            "ff02::1",
+            "::ffff:192.168.1.1",
+            "64:ff9b::a00:1",
+        ] {
+            assert!(!is_public_destination(blocked.parse().expect("address")), "{blocked} must be refused");
+        }
+        for allowed in ["1.1.1.1", "8.8.8.8", "100.128.0.1", "2606:4700::1111", "64:ff9b::808:808"] {
+            assert!(is_public_destination(allowed.parse().expect("address")), "{allowed} must be allowed");
+        }
     }
 }
