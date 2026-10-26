@@ -300,11 +300,15 @@ open class RootHelperManager
             val process = helperProcess
             val socketPath = activeSocketPath
             val noncePath = activeNoncePath
+            // A dead helper cannot answer, so a failed shutdown request must not wedge every later stop.
+            var helperDied = false
             if (socketPath != null) {
                 val shutdownFailure = runCatching { shutdownRequester(socketPath, noncePath) }.exceptionOrNull()
                 if (shutdownFailure != null) {
                     log.w(shutdownFailure) { "failed to request root helper shutdown" }
-                    if (ownedBackend != null) throw RuntimeCleanupPendingException(shutdownFailure)
+                    helperDied = !isRunning()
+                    // A live but unresponsive helper may still own the backend: keep cleanup pending.
+                    if (ownedBackend != null && !helperDied) throw RuntimeCleanupPendingException(shutdownFailure)
                 }
             }
             val output = helperOutput
@@ -333,7 +337,7 @@ open class RootHelperManager
             } catch (e: SecurityException) {
                 log.w(e) { "error stopping root helper" }
             } finally {
-                if (socketPath != null && ownedBackend == null) {
+                if (socketPath != null && (ownedBackend == null || helperDied)) {
                     runCatching {
                         rootProcessTerminator()
                     }.onFailure { error ->

@@ -72,6 +72,35 @@ class RootHelperNfqwsTest {
         }
 
     @Test
+    fun `stop after the helper died clears backend ownership instead of wedging`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val process = NfqwsTestProcess()
+            var globalKills = 0
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { File(context.filesDir, "helper") },
+                    processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
+                    readinessProbe = { _, _, _ -> true },
+                    shutdownRequester = { _, _ -> throw IOException("connection refused") },
+                    rootProcessTerminator = { globalKills++ },
+                    nfqwsExtractor = { context.filesDir },
+                    nfqwsRequester = { _, _, _, _ -> buildJsonObject { put("running", true) } },
+                    nfqwsDispatcher = StandardTestDispatcher(testScheduler),
+                )
+            manager.start(context)
+            manager.syncNfqws(context, settings())
+            process.destroy()
+
+            manager.stop()
+
+            assertNull(manager.socketPath)
+            assertFalse(manager.nfqwsActive)
+            assertFalse(File(context.filesDir, "root_helper.sock.nonce").exists())
+            assertEquals("a dead helper's detached processes are reaped", 1, globalKills)
+        }
+
+    @Test
     fun `same backend is reused and unexpected exit reaches session failure callback`() =
         runTest {
             val context = RuntimeEnvironment.getApplication()
