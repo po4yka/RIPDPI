@@ -370,6 +370,17 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
+    fun `projected negative S3 or S4 blocks activation`() {
+        val safe = activatableState()
+
+        listOf(safe.form.copy(s3 = -1), safe.form.copy(s4 = -1)).forEach { form ->
+            val state = safe.copy(form = form)
+            assertFalse(state.obfuscationConsistent())
+            assertFalse(state.isActivatable())
+        }
+    }
+
+    @Test
     fun `an inverted junk range with junk active blocks activation`() {
         val state =
             activatableState()

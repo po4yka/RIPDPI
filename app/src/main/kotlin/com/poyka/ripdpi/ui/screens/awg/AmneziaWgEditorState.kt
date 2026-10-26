@@ -182,7 +182,7 @@ data class AmneziaWgEditorState(
         val paddingFitsMtu = form.s1 <= mtu && form.s2 <= mtu && form.s3 <= mtu && form.s4 <= mtu
         val wireProfileValid =
             runCatching {
-                AmneziaWgWireProfile.requireScalars(form.jc, form.jmin, form.jmax, form.s1, form.s2)
+                AmneziaWgWireProfile.requireScalars(form.jc, form.jmin, form.jmax, form.s1, form.s2, form.s3, form.s4)
                 AmneziaWgWireProfile.requireValid(
                     form.wireProfile,
                     listOf(form.h1, form.h2, form.h3, form.h4),

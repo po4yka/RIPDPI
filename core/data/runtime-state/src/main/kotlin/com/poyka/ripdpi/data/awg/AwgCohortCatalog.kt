@@ -406,7 +406,15 @@ class AwgCohortCatalog
             ) {
                 runCatching {
                     val preset = awgCohortStrictJson.decodeFromJsonElement(AwgCohortPreset.serializer(), obj)
-                    AmneziaWgWireProfile.requireScalars(preset.jc, preset.jmin, preset.jmax, preset.s1, preset.s2)
+                    AmneziaWgWireProfile.requireScalars(
+                        preset.jc,
+                        preset.jmin,
+                        preset.jmax,
+                        preset.s1,
+                        preset.s2,
+                        preset.s3,
+                        preset.s4,
+                    )
                     AmneziaWgWireProfile.requireValid(
                         preset.wireProfile,
                         listOf(preset.h1, preset.h2, preset.h3, preset.h4),

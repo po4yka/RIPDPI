@@ -198,6 +198,23 @@ class AwgCohortCatalogLoadTest {
     }
 
     @Test
+    fun `strict validation rejects out-of-range s3 or s4 as invalid wire parameters`() {
+        fun catalog(
+            s3: Int,
+            s4: Int,
+        ) = """
+            { "presets": [
+              { "id": "oversized", "displayNameKey": "awg_cohort_oversized_name", "descriptionKey": "awg_cohort_oversized_desc",
+                "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100, "s3": $s3, "s4": $s4,
+                "wireProfile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4", "randomizeHeaders": false } ] }
+            """.trimIndent()
+
+        listOf(catalog(s3 = 1281, s4 = 0), catalog(s3 = 0, s4 = -1)).forEach { json ->
+            assertTrue(AwgCohortCatalog.strictValidate(json).any { it.contains("invalid wire parameters") })
+        }
+    }
+
+    @Test
     fun `strict validation rejects non-zero s3 or s4`() {
         fun catalog(
             s3: Int,
