@@ -74,11 +74,15 @@ impl Drop for ExitReport {
 
 /// Spawn a tunnel task whose exit is a runtime failure. The task may return
 /// a specific failure message; otherwise a generic one names the task.
-fn spawn_supervised<F>(tasks: &mut Vec<JoinHandle<()>>, failures: &UnboundedSender<String>, task: &str, future: F)
-where
+pub(crate) fn spawn_supervised<F>(
+    tasks: &mut Vec<JoinHandle<()>>,
+    failures: &UnboundedSender<String>,
+    task: &str,
+    future: F,
+) where
     F: Future<Output = Option<String>> + Send + 'static,
 {
-    let report = ExitReport { message: format!("AmneziaWG {task} task stopped"), failures: failures.clone() };
+    let report = ExitReport { message: format!("{task} task stopped"), failures: failures.clone() };
     tasks.push(tokio::spawn(async move {
         // Own the whole guard, so it drops when the task ends.
         let mut report = report;
@@ -546,7 +550,7 @@ impl AmneziaWgRuntime {
 
         {
             let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
-            spawn_supervised(&mut tasks, &failure_tx, "carrier receive", async move {
+            spawn_supervised(&mut tasks, &failure_tx, "AmneziaWG carrier receive", async move {
                 // A closed or broken carrier fails the runtime so its supervisor restarts it.
                 let error = tunnel.consume_task(bus).await;
                 let message = redacted_carrier_error("AmneziaWG carrier stopped", &error).to_string();
@@ -556,24 +560,24 @@ impl AmneziaWgRuntime {
         }
         {
             let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
-            spawn_supervised(&mut tasks, &failure_tx, "packet send", async move {
+            spawn_supervised(&mut tasks, &failure_tx, "AmneziaWG packet send", async move {
                 tunnel.produce_task(bus).await;
                 None
             });
         }
         {
             let tunnel = Arc::clone(&tunnel);
-            spawn_supervised(&mut tasks, &failure_tx, "timer", async move {
+            spawn_supervised(&mut tasks, &failure_tx, "AmneziaWG timer", async move {
                 tunnel.routine_task().await;
                 None
             });
         }
         let tcp = DynamicTcpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
-        spawn_supervised(&mut tasks, &failure_tx, "TCP interface", async move {
+        spawn_supervised(&mut tasks, &failure_tx, "AmneziaWG TCP interface", async move {
             tcp.run().await.err().map(|error| interface_failure("TCP", &error))
         });
         let udp = DynamicUdpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
-        spawn_supervised(&mut tasks, &failure_tx, "UDP interface", async move {
+        spawn_supervised(&mut tasks, &failure_tx, "AmneziaWG UDP interface", async move {
             udp.run().await.err().map(|error| interface_failure("UDP", &error))
         });
         drop(failure_tx);
@@ -1080,8 +1084,10 @@ mod tests {
     async fn panicking_supervised_task_is_a_runtime_failure() {
         let (failure_tx, mut failure_rx) = unbounded_channel();
         let mut tasks = Vec::new();
-        spawn_supervised(&mut tasks, &failure_tx, "test", async { panic!("supervised task panic") });
-        spawn_supervised(&mut tasks, &failure_tx, "returning", async { Some("specific failure".to_string()) });
+        spawn_supervised(&mut tasks, &failure_tx, "AmneziaWG test", async { panic!("supervised task panic") });
+        spawn_supervised(&mut tasks, &failure_tx, "AmneziaWG returning", async {
+            Some("specific failure".to_string())
+        });
         drop(failure_tx);
 
         let mut reports = vec![failure_rx.recv().await, failure_rx.recv().await];

@@ -3,9 +3,11 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::net::TcpListener;
+use tokio::sync::mpsc::unbounded_channel;
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
+use crate::amneziawg_runtime::spawn_supervised;
 use crate::config::{ResolvedWarpRuntimeConfig, WarpTelemetry, now_ms, parse_ipv4_cidr, resolve_endpoint};
 use crate::observe::TcpConnectObservation;
 use crate::platform::WarpPlatform;
@@ -181,41 +183,41 @@ impl WarpRuntime {
         let bind_addr = format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port);
         let listener = TcpListener::bind(&bind_addr).await?;
 
+        // Every tunnel and interface task is supervised: its exit fails the runtime, so the
+        // Kotlin supervisor restarts WARP instead of serving connections that only hang.
+        let (failure_tx, mut failure_rx) = unbounded_channel::<String>();
         {
-            let tunnel = Arc::clone(&tunnel);
-            let bus = bus.clone();
-            tasks.push(tokio::spawn(async move {
-                let error = tunnel.consume_task(bus).await;
-                tracing::warn!("WARP tunnel receive stopped: {error}");
-            }));
+            let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
+            spawn_supervised(&mut tasks, &failure_tx, "WARP tunnel receive", async move {
+                let message = format!("WARP tunnel receive stopped ({})", tunnel.consume_task(bus).await.kind());
+                tracing::warn!("{message}");
+                Some(message)
+            });
+        }
+        {
+            let (tunnel, bus) = (Arc::clone(&tunnel), bus.clone());
+            spawn_supervised(&mut tasks, &failure_tx, "WARP packet send", async move {
+                tunnel.produce_task(bus).await;
+                None
+            });
         }
         {
             let tunnel = Arc::clone(&tunnel);
-            let bus = bus.clone();
-            tasks.push(tokio::spawn(async move { tunnel.produce_task(bus).await }));
+            spawn_supervised(&mut tasks, &failure_tx, "WARP timer", async move {
+                tunnel.routine_task().await;
+                None
+            });
         }
-        {
-            let tunnel = Arc::clone(&tunnel);
-            tasks.push(tokio::spawn(async move { tunnel.routine_task().await }));
-        }
-        {
-            let interface =
-                DynamicTcpInterface::new(bus.clone(), source_peer_ip, None, self.config.mtu.max(1280) as usize);
-            tasks.push(tokio::spawn(async move {
-                if let Err(error) = interface.run().await {
-                    tracing::warn!("WARP TCP virtual interface stopped: {error}");
-                }
-            }));
-        }
-        {
-            let interface =
-                DynamicUdpInterface::new(bus.clone(), source_peer_ip, None, self.config.mtu.max(1280) as usize);
-            tasks.push(tokio::spawn(async move {
-                if let Err(error) = interface.run().await {
-                    tracing::warn!("WARP UDP virtual interface stopped: {error}");
-                }
-            }));
-        }
+        let mtu = self.config.mtu.max(1280) as usize;
+        let tcp = DynamicTcpInterface::new(bus.clone(), source_peer_ip, None, mtu);
+        spawn_supervised(&mut tasks, &failure_tx, "WARP TCP interface", async move {
+            tcp.run().await.err().map(|error| format!("WARP TCP virtual interface stopped: {error}"))
+        });
+        let udp = DynamicUdpInterface::new(bus.clone(), source_peer_ip, None, mtu);
+        spawn_supervised(&mut tasks, &failure_tx, "WARP UDP interface", async move {
+            udp.run().await.err().map(|error| format!("WARP UDP virtual interface stopped: {error}"))
+        });
+        drop(failure_tx);
 
         *self.listener_address.lock().expect("listener address") = Some(bind_addr);
         self.running.store(true, Ordering::SeqCst);
@@ -228,9 +230,19 @@ impl WarpRuntime {
         // Track client tasks so shutdown closes them and resets the session count.
         let mut clients = JoinSet::new();
         let mut accept_failures = 0u32;
+        let mut runtime_failure = None;
         while !self.stop_requested.load(Ordering::SeqCst) {
             while clients.try_join_next().is_some() {}
-            match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
+            let accepted = tokio::select! {
+                failure = failure_rx.recv() => {
+                    let message = failure.unwrap_or_else(|| "WARP tunnel tasks stopped".to_string());
+                    *self.last_error.lock().expect("last error") = Some(message.clone());
+                    runtime_failure = Some(io::Error::other(message));
+                    break;
+                }
+                accepted = timeout(ACCEPT_POLL_INTERVAL, listener.accept()) => accepted,
+            };
+            match accepted {
                 Ok(Ok((stream, _))) => {
                     accept_failures = 0;
                     if clients.len() >= MAX_SOCKS_SESSIONS {
@@ -274,7 +286,7 @@ impl WarpRuntime {
         clients.shutdown().await;
         self.active_sessions.store(0, Ordering::SeqCst);
         emit_runtime_stopped();
-        Ok(())
+        runtime_failure.map_or(Ok(()), Err)
     }
 }
 
