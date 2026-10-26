@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.data.backup
 
 import android.util.Log
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.rules.RuleDao
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -51,6 +51,7 @@ class BackupExportUseCase
         private val ruleDao: RuleDao,
         private val settingsRepository: AppSettingsRepository,
         private val privateDataStore: BackupPrivateDataStore,
+        private val dispatchers: AppCoroutineDispatchers,
     ) {
         /**
          * Builds and writes a backup of [variant] to [output].
@@ -69,7 +70,7 @@ class BackupExportUseCase
             createdAtEpochMillis: Long = System.currentTimeMillis(),
         ): BackupExportResult =
             // PBKDF2, Keystore reads and the SAF stream write all block; callers launch from Main.
-            withContext(Dispatchers.IO) {
+            withContext(dispatchers.io) {
                 exportBlocking(variant, output, appVersion, passphrase, createdAtEpochMillis)
             }
 

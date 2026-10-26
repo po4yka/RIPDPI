@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -94,6 +95,7 @@ class BackupRestoreUseCaseTest {
         ruleDao = ruleDao,
         settingsRepository = settings,
         privateDataStore = privateDataStore,
+        dispatchers = AppCoroutineDispatchers(Dispatchers.Default, Dispatchers.IO, Dispatchers.Default),
     )
 
     private fun restoreUseCase(

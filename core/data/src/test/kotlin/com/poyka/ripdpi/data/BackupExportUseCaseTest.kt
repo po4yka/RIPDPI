@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,6 +71,7 @@ class BackupExportUseCaseTest {
             ruleDao = ruleDao,
             settingsRepository = FakeAppSettingsRepository(settings),
             privateDataStore = privateDataStore,
+            dispatchers = AppCoroutineDispatchers(Dispatchers.Default, Dispatchers.IO, Dispatchers.Default),
         )
 
     @Test

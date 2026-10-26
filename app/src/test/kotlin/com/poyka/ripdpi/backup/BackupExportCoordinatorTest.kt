@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.backup
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
@@ -242,6 +243,8 @@ class BackupExportCoordinatorTest {
                 privateDataStore =
                     com.poyka.ripdpi.data
                         .testEmptyBackupPrivateDataStore(),
+                // The export must run on the test scheduler so advanceUntilIdle() waits for it.
+                dispatchers = StandardTestDispatcher(testScheduler).let { AppCoroutineDispatchers(it, it, it) },
             )
         val coordinator =
             BackupExportCoordinator(
