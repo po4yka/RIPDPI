@@ -34,6 +34,8 @@ const MAX_CONNECTIONS: usize = 2 * MAX_LIVE_SESSIONS + 128;
 /// Deadline for a client to send a whole request head. hyper applies it only
 /// when the builder has a timer.
 const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
+/// Pause after a failed accept, so descriptor exhaustion does not spin.
+const ACCEPT_RETRY_DELAY: Duration = Duration::from_millis(100);
 
 /// Session authentication states. Authentication and eviction both move a
 /// session out of `AUTH_PENDING` with one compare-exchange, so exactly one of
@@ -111,7 +113,8 @@ pub(crate) async fn run(config: OriginConfig) -> io::Result<()> {
     serve(listener, server).await
 }
 
-/// Serves HTTP/1 connections from `listener`.
+/// Serves HTTP/1 connections from `listener`. An accept error is reported
+/// and retried, never returned: it would end the helper and the tunnel.
 ///
 /// # Cancel safety
 ///
@@ -120,7 +123,15 @@ pub(crate) async fn run(config: OriginConfig) -> io::Result<()> {
 async fn serve(listener: TcpListener, server: OriginServer) -> io::Result<()> {
     let connection_slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     loop {
-        let (stream, _) = listener.accept().await?;
+        let stream = match listener.accept().await {
+            Ok((stream, _)) => stream,
+            Err(error) => {
+                // EMFILE, ENFILE, ECONNABORTED and ENOBUFS pass; the published tunnel must outlive them.
+                emit_structured_error(classify_error(&error), &error);
+                sleep(ACCEPT_RETRY_DELAY).await;
+                continue;
+            }
+        };
         let Ok(slot) = Arc::clone(&connection_slots).try_acquire_owned() else {
             // Closing at once keeps descriptors free; a queue would still hold them.
             drop(stream);
