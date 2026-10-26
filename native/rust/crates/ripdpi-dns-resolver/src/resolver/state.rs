@@ -161,10 +161,15 @@ pub(crate) fn build_doq_endpoint_for_endpoint(
 ) -> Result<quinn::Endpoint, EncryptedDnsError> {
     let mut doq_tls = dot_tls_config.clone();
     doq_tls.alpn_protocols = vec![b"doq".to_vec()];
-    let client_config = quinn::ClientConfig::new(Arc::new(
+    let mut client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(doq_tls)
             .map_err(|err| EncryptedDnsError::Tls(format!("DoQ TLS config: {err}")))?,
     ));
+    let mut transport = quinn::TransportConfig::default();
+    // RFC 9250 5.4: queries carry no EDNS(0) padding, so pad at the QUIC level
+    // to hide the queried name's length.
+    transport.pad_to_mtu(true);
+    client_config.transport_config(Arc::new(transport));
     let mut endpoint = doq::build_doq_endpoint(endpoint, connect_hooks)
         .map_err(|err| EncryptedDnsError::Request(format!("DoQ endpoint: {err}")))?;
     endpoint.set_default_client_config(client_config);
