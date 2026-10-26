@@ -113,7 +113,6 @@ pub fn run_dns_probe_with_context(
         &udp_resolution.result,
         &encrypted_result,
         path_mode,
-        &udp_latency_ms,
         &expected,
         udp_resolution.error_kind.as_deref(),
         udp_resolution.attempt_count,

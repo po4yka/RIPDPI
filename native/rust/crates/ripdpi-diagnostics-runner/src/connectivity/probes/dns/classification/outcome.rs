@@ -7,7 +7,6 @@ pub(super) fn classify_dns_probe_outcome(
     udp_result: &Result<Vec<String>, String>,
     encrypted_result: &Result<Vec<String>, String>,
     path_mode: &ScanPathMode,
-    udp_latency_ms: &str,
     expected: &BTreeSet<String>,
     udp_error_kind: Option<&str>,
     udp_attempt_count: usize,
@@ -27,8 +26,12 @@ pub(super) fn classify_dns_probe_outcome(
                     "dns_match".to_string()
                 }
             }
+            // Disjoint public answers are ordinary CDN/anycast steering, and a
+            // fast UDP reply (a router or nearby cache) is no evidence alone.
+            // Only the target's expected addresses can corroborate tampering:
+            // the oracle agrees with them while the UDP answer does not.
             DnsAnswerOverlap::CompatibleDivergence => {
-                if udp_latency_ms.parse::<u64>().unwrap_or(u64::MAX) <= 5 {
+                if !expected.is_empty() && ip_set(encrypted_ips) == *expected && ip_set(udp_ips).is_disjoint(expected) {
                     "dns_suspicious_divergence".to_string()
                 } else {
                     "dns_compatible_divergence".to_string()

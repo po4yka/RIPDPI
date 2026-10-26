@@ -15,7 +15,6 @@ pub(super) fn classify_target_dns_integrity(
     system_targets: &[SocketAddr],
     system_resolution_failed: bool,
     system_error_kind: Option<DnsResolveError>,
-    system_latency_ms: &str,
     oracle_assessment: &DnsOracleAssessment<DnsOracleResponse>,
 ) -> Option<StrategyDnsClassification> {
     let encrypted_addresses =
@@ -44,13 +43,8 @@ pub(super) fn classify_target_dns_integrity(
         let encrypted_ip_strings = encrypted_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
         match classify_dns_answer_overlap(&system_ip_strings, &encrypted_ip_strings) {
             DnsAnswerOverlap::Match => (false, "dns_match"),
-            DnsAnswerOverlap::CompatibleDivergence => {
-                if system_latency_ms.parse::<u64>().unwrap_or(u64::MAX) <= 5 {
-                    (false, "dns_suspicious_divergence")
-                } else {
-                    (false, "dns_compatible_divergence")
-                }
-            }
+            // CDN steering; latency alone is no injection evidence.
+            DnsAnswerOverlap::CompatibleDivergence => (false, "dns_compatible_divergence"),
             DnsAnswerOverlap::SinkholeSubstitution => (true, "dns_sinkhole_substitution"),
         }
     };

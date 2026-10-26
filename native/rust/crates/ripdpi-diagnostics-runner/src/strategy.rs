@@ -135,7 +135,6 @@ fn evaluate_strategy_dns_target(
         &system_resolution.targets,
         system_resolution.failed(),
         system_resolution.error_kind,
-        &system_resolution.latency_ms,
         oracle_assessment,
     )?;
     let result = build_dns_integrity_result(

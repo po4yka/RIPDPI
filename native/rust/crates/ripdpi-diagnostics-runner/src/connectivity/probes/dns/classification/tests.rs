@@ -53,7 +53,6 @@ fn dns_probe_gates_single_fallback_success_as_oracle_unavailable() {
         &Ok(vec!["203.0.113.10".to_string()]),
         &encrypted_result,
         &ScanPathMode::RawPath,
-        "25",
         &BTreeSet::new(),
         None,
         1,
@@ -69,7 +68,6 @@ fn dns_probe_marks_exhausted_udp_timeout_as_unavailable_without_recovery() {
         &Err("Try again (os error 11)".to_string()),
         &Ok(vec!["198.51.100.77".to_string()]),
         &ScanPathMode::RawPath,
-        "3600",
         &BTreeSet::new(),
         Some("timeout"),
         3,
@@ -88,7 +86,6 @@ fn dns_probe_timeout_failure_stays_unavailable_across_paths_and_retry_counts() {
                     &Err("UDP DNS timed out".to_string()),
                     &Ok(vec!["198.51.100.77".to_string()]),
                     &path_mode,
-                    "3600",
                     &BTreeSet::new(),
                     Some(error_kind),
                     attempt_count,
@@ -107,7 +104,6 @@ fn dns_probe_marks_recovered_udp_timeout_as_plain_dns_unstable_when_answers_matc
         &Ok(vec!["198.51.100.77".to_string()]),
         &Ok(vec!["198.51.100.77".to_string()]),
         &ScanPathMode::RawPath,
-        "1250",
         &BTreeSet::new(),
         Some("would_block"),
         2,
@@ -117,13 +113,46 @@ fn dns_probe_marks_recovered_udp_timeout_as_plain_dns_unstable_when_answers_matc
     assert_eq!(outcome, "udp_plain_dns_unstable");
 }
 
+// Disjoint public answers are CDN steering. The outcome does not depend on
+// UDP latency: a 1-3 ms router-cache reply used to turn this into
+// dns_suspicious_divergence.
+#[test]
+fn disjoint_public_answers_stay_compatible_divergence() {
+    let outcome = classify_dns_probe_outcome(
+        &Ok(vec!["104.16.132.229".to_string()]),
+        &Ok(vec!["172.67.1.1".to_string()]),
+        &ScanPathMode::RawPath,
+        &BTreeSet::new(),
+        None,
+        1,
+        false,
+    );
+
+    assert_eq!(outcome, "dns_compatible_divergence");
+}
+
+#[test]
+fn divergence_from_expected_addresses_is_suspicious() {
+    let expected = BTreeSet::from(["172.67.1.1".to_string()]);
+    let outcome = classify_dns_probe_outcome(
+        &Ok(vec!["104.16.132.229".to_string()]),
+        &Ok(vec!["172.67.1.1".to_string()]),
+        &ScanPathMode::RawPath,
+        &expected,
+        None,
+        1,
+        false,
+    );
+
+    assert_eq!(outcome, "dns_suspicious_divergence");
+}
+
 #[test]
 fn dns_probe_keeps_non_timeout_udp_failures_on_hard_block_path() {
     let outcome = classify_dns_probe_outcome(
         &Err("connection refused".to_string()),
         &Ok(vec!["198.51.100.77".to_string()]),
         &ScanPathMode::RawPath,
-        "10",
         &BTreeSet::new(),
         Some("refused"),
         1,
@@ -234,7 +263,6 @@ fn negative_and_incomplete_responses_do_not_claim_udp_blocking() {
                     &Err(error.to_string()),
                     &Ok(vec!["192.0.2.1".to_string()]),
                     &path,
-                    "10",
                     &BTreeSet::new(),
                     Some("other"),
                     1,
@@ -250,7 +278,6 @@ fn negative_and_incomplete_responses_do_not_claim_udp_blocking() {
             &Ok(Vec::new()),
             &Ok(vec!["192.0.2.1".to_string()]),
             &ScanPathMode::RawPath,
-            "10",
             &BTreeSet::new(),
             None,
             1,
