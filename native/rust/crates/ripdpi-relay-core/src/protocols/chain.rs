@@ -125,12 +125,12 @@ impl ChainHopConnector {
                 reject_bind_for_kind(outbound_bind_ip, "Hysteria2")?;
                 let session = factory.create_session().await?;
                 let stream = session.open_stream(target).await?;
-                Ok(Box::new(stream))
+                Ok(Box::new(SessionBoundStream { stream, _session: session }))
             }
             Self::Tuic(factory) => {
                 let session = factory.create_session().await?;
                 let stream = session.open_stream(target).await?;
-                Ok(Box::new(stream))
+                Ok(Box::new(SessionBoundStream { stream, _session: session }))
             }
         }
     }
@@ -178,6 +178,48 @@ impl ChainHopConnector {
                 "QUIC chain hops (Hysteria2/TUIC) cannot tunnel over a prior hop",
             )),
         }
+    }
+}
+
+/// A stream opened on a QUIC entry session that owns the session, so the
+/// client's HTTP/3 control stream, drivers and endpoint live as long as the
+/// stream instead of being dropped when `connect` returns.
+struct SessionBoundStream<T, S> {
+    stream: T,
+    _session: Arc<S>,
+}
+
+impl<T: AsyncRead + Unpin, S> AsyncRead for SessionBoundStream<T, S> {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
+        std::pin::Pin::new(&mut self.stream).poll_read(cx, buf)
+    }
+}
+
+impl<T: AsyncWrite + Unpin, S> AsyncWrite for SessionBoundStream<T, S> {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<io::Result<usize>> {
+        std::pin::Pin::new(&mut self.stream).poll_write(cx, buf)
+    }
+
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
+        std::pin::Pin::new(&mut self.stream).poll_flush(cx)
+    }
+
+    fn poll_shutdown(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
+        std::pin::Pin::new(&mut self.stream).poll_shutdown(cx)
     }
 }
 
@@ -415,6 +457,25 @@ mod tests {
 
         assert_eq!(telemetry.snapshot().entry_state(), Some("cancelled".to_string()));
         assert!(telemetry.snapshot().entry_latency_ms().is_some());
+    }
+
+    #[tokio::test]
+    async fn quic_entry_stream_keeps_its_session_alive_until_dropped() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let session = Arc::new(());
+        let alive = Arc::downgrade(&session);
+        let (stream, mut peer) = tokio::io::duplex(64);
+        let mut bound: Box<dyn ChainAsyncIo> = Box::new(SessionBoundStream { stream, _session: session });
+
+        bound.write_all(b"ping").await.expect("write through the bound stream");
+        let mut received = [0_u8; 4];
+        peer.read_exact(&mut received).await.expect("peer reads");
+        assert_eq!(&received, b"ping");
+        assert!(alive.upgrade().is_some(), "the session must outlive connect()");
+
+        drop(bound);
+        assert!(alive.upgrade().is_none(), "the session ends with its stream");
     }
 
     /// VpnService.protect() invariant (`.claude/rules/vpnservice-protect-invariant.md`):
