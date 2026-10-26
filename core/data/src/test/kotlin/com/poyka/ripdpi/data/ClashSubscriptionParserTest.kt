@@ -315,4 +315,38 @@ class ClashSubscriptionParserTest {
 
         assertEquals("cdn.example.com", trojan.serverName)
     }
+
+    @Test
+    fun `nodes with a plugin or a non-tcp network are rejected`() {
+        val yaml =
+            """
+            proxies:
+              - name: ss-obfs
+                type: ss
+                server: ss.example.com
+                port: 8388
+                cipher: aes-256-gcm
+                password: ss-secret
+                plugin: obfs
+                plugin-opts:
+                  mode: tls
+              - name: trojan-ws
+                type: trojan
+                server: t.example.com
+                port: 443
+                password: p
+                network: ws
+              - name: vless-grpc
+                type: vless
+                server: v.example.com
+                port: 443
+                uuid: 22222222-2222-2222-2222-222222222222
+                network: grpc
+            """.trimIndent()
+
+        val result = ClashSubscriptionParser.parse(yaml, groupId)
+
+        assertTrue(result.profiles.isEmpty())
+        assertEquals(listOf(0, 1, 2), result.errors.map { it.nodeIndex })
+    }
 }

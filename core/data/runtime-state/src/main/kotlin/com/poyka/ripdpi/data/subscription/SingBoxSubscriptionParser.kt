@@ -280,6 +280,10 @@ private fun unsupportedNode(
     val label = obj.string("tag") ?: "$normalizedType outbound ${index + 1}"
     return unsupportedMultiplex(obj, index, label)
         ?: unsupportedTransport(obj, normalizedType, index, label)
+        // SIP003 plugins need an out-of-process transport RIPDPI does not bundle.
+        ?: obj.string("plugin")?.takeIf { normalizedType == "shadowsocks" }?.let {
+            SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, "plugin")
+        }
         ?: unsupportedFingerprint(obj, normalizedType, index, label)
         ?: unsupportedHysteria2Option(obj, normalizedType, index, label)
 }

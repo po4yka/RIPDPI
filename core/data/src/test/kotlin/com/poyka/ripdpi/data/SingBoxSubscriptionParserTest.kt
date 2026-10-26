@@ -391,4 +391,19 @@ class SingBoxSubscriptionParserTest {
             parsed.profiles.all { it is ProxyProfile.RawConfig },
         )
     }
+
+    @Test
+    fun `shadowsocks with a SIP003 plugin is a typed skip`() {
+        val json =
+            """
+            { "outbounds": [
+              { "type": "shadowsocks", "tag": "obfs-node", "server": "s.example", "server_port": 8388,
+                "method": "aes-256-gcm", "password": "p", "plugin": "obfs-local", "plugin_opts": "obfs=tls" } ] }
+            """.trimIndent()
+
+        val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        assertTrue(parsed.profiles.isEmpty())
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, parsed.skipped.single().reason)
+    }
 }

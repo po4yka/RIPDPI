@@ -102,6 +102,8 @@ object ClashSubscriptionParser {
         val name = node.string("name") ?: node.string("server") ?: "node-$index"
         return when (type.lowercase()) {
             "ss", "shadowsocks" -> {
+                // SIP003 plugins (obfs, v2ray-plugin) need a transport RIPDPI does not bundle.
+                require(node.string("plugin") == null) { "node $index ss uses an unsupported plugin" }
                 ProxyProfile.Shadowsocks(
                     id = newId(),
                     displayName = name,
@@ -120,6 +122,7 @@ object ClashSubscriptionParser {
             }
 
             "trojan" -> {
+                requireTcpNetwork(node.string("network"), index, "trojan")
                 ProxyProfile.Trojan(
                     id = newId(),
                     displayName = name,
@@ -210,6 +213,7 @@ object ClashSubscriptionParser {
         groupId: String,
         name: String,
     ): ProxyProfile {
+        requireTcpNetwork(node.string("network"), index, "vless")
         val server = node.requireString("server", index)
         val serverPort = node.requirePort("port", index)
         val uuid = node.requireString("uuid", index)
@@ -273,3 +277,14 @@ private fun failure(reason: String): ClashSubscriptionResult =
         profiles = emptyList(),
         errors = listOf(SubscriptionParseError(nodeIndex = -1, reason = reason)),
     )
+
+/** The Clash trojan and VLESS mappings keep no transport options, so only plain TCP imports. */
+private fun requireTcpNetwork(
+    network: String?,
+    index: Int,
+    type: String,
+) {
+    require(network == null || network.equals("tcp", ignoreCase = true)) {
+        "node $index $type uses unsupported network '$network'"
+    }
+}
