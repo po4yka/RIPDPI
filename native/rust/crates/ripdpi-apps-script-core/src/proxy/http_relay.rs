@@ -149,10 +149,16 @@ fn site_key(host: &str) -> String {
     labels[labels.len().saturating_sub(keep)..].join(".")
 }
 
+const HTTP_METHOD_TOKENS: [&str; 9] =
+    ["GET ", "POST ", "PUT ", "HEAD ", "DELETE ", "PATCH ", "OPTIONS ", "CONNECT ", "TRACE "];
+
 pub(crate) fn looks_like_http(bytes: &[u8]) -> bool {
-    ["GET ", "POST ", "PUT ", "HEAD ", "DELETE ", "PATCH ", "OPTIONS ", "CONNECT ", "TRACE "]
-        .iter()
-        .any(|method| bytes.starts_with(method.as_bytes()))
+    HTTP_METHOD_TOKENS.iter().any(|method| bytes.starts_with(method.as_bytes()))
+}
+
+/// True when `bytes` is a strict prefix of a method token, such as "GE".
+pub(crate) fn is_http_method_prefix(bytes: &[u8]) -> bool {
+    HTTP_METHOD_TOKENS.iter().any(|method| method.len() > bytes.len() && method.as_bytes().starts_with(bytes))
 }
 
 /// # Cancel safety
