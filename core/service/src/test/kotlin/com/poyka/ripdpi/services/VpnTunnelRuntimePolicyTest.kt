@@ -72,15 +72,27 @@ class VpnTunnelRuntimePolicyTest {
     }
 
     @Test
-    fun `IPv4 profile rejects IPv6 fallback DNS before route plan creation`() {
-        val profile = VpnProfileInterface(emptyList(), listOf("0.0.0.0/0", "::/0"), false, 1280)
-        assertThrows(IllegalArgumentException::class.java) { profile.routePlan("fd00::1") }
+    fun `IPv4 profile with only IPv6 DNS fails start with a profile reason`() {
+        val fallbackOnly = VpnProfileInterface(emptyList(), listOf("0.0.0.0/0", "::/0"), false, 1280)
+        // An explicit DNS list replaces the IPv4 fallback, so only the IPv6 server is left.
+        val explicitOnly = VpnProfileInterface(listOf("fd00::1"), listOf("0.0.0.0/0"), false, 1280)
+        listOf(
+            { fallbackOnly.routePlan("fd00::1") },
+            { explicitOnly.routePlan("1.1.1.1") },
+        ).forEach { start ->
+            val error = assertThrows(ServiceStartupRejectedException::class.java) { start() }
+            assertTrue(classifyFailureReason(error, isTunnelContext = true) is FailureReason.RelayConfigRejected)
+        }
     }
 
     @Test
-    fun `IPv4 profile rejects IPv6 explicit DNS even with IPv4 fallback`() {
-        val profile = VpnProfileInterface(listOf("fd00::1"), listOf("0.0.0.0/0"), false, 1280)
-        assertThrows(IllegalArgumentException::class.java) { profile.routePlan("1.1.1.1") }
+    fun `IPv4 profile drops an IPv6 DNS server and keeps the IPv4 one`() {
+        val profile = VpnProfileInterface(listOf("1.1.1.1", "2606:4700:4700::1111"), listOf("0.0.0.0/0"), false, 1280)
+        assertEquals(listOf("1.1.1.1"), profile.effectiveDnsServers(""))
+        assertEquals(
+            listOf(VpnTunnelRouteEntry("0.0.0.0", 0), VpnTunnelRouteEntry("1.1.1.1", 32)),
+            profile.routePlan().routes,
+        )
     }
 
     @Test

@@ -59,10 +59,8 @@ internal fun VpnProfileInterface.routePlan(fallbackDns: String = ""): VpnTunnelR
 /** One DNS policy for host routes and Builder DNS; neither may enable an unconfigured family. */
 internal fun VpnProfileInterface.effectiveDnsServers(fallbackDns: String): List<String> {
     val effective = dnsServers.ifEmpty { listOf(fallbackDns) }.filter(String::isNotBlank)
-    require(ipv6Enabled || effective.none { ':' in it }) {
-        "AmneziaWG DNS servers require a configured interface family"
-    }
     // A DNS server also allows its family, so drop servers of a family that AllowedIPs leaves unrouted.
+    // An unconfigured family has no routable AllowedIPs, so its servers are dropped here as well.
     val routed = routedFamilies()
     val reachable = effective.filter { it.isIpv6Literal() in routed }
     if (effective.isNotEmpty() && reachable.isEmpty()) {
