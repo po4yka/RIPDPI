@@ -95,6 +95,30 @@ class BlockcheckViewModelTest {
         }
 
     @Test
+    fun `probe results do not revert domains edited during a run`() =
+        runTest {
+            val probeService = StreamingStrategyProbeService()
+            val viewModel =
+                testViewModel(
+                    probeService = probeService,
+                    results = emptyList(),
+                )
+            viewModel.updateDomainsText("a.example")
+
+            viewModel.startProbe()
+            advanceUntilIdle()
+            viewModel.updateDomainsText("b.example\nc.example")
+            assertTrue(probeService.emit(result("split", success = true, latencyMs = 140)))
+            advanceUntilIdle()
+
+            assertEquals(listOf("b.example", "c.example"), viewModel.uiState.value.domains)
+            assertEquals(1, viewModel.uiState.value.results.size)
+
+            viewModel.cancelProbe()
+            advanceUntilIdle()
+        }
+
+    @Test
     fun `cancelProbe keeps partial results`() =
         runTest {
             val probeService = StreamingStrategyProbeService()

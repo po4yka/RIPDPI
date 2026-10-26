@@ -148,7 +148,8 @@ class BlockcheckViewModel
                                         )
                                     }
                                 }.collect { snapshot ->
-                                    mutableUiState.value = snapshot
+                                    // Keep domains the user edits while the run is in flight.
+                                    mutableUiState.update { state -> snapshot.copy(domains = state.domains) }
                                 }
                         }
                 }
