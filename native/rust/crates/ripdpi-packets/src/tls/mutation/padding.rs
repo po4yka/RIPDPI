@@ -56,26 +56,63 @@ pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketM
             PacketMutation { rc: 0, bytes: output }
         }
         std::cmp::Ordering::Less => {
-            // Only the padding payload may shrink; cutting the tail would truncate other extensions.
+            // Cutting the tail would truncate other extensions, so remove bytes only
+            // from the padding payload, or drop whole optional extensions.
             let shrink = original_len - target_size;
-            let Some(pad_offs) = pad_offs else {
-                return PacketMutation { rc: -1, bytes: input.to_vec() };
-            };
-            let Some(pad_len) = read_u16(input, pad_offs + 2) else {
-                return PacketMutation { rc: -1, bytes: input.to_vec() };
-            };
-            let payload_start = pad_offs + 4;
-            if pad_len < shrink || payload_start + shrink > original_len {
-                return PacketMutation { rc: -1, bytes: input.to_vec() };
+            if let Some(pad_offs) = pad_offs
+                && let Some(pad_len) = read_u16(input, pad_offs + 2)
+                && pad_len >= shrink
+                && pad_offs + 4 + shrink <= original_len
+            {
+                let payload_start = pad_offs + 4;
+                let _ = write_u16(&mut output, pad_offs + 2, pad_len - shrink);
+                output.drain(payload_start..payload_start + shrink);
+                if !adjust_tls_lengths(&mut output, ext_len_start, -(shrink as isize)) {
+                    return PacketMutation { rc: -1, bytes: input.to_vec() };
+                }
+                return PacketMutation { rc: 0, bytes: output };
             }
-            let _ = write_u16(&mut output, pad_offs + 2, pad_len - shrink);
-            output.drain(payload_start..payload_start + shrink);
-            if !adjust_tls_lengths(&mut output, ext_len_start, -(shrink as isize)) {
-                return PacketMutation { rc: -1, bytes: input.to_vec() };
-            }
-            PacketMutation { rc: 0, bytes: output }
+            drop_optional_extensions_to_fit(input, &parsed, target_size)
         }
     }
+}
+
+/// Extension sets a fake may lose without becoming malformed, tried in order:
+/// first the padding, then also the ECH offer.
+const DROPPABLE_EXTENSION_SETS: [&[u16]; 2] = [&[0x0015], &[0x0015, 0xfe0d]];
+
+/// Shrink a ClientHello to `target_size` by removing whole optional extensions
+/// and filling any gap with a new padding extension at the end. Returns rc -1
+/// with the input unchanged when no set reaches the target exactly.
+fn drop_optional_extensions_to_fit(
+    input: &[u8],
+    parsed: &crate::tls_nom::ClientHelloParsed<'_>,
+    target_size: usize,
+) -> PacketMutation {
+    for droppable in DROPPABLE_EXTENSION_SETS {
+        let mut output = input.to_vec();
+        // Extensions are in buffer order; drain from the back so earlier offsets stay valid.
+        for ext in parsed.extensions.iter().rev().filter(|ext| droppable.contains(&ext.ext_type)) {
+            output.drain(ext.type_offset..ext.type_offset + 4 + ext.data.len());
+        }
+        let Some(gap) = target_size.checked_sub(output.len()) else {
+            continue;
+        };
+        if gap != 0 {
+            // A padding extension needs at least its 4-byte header.
+            let Some(pad_len) = gap.checked_sub(4).and_then(|len| u16::try_from(len).ok()) else {
+                continue;
+            };
+            output.extend_from_slice(&[0x00, 0x15]);
+            output.extend_from_slice(&pad_len.to_be_bytes());
+            output.resize(target_size, 0);
+        }
+        let delta = target_size as isize - input.len() as isize;
+        if adjust_tls_lengths(&mut output, parsed.ext_len_offset, delta) {
+            return PacketMutation { rc: 0, bytes: output };
+        }
+    }
+    PacketMutation { rc: -1, bytes: input.to_vec() }
 }
 
 pub fn padencap_tls_like_c(input: &[u8], payload_len: usize) -> PacketMutation {

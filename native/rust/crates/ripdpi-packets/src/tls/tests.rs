@@ -156,6 +156,22 @@ fn tune_tls_padding_size_shrink_keeps_extensions_well_formed() {
 }
 
 #[test]
+fn tune_tls_padding_size_shrink_without_padding_drops_whole_ech_extension() {
+    let input = crate::fake_profiles::tls_fake_profile_bytes(crate::fake_profiles::TlsFakeProfile::GoogleChrome);
+    let mut expected_types = strict_client_hello_extension_types(input).expect("template");
+    assert!(!expected_types.contains(&0x0015), "template has no padding to shrink");
+    expected_types.retain(|kind| *kind != 0xfe0d);
+    expected_types.push(0x0015);
+
+    let mutation = tune_tls_padding_size_like_c(input, 517);
+
+    assert_eq!(mutation.rc, 0);
+    assert_eq!(mutation.bytes.len(), 517);
+    assert_eq!(strict_client_hello_extension_types(&mutation.bytes), Ok(expected_types));
+    assert_eq!(parse_tls(&mutation.bytes), parse_tls(input));
+}
+
+#[test]
 fn padencap_tls_updates_padding_and_lengths() {
     let mutation = padencap_tls_like_c(DEFAULT_FAKE_TLS, 24);
     let parsed = crate::tls_nom::parse_client_hello_record(&mutation.bytes).expect("nom parse");
