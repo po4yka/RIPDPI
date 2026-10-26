@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use super::super::adaptive::note_server_ttl_for_route;
 use super::super::failure::{RuntimeFailureAction, RuntimeFailureClass};
-use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
+use super::super::routing::emit_failure_classified;
 use super::super::state::RuntimeState;
 use super::super::types::RuntimeConnectionRoute;
 use super::failure_retry::record_stream_relay_success;
@@ -78,7 +78,7 @@ impl PendingFirstResponse {
             }
             FirstResponse::Failure { failure, response_bytes } => {
                 session.finish_first_response(FirstResponseOutcome::Rejected)?;
-                note_block_signal_for_failure(state, self.host.as_deref(), &failure, None);
+                // read_first_response already noted this failure's block signal.
                 emit_failure_classified(state, self.target, &failure, self.host.as_deref());
                 if failure.action == RuntimeFailureAction::ResolverOverrideRecommended {
                     return Err(io::Error::new(io::ErrorKind::ConnectionReset, failure.evidence.summary));

@@ -8,8 +8,8 @@ use crate::runtime::relay::failure_retry::retry_logic::{
 };
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::routing::{
-    advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure, reconnect_target,
-    reconnect_target_without_tfo, route_uses_direct_syn_data_tfo,
+    advance_route_for_failure, emit_failure_classified, reconnect_target, reconnect_target_without_tfo,
+    route_uses_direct_syn_data_tfo,
 };
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeConnectionRoute;
@@ -85,7 +85,7 @@ pub(super) fn handle_first_response_failure(
         .map(Some);
     }
 
-    note_block_signal_for_failure(context.state, context.host.as_deref(), context.failure, None);
+    // read_first_response already noted this failure's block signal.
     emit_failure_classified(context.state, context.target, context.failure, context.host.as_deref());
     if let Some(next_route) = advance_route_for_failure(
         context.state,

@@ -122,9 +122,6 @@ pub(super) fn read_first_response(
                     }
                 } else if state.relay_first_response_reports_timeout_failure() {
                     let failure = RuntimeState::classify_first_response_transport_error(&err);
-                    let retransmissions =
-                        relay_platform::first_response_tcp_total_retransmissions(upstream).ok().flatten();
-                    note_block_signal_for_failure(state, host, &failure, retransmissions);
                     Ok(FirstResponse::Failure { failure, response_bytes: None })
                 } else {
                     Ok(FirstResponse::NoData)
@@ -143,16 +140,16 @@ pub(super) fn read_first_response(
                 ) =>
             {
                 let failure = RuntimeState::classify_first_response_transport_error(&err);
-                note_block_signal_for_failure(
-                    state,
-                    host,
-                    &failure,
-                    relay_platform::first_response_tcp_total_retransmissions(upstream).ok().flatten(),
-                );
                 Ok(FirstResponse::Failure { failure, response_bytes: None })
             }
             Err(err) => Err(err),
         };
+        if let Ok(FirstResponse::Failure { failure, .. }) = &result {
+            // The only block-signal emission for a first-response failure: autolearn confirms a
+            // block on two signals, so the failure handlers must not note it again.
+            let retransmissions = relay_platform::first_response_tcp_total_retransmissions(upstream).ok().flatten();
+            note_block_signal_for_failure(state, host, failure, retransmissions);
+        }
         return result;
     }
 }

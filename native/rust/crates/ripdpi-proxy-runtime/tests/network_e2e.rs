@@ -2,6 +2,8 @@
 // are compiled out under the loom feature. Skip the entire file under loom.
 #![cfg(not(feature = "loom"))]
 
+#[path = "network_e2e/block_signal.rs"]
+mod block_signal;
 #[path = "network_e2e/first_response_duplex.rs"]
 mod first_response_duplex;
 mod support;
