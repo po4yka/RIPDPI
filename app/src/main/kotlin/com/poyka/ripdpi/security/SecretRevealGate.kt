@@ -13,6 +13,14 @@ import androidx.fragment.app.FragmentActivity
 import com.poyka.ripdpi.R
 import kotlinx.coroutines.launch
 
+/** Shows the system biometric or screen-lock prompt with the given authenticators. */
+fun interface SecretRevealPrompt {
+    suspend fun authenticate(
+        activity: FragmentActivity,
+        allowedAuthenticators: Int,
+    ): BiometricAuthResult
+}
+
 /**
  * Returns an action that asks for the device's biometric or screen-lock authentication and calls
  * [onAuthorized] only when it succeeds. Use it before a stored secret (a private key, a passphrase)
@@ -22,7 +30,10 @@ import kotlinx.coroutines.launch
  * calls [onAuthorized] at once. Without a host activity for the system prompt, the action does nothing.
  */
 @Composable
-internal fun rememberSecretRevealGate(onAuthorized: () -> Unit): () -> Unit {
+internal fun rememberSecretRevealGate(
+    onAuthorized: () -> Unit,
+    prompt: SecretRevealPrompt? = null,
+): () -> Unit {
     val context = LocalContext.current
     val activity = LocalActivity.current as? FragmentActivity
     val scope = rememberCoroutineScope()
@@ -31,7 +42,13 @@ internal fun rememberSecretRevealGate(onAuthorized: () -> Unit): () -> Unit {
     val subtitle = stringResource(R.string.biometric_dialog_subtitle)
     val cancel = stringResource(R.string.biometric_dialog_cancel)
     val manager = remember { BiometricAuthManager() }
-    return remember(context, activity, scope, title, subtitle, cancel) {
+    val systemPrompt =
+        prompt ?: remember(title, subtitle, cancel) {
+            SecretRevealPrompt { host, authenticators ->
+                manager.authenticate(host, title, subtitle, cancel, authenticators)
+            }
+        }
+    return remember(context, activity, scope, systemPrompt) {
         {
             // Read the device state per reveal: the user may have removed the screen lock meanwhile.
             val authenticator = manager.appLockAuthenticator(context)
@@ -43,16 +60,9 @@ internal fun rememberSecretRevealGate(onAuthorized: () -> Unit): () -> Unit {
                 activity != null -> {
                     scope.launch {
                         val result =
-                            manager.authenticate(
-                                activity = activity,
-                                title = title,
-                                subtitle = subtitle,
-                                cancelLabel = cancel,
-                                allowedAuthenticators =
-                                    appLockPromptAuthenticators(
-                                        authenticator,
-                                        Build.VERSION.SDK_INT,
-                                    ),
+                            systemPrompt.authenticate(
+                                activity,
+                                appLockPromptAuthenticators(authenticator, Build.VERSION.SDK_INT),
                             )
                         if (result is BiometricAuthResult.Success) currentOnAuthorized()
                     }
